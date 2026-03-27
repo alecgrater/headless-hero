@@ -26,6 +26,9 @@ Rules:
 - Provide a brief angle/hook description (1-2 sentences).
 - Suggest 3-5 relevant YouTube search keywords per idea.
 - Avoid generic or overly broad topics — be specific and clickable.
+- The FIRST idea in the array must be the most direct, faithful interpretation \
+  of the user's input — essentially their topic turned into a polished YouTube title. \
+  The remaining ideas can be creative variations, tangential angles, and spin-offs.
 - Return ONLY valid JSON — no markdown fences, no commentary.
 
 Return a JSON array of objects with keys: title, segments_est, description, keywords.

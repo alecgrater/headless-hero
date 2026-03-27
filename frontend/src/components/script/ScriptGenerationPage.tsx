@@ -2,7 +2,11 @@ import { useEffect, useState } from "react";
 import api from "../../api";
 import type { BrandProfile } from "../../types/brand";
 import type { VideoIdea } from "../../types/idea";
-import type { GenerateScriptResponse, ScriptContent } from "../../types/script";
+import type {
+  GenerateScriptResponse,
+  Scene,
+  ScriptContent,
+} from "../../types/script";
 
 interface Props {
   brand: BrandProfile;
@@ -21,6 +25,15 @@ export default function ScriptGenerationPage({
   const [scriptId, setScriptId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Editing state
+  const [editingKey, setEditingKey] = useState<string | null>(null); // "si-sceneId" or "intro" or "outro"
+  const [editNarration, setEditNarration] = useState("");
+  const [editOverlay, setEditOverlay] = useState("");
+  const [editHookText, setEditHookText] = useState("");
+  const [editedScenes, setEditedScenes] = useState<Set<string>>(new Set());
+  const [refiningScene, setRefiningScene] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,6 +70,95 @@ export default function ScriptGenerationPage({
     };
   }, [brand.id, idea.title, idea.description, idea.segments_est]);
 
+  const saveScript = async (updated: ScriptContent) => {
+    if (!scriptId) return;
+    setSaving(true);
+    await api.put(`/api/scripts/${scriptId}`, { script: updated });
+    setSaving(false);
+  };
+
+  const startEditScene = (si: number, scene: Scene) => {
+    const key = `${si}-${scene.id}`;
+    setEditingKey(key);
+    setEditNarration(scene.narration);
+    setEditOverlay(scene.text_overlay);
+  };
+
+  const cancelEdit = () => {
+    setEditingKey(null);
+  };
+
+  const saveSceneEdit = async (si: number, sceneId: string) => {
+    if (!script) return;
+    const updated = structuredClone(script);
+    const scene = updated.segments[si].scenes.find((s) => s.id === sceneId);
+    if (!scene) return;
+    scene.narration = editNarration;
+    scene.text_overlay = editOverlay;
+    setScript(updated);
+    setEditingKey(null);
+    setEditedScenes((prev) => new Set(prev).add(sceneId));
+    await saveScript(updated);
+  };
+
+  const startEditIntro = () => {
+    if (!script) return;
+    setEditingKey("intro");
+    setEditHookText(script.intro_hook);
+  };
+
+  const saveIntroEdit = async () => {
+    if (!script) return;
+    const updated = { ...script, intro_hook: editHookText };
+    setScript(updated);
+    setEditingKey(null);
+    await saveScript(updated);
+  };
+
+  const startEditOutro = () => {
+    if (!script) return;
+    setEditingKey("outro");
+    setEditHookText(script.outro_cta);
+  };
+
+  const saveOutroEdit = async () => {
+    if (!script) return;
+    const updated = { ...script, outro_cta: editHookText };
+    setScript(updated);
+    setEditingKey(null);
+    await saveScript(updated);
+  };
+
+  const refineScene = async (si: number, sceneId: string) => {
+    if (!script || !scriptId) return;
+    setRefiningScene(sceneId);
+    try {
+      const res = await api.post(`/api/scripts/${scriptId}/refine-scene`, {
+        segment_index: si,
+        scene_id: sceneId,
+      });
+      if (res.ok) {
+        const { scene } = res.data as { scene: Scene };
+        const updated = structuredClone(script);
+        const idx = updated.segments[si].scenes.findIndex(
+          (s) => s.id === sceneId,
+        );
+        if (idx !== -1) {
+          updated.segments[si].scenes[idx] = scene;
+          setScript(updated);
+          setEditedScenes((prev) => {
+            const next = new Set(prev);
+            next.delete(sceneId);
+            return next;
+          });
+          await saveScript(updated);
+        }
+      }
+    } finally {
+      setRefiningScene(null);
+    }
+  };
+
   const totalScenes = script
     ? script.segments.reduce((sum, seg) => sum + seg.scenes.length, 0)
     : 0;
@@ -65,7 +167,7 @@ export default function ScriptGenerationPage({
         (sum, seg) =>
           sum +
           seg.scenes.reduce((s, sc) => s + sc.duration_estimate_seconds, 0),
-        0
+        0,
       )
     : 0;
 
@@ -129,17 +231,53 @@ export default function ScriptGenerationPage({
               </span>{" "}
               min estimated
             </span>
+            {saving && (
+              <span className="text-violet-400 ml-auto">Saving...</span>
+            )}
           </div>
 
           {/* Intro hook */}
-          {script.intro_hook && (
-            <div className="bg-violet-500/10 border border-violet-500/20 rounded-lg px-4 py-3">
+          {(script.intro_hook || editingKey === "intro") && (
+            <div
+              className="bg-violet-500/10 border border-violet-500/20 rounded-lg px-4 py-3 cursor-pointer hover:border-violet-500/40 transition-colors"
+              onClick={() => editingKey !== "intro" && startEditIntro()}
+            >
               <p className="text-xs font-semibold text-violet-400 uppercase tracking-wider mb-1">
                 Intro Hook
+                {editingKey !== "intro" && (
+                  <span className="ml-2 text-neutral-500 font-normal normal-case">
+                    click to edit
+                  </span>
+                )}
               </p>
-              <p className="text-neutral-200 italic">
-                &ldquo;{script.intro_hook}&rdquo;
-              </p>
+              {editingKey === "intro" ? (
+                <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                  <textarea
+                    className="w-full bg-neutral-900 border border-neutral-700 rounded-md px-3 py-2 text-neutral-200 text-sm resize-none focus:outline-none focus:border-violet-500"
+                    rows={2}
+                    value={editHookText}
+                    onChange={(e) => setEditHookText(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={saveIntroEdit}
+                      className="text-xs px-3 py-1 bg-violet-600 hover:bg-violet-500 rounded-md transition-colors"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      className="text-xs px-3 py-1 bg-neutral-700 hover:bg-neutral-600 rounded-md transition-colors text-neutral-300"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-neutral-200 italic">
+                  &ldquo;{script.intro_hook}&rdquo;
+                </p>
+              )}
             </div>
           )}
 
@@ -150,51 +288,171 @@ export default function ScriptGenerationPage({
                 {si + 1}. {segment.name}
               </h3>
               <div className="space-y-2 pl-4">
-                {segment.scenes.map((scene) => (
-                  <div
-                    key={scene.id}
-                    className={`rounded-lg border px-4 py-3 ${
-                      scene.is_title_card
-                        ? "border-violet-500/30 bg-violet-500/5"
-                        : "border-neutral-800 bg-neutral-900"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-mono text-neutral-500">
-                        {scene.id}
-                      </span>
-                      {scene.is_title_card && (
-                        <span className="text-xs bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">
-                          title card
+                {segment.scenes.map((scene) => {
+                  const sceneKey = `${si}-${scene.id}`;
+                  const isEditing = editingKey === sceneKey;
+                  const isRefining = refiningScene === scene.id;
+                  const wasEdited = editedScenes.has(scene.id);
+
+                  return (
+                    <div
+                      key={scene.id}
+                      className={`rounded-lg border px-4 py-3 transition-colors ${
+                        scene.is_title_card
+                          ? "border-violet-500/30 bg-violet-500/5"
+                          : isEditing
+                            ? "border-violet-500/50 bg-neutral-900"
+                            : "border-neutral-800 bg-neutral-900 cursor-pointer hover:border-neutral-600"
+                      } ${isRefining ? "opacity-60" : ""}`}
+                      onClick={() =>
+                        !isEditing && !isRefining && startEditScene(si, scene)
+                      }
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-mono text-neutral-500">
+                          {scene.id}
                         </span>
+                        {scene.is_title_card && (
+                          <span className="text-xs bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">
+                            title card
+                          </span>
+                        )}
+                        {wasEdited && !isEditing && (
+                          <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">
+                            edited
+                          </span>
+                        )}
+                        <span className="text-xs text-neutral-500 ml-auto">
+                          {scene.duration_estimate_seconds}s
+                        </span>
+                        {!isEditing && !isRefining && (
+                          <span className="text-xs text-neutral-600">
+                            click to edit
+                          </span>
+                        )}
+                      </div>
+
+                      {isRefining ? (
+                        <div className="flex items-center gap-2 py-2">
+                          <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                          <span className="text-sm text-neutral-400">
+                            AI refining...
+                          </span>
+                        </div>
+                      ) : isEditing ? (
+                        <div
+                          className="space-y-3"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div>
+                            <label className="text-xs text-neutral-500 mb-1 block">
+                              Narration
+                            </label>
+                            <textarea
+                              className="w-full bg-neutral-800 border border-neutral-700 rounded-md px-3 py-2 text-neutral-200 text-sm resize-none focus:outline-none focus:border-violet-500"
+                              rows={4}
+                              value={editNarration}
+                              onChange={(e) => setEditNarration(e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-neutral-500 mb-1 block">
+                              Text Overlay
+                            </label>
+                            <input
+                              type="text"
+                              className="w-full bg-neutral-800 border border-neutral-700 rounded-md px-3 py-2 text-neutral-200 text-sm focus:outline-none focus:border-violet-500"
+                              value={editOverlay}
+                              onChange={(e) => setEditOverlay(e.target.value)}
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => saveSceneEdit(si, scene.id)}
+                              className="text-xs px-3 py-1.5 bg-violet-600 hover:bg-violet-500 rounded-md transition-colors"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={cancelEdit}
+                              className="text-xs px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 rounded-md transition-colors text-neutral-300"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-neutral-200 text-sm leading-relaxed">
+                            {scene.narration}
+                          </p>
+                          {scene.text_overlay && (
+                            <p className="text-xs text-amber-400/80 mt-1">
+                              Overlay: {scene.text_overlay}
+                            </p>
+                          )}
+                          {wasEdited && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                refineScene(si, scene.id);
+                              }}
+                              className="mt-2 text-xs px-3 py-1 bg-violet-600/30 hover:bg-violet-600/50 text-violet-300 rounded-md transition-colors border border-violet-500/30"
+                            >
+                              AI Refine
+                            </button>
+                          )}
+                        </>
                       )}
-                      <span className="text-xs text-neutral-500 ml-auto">
-                        {scene.duration_estimate_seconds}s
-                      </span>
                     </div>
-                    <p className="text-neutral-200 text-sm leading-relaxed">
-                      {scene.narration}
-                    </p>
-                    {scene.text_overlay && (
-                      <p className="text-xs text-amber-400/80 mt-1">
-                        Overlay: {scene.text_overlay}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
 
           {/* Outro CTA */}
-          {script.outro_cta && (
-            <div className="bg-violet-500/10 border border-violet-500/20 rounded-lg px-4 py-3">
+          {(script.outro_cta || editingKey === "outro") && (
+            <div
+              className="bg-violet-500/10 border border-violet-500/20 rounded-lg px-4 py-3 cursor-pointer hover:border-violet-500/40 transition-colors"
+              onClick={() => editingKey !== "outro" && startEditOutro()}
+            >
               <p className="text-xs font-semibold text-violet-400 uppercase tracking-wider mb-1">
                 Outro CTA
+                {editingKey !== "outro" && (
+                  <span className="ml-2 text-neutral-500 font-normal normal-case">
+                    click to edit
+                  </span>
+                )}
               </p>
-              <p className="text-neutral-200 italic">
-                &ldquo;{script.outro_cta}&rdquo;
-              </p>
+              {editingKey === "outro" ? (
+                <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                  <textarea
+                    className="w-full bg-neutral-900 border border-neutral-700 rounded-md px-3 py-2 text-neutral-200 text-sm resize-none focus:outline-none focus:border-violet-500"
+                    rows={2}
+                    value={editHookText}
+                    onChange={(e) => setEditHookText(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={saveOutroEdit}
+                      className="text-xs px-3 py-1 bg-violet-600 hover:bg-violet-500 rounded-md transition-colors"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      className="text-xs px-3 py-1 bg-neutral-700 hover:bg-neutral-600 rounded-md transition-colors text-neutral-300"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-neutral-200 italic">
+                  &ldquo;{script.outro_cta}&rdquo;
+                </p>
+              )}
             </div>
           )}
 

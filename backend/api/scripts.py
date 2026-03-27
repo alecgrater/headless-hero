@@ -10,11 +10,14 @@ from models.brand import BrandProfile
 from models.script import (
     GenerateScriptRequest,
     GenerateScriptResponse,
+    RefineSceneRequest,
+    RefineSceneResponse,
     Script,
     ScriptContent,
     ScriptRead,
     UpdateScriptRequest,
 )
+from pipeline.refine import refine_scene
 from pipeline.scriptwriter import generate_script
 
 router = APIRouter(prefix="/api/scripts", tags=["scripts"])
@@ -86,3 +89,25 @@ def get_script(script_id: str, session: Session = Depends(get_session)):
         script=script_content,
         created_at=record.created_at,
     )
+
+@router.post("/{script_id}/refine-scene", response_model=RefineSceneResponse)
+def refine_scene_endpoint(
+    script_id: str,
+    body: RefineSceneRequest,
+    session: Session = Depends(get_session),
+):
+    record = session.get(Script, script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    script_content = ScriptContent.model_validate(json.loads(record.script_json))
+
+    if body.segment_index < 0 or body.segment_index >= len(script_content.segments):
+        raise HTTPException(status_code=400, detail="Invalid segment index")
+
+    segment = script_content.segments[body.segment_index]
+    if not any(s.id == body.scene_id for s in segment.scenes):
+        raise HTTPException(status_code=400, detail="Scene not found in segment")
+
+    refined = refine_scene(script_content, body.segment_index, body.scene_id)
+    return RefineSceneResponse(scene=refined)

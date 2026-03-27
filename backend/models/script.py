@@ -83,6 +83,13 @@ class GenerateScriptResponse(BaseModel):
 class UpdateScriptRequest(BaseModel):
     script: ScriptContent
 
+class RefineSceneRequest(BaseModel):
+    segment_index: int
+    scene_id: str
+
+class RefineSceneResponse(BaseModel):
+    scene: Scene
+
 class ScriptRead(BaseModel):
     id: str
     brand_id: str
