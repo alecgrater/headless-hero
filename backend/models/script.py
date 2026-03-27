@@ -23,6 +23,8 @@ class Scene(BaseModel):
     duration_estimate_seconds: float = 8.0
     is_title_card: bool = False
     image_url: str = ""
+    audio_url: str = ""
+    audio_duration_seconds: float = 0.0
 
 
 class Segment(BaseModel):

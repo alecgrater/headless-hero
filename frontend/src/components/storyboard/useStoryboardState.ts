@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api";
 import type { Scene, ScriptContent } from "../../types/script";
 import type { GenerateBatchResponse, GenerateVisualResponse } from "../../types/visual";
+import type { GenerateAudioResponse, GenerateBatchAudioResponse } from "../../types/audio";
 
 interface StoryboardState {
   content: ScriptContent;
@@ -39,6 +40,12 @@ interface StoryboardState {
   batchGenerating: boolean;
   generateImage: (sceneId: string, brandStyle: string) => Promise<void>;
   generateAllImages: (brandStyle: string) => Promise<void>;
+
+  // Audio generation
+  generatingAudioSceneIds: Set<string>;
+  batchGeneratingAudio: boolean;
+  generateAudio: (sceneId: string, voiceId: string) => Promise<void>;
+  generateAllAudio: (voiceId: string) => Promise<void>;
 }
 
 function findScene(
@@ -86,6 +93,8 @@ export function useStoryboardState(
   const [undoStack, setUndoStack] = useState<ScriptContent[]>([]);
   const [generatingSceneIds, setGeneratingSceneIds] = useState<Set<string>>(new Set());
   const [batchGenerating, setBatchGenerating] = useState(false);
+  const [generatingAudioSceneIds, setGeneratingAudioSceneIds] = useState<Set<string>>(new Set());
+  const [batchGeneratingAudio, setBatchGeneratingAudio] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
@@ -421,6 +430,104 @@ export function useStoryboardState(
     [scriptId],
   );
 
+  const generateAudio = useCallback(
+    async (sceneId: string, voiceId: string) => {
+      const scene = (() => {
+        for (const seg of contentRef.current.segments) {
+          const found = seg.scenes.find((s) => s.id === sceneId);
+          if (found) return found;
+        }
+        return null;
+      })();
+      if (!scene || !scene.narration) return;
+
+      setGeneratingAudioSceneIds((prev) => new Set(prev).add(sceneId));
+      try {
+        const res = await api.post("/api/voice/generate", {
+          script_id: scriptId,
+          scene_id: sceneId,
+          narration: scene.narration,
+          voice_id: voiceId,
+        });
+        if (res.ok) {
+          const data = res.data as GenerateAudioResponse;
+          setContent((prev) => ({
+            ...prev,
+            segments: prev.segments.map((seg) => ({
+              ...seg,
+              scenes: seg.scenes.map((sc) =>
+                sc.id === sceneId
+                  ? { ...sc, audio_url: data.audio_url, audio_duration_seconds: data.duration_seconds }
+                  : sc,
+              ),
+            })),
+          }));
+        }
+      } finally {
+        setGeneratingAudioSceneIds((prev) => {
+          const next = new Set(prev);
+          next.delete(sceneId);
+          return next;
+        });
+      }
+    },
+    [scriptId],
+  );
+
+  const generateAllAudio = useCallback(
+    async (voiceId: string) => {
+      const scenes: { scene_id: string; narration: string }[] = [];
+      for (const seg of contentRef.current.segments) {
+        for (const sc of seg.scenes) {
+          if (sc.narration) {
+            scenes.push({ scene_id: sc.id, narration: sc.narration });
+          }
+        }
+      }
+      if (scenes.length === 0) return;
+
+      setBatchGeneratingAudio(true);
+      const allIds = new Set(scenes.map((s) => s.scene_id));
+      setGeneratingAudioSceneIds(allIds);
+
+      try {
+        const res = await api.post("/api/voice/generate-batch", {
+          script_id: scriptId,
+          scenes,
+          voice_id: voiceId,
+        });
+        if (res.ok) {
+          const data = res.data as GenerateBatchAudioResponse;
+          const audioMap = new Map<string, { url: string; duration: number }>();
+          for (const r of data.results) {
+            if (r.audio_url) {
+              audioMap.set(r.scene_id, {
+                url: r.audio_url,
+                duration: r.duration_seconds ?? 0,
+              });
+            }
+          }
+          setContent((prev) => ({
+            ...prev,
+            segments: prev.segments.map((seg) => ({
+              ...seg,
+              scenes: seg.scenes.map((sc) => {
+                const audio = audioMap.get(sc.id);
+                return audio
+                  ? { ...sc, audio_url: audio.url, audio_duration_seconds: audio.duration }
+                  : sc;
+              }),
+            })),
+          }));
+        }
+      } finally {
+        setGeneratingAudioSceneIds(new Set());
+        setBatchGeneratingAudio(false);
+      }
+    },
+    [scriptId],
+  );
+
   return {
     content,
     isDirty,
@@ -440,5 +547,9 @@ export function useStoryboardState(
     batchGenerating,
     generateImage,
     generateAllImages,
+    generatingAudioSceneIds,
+    batchGeneratingAudio,
+    generateAudio,
+    generateAllAudio,
   };
 }

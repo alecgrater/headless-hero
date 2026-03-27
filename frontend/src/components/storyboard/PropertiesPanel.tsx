@@ -12,6 +12,8 @@ interface Props {
   onMerge: () => void;
   onGenerateImage?: () => void;
   isGenerating?: boolean;
+  onGenerateAudio?: () => void;
+  isGeneratingAudio?: boolean;
 }
 
 export default function PropertiesPanel({
@@ -24,6 +26,8 @@ export default function PropertiesPanel({
   onMerge,
   onGenerateImage,
   isGenerating = false,
+  onGenerateAudio,
+  isGeneratingAudio = false,
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
@@ -133,6 +137,54 @@ export default function PropertiesPanel({
             </>
           ) : (
             "Generate Image"
+          )}
+        </button>
+      ) : null}
+
+      {/* Audio Preview / Generate */}
+      {scene.audio_url ? (
+        <div className="space-y-2">
+          <div className="text-xs font-medium text-neutral-400">Audio</div>
+          <audio
+            src={assetUrl(scene.audio_url)}
+            controls
+            className="w-full h-8"
+          />
+          {scene.audio_duration_seconds ? (
+            <div className="text-xs text-neutral-500">
+              Duration: {scene.audio_duration_seconds.toFixed(1)}s
+            </div>
+          ) : null}
+          {onGenerateAudio && (
+            <button
+              onClick={onGenerateAudio}
+              disabled={isGeneratingAudio}
+              className="w-full text-sm px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors text-neutral-300 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isGeneratingAudio ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                "Regenerate Audio"
+              )}
+            </button>
+          )}
+        </div>
+      ) : onGenerateAudio ? (
+        <button
+          onClick={onGenerateAudio}
+          disabled={isGeneratingAudio}
+          className="w-full text-sm px-3 py-2 bg-sky-600 hover:bg-sky-500 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          {isGeneratingAudio ? (
+            <>
+              <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+              Generating...
+            </>
+          ) : (
+            "Generate Audio"
           )}
         </button>
       ) : null}

@@ -10,6 +10,7 @@ from api.database import init_db
 from api.ideas import router as ideas_router
 from api.scripts import router as scripts_router
 from api.visuals import router as visuals_router
+from api.voiceover import router as voiceover_router
 from models.brand import BrandProfile as _BrandProfile  # noqa: F401 — register table
 from models.script import Script as _Script  # noqa: F401 — register table
 
@@ -40,6 +41,7 @@ app.include_router(brands_router)
 app.include_router(ideas_router)
 app.include_router(scripts_router)
 app.include_router(visuals_router)
+app.include_router(voiceover_router)
 
 # Serve generated images as static files
 _projects_dir = _data_dir / "projects"

@@ -3,6 +3,7 @@ import api from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
 import type { BrandProfile } from "../../types/brand";
+import type { VoiceInfo, VoiceListResponse } from "../../types/audio";
 import PropertiesPanel from "./PropertiesPanel";
 import SceneGrid from "./SceneGrid";
 import SegmentList from "./SegmentList";
@@ -88,14 +89,35 @@ function StoryboardEditor({
   const state = useStoryboardState(scriptId, initialContent);
   const [activeSegmentIdx, setActiveSegmentIdx] = useState<number | null>(null);
   const [brand, setBrand] = useState<BrandProfile | null>(null);
+  const [voices, setVoices] = useState<VoiceInfo[]>([]);
+  const [selectedVoiceId, setSelectedVoiceId] = useState<string>("");
   const segmentRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   // Fetch brand profile for art_style
   useEffect(() => {
     api.get(`/api/brands/${brandId}`).then((res) => {
-      if (res.ok) setBrand(res.data as BrandProfile);
+      if (res.ok) {
+        const b = res.data as BrandProfile;
+        setBrand(b);
+        if (b.voice_id) setSelectedVoiceId(b.voice_id);
+      }
     });
   }, [brandId]);
+
+  // Fetch available voices
+  useEffect(() => {
+    api.get("/api/voice/voices").then((res) => {
+      if (res.ok) {
+        const data = res.data as VoiceListResponse;
+        setVoices(data.voices);
+        // Default to brand voice or first voice
+        if (!selectedVoiceId && data.voices.length > 0) {
+          setSelectedVoiceId(data.voices[0].voice_id);
+        }
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const artStyle = brand?.art_style ?? "";
 
@@ -170,6 +192,34 @@ function StoryboardEditor({
               "Generate All Images"
             )}
           </button>
+          <div className="flex items-center gap-1.5">
+            <select
+              value={selectedVoiceId}
+              onChange={(e) => setSelectedVoiceId(e.target.value)}
+              className="text-xs bg-neutral-800 text-neutral-300 border border-neutral-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-sky-500 max-w-[140px]"
+            >
+              {voices.length === 0 && <option value="">No voices</option>}
+              {voices.map((v) => (
+                <option key={v.voice_id} value={v.voice_id}>
+                  {v.name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => state.generateAllAudio(selectedVoiceId)}
+              disabled={state.batchGeneratingAudio || !selectedVoiceId}
+              className="text-sm px-4 py-1.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              {state.batchGeneratingAudio ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                "Generate All Audio"
+              )}
+            </button>
+          </div>
           {state.canUndo && (
             <button
               onClick={state.undo}
@@ -209,6 +259,8 @@ function StoryboardEditor({
           onMoveScene={state.moveScene}
           onGenerateImage={(sceneId) => state.generateImage(sceneId, artStyle)}
           generatingSceneIds={state.generatingSceneIds}
+          onGenerateAudio={(sceneId) => state.generateAudio(sceneId, selectedVoiceId)}
+          generatingAudioSceneIds={state.generatingAudioSceneIds}
         />
 
         {selectedScene ? (
@@ -226,6 +278,10 @@ function StoryboardEditor({
               state.generateImage(selectedScene.scene.id, artStyle)
             }
             isGenerating={state.generatingSceneIds.has(selectedScene.scene.id)}
+            onGenerateAudio={() =>
+              state.generateAudio(selectedScene.scene.id, selectedVoiceId)
+            }
+            isGeneratingAudio={state.generatingAudioSceneIds.has(selectedScene.scene.id)}
           />
         ) : (
           <aside className="w-[320px] shrink-0 border-l border-neutral-800 p-4 flex items-center justify-center">

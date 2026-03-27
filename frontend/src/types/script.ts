@@ -6,6 +6,8 @@ export interface Scene {
   duration_estimate_seconds: number;
   is_title_card: boolean;
   image_url?: string;
+  audio_url?: string;
+  audio_duration_seconds?: number;
 }
 
 export interface Segment {

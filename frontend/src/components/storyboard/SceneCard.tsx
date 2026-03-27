@@ -23,6 +23,8 @@ interface Props {
   onNarrationChange: (narration: string) => void;
   onGenerateImage?: () => void;
   isGenerating?: boolean;
+  onGenerateAudio?: () => void;
+  isGeneratingAudio?: boolean;
 }
 
 export default function SceneCard({
@@ -33,6 +35,8 @@ export default function SceneCard({
   onNarrationChange,
   onGenerateImage,
   isGenerating = false,
+  onGenerateAudio: _onGenerateAudio,
+  isGeneratingAudio = false,
 }: Props) {
   const {
     attributes,
@@ -107,6 +111,13 @@ export default function SceneCard({
         <span className="text-[10px] text-neutral-500 ml-auto">
           {scene.duration_estimate_seconds}s
         </span>
+        {scene.audio_url ? (
+          <span className="text-[10px] text-emerald-400" title="Audio generated">
+            &#9835;
+          </span>
+        ) : isGeneratingAudio ? (
+          <span className="w-3 h-3 border border-sky-400 border-t-transparent rounded-full animate-spin" />
+        ) : null}
       </div>
 
       {/* Thumbnail / Image */}

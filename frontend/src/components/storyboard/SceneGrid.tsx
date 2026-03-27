@@ -28,6 +28,8 @@ interface Props {
   ) => void;
   onGenerateImage?: (sceneId: string) => void;
   generatingSceneIds?: Set<string>;
+  onGenerateAudio?: (sceneId: string) => void;
+  generatingAudioSceneIds?: Set<string>;
 }
 
 export default function SceneGrid({
@@ -39,6 +41,8 @@ export default function SceneGrid({
   onMoveScene,
   onGenerateImage,
   generatingSceneIds,
+  onGenerateAudio,
+  generatingAudioSceneIds,
 }: Props) {
   const [activeScene, setActiveScene] = useState<{
     scene: Scene;
@@ -150,6 +154,12 @@ export default function SceneGrid({
                           : undefined
                       }
                       isGenerating={generatingSceneIds?.has(scene.id)}
+                      onGenerateAudio={
+                        onGenerateAudio
+                          ? () => onGenerateAudio(scene.id)
+                          : undefined
+                      }
+                      isGeneratingAudio={generatingAudioSceneIds?.has(scene.id)}
                     />
                   ))}
                   {/* Empty segment drop zone */}
