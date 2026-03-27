@@ -8,6 +8,7 @@ import ExportPanel from "./ExportPanel";
 import PropertiesPanel from "./PropertiesPanel";
 import SceneGrid from "./SceneGrid";
 import SegmentList from "./SegmentList";
+import VoiceSetupModal from "../brand/VoiceSetupModal";
 import { usePublishState } from "./usePublishState";
 import { useRenderState } from "./useRenderState";
 import { useStoryboardState } from "./useStoryboardState";
@@ -94,6 +95,8 @@ function StoryboardEditor({
   const publish = usePublishState(scriptId, brandId);
   const [activeSegmentIdx, setActiveSegmentIdx] = useState<number | null>(null);
   const [showExport, setShowExport] = useState(false);
+  const [showVoiceSetup, setShowVoiceSetup] = useState(false);
+  const [pendingAudioAction, setPendingAudioAction] = useState<"all" | string | null>(null);
 
   // Fetch render estimate when export panel opens
   useEffect(() => {
@@ -141,6 +144,31 @@ function StoryboardEditor({
   }, []);
 
   const artStyle = brand?.art_style ?? "";
+
+  // JIT voice check: if no voice selected and no voices available, show modal
+  const tryGenerateAudio = (action: "all" | string) => {
+    if (!selectedVoiceId && voices.length === 0) {
+      setPendingAudioAction(action);
+      setShowVoiceSetup(true);
+      return;
+    }
+    if (action === "all") {
+      state.generateAllAudio(selectedVoiceId);
+    } else {
+      state.generateAudio(action, selectedVoiceId);
+    }
+  };
+
+  const handleVoiceSelected = (voiceId: string) => {
+    setSelectedVoiceId(voiceId);
+    setShowVoiceSetup(false);
+    if (pendingAudioAction === "all") {
+      state.generateAllAudio(voiceId);
+    } else if (pendingAudioAction) {
+      state.generateAudio(pendingAudioAction, voiceId);
+    }
+    setPendingAudioAction(null);
+  };
 
   // Find which segment the selected scene is in
   const selectedScene = state.selectedSceneId
@@ -227,8 +255,8 @@ function StoryboardEditor({
               ))}
             </select>
             <button
-              onClick={() => state.generateAllAudio(selectedVoiceId)}
-              disabled={state.batchGeneratingAudio || !selectedVoiceId}
+              onClick={() => tryGenerateAudio("all")}
+              disabled={state.batchGeneratingAudio || (!selectedVoiceId && voices.length > 0)}
               className="text-sm px-4 py-1.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-medium transition-colors flex items-center gap-2"
             >
               {state.batchGeneratingAudio ? (
@@ -286,7 +314,7 @@ function StoryboardEditor({
           onMoveScene={state.moveScene}
           onGenerateImage={(sceneId) => state.generateImage(sceneId, artStyle)}
           generatingSceneIds={state.generatingSceneIds}
-          onGenerateAudio={(sceneId) => state.generateAudio(sceneId, selectedVoiceId)}
+          onGenerateAudio={(sceneId) => tryGenerateAudio(sceneId)}
           generatingAudioSceneIds={state.generatingAudioSceneIds}
         />
 
@@ -306,7 +334,7 @@ function StoryboardEditor({
             }
             isGenerating={state.generatingSceneIds.has(selectedScene.scene.id)}
             onGenerateAudio={() =>
-              state.generateAudio(selectedScene.scene.id, selectedVoiceId)
+              tryGenerateAudio(selectedScene.scene.id)
             }
             isGeneratingAudio={state.generatingAudioSceneIds.has(selectedScene.scene.id)}
             onPreviewScene={() =>
@@ -350,6 +378,17 @@ function StoryboardEditor({
           publishHistory={publish.publishHistory}
           estimatedSeconds={render.estimatedSeconds}
           onClose={() => setShowExport(false)}
+        />
+      )}
+
+      {showVoiceSetup && (
+        <VoiceSetupModal
+          brandName={brand?.name ?? ""}
+          onVoiceSelected={handleVoiceSelected}
+          onClose={() => {
+            setShowVoiceSetup(false);
+            setPendingAudioAction(null);
+          }}
         />
       )}
     </div>
