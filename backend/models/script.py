@@ -73,6 +73,10 @@ class GenerateScriptResponse(BaseModel):
     script: ScriptContent
 
 
+class UpdateScriptRequest(BaseModel):
+    script: ScriptContent
+
+
 class ScriptRead(BaseModel):
     id: str
     brand_id: str

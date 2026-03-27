@@ -15,6 +15,7 @@ from models.script import (
     Script,
     ScriptContent,
     ScriptRead,
+    UpdateScriptRequest,
 )
 from pipeline.scriptwriter import generate_script
 
@@ -52,6 +53,27 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
     session.refresh(record)
 
     return GenerateScriptResponse(id=record.id, script=script_content)
+
+
+@router.put("/{script_id}", response_model=ScriptRead)
+def update_script(script_id: str, body: UpdateScriptRequest, session: Session = Depends(get_session)):
+    record = session.get(Script, script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    record.script_json = body.script.model_dump_json()
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+
+    return ScriptRead(
+        id=record.id,
+        brand_id=record.brand_id,
+        topic_title=record.topic_title,
+        topic_description=record.topic_description,
+        script=body.script,
+        created_at=record.created_at,
+    )
 
 
 @router.get("/{script_id}", response_model=ScriptRead)
