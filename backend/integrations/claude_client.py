@@ -5,14 +5,13 @@ import os
 import anthropic
 
 def get_client() -> anthropic.Anthropic:
-    """Return an Anthropic client using ANTHROPIC_API_KEY from the environment."""
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise RuntimeError(
-            "ANTHROPIC_API_KEY is not set. "
-            "Export it in your shell or add it to the app settings."
-        )
-    return anthropic.Anthropic(api_key=api_key)
+    """Return an Anthropic client, falling back to a local proxy if no API key is set."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return anthropic.Anthropic()
+    return anthropic.Anthropic(
+        base_url="http://localhost:11211/api/anthropic",
+        api_key="sk-1234",
+    )
 
 def chat(
     system: str,
