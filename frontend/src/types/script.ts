@@ -57,3 +57,18 @@ export interface ScriptRead {
   script: ScriptContent;
   created_at: string;
 }
+
+export interface ScriptSummary {
+  id: string;
+  brand_id: string;
+  topic_title: string;
+  topic_description: string;
+  created_at: string;
+  segment_count: number;
+  scene_count: number;
+  image_count: number;
+  audio_count: number;
+  has_renders: boolean;
+  thumbnail_url: string;
+  status: "script" | "images" | "audio" | "exported";
+}

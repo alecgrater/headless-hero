@@ -97,3 +97,20 @@ class ScriptRead(BaseModel):
     topic_description: str
     script: ScriptContent
     created_at: datetime
+
+
+class ScriptSummary(BaseModel):
+    """Lightweight summary for the project dashboard list view."""
+
+    id: str
+    brand_id: str
+    topic_title: str
+    topic_description: str
+    created_at: datetime
+    segment_count: int
+    scene_count: int
+    image_count: int
+    audio_count: int
+    has_renders: bool
+    thumbnail_url: str
+    status: str  # "script" | "images" | "audio" | "exported"

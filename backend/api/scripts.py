@@ -1,9 +1,11 @@
 """Endpoints for AI-powered script generation."""
 
 import json
+import shutil
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlmodel import Session, select
 
 from api.database import get_session
 from models.brand import BrandProfile
@@ -15,12 +17,86 @@ from models.script import (
     Script,
     ScriptContent,
     ScriptRead,
+    ScriptSummary,
     UpdateScriptRequest,
 )
 from pipeline.refine import refine_scene
 from pipeline.scriptwriter import generate_script
 
+DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
+
 router = APIRouter(prefix="/api/scripts", tags=["scripts"])
+
+
+def _build_summary(record: Script) -> ScriptSummary:
+    """Build a ScriptSummary from a Script record."""
+    content = ScriptContent.model_validate(json.loads(record.script_json))
+    scenes = [s for seg in content.segments for s in seg.scenes]
+    image_count = sum(1 for s in scenes if s.image_url)
+    audio_count = sum(1 for s in scenes if s.audio_url)
+
+    renders_dir = DATA_DIR / "projects" / record.id / "renders"
+    has_renders = renders_dir.exists() and any(renders_dir.iterdir())
+
+    # Use first scene with an image as thumbnail
+    thumbnail_url = ""
+    for s in scenes:
+        if s.image_url:
+            thumbnail_url = s.image_url
+            break
+
+    # Derive status
+    if has_renders:
+        status = "exported"
+    elif audio_count > 0:
+        status = "audio"
+    elif image_count > 0:
+        status = "images"
+    else:
+        status = "script"
+
+    return ScriptSummary(
+        id=record.id,
+        brand_id=record.brand_id,
+        topic_title=record.topic_title,
+        topic_description=record.topic_description,
+        created_at=record.created_at,
+        segment_count=len(content.segments),
+        scene_count=len(scenes),
+        image_count=image_count,
+        audio_count=audio_count,
+        has_renders=has_renders,
+        thumbnail_url=thumbnail_url,
+        status=status,
+    )
+
+
+@router.get("", response_model=list[ScriptSummary])
+def list_scripts(
+    brand_id: str = Query(..., description="Filter by brand ID"),
+    session: Session = Depends(get_session),
+):
+    statement = select(Script).where(Script.brand_id == brand_id).order_by(Script.created_at.desc())  # type: ignore[arg-type]
+    records = session.exec(statement).all()
+    return [_build_summary(r) for r in records]
+
+
+@router.delete("/{script_id}")
+def delete_script(script_id: str, session: Session = Depends(get_session)):
+    record = session.get(Script, script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    session.delete(record)
+    session.commit()
+
+    # Clean up project files
+    project_dir = DATA_DIR / "projects" / script_id
+    if project_dir.exists():
+        shutil.rmtree(project_dir)
+
+    return {"ok": True}
+
 
 @router.post("/generate", response_model=GenerateScriptResponse)
 def generate(body: GenerateScriptRequest, session: Session = Depends(get_session)):

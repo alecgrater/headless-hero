@@ -4,6 +4,7 @@ import "./App.css";
 import BrandForm from "./components/brand/BrandForm";
 import BrandList from "./components/brand/BrandList";
 import BrandSettings from "./components/brand/BrandSettings";
+import ProjectDashboard from "./components/dashboard/ProjectDashboard";
 import IdeationPage from "./components/ideation/IdeationPage";
 import ScriptGenerationPage from "./components/script/ScriptGenerationPage";
 import SettingsPage from "./components/settings/SettingsPage";
@@ -11,7 +12,7 @@ import StoryboardPage from "./components/storyboard/StoryboardPage";
 import type { BrandProfile, BrandProfileCreate } from "./types/brand";
 import type { VideoIdea } from "./types/idea";
 
-type View = "home" | "brand-create" | "brand-edit" | "brand-settings" | "ideation" | "script-generation" | "storyboard" | "settings";
+type View = "home" | "brand-create" | "brand-edit" | "brand-settings" | "project-dashboard" | "ideation" | "script-generation" | "storyboard" | "settings";
 
 function App() {
   const [backendStatus, setBackendStatus] = useState<string>("connecting...");
@@ -155,7 +156,7 @@ function App() {
       </header>
 
       {/* Main content area */}
-      <main className={`flex-1 w-full ${view === "storyboard" || view === "brand-create" || view === "brand-edit" || view === "brand-settings" || view === "settings" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
+      <main className={`flex-1 w-full ${view === "storyboard" || view === "project-dashboard" || view === "brand-create" || view === "brand-edit" || view === "brand-settings" || view === "settings" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
         {view === "settings" && (
           <SettingsPage onBack={() => setView("home")} />
         )}
@@ -217,7 +218,19 @@ function App() {
         {view === "storyboard" && storyboardScriptId && (
           <StoryboardPage
             scriptId={storyboardScriptId}
-            onBack={() => setView("script-generation")}
+            onBack={() => setView("project-dashboard")}
+          />
+        )}
+
+        {view === "project-dashboard" && selectedBrand && (
+          <ProjectDashboard
+            brand={selectedBrand}
+            onNewVideo={() => setView("ideation")}
+            onOpenProject={(scriptId) => {
+              setStoryboardScriptId(scriptId);
+              setView("storyboard");
+            }}
+            onBack={() => setView("home")}
           />
         )}
 
@@ -226,31 +239,15 @@ function App() {
             <BrandList
               brands={brands}
               selectedId={selectedBrand?.id}
-              onSelect={setSelectedBrand}
+              onSelect={(brand) => {
+                setSelectedBrand(brand);
+                setView("project-dashboard");
+              }}
               onEdit={startEdit}
               onDelete={handleDelete}
               onSettings={openSettings}
               onCreate={() => setView("brand-create")}
             />
-
-            {/* Prompt area when a brand is selected */}
-            {selectedBrand && (
-              <div className="border-t border-neutral-800 pt-8 text-center space-y-4">
-                <h2 className="text-3xl font-bold tracking-tight">
-                  Ready to create
-                </h2>
-                <p className="text-neutral-400 text-lg max-w-md mx-auto">
-                  Brand <span className="text-violet-400">{selectedBrand.name}</span>{" "}
-                  is selected. Start your next video.
-                </p>
-                <button
-                  onClick={() => setView("ideation")}
-                  className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
-                >
-                  New Video
-                </button>
-              </div>
-            )}
 
             {/* Empty state when no brands */}
             {brands.length === 0 && (
