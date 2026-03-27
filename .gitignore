@@ -1,0 +1,27 @@
+node_modules/
+dist/
+out/
+.vite/
+*.js.map
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# Data
+data/projects/
+data/voices/
+data/db.sqlite
+
+# Env
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Electron
+release/

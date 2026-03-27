@@ -1,0 +1,45 @@
+"""Endpoints for AI-powered idea generation."""
+
+from __future__ import annotations
+
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlmodel import Session
+
+from api.database import get_session
+from models.brand import BrandProfile
+from pipeline.ideation import VideoIdea, generate_ideas
+
+router = APIRouter(prefix="/api/ideas", tags=["ideas"])
+
+
+class GenerateIdeasRequest(BaseModel):
+    niche: str = Field(..., min_length=1, description="Topic area to brainstorm")
+    count: int = Field(default=10, ge=1, le=20)
+    brand_id: Optional[str] = Field(default=None, description="Optional brand for context")
+
+
+class GenerateIdeasResponse(BaseModel):
+    ideas: List[VideoIdea]
+
+
+@router.post("/generate", response_model=GenerateIdeasResponse)
+def generate(body: GenerateIdeasRequest, session: Session = Depends(get_session)):
+    brand_context = None
+    if body.brand_id:
+        brand = session.get(BrandProfile, body.brand_id)
+        if not brand:
+            raise HTTPException(status_code=404, detail="Brand not found")
+        parts = [brand.name]
+        if brand.art_style:
+            parts.append(f"Art style: {brand.art_style}")
+        brand_context = ". ".join(parts)
+
+    ideas = generate_ideas(
+        niche=body.niche,
+        count=body.count,
+        brand_context=brand_context,
+    )
+    return GenerateIdeasResponse(ideas=ideas)

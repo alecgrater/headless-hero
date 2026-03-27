@@ -1,0 +1,23 @@
+{
+  "name": "youtube-ai-machine",
+  "version": "0.1.0",
+  "description": "AI-powered video production pipeline for faceless YouTube channels",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:electron\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && uv run uvicorn api.main:app --host 127.0.0.1 --port 8420 --reload",
+    "dev:electron": "sleep 5 && electron .",
+    "build:frontend": "cd frontend && npm run build",
+    "start": "electron ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "electron": "^41.0.4",
+    "electron-builder": "^26.8.1"
+  }
+}
