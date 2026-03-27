@@ -2,7 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import { assetUrl } from "../../api";
-import type { Scene } from "../../types/script";
+import type { KenBurnsConfig, Scene } from "../../types/script";
 
 const SEGMENT_COLORS_BORDER = [
   "border-l-violet-500",
@@ -14,6 +14,16 @@ const SEGMENT_COLORS_BORDER = [
   "border-l-fuchsia-500",
   "border-l-lime-500",
 ];
+
+const MOTION_ICONS: Record<NonNullable<KenBurnsConfig["effect"]>, string> = {
+  none: "",
+  zoom_in: "\u2197",
+  zoom_out: "\u2199",
+  pan_left: "\u2190",
+  pan_right: "\u2192",
+  pan_up: "\u2191",
+  pan_down: "\u2193",
+};
 
 interface Props {
   scene: Scene;
@@ -111,6 +121,14 @@ export default function SceneCard({
         <span className="text-[10px] text-neutral-500 ml-auto">
           {scene.duration_estimate_seconds}s
         </span>
+        {scene.ken_burns && scene.ken_burns.effect !== "none" && (
+          <span
+            className="text-[10px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded-full"
+            title={`${scene.ken_burns.effect.replace("_", " ")} (${scene.ken_burns.intensity})`}
+          >
+            {MOTION_ICONS[scene.ken_burns.effect]}
+          </span>
+        )}
         {scene.audio_url ? (
           <span className="text-[10px] text-emerald-400" title="Audio generated">
             &#9835;

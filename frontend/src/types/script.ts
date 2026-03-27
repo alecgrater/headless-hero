@@ -1,3 +1,16 @@
+export interface KenBurnsConfig {
+  effect: "none" | "zoom_in" | "zoom_out" | "pan_left" | "pan_right" | "pan_up" | "pan_down";
+  intensity: "subtle" | "moderate" | "dramatic";
+}
+
+export interface TextOverlayConfig {
+  position: "top" | "center" | "bottom" | "lower_third";
+  style: "default" | "bold" | "subtitle" | "title_card";
+  animation: "none" | "fade_in" | "slide_up" | "typewriter";
+  show_at: number;
+  duration: number;
+}
+
 export interface Scene {
   id: string;
   narration: string;
@@ -8,6 +21,8 @@ export interface Scene {
   image_url?: string;
   audio_url?: string;
   audio_duration_seconds?: number;
+  ken_burns?: KenBurnsConfig;
+  text_overlay_config?: TextOverlayConfig;
 }
 
 export interface Segment {
