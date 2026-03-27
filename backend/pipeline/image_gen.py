@@ -1,17 +1,13 @@
 """Image generation pipeline — connects visual prompts to fal.ai Flux."""
 
-from __future__ import annotations
-
 import os
 import urllib.request
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 from integrations.fal_client import generate_image
 
 # data/ directory lives two levels above backend/pipeline/
 _data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
-
 
 def generate_scene_image(
     scene_id: str,
@@ -21,7 +17,7 @@ def generate_scene_image(
     width: int = 1344,
     height: int = 768,
     force: bool = False,
-) -> Tuple[str, str]:
+) -> tuple[str, str]:
     """Generate a single scene image and save it locally.
 
     If the image already exists and force=False, skips regeneration.
@@ -51,20 +47,19 @@ def generate_scene_image(
 
     return web_path, prompt
 
-
 def generate_batch(
-    scenes: List[Dict[str, str]],
+    scenes: list[dict[str, str]],
     brand_style: str,
     script_id: str,
     width: int = 1344,
     height: int = 768,
-) -> List[Dict[str, Optional[str]]]:
+) -> list[dict[str, str | None]]:
     """Generate images for a list of scenes sequentially.
 
     Each scene dict must have 'scene_id' and 'visual_prompt'.
     Returns list of {scene_id, image_url, prompt_used, error?}.
     """
-    results = []  # type: List[Dict[str, Optional[str]]]
+    results: list[dict[str, str]] | None = []
     for scene in scenes:
         try:
             image_url, prompt_used = generate_scene_image(

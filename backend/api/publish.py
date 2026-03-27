@@ -1,11 +1,8 @@
 """Endpoints for OAuth connection and publishing to platforms."""
 
-from __future__ import annotations
-
 import json
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
@@ -22,27 +19,21 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/publish", tags=["publish"])
 
-
 # --- Request / Response schemas ---
-
 
 class ConnectRequest(BaseModel):
     brand_id: str
     platform: str  # "youtube"
 
-
 class ConnectResponse(BaseModel):
     auth_url: str
-
 
 class DisconnectRequest(BaseModel):
     brand_id: str
     platform: str
 
-
 class OAuthStatusResponse(BaseModel):
     youtube: PlatformCredentialRead
-
 
 class UploadRequest(BaseModel):
     script_id: str
@@ -50,34 +41,29 @@ class UploadRequest(BaseModel):
     platform: str
     file_url: str
     metadata: dict
-    schedule_at: Optional[str] = None
-
+    schedule_at: str | None = None
 
 class UploadResponse(BaseModel):
     job_id: str
-
 
 class PublishStatusResponse(BaseModel):
     job_id: str
     status: str
     progress: float
     current_step: str
-    output_urls: List[str]
-    error: Optional[str] = None
-
+    output_urls: list[str]
+    error: str | None = None
 
 # --- Helpers ---
 
-
-def _get_credential(session: Session, brand_id: str, platform: str) -> Optional[PlatformCredential]:
+def _get_credential(session: Session, brand_id: str, platform: str) -> PlatformCredential | None:
     stmt = select(PlatformCredential).where(
         PlatformCredential.brand_id == brand_id,
         PlatformCredential.platform == platform,
     )
     return session.exec(stmt).first()
 
-
-def _make_credential_read(platform: str, cred: Optional[PlatformCredential]) -> PlatformCredentialRead:
+def _make_credential_read(platform: str, cred: PlatformCredential | None) -> PlatformCredentialRead:
     if cred:
         return PlatformCredentialRead(
             platform=platform,
@@ -92,16 +78,13 @@ def _make_credential_read(platform: str, cred: Optional[PlatformCredential]) -> 
         connected=False,
     )
 
-
 # --- Endpoints ---
-
 
 @router.get("/oauth/status/{brand_id}", response_model=OAuthStatusResponse)
 def oauth_status(brand_id: str, session: Session = Depends(get_session)):
     """Check OAuth connection status for all platforms."""
     yt_cred = _get_credential(session, brand_id, "youtube")
     return OAuthStatusResponse(youtube=_make_credential_read("youtube", yt_cred))
-
 
 @router.post("/oauth/connect", response_model=ConnectResponse)
 def oauth_connect(body: ConnectRequest, session: Session = Depends(get_session)):
@@ -114,7 +97,6 @@ def oauth_connect(body: ConnectRequest, session: Session = Depends(get_session))
     # Encode brand_id in state so we can associate the credential on callback
     auth_url = get_auth_url(state=body.brand_id)
     return ConnectResponse(auth_url=auth_url)
-
 
 @router.get("/oauth/callback/{platform}", response_class=HTMLResponse)
 def oauth_callback(platform: str, code: str = "", state: str = "", error: str = "", session: Session = Depends(get_session)):
@@ -187,7 +169,6 @@ def oauth_callback(platform: str, code: str = "", state: str = "", error: str = 
         )
     )
 
-
 @router.delete("/oauth/disconnect")
 def oauth_disconnect(body: DisconnectRequest, session: Session = Depends(get_session)):
     """Remove OAuth credential for a platform."""
@@ -196,7 +177,6 @@ def oauth_disconnect(body: DisconnectRequest, session: Session = Depends(get_ses
         session.delete(cred)
         session.commit()
     return {"ok": True}
-
 
 @router.post("/upload", response_model=UploadResponse)
 def start_upload(body: UploadRequest, session: Session = Depends(get_session)):
@@ -299,7 +279,6 @@ def start_upload(body: UploadRequest, session: Session = Depends(get_session)):
     run_in_background(job.id, do_upload)
     return UploadResponse(job_id=job.id)
 
-
 @router.get("/status/{job_id}", response_model=PublishStatusResponse)
 def publish_status(job_id: str):
     """Poll the progress of a background publish job."""
@@ -309,8 +288,7 @@ def publish_status(job_id: str):
     d = job.to_dict()
     return PublishStatusResponse(**d)
 
-
-@router.get("/history/{script_id}", response_model=List[PublishRecordRead])
+@router.get("/history/{script_id}", response_model=list[PublishRecordRead])
 def publish_history(script_id: str, session: Session = Depends(get_session)):
     """Get publish history for a script."""
     stmt = select(PublishRecord).where(

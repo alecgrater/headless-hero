@@ -1,9 +1,6 @@
 """Endpoints for video rendering and export."""
 
-from __future__ import annotations
-
 import json
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -21,9 +18,7 @@ from pipeline.video_render import (
 
 router = APIRouter(prefix="/api/render", tags=["render"])
 
-
 # --- Request / Response schemas ---
-
 
 class PreviewSceneRequest(BaseModel):
     script_id: str
@@ -31,10 +26,8 @@ class PreviewSceneRequest(BaseModel):
     width: int = 1920
     height: int = 1080
 
-
 class PreviewSceneResponse(BaseModel):
     video_url: str
-
 
 class RenderFullRequest(BaseModel):
     script_id: str
@@ -42,36 +35,29 @@ class RenderFullRequest(BaseModel):
     height: int = 1080
     fade_out: float = 0.3
 
-
 class RenderSegmentsRequest(BaseModel):
     script_id: str
     width: int = 1080
     height: int = 1920
 
-
 class RenderJobResponse(BaseModel):
     job_id: str
-
 
 class RenderStatusResponse(BaseModel):
     job_id: str
     status: str
     progress: float
     current_step: str
-    output_urls: List[str]
-    error: Optional[str] = None
-
+    output_urls: list[str]
+    error: str | None = None
 
 class ExportAudioRequest(BaseModel):
     script_id: str
 
-
 class ExportAudioResponse(BaseModel):
     audio_url: str
 
-
 # --- Helpers ---
-
 
 def _load_content(session: Session, script_id: str) -> ScriptContent:
     """Load and parse ScriptContent from the database."""
@@ -79,7 +65,6 @@ def _load_content(session: Session, script_id: str) -> ScriptContent:
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
     return ScriptContent.model_validate(json.loads(record.script_json))
-
 
 def _find_scene(content: ScriptContent, scene_id: str):
     """Find a scene by ID across all segments."""
@@ -89,9 +74,7 @@ def _find_scene(content: ScriptContent, scene_id: str):
                 return sc
     return None
 
-
 # --- Endpoints ---
-
 
 @router.post("/preview-scene", response_model=PreviewSceneResponse)
 def preview_scene(body: PreviewSceneRequest, session: Session = Depends(get_session)):
@@ -103,7 +86,6 @@ def preview_scene(body: PreviewSceneRequest, session: Session = Depends(get_sess
 
     video_url = render_scene_video(scene, body.script_id, body.width, body.height)
     return PreviewSceneResponse(video_url=video_url)
-
 
 @router.post("/full", response_model=RenderJobResponse)
 def start_full_render(body: RenderFullRequest, session: Session = Depends(get_session)):
@@ -127,7 +109,6 @@ def start_full_render(body: RenderFullRequest, session: Session = Depends(get_se
     run_in_background(job.id, do_render)
     return RenderJobResponse(job_id=job.id)
 
-
 @router.post("/segments", response_model=RenderJobResponse)
 def start_segments_render(body: RenderSegmentsRequest, session: Session = Depends(get_session)):
     """Start TikTok 9:16 segment renders in the background."""
@@ -149,7 +130,6 @@ def start_segments_render(body: RenderSegmentsRequest, session: Session = Depend
     run_in_background(job.id, do_render)
     return RenderJobResponse(job_id=job.id)
 
-
 @router.get("/status/{job_id}", response_model=RenderStatusResponse)
 def render_status(job_id: str):
     """Poll the progress of a background render job."""
@@ -158,7 +138,6 @@ def render_status(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
     d = job.to_dict()
     return RenderStatusResponse(**d)
-
 
 @router.post("/export-audio", response_model=ExportAudioResponse)
 def export_audio(body: ExportAudioRequest, session: Session = Depends(get_session)):

@@ -1,12 +1,10 @@
 """Video rendering pipeline — orchestrates FFmpeg to produce scene clips and full videos."""
 
-from __future__ import annotations
-
 import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import Callable
 
 from models.script import KenBurnsConfig, Scene, ScriptContent, TextOverlayConfig
 from pipeline.ffmpeg_builder import (
@@ -20,10 +18,9 @@ log = logging.getLogger(__name__)
 
 _data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
 
-ProgressCallback = Optional[Callable[[float, str], None]]
+ProgressCallback = Callable[[float, str], None] | None
 
-
-def _run_ffmpeg(cmd: List[str]) -> None:
+def _run_ffmpeg(cmd: list[str]) -> None:
     """Run an FFmpeg command, raising on failure."""
     log.info("Running: %s", " ".join(cmd))
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
@@ -31,31 +28,26 @@ def _run_ffmpeg(cmd: List[str]) -> None:
         log.error("FFmpeg stderr: %s", result.stderr)
         raise RuntimeError(f"FFmpeg failed (exit {result.returncode}): {result.stderr[-500:]}")
 
-
 def _scene_image_path(script_id: str, scene_id: str) -> str:
     """Resolve local filesystem path for a scene image."""
     return str(_data_dir / "projects" / script_id / "images" / f"{scene_id}.png")
 
-
 def _scene_audio_path(script_id: str, scene_id: str) -> str:
     """Resolve local filesystem path for a scene audio file."""
     return str(_data_dir / "projects" / script_id / "audio" / f"{scene_id}.mp3")
-
 
 def _renders_dir(script_id: str) -> Path:
     d = _data_dir / "projects" / script_id / "renders"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
-
-def _all_scenes(content: ScriptContent) -> List[Scene]:
+def _all_scenes(content: ScriptContent) -> list[Scene]:
     """Flatten all scenes from all segments in order."""
-    scenes = []  # type: List[Scene]
+    scenes: list[Scene] = []
     for seg in content.segments:
         for sc in seg.scenes:
             scenes.append(sc)
     return scenes
-
 
 def render_scene_video(
     scene: Scene,
@@ -121,7 +113,6 @@ def render_scene_video(
     web_path = f"/static/projects/{script_id}/renders/scenes/{scene.id}.mp4"
     return web_path
 
-
 def render_full_video(
     script_id: str,
     content: ScriptContent,
@@ -136,7 +127,7 @@ def render_full_video(
     """
     scenes = _all_scenes(content)
     total = len(scenes)
-    clip_paths = []  # type: List[str]
+    clip_paths: list[str] = []
 
     for i, scene in enumerate(scenes):
         if on_progress:
@@ -167,7 +158,6 @@ def render_full_video(
 
     return f"/static/projects/{script_id}/renders/full_youtube.mp4"
 
-
 def render_segment_video(
     script_id: str,
     segment_idx: int,
@@ -186,7 +176,7 @@ def render_segment_video(
     total = len(scenes)
 
     # First render each scene at 16:9
-    clip_16_9_paths = []  # type: List[str]
+    clip_16_9_paths: list[str] = []
     for i, scene in enumerate(scenes):
         if on_progress:
             on_progress(i / (total + 2), f"Rendering scene {i + 1}/{total}")
@@ -233,17 +223,16 @@ def render_segment_video(
 
     return f"/static/projects/{script_id}/renders/tiktok/{segment_idx}.mp4"
 
-
 def render_all_segments(
     script_id: str,
     content: ScriptContent,
     width: int = 1080,
     height: int = 1920,
     on_progress: ProgressCallback = None,
-) -> List[str]:
+) -> list[str]:
     """Render all segments as TikTok 9:16 clips. Returns list of web paths."""
     total = len(content.segments)
-    results = []  # type: List[str]
+    results: list[str] = []
     for idx in range(total):
         if on_progress:
             on_progress(idx / total, f"Rendering segment {idx + 1}/{total}")
@@ -261,7 +250,6 @@ def render_all_segments(
 
     return results
 
-
 def export_full_audio(
     script_id: str,
     content: ScriptContent,
@@ -271,7 +259,7 @@ def export_full_audio(
     Returns the web-relative path to the output.
     """
     scenes = _all_scenes(content)
-    audio_paths = []  # type: List[str]
+    audio_paths: list[str] = []
     for scene in scenes:
         path = _scene_audio_path(script_id, scene.id)
         if os.path.exists(path):

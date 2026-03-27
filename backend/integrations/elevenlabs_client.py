@@ -1,12 +1,8 @@
 """Thin wrapper around the ElevenLabs API for text-to-speech."""
 
-from __future__ import annotations
-
 import os
-from typing import Dict, List, Tuple
 
 import httpx
-
 
 _BASE_URL = "https://api.elevenlabs.io/v1"
 
@@ -18,7 +14,6 @@ _DEFAULT_VOICE_SETTINGS = {
     "use_speaker_boost": True,
 }
 
-
 def _get_key() -> str:
     key = os.environ.get("ELEVENLABS_API_KEY")
     if not key:
@@ -28,13 +23,11 @@ def _get_key() -> str:
         )
     return key
 
-
-def _headers() -> Dict[str, str]:
+def _headers() -> dict[str, str]:
     return {
         "xi-api-key": _get_key(),
         "Accept": "application/json",
     }
-
 
 def generate_speech(
     text: str,
@@ -68,17 +61,16 @@ def generate_speech(
         response.raise_for_status()
         return response.content
 
-
 def clone_voice(
     name: str,
-    audio_files: List[Tuple[str, bytes]],
+    audio_files: list[tuple[str, bytes]],
     description: str = "",
 ) -> str:
     """Clone a voice by uploading audio samples to ElevenLabs.
 
     Args:
         name: Name for the cloned voice.
-        audio_files: List of (filename, file_bytes) tuples.
+        audio_files: list of (filename, file_bytes) tuples.
         description: Optional description for the voice.
 
     Returns:
@@ -99,9 +91,8 @@ def clone_voice(
         response.raise_for_status()
         return response.json()["voice_id"]
 
-
-def list_voices() -> List[Dict[str, str]]:
-    """List available voices from ElevenLabs.
+def list_voices() -> list[dict[str, str]]:
+    """list available voices from ElevenLabs.
 
     Returns list of {voice_id, name, category} dicts.
     """
@@ -112,7 +103,7 @@ def list_voices() -> List[Dict[str, str]]:
         response.raise_for_status()
         data = response.json()
 
-    voices = []  # type: List[Dict[str, str]]
+    voices: list[dict[str, str]] = []
     for v in data.get("voices", []):
         voices.append({
             "voice_id": v["voice_id"],

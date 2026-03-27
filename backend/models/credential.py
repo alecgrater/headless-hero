@@ -1,14 +1,10 @@
 """Platform OAuth credential models."""
 
-from __future__ import annotations
-
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
 
 from pydantic import BaseModel
 from sqlmodel import Column, Field, SQLModel, Text
-
 
 class PlatformCredential(SQLModel, table=True):
     """Stores OAuth tokens for connected platforms (e.g. YouTube)."""
@@ -20,13 +16,12 @@ class PlatformCredential(SQLModel, table=True):
     platform: str = Field(index=True)  # "youtube"
     access_token: str = Field(default="", sa_column=Column(Text))
     refresh_token: str = Field(default="", sa_column=Column(Text))
-    token_expiry: Optional[datetime] = Field(default=None)
+    token_expiry: datetime | None = Field(default=None)
     scope: str = Field(default="")
     platform_user_id: str = Field(default="")
     platform_user_name: str = Field(default="")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
 
 class PlatformCredentialRead(BaseModel):
     """Public-facing credential info (omits tokens)."""

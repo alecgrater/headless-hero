@@ -1,14 +1,10 @@
 """Idea generation pipeline — uses Claude to brainstorm video topics."""
 
-from __future__ import annotations
-
 import json
-from typing import List, Optional
 
 from pydantic import BaseModel
 
 from integrations.claude_client import chat
-
 
 class VideoIdea(BaseModel):
     """A single video topic idea returned by the generator."""
@@ -16,8 +12,7 @@ class VideoIdea(BaseModel):
     title: str
     segments_est: int
     description: str
-    keywords: List[str]
-
+    keywords: list[str]
 
 SYSTEM_PROMPT = """\
 You are a YouTube content strategist specializing in educational/explainer \
@@ -36,12 +31,11 @@ Rules:
 Return a JSON array of objects with keys: title, segments_est, description, keywords.
 """
 
-
 def generate_ideas(
     niche: str,
     count: int = 10,
-    brand_context: Optional[str] = None,
-) -> List[VideoIdea]:
+    brand_context: str | None = None,
+) -> list[VideoIdea]:
     """Generate video topic ideas for the given niche via Claude.
 
     Args:

@@ -1,11 +1,8 @@
 """Thin wrapper around the Anthropic Python SDK."""
 
-from __future__ import annotations
-
 import os
 
 import anthropic
-
 
 def get_client() -> anthropic.Anthropic:
     """Return an Anthropic client using ANTHROPIC_API_KEY from the environment."""
@@ -16,7 +13,6 @@ def get_client() -> anthropic.Anthropic:
             "Export it in your shell or add it to the app settings."
         )
     return anthropic.Anthropic(api_key=api_key)
-
 
 def chat(
     system: str,

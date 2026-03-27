@@ -1,10 +1,8 @@
 """Thin wrapper around Google OAuth2 and YouTube Data API v3 for video upload."""
 
-from __future__ import annotations
-
 import logging
 import os
-from typing import Callable, Dict, List, Optional
+from typing import Callable
 
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
@@ -20,8 +18,7 @@ _SCOPES = [
 
 _REDIRECT_URI_DEFAULT = "http://localhost:8420/api/publish/oauth/callback/youtube"
 
-
-def _get_client_config() -> Dict[str, Dict]:
+def _get_client_config() -> dict[str, dict]:
     """Build client config dict from environment variables."""
     client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
     client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "")
@@ -38,7 +35,6 @@ def _get_client_config() -> Dict[str, Dict]:
         }
     }
 
-
 def get_auth_url(redirect_uri: str = _REDIRECT_URI_DEFAULT, state: str = "") -> str:
     """Generate the Google OAuth2 consent URL."""
     flow = Flow.from_client_config(_get_client_config(), scopes=_SCOPES)
@@ -51,8 +47,7 @@ def get_auth_url(redirect_uri: str = _REDIRECT_URI_DEFAULT, state: str = "") -> 
     )
     return auth_url
 
-
-def exchange_code(code: str, redirect_uri: str = _REDIRECT_URI_DEFAULT) -> Dict:
+def exchange_code(code: str, redirect_uri: str = _REDIRECT_URI_DEFAULT) -> dict:
     """Exchange authorization code for tokens.
 
     Returns dict with access_token, refresh_token, expiry.
@@ -67,8 +62,7 @@ def exchange_code(code: str, redirect_uri: str = _REDIRECT_URI_DEFAULT) -> Dict:
         "expiry": creds.expiry.isoformat() if creds.expiry else None,
     }
 
-
-def refresh_access_token(refresh_token: str) -> Dict:
+def refresh_access_token(refresh_token: str) -> dict:
     """Refresh an expired access token.
 
     Returns dict with access_token, expiry.
@@ -89,8 +83,7 @@ def refresh_access_token(refresh_token: str) -> Dict:
         "expiry": creds.expiry.isoformat() if creds.expiry else None,
     }
 
-
-def get_channel_info(access_token: str) -> Dict[str, str]:
+def get_channel_info(access_token: str) -> dict[str, str]:
     """Fetch the authenticated user's YouTube channel info.
 
     Returns dict with channel_id, channel_name.
@@ -107,18 +100,17 @@ def get_channel_info(access_token: str) -> Dict[str, str]:
         "channel_name": channel["snippet"]["title"],
     }
 
-
 def upload_video(
     access_token: str,
     file_path: str,
     title: str,
     description: str = "",
-    tags: Optional[List[str]] = None,
+    tags: list[str] | None = None,
     category_id: str = "27",  # Education
     privacy_status: str = "private",
-    publish_at: Optional[str] = None,
-    on_progress: Optional[Callable[[float], None]] = None,
-) -> Dict[str, str]:
+    publish_at: str | None = None,
+    on_progress: Callable[[float], None] | None = None,
+) -> dict[str, str]:
     """Upload a video to YouTube.
 
     Args:

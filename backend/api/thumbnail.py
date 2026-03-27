@@ -1,9 +1,6 @@
 """Endpoints for thumbnail generation."""
 
-from __future__ import annotations
-
 import json
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -15,25 +12,21 @@ from pipeline.thumbnail import generate_concepts, generate_thumbnail
 
 router = APIRouter(prefix="/api/thumbnail", tags=["thumbnail"])
 
-
 class GenerateThumbnailRequest(BaseModel):
     script_id: str
     brand_style: str = ""
     bar_color: str = "0x9333EA"
     count: int = 3
 
-
 class ThumbnailConceptResult(BaseModel):
     idx: int
     title_text: str
     visual_description: str
-    image_url: Optional[str] = None
-    error: Optional[str] = None
-
+    image_url: str | None = None
+    error: str | None = None
 
 class GenerateThumbnailResponse(BaseModel):
-    concepts: List[ThumbnailConceptResult]
-
+    concepts: list[ThumbnailConceptResult]
 
 @router.post("/generate", response_model=GenerateThumbnailResponse)
 def generate_thumbnails(body: GenerateThumbnailRequest, session: Session = Depends(get_session)):
@@ -51,7 +44,7 @@ def generate_thumbnails(body: GenerateThumbnailRequest, session: Session = Depen
     )
 
     # Render each concept
-    results = []  # type: List[ThumbnailConceptResult]
+    results: list[ThumbnailConceptResult] = []
     for i, concept in enumerate(concepts):
         try:
             image_url = generate_thumbnail(

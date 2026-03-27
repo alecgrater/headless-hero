@@ -1,9 +1,6 @@
 """CRUD endpoints for brand profiles."""
 
-from __future__ import annotations
-
 from datetime import datetime, timezone
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
@@ -18,7 +15,6 @@ from models.brand import (
 
 router = APIRouter(prefix="/api/brands", tags=["brands"])
 
-
 @router.post("", response_model=BrandProfileRead, status_code=201)
 def create_brand(body: BrandProfileCreate, session: Session = Depends(get_session)):
     brand = BrandProfile.model_validate(body)
@@ -27,11 +23,9 @@ def create_brand(body: BrandProfileCreate, session: Session = Depends(get_sessio
     session.refresh(brand)
     return brand
 
-
-@router.get("", response_model=List[BrandProfileRead])
+@router.get("", response_model=list[BrandProfileRead])
 def list_brands(session: Session = Depends(get_session)):
     return session.exec(select(BrandProfile).order_by(BrandProfile.name)).all()
-
 
 @router.get("/{brand_id}", response_model=BrandProfileRead)
 def get_brand(brand_id: str, session: Session = Depends(get_session)):
@@ -39,7 +33,6 @@ def get_brand(brand_id: str, session: Session = Depends(get_session)):
     if not brand:
         raise HTTPException(status_code=404, detail="Brand not found")
     return brand
-
 
 @router.put("/{brand_id}", response_model=BrandProfileRead)
 def update_brand(
@@ -56,7 +49,6 @@ def update_brand(
     session.commit()
     session.refresh(brand)
     return brand
-
 
 @router.delete("/{brand_id}", status_code=204)
 def delete_brand(brand_id: str, session: Session = Depends(get_session)):

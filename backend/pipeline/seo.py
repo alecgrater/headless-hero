@@ -1,36 +1,28 @@
 """SEO metadata generation pipeline — Claude generates per-platform metadata."""
 
-from __future__ import annotations
-
 import json
-from typing import List
 
 from pydantic import BaseModel
 
 from integrations.claude_client import chat
 
-
 class YouTubeSEO(BaseModel):
     title: str
     description: str
-    tags: List[str]
-
+    tags: list[str]
 
 class TikTokSEO(BaseModel):
     caption: str
-    hashtags: List[str]
-
+    hashtags: list[str]
 
 class InstagramSEO(BaseModel):
     caption: str
-    hashtags: List[str]
-
+    hashtags: list[str]
 
 class SEOMetadata(BaseModel):
     youtube: YouTubeSEO
-    tiktok: List[TikTokSEO]
+    tiktok: list[TikTokSEO]
     instagram: InstagramSEO
-
 
 SYSTEM_PROMPT = """\
 You are a social media SEO expert. Generate optimized metadata for video \
@@ -50,10 +42,9 @@ Rules:
 Return a JSON object with keys: youtube, tiktok (array), instagram.
 """
 
-
 def generate_seo(
     video_title: str,
-    segments: List[str],
+    segments: list[str],
     video_description: str = "",
 ) -> SEOMetadata:
     """Generate SEO metadata for all platforms via Claude."""

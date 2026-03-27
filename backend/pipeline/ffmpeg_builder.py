@@ -7,17 +7,12 @@ Constructs ffmpeg CLI argument lists for:
 - TikTok 9:16 reformat (blurred-background fill)
 """
 
-from __future__ import annotations
-
 import os
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-
 
 # Intensity -> zoom speed multiplier for Ken Burns
 _KB_SPEED = {"subtle": 0.0003, "moderate": 0.0006, "dramatic": 0.0012}
-
 
 def _escape_drawtext(text: str) -> str:
     """Escape special characters for FFmpeg drawtext filter."""
@@ -27,7 +22,6 @@ def _escape_drawtext(text: str) -> str:
     text = text.replace(":", "\\:")
     text = text.replace(";", "\\;")
     return text
-
 
 def _ken_burns_filter(
     effect: str,
@@ -63,7 +57,6 @@ def _ken_burns_filter(
     else:
         # no motion — still frame
         return f"zoompan={base}:z='1':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
-
 
 def _drawtext_filter(
     text: str,
@@ -130,7 +123,6 @@ def _drawtext_filter(
 
     return "drawtext=" + ":".join(parts)
 
-
 def build_scene_video_cmd(
     image_path: str,
     audio_path: str,
@@ -147,7 +139,7 @@ def build_scene_video_cmd(
     overlay_show_at: float = 0.0,
     overlay_duration: float = 0.0,
     fade_out_duration: float = 0.3,
-) -> List[str]:
+) -> list[str]:
     """Build FFmpeg command to render a single scene (image + audio -> MP4).
 
     Returns a list of args suitable for subprocess.run().
@@ -155,7 +147,7 @@ def build_scene_video_cmd(
     fps = 30
     duration_frames = int(duration * fps)
 
-    filters = []  # type: List[str]
+    filters: list[str] = []
 
     if ken_burns_effect != "none":
         kb = _ken_burns_filter(ken_burns_effect, ken_burns_intensity, width, height, duration_frames)
@@ -210,11 +202,10 @@ def build_scene_video_cmd(
 
     return cmd
 
-
 def build_concat_cmd(
-    clip_paths: List[str],
+    clip_paths: list[str],
     output_path: str,
-) -> Tuple[List[str], str]:
+) -> tuple[list[str], str]:
     """Build FFmpeg concat demuxer command to join multiple clips.
 
     Returns (command args, path to temp concat list file).
@@ -237,11 +228,10 @@ def build_concat_cmd(
 
     return cmd, list_path
 
-
 def build_audio_concat_cmd(
-    audio_paths: List[str],
+    audio_paths: list[str],
     output_path: str,
-) -> Tuple[List[str], str]:
+) -> tuple[list[str], str]:
     """Build FFmpeg command to concatenate multiple audio files into one MP3.
 
     Returns (command args, path to temp concat list file).
@@ -263,13 +253,12 @@ def build_audio_concat_cmd(
 
     return cmd, list_path
 
-
 def build_tiktok_cmd(
     input_path: str,
     output_path: str,
     target_width: int = 1080,
     target_height: int = 1920,
-) -> List[str]:
+) -> list[str]:
     """Build FFmpeg command to convert 16:9 clip to 9:16 with blurred background fill.
 
     The approach: scale the original to fill width (blurred), then overlay
@@ -299,7 +288,6 @@ def build_tiktok_cmd(
 
     return cmd
 
-
 def build_thumbnail_composite_cmd(
     image_path: str,
     output_path: str,
@@ -307,7 +295,7 @@ def build_thumbnail_composite_cmd(
     bar_color: str = "0x9333EA",
     width: int = 1280,
     height: int = 720,
-) -> List[str]:
+) -> list[str]:
     """Build FFmpeg command to composite title text + color bar onto a thumbnail image."""
     escaped = _escape_drawtext(title_text)
 

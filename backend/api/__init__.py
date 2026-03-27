@@ -23,7 +23,6 @@ from models.script import Script as _Script  # noqa: F401 — register table
 import os
 _data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
@@ -31,7 +30,6 @@ async def lifespan(app: FastAPI):
     projects_dir = _data_dir / "projects"
     projects_dir.mkdir(parents=True, exist_ok=True)
     yield
-
 
 app = FastAPI(title="YouTube AI Machine", version="0.1.0", lifespan=lifespan)
 
@@ -57,7 +55,6 @@ app.include_router(seo_router)
 _projects_dir = _data_dir / "projects"
 _projects_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/static/projects", StaticFiles(directory=str(_projects_dir)), name="project-assets")
-
 
 @app.get("/api/health")
 async def health():

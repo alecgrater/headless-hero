@@ -10,11 +10,9 @@ _db_path = _data_dir / "db.sqlite"
 
 engine = create_engine(f"sqlite:///{_db_path}", echo=False)
 
-
 def init_db() -> None:
     """Create all tables. Safe to call repeatedly."""
     SQLModel.metadata.create_all(engine)
-
 
 def get_session():
     """FastAPI dependency that yields a DB session."""

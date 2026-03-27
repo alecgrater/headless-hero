@@ -1,7 +1,5 @@
 """Endpoints for AI-powered script generation."""
 
-from __future__ import annotations
-
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -20,7 +18,6 @@ from models.script import (
 from pipeline.scriptwriter import generate_script
 
 router = APIRouter(prefix="/api/scripts", tags=["scripts"])
-
 
 @router.post("/generate", response_model=GenerateScriptResponse)
 def generate(body: GenerateScriptRequest, session: Session = Depends(get_session)):
@@ -54,7 +51,6 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
 
     return GenerateScriptResponse(id=record.id, script=script_content)
 
-
 @router.put("/{script_id}", response_model=ScriptRead)
 def update_script(script_id: str, body: UpdateScriptRequest, session: Session = Depends(get_session)):
     record = session.get(Script, script_id)
@@ -74,7 +70,6 @@ def update_script(script_id: str, body: UpdateScriptRequest, session: Session = 
         script=body.script,
         created_at=record.created_at,
     )
-
 
 @router.get("/{script_id}", response_model=ScriptRead)
 def get_script(script_id: str, session: Session = Depends(get_session)):

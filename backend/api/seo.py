@@ -1,9 +1,6 @@
 """Endpoints for SEO metadata generation."""
 
-from __future__ import annotations
-
 import json
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -15,14 +12,11 @@ from pipeline.seo import SEOMetadata, generate_seo
 
 router = APIRouter(prefix="/api/seo", tags=["seo"])
 
-
 class GenerateSEORequest(BaseModel):
     script_id: str
 
-
 class GenerateSEOResponse(BaseModel):
     metadata: SEOMetadata
-
 
 @router.post("/generate", response_model=GenerateSEOResponse)
 def generate_seo_metadata(body: GenerateSEORequest, session: Session = Depends(get_session)):

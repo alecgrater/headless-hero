@@ -1,9 +1,5 @@
 """Endpoints for AI-powered idea generation."""
 
-from __future__ import annotations
-
-from typing import List, Optional
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import Session
@@ -14,16 +10,13 @@ from pipeline.ideation import VideoIdea, generate_ideas
 
 router = APIRouter(prefix="/api/ideas", tags=["ideas"])
 
-
 class GenerateIdeasRequest(BaseModel):
     niche: str = Field(..., min_length=1, description="Topic area to brainstorm")
     count: int = Field(default=10, ge=1, le=20)
-    brand_id: Optional[str] = Field(default=None, description="Optional brand for context")
-
+    brand_id: str | None = Field(default=None, description="Optional brand for context")
 
 class GenerateIdeasResponse(BaseModel):
-    ideas: List[VideoIdea]
-
+    ideas: list[VideoIdea]
 
 @router.post("/generate", response_model=GenerateIdeasResponse)
 def generate(body: GenerateIdeasRequest, session: Session = Depends(get_session)):

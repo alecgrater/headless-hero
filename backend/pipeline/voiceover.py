@@ -1,17 +1,13 @@
 """Voiceover pipeline — connects narration text to ElevenLabs TTS."""
 
-from __future__ import annotations
-
 import os
 import struct
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 from integrations.elevenlabs_client import generate_speech
 
 # data/ directory lives two levels above backend/pipeline/
 _data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
-
 
 def _mp3_duration_seconds(data: bytes) -> float:
     """Estimate MP3 duration from raw bytes using frame headers.
@@ -55,14 +51,13 @@ def _mp3_duration_seconds(data: bytes) -> float:
     # Fallback: assume 128kbps
     return round(len(data) / (128 * 1000 / 8), 2)
 
-
 def generate_scene_audio(
     scene_id: str,
     narration: str,
     voice_id: str,
     script_id: str,
     model_id: str = "eleven_multilingual_v2",
-) -> Tuple[str, float]:
+) -> tuple[str, float]:
     """Generate TTS audio for a single scene and save locally.
 
     Returns (web-relative path, duration in seconds).
@@ -83,19 +78,18 @@ def generate_scene_audio(
     web_path = f"/static/projects/{script_id}/audio/{scene_id}.mp3"
     return web_path, duration
 
-
 def generate_batch_audio(
-    scenes: List[Dict[str, str]],
+    scenes: list[dict[str, str]],
     voice_id: str,
     script_id: str,
     model_id: str = "eleven_multilingual_v2",
-) -> List[Dict[str, Optional[str]]]:
+) -> list[dict[str, str | None]]:
     """Generate TTS audio for a list of scenes sequentially.
 
     Each scene dict must have 'scene_id' and 'narration'.
     Returns list of {scene_id, audio_url, duration_seconds, error?}.
     """
-    results = []  # type: List[Dict[str, Optional[str]]]
+    results: list[dict[str, str]] | None = []
     for scene in scenes:
         try:
             audio_url, duration = generate_scene_audio(

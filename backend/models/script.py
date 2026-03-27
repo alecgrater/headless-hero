@@ -1,24 +1,18 @@
 """Script data models — matches PRD section 7.2 JSON structure."""
 
-from __future__ import annotations
-
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
 
 from pydantic import BaseModel, Field as PydanticField
 from sqlmodel import Column, Field, SQLModel, Text
 
-
 # --- Pydantic models for the script JSON structure ---
-
 
 class KenBurnsConfig(BaseModel):
     """Ken Burns motion effect configuration for a scene."""
 
     effect: str = "none"  # none|zoom_in|zoom_out|pan_left|pan_right|pan_up|pan_down
     intensity: str = "moderate"  # subtle|moderate|dramatic
-
 
 class TextOverlayConfig(BaseModel):
     """Text overlay styling and animation configuration."""
@@ -28,7 +22,6 @@ class TextOverlayConfig(BaseModel):
     animation: str = "fade_in"  # none|fade_in|slide_up|typewriter
     show_at: float = 0.0  # seconds offset
     duration: float = 0.0  # 0 = full scene duration
-
 
 class Scene(BaseModel):
     """A single scene within a segment."""
@@ -42,28 +35,24 @@ class Scene(BaseModel):
     image_url: str = ""
     audio_url: str = ""
     audio_duration_seconds: float = 0.0
-    ken_burns: Optional[KenBurnsConfig] = None
-    text_overlay_config: Optional[TextOverlayConfig] = None
-
+    ken_burns: KenBurnsConfig | None = None
+    text_overlay_config: TextOverlayConfig | None = None
 
 class Segment(BaseModel):
     """A named segment (e.g. "Caffeine") containing multiple scenes."""
 
     name: str
-    scenes: List[Scene]
-
+    scenes: list[Scene]
 
 class ScriptContent(BaseModel):
     """The full script payload matching PRD section 7.2."""
 
     title: str
-    segments: List[Segment]
+    segments: list[Segment]
     intro_hook: str = ""
     outro_cta: str = ""
 
-
 # --- SQLModel table for persistence ---
-
 
 class Script(SQLModel, table=True):
     """Persisted script stored in SQLite."""
@@ -77,27 +66,22 @@ class Script(SQLModel, table=True):
     script_json: str = Field(default="{}", sa_column=Column(Text))  # serialised ScriptContent
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-
 # --- Request / response schemas ---
-
 
 class GenerateScriptRequest(BaseModel):
     topic: str = PydanticField(..., min_length=1, description="Video topic / title")
     description: str = PydanticField(default="", description="Optional topic description or angle")
     brand_id: str = PydanticField(..., description="Brand profile ID for style context")
-    segment_count: Optional[int] = PydanticField(
+    segment_count: int | None = PydanticField(
         default=None, ge=2, le=30, description="Desired number of segments (Claude decides if omitted)"
     )
-
 
 class GenerateScriptResponse(BaseModel):
     id: str
     script: ScriptContent
 
-
 class UpdateScriptRequest(BaseModel):
     script: ScriptContent
-
 
 class ScriptRead(BaseModel):
     id: str

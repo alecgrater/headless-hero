@@ -1,11 +1,8 @@
 """Thin wrapper around the fal-client SDK for image generation."""
 
-from __future__ import annotations
-
 import os
 
 import fal_client
-
 
 def _get_key() -> str:
     key = os.environ.get("FAL_KEY")
@@ -15,7 +12,6 @@ def _get_key() -> str:
             "Export it in your shell or add it to the app settings."
         )
     return key
-
 
 def generate_image(prompt: str, width: int = 1344, height: int = 768) -> str:
     """Generate an image via fal.ai Flux and return the CDN URL."""

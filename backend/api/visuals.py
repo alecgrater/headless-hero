@@ -1,9 +1,6 @@
 """Endpoints for AI image generation via fal.ai Flux."""
 
-from __future__ import annotations
-
 import json
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -15,9 +12,7 @@ from pipeline.image_gen import generate_batch, generate_scene_image
 
 router = APIRouter(prefix="/api/visuals", tags=["visuals"])
 
-
 # --- Request / Response schemas ---
-
 
 class GenerateVisualRequest(BaseModel):
     script_id: str
@@ -27,38 +22,31 @@ class GenerateVisualRequest(BaseModel):
     width: int = 1344
     height: int = 768
 
-
 class GenerateVisualResponse(BaseModel):
     image_url: str
     prompt_used: str
-
 
 class BatchScene(BaseModel):
     scene_id: str
     visual_prompt: str
 
-
 class GenerateBatchRequest(BaseModel):
     script_id: str
-    scenes: List[BatchScene]
+    scenes: list[BatchScene]
     brand_style: str = ""
     width: int = 1344
     height: int = 768
 
-
 class BatchResultItem(BaseModel):
     scene_id: str
-    image_url: Optional[str] = None
-    prompt_used: Optional[str] = None
-    error: Optional[str] = None
-
+    image_url: str | None = None
+    prompt_used: str | None = None
+    error: str | None = None
 
 class GenerateBatchResponse(BaseModel):
-    results: List[BatchResultItem]
-
+    results: list[BatchResultItem]
 
 # --- Helpers ---
-
 
 def _update_scene_image_url(
     session: Session, script_id: str, scene_id: str, image_url: str
@@ -77,9 +65,7 @@ def _update_scene_image_url(
     session.add(record)
     session.commit()
 
-
 # --- Endpoints ---
-
 
 @router.post("/generate", response_model=GenerateVisualResponse)
 def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_session)):
@@ -101,7 +87,6 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
     _update_scene_image_url(session, body.script_id, body.scene_id, image_url)
 
     return GenerateVisualResponse(image_url=image_url, prompt_used=prompt_used)
-
 
 @router.post("/generate-batch", response_model=GenerateBatchResponse)
 def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends(get_session)):

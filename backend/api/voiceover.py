@@ -1,9 +1,6 @@
 """Endpoints for TTS voiceover generation via ElevenLabs."""
 
-from __future__ import annotations
-
 import json
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
@@ -16,9 +13,7 @@ from pipeline.voiceover import generate_batch_audio, generate_scene_audio
 
 router = APIRouter(prefix="/api/voice", tags=["voice"])
 
-
 # --- Request / Response schemas ---
-
 
 class GenerateAudioRequest(BaseModel):
     script_id: str
@@ -27,51 +22,41 @@ class GenerateAudioRequest(BaseModel):
     voice_id: str
     model_id: str = "eleven_multilingual_v2"
 
-
 class GenerateAudioResponse(BaseModel):
     audio_url: str
     duration_seconds: float
-
 
 class BatchAudioScene(BaseModel):
     scene_id: str
     narration: str
 
-
 class GenerateBatchAudioRequest(BaseModel):
     script_id: str
-    scenes: List[BatchAudioScene]
+    scenes: list[BatchAudioScene]
     voice_id: str
     model_id: str = "eleven_multilingual_v2"
 
-
 class BatchAudioResultItem(BaseModel):
     scene_id: str
-    audio_url: Optional[str] = None
-    duration_seconds: Optional[float] = None
-    error: Optional[str] = None
-
+    audio_url: str | None = None
+    duration_seconds: float | None = None
+    error: str | None = None
 
 class GenerateBatchAudioResponse(BaseModel):
-    results: List[BatchAudioResultItem]
-
+    results: list[BatchAudioResultItem]
 
 class VoiceInfo(BaseModel):
     voice_id: str
     name: str
     category: str
 
-
 class VoiceListResponse(BaseModel):
-    voices: List[VoiceInfo]
-
+    voices: list[VoiceInfo]
 
 class CloneVoiceResponse(BaseModel):
     voice_id: str
 
-
 # --- Helpers ---
-
 
 def _update_scene_audio(
     session: Session,
@@ -95,9 +80,7 @@ def _update_scene_audio(
     session.add(record)
     session.commit()
 
-
 # --- Endpoints ---
-
 
 @router.post("/generate", response_model=GenerateAudioResponse)
 def generate_audio(body: GenerateAudioRequest, session: Session = Depends(get_session)):
@@ -117,7 +100,6 @@ def generate_audio(body: GenerateAudioRequest, session: Session = Depends(get_se
     _update_scene_audio(session, body.script_id, body.scene_id, audio_url, duration)
 
     return GenerateAudioResponse(audio_url=audio_url, duration_seconds=duration)
-
 
 @router.post("/generate-batch", response_model=GenerateBatchAudioResponse)
 def generate_audio_batch(
@@ -150,12 +132,11 @@ def generate_audio_batch(
 
     return GenerateBatchAudioResponse(results=[BatchAudioResultItem(**r) for r in results])
 
-
 @router.post("/clone", response_model=CloneVoiceResponse)
 async def clone_voice_endpoint(
     name: str = Form(...),
     description: str = Form(""),
-    files: List[UploadFile] = File(...),
+    files: list[UploadFile] = File(...),
 ):
     """Clone a voice by uploading audio samples to ElevenLabs."""
     if not files:
@@ -163,7 +144,7 @@ async def clone_voice_endpoint(
     if len(files) > 25:
         raise HTTPException(status_code=400, detail="Maximum 25 audio samples allowed")
 
-    audio_files = []  # type: List[tuple]
+    audio_files: list[tuple] = []
     for f in files:
         content = await f.read()
         audio_files.append((f.filename or "sample.mp3", content))
@@ -171,9 +152,8 @@ async def clone_voice_endpoint(
     voice_id = clone_voice(name=name, audio_files=audio_files, description=description)
     return CloneVoiceResponse(voice_id=voice_id)
 
-
 @router.get("/voices", response_model=VoiceListResponse)
 def get_voices():
-    """List available ElevenLabs voices."""
+    """list available ElevenLabs voices."""
     voices = list_voices()
     return VoiceListResponse(voices=[VoiceInfo(**v) for v in voices])

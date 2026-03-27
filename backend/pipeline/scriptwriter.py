@@ -1,13 +1,9 @@
 """Script generation pipeline — uses Claude to write segmented video scripts."""
 
-from __future__ import annotations
-
 import json
-from typing import Optional
 
 from integrations.claude_client import chat
 from models.script import ScriptContent
-
 
 SYSTEM_PROMPT = """\
 You are an expert YouTube scriptwriter specializing in educational/explainer \
@@ -52,12 +48,11 @@ Writing guidelines:
 - Scene IDs must be unique and sequential: scene_001, scene_002, etc.
 """
 
-
 def generate_script(
     topic: str,
     description: str = "",
     brand_context: str = "",
-    segment_count: Optional[int] = None,
+    segment_count: int | None = None,
 ) -> ScriptContent:
     """Generate a segmented video script via Claude.
 

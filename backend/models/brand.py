@@ -2,11 +2,9 @@
 
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
 
 from pydantic import BaseModel
 from sqlmodel import Column, Field, SQLModel, Text
-
 
 class BrandProfileBase(SQLModel):
     """Shared fields for brand profiles."""
@@ -20,7 +18,6 @@ class BrandProfileBase(SQLModel):
     tiktok_handle: str = Field(default="")
     instagram_handle: str = Field(default="")
 
-
 class BrandProfile(BrandProfileBase, table=True):
     """Persistent brand profile stored in SQLite."""
 
@@ -30,25 +27,22 @@ class BrandProfile(BrandProfileBase, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-
 class BrandProfileCreate(BrandProfileBase):
     """Request body for creating a brand profile."""
 
     pass
 
-
 class BrandProfileUpdate(BaseModel):
     """Request body for updating a brand profile. All fields optional."""
 
-    name: Optional[str] = None
-    art_style: Optional[str] = None
-    color_palette: Optional[str] = None
-    font: Optional[str] = None
-    voice_id: Optional[str] = None
-    youtube_channel_id: Optional[str] = None
-    tiktok_handle: Optional[str] = None
-    instagram_handle: Optional[str] = None
-
+    name: str | None = None
+    art_style: str | None = None
+    color_palette: str | None = None
+    font: str | None = None
+    voice_id: str | None = None
+    youtube_channel_id: str | None = None
+    tiktok_handle: str | None = None
+    instagram_handle: str | None = None
 
 class BrandProfileRead(BrandProfileBase):
     """Response body for a brand profile."""

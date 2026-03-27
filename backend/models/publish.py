@@ -1,14 +1,10 @@
 """Publish record models — tracks upload history to platforms."""
 
-from __future__ import annotations
-
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
 
 from pydantic import BaseModel
 from sqlmodel import Column, Field, SQLModel, Text
-
 
 class PublishRecord(SQLModel, table=True):
     """Tracks each publish/upload to a platform."""
@@ -24,12 +20,11 @@ class PublishRecord(SQLModel, table=True):
     platform_url: str = Field(default="")
     file_path: str = Field(default="", sa_column=Column(Text))
     metadata_json: str = Field(default="{}", sa_column=Column(Text))
-    schedule_at: Optional[datetime] = Field(default=None)
-    published_at: Optional[datetime] = Field(default=None)
+    schedule_at: datetime | None = Field(default=None)
+    published_at: datetime | None = Field(default=None)
     error: str = Field(default="", sa_column=Column(Text))
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
 
 class PublishRecordRead(BaseModel):
     """Public-facing publish record."""
@@ -41,7 +36,7 @@ class PublishRecordRead(BaseModel):
     status: str
     platform_content_id: str
     platform_url: str
-    schedule_at: Optional[datetime]
-    published_at: Optional[datetime]
+    schedule_at: datetime | None
+    published_at: datetime | None
     error: str
     created_at: datetime
