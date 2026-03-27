@@ -69,6 +69,37 @@ def generate_speech(
         return response.content
 
 
+def clone_voice(
+    name: str,
+    audio_files: List[Tuple[str, bytes]],
+    description: str = "",
+) -> str:
+    """Clone a voice by uploading audio samples to ElevenLabs.
+
+    Args:
+        name: Name for the cloned voice.
+        audio_files: List of (filename, file_bytes) tuples.
+        description: Optional description for the voice.
+
+    Returns:
+        The voice_id of the newly created cloned voice.
+    """
+    url = f"{_BASE_URL}/voices/add"
+
+    files = [("files", (fname, fbytes, "audio/mpeg")) for fname, fbytes in audio_files]
+    data = {"name": name, "description": description}
+
+    with httpx.Client(timeout=120.0) as client:
+        response = client.post(
+            url,
+            data=data,
+            files=files,
+            headers={"xi-api-key": _get_key()},
+        )
+        response.raise_for_status()
+        return response.json()["voice_id"]
+
+
 def list_voices() -> List[Dict[str, str]]:
     """List available voices from ElevenLabs.
 

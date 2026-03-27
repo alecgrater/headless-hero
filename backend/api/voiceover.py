@@ -5,12 +5,12 @@ from __future__ import annotations
 import json
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlmodel import Session
 
 from api.database import get_session
-from integrations.elevenlabs_client import list_voices
+from integrations.elevenlabs_client import clone_voice, list_voices
 from models.script import Script, ScriptContent
 from pipeline.voiceover import generate_batch_audio, generate_scene_audio
 
@@ -64,6 +64,10 @@ class VoiceInfo(BaseModel):
 
 class VoiceListResponse(BaseModel):
     voices: List[VoiceInfo]
+
+
+class CloneVoiceResponse(BaseModel):
+    voice_id: str
 
 
 # --- Helpers ---
@@ -145,6 +149,27 @@ def generate_audio_batch(
             )
 
     return GenerateBatchAudioResponse(results=[BatchAudioResultItem(**r) for r in results])
+
+
+@router.post("/clone", response_model=CloneVoiceResponse)
+async def clone_voice_endpoint(
+    name: str = Form(...),
+    description: str = Form(""),
+    files: List[UploadFile] = File(...),
+):
+    """Clone a voice by uploading audio samples to ElevenLabs."""
+    if not files:
+        raise HTTPException(status_code=400, detail="At least one audio file is required")
+    if len(files) > 25:
+        raise HTTPException(status_code=400, detail="Maximum 25 audio samples allowed")
+
+    audio_files = []  # type: List[tuple]
+    for f in files:
+        content = await f.read()
+        audio_files.append((f.filename or "sample.mp3", content))
+
+    voice_id = clone_voice(name=name, audio_files=audio_files, description=description)
+    return CloneVoiceResponse(voice_id=voice_id)
 
 
 @router.get("/voices", response_model=VoiceListResponse)

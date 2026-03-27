@@ -41,6 +41,33 @@ const api: ApiClient = window.api ?? {
 
 export default api;
 
+/** Clone a voice by uploading audio samples to ElevenLabs via the backend. */
+export async function cloneVoice(
+  name: string,
+  files: File[],
+  description?: string,
+): Promise<{ voice_id: string }> {
+  const formData = new FormData();
+  formData.append("name", name);
+  if (description) formData.append("description", description);
+  for (const file of files) {
+    formData.append("files", file);
+  }
+
+  const baseUrl = window.api ? "" : "http://localhost:8420";
+  const response = await fetch(`${baseUrl}/api/voice/clone`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: "Clone failed" }));
+    throw new Error(err.detail || "Voice cloning failed");
+  }
+
+  return response.json();
+}
+
 /** Prepend the backend origin to a static asset path (e.g. /static/projects/...). */
 export function assetUrl(path: string): string {
   // In Electron, window.api exists and assets are proxied; in dev, hit backend directly

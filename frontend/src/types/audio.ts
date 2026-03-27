@@ -43,3 +43,7 @@ export interface VoiceInfo {
 export interface VoiceListResponse {
   voices: VoiceInfo[];
 }
+
+export interface CloneVoiceResponse {
+  voice_id: string;
+}
