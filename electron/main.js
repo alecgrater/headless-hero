@@ -66,7 +66,6 @@ function createWindow() {
 
   if (isDev) {
     mainWindow.loadURL("http://localhost:5173");
-    mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, "..", "frontend", "dist", "index.html"));
   }
@@ -94,12 +93,25 @@ ipcMain.handle("api-request", async (_event, { method, path, body }) => {
 });
 
 app.whenReady().then(async () => {
-  startBackend();
+  // Check if backend is already running (e.g. from npm run dev:backend)
+  let alreadyRunning = false;
   try {
-    await waitForBackend();
-    console.log("[main] Backend is ready");
-  } catch (e) {
-    console.error("[main] Backend failed to start:", e.message);
+    const res = await fetch(`${BACKEND_URL}/api/health`);
+    if (res.ok) alreadyRunning = true;
+  } catch {
+    // not running yet
+  }
+
+  if (alreadyRunning) {
+    console.log("[main] Backend already running, skipping spawn");
+  } else {
+    startBackend();
+    try {
+      await waitForBackend();
+      console.log("[main] Backend is ready");
+    } catch (e) {
+      console.error("[main] Backend failed to start:", e.message);
+    }
   }
   createWindow();
 });
