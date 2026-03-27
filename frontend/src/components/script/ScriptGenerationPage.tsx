@@ -195,7 +195,7 @@ export default function ScriptGenerationPage({
             Generating script with Claude...
           </p>
           <p className="text-neutral-500 text-sm">
-            This may take 15-30 seconds for a full segmented script.
+            This may take 3-5 minutes for a full segmented script.
           </p>
         </div>
       )}
