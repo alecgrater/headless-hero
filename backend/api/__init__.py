@@ -1,19 +1,28 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from api.brands import router as brands_router
 from api.database import init_db
 from api.ideas import router as ideas_router
 from api.scripts import router as scripts_router
+from api.visuals import router as visuals_router
 from models.brand import BrandProfile as _BrandProfile  # noqa: F401 — register table
 from models.script import Script as _Script  # noqa: F401 — register table
+
+import os
+_data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    # Ensure projects directory exists for static file serving
+    projects_dir = _data_dir / "projects"
+    projects_dir.mkdir(parents=True, exist_ok=True)
     yield
 
 
@@ -30,6 +39,12 @@ app.add_middleware(
 app.include_router(brands_router)
 app.include_router(ideas_router)
 app.include_router(scripts_router)
+app.include_router(visuals_router)
+
+# Serve generated images as static files
+_projects_dir = _data_dir / "projects"
+_projects_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/static/projects", StaticFiles(directory=str(_projects_dir)), name="project-assets")
 
 
 @app.get("/api/health")

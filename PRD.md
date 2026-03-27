@@ -612,13 +612,13 @@ The MVP is complete when a user can perform this end-to-end workflow:
 ### Phase 2: Media Generation (Weeks 4-6)
 **Goal:** Generate all visual and audio assets.
 
-- ✅ Image generation integration with brand style enforcement
-- ✅ Batch image generation across all scenes
-- ✅ ElevenLabs integration for voiceover
-- ✅ Voice cloning setup flow
-- ✅ Per-scene audio generation
-- ✅ Scene preview (image + audio playback)
-- ✅ Ken Burns motion and text overlay configuration
+- ✅ ~~Image generation integration with brand style enforcement~~ **DONE** — fal.ai Flux via fal-client SDK. Brand `art_style` prepended to every scene `visual_prompt`. POST /api/visuals/generate for single scenes. Images stored at `data/projects/{script_id}/images/{scene_id}.png`, served via FastAPI StaticFiles at `/static/projects/...`. Scene model has `image_url` field persisted inside script_json.
+- ✅ ~~Batch image generation across all scenes~~ **DONE** — POST /api/visuals/generate-batch endpoint, sequential loop (no rate-limit issues). "Generate All Images" button in storyboard header. Spinner overlay per scene during generation.
+- ◻️ ElevenLabs integration for voiceover
+- ◻️ Voice cloning setup flow
+- ◻️ Per-scene audio generation
+- ◻️ Scene preview (image + audio playback)
+- ◻️ Ken Burns motion and text overlay configuration
 
 **Validation:** Can generate images and audio for all scenes and preview individual scenes.
 

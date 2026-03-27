@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { assetUrl } from "../../api";
 import type { Scene } from "../../types/script";
 
 interface Props {
@@ -9,6 +10,8 @@ interface Props {
   onUpdate: (updates: Partial<Scene>) => void;
   onSplit: () => void;
   onMerge: () => void;
+  onGenerateImage?: () => void;
+  isGenerating?: boolean;
 }
 
 export default function PropertiesPanel({
@@ -19,6 +22,8 @@ export default function PropertiesPanel({
   onUpdate,
   onSplit,
   onMerge,
+  onGenerateImage,
+  isGenerating = false,
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
@@ -89,6 +94,48 @@ export default function PropertiesPanel({
           rows={3}
         />
       </label>
+
+      {/* Image Preview / Generate */}
+      {scene.image_url ? (
+        <div className="space-y-2">
+          <img
+            src={assetUrl(scene.image_url)}
+            alt="Scene visual"
+            className="w-full h-[200px] object-cover rounded-lg border border-neutral-700"
+          />
+          {onGenerateImage && (
+            <button
+              onClick={onGenerateImage}
+              disabled={isGenerating}
+              className="w-full text-sm px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors text-neutral-300 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isGenerating ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                "Regenerate Image"
+              )}
+            </button>
+          )}
+        </div>
+      ) : onGenerateImage ? (
+        <button
+          onClick={onGenerateImage}
+          disabled={isGenerating}
+          className="w-full text-sm px-3 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          {isGenerating ? (
+            <>
+              <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+              Generating...
+            </>
+          ) : (
+            "Generate Image"
+          )}
+        </button>
+      ) : null}
 
       {/* Text Overlay */}
       <label className="block space-y-1">

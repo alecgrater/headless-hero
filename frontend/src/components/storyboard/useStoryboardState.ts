@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api";
 import type { Scene, ScriptContent } from "../../types/script";
+import type { GenerateBatchResponse, GenerateVisualResponse } from "../../types/visual";
 
 interface StoryboardState {
   content: ScriptContent;
@@ -32,6 +33,12 @@ interface StoryboardState {
   // Undo
   undo: () => void;
   canUndo: boolean;
+
+  // Image generation
+  generatingSceneIds: Set<string>;
+  batchGenerating: boolean;
+  generateImage: (sceneId: string, brandStyle: string) => Promise<void>;
+  generateAllImages: (brandStyle: string) => Promise<void>;
 }
 
 function findScene(
@@ -77,6 +84,8 @@ export function useStoryboardState(
   );
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<ScriptContent[]>([]);
+  const [generatingSceneIds, setGeneratingSceneIds] = useState<Set<string>>(new Set());
+  const [batchGenerating, setBatchGenerating] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
@@ -321,6 +330,97 @@ export function useStoryboardState(
     });
   }, []);
 
+  const generateImage = useCallback(
+    async (sceneId: string, brandStyle: string) => {
+      // Find the scene to get its visual_prompt
+      const scene = (() => {
+        for (const seg of contentRef.current.segments) {
+          const found = seg.scenes.find((s) => s.id === sceneId);
+          if (found) return found;
+        }
+        return null;
+      })();
+      if (!scene || !scene.visual_prompt) return;
+
+      setGeneratingSceneIds((prev) => new Set(prev).add(sceneId));
+      try {
+        const res = await api.post("/api/visuals/generate", {
+          script_id: scriptId,
+          scene_id: sceneId,
+          visual_prompt: scene.visual_prompt,
+          brand_style: brandStyle,
+        });
+        if (res.ok) {
+          const data = res.data as GenerateVisualResponse;
+          // Update scene without pushing to undo stack (server already persisted)
+          setContent((prev) => ({
+            ...prev,
+            segments: prev.segments.map((seg) => ({
+              ...seg,
+              scenes: seg.scenes.map((sc) =>
+                sc.id === sceneId ? { ...sc, image_url: data.image_url } : sc,
+              ),
+            })),
+          }));
+        }
+      } finally {
+        setGeneratingSceneIds((prev) => {
+          const next = new Set(prev);
+          next.delete(sceneId);
+          return next;
+        });
+      }
+    },
+    [scriptId],
+  );
+
+  const generateAllImages = useCallback(
+    async (brandStyle: string) => {
+      const scenes: { scene_id: string; visual_prompt: string }[] = [];
+      for (const seg of contentRef.current.segments) {
+        for (const sc of seg.scenes) {
+          if (sc.visual_prompt) {
+            scenes.push({ scene_id: sc.id, visual_prompt: sc.visual_prompt });
+          }
+        }
+      }
+      if (scenes.length === 0) return;
+
+      setBatchGenerating(true);
+      const allIds = new Set(scenes.map((s) => s.scene_id));
+      setGeneratingSceneIds(allIds);
+
+      try {
+        const res = await api.post("/api/visuals/generate-batch", {
+          script_id: scriptId,
+          scenes,
+          brand_style: brandStyle,
+        });
+        if (res.ok) {
+          const data = res.data as GenerateBatchResponse;
+          const urlMap = new Map<string, string>();
+          for (const r of data.results) {
+            if (r.image_url) urlMap.set(r.scene_id, r.image_url);
+          }
+          setContent((prev) => ({
+            ...prev,
+            segments: prev.segments.map((seg) => ({
+              ...seg,
+              scenes: seg.scenes.map((sc) => {
+                const url = urlMap.get(sc.id);
+                return url ? { ...sc, image_url: url } : sc;
+              }),
+            })),
+          }));
+        }
+      } finally {
+        setGeneratingSceneIds(new Set());
+        setBatchGenerating(false);
+      }
+    },
+    [scriptId],
+  );
+
   return {
     content,
     isDirty,
@@ -336,5 +436,9 @@ export function useStoryboardState(
     save,
     undo,
     canUndo: undoStack.length > 0,
+    generatingSceneIds,
+    batchGenerating,
+    generateImage,
+    generateAllImages,
   };
 }

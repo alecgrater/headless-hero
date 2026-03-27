@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.8.10"
 dependencies = [
     "anthropic>=0.52.0",
+    "fal-client>=0.5.0",
     "fastapi>=0.124.4",
     "pydantic>=2.10.6",
     "sqlmodel>=0.0.29",

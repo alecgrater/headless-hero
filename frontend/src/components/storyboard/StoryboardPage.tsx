@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import api from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
+import type { BrandProfile } from "../../types/brand";
 import PropertiesPanel from "./PropertiesPanel";
 import SceneGrid from "./SceneGrid";
 import SegmentList from "./SegmentList";
@@ -68,23 +69,35 @@ export default function StoryboardPage({ scriptId, onBack }: Props) {
     );
   }
 
-  return <StoryboardEditor scriptId={scriptId} initialContent={script.script} title={script.topic_title} onBack={onBack} />;
+  return <StoryboardEditor scriptId={scriptId} brandId={script.brand_id} initialContent={script.script} title={script.topic_title} onBack={onBack} />;
 }
 
 function StoryboardEditor({
   scriptId,
+  brandId,
   initialContent,
   title,
   onBack,
 }: {
   scriptId: string;
+  brandId: string;
   initialContent: ScriptContent;
   title: string;
   onBack: () => void;
 }) {
   const state = useStoryboardState(scriptId, initialContent);
   const [activeSegmentIdx, setActiveSegmentIdx] = useState<number | null>(null);
+  const [brand, setBrand] = useState<BrandProfile | null>(null);
   const segmentRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  // Fetch brand profile for art_style
+  useEffect(() => {
+    api.get(`/api/brands/${brandId}`).then((res) => {
+      if (res.ok) setBrand(res.data as BrandProfile);
+    });
+  }, [brandId]);
+
+  const artStyle = brand?.art_style ?? "";
 
   // Find which segment the selected scene is in
   const selectedScene = state.selectedSceneId
@@ -143,6 +156,20 @@ function StoryboardEditor({
         <span className="text-xs text-neutral-500">Storyboard Editor</span>
 
         <div className="ml-auto flex items-center gap-3">
+          <button
+            onClick={() => state.generateAllImages(artStyle)}
+            disabled={state.batchGenerating}
+            className="text-sm px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            {state.batchGenerating ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                Generating...
+              </>
+            ) : (
+              "Generate All Images"
+            )}
+          </button>
           {state.canUndo && (
             <button
               onClick={state.undo}
@@ -180,6 +207,8 @@ function StoryboardEditor({
             state.updateScene(id, { narration: narr })
           }
           onMoveScene={state.moveScene}
+          onGenerateImage={(sceneId) => state.generateImage(sceneId, artStyle)}
+          generatingSceneIds={state.generatingSceneIds}
         />
 
         {selectedScene ? (
@@ -193,6 +222,10 @@ function StoryboardEditor({
             }
             onSplit={() => state.splitScene(selectedScene.scene.id)}
             onMerge={() => state.mergeWithNext(selectedScene.scene.id)}
+            onGenerateImage={() =>
+              state.generateImage(selectedScene.scene.id, artStyle)
+            }
+            isGenerating={state.generatingSceneIds.has(selectedScene.scene.id)}
           />
         ) : (
           <aside className="w-[320px] shrink-0 border-l border-neutral-800 p-4 flex items-center justify-center">

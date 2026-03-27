@@ -5,6 +5,7 @@ export interface Scene {
   text_overlay: string;
   duration_estimate_seconds: number;
   is_title_card: boolean;
+  image_url?: string;
 }
 
 export interface Segment {

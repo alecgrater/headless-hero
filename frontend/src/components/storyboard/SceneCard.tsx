@@ -1,6 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
+import { assetUrl } from "../../api";
 import type { Scene } from "../../types/script";
 
 const SEGMENT_COLORS_BORDER = [
@@ -20,6 +21,8 @@ interface Props {
   isSelected: boolean;
   onClick: () => void;
   onNarrationChange: (narration: string) => void;
+  onGenerateImage?: () => void;
+  isGenerating?: boolean;
 }
 
 export default function SceneCard({
@@ -28,6 +31,8 @@ export default function SceneCard({
   isSelected,
   onClick,
   onNarrationChange,
+  onGenerateImage,
+  isGenerating = false,
 }: Props) {
   const {
     attributes,
@@ -104,9 +109,37 @@ export default function SceneCard({
         </span>
       </div>
 
-      {/* Thumbnail placeholder */}
-      <div className="bg-neutral-800 rounded h-20 mb-2 flex items-center justify-center text-neutral-600 text-xs">
-        Visual Preview
+      {/* Thumbnail / Image */}
+      <div className="relative bg-neutral-800 rounded h-20 mb-2 overflow-hidden">
+        {scene.image_url ? (
+          <img
+            src={assetUrl(scene.image_url)}
+            alt="Scene visual"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            {onGenerateImage ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onGenerateImage();
+                }}
+                disabled={isGenerating}
+                className="text-[10px] px-2 py-1 bg-neutral-700 hover:bg-neutral-600 rounded text-neutral-400 transition-colors disabled:opacity-40"
+              >
+                Generate
+              </button>
+            ) : (
+              <span className="text-neutral-600 text-xs">Visual Preview</span>
+            )}
+          </div>
+        )}
+        {isGenerating && (
+          <div className="absolute inset-0 bg-neutral-900/70 flex items-center justify-center">
+            <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
       </div>
 
       {/* Narration */}

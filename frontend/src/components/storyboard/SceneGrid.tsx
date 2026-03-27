@@ -26,6 +26,8 @@ interface Props {
     toSegIdx: number,
     newIndex: number,
   ) => void;
+  onGenerateImage?: (sceneId: string) => void;
+  generatingSceneIds?: Set<string>;
 }
 
 export default function SceneGrid({
@@ -35,6 +37,8 @@ export default function SceneGrid({
   onSelectScene,
   onNarrationChange,
   onMoveScene,
+  onGenerateImage,
+  generatingSceneIds,
 }: Props) {
   const [activeScene, setActiveScene] = useState<{
     scene: Scene;
@@ -140,6 +144,12 @@ export default function SceneGrid({
                       onNarrationChange={(narr) =>
                         onNarrationChange(scene.id, narr)
                       }
+                      onGenerateImage={
+                        onGenerateImage
+                          ? () => onGenerateImage(scene.id)
+                          : undefined
+                      }
+                      isGenerating={generatingSceneIds?.has(scene.id)}
                     />
                   ))}
                   {/* Empty segment drop zone */}
