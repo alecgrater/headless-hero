@@ -4,9 +4,11 @@ import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
 import type { BrandProfile } from "../../types/brand";
 import type { VoiceInfo, VoiceListResponse } from "../../types/audio";
+import ExportPanel from "./ExportPanel";
 import PropertiesPanel from "./PropertiesPanel";
 import SceneGrid from "./SceneGrid";
 import SegmentList from "./SegmentList";
+import { useRenderState } from "./useRenderState";
 import { useStoryboardState } from "./useStoryboardState";
 
 interface Props {
@@ -87,7 +89,9 @@ function StoryboardEditor({
   onBack: () => void;
 }) {
   const state = useStoryboardState(scriptId, initialContent);
+  const render = useRenderState(scriptId);
   const [activeSegmentIdx, setActiveSegmentIdx] = useState<number | null>(null);
+  const [showExport, setShowExport] = useState(false);
   const [brand, setBrand] = useState<BrandProfile | null>(null);
   const [voices, setVoices] = useState<VoiceInfo[]>([]);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>("");
@@ -220,6 +224,12 @@ function StoryboardEditor({
               )}
             </button>
           </div>
+          <button
+            onClick={() => setShowExport(true)}
+            className="text-sm px-4 py-1.5 bg-orange-600 hover:bg-orange-500 rounded-lg font-medium transition-colors"
+          >
+            Export
+          </button>
           {state.canUndo && (
             <button
               onClick={state.undo}
@@ -282,6 +292,11 @@ function StoryboardEditor({
               state.generateAudio(selectedScene.scene.id, selectedVoiceId)
             }
             isGeneratingAudio={state.generatingAudioSceneIds.has(selectedScene.scene.id)}
+            onPreviewScene={() =>
+              render.previewScene(selectedScene.scene.id)
+            }
+            isPreviewingScene={render.previewingSceneId === selectedScene.scene.id}
+            previewVideoUrl={render.previewVideoUrl}
           />
         ) : (
           <aside className="w-[320px] shrink-0 border-l border-neutral-800 p-4 flex items-center justify-center">
@@ -291,6 +306,27 @@ function StoryboardEditor({
           </aside>
         )}
       </div>
+
+      {showExport && (
+        <ExportPanel
+          youtubeStatus={render.youtubeStatus}
+          youtubeUrl={render.youtubeUrl}
+          onStartYoutubeRender={render.startYoutubeRender}
+          tiktokStatus={render.tiktokStatus}
+          tiktokUrls={render.tiktokUrls}
+          onStartTiktokRender={render.startTiktokRender}
+          audioUrl={render.audioUrl}
+          audioExporting={render.audioExporting}
+          onExportAudio={render.exportAudio}
+          thumbnails={render.thumbnails}
+          thumbnailsGenerating={render.thumbnailsGenerating}
+          onGenerateThumbnails={() => render.generateThumbnails(artStyle)}
+          seoMetadata={render.seoMetadata}
+          seoGenerating={render.seoGenerating}
+          onGenerateSEO={render.generateSEO}
+          onClose={() => setShowExport(false)}
+        />
+      )}
     </div>
   );
 }

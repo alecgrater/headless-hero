@@ -47,6 +47,9 @@ interface Props {
   isGenerating?: boolean;
   onGenerateAudio?: () => void;
   isGeneratingAudio?: boolean;
+  onPreviewScene?: () => void;
+  isPreviewingScene?: boolean;
+  previewVideoUrl?: string | null;
 }
 
 export default function PropertiesPanel({
@@ -61,6 +64,9 @@ export default function PropertiesPanel({
   isGenerating = false,
   onGenerateAudio,
   isGeneratingAudio = false,
+  onPreviewScene,
+  isPreviewingScene = false,
+  previewVideoUrl,
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
@@ -252,6 +258,39 @@ export default function PropertiesPanel({
           )}
         </button>
       ) : null}
+
+      {/* Scene Video Preview */}
+      {scene.image_url && scene.audio_url && (
+        <div className="space-y-2">
+          <div className="text-xs font-medium text-neutral-400">Video Preview</div>
+          {previewVideoUrl && (
+            <video
+              key={previewVideoUrl}
+              src={assetUrl(previewVideoUrl)}
+              controls
+              className="w-full rounded-lg border border-neutral-700"
+            />
+          )}
+          {onPreviewScene && (
+            <button
+              onClick={onPreviewScene}
+              disabled={isPreviewingScene}
+              className="w-full text-sm px-3 py-2 bg-orange-600 hover:bg-orange-500 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isPreviewingScene ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                  Rendering...
+                </>
+              ) : previewVideoUrl ? (
+                "Re-render Preview"
+              ) : (
+                "Preview Scene"
+              )}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Text Overlay */}
       <label className="block space-y-1">

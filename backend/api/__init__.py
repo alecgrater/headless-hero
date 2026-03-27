@@ -8,7 +8,10 @@ from fastapi.staticfiles import StaticFiles
 from api.brands import router as brands_router
 from api.database import init_db
 from api.ideas import router as ideas_router
+from api.render import router as render_router
 from api.scripts import router as scripts_router
+from api.seo import router as seo_router
+from api.thumbnail import router as thumbnail_router
 from api.visuals import router as visuals_router
 from api.voiceover import router as voiceover_router
 from models.brand import BrandProfile as _BrandProfile  # noqa: F401 — register table
@@ -42,6 +45,9 @@ app.include_router(ideas_router)
 app.include_router(scripts_router)
 app.include_router(visuals_router)
 app.include_router(voiceover_router)
+app.include_router(render_router)
+app.include_router(thumbnail_router)
+app.include_router(seo_router)
 
 # Serve generated images as static files
 _projects_dir = _data_dir / "projects"
