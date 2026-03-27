@@ -38,7 +38,17 @@ interface Props {
   ) => void;
   publishHistory: PublishRecord[];
 
+  // Render estimate
+  estimatedSeconds: number | null;
+
   onClose: () => void;
+}
+
+function formatEstimate(seconds: number): string {
+  if (seconds < 60) return `~${Math.round(seconds)} sec`;
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.round(seconds % 60);
+  return secs > 0 ? `~${mins} min ${secs} sec` : `~${mins} min`;
 }
 
 function ProgressBar({ progress, label }: { progress: number; label: string }) {
@@ -112,6 +122,7 @@ export default function ExportPanel({
   publishStatus,
   onStartPublish,
   publishHistory,
+  estimatedSeconds,
   onClose,
 }: Props) {
   const youtubeRendering = youtubeStatus?.status === "running" || youtubeStatus?.status === "pending";
@@ -163,12 +174,19 @@ export default function ExportPanel({
               </div>
             ) : null}
             {!youtubeRendering && (
-              <button
-                onClick={() => onStartYoutubeRender()}
-                className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
-              >
-                {youtubeUrl ? "Re-render" : "Render YouTube Video"}
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => onStartYoutubeRender()}
+                  className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
+                >
+                  {youtubeUrl ? "Re-render" : "Render YouTube Video"}
+                </button>
+                {estimatedSeconds != null && !youtubeUrl && (
+                  <span className="text-xs text-neutral-500">
+                    Estimated render time: {formatEstimate(estimatedSeconds)}
+                  </span>
+                )}
+              </div>
             )}
           </section>
 

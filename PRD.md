@@ -649,6 +649,12 @@ The MVP is complete when a user can perform this end-to-end workflow:
 
 **Validation:** Can go from topic idea to published content on YouTube + TikTok in one session without leaving the app.
 
+### Phase 5: UX Improvements (Post-MVP)
+**Goal:** Better error handling and render workflow feedback.
+
+- ✅ ~~React ErrorBoundary + global API error handler~~ **DONE** — `ErrorBoundary` class component wraps the entire app in `main.tsx`, catches render errors and shows recovery UI (error message + "Try Again" button that resets state). `ToastContainer` component provides global toast notifications (error/success/info) with auto-dismiss after 6s, slide-in animation, and dismiss button. `api.ts` refactored with `withErrorInterceptor` wrapper that catches non-ok responses and network errors, extracts human-readable messages from `detail`/`message` fields, and fires toast notifications. Health check and render status polling paths are silenced to avoid noisy toasts. New files: `frontend/src/components/ErrorBoundary.tsx`, `frontend/src/components/ToastContainer.tsx`.
+- ✅ ~~Estimated render time display~~ **DONE** — Backend: `RenderJob` now tracks `scene_count`, `total_audio_duration`, `duration_seconds`, and `_start_time`. Completed jobs record duration and append to in-memory `_completed_history` list. New `estimate_render_time()` function computes average seconds-per-scene from history (default 5s/scene if no history). New `GET /api/render/estimate?scene_count=N&total_audio_duration=D` endpoint returns estimated seconds. `create_job()` accepts `scene_count` and `total_audio_duration` kwargs. Frontend: `useRenderState` hook exposes `estimatedSeconds` state and `fetchEstimate()` callback. `StoryboardPage` fetches estimate when export panel opens. `ExportPanel` displays estimate next to YouTube render button (shown only before first render).
+
 ## 13. Future Considerations
 
 ### Post-MVP Enhancements

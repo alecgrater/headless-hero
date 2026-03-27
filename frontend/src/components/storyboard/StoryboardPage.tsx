@@ -94,6 +94,21 @@ function StoryboardEditor({
   const publish = usePublishState(scriptId, brandId);
   const [activeSegmentIdx, setActiveSegmentIdx] = useState<number | null>(null);
   const [showExport, setShowExport] = useState(false);
+
+  // Fetch render estimate when export panel opens
+  useEffect(() => {
+    if (!showExport) return;
+    const scenes = state.content.segments.flatMap((seg) => seg.scenes);
+    const sceneCount = scenes.length;
+    const totalAudioDuration = scenes.reduce(
+      (sum, sc) => sum + (sc.audio_duration_seconds ?? 0),
+      0,
+    );
+    if (sceneCount > 0) {
+      render.fetchEstimate(sceneCount, totalAudioDuration);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showExport]);
   const [brand, setBrand] = useState<BrandProfile | null>(null);
   const [voices, setVoices] = useState<VoiceInfo[]>([]);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>("");
@@ -333,6 +348,7 @@ function StoryboardEditor({
           publishStatus={publish.publishStatus}
           onStartPublish={publish.startPublish}
           publishHistory={publish.publishHistory}
+          estimatedSeconds={render.estimatedSeconds}
           onClose={() => setShowExport(false)}
         />
       )}

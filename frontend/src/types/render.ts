@@ -99,3 +99,9 @@ export interface SEOMetadata {
 export interface GenerateSEOResponse {
   metadata: SEOMetadata;
 }
+
+// --- Render Estimate ---
+
+export interface RenderEstimateResponse {
+  estimated_seconds: number;
+}

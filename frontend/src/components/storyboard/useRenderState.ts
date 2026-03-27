@@ -4,6 +4,7 @@ import type {
   ExportAudioResponse,
   GenerateSEOResponse,
   GenerateThumbnailResponse,
+  RenderEstimateResponse,
   RenderJobResponse,
   RenderStatusResponse,
   SEOMetadata,
@@ -42,6 +43,10 @@ interface RenderState {
   previewingSceneId: string | null;
   previewVideoUrl: string | null;
   previewScene: (sceneId: string) => Promise<void>;
+
+  // Render estimate
+  estimatedSeconds: number | null;
+  fetchEstimate: (sceneCount: number, totalAudioDuration: number) => Promise<void>;
 }
 
 export function useRenderState(scriptId: string): RenderState {
@@ -64,6 +69,8 @@ export function useRenderState(scriptId: string): RenderState {
 
   const [previewingSceneId, setPreviewingSceneId] = useState<string | null>(null);
   const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null);
+
+  const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -207,6 +214,23 @@ export function useRenderState(scriptId: string): RenderState {
     [scriptId],
   );
 
+  const fetchEstimate = useCallback(
+    async (sceneCount: number, totalAudioDuration: number) => {
+      try {
+        const res = await api.get(
+          `/api/render/estimate?scene_count=${sceneCount}&total_audio_duration=${totalAudioDuration}`,
+        );
+        if (res.ok) {
+          const data = res.data as RenderEstimateResponse;
+          setEstimatedSeconds(data.estimated_seconds);
+        }
+      } catch {
+        // ignore — estimate is optional
+      }
+    },
+    [],
+  );
+
   return {
     youtubeJobId,
     youtubeStatus,
@@ -228,5 +252,7 @@ export function useRenderState(scriptId: string): RenderState {
     previewingSceneId,
     previewVideoUrl,
     previewScene,
+    estimatedSeconds,
+    fetchEstimate,
   };
 }

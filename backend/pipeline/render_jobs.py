@@ -5,6 +5,7 @@ Jobs run in daemon threads and are polled via job_id.
 """
 
 import threading
+import time
 import traceback
 import uuid
 from typing import Any, Callable
@@ -12,7 +13,8 @@ from typing import Any, Callable
 class RenderJob:
     """Tracks the state of a background render task."""
 
-    __slots__ = ("id", "status", "progress", "current_step", "output_urls", "error")
+    __slots__ = ("id", "status", "progress", "current_step", "output_urls", "error",
+                 "scene_count", "total_audio_duration", "duration_seconds", "_start_time")
 
     def __init__(self, job_id: str) -> None:
         self.id = job_id
@@ -21,6 +23,10 @@ class RenderJob:
         self.current_step = ""
         self.output_urls: list[str] = []
         self.error: str | None = None
+        self.scene_count: int = 0
+        self.total_audio_duration: float = 0.0
+        self.duration_seconds: float | None = None
+        self._start_time: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -35,9 +41,15 @@ class RenderJob:
 _jobs: dict[str, RenderJob] = {}
 _lock = threading.Lock()
 
-def create_job() -> RenderJob:
+# History of completed render durations for estimation
+_completed_history: list[dict[str, float]] = []  # [{scene_count, duration_seconds}]
+_DEFAULT_SECONDS_PER_SCENE = 5.0
+
+def create_job(*, scene_count: int = 0, total_audio_duration: float = 0.0) -> RenderJob:
     """Create a new pending render job and return it."""
     job = RenderJob(uuid.uuid4().hex[:12])
+    job.scene_count = scene_count
+    job.total_audio_duration = total_audio_duration
     with _lock:
         _jobs[job.id] = job
     return job
@@ -79,6 +91,10 @@ def run_in_background(
     """Run *target* in a daemon thread, updating the job on completion/failure."""
 
     def _wrapper() -> None:
+        with _lock:
+            job = _jobs.get(job_id)
+            if job:
+                job._start_time = time.monotonic()
         update_job(job_id, status="running")
         try:
             result = target()
@@ -90,8 +106,39 @@ def run_in_background(
             else:
                 urls = []
             update_job(job_id, status="completed", progress=1.0, current_step="Complete", output_urls=urls)
+            # Record duration for estimation
+            with _lock:
+                job = _jobs.get(job_id)
+                if job and job._start_time is not None:
+                    job.duration_seconds = time.monotonic() - job._start_time
+                    if job.scene_count > 0:
+                        _completed_history.append({
+                            "scene_count": job.scene_count,
+                            "duration_seconds": job.duration_seconds,
+                        })
         except Exception:
             update_job(job_id, status="failed", error=traceback.format_exc()[-1000:])
 
     t = threading.Thread(target=_wrapper, daemon=True)
     t.start()
+
+def estimate_render_time(scene_count: int, total_audio_duration: float = 0.0) -> float:
+    """Estimate render duration in seconds based on historical data.
+
+    Returns estimated seconds. Uses average seconds-per-scene from completed jobs,
+    falling back to a default if no history exists.
+    """
+    with _lock:
+        history = list(_completed_history)
+
+    if history:
+        total_scenes = sum(h["scene_count"] for h in history)
+        total_duration = sum(h["duration_seconds"] for h in history)
+        if total_scenes > 0:
+            secs_per_scene = total_duration / total_scenes
+        else:
+            secs_per_scene = _DEFAULT_SECONDS_PER_SCENE
+    else:
+        secs_per_scene = _DEFAULT_SECONDS_PER_SCENE
+
+    return round(secs_per_scene * scene_count, 1)

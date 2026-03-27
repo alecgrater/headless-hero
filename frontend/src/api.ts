@@ -1,3 +1,5 @@
+import { showToast } from "./components/ToastContainer";
+
 export interface ApiResponse<T = unknown> {
   ok: boolean;
   status: number;
@@ -19,9 +21,51 @@ declare global {
   }
 }
 
+/** Extract a human-readable error message from a non-ok API response. */
+function extractErrorMessage(status: number, data: unknown): string {
+  if (data && typeof data === "object") {
+    const d = data as Record<string, unknown>;
+    if (typeof d.detail === "string") return d.detail;
+    if (typeof d.message === "string") return d.message;
+  }
+  if (status === 404) return "Resource not found";
+  if (status === 422) return "Invalid request data";
+  if (status >= 500) return "Server error — please try again";
+  return `Request failed (${status})`;
+}
+
+/** Paths that should not trigger toast notifications on error. */
+const SILENT_PATHS = ["/api/health", "/api/render/status/"];
+
+function shouldSilence(path: string): boolean {
+  return SILENT_PATHS.some((p) => path.startsWith(p));
+}
+
+/** Wrap a request method to intercept non-ok responses and show toasts. */
+function withErrorInterceptor(
+  requestFn: (method: string, path: string, body?: unknown) => Promise<ApiResponse>,
+): (method: string, path: string, body?: unknown) => Promise<ApiResponse> {
+  return async (method, path, body) => {
+    try {
+      const res = await requestFn(method, path, body);
+      if (!res.ok && !shouldSilence(path)) {
+        showToast(extractErrorMessage(res.status, res.data));
+      }
+      return res;
+    } catch (err) {
+      if (!shouldSilence(path)) {
+        showToast(
+          err instanceof Error ? err.message : "Network error — is the backend running?",
+        );
+      }
+      return { ok: false, status: 0, data: null as unknown };
+    }
+  };
+}
+
 // In Electron, window.api is injected by preload.js
 // For dev without Electron, fall back to direct fetch
-const api: ApiClient = window.api ?? {
+const rawApi: ApiClient = window.api ?? {
   request: async (method: string, path: string, body?: unknown) => {
     const options: RequestInit = {
       method,
@@ -34,10 +78,21 @@ const api: ApiClient = window.api ?? {
     const data = await response.json();
     return { ok: response.ok, status: response.status, data };
   },
-  get: (path: string) => api.request("GET", path),
-  post: (path: string, body?: unknown) => api.request("POST", path, body),
-  put: (path: string, body?: unknown) => api.request("PUT", path, body),
-  delete: (path: string) => api.request("DELETE", path),
+  get: (path: string) => rawApi.request("GET", path),
+  post: (path: string, body?: unknown) => rawApi.request("POST", path, body),
+  put: (path: string, body?: unknown) => rawApi.request("PUT", path, body),
+  delete: (path: string) => rawApi.request("DELETE", path),
+};
+
+const interceptedRequest = withErrorInterceptor(rawApi.request.bind(rawApi));
+
+const api: ApiClient = {
+  request: interceptedRequest,
+  get: (path: string) => interceptedRequest("GET", path),
+  post: (path: string, body?: unknown) => interceptedRequest("POST", path, body),
+  put: (path: string, body?: unknown) => interceptedRequest("PUT", path, body),
+  delete: (path: string) => interceptedRequest("DELETE", path),
+  openExternal: rawApi.openExternal,
 };
 
 export default api;

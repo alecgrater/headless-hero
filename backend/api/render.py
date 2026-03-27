@@ -2,13 +2,13 @@
 
 import json
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlmodel import Session
 
 from api.database import get_session
 from models.script import Script, ScriptContent
-from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
+from pipeline.render_jobs import create_job, estimate_render_time, get_job, run_in_background, update_job
 from pipeline.video_render import (
     export_full_audio,
     render_all_segments,
@@ -57,6 +57,9 @@ class ExportAudioRequest(BaseModel):
 class ExportAudioResponse(BaseModel):
     audio_url: str
 
+class RenderEstimateResponse(BaseModel):
+    estimated_seconds: float
+
 # --- Helpers ---
 
 def _load_content(session: Session, script_id: str) -> ScriptContent:
@@ -73,6 +76,19 @@ def _find_scene(content: ScriptContent, scene_id: str):
             if sc.id == scene_id:
                 return sc
     return None
+
+def _count_scenes(content: ScriptContent) -> int:
+    """Count total scenes across all segments."""
+    return sum(len(seg.scenes) for seg in content.segments)
+
+def _total_audio_duration(content: ScriptContent) -> float:
+    """Sum audio durations across all scenes."""
+    total = 0.0
+    for seg in content.segments:
+        for sc in seg.scenes:
+            if sc.audio_duration_seconds:
+                total += sc.audio_duration_seconds
+    return total
 
 # --- Endpoints ---
 
@@ -91,7 +107,9 @@ def preview_scene(body: PreviewSceneRequest, session: Session = Depends(get_sess
 def start_full_render(body: RenderFullRequest, session: Session = Depends(get_session)):
     """Start a full YouTube video render in the background."""
     content = _load_content(session, body.script_id)
-    job = create_job()
+    scene_count = _count_scenes(content)
+    audio_dur = _total_audio_duration(content)
+    job = create_job(scene_count=scene_count, total_audio_duration=audio_dur)
 
     def do_render():
         def on_progress(p: float, msg: str):
@@ -113,7 +131,9 @@ def start_full_render(body: RenderFullRequest, session: Session = Depends(get_se
 def start_segments_render(body: RenderSegmentsRequest, session: Session = Depends(get_session)):
     """Start TikTok 9:16 segment renders in the background."""
     content = _load_content(session, body.script_id)
-    job = create_job()
+    scene_count = _count_scenes(content)
+    audio_dur = _total_audio_duration(content)
+    job = create_job(scene_count=scene_count, total_audio_duration=audio_dur)
 
     def do_render():
         def on_progress(p: float, msg: str):
@@ -138,6 +158,15 @@ def render_status(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
     d = job.to_dict()
     return RenderStatusResponse(**d)
+
+@router.get("/estimate", response_model=RenderEstimateResponse)
+def render_estimate(
+    scene_count: int = Query(..., ge=1),
+    total_audio_duration: float = Query(0.0, ge=0),
+):
+    """Estimate render time based on scene count and historical averages."""
+    estimated = estimate_render_time(scene_count, total_audio_duration)
+    return RenderEstimateResponse(estimated_seconds=estimated)
 
 @router.post("/export-audio", response_model=ExportAudioResponse)
 def export_audio(body: ExportAudioRequest, session: Session = Depends(get_session)):
