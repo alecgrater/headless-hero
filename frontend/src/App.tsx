@@ -126,32 +126,26 @@ function App() {
       </header>
 
       {/* Main content area */}
-      <main className={`flex-1 w-full ${view === "storyboard" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
+      <main className={`flex-1 w-full ${view === "storyboard" || view === "brand-create" || view === "brand-edit" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
         {view === "brand-create" && (
-          <div>
-            <h2 className="text-2xl font-bold mb-6">Create Brand Profile</h2>
-            <BrandForm
-              onSave={handleCreate}
-              onCancel={() => setView("home")}
-              saving={saving}
-            />
-          </div>
+          <BrandForm
+            onSave={handleCreate}
+            onCancel={() => setView("home")}
+            saving={saving}
+          />
         )}
 
         {view === "brand-edit" && editingBrand && (
-          <div>
-            <h2 className="text-2xl font-bold mb-6">Edit Brand Profile</h2>
-            <BrandForm
-              onSave={handleUpdate}
-              onCancel={() => {
-                setEditingBrand(null);
-                setView("home");
-              }}
-              initial={editingBrand}
-              saving={saving}
-              brandId={editingBrand.id}
-            />
-          </div>
+          <BrandForm
+            onSave={handleUpdate}
+            onCancel={() => {
+              setEditingBrand(null);
+              setView("home");
+            }}
+            initial={editingBrand}
+            saving={saving}
+            brandId={editingBrand.id}
+          />
         )}
 
         {view === "ideation" && selectedBrand && (
