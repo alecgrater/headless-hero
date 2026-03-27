@@ -4,14 +4,17 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlmodel import Session
 
 from api.brands import router as brands_router
 from api.database import init_db
+from api.database import engine as _db_engine
 from api.ideas import router as ideas_router
 from api.publish import router as publish_router
 from api.render import router as render_router
 from api.scripts import router as scripts_router
 from api.seo import router as seo_router
+from api.settings import router as settings_router
 from api.thumbnail import router as thumbnail_router
 from api.visuals import router as visuals_router
 from api.voiceover import router as voiceover_router
@@ -19,6 +22,7 @@ from models.brand import BrandProfile as _BrandProfile  # noqa: F401 — registe
 from models.credential import PlatformCredential as _PlatformCredential  # noqa: F401 — register table
 from models.publish import PublishRecord as _PublishRecord  # noqa: F401 — register table
 from models.script import Script as _Script  # noqa: F401 — register table
+from models.settings import AppSetting as _AppSetting  # noqa: F401 — register table
 
 import os
 _data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
@@ -26,6 +30,10 @@ _data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    # Load saved API keys into environment
+    from api.settings import load_keys_into_env
+    with Session(_db_engine) as session:
+        load_keys_into_env(session)
     # Ensure projects directory exists for static file serving
     projects_dir = _data_dir / "projects"
     projects_dir.mkdir(parents=True, exist_ok=True)
@@ -50,6 +58,7 @@ app.include_router(render_router)
 app.include_router(publish_router)
 app.include_router(thumbnail_router)
 app.include_router(seo_router)
+app.include_router(settings_router)
 
 # Serve generated images as static files
 _projects_dir = _data_dir / "projects"
