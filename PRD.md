@@ -595,8 +595,8 @@ The MVP is complete when a user can perform this end-to-end workflow:
 
 - ✅ ~~Electron + React + Python project scaffolding~~ **DONE** — Electron 41 + React 19 + Vite + Tailwind 4 + FastAPI + uv. `npm run dev` starts all three layers. Backend health check verified. FFmpeg 8.1 available.
 - ✅ ~~Brand profile creation and storage~~ **DONE** — SQLModel/SQLite persistence, FastAPI CRUD endpoints (POST/GET/PUT/DELETE /api/brands), React UI with create form + brand list/selection + edit + delete. Pydantic models: BrandProfileCreate, BrandProfileUpdate, BrandProfileRead.
-- ✅ Claude integration for idea generation
-- ✅ Claude integration for script generation with auto-segmentation
+- ✅ ~~Claude integration for idea generation~~ **DONE** — Pipeline generates 10-20 VideoIdea objects via Claude. POST /api/ideas/generate endpoint. React UI with niche input, idea cards, "more like this".
+- ✅ ~~Claude integration for script generation with auto-segmentation~~ **DONE** — Pipeline generates full segmented scripts (ScriptContent with segments, scenes, intro_hook, outro_cta) via Claude. POST /api/scripts/generate + GET /api/scripts/{id}. SQLite persistence. React UI with loading state, read-only script preview, "Continue to Storyboard" button.
 - ✅ Storyboard editor UI (scene cards, reorder, edit text)
 - ✅ Local project persistence (SQLite)
 

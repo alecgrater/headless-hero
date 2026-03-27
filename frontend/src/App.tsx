@@ -4,10 +4,11 @@ import "./App.css";
 import BrandForm from "./components/brand/BrandForm";
 import BrandList from "./components/brand/BrandList";
 import IdeationPage from "./components/ideation/IdeationPage";
+import ScriptGenerationPage from "./components/script/ScriptGenerationPage";
 import type { BrandProfile, BrandProfileCreate } from "./types/brand";
 import type { VideoIdea } from "./types/idea";
 
-type View = "home" | "brand-create" | "brand-edit" | "ideation";
+type View = "home" | "brand-create" | "brand-edit" | "ideation" | "script-generation";
 
 function App() {
   const [backendStatus, setBackendStatus] = useState<string>("connecting...");
@@ -155,8 +156,19 @@ function App() {
             brand={selectedBrand}
             onUseIdea={(idea) => {
               setSelectedIdea(idea);
-              // TODO: navigate to script generation (next feature)
-              alert(`Selected: "${idea.title}" — script generation coming next!`);
+              setView("script-generation");
+            }}
+          />
+        )}
+
+        {view === "script-generation" && selectedBrand && selectedIdea && (
+          <ScriptGenerationPage
+            brand={selectedBrand}
+            idea={selectedIdea}
+            onBack={() => setView("ideation")}
+            onContinue={(_scriptId) => {
+              // TODO: navigate to storyboard editor (next feature)
+              alert("Storyboard editor coming next!");
             }}
           />
         )}

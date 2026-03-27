@@ -6,7 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.brands import router as brands_router
 from api.database import init_db
 from api.ideas import router as ideas_router
+from api.scripts import router as scripts_router
 from models.brand import BrandProfile as _BrandProfile  # noqa: F401 — register table
+from models.script import Script as _Script  # noqa: F401 — register table
 
 
 @asynccontextmanager
@@ -27,6 +29,7 @@ app.add_middleware(
 
 app.include_router(brands_router)
 app.include_router(ideas_router)
+app.include_router(scripts_router)
 
 
 @app.get("/api/health")
