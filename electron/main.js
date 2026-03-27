@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const path = require("path");
 const { spawn } = require("child_process");
 
@@ -93,36 +93,6 @@ ipcMain.handle("api-request", async (_event, { method, path, body }) => {
 });
 
 app.whenReady().then(async () => {
-  // Set application menu with Edit items to suppress macOS representedObject warnings
-  const template = [
-    { role: "appMenu" },
-    {
-      label: "Edit",
-      submenu: [
-        { role: "undo" },
-        { role: "redo" },
-        { type: "separator" },
-        { role: "cut" },
-        { role: "copy" },
-        { role: "paste" },
-        { role: "selectAll" },
-      ],
-    },
-    {
-      label: "View",
-      submenu: [
-        { role: "reload" },
-        { role: "toggleDevTools" },
-        { type: "separator" },
-        { role: "zoomIn" },
-        { role: "zoomOut" },
-        { role: "resetZoom" },
-      ],
-    },
-    { role: "windowMenu" },
-  ];
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
-
   // Check if backend is already running (e.g. from npm run dev:backend)
   let alreadyRunning = false;
   try {
