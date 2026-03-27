@@ -496,6 +496,13 @@ Response: { "ideas": [{ "title": "...", "segments_est": 8, "description": "...",
 POST /api/scripts/generate
 Body: { "topic": "Every Drug Explained", "brand_id": "brand_001", "segment_count": 12 }
 Response: { "script": { "title": "...", "segments": [...], "intro_hook": "...", "outro_cta": "..." } }
+
+GET /api/scripts/{id}
+Response: { "id": "...", "brand_id": "...", "topic_title": "...", "topic_description": "...", "script": {...}, "created_at": "..." }
+
+PUT /api/scripts/{id}
+Body: { "script": { "title": "...", "segments": [...], "intro_hook": "...", "outro_cta": "..." } }
+Response: { "id": "...", "brand_id": "...", "topic_title": "...", "topic_description": "...", "script": {...}, "created_at": "..." }
 ```
 
 #### Visuals
@@ -596,9 +603,9 @@ The MVP is complete when a user can perform this end-to-end workflow:
 - ✅ ~~Electron + React + Python project scaffolding~~ **DONE** — Electron 41 + React 19 + Vite + Tailwind 4 + FastAPI + uv. `npm run dev` starts all three layers. Backend health check verified. FFmpeg 8.1 available.
 - ✅ ~~Brand profile creation and storage~~ **DONE** — SQLModel/SQLite persistence, FastAPI CRUD endpoints (POST/GET/PUT/DELETE /api/brands), React UI with create form + brand list/selection + edit + delete. Pydantic models: BrandProfileCreate, BrandProfileUpdate, BrandProfileRead.
 - ✅ ~~Claude integration for idea generation~~ **DONE** — Pipeline generates 10-20 VideoIdea objects via Claude. POST /api/ideas/generate endpoint. React UI with niche input, idea cards, "more like this".
-- ✅ ~~Claude integration for script generation with auto-segmentation~~ **DONE** — Pipeline generates full segmented scripts (ScriptContent with segments, scenes, intro_hook, outro_cta) via Claude. POST /api/scripts/generate + GET /api/scripts/{id}. SQLite persistence. React UI with loading state, read-only script preview, "Continue to Storyboard" button.
-- ✅ Storyboard editor UI (scene cards, reorder, edit text)
-- ✅ Local project persistence (SQLite)
+- ✅ ~~Claude integration for script generation with auto-segmentation~~ **DONE** — Pipeline generates full segmented scripts (ScriptContent with segments, scenes, intro_hook, outro_cta) via Claude. POST /api/scripts/generate + GET /api/scripts/{id} + PUT /api/scripts/{id}. SQLite persistence. React UI with loading state, read-only script preview, "Continue to Storyboard" button.
+- ✅ ~~Storyboard editor UI (scene cards, reorder, edit text)~~ **DONE** — Three-panel layout: SegmentList (left, 220px), SceneGrid (center, responsive grid), PropertiesPanel (right, 320px). Drag-drop via @dnd-kit (SortableContext per segment, cross-segment moves). Inline narration editing (double-click), full scene form in properties panel. Split scene (at sentence midpoint), merge with next. useStoryboardState hook: state management, undo stack (Ctrl+Z), debounced auto-save (5s), explicit save (Ctrl+S), beforeunload guard, save status indicator. Segment color coding (8-color palette). Persists via PUT /api/scripts/{id}.
+- ✅ ~~Local project persistence (SQLite)~~ **DONE** — Brands, scripts, and storyboard edits all persisted to SQLite via SQLModel.
 
 **Validation:** Can generate a script from a topic and view/edit it in the storyboard.
 

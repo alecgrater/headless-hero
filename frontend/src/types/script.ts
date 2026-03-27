@@ -30,3 +30,12 @@ export interface GenerateScriptResponse {
   id: string;
   script: ScriptContent;
 }
+
+export interface ScriptRead {
+  id: string;
+  brand_id: string;
+  topic_title: string;
+  topic_description: string;
+  script: ScriptContent;
+  created_at: string;
+}

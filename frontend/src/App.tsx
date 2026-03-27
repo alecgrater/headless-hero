@@ -5,10 +5,11 @@ import BrandForm from "./components/brand/BrandForm";
 import BrandList from "./components/brand/BrandList";
 import IdeationPage from "./components/ideation/IdeationPage";
 import ScriptGenerationPage from "./components/script/ScriptGenerationPage";
+import StoryboardPage from "./components/storyboard/StoryboardPage";
 import type { BrandProfile, BrandProfileCreate } from "./types/brand";
 import type { VideoIdea } from "./types/idea";
 
-type View = "home" | "brand-create" | "brand-edit" | "ideation" | "script-generation";
+type View = "home" | "brand-create" | "brand-edit" | "ideation" | "script-generation" | "storyboard";
 
 function App() {
   const [backendStatus, setBackendStatus] = useState<string>("connecting...");
@@ -18,6 +19,7 @@ function App() {
   const [editingBrand, setEditingBrand] = useState<BrandProfile | null>(null);
   const [saving, setSaving] = useState(false);
   const [selectedIdea, setSelectedIdea] = useState<VideoIdea | null>(null);
+  const [storyboardScriptId, setStoryboardScriptId] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -124,7 +126,7 @@ function App() {
       </header>
 
       {/* Main content area */}
-      <main className="flex-1 px-6 py-8 max-w-4xl mx-auto w-full">
+      <main className={`flex-1 w-full ${view === "storyboard" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
         {view === "brand-create" && (
           <div>
             <h2 className="text-2xl font-bold mb-6">Create Brand Profile</h2>
@@ -166,10 +168,17 @@ function App() {
             brand={selectedBrand}
             idea={selectedIdea}
             onBack={() => setView("ideation")}
-            onContinue={(_scriptId) => {
-              // TODO: navigate to storyboard editor (next feature)
-              alert("Storyboard editor coming next!");
+            onContinue={(scriptId) => {
+              setStoryboardScriptId(scriptId);
+              setView("storyboard");
             }}
+          />
+        )}
+
+        {view === "storyboard" && storyboardScriptId && (
+          <StoryboardPage
+            scriptId={storyboardScriptId}
+            onBack={() => setView("script-generation")}
           />
         )}
 
