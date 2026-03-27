@@ -8,6 +8,7 @@ import ExportPanel from "./ExportPanel";
 import PropertiesPanel from "./PropertiesPanel";
 import SceneGrid from "./SceneGrid";
 import SegmentList from "./SegmentList";
+import { usePublishState } from "./usePublishState";
 import { useRenderState } from "./useRenderState";
 import { useStoryboardState } from "./useStoryboardState";
 
@@ -90,6 +91,7 @@ function StoryboardEditor({
 }) {
   const state = useStoryboardState(scriptId, initialContent);
   const render = useRenderState(scriptId);
+  const publish = usePublishState(scriptId, brandId);
   const [activeSegmentIdx, setActiveSegmentIdx] = useState<number | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [brand, setBrand] = useState<BrandProfile | null>(null);
@@ -324,6 +326,13 @@ function StoryboardEditor({
           seoMetadata={render.seoMetadata}
           seoGenerating={render.seoGenerating}
           onGenerateSEO={render.generateSEO}
+          youtubeConnected={publish.youtubeConnected}
+          youtubeChannelName={publish.youtubeChannelName}
+          onConnectYouTube={() => publish.connectPlatform("youtube")}
+          connecting={publish.connecting}
+          publishStatus={publish.publishStatus}
+          onStartPublish={publish.startPublish}
+          publishHistory={publish.publishHistory}
           onClose={() => setShowExport(false)}
         />
       )}

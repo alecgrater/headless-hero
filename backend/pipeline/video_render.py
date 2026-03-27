@@ -63,10 +63,12 @@ def render_scene_video(
     width: int = 1920,
     height: int = 1080,
     fade_out: float = 0.3,
+    force: bool = False,
 ) -> str:
     """Render a single scene to MP4 and return the web-relative path.
 
     Requires the scene's image and audio to already exist on disk.
+    If force=False and the output is newer than source assets, skips re-render.
     """
     image_path = _scene_image_path(script_id, scene.id)
     audio_path = _scene_audio_path(script_id, scene.id)
@@ -80,6 +82,15 @@ def render_scene_video(
     scenes_dir = renders / "scenes"
     scenes_dir.mkdir(parents=True, exist_ok=True)
     output_path = str(scenes_dir / f"{scene.id}.mp4")
+
+    # Cache check: skip if output exists and is newer than both source assets
+    if not force and os.path.exists(output_path):
+        out_mtime = os.path.getmtime(output_path)
+        img_mtime = os.path.getmtime(image_path)
+        aud_mtime = os.path.getmtime(audio_path)
+        if out_mtime > img_mtime and out_mtime > aud_mtime:
+            web_path = f"/static/projects/{script_id}/renders/scenes/{scene.id}.mp4"
+            return web_path
 
     # Use audio duration if available, otherwise estimate
     duration = scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else scene.duration_estimate_seconds

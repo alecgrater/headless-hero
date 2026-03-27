@@ -20,22 +20,35 @@ def generate_scene_image(
     script_id: str,
     width: int = 1344,
     height: int = 768,
+    force: bool = False,
 ) -> Tuple[str, str]:
     """Generate a single scene image and save it locally.
 
+    If the image already exists and force=False, skips regeneration.
     Returns (web-relative path, composed prompt used).
     """
     prompt = f"{brand_style}. {visual_prompt}" if brand_style else visual_prompt
 
-    cdn_url = generate_image(prompt, width=width, height=height)
-
-    # Download to local storage
+    # Check cache: if image exists and we have a matching prompt marker, skip regen
     images_dir = _data_dir / "projects" / script_id / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
     local_path = images_dir / f"{scene_id}.png"
+    prompt_marker = images_dir / f"{scene_id}.prompt"
+    web_path = f"/static/projects/{script_id}/images/{scene_id}.png"
+
+    if not force and local_path.exists() and prompt_marker.exists():
+        cached_prompt = prompt_marker.read_text(encoding="utf-8").strip()
+        if cached_prompt == prompt:
+            return web_path, prompt
+
+    cdn_url = generate_image(prompt, width=width, height=height)
+
+    # Download to local storage
     urllib.request.urlretrieve(cdn_url, str(local_path))
 
-    web_path = f"/static/projects/{script_id}/images/{scene_id}.png"
+    # Write prompt marker for cache validation
+    prompt_marker.write_text(prompt, encoding="utf-8")
+
     return web_path, prompt
 
 

@@ -149,6 +149,7 @@ function App() {
               }}
               initial={editingBrand}
               saving={saving}
+              brandId={editingBrand.id}
             />
           </div>
         )}

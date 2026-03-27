@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const path = require("path");
 const { spawn } = require("child_process");
 
@@ -71,6 +71,9 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, "..", "frontend", "dist", "index.html"));
   }
 }
+
+// IPC: open external URLs in the default browser
+ipcMain.handle("open-external", (_event, url) => shell.openExternal(url));
 
 // IPC: forward API calls from renderer to backend
 ipcMain.handle("api-request", async (_event, { method, path, body }) => {

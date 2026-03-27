@@ -9,4 +9,7 @@ contextBridge.exposeInMainWorld("api", {
   post: (path, body) => ipcRenderer.invoke("api-request", { method: "POST", path, body }),
   put: (path, body) => ipcRenderer.invoke("api-request", { method: "PUT", path, body }),
   delete: (path) => ipcRenderer.invoke("api-request", { method: "DELETE", path }),
+
+  // Shell integration
+  openExternal: (url) => ipcRenderer.invoke("open-external", url),
 });

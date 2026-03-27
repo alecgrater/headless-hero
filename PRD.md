@@ -639,13 +639,13 @@ The MVP is complete when a user can perform this end-to-end workflow:
 ### Phase 4: Publishing & Polish (Weeks 10-12)
 **Goal:** Multi-platform publishing and workflow polish.
 
-- [ ] YouTube upload integration
-- [ ] TikTok upload integration
-- [ ] Instagram Reels upload integration
-- [ ] Scheduling UI
-- [ ] Publishing status tracking
-- [ ] End-to-end workflow polish and bug fixing
-- [ ] Performance optimization (parallel generation, caching)
+- ✅ ~~YouTube upload integration~~ **DONE** — Full OAuth2 flow via Google YouTube Data API v3. `backend/integrations/youtube_client.py` handles auth URL generation, code exchange, token refresh, video upload with resumable chunked progress, and channel info retrieval. `backend/models/credential.py` PlatformCredential SQLModel table stores OAuth tokens per brand+platform. `backend/api/publish.py` provides 7 endpoints: GET /api/publish/oauth/status/{brand_id}, POST /api/publish/oauth/connect, GET /api/publish/oauth/callback/{platform} (HTML response), DELETE /api/publish/oauth/disconnect, POST /api/publish/upload (background job), GET /api/publish/status/{job_id}, GET /api/publish/history/{script_id}. BrandForm has "Connect YouTube Account" button (edit mode) with polling for connection completion, green checkmark + channel name when connected, "Disconnect" button. ExportPanel has full YouTube Publish section with confirmation dialog.
+- ✅ ~~TikTok upload integration~~ **DONE (copy-metadata UX)** — TikTok direct upload deferred (requires developer approval). Enhanced copy-metadata UX: "Copy All TikTok Captions" button copies all segment captions+hashtags at once, per-segment individual copy buttons, "Open TikTok Upload" link opens TikTok creator portal in browser.
+- ✅ ~~Instagram Reels upload integration~~ **DONE (copy-metadata UX)** — Instagram direct upload deferred (requires public URLs). Enhanced copy-metadata UX: "Copy" button for caption+hashtags, "Open Instagram" link opens Instagram in browser.
+- ✅ ~~Scheduling UI~~ **DONE** — YouTube scheduling via `publishAt` parameter. ExportPanel has `<input type="datetime-local">` with optional clear. Videos scheduled on YouTube are set to private with `publishAt` so they auto-publish at the specified time.
+- ✅ ~~Publishing status tracking~~ **DONE** — `backend/models/publish.py` PublishRecord SQLModel table tracks: script_id, brand_id, platform, status (pending/uploading/scheduled/published/failed), platform_content_id, platform_url, schedule_at, published_at, error. Publish history section in ExportPanel shows all past publishes with status badges, timestamps, "View" links, and errors. `usePublishState.ts` hook manages connections, upload polling, and history refresh.
+- ✅ ~~End-to-end workflow polish~~ **DONE** — Confirmation dialog before YouTube publish. Electron `shell.openExternal` integration for OAuth redirect and external platform links. `openInBrowser()` helper in `api.ts` with fallback to `window.open` for dev mode. Publish errors displayed inline in ExportPanel. Fixed pre-existing BrandForm import path bug.
+- ✅ ~~Performance optimization (parallel generation, caching)~~ **DONE** — Image generation caching: `.prompt` marker files alongside PNGs, skip regeneration if prompt unchanged, `force` parameter to bypass cache. Scene render caching: skip re-render if output MP4 is newer than source image+audio (mtime comparison), `force` parameter to bypass. Batch generation already uses backend batch endpoints.
 
 **Validation:** Can go from topic idea to published content on YouTube + TikTok in one session without leaving the app.
 

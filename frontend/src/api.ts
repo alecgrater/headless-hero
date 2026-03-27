@@ -10,6 +10,7 @@ interface ApiClient {
   put: (path: string, body?: unknown) => Promise<ApiResponse>;
   delete: (path: string) => Promise<ApiResponse>;
   request: (method: string, path: string, body?: unknown) => Promise<ApiResponse>;
+  openExternal?: (url: string) => Promise<void>;
 }
 
 declare global {
@@ -73,4 +74,13 @@ export function assetUrl(path: string): string {
   // In Electron, window.api exists and assets are proxied; in dev, hit backend directly
   if (window.api) return path;
   return `http://localhost:8420${path}`;
+}
+
+/** Open a URL in the system browser (Electron shell) or a new tab (dev). */
+export function openInBrowser(url: string): void {
+  if (window.api?.openExternal) {
+    window.api.openExternal(url);
+  } else {
+    window.open(url, "_blank");
+  }
 }

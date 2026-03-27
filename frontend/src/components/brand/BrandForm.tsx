@@ -1,6 +1,8 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import api, { openInBrowser } from "../../api";
 import { cloneVoice } from "../../api";
-import type { BrandProfileCreate } from "../types/brand";
+import type { BrandProfileCreate } from "../../types/brand";
+import type { OAuthStatusResponse } from "../../types/publish";
 
 const EMPTY_FORM: BrandProfileCreate = {
   name: "",
@@ -18,9 +20,10 @@ interface Props {
   onCancel: () => void;
   initial?: BrandProfileCreate;
   saving?: boolean;
+  brandId?: string; // present when editing an existing brand
 }
 
-export default function BrandForm({ onSave, onCancel, initial, saving }: Props) {
+export default function BrandForm({ onSave, onCancel, initial, saving, brandId }: Props) {
   const [form, setForm] = useState<BrandProfileCreate>(initial ?? EMPTY_FORM);
   const [audioFiles, setAudioFiles] = useState<File[]>([]);
   const [cloneName, setCloneName] = useState(initial?.name || "");
@@ -28,8 +31,76 @@ export default function BrandForm({ onSave, onCancel, initial, saving }: Props) 
   const [cloneError, setCloneError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // YouTube OAuth connection state (only when editing existing brand)
+  const [ytConnected, setYtConnected] = useState(false);
+  const [ytChannelName, setYtChannelName] = useState("");
+  const [ytConnecting, setYtConnecting] = useState(false);
+  const connectionPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const fetchYtStatus = useCallback(async () => {
+    if (!brandId) return;
+    const res = await api.get(`/api/publish/oauth/status/${brandId}`);
+    if (res.ok) {
+      const data = res.data as OAuthStatusResponse;
+      setYtConnected(data.youtube.connected);
+      setYtChannelName(data.youtube.platform_user_name);
+    }
+  }, [brandId]);
+
+  useEffect(() => {
+    fetchYtStatus();
+    return () => {
+      if (connectionPollRef.current) clearInterval(connectionPollRef.current);
+    };
+  }, [fetchYtStatus]);
+
+  const handleConnectYouTube = async () => {
+    if (!brandId) return;
+    setYtConnecting(true);
+    const res = await api.post("/api/publish/oauth/connect", {
+      brand_id: brandId,
+      platform: "youtube",
+    });
+    if (!res.ok) { setYtConnecting(false); return; }
+    const { auth_url } = res.data as { auth_url: string };
+    openInBrowser(auth_url);
+
+    // Poll until connected
+    connectionPollRef.current = setInterval(async () => {
+      const sr = await api.get(`/api/publish/oauth/status/${brandId}`);
+      if (!sr.ok) return;
+      const d = sr.data as OAuthStatusResponse;
+      if (d.youtube.connected) {
+        if (connectionPollRef.current) clearInterval(connectionPollRef.current);
+        connectionPollRef.current = null;
+        setYtConnected(true);
+        setYtChannelName(d.youtube.platform_user_name);
+        setYtConnecting(false);
+      }
+    }, 2000);
+
+    // Timeout after 5 min
+    setTimeout(() => {
+      if (connectionPollRef.current) {
+        clearInterval(connectionPollRef.current);
+        connectionPollRef.current = null;
+        setYtConnecting(false);
+      }
+    }, 300000);
+  };
+
+  const handleDisconnectYouTube = async () => {
+    if (!brandId) return;
+    await api.request("DELETE", "/api/publish/oauth/disconnect", {
+      brand_id: brandId,
+      platform: "youtube",
+    });
+    setYtConnected(false);
+    setYtChannelName("");
+  };
+
   const set = (field: keyof BrandProfileCreate, value: string) =>
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev: BrandProfileCreate) => ({ ...prev, [field]: value }));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -235,6 +306,51 @@ export default function BrandForm({ onSave, onCancel, initial, saving }: Props) 
             placeholder="@myhandle"
           />
         </div>
+
+        {/* YouTube OAuth Connection (edit mode only) */}
+        {brandId && (
+          <div className="pt-2 border-t border-neutral-700">
+            <label className="block text-xs text-neutral-400 mb-2">YouTube Account</label>
+            {ytConnected ? (
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center gap-1.5 text-sm text-emerald-400">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  {ytChannelName}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleDisconnectYouTube}
+                  className="text-xs text-neutral-500 hover:text-red-400 transition-colors"
+                >
+                  Disconnect
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleConnectYouTube}
+                disabled={ytConnecting}
+                className="px-3 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              >
+                {ytConnecting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                    </svg>
+                    Connect YouTube Account
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        )}
       </fieldset>
 
       {/* Actions */}
