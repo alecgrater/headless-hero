@@ -40,6 +40,7 @@ class Scene(BaseModel):
     audio_duration_seconds: float = 0.0
     ken_burns: KenBurnsConfig | None = None
     text_overlay_config: TextOverlayConfig | None = None
+    word_timestamps: list[dict] | None = None
 
 class Segment(BaseModel):
     """A named segment (e.g. "Caffeine") containing multiple scenes."""

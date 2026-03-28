@@ -18,6 +18,12 @@ interface RenderState {
   youtubeUrl: string | null;
   startYoutubeRender: (fadeOut?: number, speed?: number) => Promise<void>;
 
+  // Auto-Edit render
+  autoEditJobId: string | null;
+  autoEditStatus: RenderStatusResponse | null;
+  autoEditUrl: string | null;
+  startAutoEditRender: () => Promise<void>;
+
   // TikTok render
   tiktokJobId: string | null;
   tiktokStatus: RenderStatusResponse | null;
@@ -57,6 +63,10 @@ export function useRenderState(scriptId: string, title: string): RenderState {
   const [tiktokJobId, setTiktokJobId] = useState<string | null>(null);
   const [tiktokStatus, setTiktokStatus] = useState<RenderStatusResponse | null>(null);
   const [tiktokUrls, setTiktokUrls] = useState<string[]>([]);
+
+  const [autoEditJobId, setAutoEditJobId] = useState<string | null>(null);
+  const [autoEditStatus, setAutoEditStatus] = useState<RenderStatusResponse | null>(null);
+  const [autoEditUrl, setAutoEditUrl] = useState<string | null>(null);
 
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioExporting, setAudioExporting] = useState(false);
@@ -144,6 +154,21 @@ export function useRenderState(scriptId: string, title: string): RenderState {
     setTiktokJobId(job_id);
     pollJob(job_id, setTiktokStatus, (urls) => {
       setTiktokUrls(urls);
+    });
+  }, [scriptId, title, pollJob]);
+
+  const startAutoEditRender = useCallback(async () => {
+    setAutoEditUrl(null);
+    setAutoEditStatus(null);
+    const res = await api.post("/api/render/auto-edit", {
+      script_id: scriptId,
+      title,
+    });
+    if (!res.ok) return;
+    const { job_id } = res.data as RenderJobResponse;
+    setAutoEditJobId(job_id);
+    pollJob(job_id, setAutoEditStatus, (urls) => {
+      if (urls.length > 0) setAutoEditUrl(urls[0]);
     });
   }, [scriptId, title, pollJob]);
 
@@ -241,6 +266,10 @@ export function useRenderState(scriptId: string, title: string): RenderState {
     youtubeStatus,
     youtubeUrl,
     startYoutubeRender,
+    autoEditJobId,
+    autoEditStatus,
+    autoEditUrl,
+    startAutoEditRender,
     tiktokJobId,
     tiktokStatus,
     tiktokUrls,

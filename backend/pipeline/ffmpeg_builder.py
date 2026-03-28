@@ -471,3 +471,172 @@ def build_thumbnail_composite_cmd(
     ]
 
     return cmd
+
+
+def build_auto_edit_scene_cmd(
+    image_path: str,
+    audio_path: str,
+    output_path: str,
+    duration: float,
+    motion_profile: str = "slow_zoom_in",
+    text_phrases: list[dict] | None = None,
+    accent_color: str = "#00FFFF",
+    width: int = 1920,
+    height: int = 1080,
+) -> list[str]:
+    """Build FFmpeg command for an auto-edited scene with motion + word-synced text overlays.
+
+    Args:
+        motion_profile: slow_zoom_in | slow_zoom_out | slow_pan
+        text_phrases: [{words, start_ms, end_ms, highlight_color}]
+        accent_color: hex color for word highlighting
+    """
+    fps = 30
+    duration_frames = int(duration * fps)
+
+    filters: list[str] = []
+
+    # Motion profile — maps to Ken Burns effect
+    if motion_profile == "slow_zoom_in":
+        speed = 0.0004
+        filters.append(
+            f"zoompan=d={duration_frames}:s={width}x{height}:fps={fps}"
+            f":z='1+{speed}*on':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+        )
+    elif motion_profile == "slow_zoom_out":
+        speed = 0.0004
+        max_z = 1 + speed * duration_frames
+        filters.append(
+            f"zoompan=d={duration_frames}:s={width}x{height}:fps={fps}"
+            f":z='{max_z}-{speed}*on':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+        )
+    elif motion_profile == "slow_pan":
+        filters.append(
+            f"zoompan=d={duration_frames}:s={width}x{height}:fps={fps}"
+            f":z='1.08':x='iw*0.04*on/{duration_frames}':y='ih/2-(ih/zoom/2)'"
+        )
+    else:
+        filters.append(
+            f"zoompan=d={duration_frames}:s={width}x{height}:fps={fps}"
+            f":z='1':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+        )
+
+    filters.append(f"scale={width}:{height}:force_original_aspect_ratio=decrease")
+    filters.append(f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black")
+    filters.append("setsar=1")
+
+    # Word-synced text overlays
+    if text_phrases and _DRAWTEXT_AVAILABLE:
+        for phrase in text_phrases:
+            words = phrase.get("words", [])
+            start_ms = phrase.get("start_ms", 0)
+            end_ms = phrase.get("end_ms", 0)
+
+            if not words:
+                continue
+
+            phrase_text = " ".join(words)
+            escaped = _escape_drawtext(phrase_text)
+            show_at = start_ms / 1000.0
+            hide_at = end_ms / 1000.0
+
+            dt = (
+                f"drawtext=text='{escaped}'"
+                f":fontsize=48:fontcolor=white"
+                f":x='(w-text_w)/2':y='h*0.78'"
+                f":borderw=3:bordercolor=black"
+                f":shadowx=2:shadowy=2:shadowcolor='black@0.6'"
+                f":enable='between(t,{show_at},{hide_at})'"
+            )
+            filters.append(dt)
+
+    filter_chain = ",".join(filters)
+    filter_complex = f"[0:v]{filter_chain}[vout]"
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-loop", "1",
+        "-i", image_path,
+        "-i", audio_path,
+        "-filter_complex", filter_complex,
+        "-map", "[vout]",
+        "-map", "1:a",
+        "-c:v", "libx264",
+        "-preset", "medium",
+        "-crf", "23",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-pix_fmt", "yuv420p",
+        "-t", str(duration),
+        "-shortest",
+        output_path,
+    ]
+
+    return cmd
+
+
+def build_concat_with_transitions_cmd(
+    clip_paths: list[str],
+    transitions: list[str],
+    output_path: str,
+    dip_duration: float = 0.3,
+) -> tuple[list[str], str]:
+    """Build FFmpeg command to concatenate clips with optional dip-to-black transitions.
+
+    Args:
+        clip_paths: list of input MP4 paths
+        transitions: list of transition types per scene (same length as clip_paths).
+                     "dip_to_black" inserts a brief black frame between this clip and the previous.
+                     "hard_cut" uses simple concat.
+        dip_duration: total dip-to-black duration in seconds
+        output_path: final output MP4 path
+
+    If all transitions are hard_cut, falls back to simple concat demuxer.
+    Returns (command args, path to temp concat list file).
+    """
+    has_dips = any(t == "dip_to_black" for t in transitions)
+
+    if not has_dips:
+        fd, list_path = tempfile.mkstemp(suffix=".txt", prefix="ffconcat_auto_")
+        with os.fdopen(fd, "w") as f:
+            for clip in clip_paths:
+                f.write(f"file '{clip}'\n")
+        cmd = [
+            "ffmpeg", "-y",
+            "-f", "concat", "-safe", "0",
+            "-i", list_path,
+            "-c", "copy",
+            output_path,
+        ]
+        return cmd, list_path
+
+    # Insert short black video clips at dip_to_black transition points
+    black_path = tempfile.mktemp(suffix=".mp4", prefix="ffblack_")
+    black_cmd = [
+        "ffmpeg", "-y",
+        "-f", "lavfi", "-i", f"color=black:s=1920x1080:d={dip_duration}:r=30",
+        "-f", "lavfi", "-i", f"anullsrc=r=44100:cl=stereo:d={dip_duration}",
+        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+        "-c:a", "aac", "-b:a", "192k",
+        "-pix_fmt", "yuv420p",
+        "-shortest",
+        black_path,
+    ]
+    subprocess.run(black_cmd, capture_output=True, timeout=30)
+
+    fd, list_path = tempfile.mkstemp(suffix=".txt", prefix="ffconcat_auto_")
+    with os.fdopen(fd, "w") as f:
+        for i, clip in enumerate(clip_paths):
+            if i > 0 and i < len(transitions) and transitions[i] == "dip_to_black":
+                f.write(f"file '{black_path}'\n")
+            f.write(f"file '{clip}'\n")
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "concat", "-safe", "0",
+        "-i", list_path,
+        "-c", "copy",
+        output_path,
+    ]
+
+    return cmd, list_path

@@ -1,8 +1,12 @@
 """Thin wrapper around the ElevenLabs API for text-to-speech."""
 
+import base64
+import logging
 import os
 
 import httpx
+
+log = logging.getLogger(__name__)
 
 _BASE_URL = "https://api.elevenlabs.io/v1"
 
@@ -29,22 +33,62 @@ def _headers() -> dict[str, str]:
         "Accept": "application/json",
     }
 
+def _reconstruct_words(
+    characters: list[str],
+    start_times: list[float],
+    end_times: list[float],
+) -> list[dict]:
+    """Reconstruct word-level timestamps from character-level alignment data.
+
+    Groups characters between whitespace boundaries into words.
+    Returns list of {word, start_ms, end_ms}.
+    """
+    words: list[dict] = []
+    current_chars: list[str] = []
+    word_start: float | None = None
+
+    for i, char in enumerate(characters):
+        if char.isspace():
+            if current_chars and word_start is not None:
+                words.append({
+                    "word": "".join(current_chars),
+                    "start_ms": round(word_start * 1000),
+                    "end_ms": round(end_times[i - 1] * 1000),
+                })
+                current_chars = []
+                word_start = None
+        else:
+            if word_start is None:
+                word_start = start_times[i]
+            current_chars.append(char)
+
+    # Flush last word
+    if current_chars and word_start is not None:
+        words.append({
+            "word": "".join(current_chars),
+            "start_ms": round(word_start * 1000),
+            "end_ms": round(end_times[len(characters) - 1] * 1000),
+        })
+
+    return words
+
 def generate_speech(
     text: str,
     voice_id: str,
     model_id: str = "eleven_multilingual_v2",
     output_format: str = "mp3_44100_128",
-) -> bytes:
-    """Generate speech audio bytes from text using ElevenLabs TTS.
+) -> tuple[bytes, list[dict]]:
+    """Generate speech audio bytes from text using ElevenLabs TTS with timestamps.
 
-    Returns raw audio bytes (MP3).
+    Returns (raw audio bytes MP3, word_timestamps [{word, start_ms, end_ms}]).
     """
-    url = f"{_BASE_URL}/text-to-speech/{voice_id}"
+    url = f"{_BASE_URL}/text-to-speech/{voice_id}/with-timestamps"
 
     payload = {
         "text": text,
         "model_id": model_id,
         "voice_settings": _DEFAULT_VOICE_SETTINGS,
+        "output_format": output_format,
     }
 
     with httpx.Client(timeout=120.0) as client:
@@ -53,13 +97,27 @@ def generate_speech(
             json=payload,
             headers={
                 "xi-api-key": _get_key(),
-                "Accept": "audio/mpeg",
+                "Accept": "application/json",
                 "Content-Type": "application/json",
             },
-            params={"output_format": output_format},
         )
         response.raise_for_status()
-        return response.content
+        data = response.json()
+
+    audio_bytes = base64.b64decode(data["audio_base64"])
+
+    alignment = data.get("alignment", {})
+    characters = alignment.get("characters", [])
+    char_starts = alignment.get("character_start_times_seconds", [])
+    char_ends = alignment.get("character_end_times_seconds", [])
+
+    if characters and char_starts and char_ends:
+        word_timestamps = _reconstruct_words(characters, char_starts, char_ends)
+    else:
+        log.warning("No alignment data returned from ElevenLabs — word timestamps unavailable")
+        word_timestamps = []
+
+    return audio_bytes, word_timestamps
 
 def clone_voice(
     name: str,

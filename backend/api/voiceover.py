@@ -25,6 +25,7 @@ class GenerateAudioRequest(BaseModel):
 class GenerateAudioResponse(BaseModel):
     audio_url: str
     duration_seconds: float
+    word_timestamps: list[dict] = []
 
 class BatchAudioScene(BaseModel):
     scene_id: str
@@ -40,6 +41,7 @@ class BatchAudioResultItem(BaseModel):
     scene_id: str
     audio_url: str | None = None
     duration_seconds: float | None = None
+    word_timestamps: list[dict] = []
     error: str | None = None
 
 class GenerateBatchAudioResponse(BaseModel):
@@ -64,8 +66,9 @@ def _update_scene_audio(
     scene_id: str,
     audio_url: str,
     duration_seconds: float,
+    word_timestamps: list[dict] | None = None,
 ) -> None:
-    """Persist audio_url and audio_duration_seconds into the scene inside script_json."""
+    """Persist audio_url, audio_duration_seconds, and word_timestamps into the scene inside script_json."""
     record = session.get(Script, script_id)
     if not record:
         return
@@ -75,6 +78,8 @@ def _update_scene_audio(
             if scene.id == scene_id:
                 scene.audio_url = audio_url
                 scene.audio_duration_seconds = duration_seconds
+                if word_timestamps is not None:
+                    scene.word_timestamps = word_timestamps
                 break
     record.script_json = content.model_dump_json()
     session.add(record)
@@ -89,7 +94,7 @@ def generate_audio(body: GenerateAudioRequest, session: Session = Depends(get_se
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
 
-    audio_url, duration = generate_scene_audio(
+    audio_url, duration, word_timestamps = generate_scene_audio(
         scene_id=body.scene_id,
         narration=body.narration,
         voice_id=body.voice_id,
@@ -97,9 +102,9 @@ def generate_audio(body: GenerateAudioRequest, session: Session = Depends(get_se
         model_id=body.model_id,
     )
 
-    _update_scene_audio(session, body.script_id, body.scene_id, audio_url, duration)
+    _update_scene_audio(session, body.script_id, body.scene_id, audio_url, duration, word_timestamps)
 
-    return GenerateAudioResponse(audio_url=audio_url, duration_seconds=duration)
+    return GenerateAudioResponse(audio_url=audio_url, duration_seconds=duration, word_timestamps=word_timestamps)
 
 @router.post("/generate-batch", response_model=GenerateBatchAudioResponse)
 def generate_audio_batch(
@@ -128,6 +133,7 @@ def generate_audio_batch(
                 r["scene_id"],
                 r["audio_url"],
                 float(r["duration_seconds"]),
+                r.get("word_timestamps"),
             )
 
     return GenerateBatchAudioResponse(results=[BatchAudioResultItem(**r) for r in results])

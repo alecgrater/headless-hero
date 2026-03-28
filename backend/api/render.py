@@ -15,6 +15,7 @@ from pipeline.video_render import (
     render_full_video,
     render_scene_video,
 )
+from pipeline.auto_editor import generate_edit_timeline, render_auto_edit_video
 
 router = APIRouter(prefix="/api/render", tags=["render"])
 
@@ -63,6 +64,12 @@ class ExportAudioResponse(BaseModel):
 
 class RenderEstimateResponse(BaseModel):
     estimated_seconds: float
+
+class AutoEditRequest(BaseModel):
+    script_id: str
+    width: int = 1920
+    height: int = 1080
+    title: str = ""
 
 # --- Helpers ---
 
@@ -183,3 +190,35 @@ def export_audio(body: ExportAudioRequest, session: Session = Depends(get_sessio
     content = _load_content(session, body.script_id)
     audio_url = export_full_audio(body.script_id, content, title=body.title)
     return ExportAudioResponse(audio_url=audio_url)
+
+@router.post("/auto-edit", response_model=RenderJobResponse)
+def start_auto_edit_render(body: AutoEditRequest, session: Session = Depends(get_session)):
+    """Start an auto-edited YouTube video render in the background.
+
+    Uses Claude to generate an editing timeline (motion, transitions, text overlays),
+    then renders via FFmpeg with word-synced typography.
+    """
+    content = _load_content(session, body.script_id)
+    scene_count = _count_scenes(content)
+    audio_dur = _total_audio_duration(content)
+    job = create_job(scene_count=scene_count, total_audio_duration=audio_dur)
+
+    def do_render():
+        def on_progress(p: float, msg: str):
+            update_job(job.id, progress=p, current_step=msg)
+
+        on_progress(0.0, "Generating editing timeline with Claude...")
+        timeline = generate_edit_timeline(content)
+
+        return render_auto_edit_video(
+            script_id=body.script_id,
+            content=content,
+            timeline=timeline,
+            width=body.width,
+            height=body.height,
+            on_progress=on_progress,
+            title=body.title,
+        )
+
+    run_in_background(job.id, do_render)
+    return RenderJobResponse(job_id=job.id)

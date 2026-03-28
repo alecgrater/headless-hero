@@ -57,12 +57,12 @@ def generate_scene_audio(
     voice_id: str,
     script_id: str,
     model_id: str = "eleven_multilingual_v2",
-) -> tuple[str, float]:
+) -> tuple[str, float, list[dict]]:
     """Generate TTS audio for a single scene and save locally.
 
-    Returns (web-relative path, duration in seconds).
+    Returns (web-relative path, duration in seconds, word_timestamps).
     """
-    audio_bytes = generate_speech(
+    audio_bytes, word_timestamps = generate_speech(
         text=narration,
         voice_id=voice_id,
         model_id=model_id,
@@ -76,7 +76,7 @@ def generate_scene_audio(
 
     duration = _mp3_duration_seconds(audio_bytes)
     web_path = f"/static/projects/{script_id}/audio/{scene_id}.mp3"
-    return web_path, duration
+    return web_path, duration, word_timestamps
 
 def generate_batch_audio(
     scenes: list[dict[str, str]],
@@ -92,7 +92,7 @@ def generate_batch_audio(
     results: list[dict[str, str]] | None = []
     for scene in scenes:
         try:
-            audio_url, duration = generate_scene_audio(
+            audio_url, duration, word_timestamps = generate_scene_audio(
                 scene_id=scene["scene_id"],
                 narration=scene["narration"],
                 voice_id=voice_id,
@@ -103,6 +103,7 @@ def generate_batch_audio(
                 "scene_id": scene["scene_id"],
                 "audio_url": audio_url,
                 "duration_seconds": duration,
+                "word_timestamps": word_timestamps,
                 "error": None,
             })
         except Exception as exc:

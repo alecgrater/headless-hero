@@ -106,3 +106,12 @@ export interface GenerateSEOResponse {
 export interface RenderEstimateResponse {
   estimated_seconds: number;
 }
+
+// --- Auto-Edit ---
+
+export interface AutoEditRequest {
+  script_id: string;
+  width?: number;
+  height?: number;
+  title?: string;
+}

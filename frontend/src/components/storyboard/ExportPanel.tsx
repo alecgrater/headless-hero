@@ -8,6 +8,11 @@ interface Props {
   youtubeUrl: string | null;
   onStartYoutubeRender: (fadeOut?: number, speed?: number) => void;
 
+  // Auto-Edit render
+  autoEditStatus: { status: string; progress: number; current_step: string; error?: string } | null;
+  autoEditUrl: string | null;
+  onStartAutoEditRender: () => void;
+
   tiktokStatus: { status: string; progress: number; current_step: string; error?: string } | null;
   tiktokUrls: string[];
   onStartTiktokRender: () => void;
@@ -118,6 +123,9 @@ export default function ExportPanel({
   youtubeStatus,
   youtubeUrl,
   onStartYoutubeRender,
+  autoEditStatus,
+  autoEditUrl,
+  onStartAutoEditRender,
   tiktokStatus,
   tiktokUrls,
   onStartTiktokRender,
@@ -141,6 +149,7 @@ export default function ExportPanel({
   onClose,
 }: Props) {
   const youtubeRendering = youtubeStatus?.status === "running" || youtubeStatus?.status === "pending";
+  const autoEditRendering = autoEditStatus?.status === "running" || autoEditStatus?.status === "pending";
   const tiktokRendering = tiktokStatus?.status === "running" || tiktokStatus?.status === "pending";
   const publishing = publishStatus?.status === "running" || publishStatus?.status === "pending";
 
@@ -156,7 +165,7 @@ export default function ExportPanel({
 
   // Badge indicators
   const tabBadges: Record<Tab, boolean> = {
-    render: !!youtubeUrl || tiktokUrls.length > 0,
+    render: !!youtubeUrl || !!autoEditUrl || tiktokUrls.length > 0,
     thumbnails: thumbnails.length > 0,
     seo: !!seoMetadata,
     publish: publishHistory.some((r) => r.status === "published" || r.status === "scheduled"),
@@ -256,6 +265,40 @@ export default function ExportPanel({
                       )}
                     </div>
                   </div>
+                )}
+              </section>
+
+              {/* Auto-Edit Export */}
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
+                  Auto-Edit Export (16:9)
+                </h3>
+                <p className="text-xs text-neutral-500">
+                  AI-powered editing: Claude generates motion, transitions, and word-synced text overlays.
+                </p>
+                {autoEditRendering && autoEditStatus ? (
+                  <ProgressBar progress={autoEditStatus.progress} label={autoEditStatus.current_step} />
+                ) : autoEditUrl ? (
+                  <div className="space-y-3">
+                    <video
+                      src={assetUrl(autoEditUrl)}
+                      controls
+                      className="w-full max-h-[300px] rounded-lg border border-neutral-700"
+                    />
+                    <DownloadButton url={autoEditUrl} label="Download Auto-Edit Video" />
+                  </div>
+                ) : autoEditStatus?.status === "failed" ? (
+                  <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                    Auto-edit failed: {autoEditStatus.error ?? "Unknown error"}
+                  </div>
+                ) : null}
+                {!autoEditRendering && (
+                  <button
+                    onClick={onStartAutoEditRender}
+                    className="text-sm px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg font-medium transition-colors"
+                  >
+                    {autoEditUrl ? "Re-render Auto-Edit" : "Auto-Edit Render"}
+                  </button>
                 )}
               </section>
 
