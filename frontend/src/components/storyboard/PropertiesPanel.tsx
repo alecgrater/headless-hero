@@ -56,6 +56,7 @@ interface Props {
   onNextScene?: () => void;
   onFetchMedia?: () => void;
   isFetchingMedia?: boolean;
+  contentFormat?: string;
 }
 
 export default function PropertiesPanel({
@@ -79,6 +80,7 @@ export default function PropertiesPanel({
   onNextScene,
   onFetchMedia,
   isFetchingMedia = false,
+  contentFormat,
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
@@ -89,6 +91,8 @@ export default function PropertiesPanel({
   );
   const [isTitleCard, setIsTitleCard] = useState(scene.is_title_card);
   const [searchQuery, setSearchQuery] = useState(scene.search_query || "");
+
+  const isShortform = contentFormat === "shortform";
 
   const sceneIdRef = useRef(scene.id);
 
@@ -361,7 +365,7 @@ export default function PropertiesPanel({
                 <img
                   src={assetUrl(scene.image_url)}
                   alt="Scene visual A"
-                  className="w-full h-[96px] object-cover rounded-lg border border-neutral-700"
+                  className={`w-full object-cover rounded-lg border border-neutral-700 ${isShortform ? "h-[140px]" : "h-[96px]"}`}
                 />
               </div>
               <div className="space-y-1">
@@ -369,7 +373,7 @@ export default function PropertiesPanel({
                 <img
                   src={assetUrl(scene.image_url_b)}
                   alt="Scene visual B"
-                  className="w-full h-[96px] object-cover rounded-lg border border-amber-700/50"
+                  className={`w-full object-cover rounded-lg border border-amber-700/50 ${isShortform ? "h-[140px]" : "h-[96px]"}`}
                 />
               </div>
             </div>
@@ -377,7 +381,7 @@ export default function PropertiesPanel({
             <img
               src={assetUrl(scene.image_url)}
               alt="Scene visual"
-              className="w-full h-[200px] object-cover rounded-lg border border-neutral-700"
+              className={`w-full object-cover rounded-lg border border-neutral-700 ${isShortform ? "aspect-[9/16] h-auto max-h-[320px]" : "h-[200px]"}`}
             />
           )}
           {onGenerateImage && (

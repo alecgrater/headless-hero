@@ -21,15 +21,18 @@ def generate_scene_image(
     height: int = 768,
     force: bool = False,
     variant: str = "a",
+    style_guide: str = "",
 ) -> tuple[str, str]:
     """Generate a single scene image and save it locally.
 
     If the image already exists and force=False, skips regeneration.
     variant="a" uses {scene_id}.png, variant="b" uses {scene_id}_b.png.
+    style_guide overrides the default _STYLE_GUIDE if provided.
     Returns (web-relative path, composed prompt used).
     """
+    guide = style_guide if style_guide else _STYLE_GUIDE
     base_prompt = f"{brand_style}. {visual_prompt}" if brand_style else visual_prompt
-    prompt = f"{_STYLE_GUIDE}\n\n{base_prompt}" if _STYLE_GUIDE else base_prompt
+    prompt = f"{guide}\n\n{base_prompt}" if guide else base_prompt
 
     # Check cache: if image exists and we have a matching prompt marker, skip regen
     images_dir = _data_dir / "projects" / script_id / "images"
@@ -62,6 +65,7 @@ def generate_batch(
     script_id: str,
     width: int = 1344,
     height: int = 768,
+    style_guide: str = "",
 ) -> list[dict[str, str | None]]:
     """Generate images for a list of scenes sequentially.
 
@@ -79,6 +83,7 @@ def generate_batch(
                 script_id=script_id,
                 width=width,
                 height=height,
+                style_guide=style_guide,
             )
             image_url_b = None
             if scene.get("is_animated") and scene.get("visual_prompt_b"):
@@ -90,6 +95,7 @@ def generate_batch(
                     width=width,
                     height=height,
                     variant="b",
+                    style_guide=style_guide,
                 )
             results.append({
                 "scene_id": scene["scene_id"],

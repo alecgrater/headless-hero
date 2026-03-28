@@ -115,3 +115,19 @@ export interface AutoEditRequest {
   height?: number;
   title?: string;
 }
+
+// --- Short-Form ---
+
+export interface RenderShortformRequest {
+  script_id: string;
+  title?: string;
+  speed?: number;
+}
+
+export interface ShortformSEOMetadata {
+  youtube_shorts?: { title: string; description: string; tags: string[] };
+  tiktok?: { caption: string; hashtags: string[] };
+  instagram_reels?: { caption: string; hashtags: string[] };
+  thumbnail_text?: string;
+  hook_preview_text?: string;
+}

@@ -139,6 +139,12 @@ export default function ProjectDashboard({ brand, onNewVideo, onOpenProject, onB
                 <span className={`absolute top-2 right-2 px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[project.status]}`}>
                   {STATUS_LABELS[project.status]}
                 </span>
+                {/* Format badge */}
+                {project.content_format === "shortform" && (
+                  <span className="absolute top-2 left-2 px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/20 text-emerald-300">
+                    Short-Form
+                  </span>
+                )}
               </div>
 
               {/* Card body */}

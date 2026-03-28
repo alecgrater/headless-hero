@@ -15,6 +15,7 @@ class BrandProfileBase(SQLModel):
     font: str = Field(default="")
     voice_id: str = Field(default="")  # ElevenLabs voice ID
     content_modifiers: str = Field(default="")  # JSON array of modifier IDs
+    shortform_voice_settings: str = Field(default="")  # JSON blob for ElevenLabs overrides
     youtube_channel_id: str = Field(default="")
     tiktok_handle: str = Field(default="")
     instagram_handle: str = Field(default="")
@@ -42,6 +43,7 @@ class BrandProfileUpdate(BaseModel):
     font: str | None = None
     voice_id: str | None = None
     content_modifiers: str | None = None
+    shortform_voice_settings: str | None = None
     youtube_channel_id: str | None = None
     tiktok_handle: str | None = None
     instagram_handle: str | None = None

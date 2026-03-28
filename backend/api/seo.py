@@ -8,7 +8,7 @@ from sqlmodel import Session
 
 from api.database import get_session
 from models.script import Script, ScriptContent
-from pipeline.seo import SEOMetadata, generate_seo
+from pipeline.seo import SEOMetadata, ShortformSEOMetadata, generate_seo, generate_shortform_seo
 
 router = APIRouter(prefix="/api/seo", tags=["seo"])
 
@@ -17,6 +17,13 @@ class GenerateSEORequest(BaseModel):
 
 class GenerateSEOResponse(BaseModel):
     metadata: SEOMetadata
+
+class GenerateShortformSEORequest(BaseModel):
+    script_id: str
+    platforms: list[str] = ["youtube_shorts", "tiktok", "instagram_reels"]
+
+class GenerateShortformSEOResponse(BaseModel):
+    metadata: ShortformSEOMetadata
 
 @router.post("/generate", response_model=GenerateSEOResponse)
 def generate_seo_metadata(body: GenerateSEORequest, session: Session = Depends(get_session)):
@@ -35,3 +42,28 @@ def generate_seo_metadata(body: GenerateSEORequest, session: Session = Depends(g
     )
 
     return GenerateSEOResponse(metadata=metadata)
+
+@router.post("/generate-shortform", response_model=GenerateShortformSEOResponse)
+def generate_shortform_seo_metadata(body: GenerateShortformSEORequest, session: Session = Depends(get_session)):
+    """Generate short-form SEO metadata for selected platforms."""
+    record = session.get(Script, body.script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    content = ScriptContent.model_validate(json.loads(record.script_json))
+
+    # Collect all narration text
+    narration = " ".join(
+        scene.narration
+        for seg in content.segments
+        for scene in seg.scenes
+        if scene.narration
+    )
+
+    metadata = generate_shortform_seo(
+        title=content.title,
+        narration_text=narration,
+        platforms=body.platforms,
+    )
+
+    return GenerateShortformSEOResponse(metadata=metadata)

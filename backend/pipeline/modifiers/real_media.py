@@ -31,6 +31,9 @@ query should be specific enough to find relevant footage.
 is about a general concept (e.g. "the evolution of gaming"), keep it as ai_generated.
 - Include "media_type" and "search_query" in each scene object in the JSON output."""
 
+_REAL_MEDIA_SHORTFORM_EXTRA = """
+- For short-form content: gameplay clips MUST be 8 seconds or less. Keep clips punchy and fast-paced."""
+
 # JSON schema fields to add when real media is active
 _REAL_MEDIA_SCHEMA_ADDITION = """\
           "media_type": "ai_generated",
@@ -46,7 +49,10 @@ class RealMediaModifier(ContentModifier):
     )
 
     def modify_script_prompt(self, system_prompt: str, user_message: str) -> tuple[str, str]:
-        return system_prompt + _REAL_MEDIA_PROMPT_INSTRUCTIONS, user_message
+        instructions = _REAL_MEDIA_PROMPT_INSTRUCTIONS
+        if "short-form" in system_prompt.lower() or "shortform" in system_prompt.lower():
+            instructions += _REAL_MEDIA_SHORTFORM_EXTRA
+        return system_prompt + instructions, user_message
 
     def get_render_override(self, scene: Scene, script_id: str, **kwargs) -> list[str] | None:
         if getattr(scene, "media_type", "ai_generated") != "gameplay_clip":
@@ -64,9 +70,24 @@ class RealMediaModifier(ContentModifier):
         height = kwargs.get("height", 1080)
         fade_out = kwargs.get("fade_out", 0.3)
         speed = kwargs.get("speed", 1.0)
+        is_shortform = height > width  # 9:16 portrait
 
         duration = scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else scene.duration_estimate_seconds
         toc = scene.text_overlay_config or TextOverlayConfig()
+
+        if is_shortform:
+            # For shortform: center-crop 16:9 source to 9:16 portrait
+            from pipeline.ffmpeg_builder import build_shortform_clip_scene_cmd
+
+            return build_shortform_clip_scene_cmd(
+                clip_path=clip_path,
+                audio_path=audio_path,
+                output_path=kwargs["output_path"],
+                duration=duration,
+                width=width,
+                height=height,
+                speed=speed,
+            )
 
         from pipeline.ffmpeg_builder import build_video_clip_scene_cmd
 

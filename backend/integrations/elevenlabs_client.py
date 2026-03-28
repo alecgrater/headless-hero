@@ -77,6 +77,7 @@ def generate_speech(
     voice_id: str,
     model_id: str = "eleven_multilingual_v2",
     output_format: str = "mp3_44100_128",
+    voice_settings: dict | None = None,
 ) -> tuple[bytes, list[dict]]:
     """Generate speech audio bytes from text using ElevenLabs TTS with timestamps.
 
@@ -84,10 +85,14 @@ def generate_speech(
     """
     url = f"{_BASE_URL}/text-to-speech/{voice_id}/with-timestamps"
 
+    effective_settings = {**_DEFAULT_VOICE_SETTINGS}
+    if voice_settings:
+        effective_settings.update(voice_settings)
+
     payload = {
         "text": text,
         "model_id": model_id,
-        "voice_settings": _DEFAULT_VOICE_SETTINGS,
+        "voice_settings": effective_settings,
         "output_format": output_format,
     }
 

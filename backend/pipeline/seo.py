@@ -1,6 +1,7 @@
 """SEO metadata generation pipeline — Claude generates per-platform metadata."""
 
 import json
+from pathlib import Path
 
 from pydantic import BaseModel
 
@@ -23,6 +24,20 @@ class SEOMetadata(BaseModel):
     youtube: YouTubeSEO
     tiktok: list[TikTokSEO]
     instagram: InstagramSEO
+
+# --- Short-form SEO models ---
+
+class YouTubeShortsSEO(BaseModel):
+    title: str
+    description: str
+    tags: list[str]
+
+class ShortformSEOMetadata(BaseModel):
+    youtube_shorts: YouTubeShortsSEO | None = None
+    tiktok: TikTokSEO | None = None
+    instagram_reels: InstagramSEO | None = None
+    thumbnail_text: str = ""
+    hook_preview_text: str = ""
 
 SYSTEM_PROMPT = """\
 You are a social media SEO expert. Generate optimized metadata for video \
@@ -65,3 +80,49 @@ def generate_seo(
 
     data = json.loads(text)
     return SEOMetadata.model_validate(data)
+
+
+# --- Short-form SEO ---
+
+_SHORTFORM_GUIDE_PATH = Path(__file__).resolve().parent.parent / "prompts" / "shortform_seo_guide.md"
+_SHORTFORM_SEO_GUIDE = _SHORTFORM_GUIDE_PATH.read_text() if _SHORTFORM_GUIDE_PATH.exists() else ""
+
+_SHORTFORM_SEO_SYSTEM = (_SHORTFORM_SEO_GUIDE + "\n\n" if _SHORTFORM_SEO_GUIDE else "") + """\
+You are a short-form video SEO expert specializing in YouTube Shorts, TikTok, \
+and Instagram Reels.
+- Return ONLY valid JSON — no markdown fences, no commentary.
+- Only include platforms that are listed in the user's request."""
+
+
+def generate_shortform_seo(
+    title: str,
+    narration_text: str,
+    brand_context: str = "",
+    platforms: list[str] | None = None,
+) -> ShortformSEOMetadata:
+    """Generate platform-specific SEO metadata for short-form content."""
+    platform_names = {
+        "youtube_shorts": "YouTube Shorts",
+        "tiktok": "TikTok",
+        "instagram_reels": "Instagram Reels",
+    }
+    plats = platforms or ["youtube_shorts", "tiktok", "instagram_reels"]
+    platform_list = ", ".join(platform_names.get(p, p) for p in plats)
+
+    user_msg = (
+        f"Generate short-form SEO metadata for this video:\n\n"
+        f"Title: {title}\n"
+        f"Narration: {narration_text}\n"
+        f"Target platforms: {platform_list}"
+    )
+    if brand_context:
+        user_msg += f"\nBrand context: {brand_context}"
+
+    raw = chat(_SHORTFORM_SEO_SYSTEM, user_msg, max_tokens=4096)
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1]
+        text = text.rsplit("```", 1)[0]
+
+    data = json.loads(text)
+    return ShortformSEOMetadata.model_validate(data)

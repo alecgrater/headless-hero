@@ -5,6 +5,7 @@ import BrandForm from "./components/brand/BrandForm";
 import BrandList from "./components/brand/BrandList";
 import BrandSettings from "./components/brand/BrandSettings";
 import ProjectDashboard from "./components/dashboard/ProjectDashboard";
+import FormatSelection from "./components/ideation/FormatSelection";
 import IdeationPage from "./components/ideation/IdeationPage";
 import ScriptGenerationPage from "./components/script/ScriptGenerationPage";
 import SettingsPage from "./components/settings/SettingsPage";
@@ -12,7 +13,7 @@ import StoryboardPage from "./components/storyboard/StoryboardPage";
 import type { BrandProfile, BrandProfileCreate } from "./types/brand";
 import type { VideoIdea } from "./types/idea";
 
-type View = "home" | "brand-create" | "brand-edit" | "brand-settings" | "project-dashboard" | "ideation" | "script-generation" | "storyboard" | "settings";
+type View = "home" | "brand-create" | "brand-edit" | "brand-settings" | "project-dashboard" | "ideation" | "format-selection" | "script-generation" | "storyboard" | "settings";
 
 function App() {
   const [backendStatus, setBackendStatus] = useState<string>("connecting...");
@@ -24,6 +25,8 @@ function App() {
   const [saving, setSaving] = useState(false);
   const [selectedIdea, setSelectedIdea] = useState<VideoIdea | null>(null);
   const [storyboardScriptId, setStoryboardScriptId] = useState<string | null>(null);
+  const [contentFormat, setContentFormat] = useState<"youtube" | "shortform">("youtube");
+  const [shortformPlatforms, setShortformPlatforms] = useState<string[]>(["youtube_shorts", "tiktok", "instagram_reels"]);
 
   useEffect(() => {
     api
@@ -156,7 +159,7 @@ function App() {
       </header>
 
       {/* Main content area */}
-      <main className={`flex-1 w-full ${view === "storyboard" || view === "project-dashboard" || view === "brand-create" || view === "brand-edit" || view === "brand-settings" || view === "settings" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
+      <main className={`flex-1 w-full ${view === "storyboard" || view === "project-dashboard" || view === "brand-create" || view === "brand-edit" || view === "brand-settings" || view === "settings" || view === "format-selection" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
         {view === "settings" && (
           <SettingsPage onBack={() => setView("home")} />
         )}
@@ -198,8 +201,19 @@ function App() {
             brand={selectedBrand}
             onUseIdea={(idea) => {
               setSelectedIdea(idea);
+              setView("format-selection");
+            }}
+          />
+        )}
+
+        {view === "format-selection" && selectedBrand && selectedIdea && (
+          <FormatSelection
+            onSelect={(format, platforms) => {
+              setContentFormat(format);
+              setShortformPlatforms(platforms);
               setView("script-generation");
             }}
+            onBack={() => setView("ideation")}
           />
         )}
 
@@ -207,7 +221,9 @@ function App() {
           <ScriptGenerationPage
             brand={selectedBrand}
             idea={selectedIdea}
-            onBack={() => setView("ideation")}
+            contentFormat={contentFormat}
+            shortformPlatforms={shortformPlatforms}
+            onBack={() => setView("format-selection")}
             onContinue={(scriptId) => {
               setStoryboardScriptId(scriptId);
               setView("storyboard");

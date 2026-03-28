@@ -21,6 +21,7 @@ class GenerateAudioRequest(BaseModel):
     narration: str
     voice_id: str
     model_id: str = "eleven_multilingual_v2"
+    voice_settings: dict | None = None
 
 class GenerateAudioResponse(BaseModel):
     audio_url: str
@@ -36,6 +37,7 @@ class GenerateBatchAudioRequest(BaseModel):
     scenes: list[BatchAudioScene]
     voice_id: str
     model_id: str = "eleven_multilingual_v2"
+    voice_settings: dict | None = None
 
 class BatchAudioResultItem(BaseModel):
     scene_id: str
@@ -100,6 +102,7 @@ def generate_audio(body: GenerateAudioRequest, session: Session = Depends(get_se
         voice_id=body.voice_id,
         script_id=body.script_id,
         model_id=body.model_id,
+        voice_settings=body.voice_settings,
     )
 
     _update_scene_audio(session, body.script_id, body.scene_id, audio_url, duration, word_timestamps)
@@ -122,6 +125,7 @@ def generate_audio_batch(
         voice_id=body.voice_id,
         script_id=body.script_id,
         model_id=body.model_id,
+        voice_settings=body.voice_settings,
     )
 
     # Persist successful audio URLs

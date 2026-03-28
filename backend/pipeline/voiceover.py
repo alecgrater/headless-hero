@@ -57,6 +57,7 @@ def generate_scene_audio(
     voice_id: str,
     script_id: str,
     model_id: str = "eleven_multilingual_v2",
+    voice_settings: dict | None = None,
 ) -> tuple[str, float, list[dict]]:
     """Generate TTS audio for a single scene and save locally.
 
@@ -66,6 +67,7 @@ def generate_scene_audio(
         text=narration,
         voice_id=voice_id,
         model_id=model_id,
+        voice_settings=voice_settings,
     )
 
     # Save to local storage
@@ -83,6 +85,7 @@ def generate_batch_audio(
     voice_id: str,
     script_id: str,
     model_id: str = "eleven_multilingual_v2",
+    voice_settings: dict | None = None,
 ) -> list[dict[str, str | None]]:
     """Generate TTS audio for a list of scenes sequentially.
 
@@ -98,6 +101,7 @@ def generate_batch_audio(
                 voice_id=voice_id,
                 script_id=script_id,
                 model_id=model_id,
+                voice_settings=voice_settings,
             )
             results.append({
                 "scene_id": scene["scene_id"],

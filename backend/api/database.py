@@ -20,6 +20,9 @@ def _migrate(engine) -> None:
     """Add columns that may not exist in older databases."""
     migrations = [
         "ALTER TABLE brand_profiles ADD COLUMN content_modifiers TEXT DEFAULT ''",
+        "ALTER TABLE scripts ADD COLUMN content_format TEXT DEFAULT 'youtube'",
+        "ALTER TABLE scripts ADD COLUMN shortform_platforms TEXT DEFAULT ''",
+        "ALTER TABLE brand_profiles ADD COLUMN shortform_voice_settings TEXT DEFAULT ''",
     ]
     with Session(engine) as session:
         for sql in migrations:

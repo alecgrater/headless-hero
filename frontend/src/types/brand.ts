@@ -13,6 +13,7 @@ export interface BrandProfile {
   font: string;
   voice_id: string;
   content_modifiers: string;
+  shortform_voice_settings: string;
   youtube_channel_id: string;
   tiktok_handle: string;
   instagram_handle: string;
@@ -27,6 +28,7 @@ export interface BrandProfileCreate {
   font?: string;
   voice_id?: string;
   content_modifiers?: string;
+  shortform_voice_settings?: string;
   youtube_channel_id?: string;
   tiktok_handle?: string;
   instagram_handle?: string;

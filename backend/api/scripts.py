@@ -12,6 +12,7 @@ from models.brand import BrandProfile
 from models.script import (
     GenerateScriptRequest,
     GenerateScriptResponse,
+    GenerateShortformScriptRequest,
     RefineSceneRequest,
     RefineSceneResponse,
     Script,
@@ -22,6 +23,7 @@ from models.script import (
 )
 from pipeline.refine import refine_scene
 from pipeline.scriptwriter import generate_script
+from pipeline.shortform_scriptwriter import generate_shortform_script
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 
@@ -68,6 +70,7 @@ def _build_summary(record: Script) -> ScriptSummary:
         has_renders=has_renders,
         thumbnail_url=thumbnail_url,
         status=status,
+        content_format=record.content_format or "youtube",
     )
 
 
@@ -151,6 +154,59 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
 
     return GenerateScriptResponse(id=record.id, script=script_content)
 
+
+@router.post("/generate-shortform", response_model=GenerateScriptResponse)
+def generate_shortform(body: GenerateShortformScriptRequest, session: Session = Depends(get_session)):
+    brand = session.get(BrandProfile, body.brand_id)
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+
+    parts = [brand.name]
+    if brand.art_style:
+        parts.append(f"Art style: {brand.art_style}")
+    brand_context = ". ".join(parts)
+
+    modifier_ids: list[str] = []
+    try:
+        import json as _json
+        parsed = _json.loads(brand.content_modifiers) if brand.content_modifiers else []
+        modifier_ids = parsed if isinstance(parsed, list) else []
+    except Exception:
+        pass
+    if not modifier_ids:
+        modifier_ids = ["title_cards"]
+
+    brand_dict = {
+        "name": brand.name,
+        "art_style": brand.art_style,
+        "color_palette": brand.color_palette,
+        "font": brand.font,
+    }
+
+    script_content = generate_shortform_script(
+        topic=body.topic,
+        description=body.description,
+        brand_context=brand_context,
+        platforms=body.platforms,
+        target_duration_seconds=body.target_duration_seconds,
+        modifier_ids=modifier_ids,
+        brand=brand_dict,
+    )
+
+    record = Script(
+        brand_id=body.brand_id,
+        topic_title=body.topic,
+        topic_description=body.description,
+        script_json=script_content.model_dump_json(),
+        content_format="shortform",
+        shortform_platforms=json.dumps(body.platforms),
+    )
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+
+    return GenerateScriptResponse(id=record.id, script=script_content)
+
 @router.put("/{script_id}", response_model=ScriptRead)
 def update_script(script_id: str, body: UpdateScriptRequest, session: Session = Depends(get_session)):
     record = session.get(Script, script_id)
@@ -169,6 +225,7 @@ def update_script(script_id: str, body: UpdateScriptRequest, session: Session = 
         topic_description=record.topic_description,
         script=body.script,
         created_at=record.created_at,
+        content_format=record.content_format or "youtube",
     )
 
 @router.get("/{script_id}", response_model=ScriptRead)
@@ -177,7 +234,6 @@ def get_script(script_id: str, session: Session = Depends(get_session)):
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
 
-    script_content = ScriptContent.model_validate(json.loads(record.script_json))
     return ScriptRead(
         id=record.id,
         brand_id=record.brand_id,
@@ -185,6 +241,7 @@ def get_script(script_id: str, session: Session = Depends(get_session)):
         topic_description=record.topic_description,
         script=script_content,
         created_at=record.created_at,
+        content_format=record.content_format or "youtube",
     )
 
 @router.post("/{script_id}/refine-scene", response_model=RefineSceneResponse)
