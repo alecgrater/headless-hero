@@ -37,8 +37,8 @@ def generate_image(prompt: str, width: int = 1344, height: int = 768) -> str:
     aspect = _closest_aspect_ratio(width, height)
 
     response = client.models.generate_content(
-        model="gemini-2.5-flash-preview-05-20",
-        contents=prompt,
+        model="gemini-2.5-flash-image",
+        contents=[prompt],
         config=types.GenerateContentConfig(
             response_modalities=["IMAGE"],
             image_config=types.ImageConfig(
@@ -47,12 +47,11 @@ def generate_image(prompt: str, width: int = 1344, height: int = 768) -> str:
         ),
     )
 
-    # Extract image bytes from response
-    for part in response.candidates[0].content.parts:
+    # Extract image bytes from response (matching official SDK pattern)
+    for part in response.parts:
         if part.inline_data is not None:
             # Write to a temp file and return its path
-            suffix = ".png" if "png" in (part.inline_data.mime_type or "") else ".jpg"
-            fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+            fd, tmp_path = tempfile.mkstemp(suffix=".png")
             with os.fdopen(fd, "wb") as f:
                 f.write(part.inline_data.data)
             return tmp_path
