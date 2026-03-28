@@ -7,9 +7,29 @@ Constructs ffmpeg CLI argument lists for:
 - TikTok 9:16 reformat (blurred-background fill)
 """
 
+import logging
 import os
+import subprocess
 import tempfile
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+# Detect drawtext filter availability once at import time
+def _has_drawtext() -> bool:
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-filters"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return "drawtext" in result.stdout
+    except Exception:
+        return False
+
+_DRAWTEXT_AVAILABLE = _has_drawtext()
+if not _DRAWTEXT_AVAILABLE:
+    logger.warning("FFmpeg drawtext filter not available — text overlays will be skipped. "
+                    "Install FFmpeg with libfreetype to enable text overlays.")
 
 # Intensity -> zoom speed multiplier for Ken Burns
 _KB_SPEED = {"subtle": 0.0003, "moderate": 0.0006, "dramatic": 0.0012}
@@ -110,14 +130,14 @@ def _drawtext_filter(
     parts = [
         f"text='{escaped}'",
         f"fontsize={fontsize}",
-        f"fontcolor={fontcolor}@{alpha_expr}" if animation in ("fade_in", "typewriter") else f"fontcolor={fontcolor}",
-        f"x={x_expr}",
-        f"y={y_expr}",
+        f"fontcolor='{fontcolor}@{alpha_expr}'" if animation in ("fade_in", "typewriter") else f"fontcolor={fontcolor}",
+        f"x='{x_expr}'",
+        f"y='{y_expr}'",
         f"borderw={borderw}",
         f"bordercolor=black",
         f"shadowx={shadowx}",
         f"shadowy={shadowy}",
-        f"shadowcolor=black@0.6",
+        f"shadowcolor='black@0.6'",
         f"enable='{enable}'",
     ]
 
@@ -161,8 +181,8 @@ def build_scene_video_cmd(
     filters.append(f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black")
     filters.append("setsar=1")
 
-    # Text overlay
-    if text_overlay:
+    # Text overlay (requires drawtext filter / libfreetype)
+    if text_overlay and _DRAWTEXT_AVAILABLE:
         dt = _drawtext_filter(
             text=text_overlay,
             position=overlay_position,
@@ -297,15 +317,18 @@ def build_thumbnail_composite_cmd(
     height: int = 720,
 ) -> list[str]:
     """Build FFmpeg command to composite title text + color bar onto a thumbnail image."""
-    escaped = _escape_drawtext(title_text)
-
     filter_complex = (
         f"[0:v]scale={width}:{height}:force_original_aspect_ratio=decrease,"
         f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black,"
-        f"drawbox=x=0:y=ih-80:w=iw:h=80:color=#{bar_color.replace('0x', '')}@0.85:t=fill,"
-        f"drawtext=text='{escaped}':fontsize=52:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2:"
-        f"borderw=3:bordercolor=black:shadowx=3:shadowy=3:shadowcolor=black@0.7"
+        f"drawbox=x=0:y=ih-80:w=iw:h=80:color=#{bar_color.replace('0x', '')}@0.85:t=fill"
     )
+
+    if _DRAWTEXT_AVAILABLE:
+        escaped = _escape_drawtext(title_text)
+        filter_complex += (
+            f",drawtext=text='{escaped}':fontsize=52:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2:"
+            f"borderw=3:bordercolor=black:shadowx=3:shadowy=3:shadowcolor='black@0.7'"
+        )
 
     cmd = [
         "ffmpeg", "-y",

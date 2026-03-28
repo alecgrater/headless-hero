@@ -49,7 +49,7 @@ interface RenderState {
   fetchEstimate: (sceneCount: number, totalAudioDuration: number) => Promise<void>;
 }
 
-export function useRenderState(scriptId: string): RenderState {
+export function useRenderState(scriptId: string, title: string): RenderState {
   const [youtubeJobId, setYoutubeJobId] = useState<string | null>(null);
   const [youtubeStatus, setYoutubeStatus] = useState<RenderStatusResponse | null>(null);
   const [youtubeUrl, setYoutubeUrl] = useState<string | null>(null);
@@ -119,6 +119,7 @@ export function useRenderState(scriptId: string): RenderState {
       const res = await api.post("/api/render/full", {
         script_id: scriptId,
         fade_out: fadeOut,
+        title,
       });
       if (!res.ok) return;
       const { job_id } = res.data as RenderJobResponse;
@@ -127,7 +128,7 @@ export function useRenderState(scriptId: string): RenderState {
         if (urls.length > 0) setYoutubeUrl(urls[0]);
       });
     },
-    [scriptId, pollJob],
+    [scriptId, title, pollJob],
   );
 
   const startTiktokRender = useCallback(async () => {
@@ -135,6 +136,7 @@ export function useRenderState(scriptId: string): RenderState {
     setTiktokStatus(null);
     const res = await api.post("/api/render/segments", {
       script_id: scriptId,
+      title,
     });
     if (!res.ok) return;
     const { job_id } = res.data as RenderJobResponse;
@@ -142,13 +144,14 @@ export function useRenderState(scriptId: string): RenderState {
     pollJob(job_id, setTiktokStatus, (urls) => {
       setTiktokUrls(urls);
     });
-  }, [scriptId, pollJob]);
+  }, [scriptId, title, pollJob]);
 
   const exportAudio = useCallback(async () => {
     setAudioExporting(true);
     try {
       const res = await api.post("/api/render/export-audio", {
         script_id: scriptId,
+        title,
       });
       if (res.ok) {
         const data = res.data as ExportAudioResponse;
@@ -157,7 +160,7 @@ export function useRenderState(scriptId: string): RenderState {
     } finally {
       setAudioExporting(false);
     }
-  }, [scriptId]);
+  }, [scriptId, title]);
 
   const generateThumbnails = useCallback(
     async (brandStyle = "", barColor = "0x9333EA") => {
@@ -167,6 +170,7 @@ export function useRenderState(scriptId: string): RenderState {
           script_id: scriptId,
           brand_style: brandStyle,
           bar_color: barColor,
+          title,
         });
         if (res.ok) {
           const data = res.data as GenerateThumbnailResponse;
@@ -176,7 +180,7 @@ export function useRenderState(scriptId: string): RenderState {
         setThumbnailsGenerating(false);
       }
     },
-    [scriptId],
+    [scriptId, title],
   );
 
   const generateSEO = useCallback(async () => {

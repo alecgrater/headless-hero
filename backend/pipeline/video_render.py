@@ -2,6 +2,8 @@
 
 import logging
 import os
+import re
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Callable
@@ -27,6 +29,24 @@ def _run_ffmpeg(cmd: list[str]) -> None:
     if result.returncode != 0:
         log.error("FFmpeg stderr: %s", result.stderr)
         raise RuntimeError(f"FFmpeg failed (exit {result.returncode}): {result.stderr[-500:]}")
+
+def _sanitize_filename(name: str) -> str:
+    """Strip unsafe filesystem characters and truncate to 80 chars."""
+    clean = re.sub(r'[<>:"/\\|?*]', "", name).strip()
+    return clean[:80] if clean else "Untitled"
+
+def copy_to_downloads(title: str, src_path: str, dest_name: str) -> str:
+    """Copy a rendered file to the downloads directory.
+
+    Returns the destination path.
+    """
+    base = os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads")
+    folder = Path(base) / _sanitize_filename(title)
+    folder.mkdir(parents=True, exist_ok=True)
+    dest = folder / dest_name
+    shutil.copy2(src_path, dest)
+    log.info("Copied to downloads: %s", dest)
+    return str(dest)
 
 def _scene_image_path(script_id: str, scene_id: str) -> str:
     """Resolve local filesystem path for a scene image."""
@@ -120,6 +140,7 @@ def render_full_video(
     height: int = 1080,
     fade_out: float = 0.3,
     on_progress: ProgressCallback = None,
+    title: str = "",
 ) -> str:
     """Render all scenes then concatenate into a full YouTube video.
 
@@ -156,7 +177,15 @@ def render_full_video(
     if on_progress:
         on_progress(1.0, "Complete")
 
-    return f"/static/projects/{script_id}/renders/full_youtube.mp4"
+    web_path = f"/static/projects/{script_id}/renders/full_youtube.mp4"
+
+    if title:
+        try:
+            copy_to_downloads(title, output_path, f"{_sanitize_filename(title)} - YouTube.mp4")
+        except Exception:
+            log.warning("Failed to copy to downloads", exc_info=True)
+
+    return web_path
 
 def render_segment_video(
     script_id: str,
@@ -229,6 +258,7 @@ def render_all_segments(
     width: int = 1080,
     height: int = 1920,
     on_progress: ProgressCallback = None,
+    title: str = "",
 ) -> list[str]:
     """Render all segments as TikTok 9:16 clips. Returns list of web paths."""
     total = len(content.segments)
@@ -248,11 +278,20 @@ def render_all_segments(
     if on_progress:
         on_progress(1.0, "All segments complete")
 
+    if title:
+        for idx, web_path in enumerate(results):
+            try:
+                local = str(_data_dir / "projects" / script_id / "renders" / "tiktok" / f"{idx}.mp4")
+                copy_to_downloads(title, local, f"{_sanitize_filename(title)} - TikTok Segment {idx + 1}.mp4")
+            except Exception:
+                log.warning("Failed to copy segment %d to downloads", idx, exc_info=True)
+
     return results
 
 def export_full_audio(
     script_id: str,
     content: ScriptContent,
+    title: str = "",
 ) -> str:
     """Concatenate all scene audio files into a single MP3.
 
@@ -280,4 +319,12 @@ def export_full_audio(
         except OSError:
             pass
 
-    return f"/static/projects/{script_id}/renders/full_audio.mp3"
+    web_path = f"/static/projects/{script_id}/renders/full_audio.mp3"
+
+    if title:
+        try:
+            copy_to_downloads(title, output_path, f"{_sanitize_filename(title)} - Audio.mp3")
+        except Exception:
+            log.warning("Failed to copy audio to downloads", exc_info=True)
+
+    return web_path

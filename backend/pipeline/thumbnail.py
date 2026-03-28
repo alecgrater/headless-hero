@@ -1,6 +1,7 @@
 """Thumbnail generation pipeline — Claude concepts + Gemini images + FFmpeg compositing."""
 
 import json
+import logging
 import os
 import shutil
 from pathlib import Path
@@ -10,6 +11,9 @@ from pydantic import BaseModel
 from integrations.claude_client import chat
 from integrations.google_image_client import generate_image
 from pipeline.ffmpeg_builder import build_thumbnail_composite_cmd
+from pipeline.video_render import copy_to_downloads, _sanitize_filename
+
+log = logging.getLogger(__name__)
 
 _data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
 
@@ -58,6 +62,7 @@ def generate_thumbnail(
     title_text: str,
     brand_style: str = "",
     bar_color: str = "0x9333EA",
+    title: str = "",
 ) -> str:
     """Generate a single thumbnail: Gemini illustration + FFmpeg text composite.
 
@@ -92,4 +97,12 @@ def generate_thumbnail(
     except OSError:
         pass
 
-    return f"/static/projects/{script_id}/renders/thumbnails/{idx}.png"
+    web_path = f"/static/projects/{script_id}/renders/thumbnails/{idx}.png"
+
+    if title:
+        try:
+            copy_to_downloads(title, final_path, f"{_sanitize_filename(title)} - Thumbnail {idx + 1}.png")
+        except Exception:
+            log.warning("Failed to copy thumbnail to downloads", exc_info=True)
+
+    return web_path

@@ -143,7 +143,7 @@ function StoryboardEditor({
   onBack: () => void;
 }) {
   const state = useStoryboardState(scriptId, initialContent);
-  const render = useRenderState(scriptId);
+  const render = useRenderState(scriptId, title);
   const publish = usePublishState(scriptId, brandId);
   const [activeSegmentIdx, setActiveSegmentIdx] = useState<number | null>(null);
   const [showExport, setShowExport] = useState(false);

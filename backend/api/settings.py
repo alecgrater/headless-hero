@@ -17,7 +17,11 @@ ALLOWED_KEYS = {
     "ELEVENLABS_API_KEY",
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
+    "DOWNLOADS_DIR",
 }
+
+# Keys that should NOT be masked (non-secret settings)
+_PLAINTEXT_KEYS = {"DOWNLOADS_DIR"}
 
 
 def _mask(value: str) -> str:
@@ -46,7 +50,7 @@ async def get_keys(session: Session = Depends(get_session)):
         value = saved.get(key, "") or os.environ.get(key, "")
         result[key] = {
             "configured": bool(value),
-            "masked": _mask(value) if value else "",
+            "masked": value if key in _PLAINTEXT_KEYS else (_mask(value) if value else ""),
             "source": "db" if key in saved and saved[key] else ("env" if value else "none"),
         }
     return result

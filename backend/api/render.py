@@ -34,11 +34,13 @@ class RenderFullRequest(BaseModel):
     width: int = 1920
     height: int = 1080
     fade_out: float = 0.3
+    title: str = ""
 
 class RenderSegmentsRequest(BaseModel):
     script_id: str
     width: int = 1080
     height: int = 1920
+    title: str = ""
 
 class RenderJobResponse(BaseModel):
     job_id: str
@@ -53,6 +55,7 @@ class RenderStatusResponse(BaseModel):
 
 class ExportAudioRequest(BaseModel):
     script_id: str
+    title: str = ""
 
 class ExportAudioResponse(BaseModel):
     audio_url: str
@@ -122,6 +125,7 @@ def start_full_render(body: RenderFullRequest, session: Session = Depends(get_se
             height=body.height,
             fade_out=body.fade_out,
             on_progress=on_progress,
+            title=body.title,
         )
 
     run_in_background(job.id, do_render)
@@ -145,6 +149,7 @@ def start_segments_render(body: RenderSegmentsRequest, session: Session = Depend
             width=body.width,
             height=body.height,
             on_progress=on_progress,
+            title=body.title,
         )
 
     run_in_background(job.id, do_render)
@@ -172,5 +177,5 @@ def render_estimate(
 def export_audio(body: ExportAudioRequest, session: Session = Depends(get_session)):
     """Concatenate all scene audio into a single MP3 (synchronous)."""
     content = _load_content(session, body.script_id)
-    audio_url = export_full_audio(body.script_id, content)
+    audio_url = export_full_audio(body.script_id, content, title=body.title)
     return ExportAudioResponse(audio_url=audio_url)

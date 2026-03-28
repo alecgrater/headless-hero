@@ -17,6 +17,7 @@ class GenerateThumbnailRequest(BaseModel):
     brand_style: str = ""
     bar_color: str = "0x9333EA"
     count: int = 3
+    title: str = ""
 
 class ThumbnailConceptResult(BaseModel):
     idx: int
@@ -54,6 +55,7 @@ def generate_thumbnails(body: GenerateThumbnailRequest, session: Session = Depen
                 title_text=concept.title_text,
                 brand_style=body.brand_style,
                 bar_color=body.bar_color,
+                title=body.title,
             )
             results.append(ThumbnailConceptResult(
                 idx=i,
