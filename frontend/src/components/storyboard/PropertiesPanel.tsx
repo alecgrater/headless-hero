@@ -43,6 +43,7 @@ interface Props {
   onUpdate: (updates: Partial<Scene>) => void;
   onSplit: () => void;
   onMerge: () => void;
+  onDuplicate: () => void;
   onGenerateImage?: () => void;
   isGenerating?: boolean;
   onGenerateAudio?: () => void;
@@ -63,6 +64,7 @@ export default function PropertiesPanel({
   onUpdate,
   onSplit,
   onMerge,
+  onDuplicate,
   onGenerateImage,
   isGenerating = false,
   onGenerateAudio,
@@ -445,7 +447,11 @@ export default function PropertiesPanel({
           <select
             value={kenBurns.effect}
             onChange={(e) => updateKenBurns({ effect: e.target.value as KenBurnsConfig["effect"] })}
-            className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
+            className={`w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30 ${
+              kenBurns.effect !== "none"
+                ? "border-cyan-500/50"
+                : "border-neutral-700/50"
+            }`}
           >
             {KEN_BURNS_EFFECTS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -602,13 +608,22 @@ export default function PropertiesPanel({
         <button
           onClick={onSplit}
           className="w-full text-sm px-3 py-2 border border-neutral-700/50 text-neutral-400 bg-transparent hover:bg-neutral-800 rounded-lg transition-colors"
+          title="Split into two scenes at midpoint"
         >
           Split Scene
+        </button>
+        <button
+          onClick={onDuplicate}
+          className="w-full text-sm px-3 py-2 border border-neutral-700/50 text-neutral-400 bg-transparent hover:bg-neutral-800 rounded-lg transition-colors"
+          title="Duplicate scene (keeps prompts, clears generated media)"
+        >
+          Duplicate Scene
         </button>
         <button
           onClick={onMerge}
           disabled={isLastInSegment}
           className="w-full text-sm px-3 py-2 border border-neutral-700/50 text-neutral-400 bg-transparent hover:bg-neutral-800 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Combine this scene with the next one"
         >
           Merge with Next
         </button>

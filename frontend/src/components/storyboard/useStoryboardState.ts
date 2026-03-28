@@ -45,6 +45,7 @@ interface StoryboardState {
   ) => void;
   splitScene: (sceneId: string) => void;
   mergeWithNext: (sceneId: string) => void;
+  duplicateScene: (sceneId: string) => void;
 
   // Segment mutations
   addSegment: (afterIndex: number) => void;
@@ -315,6 +316,34 @@ export function useStoryboardState(
           newScenes.splice(loc.sceneIdx, 2, merged);
           return { ...seg, scenes: newScenes };
         });
+        return { ...prev, segments };
+      });
+    },
+    [mutate],
+  );
+
+  const duplicateScene = useCallback(
+    (sceneId: string) => {
+      mutate((prev) => {
+        const loc = findScene(prev, sceneId);
+        if (!loc) return prev;
+        const scene = prev.segments[loc.segIdx].scenes[loc.sceneIdx];
+        const clone: Scene = {
+          ...scene,
+          id: generateId(),
+          image_url: undefined,
+          audio_url: undefined,
+          audio_duration_seconds: undefined,
+          image_url_b: undefined,
+        };
+
+        const segments = prev.segments.map((seg, si) => {
+          if (si !== loc.segIdx) return seg;
+          const scenes = [...seg.scenes];
+          scenes.splice(loc.sceneIdx + 1, 0, clone);
+          return { ...seg, scenes };
+        });
+        setSelectedSceneId(clone.id);
         return { ...prev, segments };
       });
     },
@@ -660,6 +689,7 @@ export function useStoryboardState(
     moveScene,
     splitScene,
     mergeWithNext,
+    duplicateScene,
     addSegment,
     removeSegment,
     save,

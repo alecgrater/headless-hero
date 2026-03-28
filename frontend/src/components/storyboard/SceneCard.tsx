@@ -30,6 +30,7 @@ type BatchStatus = "idle" | "pending" | "generating" | "done" | "failed";
 interface Props {
   scene: Scene;
   segmentIdx: number;
+  sceneNumber: number;
   isSelected: boolean;
   onClick: () => void;
   onNarrationChange: (narration: string) => void;
@@ -44,6 +45,7 @@ interface Props {
 export default function SceneCard({
   scene,
   segmentIdx,
+  sceneNumber,
   isSelected,
   onClick,
   onNarrationChange,
@@ -121,24 +123,24 @@ export default function SceneCard({
         >
           ⠿
         </span>
-        <span className="text-[11px] font-mono text-neutral-600">{scene.id}</span>
+        <span className="text-[11px] font-mono text-neutral-500 bg-neutral-800 px-1.5 py-0.5 rounded">#{sceneNumber}</span>
         {scene.is_title_card && (
           <span className="text-[10px] bg-violet-500/20 text-violet-300 px-1.5 py-0.5 rounded-full">
             title
           </span>
         )}
         {scene.is_animated && (
-          <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full">
+          <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full" title="Animated A/B flip between two images">
             A/B
           </span>
         )}
-        <span className="text-[10px] text-neutral-500 ml-auto tabular-nums">
+        <span className="text-[10px] text-neutral-500 ml-auto tabular-nums" title="Estimated scene duration">
           {scene.duration_estimate_seconds}s
         </span>
         {scene.ken_burns && scene.ken_burns.effect !== "none" && (
           <span
             className="text-[10px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded-full"
-            title={`${scene.ken_burns.effect.replace("_", " ")} (${scene.ken_burns.intensity})`}
+            title={`${scene.ken_burns.effect.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} (${scene.ken_burns.intensity})`}
           >
             {MOTION_ICONS[scene.ken_burns.effect]}
           </span>
@@ -228,7 +230,7 @@ export default function SceneCard({
           className="text-[13px] text-neutral-400 leading-relaxed line-clamp-3 px-3 pb-3"
           title="Double-click to edit"
         >
-          {scene.narration || <span className="italic text-neutral-600">No narration</span>}
+          {scene.narration || <span className="italic text-neutral-600">Double-click to write narration...</span>}
         </p>
       )}
 

@@ -118,7 +118,13 @@ export default function SceneGrid({
         onDragEnd={handleDragEnd}
       >
         <div className="space-y-8">
-          {content.segments.map((seg, si) => (
+          {content.segments.map((seg, si) => {
+            // Compute scene number offset for this segment
+            let sceneOffset = 0;
+            for (let i = 0; i < si; i++) {
+              sceneOffset += content.segments[i].scenes.length;
+            }
+            return (
             <div
               key={si}
               ref={(el) => {
@@ -143,11 +149,12 @@ export default function SceneGrid({
                 strategy={verticalListSortingStrategy}
               >
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
-                  {seg.scenes.map((scene) => (
+                  {seg.scenes.map((scene, scIdx) => (
                     <SceneCard
                       key={scene.id}
                       scene={scene}
                       segmentIdx={si}
+                      sceneNumber={sceneOffset + scIdx + 1}
                       isSelected={selectedSceneId === scene.id}
                       onClick={() => onSelectScene(scene.id)}
                       onNarrationChange={(narr) =>
@@ -182,7 +189,8 @@ export default function SceneGrid({
                 </div>
               </SortableContext>
             </div>
-          ))}
+          );
+          })}
         </div>
 
         <DragOverlay>

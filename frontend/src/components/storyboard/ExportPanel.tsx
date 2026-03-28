@@ -107,9 +107,13 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
-      className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
+      className={`text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-all duration-150 ${
+        copied ? "text-emerald-400 scale-105" : "text-neutral-400 scale-100"
+      }`}
     >
-      {copied ? "Copied!" : label ?? "Copy"}
+      <span className="transition-opacity duration-150">
+        {copied ? "Copied!" : label ?? "Copy"}
+      </span>
     </button>
   );
 }

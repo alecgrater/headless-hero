@@ -113,9 +113,13 @@ function BatchProgressBar({ progress, label }: BatchProgressProps) {
         )}
         <span className="text-neutral-300">
           {allDone ? (
-            <>Done: {progress.completed}/{progress.total} {label}{progress.failed > 0 && <span className="text-red-400 ml-1">({progress.failed} failed)</span>}</>
+            progress.failed > 0 ? (
+              <>Done &middot; {progress.completed} of {progress.total} generated, {progress.failed} failed</>
+            ) : (
+              <>All {progress.total} {label} generated &#10003;</>
+            )
           ) : (
-            <>Generating {label}: {done}/{progress.total}{progress.currentSceneName && <span className="text-neutral-500 ml-1">({progress.currentSceneName})</span>}</>
+            <>Generating {label} &middot; {done} of {progress.total} done{progress.currentSceneName && <span className="text-neutral-500 ml-1">({progress.currentSceneName})</span>}</>
           )}
         </span>
         {etaStr && <span className="text-neutral-500">{etaStr}</span>}
@@ -325,7 +329,24 @@ function StoryboardEditor({
       ? "bg-emerald-400"
       : state.saveStatus === "saving"
         ? "bg-yellow-400"
-        : "bg-red-400";
+        : "bg-red-400 animate-pulse";
+
+  // Tweak #1 + #10: scene stats + word count
+  const allScenes = state.content.segments.flatMap((seg) => seg.scenes);
+  const sceneCount = allScenes.length;
+  const segmentCount = state.content.segments.length;
+  const totalDurationSec = allScenes.reduce(
+    (sum, sc) => sum + (sc.duration_estimate_seconds ?? 0),
+    0,
+  );
+  const durationMin = Math.floor(totalDurationSec / 60);
+  const durationSec = Math.round(totalDurationSec % 60);
+  const durationStr = `${durationMin}:${String(durationSec).padStart(2, "0")}`;
+  const totalWords = allScenes.reduce(
+    (sum, sc) => sum + (sc.narration ? sc.narration.split(/\s+/).filter(Boolean).length : 0),
+    0,
+  );
+  const statsStr = `${sceneCount} scene${sceneCount !== 1 ? "s" : ""} \u00B7 ${segmentCount} segment${segmentCount !== 1 ? "s" : ""} \u00B7 ${durationStr}${totalWords > 0 ? ` \u00B7 ${totalWords.toLocaleString()} words` : ""}`;
 
   return (
     <div className="flex flex-col h-[calc(100vh-105px)]">
@@ -339,7 +360,7 @@ function StoryboardEditor({
         </button>
         <h2 className="text-base font-semibold truncate">{title}</h2>
         <span className="text-[11px] text-neutral-500 bg-neutral-800/60 px-2 py-0.5 rounded-full">
-          Storyboard Editor
+          {statsStr}
         </span>
 
         <div className="ml-auto flex items-center gap-2">
@@ -377,6 +398,7 @@ function StoryboardEditor({
             onClick={() => state.generateAllImages(artStyle)}
             disabled={state.batchGenerating}
             className="text-sm px-3 py-1.5 text-emerald-400 hover:bg-emerald-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
+            title="Generate images for all scenes with visual prompts"
           >
             {state.batchGenerating ? (
               <>
@@ -404,6 +426,7 @@ function StoryboardEditor({
             onClick={() => tryGenerateAudio("all")}
             disabled={state.batchGeneratingAudio || (!selectedVoiceId && voices.length > 0)}
             className="text-sm px-3 py-1.5 text-sky-400 hover:bg-sky-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
+            title="Generate audio for all scenes with narration"
           >
             {state.batchGeneratingAudio ? (
               <>
@@ -428,12 +451,14 @@ function StoryboardEditor({
                 ? "bg-violet-500/20 text-violet-300"
                 : "text-neutral-400 hover:bg-neutral-700/60"
             }`}
+            title="Toggle scene preview mode (P)"
           >
             Preview
           </button>
           <button
             onClick={() => setShowPreview(true)}
             className="text-sm px-3 py-1.5 text-neutral-400 hover:bg-neutral-700/60 rounded-md font-medium transition-colors"
+            title="Preview full rendered video"
           >
             Full Preview
           </button>
@@ -446,7 +471,7 @@ function StoryboardEditor({
         <button
           onClick={() => setShowExport(true)}
           className="text-sm px-4 py-1.5 bg-violet-600 hover:bg-violet-500 rounded-lg font-semibold transition-colors shadow-sm shadow-violet-500/20"
-          title="Cmd+E"
+          title="Export & Render (⌘E)"
         >
           Export
         </button>
@@ -492,6 +517,7 @@ function StoryboardEditor({
             }
             onSplit={() => state.splitScene(selectedScene.scene.id)}
             onMerge={() => state.mergeWithNext(selectedScene.scene.id)}
+            onDuplicate={() => state.duplicateScene(selectedScene.scene.id)}
             onGenerateImage={() =>
               state.generateImage(selectedScene.scene.id, artStyle)
             }
