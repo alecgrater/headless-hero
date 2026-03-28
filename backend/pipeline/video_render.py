@@ -15,6 +15,7 @@ from pipeline.ffmpeg_builder import (
     build_concat_cmd,
     build_scene_video_cmd,
     build_tiktok_cmd,
+    build_video_clip_scene_cmd,
 )
 
 log = logging.getLogger(__name__)
@@ -57,6 +58,10 @@ def _scene_audio_path(script_id: str, scene_id: str) -> str:
     """Resolve local filesystem path for a scene audio file."""
     return str(_data_dir / "projects" / script_id / "audio" / f"{scene_id}.mp3")
 
+def _scene_clip_path(script_id: str, scene_id: str) -> str:
+    """Resolve local filesystem path for a gameplay clip."""
+    return str(_data_dir / "projects" / script_id / "clips" / f"{scene_id}.mp4")
+
 def _renders_dir(script_id: str) -> Path:
     d = _data_dir / "projects" / script_id / "renders"
     d.mkdir(parents=True, exist_ok=True)
@@ -69,6 +74,64 @@ def _all_scenes(content: ScriptContent) -> list[Scene]:
         for sc in seg.scenes:
             scenes.append(sc)
     return scenes
+
+def _render_video_clip_scene(
+    scene: Scene,
+    script_id: str,
+    width: int,
+    height: int,
+    fade_out: float,
+    force: bool,
+    speed: float,
+) -> str:
+    """Render a gameplay clip scene (video input instead of image)."""
+    clip_path = _scene_clip_path(script_id, scene.id)
+    audio_path = _scene_audio_path(script_id, scene.id)
+
+    if not os.path.exists(clip_path):
+        raise FileNotFoundError(f"Gameplay clip not found: {clip_path}")
+    if not os.path.exists(audio_path):
+        raise FileNotFoundError(f"Audio not found: {audio_path}")
+
+    renders = _renders_dir(script_id)
+    scenes_dir = renders / "scenes"
+    scenes_dir.mkdir(parents=True, exist_ok=True)
+
+    speed_suffix = f"_{speed}x" if speed != 1.0 else ""
+    filename = f"{scene.id}{speed_suffix}.mp4"
+    output_path = str(scenes_dir / filename)
+
+    # Cache check
+    if not force and os.path.exists(output_path):
+        out_mtime = os.path.getmtime(output_path)
+        clip_mtime = os.path.getmtime(clip_path)
+        aud_mtime = os.path.getmtime(audio_path)
+        if out_mtime > clip_mtime and out_mtime > aud_mtime:
+            return f"/static/projects/{script_id}/renders/scenes/{filename}"
+
+    duration = scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else scene.duration_estimate_seconds
+    toc = scene.text_overlay_config or TextOverlayConfig()
+
+    cmd = build_video_clip_scene_cmd(
+        clip_path=clip_path,
+        audio_path=audio_path,
+        output_path=output_path,
+        duration=duration,
+        width=width,
+        height=height,
+        text_overlay=scene.text_overlay,
+        overlay_position=toc.position,
+        overlay_style=toc.style,
+        overlay_animation=toc.animation,
+        overlay_show_at=toc.show_at,
+        overlay_duration=toc.duration,
+        fade_out_duration=fade_out,
+        speed=speed,
+    )
+
+    _run_ffmpeg(cmd)
+    return f"/static/projects/{script_id}/renders/scenes/{filename}"
+
 
 def render_scene_video(
     scene: Scene,
@@ -84,6 +147,10 @@ def render_scene_video(
     Requires the scene's image and audio to already exist on disk.
     If force=False and the output is newer than source assets, skips re-render.
     """
+    # Gameplay clip scenes use a different rendering path (video input, not image)
+    if getattr(scene, "media_type", "ai_generated") == "gameplay_clip":
+        return _render_video_clip_scene(scene, script_id, width, height, fade_out, force, speed)
+
     image_path = _scene_image_path(script_id, scene.id)
     audio_path = _scene_audio_path(script_id, scene.id)
 

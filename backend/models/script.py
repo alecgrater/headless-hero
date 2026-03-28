@@ -41,6 +41,9 @@ class Scene(BaseModel):
     ken_burns: KenBurnsConfig | None = None
     text_overlay_config: TextOverlayConfig | None = None
     word_timestamps: list[dict] | None = None
+    media_type: str = "ai_generated"  # "ai_generated" | "gameplay_clip" | "hardware_image"
+    search_query: str = ""            # YouTube search query for yt-dlp
+    video_clip_url: str = ""          # web-relative path to downloaded clip
 
 class Segment(BaseModel):
     """A named segment (e.g. "Caffeine") containing multiple scenes."""

@@ -134,6 +134,16 @@ export default function SceneCard({
             A/B
           </span>
         )}
+        {scene.media_type === "gameplay_clip" && (
+          <span className="text-[10px] bg-red-500/20 text-red-300 px-1.5 py-0.5 rounded-full" title="Real gameplay clip from YouTube">
+            clip
+          </span>
+        )}
+        {scene.media_type === "hardware_image" && (
+          <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded-full" title="Real hardware image from YouTube">
+            hw
+          </span>
+        )}
         <span className="text-[10px] text-neutral-500 ml-auto tabular-nums" title="Estimated scene duration">
           {scene.duration_estimate_seconds}s
         </span>
@@ -156,7 +166,13 @@ export default function SceneCard({
 
       {/* Thumbnail / Image */}
       <div className="relative bg-neutral-800 mx-3 rounded-lg h-[140px] mb-2 overflow-hidden">
-        {scene.image_url ? (
+        {scene.video_clip_url ? (
+          <video
+            src={assetUrl(scene.video_clip_url)}
+            muted
+            className="w-full h-full object-cover fade-in-image transition-transform duration-300 group-hover:scale-[1.02]"
+          />
+        ) : scene.image_url ? (
           <img
             src={assetUrl(scene.image_url)}
             alt="Scene visual"

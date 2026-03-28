@@ -409,6 +409,29 @@ function StoryboardEditor({
               "Generate Images"
             )}
           </button>
+          {/* Fetch Media button — only shown when script has real-media scenes */}
+          {state.content.segments.some((seg) =>
+            seg.scenes.some((sc) => sc.media_type && sc.media_type !== "ai_generated" && sc.search_query)
+          ) && (
+            <>
+              <div className="w-px h-5 bg-neutral-700" />
+              <button
+                onClick={() => state.fetchAllMedia()}
+                disabled={state.batchFetchingMedia}
+                className="text-sm px-3 py-1.5 text-red-400 hover:bg-red-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
+                title="Fetch real media (gameplay clips + hardware images) from YouTube"
+              >
+                {state.batchFetchingMedia ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-red-400/50 border-t-transparent rounded-full animate-spin" />
+                    Fetching...
+                  </>
+                ) : (
+                  "Fetch Media"
+                )}
+              </button>
+            </>
+          )}
           <div className="w-px h-5 bg-neutral-700" />
           <select
             value={selectedVoiceId}
@@ -480,6 +503,7 @@ function StoryboardEditor({
       {/* Batch Progress Bar */}
       <BatchProgressBar progress={state.batchImageProgress} label="images" />
       <BatchProgressBar progress={state.batchAudioProgress} label="audio" />
+      <BatchProgressBar progress={state.batchMediaProgress} label="media" />
 
       {/* Three-panel layout */}
       <div className="flex flex-1 overflow-hidden">
@@ -534,6 +558,10 @@ function StoryboardEditor({
             previewMode={previewMode}
             onPrevScene={selectPrevScene}
             onNextScene={selectNextScene}
+            onFetchMedia={() =>
+              state.fetchMedia(selectedScene.scene.id)
+            }
+            isFetchingMedia={state.fetchingMediaSceneIds.has(selectedScene.scene.id)}
           />
         ) : (
           <aside className="w-[320px] shrink-0 border-l border-neutral-800/60 p-4 flex items-center justify-center">

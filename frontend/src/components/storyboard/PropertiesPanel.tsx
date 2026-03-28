@@ -54,6 +54,8 @@ interface Props {
   previewMode?: boolean;
   onPrevScene?: () => void;
   onNextScene?: () => void;
+  onFetchMedia?: () => void;
+  isFetchingMedia?: boolean;
 }
 
 export default function PropertiesPanel({
@@ -75,6 +77,8 @@ export default function PropertiesPanel({
   previewMode = false,
   onPrevScene,
   onNextScene,
+  onFetchMedia,
+  isFetchingMedia = false,
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
@@ -84,6 +88,7 @@ export default function PropertiesPanel({
     String(scene.duration_estimate_seconds),
   );
   const [isTitleCard, setIsTitleCard] = useState(scene.is_title_card);
+  const [searchQuery, setSearchQuery] = useState(scene.search_query || "");
 
   const sceneIdRef = useRef(scene.id);
 
@@ -97,6 +102,7 @@ export default function PropertiesPanel({
       setTextOverlay(scene.text_overlay);
       setDuration(String(scene.duration_estimate_seconds));
       setIsTitleCard(scene.is_title_card);
+      setSearchQuery(scene.search_query || "");
     }
   }, [scene]);
 
@@ -231,19 +237,76 @@ export default function PropertiesPanel({
         />
       </label>
 
-      {/* Visual Prompt */}
+      {/* Media Type */}
       <label className="block space-y-1">
-        <span className="text-xs font-medium text-neutral-400">
-          Visual Prompt{scene.is_animated ? " (A)" : ""}
-        </span>
-        <textarea
-          value={visualPrompt}
-          onChange={(e) => setVisualPrompt(e.target.value)}
-          onBlur={() => commitField("visual_prompt", visualPrompt)}
-          className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2.5 border border-neutral-700/50 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
-          rows={3}
-        />
+        <span className="text-xs font-medium text-neutral-400">Media Type</span>
+        <select
+          value={scene.media_type || "ai_generated"}
+          onChange={(e) => onUpdate({ media_type: e.target.value as Scene["media_type"] })}
+          className={`w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30 ${
+            scene.media_type && scene.media_type !== "ai_generated"
+              ? "border-red-500/50"
+              : "border-neutral-700/50"
+          }`}
+        >
+          <option value="ai_generated">AI Generated</option>
+          <option value="gameplay_clip">Gameplay Clip</option>
+          <option value="hardware_image">Hardware Image</option>
+        </select>
       </label>
+
+      {/* Search Query (for real media types) */}
+      {scene.media_type && scene.media_type !== "ai_generated" && (
+        <label className="block space-y-1">
+          <span className="text-xs font-medium text-neutral-400">
+            YouTube Search Query
+          </span>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onBlur={() => commitField("search_query", searchQuery)}
+            placeholder="e.g. Halo Infinite gameplay 4K"
+            className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-red-700/50 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/30"
+          />
+        </label>
+      )}
+
+      {/* Fetch Media button (for real media types) */}
+      {scene.media_type && scene.media_type !== "ai_generated" && scene.search_query && onFetchMedia && (
+        <button
+          onClick={onFetchMedia}
+          disabled={isFetchingMedia}
+          className="w-full text-sm px-3 py-2 text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          {isFetchingMedia ? (
+            <>
+              <span className="w-4 h-4 border-2 border-red-400/50 border-t-transparent rounded-full animate-spin" />
+              Fetching...
+            </>
+          ) : scene.video_clip_url || (scene.media_type === "hardware_image" && scene.image_url) ? (
+            "Re-fetch Media"
+          ) : (
+            "Fetch Media"
+          )}
+        </button>
+      )}
+
+      {/* Visual Prompt (hidden for real media types) */}
+      {(!scene.media_type || scene.media_type === "ai_generated") && (
+        <label className="block space-y-1">
+          <span className="text-xs font-medium text-neutral-400">
+            Visual Prompt{scene.is_animated ? " (A)" : ""}
+          </span>
+          <textarea
+            value={visualPrompt}
+            onChange={(e) => setVisualPrompt(e.target.value)}
+            onBlur={() => commitField("visual_prompt", visualPrompt)}
+            className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2.5 border border-neutral-700/50 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
+            rows={3}
+          />
+        </label>
+      )}
 
       {/* Animated A/B Flip Toggle */}
       <label className="flex items-center gap-2 cursor-pointer">
@@ -275,7 +338,20 @@ export default function PropertiesPanel({
         </label>
       )}
 
-      {/* Image Preview / Generate */}
+      {/* Video Clip Preview (for gameplay clips) */}
+      {scene.video_clip_url && (
+        <div className="space-y-2">
+          <div className="text-xs font-medium text-neutral-400">Gameplay Clip</div>
+          <video
+            key={scene.video_clip_url}
+            src={assetUrl(scene.video_clip_url)}
+            controls
+            className="w-full rounded-lg border border-red-700/50"
+          />
+        </div>
+      )}
+
+      {/* Image Preview / Generate (for ai_generated and hardware_image) */}
       {scene.image_url ? (
         <div className="space-y-2">
           {scene.is_animated && scene.image_url_b ? (

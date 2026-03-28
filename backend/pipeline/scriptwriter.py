@@ -34,7 +34,9 @@ Output rules:
           "duration_estimate_seconds": 8,
           "is_title_card": false,
           "is_animated": false,
-          "visual_prompt_b": ""
+          "visual_prompt_b": "",
+          "media_type": "ai_generated",
+          "search_query": ""
         }
       ]
     }
@@ -62,6 +64,22 @@ Animated scene guidelines:
   before/after, cause/effect, open/closed, lit/dark, full/empty).
 - Do NOT animate title card scenes (is_title_card: true).
 - For non-animated scenes, leave is_animated as false and visual_prompt_b as "".
+
+Real media guidelines (gaming/hardware content):
+- Each scene has a "media_type" field: "ai_generated" (default), "gameplay_clip", or "hardware_image".
+- Each scene has a "search_query" field (empty string by default).
+- When the video topic involves gaming, video games, consoles, or gaming hardware:
+  - Tag scenes showing actual gameplay footage as "gameplay_clip" with a specific YouTube \
+    search query (e.g. "Halo Infinite gameplay 4K", "GTA V PC gameplay 60fps"). The search \
+    query should be specific enough to find relevant footage.
+  - Tag scenes showing physical hardware (consoles, controllers, headsets, GPUs) as \
+    "hardware_image" with a search query (e.g. "PlayStation 5 console close up review", \
+    "RTX 4090 unboxing"). These will extract a still frame from a YouTube video.
+  - All other scenes (conceptual, explanatory, metaphorical, title cards) should remain \
+    "ai_generated" with an empty search_query — AI illustration is better for abstract concepts.
+- Only use real media types when showing specific, recognizable games or hardware. If a scene \
+  is about a general concept (e.g. "the evolution of gaming"), keep it as ai_generated.
+- Include "media_type" and "search_query" in each scene object in the JSON output.
 """
 
 def generate_script(

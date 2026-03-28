@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api";
+import { fetchMedia as apiFetchMedia, fetchMediaBatch } from "../../api";
 import type { Scene, ScriptContent } from "../../types/script";
 import type { GenerateBatchResponse, GenerateVisualResponse } from "../../types/visual";
 import type { GenerateAudioResponse, GenerateBatchAudioResponse } from "../../types/audio";
+import type { FetchMediaResponse, BatchFetchResponse } from "../../types/media";
 
 type BatchSceneStatus = "idle" | "pending" | "generating" | "done" | "failed";
 
@@ -73,6 +75,13 @@ interface StoryboardState {
   // Batch progress
   batchImageProgress: BatchProgress;
   batchAudioProgress: BatchProgress;
+  batchMediaProgress: BatchProgress;
+
+  // Media fetching (real clips/images)
+  fetchingMediaSceneIds: Set<string>;
+  batchFetchingMedia: boolean;
+  fetchMedia: (sceneId: string) => Promise<void>;
+  fetchAllMedia: () => Promise<void>;
 }
 
 function findScene(
@@ -124,6 +133,9 @@ export function useStoryboardState(
   const [batchGeneratingAudio, setBatchGeneratingAudio] = useState(false);
   const [batchImageProgress, setBatchImageProgress] = useState<BatchProgress>(EMPTY_BATCH);
   const [batchAudioProgress, setBatchAudioProgress] = useState<BatchProgress>(EMPTY_BATCH);
+  const [fetchingMediaSceneIds, setFetchingMediaSceneIds] = useState<Set<string>>(new Set());
+  const [batchFetchingMedia, setBatchFetchingMedia] = useState(false);
+  const [batchMediaProgress, setBatchMediaProgress] = useState<BatchProgress>(EMPTY_BATCH);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
@@ -449,7 +461,7 @@ export function useStoryboardState(
       const scenes: { scene_id: string; visual_prompt: string; name: string; is_animated: boolean; visual_prompt_b: string }[] = [];
       for (const seg of contentRef.current.segments) {
         for (const sc of seg.scenes) {
-          if (sc.visual_prompt) {
+          if (sc.visual_prompt && (!sc.media_type || sc.media_type === "ai_generated")) {
             scenes.push({
               scene_id: sc.id,
               visual_prompt: sc.visual_prompt,
@@ -679,6 +691,155 @@ export function useStoryboardState(
     [scriptId],
   );
 
+  const fetchMediaForScene = useCallback(
+    async (sceneId: string) => {
+      const scene = (() => {
+        for (const seg of contentRef.current.segments) {
+          const found = seg.scenes.find((s) => s.id === sceneId);
+          if (found) return found;
+        }
+        return null;
+      })();
+      if (!scene || !scene.search_query || !scene.media_type || scene.media_type === "ai_generated") return;
+
+      setFetchingMediaSceneIds((prev) => new Set(prev).add(sceneId));
+      try {
+        const res = await apiFetchMedia(
+          scriptId,
+          sceneId,
+          scene.media_type,
+          scene.search_query,
+          scene.audio_duration_seconds || scene.duration_estimate_seconds,
+        );
+        if (res.ok) {
+          const data = res.data as FetchMediaResponse;
+          setContent((prev) => ({
+            ...prev,
+            segments: prev.segments.map((seg) => ({
+              ...seg,
+              scenes: seg.scenes.map((sc) =>
+                sc.id === sceneId
+                  ? {
+                      ...sc,
+                      ...(data.video_clip_url ? { video_clip_url: data.video_clip_url } : {}),
+                      ...(data.image_url ? { image_url: data.image_url } : {}),
+                    }
+                  : sc,
+              ),
+            })),
+          }));
+        }
+      } finally {
+        setFetchingMediaSceneIds((prev) => {
+          const next = new Set(prev);
+          next.delete(sceneId);
+          return next;
+        });
+      }
+    },
+    [scriptId],
+  );
+
+  const fetchAllMediaScenes = useCallback(
+    async () => {
+      const scenes: { scene_id: string; media_type: string; search_query: string; duration: number; name: string }[] = [];
+      for (const seg of contentRef.current.segments) {
+        for (const sc of seg.scenes) {
+          if (sc.media_type && sc.media_type !== "ai_generated" && sc.search_query) {
+            scenes.push({
+              scene_id: sc.id,
+              media_type: sc.media_type,
+              search_query: sc.search_query,
+              duration: sc.audio_duration_seconds || sc.duration_estimate_seconds,
+              name: sc.text_overlay || sc.narration.slice(0, 40) || sc.id,
+            });
+          }
+        }
+      }
+      if (scenes.length === 0) return;
+
+      setBatchFetchingMedia(true);
+      const statuses = new Map<string, BatchSceneStatus>();
+      scenes.forEach((s) => statuses.set(s.scene_id, "pending"));
+      setBatchMediaProgress({
+        total: scenes.length,
+        completed: 0,
+        failed: 0,
+        currentSceneId: null,
+        currentSceneName: null,
+        startedAt: Date.now(),
+        statuses: new Map(statuses),
+      });
+
+      let completed = 0;
+      let failed = 0;
+
+      for (const scene of scenes) {
+        statuses.set(scene.scene_id, "generating");
+        setFetchingMediaSceneIds((prev) => new Set(prev).add(scene.scene_id));
+        setBatchMediaProgress((prev) => ({
+          ...prev,
+          currentSceneId: scene.scene_id,
+          currentSceneName: scene.name,
+          statuses: new Map(statuses),
+        }));
+
+        try {
+          const res = await apiFetchMedia(
+            scriptId,
+            scene.scene_id,
+            scene.media_type,
+            scene.search_query,
+            scene.duration,
+          );
+          if (res.ok) {
+            const data = res.data as FetchMediaResponse;
+            setContent((prev) => ({
+              ...prev,
+              segments: prev.segments.map((seg) => ({
+                ...seg,
+                scenes: seg.scenes.map((sc) =>
+                  sc.id === scene.scene_id
+                    ? {
+                        ...sc,
+                        ...(data.video_clip_url ? { video_clip_url: data.video_clip_url } : {}),
+                        ...(data.image_url ? { image_url: data.image_url } : {}),
+                      }
+                    : sc,
+                ),
+              })),
+            }));
+            statuses.set(scene.scene_id, "done");
+            completed++;
+          } else {
+            statuses.set(scene.scene_id, "failed");
+            failed++;
+          }
+        } catch {
+          statuses.set(scene.scene_id, "failed");
+          failed++;
+        }
+
+        setFetchingMediaSceneIds((prev) => {
+          const next = new Set(prev);
+          next.delete(scene.scene_id);
+          return next;
+        });
+        setBatchMediaProgress((prev) => ({
+          ...prev,
+          completed,
+          failed,
+          statuses: new Map(statuses),
+        }));
+      }
+
+      setFetchingMediaSceneIds(new Set());
+      setBatchFetchingMedia(false);
+      setTimeout(() => setBatchMediaProgress(EMPTY_BATCH), 3000);
+    },
+    [scriptId],
+  );
+
   return {
     content,
     isDirty,
@@ -705,5 +866,10 @@ export function useStoryboardState(
     generateAllAudio,
     batchImageProgress,
     batchAudioProgress,
+    batchMediaProgress,
+    fetchingMediaSceneIds,
+    batchFetchingMedia,
+    fetchMedia: fetchMediaForScene,
+    fetchAllMedia: fetchAllMediaScenes,
   };
 }

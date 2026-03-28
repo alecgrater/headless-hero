@@ -10,6 +10,7 @@ from api.brands import router as brands_router
 from api.database import init_db
 from api.database import engine as _db_engine
 from api.ideas import router as ideas_router
+from api.media import router as media_router
 from api.publish import router as publish_router
 from api.render import router as render_router
 from api.scripts import router as scripts_router
@@ -51,6 +52,7 @@ app.add_middleware(
 
 app.include_router(brands_router)
 app.include_router(ideas_router)
+app.include_router(media_router)
 app.include_router(scripts_router)
 app.include_router(visuals_router)
 app.include_router(voiceover_router)

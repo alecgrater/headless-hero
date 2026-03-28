@@ -253,6 +253,103 @@ def build_scene_video_cmd(
 
     return cmd
 
+def build_video_clip_scene_cmd(
+    clip_path: str,
+    audio_path: str,
+    output_path: str,
+    duration: float,
+    width: int = 1920,
+    height: int = 1080,
+    text_overlay: str = "",
+    overlay_position: str = "lower_third",
+    overlay_style: str = "default",
+    overlay_animation: str = "fade_in",
+    overlay_show_at: float = 0.0,
+    overlay_duration: float = 0.0,
+    fade_out_duration: float = 0.3,
+    speed: float = 1.0,
+    gameplay_volume: float = 0.15,
+) -> list[str]:
+    """Build FFmpeg command for a video clip scene (gameplay + narration audio mix).
+
+    Unlike build_scene_video_cmd(), the input is a video file (not a looped image),
+    so there's no zoompan/Ken Burns — the real video provides its own motion.
+    Gameplay audio is mixed at low volume underneath full-volume narration.
+    """
+    effective_duration = duration / speed if speed != 1.0 else duration
+
+    # Video filters: scale + pad to target resolution
+    vfilters: list[str] = [
+        f"scale={width}:{height}:force_original_aspect_ratio=decrease",
+        f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black",
+        "setsar=1",
+    ]
+
+    # Text overlay
+    if text_overlay and _DRAWTEXT_AVAILABLE:
+        dt = _drawtext_filter(
+            text=text_overlay,
+            position=overlay_position,
+            style=overlay_style,
+            animation=overlay_animation,
+            show_at=overlay_show_at,
+            overlay_duration=overlay_duration,
+            scene_duration=duration,
+        )
+        vfilters.append(dt)
+
+    # Speed adjustment for video
+    if speed != 1.0:
+        vfilters.append(f"setpts=PTS/{speed}")
+
+    # Fade out at end
+    if fade_out_duration > 0:
+        fade_start = max(0, effective_duration - fade_out_duration)
+        vfilters.append(f"fade=t=out:st={fade_start}:d={fade_out_duration}")
+
+    v_chain = ",".join(vfilters)
+
+    # Audio: mix gameplay audio (low volume) with narration (full volume)
+    # [0:a] = gameplay audio, [1:a] = narration audio
+    # amix with volume weighting
+    if speed != 1.0:
+        atempo_chain = _build_atempo_chain(speed)
+        filter_complex = (
+            f"[0:v]{v_chain}[vout];"
+            f"[0:a]volume={gameplay_volume},{atempo_chain}[gaud];"
+            f"[1:a]{atempo_chain}[naud];"
+            f"[gaud][naud]amix=inputs=2:duration=shortest[aout]"
+        )
+        audio_map = ["[aout]"]
+    else:
+        filter_complex = (
+            f"[0:v]{v_chain}[vout];"
+            f"[0:a]volume={gameplay_volume}[gaud];"
+            f"[gaud][1:a]amix=inputs=2:duration=shortest[aout]"
+        )
+        audio_map = ["[aout]"]
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", clip_path,
+        "-i", audio_path,
+        "-filter_complex", filter_complex,
+        "-map", "[vout]",
+        "-map", *audio_map,
+        "-c:v", "libx264",
+        "-preset", "medium",
+        "-crf", "23",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-pix_fmt", "yuv420p",
+        "-t", str(effective_duration),
+        "-shortest",
+        output_path,
+    ]
+
+    return cmd
+
+
 def build_concat_cmd(
     clip_paths: list[str],
     output_path: str,

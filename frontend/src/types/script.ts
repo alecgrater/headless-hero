@@ -26,6 +26,9 @@ export interface Scene {
   audio_duration_seconds?: number;
   ken_burns?: KenBurnsConfig;
   text_overlay_config?: TextOverlayConfig;
+  media_type?: "ai_generated" | "gameplay_clip" | "hardware_image";
+  search_query?: string;
+  video_clip_url?: string;
 }
 
 export interface Segment {
