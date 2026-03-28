@@ -153,9 +153,9 @@ function StoryboardEditor({
   const [pendingAudioAction, setPendingAudioAction] = useState<"all" | string | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
 
-  // Fetch render estimate when export panel opens
+  // Fetch render estimate when export panel or preview modal opens
   useEffect(() => {
-    if (!showExport) return;
+    if (!showExport && !showPreview) return;
     const scenes = state.content.segments.flatMap((seg) => seg.scenes);
     const sceneCount = scenes.length;
     const totalAudioDuration = scenes.reduce(
@@ -166,7 +166,7 @@ function StoryboardEditor({
       render.fetchEstimate(sceneCount, totalAudioDuration);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showExport]);
+  }, [showExport, showPreview]);
   const [brand, setBrand] = useState<BrandProfile | null>(null);
   const [voices, setVoices] = useState<VoiceInfo[]>([]);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>("");
@@ -394,6 +394,12 @@ function StoryboardEditor({
             Preview
           </button>
           <button
+            onClick={() => setShowPreview(true)}
+            className="text-sm px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-medium transition-colors"
+          >
+            Full Preview
+          </button>
+          <button
             onClick={() => setShowExport(true)}
             className="text-sm px-4 py-1.5 bg-orange-600 hover:bg-orange-500 rounded-lg font-medium transition-colors"
             title="Cmd+E"
@@ -493,6 +499,16 @@ function StoryboardEditor({
           content={state.content}
           selectedSceneId={state.selectedSceneId}
           onSelectScene={state.selectScene}
+        />
+      )}
+
+      {showPreview && (
+        <VideoPreviewModal
+          youtubeStatus={render.youtubeStatus}
+          youtubeUrl={render.youtubeUrl}
+          estimatedSeconds={render.estimatedSeconds}
+          onStartRender={render.startYoutubeRender}
+          onClose={() => setShowPreview(false)}
         />
       )}
 
