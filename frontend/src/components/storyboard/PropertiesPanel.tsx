@@ -50,6 +50,9 @@ interface Props {
   onPreviewScene?: () => void;
   isPreviewingScene?: boolean;
   previewVideoUrl?: string | null;
+  previewMode?: boolean;
+  onPrevScene?: () => void;
+  onNextScene?: () => void;
 }
 
 export default function PropertiesPanel({
@@ -67,6 +70,9 @@ export default function PropertiesPanel({
   onPreviewScene,
   isPreviewingScene = false,
   previewVideoUrl,
+  previewMode = false,
+  onPrevScene,
+  onNextScene,
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
@@ -130,6 +136,73 @@ export default function PropertiesPanel({
 
   return (
     <aside className="w-[320px] shrink-0 border-l border-neutral-800 overflow-y-auto p-4 space-y-4">
+      {/* Preview Mode: Video Player at Top */}
+      {previewMode && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">
+              Preview
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={onPrevScene}
+                className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
+                title="Previous scene"
+              >
+                &#9664;
+              </button>
+              <button
+                onClick={onNextScene}
+                className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
+                title="Next scene"
+              >
+                &#9654;
+              </button>
+            </div>
+          </div>
+          {previewVideoUrl ? (
+            <video
+              key={previewVideoUrl}
+              src={assetUrl(previewVideoUrl)}
+              controls
+              autoPlay
+              className="w-full rounded-lg border border-neutral-700"
+            />
+          ) : scene.image_url ? (
+            <div className="relative">
+              <img
+                src={assetUrl(scene.image_url)}
+                alt="Scene visual"
+                className="w-full rounded-lg border border-neutral-700 opacity-60"
+              />
+              {isPreviewingScene ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {scene.image_url && scene.audio_url && onPreviewScene && (
+            <button
+              onClick={onPreviewScene}
+              disabled={isPreviewingScene}
+              className="w-full text-sm px-3 py-2 bg-orange-600 hover:bg-orange-500 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isPreviewingScene ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                  Rendering...
+                </>
+              ) : previewVideoUrl ? (
+                "Re-render Preview"
+              ) : (
+                "Render Preview"
+              )}
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">
         Scene Properties
       </div>

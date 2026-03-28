@@ -30,6 +30,8 @@ interface Props {
   generatingSceneIds?: Set<string>;
   onGenerateAudio?: (sceneId: string) => void;
   generatingAudioSceneIds?: Set<string>;
+  batchImageStatuses?: Map<string, "idle" | "pending" | "generating" | "done" | "failed">;
+  onRetryImage?: (sceneId: string) => void;
 }
 
 export default function SceneGrid({
@@ -43,6 +45,8 @@ export default function SceneGrid({
   generatingSceneIds,
   onGenerateAudio,
   generatingAudioSceneIds,
+  batchImageStatuses,
+  onRetryImage,
 }: Props) {
   const [activeScene, setActiveScene] = useState<{
     scene: Scene;
@@ -160,6 +164,12 @@ export default function SceneGrid({
                           : undefined
                       }
                       isGeneratingAudio={generatingAudioSceneIds?.has(scene.id)}
+                      batchImageStatus={batchImageStatuses?.get(scene.id)}
+                      onRetryImage={
+                        onRetryImage
+                          ? () => onRetryImage(scene.id)
+                          : undefined
+                      }
                     />
                   ))}
                   {/* Empty segment drop zone */}

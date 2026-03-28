@@ -4,6 +4,28 @@ import type { Scene, ScriptContent } from "../../types/script";
 import type { GenerateBatchResponse, GenerateVisualResponse } from "../../types/visual";
 import type { GenerateAudioResponse, GenerateBatchAudioResponse } from "../../types/audio";
 
+type BatchSceneStatus = "idle" | "pending" | "generating" | "done" | "failed";
+
+interface BatchProgress {
+  total: number;
+  completed: number;
+  failed: number;
+  currentSceneId: string | null;
+  currentSceneName: string | null;
+  startedAt: number | null;
+  statuses: Map<string, BatchSceneStatus>;
+}
+
+const EMPTY_BATCH: BatchProgress = {
+  total: 0,
+  completed: 0,
+  failed: 0,
+  currentSceneId: null,
+  currentSceneName: null,
+  startedAt: null,
+  statuses: new Map(),
+};
+
 interface StoryboardState {
   content: ScriptContent;
   isDirty: boolean;
@@ -46,6 +68,10 @@ interface StoryboardState {
   batchGeneratingAudio: boolean;
   generateAudio: (sceneId: string, voiceId: string) => Promise<void>;
   generateAllAudio: (voiceId: string) => Promise<void>;
+
+  // Batch progress
+  batchImageProgress: BatchProgress;
+  batchAudioProgress: BatchProgress;
 }
 
 function findScene(
@@ -95,6 +121,8 @@ export function useStoryboardState(
   const [batchGenerating, setBatchGenerating] = useState(false);
   const [generatingAudioSceneIds, setGeneratingAudioSceneIds] = useState<Set<string>>(new Set());
   const [batchGeneratingAudio, setBatchGeneratingAudio] = useState(false);
+  const [batchImageProgress, setBatchImageProgress] = useState<BatchProgress>(EMPTY_BATCH);
+  const [batchAudioProgress, setBatchAudioProgress] = useState<BatchProgress>(EMPTY_BATCH);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
@@ -385,47 +413,92 @@ export function useStoryboardState(
 
   const generateAllImages = useCallback(
     async (brandStyle: string) => {
-      const scenes: { scene_id: string; visual_prompt: string }[] = [];
+      const scenes: { scene_id: string; visual_prompt: string; name: string }[] = [];
       for (const seg of contentRef.current.segments) {
         for (const sc of seg.scenes) {
           if (sc.visual_prompt) {
-            scenes.push({ scene_id: sc.id, visual_prompt: sc.visual_prompt });
+            scenes.push({
+              scene_id: sc.id,
+              visual_prompt: sc.visual_prompt,
+              name: sc.text_overlay || sc.narration.slice(0, 40) || sc.id,
+            });
           }
         }
       }
       if (scenes.length === 0) return;
 
       setBatchGenerating(true);
-      const allIds = new Set(scenes.map((s) => s.scene_id));
-      setGeneratingSceneIds(allIds);
+      const statuses = new Map<string, BatchSceneStatus>();
+      scenes.forEach((s) => statuses.set(s.scene_id, "pending"));
+      setBatchImageProgress({
+        total: scenes.length,
+        completed: 0,
+        failed: 0,
+        currentSceneId: null,
+        currentSceneName: null,
+        startedAt: Date.now(),
+        statuses: new Map(statuses),
+      });
 
-      try {
-        const res = await api.post("/api/visuals/generate-batch", {
-          script_id: scriptId,
-          scenes,
-          brand_style: brandStyle,
-        });
-        if (res.ok) {
-          const data = res.data as GenerateBatchResponse;
-          const urlMap = new Map<string, string>();
-          for (const r of data.results) {
-            if (r.image_url) urlMap.set(r.scene_id, r.image_url);
+      let completed = 0;
+      let failed = 0;
+
+      for (const scene of scenes) {
+        statuses.set(scene.scene_id, "generating");
+        setGeneratingSceneIds((prev) => new Set(prev).add(scene.scene_id));
+        setBatchImageProgress((prev) => ({
+          ...prev,
+          currentSceneId: scene.scene_id,
+          currentSceneName: scene.name,
+          statuses: new Map(statuses),
+        }));
+
+        try {
+          const res = await api.post("/api/visuals/generate", {
+            script_id: scriptId,
+            scene_id: scene.scene_id,
+            visual_prompt: scene.visual_prompt,
+            brand_style: brandStyle,
+          });
+          if (res.ok) {
+            const data = res.data as GenerateVisualResponse;
+            setContent((prev) => ({
+              ...prev,
+              segments: prev.segments.map((seg) => ({
+                ...seg,
+                scenes: seg.scenes.map((sc) =>
+                  sc.id === scene.scene_id ? { ...sc, image_url: data.image_url } : sc,
+                ),
+              })),
+            }));
+            statuses.set(scene.scene_id, "done");
+            completed++;
+          } else {
+            statuses.set(scene.scene_id, "failed");
+            failed++;
           }
-          setContent((prev) => ({
-            ...prev,
-            segments: prev.segments.map((seg) => ({
-              ...seg,
-              scenes: seg.scenes.map((sc) => {
-                const url = urlMap.get(sc.id);
-                return url ? { ...sc, image_url: url } : sc;
-              }),
-            })),
-          }));
+        } catch {
+          statuses.set(scene.scene_id, "failed");
+          failed++;
         }
-      } finally {
-        setGeneratingSceneIds(new Set());
-        setBatchGenerating(false);
+
+        setGeneratingSceneIds((prev) => {
+          const next = new Set(prev);
+          next.delete(scene.scene_id);
+          return next;
+        });
+        setBatchImageProgress((prev) => ({
+          ...prev,
+          completed,
+          failed,
+          statuses: new Map(statuses),
+        }));
       }
+
+      setGeneratingSceneIds(new Set());
+      setBatchGenerating(false);
+      // Keep progress visible briefly, then clear
+      setTimeout(() => setBatchImageProgress(EMPTY_BATCH), 3000);
     },
     [scriptId],
   );
@@ -476,54 +549,93 @@ export function useStoryboardState(
 
   const generateAllAudio = useCallback(
     async (voiceId: string) => {
-      const scenes: { scene_id: string; narration: string }[] = [];
+      const scenes: { scene_id: string; narration: string; name: string }[] = [];
       for (const seg of contentRef.current.segments) {
         for (const sc of seg.scenes) {
           if (sc.narration) {
-            scenes.push({ scene_id: sc.id, narration: sc.narration });
+            scenes.push({
+              scene_id: sc.id,
+              narration: sc.narration,
+              name: sc.text_overlay || sc.narration.slice(0, 40) || sc.id,
+            });
           }
         }
       }
       if (scenes.length === 0) return;
 
       setBatchGeneratingAudio(true);
-      const allIds = new Set(scenes.map((s) => s.scene_id));
-      setGeneratingAudioSceneIds(allIds);
+      const statuses = new Map<string, BatchSceneStatus>();
+      scenes.forEach((s) => statuses.set(s.scene_id, "pending"));
+      setBatchAudioProgress({
+        total: scenes.length,
+        completed: 0,
+        failed: 0,
+        currentSceneId: null,
+        currentSceneName: null,
+        startedAt: Date.now(),
+        statuses: new Map(statuses),
+      });
 
-      try {
-        const res = await api.post("/api/voice/generate-batch", {
-          script_id: scriptId,
-          scenes,
-          voice_id: voiceId,
-        });
-        if (res.ok) {
-          const data = res.data as GenerateBatchAudioResponse;
-          const audioMap = new Map<string, { url: string; duration: number }>();
-          for (const r of data.results) {
-            if (r.audio_url) {
-              audioMap.set(r.scene_id, {
-                url: r.audio_url,
-                duration: r.duration_seconds ?? 0,
-              });
-            }
+      let completed = 0;
+      let failed = 0;
+
+      for (const scene of scenes) {
+        statuses.set(scene.scene_id, "generating");
+        setGeneratingAudioSceneIds((prev) => new Set(prev).add(scene.scene_id));
+        setBatchAudioProgress((prev) => ({
+          ...prev,
+          currentSceneId: scene.scene_id,
+          currentSceneName: scene.name,
+          statuses: new Map(statuses),
+        }));
+
+        try {
+          const res = await api.post("/api/voice/generate", {
+            script_id: scriptId,
+            scene_id: scene.scene_id,
+            narration: scene.narration,
+            voice_id: voiceId,
+          });
+          if (res.ok) {
+            const data = res.data as GenerateAudioResponse;
+            setContent((prev) => ({
+              ...prev,
+              segments: prev.segments.map((seg) => ({
+                ...seg,
+                scenes: seg.scenes.map((sc) =>
+                  sc.id === scene.scene_id
+                    ? { ...sc, audio_url: data.audio_url, audio_duration_seconds: data.duration_seconds }
+                    : sc,
+                ),
+              })),
+            }));
+            statuses.set(scene.scene_id, "done");
+            completed++;
+          } else {
+            statuses.set(scene.scene_id, "failed");
+            failed++;
           }
-          setContent((prev) => ({
-            ...prev,
-            segments: prev.segments.map((seg) => ({
-              ...seg,
-              scenes: seg.scenes.map((sc) => {
-                const audio = audioMap.get(sc.id);
-                return audio
-                  ? { ...sc, audio_url: audio.url, audio_duration_seconds: audio.duration }
-                  : sc;
-              }),
-            })),
-          }));
+        } catch {
+          statuses.set(scene.scene_id, "failed");
+          failed++;
         }
-      } finally {
-        setGeneratingAudioSceneIds(new Set());
-        setBatchGeneratingAudio(false);
+
+        setGeneratingAudioSceneIds((prev) => {
+          const next = new Set(prev);
+          next.delete(scene.scene_id);
+          return next;
+        });
+        setBatchAudioProgress((prev) => ({
+          ...prev,
+          completed,
+          failed,
+          statuses: new Map(statuses),
+        }));
       }
+
+      setGeneratingAudioSceneIds(new Set());
+      setBatchGeneratingAudio(false);
+      setTimeout(() => setBatchAudioProgress(EMPTY_BATCH), 3000);
     },
     [scriptId],
   );
@@ -551,5 +663,7 @@ export function useStoryboardState(
     batchGeneratingAudio,
     generateAudio,
     generateAllAudio,
+    batchImageProgress,
+    batchAudioProgress,
   };
 }

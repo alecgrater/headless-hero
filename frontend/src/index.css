@@ -41,3 +41,23 @@
     background-position: 200% 0;
   }
 }
+
+.shimmer-skeleton {
+  background: linear-gradient(
+    90deg,
+    theme(--color-neutral-800) 0%,
+    theme(--color-neutral-700) 50%,
+    theme(--color-neutral-800) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.fade-in-image {
+  animation: fadeInImg 200ms ease-out forwards;
+}
+
+@keyframes fadeInImg {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

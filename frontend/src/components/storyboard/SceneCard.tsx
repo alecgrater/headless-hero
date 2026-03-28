@@ -25,6 +25,8 @@ const MOTION_ICONS: Record<NonNullable<KenBurnsConfig["effect"]>, string> = {
   pan_down: "\u2193",
 };
 
+type BatchStatus = "idle" | "pending" | "generating" | "done" | "failed";
+
 interface Props {
   scene: Scene;
   segmentIdx: number;
@@ -35,6 +37,8 @@ interface Props {
   isGenerating?: boolean;
   onGenerateAudio?: () => void;
   isGeneratingAudio?: boolean;
+  batchImageStatus?: BatchStatus;
+  onRetryImage?: () => void;
 }
 
 export default function SceneCard({
@@ -47,6 +51,8 @@ export default function SceneCard({
   isGenerating = false,
   onGenerateAudio: _onGenerateAudio,
   isGeneratingAudio = false,
+  batchImageStatus = "idle",
+  onRetryImage,
 }: Props) {
   const {
     attributes,
@@ -139,16 +145,45 @@ export default function SceneCard({
       </div>
 
       {/* Thumbnail / Image */}
-      <div className="relative bg-neutral-800 rounded h-20 mb-2 overflow-hidden">
+      <div className="relative bg-neutral-800 rounded h-[120px] mb-2 overflow-hidden">
         {scene.image_url ? (
           <img
             src={assetUrl(scene.image_url)}
             alt="Scene visual"
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover fade-in-image"
           />
-        ) : (
+        ) : isGenerating || batchImageStatus === "generating" ? (
+          <div className="shimmer-skeleton w-full h-full" />
+        ) : batchImageStatus === "failed" ? (
+          <div className="flex flex-col items-center justify-center h-full bg-red-500/10">
+            <span className="text-red-400 text-xs mb-1">Failed</span>
+            {onRetryImage && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRetryImage();
+                }}
+                className="text-[10px] px-2 py-0.5 bg-red-600/30 hover:bg-red-600/50 rounded text-red-300 transition-colors"
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        ) : batchImageStatus === "done" ? (
           <div className="flex items-center justify-center h-full">
-            {onGenerateImage ? (
+            <span className="text-emerald-400 text-sm">&#10003;</span>
+          </div>
+        ) : batchImageStatus === "pending" ? (
+          <div className="shimmer-skeleton w-full h-full flex items-center justify-center">
+            <span className="text-neutral-500 text-[10px]">Queued</span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-full p-2">
+            {scene.visual_prompt ? (
+              <p className="text-[10px] text-neutral-600 leading-snug line-clamp-4 text-center">
+                {scene.visual_prompt}
+              </p>
+            ) : onGenerateImage ? (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -162,11 +197,6 @@ export default function SceneCard({
             ) : (
               <span className="text-neutral-600 text-xs">Visual Preview</span>
             )}
-          </div>
-        )}
-        {isGenerating && (
-          <div className="absolute inset-0 bg-neutral-900/70 flex items-center justify-center">
-            <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
       </div>

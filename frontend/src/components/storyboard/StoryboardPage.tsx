@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
@@ -12,6 +12,8 @@ import VoiceSetupModal from "../brand/VoiceSetupModal";
 import { usePublishState } from "./usePublishState";
 import { useRenderState } from "./useRenderState";
 import { useStoryboardState } from "./useStoryboardState";
+import { useKeyboardShortcuts, ShortcutHelpOverlay } from "./useKeyboardShortcuts";
+import PreviewStrip from "./PreviewStrip";
 
 interface Props {
   scriptId: string;
@@ -77,6 +79,56 @@ export default function StoryboardPage({ scriptId, onBack }: Props) {
   return <StoryboardEditor scriptId={scriptId} brandId={script.brand_id} initialContent={script.script} title={script.topic_title} onBack={onBack} />;
 }
 
+interface BatchProgressProps {
+  progress: {
+    total: number;
+    completed: number;
+    failed: number;
+    currentSceneName: string | null;
+    startedAt: number | null;
+  };
+  label: string;
+}
+
+function BatchProgressBar({ progress, label }: BatchProgressProps) {
+  if (progress.total === 0) return null;
+  const done = progress.completed + progress.failed;
+  const pct = done / progress.total;
+  const elapsed = progress.startedAt ? (Date.now() - progress.startedAt) / 1000 : 0;
+  const avgPerScene = done > 0 ? elapsed / done : 0;
+  const remaining = (progress.total - done) * avgPerScene;
+  const etaStr = done > 0 && remaining > 0
+    ? remaining < 60
+      ? `~${Math.round(remaining)}s left`
+      : `~${Math.round(remaining / 60)}m left`
+    : "";
+  const allDone = done >= progress.total;
+
+  return (
+    <div className={`px-4 py-2 border-b border-neutral-800 shrink-0 ${allDone ? "bg-emerald-500/10" : "bg-violet-500/10"}`}>
+      <div className="flex items-center gap-3 text-xs">
+        {!allDone && (
+          <span className="w-3 h-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+        )}
+        <span className="text-neutral-300">
+          {allDone ? (
+            <>Done: {progress.completed}/{progress.total} {label}{progress.failed > 0 && <span className="text-red-400 ml-1">({progress.failed} failed)</span>}</>
+          ) : (
+            <>Generating {label}: {done}/{progress.total}{progress.currentSceneName && <span className="text-neutral-500 ml-1">({progress.currentSceneName})</span>}</>
+          )}
+        </span>
+        {etaStr && <span className="text-neutral-500">{etaStr}</span>}
+        <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden ml-2">
+          <div
+            className={`h-full rounded-full transition-all duration-300 ${allDone ? "bg-emerald-500" : "bg-violet-500"}`}
+            style={{ width: `${pct * 100}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StoryboardEditor({
   scriptId,
   brandId,
@@ -97,6 +149,7 @@ function StoryboardEditor({
   const [showExport, setShowExport] = useState(false);
   const [showVoiceSetup, setShowVoiceSetup] = useState(false);
   const [pendingAudioAction, setPendingAudioAction] = useState<"all" | string | null>(null);
+  const [previewMode, setPreviewMode] = useState(false);
 
   // Fetch render estimate when export panel opens
   useEffect(() => {
@@ -193,11 +246,70 @@ function StoryboardEditor({
       })()
     : null;
 
+  // Auto-render preview when scene changes in preview mode
+  useEffect(() => {
+    if (!previewMode || !state.selectedSceneId) return;
+    const scene = (() => {
+      for (const seg of state.content.segments) {
+        const sc = seg.scenes.find((s) => s.id === state.selectedSceneId);
+        if (sc) return sc;
+      }
+      return null;
+    })();
+    if (scene?.image_url && scene?.audio_url) {
+      render.previewScene(state.selectedSceneId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewMode, state.selectedSceneId]);
+
   const handleSegmentClick = (idx: number) => {
     setActiveSegmentIdx(idx);
     const el = segmentRefs.current.get(idx);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  // Build flat scene list for keyboard navigation
+  const allSceneIds = state.content.segments.flatMap((seg) =>
+    seg.scenes.map((sc) => sc.id),
+  );
+
+  const selectPrevScene = useCallback(() => {
+    const idx = state.selectedSceneId ? allSceneIds.indexOf(state.selectedSceneId) : -1;
+    if (idx > 0) state.selectScene(allSceneIds[idx - 1]);
+    else if (allSceneIds.length > 0) state.selectScene(allSceneIds[allSceneIds.length - 1]);
+  }, [allSceneIds, state]);
+
+  const selectNextScene = useCallback(() => {
+    const idx = state.selectedSceneId ? allSceneIds.indexOf(state.selectedSceneId) : -1;
+    if (idx < allSceneIds.length - 1) state.selectScene(allSceneIds[idx + 1]);
+    else if (allSceneIds.length > 0) state.selectScene(allSceneIds[0]);
+  }, [allSceneIds, state]);
+
+  const toggleAudioPreview = useCallback(() => {
+    const audioEl = document.querySelector("aside audio") as HTMLAudioElement | null;
+    if (audioEl) {
+      if (audioEl.paused) audioEl.play();
+      else audioEl.pause();
+    }
+  }, []);
+
+  const deleteScene = useCallback(() => {
+    // We don't actually delete scenes — split/merge is the pattern. No-op for safety.
+  }, []);
+
+  const { showHelp, setShowHelp } = useKeyboardShortcuts({
+    selectPrevScene,
+    selectNextScene,
+    undo: state.undo,
+    save: state.save,
+    generateImage: () => {
+      if (state.selectedSceneId) state.generateImage(state.selectedSceneId, artStyle);
+    },
+    generateAllImages: () => state.generateAllImages(artStyle),
+    openExport: () => setShowExport(true),
+    toggleAudioPreview,
+    deleteScene,
+  });
 
   const saveStatusLabel =
     state.saveStatus === "saved"
@@ -270,8 +382,19 @@ function StoryboardEditor({
             </button>
           </div>
           <button
+            onClick={() => setPreviewMode((prev) => !prev)}
+            className={`text-sm px-4 py-1.5 rounded-lg font-medium transition-colors ${
+              previewMode
+                ? "bg-violet-600 hover:bg-violet-500 text-white"
+                : "bg-neutral-800 hover:bg-neutral-700 text-neutral-300"
+            }`}
+          >
+            Preview
+          </button>
+          <button
             onClick={() => setShowExport(true)}
             className="text-sm px-4 py-1.5 bg-orange-600 hover:bg-orange-500 rounded-lg font-medium transition-colors"
+            title="Cmd+E"
           >
             Export
           </button>
@@ -279,7 +402,7 @@ function StoryboardEditor({
             <button
               onClick={state.undo}
               className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
-              title="Undo (Ctrl+Z)"
+              title="Undo (Cmd+Z)"
             >
               Undo
             </button>
@@ -289,11 +412,16 @@ function StoryboardEditor({
             onClick={state.save}
             disabled={!state.isDirty}
             className="text-sm px-4 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
+            title="Cmd+S"
           >
             Save
           </button>
         </div>
       </div>
+
+      {/* Batch Progress Bar */}
+      <BatchProgressBar progress={state.batchImageProgress} label="images" />
+      <BatchProgressBar progress={state.batchAudioProgress} label="audio" />
 
       {/* Three-panel layout */}
       <div className="flex flex-1 overflow-hidden">
@@ -316,6 +444,8 @@ function StoryboardEditor({
           generatingSceneIds={state.generatingSceneIds}
           onGenerateAudio={(sceneId) => tryGenerateAudio(sceneId)}
           generatingAudioSceneIds={state.generatingAudioSceneIds}
+          batchImageStatuses={state.batchImageProgress.statuses}
+          onRetryImage={(sceneId) => state.generateImage(sceneId, artStyle)}
         />
 
         {selectedScene ? (
@@ -342,6 +472,9 @@ function StoryboardEditor({
             }
             isPreviewingScene={render.previewingSceneId === selectedScene.scene.id}
             previewVideoUrl={render.previewVideoUrl}
+            previewMode={previewMode}
+            onPrevScene={selectPrevScene}
+            onNextScene={selectNextScene}
           />
         ) : (
           <aside className="w-[320px] shrink-0 border-l border-neutral-800 p-4 flex items-center justify-center">
@@ -351,6 +484,15 @@ function StoryboardEditor({
           </aside>
         )}
       </div>
+
+      {/* Preview Strip */}
+      {previewMode && (
+        <PreviewStrip
+          content={state.content}
+          selectedSceneId={state.selectedSceneId}
+          onSelectScene={state.selectScene}
+        />
+      )}
 
       {showExport && (
         <ExportPanel
@@ -391,6 +533,8 @@ function StoryboardEditor({
           }}
         />
       )}
+
+      {showHelp && <ShortcutHelpOverlay onClose={() => setShowHelp(false)} />}
     </div>
   );
 }
