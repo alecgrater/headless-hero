@@ -16,7 +16,7 @@ interface RenderState {
   youtubeJobId: string | null;
   youtubeStatus: RenderStatusResponse | null;
   youtubeUrl: string | null;
-  startYoutubeRender: (fadeOut?: number) => Promise<void>;
+  startYoutubeRender: (fadeOut?: number, speed?: number) => Promise<void>;
 
   // TikTok render
   tiktokJobId: string | null;
@@ -113,13 +113,14 @@ export function useRenderState(scriptId: string, title: string): RenderState {
   }, []);
 
   const startYoutubeRender = useCallback(
-    async (fadeOut = 0.3) => {
+    async (fadeOut = 0.3, speed = 1.0) => {
       setYoutubeUrl(null);
       setYoutubeStatus(null);
       const res = await api.post("/api/render/full", {
         script_id: scriptId,
         fade_out: fadeOut,
         title,
+        speed,
       });
       if (!res.ok) return;
       const { job_id } = res.data as RenderJobResponse;

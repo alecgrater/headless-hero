@@ -143,6 +143,22 @@ def _drawtext_filter(
 
     return "drawtext=" + ":".join(parts)
 
+def _build_atempo_chain(speed: float) -> str:
+    """Build chained atempo filters for pitch-corrected speed change.
+
+    Each atempo instance handles 0.5-2.0x, so we chain for wider ranges.
+    """
+    filters: list[str] = []
+    remaining = speed
+    while remaining > 2.0:
+        filters.append("atempo=2.0")
+        remaining /= 2.0
+    while remaining < 0.5:
+        filters.append("atempo=0.5")
+        remaining /= 0.5
+    filters.append(f"atempo={remaining:.4f}")
+    return ",".join(filters)
+
 def build_scene_video_cmd(
     image_path: str,
     audio_path: str,
@@ -159,6 +175,7 @@ def build_scene_video_cmd(
     overlay_show_at: float = 0.0,
     overlay_duration: float = 0.0,
     fade_out_duration: float = 0.3,
+    speed: float = 1.0,
 ) -> list[str]:
     """Build FFmpeg command to render a single scene (image + audio -> MP4).
 
@@ -194,28 +211,42 @@ def build_scene_video_cmd(
         )
         filters.append(dt)
 
+    # Speed adjustment for video
+    if speed != 1.0:
+        filters.append(f"setpts=PTS/{speed}")
+
     # Fade out at end
+    effective_duration = duration / speed if speed != 1.0 else duration
     if fade_out_duration > 0:
-        fade_start = max(0, duration - fade_out_duration)
+        fade_start = max(0, effective_duration - fade_out_duration)
         filters.append(f"fade=t=out:st={fade_start}:d={fade_out_duration}")
 
     filter_chain = ",".join(filters)
+
+    # Build audio mapping — with speed adjustment if needed
+    if speed != 1.0:
+        atempo_chain = _build_atempo_chain(speed)
+        filter_complex = f"[0:v]{filter_chain}[vout];[1:a]{atempo_chain}[aout]"
+        audio_map = ["[aout]"]
+    else:
+        filter_complex = f"[0:v]{filter_chain}[vout]"
+        audio_map = ["1:a"]
 
     cmd = [
         "ffmpeg", "-y",
         "-loop", "1",
         "-i", image_path,
         "-i", audio_path,
-        "-filter_complex", f"[0:v]{filter_chain}[vout]",
+        "-filter_complex", filter_complex,
         "-map", "[vout]",
-        "-map", "1:a",
+        "-map", *audio_map,
         "-c:v", "libx264",
         "-preset", "medium",
         "-crf", "23",
         "-c:a", "aac",
         "-b:a", "192k",
         "-pix_fmt", "yuv420p",
-        "-t", str(duration),
+        "-t", str(effective_duration),
         "-shortest",
         output_path,
     ]

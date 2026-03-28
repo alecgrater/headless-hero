@@ -8,6 +8,7 @@ import ExportPanel from "./ExportPanel";
 import PropertiesPanel from "./PropertiesPanel";
 import SceneGrid from "./SceneGrid";
 import SegmentList from "./SegmentList";
+import VideoPreviewModal from "./VideoPreviewModal";
 import VoiceSetupModal from "../brand/VoiceSetupModal";
 import { usePublishState } from "./usePublishState";
 import { useRenderState } from "./useRenderState";
@@ -147,6 +148,7 @@ function StoryboardEditor({
   const publish = usePublishState(scriptId, brandId);
   const [activeSegmentIdx, setActiveSegmentIdx] = useState<number | null>(null);
   const [showExport, setShowExport] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [showVoiceSetup, setShowVoiceSetup] = useState(false);
   const [pendingAudioAction, setPendingAudioAction] = useState<"all" | string | null>(null);
   const [previewMode, setPreviewMode] = useState(false);

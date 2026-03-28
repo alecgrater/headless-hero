@@ -6,7 +6,7 @@ import type { RenderStatusResponse, SEOMetadata, ThumbnailConcept } from "../../
 interface Props {
   youtubeStatus: { status: string; progress: number; current_step: string; error?: string } | null;
   youtubeUrl: string | null;
-  onStartYoutubeRender: (fadeOut?: number) => void;
+  onStartYoutubeRender: (fadeOut?: number, speed?: number) => void;
 
   tiktokStatus: { status: string; progress: number; current_step: string; error?: string } | null;
   tiktokUrls: string[];
@@ -147,6 +147,7 @@ export default function ExportPanel({
   const [activeTab, setActiveTab] = useState<Tab>("render");
   const [scheduleAt, setScheduleAt] = useState("");
   const [confirmPublish, setConfirmPublish] = useState(false);
+  const [speed, setSpeed] = useState(1.0);
 
   // Latest YouTube publish from history
   const latestYtPublish = publishHistory.find(
@@ -224,18 +225,36 @@ export default function ExportPanel({
                   </div>
                 ) : null}
                 {!youtubeRendering && (
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => onStartYoutubeRender()}
-                      className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
-                    >
-                      {youtubeUrl ? "Re-render" : "Render YouTube Video"}
-                    </button>
-                    {estimatedSeconds != null && !youtubeUrl && (
-                      <span className="text-xs text-neutral-500">
-                        Estimated render time: {formatEstimate(estimatedSeconds)}
-                      </span>
-                    )}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-neutral-500 mr-1">Speed:</span>
+                      {[1, 1.25, 1.5, 1.75, 2].map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setSpeed(s)}
+                          className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${
+                            speed === s
+                              ? "bg-violet-600 text-white"
+                              : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
+                          }`}
+                        >
+                          {s}x
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => onStartYoutubeRender(0.3, speed)}
+                        className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
+                      >
+                        {youtubeUrl ? "Re-render" : "Render YouTube Video"}{speed !== 1 ? ` (${speed}x)` : ""}
+                      </button>
+                      {estimatedSeconds != null && !youtubeUrl && (
+                        <span className="text-xs text-neutral-500">
+                          Estimated render time: {formatEstimate(estimatedSeconds)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
               </section>

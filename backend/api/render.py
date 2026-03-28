@@ -35,6 +35,7 @@ class RenderFullRequest(BaseModel):
     height: int = 1080
     fade_out: float = 0.3
     title: str = ""
+    speed: float = 1.0
 
 class RenderSegmentsRequest(BaseModel):
     script_id: str
@@ -114,6 +115,8 @@ def start_full_render(body: RenderFullRequest, session: Session = Depends(get_se
     audio_dur = _total_audio_duration(content)
     job = create_job(scene_count=scene_count, total_audio_duration=audio_dur)
 
+    speed = max(0.5, min(3.0, body.speed))
+
     def do_render():
         def on_progress(p: float, msg: str):
             update_job(job.id, progress=p, current_step=msg)
@@ -126,6 +129,7 @@ def start_full_render(body: RenderFullRequest, session: Session = Depends(get_se
             fade_out=body.fade_out,
             on_progress=on_progress,
             title=body.title,
+            speed=speed,
         )
 
     run_in_background(job.id, do_render)

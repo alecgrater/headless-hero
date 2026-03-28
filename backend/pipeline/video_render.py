@@ -76,6 +76,7 @@ def render_scene_video(
     height: int = 1080,
     fade_out: float = 0.3,
     force: bool = False,
+    speed: float = 1.0,
 ) -> str:
     """Render a single scene to MP4 and return the web-relative path.
 
@@ -93,7 +94,11 @@ def render_scene_video(
     renders = _renders_dir(script_id)
     scenes_dir = renders / "scenes"
     scenes_dir.mkdir(parents=True, exist_ok=True)
-    output_path = str(scenes_dir / f"{scene.id}.mp4")
+
+    # Speed-aware filename: 1x keeps original, others get suffix
+    speed_suffix = f"_{speed}x" if speed != 1.0 else ""
+    filename = f"{scene.id}{speed_suffix}.mp4"
+    output_path = str(scenes_dir / filename)
 
     # Cache check: skip if output exists and is newer than both source assets
     if not force and os.path.exists(output_path):
@@ -101,7 +106,7 @@ def render_scene_video(
         img_mtime = os.path.getmtime(image_path)
         aud_mtime = os.path.getmtime(audio_path)
         if out_mtime > img_mtime and out_mtime > aud_mtime:
-            web_path = f"/static/projects/{script_id}/renders/scenes/{scene.id}.mp4"
+            web_path = f"/static/projects/{script_id}/renders/scenes/{filename}"
             return web_path
 
     # Use audio duration if available, otherwise estimate
@@ -126,11 +131,12 @@ def render_scene_video(
         overlay_show_at=toc.show_at,
         overlay_duration=toc.duration,
         fade_out_duration=fade_out,
+        speed=speed,
     )
 
     _run_ffmpeg(cmd)
 
-    web_path = f"/static/projects/{script_id}/renders/scenes/{scene.id}.mp4"
+    web_path = f"/static/projects/{script_id}/renders/scenes/{filename}"
     return web_path
 
 def render_full_video(
@@ -141,6 +147,7 @@ def render_full_video(
     fade_out: float = 0.3,
     on_progress: ProgressCallback = None,
     title: str = "",
+    speed: float = 1.0,
 ) -> str:
     """Render all scenes then concatenate into a full YouTube video.
 
@@ -150,20 +157,24 @@ def render_full_video(
     total = len(scenes)
     clip_paths: list[str] = []
 
+    speed_suffix = f"_{speed}x" if speed != 1.0 else ""
+
     for i, scene in enumerate(scenes):
         if on_progress:
             on_progress(i / total, f"Rendering scene {i + 1}/{total}")
 
-        clip_path = render_scene_video(scene, script_id, width, height, fade_out)
+        clip_path = render_scene_video(scene, script_id, width, height, fade_out, speed=speed)
         # Convert web path to local path for concat
-        local_clip = str(_data_dir / "projects" / script_id / "renders" / "scenes" / f"{scene.id}.mp4")
+        filename = f"{scene.id}{speed_suffix}.mp4"
+        local_clip = str(_data_dir / "projects" / script_id / "renders" / "scenes" / filename)
         clip_paths.append(local_clip)
 
     if on_progress:
         on_progress(0.9, "Concatenating clips...")
 
     renders = _renders_dir(script_id)
-    output_path = str(renders / "full_youtube.mp4")
+    output_filename = f"full_youtube{speed_suffix}.mp4"
+    output_path = str(renders / output_filename)
 
     cmd, list_file = build_concat_cmd(clip_paths, output_path)
     try:
@@ -177,11 +188,12 @@ def render_full_video(
     if on_progress:
         on_progress(1.0, "Complete")
 
-    web_path = f"/static/projects/{script_id}/renders/full_youtube.mp4"
+    web_path = f"/static/projects/{script_id}/renders/{output_filename}"
 
     if title:
         try:
-            copy_to_downloads(title, output_path, f"{_sanitize_filename(title)} - YouTube.mp4")
+            speed_label = f" ({speed}x)" if speed != 1.0 else ""
+            copy_to_downloads(title, output_path, f"{_sanitize_filename(title)} - YouTube{speed_label}.mp4")
         except Exception:
             log.warning("Failed to copy to downloads", exc_info=True)
 

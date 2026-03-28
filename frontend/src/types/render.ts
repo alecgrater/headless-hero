@@ -18,6 +18,7 @@ export interface RenderFullRequest {
   width?: number;
   height?: number;
   fade_out?: number;
+  speed?: number;
 }
 
 export interface RenderSegmentsRequest {
