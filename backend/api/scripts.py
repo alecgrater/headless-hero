@@ -110,12 +110,32 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
         parts.append(f"Art style: {brand.art_style}")
     brand_context = ". ".join(parts)
 
+    # Parse modifier IDs from brand (default to title_cards for backward compat)
+    modifier_ids: list[str] = []
+    try:
+        import json as _json
+        parsed = _json.loads(brand.content_modifiers) if brand.content_modifiers else []
+        modifier_ids = parsed if isinstance(parsed, list) else []
+    except Exception:
+        pass
+    if not modifier_ids:
+        modifier_ids = ["title_cards"]
+
+    brand_dict = {
+        "name": brand.name,
+        "art_style": brand.art_style,
+        "color_palette": brand.color_palette,
+        "font": brand.font,
+    }
+
     script_content = generate_script(
         topic=body.topic,
         description=body.description,
         brand_context=brand_context,
         segment_count=body.segment_count,
         animated_scene_count=body.animated_scene_count,
+        modifier_ids=modifier_ids,
+        brand=brand_dict,
     )
 
     # Persist to SQLite

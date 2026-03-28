@@ -15,7 +15,6 @@ from pipeline.ffmpeg_builder import (
     build_concat_cmd,
     build_scene_video_cmd,
     build_tiktok_cmd,
-    build_video_clip_scene_cmd,
 )
 
 log = logging.getLogger(__name__)
@@ -58,10 +57,6 @@ def _scene_audio_path(script_id: str, scene_id: str) -> str:
     """Resolve local filesystem path for a scene audio file."""
     return str(_data_dir / "projects" / script_id / "audio" / f"{scene_id}.mp3")
 
-def _scene_clip_path(script_id: str, scene_id: str) -> str:
-    """Resolve local filesystem path for a gameplay clip."""
-    return str(_data_dir / "projects" / script_id / "clips" / f"{scene_id}.mp4")
-
 def _renders_dir(script_id: str) -> Path:
     d = _data_dir / "projects" / script_id / "renders"
     d.mkdir(parents=True, exist_ok=True)
@@ -75,63 +70,6 @@ def _all_scenes(content: ScriptContent) -> list[Scene]:
             scenes.append(sc)
     return scenes
 
-def _render_video_clip_scene(
-    scene: Scene,
-    script_id: str,
-    width: int,
-    height: int,
-    fade_out: float,
-    force: bool,
-    speed: float,
-) -> str:
-    """Render a gameplay clip scene (video input instead of image)."""
-    clip_path = _scene_clip_path(script_id, scene.id)
-    audio_path = _scene_audio_path(script_id, scene.id)
-
-    if not os.path.exists(clip_path):
-        raise FileNotFoundError(f"Gameplay clip not found: {clip_path}")
-    if not os.path.exists(audio_path):
-        raise FileNotFoundError(f"Audio not found: {audio_path}")
-
-    renders = _renders_dir(script_id)
-    scenes_dir = renders / "scenes"
-    scenes_dir.mkdir(parents=True, exist_ok=True)
-
-    speed_suffix = f"_{speed}x" if speed != 1.0 else ""
-    filename = f"{scene.id}{speed_suffix}.mp4"
-    output_path = str(scenes_dir / filename)
-
-    # Cache check
-    if not force and os.path.exists(output_path):
-        out_mtime = os.path.getmtime(output_path)
-        clip_mtime = os.path.getmtime(clip_path)
-        aud_mtime = os.path.getmtime(audio_path)
-        if out_mtime > clip_mtime and out_mtime > aud_mtime:
-            return f"/static/projects/{script_id}/renders/scenes/{filename}"
-
-    duration = scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else scene.duration_estimate_seconds
-    toc = scene.text_overlay_config or TextOverlayConfig()
-
-    cmd = build_video_clip_scene_cmd(
-        clip_path=clip_path,
-        audio_path=audio_path,
-        output_path=output_path,
-        duration=duration,
-        width=width,
-        height=height,
-        text_overlay=scene.text_overlay,
-        overlay_position=toc.position,
-        overlay_style=toc.style,
-        overlay_animation=toc.animation,
-        overlay_show_at=toc.show_at,
-        overlay_duration=toc.duration,
-        fade_out_duration=fade_out,
-        speed=speed,
-    )
-
-    _run_ffmpeg(cmd)
-    return f"/static/projects/{script_id}/renders/scenes/{filename}"
-
 
 def render_scene_video(
     scene: Scene,
@@ -141,15 +79,43 @@ def render_scene_video(
     fade_out: float = 0.3,
     force: bool = False,
     speed: float = 1.0,
+    modifier_ids: list[str] | None = None,
+    brand: dict | None = None,
 ) -> str:
     """Render a single scene to MP4 and return the web-relative path.
 
     Requires the scene's image and audio to already exist on disk.
     If force=False and the output is newer than source assets, skips re-render.
     """
-    # Gameplay clip scenes use a different rendering path (video input, not image)
-    if getattr(scene, "media_type", "ai_generated") == "gameplay_clip":
-        return _render_video_clip_scene(scene, script_id, width, height, fade_out, force, speed)
+    # Run modifier pre-render hooks (e.g. generate title card images)
+    if modifier_ids:
+        import pipeline.modifiers  # noqa: F401
+        from pipeline.modifiers.registry import get_active
+
+        brand_dict = brand or {}
+        for mod in get_active(modifier_ids):
+            scene = mod.modify_scene_pre_render(scene, script_id, brand_dict)
+
+    # Check for modifier render overrides (e.g. gameplay clips)
+    renders = _renders_dir(script_id)
+    scenes_dir = renders / "scenes"
+    scenes_dir.mkdir(parents=True, exist_ok=True)
+    speed_suffix = f"_{speed}x" if speed != 1.0 else ""
+    filename = f"{scene.id}{speed_suffix}.mp4"
+    output_path = str(scenes_dir / filename)
+
+    if modifier_ids:
+        from pipeline.modifiers.registry import get_active
+
+        for mod in get_active(modifier_ids):
+            override_cmd = mod.get_render_override(
+                scene, script_id,
+                width=width, height=height, fade_out=fade_out, speed=speed,
+                output_path=output_path,
+            )
+            if override_cmd is not None:
+                _run_ffmpeg(override_cmd)
+                return f"/static/projects/{script_id}/renders/scenes/{filename}"
 
     image_path = _scene_image_path(script_id, scene.id)
     audio_path = _scene_audio_path(script_id, scene.id)
@@ -166,15 +132,6 @@ def render_scene_video(
         # Fall back to non-animated if B image missing
         is_animated = False
         image_path_b = None
-
-    renders = _renders_dir(script_id)
-    scenes_dir = renders / "scenes"
-    scenes_dir.mkdir(parents=True, exist_ok=True)
-
-    # Speed-aware filename: 1x keeps original, others get suffix
-    speed_suffix = f"_{speed}x" if speed != 1.0 else ""
-    filename = f"{scene.id}{speed_suffix}.mp4"
-    output_path = str(scenes_dir / filename)
 
     # Cache check: skip if output exists and is newer than all source assets
     if not force and os.path.exists(output_path):
@@ -246,6 +203,8 @@ def render_full_video(
     on_progress: ProgressCallback = None,
     title: str = "",
     speed: float = 1.0,
+    modifier_ids: list[str] | None = None,
+    brand: dict | None = None,
 ) -> str:
     """Render all scenes then concatenate into a full YouTube video.
 
@@ -261,7 +220,7 @@ def render_full_video(
         if on_progress:
             on_progress(i / total, f"Rendering scene {i + 1}/{total}")
 
-        clip_path = render_scene_video(scene, script_id, width, height, fade_out, speed=speed)
+        clip_path = render_scene_video(scene, script_id, width, height, fade_out, speed=speed, modifier_ids=modifier_ids, brand=brand)
         # Convert web path to local path for concat
         filename = f"{scene.id}{speed_suffix}.mp4"
         local_clip = str(_data_dir / "projects" / script_id / "renders" / "scenes" / filename)
@@ -305,6 +264,8 @@ def render_segment_video(
     height: int = 1920,
     on_progress: ProgressCallback = None,
     speed: float = 1.0,
+    modifier_ids: list[str] | None = None,
+    brand: dict | None = None,
 ) -> str:
     """Render a single segment as a 9:16 TikTok clip.
 
@@ -321,7 +282,7 @@ def render_segment_video(
         if on_progress:
             on_progress(i / (total + 2), f"Rendering scene {i + 1}/{total}")
 
-        render_scene_video(scene, script_id, 1920, 1080, speed=speed)
+        render_scene_video(scene, script_id, 1920, 1080, speed=speed, modifier_ids=modifier_ids, brand=brand)
         speed_suffix = f"_{speed}x" if speed != 1.0 else ""
         local_clip = str(_data_dir / "projects" / script_id / "renders" / "scenes" / f"{scene.id}{speed_suffix}.mp4")
         clip_16_9_paths.append(local_clip)
@@ -372,6 +333,8 @@ def render_all_segments(
     on_progress: ProgressCallback = None,
     title: str = "",
     speed: float = 1.0,
+    modifier_ids: list[str] | None = None,
+    brand: dict | None = None,
 ) -> list[str]:
     """Render all segments as TikTok 9:16 clips. Returns list of web paths."""
     total = len(content.segments)
@@ -385,7 +348,7 @@ def render_all_segments(
                 overall = (idx + p) / total
                 on_progress(overall, msg)
 
-        path = render_segment_video(script_id, idx, content, width, height, seg_progress, speed=speed)
+        path = render_segment_video(script_id, idx, content, width, height, seg_progress, speed=speed, modifier_ids=modifier_ids, brand=brand)
         results.append(path)
 
     if on_progress:

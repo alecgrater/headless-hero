@@ -1,3 +1,10 @@
+export interface ContentModifierMeta {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+}
+
 export interface BrandProfile {
   id: string;
   name: string;
@@ -5,6 +12,7 @@ export interface BrandProfile {
   color_palette: string;
   font: string;
   voice_id: string;
+  content_modifiers: string;
   youtube_channel_id: string;
   tiktok_handle: string;
   instagram_handle: string;
@@ -18,6 +26,7 @@ export interface BrandProfileCreate {
   color_palette?: string;
   font?: string;
   voice_id?: string;
+  content_modifiers?: string;
   youtube_channel_id?: string;
   tiktok_handle?: string;
   instagram_handle?: string;

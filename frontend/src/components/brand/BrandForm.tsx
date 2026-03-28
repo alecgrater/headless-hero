@@ -1,5 +1,6 @@
-import { useState } from "react";
-import type { BrandProfileCreate } from "../../types/brand";
+import { useEffect, useState } from "react";
+import type { BrandProfileCreate, ContentModifierMeta } from "../../types/brand";
+import { fetchModifiers } from "../../api";
 import {
   ART_STYLE_PRESETS,
   COLOR_PALETTE_PRESETS,
@@ -17,6 +18,7 @@ const EMPTY_FORM: BrandProfileCreate = {
   art_style: "",
   color_palette: "",
   font: "",
+  content_modifiers: "",
 };
 
 interface Props {
@@ -101,6 +103,32 @@ function FontPreview({ preset }: { preset: FontPreset }) {
 
 export default function BrandForm({ onSave, onCancel, initial, saving, brandId }: Props) {
   const [form, setForm] = useState<BrandProfileCreate>(initial ?? EMPTY_FORM);
+  const [modifiers, setModifiers] = useState<ContentModifierMeta[]>([]);
+
+  useEffect(() => {
+    fetchModifiers().then((res) => {
+      if (res.ok && Array.isArray(res.data)) {
+        setModifiers(res.data as ContentModifierMeta[]);
+      }
+    });
+  }, []);
+
+  // Parse active modifier IDs from the JSON string
+  const activeModifierIds: string[] = (() => {
+    try {
+      const parsed = JSON.parse(form.content_modifiers || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  })();
+
+  const toggleModifier = (id: string) => {
+    const next = activeModifierIds.includes(id)
+      ? activeModifierIds.filter((m) => m !== id)
+      : [...activeModifierIds, id];
+    setForm((prev) => ({ ...prev, content_modifiers: JSON.stringify(next) }));
+  };
 
   const set = (field: keyof BrandProfileCreate, value: string) =>
     setForm((prev: BrandProfileCreate) => ({ ...prev, [field]: value }));
@@ -230,6 +258,74 @@ export default function BrandForm({ onSave, onCancel, initial, saving, brandId }
               label="Font"
             />
           </div>
+
+          {/* ===== Content Modifiers Card ===== */}
+          {modifiers.length > 0 && (
+            <div
+              className="rounded-xl p-6 space-y-4 transition-all duration-250 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,0,0,0.3)]"
+              style={{
+                background: "#111118",
+                border: "1px solid rgba(255,255,255,0.06)",
+                animation: "fadeUp 400ms ease both",
+                animationDelay: "100ms",
+              }}
+            >
+              <h2
+                className="text-[15px] font-semibold text-white/80 mb-1"
+                style={{ fontFamily: "Sora, sans-serif" }}
+              >
+                Content Modifiers
+              </h2>
+              <p className="text-[12px] text-white/35 leading-relaxed">
+                Enable plugins that change how scripts are generated and videos are rendered.
+              </p>
+              <div className="grid gap-3">
+                {modifiers.map((mod) => {
+                  const active = activeModifierIds.includes(mod.id);
+                  return (
+                    <button
+                      key={mod.id}
+                      type="button"
+                      onClick={() => toggleModifier(mod.id)}
+                      className={`flex items-start gap-3 p-3.5 rounded-lg border text-left transition-all duration-200 ${
+                        active
+                          ? "border-violet-500/40 bg-violet-500/[0.08]"
+                          : "border-white/[0.06] bg-[#1a1a24] hover:border-white/[0.12]"
+                      }`}
+                    >
+                      <span className="text-xl leading-none mt-0.5">{mod.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className={`text-[13px] font-semibold ${
+                            active ? "text-violet-300" : "text-white/80"
+                          }`}
+                          style={{ fontFamily: "Sora, sans-serif" }}
+                        >
+                          {mod.name}
+                        </p>
+                        <p className="text-[11px] text-white/35 mt-0.5 leading-relaxed">
+                          {mod.description}
+                        </p>
+                      </div>
+                      <div
+                        className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all duration-200 ${
+                          active
+                            ? "border-violet-500 bg-violet-500"
+                            : "border-white/20 bg-transparent"
+                        }`}
+                      >
+                        {active && (
+                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </form>

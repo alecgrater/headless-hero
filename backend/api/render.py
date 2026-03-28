@@ -10,14 +10,12 @@ from api.database import get_session
 from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.render_jobs import create_job, estimate_render_time, get_job, run_in_background, update_job
-from pipeline.title_card import ensure_title_card_images
 from pipeline.video_render import (
     export_full_audio,
     render_all_segments,
     render_full_video,
     render_scene_video,
 )
-from pipeline.auto_editor import generate_edit_timeline, render_auto_edit_video
 
 router = APIRouter(prefix="/api/render", tags=["render"])
 
@@ -68,13 +66,6 @@ class ExportAudioResponse(BaseModel):
 class RenderEstimateResponse(BaseModel):
     estimated_seconds: float
 
-class AutoEditRequest(BaseModel):
-    script_id: str
-    width: int = 1920
-    height: int = 1080
-    title: str = ""
-    speed: float = 1.0
-
 # --- Helpers ---
 
 def _load_content(session: Session, script_id: str) -> ScriptContent:
@@ -96,21 +87,6 @@ def _count_scenes(content: ScriptContent) -> int:
     """Count total scenes across all segments."""
     return sum(len(seg.scenes) for seg in content.segments)
 
-def _ensure_title_cards(session: Session, script_id: str, content: ScriptContent) -> None:
-    """Load brand colors and generate any missing title card images."""
-    record = session.get(Script, script_id)
-    if not record:
-        return
-    brand = session.get(BrandProfile, record.brand_id)
-    primary, secondary = "#1a1a2e", "#16213e"
-    if brand and brand.color_palette:
-        colors = [c.strip() for c in brand.color_palette.split(",") if c.strip()]
-        if len(colors) >= 1:
-            primary = colors[0]
-        if len(colors) >= 2:
-            secondary = colors[1]
-    ensure_title_card_images(script_id, content.segments, primary, secondary)
-
 def _total_audio_duration(content: ScriptContent) -> float:
     """Sum audio durations across all scenes."""
     total = 0.0
@@ -120,25 +96,55 @@ def _total_audio_duration(content: ScriptContent) -> float:
                 total += sc.audio_duration_seconds
     return total
 
+def _load_brand_and_modifiers(session: Session, script_id: str) -> tuple[dict, list[str]]:
+    """Load brand dict and modifier IDs for a script."""
+    record = session.get(Script, script_id)
+    if not record:
+        return {}, ["title_cards"]
+    brand = session.get(BrandProfile, record.brand_id)
+    if not brand:
+        return {}, ["title_cards"]
+
+    brand_dict = {
+        "name": brand.name,
+        "art_style": brand.art_style,
+        "color_palette": brand.color_palette,
+        "font": brand.font,
+    }
+
+    modifier_ids: list[str] = []
+    try:
+        parsed = json.loads(brand.content_modifiers) if brand.content_modifiers else []
+        modifier_ids = parsed if isinstance(parsed, list) else []
+    except Exception:
+        pass
+    if not modifier_ids:
+        modifier_ids = ["title_cards"]
+
+    return brand_dict, modifier_ids
+
 # --- Endpoints ---
 
 @router.post("/preview-scene", response_model=PreviewSceneResponse)
 def preview_scene(body: PreviewSceneRequest, session: Session = Depends(get_session)):
     """Render a single scene to MP4 (synchronous — typically 2-5s)."""
     content = _load_content(session, body.script_id)
-    _ensure_title_cards(session, body.script_id, content)
+    brand_dict, modifier_ids = _load_brand_and_modifiers(session, body.script_id)
     scene = _find_scene(content, body.scene_id)
     if not scene:
         raise HTTPException(status_code=404, detail="Scene not found")
 
-    video_url = render_scene_video(scene, body.script_id, body.width, body.height)
+    video_url = render_scene_video(
+        scene, body.script_id, body.width, body.height,
+        modifier_ids=modifier_ids, brand=brand_dict,
+    )
     return PreviewSceneResponse(video_url=video_url)
 
 @router.post("/full", response_model=RenderJobResponse)
 def start_full_render(body: RenderFullRequest, session: Session = Depends(get_session)):
     """Start a full YouTube video render in the background."""
     content = _load_content(session, body.script_id)
-    _ensure_title_cards(session, body.script_id, content)
+    brand_dict, modifier_ids = _load_brand_and_modifiers(session, body.script_id)
     scene_count = _count_scenes(content)
     audio_dur = _total_audio_duration(content)
     job = create_job(scene_count=scene_count, total_audio_duration=audio_dur)
@@ -158,6 +164,8 @@ def start_full_render(body: RenderFullRequest, session: Session = Depends(get_se
             on_progress=on_progress,
             title=body.title,
             speed=speed,
+            modifier_ids=modifier_ids,
+            brand=brand_dict,
         )
 
     run_in_background(job.id, do_render)
@@ -167,7 +175,7 @@ def start_full_render(body: RenderFullRequest, session: Session = Depends(get_se
 def start_segments_render(body: RenderSegmentsRequest, session: Session = Depends(get_session)):
     """Start TikTok 9:16 segment renders in the background."""
     content = _load_content(session, body.script_id)
-    _ensure_title_cards(session, body.script_id, content)
+    brand_dict, modifier_ids = _load_brand_and_modifiers(session, body.script_id)
     scene_count = _count_scenes(content)
     audio_dur = _total_audio_duration(content)
     job = create_job(scene_count=scene_count, total_audio_duration=audio_dur)
@@ -186,6 +194,8 @@ def start_segments_render(body: RenderSegmentsRequest, session: Session = Depend
             on_progress=on_progress,
             title=body.title,
             speed=speed,
+            modifier_ids=modifier_ids,
+            brand=brand_dict,
         )
 
     run_in_background(job.id, do_render)
@@ -215,39 +225,3 @@ def export_audio(body: ExportAudioRequest, session: Session = Depends(get_sessio
     content = _load_content(session, body.script_id)
     audio_url = export_full_audio(body.script_id, content, title=body.title)
     return ExportAudioResponse(audio_url=audio_url)
-
-@router.post("/auto-edit", response_model=RenderJobResponse)
-def start_auto_edit_render(body: AutoEditRequest, session: Session = Depends(get_session)):
-    """Start an auto-edited YouTube video render in the background.
-
-    Uses Claude to generate an editing timeline (motion, transitions, text overlays),
-    then renders via FFmpeg with word-synced typography.
-    """
-    content = _load_content(session, body.script_id)
-    _ensure_title_cards(session, body.script_id, content)
-    scene_count = _count_scenes(content)
-    audio_dur = _total_audio_duration(content)
-    job = create_job(scene_count=scene_count, total_audio_duration=audio_dur)
-
-    speed = max(0.5, min(3.0, body.speed))
-
-    def do_render():
-        def on_progress(p: float, msg: str):
-            update_job(job.id, progress=p, current_step=msg)
-
-        on_progress(0.0, "Generating editing timeline with Claude...")
-        timeline = generate_edit_timeline(content)
-
-        return render_auto_edit_video(
-            script_id=body.script_id,
-            content=content,
-            timeline=timeline,
-            width=body.width,
-            height=body.height,
-            on_progress=on_progress,
-            title=body.title,
-            speed=speed,
-        )
-
-    run_in_background(job.id, do_render)
-    return RenderJobResponse(job_id=job.id)

@@ -15,6 +15,14 @@ from models.brand import (
 
 router = APIRouter(prefix="/api/brands", tags=["brands"])
 
+
+@router.get("/modifiers")
+def list_modifiers():
+    """Return metadata for all available content modifiers."""
+    import pipeline.modifiers  # noqa: F401 — ensure modifiers are registered
+    from pipeline.modifiers.registry import all_metadata
+    return all_metadata()
+
 @router.post("", response_model=BrandProfileRead, status_code=201)
 def create_brand(body: BrandProfileCreate, session: Session = Depends(get_session)):
     brand = BrandProfile.model_validate(body)

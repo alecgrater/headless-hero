@@ -46,6 +46,9 @@ interface Props {
   // Render estimate
   estimatedSeconds: number | null;
 
+  // Active modifiers on the brand
+  activeModifierIds: string[];
+
   onClose: () => void;
 }
 
@@ -150,6 +153,7 @@ export default function ExportPanel({
   onStartPublish,
   publishHistory,
   estimatedSeconds,
+  activeModifierIds,
   onClose,
 }: Props) {
   const youtubeRendering = youtubeStatus?.status === "running" || youtubeStatus?.status === "pending";
@@ -272,7 +276,8 @@ export default function ExportPanel({
                 )}
               </section>
 
-              {/* Auto-Edit Export */}
+              {/* Auto-Edit Export — only when animated_subtitles modifier is active */}
+              {activeModifierIds.includes("animated_subtitles") && (
               <section className="space-y-3">
                 <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
                   Auto-Edit Export (16:9)
@@ -305,6 +310,7 @@ export default function ExportPanel({
                   </button>
                 )}
               </section>
+              )}
 
               {/* TikTok Export */}
               <section className="space-y-3">

@@ -204,6 +204,18 @@ function StoryboardEditor({
 
   const artStyle = brand?.art_style ?? "";
 
+  // Parse active modifier IDs from brand
+  const activeModifierIds: string[] = (() => {
+    try {
+      const raw = brand?.content_modifiers;
+      if (!raw) return ["title_cards"];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : ["title_cards"];
+    } catch {
+      return ["title_cards"];
+    }
+  })();
+
   // JIT voice check: if no voice selected and no voices available, show modal
   const tryGenerateAudio = (action: "all" | string) => {
     if (!selectedVoiceId && voices.length === 0) {
@@ -619,6 +631,7 @@ function StoryboardEditor({
           onStartPublish={publish.startPublish}
           publishHistory={publish.publishHistory}
           estimatedSeconds={render.estimatedSeconds}
+          activeModifierIds={activeModifierIds}
           onClose={() => setShowExport(false)}
         />
       )}

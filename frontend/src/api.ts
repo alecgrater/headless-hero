@@ -159,6 +159,11 @@ export function assetUrl(path: string): string {
   return `http://localhost:8420${path}`;
 }
 
+/** Fetch available content modifier metadata from the backend. */
+export async function fetchModifiers() {
+  return api.get("/api/brands/modifiers");
+}
+
 /** Open a URL in the system browser (Electron shell) or a new tab (dev). */
 export function openInBrowser(url: string): void {
   if (window.api?.openExternal) {
