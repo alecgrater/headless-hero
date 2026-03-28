@@ -41,7 +41,7 @@ def generate_image(prompt: str, width: int = 1344, height: int = 768) -> str:
         contents=prompt,
         config=types.GenerateContentConfig(
             response_modalities=["IMAGE"],
-            image_generation_config=types.ImageConfig(
+            image_config=types.ImageConfig(
                 aspect_ratio=aspect,
             ),
         ),
