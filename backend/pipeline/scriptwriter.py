@@ -1,11 +1,15 @@
 """Script generation pipeline — uses Claude to write segmented video scripts."""
 
 import json
+from pathlib import Path
 
 from integrations.claude_client import chat
 from models.script import ScriptContent
 
-SYSTEM_PROMPT = """\
+_GUIDE_PATH = Path(__file__).resolve().parent.parent / "prompts" / "scriptwriting_guide.md"
+_STYLE_GUIDE = _GUIDE_PATH.read_text() if _GUIDE_PATH.exists() else ""
+
+SYSTEM_PROMPT = (_STYLE_GUIDE + "\n\n" if _STYLE_GUIDE else "") + """\
 You are an expert YouTube scriptwriter specializing in educational/explainer \
 content (like "Everything Professor" or "Kurzgesagt" style). Your job is to \
 write a full, production-ready script broken into named segments with per-scene \
@@ -28,7 +32,9 @@ Output rules:
           "visual_prompt": "Detailed description of what the illustration should depict.",
           "text_overlay": "Key text to display on screen (short phrase).",
           "duration_estimate_seconds": 8,
-          "is_title_card": false
+          "is_title_card": false,
+          "is_animated": false,
+          "visual_prompt_b": ""
         }
       ]
     }
@@ -46,6 +52,16 @@ Writing guidelines:
   background" unless the brand style says otherwise.
 - Text overlays should be short key phrases (1-6 words) that reinforce the narration.
 - Scene IDs must be unique and sequential: scene_001, scene_002, etc.
+
+Animated scene guidelines:
+- Some scenes should be marked as "animated" (is_animated: true) with a second \
+  visual prompt (visual_prompt_b). These scenes will alternate between two images \
+  (A/B flip) for added visual interest.
+- For animated scenes, visual_prompt describes state A and visual_prompt_b describes \
+  state B — they should depict the SAME subject in two distinct states (e.g., \
+  before/after, cause/effect, open/closed, lit/dark, full/empty).
+- Do NOT animate title card scenes (is_title_card: true).
+- For non-animated scenes, leave is_animated as false and visual_prompt_b as "".
 """
 
 def generate_script(
@@ -53,6 +69,7 @@ def generate_script(
     description: str = "",
     brand_context: str = "",
     segment_count: int | None = None,
+    animated_scene_count: int = 5,
 ) -> ScriptContent:
     """Generate a segmented video script via Claude.
 
@@ -61,6 +78,7 @@ def generate_script(
         description: Optional angle or description for the video.
         brand_context: Brand name + art style for tone/visual context.
         segment_count: Desired number of segments (Claude chooses if None).
+        animated_scene_count: Number of scenes to mark as animated A/B flip.
 
     Returns:
         A validated ScriptContent object.
@@ -76,6 +94,13 @@ def generate_script(
         )
     if brand_context:
         user_parts.append(f"Brand context (use for visual style and tone): {brand_context}")
+    if animated_scene_count > 0:
+        user_parts.append(
+            f"Mark approximately {animated_scene_count} non-title-card scenes as animated "
+            f"(is_animated: true) with a visual_prompt_b describing a second visual state."
+        )
+    else:
+        user_parts.append("Do not mark any scenes as animated (all is_animated: false).")
 
     user_message = "\n".join(user_parts)
 

@@ -127,6 +127,11 @@ export default function SceneCard({
             title
           </span>
         )}
+        {scene.is_animated && (
+          <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full">
+            A/B
+          </span>
+        )}
         <span className="text-[10px] text-neutral-500 ml-auto tabular-nums">
           {scene.duration_estimate_seconds}s
         </span>

@@ -5,16 +5,21 @@ export interface GenerateVisualRequest {
   brand_style?: string;
   width?: number;
   height?: number;
+  is_animated?: boolean;
+  visual_prompt_b?: string;
 }
 
 export interface GenerateVisualResponse {
   image_url: string;
   prompt_used: string;
+  image_url_b?: string;
 }
 
 export interface BatchScene {
   scene_id: string;
   visual_prompt: string;
+  is_animated?: boolean;
+  visual_prompt_b?: string;
 }
 
 export interface GenerateBatchRequest {
@@ -28,6 +33,7 @@ export interface GenerateBatchRequest {
 export interface BatchResultItem {
   scene_id: string;
   image_url?: string;
+  image_url_b?: string;
   prompt_used?: string;
   error?: string;
 }

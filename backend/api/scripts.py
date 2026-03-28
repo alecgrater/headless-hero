@@ -115,6 +115,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
         description=body.description,
         brand_context=brand_context,
         segment_count=body.segment_count,
+        animated_scene_count=body.animated_scene_count,
     )
 
     # Persist to SQLite

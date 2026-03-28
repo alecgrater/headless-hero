@@ -386,6 +386,8 @@ export function useStoryboardState(
           scene_id: sceneId,
           visual_prompt: scene.visual_prompt,
           brand_style: brandStyle,
+          is_animated: scene.is_animated || false,
+          visual_prompt_b: scene.visual_prompt_b || "",
         });
         if (res.ok) {
           const data = res.data as GenerateVisualResponse;
@@ -395,7 +397,9 @@ export function useStoryboardState(
             segments: prev.segments.map((seg) => ({
               ...seg,
               scenes: seg.scenes.map((sc) =>
-                sc.id === sceneId ? { ...sc, image_url: data.image_url } : sc,
+                sc.id === sceneId
+                  ? { ...sc, image_url: data.image_url, image_url_b: data.image_url_b || sc.image_url_b }
+                  : sc,
               ),
             })),
           }));
@@ -413,7 +417,7 @@ export function useStoryboardState(
 
   const generateAllImages = useCallback(
     async (brandStyle: string) => {
-      const scenes: { scene_id: string; visual_prompt: string; name: string }[] = [];
+      const scenes: { scene_id: string; visual_prompt: string; name: string; is_animated: boolean; visual_prompt_b: string }[] = [];
       for (const seg of contentRef.current.segments) {
         for (const sc of seg.scenes) {
           if (sc.visual_prompt) {
@@ -421,6 +425,8 @@ export function useStoryboardState(
               scene_id: sc.id,
               visual_prompt: sc.visual_prompt,
               name: sc.text_overlay || sc.narration.slice(0, 40) || sc.id,
+              is_animated: sc.is_animated || false,
+              visual_prompt_b: sc.visual_prompt_b || "",
             });
           }
         }
@@ -459,6 +465,8 @@ export function useStoryboardState(
             scene_id: scene.scene_id,
             visual_prompt: scene.visual_prompt,
             brand_style: brandStyle,
+            is_animated: scene.is_animated,
+            visual_prompt_b: scene.visual_prompt_b,
           });
           if (res.ok) {
             const data = res.data as GenerateVisualResponse;
@@ -467,7 +475,9 @@ export function useStoryboardState(
               segments: prev.segments.map((seg) => ({
                 ...seg,
                 scenes: seg.scenes.map((sc) =>
-                  sc.id === scene.scene_id ? { ...sc, image_url: data.image_url } : sc,
+                  sc.id === scene.scene_id
+                    ? { ...sc, image_url: data.image_url, image_url_b: data.image_url_b || sc.image_url_b }
+                    : sc,
                 ),
               })),
             }));

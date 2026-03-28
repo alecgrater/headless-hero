@@ -339,6 +339,107 @@ def build_tiktok_cmd(
 
     return cmd
 
+def build_animated_scene_video_cmd(
+    image_path_a: str,
+    image_path_b: str,
+    audio_path: str,
+    output_path: str,
+    duration: float,
+    width: int = 1920,
+    height: int = 1080,
+    flip_interval: float = 0.7,
+    text_overlay: str = "",
+    overlay_position: str = "lower_third",
+    overlay_style: str = "default",
+    overlay_animation: str = "fade_in",
+    overlay_show_at: float = 0.0,
+    overlay_duration: float = 0.0,
+    fade_out_duration: float = 0.3,
+    speed: float = 1.0,
+) -> list[str]:
+    """Build FFmpeg command for an animated A/B flip scene (two images alternating).
+
+    Uses blend filter with conditional expression to alternate between image A and B
+    at the specified flip_interval. No Ken Burns — the alternation IS the motion.
+    """
+    fps = 30
+    frames_per_flip = int(flip_interval * fps)
+
+    # Build filter: loop both images, then use blend to alternate
+    # [0:v] = image A, [1:v] = image B, [2:a] = audio
+    filters_a = f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,loop=loop=-1:size=1:start=0,fps={fps}"
+    filters_b = f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,loop=loop=-1:size=1:start=0,fps={fps}"
+
+    # blend filter: use 'if(lt(mod(n,2*F),F),1,0)' to toggle weight between A and B
+    # When weight=1.0, output=A; when weight=0.0, output=B
+    blend_expr = f"if(lt(mod(n\\,{2*frames_per_flip})\\,{frames_per_flip})\\,1\\,0)"
+    blend_filter = f"blend=all_expr='{blend_expr}*A+(1-{blend_expr})*B'"
+
+    post_filters: list[str] = []
+
+    # Text overlay
+    if text_overlay and _DRAWTEXT_AVAILABLE:
+        dt = _drawtext_filter(
+            text=text_overlay,
+            position=overlay_position,
+            style=overlay_style,
+            animation=overlay_animation,
+            show_at=overlay_show_at,
+            overlay_duration=overlay_duration,
+            scene_duration=duration,
+        )
+        post_filters.append(dt)
+
+    # Speed adjustment
+    if speed != 1.0:
+        post_filters.append(f"setpts=PTS/{speed}")
+
+    # Fade out
+    effective_duration = duration / speed if speed != 1.0 else duration
+    if fade_out_duration > 0:
+        fade_start = max(0, effective_duration - fade_out_duration)
+        post_filters.append(f"fade=t=out:st={fade_start}:d={fade_out_duration}")
+
+    post_chain = ("," + ",".join(post_filters)) if post_filters else ""
+
+    if speed != 1.0:
+        atempo_chain = _build_atempo_chain(speed)
+        filter_complex = (
+            f"[0:v]{filters_a}[va];"
+            f"[1:v]{filters_b}[vb];"
+            f"[va][vb]{blend_filter}{post_chain}[vout];"
+            f"[2:a]{atempo_chain}[aout]"
+        )
+        audio_map = ["[aout]"]
+    else:
+        filter_complex = (
+            f"[0:v]{filters_a}[va];"
+            f"[1:v]{filters_b}[vb];"
+            f"[va][vb]{blend_filter}{post_chain}[vout]"
+        )
+        audio_map = ["2:a"]
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-loop", "1", "-i", image_path_a,
+        "-loop", "1", "-i", image_path_b,
+        "-i", audio_path,
+        "-filter_complex", filter_complex,
+        "-map", "[vout]",
+        "-map", *audio_map,
+        "-c:v", "libx264",
+        "-preset", "medium",
+        "-crf", "23",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-pix_fmt", "yuv420p",
+        "-t", str(effective_duration),
+        "-shortest",
+        output_path,
+    ]
+
+    return cmd
+
 def build_thumbnail_composite_cmd(
     image_path: str,
     output_path: str,

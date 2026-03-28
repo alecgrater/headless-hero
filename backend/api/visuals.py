@@ -21,14 +21,19 @@ class GenerateVisualRequest(BaseModel):
     brand_style: str = ""
     width: int = 1344
     height: int = 768
+    is_animated: bool = False
+    visual_prompt_b: str = ""
 
 class GenerateVisualResponse(BaseModel):
     image_url: str
     prompt_used: str
+    image_url_b: str | None = None
 
 class BatchScene(BaseModel):
     scene_id: str
     visual_prompt: str
+    is_animated: bool = False
+    visual_prompt_b: str = ""
 
 class GenerateBatchRequest(BaseModel):
     script_id: str
@@ -40,6 +45,7 @@ class GenerateBatchRequest(BaseModel):
 class BatchResultItem(BaseModel):
     scene_id: str
     image_url: str | None = None
+    image_url_b: str | None = None
     prompt_used: str | None = None
     error: str | None = None
 
@@ -60,6 +66,23 @@ def _update_scene_image_url(
         for scene in seg.scenes:
             if scene.id == scene_id:
                 scene.image_url = image_url
+                break
+    record.script_json = content.model_dump_json()
+    session.add(record)
+    session.commit()
+
+def _update_scene_image_url_b(
+    session: Session, script_id: str, scene_id: str, image_url_b: str
+) -> None:
+    """Persist image_url_b into the scene inside script_json."""
+    record = session.get(Script, script_id)
+    if not record:
+        return
+    content = ScriptContent.model_validate(json.loads(record.script_json))
+    for seg in content.segments:
+        for scene in seg.scenes:
+            if scene.id == scene_id:
+                scene.image_url_b = image_url_b
                 break
     record.script_json = content.model_dump_json()
     session.add(record)
@@ -86,7 +109,20 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
 
     _update_scene_image_url(session, body.script_id, body.scene_id, image_url)
 
-    return GenerateVisualResponse(image_url=image_url, prompt_used=prompt_used)
+    image_url_b = None
+    if body.is_animated and body.visual_prompt_b:
+        image_url_b, _ = generate_scene_image(
+            scene_id=body.scene_id,
+            visual_prompt=body.visual_prompt_b,
+            brand_style=body.brand_style,
+            script_id=body.script_id,
+            width=body.width,
+            height=body.height,
+            variant="b",
+        )
+        _update_scene_image_url_b(session, body.script_id, body.scene_id, image_url_b)
+
+    return GenerateVisualResponse(image_url=image_url, prompt_used=prompt_used, image_url_b=image_url_b)
 
 @router.post("/generate-batch", response_model=GenerateBatchResponse)
 def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends(get_session)):
@@ -95,7 +131,15 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
 
-    scenes = [{"scene_id": s.scene_id, "visual_prompt": s.visual_prompt} for s in body.scenes]
+    scenes = [
+        {
+            "scene_id": s.scene_id,
+            "visual_prompt": s.visual_prompt,
+            "is_animated": s.is_animated,
+            "visual_prompt_b": s.visual_prompt_b,
+        }
+        for s in body.scenes
+    ]
 
     results = generate_batch(
         scenes=scenes,
@@ -109,5 +153,7 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
     for r in results:
         if r["image_url"]:
             _update_scene_image_url(session, body.script_id, r["scene_id"], r["image_url"])
+        if r.get("image_url_b"):
+            _update_scene_image_url_b(session, body.script_id, r["scene_id"], r["image_url_b"])
 
     return GenerateBatchResponse(results=[BatchResultItem(**r) for r in results])

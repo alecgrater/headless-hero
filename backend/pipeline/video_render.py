@@ -10,6 +10,7 @@ from typing import Callable
 
 from models.script import KenBurnsConfig, Scene, ScriptContent, TextOverlayConfig
 from pipeline.ffmpeg_builder import (
+    build_animated_scene_video_cmd,
     build_audio_concat_cmd,
     build_concat_cmd,
     build_scene_video_cmd,
@@ -91,6 +92,14 @@ def render_scene_video(
     if not os.path.exists(audio_path):
         raise FileNotFoundError(f"Audio not found: {audio_path}")
 
+    # Resolve B image for animated scenes
+    is_animated = getattr(scene, "is_animated", False)
+    image_path_b = str(_data_dir / "projects" / script_id / "images" / f"{scene.id}_b.png") if is_animated else None
+    if is_animated and (not image_path_b or not os.path.exists(image_path_b)):
+        # Fall back to non-animated if B image missing
+        is_animated = False
+        image_path_b = None
+
     renders = _renders_dir(script_id)
     scenes_dir = renders / "scenes"
     scenes_dir.mkdir(parents=True, exist_ok=True)
@@ -100,12 +109,15 @@ def render_scene_video(
     filename = f"{scene.id}{speed_suffix}.mp4"
     output_path = str(scenes_dir / filename)
 
-    # Cache check: skip if output exists and is newer than both source assets
+    # Cache check: skip if output exists and is newer than all source assets
     if not force and os.path.exists(output_path):
         out_mtime = os.path.getmtime(output_path)
         img_mtime = os.path.getmtime(image_path)
         aud_mtime = os.path.getmtime(audio_path)
-        if out_mtime > img_mtime and out_mtime > aud_mtime:
+        source_mtimes = [img_mtime, aud_mtime]
+        if is_animated and image_path_b:
+            source_mtimes.append(os.path.getmtime(image_path_b))
+        if all(out_mtime > m for m in source_mtimes):
             web_path = f"/static/projects/{script_id}/renders/scenes/{filename}"
             return web_path
 
@@ -115,24 +127,43 @@ def render_scene_video(
     kb = scene.ken_burns or KenBurnsConfig()
     toc = scene.text_overlay_config or TextOverlayConfig()
 
-    cmd = build_scene_video_cmd(
-        image_path=image_path,
-        audio_path=audio_path,
-        output_path=output_path,
-        duration=duration,
-        width=width,
-        height=height,
-        ken_burns_effect=kb.effect,
-        ken_burns_intensity=kb.intensity,
-        text_overlay=scene.text_overlay,
-        overlay_position=toc.position,
-        overlay_style=toc.style,
-        overlay_animation=toc.animation,
-        overlay_show_at=toc.show_at,
-        overlay_duration=toc.duration,
-        fade_out_duration=fade_out,
-        speed=speed,
-    )
+    if is_animated and image_path_b:
+        cmd = build_animated_scene_video_cmd(
+            image_path_a=image_path,
+            image_path_b=image_path_b,
+            audio_path=audio_path,
+            output_path=output_path,
+            duration=duration,
+            width=width,
+            height=height,
+            text_overlay=scene.text_overlay,
+            overlay_position=toc.position,
+            overlay_style=toc.style,
+            overlay_animation=toc.animation,
+            overlay_show_at=toc.show_at,
+            overlay_duration=toc.duration,
+            fade_out_duration=fade_out,
+            speed=speed,
+        )
+    else:
+        cmd = build_scene_video_cmd(
+            image_path=image_path,
+            audio_path=audio_path,
+            output_path=output_path,
+            duration=duration,
+            width=width,
+            height=height,
+            ken_burns_effect=kb.effect,
+            ken_burns_intensity=kb.intensity,
+            text_overlay=scene.text_overlay,
+            overlay_position=toc.position,
+            overlay_style=toc.style,
+            overlay_animation=toc.animation,
+            overlay_show_at=toc.show_at,
+            overlay_duration=toc.duration,
+            fade_out_duration=fade_out,
+            speed=speed,
+        )
 
     _run_ffmpeg(cmd)
 

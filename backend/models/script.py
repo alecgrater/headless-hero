@@ -32,7 +32,10 @@ class Scene(BaseModel):
     text_overlay: str = ""
     duration_estimate_seconds: float = 8.0
     is_title_card: bool = False
+    is_animated: bool = False
+    visual_prompt_b: str = ""
     image_url: str = ""
+    image_url_b: str = ""
     audio_url: str = ""
     audio_duration_seconds: float = 0.0
     ken_burns: KenBurnsConfig | None = None
@@ -74,6 +77,9 @@ class GenerateScriptRequest(BaseModel):
     brand_id: str = PydanticField(..., description="Brand profile ID for style context")
     segment_count: int | None = PydanticField(
         default=None, ge=2, le=30, description="Desired number of segments (Claude decides if omitted)"
+    )
+    animated_scene_count: int = PydanticField(
+        default=5, ge=0, le=50, description="Number of scenes to make animated A/B flip (0 = none)"
     )
 
 class GenerateScriptResponse(BaseModel):

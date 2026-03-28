@@ -47,6 +47,7 @@ export default function ScriptGenerationPage({
           description: idea.description,
           brand_id: brand.id,
           segment_count: idea.segments_est > 0 ? idea.segments_est : undefined,
+          animated_scene_count: 5,
         });
         if (cancelled) return;
         if (res.ok) {

@@ -18,7 +18,10 @@ export interface Scene {
   text_overlay: string;
   duration_estimate_seconds: number;
   is_title_card: boolean;
+  is_animated?: boolean;
+  visual_prompt_b?: string;
   image_url?: string;
+  image_url_b?: string;
   audio_url?: string;
   audio_duration_seconds?: number;
   ken_burns?: KenBurnsConfig;
@@ -42,6 +45,7 @@ export interface GenerateScriptRequest {
   description?: string;
   brand_id: string;
   segment_count?: number;
+  animated_scene_count?: number;
 }
 
 export interface GenerateScriptResponse {

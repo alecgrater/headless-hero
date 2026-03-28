@@ -76,6 +76,7 @@ export default function PropertiesPanel({
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
+  const [visualPromptB, setVisualPromptB] = useState(scene.visual_prompt_b || "");
   const [textOverlay, setTextOverlay] = useState(scene.text_overlay);
   const [duration, setDuration] = useState(
     String(scene.duration_estimate_seconds),
@@ -90,6 +91,7 @@ export default function PropertiesPanel({
       sceneIdRef.current = scene.id;
       setNarration(scene.narration);
       setVisualPrompt(scene.visual_prompt);
+      setVisualPromptB(scene.visual_prompt_b || "");
       setTextOverlay(scene.text_overlay);
       setDuration(String(scene.duration_estimate_seconds));
       setIsTitleCard(scene.is_title_card);
@@ -230,7 +232,7 @@ export default function PropertiesPanel({
       {/* Visual Prompt */}
       <label className="block space-y-1">
         <span className="text-xs font-medium text-neutral-400">
-          Visual Prompt
+          Visual Prompt{scene.is_animated ? " (A)" : ""}
         </span>
         <textarea
           value={visualPrompt}
@@ -241,14 +243,65 @@ export default function PropertiesPanel({
         />
       </label>
 
+      {/* Animated A/B Flip Toggle */}
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={scene.is_animated || false}
+          onChange={(e) => {
+            onUpdate({ is_animated: e.target.checked });
+          }}
+          className="rounded border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500"
+        />
+        <span className="text-sm text-neutral-300">Animated (A/B flip)</span>
+      </label>
+
+      {/* Visual Prompt B (only when animated) */}
+      {scene.is_animated && (
+        <label className="block space-y-1">
+          <span className="text-xs font-medium text-neutral-400">
+            Visual Prompt (B)
+          </span>
+          <textarea
+            value={visualPromptB}
+            onChange={(e) => setVisualPromptB(e.target.value)}
+            onBlur={() => commitField("visual_prompt_b", visualPromptB)}
+            className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2.5 border border-amber-700/50 resize-none focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30"
+            rows={3}
+            placeholder="Describe the second visual state (B)..."
+          />
+        </label>
+      )}
+
       {/* Image Preview / Generate */}
       {scene.image_url ? (
         <div className="space-y-2">
-          <img
-            src={assetUrl(scene.image_url)}
-            alt="Scene visual"
-            className="w-full h-[200px] object-cover rounded-lg border border-neutral-700"
-          />
+          {scene.is_animated && scene.image_url_b ? (
+            <div className="grid grid-cols-2 gap-1">
+              <div className="space-y-1">
+                <span className="text-[10px] text-neutral-500 uppercase">A</span>
+                <img
+                  src={assetUrl(scene.image_url)}
+                  alt="Scene visual A"
+                  className="w-full h-[96px] object-cover rounded-lg border border-neutral-700"
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] text-neutral-500 uppercase">B</span>
+                <img
+                  src={assetUrl(scene.image_url_b)}
+                  alt="Scene visual B"
+                  className="w-full h-[96px] object-cover rounded-lg border border-amber-700/50"
+                />
+              </div>
+            </div>
+          ) : (
+            <img
+              src={assetUrl(scene.image_url)}
+              alt="Scene visual"
+              className="w-full h-[200px] object-cover rounded-lg border border-neutral-700"
+            />
+          )}
           {onGenerateImage && (
             <button
               onClick={onGenerateImage}
@@ -260,6 +313,8 @@ export default function PropertiesPanel({
                   <span className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
                   Generating...
                 </>
+              ) : scene.is_animated ? (
+                "Regenerate Images (A+B)"
               ) : (
                 "Regenerate Image"
               )}
@@ -277,6 +332,8 @@ export default function PropertiesPanel({
               <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
               Generating...
             </>
+          ) : scene.is_animated ? (
+            "Generate Images (A+B)"
           ) : (
             "Generate Image"
           )}
