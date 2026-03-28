@@ -111,7 +111,7 @@ function App() {
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col">
       {/* Top bar */}
-      <header className="border-b border-neutral-800 px-6 py-4 flex items-center justify-between">
+      <header className="border-b border-neutral-800/40 px-6 py-4 flex items-center justify-between">
         <button
           onClick={() => {
             setView("home");

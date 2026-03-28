@@ -35,8 +35,8 @@ export default function SegmentList({
   );
 
   return (
-    <aside className="w-[220px] shrink-0 border-r border-neutral-800 overflow-y-auto p-3 space-y-1">
-      <div className="text-xs text-neutral-500 uppercase tracking-wider font-semibold mb-2 px-2">
+    <aside className="w-[220px] shrink-0 border-r border-neutral-800/60 overflow-y-auto p-3 space-y-1">
+      <div className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium mb-2 px-2">
         Segments
       </div>
       {content.segments.map((seg, idx) => {

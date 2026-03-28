@@ -135,14 +135,13 @@ export default function PropertiesPanel({
   };
 
   return (
-    <aside className="w-[320px] shrink-0 border-l border-neutral-800 overflow-y-auto p-4 space-y-4">
+    <aside className="w-[320px] shrink-0 border-l border-neutral-800/60 overflow-y-auto p-4 space-y-4">
       {/* Preview Mode: Video Player at Top */}
       {previewMode && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <div className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">
-              Preview
-            </div>
+            <div className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">
+              Preview</div>
             <div className="flex items-center gap-1">
               <button
                 onClick={onPrevScene}
@@ -186,11 +185,11 @@ export default function PropertiesPanel({
             <button
               onClick={onPreviewScene}
               disabled={isPreviewingScene}
-              className="w-full text-sm px-3 py-2 bg-orange-600 hover:bg-orange-500 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full text-sm px-3 py-2 text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isPreviewingScene ? (
                 <>
-                  <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                  <span className="w-4 h-4 border-2 border-violet-400/50 border-t-transparent rounded-full animate-spin" />
                   Rendering...
                 </>
               ) : previewVideoUrl ? (
@@ -203,7 +202,7 @@ export default function PropertiesPanel({
         </div>
       )}
 
-      <div className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">
+      <div className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">
         Scene Properties
       </div>
 
@@ -223,7 +222,7 @@ export default function PropertiesPanel({
           value={narration}
           onChange={(e) => setNarration(e.target.value)}
           onBlur={() => commitField("narration", narration)}
-          className="w-full text-sm text-neutral-200 bg-neutral-800 rounded-lg p-2.5 border border-neutral-700 resize-none focus:outline-none focus:ring-1 focus:ring-violet-500"
+          className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2.5 border border-neutral-700/50 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
           rows={5}
         />
       </label>
@@ -237,7 +236,7 @@ export default function PropertiesPanel({
           value={visualPrompt}
           onChange={(e) => setVisualPrompt(e.target.value)}
           onBlur={() => commitField("visual_prompt", visualPrompt)}
-          className="w-full text-sm text-neutral-200 bg-neutral-800 rounded-lg p-2.5 border border-neutral-700 resize-none focus:outline-none focus:ring-1 focus:ring-violet-500"
+          className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2.5 border border-neutral-700/50 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
           rows={3}
         />
       </label>
@@ -254,7 +253,7 @@ export default function PropertiesPanel({
             <button
               onClick={onGenerateImage}
               disabled={isGenerating}
-              className="w-full text-sm px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors text-neutral-300 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full text-sm px-3 py-2 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isGenerating ? (
                 <>
@@ -271,7 +270,7 @@ export default function PropertiesPanel({
         <button
           onClick={onGenerateImage}
           disabled={isGenerating}
-          className="w-full text-sm px-3 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="w-full text-sm px-3 py-2 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {isGenerating ? (
             <>
@@ -302,7 +301,7 @@ export default function PropertiesPanel({
             <button
               onClick={onGenerateAudio}
               disabled={isGeneratingAudio}
-              className="w-full text-sm px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors text-neutral-300 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full text-sm px-3 py-2 text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isGeneratingAudio ? (
                 <>
@@ -319,7 +318,7 @@ export default function PropertiesPanel({
         <button
           onClick={onGenerateAudio}
           disabled={isGeneratingAudio}
-          className="w-full text-sm px-3 py-2 bg-sky-600 hover:bg-sky-500 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="w-full text-sm px-3 py-2 text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {isGeneratingAudio ? (
             <>
@@ -348,11 +347,11 @@ export default function PropertiesPanel({
             <button
               onClick={onPreviewScene}
               disabled={isPreviewingScene}
-              className="w-full text-sm px-3 py-2 bg-orange-600 hover:bg-orange-500 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full text-sm px-3 py-2 text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isPreviewingScene ? (
                 <>
-                  <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                  <span className="w-4 h-4 border-2 border-violet-400/50 border-t-transparent rounded-full animate-spin" />
                   Rendering...
                 </>
               ) : previewVideoUrl ? (
@@ -375,13 +374,13 @@ export default function PropertiesPanel({
           value={textOverlay}
           onChange={(e) => setTextOverlay(e.target.value)}
           onBlur={() => commitField("text_overlay", textOverlay)}
-          className="w-full text-sm text-neutral-200 bg-neutral-800 rounded-lg px-2.5 py-2 border border-neutral-700 focus:outline-none focus:ring-1 focus:ring-violet-500"
+          className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
         />
       </label>
 
       {/* Motion Effect (Ken Burns) */}
       <div className="border-t border-neutral-800 pt-3 space-y-2">
-        <div className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">
+        <div className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">
           Motion Effect
         </div>
         <label className="block space-y-1">
@@ -389,7 +388,7 @@ export default function PropertiesPanel({
           <select
             value={kenBurns.effect}
             onChange={(e) => updateKenBurns({ effect: e.target.value as KenBurnsConfig["effect"] })}
-            className="w-full text-sm text-neutral-200 bg-neutral-800 rounded-lg px-2.5 py-2 border border-neutral-700 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
           >
             {KEN_BURNS_EFFECTS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -423,7 +422,7 @@ export default function PropertiesPanel({
       {/* Text Overlay Style (only when text_overlay is non-empty) */}
       {scene.text_overlay && (
         <div className="border-t border-neutral-800 pt-3 space-y-2">
-          <div className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">
+          <div className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">
             Text Overlay Style
           </div>
           <label className="block space-y-1">
@@ -431,7 +430,7 @@ export default function PropertiesPanel({
             <select
               value={overlayConfig.position}
               onChange={(e) => updateTextOverlayConfig({ position: e.target.value as TextOverlayConfig["position"] })}
-              className="w-full text-sm text-neutral-200 bg-neutral-800 rounded-lg px-2.5 py-2 border border-neutral-700 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
             >
               {OVERLAY_POSITIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -445,7 +444,7 @@ export default function PropertiesPanel({
             <select
               value={overlayConfig.style}
               onChange={(e) => updateTextOverlayConfig({ style: e.target.value as TextOverlayConfig["style"] })}
-              className="w-full text-sm text-neutral-200 bg-neutral-800 rounded-lg px-2.5 py-2 border border-neutral-700 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
             >
               {OVERLAY_STYLES.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -459,7 +458,7 @@ export default function PropertiesPanel({
             <select
               value={overlayConfig.animation}
               onChange={(e) => updateTextOverlayConfig({ animation: e.target.value as TextOverlayConfig["animation"] })}
-              className="w-full text-sm text-neutral-200 bg-neutral-800 rounded-lg px-2.5 py-2 border border-neutral-700 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
             >
               {OVERLAY_ANIMATIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -480,7 +479,7 @@ export default function PropertiesPanel({
                   const n = parseFloat(e.target.value);
                   if (!isNaN(n) && n >= 0) updateTextOverlayConfig({ show_at: n });
                 }}
-                className="w-full text-sm text-neutral-200 bg-neutral-800 rounded-lg px-2.5 py-2 border border-neutral-700 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
               />
             </label>
             <label className="block space-y-1">
@@ -494,7 +493,7 @@ export default function PropertiesPanel({
                   const n = parseFloat(e.target.value);
                   if (!isNaN(n) && n >= 0) updateTextOverlayConfig({ duration: n });
                 }}
-                className="w-full text-sm text-neutral-200 bg-neutral-800 rounded-lg px-2.5 py-2 border border-neutral-700 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
               />
             </label>
           </div>
@@ -520,7 +519,7 @@ export default function PropertiesPanel({
               commitField("duration_estimate_seconds", n);
             }
           }}
-          className="w-full text-sm text-neutral-200 bg-neutral-800 rounded-lg px-2.5 py-2 border border-neutral-700 focus:outline-none focus:ring-1 focus:ring-violet-500"
+          className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
         />
       </label>
 
@@ -545,14 +544,14 @@ export default function PropertiesPanel({
         </div>
         <button
           onClick={onSplit}
-          className="w-full text-sm px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors text-neutral-300"
+          className="w-full text-sm px-3 py-2 border border-neutral-700/50 text-neutral-400 bg-transparent hover:bg-neutral-800 rounded-lg transition-colors"
         >
           Split Scene
         </button>
         <button
           onClick={onMerge}
           disabled={isLastInSegment}
-          className="w-full text-sm px-3 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors text-neutral-300 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="w-full text-sm px-3 py-2 border border-neutral-700/50 text-neutral-400 bg-transparent hover:bg-neutral-800 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Merge with Next
         </button>

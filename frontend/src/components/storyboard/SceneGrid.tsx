@@ -110,14 +110,14 @@ export default function SceneGrid({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-4">
+    <div className="flex-1 overflow-y-auto p-5">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="space-y-6">
+        <div className="space-y-8">
           {content.segments.map((seg, si) => (
             <div
               key={si}
@@ -125,23 +125,24 @@ export default function SceneGrid({
                 if (el) segmentRefs.current.set(si, el);
               }}
             >
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-4">
                 <span
-                  className={`w-3 h-3 rounded-full ${SEGMENT_COLORS[si % SEGMENT_COLORS.length]}`}
+                  className={`w-2 h-2 rounded-full ${SEGMENT_COLORS[si % SEGMENT_COLORS.length]}`}
                 />
-                <h3 className="text-sm font-semibold text-neutral-300">
+                <h3 className="text-sm font-medium tracking-wide text-neutral-300">
                   {si + 1}. {seg.name}
                 </h3>
                 <span className="text-xs text-neutral-600">
                   {seg.scenes.length} scene
                   {seg.scenes.length !== 1 ? "s" : ""}
                 </span>
+                <div className="flex-1 h-px bg-neutral-800/60 ml-2" />
               </div>
               <SortableContext
                 items={seg.scenes.map((sc) => sc.id)}
                 strategy={verticalListSortingStrategy}
               >
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
                   {seg.scenes.map((scene) => (
                     <SceneCard
                       key={scene.id}

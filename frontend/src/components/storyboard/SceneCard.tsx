@@ -4,15 +4,15 @@ import { useState } from "react";
 import { assetUrl } from "../../api";
 import type { KenBurnsConfig, Scene } from "../../types/script";
 
-const SEGMENT_COLORS_BORDER = [
-  "border-l-violet-500",
-  "border-l-sky-500",
-  "border-l-emerald-500",
-  "border-l-amber-500",
-  "border-l-rose-500",
-  "border-l-cyan-500",
-  "border-l-fuchsia-500",
-  "border-l-lime-500",
+const SEGMENT_COLORS_TOP = [
+  "bg-violet-500",
+  "bg-sky-500",
+  "bg-emerald-500",
+  "bg-amber-500",
+  "bg-rose-500",
+  "bg-cyan-500",
+  "bg-fuchsia-500",
+  "bg-lime-500",
 ];
 
 const MOTION_ICONS: Record<NonNullable<KenBurnsConfig["effect"]>, string> = {
@@ -96,35 +96,38 @@ export default function SceneCard({
     }
   };
 
-  const colorClass = SEGMENT_COLORS_BORDER[segmentIdx % SEGMENT_COLORS_BORDER.length];
+  const topStripeColor = SEGMENT_COLORS_TOP[segmentIdx % SEGMENT_COLORS_TOP.length];
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       onClick={onClick}
-      className={`rounded-lg border-l-4 ${colorClass} border border-neutral-800 bg-neutral-900 px-3 py-2.5 cursor-pointer transition-colors select-none ${
+      className={`group rounded-xl border border-neutral-800/80 bg-neutral-900 overflow-hidden cursor-pointer transition-all duration-200 select-none card-enter ${
         isSelected
-          ? "ring-2 ring-violet-500 border-neutral-700"
-          : "hover:border-neutral-700"
+          ? "ring-2 ring-violet-500/70 ring-offset-1 ring-offset-neutral-950"
+          : "hover:border-neutral-700 hover:shadow-lg hover:shadow-black/20"
       }`}
     >
+      {/* Top accent stripe */}
+      <div className={`h-0.5 ${topStripeColor}`} />
+
       {/* Drag handle + header */}
-      <div className="flex items-center gap-2 mb-1.5">
+      <div className="flex items-center gap-2 px-3 pt-2.5 pb-1.5">
         <span
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing text-neutral-600 hover:text-neutral-400"
+          className="cursor-grab active:cursor-grabbing text-neutral-700 hover:text-neutral-400"
         >
           ⠿
         </span>
-        <span className="text-[10px] font-mono text-neutral-600">{scene.id}</span>
+        <span className="text-[11px] font-mono text-neutral-600">{scene.id}</span>
         {scene.is_title_card && (
           <span className="text-[10px] bg-violet-500/20 text-violet-300 px-1.5 py-0.5 rounded-full">
             title
           </span>
         )}
-        <span className="text-[10px] text-neutral-500 ml-auto">
+        <span className="text-[10px] text-neutral-500 ml-auto tabular-nums">
           {scene.duration_estimate_seconds}s
         </span>
         {scene.ken_burns && scene.ken_burns.effect !== "none" && (
@@ -145,12 +148,12 @@ export default function SceneCard({
       </div>
 
       {/* Thumbnail / Image */}
-      <div className="relative bg-neutral-800 rounded h-[120px] mb-2 overflow-hidden">
+      <div className="relative bg-neutral-800 mx-3 rounded-lg h-[140px] mb-2 overflow-hidden">
         {scene.image_url ? (
           <img
             src={assetUrl(scene.image_url)}
             alt="Scene visual"
-            className="w-full h-full object-cover fade-in-image"
+            className="w-full h-full object-cover fade-in-image transition-transform duration-300 group-hover:scale-[1.02]"
           />
         ) : isGenerating || batchImageStatus === "generating" ? (
           <div className="shimmer-skeleton w-full h-full" />
@@ -203,19 +206,21 @@ export default function SceneCard({
 
       {/* Narration */}
       {isEditing ? (
-        <textarea
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          autoFocus
-          className="w-full text-xs text-neutral-300 bg-neutral-800 rounded p-1.5 border border-neutral-700 resize-none focus:outline-none focus:ring-1 focus:ring-violet-500"
-          rows={3}
-        />
+        <div className="px-3 pb-3">
+          <textarea
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            autoFocus
+            className="w-full text-[13px] text-neutral-300 bg-neutral-800 rounded p-1.5 border border-neutral-700 resize-none focus:outline-none focus:ring-1 focus:ring-violet-500"
+            rows={3}
+          />
+        </div>
       ) : (
         <p
           onDoubleClick={handleDoubleClick}
-          className="text-xs text-neutral-400 leading-relaxed line-clamp-3"
+          className="text-[13px] text-neutral-400 leading-relaxed line-clamp-3 px-3 pb-3"
           title="Double-click to edit"
         >
           {scene.narration || <span className="italic text-neutral-600">No narration</span>}
@@ -224,12 +229,10 @@ export default function SceneCard({
 
       {/* Overlay indicator */}
       {scene.text_overlay && (
-        <p className="text-[10px] text-amber-400/70 mt-1 truncate">
-          📝 {scene.text_overlay}
+        <p className="text-[10px] text-amber-400/70 px-3 pb-2 truncate">
+          {scene.text_overlay}
         </p>
       )}
     </div>
   );
 }
-
-export { SEGMENT_COLORS_BORDER };

@@ -320,111 +320,136 @@ function StoryboardEditor({
         ? "Saving..."
         : "Unsaved";
 
-  const saveStatusColor =
+  const saveDotColor =
     state.saveStatus === "saved"
-      ? "text-emerald-400"
+      ? "bg-emerald-400"
       : state.saveStatus === "saving"
-        ? "text-yellow-400"
-        : "text-red-400";
+        ? "bg-yellow-400"
+        : "bg-red-400";
 
   return (
-    <div className="flex flex-col h-[calc(100vh-73px)]">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-neutral-800 shrink-0">
+    <div className="flex flex-col h-[calc(100vh-105px)]">
+      {/* Row 1 — Navigation + Title + Save */}
+      <div className="flex items-center gap-4 px-5 py-2.5 border-b border-neutral-800/60 shrink-0">
         <button
           onClick={onBack}
-          className="text-sm px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors text-neutral-300"
+          className="text-sm px-3 py-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-lg transition-colors"
         >
           &larr; Back
         </button>
-        <h2 className="text-lg font-bold truncate">{title}</h2>
-        <span className="text-xs text-neutral-500">Storyboard Editor</span>
+        <h2 className="text-base font-semibold truncate">{title}</h2>
+        <span className="text-[11px] text-neutral-500 bg-neutral-800/60 px-2 py-0.5 rounded-full">
+          Storyboard Editor
+        </span>
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-2">
+          <span className={`w-1.5 h-1.5 rounded-full ${saveDotColor}`} />
+          <span className="text-[11px] text-neutral-500">{saveStatusLabel}</span>
+          {state.canUndo && (
+            <button
+              onClick={state.undo}
+              className="text-[11px] px-2 py-1 text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800 rounded-md transition-colors"
+              title="Undo (Cmd+Z)"
+            >
+              Undo
+            </button>
+          )}
+          <button
+            onClick={state.save}
+            disabled={!state.isDirty}
+            className={`text-sm px-3 py-1 rounded-lg font-medium transition-colors ${
+              state.isDirty
+                ? "bg-neutral-200 text-neutral-900 hover:bg-white"
+                : "bg-neutral-800 text-neutral-500 cursor-default"
+            }`}
+            title="Cmd+S"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+
+      {/* Row 2 — Action Bar */}
+      <div className="flex items-center gap-1.5 px-5 py-2 border-b border-neutral-800/60 bg-neutral-900/40 shrink-0">
+        {/* Group 1 — Media Generation */}
+        <div className="bg-neutral-800/50 rounded-lg p-1 flex items-center gap-1.5">
           <button
             onClick={() => state.generateAllImages(artStyle)}
             disabled={state.batchGenerating}
-            className="text-sm px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-medium transition-colors flex items-center gap-2"
+            className="text-sm px-3 py-1.5 text-emerald-400 hover:bg-emerald-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
           >
             {state.batchGenerating ? (
               <>
-                <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                <span className="w-3.5 h-3.5 border-2 border-emerald-400/50 border-t-transparent rounded-full animate-spin" />
                 Generating...
               </>
             ) : (
-              "Generate All Images"
+              "Generate Images"
             )}
           </button>
-          <div className="flex items-center gap-1.5">
-            <select
-              value={selectedVoiceId}
-              onChange={(e) => setSelectedVoiceId(e.target.value)}
-              className="text-xs bg-neutral-800 text-neutral-300 border border-neutral-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-sky-500 max-w-[140px]"
-            >
-              {voices.length === 0 && <option value="">No voices</option>}
-              {voices.map((v) => (
-                <option key={v.voice_id} value={v.voice_id}>
-                  {v.name}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={() => tryGenerateAudio("all")}
-              disabled={state.batchGeneratingAudio || (!selectedVoiceId && voices.length > 0)}
-              className="text-sm px-4 py-1.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-medium transition-colors flex items-center gap-2"
-            >
-              {state.batchGeneratingAudio ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                "Generate All Audio"
-              )}
-            </button>
-          </div>
+          <div className="w-px h-5 bg-neutral-700" />
+          <select
+            value={selectedVoiceId}
+            onChange={(e) => setSelectedVoiceId(e.target.value)}
+            className="text-xs bg-transparent text-neutral-400 border-none rounded px-2 py-1.5 focus:outline-none max-w-[120px]"
+          >
+            {voices.length === 0 && <option value="">No voices</option>}
+            {voices.map((v) => (
+              <option key={v.voice_id} value={v.voice_id}>
+                {v.name}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => tryGenerateAudio("all")}
+            disabled={state.batchGeneratingAudio || (!selectedVoiceId && voices.length > 0)}
+            className="text-sm px-3 py-1.5 text-sky-400 hover:bg-sky-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
+          >
+            {state.batchGeneratingAudio ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-sky-400/50 border-t-transparent rounded-full animate-spin" />
+                Generating...
+              </>
+            ) : (
+              "Generate Audio"
+            )}
+          </button>
+        </div>
+
+        {/* Divider */}
+        <div className="w-px h-5 bg-neutral-700/50 mx-1.5" />
+
+        {/* Group 2 — Preview */}
+        <div className="bg-neutral-800/50 rounded-lg p-1 flex items-center gap-1">
           <button
             onClick={() => setPreviewMode((prev) => !prev)}
-            className={`text-sm px-4 py-1.5 rounded-lg font-medium transition-colors ${
+            className={`text-sm px-3 py-1.5 rounded-md font-medium transition-colors ${
               previewMode
-                ? "bg-violet-600 hover:bg-violet-500 text-white"
-                : "bg-neutral-800 hover:bg-neutral-700 text-neutral-300"
+                ? "bg-violet-500/20 text-violet-300"
+                : "text-neutral-400 hover:bg-neutral-700/60"
             }`}
           >
             Preview
           </button>
           <button
             onClick={() => setShowPreview(true)}
-            className="text-sm px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded-lg font-medium transition-colors"
+            className="text-sm px-3 py-1.5 text-neutral-400 hover:bg-neutral-700/60 rounded-md font-medium transition-colors"
           >
             Full Preview
           </button>
-          <button
-            onClick={() => setShowExport(true)}
-            className="text-sm px-4 py-1.5 bg-orange-600 hover:bg-orange-500 rounded-lg font-medium transition-colors"
-            title="Cmd+E"
-          >
-            Export
-          </button>
-          {state.canUndo && (
-            <button
-              onClick={state.undo}
-              className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
-              title="Undo (Cmd+Z)"
-            >
-              Undo
-            </button>
-          )}
-          <span className={`text-xs ${saveStatusColor}`}>{saveStatusLabel}</span>
-          <button
-            onClick={state.save}
-            disabled={!state.isDirty}
-            className="text-sm px-4 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
-            title="Cmd+S"
-          >
-            Save
-          </button>
         </div>
+
+        {/* Divider */}
+        <div className="w-px h-5 bg-neutral-700/50 mx-1.5" />
+
+        {/* Export CTA — the ONLY solid-color button */}
+        <button
+          onClick={() => setShowExport(true)}
+          className="text-sm px-4 py-1.5 bg-violet-600 hover:bg-violet-500 rounded-lg font-semibold transition-colors shadow-sm shadow-violet-500/20"
+          title="Cmd+E"
+        >
+          Export
+        </button>
       </div>
 
       {/* Batch Progress Bar */}
@@ -485,7 +510,7 @@ function StoryboardEditor({
             onNextScene={selectNextScene}
           />
         ) : (
-          <aside className="w-[320px] shrink-0 border-l border-neutral-800 p-4 flex items-center justify-center">
+          <aside className="w-[320px] shrink-0 border-l border-neutral-800/60 p-4 flex items-center justify-center">
             <p className="text-sm text-neutral-600 text-center">
               Select a scene to edit its properties
             </p>
