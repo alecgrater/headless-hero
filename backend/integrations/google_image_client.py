@@ -54,6 +54,7 @@ def generate_image(prompt: str, width: int = 1344, height: int = 768) -> str:
             fd, tmp_path = tempfile.mkstemp(suffix=".png")
             with os.fdopen(fd, "wb") as f:
                 f.write(part.inline_data.data)
+            os.chmod(tmp_path, 0o644)
             return tmp_path
 
     raise RuntimeError("Gemini response did not contain an image")
