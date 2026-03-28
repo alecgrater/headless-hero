@@ -1,4 +1,4 @@
-"""Endpoints for AI image generation via fal.ai Flux."""
+"""Endpoints for AI image generation via Google Gemini."""
 
 import json
 

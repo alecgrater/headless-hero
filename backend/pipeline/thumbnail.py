@@ -1,14 +1,14 @@
-"""Thumbnail generation pipeline — Claude concepts + fal.ai images + FFmpeg compositing."""
+"""Thumbnail generation pipeline — Claude concepts + Gemini images + FFmpeg compositing."""
 
 import json
 import os
-import urllib.request
+import shutil
 from pathlib import Path
 
 from pydantic import BaseModel
 
 from integrations.claude_client import chat
-from integrations.fal_client import generate_image
+from integrations.google_image_client import generate_image
 from pipeline.ffmpeg_builder import build_thumbnail_composite_cmd
 
 _data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
@@ -59,19 +59,19 @@ def generate_thumbnail(
     brand_style: str = "",
     bar_color: str = "0x9333EA",
 ) -> str:
-    """Generate a single thumbnail: fal.ai illustration + FFmpeg text composite.
+    """Generate a single thumbnail: Gemini illustration + FFmpeg text composite.
 
     Returns the web-relative path to the final 1280x720 thumbnail.
     """
     prompt = f"{brand_style}. {visual_description}" if brand_style else visual_description
 
-    cdn_url = generate_image(prompt, width=1280, height=720)
+    tmp_path = generate_image(prompt, width=1280, height=720)
 
-    # Download illustration
+    # Move illustration to renders directory
     thumbs_dir = _data_dir / "projects" / script_id / "renders" / "thumbnails"
     thumbs_dir.mkdir(parents=True, exist_ok=True)
     raw_path = str(thumbs_dir / f"{idx}_raw.png")
-    urllib.request.urlretrieve(cdn_url, raw_path)
+    shutil.move(tmp_path, raw_path)
 
     # Composite title text
     final_path = str(thumbs_dir / f"{idx}.png")

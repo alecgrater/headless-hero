@@ -26,10 +26,10 @@ const SERVICES: ServiceConfig[][] = [
   ],
   [
     {
-      key: "FAL_KEY",
-      label: "fal.ai",
-      description: "Generates images for scenes and thumbnails via Flux.",
-      placeholder: "fal-...",
+      key: "GOOGLE_AI_KEY",
+      label: "Google AI Studio",
+      description: "Generates images for scenes and thumbnails via Gemini.",
+      placeholder: "AIza...",
     },
   ],
   [

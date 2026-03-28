@@ -30,7 +30,7 @@ class GenerateThumbnailResponse(BaseModel):
 
 @router.post("/generate", response_model=GenerateThumbnailResponse)
 def generate_thumbnails(body: GenerateThumbnailRequest, session: Session = Depends(get_session)):
-    """Generate thumbnail concepts via Claude, render them via fal.ai + FFmpeg."""
+    """Generate thumbnail concepts via Claude, render them via Gemini + FFmpeg."""
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")

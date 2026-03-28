@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 # Keys that can be managed through the settings UI
 ALLOWED_KEYS = {
     "ANTHROPIC_API_KEY",
-    "FAL_KEY",
+    "GOOGLE_AI_KEY",
     "ELEVENLABS_API_KEY",
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",

@@ -1,10 +1,10 @@
-"""Image generation pipeline — connects visual prompts to fal.ai Flux."""
+"""Image generation pipeline — connects visual prompts to Google Gemini."""
 
 import os
-import urllib.request
+import shutil
 from pathlib import Path
 
-from integrations.fal_client import generate_image
+from integrations.google_image_client import generate_image
 
 # data/ directory lives two levels above backend/pipeline/
 _data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
@@ -37,10 +37,10 @@ def generate_scene_image(
         if cached_prompt == prompt:
             return web_path, prompt
 
-    cdn_url = generate_image(prompt, width=width, height=height)
+    tmp_path = generate_image(prompt, width=width, height=height)
 
-    # Download to local storage
-    urllib.request.urlretrieve(cdn_url, str(local_path))
+    # Move generated image to local storage
+    shutil.move(tmp_path, str(local_path))
 
     # Write prompt marker for cache validation
     prompt_marker.write_text(prompt, encoding="utf-8")
