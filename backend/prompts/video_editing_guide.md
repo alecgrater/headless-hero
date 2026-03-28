@@ -59,16 +59,18 @@ High-retention videos rely on kinetic typography to anchor the viewer's attentio
   - `opacity: 50%`
   - `Y-offset: 5px`
 
-### 2. The "Active-Word" Highlighting Engine
+### 2. The "Key Moment Text Pop" System
 
-Text must be fed through an audio-sync algorithm using word-level timestamps.
+On-screen text should appear ONLY at key moments — surprising facts, punchlines, important terms, emotional hooks. Most of the video has NO text on screen. This creates impact when text does appear.
 
-- **Display Logic:** Show 3–5 words on screen at a time (a single phrase).
-- **Highlight Logic:** As the narrator speaks each word, apply:
-  - `color: [Match Image Accent Color, e.g., Neon Cyan #00FFFF]`
-  - `scale: 1.15`
-  - `rotation: rand(-2deg, 2deg)` — gives a slight punch to the word
-- As the word finishes, return to `color: #FFFFFF` and `scale: 1.0`.
+- **Display Logic:** Show only 2–4 text pops per scene maximum. Each pop is 1–5 words.
+- **Animation Types:**
+  - `pop` — Bouncy overshoot: scale 0→110%→100% over 300ms. The default, satisfying snap.
+  - `slam` — Instant full size. The abruptness IS the effect. Best for punchlines.
+  - `scale_up` — Grow from 50% to 100% over phrase duration. Smooth, building energy.
+  - `fade_in` — Alpha 0→1 over 300ms. Subtle, elegant. Good for softer moments.
+- **Uppercase:** `true` for impact phrases (facts, stats, punchlines). `false` for softer/subtle phrases.
+- **Visual Treatment:** White text on dark background pill (`black@0.65`), large font (72px), positioned at `Y: 75%`.
 
 ---
 

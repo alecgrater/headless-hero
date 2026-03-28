@@ -29,7 +29,12 @@ Given a scene manifest, produce a JSON object with creative editing decisions.
 Rules:
 - Alternate motion_profile between "slow_zoom_in" and "slow_zoom_out" on consecutive scenes to create visual breathing. Occasionally use "slow_pan" for variety.
 - Use "hard_cut" for 85% of transitions. Use "dip_to_black" for punchline or dramatic moments.
-- Group narration words into text_phrases of 3-5 words each, using the word_timestamps provided. Each phrase should be a natural speech chunk.
+- TEXT POPS — Be SELECTIVE. Only create text_phrases for the most impactful moments:
+  - Key facts, surprising statistics, punchlines, important terms, emotional hooks
+  - Aim for 2-4 phrases per scene MAXIMUM — most of the video should have NO on-screen text
+  - Choose an animation style per phrase: "pop" (bouncy overshoot), "slam" (instant hard cut), "scale_up" (grow in), "fade_in" (alpha fade)
+  - Set uppercase to true for impact phrases, false for softer/subtle ones
+  - Use the word_timestamps to set precise start_ms/end_ms timing
 - Set accent_color to a vibrant color that complements the video topic (e.g. neon cyan, electric blue, hot pink).
 - For sfx_triggers, assign appropriate categories: "impact" on scene entry, "ui" on text phrase appearance, "accent" on individual word highlights, "microdrop" on punchlines, "transition" on dip_to_black cuts.
 
@@ -43,10 +48,12 @@ Output ONLY valid JSON matching this exact schema — no markdown fences, no com
       "transition": "hard_cut",
       "text_phrases": [
         {
-          "words": ["word1", "word2", "word3"],
-          "start_ms": 0,
-          "end_ms": 1500,
-          "highlight_color": "#00FFFF"
+          "words": ["surprising", "fact", "here"],
+          "start_ms": 2400,
+          "end_ms": 3800,
+          "highlight_color": "#00FFFF",
+          "animation": "pop",
+          "uppercase": true
         }
       ],
       "sfx_triggers": [
@@ -117,25 +124,33 @@ def _fallback_timeline(content: ScriptContent) -> AutoEditTimeline:
             flat_idx = sum(len(s.scenes) for s in content.segments[:i]) + j
             motion = motions[flat_idx % 2]
 
-            # Build text phrases from word_timestamps if available
+            # Build text phrases from word_timestamps — selective (key moments only)
             phrases: list[TextPhrase] = []
+            animations = ["pop", "slam", "scale_up", "fade_in"]
             if scene.word_timestamps:
+                # Chunk words into groups of 4
+                chunks: list[list[dict]] = []
                 chunk: list[dict] = []
                 for wt in scene.word_timestamps:
                     chunk.append(wt)
                     if len(chunk) >= 4:
-                        phrases.append(TextPhrase(
-                            words=[w["word"] for w in chunk],
-                            start_ms=chunk[0]["start_ms"],
-                            end_ms=chunk[-1]["end_ms"],
-                        ))
+                        chunks.append(chunk)
                         chunk = []
                 if chunk:
-                    phrases.append(TextPhrase(
-                        words=[w["word"] for w in chunk],
-                        start_ms=chunk[0]["start_ms"],
-                        end_ms=chunk[-1]["end_ms"],
-                    ))
+                    chunks.append(chunk)
+
+                # Select ~25% of chunks: every 4th + any containing numbers/stats
+                for ci, c in enumerate(chunks):
+                    text = " ".join(w["word"] for w in c)
+                    has_number = any(ch.isdigit() for ch in text)
+                    if has_number or ci % 4 == 0:
+                        phrases.append(TextPhrase(
+                            words=[w["word"] for w in c],
+                            start_ms=c[0]["start_ms"],
+                            end_ms=c[-1]["end_ms"],
+                            animation=animations[len(phrases) % len(animations)],
+                            uppercase=True,
+                        ))
 
             # Use dip_to_black every 5th scene for variety
             transition = "dip_to_black" if flat_idx > 0 and flat_idx % 5 == 0 else "hard_cut"

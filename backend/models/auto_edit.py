@@ -12,12 +12,14 @@ class WordTimestamp(BaseModel):
 
 
 class TextPhrase(BaseModel):
-    """A group of 3-5 words shown on screen simultaneously."""
+    """A key-moment text pop shown on screen for impact."""
 
     words: list[str]
     start_ms: int
     end_ms: int
     highlight_color: str = "#00FFFF"
+    animation: str = "pop"  # pop | slam | scale_up | fade_in
+    uppercase: bool = True
 
 
 class SFXTrigger(BaseModel):

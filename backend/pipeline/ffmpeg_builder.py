@@ -473,6 +473,71 @@ def build_thumbnail_composite_cmd(
     return cmd
 
 
+def _build_animated_drawtext(phrase: dict, speed: float) -> str | None:
+    """Build an animated drawtext filter for a key-moment text pop."""
+    words = phrase.get("words", [])
+    start_ms = phrase.get("start_ms", 0)
+    end_ms = phrase.get("end_ms", 0)
+    animation = phrase.get("animation", "pop")
+    uppercase = phrase.get("uppercase", True)
+
+    if not words:
+        return None
+
+    phrase_text = " ".join(words)
+    if uppercase:
+        phrase_text = phrase_text.upper()
+    escaped = _escape_drawtext(phrase_text)
+
+    show_at = (start_ms / 1000.0) / speed if speed != 1.0 else start_ms / 1000.0
+    hide_at = (end_ms / 1000.0) / speed if speed != 1.0 else end_ms / 1000.0
+    dur = hide_at - show_at
+
+    # Animation-specific fontsize expression using local time (t - show_at)
+    base_size = 72
+    if animation == "pop":
+        # 0→110%→100% over 300ms with overshoot settle
+        fs = (
+            f"if(lt(t-{show_at},0.15),"
+            f"{base_size}*1.1*(t-{show_at})/0.15,"
+            f"if(lt(t-{show_at},0.3),"
+            f"{base_size}*(1.1-0.1*(t-{show_at}-0.15)/0.15),"
+            f"{base_size}))"
+        )
+    elif animation == "slam":
+        # Instant full size — the abruptness IS the effect
+        fs = str(base_size)
+    elif animation == "scale_up":
+        # Grow from 50% to 100% over phrase duration
+        fs = (
+            f"if(lt(t-{show_at},{dur}),"
+            f"{base_size}*(0.5+0.5*(t-{show_at})/{dur}),"
+            f"{base_size})"
+        )
+    elif animation == "fade_in":
+        # Full size throughout (alpha handles the animation)
+        fs = str(base_size)
+    else:
+        fs = str(base_size)
+
+    # Alpha expression for fade_in animation
+    if animation == "fade_in":
+        alpha = f"if(lt(t-{show_at},0.3),(t-{show_at})/0.3,1)"
+        color_expr = f"fontcolor_expr='white@{{{alpha}}}'"
+    else:
+        color_expr = "fontcolor=white"
+
+    dt = (
+        f"drawtext=text='{escaped}'"
+        f":fontsize='{fs}'"
+        f":{color_expr}"
+        f":x='(w-text_w)/2':y='h*0.75'"
+        f":box=1:boxcolor='black@0.65':boxborderw=14"
+        f":enable='between(t,{show_at},{hide_at})'"
+    )
+    return dt
+
+
 def build_auto_edit_scene_cmd(
     image_path: str,
     audio_path: str,
@@ -532,30 +597,12 @@ def build_auto_edit_scene_cmd(
     filters.append(f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black")
     filters.append("setsar=1")
 
-    # Word-synced text overlays (adjust timing for speed)
+    # Animated text pops at key moments (adjust timing for speed)
     if text_phrases and _DRAWTEXT_AVAILABLE:
         for phrase in text_phrases:
-            words = phrase.get("words", [])
-            start_ms = phrase.get("start_ms", 0)
-            end_ms = phrase.get("end_ms", 0)
-
-            if not words:
-                continue
-
-            phrase_text = " ".join(words)
-            escaped = _escape_drawtext(phrase_text)
-            show_at = (start_ms / 1000.0) / speed if speed != 1.0 else start_ms / 1000.0
-            hide_at = (end_ms / 1000.0) / speed if speed != 1.0 else end_ms / 1000.0
-
-            dt = (
-                f"drawtext=text='{escaped}'"
-                f":fontsize=48:fontcolor=white"
-                f":x='(w-text_w)/2':y='h*0.78'"
-                f":borderw=3:bordercolor=black"
-                f":shadowx=2:shadowy=2:shadowcolor='black@0.6'"
-                f":enable='between(t,{show_at},{hide_at})'"
-            )
-            filters.append(dt)
+            dt = _build_animated_drawtext(phrase, speed)
+            if dt:
+                filters.append(dt)
 
     filter_chain = ",".join(filters)
     filter_complex = f"[0:v]{filter_chain}[vout]"
