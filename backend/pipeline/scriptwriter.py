@@ -1,10 +1,13 @@
 """Script generation pipeline — uses Claude to write segmented video scripts."""
 
 import json
+import logging
 from pathlib import Path
 
 from integrations.claude_client import chat
-from models.script import ScriptContent
+from models.script import Scene, ScriptContent, TextOverlayConfig
+
+logger = logging.getLogger(__name__)
 
 _GUIDE_PATH = Path(__file__).resolve().parent.parent / "prompts" / "scriptwriting_guide.md"
 _STYLE_GUIDE = _GUIDE_PATH.read_text() if _GUIDE_PATH.exists() else ""
@@ -44,8 +47,13 @@ Output rules:
 }
 
 Writing guidelines:
-- The first scene of each segment should be a title card (is_title_card: true) \
+- The first scene of each segment MUST be a title card (is_title_card: true) \
   with the segment name as text_overlay and a short (2-3s) intro line.
+- Title card scenes MUST have visual_prompt set to "" (empty string) — their \
+  visuals are generated programmatically from brand colors, not by AI image gen.
+- Title card scenes MUST have text_overlay_config with style "title_card", \
+  position "center", and animation "fade_in".
+- Each segment MUST have at least 5 scenes (including the title card).
 - Each non-title scene should be 6-15 seconds of narration.
 - Write narration in a conversational, engaging tone — not dry or academic.
 - Use hooks, cliffhangers between segments, and smooth transitions.
@@ -81,6 +89,66 @@ Real media guidelines (gaming/hardware content):
   is about a general concept (e.g. "the evolution of gaming"), keep it as ai_generated.
 - Include "media_type" and "search_query" in each scene object in the JSON output.
 """
+
+def _enforce_title_cards_and_min_scenes(content: ScriptContent) -> ScriptContent:
+    """Post-process script to ensure title card consistency and minimum scene counts.
+
+    - Ensures first scene of every segment is is_title_card: true
+    - Clears visual_prompt on all title cards (programmatic generation)
+    - Sets text_overlay to segment name if empty
+    - Sets text_overlay_config to title_card defaults if missing
+    - Logs warning if segment has fewer than 5 scenes
+    """
+    scene_counter = 0
+    for seg in content.segments:
+        # Count existing scenes for ID generation
+        for sc in seg.scenes:
+            num = int(sc.id.replace("scene_", "")) if sc.id.startswith("scene_") else 0
+            scene_counter = max(scene_counter, num)
+
+    for seg in content.segments:
+        # Ensure first scene is a title card
+        if not seg.scenes or not seg.scenes[0].is_title_card:
+            scene_counter += 1
+            title_scene = Scene(
+                id=f"scene_{scene_counter:03d}",
+                narration=f"Welcome to {seg.name}.",
+                visual_prompt="",
+                text_overlay=seg.name,
+                duration_estimate_seconds=3.0,
+                is_title_card=True,
+                text_overlay_config=TextOverlayConfig(
+                    position="center",
+                    style="title_card",
+                    animation="fade_in",
+                ),
+            )
+            seg.scenes.insert(0, title_scene)
+
+        # Enforce title card properties on all title cards in this segment
+        for sc in seg.scenes:
+            if sc.is_title_card:
+                sc.visual_prompt = ""
+                sc.visual_prompt_b = ""
+                sc.is_animated = False
+                if not sc.text_overlay:
+                    sc.text_overlay = seg.name
+                if not sc.text_overlay_config or sc.text_overlay_config.style != "title_card":
+                    sc.text_overlay_config = TextOverlayConfig(
+                        position="center",
+                        style="title_card",
+                        animation="fade_in",
+                    )
+
+        if len(seg.scenes) < 5:
+            logger.warning(
+                "Segment %r has only %d scenes (minimum recommended: 5)",
+                seg.name,
+                len(seg.scenes),
+            )
+
+    return content
+
 
 def generate_script(
     topic: str,
@@ -131,4 +199,5 @@ def generate_script(
         text = text.rsplit("```", 1)[0]
 
     data = json.loads(text)
-    return ScriptContent.model_validate(data)
+    content = ScriptContent.model_validate(data)
+    return _enforce_title_cards_and_min_scenes(content)

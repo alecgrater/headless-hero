@@ -537,6 +537,49 @@ def build_animated_scene_video_cmd(
 
     return cmd
 
+
+def build_title_card_image_cmd(
+    output_path: str,
+    title_text: str,
+    color_primary: str = "#1a1a2e",
+    color_secondary: str = "#16213e",
+    width: int = 1920,
+    height: int = 1080,
+) -> list[str]:
+    """Build FFmpeg command to generate a title card PNG (solid color + centered text).
+
+    Returns a list of args suitable for subprocess.run().
+    """
+    # Strip '#' for FFmpeg color format
+    bg_color = color_primary.lstrip("#")
+
+    escaped = _escape_drawtext(title_text)
+
+    vf = (
+        f"drawtext=text='{escaped}'"
+        f":fontsize=72:fontcolor=white"
+        f":x='(w-text_w)/2':y='(h-text_h)/2'"
+        f":borderw=3:bordercolor=black"
+        f":shadowx=3:shadowy=3:shadowcolor='black@0.6'"
+    ) if _DRAWTEXT_AVAILABLE else ""
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "lavfi",
+        "-i", f"color=c=0x{bg_color}:s={width}x{height}:d=1",
+    ]
+
+    if vf:
+        cmd += ["-vf", vf]
+
+    cmd += [
+        "-frames:v", "1",
+        output_path,
+    ]
+
+    return cmd
+
+
 def build_thumbnail_composite_cmd(
     image_path: str,
     output_path: str,

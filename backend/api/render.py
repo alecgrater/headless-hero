@@ -7,8 +7,10 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from api.database import get_session
+from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.render_jobs import create_job, estimate_render_time, get_job, run_in_background, update_job
+from pipeline.title_card import ensure_title_card_images
 from pipeline.video_render import (
     export_full_audio,
     render_all_segments,
@@ -94,6 +96,21 @@ def _count_scenes(content: ScriptContent) -> int:
     """Count total scenes across all segments."""
     return sum(len(seg.scenes) for seg in content.segments)
 
+def _ensure_title_cards(session: Session, script_id: str, content: ScriptContent) -> None:
+    """Load brand colors and generate any missing title card images."""
+    record = session.get(Script, script_id)
+    if not record:
+        return
+    brand = session.get(BrandProfile, record.brand_id)
+    primary, secondary = "#1a1a2e", "#16213e"
+    if brand and brand.color_palette:
+        colors = [c.strip() for c in brand.color_palette.split(",") if c.strip()]
+        if len(colors) >= 1:
+            primary = colors[0]
+        if len(colors) >= 2:
+            secondary = colors[1]
+    ensure_title_card_images(script_id, content.segments, primary, secondary)
+
 def _total_audio_duration(content: ScriptContent) -> float:
     """Sum audio durations across all scenes."""
     total = 0.0
@@ -109,6 +126,7 @@ def _total_audio_duration(content: ScriptContent) -> float:
 def preview_scene(body: PreviewSceneRequest, session: Session = Depends(get_session)):
     """Render a single scene to MP4 (synchronous — typically 2-5s)."""
     content = _load_content(session, body.script_id)
+    _ensure_title_cards(session, body.script_id, content)
     scene = _find_scene(content, body.scene_id)
     if not scene:
         raise HTTPException(status_code=404, detail="Scene not found")
@@ -120,6 +138,7 @@ def preview_scene(body: PreviewSceneRequest, session: Session = Depends(get_sess
 def start_full_render(body: RenderFullRequest, session: Session = Depends(get_session)):
     """Start a full YouTube video render in the background."""
     content = _load_content(session, body.script_id)
+    _ensure_title_cards(session, body.script_id, content)
     scene_count = _count_scenes(content)
     audio_dur = _total_audio_duration(content)
     job = create_job(scene_count=scene_count, total_audio_duration=audio_dur)
@@ -148,6 +167,7 @@ def start_full_render(body: RenderFullRequest, session: Session = Depends(get_se
 def start_segments_render(body: RenderSegmentsRequest, session: Session = Depends(get_session)):
     """Start TikTok 9:16 segment renders in the background."""
     content = _load_content(session, body.script_id)
+    _ensure_title_cards(session, body.script_id, content)
     scene_count = _count_scenes(content)
     audio_dur = _total_audio_duration(content)
     job = create_job(scene_count=scene_count, total_audio_duration=audio_dur)
@@ -204,6 +224,7 @@ def start_auto_edit_render(body: AutoEditRequest, session: Session = Depends(get
     then renders via FFmpeg with word-synced typography.
     """
     content = _load_content(session, body.script_id)
+    _ensure_title_cards(session, body.script_id, content)
     scene_count = _count_scenes(content)
     audio_dur = _total_audio_duration(content)
     job = create_job(scene_count=scene_count, total_audio_duration=audio_dur)
