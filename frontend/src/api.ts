@@ -126,8 +126,6 @@ export async function cloneVoice(
 
 /** Prepend the backend origin to a static asset path (e.g. /static/projects/...). */
 export function assetUrl(path: string): string {
-  // In Electron, window.api exists and assets are proxied; in dev, hit backend directly
-  if (window.api) return path;
   return `http://localhost:8420${path}`;
 }
 
