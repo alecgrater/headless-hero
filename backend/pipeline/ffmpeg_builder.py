@@ -483,6 +483,7 @@ def build_auto_edit_scene_cmd(
     accent_color: str = "#00FFFF",
     width: int = 1920,
     height: int = 1080,
+    speed: float = 1.0,
 ) -> list[str]:
     """Build FFmpeg command for an auto-edited scene with motion + word-synced text overlays.
 
@@ -490,25 +491,27 @@ def build_auto_edit_scene_cmd(
         motion_profile: slow_zoom_in | slow_zoom_out | slow_pan
         text_phrases: [{words, start_ms, end_ms, highlight_color}]
         accent_color: hex color for word highlighting
+        speed: playback speed multiplier (1.0 = normal)
     """
     fps = 30
-    duration_frames = int(duration * fps)
+    effective_duration = duration / speed if speed != 1.0 else duration
+    duration_frames = int(effective_duration * fps)
 
     filters: list[str] = []
 
     # Motion profile — maps to Ken Burns effect
     if motion_profile == "slow_zoom_in":
-        speed = 0.0004
+        zoom_speed = 0.0004
         filters.append(
             f"zoompan=d={duration_frames}:s={width}x{height}:fps={fps}"
-            f":z='1+{speed}*on':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+            f":z='1+{zoom_speed}*on':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
         )
     elif motion_profile == "slow_zoom_out":
-        speed = 0.0004
-        max_z = 1 + speed * duration_frames
+        zoom_speed = 0.0004
+        max_z = 1 + zoom_speed * duration_frames
         filters.append(
             f"zoompan=d={duration_frames}:s={width}x{height}:fps={fps}"
-            f":z='{max_z}-{speed}*on':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+            f":z='{max_z}-{zoom_speed}*on':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
         )
     elif motion_profile == "slow_pan":
         filters.append(
@@ -521,11 +524,15 @@ def build_auto_edit_scene_cmd(
             f":z='1':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
         )
 
+    # Apply video speed adjustment
+    if speed != 1.0:
+        filters.append(f"setpts=PTS/{speed}")
+
     filters.append(f"scale={width}:{height}:force_original_aspect_ratio=decrease")
     filters.append(f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black")
     filters.append("setsar=1")
 
-    # Word-synced text overlays
+    # Word-synced text overlays (adjust timing for speed)
     if text_phrases and _DRAWTEXT_AVAILABLE:
         for phrase in text_phrases:
             words = phrase.get("words", [])
@@ -537,8 +544,8 @@ def build_auto_edit_scene_cmd(
 
             phrase_text = " ".join(words)
             escaped = _escape_drawtext(phrase_text)
-            show_at = start_ms / 1000.0
-            hide_at = end_ms / 1000.0
+            show_at = (start_ms / 1000.0) / speed if speed != 1.0 else start_ms / 1000.0
+            hide_at = (end_ms / 1000.0) / speed if speed != 1.0 else end_ms / 1000.0
 
             dt = (
                 f"drawtext=text='{escaped}'"
@@ -553,6 +560,15 @@ def build_auto_edit_scene_cmd(
     filter_chain = ",".join(filters)
     filter_complex = f"[0:v]{filter_chain}[vout]"
 
+    # Build audio mapping — with speed adjustment if needed
+    if speed != 1.0:
+        atempo_chain = _build_atempo_chain(speed)
+        audio_filter = f"[1:a]{atempo_chain}[aout]"
+        filter_complex = f"{filter_complex};{audio_filter}"
+        audio_map = "[aout]"
+    else:
+        audio_map = "1:a"
+
     cmd = [
         "ffmpeg", "-y",
         "-loop", "1",
@@ -560,14 +576,14 @@ def build_auto_edit_scene_cmd(
         "-i", audio_path,
         "-filter_complex", filter_complex,
         "-map", "[vout]",
-        "-map", "1:a",
+        "-map", audio_map,
         "-c:v", "libx264",
         "-preset", "medium",
         "-crf", "23",
         "-c:a", "aac",
         "-b:a", "192k",
         "-pix_fmt", "yuv420p",
-        "-t", str(duration),
+        "-t", str(effective_duration),
         "-shortest",
         output_path,
     ]

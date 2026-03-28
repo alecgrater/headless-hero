@@ -11,11 +11,11 @@ interface Props {
   // Auto-Edit render
   autoEditStatus: { status: string; progress: number; current_step: string; error?: string } | null;
   autoEditUrl: string | null;
-  onStartAutoEditRender: () => void;
+  onStartAutoEditRender: (speed?: number) => void;
 
   tiktokStatus: { status: string; progress: number; current_step: string; error?: string } | null;
   tiktokUrls: string[];
-  onStartTiktokRender: () => void;
+  onStartTiktokRender: (speed?: number) => void;
 
   audioUrl: string | null;
   audioExporting: boolean;
@@ -216,6 +216,24 @@ export default function ExportPanel({
           {/* Render Tab */}
           {activeTab === "render" && (
             <div className="space-y-8">
+              {/* Global Speed Selector */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-neutral-500 mr-1">Speed:</span>
+                {[1, 1.25, 1.5, 1.75, 2].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setSpeed(s)}
+                    className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${
+                      speed === s
+                        ? "bg-violet-600 text-white"
+                        : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
+                    }`}
+                  >
+                    {s}x
+                  </button>
+                ))}
+              </div>
+
               {/* YouTube Export */}
               <section className="space-y-3">
                 <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
@@ -238,36 +256,18 @@ export default function ExportPanel({
                   </div>
                 ) : null}
                 {!youtubeRendering && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-neutral-500 mr-1">Speed:</span>
-                      {[1, 1.25, 1.5, 1.75, 2].map((s) => (
-                        <button
-                          key={s}
-                          onClick={() => setSpeed(s)}
-                          className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${
-                            speed === s
-                              ? "bg-violet-600 text-white"
-                              : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
-                          }`}
-                        >
-                          {s}x
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => onStartYoutubeRender(0.3, speed)}
-                        className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
-                      >
-                        {youtubeUrl ? "Re-render" : "Render YouTube Video"}{speed !== 1 ? ` (${speed}x)` : ""}
-                      </button>
-                      {estimatedSeconds != null && !youtubeUrl && (
-                        <span className="text-xs text-neutral-500">
-                          Estimated render time: {formatEstimate(estimatedSeconds)}
-                        </span>
-                      )}
-                    </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => onStartYoutubeRender(0.3, speed)}
+                      className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
+                    >
+                      {youtubeUrl ? "Re-render" : "Render YouTube Video"}{speed !== 1 ? ` (${speed}x)` : ""}
+                    </button>
+                    {estimatedSeconds != null && !youtubeUrl && (
+                      <span className="text-xs text-neutral-500">
+                        Estimated render time: {formatEstimate(estimatedSeconds)}
+                      </span>
+                    )}
                   </div>
                 )}
               </section>
@@ -298,10 +298,10 @@ export default function ExportPanel({
                 ) : null}
                 {!autoEditRendering && (
                   <button
-                    onClick={onStartAutoEditRender}
+                    onClick={() => onStartAutoEditRender(speed)}
                     className="text-sm px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg font-medium transition-colors"
                   >
-                    {autoEditUrl ? "Re-render Auto-Edit" : "Auto-Edit Render"}
+                    {autoEditUrl ? "Re-render Auto-Edit" : "Auto-Edit Render"}{speed !== 1 ? ` (${speed}x)` : ""}
                   </button>
                 )}
               </section>
@@ -334,10 +334,10 @@ export default function ExportPanel({
                 {!tiktokRendering && (
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={onStartTiktokRender}
+                      onClick={() => onStartTiktokRender(speed)}
                       className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
                     >
-                      {tiktokUrls.length > 0 ? "Re-render" : "Render TikTok Segments"}
+                      {tiktokUrls.length > 0 ? "Re-render" : "Render TikTok Segments"}{speed !== 1 ? ` (${speed}x)` : ""}
                     </button>
                     {seoMetadata && (
                       <CopyButton

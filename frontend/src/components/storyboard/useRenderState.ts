@@ -22,13 +22,13 @@ interface RenderState {
   autoEditJobId: string | null;
   autoEditStatus: RenderStatusResponse | null;
   autoEditUrl: string | null;
-  startAutoEditRender: () => Promise<void>;
+  startAutoEditRender: (speed?: number) => Promise<void>;
 
   // TikTok render
   tiktokJobId: string | null;
   tiktokStatus: RenderStatusResponse | null;
   tiktokUrls: string[];
-  startTiktokRender: () => Promise<void>;
+  startTiktokRender: (speed?: number) => Promise<void>;
 
   // Audio export
   audioUrl: string | null;
@@ -142,12 +142,13 @@ export function useRenderState(scriptId: string, title: string): RenderState {
     [scriptId, title, pollJob],
   );
 
-  const startTiktokRender = useCallback(async () => {
+  const startTiktokRender = useCallback(async (speed = 1.0) => {
     setTiktokUrls([]);
     setTiktokStatus(null);
     const res = await api.post("/api/render/segments", {
       script_id: scriptId,
       title,
+      speed,
     });
     if (!res.ok) return;
     const { job_id } = res.data as RenderJobResponse;
@@ -157,12 +158,13 @@ export function useRenderState(scriptId: string, title: string): RenderState {
     });
   }, [scriptId, title, pollJob]);
 
-  const startAutoEditRender = useCallback(async () => {
+  const startAutoEditRender = useCallback(async (speed = 1.0) => {
     setAutoEditUrl(null);
     setAutoEditStatus(null);
     const res = await api.post("/api/render/auto-edit", {
       script_id: scriptId,
       title,
+      speed,
     });
     if (!res.ok) return;
     const { job_id } = res.data as RenderJobResponse;

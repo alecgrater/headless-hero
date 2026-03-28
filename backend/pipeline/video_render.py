@@ -237,6 +237,7 @@ def render_segment_video(
     width: int = 1080,
     height: int = 1920,
     on_progress: ProgressCallback = None,
+    speed: float = 1.0,
 ) -> str:
     """Render a single segment as a 9:16 TikTok clip.
 
@@ -253,8 +254,9 @@ def render_segment_video(
         if on_progress:
             on_progress(i / (total + 2), f"Rendering scene {i + 1}/{total}")
 
-        render_scene_video(scene, script_id, 1920, 1080)
-        local_clip = str(_data_dir / "projects" / script_id / "renders" / "scenes" / f"{scene.id}.mp4")
+        render_scene_video(scene, script_id, 1920, 1080, speed=speed)
+        speed_suffix = f"_{speed}x" if speed != 1.0 else ""
+        local_clip = str(_data_dir / "projects" / script_id / "renders" / "scenes" / f"{scene.id}{speed_suffix}.mp4")
         clip_16_9_paths.append(local_clip)
 
     # Concat if multiple scenes
@@ -302,6 +304,7 @@ def render_all_segments(
     height: int = 1920,
     on_progress: ProgressCallback = None,
     title: str = "",
+    speed: float = 1.0,
 ) -> list[str]:
     """Render all segments as TikTok 9:16 clips. Returns list of web paths."""
     total = len(content.segments)
@@ -315,17 +318,18 @@ def render_all_segments(
                 overall = (idx + p) / total
                 on_progress(overall, msg)
 
-        path = render_segment_video(script_id, idx, content, width, height, seg_progress)
+        path = render_segment_video(script_id, idx, content, width, height, seg_progress, speed=speed)
         results.append(path)
 
     if on_progress:
         on_progress(1.0, "All segments complete")
 
     if title:
+        speed_label = f" ({speed}x)" if speed != 1.0 else ""
         for idx, web_path in enumerate(results):
             try:
                 local = str(_data_dir / "projects" / script_id / "renders" / "tiktok" / f"{idx}.mp4")
-                copy_to_downloads(title, local, f"{_sanitize_filename(title)} - TikTok Segment {idx + 1}.mp4")
+                copy_to_downloads(title, local, f"{_sanitize_filename(title)} - TikTok Segment {idx + 1}{speed_label}.mp4")
             except Exception:
                 log.warning("Failed to copy segment %d to downloads", idx, exc_info=True)
 

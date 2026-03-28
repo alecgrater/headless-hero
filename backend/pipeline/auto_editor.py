@@ -180,6 +180,7 @@ def render_auto_edit_video(
     height: int = 1080,
     on_progress: ProgressCallback = None,
     title: str = "",
+    speed: float = 1.0,
 ) -> str:
     """Render full auto-edited video using the Claude-generated timeline.
 
@@ -238,6 +239,7 @@ def render_auto_edit_video(
             accent_color=timeline.accent_color,
             width=width,
             height=height,
+            speed=speed,
         )
         _run_ffmpeg(cmd)
 
@@ -248,7 +250,8 @@ def render_auto_edit_video(
     if on_progress:
         on_progress(0.9, "Concatenating with transitions...")
 
-    output_filename = "full_youtube_autoedit.mp4"
+    speed_suffix = f"_{speed}x" if speed != 1.0 else ""
+    output_filename = f"full_youtube_autoedit{speed_suffix}.mp4"
     final_path = str(renders / output_filename)
 
     cmd, list_file = build_concat_with_transitions_cmd(
@@ -274,7 +277,8 @@ def render_auto_edit_video(
     if title:
         try:
             from pipeline.video_render import copy_to_downloads, _sanitize_filename
-            copy_to_downloads(title, final_path, f"{_sanitize_filename(title)} - YouTube AutoEdit.mp4")
+            speed_label = f" ({speed}x)" if speed != 1.0 else ""
+            copy_to_downloads(title, final_path, f"{_sanitize_filename(title)} - YouTube AutoEdit{speed_label}.mp4")
         except Exception:
             log.warning("Failed to copy auto-edit to downloads", exc_info=True)
 

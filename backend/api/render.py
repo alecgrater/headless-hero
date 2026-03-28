@@ -43,6 +43,7 @@ class RenderSegmentsRequest(BaseModel):
     width: int = 1080
     height: int = 1920
     title: str = ""
+    speed: float = 1.0
 
 class RenderJobResponse(BaseModel):
     job_id: str
@@ -70,6 +71,7 @@ class AutoEditRequest(BaseModel):
     width: int = 1920
     height: int = 1080
     title: str = ""
+    speed: float = 1.0
 
 # --- Helpers ---
 
@@ -150,6 +152,8 @@ def start_segments_render(body: RenderSegmentsRequest, session: Session = Depend
     audio_dur = _total_audio_duration(content)
     job = create_job(scene_count=scene_count, total_audio_duration=audio_dur)
 
+    speed = max(0.5, min(3.0, body.speed))
+
     def do_render():
         def on_progress(p: float, msg: str):
             update_job(job.id, progress=p, current_step=msg)
@@ -161,6 +165,7 @@ def start_segments_render(body: RenderSegmentsRequest, session: Session = Depend
             height=body.height,
             on_progress=on_progress,
             title=body.title,
+            speed=speed,
         )
 
     run_in_background(job.id, do_render)
@@ -203,6 +208,8 @@ def start_auto_edit_render(body: AutoEditRequest, session: Session = Depends(get
     audio_dur = _total_audio_duration(content)
     job = create_job(scene_count=scene_count, total_audio_duration=audio_dur)
 
+    speed = max(0.5, min(3.0, body.speed))
+
     def do_render():
         def on_progress(p: float, msg: str):
             update_job(job.id, progress=p, current_step=msg)
@@ -218,6 +225,7 @@ def start_auto_edit_render(body: AutoEditRequest, session: Session = Depends(get
             height=body.height,
             on_progress=on_progress,
             title=body.title,
+            speed=speed,
         )
 
     run_in_background(job.id, do_render)
