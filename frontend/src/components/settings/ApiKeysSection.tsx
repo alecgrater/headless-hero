@@ -34,6 +34,14 @@ const SERVICES: ServiceConfig[][] = [
   ],
   [
     {
+      key: "REPLICATE_API_TOKEN",
+      label: "Replicate",
+      description: "Generates images via Flux models (alternative to Google Gemini).",
+      placeholder: "r8_...",
+    },
+  ],
+  [
+    {
       key: "ELEVENLABS_API_KEY",
       label: "ElevenLabs",
       description: "Text-to-speech voiceover and voice cloning.",

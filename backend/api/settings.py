@@ -18,10 +18,12 @@ ALLOWED_KEYS = {
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
     "DOWNLOADS_DIR",
+    "REPLICATE_API_TOKEN",
+    "IMAGE_PROVIDER",
 }
 
 # Keys that should NOT be masked (non-secret settings)
-_PLAINTEXT_KEYS = {"DOWNLOADS_DIR"}
+_PLAINTEXT_KEYS = {"DOWNLOADS_DIR", "IMAGE_PROVIDER"}
 
 
 def _mask(value: str) -> str:
