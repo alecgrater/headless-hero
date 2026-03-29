@@ -1,6 +1,8 @@
 """Endpoints for video rendering and export."""
 
 import json
+import os
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -211,6 +213,21 @@ def start_segments_render(body: RenderSegmentsRequest, session: Session = Depend
 def start_shortform_render(body: RenderShortformRequest, session: Session = Depends(get_session)):
     """Start a short-form 1080x1920 render in the background."""
     content = _load_content(session, body.script_id)
+
+    # Short-form requires audio for every scene (word-synced subtitles)
+    data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
+    missing = []
+    for seg in content.segments:
+        for sc in seg.scenes:
+            audio = data_dir / "projects" / body.script_id / "audio" / f"{sc.id}.mp3"
+            if not audio.exists():
+                missing.append(sc.id)
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Audio not generated for {len(missing)} scene(s). Generate voiceover for all scenes before rendering short-form video.",
+        )
+
     brand_dict, modifier_ids = _load_brand_and_modifiers(session, body.script_id)
     scene_count = _count_scenes(content)
     audio_dur = _total_audio_duration(content)

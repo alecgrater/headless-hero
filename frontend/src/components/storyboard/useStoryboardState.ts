@@ -141,6 +141,16 @@ export function useStoryboardState(
   const contentRef = useRef(content);
   contentRef.current = content;
 
+  // Immediate save — used after generation to ensure persistence
+  const immediateFlush = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    // Use a microtask so React state updates settle first
+    queueMicrotask(() => {
+      doSave(contentRef.current);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scriptId]);
+
   const pushUndo = useCallback(() => {
     setUndoStack((prev) => [...prev.slice(-49), contentRef.current]);
   }, []);
@@ -444,6 +454,7 @@ export function useStoryboardState(
               ),
             })),
           }));
+          immediateFlush();
         }
       } finally {
         setGeneratingSceneIds((prev) => {
@@ -453,7 +464,7 @@ export function useStoryboardState(
         });
       }
     },
-    [scriptId],
+    [scriptId, immediateFlush],
   );
 
   const generateAllImages = useCallback(
@@ -548,10 +559,11 @@ export function useStoryboardState(
 
       setGeneratingSceneIds(new Set());
       setBatchGenerating(false);
+      immediateFlush();
       // Keep progress visible briefly, then clear
       setTimeout(() => setBatchImageProgress(EMPTY_BATCH), 3000);
     },
-    [scriptId],
+    [scriptId, immediateFlush],
   );
 
   const generateAudio = useCallback(
@@ -586,6 +598,7 @@ export function useStoryboardState(
               ),
             })),
           }));
+          immediateFlush();
         }
       } finally {
         setGeneratingAudioSceneIds((prev) => {
@@ -595,7 +608,7 @@ export function useStoryboardState(
         });
       }
     },
-    [scriptId],
+    [scriptId, immediateFlush],
   );
 
   const generateAllAudio = useCallback(
@@ -686,9 +699,10 @@ export function useStoryboardState(
 
       setGeneratingAudioSceneIds(new Set());
       setBatchGeneratingAudio(false);
+      immediateFlush();
       setTimeout(() => setBatchAudioProgress(EMPTY_BATCH), 3000);
     },
-    [scriptId],
+    [scriptId, immediateFlush],
   );
 
   const fetchMediaForScene = useCallback(
@@ -728,6 +742,7 @@ export function useStoryboardState(
               ),
             })),
           }));
+          immediateFlush();
         }
       } finally {
         setFetchingMediaSceneIds((prev) => {
@@ -737,7 +752,7 @@ export function useStoryboardState(
         });
       }
     },
-    [scriptId],
+    [scriptId, immediateFlush],
   );
 
   const fetchAllMediaScenes = useCallback(
@@ -835,9 +850,10 @@ export function useStoryboardState(
 
       setFetchingMediaSceneIds(new Set());
       setBatchFetchingMedia(false);
+      immediateFlush();
       setTimeout(() => setBatchMediaProgress(EMPTY_BATCH), 3000);
     },
-    [scriptId],
+    [scriptId, immediateFlush],
   );
 
   return {

@@ -168,7 +168,6 @@ export default function ExportPanel({
   const autoEditRendering = autoEditStatus?.status === "running" || autoEditStatus?.status === "pending";
   const tiktokRendering = tiktokStatus?.status === "running" || tiktokStatus?.status === "pending";
   const publishing = publishStatus?.status === "running" || publishStatus?.status === "pending";
-  const sfRendering = shortform.renderStatus === "running" || shortform.renderStatus === "starting";
 
   const [activeTab, setActiveTab] = useState<Tab>("render");
   const [scheduleAt, setScheduleAt] = useState("");
@@ -177,6 +176,7 @@ export default function ExportPanel({
 
   // Short-form state (only active when contentFormat === "shortform")
   const shortform = useShortformState([]);
+  const sfRendering = shortform.renderStatus === "running" || shortform.renderStatus === "starting";
 
   // Latest YouTube publish from history
   const latestYtPublish = publishHistory.find(
