@@ -12,6 +12,16 @@ _data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Pa
 _GUIDE_PATH = Path(__file__).resolve().parent.parent / "prompts" / "image_gen_guide.md"
 _STYLE_GUIDE = _GUIDE_PATH.read_text() if _GUIDE_PATH.exists() else ""
 
+def _format_color_palette(color_palette: str) -> str:
+    """Turn a comma-separated hex string into a readable palette description."""
+    if not color_palette or not color_palette.strip():
+        return ""
+    colors = [c.strip() for c in color_palette.split(",") if c.strip()]
+    if not colors:
+        return ""
+    return f"Brand color palette (use these colors prominently): {', '.join(colors)}"
+
+
 def generate_scene_image(
     scene_id: str,
     visual_prompt: str,
@@ -22,6 +32,7 @@ def generate_scene_image(
     force: bool = False,
     variant: str = "a",
     style_guide: str = "",
+    color_palette: str = "",
 ) -> tuple[str, str]:
     """Generate a single scene image and save it locally.
 
@@ -31,8 +42,18 @@ def generate_scene_image(
     Returns (web-relative path, composed prompt used).
     """
     guide = style_guide if style_guide else _STYLE_GUIDE
-    base_prompt = f"{brand_style}. {visual_prompt}" if brand_style else visual_prompt
-    prompt = f"{guide}\n\n{base_prompt}" if guide else base_prompt
+
+    # Build prompt: guide → brand style → color palette → visual prompt
+    parts: list[str] = []
+    if guide:
+        parts.append(guide)
+    if brand_style:
+        parts.append(f"Brand art style: {brand_style}")
+    palette_desc = _format_color_palette(color_palette)
+    if palette_desc:
+        parts.append(palette_desc)
+    parts.append(visual_prompt)
+    prompt = "\n\n".join(parts)
 
     # Check cache: if image exists and we have a matching prompt marker, skip regen
     images_dir = _data_dir / "projects" / script_id / "images"
@@ -66,6 +87,7 @@ def generate_batch(
     width: int = 1344,
     height: int = 768,
     style_guide: str = "",
+    color_palette: str = "",
 ) -> list[dict[str, str | None]]:
     """Generate images for a list of scenes sequentially.
 
@@ -84,6 +106,7 @@ def generate_batch(
                 width=width,
                 height=height,
                 style_guide=style_guide,
+                color_palette=color_palette,
             )
             image_url_b = None
             if scene.get("is_animated") and scene.get("visual_prompt_b"):
@@ -96,6 +119,7 @@ def generate_batch(
                     height=height,
                     variant="b",
                     style_guide=style_guide,
+                    color_palette=color_palette,
                 )
             results.append({
                 "scene_id": scene["scene_id"],

@@ -206,6 +206,7 @@ function StoryboardEditor({
   }, []);
 
   const artStyle = brand?.art_style ?? "";
+  const colorPalette = brand?.color_palette ?? "";
 
   // Parse active modifier IDs from brand
   const activeModifierIds: string[] = (() => {
@@ -324,9 +325,9 @@ function StoryboardEditor({
     undo: state.undo,
     save: state.save,
     generateImage: () => {
-      if (state.selectedSceneId) state.generateImage(state.selectedSceneId, artStyle);
+      if (state.selectedSceneId) state.generateImage(state.selectedSceneId, artStyle, colorPalette);
     },
-    generateAllImages: () => state.generateAllImages(artStyle),
+    generateAllImages: () => state.generateAllImages(artStyle, colorPalette),
     openExport: () => setShowExport(true),
     toggleAudioPreview,
     deleteScene,
@@ -410,7 +411,7 @@ function StoryboardEditor({
         {/* Group 1 — Media Generation */}
         <div className="bg-neutral-800/50 rounded-lg p-1 flex items-center gap-1.5">
           <button
-            onClick={() => state.generateAllImages(artStyle)}
+            onClick={() => state.generateAllImages(artStyle, colorPalette)}
             disabled={state.batchGenerating}
             className="text-sm px-3 py-1.5 text-emerald-400 hover:bg-emerald-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
             title="Generate images for all scenes with visual prompts"
@@ -559,12 +560,12 @@ function StoryboardEditor({
             state.updateScene(id, { narration: narr })
           }
           onMoveScene={state.moveScene}
-          onGenerateImage={(sceneId) => state.generateImage(sceneId, artStyle)}
+          onGenerateImage={(sceneId) => state.generateImage(sceneId, artStyle, colorPalette)}
           generatingSceneIds={state.generatingSceneIds}
           onGenerateAudio={(sceneId) => tryGenerateAudio(sceneId)}
           generatingAudioSceneIds={state.generatingAudioSceneIds}
           batchImageStatuses={state.batchImageProgress.statuses}
-          onRetryImage={(sceneId) => state.generateImage(sceneId, artStyle)}
+          onRetryImage={(sceneId) => state.generateImage(sceneId, artStyle, colorPalette)}
         />
 
         {selectedScene ? (
@@ -580,7 +581,7 @@ function StoryboardEditor({
             onMerge={() => state.mergeWithNext(selectedScene.scene.id)}
             onDuplicate={() => state.duplicateScene(selectedScene.scene.id)}
             onGenerateImage={() =>
-              state.generateImage(selectedScene.scene.id, artStyle)
+              state.generateImage(selectedScene.scene.id, artStyle, colorPalette)
             }
             isGenerating={state.generatingSceneIds.has(selectedScene.scene.id)}
             onGenerateAudio={() =>

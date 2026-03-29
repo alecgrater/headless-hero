@@ -24,6 +24,7 @@ class GenerateVisualRequest(BaseModel):
     scene_id: str
     visual_prompt: str
     brand_style: str = ""
+    color_palette: str = ""
     width: int = 1344
     height: int = 768
     is_animated: bool = False
@@ -44,6 +45,7 @@ class GenerateBatchRequest(BaseModel):
     script_id: str
     scenes: list[BatchScene]
     brand_style: str = ""
+    color_palette: str = ""
     width: int = 1344
     height: int = 768
 
@@ -116,6 +118,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         width=width,
         height=height,
         style_guide=style_guide,
+        color_palette=body.color_palette,
     )
 
     _update_scene_image_url(session, body.script_id, body.scene_id, image_url)
@@ -131,6 +134,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             height=height,
             variant="b",
             style_guide=style_guide,
+            color_palette=body.color_palette,
         )
         _update_scene_image_url_b(session, body.script_id, body.scene_id, image_url_b)
 
@@ -166,6 +170,7 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
         width=width,
         height=height,
         style_guide=style_guide,
+        color_palette=body.color_palette,
     )
 
     # Persist successful image URLs
