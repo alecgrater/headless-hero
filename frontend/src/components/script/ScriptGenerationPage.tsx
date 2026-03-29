@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "../../api";
 import type { BrandProfile } from "../../types/brand";
 import type { VideoIdea } from "../../types/idea";
@@ -39,7 +39,12 @@ export default function ScriptGenerationPage({
   const [refiningScene, setRefiningScene] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const hasStarted = useRef(false);
+
   useEffect(() => {
+    if (hasStarted.current) return;
+    hasStarted.current = true;
+
     let cancelled = false;
 
     const generate = async () => {
