@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from models.script import Scene, ScriptContent
+from pipeline.ass_builder import generate_ass_for_scene
 from pipeline.ffmpeg_builder import build_concat_cmd, build_shortform_scene_cmd
 from pipeline.video_render import _run_ffmpeg, _sanitize_filename, copy_to_downloads
 
@@ -42,6 +43,7 @@ def render_shortform_scene(
     speed: float = 1.0,
     modifier_ids: list[str] | None = None,
     brand: dict | None = None,
+    accent_color: str = "#FFFF00",
 ) -> str:
     """Render a single shortform scene to MP4 at 1080x1920.
 
@@ -89,6 +91,22 @@ def render_shortform_scene(
 
     duration = scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else scene.duration_estimate_seconds
 
+    # Generate ASS subtitles from word timestamps
+    renders = _renders_dir(script_id)
+    ass_path = None
+    if scene.word_timestamps:
+        ass_path = generate_ass_for_scene(
+            word_timestamps=scene.word_timestamps,
+            duration=duration,
+            width=width,
+            height=height,
+            accent_color=accent_color,
+            mode="portrait",
+            renders_dir=str(renders),
+            scene_id=scene.id,
+            speed=speed,
+        )
+
     cmd = build_shortform_scene_cmd(
         image_path=image_path,
         audio_path=audio_path,
@@ -98,6 +116,7 @@ def render_shortform_scene(
         speed=speed,
         width=width,
         height=height,
+        ass_path=ass_path,
     )
 
     _run_ffmpeg(cmd)
@@ -121,6 +140,13 @@ def render_shortform_video(
     total = len(scenes)
     clip_paths: list[str] = []
 
+    # Extract accent color from brand color palette (first color), fallback yellow
+    accent_color = "#FFFF00"
+    if brand and brand.get("color_palette"):
+        palette = brand["color_palette"].split(",")
+        if palette and palette[0].strip():
+            accent_color = palette[0].strip()
+
     for i, scene in enumerate(scenes):
         if on_progress:
             on_progress(i / total, f"Rendering scene {i + 1}/{total}")
@@ -128,6 +154,7 @@ def render_shortform_video(
         local_path = render_shortform_scene(
             scene, script_id, speed=speed,
             modifier_ids=modifier_ids, brand=brand,
+            accent_color=accent_color,
         )
         clip_paths.append(local_path)
 

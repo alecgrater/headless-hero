@@ -10,6 +10,7 @@ from typing import Callable
 from integrations.claude_client import chat
 from models.auto_edit import AutoEditTimeline, SceneTimeline, TextPhrase
 from models.script import ScriptContent
+from pipeline.ass_builder import generate_ass_for_scene
 from pipeline.ffmpeg_builder import build_auto_edit_scene_cmd, build_concat_with_transitions_cmd
 
 log = logging.getLogger(__name__)
@@ -29,13 +30,8 @@ Given a scene manifest, produce a JSON object with creative editing decisions.
 Rules:
 - Alternate motion_profile between "slow_zoom_in" and "slow_zoom_out" on consecutive scenes to create visual breathing. Occasionally use "slow_pan" for variety.
 - Use "hard_cut" for 85% of transitions. Use "dip_to_black" for punchline or dramatic moments.
-- TEXT POPS — Be SELECTIVE. Only create text_phrases for the most impactful moments:
-  - Key facts, surprising statistics, punchlines, important terms, emotional hooks
-  - Aim for 2-4 phrases per scene MAXIMUM — most of the video should have NO on-screen text
-  - Choose an animation style per phrase: "pop" (bouncy overshoot), "slam" (instant hard cut), "scale_up" (grow in), "fade_in" (alpha fade)
-  - Set uppercase to true for impact phrases, false for softer/subtle ones
-  - Use the word_timestamps to set precise start_ms/end_ms timing
 - Set accent_color to a vibrant color that complements the video topic (e.g. neon cyan, electric blue, hot pink).
+- text_phrases: leave as empty array [] — subtitles are now generated automatically from word timestamps with karaoke animations.
 - For sfx_triggers, assign appropriate categories: "impact" on scene entry, "ui" on text phrase appearance, "accent" on individual word highlights, "microdrop" on punchlines, "transition" on dip_to_black cuts.
 
 Output ONLY valid JSON matching this exact schema — no markdown fences, no commentary:
@@ -46,16 +42,7 @@ Output ONLY valid JSON matching this exact schema — no markdown fences, no com
       "scene_id": "...",
       "motion_profile": "slow_zoom_in",
       "transition": "hard_cut",
-      "text_phrases": [
-        {
-          "words": ["surprising", "fact", "here"],
-          "start_ms": 2400,
-          "end_ms": 3800,
-          "highlight_color": "#00FFFF",
-          "animation": "pop",
-          "uppercase": true
-        }
-      ],
+      "text_phrases": [],
       "sfx_triggers": [
         {"category": "impact", "trigger_time_ms": 0, "selection": "random"}
       ]
@@ -244,6 +231,21 @@ def render_auto_edit_video(
 
         output_path = str(autoedit_dir / f"{scene.id}.mp4")
 
+        # Generate ASS subtitles from word timestamps (full karaoke highlighting)
+        ass_path = None
+        if scene.word_timestamps:
+            ass_path = generate_ass_for_scene(
+                word_timestamps=scene.word_timestamps,
+                duration=duration,
+                width=width,
+                height=height,
+                accent_color=timeline.accent_color,
+                mode="landscape",
+                renders_dir=str(renders),
+                scene_id=scene.id,
+                speed=speed,
+            )
+
         cmd = build_auto_edit_scene_cmd(
             image_path=image_path,
             audio_path=audio_path,
@@ -255,6 +257,7 @@ def render_auto_edit_video(
             width=width,
             height=height,
             speed=speed,
+            ass_path=ass_path,
         )
         _run_ffmpeg(cmd)
 

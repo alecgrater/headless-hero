@@ -31,6 +31,20 @@ if not _DRAWTEXT_AVAILABLE:
     logger.warning("FFmpeg drawtext filter not available — text overlays will be skipped. "
                     "Install FFmpeg with libfreetype to enable text overlays.")
 
+def _has_ass_filter() -> bool:
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-filters"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return "subtitles" in result.stdout or "ass" in result.stdout
+    except Exception:
+        return False
+
+_ASS_AVAILABLE = _has_ass_filter()
+if not _ASS_AVAILABLE:
+    logger.warning("FFmpeg ASS/subtitles filter not available — ASS subtitles will fall back to drawtext.")
+
 # Intensity -> zoom speed multiplier for Ken Burns
 _KB_SPEED = {"subtle": 0.0003, "moderate": 0.0006, "dramatic": 0.0012}
 
@@ -593,12 +607,13 @@ def build_shortform_scene_cmd(
     speed: float = 1.0,
     width: int = 1080,
     height: int = 1920,
+    ass_path: str | None = None,
 ) -> list[str]:
     """Build FFmpeg command for a short-form scene (9:16 with word-synced subtitles).
 
     Features:
     - Subtle zoom motion (zoompan)
-    - Word-synced subtitle overlay (3-word chunks)
+    - ASS subtitle overlay with karaoke highlighting (or drawtext fallback)
     - Hard cuts (no fade-out)
     - Speed adjustment via atempo
     """
@@ -623,9 +638,13 @@ def build_shortform_scene_cmd(
     if speed != 1.0:
         filters.append(f"setpts=PTS/{speed}")
 
-    # Word-synced subtitles (3-word chunks)
-    if word_timestamps and _DRAWTEXT_AVAILABLE:
-        # Group words into chunks of 3
+    # ASS subtitles (preferred) or drawtext fallback
+    if ass_path and _ASS_AVAILABLE:
+        # Escape colons and backslashes in path for FFmpeg filter syntax
+        escaped_path = ass_path.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+        filters.append(f"ass='{escaped_path}'")
+    elif word_timestamps and _DRAWTEXT_AVAILABLE:
+        # Legacy drawtext fallback — 3-word chunks
         chunks: list[dict] = []
         for i in range(0, len(word_timestamps), 3):
             chunk_words = word_timestamps[i : i + 3]
@@ -648,9 +667,6 @@ def build_shortform_scene_cmd(
                 f":enable='between(t,{chunk['start']},{chunk['end']})'"
             )
             filters.append(dt)
-    elif not word_timestamps and _DRAWTEXT_AVAILABLE:
-        # Fallback: no timestamps available — skip subtitles
-        pass
 
     filter_chain = ",".join(filters)
 
@@ -838,14 +854,16 @@ def build_auto_edit_scene_cmd(
     width: int = 1920,
     height: int = 1080,
     speed: float = 1.0,
+    ass_path: str | None = None,
 ) -> list[str]:
     """Build FFmpeg command for an auto-edited scene with motion + word-synced text overlays.
 
     Args:
         motion_profile: slow_zoom_in | slow_zoom_out | slow_pan
-        text_phrases: [{words, start_ms, end_ms, highlight_color}]
+        text_phrases: [{words, start_ms, end_ms, highlight_color}] (drawtext fallback only)
         accent_color: hex color for word highlighting
         speed: playback speed multiplier (1.0 = normal)
+        ass_path: path to .ass subtitle file (preferred over drawtext)
     """
     fps = 30
     effective_duration = duration / speed if speed != 1.0 else duration
@@ -886,8 +904,11 @@ def build_auto_edit_scene_cmd(
     filters.append(f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black")
     filters.append("setsar=1")
 
-    # Animated text pops at key moments (adjust timing for speed)
-    if text_phrases and _DRAWTEXT_AVAILABLE:
+    # ASS subtitles (preferred) or animated drawtext fallback
+    if ass_path and _ASS_AVAILABLE:
+        escaped_path = ass_path.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+        filters.append(f"ass='{escaped_path}'")
+    elif text_phrases and _DRAWTEXT_AVAILABLE:
         for phrase in text_phrases:
             dt = _build_animated_drawtext(phrase, speed)
             if dt:
