@@ -202,29 +202,27 @@ export default function ScriptGenerationPage({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="space-y-1">
         <button
           onClick={onBack}
-          className="text-sm px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors text-neutral-300"
+          className="text-sm text-neutral-400 hover:text-neutral-200 transition-colors"
         >
           &larr; Back to Ideas
         </button>
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-bold">{idea.title}</h2>
-            {contentFormat === "shortform" && (
-              <span className="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-medium">
-                Short-Form
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-neutral-400">{idea.description}</p>
+        <div className="flex items-center gap-2.5">
+          <h2 className="text-2xl font-bold">{idea.title}</h2>
+          {contentFormat === "shortform" && (
+            <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-medium">
+              Short-Form
+            </span>
+          )}
         </div>
+        <p className="text-sm text-neutral-400">{idea.description}</p>
       </div>
 
       {/* Loading state */}
       {loading && (
-        <div className="text-center py-20 space-y-4">
+        <div className="text-center py-12 space-y-4">
           <div className="inline-block w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-neutral-400 text-lg">
             Generating {contentFormat === "shortform" ? "short-form" : ""} script with Claude...
