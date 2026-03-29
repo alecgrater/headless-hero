@@ -772,7 +772,12 @@ def build_thumbnail_composite_cmd(
 
 
 def _build_animated_drawtext(phrase: dict, speed: float) -> str | None:
-    """Build an animated drawtext filter for a key-moment text pop."""
+    """Build an animated drawtext filter for a key-moment text pop.
+
+    Uses constant fontsize with alpha-based fade-in for all animation styles.
+    Complex fontsize expressions (nested if()) cause FFmpeg segfaults, so we
+    keep it simple: instant appearance with a short alpha ramp.
+    """
     words = phrase.get("words", [])
     start_ms = phrase.get("start_ms", 0)
     end_ms = phrase.get("end_ms", 0)
@@ -789,44 +794,30 @@ def _build_animated_drawtext(phrase: dict, speed: float) -> str | None:
 
     show_at = (start_ms / 1000.0) / speed if speed != 1.0 else start_ms / 1000.0
     hide_at = (end_ms / 1000.0) / speed if speed != 1.0 else end_ms / 1000.0
-    dur = hide_at - show_at
 
-    # Animation-specific fontsize expression using local time (t - show_at)
+    # All animations use constant fontsize to avoid FFmpeg segfaults
     base_size = 72
-    if animation == "pop":
-        # 0→110%→100% over 300ms with overshoot settle
-        fs = (
-            f"if(lt(t-{show_at},0.15),"
-            f"{base_size}*1.1*(t-{show_at})/0.15,"
-            f"if(lt(t-{show_at},0.3),"
-            f"{base_size}*(1.1-0.1*(t-{show_at}-0.15)/0.15),"
-            f"{base_size}))"
-        )
-    elif animation == "slam":
-        # Instant full size — the abruptness IS the effect
-        fs = str(base_size)
-    elif animation == "scale_up":
-        # Grow from 50% to 100% over phrase duration
-        fs = (
-            f"if(lt(t-{show_at},{dur}),"
-            f"{base_size}*(0.5+0.5*(t-{show_at})/{dur}),"
-            f"{base_size})"
-        )
-    elif animation == "fade_in":
-        # Full size throughout (alpha handles the animation)
-        fs = str(base_size)
-    else:
-        fs = str(base_size)
 
-    # Alpha expression for fade_in animation (use separate alpha param, not fontcolor@expr)
+    # Alpha ramp duration varies by animation style
+    if animation == "pop":
+        ramp = 0.15  # fast snap-in
+    elif animation == "slam":
+        ramp = 0.0   # instant
+    elif animation == "scale_up":
+        ramp = 0.4   # slow reveal
+    elif animation == "fade_in":
+        ramp = 0.3   # gentle fade
+    else:
+        ramp = 0.0
+
     alpha_part = ""
-    if animation == "fade_in":
-        alpha_expr = f"if(lt(t-{show_at},0.3),(t-{show_at})/0.3,1)"
+    if ramp > 0:
+        alpha_expr = f"if(lt(t-{show_at},{ramp}),(t-{show_at})/{ramp},1)"
         alpha_part = f":alpha='{alpha_expr}'"
 
     dt = (
         f"drawtext=text='{escaped}'"
-        f":fontsize='{fs}'"
+        f":fontsize={base_size}"
         f":fontcolor=white"
         f"{alpha_part}"
         f":x='(w-text_w)/2':y='h*0.75'"
