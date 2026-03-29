@@ -159,6 +159,18 @@ export function assetUrl(path: string): string {
   return `http://localhost:8420${path}`;
 }
 
+/** Fetch generation time estimate for a given operation type. */
+export async function fetchGenerationEstimate(
+  operationType: string,
+): Promise<{ average_seconds: number | null; sample_count: number }> {
+  const res = await api.get(`/api/generation/estimate?operation_type=${operationType}`);
+  if (res.ok) {
+    const data = res.data as { average_seconds: number | null; sample_count: number };
+    return data;
+  }
+  return { average_seconds: null, sample_count: 0 };
+}
+
 /** Fetch available content modifier metadata from the backend. */
 export async function fetchModifiers() {
   return api.get("/api/brands/modifiers");

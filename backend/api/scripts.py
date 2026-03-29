@@ -2,6 +2,7 @@
 
 import json
 import shutil
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -9,6 +10,7 @@ from sqlmodel import Session, select
 
 from api.database import get_session
 from models.brand import BrandProfile
+from models.generation_duration import GenerationDuration
 from models.script import (
     GenerateScriptRequest,
     GenerateScriptResponse,
@@ -131,6 +133,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
         "font": brand.font,
     }
 
+    t0 = time.monotonic()
     script_content = generate_script(
         topic=body.topic,
         description=body.description,
@@ -140,6 +143,8 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
         modifier_ids=modifier_ids,
         brand=brand_dict,
     )
+    duration = time.monotonic() - t0
+    session.add(GenerationDuration(operation_type="script_generation_youtube", duration_seconds=duration))
 
     # Persist to SQLite
     record = Script(
@@ -183,6 +188,7 @@ def generate_shortform(body: GenerateShortformScriptRequest, session: Session = 
         "font": brand.font,
     }
 
+    t0 = time.monotonic()
     script_content = generate_shortform_script(
         topic=body.topic,
         description=body.description,
@@ -192,6 +198,8 @@ def generate_shortform(body: GenerateShortformScriptRequest, session: Session = 
         modifier_ids=modifier_ids,
         brand=brand_dict,
     )
+    duration = time.monotonic() - t0
+    session.add(GenerationDuration(operation_type="script_generation_shortform", duration_seconds=duration))
 
     record = Script(
         brand_id=body.brand_id,

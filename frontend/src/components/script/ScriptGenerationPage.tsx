@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import api from "../../api";
+import api, { fetchGenerationEstimate } from "../../api";
 import type { BrandProfile } from "../../types/brand";
 import type { VideoIdea } from "../../types/idea";
 import type {
@@ -7,6 +7,7 @@ import type {
   Scene,
   ScriptContent,
 } from "../../types/script";
+import GenerationProgressBar from "../GenerationProgressBar";
 
 interface Props {
   brand: BrandProfile;
@@ -38,6 +39,7 @@ export default function ScriptGenerationPage({
   const [editedScenes, setEditedScenes] = useState<Set<string>>(new Set());
   const [refiningScene, setRefiningScene] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
 
   const hasStarted = useRef(false);
 
@@ -50,8 +52,12 @@ export default function ScriptGenerationPage({
     const generate = async () => {
       setLoading(true);
       setError(null);
+      const isShortform = contentFormat === "shortform";
+      const opType = isShortform ? "script_generation_shortform" : "script_generation_youtube";
+      fetchGenerationEstimate(opType)
+        .then((est) => setEstimatedSeconds(est.average_seconds))
+        .catch(() => setEstimatedSeconds(null));
       try {
-        const isShortform = contentFormat === "shortform";
         const url = isShortform ? "/api/scripts/generate-shortform" : "/api/scripts/generate";
         const body = isShortform
           ? {
@@ -223,11 +229,9 @@ export default function ScriptGenerationPage({
           <p className="text-neutral-400 text-lg">
             Generating {contentFormat === "shortform" ? "short-form" : ""} script with Claude...
           </p>
-          <p className="text-neutral-500 text-sm">
-            {contentFormat === "shortform"
-              ? "This may take 1-2 minutes for a short-form script."
-              : "This may take 3-5 minutes for a full segmented script."}
-          </p>
+          <div className="max-w-md mx-auto">
+            <GenerationProgressBar estimatedSeconds={estimatedSeconds} active={loading} />
+          </div>
         </div>
       )}
 

@@ -1,7 +1,8 @@
 import { useState } from "react";
-import api from "../../api";
+import api, { fetchGenerationEstimate } from "../../api";
 import type { BrandProfile } from "../../types/brand";
 import type { GenerateIdeasResponse, VideoIdea } from "../../types/idea";
+import GenerationProgressBar from "../GenerationProgressBar";
 import IdeaCard from "./IdeaCard";
 import IdeationInput from "./IdeationInput";
 
@@ -15,10 +16,15 @@ export default function IdeationPage({ brand, onUseIdea }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastNiche, setLastNiche] = useState("");
+  const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
 
   const generate = async (niche: string) => {
     setLoading(true);
     setError(null);
+    // Fetch estimate in parallel with starting the generation
+    fetchGenerationEstimate("idea_generation")
+      .then((est) => setEstimatedSeconds(est.average_seconds))
+      .catch(() => setEstimatedSeconds(null));
     try {
       const res = await api.post("/api/ideas/generate", {
         niche,
@@ -56,6 +62,12 @@ export default function IdeationPage({ brand, onUseIdea }: Props) {
       </div>
 
       <IdeationInput onGenerate={generate} loading={loading} />
+
+      {loading && (
+        <div className="px-1">
+          <GenerationProgressBar estimatedSeconds={estimatedSeconds} active={loading} />
+        </div>
+      )}
 
       {error && (
         <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">

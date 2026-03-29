@@ -1,11 +1,14 @@
 """Endpoints for AI-powered idea generation."""
 
+import time
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import Session
 
 from api.database import get_session
 from models.brand import BrandProfile
+from models.generation_duration import GenerationDuration
 from pipeline.ideation import VideoIdea, generate_ideas
 
 router = APIRouter(prefix="/api/ideas", tags=["ideas"])
@@ -30,9 +33,14 @@ def generate(body: GenerateIdeasRequest, session: Session = Depends(get_session)
             parts.append(f"Art style: {brand.art_style}")
         brand_context = ". ".join(parts)
 
+    t0 = time.monotonic()
     ideas = generate_ideas(
         niche=body.niche,
         count=body.count,
         brand_context=brand_context,
     )
+    duration = time.monotonic() - t0
+    session.add(GenerationDuration(operation_type="idea_generation", duration_seconds=duration))
+    session.commit()
+
     return GenerateIdeasResponse(ideas=ideas)
