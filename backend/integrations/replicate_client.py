@@ -15,12 +15,23 @@ def generate_image(prompt: str, width: int = 1344, height: int = 768) -> str:
             "Export it in your shell or add it to the app settings."
         )
 
+    prompt_upsampling = os.environ.get(
+        "REPLICATE_PROMPT_UPSAMPLING", "true"
+    ).lower() in ("true", "1", "yes")
+
+    safety_tolerance = int(os.environ.get("REPLICATE_SAFETY_TOLERANCE", "2"))
+
+    output_format = os.environ.get("REPLICATE_OUTPUT_FORMAT", "png")
+
     output = replicate.run(
         "black-forest-labs/flux-1.1-pro",
         input={
             "prompt": prompt,
             "width": width,
             "height": height,
+            "prompt_upsampling": prompt_upsampling,
+            "safety_tolerance": safety_tolerance,
+            "output_format": output_format,
         },
     )
 

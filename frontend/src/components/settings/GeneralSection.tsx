@@ -13,13 +13,33 @@ const IMAGE_PROVIDERS = [
   { value: "replicate", label: "Replicate (Flux)" },
 ] as const;
 
+const OUTPUT_FORMATS = [
+  { value: "png", label: "PNG" },
+  { value: "webp", label: "WebP" },
+  { value: "jpg", label: "JPEG" },
+] as const;
+
+const SAFETY_LEVELS = [
+  { value: "1", label: "1 — Strictest" },
+  { value: "2", label: "2 — Strict (default)" },
+  { value: "3", label: "3 — Moderate" },
+  { value: "4", label: "4 — Permissive" },
+  { value: "5", label: "5 — Most permissive" },
+] as const;
+
 export default function GeneralSection() {
   const [downloadsDir, setDownloadsDir] = useState("");
   const [imageProvider, setImageProvider] = useState("google");
+  const [promptUpsampling, setPromptUpsampling] = useState("true");
+  const [safetyTolerance, setSafetyTolerance] = useState("2");
+  const [outputFormat, setOutputFormat] = useState("png");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [originalDownloads, setOriginalDownloads] = useState("");
   const [originalProvider, setOriginalProvider] = useState("google");
+  const [originalUpsampling, setOriginalUpsampling] = useState("true");
+  const [originalSafety, setOriginalSafety] = useState("2");
+  const [originalFormat, setOriginalFormat] = useState("png");
 
   useEffect(() => {
     api.get("/api/settings/keys").then((res) => {
@@ -31,6 +51,15 @@ export default function GeneralSection() {
         const provVal = data.IMAGE_PROVIDER?.masked || "google";
         setImageProvider(provVal);
         setOriginalProvider(provVal);
+        const upVal = data.REPLICATE_PROMPT_UPSAMPLING?.masked || "true";
+        setPromptUpsampling(upVal);
+        setOriginalUpsampling(upVal);
+        const safVal = data.REPLICATE_SAFETY_TOLERANCE?.masked || "2";
+        setSafetyTolerance(safVal);
+        setOriginalSafety(safVal);
+        const fmtVal = data.REPLICATE_OUTPUT_FORMAT?.masked || "png";
+        setOutputFormat(fmtVal);
+        setOriginalFormat(fmtVal);
       }
       setLoading(false);
     });
@@ -41,6 +70,9 @@ export default function GeneralSection() {
     const res = await api.put("/api/settings/keys", {
       DOWNLOADS_DIR: downloadsDir.trim(),
       IMAGE_PROVIDER: imageProvider,
+      REPLICATE_PROMPT_UPSAMPLING: promptUpsampling,
+      REPLICATE_SAFETY_TOLERANCE: safetyTolerance,
+      REPLICATE_OUTPUT_FORMAT: outputFormat,
     });
     setSaving(false);
 
@@ -48,12 +80,18 @@ export default function GeneralSection() {
       showToast("Settings saved", "success");
       setOriginalDownloads(downloadsDir.trim());
       setOriginalProvider(imageProvider);
+      setOriginalUpsampling(promptUpsampling);
+      setOriginalSafety(safetyTolerance);
+      setOriginalFormat(outputFormat);
     }
   };
 
   const hasChanges =
     downloadsDir.trim() !== originalDownloads ||
-    imageProvider !== originalProvider;
+    imageProvider !== originalProvider ||
+    promptUpsampling !== originalUpsampling ||
+    safetyTolerance !== originalSafety ||
+    outputFormat !== originalFormat;
 
   return (
     <div className="px-8 py-8 max-w-2xl space-y-6">
@@ -112,6 +150,81 @@ export default function GeneralSection() {
               ))}
             </select>
           </div>
+
+          {imageProvider === "replicate" && (
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-5">
+              <div>
+                <h3 className="text-sm font-medium text-neutral-100">Replicate Settings</h3>
+                <p className="text-xs text-neutral-500">
+                  Fine-tune Flux image generation parameters.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm text-neutral-200">Prompt Upsampling</label>
+                    <p className="text-xs text-neutral-500">
+                      Enhances your prompt with an LLM for better results.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={promptUpsampling === "true"}
+                    onClick={() =>
+                      setPromptUpsampling(promptUpsampling === "true" ? "false" : "true")
+                    }
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                      promptUpsampling === "true" ? "bg-violet-600" : "bg-neutral-700"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                        promptUpsampling === "true" ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm text-neutral-200">Safety Tolerance</label>
+                <p className="text-xs text-neutral-500">
+                  Content filter strictness. Higher values are more permissive.
+                </p>
+                <select
+                  value={safetyTolerance}
+                  onChange={(e) => setSafetyTolerance(e.target.value)}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
+                >
+                  {SAFETY_LEVELS.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm text-neutral-200">Output Format</label>
+                <p className="text-xs text-neutral-500">
+                  Image format returned by Flux.
+                </p>
+                <select
+                  value={outputFormat}
+                  onChange={(e) => setOutputFormat(e.target.value)}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
+                >
+                  {OUTPUT_FORMATS.map((f) => (
+                    <option key={f.value} value={f.value}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
