@@ -114,6 +114,14 @@ app.whenReady().then(async () => {
     }
   }
   createWindow();
+
+  // Prevent the main window from navigating away from the app (e.g. cross-origin download links)
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    const appOrigins = ["http://localhost:5173", "http://localhost:8420"];
+    if (!appOrigins.some((origin) => url.startsWith(origin + "/"))) {
+      event.preventDefault();
+    }
+  });
 });
 
 app.on("window-all-closed", () => {
