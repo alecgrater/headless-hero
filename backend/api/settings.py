@@ -64,8 +64,12 @@ async def save_keys(
     session: Session = Depends(get_session),
 ):
     """Save API keys to DB and set them in os.environ."""
+    saved_keys: list[str] = []
+    skipped_keys: list[str] = []
+
     for key, value in keys.items():
         if key not in ALLOWED_KEYS:
+            skipped_keys.append(key)
             continue
         # Upsert
         existing = session.get(AppSetting, key)
@@ -79,6 +83,7 @@ async def save_keys(
             os.environ[key] = value
         elif key in os.environ:
             del os.environ[key]
+        saved_keys.append(key)
 
     session.commit()
-    return {"status": "ok"}
+    return {"status": "ok", "saved": saved_keys, "skipped": skipped_keys}

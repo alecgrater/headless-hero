@@ -112,7 +112,14 @@ export default function ApiKeysSection() {
     setSaving(false);
 
     if (res.ok) {
-      showToast("API keys saved", "success");
+      const result = res.data as { saved?: string[]; skipped?: string[] };
+      if (result.skipped && result.skipped.length > 0) {
+        showToast(`Some keys were not recognized by the backend. Try restarting the backend.`);
+      } else if (result.saved && result.saved.length > 0) {
+        showToast("API keys saved", "success");
+      } else {
+        showToast("API keys saved", "success");
+      }
       const refresh = await api.get("/api/settings/keys");
       if (refresh.ok) setKeyStatus(refresh.data as Record<string, KeyInfo>);
       setValues({});
