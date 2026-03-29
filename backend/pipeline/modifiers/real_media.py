@@ -15,20 +15,24 @@ _data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents
 # Instructions previously hardcoded in scriptwriter.SYSTEM_PROMPT lines 76-90
 _REAL_MEDIA_PROMPT_INSTRUCTIONS = """\
 
-Real media guidelines (gaming/hardware content):
+Real media guidelines — mix real footage with AI art for visual variety:
 - Each scene has a "media_type" field: "ai_generated" (default), "gameplay_clip", or "hardware_image".
 - Each scene has a "search_query" field (empty string by default).
-- When the video topic involves gaming, video games, consoles, or gaming hardware:
-  - Tag scenes showing actual gameplay footage as "gameplay_clip" with a specific YouTube \
-search query (e.g. "Halo Infinite gameplay 4K", "GTA V PC gameplay 60fps"). The search \
-query should be specific enough to find relevant footage.
-  - Tag scenes showing physical hardware (consoles, controllers, headsets, GPUs) as \
-"hardware_image" with a search query (e.g. "PlayStation 5 console close up review", \
-"RTX 4090 unboxing"). These will extract a still frame from a YouTube video.
-  - All other scenes (conceptual, explanatory, metaphorical, title cards) should remain \
-"ai_generated" with an empty search_query — AI illustration is better for abstract concepts.
-- Only use real media types when showing specific, recognizable games or hardware. If a scene \
-is about a general concept (e.g. "the evolution of gaming"), keep it as ai_generated.
+- Use a MIX of real media and AI-generated art throughout the video. Aim for visual variety \
+by alternating between real footage and AI illustrations rather than using only one type.
+- When to use "gameplay_clip": a scene references a **specific, recognizable game** by name \
+(e.g. Halo, GTA V, Minecraft). Provide a specific YouTube search query like "Halo Infinite \
+gameplay 4K" or "GTA V PC gameplay 60fps".
+- When to use "hardware_image": a scene references a **specific, recognizable console or \
+hardware product** by name (e.g. PlayStation 5, RTX 4090). Provide a search query like \
+"PlayStation 5 console close up review" or "RTX 4090 unboxing". These extract a still frame \
+from a YouTube video.
+- When to use "ai_generated": everything else — general concepts, metaphors, transitions, \
+explanations, historical overviews, abstract ideas, or any scene not about a specific named \
+game or hardware product. Leave search_query as an empty string. AI illustration is better \
+for abstract and conceptual visuals.
+- A typical gaming video should have roughly 40-60% real media scenes and 40-60% AI scenes, \
+depending on how many specific games/products are discussed.
 - Include "media_type" and "search_query" in each scene object in the JSON output."""
 
 _REAL_MEDIA_SHORTFORM_EXTRA = """
@@ -44,7 +48,7 @@ class RealMediaModifier(ContentModifier):
     meta = ModifierMeta(
         id="real_media",
         name="Real Media (Gaming)",
-        description="Use real gameplay clips and hardware images from YouTube instead of AI art.",
+        description="Mix real gameplay clips and hardware images from YouTube with AI art.",
         icon="🎮",
     )
 
