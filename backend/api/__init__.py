@@ -25,7 +25,7 @@ from models.script import Script as _Script  # noqa: F401 — register table
 from models.settings import AppSetting as _AppSetting  # noqa: F401 — register table
 
 import os
-_data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
+_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
     projects_dir.mkdir(parents=True, exist_ok=True)
     yield
 
-app = FastAPI(title="YouTube AI Machine", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Headless Hero", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

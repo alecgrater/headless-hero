@@ -1,8 +1,8 @@
-# YouTube AI Machine — Product Requirements Document
+# Headless Hero — Product Requirements Document
 
 ## 1. Executive Summary
 
-YouTube AI Machine is a desktop application that provides an end-to-end pipeline for creating faceless educational/explainer YouTube content using AI. It replaces the current fragmented workflow of 5+ separate tools (ChatGPT for scripts, ElevenLabs for voice, InVideo for assembly, Midjourney for images, Canva for thumbnails) with a single integrated application.
+Headless Hero is a desktop application that provides an end-to-end pipeline for creating faceless educational/explainer YouTube content using AI. It replaces the current fragmented workflow of 5+ separate tools (ChatGPT for scripts, ElevenLabs for voice, InVideo for assembly, Midjourney for images, Canva for thumbnails) with a single integrated application.
 
 The product targets a specific, proven content format: long-form explainer videos composed of named segments (e.g., "Every Drug Explained" with Caffeine, Nicotine, Alcohol as segments), where each segment can be independently exported as a TikTok/Reel/Short. The app handles idea generation, script writing, AI illustration, voiceover, video assembly, thumbnail creation, SEO optimization, and multi-platform publishing — all enforcing a consistent brand identity.
 
@@ -149,7 +149,7 @@ Example: I select the YouTube video and 3 TikTok clips. I set YouTube to publish
 ### Directory Structure
 
 ```
-youtube-ai-machine/
+headless-hero/
 ├── electron/                  # Electron main process
 │   ├── main.ts               # App entry, window management
 │   ├── ipc/                  # IPC handlers

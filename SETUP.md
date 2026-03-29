@@ -1,4 +1,4 @@
-# YouTube AI Machine — Setup Guide
+# Headless Hero — Setup Guide
 
 ## Required API Keys & Services
 

@@ -1,4 +1,4 @@
-# YouTube AI Machine — CLAUDE.md
+# Headless Hero — CLAUDE.md
 
 ## Auto-commit Rule
 

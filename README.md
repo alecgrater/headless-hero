@@ -1,4 +1,4 @@
-# YouTube AI Machine
+# Headless Hero
 
 AI-powered desktop app for creating faceless educational YouTube content. Full pipeline from idea to published video — in one tool.
 
@@ -8,7 +8,7 @@ Replace the fragmented workflow of ChatGPT + ElevenLabs + Midjourney + InVideo +
 
 ## What It Does
 
-YouTube AI Machine handles the entire content creation pipeline:
+Headless Hero handles the entire content creation pipeline:
 
 1. **Idea Generation** — AI suggests video topics for your niche with keyword analysis
 2. **Script Writing** — Generates segmented scripts with hooks, transitions, and auto-detected TikTok split points
@@ -75,8 +75,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/your-username/youtube-ai-machine.git
-cd youtube-ai-machine
+git clone https://github.com/your-username/headless-hero.git
+cd headless-hero
 
 # 2. Set API keys (add to ~/.zshrc for persistence)
 export ANTHROPIC_API_KEY="sk-ant-..."
@@ -112,7 +112,7 @@ The app opens an Electron window. The backend runs on `http://127.0.0.1:8420` an
 ### Project Structure
 
 ```
-youtube-ai-machine/
+headless-hero/
 ├── electron/
 │   ├── main.js              # Electron main process, spawns backend
 │   └── preload.js           # IPC bridge → window.api
