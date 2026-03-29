@@ -10,7 +10,7 @@ from pathlib import Path
 from models.script import Scene, ScriptContent, TextOverlayConfig
 from pipeline.modifiers.base import ContentModifier, ModifierMeta
 
-_data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[3] / "data"))
+_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[3] / "data")))
 
 # Instructions previously hardcoded in scriptwriter.SYSTEM_PROMPT lines 76-90
 _REAL_MEDIA_PROMPT_INSTRUCTIONS = """\

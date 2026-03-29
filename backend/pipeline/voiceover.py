@@ -7,7 +7,7 @@ from pathlib import Path
 from integrations.elevenlabs_client import generate_speech
 
 # data/ directory lives two levels above backend/pipeline/
-_data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
+_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
 
 def _mp3_duration_seconds(data: bytes) -> float:
     """Estimate MP3 duration from raw bytes using frame headers.

@@ -215,7 +215,7 @@ def start_shortform_render(body: RenderShortformRequest, session: Session = Depe
     content = _load_content(session, body.script_id)
 
     # Short-form requires audio for every scene (word-synced subtitles)
-    data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
+    data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
     missing = []
     for seg in content.segments:
         for sc in seg.scenes:

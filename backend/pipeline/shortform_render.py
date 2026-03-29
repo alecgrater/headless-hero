@@ -13,7 +13,7 @@ from pipeline.video_render import _run_ffmpeg, _sanitize_filename, copy_to_downl
 
 log = logging.getLogger(__name__)
 
-_data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
+_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
 
 ProgressCallback = Callable[[float, str], None] | None
 

@@ -14,7 +14,7 @@ from pipeline.ffmpeg_builder import build_auto_edit_scene_cmd, build_concat_with
 
 log = logging.getLogger(__name__)
 
-_data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
+_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
 
 ProgressCallback = Callable[[float, str], None] | None
 

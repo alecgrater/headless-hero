@@ -4,7 +4,7 @@ from pathlib import Path
 from sqlmodel import Session, SQLModel, create_engine, text
 
 # Store the DB in a `data/` directory next to the backend package
-_data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
+_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
 _data_dir.mkdir(parents=True, exist_ok=True)
 _db_path = _data_dir / "db.sqlite"
 

@@ -11,7 +11,7 @@ from models.credential import PlatformCredential
 
 log = logging.getLogger(__name__)
 
-_data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
+_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
 
 def _resolve_local_path(file_url: str) -> str:
     """Convert a web-relative /static/projects/... URL to a local filesystem path."""

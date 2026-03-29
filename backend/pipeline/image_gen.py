@@ -7,7 +7,7 @@ from pathlib import Path
 from integrations.google_image_client import generate_image
 
 # data/ directory lives two levels above backend/pipeline/
-_data_dir = Path(os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data"))
+_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
 
 _GUIDE_PATH = Path(__file__).resolve().parent.parent / "prompts" / "image_gen_guide.md"
 _STYLE_GUIDE = _GUIDE_PATH.read_text() if _GUIDE_PATH.exists() else ""
