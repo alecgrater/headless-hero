@@ -130,7 +130,7 @@ def _drawtext_filter(
     parts = [
         f"text='{escaped}'",
         f"fontsize={fontsize}",
-        f"fontcolor='{fontcolor}@{alpha_expr}'" if animation in ("fade_in", "typewriter") else f"fontcolor={fontcolor}",
+        f"fontcolor={fontcolor}",
         f"x='{x_expr}'",
         f"y='{y_expr}'",
         f"borderw={borderw}",
@@ -140,6 +140,10 @@ def _drawtext_filter(
         f"shadowcolor='black@0.6'",
         f"enable='{enable}'",
     ]
+
+    # Use separate alpha parameter for animated transparency (fontcolor@expr doesn't work)
+    if animation in ("fade_in", "typewriter"):
+        parts.append(f"alpha='{alpha_expr}'")
 
     return "drawtext=" + ":".join(parts)
 
@@ -814,17 +818,17 @@ def _build_animated_drawtext(phrase: dict, speed: float) -> str | None:
     else:
         fs = str(base_size)
 
-    # Alpha expression for fade_in animation
+    # Alpha expression for fade_in animation (use separate alpha param, not fontcolor@expr)
+    alpha_part = ""
     if animation == "fade_in":
-        alpha = f"if(lt(t-{show_at},0.3),(t-{show_at})/0.3,1)"
-        color_expr = f"fontcolor_expr='white@{{{alpha}}}'"
-    else:
-        color_expr = "fontcolor=white"
+        alpha_expr = f"if(lt(t-{show_at},0.3),(t-{show_at})/0.3,1)"
+        alpha_part = f":alpha='{alpha_expr}'"
 
     dt = (
         f"drawtext=text='{escaped}'"
         f":fontsize='{fs}'"
-        f":{color_expr}"
+        f":fontcolor=white"
+        f"{alpha_part}"
         f":x='(w-text_w)/2':y='h*0.75'"
         f":box=1:boxcolor='black@0.65':boxborderw=14"
         f":enable='between(t,{show_at},{hide_at})'"
