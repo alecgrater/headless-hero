@@ -239,7 +239,7 @@ def get_script(script_id: str, session: Session = Depends(get_session)):
         brand_id=record.brand_id,
         topic_title=record.topic_title,
         topic_description=record.topic_description,
-        script=script_content,
+        script=ScriptContent.model_validate(json.loads(record.script_json)),
         created_at=record.created_at,
         content_format=record.content_format or "youtube",
     )
