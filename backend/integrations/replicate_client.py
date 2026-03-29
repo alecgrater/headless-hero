@@ -3,7 +3,6 @@
 import os
 import tempfile
 
-import httpx
 import replicate
 
 
@@ -25,13 +24,9 @@ def generate_image(prompt: str, width: int = 1344, height: int = 768) -> str:
         },
     )
 
-    # output is a FileOutput / URL string — download to a temp file
-    image_url = str(output)
-    resp = httpx.get(image_url, follow_redirects=True, timeout=120)
-    resp.raise_for_status()
-
+    # output is a FileOutput — use .read() to get bytes per Replicate SDK docs
     fd, tmp_path = tempfile.mkstemp(suffix=".png")
     with os.fdopen(fd, "wb") as f:
-        f.write(resp.content)
+        f.write(output.read())
     os.chmod(tmp_path, 0o644)
     return tmp_path
