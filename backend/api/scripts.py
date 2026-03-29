@@ -5,6 +5,8 @@ import shutil
 import time
 from pathlib import Path
 
+from datetime import datetime, timezone, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
@@ -109,6 +111,19 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
     if not brand:
         raise HTTPException(status_code=404, detail="Brand not found")
 
+    # Dedup: if an identical script was created in the last 60 seconds, return it
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=60)
+    existing = session.exec(
+        select(Script)
+        .where(Script.brand_id == body.brand_id, Script.topic_title == body.topic, Script.created_at >= cutoff)
+        .order_by(Script.created_at.desc())  # type: ignore[arg-type]
+    ).first()
+    if existing:
+        return GenerateScriptResponse(
+            id=existing.id,
+            script=ScriptContent.model_validate(json.loads(existing.script_json)),
+        )
+
     # Build brand context string
     parts = [brand.name]
     if brand.art_style:
@@ -165,6 +180,19 @@ def generate_shortform(body: GenerateShortformScriptRequest, session: Session = 
     brand = session.get(BrandProfile, body.brand_id)
     if not brand:
         raise HTTPException(status_code=404, detail="Brand not found")
+
+    # Dedup: if an identical script was created in the last 60 seconds, return it
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=60)
+    existing = session.exec(
+        select(Script)
+        .where(Script.brand_id == body.brand_id, Script.topic_title == body.topic, Script.created_at >= cutoff)
+        .order_by(Script.created_at.desc())  # type: ignore[arg-type]
+    ).first()
+    if existing:
+        return GenerateScriptResponse(
+            id=existing.id,
+            script=ScriptContent.model_validate(json.loads(existing.script_json)),
+        )
 
     parts = [brand.name]
     if brand.art_style:
