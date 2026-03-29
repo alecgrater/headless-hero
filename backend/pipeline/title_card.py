@@ -20,6 +20,7 @@ def ensure_title_card_images(
     color_secondary: str = "#16213e",
     width: int = 1920,
     height: int = 1080,
+    font_family: str = "",
 ) -> list[str]:
     """Generate title card PNG images for all title card scenes that lack them.
 
@@ -56,6 +57,7 @@ def ensure_title_card_images(
                 color_secondary=color_secondary,
                 width=width,
                 height=height,
+                font_family=font_family,
             )
 
             logger.info("Generating title card for scene %s: %s", scene.id, title_text)

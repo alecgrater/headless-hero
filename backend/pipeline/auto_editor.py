@@ -183,6 +183,7 @@ def render_auto_edit_video(
     on_progress: ProgressCallback = None,
     title: str = "",
     speed: float = 1.0,
+    font_name: str = "",
 ) -> str:
     """Render full auto-edited video using the Claude-generated timeline.
 
@@ -244,6 +245,7 @@ def render_auto_edit_video(
                 renders_dir=str(renders),
                 scene_id=scene.id,
                 speed=speed,
+                font_name=font_name,
             )
 
         cmd = build_auto_edit_scene_cmd(

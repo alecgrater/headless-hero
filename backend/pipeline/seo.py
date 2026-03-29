@@ -41,7 +41,8 @@ class ShortformSEOMetadata(BaseModel):
 
 SYSTEM_PROMPT = """\
 You are a social media SEO expert. Generate optimized metadata for video \
-content across multiple platforms.
+content across multiple platforms. Tailor the metadata to match the brand's \
+voice, identity, and style when brand context is provided.
 
 Rules:
 - YouTube title: max 70 chars, include primary keyword, use power words.
@@ -61,6 +62,7 @@ def generate_seo(
     video_title: str,
     segments: list[str],
     video_description: str = "",
+    brand_context: str = "",
 ) -> SEOMetadata:
     """Generate SEO metadata for all platforms via Claude."""
     segment_list = "\n".join(f"- {name}" for name in segments)
@@ -71,6 +73,8 @@ def generate_seo(
     )
     if video_description:
         user_msg += f"\n\nAdditional context: {video_description}"
+    if brand_context:
+        user_msg += f"\n\nBrand: {brand_context}"
 
     raw = chat(SYSTEM_PROMPT, user_msg, max_tokens=4096)
     text = raw.strip()

@@ -33,6 +33,7 @@ def generate_scene_image(
     variant: str = "a",
     style_guide: str = "",
     color_palette: str = "",
+    font: str = "",
 ) -> tuple[str, str]:
     """Generate a single scene image and save it locally.
 
@@ -43,7 +44,7 @@ def generate_scene_image(
     """
     guide = style_guide if style_guide else _STYLE_GUIDE
 
-    # Build prompt: guide → brand style → color palette → visual prompt
+    # Build prompt: guide → brand style → color palette → font → visual prompt
     parts: list[str] = []
     if guide:
         parts.append(guide)
@@ -52,6 +53,8 @@ def generate_scene_image(
     palette_desc = _format_color_palette(color_palette)
     if palette_desc:
         parts.append(palette_desc)
+    if font:
+        parts.append(f"Brand typography: {font}")
     parts.append(visual_prompt)
     prompt = "\n\n".join(parts)
 
@@ -88,6 +91,7 @@ def generate_batch(
     height: int = 768,
     style_guide: str = "",
     color_palette: str = "",
+    font: str = "",
 ) -> list[dict[str, str | None]]:
     """Generate images for a list of scenes sequentially.
 
@@ -107,6 +111,7 @@ def generate_batch(
                 height=height,
                 style_guide=style_guide,
                 color_palette=color_palette,
+                font=font,
             )
             image_url_b = None
             if scene.get("is_animated") and scene.get("visual_prompt_b"):
@@ -120,6 +125,7 @@ def generate_batch(
                     variant="b",
                     style_guide=style_guide,
                     color_palette=color_palette,
+                    font=font,
                 )
             results.append({
                 "scene_id": scene["scene_id"],

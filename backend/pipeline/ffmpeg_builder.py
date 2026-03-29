@@ -100,6 +100,7 @@ def _drawtext_filter(
     show_at: float,
     overlay_duration: float,
     scene_duration: float,
+    font_family: str = "",
 ) -> str:
     """Build a drawtext filter string for text overlays."""
     escaped = _escape_drawtext(text)
@@ -155,6 +156,9 @@ def _drawtext_filter(
         f"enable='{enable}'",
     ]
 
+    if font_family:
+        parts.append(f"font='{font_family}'")
+
     # Use separate alpha parameter for animated transparency (fontcolor@expr doesn't work)
     if animation in ("fade_in", "typewriter"):
         parts.append(f"alpha='{alpha_expr}'")
@@ -194,6 +198,7 @@ def build_scene_video_cmd(
     overlay_duration: float = 0.0,
     fade_out_duration: float = 0.3,
     speed: float = 1.0,
+    font_family: str = "",
 ) -> list[str]:
     """Build FFmpeg command to render a single scene (image + audio -> MP4).
 
@@ -226,6 +231,7 @@ def build_scene_video_cmd(
             show_at=overlay_show_at,
             overlay_duration=overlay_duration,
             scene_duration=duration,
+            font_family=font_family,
         )
         filters.append(dt)
 
@@ -287,6 +293,7 @@ def build_video_clip_scene_cmd(
     fade_out_duration: float = 0.3,
     speed: float = 1.0,
     gameplay_volume: float = 0.15,
+    font_family: str = "",
 ) -> list[str]:
     """Build FFmpeg command for a video clip scene (gameplay + narration audio mix).
 
@@ -313,6 +320,7 @@ def build_video_clip_scene_cmd(
             show_at=overlay_show_at,
             overlay_duration=overlay_duration,
             scene_duration=duration,
+            font_family=font_family,
         )
         vfilters.append(dt)
 
@@ -471,6 +479,7 @@ def build_animated_scene_video_cmd(
     overlay_duration: float = 0.0,
     fade_out_duration: float = 0.3,
     speed: float = 1.0,
+    font_family: str = "",
 ) -> list[str]:
     """Build FFmpeg command for an animated A/B flip scene (two images alternating).
 
@@ -502,6 +511,7 @@ def build_animated_scene_video_cmd(
             show_at=overlay_show_at,
             overlay_duration=overlay_duration,
             scene_duration=duration,
+            font_family=font_family,
         )
         post_filters.append(dt)
 
@@ -563,6 +573,7 @@ def build_title_card_image_cmd(
     color_secondary: str = "#16213e",
     width: int = 1920,
     height: int = 1080,
+    font_family: str = "",
 ) -> list[str]:
     """Build FFmpeg command to generate a title card PNG (solid color + centered text).
 
@@ -573,12 +584,14 @@ def build_title_card_image_cmd(
 
     escaped = _escape_drawtext(title_text)
 
+    font_part = f":font='{font_family}'" if font_family else ""
     vf = (
         f"drawtext=text='{escaped}'"
         f":fontsize=72:fontcolor=white"
         f":x='(w-text_w)/2':y='(h-text_h)/2'"
         f":borderw=3:bordercolor=black"
         f":shadowx=3:shadowy=3:shadowcolor='black@0.6'"
+        f"{font_part}"
     ) if _DRAWTEXT_AVAILABLE else ""
 
     cmd = [
@@ -761,6 +774,7 @@ def build_thumbnail_composite_cmd(
     bar_color: str = "0x9333EA",
     width: int = 1280,
     height: int = 720,
+    font_family: str = "",
 ) -> list[str]:
     """Build FFmpeg command to composite title text + color bar onto a thumbnail image."""
     filter_complex = (
@@ -771,9 +785,11 @@ def build_thumbnail_composite_cmd(
 
     if _DRAWTEXT_AVAILABLE:
         escaped = _escape_drawtext(title_text)
+        font_part = f":font='{font_family}'" if font_family else ""
         filter_complex += (
             f",drawtext=text='{escaped}':fontsize=52:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2:"
             f"borderw=3:bordercolor=black:shadowx=3:shadowy=3:shadowcolor='black@0.7'"
+            f"{font_part}"
         )
 
     cmd = [

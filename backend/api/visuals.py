@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from api.database import get_session
+from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.image_gen import generate_batch, generate_scene_image
 
@@ -110,6 +111,10 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
     height = body.height if not is_shortform else 1344
     style_guide = _SHORTFORM_STYLE_GUIDE if is_shortform else ""
 
+    # Load brand font
+    brand = session.get(BrandProfile, record.brand_id)
+    brand_font = brand.font if brand else ""
+
     image_url, prompt_used = generate_scene_image(
         scene_id=body.scene_id,
         visual_prompt=body.visual_prompt,
@@ -119,6 +124,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         height=height,
         style_guide=style_guide,
         color_palette=body.color_palette,
+        font=brand_font,
     )
 
     _update_scene_image_url(session, body.script_id, body.scene_id, image_url)
@@ -135,6 +141,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             variant="b",
             style_guide=style_guide,
             color_palette=body.color_palette,
+            font=brand_font,
         )
         _update_scene_image_url_b(session, body.script_id, body.scene_id, image_url_b)
 
@@ -152,6 +159,10 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
     width = body.width if not is_shortform else 768
     height = body.height if not is_shortform else 1344
     style_guide = _SHORTFORM_STYLE_GUIDE if is_shortform else ""
+
+    # Load brand font
+    brand = session.get(BrandProfile, record.brand_id)
+    brand_font = brand.font if brand else ""
 
     scenes = [
         {
@@ -171,6 +182,7 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
         height=height,
         style_guide=style_guide,
         color_palette=body.color_palette,
+        font=brand_font,
     )
 
     # Persist successful image URLs

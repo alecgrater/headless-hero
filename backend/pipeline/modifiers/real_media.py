@@ -110,6 +110,7 @@ class RealMediaModifier(ContentModifier):
             overlay_duration=toc.duration,
             fade_out_duration=fade_out,
             speed=speed,
+            font_family=kwargs.get("font_family", ""),
         )
 
     def get_router(self):

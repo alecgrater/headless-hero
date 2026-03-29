@@ -76,6 +76,7 @@ def render_shortform_scene(
                 scene, script_id,
                 width=width, height=height, fade_out=0, speed=speed,
                 output_path=output_path,
+                font_family=(brand or {}).get("font", ""),
             )
             if override_cmd is not None:
                 _run_ffmpeg(override_cmd)
@@ -94,6 +95,7 @@ def render_shortform_scene(
     # Generate ASS subtitles from word timestamps
     renders = _renders_dir(script_id)
     ass_path = None
+    brand_dict = brand or {}
     if scene.word_timestamps:
         ass_path = generate_ass_for_scene(
             word_timestamps=scene.word_timestamps,
@@ -105,6 +107,7 @@ def render_shortform_scene(
             renders_dir=str(renders),
             scene_id=scene.id,
             speed=speed,
+            font_name=brand_dict.get("font", ""),
         )
 
     cmd = build_shortform_scene_cmd(

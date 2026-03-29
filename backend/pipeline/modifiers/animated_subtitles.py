@@ -70,7 +70,8 @@ def _build_router() -> APIRouter:
                 primary = colors[0]
             if len(colors) >= 2:
                 secondary = colors[1]
-        ensure_title_card_images(script_id, content.segments, primary, secondary)
+        font_family = brand.font if brand else ""
+        ensure_title_card_images(script_id, content.segments, primary, secondary, font_family=font_family)
 
     def _total_audio_duration(content: ScriptContent) -> float:
         total = 0.0
@@ -98,6 +99,14 @@ def _build_router() -> APIRouter:
             on_progress(0.0, "Generating editing timeline with Claude...")
             timeline = generate_edit_timeline(content)
 
+            # Load brand font for subtitle rendering
+            record = session.get(Script, body.script_id)
+            brand_font = ""
+            if record:
+                brand_obj = session.get(BrandProfile, record.brand_id)
+                if brand_obj:
+                    brand_font = brand_obj.font or ""
+
             return render_auto_edit_video(
                 script_id=body.script_id,
                 content=content,
@@ -107,6 +116,7 @@ def _build_router() -> APIRouter:
                 on_progress=on_progress,
                 title=body.title,
                 speed=speed,
+                font_name=brand_font,
             )
 
         run_in_background(job.id, do_render)

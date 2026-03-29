@@ -78,7 +78,7 @@ class TitleCardsModifier(ContentModifier):
 
         # Wrap in a minimal segment for the existing function
         dummy_seg = Segment(name="", scenes=[scene])
-        ensure_title_card_images(script_id, [dummy_seg], primary, secondary)
+        ensure_title_card_images(script_id, [dummy_seg], primary, secondary, font_family=brand.get("font", ""))
 
         return scene
 

@@ -150,6 +150,7 @@ def generate_ass_subtitles(
     accent_color: str = "#00FFFF",
     mode: str = "landscape",
     output_path: str | None = None,
+    font_name: str = "",
 ) -> str | None:
     """Generate an ASS subtitle file from word timestamps.
 
@@ -187,6 +188,9 @@ def generate_ass_subtitles(
         alignment = 2  # \an2 = bottom center
         margin_v = 60
 
+    # Use brand font if provided, otherwise fall back to Arial Black
+    ass_font = font_name if font_name else "Arial Black"
+
     # Build ASS file content
     lines: list[str] = [
         "[Script Info]",
@@ -202,7 +206,7 @@ def generate_ass_subtitles(
         "Alignment, MarginL, MarginR, MarginV, Encoding",
         # Primary = white (final color after karaoke sweep)
         # Secondary = accent color (karaoke fill color that sweeps across)
-        f"Style: Default,Arial Black,{fontsize},{white_ass},{accent_ass},{black_ass},{shadow_ass},"
+        f"Style: Default,{ass_font},{fontsize},{white_ass},{accent_ass},{black_ass},{shadow_ass},"
         f"-1,0,0,0,100,100,0,0,1,4,2,{alignment},20,20,{margin_v},1",
         "",
         "[Events]",
@@ -233,6 +237,7 @@ def generate_ass_for_scene(
     renders_dir: str,
     scene_id: str,
     speed: float = 1.0,
+    font_name: str = "",
 ) -> str | None:
     """Convenience wrapper: generate ASS for a scene, adjusting for speed, saving to renders dir.
 
@@ -263,4 +268,5 @@ def generate_ass_for_scene(
         accent_color=accent_color,
         mode=mode,
         output_path=ass_path,
+        font_name=font_name,
     )

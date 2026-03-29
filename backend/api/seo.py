@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from api.database import get_session
+from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.seo import SEOMetadata, ShortformSEOMetadata, generate_seo, generate_shortform_seo
 
@@ -35,10 +36,20 @@ def generate_seo_metadata(body: GenerateSEORequest, session: Session = Depends(g
     content = ScriptContent.model_validate(json.loads(record.script_json))
     segment_names = [seg.name for seg in content.segments]
 
+    # Build brand context for SEO generation
+    brand = session.get(BrandProfile, record.brand_id)
+    brand_context = ""
+    if brand:
+        parts = [brand.name]
+        if brand.art_style:
+            parts.append(f"Art style: {brand.art_style}")
+        brand_context = ". ".join(parts)
+
     metadata = generate_seo(
         video_title=content.title,
         segments=segment_names,
         video_description=record.topic_description,
+        brand_context=brand_context,
     )
 
     return GenerateSEOResponse(metadata=metadata)
@@ -60,9 +71,19 @@ def generate_shortform_seo_metadata(body: GenerateShortformSEORequest, session: 
         if scene.narration
     )
 
+    # Build brand context for SEO generation
+    brand = session.get(BrandProfile, record.brand_id)
+    brand_context = ""
+    if brand:
+        parts = [brand.name]
+        if brand.art_style:
+            parts.append(f"Art style: {brand.art_style}")
+        brand_context = ". ".join(parts)
+
     metadata = generate_shortform_seo(
         title=content.title,
         narration_text=narration,
+        brand_context=brand_context,
         platforms=body.platforms,
     )
 

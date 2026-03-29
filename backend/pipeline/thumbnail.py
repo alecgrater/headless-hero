@@ -63,6 +63,7 @@ def generate_thumbnail(
     brand_style: str = "",
     bar_color: str = "0x9333EA",
     title: str = "",
+    font_family: str = "",
 ) -> str:
     """Generate a single thumbnail: Gemini illustration + FFmpeg text composite.
 
@@ -86,6 +87,7 @@ def generate_thumbnail(
         output_path=final_path,
         title_text=title_text,
         bar_color=bar_color,
+        font_family=font_family,
     )
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     if result.returncode != 0:

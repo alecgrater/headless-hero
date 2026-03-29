@@ -112,6 +112,7 @@ def render_scene_video(
                 scene, script_id,
                 width=width, height=height, fade_out=fade_out, speed=speed,
                 output_path=output_path,
+                font_family=brand_dict.get("font", ""),
             )
             if override_cmd is not None:
                 _run_ffmpeg(override_cmd)
@@ -150,6 +151,8 @@ def render_scene_video(
 
     kb = scene.ken_burns or KenBurnsConfig()
     toc = scene.text_overlay_config or TextOverlayConfig()
+    brand_dict = brand or {}
+    font_family = brand_dict.get("font", "")
 
     if is_animated and image_path_b:
         cmd = build_animated_scene_video_cmd(
@@ -168,6 +171,7 @@ def render_scene_video(
             overlay_duration=toc.duration,
             fade_out_duration=fade_out,
             speed=speed,
+            font_family=font_family,
         )
     else:
         cmd = build_scene_video_cmd(
@@ -187,6 +191,7 @@ def render_scene_video(
             overlay_duration=toc.duration,
             fade_out_duration=fade_out,
             speed=speed,
+            font_family=font_family,
         )
 
     _run_ffmpeg(cmd)

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from api.database import get_session
+from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.thumbnail import generate_concepts, generate_shortform_thumbnail, generate_thumbnail
 
@@ -38,6 +39,10 @@ def generate_thumbnails(body: GenerateThumbnailRequest, session: Session = Depen
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
 
+    # Load brand font for thumbnail text rendering
+    brand = session.get(BrandProfile, record.brand_id)
+    font_family = brand.font if brand else ""
+
     # Generate concepts from Claude
     concepts = generate_concepts(
         video_title=content.title,
@@ -56,6 +61,7 @@ def generate_thumbnails(body: GenerateThumbnailRequest, session: Session = Depen
                 brand_style=body.brand_style,
                 bar_color=body.bar_color,
                 title=body.title,
+                font_family=font_family,
             )
             results.append(ThumbnailConceptResult(
                 idx=i,
