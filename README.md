@@ -4,7 +4,7 @@ AI-powered desktop app for creating faceless educational YouTube content. Full p
 
 Replace the fragmented workflow of ChatGPT + ElevenLabs + Midjourney + InVideo + Canva with a single integrated application that enforces brand consistency across every video.
 
-![Architecture Diagram](architecture.png)
+![Architecture Diagram](media/architecture.png)
 
 ## What It Does
 
