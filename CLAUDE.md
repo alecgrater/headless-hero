@@ -1,5 +1,9 @@
 # Headless Hero — CLAUDE.md
 
+## Self-Maintenance
+
+**When a new convention, rule, or architectural decision is established during a session, update this file to reflect it before committing.** Keep the document accurate and current — it is the source of truth for how this project works.
+
 ## Auto-commit Rule
 
 **Every time a feature or fix is completed, automatically commit and push the changes.** Do not wait for the user to ask — stage the relevant files, write a descriptive commit message, and push to `main`. Follow the commit message conventions below.
