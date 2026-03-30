@@ -151,7 +151,7 @@ async def log_stats():
         ).all()
         # Check which ones don't exist before last hour
         recent_new = []
-        for (prefix,) in recent_prefixes if recent_prefixes else []:
+        for prefix in recent_prefixes if recent_prefixes else []:
             older = session.exec(
                 select(func.count())
                 .select_from(DevLog)

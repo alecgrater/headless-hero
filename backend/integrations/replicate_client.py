@@ -7,6 +7,7 @@ import threading
 import time
 
 import replicate
+from replicate.exceptions import ReplicateError
 
 from integrations.usage_tracker import record_usage, REPLICATE_FLUX_PER_IMAGE, REPLICATE_KONTEXT_PER_IMAGE
 
@@ -15,6 +16,9 @@ logger = logging.getLogger(__name__)
 # Module-level rate limiter: tracks last API call time
 _last_call_lock = threading.Lock()
 _last_call_time: float = 0.0
+
+_MAX_RETRIES = 3
+_RETRY_BASE_SECONDS = 2.0
 
 
 def _enforce_rate_limit() -> None:
@@ -37,6 +41,24 @@ def _require_token() -> None:
             "REPLICATE_API_TOKEN is not set. "
             "Export it in your shell or add it to the app settings."
         )
+
+
+def _run_with_retry(model: str, input_dict: dict) -> object:
+    """Call replicate.run with automatic retry on 429 rate-limit errors."""
+    for attempt in range(_MAX_RETRIES):
+        try:
+            return replicate.run(model, input=input_dict)
+        except ReplicateError as exc:
+            if exc.status == 429 and attempt < _MAX_RETRIES - 1:
+                wait = _RETRY_BASE_SECONDS * (2 ** attempt)
+                logger.warning(
+                    "Replicate 429 rate limit hit, retrying in %.1fs (attempt %d/%d)",
+                    wait, attempt + 1, _MAX_RETRIES,
+                )
+                time.sleep(wait)
+                _enforce_rate_limit()
+                continue
+            raise
 
 
 def generate_image(
@@ -83,10 +105,7 @@ def generate_image(
         input_dict["seed"] = seed
 
     try:
-        output = replicate.run(
-            model,
-            input=input_dict,
-        )
+        output = _run_with_retry(model, input_dict)
     except Exception:
         logger.error("Replicate image generation API call failed", exc_info=True)
         raise
@@ -134,7 +153,7 @@ def generate_image_from_reference(
         input_dict["seed"] = seed
 
     try:
-        output = replicate.run(model, input=input_dict)
+        output = _run_with_retry(model, input_dict)
     except Exception:
         logger.error("Replicate Kontext API call failed", exc_info=True)
         raise
