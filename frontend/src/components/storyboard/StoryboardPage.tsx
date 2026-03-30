@@ -198,9 +198,10 @@ function StoryboardEditor({
       if (res.ok) {
         const data = res.data as VoiceListResponse;
         setVoices(data.voices);
-        // Default to brand voice or first voice
+        // Default to brand voice, then Liam, then first voice
         if (!selectedVoiceId && data.voices.length > 0) {
-          setSelectedVoiceId(data.voices[0].voice_id);
+          const liam = data.voices.find((v) => v.name.startsWith("Liam"));
+          setSelectedVoiceId(liam?.voice_id ?? data.voices[0].voice_id);
         }
       }
     });
