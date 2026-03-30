@@ -44,7 +44,7 @@ The app is structured as four layers:
 | `/api/thumbnail` | Thumbnail generation |
 | `/api/seo` | SEO metadata generation |
 | `/api/publish` | YouTube OAuth, upload, status, history |
-| `/dev/` | Dev dashboard (log viewer, job monitor, analytics) |
+| `/dev/` | Dev dashboard (log viewer, job monitor, API tester, DB inspector, usage tracker) |
 
 ### External Services
 
@@ -171,14 +171,16 @@ headless-hero/
 │   │   ├── elevenlabs_client.py   # ElevenLabs httpx wrapper
 │   │   ├── youtube_client.py      # YouTube Data API v3 wrapper
 │   │   ├── replicate_client.py    # Replicate API wrapper (optional)
-│   │   └── image_client.py        # Image provider router (Google/Replicate)
+│   │   ├── image_client.py        # Image provider router (Google/Replicate)
+│   │   └── usage_tracker.py       # API usage recording + pricing constants
 │   ├── models/
 │   │   ├── brand.py          # BrandProfile table + schemas
 │   │   ├── script.py         # Script table + Scene/Segment models
 │   │   ├── credential.py     # OAuth token storage
 │   │   ├── publish.py        # Upload history tracking
 │   │   ├── settings.py       # Key-value app settings
-│   │   └── generation_duration.py  # Render time estimation data
+│   │   ├── generation_duration.py  # Render time estimation data
+│   │   └── api_usage.py      # API call tracking (tokens, cost, etc.)
 │   ├── dev/
 │   │   ├── log_handler.py    # SQLite logging handler + DevLog model
 │   │   ├── routes.py         # Dashboard API routes + WebSocket
@@ -229,6 +231,36 @@ The Jobs tab monitors active and completed render jobs:
 - **Completed/failed jobs** — Lists finished jobs with duration and status. Failed jobs show an expandable error traceback
 - **Auto-refresh** — The Jobs tab polls every 2 seconds while visible
 
+#### API Tester Tab
+
+The API tab provides an interactive explorer for all backend endpoints:
+
+- **Endpoint discovery** — Fetches the OpenAPI schema automatically and lists all endpoints grouped by tag (brands, scripts, render, etc.)
+- **Search/filter** — Filter endpoints by path or tag name
+- **Request builder** — Click an endpoint to populate path parameters, query parameters, and a pre-filled JSON body generated from the schema
+- **Response viewer** — Displays status code, response time, and syntax-highlighted JSON response
+
+#### Database Tab
+
+The Database tab provides a browser for the SQLite database:
+
+- **Table list** — All tables with row counts. Click to browse rows
+- **Row browser** — Paginated data table (50 rows/page) with clickable rows for detailed view. JSON blobs are pretty-printed in the detail modal
+- **Sensitive field redaction** — `access_token`, `refresh_token`, and `value` fields in credential/settings tables are automatically masked
+- **SQL query runner** — Collapsible textarea for running custom `SELECT`/`PRAGMA` queries. Write operations are rejected
+
+#### Usage Tab
+
+The Usage tab tracks API costs across all external services:
+
+- **Service cards** — Per-service cost breakdown for Anthropic, Google AI Studio, Replicate, and ElevenLabs with call counts and relevant metrics (tokens, characters, images)
+- **Daily cost chart** — Stacked bar chart showing cost per day per service
+- **Operation breakdown** — Table of costs grouped by service, operation type, and model
+- **Recent calls log** — Detailed table of recent API calls with timestamps, token counts, and per-call cost
+- **Time range** — Configurable window (7, 30, 90, or 365 days)
+
+Cost estimates are approximate and based on standard published pricing. Usage is recorded automatically whenever any integration client makes an API call.
+
 #### Log Persistence
 
 Logs are stored in SQLite (`data/db.sqlite` in the `dev_logs` table) and persist across backend restarts. Logs older than 7 days are automatically pruned on startup.
@@ -243,6 +275,11 @@ Logs are stored in SQLite (`data/db.sqlite` in the `dev_logs` table) and persist
 | `GET /dev/api/logs/modules` | List distinct logger names for filtering |
 | `GET /dev/api/jobs` | Current render job statuses |
 | `WebSocket /dev/ws/logs` | Live log stream |
+| `GET /dev/api/db/tables` | List all tables with row counts and columns |
+| `GET /dev/api/db/tables/{name}` | Paginated row browser (params: `limit`, `offset`) |
+| `POST /dev/api/db/query` | Execute read-only SQL (body: `{sql, limit}`) |
+| `GET /dev/api/usage/summary` | Aggregated usage stats per service (param: `days`) |
+| `GET /dev/api/usage/recent` | Recent API call log (param: `limit`) |
 
 ### How It Works
 
