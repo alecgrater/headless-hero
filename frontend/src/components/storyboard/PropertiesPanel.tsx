@@ -40,11 +40,7 @@ interface Props {
   scene: Scene;
   segmentIdx: number;
   segmentName: string;
-  isLastInSegment: boolean;
   onUpdate: (updates: Partial<Scene>) => void;
-  onSplit: () => void;
-  onMerge: () => void;
-  onDuplicate: () => void;
   onGenerateImage?: () => void;
   isGenerating?: boolean;
   onGenerateAudio?: () => void;
@@ -59,20 +55,14 @@ interface Props {
   isFetchingMedia?: boolean;
   contentFormat?: string;
   collapsed?: boolean;
-  pinned?: boolean;
   onToggle?: () => void;
-  onTogglePin?: () => void;
 }
 
 export default function PropertiesPanel({
   scene,
   segmentIdx: _segmentIdx,
   segmentName,
-  isLastInSegment,
   onUpdate,
-  onSplit,
-  onMerge,
-  onDuplicate,
   onGenerateImage,
   isGenerating = false,
   onGenerateAudio,
@@ -87,9 +77,7 @@ export default function PropertiesPanel({
   isFetchingMedia = false,
   contentFormat,
   collapsed = false,
-  pinned = true,
   onToggle,
-  onTogglePin,
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
@@ -177,29 +165,16 @@ export default function PropertiesPanel({
 
   return (
     <aside className="w-[320px] shrink-0 border-l border-neutral-800/60 overflow-y-auto p-4 space-y-4 transition-all duration-300">
-      {/* Panel header with collapse/pin controls */}
-      {(onToggle || onTogglePin) && (
-        <div className="flex items-center justify-between -mt-1 -mx-1 mb-1">
-          {onToggle && (
-            <button
-              onClick={onToggle}
-              className="text-neutral-500 hover:text-neutral-300 text-sm px-1 transition-colors"
-              title="Collapse panel"
-            >
-              &#x203A;
-            </button>
-          )}
-          {onTogglePin && (
-            <button
-              onClick={onTogglePin}
-              className={`text-sm px-1 transition-colors ${
-                pinned ? "text-violet-400 hover:text-violet-300" : "text-neutral-600 hover:text-neutral-400"
-              }`}
-              title={pinned ? "Unpin panel" : "Pin panel open"}
-            >
-              {pinned ? "📌" : "📍"}
-            </button>
-          )}
+      {/* Panel header with collapse control */}
+      {onToggle && (
+        <div className="flex items-center -mt-1 -mx-1 mb-1">
+          <button
+            onClick={onToggle}
+            className="text-neutral-500 hover:text-neutral-300 text-sm px-1 transition-colors"
+            title="Collapse panel"
+          >
+            &#x203A;
+          </button>
         </div>
       )}
 
@@ -745,34 +720,6 @@ export default function PropertiesPanel({
         <span className="text-sm text-neutral-300">Title Card</span>
       </label>
 
-      {/* Split / Merge */}
-      <div className="border-t border-neutral-800 pt-4 space-y-2">
-        <div className="text-xs text-neutral-500 uppercase tracking-wider font-semibold mb-2">
-          Scene Actions
-        </div>
-        <button
-          onClick={onSplit}
-          className="w-full text-sm px-3 py-2 border border-neutral-700/50 text-neutral-400 bg-transparent hover:bg-neutral-800 rounded-lg transition-colors"
-          title="Split into two scenes at midpoint"
-        >
-          Split Scene
-        </button>
-        <button
-          onClick={onDuplicate}
-          className="w-full text-sm px-3 py-2 border border-neutral-700/50 text-neutral-400 bg-transparent hover:bg-neutral-800 rounded-lg transition-colors"
-          title="Duplicate scene (keeps prompts, clears generated media)"
-        >
-          Duplicate Scene
-        </button>
-        <button
-          onClick={onMerge}
-          disabled={isLastInSegment}
-          className="w-full text-sm px-3 py-2 border border-neutral-700/50 text-neutral-400 bg-transparent hover:bg-neutral-800 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          title="Combine this scene with the next one"
-        >
-          Merge with Next
-        </button>
-      </div>
     </aside>
   );
 }

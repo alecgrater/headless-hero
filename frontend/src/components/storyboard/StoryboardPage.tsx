@@ -161,7 +161,6 @@ function StoryboardEditor({
   const [showVoiceSetup, setShowVoiceSetup] = useState(false);
   const [pendingAudioAction, setPendingAudioAction] = useState<"all" | string | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
-  const rightPanelRef = useRef<HTMLDivElement>(null);
 
   // Fetch render estimate when export panel or preview modal opens
   useEffect(() => {
@@ -256,43 +255,16 @@ function StoryboardEditor({
             (s) => s.id === state.selectedSceneId,
           );
           if (sc) {
-            const isLast =
-              state.content.segments[si].scenes.indexOf(sc) ===
-              state.content.segments[si].scenes.length - 1;
             return {
               scene: sc,
               segIdx: si,
               segName: state.content.segments[si].name,
-              isLast,
             };
           }
         }
         return null;
       })()
     : null;
-
-  // Auto-open right sidebar when scene selected (if collapsed + unpinned)
-  useEffect(() => {
-    if (selectedScene && sidebar.rightCollapsed && !sidebar.rightPinned) {
-      sidebar.openRight();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.selectedSceneId]);
-
-  // Click-away to close right sidebar when unpinned
-  useEffect(() => {
-    if (sidebar.rightPinned || sidebar.rightCollapsed) return;
-    const handleClickAway = (e: MouseEvent) => {
-      if (rightPanelRef.current && !rightPanelRef.current.contains(e.target as Node)) {
-        // Don't close if clicking on a scene card (that would re-open it)
-        const target = e.target as HTMLElement;
-        if (target.closest("[data-scene-card]")) return;
-        sidebar.closeRight();
-      }
-    };
-    document.addEventListener("mousedown", handleClickAway);
-    return () => document.removeEventListener("mousedown", handleClickAway);
-  }, [sidebar]);
 
   // Auto-render preview when scene changes in preview mode
   useEffect(() => {
@@ -630,19 +602,15 @@ function StoryboardEditor({
           onRetryImage={(sceneId) => state.generateImage(sceneId, artStyle, colorPalette)}
         />
 
-        <div ref={rightPanelRef} className="flex overflow-hidden">
+        <div className="flex overflow-hidden">
           {selectedScene ? (
             <PropertiesPanel
               scene={selectedScene.scene}
               segmentIdx={selectedScene.segIdx}
               segmentName={selectedScene.segName}
-              isLastInSegment={selectedScene.isLast}
               onUpdate={(updates) =>
                 state.updateScene(selectedScene.scene.id, updates)
               }
-              onSplit={() => state.splitScene(selectedScene.scene.id)}
-              onMerge={() => state.mergeWithNext(selectedScene.scene.id)}
-              onDuplicate={() => state.duplicateScene(selectedScene.scene.id)}
               onGenerateImage={() =>
                 state.generateImage(selectedScene.scene.id, artStyle, colorPalette)
               }
@@ -665,9 +633,7 @@ function StoryboardEditor({
               isFetchingMedia={state.fetchingMediaSceneIds.has(selectedScene.scene.id)}
               contentFormat={contentFormat}
               collapsed={sidebar.rightCollapsed}
-              pinned={sidebar.rightPinned}
               onToggle={sidebar.toggleRight}
-              onTogglePin={sidebar.toggleRightPin}
             />
           ) : sidebar.rightCollapsed ? (
             <aside className="w-10 shrink-0 border-l border-neutral-800/60 flex flex-col items-center pt-3">
