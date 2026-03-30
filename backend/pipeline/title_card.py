@@ -21,6 +21,7 @@ def ensure_title_card_images(
     width: int = 1920,
     height: int = 1080,
     font_family: str = "",
+    force: bool = False,
 ) -> list[str]:
     """Generate title card PNG images for all title card scenes that lack them.
 
@@ -31,6 +32,8 @@ def ensure_title_card_images(
         color_secondary: Secondary brand color (hex), reserved for future use.
         width: Image width in pixels.
         height: Image height in pixels.
+        font_family: Brand font family name.
+        force: If True, regenerate even if image already exists.
 
     Returns:
         List of scene IDs that got new images generated.
@@ -46,8 +49,10 @@ def ensure_title_card_images(
                 continue
 
             image_path = images_dir / f"{scene.id}.png"
-            if image_path.exists():
+            if image_path.exists() and not force:
                 continue
+            if force and image_path.exists():
+                image_path.unlink()
 
             title_text = scene.text_overlay or seg.name
             cmd = build_title_card_image_cmd(

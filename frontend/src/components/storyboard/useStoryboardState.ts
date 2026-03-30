@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api";
 import { fetchMedia as apiFetchMedia, fetchMediaBatch } from "../../api";
 import type { Scene, ScriptContent } from "../../types/script";
-import type { GenerateBatchResponse, GenerateVisualResponse } from "../../types/visual";
+import type { GenerateBatchResponse, GenerateVisualResponse, GenerateTitleCardsResponse } from "../../types/visual";
 import type { GenerateAudioResponse, GenerateBatchAudioResponse } from "../../types/audio";
 import type { FetchMediaResponse, BatchFetchResponse } from "../../types/media";
 
@@ -428,7 +428,42 @@ export function useStoryboardState(
         }
         return null;
       })();
-      if (!scene || !scene.visual_prompt) return;
+      if (!scene) return;
+
+      // Title card scenes use the dedicated title cards endpoint
+      if (scene.is_title_card) {
+        setGeneratingSceneIds((prev) => new Set(prev).add(sceneId));
+        try {
+          const res = await api.post("/api/visuals/generate-title-cards", {
+            script_id: scriptId,
+            force: true,
+          });
+          if (res.ok) {
+            const data = res.data as GenerateTitleCardsResponse;
+            setContent((prev) => ({
+              ...prev,
+              segments: prev.segments.map((seg) => ({
+                ...seg,
+                scenes: seg.scenes.map((sc) =>
+                  data.image_urls[sc.id]
+                    ? { ...sc, image_url: data.image_urls[sc.id] }
+                    : sc,
+                ),
+              })),
+            }));
+            immediateFlush();
+          }
+        } finally {
+          setGeneratingSceneIds((prev) => {
+            const next = new Set(prev);
+            next.delete(sceneId);
+            return next;
+          });
+        }
+        return;
+      }
+
+      if (!scene.visual_prompt) return;
 
       setGeneratingSceneIds((prev) => new Set(prev).add(sceneId));
       try {
@@ -470,10 +505,15 @@ export function useStoryboardState(
 
   const generateAllImages = useCallback(
     async (brandStyle: string, colorPalette?: string) => {
+      // Collect AI-generated scenes
       const scenes: { scene_id: string; visual_prompt: string; name: string; is_animated: boolean; visual_prompt_b: string }[] = [];
+      // Collect title card scene IDs for progress tracking
+      let hasTitleCards = false;
       for (const seg of contentRef.current.segments) {
         for (const sc of seg.scenes) {
-          if (sc.visual_prompt && (!sc.media_type || sc.media_type === "ai_generated")) {
+          if (sc.is_title_card) {
+            hasTitleCards = true;
+          } else if (sc.visual_prompt && (!sc.media_type || sc.media_type === "ai_generated")) {
             scenes.push({
               scene_id: sc.id,
               visual_prompt: sc.visual_prompt,
@@ -484,7 +524,7 @@ export function useStoryboardState(
           }
         }
       }
-      if (scenes.length === 0) return;
+      if (scenes.length === 0 && !hasTitleCards) return;
 
       setBatchGenerating(true);
       const statuses = new Map<string, BatchSceneStatus>();
@@ -501,6 +541,31 @@ export function useStoryboardState(
 
       let completed = 0;
       let failed = 0;
+
+      // Generate title cards first (instant, local FFmpeg)
+      if (hasTitleCards) {
+        try {
+          const res = await api.post("/api/visuals/generate-title-cards", {
+            script_id: scriptId,
+          });
+          if (res.ok) {
+            const data = res.data as GenerateTitleCardsResponse;
+            setContent((prev) => ({
+              ...prev,
+              segments: prev.segments.map((seg) => ({
+                ...seg,
+                scenes: seg.scenes.map((sc) =>
+                  data.image_urls[sc.id]
+                    ? { ...sc, image_url: data.image_urls[sc.id] }
+                    : sc,
+                ),
+              })),
+            }));
+          }
+        } catch {
+          // Title card generation failure shouldn't block AI image generation
+        }
+      }
 
       for (const scene of scenes) {
         statuses.set(scene.scene_id, "generating");

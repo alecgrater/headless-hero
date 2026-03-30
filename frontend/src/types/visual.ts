@@ -41,3 +41,8 @@ export interface BatchResultItem {
 export interface GenerateBatchResponse {
   results: BatchResultItem[];
 }
+
+export interface GenerateTitleCardsResponse {
+  generated_scene_ids: string[];
+  image_urls: Record<string, string>;
+}

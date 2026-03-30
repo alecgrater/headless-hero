@@ -11,6 +11,7 @@ from api.database import get_session
 from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.image_gen import generate_batch, generate_scene_image
+from pipeline.title_card import ensure_title_card_images
 
 router = APIRouter(prefix="/api/visuals", tags=["visuals"])
 
@@ -193,3 +194,69 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
             _update_scene_image_url_b(session, body.script_id, r["scene_id"], r["image_url_b"])
 
     return GenerateBatchResponse(results=[BatchResultItem(**r) for r in results])
+
+
+# --- Title card generation ---
+
+class GenerateTitleCardsRequest(BaseModel):
+    script_id: str
+    force: bool = False
+
+class GenerateTitleCardsResponse(BaseModel):
+    generated_scene_ids: list[str]
+    image_urls: dict[str, str]
+
+@router.post("/generate-title-cards", response_model=GenerateTitleCardsResponse)
+def generate_title_cards(body: GenerateTitleCardsRequest, session: Session = Depends(get_session)):
+    """Generate programmatic title card images for all title card scenes in a script."""
+    record = session.get(Script, body.script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    content = ScriptContent.model_validate(json.loads(record.script_json))
+
+    # Load brand for colors and font
+    brand = session.get(BrandProfile, record.brand_id)
+    color_palette = brand.color_palette if brand else ""
+    font_family = brand.font if brand else ""
+
+    # Parse brand colors
+    primary, secondary = "#1a1a2e", "#16213e"
+    if color_palette:
+        colors = [c.strip() for c in color_palette.split(",") if c.strip()]
+        if len(colors) >= 1:
+            primary = colors[0]
+        if len(colors) >= 2:
+            secondary = colors[1]
+
+    # Detect shortform dimensions
+    is_shortform = (record.content_format or "youtube") == "shortform"
+    width = 768 if is_shortform else 1920
+    height = 1344 if is_shortform else 1080
+
+    generated_ids = ensure_title_card_images(
+        script_id=body.script_id,
+        segments=content.segments,
+        color_primary=primary,
+        color_secondary=secondary,
+        width=width,
+        height=height,
+        font_family=font_family,
+        force=body.force,
+    )
+
+    # Persist updated image_urls back to script_json
+    image_urls: dict[str, str] = {}
+    for seg in content.segments:
+        for scene in seg.scenes:
+            if scene.is_title_card and scene.image_url:
+                image_urls[scene.id] = scene.image_url
+
+    record.script_json = content.model_dump_json()
+    session.add(record)
+    session.commit()
+
+    return GenerateTitleCardsResponse(
+        generated_scene_ids=generated_ids,
+        image_urls=image_urls,
+    )
