@@ -630,7 +630,7 @@ function StoryboardEditor({
           onRetryImage={(sceneId) => state.generateImage(sceneId, artStyle, colorPalette)}
         />
 
-        <div ref={rightPanelRef}>
+        <div ref={rightPanelRef} className="flex overflow-hidden">
           {selectedScene ? (
             <PropertiesPanel
               scene={selectedScene.scene}
