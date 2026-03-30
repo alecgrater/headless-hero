@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Headless Hero — Dev Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface: { 900: '#0a0a0a', 800: '#171717', 700: '#262626', 600: '#404040' },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace; }
+    .log-row:hover { background: rgba(255,255,255,0.03); }
+    .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #404040; border-radius: 3px; }
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .live-dot { animation: pulse-dot 1.5s ease-in-out infinite; }
+  </style>
+</head>
+<body class="bg-surface-900 text-neutral-300 min-h-screen">
+
+  <!-- Header -->
+  <header class="border-b border-neutral-800 px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <h1 class="text-lg font-semibold text-neutral-100">Headless Hero</h1>
+      <span class="text-xs bg-violet-600/20 text-violet-400 px-2 py-0.5 rounded">Dev Dashboard</span>
+    </div>
+    <div class="flex items-center gap-2 text-xs text-neutral-500">
+      <span class="w-2 h-2 rounded-full bg-emerald-500 live-dot" id="wsIndicator"></span>
+      <span id="wsStatus">Connecting...</span>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <nav class="border-b border-neutral-800 px-6 flex gap-1">
+    <button onclick="switchTab('logs')" id="tab-logs" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-violet-500 text-violet-400 transition-colors">Logs</button>
+    <button onclick="switchTab('jobs')" id="tab-jobs" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Jobs</button>
+  </nav>
+
+  <!-- Logs Tab -->
+  <div id="panel-logs" class="flex h-[calc(100vh-97px)]">
+    <!-- Main log area -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <!-- Filters -->
+      <div class="border-b border-neutral-800 px-4 py-2.5 flex items-center gap-3 flex-wrap">
+        <select id="filterLevel" onchange="fetchLogs()" class="bg-surface-800 border border-neutral-700 text-sm rounded px-2.5 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+          <option value="">All levels</option>
+          <option value="DEBUG">DEBUG</option>
+          <option value="INFO" selected>INFO</option>
+          <option value="WARNING">WARNING</option>
+          <option value="ERROR">ERROR</option>
+          <option value="CRITICAL">CRITICAL</option>
+        </select>
+        <select id="filterModule" onchange="fetchLogs()" class="bg-surface-800 border border-neutral-700 text-sm rounded px-2.5 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+          <option value="">All modules</option>
+        </select>
+        <input id="filterSearch" type="text" placeholder="Search messages..." onkeydown="if(event.key==='Enter')fetchLogs()"
+          class="bg-surface-800 border border-neutral-700 text-sm rounded px-2.5 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500 w-64">
+        <button onclick="fetchLogs()" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Search</button>
+        <div class="flex-1"></div>
+        <button onclick="togglePause()" id="pauseBtn" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Pause</button>
+        <button onclick="clearLogs()" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Clear</button>
+        <span id="logCount" class="text-xs text-neutral-500"></span>
+      </div>
+
+      <!-- Log entries -->
+      <div id="logContainer" class="flex-1 overflow-y-auto scrollbar-thin" onscroll="handleScroll()">
+        <table class="w-full text-xs">
+          <thead class="sticky top-0 bg-surface-900 border-b border-neutral-800 z-10">
+            <tr class="text-neutral-500 text-left">
+              <th class="px-3 py-2 w-20">Level</th>
+              <th class="px-3 py-2 w-44">Time</th>
+              <th class="px-3 py-2 w-48">Module</th>
+              <th class="px-3 py-2">Message</th>
+            </tr>
+          </thead>
+          <tbody id="logBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Stats sidebar -->
+    <div class="w-72 border-l border-neutral-800 flex flex-col overflow-y-auto scrollbar-thin">
+      <div class="px-4 py-3 border-b border-neutral-800 flex items-center justify-between">
+        <span class="text-sm font-medium text-neutral-100">Analytics</span>
+        <button onclick="fetchStats()" class="text-xs text-violet-400 hover:text-violet-300 transition-colors">Refresh</button>
+      </div>
+
+      <!-- By Level -->
+      <div class="px-4 py-3 border-b border-neutral-800">
+        <h3 class="text-xs font-medium text-neutral-400 mb-2">By Level (24h)</h3>
+        <div id="statsByLevel" class="space-y-1"></div>
+      </div>
+
+      <!-- Top Messages -->
+      <div class="px-4 py-3 border-b border-neutral-800">
+        <h3 class="text-xs font-medium text-neutral-400 mb-2">Top Messages (24h)</h3>
+        <div id="statsTopMessages" class="space-y-1.5"></div>
+      </div>
+
+      <!-- By Module -->
+      <div class="px-4 py-3 border-b border-neutral-800">
+        <h3 class="text-xs font-medium text-neutral-400 mb-2">By Module (24h)</h3>
+        <div id="statsByModule" class="space-y-1"></div>
+      </div>
+
+      <!-- Recent New -->
+      <div class="px-4 py-3">
+        <h3 class="text-xs font-medium text-neutral-400 mb-2">Just Appeared (1h)</h3>
+        <div id="statsRecentNew" class="space-y-1"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Jobs Tab -->
+  <div id="panel-jobs" class="hidden h-[calc(100vh-97px)] overflow-y-auto scrollbar-thin p-6">
+    <div id="jobsContainer" class="max-w-4xl mx-auto space-y-4"></div>
+  </div>
+
+  <!-- Expanded row detail -->
+  <div id="detailOverlay" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onclick="if(event.target===this)closeDetail()">
+    <div class="bg-surface-800 border border-neutral-700 rounded-lg w-[700px] max-h-[80vh] overflow-y-auto scrollbar-thin p-6">
+      <div class="flex items-center justify-between mb-4">
+        <span id="detailLevel" class="text-sm font-medium"></span>
+        <button onclick="closeDetail()" class="text-neutral-500 hover:text-neutral-300 transition-colors">&times;</button>
+      </div>
+      <div class="space-y-3 text-xs">
+        <div><span class="text-neutral-500">Time:</span> <span id="detailTime" class="text-neutral-200"></span></div>
+        <div><span class="text-neutral-500">Module:</span> <span id="detailModule" class="text-neutral-200"></span></div>
+        <div><span class="text-neutral-500">Function:</span> <span id="detailFunc" class="text-neutral-200"></span></div>
+        <div><span class="text-neutral-500">Line:</span> <span id="detailLine" class="text-neutral-200"></span></div>
+        <div class="mt-3">
+          <span class="text-neutral-500">Message:</span>
+          <pre id="detailMessage" class="mt-1 bg-surface-900 rounded p-3 text-neutral-200 whitespace-pre-wrap break-words"></pre>
+        </div>
+        <div id="detailTracebackWrap" class="hidden mt-3">
+          <span class="text-neutral-500">Traceback:</span>
+          <pre id="detailTraceback" class="mt-1 bg-red-950/30 border border-red-900/30 rounded p-3 text-red-300 whitespace-pre-wrap break-words"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// --- State ---
+let logs = [];
+let paused = false;
+let autoScroll = true;
+let ws = null;
+let wsReconnectTimer = null;
+
+const LEVEL_COLORS = {
+  DEBUG: 'bg-neutral-600 text-neutral-300',
+  INFO: 'bg-sky-600/30 text-sky-400',
+  WARNING: 'bg-amber-600/30 text-amber-400',
+  ERROR: 'bg-red-600/30 text-red-400',
+  CRITICAL: 'bg-red-700/50 text-red-300 font-bold',
+};
+
+const LEVEL_ORDER = { DEBUG: 0, INFO: 1, WARNING: 2, ERROR: 3, CRITICAL: 4 };
+
+// --- Tabs ---
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.remove('border-violet-500', 'text-violet-400');
+    b.classList.add('border-transparent', 'text-neutral-500');
+  });
+  document.getElementById('tab-' + tab).classList.add('border-violet-500', 'text-violet-400');
+  document.getElementById('tab-' + tab).classList.remove('border-transparent', 'text-neutral-500');
+  document.getElementById('panel-logs').classList.toggle('hidden', tab !== 'logs');
+  document.getElementById('panel-jobs').classList.toggle('hidden', tab !== 'jobs');
+  if (tab === 'jobs') fetchJobs();
+}
+
+// --- Logs ---
+async function fetchLogs() {
+  const params = new URLSearchParams();
+  const level = document.getElementById('filterLevel').value;
+  const mod = document.getElementById('filterModule').value;
+  const search = document.getElementById('filterSearch').value;
+  if (level) params.set('level', level);
+  if (mod) params.set('logger_name', mod);
+  if (search) params.set('search', search);
+  params.set('limit', '500');
+
+  const res = await fetch('/dev/api/logs?' + params);
+  const data = await res.json();
+  logs = data.reverse(); // oldest first
+  renderLogs();
+  scrollToBottom();
+}
+
+function renderLogs() {
+  const body = document.getElementById('logBody');
+  body.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  for (const log of logs) {
+    frag.appendChild(createLogRow(log));
+  }
+  body.appendChild(frag);
+  document.getElementById('logCount').textContent = logs.length + ' entries';
+}
+
+function createLogRow(log) {
+  const tr = document.createElement('tr');
+  tr.className = 'log-row border-b border-neutral-800/50 cursor-pointer';
+  tr.onclick = () => showDetail(log);
+
+  const levelCls = LEVEL_COLORS[log.level] || 'bg-neutral-600 text-neutral-300';
+  const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '';
+  const msg = (log.message || '').length > 200 ? log.message.substring(0, 200) + '...' : (log.message || '');
+  const hasTrace = log.traceback ? '<span class="text-red-500 ml-1" title="Has traceback">!</span>' : '';
+
+  tr.innerHTML = `
+    <td class="px-3 py-1.5"><span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${levelCls}">${log.level}</span></td>
+    <td class="px-3 py-1.5 text-neutral-500">${time}</td>
+    <td class="px-3 py-1.5 text-neutral-400 truncate max-w-[192px]" title="${log.logger_name || ''}">${log.logger_name || ''}</td>
+    <td class="px-3 py-1.5 text-neutral-300 truncate">${escapeHtml(msg)}${hasTrace}</td>
+  `;
+  return tr;
+}
+
+function showDetail(log) {
+  const levelCls = LEVEL_COLORS[log.level] || '';
+  document.getElementById('detailLevel').innerHTML = `<span class="px-2 py-0.5 rounded ${levelCls}">${log.level}</span>`;
+  document.getElementById('detailTime').textContent = log.timestamp ? new Date(log.timestamp).toLocaleString() : '';
+  document.getElementById('detailModule').textContent = log.logger_name || '';
+  document.getElementById('detailFunc').textContent = (log.func_name || '') + (log.module ? ` (${log.module})` : '');
+  document.getElementById('detailLine').textContent = log.lineno || '';
+  document.getElementById('detailMessage').textContent = log.message || '';
+  if (log.traceback) {
+    document.getElementById('detailTracebackWrap').classList.remove('hidden');
+    document.getElementById('detailTraceback').textContent = log.traceback;
+  } else {
+    document.getElementById('detailTracebackWrap').classList.add('hidden');
+  }
+  document.getElementById('detailOverlay').classList.remove('hidden');
+}
+
+function closeDetail() {
+  document.getElementById('detailOverlay').classList.add('hidden');
+}
+
+function clearLogs() {
+  logs = [];
+  renderLogs();
+}
+
+function togglePause() {
+  paused = !paused;
+  document.getElementById('pauseBtn').textContent = paused ? 'Resume' : 'Pause';
+  document.getElementById('pauseBtn').classList.toggle('bg-amber-700/40', paused);
+}
+
+function handleScroll() {
+  const container = document.getElementById('logContainer');
+  autoScroll = container.scrollTop + container.clientHeight >= container.scrollHeight - 50;
+}
+
+function scrollToBottom() {
+  if (!autoScroll) return;
+  const container = document.getElementById('logContainer');
+  container.scrollTop = container.scrollHeight;
+}
+
+// --- WebSocket ---
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/dev/ws/logs`);
+
+  ws.onopen = () => {
+    document.getElementById('wsStatus').textContent = 'Live';
+    document.getElementById('wsIndicator').classList.remove('bg-red-500');
+    document.getElementById('wsIndicator').classList.add('bg-emerald-500');
+  };
+
+  ws.onmessage = (evt) => {
+    if (paused) return;
+    const log = JSON.parse(evt.data);
+    // Apply current filters
+    const levelFilter = document.getElementById('filterLevel').value;
+    if (levelFilter && LEVEL_ORDER[log.level] < LEVEL_ORDER[levelFilter]) return;
+    const modFilter = document.getElementById('filterModule').value;
+    if (modFilter && log.logger_name !== modFilter) return;
+    const searchFilter = document.getElementById('filterSearch').value;
+    if (searchFilter && !(log.message || '').includes(searchFilter)) return;
+
+    logs.push(log);
+    // Cap at 2000 entries in the UI
+    if (logs.length > 2000) logs.splice(0, logs.length - 2000);
+    const body = document.getElementById('logBody');
+    body.appendChild(createLogRow(log));
+    document.getElementById('logCount').textContent = logs.length + ' entries';
+    scrollToBottom();
+  };
+
+  ws.onclose = () => {
+    document.getElementById('wsStatus').textContent = 'Disconnected';
+    document.getElementById('wsIndicator').classList.remove('bg-emerald-500');
+    document.getElementById('wsIndicator').classList.add('bg-red-500');
+    wsReconnectTimer = setTimeout(connectWS, 3000);
+  };
+
+  ws.onerror = () => ws.close();
+}
+
+// --- Stats ---
+async function fetchStats() {
+  const res = await fetch('/dev/api/logs/stats');
+  const stats = await res.json();
+
+  // By Level
+  const levelDiv = document.getElementById('statsByLevel');
+  levelDiv.innerHTML = '';
+  const totalLevel = Object.values(stats.by_level || {}).reduce((a, b) => a + b, 0) || 1;
+  for (const [level, count] of Object.entries(stats.by_level || {})) {
+    const pct = Math.round((count / totalLevel) * 100);
+    const cls = LEVEL_COLORS[level] || '';
+    levelDiv.innerHTML += `
+      <div class="flex items-center gap-2">
+        <span class="w-16 text-[10px] px-1.5 py-0.5 rounded ${cls}">${level}</span>
+        <div class="flex-1 bg-surface-900 rounded-full h-1.5"><div class="h-1.5 rounded-full bg-neutral-600" style="width:${pct}%"></div></div>
+        <span class="text-neutral-500 w-12 text-right">${count}</span>
+      </div>`;
+  }
+
+  // Top Messages
+  const topDiv = document.getElementById('statsTopMessages');
+  topDiv.innerHTML = '';
+  for (const item of (stats.top_messages || []).slice(0, 8)) {
+    topDiv.innerHTML += `
+      <div class="flex items-start gap-2">
+        <span class="text-violet-400 shrink-0">${item.count}x</span>
+        <span class="text-neutral-400 truncate" title="${escapeHtml(item.message)}">${escapeHtml(item.message.substring(0, 80))}</span>
+      </div>`;
+  }
+  if (!stats.top_messages?.length) topDiv.innerHTML = '<span class="text-neutral-600">No data</span>';
+
+  // By Module
+  const modDiv = document.getElementById('statsByModule');
+  modDiv.innerHTML = '';
+  for (const [mod, count] of Object.entries(stats.by_module || {}).slice(0, 10)) {
+    modDiv.innerHTML += `
+      <div class="flex items-center justify-between">
+        <span class="text-neutral-400 truncate" title="${mod}">${mod.split('.').pop()}</span>
+        <span class="text-neutral-500">${count}</span>
+      </div>`;
+  }
+  if (!Object.keys(stats.by_module || {}).length) modDiv.innerHTML = '<span class="text-neutral-600">No data</span>';
+
+  // Recent New
+  const newDiv = document.getElementById('statsRecentNew');
+  newDiv.innerHTML = '';
+  for (const msg of (stats.recent_new || []).slice(0, 8)) {
+    newDiv.innerHTML += `<div class="text-emerald-400 truncate" title="${escapeHtml(msg)}">${escapeHtml(msg.substring(0, 80))}</div>`;
+  }
+  if (!stats.recent_new?.length) newDiv.innerHTML = '<span class="text-neutral-600">None</span>';
+}
+
+// --- Modules dropdown ---
+async function fetchModules() {
+  const res = await fetch('/dev/api/logs/modules');
+  const modules = await res.json();
+  const sel = document.getElementById('filterModule');
+  for (const mod of modules) {
+    const opt = document.createElement('option');
+    opt.value = mod;
+    opt.textContent = mod;
+    sel.appendChild(opt);
+  }
+}
+
+// --- Jobs ---
+async function fetchJobs() {
+  const res = await fetch('/dev/api/jobs');
+  const jobs = await res.json();
+  const container = document.getElementById('jobsContainer');
+
+  if (!jobs.length) {
+    container.innerHTML = '<div class="text-center text-neutral-500 py-12">No render jobs</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  // Separate active vs completed
+  const active = jobs.filter(j => j.status === 'pending' || j.status === 'running');
+  const done = jobs.filter(j => j.status === 'completed' || j.status === 'failed');
+
+  if (active.length) {
+    container.innerHTML += '<h2 class="text-sm font-medium text-neutral-100 mb-3">Active Jobs</h2>';
+    for (const job of active) {
+      container.innerHTML += jobCard(job);
+    }
+  }
+
+  if (done.length) {
+    container.innerHTML += '<h2 class="text-sm font-medium text-neutral-100 mb-3 mt-6">Completed Jobs</h2>';
+    for (const job of done) {
+      container.innerHTML += jobCard(job);
+    }
+  }
+}
+
+function jobCard(job) {
+  const statusColors = {
+    pending: 'bg-neutral-600 text-neutral-300',
+    running: 'bg-sky-600/30 text-sky-400',
+    completed: 'bg-emerald-600/30 text-emerald-400',
+    failed: 'bg-red-600/30 text-red-400',
+  };
+  const cls = statusColors[job.status] || '';
+  const pct = Math.round((job.progress || 0) * 100);
+  const elapsed = job.duration_seconds ? job.duration_seconds.toFixed(1) + 's' : (job.start_time ? ((Date.now()/1000 - job.start_time)).toFixed(0) + 's' : '-');
+
+  let errorHtml = '';
+  if (job.error) {
+    errorHtml = `<pre class="mt-2 text-xs bg-red-950/30 border border-red-900/30 rounded p-3 text-red-300 whitespace-pre-wrap break-words max-h-40 overflow-y-auto">${escapeHtml(job.error)}</pre>`;
+  }
+
+  return `
+    <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span class="font-mono text-sm text-neutral-200">${job.job_id}</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded ${cls}">${job.status.toUpperCase()}</span>
+        </div>
+        <div class="text-xs text-neutral-500">
+          ${job.scene_count ? job.scene_count + ' scenes' : ''}
+          ${elapsed !== '-' ? ' · ' + elapsed : ''}
+        </div>
+      </div>
+      ${job.current_step ? `<div class="text-xs text-neutral-400 mb-2">${escapeHtml(job.current_step)}</div>` : ''}
+      <div class="w-full bg-surface-900 rounded-full h-2">
+        <div class="h-2 rounded-full transition-all duration-300 ${job.status === 'failed' ? 'bg-red-500' : job.status === 'completed' ? 'bg-emerald-500' : 'bg-violet-500'}" style="width:${pct}%"></div>
+      </div>
+      <div class="text-right text-[10px] text-neutral-500 mt-1">${pct}%</div>
+      ${errorHtml}
+    </div>`;
+}
+
+// --- Util ---
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+// --- Init ---
+document.addEventListener('DOMContentLoaded', () => {
+  fetchLogs();
+  fetchStats();
+  fetchModules();
+  connectWS();
+  // Auto-refresh jobs every 2s when tab is active
+  setInterval(() => {
+    if (!document.getElementById('panel-jobs').classList.contains('hidden')) {
+      fetchJobs();
+    }
+  }, 2000);
+  // Auto-refresh stats every 30s
+  setInterval(fetchStats, 30000);
+});
+
+// Keyboard shortcut: Escape to close detail
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeDetail();
+});
+</script>
+
+</body>
+</html>

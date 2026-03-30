@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -18,6 +19,8 @@ from api.settings import router as settings_router
 from api.thumbnail import router as thumbnail_router
 from api.visuals import router as visuals_router
 from api.voiceover import router as voiceover_router
+from dev.log_handler import DevLog as _DevLog  # noqa: F401 — register table
+from dev.log_handler import SQLiteLogHandler, prune_old_logs
 from models.brand import BrandProfile as _BrandProfile  # noqa: F401 — register table
 from models.credential import PlatformCredential as _PlatformCredential  # noqa: F401 — register table
 from models.publish import PublishRecord as _PublishRecord  # noqa: F401 — register table
@@ -30,6 +33,11 @@ from config import DATA_DIR
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    # Install dev dashboard log handler
+    prune_old_logs(_db_engine)
+    log_handler = SQLiteLogHandler(_db_engine)
+    log_handler.setLevel(logging.DEBUG)
+    logging.getLogger().addHandler(log_handler)
     # Load saved API keys into environment
     from api.settings import load_keys_into_env
     with Session(_db_engine) as session:
@@ -48,6 +56,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Dev dashboard
+from dev.routes import router as _dev_router
+app.include_router(_dev_router)
 
 # Core routers
 app.include_router(brands_router)
