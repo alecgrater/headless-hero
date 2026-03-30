@@ -402,6 +402,97 @@ def build_concat_cmd(
 
     return cmd, list_path
 
+
+# Map scene_transition values to FFmpeg xfade transition names
+_XFADE_MAP = {
+    "crossfade": "fade",
+    "slide_left": "slideleft",
+    "slide_right": "slideright",
+    "push_up": "wipeup",
+}
+
+_TRANSITION_DURATION = 0.5  # seconds
+
+
+def build_concat_with_transitions_cmd(
+    clip_paths: list[str],
+    transitions: list[str],
+    output_path: str,
+) -> tuple[list[str], str]:
+    """Build FFmpeg command to join clips with xfade transitions.
+
+    Falls back to simple concat demuxer if fewer than 2 clips.
+    Returns (command args, path to temp file the caller should delete).
+    """
+    if len(clip_paths) < 2:
+        return build_concat_cmd(clip_paths, output_path)
+
+    # Probe clip durations so we can compute xfade offsets
+    durations: list[float] = []
+    for clip in clip_paths:
+        dur = _probe_duration(clip)
+        durations.append(dur if dur else 5.0)
+
+    # Build xfade filter chain
+    # Each xfade reduces total duration by TRANSITION_DURATION
+    filter_parts: list[str] = []
+    running_offset = 0.0
+    prev_label = "[0:v]"
+
+    for i in range(1, len(clip_paths)):
+        transition_name = _XFADE_MAP.get(transitions[i] if i < len(transitions) else "", "fade")
+        # offset = cumulative duration of all previous clips minus cumulative transitions applied
+        running_offset += durations[i - 1]
+        offset = running_offset - _TRANSITION_DURATION * i
+        offset = max(offset, 0.0)
+
+        out_label = "[v]" if i == len(clip_paths) - 1 else f"[vx{i}]"
+        filter_parts.append(
+            f"{prev_label}[{i}:v]xfade=transition={transition_name}"
+            f":duration={_TRANSITION_DURATION}:offset={offset:.3f}{out_label}"
+        )
+        prev_label = out_label
+
+    # Audio: concat all audio streams (no transition)
+    audio_inputs = "".join(f"[{i}:a]" for i in range(len(clip_paths)))
+    filter_parts.append(f"{audio_inputs}concat=n={len(clip_paths)}:v=0:a=1[a]")
+
+    filter_complex = ";".join(filter_parts)
+
+    # Write filter to temp file to avoid shell escaping issues
+    fd, filter_path = tempfile.mkstemp(suffix=".txt", prefix="ffxfade_")
+    with os.fdopen(fd, "w") as f:
+        f.write(filter_complex)
+
+    cmd = ["ffmpeg", "-y"]
+    for clip in clip_paths:
+        cmd += ["-i", clip]
+    cmd += [
+        "-filter_complex_script", filter_path,
+        "-map", "[v]",
+        "-map", "[a]",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-c:a", "aac", "-b:a", "192k",
+        "-movflags", "+faststart",
+        output_path,
+    ]
+
+    return cmd, filter_path
+
+
+def _probe_duration(path: str) -> float | None:
+    """Get video duration in seconds via ffprobe."""
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", path],
+            capture_output=True, text=True, timeout=10,
+        )
+        return float(result.stdout.strip())
+    except (subprocess.SubprocessError, ValueError):
+        return None
+
+
 def build_audio_concat_cmd(
     audio_paths: list[str],
     output_path: str,
