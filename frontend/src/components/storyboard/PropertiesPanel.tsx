@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { assetUrl } from "../../api";
 import type { KenBurnsConfig, Scene, TextOverlayConfig } from "../../types/script";
+import AudioPlayer from "./AudioPlayer";
 
 const KEN_BURNS_EFFECTS = [
   { value: "none", label: "None" },
@@ -57,6 +58,10 @@ interface Props {
   onFetchMedia?: () => void;
   isFetchingMedia?: boolean;
   contentFormat?: string;
+  collapsed?: boolean;
+  pinned?: boolean;
+  onToggle?: () => void;
+  onTogglePin?: () => void;
 }
 
 export default function PropertiesPanel({
@@ -81,6 +86,10 @@ export default function PropertiesPanel({
   onFetchMedia,
   isFetchingMedia = false,
   contentFormat,
+  collapsed = false,
+  pinned = true,
+  onToggle,
+  onTogglePin,
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
@@ -91,6 +100,7 @@ export default function PropertiesPanel({
   );
   const [isTitleCard, setIsTitleCard] = useState(scene.is_title_card);
   const [searchQuery, setSearchQuery] = useState(scene.search_query || "");
+  const [promptExpanded, setPromptExpanded] = useState(false);
 
   const isShortform = contentFormat === "shortform";
 
@@ -107,6 +117,7 @@ export default function PropertiesPanel({
       setDuration(String(scene.duration_estimate_seconds));
       setIsTitleCard(scene.is_title_card);
       setSearchQuery(scene.search_query || "");
+      setPromptExpanded(false);
     }
   }, [scene]);
 
@@ -148,8 +159,36 @@ export default function PropertiesPanel({
     duration: 0,
   };
 
+  if (collapsed) return null;
+
   return (
-    <aside className="w-[320px] shrink-0 border-l border-neutral-800/60 overflow-y-auto p-4 space-y-4">
+    <aside className="w-[320px] shrink-0 border-l border-neutral-800/60 overflow-y-auto p-4 space-y-4 transition-all duration-300">
+      {/* Panel header with collapse/pin controls */}
+      {(onToggle || onTogglePin) && (
+        <div className="flex items-center justify-between -mt-1 -mx-1 mb-1">
+          {onToggle && (
+            <button
+              onClick={onToggle}
+              className="text-neutral-500 hover:text-neutral-300 text-sm px-1 transition-colors"
+              title="Collapse panel"
+            >
+              &#x203A;
+            </button>
+          )}
+          {onTogglePin && (
+            <button
+              onClick={onTogglePin}
+              className={`text-sm px-1 transition-colors ${
+                pinned ? "text-violet-400 hover:text-violet-300" : "text-neutral-600 hover:text-neutral-400"
+              }`}
+              title={pinned ? "Unpin panel" : "Pin panel open"}
+            >
+              {pinned ? "📌" : "📍"}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Preview Mode: Video Player at Top */}
       {previewMode && (
         <div className="space-y-2">
@@ -199,11 +238,11 @@ export default function PropertiesPanel({
             <button
               onClick={onPreviewScene}
               disabled={isPreviewingScene}
-              className="w-full text-sm px-3 py-2 text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full text-sm px-3 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isPreviewingScene ? (
                 <>
-                  <span className="w-4 h-4 border-2 border-violet-400/50 border-t-transparent rounded-full animate-spin" />
+                  <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
                   Rendering...
                 </>
               ) : previewVideoUrl ? (
@@ -299,48 +338,66 @@ export default function PropertiesPanel({
       {/* Visual Prompt (hidden for real media types) */}
       {(!scene.media_type || scene.media_type === "ai_generated") && (
         <label className="block space-y-1">
-          <span className="text-xs font-medium text-neutral-400">
-            Visual Prompt{scene.is_animated ? " (A)" : ""}
-          </span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-neutral-400">
+              Visual Prompt{scene.is_animated ? " (A)" : ""}
+            </span>
+            <button
+              onClick={() => setPromptExpanded(!promptExpanded)}
+              className="text-[10px] text-neutral-600 hover:text-neutral-400 transition-colors"
+            >
+              {promptExpanded ? "Collapse" : "Expand"}
+            </button>
+          </div>
           <textarea
             value={visualPrompt}
             onChange={(e) => setVisualPrompt(e.target.value)}
             onBlur={() => commitField("visual_prompt", visualPrompt)}
             className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2.5 border border-neutral-700/50 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
-            rows={3}
+            rows={promptExpanded ? 10 : 4}
           />
         </label>
       )}
 
       {/* Animated A/B Flip Toggle */}
-      <label className="flex items-center gap-2 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={scene.is_animated || false}
-          onChange={(e) => {
-            onUpdate({ is_animated: e.target.checked });
-          }}
-          className="rounded border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500"
-        />
-        <span className="text-sm text-neutral-300">Animated (A/B flip)</span>
-      </label>
-
-      {/* Visual Prompt B (only when animated) */}
-      {scene.is_animated && (
-        <label className="block space-y-1">
-          <span className="text-xs font-medium text-neutral-400">
-            Visual Prompt (B)
+      <div className="border border-neutral-800 rounded-lg p-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={scene.is_animated || false}
+              onChange={(e) => {
+                onUpdate({ is_animated: e.target.checked });
+              }}
+              className="rounded border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500"
+            />
+            <span className="text-sm text-neutral-300">Animation</span>
+          </label>
+          <span
+            className="text-[10px] text-neutral-600 cursor-help"
+            title="Generates two images (A and B) and flips between them during the scene for a simple animation effect"
+          >
+            A/B flip
           </span>
-          <textarea
-            value={visualPromptB}
-            onChange={(e) => setVisualPromptB(e.target.value)}
-            onBlur={() => commitField("visual_prompt_b", visualPromptB)}
-            className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2.5 border border-amber-700/50 resize-none focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30"
-            rows={3}
-            placeholder="Describe the second visual state (B)..."
-          />
-        </label>
-      )}
+        </div>
+
+        {/* Visual Prompt B (only when animated) */}
+        {scene.is_animated && (
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-neutral-400">
+              Visual Prompt (B)
+            </span>
+            <textarea
+              value={visualPromptB}
+              onChange={(e) => setVisualPromptB(e.target.value)}
+              onBlur={() => commitField("visual_prompt_b", visualPromptB)}
+              className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2.5 border border-amber-700/50 resize-none focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30"
+              rows={3}
+              placeholder="Describe the second visual state (B)..."
+            />
+          </label>
+        )}
+      </div>
 
       {/* Video Clip Preview (for gameplay clips) */}
       {scene.video_clip_url && (
@@ -426,16 +483,10 @@ export default function PropertiesPanel({
       {scene.audio_url ? (
         <div className="space-y-2">
           <div className="text-xs font-medium text-neutral-400">Audio</div>
-          <audio
+          <AudioPlayer
             src={assetUrl(scene.audio_url)}
-            controls
-            className="w-full h-8"
+            duration={scene.audio_duration_seconds}
           />
-          {scene.audio_duration_seconds ? (
-            <div className="text-xs text-neutral-500">
-              Duration: {scene.audio_duration_seconds.toFixed(1)}s
-            </div>
-          ) : null}
           {onGenerateAudio && (
             <button
               onClick={onGenerateAudio}
@@ -486,11 +537,11 @@ export default function PropertiesPanel({
             <button
               onClick={onPreviewScene}
               disabled={isPreviewingScene}
-              className="w-full text-sm px-3 py-2 text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full text-sm px-3 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isPreviewingScene ? (
                 <>
-                  <span className="w-4 h-4 border-2 border-violet-400/50 border-t-transparent rounded-full animate-spin" />
+                  <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
                   Rendering...
                 </>
               ) : previewVideoUrl ? (

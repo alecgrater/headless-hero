@@ -3,17 +3,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import { assetUrl } from "../../api";
 import type { KenBurnsConfig, Scene } from "../../types/script";
-
-const SEGMENT_COLORS_TOP = [
-  "bg-violet-500",
-  "bg-sky-500",
-  "bg-emerald-500",
-  "bg-amber-500",
-  "bg-rose-500",
-  "bg-cyan-500",
-  "bg-fuchsia-500",
-  "bg-lime-500",
-];
+import { SEGMENT_COLORS, SEGMENT_RING_COLORS } from "./constants";
 
 const MOTION_ICONS: Record<NonNullable<KenBurnsConfig["effect"]>, string> = {
   none: "",
@@ -40,6 +30,9 @@ interface Props {
   isGeneratingAudio?: boolean;
   batchImageStatus?: BatchStatus;
   onRetryImage?: () => void;
+  bulkMode?: boolean;
+  isChecked?: boolean;
+  onToggleCheck?: () => void;
 }
 
 export default function SceneCard({
@@ -55,6 +48,9 @@ export default function SceneCard({
   isGeneratingAudio = false,
   batchImageStatus = "idle",
   onRetryImage,
+  bulkMode = false,
+  isChecked = false,
+  onToggleCheck,
 }: Props) {
   const {
     attributes,
@@ -63,7 +59,7 @@ export default function SceneCard({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: scene.id });
+  } = useSortable({ id: scene.id, disabled: bulkMode });
 
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(scene.narration);
@@ -75,6 +71,7 @@ export default function SceneCard({
   };
 
   const handleDoubleClick = (e: React.MouseEvent) => {
+    if (bulkMode) return;
     e.stopPropagation();
     setEditValue(scene.narration);
     setIsEditing(true);
@@ -98,31 +95,67 @@ export default function SceneCard({
     }
   };
 
-  const topStripeColor = SEGMENT_COLORS_TOP[segmentIdx % SEGMENT_COLORS_TOP.length];
+  const handleClick = () => {
+    if (bulkMode && onToggleCheck) {
+      onToggleCheck();
+    } else {
+      onClick();
+    }
+  };
+
+  const topStripeColor = SEGMENT_COLORS[segmentIdx % SEGMENT_COLORS.length];
+  const ringColor = SEGMENT_RING_COLORS[segmentIdx % SEGMENT_RING_COLORS.length];
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      onClick={onClick}
-      className={`group rounded-xl border border-neutral-800/80 bg-neutral-900 overflow-hidden cursor-pointer transition-all duration-200 select-none card-enter ${
+      onClick={handleClick}
+      className={`group rounded-xl border border-neutral-800/80 bg-neutral-900 overflow-hidden cursor-pointer transition-all duration-200 select-none card-enter relative ${
         isSelected
-          ? "ring-2 ring-violet-500/70 ring-offset-1 ring-offset-neutral-950"
+          ? `ring-2 ${ringColor} ring-offset-1 ring-offset-neutral-950`
           : "hover:border-neutral-700 hover:shadow-lg hover:shadow-black/20"
       }`}
     >
+      {/* Bulk checkbox */}
+      {(bulkMode || onToggleCheck) && (
+        <div
+          className={`absolute top-2 right-2 z-10 ${bulkMode ? "block" : "hidden group-hover:block"}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleCheck?.();
+          }}
+        >
+          <div
+            className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+              isChecked
+                ? "bg-violet-500 border-violet-500"
+                : "bg-neutral-800/80 border-neutral-600 hover:border-neutral-400"
+            }`}
+          >
+            {isChecked && (
+              <svg width="10" height="8" viewBox="0 0 10 8" fill="white">
+                <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Top accent stripe */}
       <div className={`h-0.5 ${topStripeColor}`} />
 
       {/* Drag handle + header */}
       <div className="flex items-center gap-2 px-3 pt-2.5 pb-1.5">
-        <span
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing text-neutral-700 hover:text-neutral-400"
-        >
-          ⠿
-        </span>
+        {!bulkMode && (
+          <span
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing text-neutral-700 hover:text-neutral-400"
+          >
+            ⠿
+          </span>
+        )}
         <span className="text-[11px] font-mono text-neutral-500 bg-neutral-800 px-1.5 py-0.5 rounded">#{sceneNumber}</span>
         {scene.is_title_card && (
           <span className="text-[10px] bg-violet-500/20 text-violet-300 px-1.5 py-0.5 rounded-full">
@@ -204,24 +237,21 @@ export default function SceneCard({
             <span className="text-neutral-500 text-[10px]">Queued</span>
           </div>
         ) : (
-          <div className="flex items-center justify-center h-full p-2">
-            {scene.visual_prompt ? (
-              <p className="text-[10px] text-neutral-600 leading-snug line-clamp-4 text-center">
-                {scene.visual_prompt}
-              </p>
-            ) : onGenerateImage ? (
+          <div className="flex flex-col items-center justify-center h-full p-2 bg-gradient-to-b from-neutral-800 to-neutral-850">
+            <span className="text-3xl font-bold text-neutral-800 mb-2">#{sceneNumber}</span>
+            {onGenerateImage ? (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onGenerateImage();
                 }}
                 disabled={isGenerating}
-                className="text-[10px] px-2 py-1 bg-neutral-700 hover:bg-neutral-600 rounded text-neutral-400 transition-colors disabled:opacity-40"
+                className="text-[11px] px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg text-emerald-400 transition-colors disabled:opacity-40 font-medium"
               >
-                Generate
+                + Generate Image
               </button>
             ) : (
-              <span className="text-neutral-600 text-xs">Visual Preview</span>
+              <span className="text-neutral-600 text-xs">No visual prompt</span>
             )}
           </div>
         )}
@@ -241,13 +271,17 @@ export default function SceneCard({
           />
         </div>
       ) : (
-        <p
-          onDoubleClick={handleDoubleClick}
-          className="text-[13px] text-neutral-400 leading-relaxed line-clamp-3 px-3 pb-3"
-          title="Double-click to edit"
-        >
-          {scene.narration || <span className="italic text-neutral-600">Double-click to write narration...</span>}
-        </p>
+        <div className="relative px-3 pb-3 h-[60px] overflow-hidden">
+          <p
+            onDoubleClick={handleDoubleClick}
+            className="text-[13px] text-neutral-400 leading-relaxed"
+            title="Double-click to edit"
+          >
+            {scene.narration || <span className="italic text-neutral-600">Double-click to write narration...</span>}
+          </p>
+          {/* Fade-out overlay for long text */}
+          <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-neutral-900 pointer-events-none" />
+        </div>
       )}
 
       {/* Overlay indicator */}

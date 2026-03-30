@@ -14,6 +14,7 @@ import { usePublishState } from "./usePublishState";
 import { useRenderState } from "./useRenderState";
 import { useStoryboardState } from "./useStoryboardState";
 import { useKeyboardShortcuts, ShortcutHelpOverlay } from "./useKeyboardShortcuts";
+import { useSidebarState } from "./useSidebarState";
 import PreviewStrip from "./PreviewStrip";
 
 interface Props {
@@ -153,12 +154,14 @@ function StoryboardEditor({
   const state = useStoryboardState(scriptId, initialContent);
   const render = useRenderState(scriptId, title);
   const publish = usePublishState(scriptId, brandId);
+  const sidebar = useSidebarState(scriptId);
   const [activeSegmentIdx, setActiveSegmentIdx] = useState<number | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showVoiceSetup, setShowVoiceSetup] = useState(false);
   const [pendingAudioAction, setPendingAudioAction] = useState<"all" | string | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
+  const rightPanelRef = useRef<HTMLDivElement>(null);
 
   // Fetch render estimate when export panel or preview modal opens
   useEffect(() => {
@@ -268,6 +271,29 @@ function StoryboardEditor({
       })()
     : null;
 
+  // Auto-open right sidebar when scene selected (if collapsed + unpinned)
+  useEffect(() => {
+    if (selectedScene && sidebar.rightCollapsed && !sidebar.rightPinned) {
+      sidebar.openRight();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.selectedSceneId]);
+
+  // Click-away to close right sidebar when unpinned
+  useEffect(() => {
+    if (sidebar.rightPinned || sidebar.rightCollapsed) return;
+    const handleClickAway = (e: MouseEvent) => {
+      if (rightPanelRef.current && !rightPanelRef.current.contains(e.target as Node)) {
+        // Don't close if clicking on a scene card (that would re-open it)
+        const target = e.target as HTMLElement;
+        if (target.closest("[data-scene-card]")) return;
+        sidebar.closeRight();
+      }
+    };
+    document.addEventListener("mousedown", handleClickAway);
+    return () => document.removeEventListener("mousedown", handleClickAway);
+  }, [sidebar]);
+
   // Auto-render preview when scene changes in preview mode
   useEffect(() => {
     if (!previewMode || !state.selectedSceneId) return;
@@ -347,7 +373,7 @@ function StoryboardEditor({
         ? "bg-yellow-400"
         : "bg-red-400 animate-pulse";
 
-  // Tweak #1 + #10: scene stats + word count
+  // Scene stats
   const allScenes = state.content.segments.flatMap((seg) => seg.scenes);
   const sceneCount = allScenes.length;
   const segmentCount = state.content.segments.length;
@@ -362,7 +388,41 @@ function StoryboardEditor({
     (sum, sc) => sum + (sc.narration ? sc.narration.split(/\s+/).filter(Boolean).length : 0),
     0,
   );
-  const statsStr = `${sceneCount} scene${sceneCount !== 1 ? "s" : ""} \u00B7 ${segmentCount} segment${segmentCount !== 1 ? "s" : ""} \u00B7 ${durationStr}${totalWords > 0 ? ` \u00B7 ${totalWords.toLocaleString()} words` : ""}`;
+
+  // Segment-level regeneration handlers
+  const handleRegenerateSegmentImages = (segIdx: number) => {
+    const scenes = state.content.segments[segIdx]?.scenes ?? [];
+    for (const sc of scenes) {
+      state.generateImage(sc.id, artStyle, colorPalette);
+    }
+  };
+
+  const handleRegenerateSegmentAudio = (segIdx: number) => {
+    const scenes = state.content.segments[segIdx]?.scenes ?? [];
+    for (const sc of scenes) {
+      if (sc.narration) {
+        tryGenerateAudio(sc.id);
+      }
+    }
+  };
+
+  // Bulk action handlers
+  const handleBulkGenerateImages = (ids: string[]) => {
+    for (const id of ids) {
+      state.generateImage(id, artStyle, colorPalette);
+    }
+  };
+
+  const handleBulkGenerateAudio = (ids: string[]) => {
+    for (const id of ids) {
+      tryGenerateAudio(id);
+    }
+  };
+
+  // Handle scene selection with right sidebar auto-open
+  const handleSelectScene = (sceneId: string) => {
+    state.selectScene(sceneId);
+  };
 
   return (
     <div className="flex flex-col h-[calc(100vh-105px)]">
@@ -374,10 +434,23 @@ function StoryboardEditor({
         >
           &larr; Back
         </button>
-        <h2 className="text-base font-semibold truncate">{title}</h2>
-        <span className="text-[11px] text-neutral-500 bg-neutral-800/60 px-2 py-0.5 rounded-full">
-          {statsStr}
-        </span>
+        <h2 className="text-base font-semibold truncate" title={title}>{title}</h2>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-neutral-500 border border-neutral-700/40 px-2 py-0.5 rounded-full">
+            {sceneCount} scene{sceneCount !== 1 ? "s" : ""}
+          </span>
+          <span className="text-[11px] text-neutral-500 border border-neutral-700/40 px-2 py-0.5 rounded-full">
+            {segmentCount} segment{segmentCount !== 1 ? "s" : ""}
+          </span>
+          <span className="text-[11px] text-neutral-500 border border-neutral-700/40 px-2 py-0.5 rounded-full">
+            {durationStr}
+          </span>
+          {totalWords > 0 && (
+            <span className="text-[11px] text-neutral-500 border border-neutral-700/40 px-2 py-0.5 rounded-full">
+              {totalWords.toLocaleString()} words
+            </span>
+          )}
+        </div>
 
         <div className="ml-auto flex items-center gap-2">
           <span className={`w-1.5 h-1.5 rounded-full ${saveDotColor}`} />
@@ -413,7 +486,7 @@ function StoryboardEditor({
           <button
             onClick={() => state.generateAllImages(artStyle, colorPalette)}
             disabled={state.batchGenerating}
-            className="text-sm px-3 py-1.5 text-emerald-400 hover:bg-emerald-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
+            className="text-sm px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
             title="Generate images for all scenes with visual prompts"
           >
             {state.batchGenerating ? (
@@ -449,6 +522,7 @@ function StoryboardEditor({
             </>
           )}
           <div className="w-px h-5 bg-neutral-700" />
+          <span className="text-xs text-neutral-500">Voice:</span>
           <select
             value={selectedVoiceId}
             onChange={(e) => setSelectedVoiceId(e.target.value)}
@@ -464,7 +538,7 @@ function StoryboardEditor({
           <button
             onClick={() => tryGenerateAudio("all")}
             disabled={state.batchGeneratingAudio || (!selectedVoiceId && voices.length > 0)}
-            className="text-sm px-3 py-1.5 text-sky-400 hover:bg-sky-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
+            className="text-sm px-3 py-1.5 bg-sky-500/10 border border-sky-500/20 text-sky-400 hover:bg-sky-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
             title="Generate audio for all scenes with narration"
           >
             {state.batchGeneratingAudio ? (
@@ -478,62 +552,59 @@ function StoryboardEditor({
           </button>
         </div>
 
-        {/* Divider */}
-        <div className="w-px h-5 bg-neutral-700/50 mx-1.5" />
+        {/* Push preview + export to the right */}
+        <div className="ml-auto flex items-center gap-1.5">
+          {/* Group 2 — Preview */}
+          <div className="bg-neutral-800/50 rounded-lg p-1 flex items-center gap-1">
+            <button
+              onClick={() => setPreviewMode((prev) => !prev)}
+              className={`text-sm px-3 py-1.5 rounded-md font-medium transition-colors ${
+                previewMode
+                  ? "bg-violet-500/20 text-violet-300"
+                  : "text-neutral-400 hover:bg-neutral-700/60"
+              }`}
+              title="Toggle scene preview mode (P)"
+            >
+              Preview
+            </button>
+            <button
+              onClick={() => setShowPreview(true)}
+              className="text-sm px-3 py-1.5 text-neutral-400 hover:bg-neutral-700/60 rounded-md font-medium transition-colors"
+              title="Preview full rendered video"
+            >
+              Full Preview
+            </button>
+          </div>
 
-        {/* Group 2 — Preview */}
-        <div className="bg-neutral-800/50 rounded-lg p-1 flex items-center gap-1">
+          {/* Shortform duration meter */}
+          {isShortform && (() => {
+            const totalDur = state.content.segments.reduce(
+              (sum, seg) => sum + seg.scenes.reduce((s, sc) => s + (sc.audio_duration_seconds || sc.duration_estimate_seconds), 0),
+              0,
+            );
+            const color = totalDur <= 45 ? "text-emerald-400" : totalDur <= 60 ? "text-yellow-400" : "text-red-400";
+            return (
+              <span className={`text-xs font-mono ${color} mr-2`} title="Total duration">
+                {Math.round(totalDur)}s
+              </span>
+            );
+          })()}
+
+          {isShortform && (
+            <span className="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full mr-2">
+              Short-Form
+            </span>
+          )}
+
+          {/* Export CTA — the ONLY solid-color button */}
           <button
-            onClick={() => setPreviewMode((prev) => !prev)}
-            className={`text-sm px-3 py-1.5 rounded-md font-medium transition-colors ${
-              previewMode
-                ? "bg-violet-500/20 text-violet-300"
-                : "text-neutral-400 hover:bg-neutral-700/60"
-            }`}
-            title="Toggle scene preview mode (P)"
+            onClick={() => setShowExport(true)}
+            className="text-sm px-4 py-1.5 bg-violet-600 hover:bg-violet-500 rounded-lg font-semibold transition-colors shadow-sm shadow-violet-500/20"
+            title="Export & Render (⌘E)"
           >
-            Preview
-          </button>
-          <button
-            onClick={() => setShowPreview(true)}
-            className="text-sm px-3 py-1.5 text-neutral-400 hover:bg-neutral-700/60 rounded-md font-medium transition-colors"
-            title="Preview full rendered video"
-          >
-            Full Preview
+            Export
           </button>
         </div>
-
-        {/* Divider */}
-        <div className="w-px h-5 bg-neutral-700/50 mx-1.5" />
-
-        {/* Shortform duration meter */}
-        {isShortform && (() => {
-          const totalDur = state.content.segments.reduce(
-            (sum, seg) => sum + seg.scenes.reduce((s, sc) => s + (sc.audio_duration_seconds || sc.duration_estimate_seconds), 0),
-            0,
-          );
-          const color = totalDur <= 45 ? "text-emerald-400" : totalDur <= 60 ? "text-yellow-400" : "text-red-400";
-          return (
-            <span className={`text-xs font-mono ${color} mr-2`} title="Total duration">
-              {Math.round(totalDur)}s
-            </span>
-          );
-        })()}
-
-        {isShortform && (
-          <span className="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full mr-2">
-            Short-Form
-          </span>
-        )}
-
-        {/* Export CTA — the ONLY solid-color button */}
-        <button
-          onClick={() => setShowExport(true)}
-          className="text-sm px-4 py-1.5 bg-violet-600 hover:bg-violet-500 rounded-lg font-semibold transition-colors shadow-sm shadow-violet-500/20"
-          title="Export & Render (⌘E)"
-        >
-          Export
-        </button>
       </div>
 
       {/* Batch Progress Bar */}
@@ -548,6 +619,10 @@ function StoryboardEditor({
             content={state.content}
             activeSegmentIdx={activeSegmentIdx}
             onSegmentClick={handleSegmentClick}
+            collapsed={sidebar.leftCollapsed}
+            onToggle={sidebar.toggleLeft}
+            onRegenerateSegmentImages={handleRegenerateSegmentImages}
+            onRegenerateSegmentAudio={handleRegenerateSegmentAudio}
           />
         )}
 
@@ -555,7 +630,7 @@ function StoryboardEditor({
           content={state.content}
           selectedSceneId={state.selectedSceneId}
           segmentRefs={segmentRefs}
-          onSelectScene={state.selectScene}
+          onSelectScene={handleSelectScene}
           onNarrationChange={(id, narr) =>
             state.updateScene(id, { narration: narr })
           }
@@ -566,49 +641,57 @@ function StoryboardEditor({
           generatingAudioSceneIds={state.generatingAudioSceneIds}
           batchImageStatuses={state.batchImageProgress.statuses}
           onRetryImage={(sceneId) => state.generateImage(sceneId, artStyle, colorPalette)}
+          onBulkGenerateImages={handleBulkGenerateImages}
+          onBulkGenerateAudio={handleBulkGenerateAudio}
         />
 
-        {selectedScene ? (
-          <PropertiesPanel
-            scene={selectedScene.scene}
-            segmentIdx={selectedScene.segIdx}
-            segmentName={selectedScene.segName}
-            isLastInSegment={selectedScene.isLast}
-            onUpdate={(updates) =>
-              state.updateScene(selectedScene.scene.id, updates)
-            }
-            onSplit={() => state.splitScene(selectedScene.scene.id)}
-            onMerge={() => state.mergeWithNext(selectedScene.scene.id)}
-            onDuplicate={() => state.duplicateScene(selectedScene.scene.id)}
-            onGenerateImage={() =>
-              state.generateImage(selectedScene.scene.id, artStyle, colorPalette)
-            }
-            isGenerating={state.generatingSceneIds.has(selectedScene.scene.id)}
-            onGenerateAudio={() =>
-              tryGenerateAudio(selectedScene.scene.id)
-            }
-            isGeneratingAudio={state.generatingAudioSceneIds.has(selectedScene.scene.id)}
-            onPreviewScene={() =>
-              render.previewScene(selectedScene.scene.id)
-            }
-            isPreviewingScene={render.previewingSceneId === selectedScene.scene.id}
-            previewVideoUrl={render.previewVideoUrl}
-            previewMode={previewMode}
-            onPrevScene={selectPrevScene}
-            onNextScene={selectNextScene}
-            onFetchMedia={() =>
-              state.fetchMedia(selectedScene.scene.id)
-            }
-            isFetchingMedia={state.fetchingMediaSceneIds.has(selectedScene.scene.id)}
-            contentFormat={contentFormat}
-          />
-        ) : (
-          <aside className="w-[320px] shrink-0 border-l border-neutral-800/60 p-4 flex items-center justify-center">
-            <p className="text-sm text-neutral-600 text-center">
-              Select a scene to edit its properties
-            </p>
-          </aside>
-        )}
+        <div ref={rightPanelRef}>
+          {selectedScene ? (
+            <PropertiesPanel
+              scene={selectedScene.scene}
+              segmentIdx={selectedScene.segIdx}
+              segmentName={selectedScene.segName}
+              isLastInSegment={selectedScene.isLast}
+              onUpdate={(updates) =>
+                state.updateScene(selectedScene.scene.id, updates)
+              }
+              onSplit={() => state.splitScene(selectedScene.scene.id)}
+              onMerge={() => state.mergeWithNext(selectedScene.scene.id)}
+              onDuplicate={() => state.duplicateScene(selectedScene.scene.id)}
+              onGenerateImage={() =>
+                state.generateImage(selectedScene.scene.id, artStyle, colorPalette)
+              }
+              isGenerating={state.generatingSceneIds.has(selectedScene.scene.id)}
+              onGenerateAudio={() =>
+                tryGenerateAudio(selectedScene.scene.id)
+              }
+              isGeneratingAudio={state.generatingAudioSceneIds.has(selectedScene.scene.id)}
+              onPreviewScene={() =>
+                render.previewScene(selectedScene.scene.id)
+              }
+              isPreviewingScene={render.previewingSceneId === selectedScene.scene.id}
+              previewVideoUrl={render.previewVideoUrl}
+              previewMode={previewMode}
+              onPrevScene={selectPrevScene}
+              onNextScene={selectNextScene}
+              onFetchMedia={() =>
+                state.fetchMedia(selectedScene.scene.id)
+              }
+              isFetchingMedia={state.fetchingMediaSceneIds.has(selectedScene.scene.id)}
+              contentFormat={contentFormat}
+              collapsed={sidebar.rightCollapsed}
+              pinned={sidebar.rightPinned}
+              onToggle={sidebar.toggleRight}
+              onTogglePin={sidebar.toggleRightPin}
+            />
+          ) : !sidebar.rightCollapsed ? (
+            <aside className="w-[320px] shrink-0 border-l border-neutral-800/60 p-4 flex items-center justify-center">
+              <p className="text-sm text-neutral-600 text-center">
+                Select a scene to edit its properties
+              </p>
+            </aside>
+          ) : null}
+        </div>
       </div>
 
       {/* Preview Strip */}
