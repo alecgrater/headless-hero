@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BrandProfileCreate, ContentModifierMeta } from "../../types/brand";
 import type { OAuthStatusResponse } from "../../types/publish";
-import api, { fetchModifiers, openInBrowser, cloneVoice } from "../../api";
+import api, { fetchModifiers, openInBrowser } from "../../api";
 import { Mic, X } from "lucide-react";
+import useVoiceCloning from "./useVoiceCloning";
 
 const OAUTH_POLL_INTERVAL_MS = 2000;
 const OAUTH_CONNECT_TIMEOUT_MS = 300_000; // 5 minutes
-const MAX_VOICE_CLONE_FILES = 5;
 
 const EMPTY_FORM: BrandProfileCreate = {
   name: "",
@@ -66,12 +66,21 @@ export default function BrandForm({ onSave, onCancel, initial, saving, brandId }
   const [modifiers, setModifiers] = useState<ContentModifierMeta[]>([]);
   const [voices, setVoices] = useState<Voice[]>([]);
 
-  // Voice cloning state
-  const [audioFiles, setAudioFiles] = useState<File[]>([]);
-  const [cloneName, setCloneName] = useState(form.name || "");
-  const [cloning, setCloning] = useState(false);
-  const [cloneError, setCloneError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Voice cloning via shared hook
+  const {
+    audioFiles, cloneName, setCloneName, cloning, cloneError,
+    fileInputRef, addFiles, removeFile, handleClone, maxFiles,
+  } = useVoiceCloning({
+    defaultName: form.name,
+    onCloned: async (voiceId) => {
+      set("voice_id", voiceId);
+      // Refresh voices list so the cloned voice appears in the dropdown
+      const res = await api.get("/api/voice/voices");
+      if (res.ok && Array.isArray(res.data)) {
+        setVoices(res.data as Voice[]);
+      }
+    },
+  });
 
   // YouTube OAuth state
   const [ytConnected, setYtConnected] = useState(false);
@@ -175,10 +184,6 @@ export default function BrandForm({ onSave, onCancel, initial, saving, brandId }
 
   const set = (field: keyof BrandProfileCreate, value: string) =>
     setForm((prev: BrandProfileCreate) => ({ ...prev, [field]: value }));
-
-  const removeAudioFile = (index: number) => {
-    setAudioFiles((prev) => prev.filter((_, i) => i !== index));
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -352,7 +357,7 @@ export default function BrandForm({ onSave, onCancel, initial, saving, brandId }
                 <label className={labelCls}>
                   Audio Samples{" "}
                   <span className="normal-case tracking-normal text-white/25">
-                    MP3, WAV, or M4A — up to {MAX_VOICE_CLONE_FILES} files
+                    MP3, WAV, or M4A — up to {maxFiles} files
                   </span>
                 </label>
                 <input
@@ -360,11 +365,7 @@ export default function BrandForm({ onSave, onCancel, initial, saving, brandId }
                   type="file"
                   accept=".mp3,.wav,.m4a"
                   multiple
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files || []).slice(0, MAX_VOICE_CLONE_FILES);
-                    setAudioFiles(files);
-                    setCloneError(null);
-                  }}
+                  onChange={(e) => addFiles(e.target.files)}
                   className="hidden"
                 />
                 <button
@@ -386,7 +387,7 @@ export default function BrandForm({ onSave, onCancel, initial, saving, brandId }
                         <span className="truncate max-w-[120px]">{f.name}</span>
                         <button
                           type="button"
-                          onClick={() => removeAudioFile(i)}
+                          onClick={() => removeFile(i)}
                           className="text-white/30 hover:text-red-400 transition-colors"
                         >
                           <X className="w-3 h-3" />
@@ -404,29 +405,7 @@ export default function BrandForm({ onSave, onCancel, initial, saving, brandId }
               <button
                 type="button"
                 disabled={cloning || audioFiles.length === 0}
-                onClick={async () => {
-                  setCloning(true);
-                  setCloneError(null);
-                  try {
-                    const result = await cloneVoice(
-                      cloneName || form.name || "Cloned Voice",
-                      audioFiles,
-                    );
-                    set("voice_id", result.voice_id);
-                    setAudioFiles([]);
-                    // Refresh voices list so the cloned voice appears in the dropdown
-                    const res = await api.get("/api/voice/voices");
-                    if (res.ok && Array.isArray(res.data)) {
-                      setVoices(res.data as Voice[]);
-                    }
-                  } catch (err: unknown) {
-                    setCloneError(
-                      err instanceof Error ? err.message : "Voice cloning failed",
-                    );
-                  } finally {
-                    setCloning(false);
-                  }
-                }}
+                onClick={() => handleClone(form.name)}
                 className="relative overflow-hidden px-5 py-2.5 rounded-lg text-[13px] font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(124,58,237,0.3)]"
                 style={{
                   fontFamily: "Sora, sans-serif",

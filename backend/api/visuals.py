@@ -66,10 +66,10 @@ class GenerateBatchResponse(BaseModel):
 
 # --- Helpers ---
 
-def _update_scene_image_url(
-    session: Session, script_id: str, scene_id: str, image_url: str
+def _update_scene(
+    session: Session, script_id: str, scene_id: str, **fields: object
 ) -> None:
-    """Persist image_url into the scene inside script_json."""
+    """Persist one or more field updates into a scene inside script_json."""
     record = session.get(Script, script_id)
     if not record:
         return
@@ -77,44 +77,11 @@ def _update_scene_image_url(
     for seg in content.segments:
         for scene in seg.scenes:
             if scene.id == scene_id:
-                scene.image_url = image_url
-                break
-    record.script_json = content.model_dump_json()
-    session.add(record)
-    session.commit()
-
-def _update_scene_image_url_b(
-    session: Session, script_id: str, scene_id: str, image_url_b: str
-) -> None:
-    """Persist image_url_b into the scene inside script_json."""
-    record = session.get(Script, script_id)
-    if not record:
-        return
-    content = ScriptContent.model_validate(json.loads(record.script_json))
-    for seg in content.segments:
-        for scene in seg.scenes:
-            if scene.id == scene_id:
-                scene.image_url_b = image_url_b
-                break
-    record.script_json = content.model_dump_json()
-    session.add(record)
-    session.commit()
-
-def _update_scene_frame_urls(
-    session: Session, script_id: str, scene_id: str, frame_urls: list[str]
-) -> None:
-    """Persist frame_urls into the scene inside script_json."""
-    record = session.get(Script, script_id)
-    if not record:
-        return
-    content = ScriptContent.model_validate(json.loads(record.script_json))
-    for seg in content.segments:
-        for scene in seg.scenes:
-            if scene.id == scene_id:
-                scene.frame_urls = frame_urls
-                # Also set image_url to first frame for backward compat
-                if frame_urls:
-                    scene.image_url = frame_urls[0]
+                for key, value in fields.items():
+                    setattr(scene, key, value)
+                # When setting frame_urls, also set image_url to first frame
+                if "frame_urls" in fields and fields["frame_urls"]:
+                    scene.image_url = fields["frame_urls"][0]
                 break
     record.script_json = content.model_dump_json()
     session.add(record)
@@ -153,7 +120,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             style_string=brand_style_string,
         )
         frame_urls = [url for url, _ in frame_results]
-        _update_scene_frame_urls(session, body.script_id, body.scene_id, frame_urls)
+        _update_scene(session, body.script_id, body.scene_id, frame_urls=frame_urls)
         return GenerateVisualResponse(
             image_url=frame_urls[0] if frame_urls else "",
             prompt_used=frame_results[0][1] if frame_results else "",
@@ -171,7 +138,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         style_string=brand_style_string,
     )
 
-    _update_scene_image_url(session, body.script_id, body.scene_id, image_url)
+    _update_scene(session, body.script_id, body.scene_id, image_url=image_url)
 
     image_url_b = None
     if body.is_animated and body.visual_prompt_b:
@@ -185,7 +152,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             style_guide=style_guide,
             style_string=brand_style_string,
         )
-        _update_scene_image_url_b(session, body.script_id, body.scene_id, image_url_b)
+        _update_scene(session, body.script_id, body.scene_id, image_url_b=image_url_b)
 
     return GenerateVisualResponse(image_url=image_url, prompt_used=prompt_used, image_url_b=image_url_b)
 
@@ -231,11 +198,11 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
     for r in results:
         frame_urls = r.get("frame_urls", [])
         if frame_urls:
-            _update_scene_frame_urls(session, body.script_id, r["scene_id"], frame_urls)
+            _update_scene(session, body.script_id, r["scene_id"], frame_urls=frame_urls)
         elif r["image_url"]:
-            _update_scene_image_url(session, body.script_id, r["scene_id"], r["image_url"])
+            _update_scene(session, body.script_id, r["scene_id"], image_url=r["image_url"])
         if r.get("image_url_b"):
-            _update_scene_image_url_b(session, body.script_id, r["scene_id"], r["image_url_b"])
+            _update_scene(session, body.script_id, r["scene_id"], image_url_b=r["image_url_b"])
 
     return GenerateBatchResponse(results=[BatchResultItem(**r) for r in results])
 
