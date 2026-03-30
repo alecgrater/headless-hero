@@ -59,6 +59,7 @@
     <div class="flex items-center gap-3">
       <h1 class="text-lg font-semibold text-neutral-100">Headless Hero</h1>
       <span class="text-xs bg-violet-600/20 text-violet-400 px-2 py-0.5 rounded">Dev Dashboard</span>
+      <button onclick="launchApp(this)" class="text-xs bg-violet-600 hover:bg-violet-500 text-white px-3 py-1 rounded transition-colors">Launch App</button>
     </div>
     <div class="flex items-center gap-2 text-xs text-neutral-500">
       <span class="w-2 h-2 rounded-full bg-emerald-500 live-dot" id="wsIndicator"></span>
@@ -350,6 +351,20 @@ const LEVEL_COLORS = {
 };
 
 const LEVEL_ORDER = { DEBUG: 0, INFO: 1, WARNING: 2, ERROR: 3, CRITICAL: 4 };
+
+// --- Launch App ---
+async function launchApp(btn) {
+  btn.disabled = true;
+  btn.textContent = 'Launching...';
+  try {
+    const res = await fetch('/dev/api/launch', { method: 'POST' });
+    const data = await res.json();
+    btn.textContent = data.status === 'already_running' ? 'Already Running' : 'Launched!';
+  } catch {
+    btn.textContent = 'Error';
+  }
+  setTimeout(() => { btn.textContent = 'Launch App'; btn.disabled = false; }, 2000);
+}
 
 // --- Tabs ---
 const ALL_TABS = ['logs', 'jobs', 'api', 'database', 'usage', 'files'];

@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import subprocess
 import threading
 import time
 from datetime import datetime, timezone, timedelta
@@ -23,6 +24,9 @@ logger = logging.getLogger(__name__)
 
 # --- File Explorer ---
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+# --- Electron launcher ---
+_electron_proc: subprocess.Popen | None = None
 
 IGNORED_NAMES = {
     ".git", "node_modules", "__pycache__", ".venv", "data", "dist", "out",
@@ -54,6 +58,22 @@ _ws_lock = threading.Lock()
 @router.get("/", response_class=HTMLResponse)
 async def dashboard():
     return HTMLResponse(_DASHBOARD_HTML.read_text())
+
+
+@router.post("/api/launch")
+async def launch_electron():
+    """Launch the Electron app as a detached subprocess."""
+    global _electron_proc
+    if _electron_proc is not None and _electron_proc.poll() is None:
+        return {"status": "already_running"}
+    _electron_proc = subprocess.Popen(
+        ["npx", "electron", "."],
+        cwd=PROJECT_ROOT,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    return {"status": "launched"}
 
 
 @router.get("/api/logs")
