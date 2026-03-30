@@ -44,12 +44,15 @@ class Scene(BaseModel):
     media_type: str = "ai_generated"  # "ai_generated" | "gameplay_clip" | "hardware_image"
     search_query: str = ""            # YouTube search query for yt-dlp
     video_clip_url: str = ""          # web-relative path to downloaded clip
+    title_card_zoom_target: dict | None = None  # {"x": int, "y": int, "radius": int} for zoompan
 
 class Segment(BaseModel):
     """A named segment (e.g. "Caffeine") containing multiple scenes."""
 
     name: str
     scenes: list[Scene]
+    circle_color: str = ""              # hex color for composite title card circle background
+    title_card_image_prompt: str = ""   # visual prompt for AI-generated circle image
 
 class ScriptContent(BaseModel):
     """The full script payload matching PRD section 7.2."""
@@ -60,6 +63,8 @@ class ScriptContent(BaseModel):
     outro_cta: str = ""
     format: str = "youtube"  # "youtube" | "shortform"
     target_duration_seconds: float = 0.0
+    card_title: str = ""                  # condensed title for composite title card (e.g. "TYPES OF DREAMS")
+    card_title_highlight_word: str = ""   # word to render in accent color (e.g. "DREAMS")
 
 # --- SQLModel table for persistence ---
 

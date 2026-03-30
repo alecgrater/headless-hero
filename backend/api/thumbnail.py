@@ -9,7 +9,7 @@ from sqlmodel import Session
 from api.database import get_session
 from models.brand import BrandProfile
 from models.script import Script, ScriptContent
-from pipeline.thumbnail import generate_concepts, generate_shortform_thumbnail, generate_thumbnail
+from pipeline.thumbnail import generate_concepts, generate_shortform_thumbnail, generate_thumbnail, get_composite_thumbnail
 
 router = APIRouter(prefix="/api/thumbnail", tags=["thumbnail"])
 
@@ -39,8 +39,22 @@ def generate_thumbnails(body: GenerateThumbnailRequest, session: Session = Depen
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
 
-    # Load brand font for thumbnail text rendering
+    # Check if a composite title card exists (from title_cards modifier)
+    # If so, use it as the primary thumbnail
     brand = session.get(BrandProfile, record.brand_id)
+    modifier_ids = json.loads(brand.content_modifiers) if brand and brand.content_modifiers else []
+    if "title_cards" in modifier_ids:
+        composite_url = get_composite_thumbnail(body.script_id)
+        if composite_url:
+            results = [ThumbnailConceptResult(
+                idx=0,
+                title_text=content.card_title or content.title,
+                visual_description="Composite grid title card (auto-generated from segments)",
+                image_url=composite_url,
+            )]
+            return GenerateThumbnailResponse(concepts=results)
+
+    # Load brand font for thumbnail text rendering
     font_family = brand.font if brand else ""
 
     # Generate concepts from Claude

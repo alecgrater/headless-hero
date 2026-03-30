@@ -25,11 +25,15 @@ Output rules:
 - Follow this exact structure:
 {
   "title": "Video Title",
+  "card_title": "SHORT TITLE",
+  "card_title_highlight_word": "KEYWORD",
   "intro_hook": "A punchy 1-2 sentence hook that grabs the viewer in the first 5 seconds.",
   "outro_cta": "A call-to-action for the end of the video.",
   "segments": [
     {
       "name": "Segment Name",
+      "circle_color": "#e91e63",
+      "title_card_image_prompt": "A vivid visual description for the segment's circle image.",
       "scenes": [
         {
           "id": "scene_001",
@@ -96,10 +100,13 @@ def generate_script(
     if description:
         user_parts.append(f"Angle/description: {description}")
     if segment_count:
+        # Constrain to even numbers for balanced grid layouts
+        if segment_count % 2 != 0:
+            segment_count = segment_count + 1
         user_parts.append(f"Target segment count: {segment_count}")
     else:
         user_parts.append(
-            "Choose an appropriate number of segments (typically 8-15 for a long-form video)."
+            "Use exactly 6, 8, 10, or 12 segments (pick the most appropriate count for the topic)."
         )
     if brand_context:
         user_parts.append(f"Brand context (use for visual style and tone): {brand_context}")

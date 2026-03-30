@@ -14,6 +14,7 @@ from pipeline.ffmpeg_builder import (
     build_audio_concat_cmd,
     build_concat_cmd,
     build_scene_video_cmd,
+    build_title_card_zoom_cmd,
     build_tiktok_cmd,
 )
 
@@ -148,6 +149,26 @@ def render_scene_video(
 
     # Use audio duration if available, otherwise estimate
     duration = scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else scene.duration_estimate_seconds
+
+    # Title card zoom rendering — use composite card + zoompan
+    if scene.is_title_card and scene.title_card_zoom_target:
+        zoom = scene.title_card_zoom_target
+        composite_path = str(_data_dir / "projects" / script_id / "images" / "composite_title_card.png")
+        if os.path.exists(composite_path) and os.path.exists(audio_path):
+            cmd = build_title_card_zoom_cmd(
+                image_path=composite_path,
+                audio_path=audio_path,
+                output_path=output_path,
+                duration=duration,
+                target_x=zoom["x"],
+                target_y=zoom["y"],
+                target_radius=zoom["radius"],
+                width=width,
+                height=height,
+                fade_out_duration=fade_out,
+            )
+            _run_ffmpeg(cmd)
+            return f"/static/projects/{script_id}/renders/scenes/{filename}"
 
     kb = scene.ken_burns or KenBurnsConfig()
     toc = scene.text_overlay_config or TextOverlayConfig()

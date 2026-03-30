@@ -578,6 +578,7 @@ def build_title_card_image_cmd(
     """Build FFmpeg command to generate a title card PNG (solid color + centered text).
 
     Returns a list of args suitable for subprocess.run().
+    DEPRECATED: Use Pillow-based title_card_composer for composite grid cards.
     """
     # Strip '#' for FFmpeg color format
     bg_color = color_primary.lstrip("#")
@@ -605,6 +606,96 @@ def build_title_card_image_cmd(
 
     cmd += [
         "-frames:v", "1",
+        output_path,
+    ]
+
+    return cmd
+
+
+def build_title_card_zoom_cmd(
+    image_path: str,
+    audio_path: str,
+    output_path: str,
+    duration: float,
+    target_x: int,
+    target_y: int,
+    target_radius: int,
+    width: int = 1920,
+    height: int = 1080,
+    fade_out_duration: float = 0.3,
+) -> list[str]:
+    """Build FFmpeg command for a title card zoom animation.
+
+    Starts at full view (zoom=1) of the composite title card and smoothly
+    zooms into the target segment's circle over the audio duration.
+
+    Args:
+        image_path: Path to the composite title card PNG.
+        audio_path: Path to the narration audio.
+        duration: Audio duration in seconds.
+        target_x: X center of the target circle on the 1920x1080 canvas.
+        target_y: Y center of the target circle.
+        target_radius: Radius of the target circle in pixels.
+        width: Output video width.
+        height: Output video height.
+        fade_out_duration: Fade-out at end of scene.
+
+    Returns:
+        FFmpeg command args list.
+    """
+    fps = 30
+    d = int(duration * fps)
+
+    # Calculate zoom end level: we want the circle to fill ~60% of the frame width
+    # zoom = canvas_width / visible_width => visible_width = circle_diameter * (1/0.6)
+    visible_target = target_radius * 2 / 0.5  # circle fills 50% of visible frame
+    zoom_end = width / visible_target
+    zoom_end = max(1.5, min(zoom_end, 5.0))  # clamp to reasonable range
+
+    # Pan coordinates: zoompan x/y are in input image coordinates, representing
+    # the top-left corner of the visible region.
+    # At zoom=z, visible region is (iw/z, ih/z), so center the visible region on target:
+    # x = target_x - (iw/z)/2, y = target_y - (ih/z)/2
+    # We interpolate zoom from 1 to zoom_end, and pan accordingly.
+    zoom_expr = f"1+({zoom_end}-1)*on/{d}"
+    x_expr = f"{target_x}-(iw/zoom/2)"
+    y_expr = f"{target_y}-(ih/zoom/2)"
+
+    zoompan = (
+        f"zoompan=d={d}:s={width}x{height}:fps={fps}"
+        f":z='{zoom_expr}'"
+        f":x='{x_expr}'"
+        f":y='{y_expr}'"
+    )
+
+    filters = [zoompan]
+    filters.append(f"scale={width}:{height}:force_original_aspect_ratio=decrease")
+    filters.append(f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black")
+    filters.append("setsar=1")
+
+    if fade_out_duration > 0:
+        fade_start = max(0, duration - fade_out_duration)
+        filters.append(f"fade=t=out:st={fade_start}:d={fade_out_duration}")
+
+    filter_chain = ",".join(filters)
+    filter_complex = f"[0:v]{filter_chain}[vout]"
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-loop", "1",
+        "-i", image_path,
+        "-i", audio_path,
+        "-filter_complex", filter_complex,
+        "-map", "[vout]",
+        "-map", "1:a",
+        "-c:v", "libx264",
+        "-preset", "medium",
+        "-crf", "23",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-pix_fmt", "yuv420p",
+        "-t", str(duration),
+        "-shortest",
         output_path,
     ]
 
