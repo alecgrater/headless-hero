@@ -12,8 +12,6 @@ import GenerationProgressBar from "../GenerationProgressBar";
 interface Props {
   brand: BrandProfile;
   idea: VideoIdea;
-  contentFormat?: "youtube" | "shortform";
-  shortformPlatforms?: string[];
   onBack: () => void;
   onContinue: (scriptId: string) => void;
 }
@@ -21,8 +19,6 @@ interface Props {
 export default function ScriptGenerationPage({
   brand,
   idea,
-  contentFormat = "youtube",
-  shortformPlatforms = [],
   onBack,
   onContinue,
 }: Props) {
@@ -52,30 +48,17 @@ export default function ScriptGenerationPage({
     const generate = async () => {
       setLoading(true);
       setError(null);
-      const isShortform = contentFormat === "shortform";
-      const opType = isShortform ? "script_generation_shortform" : "script_generation_youtube";
-      fetchGenerationEstimate(opType)
+      fetchGenerationEstimate("script_generation_youtube")
         .then((est) => setEstimatedSeconds(est.average_seconds))
         .catch(() => setEstimatedSeconds(null));
       try {
-        const url = isShortform ? "/api/scripts/generate-shortform" : "/api/scripts/generate";
-        const body = isShortform
-          ? {
-              topic: idea.title,
-              description: idea.description,
-              brand_id: brand.id,
-              platforms: shortformPlatforms,
-              target_duration_seconds: 40,
-            }
-          : {
-              topic: idea.title,
-              description: idea.description,
-              brand_id: brand.id,
-              segment_count: idea.segments_est > 0 ? idea.segments_est : undefined,
-              animated_scene_count: 5,
-            };
-
-        const res = await api.post(url, body);
+        const res = await api.post("/api/scripts/generate", {
+          topic: idea.title,
+          description: idea.description,
+          brand_id: brand.id,
+          segment_count: idea.segments_est > 0 ? idea.segments_est : undefined,
+          animated_scene_count: 5,
+        });
         if (cancelled) return;
         if (res.ok) {
           const data = res.data as GenerateScriptResponse;
@@ -96,7 +79,7 @@ export default function ScriptGenerationPage({
     return () => {
       cancelled = true;
     };
-  }, [brand.id, idea.title, idea.description, idea.segments_est, contentFormat, shortformPlatforms]);
+  }, [brand.id, idea.title, idea.description, idea.segments_est]);
 
   const saveScript = async (updated: ScriptContent) => {
     if (!scriptId) return;
@@ -211,11 +194,6 @@ export default function ScriptGenerationPage({
         </button>
         <div className="flex items-center gap-2.5">
           <h2 className="text-2xl font-bold">{idea.title}</h2>
-          {contentFormat === "shortform" && (
-            <span className="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-medium">
-              Short-Form
-            </span>
-          )}
         </div>
         <p className="text-sm text-neutral-400">{idea.description}</p>
       </div>
@@ -225,7 +203,7 @@ export default function ScriptGenerationPage({
         <div className="text-center py-12 space-y-4">
           <div className="inline-block w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-neutral-400 text-lg">
-            Generating {contentFormat === "shortform" ? "short-form" : ""} script with Claude...
+            Generating script with Claude...
           </p>
           <div className="max-w-md mx-auto">
             <GenerationProgressBar estimatedSeconds={estimatedSeconds} active={loading} />
@@ -257,23 +235,13 @@ export default function ScriptGenerationPage({
               </span>{" "}
               scenes
             </span>
-            {contentFormat === "shortform" ? (
-              <span>
-                ~
-                <span className={`font-medium ${totalDuration <= 45 ? "text-emerald-400" : totalDuration <= 60 ? "text-yellow-400" : "text-red-400"}`}>
-                  {Math.round(totalDuration)}
-                </span>{" "}
-                sec
-              </span>
-            ) : (
-              <span>
-                ~
-                <span className="text-neutral-100 font-medium">
-                  {Math.round(totalDuration / 60)}
-                </span>{" "}
-                min estimated
-              </span>
-            )}
+            <span>
+              ~
+              <span className="text-neutral-100 font-medium">
+                {Math.round(totalDuration / 60)}
+              </span>{" "}
+              min estimated
+            </span>
             {saving && (
               <span className="text-violet-400 ml-auto">Saving...</span>
             )}

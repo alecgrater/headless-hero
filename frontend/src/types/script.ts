@@ -46,8 +46,6 @@ export interface ScriptContent {
   segments: Segment[];
   intro_hook: string;
   outro_cta: string;
-  format?: "youtube" | "shortform";
-  target_duration_seconds?: number;
 }
 
 export interface GenerateScriptResponse {
@@ -62,7 +60,6 @@ export interface ScriptRead {
   topic_description: string;
   script: ScriptContent;
   created_at: string;
-  content_format?: "youtube" | "shortform";
 }
 
 export interface ScriptSummary {
@@ -78,5 +75,4 @@ export interface ScriptSummary {
   has_renders: boolean;
   thumbnail_url: string;
   status: "script" | "images" | "audio" | "exported";
-  content_format?: "youtube" | "shortform";
 }

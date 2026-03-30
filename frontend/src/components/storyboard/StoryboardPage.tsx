@@ -78,7 +78,7 @@ export default function StoryboardPage({ scriptId, onBack }: Props) {
     );
   }
 
-  return <StoryboardEditor scriptId={scriptId} brandId={script.brand_id} initialContent={script.script} title={script.topic_title} contentFormat={script.content_format || "youtube"} onBack={onBack} />;
+  return <StoryboardEditor scriptId={scriptId} brandId={script.brand_id} initialContent={script.script} title={script.topic_title} onBack={onBack} />;
 }
 
 interface BatchProgressProps {
@@ -140,17 +140,14 @@ function StoryboardEditor({
   brandId,
   initialContent,
   title,
-  contentFormat,
   onBack,
 }: {
   scriptId: string;
   brandId: string;
   initialContent: ScriptContent;
   title: string;
-  contentFormat: string;
   onBack: () => void;
 }) {
-  const isShortform = contentFormat === "shortform";
   const state = useStoryboardState(scriptId, initialContent);
   const render = useRenderState(scriptId, title);
   const publish = usePublishState(scriptId, brandId);
@@ -535,26 +532,6 @@ function StoryboardEditor({
             </button>
           </div>
 
-          {/* Shortform duration meter */}
-          {isShortform && (() => {
-            const totalDur = state.content.segments.reduce(
-              (sum, seg) => sum + seg.scenes.reduce((s, sc) => s + (sc.audio_duration_seconds || sc.duration_estimate_seconds), 0),
-              0,
-            );
-            const color = totalDur <= 45 ? "text-emerald-400" : totalDur <= 60 ? "text-yellow-400" : "text-red-400";
-            return (
-              <span className={`text-xs font-mono ${color} mr-2`} title="Total duration">
-                {Math.round(totalDur)}s
-              </span>
-            );
-          })()}
-
-          {isShortform && (
-            <span className="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full mr-2">
-              Short-Form
-            </span>
-          )}
-
           {/* Export CTA — the ONLY solid-color button */}
           <button
             onClick={() => setShowExport(true)}
@@ -573,17 +550,15 @@ function StoryboardEditor({
 
       {/* Three-panel layout */}
       <div className="flex flex-1 overflow-hidden">
-        {!isShortform && (
-          <SegmentList
-            content={state.content}
-            activeSegmentIdx={activeSegmentIdx}
-            onSegmentClick={handleSegmentClick}
-            collapsed={sidebar.leftCollapsed}
-            onToggle={sidebar.toggleLeft}
-            onRegenerateSegmentImages={handleRegenerateSegmentImages}
-            onRegenerateSegmentAudio={handleRegenerateSegmentAudio}
-          />
-        )}
+        <SegmentList
+          content={state.content}
+          activeSegmentIdx={activeSegmentIdx}
+          onSegmentClick={handleSegmentClick}
+          collapsed={sidebar.leftCollapsed}
+          onToggle={sidebar.toggleLeft}
+          onRegenerateSegmentImages={handleRegenerateSegmentImages}
+          onRegenerateSegmentAudio={handleRegenerateSegmentAudio}
+        />
 
         <SceneGrid
           content={state.content}
@@ -631,7 +606,6 @@ function StoryboardEditor({
                 state.fetchMedia(selectedScene.scene.id)
               }
               isFetchingMedia={state.fetchingMediaSceneIds.has(selectedScene.scene.id)}
-              contentFormat={contentFormat}
               collapsed={sidebar.rightCollapsed}
               onToggle={sidebar.toggleRight}
             />
@@ -700,8 +674,6 @@ function StoryboardEditor({
           publishHistory={publish.publishHistory}
           estimatedSeconds={render.estimatedSeconds}
           activeModifierIds={activeModifierIds}
-          contentFormat={contentFormat}
-          scriptId={scriptId}
           onClose={() => setShowExport(false)}
         />
       )}

@@ -41,14 +41,6 @@ and animation "fade_in".
 - Each segment MUST have at least 5 scenes (including the title card).
 - Segment count MUST be exactly 6, 8, 10, or 12 for balanced grid layouts."""
 
-_TITLE_CARD_SHORTFORM_PROMPT_INSTRUCTIONS = """\
-
-- You may include at most ONE title card (is_title_card: true) at the very \
-start of the video. If included, it should be 2 seconds max.
-- Title card scenes MUST have visual_prompt set to "" (empty string).
-- Title card scenes MUST have text_overlay_config with style "title_card", \
-position "center", and animation "fade_in"."""
-
 
 class TitleCardsModifier(ContentModifier):
     meta = ModifierMeta(
@@ -59,13 +51,9 @@ class TitleCardsModifier(ContentModifier):
     )
 
     def modify_script_prompt(self, system_prompt: str, user_message: str) -> tuple[str, str]:
-        if "short-form" in system_prompt.lower() or "shortform" in system_prompt.lower():
-            return system_prompt + _TITLE_CARD_SHORTFORM_PROMPT_INSTRUCTIONS, user_message
         return system_prompt + _TITLE_CARD_PROMPT_INSTRUCTIONS, user_message
 
     def modify_script_post(self, content: ScriptContent, brand: dict) -> ScriptContent:
-        if content.format == "shortform":
-            return _enforce_shortform_title_cards(content)
         return _enforce_title_cards_and_min_scenes(content)
 
     def modify_scene_pre_render(self, scene: Scene, script_id: str, brand: dict) -> Scene:
@@ -204,31 +192,5 @@ def _enforce_title_cards_and_min_scenes(content: ScriptContent) -> ScriptContent
                 seg.name,
                 len(seg.scenes),
             )
-
-    return content
-
-
-def _enforce_shortform_title_cards(content: ScriptContent) -> ScriptContent:
-    """For shortform: allow at most one title card (the very first scene), remove extras."""
-    found_first = False
-    for seg in content.segments:
-        to_remove: list[int] = []
-        for i, sc in enumerate(seg.scenes):
-            if sc.is_title_card:
-                if found_first:
-                    to_remove.append(i)
-                else:
-                    found_first = True
-                    sc.visual_prompt = ""
-                    sc.visual_prompt_b = ""
-                    sc.is_animated = False
-                    if not sc.text_overlay_config or sc.text_overlay_config.style != "title_card":
-                        sc.text_overlay_config = TextOverlayConfig(
-                            position="center",
-                            style="title_card",
-                            animation="fade_in",
-                        )
-        for idx in reversed(to_remove):
-            seg.scenes.pop(idx)
 
     return content

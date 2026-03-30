@@ -31,7 +31,7 @@ const STATUS_DOT_COLORS: Record<ScriptSummary["status"], string> = {
   exported: "bg-emerald-400",
 };
 
-type FilterValue = "all" | ScriptSummary["status"] | "shortform" | "longform";
+type FilterValue = "all" | ScriptSummary["status"];
 type SortValue = "newest" | "oldest" | "title";
 
 const FILTER_OPTIONS: { value: FilterValue; label: string }[] = [
@@ -40,8 +40,6 @@ const FILTER_OPTIONS: { value: FilterValue; label: string }[] = [
   { value: "audio", label: "Audio" },
   { value: "images", label: "Images" },
   { value: "script", label: "Script" },
-  { value: "shortform", label: "Short-Form" },
-  { value: "longform", label: "Long-Form" },
 ];
 
 const SORT_OPTIONS: { value: SortValue; label: string }[] = [
@@ -118,12 +116,8 @@ export default function ProjectDashboard({ brand, onNewVideo, onOpenProject, onB
       );
     }
 
-    // Status/format filter
-    if (activeFilter === "shortform") {
-      result = result.filter((p) => p.content_format === "shortform");
-    } else if (activeFilter === "longform") {
-      result = result.filter((p) => p.content_format !== "shortform");
-    } else if (activeFilter !== "all") {
+    // Status filter
+    if (activeFilter !== "all") {
       result = result.filter((p) => p.status === activeFilter);
     }
 
@@ -306,26 +300,17 @@ export default function ProjectDashboard({ brand, onNewVideo, onOpenProject, onB
                     {/* Bottom gradient fade */}
                     <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-neutral-900 to-transparent pointer-events-none" />
 
+                    {/* Status badge — top-left */}
+                    <span className={`absolute top-2 left-2 px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[project.status]}`}>
+                      {STATUS_LABELS[project.status]}
+                    </span>
+
                     {/* Hover overlay with Open button */}
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                       <span className="px-4 py-1.5 rounded-lg bg-violet-600 text-sm font-medium text-white shadow-lg">
                         Open
                       </span>
                     </div>
-
-                    {/* Format badge — top-left */}
-                    <span className={`absolute top-2 left-2 px-2 py-0.5 rounded text-xs font-medium ${
-                      project.content_format === "shortform"
-                        ? "bg-emerald-500/20 text-emerald-300"
-                        : "bg-neutral-600/80 text-neutral-300"
-                    }`}>
-                      {project.content_format === "shortform" ? "Short-Form" : "Long-Form"}
-                    </span>
-
-                    {/* Status badge — top-right */}
-                    <span className={`absolute top-2 right-2 px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[project.status]}`}>
-                      {STATUS_LABELS[project.status]}
-                    </span>
                   </div>
 
                   {/* Card body */}

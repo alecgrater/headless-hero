@@ -88,25 +88,3 @@ def publish_to_youtube(
         on_progress(1.0, "Published!")
 
     return result
-
-
-def publish_shorts_to_youtube(
-    credential: PlatformCredential,
-    file_url: str,
-    metadata: dict,
-    schedule_at: str | None = None,
-    on_progress: Callable[[float, str], None] | None = None,
-) -> dict[str, str]:
-    """Upload a YouTube Shorts video — injects #Shorts in title if missing."""
-    title = metadata.get("title", "Untitled")
-    if "#Shorts" not in title:
-        title = f"{title} #Shorts"
-    adjusted_meta = {**metadata, "title": title}
-
-    return publish_to_youtube(
-        credential=credential,
-        file_url=file_url,
-        metadata=adjusted_meta,
-        schedule_at=schedule_at,
-        on_progress=on_progress,
-    )

@@ -61,7 +61,6 @@ interface Props {
   onNextScene?: () => void;
   onFetchMedia?: () => void;
   isFetchingMedia?: boolean;
-  contentFormat?: string;
   collapsed?: boolean;
   onToggle?: () => void;
 }
@@ -83,7 +82,6 @@ export default function PropertiesPanel({
   onNextScene,
   onFetchMedia,
   isFetchingMedia = false,
-  contentFormat,
   collapsed = false,
   onToggle,
 }: Props) {
@@ -99,8 +97,6 @@ export default function PropertiesPanel({
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [framePrompts, setFramePrompts] = useState<string[]>(scene.frame_prompts || []);
   const [frameCount, setFrameCount] = useState(scene.frame_count || 0);
-
-  const isShortform = contentFormat === "shortform";
 
   const sceneIdRef = useRef(scene.id);
 
@@ -518,7 +514,7 @@ export default function PropertiesPanel({
                 <img
                   src={assetUrl(scene.image_url)}
                   alt="Scene visual A"
-                  className={`w-full object-cover rounded-lg border border-neutral-700 ${isShortform ? "h-[140px]" : "h-[96px]"}`}
+                  className={`w-full object-cover rounded-lg border border-neutral-700 h-[96px]`}
                 />
               </div>
               <div className="space-y-1">
@@ -526,7 +522,7 @@ export default function PropertiesPanel({
                 <img
                   src={assetUrl(scene.image_url_b)}
                   alt="Scene visual B"
-                  className={`w-full object-cover rounded-lg border border-amber-700/50 ${isShortform ? "h-[140px]" : "h-[96px]"}`}
+                  className={`w-full object-cover rounded-lg border border-amber-700/50 h-[96px]`}
                 />
               </div>
             </div>
@@ -534,7 +530,7 @@ export default function PropertiesPanel({
             <img
               src={assetUrl(scene.image_url)}
               alt="Scene visual"
-              className={`w-full object-cover rounded-lg border border-neutral-700 ${isShortform ? "aspect-[9/16] h-auto max-h-[320px]" : "h-[200px]"}`}
+              className={`w-full object-cover rounded-lg border border-neutral-700 h-[200px]`}
             />
           )}
           {onGenerateImage && (

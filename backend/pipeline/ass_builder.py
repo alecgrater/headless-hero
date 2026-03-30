@@ -257,7 +257,7 @@ def generate_ass_for_scene(
             })
         word_timestamps = adjusted
 
-    subdir = "autoedit_scenes" if mode == "landscape" else "shortform_scenes"
+    subdir = "autoedit_scenes"
     ass_path = str(Path(renders_dir) / subdir / f"{scene_id}.ass")
 
     return generate_ass_subtitles(

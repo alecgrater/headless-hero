@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 from api.database import get_session
 from models.credential import PlatformCredential, PlatformCredentialRead
 from models.publish import PublishRecord, PublishRecordRead
-from pipeline.publishing import publish_shorts_to_youtube, publish_to_youtube
+from pipeline.publishing import publish_to_youtube
 from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
 
 log = logging.getLogger(__name__)
@@ -54,13 +54,6 @@ class PublishStatusResponse(BaseModel):
     output_urls: list[str]
     error: str | None = None
 
-class UploadShortformRequest(BaseModel):
-    script_id: str
-    brand_id: str
-    platform: str  # "youtube_shorts" | "tiktok" | "instagram_reels"
-    file_url: str
-    metadata: dict
-    schedule_at: str | None = None
 
 # --- Helpers ---
 
@@ -286,107 +279,6 @@ def start_upload(body: UploadRequest, session: Session = Depends(get_session)):
 
     run_in_background(job.id, do_upload)
     return UploadResponse(job_id=job.id)
-
-@router.post("/upload-shortform", response_model=UploadResponse)
-def start_shortform_upload(body: UploadShortformRequest, session: Session = Depends(get_session)):
-    """Upload a short-form video. YouTube Shorts goes direct; TikTok/IG return metadata for manual copy."""
-    if body.platform == "youtube_shorts":
-        cred = _get_credential(session, body.brand_id, "youtube")
-        if not cred:
-            raise HTTPException(status_code=400, detail="YouTube not connected for this brand")
-
-        record = PublishRecord(
-            script_id=body.script_id,
-            brand_id=body.brand_id,
-            platform="youtube_shorts",
-            status="uploading",
-            file_path=body.file_url,
-            metadata_json=json.dumps(body.metadata),
-            schedule_at=datetime.fromisoformat(body.schedule_at) if body.schedule_at else None,
-        )
-        session.add(record)
-        session.commit()
-        session.refresh(record)
-
-        record_id = record.id
-        cred_brand = cred.brand_id
-        cred_refresh = cred.refresh_token
-        cred_access = cred.access_token
-        cred_expiry = cred.token_expiry
-
-        job = create_job()
-
-        def do_upload():
-            from api.database import engine as db_engine
-            from sqlmodel import Session as SyncSession
-
-            temp_cred = PlatformCredential(
-                brand_id=cred_brand,
-                platform="youtube",
-                access_token=cred_access,
-                refresh_token=cred_refresh,
-                token_expiry=cred_expiry,
-            )
-
-            def on_progress(p: float, msg: str):
-                update_job(job.id, progress=p, current_step=msg)
-
-            try:
-                result = publish_shorts_to_youtube(
-                    credential=temp_cred,
-                    file_url=body.file_url,
-                    metadata=body.metadata,
-                    schedule_at=body.schedule_at,
-                    on_progress=on_progress,
-                )
-
-                with SyncSession(db_engine) as s:
-                    rec = s.get(PublishRecord, record_id)
-                    if rec:
-                        rec.status = "scheduled" if body.schedule_at else "published"
-                        rec.platform_content_id = result["id"]
-                        rec.platform_url = result["url"]
-                        rec.published_at = datetime.now(timezone.utc)
-                        rec.updated_at = datetime.now(timezone.utc)
-                        s.add(rec)
-                        s.commit()
-
-                return result["url"]
-
-            except Exception as exc:
-                with SyncSession(db_engine) as s:
-                    rec = s.get(PublishRecord, record_id)
-                    if rec:
-                        rec.status = "failed"
-                        rec.error = str(exc)[:1000]
-                        rec.updated_at = datetime.now(timezone.utc)
-                        s.add(rec)
-                        s.commit()
-                raise
-
-        run_in_background(job.id, do_upload)
-        return UploadResponse(job_id=job.id)
-
-    elif body.platform in ("tiktok", "instagram_reels"):
-        # For TikTok/Instagram, create a record for tracking but no actual upload
-        record = PublishRecord(
-            script_id=body.script_id,
-            brand_id=body.brand_id,
-            platform=body.platform,
-            status="metadata_ready",
-            file_path=body.file_url,
-            metadata_json=json.dumps(body.metadata),
-        )
-        session.add(record)
-        session.commit()
-        session.refresh(record)
-
-        job = create_job()
-        update_job(job.id, progress=1.0, current_step="Metadata ready for manual upload")
-        return UploadResponse(job_id=job.id)
-
-    else:
-        raise HTTPException(status_code=400, detail=f"Unsupported platform: {body.platform}")
 
 @router.get("/status/{job_id}", response_model=PublishStatusResponse)
 def publish_status(job_id: str):

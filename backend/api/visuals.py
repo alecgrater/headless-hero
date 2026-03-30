@@ -2,7 +2,6 @@
 
 import json
 import time
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -15,10 +14,6 @@ from pipeline.image_gen import generate_batch, generate_scene_frames, generate_s
 from pipeline.title_card import ensure_title_card_images
 
 router = APIRouter(prefix="/api/visuals", tags=["visuals"])
-
-# Load shortform style guide once
-_SHORTFORM_GUIDE_PATH = Path(__file__).resolve().parent.parent / "prompts" / "shortform_image_gen_guide.md"
-_SHORTFORM_STYLE_GUIDE = _SHORTFORM_GUIDE_PATH.read_text() if _SHORTFORM_GUIDE_PATH.exists() else ""
 
 # --- Request / Response schemas ---
 
@@ -96,12 +91,6 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
 
-    # Detect shortform format → use portrait dims and shortform style guide
-    is_shortform = (record.content_format or "youtube") == "shortform"
-    width = body.width if not is_shortform else 768
-    height = body.height if not is_shortform else 1344
-    style_guide = _SHORTFORM_STYLE_GUIDE if is_shortform else ""
-
     # Load brand style_string
     brand = session.get(BrandProfile, record.brand_id)
     brand_style_string = brand.style_string if brand else ""
@@ -113,9 +102,8 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             frame_prompts=body.frame_prompts,
             script_id=body.script_id,
             visual_prompt=body.visual_prompt,
-            width=width,
-            height=height,
-            style_guide=style_guide,
+            width=body.width,
+            height=body.height,
             seed=body.frame_seed,
             style_string=brand_style_string,
         )
@@ -132,9 +120,8 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         scene_id=body.scene_id,
         visual_prompt=body.visual_prompt,
         script_id=body.script_id,
-        width=width,
-        height=height,
-        style_guide=style_guide,
+        width=body.width,
+        height=body.height,
         style_string=brand_style_string,
     )
 
@@ -146,10 +133,9 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             scene_id=body.scene_id,
             visual_prompt=body.visual_prompt_b,
             script_id=body.script_id,
-            width=width,
-            height=height,
+            width=body.width,
+            height=body.height,
             variant="b",
-            style_guide=style_guide,
             style_string=brand_style_string,
         )
         _update_scene(session, body.script_id, body.scene_id, image_url_b=image_url_b)
@@ -162,12 +148,6 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
-
-    # Detect shortform format
-    is_shortform = (record.content_format or "youtube") == "shortform"
-    width = body.width if not is_shortform else 768
-    height = body.height if not is_shortform else 1344
-    style_guide = _SHORTFORM_STYLE_GUIDE if is_shortform else ""
 
     # Load brand style_string
     brand = session.get(BrandProfile, record.brand_id)
@@ -188,9 +168,8 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
     results = generate_batch(
         scenes=scenes,
         script_id=body.script_id,
-        width=width,
-        height=height,
-        style_guide=style_guide,
+        width=body.width,
+        height=body.height,
         style_string=brand_style_string,
     )
 
@@ -229,11 +208,6 @@ def generate_title_cards(body: GenerateTitleCardsRequest, session: Session = Dep
     # Load brand style_string for title card image generation
     brand = session.get(BrandProfile, record.brand_id)
     brand_style_string = brand.style_string if brand else ""
-
-    # Detect shortform dimensions
-    is_shortform = (record.content_format or "youtube") == "shortform"
-    width = 768 if is_shortform else 1920
-    height = 1344 if is_shortform else 1080
 
     generated_ids = ensure_title_card_images(
         script_id=body.script_id,

@@ -1,8 +1,6 @@
 """Endpoints for video rendering and export."""
 
 import json
-import os
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -12,7 +10,6 @@ from api.database import get_session
 from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.render_jobs import create_job, estimate_render_time, get_job, run_in_background, update_job
-from pipeline.shortform_render import render_shortform_video
 from pipeline.video_render import (
     export_full_audio,
     render_all_segments,
@@ -45,11 +42,6 @@ class RenderSegmentsRequest(BaseModel):
     script_id: str
     width: int = 1080
     height: int = 1920
-    title: str = ""
-    speed: float = 1.0
-
-class RenderShortformRequest(BaseModel):
-    script_id: str
     title: str = ""
     speed: float = 1.0
 
@@ -197,49 +189,6 @@ def start_segments_render(body: RenderSegmentsRequest, session: Session = Depend
             content=content,
             width=body.width,
             height=body.height,
-            on_progress=on_progress,
-            title=body.title,
-            speed=speed,
-            modifier_ids=modifier_ids,
-            brand=brand_dict,
-        )
-
-    run_in_background(job.id, do_render)
-    return RenderJobResponse(job_id=job.id)
-
-@router.post("/shortform", response_model=RenderJobResponse)
-def start_shortform_render(body: RenderShortformRequest, session: Session = Depends(get_session)):
-    """Start a short-form 1080x1920 render in the background."""
-    content = _load_content(session, body.script_id)
-
-    # Short-form requires audio for every scene (word-synced subtitles)
-    data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
-    missing = []
-    for seg in content.segments:
-        for sc in seg.scenes:
-            audio = data_dir / "projects" / body.script_id / "audio" / f"{sc.id}.mp3"
-            if not audio.exists():
-                missing.append(sc.id)
-    if missing:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Audio not generated for {len(missing)} scene(s). Generate voiceover for all scenes before rendering short-form video.",
-        )
-
-    brand_dict, modifier_ids = _load_brand_and_modifiers(session, body.script_id)
-    scene_count = _count_scenes(content)
-    audio_dur = _total_audio_duration(content)
-    job = create_job(scene_count=scene_count, total_audio_duration=audio_dur)
-
-    speed = max(0.5, min(3.0, body.speed))
-
-    def do_render():
-        def on_progress(p: float, msg: str):
-            update_job(job.id, progress=p, current_step=msg)
-
-        return render_shortform_video(
-            script_id=body.script_id,
-            content=content,
             on_progress=on_progress,
             title=body.title,
             speed=speed,

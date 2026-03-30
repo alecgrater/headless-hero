@@ -66,13 +66,3 @@ export interface GenerateSEOResponse {
 export interface RenderEstimateResponse {
   estimated_seconds: number;
 }
-
-// --- Short-Form ---
-
-export interface ShortformSEOMetadata {
-  youtube_shorts?: { title: string; description: string; tags: string[] };
-  tiktok?: { caption: string; hashtags: string[] };
-  instagram_reels?: { caption: string; hashtags: string[] };
-  thumbnail_text?: string;
-  hook_preview_text?: string;
-}

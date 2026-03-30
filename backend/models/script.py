@@ -66,8 +66,7 @@ class ScriptContent(BaseModel):
     segments: list[Segment]
     intro_hook: str = ""
     outro_cta: str = ""
-    format: str = "youtube"  # "youtube" | "shortform"
-    target_duration_seconds: float = 0.0
+    format: str = "youtube"
     card_title: str = ""                  # condensed title for composite title card (e.g. "TYPES OF DREAMS")
     card_title_highlight_word: str = ""   # word to render in accent color (e.g. "DREAMS")
 
@@ -83,8 +82,8 @@ class Script(SQLModel, table=True):
     topic_title: str = Field(default="")
     topic_description: str = Field(default="", sa_column=Column(Text))
     script_json: str = Field(default="{}", sa_column=Column(Text))  # serialised ScriptContent
-    content_format: str = Field(default="youtube")  # "youtube" | "shortform"
-    shortform_platforms: str = Field(default="")  # JSON array e.g. '["youtube_shorts","tiktok"]'
+    content_format: str = Field(default="youtube")  # kept for backward compat (unused)
+    shortform_platforms: str = Field(default="")  # kept for backward compat (unused)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # --- Request / response schemas ---
@@ -98,18 +97,6 @@ class GenerateScriptRequest(BaseModel):
     )
     animated_scene_count: int = PydanticField(
         default=5, ge=0, le=50, description="Number of scenes to make animated A/B flip (0 = none)"
-    )
-
-class GenerateShortformScriptRequest(BaseModel):
-    topic: str = PydanticField(..., min_length=1, description="Video topic / title")
-    description: str = PydanticField(default="", description="Optional topic description or angle")
-    brand_id: str = PydanticField(..., description="Brand profile ID for style context")
-    platforms: list[str] = PydanticField(
-        default=["youtube_shorts", "tiktok", "instagram_reels"],
-        description="Target platforms",
-    )
-    target_duration_seconds: int = PydanticField(
-        default=40, ge=15, le=60, description="Target video duration in seconds"
     )
 
 class GenerateScriptResponse(BaseModel):
@@ -133,7 +120,6 @@ class ScriptRead(BaseModel):
     topic_description: str
     script: ScriptContent
     created_at: datetime
-    content_format: str = "youtube"
 
 
 class ScriptSummary(BaseModel):
@@ -151,4 +137,3 @@ class ScriptSummary(BaseModel):
     has_renders: bool
     thumbnail_url: str
     status: str  # "script" | "images" | "audio" | "exported"
-    content_format: str = "youtube"

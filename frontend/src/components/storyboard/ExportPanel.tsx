@@ -1,8 +1,7 @@
 import { useState } from "react";
-import api, { assetUrl, openInBrowser } from "../../api";
+import { assetUrl, openInBrowser } from "../../api";
 import type { PublishRecord } from "../../types/publish";
 import type { RenderStatusResponse, SEOMetadata, ThumbnailConcept } from "../../types/render";
-import { useShortformState } from "./useShortformState";
 
 interface Props {
   youtubeStatus: { status: string; progress: number; current_step: string; error?: string } | null;
@@ -44,10 +43,6 @@ interface Props {
 
   // Active modifiers on the brand
   activeModifierIds: string[];
-
-  // Content format
-  contentFormat?: string;
-  scriptId?: string;
 
   onClose: () => void;
 }
@@ -170,12 +165,9 @@ export default function ExportPanel({
   onStartPublish,
   publishHistory,
   estimatedSeconds,
-  activeModifierIds,
-  contentFormat,
-  scriptId,
+  // activeModifierIds available for future modifier-conditional UI
   onClose,
 }: Props) {
-  const isShortform = contentFormat === "shortform";
   const youtubeRendering = youtubeStatus?.status === "running" || youtubeStatus?.status === "pending";
   const tiktokRendering = tiktokStatus?.status === "running" || tiktokStatus?.status === "pending";
   const publishing = publishStatus?.status === "running" || publishStatus?.status === "pending";
@@ -184,10 +176,6 @@ export default function ExportPanel({
   const [scheduleAt, setScheduleAt] = useState("");
   const [confirmPublish, setConfirmPublish] = useState(false);
   const [speed, setSpeed] = useState(1.0);
-
-  // Short-form state (only active when contentFormat === "shortform")
-  const shortform = useShortformState([]);
-  const sfRendering = shortform.renderStatus === "running" || shortform.renderStatus === "starting";
 
   // Latest YouTube publish from history
   const latestYtPublish = publishHistory.find(
@@ -261,131 +249,92 @@ export default function ExportPanel({
                 ))}
               </div>
 
-              {isShortform ? (
-                /* Short-Form Render */
-                <section className="space-y-3">
-                  <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
-                    Short-Form Video (9:16)
-                  </h3>
-                  <p className="text-xs text-neutral-500">
-                    1080×1920 vertical video with word-synced subtitles for YouTube Shorts, TikTok, and Reels.
-                  </p>
-                  {sfRendering && shortform.renderStatus === "running" ? (
-                    <ProgressBar progress={shortform.renderProgress} label={shortform.renderCurrentStep} />
-                  ) : shortform.renderUrl ? (
-                    <div className="space-y-3">
-                      <video
-                        src={assetUrl(shortform.renderUrl)}
-                        controls
-                        className="w-full max-h-[400px] rounded-lg border border-neutral-700"
-                      />
-                      <DownloadButton url={shortform.renderUrl} label="Download Short-Form Video" />
-                    </div>
-                  ) : shortform.renderStatus === "failed" ? (
-                    <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                      Render failed: {shortform.renderError ?? "Unknown error"}
-                    </div>
-                  ) : null}
-                  {!sfRendering && (
+              {/* YouTube Export */}
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
+                  YouTube Export (16:9)
+                </h3>
+                {youtubeRendering && youtubeStatus ? (
+                  <ProgressBar progress={youtubeStatus.progress} label={youtubeStatus.current_step} />
+                ) : youtubeUrl ? (
+                  <div className="space-y-3">
+                    <video
+                      src={assetUrl(youtubeUrl)}
+                      controls
+                      className="w-full max-h-[300px] rounded-lg border border-neutral-700"
+                    />
+                    <DownloadButton url={youtubeUrl} label="Download YouTube Video" />
+                  </div>
+                ) : youtubeStatus?.status === "failed" ? (
+                  <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                    Render failed: {youtubeStatus.error ?? "Unknown error"}
+                  </div>
+                ) : null}
+                {!youtubeRendering && (
+                  <div className="flex items-center gap-3">
                     <button
-                      onClick={() => scriptId && shortform.startRender(scriptId, "", speed)}
-                      disabled={!scriptId}
-                      className="text-sm px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 rounded-lg font-medium transition-colors"
+                      onClick={() => onStartYoutubeRender(0.3, speed)}
+                      className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
                     >
-                      {shortform.renderUrl ? "Re-render" : "Render Short-Form Video"}{speed !== 1 ? ` (${speed}x)` : ""}
+                      {youtubeUrl ? "Re-render" : "Render YouTube Video"}{speed !== 1 ? ` (${speed}x)` : ""}
                     </button>
-                  )}
-                </section>
-              ) : (
-                <>
-                  {/* YouTube Export */}
-                  <section className="space-y-3">
-                    <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
-                      YouTube Export (16:9)
-                    </h3>
-                    {youtubeRendering && youtubeStatus ? (
-                      <ProgressBar progress={youtubeStatus.progress} label={youtubeStatus.current_step} />
-                    ) : youtubeUrl ? (
-                      <div className="space-y-3">
-                        <video
-                          src={assetUrl(youtubeUrl)}
-                          controls
-                          className="w-full max-h-[300px] rounded-lg border border-neutral-700"
-                        />
-                        <DownloadButton url={youtubeUrl} label="Download YouTube Video" />
-                      </div>
-                    ) : youtubeStatus?.status === "failed" ? (
-                      <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                        Render failed: {youtubeStatus.error ?? "Unknown error"}
-                      </div>
-                    ) : null}
-                    {!youtubeRendering && (
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => onStartYoutubeRender(0.3, speed)}
-                          className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
-                        >
-                          {youtubeUrl ? "Re-render" : "Render YouTube Video"}{speed !== 1 ? ` (${speed}x)` : ""}
-                        </button>
-                        {estimatedSeconds != null && !youtubeUrl && (
-                          <span className="text-xs text-neutral-500">
-                            Estimated render time: {formatEstimate(estimatedSeconds)}
-                          </span>
-                        )}
-                      </div>
+                    {estimatedSeconds != null && !youtubeUrl && (
+                      <span className="text-xs text-neutral-500">
+                        Estimated render time: {formatEstimate(estimatedSeconds)}
+                      </span>
                     )}
-                  </section>
+                  </div>
+                )}
+              </section>
 
-                  {/* TikTok Export */}
-                  <section className="space-y-3">
-                    <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
-                      TikTok Export (9:16)
-                    </h3>
-                    {tiktokRendering && tiktokStatus ? (
-                      <ProgressBar progress={tiktokStatus.progress} label={tiktokStatus.current_step} />
-                    ) : tiktokUrls.length > 0 ? (
-                      <div className="grid grid-cols-3 gap-3">
-                        {tiktokUrls.map((url, i) => (
-                          <div key={i} className="space-y-2">
-                            <video
-                              src={assetUrl(url)}
-                              controls
-                              className="w-full rounded-lg border border-neutral-700"
-                            />
-                            <DownloadButton url={url} label={`Segment ${i + 1}`} />
-                          </div>
-                        ))}
+              {/* TikTok Export */}
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
+                  TikTok Export (9:16)
+                </h3>
+                {tiktokRendering && tiktokStatus ? (
+                  <ProgressBar progress={tiktokStatus.progress} label={tiktokStatus.current_step} />
+                ) : tiktokUrls.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-3">
+                    {tiktokUrls.map((url, i) => (
+                      <div key={i} className="space-y-2">
+                        <video
+                          src={assetUrl(url)}
+                          controls
+                          className="w-full rounded-lg border border-neutral-700"
+                        />
+                        <DownloadButton url={url} label={`Segment ${i + 1}`} />
                       </div>
-                    ) : tiktokStatus?.status === "failed" ? (
-                      <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                        Render failed: {tiktokStatus.error ?? "Unknown error"}
-                      </div>
-                    ) : null}
-                    {!tiktokRendering && (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => onStartTiktokRender(speed)}
-                          className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
-                        >
-                          {tiktokUrls.length > 0 ? "Re-render" : "Render TikTok Segments"}{speed !== 1 ? ` (${speed}x)` : ""}
-                        </button>
-                        {seoMetadata && (
-                          <CopyButton
-                            text={seoMetadata.tiktok.map((t) => `${t.caption} ${t.hashtags.join(" ")}`).join("\n\n---\n\n")}
-                            label="Copy All TikTok Captions"
-                          />
-                        )}
-                        <button
-                          onClick={() => openInBrowser("https://www.tiktok.com/creator#/upload")}
-                          className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
-                        >
-                          Open TikTok Upload
-                        </button>
-                      </div>
+                    ))}
+                  </div>
+                ) : tiktokStatus?.status === "failed" ? (
+                  <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                    Render failed: {tiktokStatus.error ?? "Unknown error"}
+                  </div>
+                ) : null}
+                {!tiktokRendering && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onStartTiktokRender(speed)}
+                      className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
+                    >
+                      {tiktokUrls.length > 0 ? "Re-render" : "Render TikTok Segments"}{speed !== 1 ? ` (${speed}x)` : ""}
+                    </button>
+                    {seoMetadata && (
+                      <CopyButton
+                        text={seoMetadata.tiktok.map((t) => `${t.caption} ${t.hashtags.join(" ")}`).join("\n\n---\n\n")}
+                        label="Copy All TikTok Captions"
+                      />
                     )}
-                  </section>
-                </>
-              )}
+                    <button
+                      onClick={() => openInBrowser("https://www.tiktok.com/creator#/upload")}
+                      className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
+                    >
+                      Open TikTok Upload
+                    </button>
+                  </div>
+                )}
+              </section>
             </div>
           )}
 
@@ -393,89 +342,45 @@ export default function ExportPanel({
           {activeTab === "thumbnails" && (
             <section className="space-y-3">
               <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
-                {isShortform ? "Thumbnails (9:16)" : "Thumbnails"}
+                Thumbnails
               </h3>
 
-              {/* Shortform thumbnails */}
-              {isShortform ? (
-                <>
-                  {shortform.thumbnails.length > 0 && (
-                    <div className="grid grid-cols-4 gap-3">
-                      {shortform.thumbnails.map((t) => (
-                        <div key={t.idx} className="space-y-1">
-                          {t.image_url ? (
-                            <img
-                              src={t.image_url}
-                              alt={t.title_text}
-                              className="w-full aspect-[9/16] object-cover rounded-lg border border-neutral-700 cursor-pointer hover:border-violet-500 transition-colors"
-                            />
-                          ) : t.error ? (
-                            <div className="w-full aspect-[9/16] bg-red-500/10 rounded-lg flex items-center justify-center text-xs text-red-400 p-2">
-                              Error: {t.error}
-                            </div>
-                          ) : null}
-                          <p className="text-xs text-neutral-400 truncate">{t.title_text}</p>
+              {thumbnails.length > 0 && (
+                <div className="grid grid-cols-3 gap-3">
+                  {thumbnails.map((t) => (
+                    <div key={t.idx} className="space-y-1">
+                      {t.image_url ? (
+                        <img
+                          src={assetUrl(t.image_url)}
+                          alt={t.title_text}
+                          className="w-full aspect-video object-cover rounded-lg border border-neutral-700 cursor-pointer hover:border-violet-500 transition-colors"
+                        />
+                      ) : t.error ? (
+                        <div className="w-full aspect-video bg-red-500/10 rounded-lg flex items-center justify-center text-xs text-red-400 p-2">
+                          Error: {t.error}
                         </div>
-                      ))}
+                      ) : null}
+                      <p className="text-xs text-neutral-400 truncate">{t.title_text}</p>
                     </div>
-                  )}
-                  <button
-                    onClick={() => scriptId && shortform.generateThumbnails(scriptId)}
-                    disabled={shortform.isGeneratingThumbnails || !scriptId}
-                    className="text-sm px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
-                  >
-                    {shortform.isGeneratingThumbnails ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                        Generating...
-                      </>
-                    ) : shortform.thumbnails.length > 0 ? (
-                      "Regenerate Thumbnails"
-                    ) : (
-                      "Generate Thumbnails"
-                    )}
-                  </button>
-                </>
-              ) : (
-                <>
-                  {thumbnails.length > 0 && (
-                    <div className="grid grid-cols-3 gap-3">
-                      {thumbnails.map((t) => (
-                        <div key={t.idx} className="space-y-1">
-                          {t.image_url ? (
-                            <img
-                              src={assetUrl(t.image_url)}
-                              alt={t.title_text}
-                              className="w-full aspect-video object-cover rounded-lg border border-neutral-700 cursor-pointer hover:border-violet-500 transition-colors"
-                            />
-                          ) : t.error ? (
-                            <div className="w-full aspect-video bg-red-500/10 rounded-lg flex items-center justify-center text-xs text-red-400 p-2">
-                              Error: {t.error}
-                            </div>
-                          ) : null}
-                          <p className="text-xs text-neutral-400 truncate">{t.title_text}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <button
-                    onClick={onGenerateThumbnails}
-                    disabled={thumbnailsGenerating}
-                    className="text-sm px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
-                  >
-                    {thumbnailsGenerating ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                        Generating...
-                      </>
-                    ) : thumbnails.length > 0 ? (
-                      "Regenerate Thumbnails"
-                    ) : (
-                      "Generate Thumbnails"
-                    )}
-                  </button>
-                </>
+                  ))}
+                </div>
               )}
+              <button
+                onClick={onGenerateThumbnails}
+                disabled={thumbnailsGenerating}
+                className="text-sm px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+              >
+                {thumbnailsGenerating ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                    Generating...
+                  </>
+                ) : thumbnails.length > 0 ? (
+                  "Regenerate Thumbnails"
+                ) : (
+                  "Generate Thumbnails"
+                )}
+              </button>
             </section>
           )}
 
@@ -486,320 +391,98 @@ export default function ExportPanel({
                 SEO Metadata
               </h3>
 
-              {isShortform ? (
-                <>
-                  {shortform.seoMetadata && (
-                    <div className="space-y-4">
-                      {/* YouTube Shorts */}
-                      {shortform.seoMetadata.youtube_shorts && (
-                        <div className="bg-neutral-800/50 rounded-lg p-4 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-neutral-400 uppercase">YouTube Shorts</span>
-                            <CopyButton text={`${shortform.seoMetadata.youtube_shorts.title}\n\n${shortform.seoMetadata.youtube_shorts.description}\n\n${shortform.seoMetadata.youtube_shorts.tags.join(", ")}`} />
-                          </div>
-                          <p className="text-sm font-medium text-neutral-200">{shortform.seoMetadata.youtube_shorts.title}</p>
-                          <p className="text-xs text-neutral-400 whitespace-pre-wrap">{shortform.seoMetadata.youtube_shorts.description}</p>
-                          <div className="flex flex-wrap gap-1">
-                            {shortform.seoMetadata.youtube_shorts.tags.slice(0, 15).map((tag) => (
-                              <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-neutral-700 rounded text-neutral-300">
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* TikTok */}
-                      {shortform.seoMetadata.tiktok && (
-                        <div className="bg-neutral-800/50 rounded-lg p-4 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-neutral-400 uppercase">TikTok</span>
-                            <div className="flex items-center gap-2">
-                              <CopyButton text={`${shortform.seoMetadata.tiktok.caption} ${shortform.seoMetadata.tiktok.hashtags.join(" ")}`} />
-                              <button
-                                onClick={() => openInBrowser("https://www.tiktok.com/creator#/upload")}
-                                className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
-                              >
-                                Open TikTok
-                              </button>
-                            </div>
-                          </div>
-                          <p className="text-xs text-neutral-400">{shortform.seoMetadata.tiktok.caption}</p>
-                          <p className="text-xs text-violet-400">{shortform.seoMetadata.tiktok.hashtags.join(" ")}</p>
-                        </div>
-                      )}
-
-                      {/* Instagram Reels */}
-                      {shortform.seoMetadata.instagram_reels && (
-                        <div className="bg-neutral-800/50 rounded-lg p-4 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-neutral-400 uppercase">Instagram Reels</span>
-                            <div className="flex items-center gap-2">
-                              <CopyButton text={`${shortform.seoMetadata.instagram_reels.caption}\n\n${shortform.seoMetadata.instagram_reels.hashtags.join(" ")}`} />
-                              <button
-                                onClick={() => openInBrowser("https://www.instagram.com/")}
-                                className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
-                              >
-                                Open Instagram
-                              </button>
-                            </div>
-                          </div>
-                          <p className="text-xs text-neutral-400 whitespace-pre-wrap">{shortform.seoMetadata.instagram_reels.caption}</p>
-                          <p className="text-xs text-violet-400">{shortform.seoMetadata.instagram_reels.hashtags.slice(0, 15).join(" ")}</p>
-                        </div>
-                      )}
-
-                      {/* Hook preview */}
-                      {shortform.seoMetadata.hook_preview_text && (
-                        <div className="bg-neutral-800/50 rounded-lg p-4 space-y-1">
-                          <span className="text-xs font-semibold text-neutral-400 uppercase">Hook Preview</span>
-                          <p className="text-sm text-neutral-200 italic">&ldquo;{shortform.seoMetadata.hook_preview_text}&rdquo;</p>
-                        </div>
+              {seoMetadata && (
+                <div className="space-y-4">
+                  {/* YouTube */}
+                  <div className="bg-neutral-800/50 rounded-lg p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-neutral-400 uppercase">YouTube</span>
+                      <CopyButton text={`${seoMetadata.youtube.title}\n\n${seoMetadata.youtube.description}\n\n${seoMetadata.youtube.tags.join(", ")}`} />
+                    </div>
+                    <p className="text-sm font-medium text-neutral-200">{seoMetadata.youtube.title}</p>
+                    <p className="text-xs text-neutral-400 whitespace-pre-wrap">{seoMetadata.youtube.description}</p>
+                    <div className="flex flex-wrap gap-1">
+                      {seoMetadata.youtube.tags.slice(0, 15).map((tag) => (
+                        <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-neutral-700 rounded text-neutral-300">
+                          {tag}
+                        </span>
+                      ))}
+                      {seoMetadata.youtube.tags.length > 15 && (
+                        <span className="text-[10px] text-neutral-500">+{seoMetadata.youtube.tags.length - 15} more</span>
                       )}
                     </div>
-                  )}
-                  <button
-                    onClick={() => scriptId && shortform.generateSEO(scriptId, shortform.platforms)}
-                    disabled={shortform.isGeneratingSEO || !scriptId}
-                    className="text-sm px-4 py-2 bg-teal-600 hover:bg-teal-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
-                  >
-                    {shortform.isGeneratingSEO ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                        Generating...
-                      </>
-                    ) : shortform.seoMetadata ? (
-                      "Regenerate SEO"
-                    ) : (
-                      "Generate SEO Metadata"
-                    )}
-                  </button>
-                </>
-              ) : (
-                <>
-                  {seoMetadata && (
-                    <div className="space-y-4">
-                      {/* YouTube */}
-                      <div className="bg-neutral-800/50 rounded-lg p-4 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-neutral-400 uppercase">YouTube</span>
-                          <CopyButton text={`${seoMetadata.youtube.title}\n\n${seoMetadata.youtube.description}\n\n${seoMetadata.youtube.tags.join(", ")}`} />
-                        </div>
-                        <p className="text-sm font-medium text-neutral-200">{seoMetadata.youtube.title}</p>
-                        <p className="text-xs text-neutral-400 whitespace-pre-wrap">{seoMetadata.youtube.description}</p>
-                        <div className="flex flex-wrap gap-1">
-                          {seoMetadata.youtube.tags.slice(0, 15).map((tag) => (
-                            <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-neutral-700 rounded text-neutral-300">
-                              {tag}
-                            </span>
-                          ))}
-                          {seoMetadata.youtube.tags.length > 15 && (
-                            <span className="text-[10px] text-neutral-500">+{seoMetadata.youtube.tags.length - 15} more</span>
-                          )}
-                        </div>
-                      </div>
+                  </div>
 
-                      {/* TikTok */}
-                      <div className="bg-neutral-800/50 rounded-lg p-4 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-neutral-400 uppercase">TikTok</span>
-                          <div className="flex items-center gap-2">
-                            <CopyButton text={seoMetadata.tiktok.map((t) => `${t.caption} ${t.hashtags.join(" ")}`).join("\n\n")} label="Copy All" />
-                            <button
-                              onClick={() => openInBrowser("https://www.tiktok.com/creator#/upload")}
-                              className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
-                            >
-                              Open TikTok
-                            </button>
-                          </div>
-                        </div>
-                        {seoMetadata.tiktok.map((t, i) => (
-                          <div key={i} className="text-xs text-neutral-400 flex items-start gap-2">
-                            <div className="flex-1">
-                              <span className="text-neutral-500">Seg {i + 1}:</span> {t.caption}{" "}
-                              <span className="text-violet-400">{t.hashtags.join(" ")}</span>
-                            </div>
-                            <CopyButton text={`${t.caption} ${t.hashtags.join(" ")}`} />
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Instagram */}
-                      <div className="bg-neutral-800/50 rounded-lg p-4 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-neutral-400 uppercase">Instagram</span>
-                          <div className="flex items-center gap-2">
-                            <CopyButton text={`${seoMetadata.instagram.caption}\n\n${seoMetadata.instagram.hashtags.join(" ")}`} />
-                            <button
-                              onClick={() => openInBrowser("https://www.instagram.com/")}
-                              className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
-                            >
-                              Open Instagram
-                            </button>
-                          </div>
-                        </div>
-                        <p className="text-xs text-neutral-400 whitespace-pre-wrap">{seoMetadata.instagram.caption}</p>
-                        <p className="text-xs text-violet-400">{seoMetadata.instagram.hashtags.slice(0, 10).join(" ")}</p>
+                  {/* TikTok */}
+                  <div className="bg-neutral-800/50 rounded-lg p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-neutral-400 uppercase">TikTok</span>
+                      <div className="flex items-center gap-2">
+                        <CopyButton text={seoMetadata.tiktok.map((t) => `${t.caption} ${t.hashtags.join(" ")}`).join("\n\n")} label="Copy All" />
+                        <button
+                          onClick={() => openInBrowser("https://www.tiktok.com/creator#/upload")}
+                          className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
+                        >
+                          Open TikTok
+                        </button>
                       </div>
                     </div>
-                  )}
-                  <button
-                    onClick={onGenerateSEO}
-                    disabled={seoGenerating}
-                    className="text-sm px-4 py-2 bg-teal-600 hover:bg-teal-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
-                  >
-                    {seoGenerating ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                        Generating...
-                      </>
-                    ) : seoMetadata ? (
-                      "Regenerate SEO"
-                    ) : (
-                      "Generate SEO Metadata"
-                    )}
-                  </button>
-                </>
+                    {seoMetadata.tiktok.map((t, i) => (
+                      <div key={i} className="text-xs text-neutral-400 flex items-start gap-2">
+                        <div className="flex-1">
+                          <span className="text-neutral-500">Seg {i + 1}:</span> {t.caption}{" "}
+                          <span className="text-violet-400">{t.hashtags.join(" ")}</span>
+                        </div>
+                        <CopyButton text={`${t.caption} ${t.hashtags.join(" ")}`} />
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Instagram */}
+                  <div className="bg-neutral-800/50 rounded-lg p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-neutral-400 uppercase">Instagram</span>
+                      <div className="flex items-center gap-2">
+                        <CopyButton text={`${seoMetadata.instagram.caption}\n\n${seoMetadata.instagram.hashtags.join(" ")}`} />
+                        <button
+                          onClick={() => openInBrowser("https://www.instagram.com/")}
+                          className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
+                        >
+                          Open Instagram
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-neutral-400 whitespace-pre-wrap">{seoMetadata.instagram.caption}</p>
+                    <p className="text-xs text-violet-400">{seoMetadata.instagram.hashtags.slice(0, 10).join(" ")}</p>
+                  </div>
+                </div>
               )}
+              <button
+                onClick={onGenerateSEO}
+                disabled={seoGenerating}
+                className="text-sm px-4 py-2 bg-teal-600 hover:bg-teal-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+              >
+                {seoGenerating ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                    Generating...
+                  </>
+                ) : seoMetadata ? (
+                  "Regenerate SEO"
+                ) : (
+                  "Generate SEO Metadata"
+                )}
+              </button>
             </section>
           )}
 
           {/* Publish Tab */}
           {activeTab === "publish" && (
             <div className="space-y-6">
-              {isShortform ? (
-                <>
-                  {/* YouTube Shorts Publish */}
-                  <section className="space-y-3">
-                    <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
-                      YouTube Shorts
-                    </h3>
-                    {!youtubeConnected ? (
-                      <div className="space-y-2">
-                        <p className="text-xs text-neutral-500">Connect your YouTube account to upload Shorts directly.</p>
-                        <button
-                          onClick={onConnectYouTube}
-                          disabled={connecting}
-                          className="text-sm px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-lg font-medium transition-colors flex items-center gap-2"
-                        >
-                          {connecting ? (
-                            <>
-                              <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                              Connecting...
-                            </>
-                          ) : (
-                            "Connect YouTube"
-                          )}
-                        </button>
-                      </div>
-                    ) : !shortform.renderUrl ? (
-                      <p className="text-xs text-neutral-500">
-                        Connected as <span className="text-emerald-400">{youtubeChannelName}</span>.
-                        Render the short-form video first to publish.
-                      </p>
-                    ) : publishing ? (
-                      <ProgressBar
-                        progress={publishStatus?.progress ?? 0}
-                        label={publishStatus?.current_step ?? "Publishing..."}
-                      />
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-xs text-neutral-400">
-                          <span>Connected as <span className="text-emerald-400">{youtubeChannelName}</span></span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <label className="text-xs text-neutral-400">Schedule (optional):</label>
-                          <input
-                            type="datetime-local"
-                            value={scheduleAt}
-                            onChange={(e) => setScheduleAt(e.target.value)}
-                            className="text-xs bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-neutral-200 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                          />
-                          {scheduleAt && (
-                            <button onClick={() => setScheduleAt("")} className="text-xs text-neutral-500 hover:text-neutral-300">
-                              Clear
-                            </button>
-                          )}
-                        </div>
-                        {confirmPublish ? (
-                          <div className="bg-neutral-800/50 rounded-lg p-4 space-y-3">
-                            <p className="text-sm text-neutral-300">
-                              {scheduleAt
-                                ? `Schedule Short for ${new Date(scheduleAt).toLocaleString()}?`
-                                : "Publish Short to YouTube as private?"}
-                            </p>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => {
-                                  setConfirmPublish(false);
-                                  const sfSeo = shortform.seoMetadata?.youtube_shorts;
-                                  const metadata = sfSeo
-                                    ? { title: sfSeo.title, description: sfSeo.description, tags: sfSeo.tags }
-                                    : { title: "Untitled #Shorts", description: "", tags: [] };
-                                  onStartPublish(
-                                    "youtube_shorts",
-                                    shortform.renderUrl!,
-                                    metadata,
-                                    scheduleAt ? new Date(scheduleAt).toISOString() : undefined,
-                                  );
-                                }}
-                                className="text-sm px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg font-medium transition-colors"
-                              >
-                                Yes, Publish
-                              </button>
-                              <button
-                                onClick={() => setConfirmPublish(false)}
-                                className="text-sm px-4 py-2 bg-neutral-700 hover:bg-neutral-600 rounded-lg font-medium transition-colors"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setConfirmPublish(true)}
-                            className="text-sm px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg font-medium transition-colors flex items-center gap-2"
-                          >
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                            </svg>
-                            {scheduleAt ? "Schedule on YouTube Shorts" : "Publish to YouTube Shorts"}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </section>
-
-                  {/* TikTok / Instagram — copy metadata stubs */}
-                  <section className="space-y-3">
-                    <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
-                      TikTok & Instagram
-                    </h3>
-                    <p className="text-xs text-neutral-500">
-                      Download the rendered video and upload manually. Use the SEO tab to copy optimized captions and hashtags.
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => openInBrowser("https://www.tiktok.com/creator#/upload")}
-                        className="text-xs px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors text-neutral-300"
-                      >
-                        Open TikTok Upload
-                      </button>
-                      <button
-                        onClick={() => openInBrowser("https://www.instagram.com/")}
-                        className="text-xs px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors text-neutral-300"
-                      >
-                        Open Instagram
-                      </button>
-                    </div>
-                  </section>
-                </>
-              ) : (
-                <>
-                  <section className="space-y-3">
-                    <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
-                      YouTube Publish
-                    </h3>
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
+                  YouTube Publish
+                </h3>
                 {!youtubeConnected ? (
                   <div className="space-y-2">
                     <p className="text-xs text-neutral-500">Connect your YouTube account to publish directly.</p>
@@ -919,8 +602,6 @@ export default function ExportPanel({
                   </div>
                 )}
               </section>
-                </>
-              )}
 
               {/* Publish History */}
               {publishHistory.length > 0 && (
