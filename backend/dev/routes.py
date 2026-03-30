@@ -230,7 +230,7 @@ async def ws_logs(ws: WebSocket):
 def _log_to_dict(log: DevLog) -> dict:
     return {
         "id": log.id,
-        "timestamp": log.timestamp.isoformat() if log.timestamp else None,
+        "timestamp": (log.timestamp.isoformat() + "Z") if log.timestamp else None,
         "level": log.level,
         "logger_name": log.logger_name,
         "message": log.message,

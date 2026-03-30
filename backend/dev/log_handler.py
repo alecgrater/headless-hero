@@ -89,7 +89,7 @@ class SQLiteLogHandler(logging.Handler):
         # Broadcast to WebSocket clients
         broadcast_data = {
             "id": entry.id,
-            "timestamp": entry.timestamp.isoformat(),
+            "timestamp": entry.timestamp.isoformat() + "Z",
             "level": entry.level,
             "logger_name": entry.logger_name,
             "message": entry.message,
