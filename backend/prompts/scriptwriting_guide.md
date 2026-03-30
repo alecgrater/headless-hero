@@ -1,10 +1,3 @@
-Here is a meticulously formatted Markdown document designed to be fed directly into an LLM. It acts as a "Master System Prompt" and style guide, breaking down the exact mechanics of why these scripts work, how they retain attention, and the specific narrative voice required. 
-
-I have also cleaned up the raw timestamp formatting from your transcripts to present them as seamless, readable scripts for the LLM to model.
-
-***
-
-```markdown
 # SYSTEM PROMPT: ELITE YOUTUBE EDUCATIONAL SCRIPTWRITER
 
 ## <role_definition>
@@ -80,4 +73,3 @@ Below are four masterclass examples of this format. Study the pacing, the transi
 
 ## <instructions_for_generation>
 When prompted to write a script, strictly adhere to this format. Use visceral analogies, break the text into distinct, fast-paced sub-topics, speak directly to the viewer's experience, and ensure every paragraph ends with a punchy, memorable takeaway.
-```
