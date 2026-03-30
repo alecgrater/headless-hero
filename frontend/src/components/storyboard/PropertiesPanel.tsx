@@ -159,7 +159,21 @@ export default function PropertiesPanel({
     duration: 0,
   };
 
-  if (collapsed) return null;
+  if (collapsed) {
+    return (
+      <aside className="w-10 shrink-0 border-l border-neutral-800/60 flex flex-col items-center pt-3 transition-all duration-300">
+        {onToggle && (
+          <button
+            onClick={onToggle}
+            className="text-neutral-500 hover:text-neutral-300 text-sm transition-colors"
+            title="Expand properties"
+          >
+            &#x2039;
+          </button>
+        )}
+      </aside>
+    );
+  }
 
   return (
     <aside className="w-[320px] shrink-0 border-l border-neutral-800/60 overflow-y-auto p-4 space-y-4 transition-all duration-300">

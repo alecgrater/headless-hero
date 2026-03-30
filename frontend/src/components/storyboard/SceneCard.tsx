@@ -30,9 +30,6 @@ interface Props {
   isGeneratingAudio?: boolean;
   batchImageStatus?: BatchStatus;
   onRetryImage?: () => void;
-  bulkMode?: boolean;
-  isChecked?: boolean;
-  onToggleCheck?: () => void;
 }
 
 export default function SceneCard({
@@ -48,9 +45,6 @@ export default function SceneCard({
   isGeneratingAudio = false,
   batchImageStatus = "idle",
   onRetryImage,
-  bulkMode = false,
-  isChecked = false,
-  onToggleCheck,
 }: Props) {
   const {
     attributes,
@@ -59,7 +53,7 @@ export default function SceneCard({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: scene.id, disabled: bulkMode });
+  } = useSortable({ id: scene.id });
 
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(scene.narration);
@@ -71,7 +65,6 @@ export default function SceneCard({
   };
 
   const handleDoubleClick = (e: React.MouseEvent) => {
-    if (bulkMode) return;
     e.stopPropagation();
     setEditValue(scene.narration);
     setIsEditing(true);
@@ -96,11 +89,7 @@ export default function SceneCard({
   };
 
   const handleClick = () => {
-    if (bulkMode && onToggleCheck) {
-      onToggleCheck();
-    } else {
-      onClick();
-    }
+    onClick();
   };
 
   const topStripeColor = SEGMENT_COLORS[segmentIdx % SEGMENT_COLORS.length];
@@ -117,45 +106,18 @@ export default function SceneCard({
           : "hover:border-neutral-700 hover:shadow-lg hover:shadow-black/20"
       }`}
     >
-      {/* Bulk checkbox */}
-      {(bulkMode || onToggleCheck) && (
-        <div
-          className={`absolute top-2 right-2 z-10 ${bulkMode ? "block" : "hidden group-hover:block"}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleCheck?.();
-          }}
-        >
-          <div
-            className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-              isChecked
-                ? "bg-violet-500 border-violet-500"
-                : "bg-neutral-800/80 border-neutral-600 hover:border-neutral-400"
-            }`}
-          >
-            {isChecked && (
-              <svg width="10" height="8" viewBox="0 0 10 8" fill="white">
-                <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Top accent stripe */}
       <div className={`h-0.5 ${topStripeColor}`} />
 
       {/* Drag handle + header */}
       <div className="flex items-center gap-2 px-3 pt-2.5 pb-1.5">
-        {!bulkMode && (
-          <span
-            {...attributes}
-            {...listeners}
-            className="cursor-grab active:cursor-grabbing text-neutral-700 hover:text-neutral-400"
-          >
-            ⠿
-          </span>
-        )}
+        <span
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-neutral-700 hover:text-neutral-400"
+        >
+          ⠿
+        </span>
         <span className="text-[11px] font-mono text-neutral-500 bg-neutral-800 px-1.5 py-0.5 rounded">#{sceneNumber}</span>
         {scene.is_title_card && (
           <span className="text-[10px] bg-violet-500/20 text-violet-300 px-1.5 py-0.5 rounded-full">

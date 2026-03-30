@@ -406,19 +406,6 @@ function StoryboardEditor({
     }
   };
 
-  // Bulk action handlers
-  const handleBulkGenerateImages = (ids: string[]) => {
-    for (const id of ids) {
-      state.generateImage(id, artStyle, colorPalette);
-    }
-  };
-
-  const handleBulkGenerateAudio = (ids: string[]) => {
-    for (const id of ids) {
-      tryGenerateAudio(id);
-    }
-  };
-
   // Handle scene selection with right sidebar auto-open
   const handleSelectScene = (sceneId: string) => {
     state.selectScene(sceneId);
@@ -641,8 +628,6 @@ function StoryboardEditor({
           generatingAudioSceneIds={state.generatingAudioSceneIds}
           batchImageStatuses={state.batchImageProgress.statuses}
           onRetryImage={(sceneId) => state.generateImage(sceneId, artStyle, colorPalette)}
-          onBulkGenerateImages={handleBulkGenerateImages}
-          onBulkGenerateAudio={handleBulkGenerateAudio}
         />
 
         <div ref={rightPanelRef}>
@@ -684,13 +669,23 @@ function StoryboardEditor({
               onToggle={sidebar.toggleRight}
               onTogglePin={sidebar.toggleRightPin}
             />
-          ) : !sidebar.rightCollapsed ? (
+          ) : sidebar.rightCollapsed ? (
+            <aside className="w-10 shrink-0 border-l border-neutral-800/60 flex flex-col items-center pt-3">
+              <button
+                onClick={sidebar.toggleRight}
+                className="text-neutral-500 hover:text-neutral-300 text-sm transition-colors"
+                title="Expand properties"
+              >
+                &#x2039;
+              </button>
+            </aside>
+          ) : (
             <aside className="w-[320px] shrink-0 border-l border-neutral-800/60 p-4 flex items-center justify-center">
               <p className="text-sm text-neutral-600 text-center">
                 Select a scene to edit its properties
               </p>
             </aside>
-          ) : null}
+          )}
         </div>
       </div>
 
