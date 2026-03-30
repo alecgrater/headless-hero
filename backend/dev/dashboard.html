@@ -1596,6 +1596,12 @@ function _setEditButtons(state) {
   editBtn.classList.toggle('hidden', state !== 'view');
   saveBtn.classList.toggle('hidden', state !== 'edit');
   cancelBtn.classList.toggle('hidden', state !== 'edit');
+  if (state === 'edit') {
+    saveBtn.textContent = 'Save';
+    saveBtn.disabled = false;
+    saveBtn.classList.remove('bg-emerald-600', 'bg-red-600');
+    saveBtn.classList.add('bg-violet-600');
+  }
 }
 
 function toggleEditMode() {
