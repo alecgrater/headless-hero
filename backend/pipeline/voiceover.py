@@ -120,4 +120,6 @@ def generate_batch_audio(
                 "duration_seconds": None,
                 "error": str(exc),
             })
+    succeeded = sum(1 for r in results if r["error"] is None)
+    logger.info("Batch audio complete: %d/%d succeeded (script %s)", succeeded, len(scenes), script_id)
     return results

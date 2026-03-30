@@ -161,6 +161,7 @@ def oauth_callback(platform: str, code: str = "", state: str = "", error: str = 
         session.add(cred)
 
     session.commit()
+    logger.info("OAuth callback success: YouTube channel %s linked for brand %s", channel["channel_name"], brand_id)
 
     return HTMLResponse(
         content=(
