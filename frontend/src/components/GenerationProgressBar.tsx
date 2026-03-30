@@ -22,8 +22,8 @@ export default function GenerationProgressBar({ estimatedSeconds, active }: Prop
           if (!startTime.current) return;
           const elapsed = (Date.now() - startTime.current) / 1000;
           const ratio = elapsed / estimatedSeconds;
-          // Ease-out: slows down as it approaches 95%
-          const eased = Math.min(0.95, 1 - Math.pow(1 - ratio, 2));
+          // Ease-in: gradual fill that accelerates toward 95% cap
+          const eased = Math.min(0.95, Math.pow(ratio, 2));
           setProgress(Math.max(0, eased));
           rafId.current = requestAnimationFrame(tick);
         };
