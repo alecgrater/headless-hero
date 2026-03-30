@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 from typing import Callable
 
-from config import DATA_DIR
+from config import DATA_DIR, strip_markdown_fences
 from integrations.claude_client import chat
 from models.auto_edit import AutoEditTimeline, SceneTimeline, TextPhrase
 from models.script import ScriptContent
@@ -85,12 +85,7 @@ def generate_edit_timeline(content: ScriptContent) -> AutoEditTimeline:
     )
 
     # Strip markdown fences if present
-    text = raw.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-    if text.endswith("```"):
-        text = text[:-3]
-    text = text.strip()
+    text = strip_markdown_fences(raw)
 
     try:
         data = json.loads(text)

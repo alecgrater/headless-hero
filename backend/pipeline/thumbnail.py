@@ -12,7 +12,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from config import DATA_DIR
+from config import DATA_DIR, strip_markdown_fences
 from integrations.claude_client import chat
 from integrations.google_image_client import generate_image
 from pipeline.ffmpeg_builder import build_thumbnail_composite_cmd
@@ -50,10 +50,7 @@ def generate_concepts(
         user_msg += f"\nDescription: {video_description}"
 
     raw = chat(SYSTEM_PROMPT, user_msg)
-    text = raw.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1]
-        text = text.rsplit("```", 1)[0]
+    text = strip_markdown_fences(raw)
 
     data = json.loads(text)
     return [ThumbnailConcept.model_validate(item) for item in data]

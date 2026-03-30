@@ -5,6 +5,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from config import strip_markdown_fences
 from integrations.claude_client import chat
 
 class YouTubeSEO(BaseModel):
@@ -77,10 +78,7 @@ def generate_seo(
         user_msg += f"\n\nBrand: {brand_context}"
 
     raw = chat(SYSTEM_PROMPT, user_msg, max_tokens=4096)
-    text = raw.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1]
-        text = text.rsplit("```", 1)[0]
+    text = strip_markdown_fences(raw)
 
     data = json.loads(text)
     return SEOMetadata.model_validate(data)
@@ -123,10 +121,7 @@ def generate_shortform_seo(
         user_msg += f"\nBrand context: {brand_context}"
 
     raw = chat(_SHORTFORM_SEO_SYSTEM, user_msg, max_tokens=4096)
-    text = raw.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1]
-        text = text.rsplit("```", 1)[0]
+    text = strip_markdown_fences(raw)
 
     data = json.loads(text)
     return ShortformSEOMetadata.model_validate(data)

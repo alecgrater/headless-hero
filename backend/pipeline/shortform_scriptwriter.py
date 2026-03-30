@@ -4,6 +4,7 @@ import json
 import logging
 from pathlib import Path
 
+from config import strip_markdown_fences
 from integrations.claude_client import chat
 from models.script import ScriptContent
 
@@ -104,10 +105,7 @@ def generate_shortform_script(
     raw = chat(system_prompt, user_message, max_tokens=4096)
 
     # Strip markdown fences if present
-    text = raw.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1]
-        text = text.rsplit("```", 1)[0]
+    text = strip_markdown_fences(raw)
 
     data = json.loads(text)
     # Ensure format fields are set

@@ -4,6 +4,7 @@ import json
 
 from pydantic import BaseModel
 
+from config import strip_markdown_fences
 from integrations.claude_client import chat
 
 class VideoIdea(BaseModel):
@@ -66,10 +67,7 @@ def generate_ideas(
     raw = chat(SYSTEM_PROMPT, user_message)
 
     # Claude may wrap JSON in markdown fences — strip them
-    text = raw.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1]  # drop first ``` line
-        text = text.rsplit("```", 1)[0]  # drop closing ```
+    text = strip_markdown_fences(raw)
 
     ideas_data = json.loads(text)
     return [VideoIdea.model_validate(item) for item in ideas_data]

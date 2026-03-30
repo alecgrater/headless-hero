@@ -2,6 +2,7 @@
 
 import json
 
+from config import strip_markdown_fences
 from integrations.claude_client import chat
 from models.script import Scene, ScriptContent
 
@@ -61,10 +62,7 @@ def refine_scene(
 
     raw = chat(SYSTEM_PROMPT, user_message, max_tokens=2048)
 
-    text = raw.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1]
-        text = text.rsplit("```", 1)[0]
+    text = strip_markdown_fences(raw)
 
     data = json.loads(text)
     # Preserve fields that shouldn't change
