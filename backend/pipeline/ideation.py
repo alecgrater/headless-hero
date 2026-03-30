@@ -38,6 +38,7 @@ def generate_ideas(
     niche: str,
     count: int = 10,
     brand_context: str | None = None,
+    exclude_titles: list[str] | None = None,
 ) -> list[VideoIdea]:
     """Generate video topic ideas for the given niche via Claude.
 
@@ -45,6 +46,7 @@ def generate_ideas(
         niche: The broad topic area (e.g. "psychology", "gaming", "history").
         count: How many ideas to generate (10-20).
         brand_context: Optional brand art style / description for context.
+        exclude_titles: Titles to avoid repeating (for "Load More" dedup).
 
     Returns:
         A list of VideoIdea objects.
@@ -53,6 +55,11 @@ def generate_ideas(
     if brand_context:
         user_parts.append(
             f"\nBrand context (for tone/style reference, not content): {brand_context}"
+        )
+    if exclude_titles:
+        titles_str = "; ".join(exclude_titles)
+        user_parts.append(
+            f"\nDo NOT repeat or closely paraphrase these existing titles: {titles_str}"
         )
     user_message = "\n".join(user_parts)
 

@@ -1,15 +1,26 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import api, { fetchGenerationEstimate } from "../../api";
 import type { BrandProfile } from "../../types/brand";
 import type { GenerateIdeasResponse, VideoIdea } from "../../types/idea";
 import GenerationProgressBar from "../GenerationProgressBar";
 import IdeaCard from "./IdeaCard";
-import IdeationInput from "./IdeationInput";
+import IdeationInput, { type IdeationInputHandle } from "./IdeationInput";
 
 interface Props {
   brand: BrandProfile;
   onUseIdea: (idea: VideoIdea) => void;
 }
+
+const BATCH_SIZE = 5;
+
+const EXAMPLE_NICHES = [
+  "deep sea creatures",
+  "unsolved crimes",
+  "retro gaming history",
+  "psychology experiments",
+  "space exploration",
+  "ancient civilizations",
+];
 
 export default function IdeationPage({ brand, onUseIdea }: Props) {
   const [ideas, setIdeas] = useState<VideoIdea[]>([]);
@@ -17,23 +28,36 @@ export default function IdeationPage({ brand, onUseIdea }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [lastNiche, setLastNiche] = useState("");
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
+  const [bookmarked, setBookmarked] = useState<Set<number>>(new Set());
+  const [animateFromIndex, setAnimateFromIndex] = useState(0);
+  const inputRef = useRef<IdeationInputHandle>(null);
 
-  const generate = async (niche: string) => {
+  const generate = async (
+    niche: string,
+    opts?: { append?: boolean; excludeTitles?: string[] },
+  ) => {
     setLoading(true);
     setError(null);
-    // Fetch estimate in parallel with starting the generation
     fetchGenerationEstimate("idea_generation")
       .then((est) => setEstimatedSeconds(est.average_seconds))
       .catch(() => setEstimatedSeconds(null));
     try {
       const res = await api.post("/api/ideas/generate", {
         niche,
-        count: 10,
+        count: BATCH_SIZE,
         brand_id: brand.id,
+        exclude_titles: opts?.excludeTitles ?? [],
       });
       if (res.ok) {
         const data = res.data as GenerateIdeasResponse;
-        setIdeas(data.ideas);
+        if (opts?.append) {
+          setAnimateFromIndex(ideas.length);
+          setIdeas((prev) => [...prev, ...data.ideas]);
+        } else {
+          setAnimateFromIndex(0);
+          setIdeas(data.ideas);
+          setBookmarked(new Set());
+        }
         setLastNiche(niche);
       } else {
         const err = res.data as { detail?: string };
@@ -50,8 +74,36 @@ export default function IdeationPage({ brand, onUseIdea }: Props) {
     generate(`${lastNiche} — more ideas similar to "${idea.title}"`);
   };
 
+  const handleLoadMore = () => {
+    generate(lastNiche, {
+      append: true,
+      excludeTitles: ideas.map((i) => i.title),
+    });
+  };
+
+  const toggleBookmark = (index: number) => {
+    setBookmarked((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  };
+
+  const handleChipClick = (niche: string) => {
+    inputRef.current?.setNiche(niche);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Inline keyframes for card animations */}
+      <style>{`
+        @keyframes fadeSlideUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+
       <div>
         <h2 className="text-2xl font-bold mb-1">Generate Video Ideas</h2>
         <p className="text-neutral-400 text-sm">
@@ -61,11 +113,14 @@ export default function IdeationPage({ brand, onUseIdea }: Props) {
         </p>
       </div>
 
-      <IdeationInput onGenerate={generate} loading={loading} />
+      <IdeationInput ref={inputRef} onGenerate={generate} loading={loading} />
 
       {loading && (
         <div className="px-1">
-          <GenerationProgressBar estimatedSeconds={estimatedSeconds} active={loading} />
+          <GenerationProgressBar
+            estimatedSeconds={estimatedSeconds}
+            active={loading}
+          />
         </div>
       )}
 
@@ -77,38 +132,78 @@ export default function IdeationPage({ brand, onUseIdea }: Props) {
 
       {ideas.length > 0 && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-neutral-200">
-              {ideas.length} Ideas
-            </h3>
-            <button
-              onClick={() => generate(lastNiche)}
-              disabled={loading}
-              className="text-sm px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 disabled:opacity-50 rounded-lg font-medium transition-colors text-neutral-300"
-            >
-              Regenerate All
-            </button>
-          </div>
+          <h3 className="text-lg font-semibold text-neutral-200">
+            {ideas.length} Ideas
+          </h3>
 
           <div className="grid gap-3">
             {ideas.map((idea, i) => (
               <IdeaCard
                 key={`${idea.title}-${i}`}
                 idea={idea}
+                index={i}
+                bookmarked={bookmarked.has(i)}
+                onToggleBookmark={() => toggleBookmark(i)}
                 onMoreLikeThis={handleMoreLikeThis}
                 onUseIdea={onUseIdea}
+                animationDelay={
+                  i >= animateFromIndex
+                    ? (i - animateFromIndex) * 80
+                    : undefined
+                }
               />
             ))}
+          </div>
+
+          {/* Load More button */}
+          <div className="flex justify-center pt-2">
+            <button
+              onClick={handleLoadMore}
+              disabled={loading}
+              className="text-sm px-5 py-2.5 bg-neutral-800 border border-neutral-700 hover:border-neutral-600 hover:bg-neutral-700/50 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-medium transition-colors text-neutral-300"
+            >
+              Load 5 More
+            </button>
           </div>
         </div>
       )}
 
+      {/* Empty state */}
       {!loading && ideas.length === 0 && !error && (
-        <div className="text-center py-16 text-neutral-500">
-          <p className="text-lg">Enter a niche above to get started</p>
-          <p className="text-sm mt-1">
-            Try "psychology", "space", "history", "gaming", or anything else
+        <div className="text-center py-20 space-y-4">
+          {/* Sparkles icon */}
+          <div className="flex justify-center">
+            <svg
+              className="w-10 h-10 text-neutral-600"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.2}
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
+              />
+            </svg>
+          </div>
+          <p className="text-lg text-neutral-400">
+            What should your next video be about?
           </p>
+          <p className="text-sm text-neutral-600">
+            Pick a niche to get started
+          </p>
+          <div className="flex flex-wrap justify-center gap-2 pt-1">
+            {EXAMPLE_NICHES.map((niche) => (
+              <button
+                key={niche}
+                onClick={() => handleChipClick(niche)}
+                className="text-sm px-3 py-1.5 rounded-full bg-neutral-800 border border-neutral-700 text-neutral-400 hover:border-violet-500/50 hover:text-violet-400 transition-colors"
+              >
+                {niche}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>

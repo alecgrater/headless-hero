@@ -17,6 +17,7 @@ class GenerateIdeasRequest(BaseModel):
     niche: str = Field(..., min_length=1, description="Topic area to brainstorm")
     count: int = Field(default=10, ge=1, le=20)
     brand_id: str | None = Field(default=None, description="Optional brand for context")
+    exclude_titles: list[str] = Field(default=[], description="Titles to exclude for dedup on Load More")
 
 class GenerateIdeasResponse(BaseModel):
     ideas: list[VideoIdea]
@@ -38,6 +39,7 @@ def generate(body: GenerateIdeasRequest, session: Session = Depends(get_session)
         niche=body.niche,
         count=body.count,
         brand_context=brand_context,
+        exclude_titles=body.exclude_titles,
     )
     duration = time.monotonic() - t0
     session.add(GenerationDuration(operation_type="idea_generation", duration_seconds=duration))
