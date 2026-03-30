@@ -71,12 +71,13 @@
           class="bg-surface-800 border border-neutral-700 text-sm rounded px-2.5 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500 w-64">
         <button onclick="fetchLogs()" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Search</button>
         <div class="flex-1"></div>
+        <button onclick="toggleLogView()" id="viewToggleBtn" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Raw</button>
         <button onclick="togglePause()" id="pauseBtn" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Pause</button>
         <button onclick="clearLogs()" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Clear</button>
         <span id="logCount" class="text-xs text-neutral-500"></span>
       </div>
 
-      <!-- Log entries -->
+      <!-- Log entries (table view) -->
       <div id="logContainer" class="flex-1 overflow-y-auto scrollbar-thin" onscroll="handleScroll()">
         <table class="w-full text-xs">
           <thead class="sticky top-0 bg-surface-900 border-b border-neutral-800 z-10">
@@ -90,6 +91,8 @@
           <tbody id="logBody"></tbody>
         </table>
       </div>
+      <!-- Log entries (raw view) -->
+      <pre id="logRawContainer" class="hidden flex-1 overflow-y-auto scrollbar-thin px-4 py-2 text-xs text-neutral-300 whitespace-pre-wrap break-words" onscroll="handleScroll()"></pre>
     </div>
 
     <!-- Stats sidebar -->
@@ -190,9 +193,6 @@
     </div>
   </div>
 
-  <!-- DB Row Detail Modal -->
-  <div id="dbDetailOverlay" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onclick="if(event.target===this)closeDbDetail()">
-
   <!-- Usage Tab -->
   <div id="panel-usage" class="hidden h-[calc(100vh-97px)] overflow-y-auto scrollbar-thin p-6">
     <div class="max-w-6xl mx-auto space-y-6">
@@ -237,6 +237,9 @@
 
     </div>
   </div>
+
+  <!-- DB Row Detail Modal -->
+  <div id="dbDetailOverlay" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onclick="if(event.target===this)closeDbDetail()">
     <div class="bg-surface-800 border border-neutral-700 rounded-lg w-[700px] max-h-[80vh] overflow-y-auto scrollbar-thin p-6">
       <div class="flex items-center justify-between mb-4">
         <span class="text-sm font-medium text-neutral-100">Row Detail</span>
@@ -274,6 +277,7 @@
 // --- State ---
 let logs = [];
 let paused = false;
+let rawView = false;
 let autoScroll = true;
 let ws = null;
 let wsReconnectTimer = null;
@@ -333,6 +337,7 @@ function renderLogs() {
   }
   body.appendChild(frag);
   document.getElementById('logCount').textContent = logs.length + ' entries';
+  if (rawView) renderRawLogs();
 }
 
 function createLogRow(log) {
@@ -386,6 +391,41 @@ function togglePause() {
   document.getElementById('pauseBtn').classList.toggle('bg-amber-700/40', paused);
 }
 
+function toggleLogView() {
+  rawView = !rawView;
+  const btn = document.getElementById('viewToggleBtn');
+  btn.textContent = rawView ? 'Table' : 'Raw';
+  btn.classList.toggle('bg-violet-700/40', rawView);
+  document.getElementById('logContainer').classList.toggle('hidden', rawView);
+  document.getElementById('logRawContainer').classList.toggle('hidden', !rawView);
+  if (rawView) renderRawLogs();
+}
+
+const RAW_LEVEL_COLORS = {
+  DEBUG: 'color:#a3a3a3',
+  INFO: 'color:#38bdf8',
+  WARNING: 'color:#fbbf24',
+  ERROR: 'color:#f87171',
+  CRITICAL: 'color:#fca5a5;font-weight:bold',
+};
+
+function renderRawLogs() {
+  const container = document.getElementById('logRawContainer');
+  let html = '';
+  for (const log of logs) {
+    const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString('en-US', {hour12:false}) : '        ';
+    const lvl = (log.level || '').padEnd(8);
+    const mod = log.logger_name || '';
+    const style = RAW_LEVEL_COLORS[log.level] || '';
+    html += `<span style="${style}">${time} ${lvl}</span> <span style="color:#737373">${escapeHtml(mod)}</span>  ${escapeHtml(log.message || '')}\n`;
+    if (log.traceback) {
+      html += `<span style="color:#f87171">${escapeHtml(log.traceback)}</span>\n`;
+    }
+  }
+  container.innerHTML = html;
+  container.scrollTop = container.scrollHeight;
+}
+
 function handleScroll() {
   const container = document.getElementById('logContainer');
   autoScroll = container.scrollTop + container.clientHeight >= container.scrollHeight - 50;
@@ -393,7 +433,7 @@ function handleScroll() {
 
 function scrollToBottom() {
   if (!autoScroll) return;
-  const container = document.getElementById('logContainer');
+  const container = rawView ? document.getElementById('logRawContainer') : document.getElementById('logContainer');
   container.scrollTop = container.scrollHeight;
 }
 
@@ -425,6 +465,17 @@ function connectWS() {
     const body = document.getElementById('logBody');
     body.appendChild(createLogRow(log));
     document.getElementById('logCount').textContent = logs.length + ' entries';
+    // Append to raw view if active
+    if (rawView) {
+      const container = document.getElementById('logRawContainer');
+      const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString('en-US', {hour12:false}) : '        ';
+      const lvl = (log.level || '').padEnd(8);
+      const mod = log.logger_name || '';
+      const style = RAW_LEVEL_COLORS[log.level] || '';
+      let line = `<span style="${style}">${time} ${lvl}</span> <span style="color:#737373">${escapeHtml(mod)}</span>  ${escapeHtml(log.message || '')}\n`;
+      if (log.traceback) line += `<span style="color:#f87171">${escapeHtml(log.traceback)}</span>\n`;
+      container.innerHTML += line;
+    }
     scrollToBottom();
   };
 
