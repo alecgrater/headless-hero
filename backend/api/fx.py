@@ -38,6 +38,7 @@ class RegenerateFXResponse(BaseModel):
 @router.post("/generate", response_model=GenerateFXResponse)
 def generate_all_fx(body: GenerateFXRequest, session: Session = Depends(get_session)):
     """Generate FX assignments for all scenes in a script using Claude."""
+    logger.info("Generating FX for all scenes in script %s", body.script_id)
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
@@ -70,6 +71,7 @@ def generate_all_fx(body: GenerateFXRequest, session: Session = Depends(get_sess
 @router.post("/regenerate", response_model=RegenerateFXResponse)
 def regenerate_scene_fx(body: RegenerateFXRequest, session: Session = Depends(get_session)):
     """Regenerate FX for a single scene using Claude."""
+    logger.info("Regenerating FX for scene %s in script %s", body.scene_id, body.script_id)
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")

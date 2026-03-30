@@ -1,6 +1,7 @@
 """Endpoints for thumbnail generation."""
 
 import json
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -10,6 +11,8 @@ from api.database import get_session
 from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.thumbnail import generate_concepts, generate_thumbnail, get_composite_thumbnail
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/thumbnail", tags=["thumbnail"])
 
@@ -33,6 +36,7 @@ class GenerateThumbnailResponse(BaseModel):
 @router.post("/generate", response_model=GenerateThumbnailResponse)
 def generate_thumbnails(body: GenerateThumbnailRequest, session: Session = Depends(get_session)):
     """Generate thumbnail concepts via Claude, render them via Gemini + FFmpeg."""
+    logger.info("Generating thumbnails for script %s (count=%d)", body.script_id, body.count)
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
@@ -46,6 +50,7 @@ def generate_thumbnails(body: GenerateThumbnailRequest, session: Session = Depen
     if "title_cards" in modifier_ids:
         composite_url = get_composite_thumbnail(body.script_id)
         if composite_url:
+            logger.info("Using composite title card thumbnail for script %s", body.script_id)
             results = [ThumbnailConceptResult(
                 idx=0,
                 title_text=content.card_title or content.title,
@@ -84,6 +89,7 @@ def generate_thumbnails(body: GenerateThumbnailRequest, session: Session = Depen
                 image_url=image_url,
             ))
         except Exception as exc:
+            logger.exception("Failed to render thumbnail concept %d for script %s", i, body.script_id)
             results.append(ThumbnailConceptResult(
                 idx=i,
                 title_text=concept.title_text,
@@ -91,6 +97,5 @@ def generate_thumbnails(body: GenerateThumbnailRequest, session: Session = Depen
                 error=str(exc),
             ))
 
-    return GenerateThumbnailResponse(concepts=results)
-
+    logger.info("Thumbnail generation complete for script %s: %d concepts rendered", body.script_id, len(results))
     return GenerateThumbnailResponse(concepts=results)

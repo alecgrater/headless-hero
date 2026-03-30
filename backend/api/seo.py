@@ -1,6 +1,7 @@
 """Endpoints for SEO metadata generation."""
 
 import json
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -10,6 +11,8 @@ from api.database import get_session
 from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.seo import SEOMetadata, generate_seo
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/seo", tags=["seo"])
 
@@ -22,6 +25,7 @@ class GenerateSEOResponse(BaseModel):
 @router.post("/generate", response_model=GenerateSEOResponse)
 def generate_seo_metadata(body: GenerateSEORequest, session: Session = Depends(get_session)):
     """Generate SEO metadata for all platforms."""
+    logger.info("Generating SEO metadata for script %s", body.script_id)
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
@@ -45,4 +49,5 @@ def generate_seo_metadata(body: GenerateSEORequest, session: Session = Depends(g
         brand_context=brand_context,
     )
 
+    logger.info("SEO metadata generated for script %s", body.script_id)
     return GenerateSEOResponse(metadata=metadata)

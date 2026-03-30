@@ -1,5 +1,6 @@
 """Settings endpoints for managing API keys."""
 
+import logging
 import os
 
 from fastapi import APIRouter, Depends
@@ -7,6 +8,8 @@ from sqlmodel import Session, select
 
 from api.database import get_session
 from models.settings import AppSetting
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -82,6 +85,7 @@ async def save_keys(
     session: Session = Depends(get_session),
 ):
     """Save API keys to DB and set them in os.environ."""
+    logger.info("Saving settings keys: %s", list(keys.keys()))
     saved_keys: list[str] = []
     skipped_keys: list[str] = []
 
@@ -104,4 +108,5 @@ async def save_keys(
         saved_keys.append(key)
 
     session.commit()
+    logger.info("Settings saved: %s, skipped: %s", saved_keys, skipped_keys)
     return {"status": "ok", "saved": saved_keys, "skipped": skipped_keys}
