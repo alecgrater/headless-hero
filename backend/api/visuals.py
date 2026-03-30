@@ -1,6 +1,7 @@
 """Endpoints for AI image generation via Google Gemini."""
 
 import json
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -245,12 +246,13 @@ def generate_title_cards(body: GenerateTitleCardsRequest, session: Session = Dep
         force=body.force,
     )
 
-    # Persist updated image_urls back to script_json
+    # Persist updated image_urls back to script_json (with cache-buster for frontend)
+    cache_buster = f"?t={int(time.time())}"
     image_urls: dict[str, str] = {}
     for seg in content.segments:
         for scene in seg.scenes:
             if scene.is_title_card and scene.image_url:
-                image_urls[scene.id] = scene.image_url
+                image_urls[scene.id] = scene.image_url + cache_buster
 
     record.script_json = content.model_dump_json()
     session.add(record)
