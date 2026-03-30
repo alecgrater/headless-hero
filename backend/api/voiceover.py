@@ -1,6 +1,7 @@
 """Endpoints for TTS voiceover generation via ElevenLabs."""
 
 import json
+import logging
 
 from config import DEFAULT_TTS_MODEL
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -11,6 +12,8 @@ from api.database import get_session
 from integrations.elevenlabs_client import clone_voice, list_voices
 from models.script import Script, ScriptContent
 from pipeline.voiceover import generate_batch_audio, generate_scene_audio
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/voice", tags=["voice"])
 
@@ -97,6 +100,7 @@ def generate_audio(body: GenerateAudioRequest, session: Session = Depends(get_se
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
 
+    logger.info("Generating audio for scene %s in script %s", body.scene_id, body.script_id)
     audio_url, duration, word_timestamps = generate_scene_audio(
         scene_id=body.scene_id,
         narration=body.narration,
@@ -108,6 +112,7 @@ def generate_audio(body: GenerateAudioRequest, session: Session = Depends(get_se
 
     _update_scene_audio(session, body.script_id, body.scene_id, audio_url, duration, word_timestamps)
 
+    logger.info("Audio generated for scene %s: %.1fs duration", body.scene_id, duration)
     return GenerateAudioResponse(audio_url=audio_url, duration_seconds=duration, word_timestamps=word_timestamps)
 
 @router.post("/generate-batch", response_model=GenerateBatchAudioResponse)
@@ -118,6 +123,8 @@ def generate_audio_batch(
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
+
+    logger.info("Starting batch audio generation for script %s (%d scenes)", body.script_id, len(body.scenes))
 
     scenes = [{"scene_id": s.scene_id, "narration": s.narration} for s in body.scenes]
 
@@ -141,6 +148,8 @@ def generate_audio_batch(
                 r.get("word_timestamps"),
             )
 
+    errors = sum(1 for r in results if r.get("error"))
+    logger.info("Batch audio generation complete for script %s: %d succeeded, %d failed", body.script_id, len(results) - errors, errors)
     return GenerateBatchAudioResponse(results=[BatchAudioResultItem(**r) for r in results])
 
 @router.post("/clone", response_model=CloneVoiceResponse)
@@ -155,16 +164,20 @@ async def clone_voice_endpoint(
     if len(files) > 25:
         raise HTTPException(status_code=400, detail="Maximum 25 audio samples allowed")
 
+    logger.info("Cloning voice %s with %d audio samples", name, len(files))
+
     audio_files: list[tuple] = []
     for f in files:
         content = await f.read()
         audio_files.append((f.filename or "sample.mp3", content))
 
     voice_id = clone_voice(name=name, audio_files=audio_files, description=description)
+    logger.info("Voice cloned successfully: %s", voice_id)
     return CloneVoiceResponse(voice_id=voice_id)
 
 @router.get("/voices", response_model=VoiceListResponse)
 def get_voices():
     """List available ElevenLabs voices."""
     voices = list_voices()
+    logger.info("Listed %d voices", len(voices))
     return VoiceListResponse(voices=[VoiceInfo(**v) for v in voices])

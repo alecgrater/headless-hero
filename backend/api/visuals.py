@@ -1,6 +1,7 @@
 """Endpoints for AI image generation via Google Gemini."""
 
 import json
+import logging
 import time
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -13,6 +14,8 @@ from models.script import Script, ScriptContent
 from pipeline.image_gen import generate_batch, generate_scene_frames, generate_scene_image
 from pipeline.render_jobs import create_job, get_job, run_in_background
 from pipeline.title_card import ensure_title_card_images
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/visuals", tags=["visuals"])
 
@@ -92,6 +95,8 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
 
+    logger.info("Generating visual for scene %s in script %s", body.scene_id, body.script_id)
+
     # Load brand style_string
     brand = session.get(BrandProfile, record.brand_id)
     brand_style_string = brand.style_string if brand else ""
@@ -150,6 +155,8 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
 
+    logger.info("Starting batch visual generation for script %s (%d scenes)", body.script_id, len(body.scenes))
+
     # Load brand style_string
     brand = session.get(BrandProfile, record.brand_id)
     brand_style_string = brand.style_string if brand else ""
@@ -184,6 +191,8 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
         if r.get("image_url_b"):
             _update_scene(session, body.script_id, r["scene_id"], image_url_b=r["image_url_b"])
 
+    errors = sum(1 for r in results if r.get("error"))
+    logger.info("Batch visual generation complete for script %s: %d succeeded, %d failed", body.script_id, len(results) - errors, errors)
     return GenerateBatchResponse(results=[BatchResultItem(**r) for r in results])
 
 
@@ -211,6 +220,8 @@ def generate_title_cards(body: GenerateTitleCardsRequest, session: Session = Dep
     brand_style_string = brand.style_string if brand else ""
 
     job = create_job(scene_count=segment_count)
+
+    logger.info("Starting title card generation for script %s (%d segments)", body.script_id, segment_count)
 
     # Capture values needed by background thread (session not thread-safe)
     script_id = body.script_id

@@ -1,6 +1,7 @@
 """Endpoints for video rendering and export."""
 
 import json
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -15,6 +16,8 @@ from pipeline.remotion_render import (
     render_scene_preview,
 )
 from pipeline.video_render import export_full_audio
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/render", tags=["render"])
 
@@ -123,6 +126,7 @@ def preview_scene(body: PreviewSceneRequest, session: Session = Depends(get_sess
     if not scene:
         raise HTTPException(status_code=404, detail="Scene not found")
 
+    logger.info("Rendering scene preview: scene %s in script %s", body.scene_id, body.script_id)
     video_url = render_scene_preview(
         scene, body.script_id, body.width, body.height,
         modifier_ids=modifier_ids, brand=brand_dict,
@@ -137,6 +141,8 @@ def start_full_render(body: RenderFullRequest, session: Session = Depends(get_se
     scene_count = _count_scenes(content)
     audio_dur = _total_audio_duration(content)
     job = create_job(scene_count=scene_count, total_audio_duration=audio_dur)
+
+    logger.info("Starting full render for script %s (%d scenes, %.1fs audio)", body.script_id, scene_count, audio_dur)
 
     speed = max(0.5, min(3.0, body.speed))
 
@@ -181,5 +187,7 @@ def render_estimate(
 def export_audio(body: ExportAudioRequest, session: Session = Depends(get_session)):
     """Concatenate all scene audio into a single MP3 (synchronous)."""
     content = _load_content(session, body.script_id)
+    logger.info("Exporting full audio for script %s", body.script_id)
     audio_url = export_full_audio(body.script_id, content, title=body.title)
+    logger.info("Audio export complete for script %s: %s", body.script_id, audio_url)
     return ExportAudioResponse(audio_url=audio_url)

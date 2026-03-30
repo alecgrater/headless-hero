@@ -1,6 +1,7 @@
 """Endpoints for AI-powered script generation."""
 
 import json
+import logging
 import shutil
 import time
 from pathlib import Path
@@ -28,6 +29,8 @@ from pipeline.refine import refine_scene
 from pipeline.scriptwriter import generate_script
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/scripts", tags=["scripts"])
 
@@ -99,6 +102,7 @@ def delete_script(script_id: str, session: Session = Depends(get_session)):
     if project_dir.exists():
         shutil.rmtree(project_dir)
 
+    logger.info("Deleted script %s", script_id)
     return {"ok": True}
 
 
@@ -143,6 +147,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
         "style_string": brand.style_string,
     }
 
+    logger.info("Generating script for brand %s, topic: %s", body.brand_id, body.topic)
     t0 = time.monotonic()
     script_content = generate_script(
         topic=body.topic,
@@ -167,6 +172,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
     session.commit()
     session.refresh(record)
 
+    logger.info("Script generated: %s (%d segments) in %.1fs", record.id, len(script_content.segments), duration)
     return GenerateScriptResponse(id=record.id, script=script_content)
 
 
@@ -181,6 +187,7 @@ def update_script(script_id: str, body: UpdateScriptRequest, session: Session = 
     session.commit()
     session.refresh(record)
 
+    logger.info("Updated script %s", script_id)
     return ScriptRead(
         id=record.id,
         brand_id=record.brand_id,
@@ -224,5 +231,6 @@ def refine_scene_endpoint(
     if not any(s.id == body.scene_id for s in segment.scenes):
         raise HTTPException(status_code=400, detail="Scene not found in segment")
 
+    logger.info("Refining scene %s in script %s", body.scene_id, script_id)
     refined = refine_scene(script_content, body.segment_index, body.scene_id)
     return RefineSceneResponse(scene=refined)

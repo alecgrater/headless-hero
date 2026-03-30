@@ -1,5 +1,6 @@
 """Endpoints for AI-powered idea generation."""
 
+import logging
 import time
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,6 +11,8 @@ from api.database import get_session
 from models.brand import BrandProfile
 from models.generation_duration import GenerationDuration
 from pipeline.ideation import VideoIdea, generate_ideas
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/ideas", tags=["ideas"])
 
@@ -34,6 +37,7 @@ def generate(body: GenerateIdeasRequest, session: Session = Depends(get_session)
             parts.append(f"Art style: {brand.art_style}")
         brand_context = ". ".join(parts)
 
+    logger.info("Generating %d ideas for niche %s", body.count, body.niche)
     t0 = time.monotonic()
     ideas = generate_ideas(
         niche=body.niche,
@@ -45,4 +49,5 @@ def generate(body: GenerateIdeasRequest, session: Session = Depends(get_session)
     session.add(GenerationDuration(operation_type="idea_generation", duration_seconds=duration))
     session.commit()
 
+    logger.info("Generated %d ideas in %.1fs", len(ideas), duration)
     return GenerateIdeasResponse(ideas=ideas)

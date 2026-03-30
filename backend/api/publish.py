@@ -15,7 +15,7 @@ from models.publish import PublishRecord, PublishRecordRead
 from pipeline.publishing import publish_to_youtube
 from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/publish", tags=["publish"])
 
@@ -95,6 +95,8 @@ def oauth_connect(body: ConnectRequest, session: Session = Depends(get_session))
 
     from integrations.youtube_client import get_auth_url
 
+    logger.info("Starting OAuth connect for brand %s on %s", body.brand_id, body.platform)
+
     # Encode brand_id in state so we can associate the credential on callback
     auth_url = get_auth_url(state=body.brand_id)
     return ConnectResponse(auth_url=auth_url)
@@ -128,7 +130,7 @@ def oauth_callback(platform: str, code: str = "", state: str = "", error: str = 
         tokens = exchange_code(code)
         channel = get_channel_info(tokens["access_token"])
     except Exception as exc:
-        log.exception("OAuth exchange failed")
+        logger.exception("OAuth exchange failed")
         return HTMLResponse(
             content=f"<html><body><h2>Authorization Failed</h2><p>{exc}</p></body></html>",
             status_code=500,
@@ -177,6 +179,7 @@ def oauth_disconnect(body: DisconnectRequest, session: Session = Depends(get_ses
     if cred:
         session.delete(cred)
         session.commit()
+        logger.info("Disconnected %s for brand %s", body.platform, body.brand_id)
     return {"ok": True}
 
 @router.post("/upload", response_model=UploadResponse)
@@ -211,6 +214,8 @@ def start_upload(body: UploadRequest, session: Session = Depends(get_session)):
     cred_expiry = cred.token_expiry
 
     job = create_job()
+
+    logger.info("Starting upload for script %s to %s", body.script_id, body.platform)
 
     def do_upload():
         from api.database import engine as db_engine
