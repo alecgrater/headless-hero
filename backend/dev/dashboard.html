@@ -421,7 +421,7 @@ function createLogRow(log) {
   tr.onclick = () => showDetail(log);
 
   const levelCls = LEVEL_COLORS[log.level] || 'bg-neutral-600 text-neutral-300';
-  const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '';
+  const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString('en-US', {timeZone:'America/Los_Angeles'}) : '';
   const msg = (log.message || '').length > 200 ? log.message.substring(0, 200) + '...' : (log.message || '');
   const hasTrace = log.traceback ? '<span class="text-red-500 ml-1" title="Has traceback">!</span>' : '';
 
@@ -437,7 +437,7 @@ function createLogRow(log) {
 function showDetail(log) {
   const levelCls = LEVEL_COLORS[log.level] || '';
   document.getElementById('detailLevel').innerHTML = `<span class="px-2 py-0.5 rounded ${levelCls}">${log.level}</span>`;
-  document.getElementById('detailTime').textContent = log.timestamp ? new Date(log.timestamp).toLocaleString() : '';
+  document.getElementById('detailTime').textContent = log.timestamp ? new Date(log.timestamp).toLocaleString('en-US', {timeZone:'America/Los_Angeles'}) : '';
   document.getElementById('detailModule').textContent = log.logger_name || '';
   document.getElementById('detailFunc').textContent = (log.func_name || '') + (log.module ? ` (${log.module})` : '');
   document.getElementById('detailLine').textContent = log.lineno || '';
@@ -488,7 +488,7 @@ function renderRawLogs() {
   const container = document.getElementById('logRawContainer');
   let html = '';
   for (const log of logs) {
-    const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString('en-US', {hour12:false}) : '        ';
+    const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString('en-US', {hour12:false, timeZone:'America/Los_Angeles'}) : '        ';
     const lvl = (log.level || '').padEnd(8);
     const mod = log.logger_name || '';
     const style = RAW_LEVEL_COLORS[log.level] || '';
@@ -543,7 +543,7 @@ function connectWS() {
     // Append to raw view if active
     if (rawView) {
       const container = document.getElementById('logRawContainer');
-      const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString('en-US', {hour12:false}) : '        ';
+      const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString('en-US', {hour12:false, timeZone:'America/Los_Angeles'}) : '        ';
       const lvl = (log.level || '').padEnd(8);
       const mod = log.logger_name || '';
       const style = RAW_LEVEL_COLORS[log.level] || '';
