@@ -73,6 +73,7 @@ def generate_scene_frames(
     scene_id: str,
     frame_prompts: list[str],
     script_id: str,
+    visual_prompt: str = "",
     width: int = 1344,
     height: int = 768,
     force: bool = False,
@@ -83,22 +84,41 @@ def generate_scene_frames(
     """Generate multiple frames for a scene and save them locally.
 
     Each frame is saved as {scene_id}_f{i}.png with a cache file {scene_id}_f{i}.prompt.
+    visual_prompt is the scene's anchor description used to enforce cross-frame consistency.
     Returns list of (web_path, composed_prompt) tuples.
     """
     guide = style_guide if style_guide else _STYLE_GUIDE
     images_dir = _data_dir / "projects" / script_id / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
 
+    total_frames = len(frame_prompts)
     results: list[tuple[str, str]] = []
 
     for i, frame_prompt in enumerate(frame_prompts):
-        # Build prompt: style_string (verbatim) → guide → frame prompt
+        # Build continuity-aware prompt:
+        # style_string → guide → continuity preamble → frame instruction
         parts: list[str] = []
         if style_string:
             parts.append(style_string)
         if guide:
             parts.append(guide)
-        parts.append(frame_prompt)
+
+        # Add continuity preamble when we have a visual_prompt anchor
+        if visual_prompt and total_frames > 1:
+            continuity = (
+                f"ANIMATION SEQUENCE: This is frame {i + 1} of {total_frames} "
+                f"in an animation sequence.\n"
+                f"BASE SCENE: {visual_prompt}\n"
+                f"ALL frames must have IDENTICAL style, character design, "
+                f"background, composition, and color palette. "
+                f"Only the specific action/pose described below should differ "
+                f"from the base scene.\n\n"
+                f"FRAME INSTRUCTION: {frame_prompt}"
+            )
+            parts.append(continuity)
+        else:
+            parts.append(frame_prompt)
+
         prompt = "\n\n".join(parts)
 
         filename = f"{scene_id}_f{i}.png"
@@ -146,6 +166,7 @@ def generate_batch(
                     scene_id=scene["scene_id"],
                     frame_prompts=frame_prompts,
                     script_id=script_id,
+                    visual_prompt=scene.get("visual_prompt", ""),
                     width=width,
                     height=height,
                     style_guide=style_guide,

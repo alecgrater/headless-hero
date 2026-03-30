@@ -66,21 +66,39 @@ background" unless the brand style says otherwise.
 - Text overlays should be short key phrases (1-6 words) that reinforce the narration.
 - Scene IDs must be unique and sequential: scene_001, scene_002, etc.
 
-Multi-frame scene guidelines:
-- Each scene gets a "frame_count" (1-8) and a "frame_prompts" array with that \
-many entries. Multiple frames create smooth visual flow via crossfade transitions.
+Multi-frame scene guidelines (ANIMATION SEQUENCES):
+- Multiple frames simulate animation via crossfade — they MUST look like \
+consecutive frames of the SAME illustration with only subtle movement.
+- The "visual_prompt" field is the ANCHOR — it describes the complete static \
+scene in full detail: subject, background, composition, lighting, art style, \
+color palette, camera angle. This is the "base drawing" that every frame shares.
+- Each "frame_prompt" must REPEAT the full scene description from visual_prompt \
+verbatim, then state the ONE thing that changes (a pose, expression, position, \
+or scale shift). Frames must be indistinguishable in style, background, \
+character design, and composition — only the described action differs.
 - Budget guidelines for frame_count:
-  - Title/hook scenes (opening, segment intros): 6-8 frames
-  - Key stat or dramatic reveal scenes: 4-5 frames
-  - Standard explanation scenes: 2-3 frames
-  - Filler/transition scenes: 1-2 frames
-- Frame prompts should describe a visual PROGRESSION — e.g. zoom levels, \
-before/after states, building diagrams step by step, cause then effect.
-- All frames for a scene should depict the SAME subject — only the state, \
-angle, or detail level changes between frames.
+  - Title/hook scenes (opening, segment intros): 3-4 frames
+  - Key stat or dramatic reveal scenes: 2-3 frames
+  - Standard explanation scenes: 2 frames
+  - Filler/transition scenes: 1 frame
+- Keep frame counts LOW (2-4). Fewer frames = stronger visual consistency.
+- The change between frames should be MINIMAL and physically plausible — \
+a small gesture, a slight zoom, an object shifting position. NOT a completely \
+different angle, composition, or scene.
+- Example: visual_prompt = "A medieval knight in silver armor standing in a \
+green field under a cloudy sky, holding a wooden shield, flat illustration \
+style, dark background". frame_prompts = [\
+"A medieval knight in silver armor standing in a green field under a cloudy \
+sky, holding a wooden shield at his side, flat illustration style, dark \
+background", \
+"A medieval knight in silver armor standing in a green field under a cloudy \
+sky, raising a wooden shield to chest height, flat illustration style, dark \
+background", \
+"A medieval knight in silver armor standing in a green field under a cloudy \
+sky, holding a wooden shield raised overhead, flat illustration style, dark \
+background"]
 - Title card scenes (is_title_card: true) should have frame_count: 0 and \
-empty frame_prompts — they use the programmatic title card system.
-- The "visual_prompt" field remains as the primary/summary description of the scene."""
+empty frame_prompts — they use the programmatic title card system."""
 
 
 def generate_script(
@@ -122,7 +140,8 @@ def generate_script(
         user_parts.append(f"Brand context (use for visual style and tone): {brand_context}")
     user_parts.append(
         "For each scene, set frame_count and provide that many frame_prompts "
-        "describing a visual progression. Use the budget guidelines from the system prompt."
+        "following the ANIMATION SEQUENCES guidelines. Each frame_prompt must "
+        "repeat the full visual_prompt and only change the animated element."
     )
 
     system_prompt = BASE_SYSTEM_PROMPT

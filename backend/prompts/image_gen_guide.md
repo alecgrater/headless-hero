@@ -34,4 +34,12 @@ Assemble image prompts using this structure:
 2. **Consistency is King:** By rigidly adhering to the brand's art style and color palette across every image, the entire video looks like it belongs to a single cohesive, high-budget production.
 3. **Respect the Brand:** Never inject a style that conflicts with the brand's chosen aesthetic. The brand style is law.
 </execution_rules>
+
+## <animation_frame_consistency>
+When generating frames in an animation sequence (multiple frames for the same scene):
+1. **The base scene is sacred.** Background, lighting, character proportions, art style, color palette, and composition must be IDENTICAL across all frames. Treat the base scene description as an immutable template.
+2. **Only the explicitly described change should differ** between frames — a pose shift, an expression change, an object moving position. Everything else stays pixel-perfect consistent.
+3. **Maintain spatial anchoring.** Characters and objects should remain in the same position on the canvas unless the frame instruction explicitly moves them. Do not randomly recompose the scene.
+4. **Style drift is the enemy.** If frame 1 uses thick outlines and flat colors, every subsequent frame must use the same thick outlines and flat colors. Never vary rendering style between frames.
+</animation_frame_consistency>
 ```

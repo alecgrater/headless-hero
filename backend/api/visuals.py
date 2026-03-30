@@ -145,6 +145,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             scene_id=body.scene_id,
             frame_prompts=body.frame_prompts,
             script_id=body.script_id,
+            visual_prompt=body.visual_prompt,
             width=width,
             height=height,
             style_guide=style_guide,
