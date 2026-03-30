@@ -126,8 +126,8 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
 
     # Build brand context string
     parts = [brand.name]
-    if brand.art_style:
-        parts.append(f"Art style: {brand.art_style}")
+    if brand.style_string:
+        parts.append(f"Style: {brand.style_string}")
     brand_context = ". ".join(parts)
 
     # Parse modifier IDs from brand (default to title_cards for backward compat)
@@ -143,9 +143,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
 
     brand_dict = {
         "name": brand.name,
-        "art_style": brand.art_style,
-        "color_palette": brand.color_palette,
-        "font": brand.font,
+        "style_string": brand.style_string,
     }
 
     t0 = time.monotonic()
@@ -195,8 +193,8 @@ def generate_shortform(body: GenerateShortformScriptRequest, session: Session = 
         )
 
     parts = [brand.name]
-    if brand.art_style:
-        parts.append(f"Art style: {brand.art_style}")
+    if brand.style_string:
+        parts.append(f"Style: {brand.style_string}")
     brand_context = ". ".join(parts)
 
     modifier_ids: list[str] = []
@@ -211,9 +209,7 @@ def generate_shortform(body: GenerateShortformScriptRequest, session: Session = 
 
     brand_dict = {
         "name": brand.name,
-        "art_style": brand.art_style,
-        "color_palette": brand.color_palette,
-        "font": brand.font,
+        "style_string": brand.style_string,
     }
 
     t0 = time.monotonic()

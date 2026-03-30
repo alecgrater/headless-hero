@@ -12,28 +12,16 @@ _data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Pa
 _GUIDE_PATH = Path(__file__).resolve().parent.parent / "prompts" / "image_gen_guide.md"
 _STYLE_GUIDE = _GUIDE_PATH.read_text() if _GUIDE_PATH.exists() else ""
 
-def _format_color_palette(color_palette: str) -> str:
-    """Turn a comma-separated hex string into a readable palette description."""
-    if not color_palette or not color_palette.strip():
-        return ""
-    colors = [c.strip() for c in color_palette.split(",") if c.strip()]
-    if not colors:
-        return ""
-    return f"Brand color palette (use these colors prominently): {', '.join(colors)}"
-
 
 def generate_scene_image(
     scene_id: str,
     visual_prompt: str,
-    brand_style: str,
     script_id: str,
     width: int = 1344,
     height: int = 768,
     force: bool = False,
     variant: str = "a",
     style_guide: str = "",
-    color_palette: str = "",
-    font: str = "",
     seed: int | None = None,
     style_string: str = "",
 ) -> tuple[str, str]:
@@ -46,19 +34,12 @@ def generate_scene_image(
     """
     guide = style_guide if style_guide else _STYLE_GUIDE
 
-    # Build prompt: style_string (verbatim) → guide → brand style → color palette → font → visual prompt
+    # Build prompt: style_string (verbatim) → guide → visual prompt
     parts: list[str] = []
     if style_string:
         parts.append(style_string)
     if guide:
         parts.append(guide)
-    if brand_style:
-        parts.append(f"Brand art style: {brand_style}")
-    palette_desc = _format_color_palette(color_palette)
-    if palette_desc:
-        parts.append(palette_desc)
-    if font:
-        parts.append(f"Brand typography: {font}")
     parts.append(visual_prompt)
     prompt = "\n\n".join(parts)
 
@@ -91,14 +72,11 @@ def generate_scene_image(
 def generate_scene_frames(
     scene_id: str,
     frame_prompts: list[str],
-    brand_style: str,
     script_id: str,
     width: int = 1344,
     height: int = 768,
     force: bool = False,
     style_guide: str = "",
-    color_palette: str = "",
-    font: str = "",
     seed: int | None = None,
     style_string: str = "",
 ) -> list[tuple[str, str]]:
@@ -114,19 +92,12 @@ def generate_scene_frames(
     results: list[tuple[str, str]] = []
 
     for i, frame_prompt in enumerate(frame_prompts):
-        # Build prompt: style_string (verbatim) → guide → brand style → color palette → font → frame prompt
+        # Build prompt: style_string (verbatim) → guide → frame prompt
         parts: list[str] = []
         if style_string:
             parts.append(style_string)
         if guide:
             parts.append(guide)
-        if brand_style:
-            parts.append(f"Brand art style: {brand_style}")
-        palette_desc = _format_color_palette(color_palette)
-        if palette_desc:
-            parts.append(palette_desc)
-        if font:
-            parts.append(f"Brand typography: {font}")
         parts.append(frame_prompt)
         prompt = "\n\n".join(parts)
 
@@ -151,13 +122,10 @@ def generate_scene_frames(
 
 def generate_batch(
     scenes: list[dict[str, str]],
-    brand_style: str,
     script_id: str,
     width: int = 1344,
     height: int = 768,
     style_guide: str = "",
-    color_palette: str = "",
-    font: str = "",
     style_string: str = "",
 ) -> list[dict[str, str | None]]:
     """Generate images for a list of scenes sequentially.
@@ -177,13 +145,10 @@ def generate_batch(
                 frame_results = generate_scene_frames(
                     scene_id=scene["scene_id"],
                     frame_prompts=frame_prompts,
-                    brand_style=brand_style,
                     script_id=script_id,
                     width=width,
                     height=height,
                     style_guide=style_guide,
-                    color_palette=color_palette,
-                    font=font,
                     seed=scene.get("frame_seed"),
                     style_string=style_string,
                 )
@@ -203,13 +168,10 @@ def generate_batch(
             image_url, prompt_used = generate_scene_image(
                 scene_id=scene["scene_id"],
                 visual_prompt=scene["visual_prompt"],
-                brand_style=brand_style,
                 script_id=script_id,
                 width=width,
                 height=height,
                 style_guide=style_guide,
-                color_palette=color_palette,
-                font=font,
                 style_string=style_string,
             )
             image_url_b = None
@@ -217,14 +179,11 @@ def generate_batch(
                 image_url_b, _ = generate_scene_image(
                     scene_id=scene["scene_id"],
                     visual_prompt=scene["visual_prompt_b"],
-                    brand_style=brand_style,
                     script_id=script_id,
                     width=width,
                     height=height,
                     variant="b",
                     style_guide=style_guide,
-                    color_palette=color_palette,
-                    font=font,
                     style_string=style_string,
                 )
             results.append({

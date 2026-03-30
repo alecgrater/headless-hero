@@ -4,22 +4,22 @@ This document describes the expected behavior of the multi-frame pipeline so you
 
 ---
 
-## 1. Brand Profile — Visual DNA / Style String
+## 1. Brand Profile — Visual Style Prompt
 
 ### Where
-Brand Form → below the Font carousel, above Content Modifiers.
+Brand Form → below the Brand Name field, above Content Modifiers.
 
 ### Expected Behavior
-- A textarea labeled **"Visual DNA / Style Prompt"** appears with helper text: *"This exact text is prepended verbatim to every image generation prompt."*
+- A textarea labeled **"Visual Style Prompt"** appears with helper text: *"This exact text is prepended verbatim to every image generation prompt. Describe your desired art style, color palette, typography, and visual feel here."*
 - The field persists across save/reload of the brand profile.
 - The value is stored in `brand_profiles.style_string` (TEXT column in SQLite).
 - **Existing brands** created before this update will have an empty `style_string` — the migration adds the column with a default of `''`.
-- Whatever you type here appears **first** in every composed image prompt, before the style guide, brand art style, color palette, font, and scene visual prompt.
+- Whatever you type here appears **first** in every composed image prompt, before the style guide and scene visual prompt. It is the **sole** brand-level style control — the old separate art style, color palette, and font fields have been removed from the UI and prompt composition.
 
 ### How to Test
 1. Create a new brand → fill in the Style Prompt → save → reload the brand edit page → confirm the text persisted.
-2. Edit an existing brand → the field should be empty but present.
-3. Generate an image for a scene → check the backend logs or the prompt cache file (`data/projects/{script_id}/images/{scene_id}.prompt`) — the style_string should appear at the very top of the composed prompt.
+2. Edit an existing brand → the field should be empty but present. The old art style, color palette, and font carousels should not appear.
+3. Generate an image for a scene → check the backend logs or the prompt cache file (`data/projects/{script_id}/images/{scene_id}.prompt`) — the style_string should appear at the very top of the composed prompt, with no "Brand art style:", "Brand color palette:", or "Brand typography:" sections.
 
 ---
 
@@ -117,10 +117,7 @@ Brand Form → below the Font carousel, above Content Modifiers.
 ### Prompt Composition Order
 1. `style_string` (verbatim, from brand) — **first**
 2. Style guide (from `prompts/image_gen_guide.md`)
-3. Brand art style
-4. Color palette
-5. Brand font/typography
-6. Frame-specific visual prompt
+3. Frame-specific visual prompt
 
 ### Caching
 - Each frame has its own `.prompt` marker file.
@@ -250,7 +247,7 @@ frame_duration = (total_duration + (N-1) * crossfade_duration) / N
 | Generate image for legacy scene | Uses single-image `generate_scene_image()`. No frame files created. |
 | Render legacy scene video | Uses `build_scene_video_cmd()` or `build_animated_scene_video_cmd()` as before. |
 | `animated_scene_count` in API request | Still accepted, just ignored in prompt construction. No error. |
-| Brand without `style_string` | Migration adds empty column. Image gen proceeds without style_string prefix. |
+| Brand without `style_string` | Migration adds empty column. Image gen proceeds without style_string prefix. Title cards and thumbnails use hardcoded defaults for colors/fonts. |
 | Full video with no scene_transition values | Uses fast concat demuxer (same as before). |
 
 ---

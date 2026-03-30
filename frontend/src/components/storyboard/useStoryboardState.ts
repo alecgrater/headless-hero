@@ -63,8 +63,8 @@ interface StoryboardState {
   // Image generation
   generatingSceneIds: Set<string>;
   batchGenerating: boolean;
-  generateImage: (sceneId: string, brandStyle: string, colorPalette?: string) => Promise<void>;
-  generateAllImages: (brandStyle: string, colorPalette?: string) => Promise<void>;
+  generateImage: (sceneId: string) => Promise<void>;
+  generateAllImages: () => Promise<void>;
 
   // Audio generation
   generatingAudioSceneIds: Set<string>;
@@ -419,7 +419,7 @@ export function useStoryboardState(
   }, []);
 
   const generateImage = useCallback(
-    async (sceneId: string, brandStyle: string, colorPalette?: string) => {
+    async (sceneId: string) => {
       // Find the scene to get its visual_prompt
       const scene = (() => {
         for (const seg of contentRef.current.segments) {
@@ -471,8 +471,6 @@ export function useStoryboardState(
           script_id: scriptId,
           scene_id: sceneId,
           visual_prompt: scene.visual_prompt,
-          brand_style: brandStyle,
-          color_palette: colorPalette || "",
           is_animated: scene.is_animated || false,
           visual_prompt_b: scene.visual_prompt_b || "",
           frame_prompts: scene.frame_prompts || [],
@@ -511,7 +509,7 @@ export function useStoryboardState(
   );
 
   const generateAllImages = useCallback(
-    async (brandStyle: string, colorPalette?: string) => {
+    async () => {
       // Collect AI-generated scenes
       const scenes: { scene_id: string; visual_prompt: string; name: string; is_animated: boolean; visual_prompt_b: string; frame_prompts: string[]; frame_seed: number | null }[] = [];
       // Collect title card scene IDs for progress tracking
@@ -591,8 +589,6 @@ export function useStoryboardState(
             script_id: scriptId,
             scene_id: scene.scene_id,
             visual_prompt: scene.visual_prompt,
-            brand_style: brandStyle,
-            color_palette: colorPalette || "",
             is_animated: scene.is_animated,
             visual_prompt_b: scene.visual_prompt_b,
             frame_prompts: scene.frame_prompts,

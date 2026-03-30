@@ -104,14 +104,12 @@ class TitleCardsModifier(ContentModifier):
             record = session.exec(stmt).first()
             if record:
                 full_content = ScriptContent.model_validate(json.loads(record.script_json))
-                accent_color = brand.get("color_palette", "").split(",")[0].strip() if brand.get("color_palette") else "#e91e63"
+                accent_color = "#e91e63"
                 ensure_title_card_images(
                     script_id=script_id,
                     content=full_content,
-                    brand_style=brand.get("art_style", ""),
                     accent_color=accent_color,
-                    color_palette=brand.get("color_palette", ""),
-                    font=brand.get("font", ""),
+                    style_string=brand.get("style_string", ""),
                 )
                 # Update this scene's URL
                 scene.image_url = f"/static/projects/{script_id}/images/composite_title_card.png"

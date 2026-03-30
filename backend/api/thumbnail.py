@@ -54,8 +54,8 @@ def generate_thumbnails(body: GenerateThumbnailRequest, session: Session = Depen
             )]
             return GenerateThumbnailResponse(concepts=results)
 
-    # Load brand font for thumbnail text rendering
-    font_family = brand.font if brand else ""
+    # Use default system font for thumbnail text rendering
+    font_family = ""
 
     # Generate concepts from Claude
     concepts = generate_concepts(

@@ -26,15 +26,12 @@ class GenerateVisualRequest(BaseModel):
     script_id: str
     scene_id: str
     visual_prompt: str
-    brand_style: str = ""
-    color_palette: str = ""
     width: int = 1344
     height: int = 768
     is_animated: bool = False
     visual_prompt_b: str = ""
     frame_prompts: list[str] = []
     frame_seed: int | None = None
-    style_string: str = ""
 
 class GenerateVisualResponse(BaseModel):
     image_url: str
@@ -53,11 +50,8 @@ class BatchScene(BaseModel):
 class GenerateBatchRequest(BaseModel):
     script_id: str
     scenes: list[BatchScene]
-    brand_style: str = ""
-    color_palette: str = ""
     width: int = 1344
     height: int = 768
-    style_string: str = ""
 
 class BatchResultItem(BaseModel):
     scene_id: str
@@ -141,23 +135,19 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
     height = body.height if not is_shortform else 1344
     style_guide = _SHORTFORM_STYLE_GUIDE if is_shortform else ""
 
-    # Load brand font and style_string
+    # Load brand style_string
     brand = session.get(BrandProfile, record.brand_id)
-    brand_font = brand.font if brand else ""
-    brand_style_string = body.style_string or (brand.style_string if brand else "")
+    brand_style_string = brand.style_string if brand else ""
 
     # Multi-frame path
     if body.frame_prompts:
         frame_results = generate_scene_frames(
             scene_id=body.scene_id,
             frame_prompts=body.frame_prompts,
-            brand_style=body.brand_style,
             script_id=body.script_id,
             width=width,
             height=height,
             style_guide=style_guide,
-            color_palette=body.color_palette,
-            font=brand_font,
             seed=body.frame_seed,
             style_string=brand_style_string,
         )
@@ -173,13 +163,10 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
     image_url, prompt_used = generate_scene_image(
         scene_id=body.scene_id,
         visual_prompt=body.visual_prompt,
-        brand_style=body.brand_style,
         script_id=body.script_id,
         width=width,
         height=height,
         style_guide=style_guide,
-        color_palette=body.color_palette,
-        font=brand_font,
         style_string=brand_style_string,
     )
 
@@ -190,14 +177,11 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         image_url_b, _ = generate_scene_image(
             scene_id=body.scene_id,
             visual_prompt=body.visual_prompt_b,
-            brand_style=body.brand_style,
             script_id=body.script_id,
             width=width,
             height=height,
             variant="b",
             style_guide=style_guide,
-            color_palette=body.color_palette,
-            font=brand_font,
             style_string=brand_style_string,
         )
         _update_scene_image_url_b(session, body.script_id, body.scene_id, image_url_b)
@@ -217,10 +201,9 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
     height = body.height if not is_shortform else 1344
     style_guide = _SHORTFORM_STYLE_GUIDE if is_shortform else ""
 
-    # Load brand font and style_string
+    # Load brand style_string
     brand = session.get(BrandProfile, record.brand_id)
-    brand_font = brand.font if brand else ""
-    brand_style_string = body.style_string or (brand.style_string if brand else "")
+    brand_style_string = brand.style_string if brand else ""
 
     scenes = [
         {
@@ -236,13 +219,10 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
 
     results = generate_batch(
         scenes=scenes,
-        brand_style=body.brand_style,
         script_id=body.script_id,
         width=width,
         height=height,
         style_guide=style_guide,
-        color_palette=body.color_palette,
-        font=brand_font,
         style_string=brand_style_string,
     )
 
@@ -278,19 +258,9 @@ def generate_title_cards(body: GenerateTitleCardsRequest, session: Session = Dep
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
 
-    # Load brand for colors and font
+    # Load brand style_string for title card image generation
     brand = session.get(BrandProfile, record.brand_id)
-    color_palette = brand.color_palette if brand else ""
-    font_family = brand.font if brand else ""
-
-    # Parse brand colors
-    primary, secondary = "#1a1a2e", "#16213e"
-    if color_palette:
-        colors = [c.strip() for c in color_palette.split(",") if c.strip()]
-        if len(colors) >= 1:
-            primary = colors[0]
-        if len(colors) >= 2:
-            secondary = colors[1]
+    brand_style_string = brand.style_string if brand else ""
 
     # Detect shortform dimensions
     is_shortform = (record.content_format or "youtube") == "shortform"
@@ -299,12 +269,8 @@ def generate_title_cards(body: GenerateTitleCardsRequest, session: Session = Dep
 
     generated_ids = ensure_title_card_images(
         script_id=body.script_id,
-        segments=content.segments,
-        color_primary=primary,
-        color_secondary=secondary,
-        width=width,
-        height=height,
-        font_family=font_family,
+        content=content,
+        style_string=brand_style_string,
         force=body.force,
     )
 

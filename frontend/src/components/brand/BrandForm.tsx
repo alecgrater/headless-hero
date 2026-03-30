@@ -1,23 +1,9 @@
 import { useEffect, useState } from "react";
 import type { BrandProfileCreate, ContentModifierMeta } from "../../types/brand";
 import { fetchModifiers } from "../../api";
-import {
-  ART_STYLE_PRESETS,
-  COLOR_PALETTE_PRESETS,
-  FONT_PRESETS,
-} from "../../data/brandPresets";
-import type {
-  ArtStylePreset,
-  ColorPalettePreset,
-  FontPreset,
-} from "../../data/brandPresets";
-import PresetCarousel from "./PresetCarousel";
 
 const EMPTY_FORM: BrandProfileCreate = {
   name: "",
-  art_style: "",
-  color_palette: "",
-  font: "",
   content_modifiers: "",
   style_string: "",
 };
@@ -28,74 +14,6 @@ interface Props {
   initial?: BrandProfileCreate;
   saving?: boolean;
   brandId?: string;
-}
-
-/* ---- Carousel preview renderers ---- */
-
-function ArtStylePreview({ preset }: { preset: ArtStylePreset }) {
-  return (
-    <div className="text-center w-full">
-      <p
-        className="text-[15px] font-semibold text-white/90 mb-1"
-        style={{ fontFamily: "Sora, sans-serif" }}
-      >
-        {preset.name}
-      </p>
-      <p className="text-[12px] text-white/40 leading-relaxed">
-        {preset.prompt}
-      </p>
-    </div>
-  );
-}
-
-function ColorPalettePreview({ preset }: { preset: ColorPalettePreset }) {
-  const hexes = preset.colors.split(",").map((s) => s.trim());
-  return (
-    <div className="text-center w-full">
-      <p
-        className="text-[14px] font-semibold text-white/90 mb-3"
-        style={{ fontFamily: "Sora, sans-serif" }}
-      >
-        {preset.name}
-      </p>
-      <div className="flex justify-center gap-3">
-        {hexes.map((hex, i) => (
-          <div key={i} className="flex flex-col items-center gap-1">
-            <div
-              className="w-9 h-9 rounded-full border border-white/[0.1] shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
-              style={{
-                backgroundColor: hex,
-                animation: "swatchIn 200ms ease both",
-                animationDelay: `${i * 50}ms`,
-              }}
-            />
-            <span className="text-[9px] text-white/25 font-['JetBrains_Mono']">
-              {hex}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function FontPreview({ preset }: { preset: FontPreset }) {
-  return (
-    <div className="text-center w-full">
-      <p
-        className="text-[22px] font-semibold text-white/90 mb-1"
-        style={{ fontFamily: `'${preset.family}', sans-serif` }}
-      >
-        {preset.name}
-      </p>
-      <p
-        className="text-[13px] text-white/40"
-        style={{ fontFamily: `'${preset.family}', sans-serif` }}
-      >
-        The quick brown fox jumps over the lazy dog
-      </p>
-    </div>
-  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -229,51 +147,21 @@ export default function BrandForm({ onSave, onCancel, initial, saving, brandId }
               />
             </div>
 
-            {/* Art Style Carousel */}
-            <PresetCarousel
-              presets={ART_STYLE_PRESETS}
-              value={form.art_style ?? ""}
-              onChange={(v) => set("art_style", v)}
-              getValue={(p) => p.prompt}
-              renderPreview={(p) => <ArtStylePreview preset={p} />}
-              label="Art Style"
-            />
-
-            {/* Color Palette Carousel */}
-            <PresetCarousel
-              presets={COLOR_PALETTE_PRESETS}
-              value={form.color_palette ?? ""}
-              onChange={(v) => set("color_palette", v)}
-              getValue={(p) => p.colors}
-              renderPreview={(p) => <ColorPalettePreview preset={p} />}
-              label="Color Palette"
-            />
-
-            {/* Font Carousel */}
-            <PresetCarousel
-              presets={FONT_PRESETS}
-              value={form.font ?? ""}
-              onChange={(v) => set("font", v)}
-              getValue={(p) => p.family}
-              renderPreview={(p) => <FontPreview preset={p} />}
-              label="Font"
-            />
-
-            {/* Visual DNA / Style Prompt */}
+            {/* Style Prompt */}
             <div>
               <label className={labelCls}>
-                Visual DNA / Style Prompt
+                Visual Style Prompt
               </label>
               <textarea
                 value={form.style_string ?? ""}
                 onChange={(e) => set("style_string", e.target.value)}
-                className="w-full min-h-[80px] rounded-lg bg-[#1a1a24] border border-white/[0.08] px-3 py-2.5 text-[13px] text-white/90 placeholder:text-white/40 placeholder:font-['JetBrains_Mono'] outline-none transition-all duration-200 focus:border-[rgba(124,58,237,0.6)] focus:shadow-[0_0_0_3px_rgba(124,58,237,0.15)] resize-y"
-                placeholder="e.g. flat vector illustration, dark background, bold outlines, minimal detail..."
-                rows={3}
+                className="w-full min-h-[100px] rounded-lg bg-[#1a1a24] border border-white/[0.08] px-3 py-2.5 text-[13px] text-white/90 placeholder:text-white/40 placeholder:font-['JetBrains_Mono'] outline-none transition-all duration-200 focus:border-[rgba(124,58,237,0.6)] focus:shadow-[0_0_0_3px_rgba(124,58,237,0.15)] resize-y"
+                placeholder="e.g. flat vector illustration, dark background, bold outlines, minimal detail, neon accents on deep purple..."
+                rows={4}
               />
               <p className="text-[11px] text-white/25 mt-1.5 leading-relaxed">
                 This exact text is prepended verbatim to every image generation prompt.
-                Use it for a consistent visual style across all scenes.
+                Describe your desired art style, color palette, typography, and visual feel here.
               </p>
             </div>
           </div>

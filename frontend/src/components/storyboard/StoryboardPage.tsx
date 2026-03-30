@@ -208,7 +208,6 @@ function StoryboardEditor({
   }, []);
 
   const artStyle = brand?.art_style ?? "";
-  const colorPalette = brand?.color_palette ?? "";
 
   // Parse active modifier IDs from brand
   const activeModifierIds: string[] = (() => {
@@ -323,9 +322,9 @@ function StoryboardEditor({
     undo: state.undo,
     save: state.save,
     generateImage: () => {
-      if (state.selectedSceneId) state.generateImage(state.selectedSceneId, artStyle, colorPalette);
+      if (state.selectedSceneId) state.generateImage(state.selectedSceneId);
     },
-    generateAllImages: () => state.generateAllImages(artStyle, colorPalette),
+    generateAllImages: () => state.generateAllImages(),
     openExport: () => setShowExport(true),
     toggleAudioPreview,
     deleteScene,
@@ -365,7 +364,7 @@ function StoryboardEditor({
   const handleRegenerateSegmentImages = (segIdx: number) => {
     const scenes = state.content.segments[segIdx]?.scenes ?? [];
     for (const sc of scenes) {
-      state.generateImage(sc.id, artStyle, colorPalette);
+      state.generateImage(sc.id);
     }
   };
 
@@ -443,7 +442,7 @@ function StoryboardEditor({
         {/* Group 1 — Media Generation */}
         <div className="bg-neutral-800/50 rounded-lg p-1 flex items-center gap-1.5">
           <button
-            onClick={() => state.generateAllImages(artStyle, colorPalette)}
+            onClick={() => state.generateAllImages()}
             disabled={state.batchGenerating}
             className="text-sm px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
             title="Generate images for all scenes with visual prompts"
@@ -594,12 +593,12 @@ function StoryboardEditor({
             state.updateScene(id, { narration: narr })
           }
           onMoveScene={state.moveScene}
-          onGenerateImage={(sceneId) => state.generateImage(sceneId, artStyle, colorPalette)}
+          onGenerateImage={(sceneId) => state.generateImage(sceneId)}
           generatingSceneIds={state.generatingSceneIds}
           onGenerateAudio={(sceneId) => tryGenerateAudio(sceneId)}
           generatingAudioSceneIds={state.generatingAudioSceneIds}
           batchImageStatuses={state.batchImageProgress.statuses}
-          onRetryImage={(sceneId) => state.generateImage(sceneId, artStyle, colorPalette)}
+          onRetryImage={(sceneId) => state.generateImage(sceneId)}
         />
 
         <div className="flex overflow-hidden">
@@ -612,7 +611,7 @@ function StoryboardEditor({
                 state.updateScene(selectedScene.scene.id, updates)
               }
               onGenerateImage={() =>
-                state.generateImage(selectedScene.scene.id, artStyle, colorPalette)
+                state.generateImage(selectedScene.scene.id)
               }
               isGenerating={state.generatingSceneIds.has(selectedScene.scene.id)}
               onGenerateAudio={() =>

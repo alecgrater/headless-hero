@@ -24,9 +24,6 @@ export interface BrandProfile {
 
 export interface BrandProfileCreate {
   name: string;
-  art_style?: string;
-  color_palette?: string;
-  font?: string;
   voice_id?: string;
   content_modifiers?: string;
   style_string?: string;

@@ -29,18 +29,21 @@ class BrandProfile(BrandProfileBase, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-class BrandProfileCreate(BrandProfileBase):
+class BrandProfileCreate(BaseModel):
     """Request body for creating a brand profile."""
 
-    pass
+    name: str
+    voice_id: str = ""
+    content_modifiers: str = ""
+    style_string: str = ""
+    youtube_channel_id: str = ""
+    tiktok_handle: str = ""
+    instagram_handle: str = ""
 
 class BrandProfileUpdate(BaseModel):
     """Request body for updating a brand profile. All fields optional."""
 
     name: str | None = None
-    art_style: str | None = None
-    color_palette: str | None = None
-    font: str | None = None
     voice_id: str | None = None
     content_modifiers: str | None = None
     style_string: str | None = None

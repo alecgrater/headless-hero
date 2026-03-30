@@ -24,8 +24,7 @@ def ensure_title_card_images(
     content: ScriptContent,
     brand_style: str = "",
     accent_color: str = "#e91e63",
-    color_palette: str = "",
-    font: str = "",
+    style_string: str = "",
     force: bool = False,
 ) -> dict[int, tuple[int, int, int]]:
     """Generate circle images and composite title card for all segments.
@@ -35,8 +34,7 @@ def ensure_title_card_images(
         content: Full script content with segment metadata.
         brand_style: Brand art style description for image generation.
         accent_color: Hex color for title highlight word.
-        color_palette: Brand color palette string.
-        font: Brand font family name.
+        style_string: Brand style string prepended to image prompts.
         force: If True, regenerate even if composite already exists.
 
     Returns:
@@ -90,14 +88,12 @@ def ensure_title_card_images(
             web_url, _ = generate_scene_image(
                 scene_id=f"title_card_{idx}",
                 visual_prompt=prompt,
-                brand_style=brand_style,
                 script_id=script_id,
                 width=768,
                 height=768,  # Square for circle cropping
                 force=force,
                 style_guide="",
-                color_palette=color_palette,
-                font=font,
+                style_string=style_string,
             )
             circle_paths.append(circle_path)
             logger.info("Generated circle image %d/%d for segment %r", idx + 1, len(content.segments), seg.name)

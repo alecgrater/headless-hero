@@ -11,36 +11,6 @@ interface Props {
   onCreate: () => void;
 }
 
-/** Parse comma-separated hex colors from the brand's color_palette field */
-function parseColors(palette: string): string[] {
-  if (!palette) return [];
-  return palette
-    .split(",")
-    .map((c) => c.trim())
-    .filter((c) => /^#?[0-9a-fA-F]{3,8}$/.test(c))
-    .map((c) => (c.startsWith("#") ? c : `#${c}`));
-}
-
-/** Build a cinematic diagonal gradient from the brand's palette */
-function buildGradient(colors: string[]): string {
-  if (colors.length === 0) return "linear-gradient(135deg, #1a1a2e 0%, #0a0a14 100%)";
-  if (colors.length === 1) return `linear-gradient(135deg, ${colors[0]}cc 0%, ${colors[0]}33 100%)`;
-  const stops = colors.map((c, i) => `${c}bb ${Math.round((i / (colors.length - 1)) * 100)}%`);
-  return `linear-gradient(135deg, ${stops.join(", ")})`;
-}
-
-/** Extract style keywords as tag pills from art_style text */
-function extractTags(artStyle: string): string[] {
-  if (!artStyle) return [];
-  // Split on commas, semicolons, "and", or common separators, then clean up
-  const raw = artStyle
-    .split(/[,;·•|]|\band\b/i)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0 && s.length < 30);
-  // Take up to 4 tags, capitalize first letter
-  return raw.slice(0, 4).map((t) => t.charAt(0).toUpperCase() + t.slice(1));
-}
-
 /** Format a relative time string from ISO date */
 function timeAgo(iso: string): string {
   if (!iso) return "";
@@ -58,7 +28,7 @@ function timeAgo(iso: string): string {
 
 /** Check if a brand is incomplete / in "draft" state */
 function isDraft(brand: BrandProfile): boolean {
-  return !brand.art_style && !brand.color_palette;
+  return !brand.style_string;
 }
 
 export default function BrandList({
@@ -188,10 +158,12 @@ export default function BrandList({
           const isSelected = selectedId === brand.id;
           const isHovered = hoveredId === brand.id;
           const draft = isDraft(brand);
-          const colors = parseColors(brand.color_palette);
-          const gradient = buildGradient(colors);
-          const tags = extractTags(brand.art_style);
           const edited = timeAgo(brand.updated_at);
+          const styleExcerpt = brand.style_string
+            ? brand.style_string.length > 80
+              ? brand.style_string.slice(0, 80) + "..."
+              : brand.style_string
+            : "";
 
           return (
             <li
@@ -208,7 +180,7 @@ export default function BrandList({
                     ? "rgba(255, 255, 255, 0.04)"
                     : "rgba(255, 255, 255, 0.02)",
                 borderLeft: isSelected
-                  ? `3px solid ${colors[0] || "#7c3aed"}`
+                  ? "3px solid #7c3aed"
                   : "3px solid transparent",
                 animation: `brandFadeUp 400ms ease both`,
                 animationDelay: `${index * 60}ms`,
@@ -221,7 +193,7 @@ export default function BrandList({
                   width: "120px",
                   background: draft
                     ? "repeating-linear-gradient(45deg, #1a1a2e, #1a1a2e 8px, #12121e 8px, #12121e 16px)"
-                    : gradient,
+                    : "linear-gradient(135deg, #7c3aedcc 0%, #7c3aed33 100%)",
                   filter: isHovered ? "brightness(1.2)" : "brightness(1)",
                 }}
               >
@@ -240,8 +212,8 @@ export default function BrandList({
                   <div
                     className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
                     style={{
-                      background: colors[0] || "#7c3aed",
-                      boxShadow: `0 0 8px ${colors[0] || "#7c3aed"}88`,
+                      background: "#7c3aed",
+                      boxShadow: "0 0 8px #7c3aed88",
                     }}
                   >
                     <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
@@ -290,32 +262,16 @@ export default function BrandList({
                   </button>
                 ) : (
                   <>
-                    {brand.art_style && (
+                    {styleExcerpt && (
                       <p className="text-[12px] text-neutral-500 mt-0.5 truncate leading-snug">
-                        {brand.art_style}
+                        {styleExcerpt}
                       </p>
                     )}
                   </>
                 )}
 
-                {/* Tags + stats row */}
+                {/* Stats row */}
                 <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                  {tags.map((tag, i) => (
-                    <span
-                      key={i}
-                      className="px-1.5 py-0.5 rounded text-[10px] text-neutral-400"
-                      style={{
-                        background: "rgba(255, 255, 255, 0.06)",
-                        fontFamily: "'Sora', sans-serif",
-                        letterSpacing: "0.02em",
-                      }}
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                  {tags.length > 0 && edited && (
-                    <span className="text-neutral-700 text-[10px] mx-0.5">·</span>
-                  )}
                   {edited && (
                     <span
                       className="text-[10px] text-neutral-600"
