@@ -199,7 +199,7 @@ export default function BrandList({
               onClick={() => onSelect(brand)}
               onMouseEnter={() => setHoveredId(brand.id)}
               onMouseLeave={() => setHoveredId(null)}
-              className="relative flex cursor-pointer rounded-lg overflow-hidden transition-all duration-200"
+              className="relative flex cursor-pointer rounded-lg transition-all duration-200"
               style={{
                 height: "100px",
                 background: isSelected
@@ -216,7 +216,7 @@ export default function BrandList({
             >
               {/* Left preview panel */}
               <div
-                className="relative shrink-0 overflow-hidden transition-all duration-300"
+                className="relative shrink-0 overflow-hidden rounded-l-lg transition-all duration-300"
                 style={{
                   width: "120px",
                   background: draft
