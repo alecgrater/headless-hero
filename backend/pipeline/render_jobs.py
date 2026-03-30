@@ -4,11 +4,14 @@ Single-user Electron app, so a simple dict with a threading lock is sufficient.
 Jobs run in daemon threads and are polled via job_id.
 """
 
+import logging
 import threading
 import time
 import traceback
 import uuid
 from typing import Any, Callable
+
+logger = logging.getLogger(__name__)
 
 class RenderJob:
     """Tracks the state of a background render task."""
@@ -117,6 +120,7 @@ def run_in_background(
                             "duration_seconds": job.duration_seconds,
                         })
         except Exception:
+            logger.exception("Render job %s failed", job_id)
             update_job(job_id, status="failed", error=traceback.format_exc()[-1000:])
 
     t = threading.Thread(target=_wrapper, daemon=True)
