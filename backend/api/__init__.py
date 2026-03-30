@@ -1,5 +1,4 @@
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,8 +25,7 @@ from models.script import Script as _Script  # noqa: F401 — register table
 from models.generation_duration import GenerationDuration as _GenerationDuration  # noqa: F401 — register table
 from models.settings import AppSetting as _AppSetting  # noqa: F401 — register table
 
-import os
-_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
+from config import DATA_DIR
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,7 +35,7 @@ async def lifespan(app: FastAPI):
     with Session(_db_engine) as session:
         load_keys_into_env(session)
     # Ensure projects directory exists for static file serving
-    projects_dir = _data_dir / "projects"
+    projects_dir = DATA_DIR / "projects"
     projects_dir.mkdir(parents=True, exist_ok=True)
     yield
 
@@ -74,7 +72,7 @@ for _mod in _get_all_modifiers().values():
         app.include_router(_router)
 
 # Serve generated images as static files
-_projects_dir = _data_dir / "projects"
+_projects_dir = DATA_DIR / "projects"
 _projects_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/static/projects", StaticFiles(directory=str(_projects_dir)), name="project-assets")
 

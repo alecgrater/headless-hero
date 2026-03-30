@@ -8,6 +8,7 @@ import subprocess
 from pathlib import Path
 from typing import Callable
 
+from config import DATA_DIR
 from models.script import KenBurnsConfig, Scene, ScriptContent, TextOverlayConfig
 from pipeline.ffmpeg_builder import (
     build_animated_scene_video_cmd,
@@ -21,8 +22,6 @@ from pipeline.ffmpeg_builder import (
 )
 
 log = logging.getLogger(__name__)
-
-_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
 
 ProgressCallback = Callable[[float, str], None] | None
 
@@ -54,14 +53,14 @@ def copy_to_downloads(title: str, src_path: str, dest_name: str) -> str:
 
 def _scene_image_path(script_id: str, scene_id: str) -> str:
     """Resolve local filesystem path for a scene image."""
-    return str(_data_dir / "projects" / script_id / "images" / f"{scene_id}.png")
+    return str(DATA_DIR / "projects" / script_id / "images" / f"{scene_id}.png")
 
 def _scene_audio_path(script_id: str, scene_id: str) -> str:
     """Resolve local filesystem path for a scene audio file."""
-    return str(_data_dir / "projects" / script_id / "audio" / f"{scene_id}.mp3")
+    return str(DATA_DIR / "projects" / script_id / "audio" / f"{scene_id}.mp3")
 
 def _renders_dir(script_id: str) -> Path:
-    d = _data_dir / "projects" / script_id / "renders"
+    d = DATA_DIR / "projects" / script_id / "renders"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -132,7 +131,7 @@ def render_scene_video(
     if has_frames:
         frame_local_paths = []
         for i in range(len(scene.frame_urls)):
-            fp = str(_data_dir / "projects" / script_id / "images" / f"{scene.id}_f{i}.png")
+            fp = str(DATA_DIR / "projects" / script_id / "images" / f"{scene.id}_f{i}.png")
             if os.path.exists(fp):
                 frame_local_paths.append(fp)
         if len(frame_local_paths) > 1:
@@ -177,7 +176,7 @@ def render_scene_video(
 
     # Resolve B image for animated scenes
     is_animated = getattr(scene, "is_animated", False)
-    image_path_b = str(_data_dir / "projects" / script_id / "images" / f"{scene.id}_b.png") if is_animated else None
+    image_path_b = str(DATA_DIR / "projects" / script_id / "images" / f"{scene.id}_b.png") if is_animated else None
     if is_animated and (not image_path_b or not os.path.exists(image_path_b)):
         # Fall back to non-animated if B image missing
         is_animated = False
@@ -201,7 +200,7 @@ def render_scene_video(
     # Title card zoom rendering — use composite card + zoompan
     if scene.is_title_card and scene.title_card_zoom_target:
         zoom = scene.title_card_zoom_target
-        composite_path = str(_data_dir / "projects" / script_id / "images" / "composite_title_card.png")
+        composite_path = str(DATA_DIR / "projects" / script_id / "images" / "composite_title_card.png")
         if os.path.exists(composite_path) and os.path.exists(audio_path):
             cmd = build_title_card_zoom_cmd(
                 image_path=composite_path,
@@ -298,7 +297,7 @@ def render_full_video(
         clip_path = render_scene_video(scene, script_id, width, height, fade_out, speed=speed, modifier_ids=modifier_ids, brand=brand)
         # Convert web path to local path for concat
         filename = f"{scene.id}{speed_suffix}.mp4"
-        local_clip = str(_data_dir / "projects" / script_id / "renders" / "scenes" / filename)
+        local_clip = str(DATA_DIR / "projects" / script_id / "renders" / "scenes" / filename)
         clip_paths.append(local_clip)
         scene_transitions.append(getattr(scene, "scene_transition", "") or "")
 
@@ -365,7 +364,7 @@ def render_segment_video(
 
         render_scene_video(scene, script_id, 1920, 1080, speed=speed, modifier_ids=modifier_ids, brand=brand)
         speed_suffix = f"_{speed}x" if speed != 1.0 else ""
-        local_clip = str(_data_dir / "projects" / script_id / "renders" / "scenes" / f"{scene.id}{speed_suffix}.mp4")
+        local_clip = str(DATA_DIR / "projects" / script_id / "renders" / "scenes" / f"{scene.id}{speed_suffix}.mp4")
         clip_16_9_paths.append(local_clip)
 
     # Concat if multiple scenes
@@ -439,7 +438,7 @@ def render_all_segments(
         speed_label = f" ({speed}x)" if speed != 1.0 else ""
         for idx, web_path in enumerate(results):
             try:
-                local = str(_data_dir / "projects" / script_id / "renders" / "tiktok" / f"{idx}.mp4")
+                local = str(DATA_DIR / "projects" / script_id / "renders" / "tiktok" / f"{idx}.mp4")
                 copy_to_downloads(title, local, f"{_sanitize_filename(title)} - TikTok Segment {idx + 1}{speed_label}.mp4")
             except Exception:
                 log.warning("Failed to copy segment %d to downloads", idx, exc_info=True)

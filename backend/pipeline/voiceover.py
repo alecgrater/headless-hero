@@ -1,13 +1,9 @@
 """Voiceover pipeline — connects narration text to ElevenLabs TTS."""
 
-import os
 import struct
-from pathlib import Path
 
+from config import DATA_DIR
 from integrations.elevenlabs_client import generate_speech
-
-# data/ directory lives two levels above backend/pipeline/
-_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
 
 def _mp3_duration_seconds(data: bytes) -> float:
     """Estimate MP3 duration from raw bytes using frame headers.
@@ -71,7 +67,7 @@ def generate_scene_audio(
     )
 
     # Save to local storage
-    audio_dir = _data_dir / "projects" / script_id / "audio"
+    audio_dir = DATA_DIR / "projects" / script_id / "audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
     local_path = audio_dir / f"{scene_id}.mp3"
     local_path.write_bytes(audio_bytes)
@@ -92,7 +88,7 @@ def generate_batch_audio(
     Each scene dict must have 'scene_id' and 'narration'.
     Returns list of {scene_id, audio_url, duration_seconds, error?}.
     """
-    results: list[dict[str, str]] | None = []
+    results: list[dict] = []
     for scene in scenes:
         try:
             audio_url, duration, word_timestamps = generate_scene_audio(

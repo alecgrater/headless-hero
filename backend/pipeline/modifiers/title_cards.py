@@ -73,11 +73,9 @@ class TitleCardsModifier(ContentModifier):
             return scene
 
         # Only generate composite if it doesn't already exist
-        import os
-        from pathlib import Path
+        from config import DATA_DIR
 
-        _data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[3] / "data")))
-        composite_path = _data_dir / "projects" / script_id / "images" / "composite_title_card.png"
+        composite_path = DATA_DIR / "projects" / script_id / "images" / "composite_title_card.png"
 
         if composite_path.exists():
             # Composite already generated — just set URL if not already set

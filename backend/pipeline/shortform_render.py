@@ -1,12 +1,12 @@
 """Short-form video rendering pipeline — produces 1080x1920 vertical videos with subtitles."""
 
-import json
 import logging
 import os
 import shutil
 from pathlib import Path
 from typing import Callable
 
+from config import DATA_DIR
 from models.script import Scene, ScriptContent
 from pipeline.ass_builder import generate_ass_for_scene
 from pipeline.ffmpeg_builder import build_concat_cmd, build_shortform_scene_cmd
@@ -14,21 +14,19 @@ from pipeline.video_render import _run_ffmpeg, _sanitize_filename, copy_to_downl
 
 log = logging.getLogger(__name__)
 
-_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
-
 ProgressCallback = Callable[[float, str], None] | None
 
 
 def _scene_image_path(script_id: str, scene_id: str) -> str:
-    return str(_data_dir / "projects" / script_id / "images" / f"{scene_id}.png")
+    return str(DATA_DIR / "projects" / script_id / "images" / f"{scene_id}.png")
 
 
 def _scene_audio_path(script_id: str, scene_id: str) -> str:
-    return str(_data_dir / "projects" / script_id / "audio" / f"{scene_id}.mp3")
+    return str(DATA_DIR / "projects" / script_id / "audio" / f"{scene_id}.mp3")
 
 
 def _renders_dir(script_id: str) -> Path:
-    d = _data_dir / "projects" / script_id / "renders"
+    d = DATA_DIR / "projects" / script_id / "renders"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -177,7 +175,7 @@ def render_shortform_video(
     # Copy to platform-named files (all use same 1080x1920 spec)
     platforms = []
     try:
-        record_path = _data_dir / "projects" / script_id
+        record_path = DATA_DIR / "projects" / script_id
         # Try to determine platforms from script DB record
         # For now, just create standard copies
         platforms = ["youtube_shorts", "tiktok", "instagram_reels"]

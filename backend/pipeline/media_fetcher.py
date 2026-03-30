@@ -5,11 +5,10 @@ import os
 import shutil
 import subprocess
 import tempfile
-from pathlib import Path
+
+from config import DATA_DIR
 
 log = logging.getLogger(__name__)
-
-_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
 
 
 def _check_ytdlp() -> None:
@@ -76,7 +75,7 @@ def search_and_download_clip(
     """
     _check_ytdlp()
 
-    clips_dir = _data_dir / "projects" / script_id / "clips"
+    clips_dir = DATA_DIR / "projects" / script_id / "clips"
     clips_dir.mkdir(parents=True, exist_ok=True)
     output_path = str(clips_dir / f"{scene_id}.mp4")
 
@@ -124,7 +123,7 @@ def search_and_extract_frame(
     """
     _check_ytdlp()
 
-    images_dir = _data_dir / "projects" / script_id / "images"
+    images_dir = DATA_DIR / "projects" / script_id / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
     output_path = str(images_dir / f"{scene_id}.png")
 

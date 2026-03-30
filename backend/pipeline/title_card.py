@@ -10,13 +10,12 @@ import os
 import shutil
 from pathlib import Path
 
+from config import DATA_DIR
 from models.script import ScriptContent
 from pipeline.image_gen import generate_scene_image
 from pipeline.title_card_composer import compose_title_card
 
 logger = logging.getLogger(__name__)
-
-_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
 
 
 def ensure_title_card_images(
@@ -38,7 +37,7 @@ def ensure_title_card_images(
     Returns:
         Dict mapping segment_index -> (center_x, center_y, radius) zoom targets.
     """
-    images_dir = _data_dir / "projects" / script_id / "images"
+    images_dir = DATA_DIR / "projects" / script_id / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
 
     composite_path = images_dir / "composite_title_card.png"
@@ -120,7 +119,7 @@ def ensure_title_card_images(
     )
 
     # Step 3: Copy composite to thumbnail location
-    thumbs_dir = _data_dir / "projects" / script_id / "renders" / "thumbnails"
+    thumbs_dir = DATA_DIR / "projects" / script_id / "renders" / "thumbnails"
     thumbs_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(str(composite_path), str(thumbs_dir / "0.png"))
     logger.info("Copied composite title card to thumbnail: %s", thumbs_dir / "0.png")

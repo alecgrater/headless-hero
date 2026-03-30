@@ -3,21 +3,21 @@
 import logging
 import os
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Callable
 
+from config import DATA_DIR
 from integrations.youtube_client import refresh_access_token, upload_video
 from models.credential import PlatformCredential
 
 log = logging.getLogger(__name__)
 
-_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
+_TOKEN_REFRESH_BUFFER_SECONDS = 300  # Refresh if expiry within 5 minutes
 
 def _resolve_local_path(file_url: str) -> str:
     """Convert a web-relative /static/projects/... URL to a local filesystem path."""
     if file_url.startswith("/static/projects/"):
         relative = file_url[len("/static/projects/"):]
-        return str(_data_dir / "projects" / relative)
+        return str(DATA_DIR / "projects" / relative)
     raise FileNotFoundError(f"Cannot resolve file URL: {file_url}")
 
 def _ensure_token_fresh(credential: PlatformCredential) -> bool:
@@ -29,9 +29,9 @@ def _ensure_token_fresh(credential: PlatformCredential) -> bool:
         return False
 
     now = datetime.now(timezone.utc)
-    # Refresh if expiry is within 5 minutes
+    # Refresh if expiry is within the buffer window
     remaining = (credential.token_expiry - now).total_seconds()
-    if remaining > 300:
+    if remaining > _TOKEN_REFRESH_BUFFER_SECONDS:
         return False
 
     log.info("Refreshing expired YouTube token for brand %s", credential.brand_id)
@@ -69,8 +69,6 @@ def publish_to_youtube(
     if on_progress:
         on_progress(0.05, "Starting YouTube upload...")
 
-    privacy = "private" if schedule_at else "private"  # Always private initially
-
     def upload_progress(p: float) -> None:
         if on_progress:
             on_progress(0.05 + p * 0.9, f"Uploading... {int(p * 100)}%")
@@ -81,7 +79,7 @@ def publish_to_youtube(
         title=metadata.get("title", "Untitled"),
         description=metadata.get("description", ""),
         tags=metadata.get("tags", []),
-        privacy_status=privacy,
+        privacy_status="private",
         publish_at=schedule_at,
         on_progress=upload_progress,
     )

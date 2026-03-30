@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 from typing import Callable
 
+from config import DATA_DIR
 from integrations.claude_client import chat
 from models.auto_edit import AutoEditTimeline, SceneTimeline, TextPhrase
 from models.script import ScriptContent
@@ -14,8 +15,6 @@ from pipeline.ass_builder import generate_ass_for_scene
 from pipeline.ffmpeg_builder import build_auto_edit_scene_cmd, build_concat_with_transitions_cmd
 
 log = logging.getLogger(__name__)
-
-_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
 
 ProgressCallback = Callable[[float, str], None] | None
 
@@ -153,15 +152,15 @@ def _fallback_timeline(content: ScriptContent) -> AutoEditTimeline:
 
 
 def _scene_image_path(script_id: str, scene_id: str) -> str:
-    return str(_data_dir / "projects" / script_id / "images" / f"{scene_id}.png")
+    return str(DATA_DIR / "projects" / script_id / "images" / f"{scene_id}.png")
 
 
 def _scene_audio_path(script_id: str, scene_id: str) -> str:
-    return str(_data_dir / "projects" / script_id / "audio" / f"{scene_id}.mp3")
+    return str(DATA_DIR / "projects" / script_id / "audio" / f"{scene_id}.mp3")
 
 
 def _renders_dir(script_id: str) -> Path:
-    d = _data_dir / "projects" / script_id / "renders"
+    d = DATA_DIR / "projects" / script_id / "renders"
     d.mkdir(parents=True, exist_ok=True)
     return d
 

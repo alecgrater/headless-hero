@@ -1,13 +1,12 @@
 """Image generation pipeline — connects visual prompts to Google Gemini."""
 
-import os
 import shutil
 from pathlib import Path
 
+from config import DATA_DIR
 from integrations.image_client import generate_image
 
 # data/ directory lives two levels above backend/pipeline/
-_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
 
 _GUIDE_PATH = Path(__file__).resolve().parent.parent / "prompts" / "image_gen_guide.md"
 _STYLE_GUIDE = _GUIDE_PATH.read_text() if _GUIDE_PATH.exists() else ""
@@ -44,7 +43,7 @@ def generate_scene_image(
     prompt = "\n\n".join(parts)
 
     # Check cache: if image exists and we have a matching prompt marker, skip regen
-    images_dir = _data_dir / "projects" / script_id / "images"
+    images_dir = DATA_DIR / "projects" / script_id / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
 
     suffix = "_b" if variant == "b" else ""
@@ -88,7 +87,7 @@ def generate_scene_frames(
     Returns list of (web_path, composed_prompt) tuples.
     """
     guide = style_guide if style_guide else _STYLE_GUIDE
-    images_dir = _data_dir / "projects" / script_id / "images"
+    images_dir = DATA_DIR / "projects" / script_id / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
 
     total_frames = len(frame_prompts)

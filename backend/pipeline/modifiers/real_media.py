@@ -5,12 +5,10 @@ overrides scene rendering for gameplay clip scenes.
 """
 
 import os
-from pathlib import Path
 
+from config import DATA_DIR
 from models.script import Scene, ScriptContent, TextOverlayConfig
 from pipeline.modifiers.base import ContentModifier, ModifierMeta
-
-_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[3] / "data")))
 
 # Instructions previously hardcoded in scriptwriter.SYSTEM_PROMPT lines 76-90
 _REAL_MEDIA_PROMPT_INSTRUCTIONS = """\
@@ -62,8 +60,8 @@ class RealMediaModifier(ContentModifier):
         if getattr(scene, "media_type", "ai_generated") != "gameplay_clip":
             return None
 
-        clip_path = str(_data_dir / "projects" / script_id / "clips" / f"{scene.id}.mp4")
-        audio_path = str(_data_dir / "projects" / script_id / "audio" / f"{scene.id}.mp3")
+        clip_path = str(DATA_DIR / "projects" / script_id / "clips" / f"{scene.id}.mp4")
+        audio_path = str(DATA_DIR / "projects" / script_id / "audio" / f"{scene.id}.mp3")
 
         if not os.path.exists(clip_path):
             raise FileNotFoundError(f"Gameplay clip not found: {clip_path}")
