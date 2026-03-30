@@ -136,13 +136,21 @@ def generate_script(
         for mod in get_active(modifier_ids):
             system_prompt, user_message = mod.modify_script_prompt(system_prompt, user_message)
 
-    raw = chat(system_prompt, user_message, max_tokens=8192)
+    raw = chat(system_prompt, user_message, max_tokens=16384)
 
     # Strip markdown fences if present
     text = raw.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[1]
         text = text.rsplit("```", 1)[0]
+
+    text = text.strip()
+    if not text.endswith("}"):
+        raise RuntimeError(
+            "Script generation failed: Claude response was truncated. "
+            "The generated script was too long to fit within the token limit. "
+            "Try a simpler topic or fewer segments."
+        )
 
     data = json.loads(text)
     content = ScriptContent.model_validate(data)
