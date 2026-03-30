@@ -44,6 +44,7 @@ The app is structured as four layers:
 | `/api/thumbnail` | Thumbnail generation |
 | `/api/seo` | SEO metadata generation |
 | `/api/publish` | YouTube OAuth, upload, status, history |
+| `/dev/` | Dev dashboard (log viewer, job monitor, analytics) |
 
 ### External Services
 
@@ -178,6 +179,10 @@ headless-hero/
 │   │   ├── publish.py        # Upload history tracking
 │   │   ├── settings.py       # Key-value app settings
 │   │   └── generation_duration.py  # Render time estimation data
+│   ├── dev/
+│   │   ├── log_handler.py    # SQLite logging handler + DevLog model
+│   │   ├── routes.py         # Dashboard API routes + WebSocket
+│   │   └── dashboard.html    # Self-contained dashboard UI
 │   ├── prompts/              # LLM system prompt guides (.md files)
 │   └── pyproject.toml        # Python dependencies (uv)
 ├── data/
@@ -197,6 +202,47 @@ headless-hero/
 │   └── SETUP.md              # API keys & service setup guide
 └── CLAUDE.md                 # Development conventions & AI instructions
 ```
+
+### Dev Dashboard
+
+A browser-based developer dashboard is available at **http://localhost:8420/dev/** whenever the backend is running. It provides real-time visibility into backend activity without needing to watch the terminal.
+
+#### Accessing the Dashboard
+
+Start the backend (`npm run dev` or `npm run dev:backend`), then open [http://localhost:8420/dev/](http://localhost:8420/dev/) in any browser.
+
+#### Logs Tab
+
+The Logs tab streams backend log entries in real time over WebSocket:
+
+- **Filters** — Filter by log level (DEBUG through CRITICAL), module name, or free-text search
+- **Live streaming** — New log entries appear instantly via WebSocket. Auto-scrolls to the latest entry, but pauses when you scroll up to inspect older logs
+- **Expandable rows** — Click any log entry to see the full message, source file/function/line number, and exception traceback (if present)
+- **Pause/Resume** — Temporarily pause the live stream without disconnecting
+- **Analytics sidebar** — Shows log distribution by level, top recurring messages (last 24h), per-module log counts, and messages that appeared for the first time in the last hour
+
+#### Jobs Tab
+
+The Jobs tab monitors active and completed render jobs:
+
+- **Active jobs** — Each running job shows a progress bar, current step description, and elapsed time
+- **Completed/failed jobs** — Lists finished jobs with duration and status. Failed jobs show an expandable error traceback
+- **Auto-refresh** — The Jobs tab polls every 2 seconds while visible
+
+#### Log Persistence
+
+Logs are stored in SQLite (`data/db.sqlite` in the `dev_logs` table) and persist across backend restarts. Logs older than 7 days are automatically pruned on startup.
+
+#### API Endpoints
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /dev/` | Dashboard HTML |
+| `GET /dev/api/logs` | Query logs (params: `level`, `logger_name`, `search`, `since`, `limit`, `offset`) |
+| `GET /dev/api/logs/stats` | Log analytics (top messages, by level/module, new messages) |
+| `GET /dev/api/logs/modules` | List distinct logger names for filtering |
+| `GET /dev/api/jobs` | Current render job statuses |
+| `WebSocket /dev/ws/logs` | Live log stream |
 
 ### How It Works
 
