@@ -219,13 +219,16 @@ def render_scene_video(
     # Use audio duration if available, otherwise estimate
     duration = scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else scene.duration_estimate_seconds
 
-    # Title card zoom rendering — use composite card + zoompan
+    # Title card zoom rendering — use no-title composite card + zoompan
     if scene.is_title_card and scene.title_card_zoom_target:
         zoom = scene.title_card_zoom_target
+        # Prefer no-title version (larger circles), fall back to with-title
+        notitle_path = str(DATA_DIR / "projects" / script_id / "images" / "composite_title_card_notitle.png")
         composite_path = str(DATA_DIR / "projects" / script_id / "images" / "composite_title_card.png")
-        if os.path.exists(composite_path) and os.path.exists(audio_path):
+        zoom_image = notitle_path if os.path.exists(notitle_path) else composite_path
+        if os.path.exists(zoom_image) and os.path.exists(audio_path):
             cmd = build_title_card_zoom_cmd(
-                image_path=composite_path,
+                image_path=zoom_image,
                 audio_path=audio_path,
                 output_path=output_path,
                 duration=duration,

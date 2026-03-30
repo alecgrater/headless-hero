@@ -30,15 +30,19 @@ _DEFAULT_COLORS = [
     "#3f51b5", "#cddc39", "#f44336", "#009688",
 ]
 
+# Path to bundled marker font
+_BUNDLED_FONT = Path(__file__).resolve().parent.parent / "assets" / "fonts" / "PermanentMarker-Regular.ttf"
+
 
 def _load_font(size: int, bold: bool = True) -> ImageFont.FreeTypeFont:
-    """Load a system font, falling back to default if unavailable."""
-    # Try common bold system fonts
+    """Load a hand-drawn marker font, falling back to system fonts."""
+    # Prefer bundled Permanent Marker, then system MarkerFelt, then fallbacks
     candidates = [
+        str(_BUNDLED_FONT),
+        "/System/Library/Fonts/MarkerFelt.ttc",
+        "/System/Library/Fonts/Chalkduster.ttf",
         "/System/Library/Fonts/Helvetica.ttc",
-        "/System/Library/Fonts/SFNSDisplay.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
     ]
     for path in candidates:
         try:
@@ -59,16 +63,23 @@ def circle_crop(img: Image.Image, size: int) -> Image.Image:
 
 def calculate_grid_layout(
     segment_count: int,
+    include_title: bool = True,
 ) -> tuple[int, int, list[tuple[int, int]]]:
     """Calculate grid positions for segment circles.
+
+    Args:
+        segment_count: Number of segments to lay out.
+        include_title: If True, reserve space for title text at top.
+            If False, use the full canvas for larger circles.
 
     Returns: (rows, cols, list of (center_x, center_y) for each cell)
     """
     rows, cols = _GRID_LAYOUTS.get(segment_count, (2, max(3, (segment_count + 1) // 2)))
 
-    # Title takes top ~15% of canvas, grid fills the rest
-    title_height = 140
-    grid_top = title_height + 20
+    if include_title:
+        grid_top = 160  # title_height(140) + 20
+    else:
+        grid_top = 30  # near top of canvas
     grid_bottom = CANVAS_H - 40
     grid_left = 80
     grid_right = CANVAS_W - 80
@@ -97,6 +108,7 @@ def compose_title_card(
     highlight_word: str,
     accent_color: str = "#e91e63",
     output_path: str = "",
+    include_title: bool = True,
 ) -> tuple[str, dict[int, tuple[int, int, int]]]:
     """Compose a grid title card image with circular segment thumbnails.
 
@@ -108,17 +120,21 @@ def compose_title_card(
         highlight_word: Word to render in accent color.
         accent_color: Hex color for the highlighted word.
         output_path: Where to save the composite PNG.
+        include_title: If True, render title text at top. If False, skip title
+            and use the extra space for larger circles.
 
     Returns:
         (output_path, zoom_targets) where zoom_targets maps
         segment_index -> (center_x, center_y, radius).
     """
     count = len(circle_image_paths)
-    rows, cols, positions = calculate_grid_layout(count)
+    rows, cols, positions = calculate_grid_layout(count, include_title=include_title)
 
     # Calculate circle radius from grid cell size
-    title_height = 140
-    grid_top = title_height + 20
+    if include_title:
+        grid_top = 160
+    else:
+        grid_top = 30
     grid_bottom = CANVAS_H - 40
     grid_left = 80
     grid_right = CANVAS_W - 80
@@ -132,39 +148,39 @@ def compose_title_card(
     canvas = Image.new("RGB", (CANVAS_W, CANVAS_H), "white")
     draw = ImageDraw.Draw(canvas)
 
-    # --- Render title text ---
-    title_font = _load_font(64, bold=True)
-    title_text = card_title.upper()
-    highlight = highlight_word.upper() if highlight_word else ""
+    # --- Render title text (only if include_title) ---
+    if include_title:
+        title_font = _load_font(64, bold=True)
+        title_text = card_title.upper()
+        highlight = highlight_word.upper() if highlight_word else ""
 
-    if highlight and highlight in title_text:
-        # Split title around highlight word and render segments
-        parts = title_text.split(highlight, 1)
-        before, after = parts[0], parts[1] if len(parts) > 1 else ""
+        if highlight and highlight in title_text:
+            # Split title around highlight word and render segments
+            parts = title_text.split(highlight, 1)
+            before, after = parts[0], parts[1] if len(parts) > 1 else ""
 
-        # Measure total width to center
-        before_bbox = title_font.getbbox(before) if before else (0, 0, 0, 0)
-        hl_bbox = title_font.getbbox(highlight)
-        after_bbox = title_font.getbbox(after) if after else (0, 0, 0, 0)
-        total_w = (before_bbox[2] - before_bbox[0]) + (hl_bbox[2] - hl_bbox[0]) + (after_bbox[2] - after_bbox[0])
-        x = (CANVAS_W - total_w) // 2
-        y = 40
+            # Measure total width to center
+            before_bbox = title_font.getbbox(before) if before else (0, 0, 0, 0)
+            hl_bbox = title_font.getbbox(highlight)
+            after_bbox = title_font.getbbox(after) if after else (0, 0, 0, 0)
+            total_w = (before_bbox[2] - before_bbox[0]) + (hl_bbox[2] - hl_bbox[0]) + (after_bbox[2] - after_bbox[0])
+            x = (CANVAS_W - total_w) // 2
+            y = 40
 
-        if before:
-            draw.text((x, y), before, fill="#222222", font=title_font)
-            x += before_bbox[2] - before_bbox[0]
-        draw.text((x, y), highlight, fill=accent_color, font=title_font)
-        x += hl_bbox[2] - hl_bbox[0]
-        if after:
-            draw.text((x, y), after, fill="#222222", font=title_font)
-    else:
-        # No highlight — center the full title
-        bbox = title_font.getbbox(title_text)
-        tw = bbox[2] - bbox[0]
-        draw.text(((CANVAS_W - tw) // 2, 40), title_text, fill="#222222", font=title_font)
+            if before:
+                draw.text((x, y), before, fill="#222222", font=title_font)
+                x += before_bbox[2] - before_bbox[0]
+            draw.text((x, y), highlight, fill=accent_color, font=title_font)
+            x += hl_bbox[2] - hl_bbox[0]
+            if after:
+                draw.text((x, y), after, fill="#222222", font=title_font)
+        else:
+            # No highlight — center the full title
+            bbox = title_font.getbbox(title_text)
+            tw = bbox[2] - bbox[0]
+            draw.text(((CANVAS_W - tw) // 2, 40), title_text, fill="#222222", font=title_font)
 
     # --- Place circles ---
-    label_font = _load_font(20, bold=True)
     zoom_targets: dict[int, tuple[int, int, int]] = {}
 
     for i, (cx, cy) in enumerate(positions):
@@ -193,13 +209,28 @@ def compose_title_card(
                 fill=color,
             )
 
-        # Draw segment label below circle
+        # Draw dark circle outline
+        outline_width = 4
+        draw.ellipse(
+            (cx - bg_radius, cy - bg_radius, cx + bg_radius, cy + bg_radius),
+            outline="#1a1a1a",
+            width=outline_width,
+        )
+
+        # Draw segment label below circle — auto-scale to fit cell width
         label = segment_names[i].upper() if i < len(segment_names) else f"SEGMENT {i + 1}"
-        # Truncate long labels
-        if len(label) > 18:
-            label = label[:16] + "..."
+        max_label_w = int(cell_w - 20)
+        label_size = 28
+        label_font = _load_font(label_size, bold=True)
         lbox = label_font.getbbox(label)
         lw = lbox[2] - lbox[0]
+        # Shrink font until label fits or we hit minimum size
+        while lw > max_label_w and label_size > 14:
+            label_size -= 2
+            label_font = _load_font(label_size, bold=True)
+            lbox = label_font.getbbox(label)
+            lw = lbox[2] - lbox[0]
+
         draw.text(
             (cx - lw // 2, cy + max_radius + 10),
             label,
@@ -210,6 +241,6 @@ def compose_title_card(
         zoom_targets[i] = (cx, cy, max_radius)
 
     canvas.save(output_path, "PNG")
-    logger.info("Composite title card saved: %s (%d segments, %dx%d grid)", output_path, count, cols, rows)
+    logger.info("Composite title card saved: %s (%d segments, %dx%d grid, title=%s)", output_path, count, cols, rows, include_title)
 
     return output_path, zoom_targets

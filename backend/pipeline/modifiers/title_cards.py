@@ -76,9 +76,16 @@ class TitleCardsModifier(ContentModifier):
         from config import DATA_DIR
 
         composite_path = DATA_DIR / "projects" / script_id / "images" / "composite_title_card.png"
+        notitle_path = DATA_DIR / "projects" / script_id / "images" / "composite_title_card_notitle.png"
+
+        if notitle_path.exists():
+            # Prefer no-title version for scene rendering (larger circles)
+            if not scene.image_url:
+                scene.image_url = f"/static/projects/{script_id}/images/composite_title_card_notitle.png"
+            return scene
 
         if composite_path.exists():
-            # Composite already generated — just set URL if not already set
+            # Fall back to with-title version
             if not scene.image_url:
                 scene.image_url = f"/static/projects/{script_id}/images/composite_title_card.png"
             return scene
@@ -109,8 +116,11 @@ class TitleCardsModifier(ContentModifier):
                     accent_color=accent_color,
                     style_string=brand.get("style_string", ""),
                 )
-                # Update this scene's URL
-                scene.image_url = f"/static/projects/{script_id}/images/composite_title_card.png"
+                # Update this scene's URL to no-title version
+                notitle_web = f"/static/projects/{script_id}/images/composite_title_card_notitle.png"
+                title_web = f"/static/projects/{script_id}/images/composite_title_card.png"
+                notitle_local = DATA_DIR / "projects" / script_id / "images" / "composite_title_card_notitle.png"
+                scene.image_url = notitle_web if notitle_local.exists() else title_web
 
         return scene
 

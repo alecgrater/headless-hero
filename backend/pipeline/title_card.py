@@ -42,27 +42,28 @@ def ensure_title_card_images(
 
     composite_path = images_dir / "composite_title_card.png"
 
-    # Check if composite already exists (cache)
-    if not force and composite_path.exists():
-        logger.info("Composite title card already exists, recomputing zoom targets only")
+    notitle_path = images_dir / "composite_title_card_notitle.png"
+
+    # Check if both composites already exist (cache)
+    if not force and composite_path.exists() and notitle_path.exists():
+        logger.info("Composite title cards already exist, recomputing zoom targets only")
         from pipeline.title_card_composer import calculate_grid_layout
-        _, _, positions = calculate_grid_layout(len(content.segments))
-        # Recompute zoom targets from grid layout
         from pipeline.title_card_composer import CANVAS_H, CANVAS_W
-        title_height = 140
-        grid_top = title_height + 20
+
+        # Compute zoom targets for the no-title version (used for scene rendering)
+        rows, cols, positions = calculate_grid_layout(len(content.segments), include_title=False)
+        grid_top = 30
         grid_bottom = CANVAS_H - 40
         grid_left = 80
         grid_right = CANVAS_W - 80
-        rows, cols, _ = calculate_grid_layout(len(content.segments))
         cell_w = (grid_right - grid_left) / cols
         cell_h = (grid_bottom - grid_top) / rows
         label_space = 30
         max_radius = int(min(cell_w, cell_h - label_space) / 2 - 12)
         zoom_targets = {i: (pos[0], pos[1], max_radius) for i, pos in enumerate(positions) if i < len(content.segments)}
 
-        # Set image_url on all title card scenes
-        web_path = f"/static/projects/{script_id}/images/composite_title_card.png"
+        # Set image_url on title card scenes to no-title version
+        web_path = f"/static/projects/{script_id}/images/composite_title_card_notitle.png"
         _set_title_card_urls_and_zoom(content, web_path, zoom_targets)
 
         return zoom_targets
@@ -94,11 +95,15 @@ def ensure_title_card_images(
             )
             circle_paths.append(circle_path)
             logger.info("Generated circle image %d/%d for segment %r", idx + 1, len(content.segments), seg.name)
-        except Exception:
-            logger.error("Failed to generate circle image for segment %d (%s)", idx, seg.name, exc_info=True)
+        except Exception as exc:
+            logger.error(
+                "Failed to generate circle image for segment %d (%s): %s",
+                idx, seg.name, exc,
+                exc_info=True,
+            )
             circle_paths.append("")  # Placeholder — composer will draw colored circle
 
-    # Step 2: Compose the grid title card
+    # Step 2: Compose the grid title card (with title — for thumbnail)
     segment_names = [seg.name for seg in content.segments]
     circle_colors = [
         seg.circle_color or _DEFAULT_COLORS[i % len(_DEFAULT_COLORS)]
@@ -108,7 +113,7 @@ def ensure_title_card_images(
     card_title = content.card_title or content.title
     highlight_word = content.card_title_highlight_word or ""
 
-    _, zoom_targets = compose_title_card(
+    compose_title_card(
         circle_image_paths=[p for p in circle_paths],
         segment_names=segment_names,
         circle_colors=circle_colors,
@@ -116,16 +121,29 @@ def ensure_title_card_images(
         highlight_word=highlight_word,
         accent_color=accent_color,
         output_path=str(composite_path),
+        include_title=True,
     )
 
-    # Step 3: Copy composite to thumbnail location
+    # Step 3: Compose no-title version (for zoom scene rendering — larger circles)
+    _, zoom_targets = compose_title_card(
+        circle_image_paths=[p for p in circle_paths],
+        segment_names=segment_names,
+        circle_colors=circle_colors,
+        card_title=card_title,
+        highlight_word=highlight_word,
+        accent_color=accent_color,
+        output_path=str(notitle_path),
+        include_title=False,
+    )
+
+    # Step 4: Copy with-title composite to thumbnail location
     thumbs_dir = DATA_DIR / "projects" / script_id / "renders" / "thumbnails"
     thumbs_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(str(composite_path), str(thumbs_dir / "0.png"))
     logger.info("Copied composite title card to thumbnail: %s", thumbs_dir / "0.png")
 
-    # Step 4: Set image_url on all title card scenes and store zoom targets
-    web_path = f"/static/projects/{script_id}/images/composite_title_card.png"
+    # Step 5: Set image_url on title card scenes to no-title version (for zoom rendering)
+    web_path = f"/static/projects/{script_id}/images/composite_title_card_notitle.png"
     _set_title_card_urls_and_zoom(content, web_path, zoom_targets)
 
     return zoom_targets
