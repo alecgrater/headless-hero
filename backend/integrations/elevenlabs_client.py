@@ -6,6 +6,8 @@ import os
 
 import httpx
 
+from config import DEFAULT_TTS_MODEL
+
 log = logging.getLogger(__name__)
 
 _BASE_URL = "https://api.elevenlabs.io/v1"
@@ -75,7 +77,7 @@ def _reconstruct_words(
 def generate_speech(
     text: str,
     voice_id: str,
-    model_id: str = "eleven_multilingual_v2",
+    model_id: str = DEFAULT_TTS_MODEL,
     output_format: str = "mp3_44100_128",
     voice_settings: dict | None = None,
 ) -> tuple[bytes, list[dict]]:
@@ -155,7 +157,7 @@ def clone_voice(
         return response.json()["voice_id"]
 
 def list_voices() -> list[dict[str, str]]:
-    """list available voices from ElevenLabs.
+    """List available voices from ElevenLabs.
 
     Returns list of {voice_id, name, category} dicts.
     """

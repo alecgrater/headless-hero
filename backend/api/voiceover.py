@@ -2,6 +2,7 @@
 
 import json
 
+from config import DEFAULT_TTS_MODEL
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlmodel import Session
@@ -20,7 +21,7 @@ class GenerateAudioRequest(BaseModel):
     scene_id: str
     narration: str
     voice_id: str
-    model_id: str = "eleven_multilingual_v2"
+    model_id: str = DEFAULT_TTS_MODEL
     voice_settings: dict | None = None
 
 class GenerateAudioResponse(BaseModel):
@@ -36,7 +37,7 @@ class GenerateBatchAudioRequest(BaseModel):
     script_id: str
     scenes: list[BatchAudioScene]
     voice_id: str
-    model_id: str = "eleven_multilingual_v2"
+    model_id: str = DEFAULT_TTS_MODEL
     voice_settings: dict | None = None
 
 class BatchAudioResultItem(BaseModel):
@@ -164,6 +165,6 @@ async def clone_voice_endpoint(
 
 @router.get("/voices", response_model=VoiceListResponse)
 def get_voices():
-    """list available ElevenLabs voices."""
+    """List available ElevenLabs voices."""
     voices = list_voices()
     return VoiceListResponse(voices=[VoiceInfo(**v) for v in voices])

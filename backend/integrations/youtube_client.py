@@ -17,6 +17,8 @@ _SCOPES = [
 ]
 
 _REDIRECT_URI_DEFAULT = "http://localhost:8420/api/publish/oauth/callback/youtube"
+_TOKEN_URI = "https://oauth2.googleapis.com/token"
+_UPLOAD_CHUNK_SIZE = 10 * 1024 * 1024  # 10 MB
 
 def _get_client_config() -> dict[str, dict]:
     """Build client config dict from environment variables."""
@@ -31,7 +33,7 @@ def _get_client_config() -> dict[str, dict]:
             "client_id": client_id,
             "client_secret": client_secret,
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
+            "token_uri": _TOKEN_URI,
         }
     }
 
@@ -75,7 +77,7 @@ def refresh_access_token(refresh_token: str) -> dict:
         refresh_token=refresh_token,
         client_id=config["client_id"],
         client_secret=config["client_secret"],
-        token_uri="https://oauth2.googleapis.com/token",
+        token_uri=_TOKEN_URI,
     )
     creds.refresh(google.auth.transport.requests.Request())
     return {
@@ -139,7 +141,7 @@ def upload_video(
         body["status"]["privacyStatus"] = "private"
         body["status"]["publishAt"] = publish_at
 
-    media = MediaFileUpload(file_path, chunksize=10 * 1024 * 1024, resumable=True)
+    media = MediaFileUpload(file_path, chunksize=_UPLOAD_CHUNK_SIZE, resumable=True)
     request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
 
     response = None

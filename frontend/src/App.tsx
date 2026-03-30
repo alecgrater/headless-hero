@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import api from "./api";
-import "./App.css";
 import BrandForm from "./components/brand/BrandForm";
 import BrandList from "./components/brand/BrandList";
 import ProjectDashboard from "./components/dashboard/ProjectDashboard";

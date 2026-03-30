@@ -50,22 +50,6 @@ export interface ScriptContent {
   target_duration_seconds?: number;
 }
 
-export interface GenerateScriptRequest {
-  topic: string;
-  description?: string;
-  brand_id: string;
-  segment_count?: number;
-  animated_scene_count?: number;
-}
-
-export interface GenerateShortformScriptRequest {
-  topic: string;
-  description?: string;
-  brand_id: string;
-  platforms: string[];
-  target_duration_seconds?: number;
-}
-
 export interface GenerateScriptResponse {
   id: string;
   script: ScriptContent;

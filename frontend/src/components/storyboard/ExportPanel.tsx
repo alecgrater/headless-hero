@@ -1,7 +1,7 @@
 import { useState } from "react";
 import api, { assetUrl, openInBrowser } from "../../api";
 import type { PublishRecord } from "../../types/publish";
-import type { RenderStatusResponse, SEOMetadata, ShortformSEOMetadata, ThumbnailConcept } from "../../types/render";
+import type { RenderStatusResponse, SEOMetadata, ThumbnailConcept } from "../../types/render";
 import { useShortformState } from "./useShortformState";
 
 interface Props {

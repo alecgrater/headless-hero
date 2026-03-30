@@ -1,7 +1,5 @@
 /** TypeScript interfaces for publishing API. */
 
-export type Platform = "youtube" | "tiktok" | "instagram";
-
 export interface PlatformConnection {
   platform: string;
   platform_user_id: string;
@@ -15,19 +13,6 @@ export interface OAuthStatusResponse {
 
 export interface ConnectResponse {
   auth_url: string;
-}
-
-export interface PublishRequest {
-  script_id: string;
-  brand_id: string;
-  platform: Platform;
-  file_url: string;
-  metadata: {
-    title: string;
-    description: string;
-    tags: string[];
-  };
-  schedule_at?: string;
 }
 
 export interface PublishRecord {

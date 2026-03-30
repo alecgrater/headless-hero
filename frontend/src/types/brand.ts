@@ -32,5 +32,3 @@ export interface BrandProfileCreate {
   tiktok_handle?: string;
   instagram_handle?: string;
 }
-
-export type BrandProfileUpdate = Partial<BrandProfileCreate>;

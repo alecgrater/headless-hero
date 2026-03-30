@@ -4,6 +4,10 @@ import type { OAuthStatusResponse } from "../../types/publish";
 import api, { fetchModifiers, openInBrowser, cloneVoice } from "../../api";
 import { Mic, X } from "lucide-react";
 
+const OAUTH_POLL_INTERVAL_MS = 2000;
+const OAUTH_CONNECT_TIMEOUT_MS = 300_000; // 5 minutes
+const MAX_VOICE_CLONE_FILES = 5;
+
 const EMPTY_FORM: BrandProfileCreate = {
   name: "",
   content_modifiers: "",
@@ -131,7 +135,7 @@ export default function BrandForm({ onSave, onCancel, initial, saving, brandId }
         setYtChannelName(d.youtube.platform_user_name);
         setYtConnecting(false);
       }
-    }, 2000);
+    }, OAUTH_POLL_INTERVAL_MS);
 
     setTimeout(() => {
       if (connectionPollRef.current) {
@@ -139,7 +143,7 @@ export default function BrandForm({ onSave, onCancel, initial, saving, brandId }
         connectionPollRef.current = null;
         setYtConnecting(false);
       }
-    }, 300000);
+    }, OAUTH_CONNECT_TIMEOUT_MS);
   };
 
   const handleDisconnectYouTube = async () => {
@@ -348,7 +352,7 @@ export default function BrandForm({ onSave, onCancel, initial, saving, brandId }
                 <label className={labelCls}>
                   Audio Samples{" "}
                   <span className="normal-case tracking-normal text-white/25">
-                    MP3, WAV, or M4A — up to 5 files
+                    MP3, WAV, or M4A — up to {MAX_VOICE_CLONE_FILES} files
                   </span>
                 </label>
                 <input
@@ -357,7 +361,7 @@ export default function BrandForm({ onSave, onCancel, initial, saving, brandId }
                   accept=".mp3,.wav,.m4a"
                   multiple
                   onChange={(e) => {
-                    const files = Array.from(e.target.files || []).slice(0, 5);
+                    const files = Array.from(e.target.files || []).slice(0, MAX_VOICE_CLONE_FILES);
                     setAudioFiles(files);
                     setCloneError(null);
                   }}

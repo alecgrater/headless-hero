@@ -2,7 +2,7 @@
 
 import struct
 
-from config import DATA_DIR
+from config import DATA_DIR, DEFAULT_TTS_MODEL
 from integrations.elevenlabs_client import generate_speech
 
 def _mp3_duration_seconds(data: bytes) -> float:
@@ -52,7 +52,7 @@ def generate_scene_audio(
     narration: str,
     voice_id: str,
     script_id: str,
-    model_id: str = "eleven_multilingual_v2",
+    model_id: str = DEFAULT_TTS_MODEL,
     voice_settings: dict | None = None,
 ) -> tuple[str, float, list[dict]]:
     """Generate TTS audio for a single scene and save locally.
@@ -80,7 +80,7 @@ def generate_batch_audio(
     scenes: list[dict[str, str]],
     voice_id: str,
     script_id: str,
-    model_id: str = "eleven_multilingual_v2",
+    model_id: str = DEFAULT_TTS_MODEL,
     voice_settings: dict | None = None,
 ) -> list[dict[str, str | None]]:
     """Generate TTS audio for a list of scenes sequentially.

@@ -1,7 +1,5 @@
 """Endpoints for fetching real media (gameplay clips, hardware images) via yt-dlp."""
 
-import json
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session

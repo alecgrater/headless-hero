@@ -126,10 +126,13 @@ headless-hero/
 │       │   ├── script/       # Script editor
 │       │   ├── storyboard/   # Storyboard editor (scene cards, properties,
 │       │   │                 #   grid, render state, publish state)
+│       │   ├── dashboard/    # Project list and management
+│       │   ├── settings/     # API key and app settings
 │       │   ├── ErrorBoundary.tsx
 │       │   └── ToastContainer.tsx
 │       └── types/            # TypeScript interfaces (visual, audio, render, publish)
 ├── backend/
+│   ├── config.py            # Shared constants (DATA_DIR, DEFAULT_TTS_MODEL, etc.)
 │   ├── api/
 │   │   ├── __init__.py       # FastAPI app, router registration, static mount
 │   │   ├── brands.py         # Brand CRUD endpoints
@@ -141,6 +144,9 @@ headless-hero/
 │   │   ├── thumbnail.py      # Thumbnail generation
 │   │   ├── seo.py            # SEO metadata generation
 │   │   ├── publish.py        # YouTube OAuth + upload
+│   │   ├── settings.py       # API key management
+│   │   ├── generation.py     # Generation time estimates
+│   │   ├── media.py          # Real media fetch (gameplay clips)
 │   │   └── database.py       # SQLite engine + session dependency
 │   ├── pipeline/
 │   │   ├── ideation.py       # Idea generation via Claude
@@ -152,17 +158,27 @@ headless-hero/
 │   │   ├── render_jobs.py    # Background job tracking with threading
 │   │   ├── thumbnail.py      # Claude concepts + Gemini + FFmpeg composite
 │   │   ├── seo.py            # SEO metadata via Claude
-│   │   └── publishing.py     # YouTube upload orchestration
+│   │   ├── publishing.py     # YouTube upload orchestration
+│   │   ├── shortform_scriptwriter.py  # Short-form script generation
+│   │   ├── shortform_render.py        # 9:16 vertical video rendering
+│   │   ├── media_fetcher.py  # Real media via yt-dlp
+│   │   ├── auto_editor.py    # Auto-edit timeline generation
+│   │   └── modifiers/        # Content modifier plugin system
 │   ├── integrations/
 │   │   ├── claude_client.py       # Anthropic SDK wrapper
 │   │   ├── google_image_client.py # google-genai SDK wrapper
 │   │   ├── elevenlabs_client.py   # ElevenLabs httpx wrapper
-│   │   └── youtube_client.py      # YouTube Data API v3 wrapper
+│   │   ├── youtube_client.py      # YouTube Data API v3 wrapper
+│   │   ├── replicate_client.py    # Replicate API wrapper (optional)
+│   │   └── image_client.py        # Image provider router (Google/Replicate)
 │   ├── models/
 │   │   ├── brand.py          # BrandProfile table + schemas
 │   │   ├── script.py         # Script table + Scene/Segment models
 │   │   ├── credential.py     # OAuth token storage
-│   │   └── publish.py        # Upload history tracking
+│   │   ├── publish.py        # Upload history tracking
+│   │   ├── settings.py       # Key-value app settings
+│   │   └── generation_duration.py  # Render time estimation data
+│   ├── prompts/              # LLM system prompt guides (.md files)
 │   └── pyproject.toml        # Python dependencies (uv)
 ├── data/
 │   ├── db.sqlite             # SQLite database
@@ -176,8 +192,10 @@ headless-hero/
 │           │   └── thumbnails/
 │           └── full_youtube.mp4
 ├── package.json              # Root package (Electron + concurrently)
-├── PRD.md                    # Product Requirements Document
-└── SETUP.md                  # API keys & service setup guide
+├── docs/
+│   ├── PRD.md                # Product Requirements Document
+│   └── SETUP.md              # API keys & service setup guide
+└── CLAUDE.md                 # Development conventions & AI instructions
 ```
 
 ### How It Works
@@ -197,7 +215,7 @@ headless-hero/
 
 ## API Key Setup
 
-See [SETUP.md](SETUP.md) for detailed instructions on obtaining each API key and configuring Google OAuth2 for YouTube publishing.
+See [docs/SETUP.md](docs/SETUP.md) for detailed instructions on obtaining each API key and configuring Google OAuth2 for YouTube publishing.
 
 ## License
 
