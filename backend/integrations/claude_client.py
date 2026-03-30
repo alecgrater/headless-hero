@@ -26,7 +26,7 @@ def chat(
     system: str,
     user_message: str,
     *,
-    model: str = "claude-sonnet-4-20250514",
+    model: str = "anthropic.claude-opus-4-6-v1",
     max_tokens: int = 4096,
 ) -> str:
     """Send a single-turn message to Claude and return the text response."""
