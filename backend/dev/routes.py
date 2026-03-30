@@ -542,6 +542,28 @@ async def files_read(path: str):
     }
 
 
+class FileWriteRequest(BaseModel):
+    path: str
+    content: str
+
+
+@router.put("/api/files/write")
+async def files_write(req: FileWriteRequest):
+    """Write content to a file."""
+    resolved = _safe_resolve(req.path)
+    if not resolved.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    if resolved.stat().st_size > 500_000:
+        raise HTTPException(status_code=413, detail="File too large (>500KB)")
+
+    try:
+        resolved.write_text(req.content, encoding="utf-8")
+    except OSError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {"ok": True, "size": resolved.stat().st_size}
+
+
 @router.get("/api/files/markdown-index")
 async def files_markdown_index():
     """Discover all .md files in repo (cached 30s)."""

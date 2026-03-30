@@ -322,6 +322,9 @@
         <span id="fileViewerName" class="text-sm font-medium text-neutral-100 shrink-0">Select a file</span>
         <span id="fileViewerPath" class="text-xs text-neutral-500 truncate"></span>
         <span id="fileViewerSize" class="text-xs text-neutral-500 ml-auto shrink-0"></span>
+        <button id="fileEditBtn" onclick="toggleEditMode()" class="hidden text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1 rounded transition-colors shrink-0">Edit</button>
+        <button id="fileSaveBtn" onclick="saveFile()" class="hidden text-xs bg-violet-600 hover:bg-violet-500 text-white px-3 py-1 rounded transition-colors shrink-0">Save</button>
+        <button id="fileCancelBtn" onclick="cancelEdit()" class="hidden text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1 rounded transition-colors shrink-0">Cancel</button>
       </div>
       <div id="fileViewerContent" class="flex-1 overflow-y-auto scrollbar-thin p-6">
         <div class="text-neutral-500 text-sm">Click a file in the explorer or docs sidebar to view it.</div>
@@ -1515,11 +1518,20 @@ function formatFileSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
+let _openFilePath = null;
+let _openFileContent = null;
+let _openFileData = null;
+let _editMode = false;
+
 async function openFile(path) {
   const viewer = document.getElementById('fileViewerContent');
   const nameEl = document.getElementById('fileViewerName');
   const pathEl = document.getElementById('fileViewerPath');
   const sizeEl = document.getElementById('fileViewerSize');
+
+  _editMode = false;
+  _openFilePath = path;
+  _setEditButtons('loading');
 
   nameEl.textContent = path.split('/').pop();
   pathEl.textContent = path;
@@ -1533,6 +1545,8 @@ async function openFile(path) {
       throw new Error(err.detail || res.statusText);
     }
     const data = await res.json();
+    _openFileData = data;
+    _openFileContent = data.content;
 
     nameEl.textContent = data.name;
     pathEl.textContent = data.path;
@@ -1540,32 +1554,116 @@ async function openFile(path) {
 
     if (data.is_binary) {
       viewer.innerHTML = '<div class="text-neutral-500 text-sm">Binary file — cannot display contents.</div>';
+      _setEditButtons('none');
       return;
     }
 
-    if (data.is_markdown) {
-      viewer.innerHTML = `<div class="md-content max-w-4xl">${marked.parse(data.content)}</div>`;
-    } else {
-      // Syntax-highlighted code
-      const ext = data.ext;
-      const langMap = {
-        py: 'python', ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
-        json: 'json', html: 'xml', css: 'css', toml: 'toml', yaml: 'yaml', yml: 'yaml',
-        sh: 'bash', sql: 'sql', rs: 'rust', go: 'go', rb: 'ruby', java: 'java',
-        c: 'c', cpp: 'cpp', h: 'c', hpp: 'cpp', xml: 'xml', svg: 'xml',
-      };
-      const lang = langMap[ext];
-      let highlighted;
-      if (lang && hljs.getLanguage(lang)) {
-        highlighted = hljs.highlight(data.content, { language: lang }).value;
-      } else {
-        highlighted = hljs.highlightAuto(data.content).value;
-      }
-      viewer.innerHTML = `<pre class="text-xs leading-relaxed"><code class="hljs">${highlighted}</code></pre>`;
-    }
+    _setEditButtons('view');
+    _renderFileView(data);
   } catch (e) {
     viewer.innerHTML = `<div class="text-red-400 text-sm">${e.message}</div>`;
+    _setEditButtons('none');
   }
+}
+
+function _renderFileView(data) {
+  const viewer = document.getElementById('fileViewerContent');
+  if (data.is_markdown) {
+    viewer.innerHTML = `<div class="md-content max-w-4xl">${marked.parse(data.content)}</div>`;
+  } else {
+    const ext = data.ext;
+    const langMap = {
+      py: 'python', ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
+      json: 'json', html: 'xml', css: 'css', toml: 'toml', yaml: 'yaml', yml: 'yaml',
+      sh: 'bash', sql: 'sql', rs: 'rust', go: 'go', rb: 'ruby', java: 'java',
+      c: 'c', cpp: 'cpp', h: 'c', hpp: 'cpp', xml: 'xml', svg: 'xml',
+    };
+    const lang = langMap[ext];
+    let highlighted;
+    if (lang && hljs.getLanguage(lang)) {
+      highlighted = hljs.highlight(data.content, { language: lang }).value;
+    } else {
+      highlighted = hljs.highlightAuto(data.content).value;
+    }
+    viewer.innerHTML = `<pre class="text-xs leading-relaxed"><code class="hljs">${highlighted}</code></pre>`;
+  }
+}
+
+function _setEditButtons(state) {
+  const editBtn = document.getElementById('fileEditBtn');
+  const saveBtn = document.getElementById('fileSaveBtn');
+  const cancelBtn = document.getElementById('fileCancelBtn');
+  editBtn.classList.toggle('hidden', state !== 'view');
+  saveBtn.classList.toggle('hidden', state !== 'edit');
+  cancelBtn.classList.toggle('hidden', state !== 'edit');
+}
+
+function toggleEditMode() {
+  if (!_openFileData || _openFileData.is_binary) return;
+  _editMode = true;
+  _setEditButtons('edit');
+
+  const viewer = document.getElementById('fileViewerContent');
+  const lines = (_openFileContent || '').split('\n').length;
+  viewer.innerHTML = `<textarea id="fileEditor" class="w-full h-full bg-surface-900 text-neutral-200 text-xs font-mono p-4 resize-none focus:outline-none border border-neutral-700 rounded" spellcheck="false" style="tab-size: 4; min-height: 100%;">${_escapeHtml(_openFileContent || '')}</textarea>`;
+  document.getElementById('fileEditor').focus();
+}
+
+function cancelEdit() {
+  _editMode = false;
+  _setEditButtons('view');
+  if (_openFileData) {
+    _renderFileView(_openFileData);
+  }
+}
+
+async function saveFile() {
+  const editor = document.getElementById('fileEditor');
+  if (!editor || !_openFilePath) return;
+
+  const saveBtn = document.getElementById('fileSaveBtn');
+  const origText = saveBtn.textContent;
+  saveBtn.textContent = 'Saving...';
+  saveBtn.disabled = true;
+
+  try {
+    const res = await fetch('/dev/api/files/write', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: _openFilePath, content: editor.value }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || res.statusText);
+    }
+    const result = await res.json();
+
+    // Update state with new content
+    _openFileContent = editor.value;
+    _openFileData.content = editor.value;
+    _openFileData.size = result.size;
+    document.getElementById('fileViewerSize').textContent = formatFileSize(result.size);
+
+    // Flash success then return to view mode
+    saveBtn.textContent = 'Saved!';
+    saveBtn.classList.replace('bg-violet-600', 'bg-emerald-600');
+    setTimeout(() => {
+      saveBtn.classList.replace('bg-emerald-600', 'bg-violet-600');
+      cancelEdit();
+    }, 800);
+  } catch (e) {
+    saveBtn.textContent = 'Error!';
+    saveBtn.classList.replace('bg-violet-600', 'bg-red-600');
+    setTimeout(() => {
+      saveBtn.textContent = origText;
+      saveBtn.classList.replace('bg-red-600', 'bg-violet-600');
+      saveBtn.disabled = false;
+    }, 1500);
+  }
+}
+
+function _escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 </script>
 
