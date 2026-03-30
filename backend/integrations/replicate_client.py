@@ -23,8 +23,10 @@ def generate_image(prompt: str, width: int = 1344, height: int = 768) -> str:
 
     output_format = os.environ.get("REPLICATE_OUTPUT_FORMAT", "png")
 
+    model = os.environ.get("REPLICATE_MODEL", "black-forest-labs/flux-1.1-pro")
+
     output = replicate.run(
-        "black-forest-labs/flux-1.1-pro",
+        model,
         input={
             "prompt": prompt,
             "width": width,

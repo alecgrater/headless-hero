@@ -27,10 +27,19 @@ const SAFETY_LEVELS = [
   { value: "5", label: "5 — Most permissive" },
 ] as const;
 
+const REPLICATE_MODELS = [
+  { value: "black-forest-labs/flux-1.1-pro", label: "Flux 1.1 Pro", description: "Fast, high-quality generation" },
+  { value: "black-forest-labs/flux-1.1-pro-ultra", label: "Flux 1.1 Pro Ultra", description: "Highest quality, up to 4MP resolution" },
+  { value: "black-forest-labs/flux-pro", label: "Flux Pro", description: "Original pro model" },
+  { value: "black-forest-labs/flux-dev", label: "Flux Dev", description: "Open-weight, lower cost" },
+  { value: "black-forest-labs/flux-schnell", label: "Flux Schnell", description: "Fastest, lowest cost" },
+] as const;
+
 export default function GeneralSection() {
   const [downloadsDir, setDownloadsDir] = useState("");
   const [imageProvider, setImageProvider] = useState("google");
   const [promptUpsampling, setPromptUpsampling] = useState("true");
+  const [replicateModel, setReplicateModel] = useState("black-forest-labs/flux-1.1-pro");
   const [safetyTolerance, setSafetyTolerance] = useState("2");
   const [outputFormat, setOutputFormat] = useState("png");
   const [saving, setSaving] = useState(false);
@@ -38,6 +47,7 @@ export default function GeneralSection() {
   const [originalDownloads, setOriginalDownloads] = useState("");
   const [originalProvider, setOriginalProvider] = useState("google");
   const [originalUpsampling, setOriginalUpsampling] = useState("true");
+  const [originalModel, setOriginalModel] = useState("black-forest-labs/flux-1.1-pro");
   const [originalSafety, setOriginalSafety] = useState("2");
   const [originalFormat, setOriginalFormat] = useState("png");
 
@@ -54,6 +64,9 @@ export default function GeneralSection() {
         const upVal = data.REPLICATE_PROMPT_UPSAMPLING?.masked || "true";
         setPromptUpsampling(upVal);
         setOriginalUpsampling(upVal);
+        const modVal = data.REPLICATE_MODEL?.masked || "black-forest-labs/flux-1.1-pro";
+        setReplicateModel(modVal);
+        setOriginalModel(modVal);
         const safVal = data.REPLICATE_SAFETY_TOLERANCE?.masked || "2";
         setSafetyTolerance(safVal);
         setOriginalSafety(safVal);
@@ -70,6 +83,7 @@ export default function GeneralSection() {
     const res = await api.put("/api/settings/keys", {
       DOWNLOADS_DIR: downloadsDir.trim(),
       IMAGE_PROVIDER: imageProvider,
+      REPLICATE_MODEL: replicateModel,
       REPLICATE_PROMPT_UPSAMPLING: promptUpsampling,
       REPLICATE_SAFETY_TOLERANCE: safetyTolerance,
       REPLICATE_OUTPUT_FORMAT: outputFormat,
@@ -80,6 +94,7 @@ export default function GeneralSection() {
       showToast("Settings saved", "success");
       setOriginalDownloads(downloadsDir.trim());
       setOriginalProvider(imageProvider);
+      setOriginalModel(replicateModel);
       setOriginalUpsampling(promptUpsampling);
       setOriginalSafety(safetyTolerance);
       setOriginalFormat(outputFormat);
@@ -89,6 +104,7 @@ export default function GeneralSection() {
   const hasChanges =
     downloadsDir.trim() !== originalDownloads ||
     imageProvider !== originalProvider ||
+    replicateModel !== originalModel ||
     promptUpsampling !== originalUpsampling ||
     safetyTolerance !== originalSafety ||
     outputFormat !== originalFormat;
@@ -158,6 +174,24 @@ export default function GeneralSection() {
                 <p className="text-xs text-neutral-500">
                   Fine-tune Flux image generation parameters.
                 </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm text-neutral-200">Model</label>
+                <p className="text-xs text-neutral-500">
+                  Which Flux model to use for image generation.
+                </p>
+                <select
+                  value={replicateModel}
+                  onChange={(e) => setReplicateModel(e.target.value)}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
+                >
+                  {REPLICATE_MODELS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label} — {m.description}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="space-y-1.5">
