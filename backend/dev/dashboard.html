@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Headless Hero — Dev Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -25,6 +28,28 @@
     .scrollbar-thin::-webkit-scrollbar-thumb { background: #404040; border-radius: 3px; }
     @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
     .live-dot { animation: pulse-dot 1.5s ease-in-out infinite; }
+    .md-content { line-height: 1.7; color: #d4d4d4; }
+    .md-content h1 { font-size: 1.5em; font-weight: 700; color: #f5f5f5; margin: 1em 0 0.5em; border-bottom: 1px solid #404040; padding-bottom: 0.3em; }
+    .md-content h2 { font-size: 1.3em; font-weight: 600; color: #f5f5f5; margin: 1em 0 0.4em; border-bottom: 1px solid #333; padding-bottom: 0.2em; }
+    .md-content h3 { font-size: 1.1em; font-weight: 600; color: #e5e5e5; margin: 0.8em 0 0.3em; }
+    .md-content h4, .md-content h5, .md-content h6 { font-weight: 600; color: #e5e5e5; margin: 0.6em 0 0.2em; }
+    .md-content p { margin: 0.5em 0; }
+    .md-content a { color: #a78bfa; text-decoration: underline; }
+    .md-content a:hover { color: #c4b5fd; }
+    .md-content code { background: #262626; padding: 0.15em 0.4em; border-radius: 3px; font-size: 0.9em; }
+    .md-content pre { background: #171717; border: 1px solid #333; border-radius: 6px; padding: 1em; overflow-x: auto; margin: 0.8em 0; }
+    .md-content pre code { background: none; padding: 0; font-size: 0.85em; }
+    .md-content blockquote { border-left: 3px solid #7c3aed; padding-left: 1em; color: #a3a3a3; margin: 0.5em 0; }
+    .md-content ul, .md-content ol { padding-left: 1.5em; margin: 0.5em 0; }
+    .md-content li { margin: 0.2em 0; }
+    .md-content ul { list-style-type: disc; }
+    .md-content ol { list-style-type: decimal; }
+    .md-content table { border-collapse: collapse; width: 100%; margin: 0.8em 0; }
+    .md-content th, .md-content td { border: 1px solid #404040; padding: 0.4em 0.8em; text-align: left; }
+    .md-content th { background: #262626; font-weight: 600; color: #e5e5e5; }
+    .md-content tr:nth-child(even) { background: #1a1a1a; }
+    .md-content img { max-width: 100%; border-radius: 6px; }
+    .md-content hr { border: none; border-top: 1px solid #404040; margin: 1em 0; }
   </style>
 </head>
 <body class="bg-surface-900 text-neutral-300 min-h-screen">
@@ -48,6 +73,7 @@
     <button onclick="switchTab('api')" id="tab-api" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">API</button>
     <button onclick="switchTab('database')" id="tab-database" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Database</button>
     <button onclick="switchTab('usage')" id="tab-usage" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Usage</button>
+    <button onclick="switchTab('files')" id="tab-files" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Files</button>
   </nav>
 
   <!-- Logs Tab -->
@@ -273,6 +299,35 @@
     </div>
   </div>
 
+  <!-- Files Tab -->
+  <div id="panel-files" class="hidden h-[calc(100vh-97px)] flex">
+    <!-- Left: Docs sidebar -->
+    <div class="w-56 border-r border-neutral-800 flex flex-col overflow-y-auto scrollbar-thin">
+      <div class="px-4 py-3 border-b border-neutral-800">
+        <span class="text-sm font-medium text-neutral-100">Docs</span>
+      </div>
+      <div id="mdSidebar" class="flex-1 overflow-y-auto scrollbar-thin p-2 text-xs"></div>
+    </div>
+    <!-- Center: Explorer -->
+    <div class="w-64 border-r border-neutral-800 flex flex-col">
+      <div class="px-4 py-3 border-b border-neutral-800">
+        <span class="text-sm font-medium text-neutral-100">Explorer</span>
+      </div>
+      <div id="fileBreadcrumb" class="px-3 py-1.5 text-xs text-neutral-500 border-b border-neutral-800 truncate"></div>
+      <div id="fileTree" class="flex-1 overflow-y-auto scrollbar-thin"></div>
+    </div>
+    <!-- Right: File viewer -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <div id="fileViewerHeader" class="px-4 py-3 border-b border-neutral-800 flex items-center justify-between">
+        <span id="fileViewerName" class="text-sm font-medium text-neutral-100">Select a file</span>
+        <span id="fileViewerSize" class="text-xs text-neutral-500"></span>
+      </div>
+      <div id="fileViewerContent" class="flex-1 overflow-y-auto scrollbar-thin p-6">
+        <div class="text-neutral-500 text-sm">Click a file in the explorer or docs sidebar to view it.</div>
+      </div>
+    </div>
+  </div>
+
 <script>
 // --- State ---
 let logs = [];
@@ -293,7 +348,7 @@ const LEVEL_COLORS = {
 const LEVEL_ORDER = { DEBUG: 0, INFO: 1, WARNING: 2, ERROR: 3, CRITICAL: 4 };
 
 // --- Tabs ---
-const ALL_TABS = ['logs', 'jobs', 'api', 'database', 'usage'];
+const ALL_TABS = ['logs', 'jobs', 'api', 'database', 'usage', 'files'];
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => {
     b.classList.remove('border-violet-500', 'text-violet-400');
@@ -308,6 +363,7 @@ function switchTab(tab) {
   if (tab === 'api') loadOpenApiSchema();
   if (tab === 'database') fetchDbTables();
   if (tab === 'usage') fetchUsageSummary();
+  if (tab === 'files') initFilesTab();
 }
 
 // --- Logs ---
@@ -1310,6 +1366,202 @@ function formatNumber(n) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
   if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
   return n.toString();
+}
+
+// --- Files Tab ---
+let _filesInitialized = false;
+let _currentFilePath = '';
+
+function initFilesTab() {
+  if (_filesInitialized) return;
+  _filesInitialized = true;
+
+  // Configure marked with highlight.js
+  marked.setOptions({
+    highlight: function(code, lang) {
+      if (lang && hljs.getLanguage(lang)) {
+        return hljs.highlight(code, { language: lang }).value;
+      }
+      return hljs.highlightAuto(code).value;
+    },
+    breaks: false,
+    gfm: true,
+  });
+
+  fetchMdIndex();
+  fetchFileTree('');
+}
+
+async function fetchMdIndex() {
+  try {
+    const res = await fetch('/dev/api/files/markdown-index');
+    const data = await res.json();
+    renderMdSidebar(data.files);
+  } catch (e) {
+    document.getElementById('mdSidebar').innerHTML = '<div class="text-red-400 p-2">Failed to load</div>';
+  }
+}
+
+function renderMdSidebar(files) {
+  const sidebar = document.getElementById('mdSidebar');
+  if (!files.length) {
+    sidebar.innerHTML = '<div class="text-neutral-500 p-2">No markdown files found</div>';
+    return;
+  }
+
+  // Group by directory
+  const groups = {};
+  for (const f of files) {
+    const dir = f.dir || '(root)';
+    if (!groups[dir]) groups[dir] = [];
+    groups[dir].push(f);
+  }
+
+  let html = '';
+  for (const [dir, items] of Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]))) {
+    html += `<div class="mb-2">`;
+    html += `<div class="text-[10px] text-neutral-500 uppercase tracking-wider px-2 py-1">${dir}</div>`;
+    for (const f of items) {
+      html += `<button onclick="openFile('${f.path.replace(/'/g, "\\'")}')" class="w-full text-left px-2 py-1 rounded hover:bg-surface-700 text-neutral-300 hover:text-neutral-100 transition-colors truncate block">${f.name}</button>`;
+    }
+    html += `</div>`;
+  }
+  sidebar.innerHTML = html;
+}
+
+async function fetchFileTree(path) {
+  _currentFilePath = path;
+  const tree = document.getElementById('fileTree');
+  tree.innerHTML = '<div class="p-4 text-neutral-500 text-xs">Loading...</div>';
+
+  try {
+    const res = await fetch('/dev/api/files/tree?path=' + encodeURIComponent(path));
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    renderBreadcrumb(data.path);
+    renderFileTree(data);
+  } catch (e) {
+    tree.innerHTML = `<div class="p-4 text-red-400 text-xs">${e.message}</div>`;
+  }
+}
+
+function renderBreadcrumb(pathStr) {
+  const bc = document.getElementById('fileBreadcrumb');
+  const parts = pathStr === '.' ? [] : pathStr.split('/');
+
+  let html = `<button onclick="fetchFileTree('')" class="hover:text-violet-400 transition-colors">root</button>`;
+  let accumulated = '';
+  for (const part of parts) {
+    accumulated += (accumulated ? '/' : '') + part;
+    const p = accumulated;
+    html += ` <span class="text-neutral-600">/</span> <button onclick="fetchFileTree('${p.replace(/'/g, "\\'")}')" class="hover:text-violet-400 transition-colors">${part}</button>`;
+  }
+  bc.innerHTML = html;
+}
+
+function renderFileTree(data) {
+  const tree = document.getElementById('fileTree');
+  const entries = data.entries;
+  if (!entries.length) {
+    tree.innerHTML = '<div class="p-4 text-neutral-500 text-xs">Empty directory</div>';
+    return;
+  }
+
+  let html = '<div class="text-xs">';
+
+  // Parent link
+  if (data.parent !== null) {
+    html += `<button onclick="fetchFileTree('${(data.parent === '.' ? '' : data.parent).replace(/'/g, "\\'")}')" class="w-full text-left px-3 py-1.5 hover:bg-surface-700 text-neutral-400 hover:text-neutral-200 transition-colors flex items-center gap-2">
+      <span class="text-neutral-500">&#8592;</span> ..
+    </button>`;
+  }
+
+  for (const e of entries) {
+    const fullPath = (data.path === '.' ? '' : data.path + '/') + e.name;
+    if (e.type === 'dir') {
+      html += `<button onclick="fetchFileTree('${fullPath.replace(/'/g, "\\'")}')" class="w-full text-left px-3 py-1.5 hover:bg-surface-700 text-neutral-200 hover:text-neutral-100 transition-colors flex items-center gap-2">
+        <span class="text-violet-400">&#128193;</span>
+        <span class="truncate">${e.name}</span>
+        <span class="ml-auto text-neutral-600 text-[10px]">${e.child_count}</span>
+      </button>`;
+    } else {
+      html += `<button onclick="openFile('${fullPath.replace(/'/g, "\\'")}')" class="w-full text-left px-3 py-1.5 hover:bg-surface-700 text-neutral-300 hover:text-neutral-200 transition-colors flex items-center gap-2">
+        <span class="text-neutral-500">${getFileIcon(e.ext)}</span>
+        <span class="truncate">${e.name}</span>
+        <span class="ml-auto text-neutral-600 text-[10px]">${formatFileSize(e.size)}</span>
+      </button>`;
+    }
+  }
+  html += '</div>';
+  tree.innerHTML = html;
+}
+
+function getFileIcon(ext) {
+  const icons = {
+    py: '&#128013;', ts: '&#9765;', tsx: '&#9765;', js: '&#9883;', jsx: '&#9883;',
+    json: '&#123;&#125;', md: '&#128196;', html: '&#127760;', css: '&#127912;',
+    toml: '&#9881;', yaml: '&#9881;', yml: '&#9881;', lock: '&#128274;',
+    png: '&#128248;', jpg: '&#128248;', svg: '&#128248;', ico: '&#128248;',
+    mp3: '&#127925;', mp4: '&#127916;', sh: '&#9000;', sql: '&#128451;',
+  };
+  return icons[ext] || '&#128196;';
+}
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 B';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+async function openFile(path) {
+  const viewer = document.getElementById('fileViewerContent');
+  const nameEl = document.getElementById('fileViewerName');
+  const sizeEl = document.getElementById('fileViewerSize');
+
+  nameEl.textContent = path.split('/').pop();
+  sizeEl.textContent = '';
+  viewer.innerHTML = '<div class="text-neutral-500 text-sm">Loading...</div>';
+
+  try {
+    const res = await fetch('/dev/api/files/read?path=' + encodeURIComponent(path));
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || res.statusText);
+    }
+    const data = await res.json();
+
+    nameEl.textContent = data.name;
+    sizeEl.textContent = formatFileSize(data.size);
+
+    if (data.is_binary) {
+      viewer.innerHTML = '<div class="text-neutral-500 text-sm">Binary file — cannot display contents.</div>';
+      return;
+    }
+
+    if (data.is_markdown) {
+      viewer.innerHTML = `<div class="md-content max-w-4xl">${marked.parse(data.content)}</div>`;
+    } else {
+      // Syntax-highlighted code
+      const ext = data.ext;
+      const langMap = {
+        py: 'python', ts: 'typescript', tsx: 'typescript', js: 'javascript', jsx: 'javascript',
+        json: 'json', html: 'xml', css: 'css', toml: 'toml', yaml: 'yaml', yml: 'yaml',
+        sh: 'bash', sql: 'sql', rs: 'rust', go: 'go', rb: 'ruby', java: 'java',
+        c: 'c', cpp: 'cpp', h: 'c', hpp: 'cpp', xml: 'xml', svg: 'xml',
+      };
+      const lang = langMap[ext];
+      let highlighted;
+      if (lang && hljs.getLanguage(lang)) {
+        highlighted = hljs.highlight(data.content, { language: lang }).value;
+      } else {
+        highlighted = hljs.highlightAuto(data.content).value;
+      }
+      viewer.innerHTML = `<pre class="text-xs leading-relaxed"><code class="hljs">${highlighted}</code></pre>`;
+    }
+  } catch (e) {
+    viewer.innerHTML = `<div class="text-red-400 text-sm">${e.message}</div>`;
+  }
 }
 </script>
 

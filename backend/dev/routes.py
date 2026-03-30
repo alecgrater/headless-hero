@@ -4,10 +4,11 @@ import asyncio
 import json
 import logging
 import threading
+import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from sqlalchemy import inspect, text
@@ -19,6 +20,27 @@ from models.api_usage import ApiUsage
 from pipeline import render_jobs
 
 logger = logging.getLogger(__name__)
+
+# --- File Explorer ---
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+IGNORED_NAMES = {
+    ".git", "node_modules", "__pycache__", ".venv", "data", "dist", "out",
+    ".vite", ".DS_Store", ".env", ".env.local",
+}
+
+
+def _safe_resolve(path_str: str) -> Path:
+    """Resolve a path against PROJECT_ROOT, rejecting traversal attempts."""
+    resolved = (PROJECT_ROOT / path_str).resolve()
+    if not resolved.is_relative_to(PROJECT_ROOT):
+        raise HTTPException(status_code=403, detail="Path traversal not allowed")
+    return resolved
+
+
+# Markdown index cache
+_md_index_cache: dict | None = None
+_md_index_ts: float = 0
 
 router = APIRouter(prefix="/dev", tags=["dev"])
 
@@ -431,3 +453,117 @@ async def usage_recent(limit: int = Query(default=100, le=500)):
         }
         for r in rows
     ]
+
+
+# --- File Explorer ---
+
+@router.get("/api/files/tree")
+async def files_tree(path: str = ""):
+    """List directory contents (dirs first, then files, alphabetical)."""
+    resolved = _safe_resolve(path)
+    if not resolved.is_dir():
+        raise HTTPException(status_code=404, detail="Directory not found")
+
+    rel = resolved.relative_to(PROJECT_ROOT)
+    parent = str(rel.parent) if str(rel) != "." else None
+
+    entries = []
+    try:
+        for item in sorted(resolved.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower())):
+            if item.name in IGNORED_NAMES:
+                continue
+            if item.is_dir():
+                try:
+                    child_count = sum(1 for c in item.iterdir() if c.name not in IGNORED_NAMES)
+                except PermissionError:
+                    child_count = 0
+                entries.append({
+                    "name": item.name,
+                    "type": "dir",
+                    "child_count": child_count,
+                })
+            else:
+                try:
+                    size = item.stat().st_size
+                except OSError:
+                    size = 0
+                entries.append({
+                    "name": item.name,
+                    "type": "file",
+                    "size": size,
+                    "ext": item.suffix.lstrip(".") if item.suffix else "",
+                })
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    return {
+        "path": str(rel),
+        "parent": parent,
+        "entries": entries,
+    }
+
+
+@router.get("/api/files/read")
+async def files_read(path: str):
+    """Read a single file's contents."""
+    resolved = _safe_resolve(path)
+    if not resolved.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    size = resolved.stat().st_size
+    if size > 500_000:
+        raise HTTPException(status_code=413, detail="File too large (>500KB)")
+
+    name = resolved.name
+    ext = resolved.suffix.lstrip(".") if resolved.suffix else ""
+    is_markdown = ext in ("md", "mdx")
+
+    try:
+        content = resolved.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return {
+            "path": str(resolved.relative_to(PROJECT_ROOT)),
+            "name": name,
+            "ext": ext,
+            "size": size,
+            "content": None,
+            "is_markdown": False,
+            "is_binary": True,
+        }
+
+    return {
+        "path": str(resolved.relative_to(PROJECT_ROOT)),
+        "name": name,
+        "ext": ext,
+        "size": size,
+        "content": content,
+        "is_markdown": is_markdown,
+        "is_binary": False,
+    }
+
+
+@router.get("/api/files/markdown-index")
+async def files_markdown_index():
+    """Discover all .md files in repo (cached 30s)."""
+    global _md_index_cache, _md_index_ts
+
+    now = time.time()
+    if _md_index_cache is not None and (now - _md_index_ts) < 30:
+        return _md_index_cache
+
+    files = []
+    for md_path in sorted(PROJECT_ROOT.rglob("*.md")):
+        # Skip ignored directories
+        parts = md_path.relative_to(PROJECT_ROOT).parts
+        if any(p in IGNORED_NAMES for p in parts):
+            continue
+        rel = md_path.relative_to(PROJECT_ROOT)
+        files.append({
+            "path": str(rel),
+            "name": md_path.name,
+            "dir": str(rel.parent) if str(rel.parent) != "." else "",
+        })
+
+    _md_index_cache = {"files": files}
+    _md_index_ts = now
+    return _md_index_cache
