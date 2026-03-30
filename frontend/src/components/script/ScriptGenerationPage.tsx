@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import api, { fetchGenerationEstimate } from "../../api";
+import api, { assetUrl, fetchGenerationEstimate } from "../../api";
 import type { BrandProfile } from "../../types/brand";
 import type { VideoIdea } from "../../types/idea";
 import type {
@@ -36,6 +36,12 @@ export default function ScriptGenerationPage({
   const [refiningScene, setRefiningScene] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
+
+  // Title card generation state
+  const [titleCardGenerating, setTitleCardGenerating] = useState(false);
+  const [titleCardGenerated, setTitleCardGenerated] = useState(false);
+  const [titleCardTimestamp, setTitleCardTimestamp] = useState(0);
+  const [titleCardError, setTitleCardError] = useState<string | null>(null);
 
   const hasStarted = useRef(false);
 
@@ -182,6 +188,38 @@ export default function ScriptGenerationPage({
       )
     : 0;
 
+  const hasTitleCards = (() => {
+    try {
+      const mods = JSON.parse(brand.content_modifiers || "[]") as string[];
+      return mods.includes("title_cards");
+    } catch {
+      return false;
+    }
+  })();
+
+  const generateTitleCards = async (force: boolean) => {
+    if (!scriptId) return;
+    setTitleCardGenerating(true);
+    setTitleCardError(null);
+    try {
+      const res = await api.post("/api/visuals/generate-title-cards", {
+        script_id: scriptId,
+        force,
+      });
+      if (res.ok) {
+        setTitleCardGenerated(true);
+        setTitleCardTimestamp(Date.now());
+      } else {
+        const err = res.data as { detail?: string };
+        setTitleCardError(err.detail ?? "Failed to generate title cards");
+      }
+    } catch {
+      setTitleCardError("Could not reach the backend.");
+    } finally {
+      setTitleCardGenerating(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -246,6 +284,66 @@ export default function ScriptGenerationPage({
               <span className="text-violet-400 ml-auto">Saving...</span>
             )}
           </div>
+
+          {/* Thumbnail & Title Slide generation */}
+          {hasTitleCards && (
+            <div className="rounded-lg border border-neutral-800 bg-neutral-900 px-5 py-4 space-y-3">
+              <h3 className="text-sm font-semibold text-neutral-200 uppercase tracking-wider">
+                Thumbnail & Title Slide
+              </h3>
+
+              {titleCardError && (
+                <p className="text-sm text-red-400">{titleCardError}</p>
+              )}
+
+              {!titleCardGenerated && !titleCardGenerating && (
+                <button
+                  onClick={() => generateTitleCards(false)}
+                  className="px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Generate
+                </button>
+              )}
+
+              {titleCardGenerating && (
+                <div className="flex items-center gap-3 py-2">
+                  <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-sm text-neutral-400">
+                    Generating title card images...
+                  </span>
+                </div>
+              )}
+
+              {titleCardGenerated && !titleCardGenerating && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-neutral-500 mb-1.5">Thumbnail (with title)</p>
+                      <img
+                        src={assetUrl(`/static/projects/${scriptId}/images/composite_title_card.png`) + `?t=${titleCardTimestamp}`}
+                        alt="Thumbnail"
+                        className="w-full rounded-lg border border-neutral-700"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-xs text-neutral-500 mb-1.5">Title Slide (no title)</p>
+                      <img
+                        src={assetUrl(`/static/projects/${scriptId}/images/composite_title_card_notitle.png`) + `?t=${titleCardTimestamp}`}
+                        alt="Title Slide"
+                        className="w-full rounded-lg border border-neutral-700"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => generateTitleCards(true)}
+                    className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-sm font-medium transition-colors text-neutral-300 border border-neutral-700"
+                  >
+                    Regenerate
+                  </button>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Intro hook */}
           {(script.intro_hook || editingKey === "intro") && (
