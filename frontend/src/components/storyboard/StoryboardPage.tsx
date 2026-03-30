@@ -181,7 +181,7 @@ function StoryboardEditor({
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>("");
   const segmentRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
-  // Fetch brand profile for art_style
+  // Fetch brand profile for style_string
   useEffect(() => {
     api.get(`/api/brands/${brandId}`).then((res) => {
       if (res.ok) {
@@ -207,7 +207,7 @@ function StoryboardEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const artStyle = brand?.art_style ?? "";
+  const brandStyle = brand?.style_string ?? "";
 
   // Parse active modifier IDs from brand
   const activeModifierIds: string[] = (() => {
@@ -689,7 +689,7 @@ function StoryboardEditor({
           onExportAudio={render.exportAudio}
           thumbnails={render.thumbnails}
           thumbnailsGenerating={render.thumbnailsGenerating}
-          onGenerateThumbnails={() => render.generateThumbnails(artStyle)}
+          onGenerateThumbnails={() => render.generateThumbnails(brandStyle)}
           seoMetadata={render.seoMetadata}
           seoGenerating={render.seoGenerating}
           onGenerateSEO={render.generateSEO}

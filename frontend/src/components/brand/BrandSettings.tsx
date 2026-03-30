@@ -125,9 +125,6 @@ export default function BrandSettings({ brand, onUpdate, onBack }: Props) {
     try {
       await onUpdate({
         name: brand.name,
-        art_style: brand.art_style,
-        color_palette: brand.color_palette,
-        font: brand.font,
         voice_id: voiceId,
         youtube_channel_id: youtubeChannelId,
         tiktok_handle: tiktokHandle,

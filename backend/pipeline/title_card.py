@@ -22,7 +22,6 @@ _data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Pa
 def ensure_title_card_images(
     script_id: str,
     content: ScriptContent,
-    brand_style: str = "",
     accent_color: str = "#e91e63",
     style_string: str = "",
     force: bool = False,
@@ -32,7 +31,6 @@ def ensure_title_card_images(
     Args:
         script_id: The script ID (used for file paths).
         content: Full script content with segment metadata.
-        brand_style: Brand art style description for image generation.
         accent_color: Hex color for title highlight word.
         style_string: Brand style string prepended to image prompts.
         force: If True, regenerate even if composite already exists.

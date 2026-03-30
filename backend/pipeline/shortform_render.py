@@ -76,7 +76,7 @@ def render_shortform_scene(
                 scene, script_id,
                 width=width, height=height, fade_out=0, speed=speed,
                 output_path=output_path,
-                font_family=(brand or {}).get("font", ""),
+                font_family="",
             )
             if override_cmd is not None:
                 _run_ffmpeg(override_cmd)
@@ -107,7 +107,7 @@ def render_shortform_scene(
             renders_dir=str(renders),
             scene_id=scene.id,
             speed=speed,
-            font_name=brand_dict.get("font", ""),
+            font_name="",
         )
 
     cmd = build_shortform_scene_cmd(
@@ -143,12 +143,8 @@ def render_shortform_video(
     total = len(scenes)
     clip_paths: list[str] = []
 
-    # Extract accent color from brand color palette (first color), fallback yellow
+    # Use hardcoded accent color for subtitles
     accent_color = "#FFFF00"
-    if brand and brand.get("color_palette"):
-        palette = brand["color_palette"].split(",")
-        if palette and palette[0].strip():
-            accent_color = palette[0].strip()
 
     for i, scene in enumerate(scenes):
         if on_progress:
