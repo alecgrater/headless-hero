@@ -56,9 +56,11 @@ class TitleCardsModifier(ContentModifier):
             return scene
 
         # Only generate if image doesn't already exist
+        import os
         from pathlib import Path
 
-        images_dir = Path("data/projects") / script_id / "images"
+        _data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[3] / "data")))
+        images_dir = _data_dir / "projects" / script_id / "images"
         image_path = images_dir / f"{scene.id}.png"
         if image_path.exists():
             return scene

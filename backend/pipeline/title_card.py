@@ -5,12 +5,15 @@ ensuring all title cards have identical visual treatment.
 """
 
 import logging
+import os
 import subprocess
 from pathlib import Path
 
 from pipeline.ffmpeg_builder import build_title_card_image_cmd
 
 logger = logging.getLogger(__name__)
+
+_data_dir = Path(os.environ.get("HH_DATA_DIR", os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[2] / "data")))
 
 
 def ensure_title_card_images(
@@ -38,7 +41,7 @@ def ensure_title_card_images(
     Returns:
         List of scene IDs that got new images generated.
     """
-    images_dir = Path("data/projects") / script_id / "images"
+    images_dir = _data_dir / "projects" / script_id / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
 
     generated: list[str] = []
