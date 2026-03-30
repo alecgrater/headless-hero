@@ -44,12 +44,14 @@ export default function GeneralSection() {
   const [outputFormat, setOutputFormat] = useState("png");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [rateLimitMs, setRateLimitMs] = useState("10000");
   const [originalDownloads, setOriginalDownloads] = useState("");
   const [originalProvider, setOriginalProvider] = useState("google");
   const [originalUpsampling, setOriginalUpsampling] = useState("true");
   const [originalModel, setOriginalModel] = useState("black-forest-labs/flux-1.1-pro");
   const [originalSafety, setOriginalSafety] = useState("2");
   const [originalFormat, setOriginalFormat] = useState("png");
+  const [originalRateLimit, setOriginalRateLimit] = useState("10000");
 
   useEffect(() => {
     api.get("/api/settings/keys").then((res) => {
@@ -73,6 +75,9 @@ export default function GeneralSection() {
         const fmtVal = data.REPLICATE_OUTPUT_FORMAT?.masked || "png";
         setOutputFormat(fmtVal);
         setOriginalFormat(fmtVal);
+        const rlVal = data.IMAGE_RATE_LIMIT_MS?.masked || "10000";
+        setRateLimitMs(rlVal);
+        setOriginalRateLimit(rlVal);
       }
       setLoading(false);
     });
@@ -87,6 +92,7 @@ export default function GeneralSection() {
       REPLICATE_PROMPT_UPSAMPLING: promptUpsampling,
       REPLICATE_SAFETY_TOLERANCE: safetyTolerance,
       REPLICATE_OUTPUT_FORMAT: outputFormat,
+      IMAGE_RATE_LIMIT_MS: rateLimitMs,
     });
     setSaving(false);
 
@@ -98,6 +104,7 @@ export default function GeneralSection() {
       setOriginalUpsampling(promptUpsampling);
       setOriginalSafety(safetyTolerance);
       setOriginalFormat(outputFormat);
+      setOriginalRateLimit(rateLimitMs);
     }
   };
 
@@ -107,7 +114,8 @@ export default function GeneralSection() {
     replicateModel !== originalModel ||
     promptUpsampling !== originalUpsampling ||
     safetyTolerance !== originalSafety ||
-    outputFormat !== originalFormat;
+    outputFormat !== originalFormat ||
+    rateLimitMs !== originalRateLimit;
 
   return (
     <div className="px-8 py-8 max-w-2xl space-y-6">
@@ -165,6 +173,24 @@ export default function GeneralSection() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-2">
+            <div>
+              <h3 className="text-sm font-medium text-neutral-100">Image Rate Limit</h3>
+              <p className="text-xs text-neutral-500">
+                Delay between batch image generation requests (in milliseconds). Default 10000ms = 6 requests/min to stay under free-tier API limits. Set to 0 to disable.
+              </p>
+            </div>
+            <input
+              type="number"
+              min="0"
+              step="1000"
+              value={rateLimitMs}
+              onChange={(e) => setRateLimitMs(e.target.value)}
+              placeholder="10000"
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 transition-colors font-mono"
+            />
           </div>
 
           {imageProvider === "replicate" && (

@@ -24,6 +24,7 @@ ALLOWED_KEYS = {
     "REPLICATE_PROMPT_UPSAMPLING",
     "REPLICATE_SAFETY_TOLERANCE",
     "REPLICATE_OUTPUT_FORMAT",
+    "IMAGE_RATE_LIMIT_MS",
 }
 
 # Keys that should NOT be masked (non-secret settings)
@@ -34,6 +35,12 @@ _PLAINTEXT_KEYS = {
     "REPLICATE_PROMPT_UPSAMPLING",
     "REPLICATE_SAFETY_TOLERANCE",
     "REPLICATE_OUTPUT_FORMAT",
+    "IMAGE_RATE_LIMIT_MS",
+}
+
+# Default values for settings that have sensible defaults
+_DEFAULTS: dict[str, str] = {
+    "IMAGE_RATE_LIMIT_MS": "10000",  # 6 req/min to stay under free-tier limits
 }
 
 
@@ -60,7 +67,7 @@ async def get_keys(session: Session = Depends(get_session)):
 
     result: dict[str, dict[str, str | bool]] = {}
     for key in ALLOWED_KEYS:
-        value = saved.get(key, "") or os.environ.get(key, "")
+        value = saved.get(key, "") or os.environ.get(key, "") or _DEFAULTS.get(key, "")
         result[key] = {
             "configured": bool(value),
             "masked": value if key in _PLAINTEXT_KEYS else (_mask(value) if value else ""),
