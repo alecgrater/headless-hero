@@ -1,11 +1,14 @@
 """Idea generation pipeline — uses Claude to brainstorm video topics."""
 
 import json
+import logging
 
 from pydantic import BaseModel
 
 from config import strip_markdown_fences
 from integrations.claude_client import chat
+
+logger = logging.getLogger(__name__)
 
 class VideoIdea(BaseModel):
     """A single video topic idea returned by the generator."""
@@ -64,10 +67,13 @@ def generate_ideas(
         )
     user_message = "\n".join(user_parts)
 
+    logger.info("Generating %s ideas for niche %r", count, niche)
     raw = chat(SYSTEM_PROMPT, user_message)
 
     # Claude may wrap JSON in markdown fences — strip them
     text = strip_markdown_fences(raw)
 
     ideas_data = json.loads(text)
-    return [VideoIdea.model_validate(item) for item in ideas_data]
+    ideas = [VideoIdea.model_validate(item) for item in ideas_data]
+    logger.info("Generated %s ideas for niche %r", len(ideas), niche)
+    return ideas

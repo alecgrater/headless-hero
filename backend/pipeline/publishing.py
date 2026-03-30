@@ -63,6 +63,8 @@ def publish_to_youtube(
     if not os.path.exists(local_path):
         raise FileNotFoundError(f"Video file not found: {local_path}")
 
+    log.info("Starting YouTube upload: %s (scheduled=%s)", metadata.get("title", "Untitled"), schedule_at)
+
     # Refresh token if needed
     _ensure_token_fresh(credential)
 
@@ -87,4 +89,5 @@ def publish_to_youtube(
     if on_progress:
         on_progress(1.0, "Published!")
 
+    log.info("YouTube upload complete: video_id=%s", result.get("id"))
     return result

@@ -58,8 +58,10 @@ def generate_scene_image(
     if not force and local_path.exists() and prompt_marker.exists():
         cached_prompt = prompt_marker.read_text(encoding="utf-8").strip()
         if cached_prompt == prompt:
+            logger.info("Image cache hit for scene %s (variant=%s)", scene_id, variant)
             return web_path, prompt
 
+    logger.info("Generating image for scene %s (variant=%s)", scene_id, variant)
     tmp_path = generate_image(prompt, width=width, height=height, seed=seed)
 
     # Move generated image to local storage
@@ -94,6 +96,7 @@ def generate_scene_frames(
     images_dir.mkdir(parents=True, exist_ok=True)
 
     total_frames = len(frame_prompts)
+    logger.info("Generating %s frames for scene %s", total_frames, scene_id)
     results: list[tuple[str, str]] = []
     prev_frame_path: Path | None = None
 
@@ -187,6 +190,7 @@ def generate_batch(
     Returns list of {scene_id, image_url, prompt_used, image_url_b?, frame_urls?, error?}.
     """
     results: list[dict[str, str]] | None = []
+    logger.info("Starting batch image generation for %s scenes (script %s)", len(scenes), script_id)
     for scene in scenes:
         try:
             frame_prompts = scene.get("frame_prompts", [])
@@ -254,4 +258,6 @@ def generate_batch(
                 "prompt_used": None,
                 "error": str(exc),
             })
+    logger.info("Batch image generation complete: %s/%s succeeded",
+                sum(1 for r in results if r.get("error") is None), len(scenes))
     return results

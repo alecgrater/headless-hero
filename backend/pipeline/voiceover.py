@@ -1,9 +1,12 @@
 """Voiceover pipeline — connects narration text to ElevenLabs TTS."""
 
+import logging
 import struct
 
 from config import DATA_DIR, DEFAULT_TTS_MODEL
 from integrations.elevenlabs_client import generate_speech
+
+logger = logging.getLogger(__name__)
 
 def _mp3_duration_seconds(data: bytes) -> float:
     """Estimate MP3 duration from raw bytes using frame headers.
@@ -59,6 +62,7 @@ def generate_scene_audio(
 
     Returns (web-relative path, duration in seconds, word_timestamps).
     """
+    logger.info("Generating audio for scene %s (voice=%s, model=%s)", scene_id, voice_id, model_id)
     audio_bytes, word_timestamps = generate_speech(
         text=narration,
         voice_id=voice_id,
@@ -74,6 +78,7 @@ def generate_scene_audio(
 
     duration = _mp3_duration_seconds(audio_bytes)
     web_path = f"/static/projects/{script_id}/audio/{scene_id}.mp3"
+    logger.info("Audio generated for scene %s: %.2fs duration", scene_id, duration)
     return web_path, duration, word_timestamps
 
 def generate_batch_audio(
@@ -89,6 +94,7 @@ def generate_batch_audio(
     Returns list of {scene_id, audio_url, duration_seconds, error?}.
     """
     results: list[dict] = []
+    logger.info("Starting batch audio generation for %s scenes (script %s)", len(scenes), script_id)
     for scene in scenes:
         try:
             audio_url, duration, word_timestamps = generate_scene_audio(
@@ -107,6 +113,7 @@ def generate_batch_audio(
                 "error": None,
             })
         except Exception as exc:
+            logger.exception("Audio generation failed for scene %s", scene["scene_id"])
             results.append({
                 "scene_id": scene["scene_id"],
                 "audio_url": None,

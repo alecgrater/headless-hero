@@ -45,6 +45,7 @@ def generate_concepts(
     count: int = 3,
 ) -> list[ThumbnailConcept]:
     """Use Claude to generate thumbnail concepts for the video."""
+    log.info("Generating %s thumbnail concepts for %r", count, video_title)
     user_msg = f"Generate {count} thumbnail concepts for this YouTube video:\n\nTitle: {video_title}"
     if video_description:
         user_msg += f"\nDescription: {video_description}"
@@ -53,7 +54,9 @@ def generate_concepts(
     text = strip_markdown_fences(raw)
 
     data = json.loads(text)
-    return [ThumbnailConcept.model_validate(item) for item in data]
+    concepts = [ThumbnailConcept.model_validate(item) for item in data]
+    log.info("Generated %s thumbnail concepts for %r", len(concepts), video_title)
+    return concepts
 
 def get_composite_thumbnail(script_id: str) -> str | None:
     """Check if a composite title card exists and return its web path if so."""
@@ -82,6 +85,7 @@ def generate_thumbnail(
 
     Returns the web-relative path to the final 1280x720 thumbnail.
     """
+    log.info("Generating thumbnail %s for script %s", idx, script_id)
     prompt = f"{brand_style}. {visual_description}" if brand_style else visual_description
 
     tmp_path = generate_image(prompt, width=1280, height=720)
@@ -113,6 +117,7 @@ def generate_thumbnail(
         pass
 
     web_path = f"/static/projects/{script_id}/renders/thumbnails/{idx}.png"
+    log.info("Thumbnail %s generated for script %s", idx, script_id)
 
     if title:
         try:

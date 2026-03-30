@@ -1,11 +1,14 @@
 """SEO metadata generation pipeline — Claude generates per-platform metadata."""
 
 import json
+import logging
 
 from pydantic import BaseModel
 
 from config import strip_markdown_fences
 from integrations.claude_client import chat
+
+logger = logging.getLogger(__name__)
 
 class YouTubeSEO(BaseModel):
     title: str
@@ -62,8 +65,11 @@ def generate_seo(
     if brand_context:
         user_msg += f"\n\nBrand: {brand_context}"
 
+    logger.info("Generating SEO metadata for %r (%s segments)", video_title, len(segments))
     raw = chat(SYSTEM_PROMPT, user_msg, max_tokens=4096)
     text = strip_markdown_fences(raw)
 
     data = json.loads(text)
-    return SEOMetadata.model_validate(data)
+    result = SEOMetadata.model_validate(data)
+    logger.info("SEO metadata generated for %r", video_title)
+    return result

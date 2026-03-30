@@ -156,6 +156,7 @@ def generate_script(
         for mod in get_active(modifier_ids):
             system_prompt, user_message = mod.modify_script_prompt(system_prompt, user_message)
 
+    logger.info("Generating script for topic %r (segments=%s, modifiers=%s)", topic, segment_count, modifier_ids)
     raw = chat(system_prompt, user_message, max_tokens=16384)
 
     # Strip markdown fences if present
@@ -179,4 +180,6 @@ def generate_script(
         for mod in get_active(modifier_ids):
             content = mod.modify_script_post(content, brand_dict)
 
+    logger.info("Script generated for topic %r: %s segments, %s total scenes",
+                topic, len(content.segments), sum(len(s.scenes) for s in content.segments))
     return content
