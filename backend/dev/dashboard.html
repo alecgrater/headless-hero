@@ -318,9 +318,10 @@
     </div>
     <!-- Right: File viewer -->
     <div class="flex-1 flex flex-col min-w-0">
-      <div id="fileViewerHeader" class="px-4 py-3 border-b border-neutral-800 flex items-center justify-between">
-        <span id="fileViewerName" class="text-sm font-medium text-neutral-100">Select a file</span>
-        <span id="fileViewerSize" class="text-xs text-neutral-500"></span>
+      <div id="fileViewerHeader" class="px-4 py-3 border-b border-neutral-800 flex items-center gap-3">
+        <span id="fileViewerName" class="text-sm font-medium text-neutral-100 shrink-0">Select a file</span>
+        <span id="fileViewerPath" class="text-xs text-neutral-500 truncate"></span>
+        <span id="fileViewerSize" class="text-xs text-neutral-500 ml-auto shrink-0"></span>
       </div>
       <div id="fileViewerContent" class="flex-1 overflow-y-auto scrollbar-thin p-6">
         <div class="text-neutral-500 text-sm">Click a file in the explorer or docs sidebar to view it.</div>
@@ -1517,9 +1518,11 @@ function formatFileSize(bytes) {
 async function openFile(path) {
   const viewer = document.getElementById('fileViewerContent');
   const nameEl = document.getElementById('fileViewerName');
+  const pathEl = document.getElementById('fileViewerPath');
   const sizeEl = document.getElementById('fileViewerSize');
 
   nameEl.textContent = path.split('/').pop();
+  pathEl.textContent = path;
   sizeEl.textContent = '';
   viewer.innerHTML = '<div class="text-neutral-500 text-sm">Loading...</div>';
 
@@ -1532,6 +1535,7 @@ async function openFile(path) {
     const data = await res.json();
 
     nameEl.textContent = data.name;
+    pathEl.textContent = data.path;
     sizeEl.textContent = formatFileSize(data.size);
 
     if (data.is_binary) {
