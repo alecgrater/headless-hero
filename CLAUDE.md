@@ -12,7 +12,7 @@
 
 AI-powered Electron desktop app for creating faceless educational YouTube content. Full pipeline: idea → script → visuals → voice → video → publish.
 
-**Stack:** Electron 41 + React 19/Vite/TypeScript/Tailwind 4 frontend + Python 3.12/FastAPI backend + FFmpeg + SQLite
+**Stack:** Electron 41 + React 19/Vite/TypeScript/Tailwind 4 frontend + Python 3.12/FastAPI backend + Remotion 4 (video rendering) + FFmpeg (audio export) + SQLite
 
 ## Dev Commands
 
@@ -47,6 +47,10 @@ backend/
   integrations/    → Thin external API wrappers (Claude, Gemini, ElevenLabs, YouTube)
   models/          → SQLModel tables + Pydantic schemas (no logic)
   pipeline/modifiers/  → Content modifier plugin system
+remotion/          → Remotion 4 video rendering project (React + TypeScript)
+  src/scenes/      → Scene components (StaticImage, MultiFrame, TitleCard, VideoClip)
+  src/effects/     → Composable FX (camera, typography, transitions, overlays, structural)
+  src/types.ts     → Input props types mirroring Python SceneFX models
 data/              → Runtime data (SQLite DB, generated assets) — gitignored
 ```
 
@@ -163,3 +167,33 @@ Stored in DB via AppSettings, loaded into env at startup. Never commit `.env` fi
 - **IPC fallback**: Frontend works with or without Electron (direct HTTP to backend in dev)
 - **Static file serving**: FastAPI mounts `/static/projects` → `data/projects/`
 - **No auth**: Single-user desktop app
+
+## Video Rendering (Remotion)
+
+Video rendering uses **Remotion 4** (React-based frame-by-frame renderer) instead of FFmpeg filter graphs. FFmpeg is still used for audio concat export only.
+
+### Data Bridge
+Python writes scene data + FX config to JSON → invokes `npx remotion render` via subprocess → picks up output MP4. Orchestrated by `backend/pipeline/remotion_render.py`.
+
+### Compositions
+- **FullVideo** — Renders entire video as one composition (all segments sequenced with transitions)
+- **ScenePreview** — Renders a single scene for preview
+
+### Scene Types
+- `StaticImageScene` — Single image + spring-based camera motion
+- `MultiFrameScene` — N images with crossfade between them
+- `TitleCardScene` — Spring zoom into circle target
+- `VideoClipScene` — Embedded video clip (gameplay)
+
+### FX System
+Visual effects are AI-generated (no manual editing). Each scene has an optional `fx: SceneFX` field with:
+- **camera** — Ken Burns, zoom punch, parallax, static
+- **text_effects** — Kinetic caption, word reveal, lower third, title insert, source citation
+- **transition** — Cut, crossfade, slide, push, smash cut, wipe
+- **overlays** — Chapter indicator, film grain, letterbox, vignette
+- **structural** — Cold open, chapter transition, recap, end screen
+
+FX are generated via Claude (`POST /api/fx/generate`) and can be regenerated per-scene (`POST /api/fx/regenerate`). The `backend/pipeline/fx_generator.py` sends scene context to Claude and parses the structured FX response.
+
+### YouTube 16:9 Only
+TikTok 9:16 segment rendering has been removed. All video output is 1920x1080 YouTube format.

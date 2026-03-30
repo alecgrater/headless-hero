@@ -6,11 +6,7 @@ import type { RenderStatusResponse, SEOMetadata, ThumbnailConcept } from "../../
 interface Props {
   youtubeStatus: { status: string; progress: number; current_step: string; error?: string } | null;
   youtubeUrl: string | null;
-  onStartYoutubeRender: (fadeOut?: number, speed?: number) => void;
-
-  tiktokStatus: { status: string; progress: number; current_step: string; error?: string } | null;
-  tiktokUrls: string[];
-  onStartTiktokRender: (speed?: number) => void;
+  onStartYoutubeRender: (speed?: number) => void;
 
   audioUrl: string | null;
   audioExporting: boolean;
@@ -145,9 +141,6 @@ export default function ExportPanel({
   youtubeStatus,
   youtubeUrl,
   onStartYoutubeRender,
-  tiktokStatus,
-  tiktokUrls,
-  onStartTiktokRender,
   audioUrl,
   audioExporting,
   onExportAudio,
@@ -169,7 +162,6 @@ export default function ExportPanel({
   onClose,
 }: Props) {
   const youtubeRendering = youtubeStatus?.status === "running" || youtubeStatus?.status === "pending";
-  const tiktokRendering = tiktokStatus?.status === "running" || tiktokStatus?.status === "pending";
   const publishing = publishStatus?.status === "running" || publishStatus?.status === "pending";
 
   const [activeTab, setActiveTab] = useState<Tab>("render");
@@ -184,7 +176,7 @@ export default function ExportPanel({
 
   // Badge indicators
   const tabBadges: Record<Tab, boolean> = {
-    render: !!youtubeUrl || tiktokUrls.length > 0,
+    render: !!youtubeUrl,
     thumbnails: thumbnails.length > 0,
     seo: !!seoMetadata,
     publish: publishHistory.some((r) => r.status === "published" || r.status === "scheduled"),
@@ -273,7 +265,7 @@ export default function ExportPanel({
                 {!youtubeRendering && (
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => onStartYoutubeRender(0.3, speed)}
+                      onClick={() => onStartYoutubeRender(speed)}
                       className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
                     >
                       {youtubeUrl ? "Re-render" : "Render YouTube Video"}{speed !== 1 ? ` (${speed}x)` : ""}
@@ -283,55 +275,6 @@ export default function ExportPanel({
                         Estimated render time: {formatEstimate(estimatedSeconds)}
                       </span>
                     )}
-                  </div>
-                )}
-              </section>
-
-              {/* TikTok Export */}
-              <section className="space-y-3">
-                <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
-                  TikTok Export (9:16)
-                </h3>
-                {tiktokRendering && tiktokStatus ? (
-                  <ProgressBar progress={tiktokStatus.progress} label={tiktokStatus.current_step} />
-                ) : tiktokUrls.length > 0 ? (
-                  <div className="grid grid-cols-3 gap-3">
-                    {tiktokUrls.map((url, i) => (
-                      <div key={i} className="space-y-2">
-                        <video
-                          src={assetUrl(url)}
-                          controls
-                          className="w-full rounded-lg border border-neutral-700"
-                        />
-                        <DownloadButton url={url} label={`Segment ${i + 1}`} />
-                      </div>
-                    ))}
-                  </div>
-                ) : tiktokStatus?.status === "failed" ? (
-                  <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                    Render failed: {tiktokStatus.error ?? "Unknown error"}
-                  </div>
-                ) : null}
-                {!tiktokRendering && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => onStartTiktokRender(speed)}
-                      className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
-                    >
-                      {tiktokUrls.length > 0 ? "Re-render" : "Render TikTok Segments"}{speed !== 1 ? ` (${speed}x)` : ""}
-                    </button>
-                    {seoMetadata && (
-                      <CopyButton
-                        text={seoMetadata.tiktok.map((t) => `${t.caption} ${t.hashtags.join(" ")}`).join("\n\n---\n\n")}
-                        label="Copy All TikTok Captions"
-                      />
-                    )}
-                    <button
-                      onClick={() => openInBrowser("https://www.tiktok.com/creator#/upload")}
-                      className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
-                    >
-                      Open TikTok Upload
-                    </button>
                   </div>
                 )}
               </section>
@@ -411,31 +354,6 @@ export default function ExportPanel({
                         <span className="text-[10px] text-neutral-500">+{seoMetadata.youtube.tags.length - 15} more</span>
                       )}
                     </div>
-                  </div>
-
-                  {/* TikTok */}
-                  <div className="bg-neutral-800/50 rounded-lg p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-neutral-400 uppercase">TikTok</span>
-                      <div className="flex items-center gap-2">
-                        <CopyButton text={seoMetadata.tiktok.map((t) => `${t.caption} ${t.hashtags.join(" ")}`).join("\n\n")} label="Copy All" />
-                        <button
-                          onClick={() => openInBrowser("https://www.tiktok.com/creator#/upload")}
-                          className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
-                        >
-                          Open TikTok
-                        </button>
-                      </div>
-                    </div>
-                    {seoMetadata.tiktok.map((t, i) => (
-                      <div key={i} className="text-xs text-neutral-400 flex items-start gap-2">
-                        <div className="flex-1">
-                          <span className="text-neutral-500">Seg {i + 1}:</span> {t.caption}{" "}
-                          <span className="text-violet-400">{t.hashtags.join(" ")}</span>
-                        </div>
-                        <CopyButton text={`${t.caption} ${t.hashtags.join(" ")}`} />
-                      </div>
-                    ))}
                   </div>
 
                   {/* Instagram */}

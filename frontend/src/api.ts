@@ -176,6 +176,16 @@ export async function fetchModifiers() {
   return api.get("/api/brands/modifiers");
 }
 
+/** Generate FX assignments for all scenes in a script via Claude. */
+export async function generateFX(scriptId: string) {
+  return api.post("/api/fx/generate", { script_id: scriptId });
+}
+
+/** Regenerate FX for a single scene via Claude. */
+export async function regenerateFX(scriptId: string, sceneId: string) {
+  return api.post("/api/fx/regenerate", { script_id: scriptId, scene_id: sceneId });
+}
+
 /** Open a URL in the system browser (Electron shell) or a new tab (dev). */
 export function openInBrowser(url: string): void {
   if (window.api?.openExternal) {

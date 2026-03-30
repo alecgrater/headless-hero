@@ -10,12 +10,11 @@ from api.database import get_session
 from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.render_jobs import create_job, estimate_render_time, get_job, run_in_background, update_job
-from pipeline.video_render import (
-    export_full_audio,
-    render_all_segments,
+from pipeline.remotion_render import (
     render_full_video,
-    render_scene_video,
+    render_scene_preview,
 )
+from pipeline.video_render import export_full_audio
 
 router = APIRouter(prefix="/api/render", tags=["render"])
 
@@ -34,14 +33,6 @@ class RenderFullRequest(BaseModel):
     script_id: str
     width: int = 1920
     height: int = 1080
-    fade_out: float = 0.3
-    title: str = ""
-    speed: float = 1.0
-
-class RenderSegmentsRequest(BaseModel):
-    script_id: str
-    width: int = 1080
-    height: int = 1920
     title: str = ""
     speed: float = 1.0
 
@@ -125,14 +116,14 @@ def _load_brand_and_modifiers(session: Session, script_id: str) -> tuple[dict, l
 
 @router.post("/preview-scene", response_model=PreviewSceneResponse)
 def preview_scene(body: PreviewSceneRequest, session: Session = Depends(get_session)):
-    """Render a single scene to MP4 (synchronous — typically 2-5s)."""
+    """Render a single scene to MP4 via Remotion (synchronous)."""
     content = _load_content(session, body.script_id)
     brand_dict, modifier_ids = _load_brand_and_modifiers(session, body.script_id)
     scene = _find_scene(content, body.scene_id)
     if not scene:
         raise HTTPException(status_code=404, detail="Scene not found")
 
-    video_url = render_scene_video(
+    video_url = render_scene_preview(
         scene, body.script_id, body.width, body.height,
         modifier_ids=modifier_ids, brand=brand_dict,
     )
@@ -140,7 +131,7 @@ def preview_scene(body: PreviewSceneRequest, session: Session = Depends(get_sess
 
 @router.post("/full", response_model=RenderJobResponse)
 def start_full_render(body: RenderFullRequest, session: Session = Depends(get_session)):
-    """Start a full YouTube video render in the background."""
+    """Start a full YouTube video render via Remotion in the background."""
     content = _load_content(session, body.script_id)
     brand_dict, modifier_ids = _load_brand_and_modifiers(session, body.script_id)
     scene_count = _count_scenes(content)
@@ -154,37 +145,6 @@ def start_full_render(body: RenderFullRequest, session: Session = Depends(get_se
             update_job(job.id, progress=p, current_step=msg)
 
         return render_full_video(
-            script_id=body.script_id,
-            content=content,
-            width=body.width,
-            height=body.height,
-            fade_out=body.fade_out,
-            on_progress=on_progress,
-            title=body.title,
-            speed=speed,
-            modifier_ids=modifier_ids,
-            brand=brand_dict,
-        )
-
-    run_in_background(job.id, do_render)
-    return RenderJobResponse(job_id=job.id)
-
-@router.post("/segments", response_model=RenderJobResponse)
-def start_segments_render(body: RenderSegmentsRequest, session: Session = Depends(get_session)):
-    """Start TikTok 9:16 segment renders in the background."""
-    content = _load_content(session, body.script_id)
-    brand_dict, modifier_ids = _load_brand_and_modifiers(session, body.script_id)
-    scene_count = _count_scenes(content)
-    audio_dur = _total_audio_duration(content)
-    job = create_job(scene_count=scene_count, total_audio_duration=audio_dur)
-
-    speed = max(0.5, min(3.0, body.speed))
-
-    def do_render():
-        def on_progress(p: float, msg: str):
-            update_job(job.id, progress=p, current_step=msg)
-
-        return render_all_segments(
             script_id=body.script_id,
             content=content,
             width=body.width,

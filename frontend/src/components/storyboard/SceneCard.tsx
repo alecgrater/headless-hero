@@ -2,7 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import { assetUrl } from "../../api";
-import type { KenBurnsConfig, Scene } from "../../types/script";
+import type { KenBurnsConfig, Scene, SceneFX } from "../../types/script";
 import { SEGMENT_COLORS, SEGMENT_RING_COLORS } from "./constants";
 
 const MOTION_ICONS: Record<NonNullable<KenBurnsConfig["effect"]>, string> = {
@@ -142,12 +142,29 @@ export default function SceneCard({
         <span className="text-[10px] text-neutral-500 ml-auto tabular-nums" title="Estimated scene duration">
           {scene.duration_estimate_seconds}s
         </span>
-        {scene.ken_burns && scene.ken_burns.effect !== "none" && (
+        {scene.ken_burns && scene.ken_burns.effect !== "none" && !scene.fx && (
           <span
             className="text-[10px] bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded-full"
             title={`${scene.ken_burns.effect.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())} (${scene.ken_burns.intensity})`}
           >
             {MOTION_ICONS[scene.ken_burns.effect]}
+          </span>
+        )}
+        {/* FX badges */}
+        {scene.fx?.camera && scene.fx.camera.type !== "static" && (
+          <span
+            className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full"
+            title={`Camera: ${scene.fx.camera.type}${scene.fx.camera.direction ? ` ${scene.fx.camera.direction}` : ""}`}
+          >
+            {scene.fx.camera.type === "ken_burns" ? (MOTION_ICONS[`pan_${scene.fx.camera.direction ?? "left"}` as keyof typeof MOTION_ICONS] || "\u2194") : scene.fx.camera.type === "zoom_punch" ? "\u26A1" : "\u2B50"}
+          </span>
+        )}
+        {scene.fx?.transition && scene.fx.transition.type !== "cut" && (
+          <span
+            className="text-[10px] bg-violet-500/20 text-violet-300 px-1.5 py-0.5 rounded-full"
+            title={`Transition: ${scene.fx.transition.type}`}
+          >
+            {scene.fx.transition.type}
           </span>
         )}
         {scene.audio_url ? (

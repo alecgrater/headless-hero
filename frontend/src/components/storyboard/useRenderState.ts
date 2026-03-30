@@ -16,13 +16,7 @@ interface RenderState {
   youtubeJobId: string | null;
   youtubeStatus: RenderStatusResponse | null;
   youtubeUrl: string | null;
-  startYoutubeRender: (fadeOut?: number, speed?: number) => Promise<void>;
-
-  // TikTok render
-  tiktokJobId: string | null;
-  tiktokStatus: RenderStatusResponse | null;
-  tiktokUrls: string[];
-  startTiktokRender: (speed?: number) => Promise<void>;
+  startYoutubeRender: (speed?: number) => Promise<void>;
 
   // Audio export
   audioUrl: string | null;
@@ -53,10 +47,6 @@ export function useRenderState(scriptId: string, title: string): RenderState {
   const [youtubeJobId, setYoutubeJobId] = useState<string | null>(null);
   const [youtubeStatus, setYoutubeStatus] = useState<RenderStatusResponse | null>(null);
   const [youtubeUrl, setYoutubeUrl] = useState<string | null>(null);
-
-  const [tiktokJobId, setTiktokJobId] = useState<string | null>(null);
-  const [tiktokStatus, setTiktokStatus] = useState<RenderStatusResponse | null>(null);
-  const [tiktokUrls, setTiktokUrls] = useState<string[]>([]);
 
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioExporting, setAudioExporting] = useState(false);
@@ -113,12 +103,11 @@ export function useRenderState(scriptId: string, title: string): RenderState {
   }, []);
 
   const startYoutubeRender = useCallback(
-    async (fadeOut = 0.3, speed = 1.0) => {
+    async (speed = 1.0) => {
       setYoutubeUrl(null);
       setYoutubeStatus(null);
       const res = await api.post("/api/render/full", {
         script_id: scriptId,
-        fade_out: fadeOut,
         title,
         speed,
       });
@@ -131,22 +120,6 @@ export function useRenderState(scriptId: string, title: string): RenderState {
     },
     [scriptId, title, pollJob],
   );
-
-  const startTiktokRender = useCallback(async (speed = 1.0) => {
-    setTiktokUrls([]);
-    setTiktokStatus(null);
-    const res = await api.post("/api/render/segments", {
-      script_id: scriptId,
-      title,
-      speed,
-    });
-    if (!res.ok) return;
-    const { job_id } = res.data as RenderJobResponse;
-    setTiktokJobId(job_id);
-    pollJob(job_id, setTiktokStatus, (urls) => {
-      setTiktokUrls(urls);
-    });
-  }, [scriptId, title, pollJob]);
 
   const exportAudio = useCallback(async () => {
     setAudioExporting(true);
@@ -242,10 +215,6 @@ export function useRenderState(scriptId: string, title: string): RenderState {
     youtubeStatus,
     youtubeUrl,
     startYoutubeRender,
-    tiktokJobId,
-    tiktokStatus,
-    tiktokUrls,
-    startTiktokRender,
     audioUrl,
     audioExporting,
     exportAudio,

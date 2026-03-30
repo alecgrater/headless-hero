@@ -82,6 +82,9 @@ interface StoryboardState {
   batchFetchingMedia: boolean;
   fetchMedia: (sceneId: string) => Promise<void>;
   fetchAllMedia: () => Promise<void>;
+
+  // External content update (e.g. after FX generation refreshes from server)
+  setContent: (content: ScriptContent) => void;
 }
 
 function findScene(
@@ -966,5 +969,6 @@ export function useStoryboardState(
     batchFetchingMedia,
     fetchMedia: fetchMediaForScene,
     fetchAllMedia: fetchAllMediaScenes,
+    setContent,
   };
 }

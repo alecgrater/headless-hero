@@ -2,11 +2,62 @@
 
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
 from pydantic import BaseModel, Field as PydanticField
 from sqlmodel import Column, Field, SQLModel, Text
 
 # --- Pydantic models for the script JSON structure ---
+
+# --- FX models (used by Remotion renderer) ---
+
+class CameraFX(BaseModel):
+    """Camera motion effect assigned by the FX generator."""
+
+    type: str = "ken_burns"  # "ken_burns" | "zoom_punch" | "parallax" | "static"
+    direction: str | None = None  # "in" | "out" | "left" | "right" | "up" | "down"
+    intensity: str = "moderate"  # "subtle" | "moderate" | "dramatic"
+    easing: str = "spring"  # "spring" | "linear" | "ease_in_out"
+
+class TextEffect(BaseModel):
+    """Text effect assigned by the FX generator."""
+
+    type: str  # "lower_third" | "kinetic_caption" | "word_reveal" | "title_insert" | "source_citation"
+    text: str | None = None  # overrides scene.text_overlay if set
+    words: list[str] | None = None  # for kinetic_caption: which words to emphasize
+    position: str = "lower_third"
+    enter_at: float = 0.0  # seconds
+    duration: float = 0.0  # 0 = full scene
+
+class TransitionFX(BaseModel):
+    """Transition between scenes."""
+
+    type: str = "cut"  # "cut" | "crossfade" | "slide" | "zoom_punch" | "smash_cut" | "wipe" | "push"
+    direction: str | None = None  # for directional transitions
+    duration: float = 0.5
+
+class OverlayFX(BaseModel):
+    """Visual overlay effect."""
+
+    type: str  # "chapter_indicator" | "film_grain" | "letterbox" | "vignette"
+    config: dict[str, Any] | None = None
+
+class StructuralFX(BaseModel):
+    """Structural video element (cold open, chapter break, etc.)."""
+
+    type: str  # "cold_open" | "chapter_transition" | "recap" | "end_screen"
+    config: dict[str, Any] | None = None
+
+class SceneFX(BaseModel):
+    """Complete FX configuration for a scene, assigned by Claude."""
+
+    camera: CameraFX | None = None
+    text_effects: list[TextEffect] | None = None
+    transition: TransitionFX | None = None
+    overlays: list[OverlayFX] | None = None
+    structural: StructuralFX | None = None
+
+# --- Legacy models (still stored/used for backward compat) ---
 
 class KenBurnsConfig(BaseModel):
     """Ken Burns motion effect configuration for a scene."""
@@ -50,6 +101,7 @@ class Scene(BaseModel):
     frame_count: int = 0              # desired frame count (1-8), 0 = use legacy single-image
     frame_seed: int | None = None     # seed for visual consistency across frames
     scene_transition: str = ""        # "" | "crossfade" | "slide_left" | "slide_right" | "push_up"
+    fx: dict | None = None             # SceneFX dict — assigned by FX generator, used by Remotion
 
 class Segment(BaseModel):
     """A named segment (e.g. "Caffeine") containing multiple scenes."""

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { assetUrl } from "../../api";
-import type { KenBurnsConfig, Scene, TextOverlayConfig } from "../../types/script";
+import { assetUrl, regenerateFX } from "../../api";
+import type { KenBurnsConfig, Scene, SceneFX, TextOverlayConfig } from "../../types/script";
 import AudioPlayer from "./AudioPlayer";
 
 const KEN_BURNS_EFFECTS = [
@@ -48,6 +48,7 @@ interface Props {
   scene: Scene;
   segmentIdx: number;
   segmentName: string;
+  scriptId: string;
   onUpdate: (updates: Partial<Scene>) => void;
   onGenerateImage?: () => void;
   isGenerating?: boolean;
@@ -69,6 +70,7 @@ export default function PropertiesPanel({
   scene,
   segmentIdx: _segmentIdx,
   segmentName,
+  scriptId,
   onUpdate,
   onGenerateImage,
   isGenerating = false,
@@ -123,6 +125,21 @@ export default function PropertiesPanel({
     },
     [onUpdate],
   );
+
+  const [regeneratingFX, setRegeneratingFX] = useState(false);
+
+  const handleRegenerateFX = async () => {
+    setRegeneratingFX(true);
+    try {
+      const res = await regenerateFX(scriptId, scene.id);
+      if (res.ok) {
+        const data = res.data as { scene_id: string; fx: SceneFX };
+        onUpdate({ fx: data.fx as unknown as Record<string, unknown> });
+      }
+    } finally {
+      setRegeneratingFX(false);
+    }
+  };
 
   const updateKenBurns = useCallback(
     (patch: Partial<KenBurnsConfig>) => {
@@ -463,22 +480,24 @@ export default function PropertiesPanel({
         )}
       </div>
 
-      {/* Scene Transition */}
-      <label className="block space-y-1">
-        <span className="text-xs font-medium text-neutral-400">Scene Transition</span>
-        <select
-          value={scene.scene_transition || ""}
-          onChange={(e) => onUpdate({ scene_transition: e.target.value as Scene["scene_transition"] })}
-          className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
-        >
-          {SCENE_TRANSITIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <p className="text-[10px] text-neutral-600">Transition from previous scene into this one</p>
-      </label>
+      {/* Scene Transition — only shown if no FX assigned */}
+      {!scene.fx && (
+        <label className="block space-y-1">
+          <span className="text-xs font-medium text-neutral-400">Scene Transition</span>
+          <select
+            value={scene.scene_transition || ""}
+            onChange={(e) => onUpdate({ scene_transition: e.target.value as Scene["scene_transition"] })}
+            className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
+          >
+            {SCENE_TRANSITIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-[10px] text-neutral-600">Transition from previous scene into this one</p>
+        </label>
+      )}
 
       {/* Video Clip Preview (for gameplay clips) */}
       {scene.video_clip_url && (
@@ -664,53 +683,146 @@ export default function PropertiesPanel({
         />
       </label>
 
-      {/* Motion Effect (Ken Burns) */}
-      <div className="border-t border-neutral-800 pt-3 space-y-2">
-        <div className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">
-          Motion Effect
-        </div>
-        <label className="block space-y-1">
-          <span className="text-xs font-medium text-neutral-400">Effect</span>
-          <select
-            value={kenBurns.effect}
-            onChange={(e) => updateKenBurns({ effect: e.target.value as KenBurnsConfig["effect"] })}
-            className={`w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30 ${
-              kenBurns.effect !== "none"
-                ? "border-cyan-500/50"
-                : "border-neutral-700/50"
-            }`}
-          >
-            {KEN_BURNS_EFFECTS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        {kenBurns.effect !== "none" && (
-          <div className="space-y-1">
-            <span className="text-xs font-medium text-neutral-400">Intensity</span>
-            <div className="flex gap-1">
-              {INTENSITIES.map((level) => (
-                <button
-                  key={level}
-                  onClick={() => updateKenBurns({ intensity: level })}
-                  className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${
-                    kenBurns.intensity === level
-                      ? "bg-violet-600 border-violet-500 text-white"
-                      : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-600"
-                  }`}
-                >
-                  {level.charAt(0).toUpperCase() + level.slice(1)}
-                </button>
-              ))}
+      {/* FX Summary (read-only) — shown when FX is assigned */}
+      {scene.fx && (
+        <div className="border-t border-neutral-800 pt-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">
+              Visual Effects
             </div>
+            <button
+              onClick={handleRegenerateFX}
+              disabled={regeneratingFX}
+              className="text-[10px] text-amber-400 hover:text-amber-300 transition-colors disabled:opacity-40 flex items-center gap-1"
+            >
+              {regeneratingFX ? (
+                <>
+                  <span className="w-2.5 h-2.5 border border-amber-400/50 border-t-transparent rounded-full animate-spin" />
+                  Regenerating...
+                </>
+              ) : (
+                "Regenerate"
+              )}
+            </button>
           </div>
-        )}
-      </div>
+          <div className="space-y-1.5">
+            {scene.fx.camera && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full">
+                  camera
+                </span>
+                <span className="text-xs text-neutral-400">
+                  {scene.fx.camera.type}
+                  {scene.fx.camera.direction ? ` ${scene.fx.camera.direction}` : ""}
+                  {scene.fx.camera.intensity ? ` (${scene.fx.camera.intensity})` : ""}
+                </span>
+              </div>
+            )}
+            {scene.fx.transition && scene.fx.transition.type !== "cut" && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] bg-violet-500/20 text-violet-300 px-1.5 py-0.5 rounded-full">
+                  transition
+                </span>
+                <span className="text-xs text-neutral-400">
+                  {scene.fx.transition.type}
+                  {scene.fx.transition.direction ? ` ${scene.fx.transition.direction}` : ""}
+                  {scene.fx.transition.duration ? ` (${scene.fx.transition.duration}s)` : ""}
+                </span>
+              </div>
+            )}
+            {scene.fx.text_effects && scene.fx.text_effects.length > 0 && (
+              <div className="space-y-1">
+                {scene.fx.text_effects.map((te, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-[10px] bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded-full">
+                      text
+                    </span>
+                    <span className="text-xs text-neutral-400">
+                      {te.type}
+                      {te.text ? `: "${te.text}"` : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {scene.fx.overlays && scene.fx.overlays.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {scene.fx.overlays.map((ov, i) => (
+                  <span
+                    key={i}
+                    className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded-full"
+                  >
+                    {ov.type.replace(/_/g, " ")}
+                  </span>
+                ))}
+              </div>
+            )}
+            {scene.fx.structural && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] bg-rose-500/20 text-rose-300 px-1.5 py-0.5 rounded-full">
+                  structural
+                </span>
+                <span className="text-xs text-neutral-400">
+                  {scene.fx.structural.type.replace(/_/g, " ")}
+                </span>
+              </div>
+            )}
+            {!scene.fx.camera && !scene.fx.transition && !scene.fx.text_effects?.length && !scene.fx.overlays?.length && !scene.fx.structural && (
+              <p className="text-[10px] text-neutral-600 italic">No effects assigned</p>
+            )}
+          </div>
+        </div>
+      )}
 
-      {/* Text Overlay Style (only when text_overlay is non-empty) */}
-      {scene.text_overlay && (
+      {/* Motion Effect (Ken Burns) — only shown if no FX assigned */}
+      {!scene.fx && (
+        <div className="border-t border-neutral-800 pt-3 space-y-2">
+          <div className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">
+            Motion Effect
+          </div>
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-neutral-400">Effect</span>
+            <select
+              value={kenBurns.effect}
+              onChange={(e) => updateKenBurns({ effect: e.target.value as KenBurnsConfig["effect"] })}
+              className={`w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30 ${
+                kenBurns.effect !== "none"
+                  ? "border-cyan-500/50"
+                  : "border-neutral-700/50"
+              }`}
+            >
+              {KEN_BURNS_EFFECTS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {kenBurns.effect !== "none" && (
+            <div className="space-y-1">
+              <span className="text-xs font-medium text-neutral-400">Intensity</span>
+              <div className="flex gap-1">
+                {INTENSITIES.map((level) => (
+                  <button
+                    key={level}
+                    onClick={() => updateKenBurns({ intensity: level })}
+                    className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${
+                      kenBurns.intensity === level
+                        ? "bg-violet-600 border-violet-500 text-white"
+                        : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-600"
+                    }`}
+                  >
+                    {level.charAt(0).toUpperCase() + level.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Text Overlay Style (only when text_overlay is non-empty and no FX) */}
+      {scene.text_overlay && !scene.fx && (
         <div className="border-t border-neutral-800 pt-3 space-y-2">
           <div className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">
             Text Overlay Style
