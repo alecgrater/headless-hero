@@ -679,9 +679,6 @@ function StoryboardEditor({
           youtubeStatus={render.youtubeStatus}
           youtubeUrl={render.youtubeUrl}
           onStartYoutubeRender={render.startYoutubeRender}
-          autoEditStatus={render.autoEditStatus}
-          autoEditUrl={render.autoEditUrl}
-          onStartAutoEditRender={render.startAutoEditRender}
           tiktokStatus={render.tiktokStatus}
           tiktokUrls={render.tiktokUrls}
           onStartTiktokRender={render.startTiktokRender}
