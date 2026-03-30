@@ -95,50 +95,79 @@ def generate_scene_frames(
 
     total_frames = len(frame_prompts)
     results: list[tuple[str, str]] = []
+    prev_frame_path: Path | None = None
 
     for i, frame_prompt in enumerate(frame_prompts):
-        # Build continuity-aware prompt:
-        # style_string → guide → continuity preamble → frame instruction
-        parts: list[str] = []
-        if style_string:
-            parts.append(style_string)
-        if guide:
-            parts.append(guide)
-
-        # Add continuity preamble when we have a visual_prompt anchor
-        if visual_prompt and total_frames > 1:
-            continuity = (
-                f"ANIMATION SEQUENCE: This is frame {i + 1} of {total_frames} "
-                f"in an animation sequence.\n"
-                f"BASE SCENE: {visual_prompt}\n"
-                f"ALL frames must have IDENTICAL style, character design, "
-                f"background, composition, and color palette. "
-                f"Only the specific action/pose described below should differ "
-                f"from the base scene.\n\n"
-                f"FRAME INSTRUCTION: {frame_prompt}"
-            )
-            parts.append(continuity)
-        else:
-            parts.append(frame_prompt)
-
-        prompt = "\n\n".join(parts)
-
         filename = f"{scene_id}_f{i}.png"
         local_path = images_dir / filename
         prompt_marker = images_dir / f"{scene_id}_f{i}.prompt"
         web_path = f"/static/projects/{script_id}/images/{filename}"
+
+        # Determine if we can chain from the previous frame
+        use_reference = (
+            i > 0
+            and prev_frame_path is not None
+            and prev_frame_path.exists()
+        )
+
+        # Build prompt: different strategy for text-only vs reference-based
+        if use_reference:
+            # Kontext-optimized: edit instruction referencing the input image
+            parts: list[str] = []
+            if style_string:
+                parts.append(style_string)
+            parts.append(
+                f"This is frame {i + 1} of {total_frames} in an animation sequence. "
+                f"Using the input image as reference, change ONLY the following: "
+                f"{frame_prompt}\n"
+                f"Maintain identical style, background, composition, character design, "
+                f"and color palette. Only the described action should change."
+            )
+            prompt = "\n\n".join(parts)
+        else:
+            # First frame or no reference: full text-to-image prompt
+            parts: list[str] = []
+            if style_string:
+                parts.append(style_string)
+            if guide:
+                parts.append(guide)
+
+            if visual_prompt and total_frames > 1:
+                continuity = (
+                    f"ANIMATION SEQUENCE: This is frame {i + 1} of {total_frames} "
+                    f"in an animation sequence.\n"
+                    f"BASE SCENE: {visual_prompt}\n"
+                    f"ALL frames must have IDENTICAL style, character design, "
+                    f"background, composition, and color palette. "
+                    f"Only the specific action/pose described below should differ "
+                    f"from the base scene.\n\n"
+                    f"FRAME INSTRUCTION: {frame_prompt}"
+                )
+                parts.append(continuity)
+            else:
+                parts.append(frame_prompt)
+
+            prompt = "\n\n".join(parts)
 
         # Cache check
         if not force and local_path.exists() and prompt_marker.exists():
             cached_prompt = prompt_marker.read_text(encoding="utf-8").strip()
             if cached_prompt == prompt:
                 results.append((web_path, prompt))
+                prev_frame_path = local_path
                 continue
 
-        tmp_path = generate_image(prompt, width=width, height=height, seed=seed)
+        tmp_path = generate_image(
+            prompt,
+            width=width,
+            height=height,
+            seed=seed,
+            reference_image_path=str(prev_frame_path) if use_reference else None,
+        )
         shutil.move(tmp_path, str(local_path))
         prompt_marker.write_text(prompt, encoding="utf-8")
         results.append((web_path, prompt))
+        prev_frame_path = local_path
 
     return results
 

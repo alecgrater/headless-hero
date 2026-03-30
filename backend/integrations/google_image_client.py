@@ -36,8 +36,18 @@ def _closest_aspect_ratio(width: int, height: int) -> str:
     return best[1]
 
 
-def generate_image(prompt: str, width: int = 1344, height: int = 768, seed: int | None = None) -> str:
-    """Generate an image via Gemini and return the path to a temp file."""
+def generate_image(
+    prompt: str,
+    width: int = 1344,
+    height: int = 768,
+    seed: int | None = None,
+    reference_image_path: str | None = None,
+) -> str:
+    """Generate an image via Gemini and return the path to a temp file.
+
+    reference_image_path is accepted for signature compatibility with the
+    Replicate provider but is currently ignored by the Google backend.
+    """
     client = _get_client()
     aspect = _closest_aspect_ratio(width, height)
 

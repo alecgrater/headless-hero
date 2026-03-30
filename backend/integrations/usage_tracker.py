@@ -57,5 +57,8 @@ GOOGLE_IMAGE_PER_CALL = 0.039  # $0.0390/image (Gemini 2.5 Flash image gen)
 # Replicate Flux 1.1 Pro — per image (approximate)
 REPLICATE_FLUX_PER_IMAGE = 0.04
 
+# Replicate FLUX Kontext Pro — per image (approximate)
+REPLICATE_KONTEXT_PER_IMAGE = 0.04
+
 # ElevenLabs — per character (Creator plan ~$22/mo for ~100k chars)
 ELEVENLABS_PER_CHAR = 0.00022  # rough estimate
