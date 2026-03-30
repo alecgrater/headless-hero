@@ -42,6 +42,9 @@ export default function ScriptGenerationPage({
   const [titleCardGenerated, setTitleCardGenerated] = useState(false);
   const [titleCardTimestamp, setTitleCardTimestamp] = useState(0);
   const [titleCardError, setTitleCardError] = useState<string | null>(null);
+  const [titleCardCompleted, setTitleCardCompleted] = useState<number[]>([]);
+  const [titleCardTotal, setTitleCardTotal] = useState(0);
+  const titleCardPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const hasStarted = useRef(false);
 
@@ -198,27 +201,81 @@ export default function ScriptGenerationPage({
   })();
 
   const generateTitleCards = async (force: boolean) => {
-    if (!scriptId) return;
+    if (!scriptId || !script) return;
     setTitleCardGenerating(true);
     setTitleCardError(null);
+    setTitleCardCompleted([]);
+    setTitleCardTotal(script.segments.length);
+
     try {
       const res = await api.post("/api/visuals/generate-title-cards", {
         script_id: scriptId,
         force,
       });
-      if (res.ok) {
-        setTitleCardGenerated(true);
-        setTitleCardTimestamp(Date.now());
-      } else {
+      if (!res.ok) {
         const err = res.data as { detail?: string };
         setTitleCardError(err.detail ?? "Failed to generate title cards");
+        setTitleCardGenerating(false);
+        return;
       }
+
+      const { job_id } = res.data as { job_id: string };
+
+      // Poll for progress
+      titleCardPollRef.current = setInterval(async () => {
+        try {
+          const statusRes = await api.get(`/api/visuals/title-cards-status/${job_id}`);
+          if (!statusRes.ok) return;
+
+          const job = statusRes.data as {
+            status: string;
+            current_step: string;
+            error: string | null;
+          };
+
+          // Parse per-segment progress from current_step
+          if (job.current_step) {
+            try {
+              const progress = JSON.parse(job.current_step) as {
+                completed: number[];
+                total: number;
+                names: string[];
+              };
+              setTitleCardCompleted(progress.completed);
+              setTitleCardTotal(progress.total);
+            } catch {
+              // current_step may be "Complete" or non-JSON
+            }
+          }
+
+          if (job.status === "completed") {
+            if (titleCardPollRef.current) clearInterval(titleCardPollRef.current);
+            titleCardPollRef.current = null;
+            setTitleCardGenerating(false);
+            setTitleCardGenerated(true);
+            setTitleCardTimestamp(Date.now());
+          } else if (job.status === "failed") {
+            if (titleCardPollRef.current) clearInterval(titleCardPollRef.current);
+            titleCardPollRef.current = null;
+            setTitleCardGenerating(false);
+            setTitleCardError(job.error ?? "Title card generation failed");
+          }
+        } catch {
+          // Network error during poll — ignore, will retry
+        }
+      }, 1000);
     } catch {
       setTitleCardError("Could not reach the backend.");
-    } finally {
       setTitleCardGenerating(false);
     }
   };
+
+  // Cleanup poll interval on unmount
+  useEffect(() => {
+    return () => {
+      if (titleCardPollRef.current) clearInterval(titleCardPollRef.current);
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -305,12 +362,31 @@ export default function ScriptGenerationPage({
                 </button>
               )}
 
-              {titleCardGenerating && (
-                <div className="flex items-center gap-3 py-2">
-                  <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-sm text-neutral-400">
-                    Generating title card images...
-                  </span>
+              {titleCardGenerating && script && (
+                <div className="space-y-1.5 py-1">
+                  {script.segments.map((seg, idx) => {
+                    const done = titleCardCompleted.includes(idx);
+                    return (
+                      <div key={idx} className="flex items-center gap-2.5">
+                        {done ? (
+                          <svg className="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        ) : (
+                          <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                        )}
+                        <span className={`text-sm ${done ? "text-neutral-300" : "text-neutral-500"}`}>
+                          {seg.name}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {titleCardCompleted.length === titleCardTotal && titleCardTotal > 0 && (
+                    <div className="flex items-center gap-2.5 pt-1">
+                      <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                      <span className="text-sm text-neutral-500">Compositing final images...</span>
+                    </div>
+                  )}
                 </div>
               )}
 

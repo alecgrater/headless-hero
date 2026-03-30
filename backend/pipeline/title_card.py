@@ -5,6 +5,7 @@ into a grid layout title card using Pillow. The composite image is reused
 for all title card scenes and as the YouTube thumbnail.
 """
 
+import json
 import logging
 import os
 import shutil
@@ -13,6 +14,7 @@ from pathlib import Path
 from config import DATA_DIR
 from models.script import ScriptContent
 from pipeline.image_gen import generate_scene_image
+from pipeline.render_jobs import update_job
 from pipeline.title_card_composer import compose_title_card
 
 logger = logging.getLogger(__name__)
@@ -24,6 +26,7 @@ def ensure_title_card_images(
     accent_color: str = "#e91e63",
     style_string: str = "",
     force: bool = False,
+    job_id: str | None = None,
 ) -> dict[int, tuple[int, int, int]]:
     """Generate circle images and composite title card for all segments.
 
@@ -69,6 +72,17 @@ def ensure_title_card_images(
         return zoom_targets
 
     # Step 1: Generate individual circle images for each segment
+    segment_names = [seg.name for seg in content.segments]
+    total_segments = len(content.segments)
+
+    # Report initial progress
+    if job_id:
+        update_job(job_id, current_step=json.dumps({
+            "completed": [],
+            "total": total_segments,
+            "names": segment_names,
+        }))
+
     circle_paths: list[str] = []
     for idx, seg in enumerate(content.segments):
         circle_filename = f"title_card_{idx}.png"
@@ -77,6 +91,14 @@ def ensure_title_card_images(
         # Skip if already generated and not forcing
         if not force and os.path.exists(circle_path):
             circle_paths.append(circle_path)
+            # Report progress for cached images too
+            if job_id:
+                completed = list(range(idx + 1))
+                update_job(job_id, current_step=json.dumps({
+                    "completed": completed,
+                    "total": total_segments,
+                    "names": segment_names,
+                }), progress=(idx + 1) / total_segments)
             continue
 
         # Use the segment's title_card_image_prompt, fallback to segment name
@@ -103,8 +125,16 @@ def ensure_title_card_images(
             )
             circle_paths.append("")  # Placeholder — composer will draw colored circle
 
+        # Report per-segment progress
+        if job_id:
+            completed = list(range(idx + 1))
+            update_job(job_id, current_step=json.dumps({
+                "completed": completed,
+                "total": total_segments,
+                "names": segment_names,
+            }), progress=(idx + 1) / total_segments)
+
     # Step 2: Compose the grid title card (with title — for thumbnail)
-    segment_names = [seg.name for seg in content.segments]
     circle_colors = [
         seg.circle_color or _DEFAULT_COLORS[i % len(_DEFAULT_COLORS)]
         for i, seg in enumerate(content.segments)

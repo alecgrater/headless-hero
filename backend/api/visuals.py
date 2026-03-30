@@ -11,6 +11,7 @@ from api.database import get_session
 from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.image_gen import generate_batch, generate_scene_frames, generate_scene_image
+from pipeline.render_jobs import create_job, get_job, run_in_background
 from pipeline.title_card import ensure_title_card_images
 
 router = APIRouter(prefix="/api/visuals", tags=["visuals"])
@@ -186,49 +187,67 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
     return GenerateBatchResponse(results=[BatchResultItem(**r) for r in results])
 
 
-# --- Title card generation ---
+# --- Title card generation (background job with per-segment progress) ---
 
 class GenerateTitleCardsRequest(BaseModel):
     script_id: str
     force: bool = False
 
 class GenerateTitleCardsResponse(BaseModel):
-    generated_scene_ids: list[str]
-    image_urls: dict[str, str]
+    job_id: str
 
 @router.post("/generate-title-cards", response_model=GenerateTitleCardsResponse)
 def generate_title_cards(body: GenerateTitleCardsRequest, session: Session = Depends(get_session)):
-    """Generate programmatic title card images for all title card scenes in a script."""
+    """Start title card generation as a background job and return the job ID."""
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
+    segment_count = len(content.segments)
 
     # Load brand style_string for title card image generation
     brand = session.get(BrandProfile, record.brand_id)
     brand_style_string = brand.style_string if brand else ""
 
-    generated_ids = ensure_title_card_images(
-        script_id=body.script_id,
-        content=content,
-        style_string=brand_style_string,
-        force=body.force,
-    )
+    job = create_job(scene_count=segment_count)
 
-    # Persist updated image_urls back to script_json (with cache-buster for frontend)
-    cache_buster = f"?t={int(time.time())}"
-    image_urls: dict[str, str] = {}
-    for seg in content.segments:
-        for scene in seg.scenes:
-            if scene.is_title_card and scene.image_url:
-                image_urls[scene.id] = scene.image_url + cache_buster
+    # Capture values needed by background thread (session not thread-safe)
+    script_id = body.script_id
+    force = body.force
 
-    record.script_json = content.model_dump_json()
-    session.add(record)
-    session.commit()
+    def _run() -> list[str]:
+        from api.database import engine
+        from sqlmodel import Session as SyncSession
 
-    return GenerateTitleCardsResponse(
-        generated_scene_ids=generated_ids,
-        image_urls=image_urls,
-    )
+        ensure_title_card_images(
+            script_id=script_id,
+            content=content,
+            style_string=brand_style_string,
+            force=force,
+            job_id=job.id,
+        )
+
+        # Persist updated image_urls back to script_json
+        with SyncSession(engine) as bg_session:
+            rec = bg_session.get(Script, script_id)
+            if rec:
+                # Re-serialize the mutated content (ensure_title_card_images mutates it)
+                rec.script_json = content.model_dump_json()
+                bg_session.add(rec)
+                bg_session.commit()
+
+        return []
+
+    run_in_background(job.id, _run)
+
+    return GenerateTitleCardsResponse(job_id=job.id)
+
+
+@router.get("/title-cards-status/{job_id}")
+def title_cards_status(job_id: str):
+    """Poll for title card generation progress."""
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job.to_dict()
