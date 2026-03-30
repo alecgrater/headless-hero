@@ -17,8 +17,20 @@ log = logging.getLogger(__name__)
 ProgressCallback = Callable[[float, str], None] | None
 
 
-def _scene_image_path(script_id: str, scene_id: str) -> str:
-    return str(DATA_DIR / "projects" / script_id / "images" / f"{scene_id}.png")
+def _scene_image_path(script_id: str, scene_id: str, image_url: str | None = None) -> str:
+    base = DATA_DIR / "projects" / script_id / "images"
+    if image_url:
+        filename = image_url.rsplit("/", 1)[-1]
+        custom = base / filename
+        if custom.exists():
+            return str(custom)
+    plain = base / f"{scene_id}.png"
+    if plain.exists():
+        return str(plain)
+    f0 = base / f"{scene_id}_f0.png"
+    if f0.exists():
+        return str(f0)
+    return str(plain)
 
 
 def _scene_audio_path(script_id: str, scene_id: str) -> str:
@@ -80,7 +92,7 @@ def render_shortform_scene(
                 _run_ffmpeg(override_cmd)
                 return output_path
 
-    image_path = _scene_image_path(script_id, scene.id)
+    image_path = _scene_image_path(script_id, scene.id, getattr(scene, "image_url", None))
     audio_path = _scene_audio_path(script_id, scene.id)
 
     if not os.path.exists(image_path):

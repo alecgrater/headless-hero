@@ -146,8 +146,21 @@ def _fallback_timeline(content: ScriptContent) -> AutoEditTimeline:
     return AutoEditTimeline(accent_color="#00FFFF", scenes=scenes)
 
 
-def _scene_image_path(script_id: str, scene_id: str) -> str:
-    return str(DATA_DIR / "projects" / script_id / "images" / f"{scene_id}.png")
+def _scene_image_path(script_id: str, scene_id: str, image_url: str | None = None) -> str:
+    """Resolve image path, falling back to _f0 frame or custom image_url."""
+    base = DATA_DIR / "projects" / script_id / "images"
+    if image_url:
+        filename = image_url.rsplit("/", 1)[-1]
+        custom = base / filename
+        if custom.exists():
+            return str(custom)
+    plain = base / f"{scene_id}.png"
+    if plain.exists():
+        return str(plain)
+    f0 = base / f"{scene_id}_f0.png"
+    if f0.exists():
+        return str(f0)
+    return str(plain)
 
 
 def _scene_audio_path(script_id: str, scene_id: str) -> str:
@@ -209,7 +222,7 @@ def render_auto_edit_video(
         if on_progress:
             on_progress(i / (total + 1), f"Auto-editing scene {i + 1}/{total}")
 
-        image_path = _scene_image_path(script_id, scene.id)
+        image_path = _scene_image_path(script_id, scene.id, getattr(scene, "image_url", None))
         audio_path = _scene_audio_path(script_id, scene.id)
 
         if not os.path.exists(image_path):

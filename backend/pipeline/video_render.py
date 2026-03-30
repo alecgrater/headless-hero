@@ -51,9 +51,31 @@ def copy_to_downloads(title: str, src_path: str, dest_name: str) -> str:
     log.info("Copied to downloads: %s", dest)
     return str(dest)
 
-def _scene_image_path(script_id: str, scene_id: str) -> str:
-    """Resolve local filesystem path for a scene image."""
-    return str(DATA_DIR / "projects" / script_id / "images" / f"{scene_id}.png")
+def _scene_image_path(script_id: str, scene_id: str, image_url: str | None = None) -> str:
+    """Resolve local filesystem path for a scene image.
+
+    If image_url is provided (e.g. from a modifier), resolves the local path from the
+    /static/projects/... URL. Otherwise checks for {scene_id}.png, then falls back to
+    {scene_id}_f0.png (the first frame) for multi-frame naming.
+    """
+    base = DATA_DIR / "projects" / script_id / "images"
+
+    # If a custom image_url was set (e.g. composite title card), resolve it
+    if image_url:
+        # image_url format: /static/projects/{script_id}/images/{filename}
+        filename = image_url.rsplit("/", 1)[-1]
+        custom = base / filename
+        if custom.exists():
+            return str(custom)
+
+    plain = base / f"{scene_id}.png"
+    if plain.exists():
+        return str(plain)
+    f0 = base / f"{scene_id}_f0.png"
+    if f0.exists():
+        return str(f0)
+    # Return plain path (will trigger FileNotFoundError downstream)
+    return str(plain)
 
 def _scene_audio_path(script_id: str, scene_id: str) -> str:
     """Resolve local filesystem path for a scene audio file."""
@@ -120,7 +142,7 @@ def render_scene_video(
                 _run_ffmpeg(override_cmd)
                 return f"/static/projects/{script_id}/renders/scenes/{filename}"
 
-    image_path = _scene_image_path(script_id, scene.id)
+    image_path = _scene_image_path(script_id, scene.id, getattr(scene, "image_url", None))
     audio_path = _scene_audio_path(script_id, scene.id)
 
     if not os.path.exists(audio_path):
