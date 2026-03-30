@@ -6,6 +6,8 @@ import tempfile
 from google import genai
 from google.genai import types
 
+from integrations.usage_tracker import record_usage, GOOGLE_IMAGE_PER_CALL
+
 
 def _get_client() -> genai.Client:
     key = os.environ.get("GOOGLE_AI_KEY")
@@ -55,6 +57,13 @@ def generate_image(prompt: str, width: int = 1344, height: int = 768, seed: int 
             with os.fdopen(fd, "wb") as f:
                 f.write(part.inline_data.data)
             os.chmod(tmp_path, 0o644)
+            record_usage(
+                service="google_ai",
+                operation="image_gen",
+                model="gemini-2.5-flash-image",
+                images=1,
+                cost_estimate=GOOGLE_IMAGE_PER_CALL,
+            )
             return tmp_path
 
     raise RuntimeError("Gemini response did not contain an image")

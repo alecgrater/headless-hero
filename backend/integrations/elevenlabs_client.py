@@ -7,6 +7,7 @@ import os
 import httpx
 
 from config import DEFAULT_TTS_MODEL
+from integrations.usage_tracker import record_usage, ELEVENLABS_PER_CHAR
 
 log = logging.getLogger(__name__)
 
@@ -118,6 +119,15 @@ def generate_speech(
     char_starts = alignment.get("character_start_times_seconds", [])
     char_ends = alignment.get("character_end_times_seconds", [])
 
+    char_count = len(text)
+    record_usage(
+        service="elevenlabs",
+        operation="tts",
+        model=model_id,
+        characters=char_count,
+        cost_estimate=char_count * ELEVENLABS_PER_CHAR,
+    )
+
     if characters and char_starts and char_ends:
         word_timestamps = _reconstruct_words(characters, char_starts, char_ends)
     else:
@@ -154,7 +164,15 @@ def clone_voice(
             headers={"xi-api-key": _get_key()},
         )
         response.raise_for_status()
-        return response.json()["voice_id"]
+        voice_id = response.json()["voice_id"]
+
+    record_usage(
+        service="elevenlabs",
+        operation="voice_clone",
+        characters=0,
+        cost_estimate=0.0,
+    )
+    return voice_id
 
 def list_voices() -> list[dict[str, str]]:
     """List available voices from ElevenLabs.

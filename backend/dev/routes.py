@@ -15,6 +15,7 @@ from sqlmodel import Session, func, select, col
 
 from api.database import engine
 from dev.log_handler import DevLog, get_broadcast_queue
+from models.api_usage import ApiUsage
 from pipeline import render_jobs
 
 logger = logging.getLogger(__name__)
@@ -310,3 +311,123 @@ async def db_query(req: DbQueryRequest):
         return {"columns": columns, "rows": rows, "row_count": len(rows)}
     except Exception as e:
         return {"error": str(e), "columns": [], "rows": []}
+
+
+# --- API Usage Tracking ---
+
+@router.get("/api/usage/summary")
+async def usage_summary(days: int = Query(default=30, le=365)):
+    """Aggregate usage stats per service over the last N days."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    with Session(engine) as session:
+        # Per-service totals
+        rows = session.exec(
+            select(
+                ApiUsage.service,
+                func.count().label("call_count"),
+                func.sum(ApiUsage.input_tokens).label("total_input_tokens"),
+                func.sum(ApiUsage.output_tokens).label("total_output_tokens"),
+                func.sum(ApiUsage.characters).label("total_characters"),
+                func.sum(ApiUsage.images).label("total_images"),
+                func.sum(ApiUsage.cost_estimate).label("total_cost"),
+            )
+            .where(ApiUsage.created_at >= cutoff)
+            .group_by(ApiUsage.service)
+        ).all()
+
+        services = []
+        grand_total = 0.0
+        for row in rows:
+            cost = row.total_cost or 0.0
+            grand_total += cost
+            services.append({
+                "service": row.service,
+                "call_count": row.call_count,
+                "total_input_tokens": row.total_input_tokens or 0,
+                "total_output_tokens": row.total_output_tokens or 0,
+                "total_characters": row.total_characters or 0,
+                "total_images": row.total_images or 0,
+                "total_cost": round(cost, 4),
+            })
+
+        # Per-day cost breakdown (for chart)
+        daily_rows = session.exec(
+            select(
+                func.date(ApiUsage.created_at).label("day"),
+                ApiUsage.service,
+                func.sum(ApiUsage.cost_estimate).label("cost"),
+                func.count().label("calls"),
+            )
+            .where(ApiUsage.created_at >= cutoff)
+            .group_by(func.date(ApiUsage.created_at), ApiUsage.service)
+            .order_by(func.date(ApiUsage.created_at))
+        ).all()
+
+        daily = []
+        for row in daily_rows:
+            daily.append({
+                "day": str(row.day),
+                "service": row.service,
+                "cost": round(row.cost or 0.0, 4),
+                "calls": row.calls,
+            })
+
+        # Per-operation breakdown
+        op_rows = session.exec(
+            select(
+                ApiUsage.service,
+                ApiUsage.operation,
+                ApiUsage.model,
+                func.count().label("call_count"),
+                func.sum(ApiUsage.cost_estimate).label("total_cost"),
+            )
+            .where(ApiUsage.created_at >= cutoff)
+            .group_by(ApiUsage.service, ApiUsage.operation, ApiUsage.model)
+            .order_by(func.sum(ApiUsage.cost_estimate).desc())
+        ).all()
+
+        operations = []
+        for row in op_rows:
+            operations.append({
+                "service": row.service,
+                "operation": row.operation,
+                "model": row.model,
+                "call_count": row.call_count,
+                "total_cost": round(row.total_cost or 0.0, 4),
+            })
+
+    return {
+        "days": days,
+        "grand_total_cost": round(grand_total, 4),
+        "services": services,
+        "daily": daily,
+        "operations": operations,
+    }
+
+
+@router.get("/api/usage/recent")
+async def usage_recent(limit: int = Query(default=100, le=500)):
+    """Return recent API usage events for the call log table."""
+    with Session(engine) as session:
+        rows = session.exec(
+            select(ApiUsage)
+            .order_by(col(ApiUsage.created_at).desc())
+            .limit(limit)
+        ).all()
+
+    return [
+        {
+            "id": r.id,
+            "service": r.service,
+            "operation": r.operation,
+            "model": r.model,
+            "input_tokens": r.input_tokens,
+            "output_tokens": r.output_tokens,
+            "characters": r.characters,
+            "images": r.images,
+            "cost_estimate": round(r.cost_estimate, 6),
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rows
+    ]

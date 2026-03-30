@@ -47,6 +47,7 @@
     <button onclick="switchTab('jobs')" id="tab-jobs" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Jobs</button>
     <button onclick="switchTab('api')" id="tab-api" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">API</button>
     <button onclick="switchTab('database')" id="tab-database" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Database</button>
+    <button onclick="switchTab('usage')" id="tab-usage" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Usage</button>
   </nav>
 
   <!-- Logs Tab -->
@@ -191,6 +192,51 @@
 
   <!-- DB Row Detail Modal -->
   <div id="dbDetailOverlay" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onclick="if(event.target===this)closeDbDetail()">
+
+  <!-- Usage Tab -->
+  <div id="panel-usage" class="hidden h-[calc(100vh-97px)] overflow-y-auto scrollbar-thin p-6">
+    <div class="max-w-6xl mx-auto space-y-6">
+
+      <!-- Time range selector + grand total -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <h2 class="text-sm font-medium text-neutral-100">API Usage &amp; Cost Tracker</h2>
+          <select id="usageDays" onchange="fetchUsageSummary()" class="bg-surface-800 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+            <option value="7">Last 7 days</option>
+            <option value="30" selected>Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="365">Last year</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-4">
+          <div id="usageGrandTotal" class="text-lg font-semibold text-neutral-100"></div>
+          <button onclick="fetchUsageSummary()" class="text-xs text-violet-400 hover:text-violet-300 transition-colors">Refresh</button>
+        </div>
+      </div>
+
+      <!-- Service cards -->
+      <div id="usageServiceCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+
+      <!-- Daily cost chart (ASCII bar chart) -->
+      <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+        <h3 class="text-xs font-medium text-neutral-400 mb-3">Daily Cost</h3>
+        <div id="usageDailyChart" class="text-xs font-mono"></div>
+      </div>
+
+      <!-- Operation breakdown table -->
+      <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+        <h3 class="text-xs font-medium text-neutral-400 mb-3">Cost by Operation</h3>
+        <div id="usageOpTable"></div>
+      </div>
+
+      <!-- Recent calls log -->
+      <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+        <h3 class="text-xs font-medium text-neutral-400 mb-3">Recent API Calls</h3>
+        <div id="usageRecentTable" class="overflow-x-auto"></div>
+      </div>
+
+    </div>
+  </div>
     <div class="bg-surface-800 border border-neutral-700 rounded-lg w-[700px] max-h-[80vh] overflow-y-auto scrollbar-thin p-6">
       <div class="flex items-center justify-between mb-4">
         <span class="text-sm font-medium text-neutral-100">Row Detail</span>
@@ -243,7 +289,7 @@ const LEVEL_COLORS = {
 const LEVEL_ORDER = { DEBUG: 0, INFO: 1, WARNING: 2, ERROR: 3, CRITICAL: 4 };
 
 // --- Tabs ---
-const ALL_TABS = ['logs', 'jobs', 'api', 'database'];
+const ALL_TABS = ['logs', 'jobs', 'api', 'database', 'usage'];
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => {
     b.classList.remove('border-violet-500', 'text-violet-400');
@@ -257,6 +303,7 @@ function switchTab(tab) {
   if (tab === 'jobs') fetchJobs();
   if (tab === 'api') loadOpenApiSchema();
   if (tab === 'database') fetchDbTables();
+  if (tab === 'usage') fetchUsageSummary();
 }
 
 // --- Logs ---
@@ -1022,6 +1069,196 @@ async function executeSqlQuery() {
   } catch (e) {
     document.getElementById('sqlError').textContent = 'Request failed: ' + e.message;
   }
+}
+
+// =====================================================
+// USAGE TRACKER
+// =====================================================
+
+const SERVICE_DISPLAY = {
+  anthropic: { label: 'Anthropic (Claude)', color: 'violet', icon: '🧠' },
+  google_ai: { label: 'Google AI Studio', color: 'sky', icon: '🎨' },
+  replicate: { label: 'Replicate', color: 'amber', icon: '🖼️' },
+  elevenlabs: { label: 'ElevenLabs', color: 'emerald', icon: '🔊' },
+};
+
+const SERVICE_COLORS = {
+  anthropic: 'bg-violet-600/30 text-violet-400 border-violet-600/30',
+  google_ai: 'bg-sky-600/30 text-sky-400 border-sky-600/30',
+  replicate: 'bg-amber-600/30 text-amber-400 border-amber-600/30',
+  elevenlabs: 'bg-emerald-600/30 text-emerald-400 border-emerald-600/30',
+};
+
+const SERVICE_BAR_COLORS = {
+  anthropic: 'bg-violet-500',
+  google_ai: 'bg-sky-500',
+  replicate: 'bg-amber-500',
+  elevenlabs: 'bg-emerald-500',
+};
+
+async function fetchUsageSummary() {
+  const days = document.getElementById('usageDays').value;
+  try {
+    const [summaryRes, recentRes] = await Promise.all([
+      fetch(`/dev/api/usage/summary?days=${days}`),
+      fetch('/dev/api/usage/recent?limit=100'),
+    ]);
+    const summary = await summaryRes.json();
+    const recent = await recentRes.json();
+    renderUsageSummary(summary);
+    renderUsageRecent(recent);
+  } catch (e) {
+    document.getElementById('usageServiceCards').innerHTML = `<div class="text-red-400 text-xs col-span-4">Failed to load usage data</div>`;
+  }
+}
+
+function renderUsageSummary(data) {
+  // Grand total
+  document.getElementById('usageGrandTotal').innerHTML = `$${data.grand_total_cost.toFixed(2)} <span class="text-xs text-neutral-500 font-normal">estimated</span>`;
+
+  // Service cards
+  const cards = document.getElementById('usageServiceCards');
+  const allServices = ['anthropic', 'google_ai', 'replicate', 'elevenlabs'];
+  let html = '';
+  for (const svcKey of allServices) {
+    const svc = data.services.find(s => s.service === svcKey);
+    const display = SERVICE_DISPLAY[svcKey] || { label: svcKey, color: 'neutral', icon: '📡' };
+    const colorCls = SERVICE_COLORS[svcKey] || '';
+    const cost = svc ? svc.total_cost : 0;
+    const calls = svc ? svc.call_count : 0;
+
+    let detail = '';
+    if (svc) {
+      if (svc.total_input_tokens > 0) detail += `<div>${formatNumber(svc.total_input_tokens)} in / ${formatNumber(svc.total_output_tokens)} out tokens</div>`;
+      if (svc.total_characters > 0) detail += `<div>${formatNumber(svc.total_characters)} characters</div>`;
+      if (svc.total_images > 0) detail += `<div>${svc.total_images} images</div>`;
+    }
+
+    html += `
+      <div class="border rounded-lg p-4 ${colorCls}">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-medium">${display.icon} ${display.label}</span>
+          <span class="text-lg font-semibold">$${cost.toFixed(2)}</span>
+        </div>
+        <div class="text-[10px] opacity-70">${calls} calls</div>
+        <div class="text-[10px] opacity-70 mt-1">${detail || 'No usage'}</div>
+      </div>`;
+  }
+  cards.innerHTML = html;
+
+  // Daily chart
+  renderDailyChart(data.daily, data.days);
+
+  // Operation table
+  renderOpTable(data.operations);
+}
+
+function renderDailyChart(daily, days) {
+  const chart = document.getElementById('usageDailyChart');
+  if (!daily.length) { chart.innerHTML = '<span class="text-neutral-500">No data yet</span>'; return; }
+
+  // Aggregate by day
+  const dayMap = {};
+  for (const d of daily) {
+    if (!dayMap[d.day]) dayMap[d.day] = {};
+    dayMap[d.day][d.service] = (dayMap[d.day][d.service] || 0) + d.cost;
+  }
+
+  const sortedDays = Object.keys(dayMap).sort();
+  const maxCost = Math.max(...sortedDays.map(d => Object.values(dayMap[d]).reduce((a, b) => a + b, 0)), 0.001);
+  const barWidth = 40; // chars for the bar
+
+  let html = '<div class="space-y-0.5">';
+  // Show last 14 days max for readability
+  const displayDays = sortedDays.slice(-14);
+  for (const day of displayDays) {
+    const services = dayMap[day];
+    const totalCost = Object.values(services).reduce((a, b) => a + b, 0);
+    const barLen = Math.round((totalCost / maxCost) * barWidth);
+    const dateLabel = day.slice(5); // MM-DD
+
+    // Build stacked bar segments
+    let bar = '';
+    for (const [svc, cost] of Object.entries(services)) {
+      const segLen = Math.max(1, Math.round((cost / maxCost) * barWidth));
+      const cls = SERVICE_BAR_COLORS[svc] || 'bg-neutral-500';
+      bar += `<span class="inline-block h-4 ${cls}" style="width:${segLen}ch" title="${svc}: $${cost.toFixed(3)}"></span>`;
+    }
+
+    html += `<div class="flex items-center gap-2">
+      <span class="text-neutral-500 w-12 text-right shrink-0">${dateLabel}</span>
+      <div class="flex" style="min-width:${barWidth}ch">${bar}</div>
+      <span class="text-neutral-400">$${totalCost.toFixed(2)}</span>
+    </div>`;
+  }
+  html += '</div>';
+
+  // Legend
+  html += '<div class="flex items-center gap-4 mt-3">';
+  for (const [svc, info] of Object.entries(SERVICE_DISPLAY)) {
+    const cls = SERVICE_BAR_COLORS[svc] || 'bg-neutral-500';
+    html += `<span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded ${cls}"></span><span class="text-neutral-400">${info.label}</span></span>`;
+  }
+  html += '</div>';
+
+  chart.innerHTML = html;
+}
+
+function renderOpTable(operations) {
+  const container = document.getElementById('usageOpTable');
+  if (!operations.length) { container.innerHTML = '<span class="text-neutral-500 text-xs">No data yet</span>'; return; }
+
+  let html = '<table class="w-full text-xs"><thead><tr class="text-neutral-500 text-left border-b border-neutral-700">';
+  html += '<th class="px-3 py-2">Service</th><th class="px-3 py-2">Operation</th><th class="px-3 py-2">Model</th><th class="px-3 py-2 text-right">Calls</th><th class="px-3 py-2 text-right">Cost</th>';
+  html += '</tr></thead><tbody>';
+
+  for (const op of operations) {
+    const cls = SERVICE_COLORS[op.service]?.split(' ')[1] || 'text-neutral-300';
+    html += `<tr class="border-b border-neutral-800/50">
+      <td class="px-3 py-1.5 ${cls}">${op.service}</td>
+      <td class="px-3 py-1.5 text-neutral-300">${op.operation}</td>
+      <td class="px-3 py-1.5 text-neutral-400 text-[10px]">${op.model || '-'}</td>
+      <td class="px-3 py-1.5 text-neutral-300 text-right">${op.call_count}</td>
+      <td class="px-3 py-1.5 text-neutral-200 text-right">$${op.total_cost.toFixed(3)}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function renderUsageRecent(recent) {
+  const container = document.getElementById('usageRecentTable');
+  if (!recent.length) { container.innerHTML = '<span class="text-neutral-500 text-xs">No API calls recorded yet</span>'; return; }
+
+  let html = '<table class="w-full text-xs"><thead><tr class="text-neutral-500 text-left border-b border-neutral-700">';
+  html += '<th class="px-2 py-2">Time</th><th class="px-2 py-2">Service</th><th class="px-2 py-2">Operation</th><th class="px-2 py-2">Model</th><th class="px-2 py-2 text-right">Tokens</th><th class="px-2 py-2 text-right">Chars</th><th class="px-2 py-2 text-right">Imgs</th><th class="px-2 py-2 text-right">Cost</th>';
+  html += '</tr></thead><tbody>';
+
+  for (const r of recent) {
+    const time = r.created_at ? new Date(r.created_at).toLocaleTimeString() : '';
+    const date = r.created_at ? new Date(r.created_at).toLocaleDateString(undefined, {month:'short', day:'numeric'}) : '';
+    const cls = SERVICE_COLORS[r.service]?.split(' ')[1] || 'text-neutral-300';
+    const tokens = r.input_tokens || r.output_tokens ? `${formatNumber(r.input_tokens)}/${formatNumber(r.output_tokens)}` : '-';
+    html += `<tr class="border-b border-neutral-800/50 hover:bg-surface-800/50">
+      <td class="px-2 py-1.5 text-neutral-500 whitespace-nowrap" title="${date} ${time}">${date} ${time}</td>
+      <td class="px-2 py-1.5 ${cls}">${r.service}</td>
+      <td class="px-2 py-1.5 text-neutral-300">${r.operation}</td>
+      <td class="px-2 py-1.5 text-neutral-400 text-[10px] max-w-[200px] truncate">${r.model || '-'}</td>
+      <td class="px-2 py-1.5 text-neutral-300 text-right">${tokens}</td>
+      <td class="px-2 py-1.5 text-neutral-300 text-right">${r.characters || '-'}</td>
+      <td class="px-2 py-1.5 text-neutral-300 text-right">${r.images || '-'}</td>
+      <td class="px-2 py-1.5 text-neutral-200 text-right">$${r.cost_estimate.toFixed(4)}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+function formatNumber(n) {
+  if (!n) return '0';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+  return n.toString();
 }
 </script>
 

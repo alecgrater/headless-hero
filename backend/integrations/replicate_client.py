@@ -7,6 +7,8 @@ import time
 
 import replicate
 
+from integrations.usage_tracker import record_usage, REPLICATE_FLUX_PER_IMAGE
+
 # Module-level rate limiter: tracks last API call time
 _last_call_lock = threading.Lock()
 _last_call_time: float = 0.0
@@ -63,4 +65,11 @@ def generate_image(prompt: str, width: int = 1344, height: int = 768, seed: int 
     with os.fdopen(fd, "wb") as f:
         f.write(output.read())
     os.chmod(tmp_path, 0o644)
+    record_usage(
+        service="replicate",
+        operation="image_gen",
+        model=model,
+        images=1,
+        cost_estimate=REPLICATE_FLUX_PER_IMAGE,
+    )
     return tmp_path

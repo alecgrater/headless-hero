@@ -4,6 +4,12 @@ import os
 
 import anthropic
 
+from integrations.usage_tracker import (
+    record_usage,
+    ANTHROPIC_INPUT_PER_TOKEN,
+    ANTHROPIC_OUTPUT_PER_TOKEN,
+)
+
 def get_client() -> anthropic.Anthropic:
     """Return an Anthropic client, falling back to a local proxy if no API key is set."""
     if os.environ.get("ANTHROPIC_API_KEY"):
@@ -28,4 +34,19 @@ def chat(
         system=system,
         messages=[{"role": "user", "content": user_message}],
     )
+
+    # Record usage
+    usage = response.usage
+    input_tok = usage.input_tokens if usage else 0
+    output_tok = usage.output_tokens if usage else 0
+    cost = input_tok * ANTHROPIC_INPUT_PER_TOKEN + output_tok * ANTHROPIC_OUTPUT_PER_TOKEN
+    record_usage(
+        service="anthropic",
+        operation="chat",
+        model=model,
+        input_tokens=input_tok,
+        output_tokens=output_tok,
+        cost_estimate=cost,
+    )
+
     return response.content[0].text

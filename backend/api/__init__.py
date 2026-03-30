@@ -27,6 +27,7 @@ from models.publish import PublishRecord as _PublishRecord  # noqa: F401 — reg
 from models.script import Script as _Script  # noqa: F401 — register table
 from models.generation_duration import GenerationDuration as _GenerationDuration  # noqa: F401 — register table
 from models.settings import AppSetting as _AppSetting  # noqa: F401 — register table
+from models.api_usage import ApiUsage as _ApiUsage  # noqa: F401 — register table
 
 from config import DATA_DIR
 
