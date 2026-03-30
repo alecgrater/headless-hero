@@ -1361,8 +1361,8 @@ function renderUsageRecent(recent) {
   html += '</tr></thead><tbody>';
 
   for (const r of recent) {
-    const time = r.created_at ? new Date(r.created_at).toLocaleTimeString() : '';
-    const date = r.created_at ? new Date(r.created_at).toLocaleDateString(undefined, {month:'short', day:'numeric'}) : '';
+    const time = r.created_at ? new Date(r.created_at).toLocaleTimeString('en-US', {timeZone:'America/Los_Angeles'}) : '';
+    const date = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric', timeZone:'America/Los_Angeles'}) : '';
     const cls = SERVICE_COLORS[r.service]?.split(' ')[1] || 'text-neutral-300';
     const tokens = r.input_tokens || r.output_tokens ? `${formatNumber(r.input_tokens)}/${formatNumber(r.output_tokens)}` : '-';
     html += `<tr class="border-b border-neutral-800/50 hover:bg-surface-800/50">
