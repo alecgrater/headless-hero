@@ -3,7 +3,6 @@ import api from "./api";
 import "./App.css";
 import BrandForm from "./components/brand/BrandForm";
 import BrandList from "./components/brand/BrandList";
-import BrandSettings from "./components/brand/BrandSettings";
 import ProjectDashboard from "./components/dashboard/ProjectDashboard";
 import FormatSelection from "./components/ideation/FormatSelection";
 import IdeationPage from "./components/ideation/IdeationPage";
@@ -13,7 +12,7 @@ import StoryboardPage from "./components/storyboard/StoryboardPage";
 import type { BrandProfile, BrandProfileCreate } from "./types/brand";
 import type { VideoIdea } from "./types/idea";
 
-type View = "home" | "brand-create" | "brand-edit" | "brand-settings" | "project-dashboard" | "ideation" | "format-selection" | "script-generation" | "storyboard" | "settings";
+type View = "home" | "brand-create" | "brand-edit" | "project-dashboard" | "ideation" | "format-selection" | "script-generation" | "storyboard" | "settings";
 
 function App() {
   const [backendStatus, setBackendStatus] = useState<string>("connecting...");
@@ -21,7 +20,6 @@ function App() {
   const [brands, setBrands] = useState<BrandProfile[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
   const [editingBrand, setEditingBrand] = useState<BrandProfile | null>(null);
-  const [settingsBrand, setSettingsBrand] = useState<BrandProfile | null>(null);
   const [saving, setSaving] = useState(false);
   const [selectedIdea, setSelectedIdea] = useState<VideoIdea | null>(null);
   const [storyboardScriptId, setStoryboardScriptId] = useState<string | null>(null);
@@ -95,22 +93,6 @@ function App() {
     setView("brand-edit");
   };
 
-  const openSettings = (brand: BrandProfile) => {
-    setSettingsBrand(brand);
-    setView("brand-settings");
-  };
-
-  const handleSettingsUpdate = async (data: BrandProfileCreate) => {
-    if (!settingsBrand) return;
-    const res = await api.put(`/api/brands/${settingsBrand.id}`, data);
-    if (res.ok) {
-      await loadBrands();
-      const updated = res.data as BrandProfile;
-      setSettingsBrand(updated);
-      if (selectedBrand?.id === updated.id) setSelectedBrand(updated);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col">
       {/* Top bar */}
@@ -162,7 +144,7 @@ function App() {
       </header>
 
       {/* Main content area */}
-      <main className={`flex-1 w-full ${view === "storyboard" || view === "project-dashboard" || view === "brand-create" || view === "brand-edit" || view === "brand-settings" || view === "settings" || view === "format-selection" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
+      <main className={`flex-1 w-full ${view === "storyboard" || view === "project-dashboard" || view === "brand-create" || view === "brand-edit" || view === "settings" || view === "format-selection" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
         {view === "settings" && (
           <SettingsPage onBack={() => setView("home")} />
         )}
@@ -185,17 +167,6 @@ function App() {
             initial={editingBrand}
             saving={saving}
             brandId={editingBrand.id}
-          />
-        )}
-
-        {view === "brand-settings" && settingsBrand && (
-          <BrandSettings
-            brand={settingsBrand}
-            onUpdate={handleSettingsUpdate}
-            onBack={() => {
-              setSettingsBrand(null);
-              setView("home");
-            }}
           />
         )}
 
@@ -264,7 +235,6 @@ function App() {
               }}
               onEdit={startEdit}
               onDelete={handleDelete}
-              onSettings={openSettings}
               onCreate={() => setView("brand-create")}
             />
 
