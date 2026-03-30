@@ -44,14 +44,14 @@ export default function GeneralSection() {
   const [outputFormat, setOutputFormat] = useState("png");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [rateLimitMs, setRateLimitMs] = useState("10000");
+  const [rateLimitEnabled, setRateLimitEnabled] = useState("true");
   const [originalDownloads, setOriginalDownloads] = useState("");
   const [originalProvider, setOriginalProvider] = useState("google");
   const [originalUpsampling, setOriginalUpsampling] = useState("true");
   const [originalModel, setOriginalModel] = useState("black-forest-labs/flux-1.1-pro");
   const [originalSafety, setOriginalSafety] = useState("2");
   const [originalFormat, setOriginalFormat] = useState("png");
-  const [originalRateLimit, setOriginalRateLimit] = useState("10000");
+  const [originalRateLimit, setOriginalRateLimit] = useState("true");
 
   useEffect(() => {
     api.get("/api/settings/keys").then((res) => {
@@ -75,9 +75,9 @@ export default function GeneralSection() {
         const fmtVal = data.REPLICATE_OUTPUT_FORMAT?.masked || "png";
         setOutputFormat(fmtVal);
         setOriginalFormat(fmtVal);
-        const rlVal = data.IMAGE_RATE_LIMIT_MS?.masked || "10000";
-        setRateLimitMs(rlVal);
-        setOriginalRateLimit(rlVal);
+        const rlVal = data.IMAGE_RATE_LIMIT_MS?.masked || "true";
+        setRateLimitEnabled(rlVal === "0" || rlVal === "false" ? "false" : "true");
+        setOriginalRateLimit(rlVal === "0" || rlVal === "false" ? "false" : "true");
       }
       setLoading(false);
     });
@@ -92,7 +92,7 @@ export default function GeneralSection() {
       REPLICATE_PROMPT_UPSAMPLING: promptUpsampling,
       REPLICATE_SAFETY_TOLERANCE: safetyTolerance,
       REPLICATE_OUTPUT_FORMAT: outputFormat,
-      IMAGE_RATE_LIMIT_MS: rateLimitMs,
+      IMAGE_RATE_LIMIT_MS: rateLimitEnabled === "true" ? "10000" : "0",
     });
     setSaving(false);
 
@@ -104,7 +104,7 @@ export default function GeneralSection() {
       setOriginalUpsampling(promptUpsampling);
       setOriginalSafety(safetyTolerance);
       setOriginalFormat(outputFormat);
-      setOriginalRateLimit(rateLimitMs);
+      setOriginalRateLimit(rateLimitEnabled);
     }
   };
 
@@ -115,7 +115,7 @@ export default function GeneralSection() {
     promptUpsampling !== originalUpsampling ||
     safetyTolerance !== originalSafety ||
     outputFormat !== originalFormat ||
-    rateLimitMs !== originalRateLimit;
+    rateLimitEnabled !== originalRateLimit;
 
   return (
     <div className="px-8 py-8 max-w-2xl space-y-6">
@@ -175,22 +175,32 @@ export default function GeneralSection() {
             </select>
           </div>
 
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-2">
-            <div>
-              <h3 className="text-sm font-medium text-neutral-100">Image Rate Limit</h3>
-              <p className="text-xs text-neutral-500">
-                Delay between batch image generation requests (in milliseconds). Default 10000ms = 6 requests/min to stay under free-tier API limits. Set to 0 to disable.
-              </p>
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-neutral-100">Image Rate Limit</h3>
+                <p className="text-xs text-neutral-500">
+                  Throttle batch image generation to ~6 requests/min to stay under free-tier API limits.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={rateLimitEnabled === "true"}
+                onClick={() =>
+                  setRateLimitEnabled(rateLimitEnabled === "true" ? "false" : "true")
+                }
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                  rateLimitEnabled === "true" ? "bg-violet-600" : "bg-neutral-700"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                    rateLimitEnabled === "true" ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
             </div>
-            <input
-              type="number"
-              min="0"
-              step="1000"
-              value={rateLimitMs}
-              onChange={(e) => setRateLimitMs(e.target.value)}
-              placeholder="10000"
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 transition-colors font-mono"
-            />
           </div>
 
           {imageProvider === "replicate" && (
