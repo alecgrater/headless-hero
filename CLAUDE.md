@@ -144,9 +144,9 @@ Available hooks: `modify_script_prompt()`, `modify_script_post()`, `modify_scene
 
 Examples:
 ```
-Add short-form video pipeline for YouTube Shorts, TikTok, and Instagram Reels
 Fix download buttons navigating away from app instead of downloading
 Update Real Media modifier to encourage mix of real footage and AI art
+Remove short-form video support entirely
 ```
 
 ## Environment Variables
