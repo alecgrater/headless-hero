@@ -1,5 +1,6 @@
 """Thin wrapper around the Replicate API for image generation via Flux."""
 
+import logging
 import os
 import tempfile
 import threading
@@ -8,6 +9,8 @@ import time
 import replicate
 
 from integrations.usage_tracker import record_usage, REPLICATE_FLUX_PER_IMAGE
+
+logger = logging.getLogger(__name__)
 
 # Module-level rate limiter: tracks last API call time
 _last_call_lock = threading.Lock()
@@ -55,10 +58,14 @@ def generate_image(prompt: str, width: int = 1344, height: int = 768, seed: int 
     if seed is not None:
         input_dict["seed"] = seed
 
-    output = replicate.run(
-        model,
-        input=input_dict,
-    )
+    try:
+        output = replicate.run(
+            model,
+            input=input_dict,
+        )
+    except Exception:
+        logger.error("Replicate image generation API call failed", exc_info=True)
+        raise
 
     # output is a FileOutput — use .read() to get bytes per Replicate SDK docs
     fd, tmp_path = tempfile.mkstemp(suffix=".png")

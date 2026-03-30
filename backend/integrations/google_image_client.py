@@ -1,5 +1,6 @@
 """Thin wrapper around the Google GenAI SDK for image generation via Gemini."""
 
+import logging
 import os
 import tempfile
 
@@ -7,6 +8,8 @@ from google import genai
 from google.genai import types
 
 from integrations.usage_tracker import record_usage, GOOGLE_IMAGE_PER_CALL
+
+logger = logging.getLogger(__name__)
 
 
 def _get_client() -> genai.Client:
@@ -38,16 +41,20 @@ def generate_image(prompt: str, width: int = 1344, height: int = 768, seed: int 
     client = _get_client()
     aspect = _closest_aspect_ratio(width, height)
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash-image",
-        contents=[prompt],
-        config=types.GenerateContentConfig(
-            response_modalities=["IMAGE"],
-            image_config=types.ImageConfig(
-                aspect_ratio=aspect,
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-image",
+            contents=[prompt],
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE"],
+                image_config=types.ImageConfig(
+                    aspect_ratio=aspect,
+                ),
             ),
-        ),
-    )
+        )
+    except Exception:
+        logger.error("Gemini image generation API call failed", exc_info=True)
+        raise
 
     # Extract image bytes from response (matching official SDK pattern)
     for part in response.parts:

@@ -109,7 +109,11 @@ def generate_speech(
                 "Content-Type": "application/json",
             },
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError:
+            log.error("ElevenLabs TTS request failed: %s %s", response.status_code, response.text[:500])
+            raise
         data = response.json()
 
     audio_bytes = base64.b64decode(data["audio_base64"])

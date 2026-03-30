@@ -1,10 +1,13 @@
 """Image generation pipeline — connects visual prompts to Google Gemini."""
 
+import logging
 import shutil
 from pathlib import Path
 
 from config import DATA_DIR
 from integrations.image_client import generate_image
+
+logger = logging.getLogger(__name__)
 
 # data/ directory lives two levels above backend/pipeline/
 
@@ -214,6 +217,7 @@ def generate_batch(
                 "error": None,
             })
         except Exception as exc:
+            logger.error("Image generation failed for scene %s: %s", scene["scene_id"], exc, exc_info=True)
             results.append({
                 "scene_id": scene["scene_id"],
                 "image_url": None,

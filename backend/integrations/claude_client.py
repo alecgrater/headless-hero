@@ -1,5 +1,6 @@
 """Thin wrapper around the Anthropic Python SDK."""
 
+import logging
 import os
 
 import anthropic
@@ -9,6 +10,8 @@ from integrations.usage_tracker import (
     ANTHROPIC_INPUT_PER_TOKEN,
     ANTHROPIC_OUTPUT_PER_TOKEN,
 )
+
+logger = logging.getLogger(__name__)
 
 def get_client() -> anthropic.Anthropic:
     """Return an Anthropic client, falling back to a local proxy if no API key is set."""
@@ -28,12 +31,16 @@ def chat(
 ) -> str:
     """Send a single-turn message to Claude and return the text response."""
     client = get_client()
-    response = client.messages.create(
-        model=model,
-        max_tokens=max_tokens,
-        system=system,
-        messages=[{"role": "user", "content": user_message}],
-    )
+    try:
+        response = client.messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            system=system,
+            messages=[{"role": "user", "content": user_message}],
+        )
+    except Exception:
+        logger.error("Anthropic API call failed (model=%s)", model, exc_info=True)
+        raise
 
     # Record usage
     usage = response.usage
