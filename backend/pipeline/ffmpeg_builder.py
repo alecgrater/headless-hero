@@ -462,6 +462,164 @@ def build_tiktok_cmd(
 
     return cmd
 
+def build_multiframe_scene_video_cmd(
+    frame_paths: list[str],
+    audio_path: str,
+    output_path: str,
+    duration: float,
+    width: int = 1920,
+    height: int = 1080,
+    ken_burns_effect: str = "none",
+    ken_burns_intensity: str = "moderate",
+    text_overlay: str = "",
+    overlay_position: str = "lower_third",
+    overlay_style: str = "default",
+    overlay_animation: str = "fade_in",
+    overlay_show_at: float = 0.0,
+    overlay_duration: float = 0.0,
+    fade_out_duration: float = 0.3,
+    speed: float = 1.0,
+    font_family: str = "",
+    crossfade_duration: float = 0.4,
+) -> list[str]:
+    """Build FFmpeg command for a multi-frame scene with crossfade transitions.
+
+    Each frame gets zoompan (Ken Burns), then frames are chained with xfade crossfades.
+    Falls back to standard single-image behavior for 1 frame.
+    """
+    n = len(frame_paths)
+    fps = 30
+    effective_duration = duration / speed if speed != 1.0 else duration
+
+    # Single frame: delegate to standard scene video
+    if n == 1:
+        return build_scene_video_cmd(
+            image_path=frame_paths[0],
+            audio_path=audio_path,
+            output_path=output_path,
+            duration=duration,
+            width=width,
+            height=height,
+            ken_burns_effect=ken_burns_effect,
+            ken_burns_intensity=ken_burns_intensity,
+            text_overlay=text_overlay,
+            overlay_position=overlay_position,
+            overlay_style=overlay_style,
+            overlay_animation=overlay_animation,
+            overlay_show_at=overlay_show_at,
+            overlay_duration=overlay_duration,
+            fade_out_duration=fade_out_duration,
+            speed=speed,
+            font_family=font_family,
+        )
+
+    # Calculate per-frame duration: total + (N-1)*crossfade spread across N frames
+    frame_dur = (effective_duration + (n - 1) * crossfade_duration) / n
+    frame_dur = max(frame_dur, crossfade_duration + 0.1)  # ensure longer than crossfade
+    frame_frames = int(frame_dur * fps)
+
+    # Build inputs and per-frame zoompan filter chains
+    inputs: list[str] = []
+    filter_parts: list[str] = []
+
+    for i, fpath in enumerate(frame_paths):
+        inputs.extend(["-loop", "1", "-i", fpath])
+
+        kb_filter = _ken_burns_filter(ken_burns_effect, ken_burns_intensity, width, height, frame_frames)
+        chain = (
+            f"[{i}:v]{kb_filter},"
+            f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
+            f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:black,"
+            f"setsar=1[v{i}]"
+        )
+        filter_parts.append(chain)
+
+    # Chain xfade transitions between frames
+    if n == 2:
+        offset = frame_dur - crossfade_duration
+        filter_parts.append(
+            f"[v0][v1]xfade=transition=fade:duration={crossfade_duration}:offset={offset:.3f}[vmixed]"
+        )
+        last_label = "vmixed"
+    else:
+        # Chain: v0+v1 -> x01, x01+v2 -> x02, ...
+        offset = frame_dur - crossfade_duration
+        filter_parts.append(
+            f"[v0][v1]xfade=transition=fade:duration={crossfade_duration}:offset={offset:.3f}[x01]"
+        )
+        prev_label = "x01"
+        for i in range(2, n):
+            # Each subsequent xfade offset: accumulated duration minus crossfades so far
+            offset = frame_dur * (i) - crossfade_duration * (i)
+            next_label = f"x{i:02d}" if i < n - 1 else "vmixed"
+            filter_parts.append(
+                f"[{prev_label}][v{i}]xfade=transition=fade:duration={crossfade_duration}:offset={offset:.3f}[{next_label}]"
+            )
+            prev_label = next_label
+        last_label = prev_label
+
+    # Post-processing: text overlay, speed, fade out
+    post_filters: list[str] = []
+
+    if text_overlay and _DRAWTEXT_AVAILABLE:
+        dt = _drawtext_filter(
+            text=text_overlay,
+            position=overlay_position,
+            style=overlay_style,
+            animation=overlay_animation,
+            show_at=overlay_show_at,
+            overlay_duration=overlay_duration,
+            scene_duration=duration,
+            font_family=font_family,
+        )
+        post_filters.append(dt)
+
+    if speed != 1.0:
+        post_filters.append(f"setpts=PTS/{speed}")
+
+    if fade_out_duration > 0:
+        fade_start = max(0, effective_duration - fade_out_duration)
+        post_filters.append(f"fade=t=out:st={fade_start}:d={fade_out_duration}")
+
+    if post_filters:
+        post_chain = ",".join(post_filters)
+        filter_parts.append(f"[{last_label}]{post_chain}[vout]")
+    else:
+        filter_parts.append(f"[{last_label}]null[vout]")
+
+    # Audio input is the last input
+    audio_idx = n
+    inputs.extend(["-i", audio_path])
+
+    if speed != 1.0:
+        atempo_chain = _build_atempo_chain(speed)
+        filter_parts.append(f"[{audio_idx}:a]{atempo_chain}[aout]")
+        audio_map = ["[aout]"]
+    else:
+        audio_map = [f"{audio_idx}:a"]
+
+    filter_complex = ";".join(filter_parts)
+
+    cmd = [
+        "ffmpeg", "-y",
+        *inputs,
+        "-filter_complex", filter_complex,
+        "-map", "[vout]",
+        "-map", *audio_map,
+        "-c:v", "libx264",
+        "-preset", "medium",
+        "-crf", "23",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-pix_fmt", "yuv420p",
+        "-t", str(effective_duration),
+        "-shortest",
+        output_path,
+    ]
+
+    return cmd
+
+
 def build_animated_scene_video_cmd(
     image_path_a: str,
     image_path_b: str,
@@ -1061,22 +1219,32 @@ def build_concat_with_transitions_cmd(
     output_path: str,
     dip_duration: float = 0.3,
 ) -> tuple[list[str], str]:
-    """Build FFmpeg command to concatenate clips with optional dip-to-black transitions.
+    """Build FFmpeg command to concatenate clips with transitions.
 
     Args:
         clip_paths: list of input MP4 paths
         transitions: list of transition types per scene (same length as clip_paths).
                      "dip_to_black" inserts a brief black frame between this clip and the previous.
                      "hard_cut" uses simple concat.
+                     "crossfade", "slide_left", "slide_right", "push_up" use xfade filter.
         dip_duration: total dip-to-black duration in seconds
         output_path: final output MP4 path
 
     If all transitions are hard_cut, falls back to simple concat demuxer.
     Returns (command args, path to temp concat list file).
     """
-    has_dips = any(t == "dip_to_black" for t in transitions)
+    _XFADE_TYPES = {"crossfade", "slide_left", "slide_right", "push_up"}
+    _XFADE_MAP = {
+        "crossfade": "fade",
+        "slide_left": "slideleft",
+        "slide_right": "slideright",
+        "push_up": "slideup",
+    }
 
-    if not has_dips:
+    has_dips = any(t == "dip_to_black" for t in transitions)
+    has_xfades = any(t in _XFADE_TYPES for t in transitions)
+
+    if not has_dips and not has_xfades:
         fd, list_path = tempfile.mkstemp(suffix=".txt", prefix="ffconcat_auto_")
         with os.fdopen(fd, "w") as f:
             for clip in clip_paths:
@@ -1090,7 +1258,89 @@ def build_concat_with_transitions_cmd(
         ]
         return cmd, list_path
 
-    # Insert short black video clips at dip_to_black transition points
+    # xfade transitions — requires filter_complex re-encode
+    if has_xfades:
+        xfade_dur = 0.4
+        inputs: list[str] = []
+        for clip in clip_paths:
+            inputs.extend(["-i", clip])
+
+        filter_parts: list[str] = []
+        prev_label = "0:v"
+        prev_audio = "0:a"
+        # We need to probe clip durations — approximate using aconcatenate approach
+        # For simplicity, use offset-based xfade where offset accumulates
+        # We'll use a placeholder file for cleanup
+        fd, list_path = tempfile.mkstemp(suffix=".txt", prefix="ffconcat_xfade_")
+        os.close(fd)
+
+        n = len(clip_paths)
+        if n == 1:
+            cmd = ["ffmpeg", "-y", "-i", clip_paths[0], "-c", "copy", output_path]
+            return cmd, list_path
+
+        # Build xfade chain using stream labels
+        # First, label all video/audio streams
+        for i in range(n):
+            filter_parts.append(f"[{i}:v]setpts=PTS-STARTPTS[sv{i}]")
+            filter_parts.append(f"[{i}:a]asetpts=PTS-STARTPTS[sa{i}]")
+
+        # Chain xfades between consecutive clips
+        prev_v = "sv0"
+        prev_a = "sa0"
+
+        for i in range(1, n):
+            t = transitions[i] if i < len(transitions) else "hard_cut"
+            xfade_type = _XFADE_MAP.get(t, "fade") if t in _XFADE_TYPES else None
+
+            if xfade_type:
+                out_v = f"xv{i}" if i < n - 1 else "vout"
+                out_a = f"xa{i}" if i < n - 1 else "aout"
+                # xfade needs offset — we don't know exact durations without probing,
+                # so we use 'eof_action=pass' approach. Instead, just use acrossfade.
+                # Simpler: use concat filter with xfade per pair.
+                filter_parts.append(
+                    f"[{prev_v}][sv{i}]xfade=transition={xfade_type}:duration={xfade_dur}:offset=eof-{xfade_dur}[{out_v}]"
+                )
+                filter_parts.append(
+                    f"[{prev_a}][sa{i}]acrossfade=d={xfade_dur}[{out_a}]"
+                )
+                prev_v = out_v
+                prev_a = out_a
+            else:
+                # Hard cut — concat
+                out_v = f"hv{i}" if i < n - 1 else "vout"
+                out_a = f"ha{i}" if i < n - 1 else "aout"
+                filter_parts.append(f"[{prev_v}][sv{i}]concat=n=2:v=1:a=0[{out_v}]")
+                filter_parts.append(f"[{prev_a}][sa{i}]concat=n=2:v=0:a=1[{out_a}]")
+                prev_v = out_v
+                prev_a = out_a
+
+        # Ensure final labels are vout/aout
+        if prev_v != "vout":
+            filter_parts.append(f"[{prev_v}]null[vout]")
+        if prev_a != "aout":
+            filter_parts.append(f"[{prev_a}]anull[aout]")
+
+        filter_complex = ";".join(filter_parts)
+
+        cmd = [
+            "ffmpeg", "-y",
+            *inputs,
+            "-filter_complex", filter_complex,
+            "-map", "[vout]",
+            "-map", "[aout]",
+            "-c:v", "libx264",
+            "-preset", "medium",
+            "-crf", "23",
+            "-c:a", "aac",
+            "-b:a", "192k",
+            "-pix_fmt", "yuv420p",
+            output_path,
+        ]
+        return cmd, list_path
+
+    # Legacy dip_to_black path
     black_path = tempfile.mktemp(suffix=".mp4", prefix="ffblack_")
     black_cmd = [
         "ffmpeg", "-y",

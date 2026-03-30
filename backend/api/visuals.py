@@ -11,7 +11,7 @@ from sqlmodel import Session
 from api.database import get_session
 from models.brand import BrandProfile
 from models.script import Script, ScriptContent
-from pipeline.image_gen import generate_batch, generate_scene_image
+from pipeline.image_gen import generate_batch, generate_scene_frames, generate_scene_image
 from pipeline.title_card import ensure_title_card_images
 
 router = APIRouter(prefix="/api/visuals", tags=["visuals"])
@@ -32,17 +32,23 @@ class GenerateVisualRequest(BaseModel):
     height: int = 768
     is_animated: bool = False
     visual_prompt_b: str = ""
+    frame_prompts: list[str] = []
+    frame_seed: int | None = None
+    style_string: str = ""
 
 class GenerateVisualResponse(BaseModel):
     image_url: str
     prompt_used: str
     image_url_b: str | None = None
+    frame_urls: list[str] = []
 
 class BatchScene(BaseModel):
     scene_id: str
     visual_prompt: str
     is_animated: bool = False
     visual_prompt_b: str = ""
+    frame_prompts: list[str] = []
+    frame_seed: int | None = None
 
 class GenerateBatchRequest(BaseModel):
     script_id: str
@@ -51,11 +57,13 @@ class GenerateBatchRequest(BaseModel):
     color_palette: str = ""
     width: int = 1344
     height: int = 768
+    style_string: str = ""
 
 class BatchResultItem(BaseModel):
     scene_id: str
     image_url: str | None = None
     image_url_b: str | None = None
+    frame_urls: list[str] = []
     prompt_used: str | None = None
     error: str | None = None
 
@@ -98,6 +106,26 @@ def _update_scene_image_url_b(
     session.add(record)
     session.commit()
 
+def _update_scene_frame_urls(
+    session: Session, script_id: str, scene_id: str, frame_urls: list[str]
+) -> None:
+    """Persist frame_urls into the scene inside script_json."""
+    record = session.get(Script, script_id)
+    if not record:
+        return
+    content = ScriptContent.model_validate(json.loads(record.script_json))
+    for seg in content.segments:
+        for scene in seg.scenes:
+            if scene.id == scene_id:
+                scene.frame_urls = frame_urls
+                # Also set image_url to first frame for backward compat
+                if frame_urls:
+                    scene.image_url = frame_urls[0]
+                break
+    record.script_json = content.model_dump_json()
+    session.add(record)
+    session.commit()
+
 # --- Endpoints ---
 
 @router.post("/generate", response_model=GenerateVisualResponse)
@@ -113,10 +141,35 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
     height = body.height if not is_shortform else 1344
     style_guide = _SHORTFORM_STYLE_GUIDE if is_shortform else ""
 
-    # Load brand font
+    # Load brand font and style_string
     brand = session.get(BrandProfile, record.brand_id)
     brand_font = brand.font if brand else ""
+    brand_style_string = body.style_string or (brand.style_string if brand else "")
 
+    # Multi-frame path
+    if body.frame_prompts:
+        frame_results = generate_scene_frames(
+            scene_id=body.scene_id,
+            frame_prompts=body.frame_prompts,
+            brand_style=body.brand_style,
+            script_id=body.script_id,
+            width=width,
+            height=height,
+            style_guide=style_guide,
+            color_palette=body.color_palette,
+            font=brand_font,
+            seed=body.frame_seed,
+            style_string=brand_style_string,
+        )
+        frame_urls = [url for url, _ in frame_results]
+        _update_scene_frame_urls(session, body.script_id, body.scene_id, frame_urls)
+        return GenerateVisualResponse(
+            image_url=frame_urls[0] if frame_urls else "",
+            prompt_used=frame_results[0][1] if frame_results else "",
+            frame_urls=frame_urls,
+        )
+
+    # Legacy single-image path
     image_url, prompt_used = generate_scene_image(
         scene_id=body.scene_id,
         visual_prompt=body.visual_prompt,
@@ -127,6 +180,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         style_guide=style_guide,
         color_palette=body.color_palette,
         font=brand_font,
+        style_string=brand_style_string,
     )
 
     _update_scene_image_url(session, body.script_id, body.scene_id, image_url)
@@ -144,6 +198,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             style_guide=style_guide,
             color_palette=body.color_palette,
             font=brand_font,
+            style_string=brand_style_string,
         )
         _update_scene_image_url_b(session, body.script_id, body.scene_id, image_url_b)
 
@@ -162,9 +217,10 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
     height = body.height if not is_shortform else 1344
     style_guide = _SHORTFORM_STYLE_GUIDE if is_shortform else ""
 
-    # Load brand font
+    # Load brand font and style_string
     brand = session.get(BrandProfile, record.brand_id)
     brand_font = brand.font if brand else ""
+    brand_style_string = body.style_string or (brand.style_string if brand else "")
 
     scenes = [
         {
@@ -172,6 +228,8 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
             "visual_prompt": s.visual_prompt,
             "is_animated": s.is_animated,
             "visual_prompt_b": s.visual_prompt_b,
+            "frame_prompts": s.frame_prompts,
+            "frame_seed": s.frame_seed,
         }
         for s in body.scenes
     ]
@@ -185,11 +243,15 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
         style_guide=style_guide,
         color_palette=body.color_palette,
         font=brand_font,
+        style_string=brand_style_string,
     )
 
     # Persist successful image URLs
     for r in results:
-        if r["image_url"]:
+        frame_urls = r.get("frame_urls", [])
+        if frame_urls:
+            _update_scene_frame_urls(session, body.script_id, r["scene_id"], frame_urls)
+        elif r["image_url"]:
             _update_scene_image_url(session, body.script_id, r["scene_id"], r["image_url"])
         if r.get("image_url_b"):
             _update_scene_image_url_b(session, body.script_id, r["scene_id"], r["image_url_b"])

@@ -38,12 +38,16 @@ Output rules:
         {
           "id": "scene_001",
           "narration": "The narration text the voiceover artist reads.",
-          "visual_prompt": "Detailed description of what the illustration should depict.",
+          "visual_prompt": "Primary/summary description of what the illustration should depict.",
           "text_overlay": "Key text to display on screen (short phrase).",
           "duration_estimate_seconds": 8,
           "is_title_card": false,
-          "is_animated": false,
-          "visual_prompt_b": "",
+          "frame_count": 3,
+          "frame_prompts": [
+            "Frame 1: Wide establishing shot of the subject...",
+            "Frame 2: Closer view showing detail...",
+            "Frame 3: Final state with result..."
+          ],
           "media_type": "ai_generated",
           "search_query": ""
         }
@@ -62,15 +66,21 @@ background" unless the brand style says otherwise.
 - Text overlays should be short key phrases (1-6 words) that reinforce the narration.
 - Scene IDs must be unique and sequential: scene_001, scene_002, etc.
 
-Animated scene guidelines:
-- Some scenes should be marked as "animated" (is_animated: true) with a second \
-visual prompt (visual_prompt_b). These scenes will alternate between two images \
-(A/B flip) for added visual interest.
-- For animated scenes, visual_prompt describes state A and visual_prompt_b describes \
-state B — they should depict the SAME subject in two distinct states (e.g., \
-before/after, cause/effect, open/closed, lit/dark, full/empty).
-- Do NOT animate title card scenes (is_title_card: true).
-- For non-animated scenes, leave is_animated as false and visual_prompt_b as ""."""
+Multi-frame scene guidelines:
+- Each scene gets a "frame_count" (1-8) and a "frame_prompts" array with that \
+many entries. Multiple frames create smooth visual flow via crossfade transitions.
+- Budget guidelines for frame_count:
+  - Title/hook scenes (opening, segment intros): 6-8 frames
+  - Key stat or dramatic reveal scenes: 4-5 frames
+  - Standard explanation scenes: 2-3 frames
+  - Filler/transition scenes: 1-2 frames
+- Frame prompts should describe a visual PROGRESSION — e.g. zoom levels, \
+before/after states, building diagrams step by step, cause then effect.
+- All frames for a scene should depict the SAME subject — only the state, \
+angle, or detail level changes between frames.
+- Title card scenes (is_title_card: true) should have frame_count: 0 and \
+empty frame_prompts — they use the programmatic title card system.
+- The "visual_prompt" field remains as the primary/summary description of the scene."""
 
 
 def generate_script(
@@ -110,13 +120,10 @@ def generate_script(
         )
     if brand_context:
         user_parts.append(f"Brand context (use for visual style and tone): {brand_context}")
-    if animated_scene_count > 0:
-        user_parts.append(
-            f"Mark approximately {animated_scene_count} non-title-card scenes as animated "
-            f"(is_animated: true) with a visual_prompt_b describing a second visual state."
-        )
-    else:
-        user_parts.append("Do not mark any scenes as animated (all is_animated: false).")
+    user_parts.append(
+        "For each scene, set frame_count and provide that many frame_prompts "
+        "describing a visual progression. Use the budget guidelines from the system prompt."
+    )
 
     system_prompt = BASE_SYSTEM_PROMPT
     user_message = "\n".join(user_parts)

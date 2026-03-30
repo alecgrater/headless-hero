@@ -19,6 +19,7 @@ const EMPTY_FORM: BrandProfileCreate = {
   color_palette: "",
   font: "",
   content_modifiers: "",
+  style_string: "",
 };
 
 interface Props {
@@ -257,6 +258,24 @@ export default function BrandForm({ onSave, onCancel, initial, saving, brandId }
               renderPreview={(p) => <FontPreview preset={p} />}
               label="Font"
             />
+
+            {/* Visual DNA / Style Prompt */}
+            <div>
+              <label className={labelCls}>
+                Visual DNA / Style Prompt
+              </label>
+              <textarea
+                value={form.style_string ?? ""}
+                onChange={(e) => set("style_string", e.target.value)}
+                className="w-full min-h-[80px] rounded-lg bg-[#1a1a24] border border-white/[0.08] px-3 py-2.5 text-[13px] text-white/90 placeholder:text-white/40 placeholder:font-['JetBrains_Mono'] outline-none transition-all duration-200 focus:border-[rgba(124,58,237,0.6)] focus:shadow-[0_0_0_3px_rgba(124,58,237,0.15)] resize-y"
+                placeholder="e.g. flat vector illustration, dark background, bold outlines, minimal detail..."
+                rows={3}
+              />
+              <p className="text-[11px] text-white/25 mt-1.5 leading-relaxed">
+                This exact text is prepended verbatim to every image generation prompt.
+                Use it for a consistent visual style across all scenes.
+              </p>
+            </div>
           </div>
 
           {/* ===== Content Modifiers Card ===== */}

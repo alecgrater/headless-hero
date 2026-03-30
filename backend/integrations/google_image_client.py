@@ -31,7 +31,7 @@ def _closest_aspect_ratio(width: int, height: int) -> str:
     return best[1]
 
 
-def generate_image(prompt: str, width: int = 1344, height: int = 768) -> str:
+def generate_image(prompt: str, width: int = 1344, height: int = 768, seed: int | None = None) -> str:
     """Generate an image via Gemini and return the path to a temp file."""
     client = _get_client()
     aspect = _closest_aspect_ratio(width, height)

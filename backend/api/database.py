@@ -23,6 +23,7 @@ def _migrate(engine) -> None:
         "ALTER TABLE scripts ADD COLUMN content_format TEXT DEFAULT 'youtube'",
         "ALTER TABLE scripts ADD COLUMN shortform_platforms TEXT DEFAULT ''",
         "ALTER TABLE brand_profiles ADD COLUMN shortform_voice_settings TEXT DEFAULT ''",
+        "ALTER TABLE brand_profiles ADD COLUMN style_string TEXT DEFAULT ''",
     ]
     with Session(engine) as session:
         for sql in migrations:

@@ -45,6 +45,11 @@ class Scene(BaseModel):
     search_query: str = ""            # YouTube search query for yt-dlp
     video_clip_url: str = ""          # web-relative path to downloaded clip
     title_card_zoom_target: dict | None = None  # {"x": int, "y": int, "radius": int} for zoompan
+    frame_prompts: list[str] = []     # per-frame visual prompts for multi-frame scenes
+    frame_urls: list[str] = []        # web-relative paths to frame images
+    frame_count: int = 0              # desired frame count (1-8), 0 = use legacy single-image
+    frame_seed: int | None = None     # seed for visual consistency across frames
+    scene_transition: str = ""        # "" | "crossfade" | "slide_left" | "slide_right" | "push_up"
 
 class Segment(BaseModel):
     """A named segment (e.g. "Caffeine") containing multiple scenes."""

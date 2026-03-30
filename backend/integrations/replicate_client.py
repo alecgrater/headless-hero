@@ -6,7 +6,7 @@ import tempfile
 import replicate
 
 
-def generate_image(prompt: str, width: int = 1344, height: int = 768) -> str:
+def generate_image(prompt: str, width: int = 1344, height: int = 768, seed: int | None = None) -> str:
     """Generate an image via Replicate Flux and return the path to a temp file."""
     token = os.environ.get("REPLICATE_API_TOKEN")
     if not token:
@@ -25,16 +25,20 @@ def generate_image(prompt: str, width: int = 1344, height: int = 768) -> str:
 
     model = os.environ.get("REPLICATE_MODEL", "black-forest-labs/flux-1.1-pro")
 
-    output = replicate.run(
-        model,
-        input={
+    input_dict = {
             "prompt": prompt,
             "width": width,
             "height": height,
             "prompt_upsampling": prompt_upsampling,
             "safety_tolerance": safety_tolerance,
             "output_format": output_format,
-        },
+        }
+    if seed is not None:
+        input_dict["seed"] = seed
+
+    output = replicate.run(
+        model,
+        input=input_dict,
     )
 
     # output is a FileOutput — use .read() to get bytes per Replicate SDK docs

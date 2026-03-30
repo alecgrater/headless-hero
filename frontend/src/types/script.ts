@@ -29,6 +29,11 @@ export interface Scene {
   media_type?: "ai_generated" | "gameplay_clip" | "hardware_image";
   search_query?: string;
   video_clip_url?: string;
+  frame_prompts?: string[];
+  frame_urls?: string[];
+  frame_count?: number;
+  frame_seed?: number | null;
+  scene_transition?: "" | "crossfade" | "slide_left" | "slide_right" | "push_up";
 }
 
 export interface Segment {

@@ -36,6 +36,14 @@ const OVERLAY_ANIMATIONS = [
   { value: "typewriter", label: "Typewriter" },
 ] as const;
 
+const SCENE_TRANSITIONS = [
+  { value: "", label: "Hard Cut" },
+  { value: "crossfade", label: "Crossfade" },
+  { value: "slide_left", label: "Slide Left" },
+  { value: "slide_right", label: "Slide Right" },
+  { value: "push_up", label: "Push Up" },
+] as const;
+
 interface Props {
   scene: Scene;
   segmentIdx: number;
@@ -89,6 +97,8 @@ export default function PropertiesPanel({
   const [isTitleCard, setIsTitleCard] = useState(scene.is_title_card);
   const [searchQuery, setSearchQuery] = useState(scene.search_query || "");
   const [promptExpanded, setPromptExpanded] = useState(false);
+  const [framePrompts, setFramePrompts] = useState<string[]>(scene.frame_prompts || []);
+  const [frameCount, setFrameCount] = useState(scene.frame_count || 0);
 
   const isShortform = contentFormat === "shortform";
 
@@ -106,6 +116,8 @@ export default function PropertiesPanel({
       setIsTitleCard(scene.is_title_card);
       setSearchQuery(scene.search_query || "");
       setPromptExpanded(false);
+      setFramePrompts(scene.frame_prompts || []);
+      setFrameCount(scene.frame_count || 0);
     }
   }, [scene]);
 
@@ -348,45 +360,129 @@ export default function PropertiesPanel({
         </label>
       )}
 
-      {/* Animated A/B Flip Toggle */}
-      <div className="border border-neutral-800 rounded-lg p-3 space-y-2">
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={scene.is_animated || false}
-              onChange={(e) => {
-                onUpdate({ is_animated: e.target.checked });
-              }}
-              className="rounded border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500"
-            />
-            <span className="text-sm text-neutral-300">Animation</span>
-          </label>
-          <span
-            className="text-[10px] text-neutral-600 cursor-help"
-            title="Generates two images (A and B) and flips between them during the scene for a simple animation effect"
-          >
-            A/B flip
-          </span>
+      {/* Multi-Frame / Animation Controls */}
+      <div className="border border-neutral-800 rounded-lg p-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-neutral-400">Frame Budget</span>
+          <span className="text-xs text-neutral-500 font-mono">{frameCount || 1}</span>
         </div>
+        <input
+          type="range"
+          min={1}
+          max={8}
+          value={frameCount || 1}
+          onChange={(e) => {
+            const n = parseInt(e.target.value, 10);
+            setFrameCount(n);
+            // Resize frame_prompts array
+            const newPrompts = [...framePrompts];
+            while (newPrompts.length < n) newPrompts.push("");
+            while (newPrompts.length > n) newPrompts.pop();
+            setFramePrompts(newPrompts);
+            onUpdate({ frame_count: n, frame_prompts: newPrompts });
+          }}
+          className="w-full accent-violet-500"
+        />
+        <p className="text-[10px] text-neutral-600">
+          1 = static image, 2-8 = crossfade animation between frames
+        </p>
 
-        {/* Visual Prompt B (only when animated) */}
-        {scene.is_animated && (
-          <label className="block space-y-1">
-            <span className="text-xs font-medium text-neutral-400">
-              Visual Prompt (B)
-            </span>
-            <textarea
-              value={visualPromptB}
-              onChange={(e) => setVisualPromptB(e.target.value)}
-              onBlur={() => commitField("visual_prompt_b", visualPromptB)}
-              className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2.5 border border-amber-700/50 resize-none focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30"
-              rows={3}
-              placeholder="Describe the second visual state (B)..."
-            />
-          </label>
+        {/* Per-frame prompt textareas */}
+        {frameCount > 1 && (
+          <div className="space-y-2 mt-2">
+            {framePrompts.slice(0, frameCount).map((fp, i) => (
+              <label key={i} className="block space-y-1">
+                <span className="text-[10px] font-medium text-neutral-500">
+                  Frame {i + 1}
+                </span>
+                <textarea
+                  value={fp}
+                  onChange={(e) => {
+                    const updated = [...framePrompts];
+                    updated[i] = e.target.value;
+                    setFramePrompts(updated);
+                  }}
+                  onBlur={() => {
+                    onUpdate({ frame_prompts: framePrompts });
+                  }}
+                  className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2 border border-violet-700/30 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
+                  rows={2}
+                  placeholder={`Describe frame ${i + 1} visual...`}
+                />
+              </label>
+            ))}
+          </div>
+        )}
+
+        {/* Frame image preview strip */}
+        {scene.frame_urls && scene.frame_urls.length > 1 && (
+          <div className="flex gap-1 overflow-x-auto mt-2 pb-1">
+            {scene.frame_urls.map((url, i) => (
+              <img
+                key={i}
+                src={assetUrl(url)}
+                alt={`Frame ${i + 1}`}
+                className="h-14 w-auto rounded border border-neutral-700 shrink-0"
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Legacy A/B compat: show if is_animated but no frame_prompts */}
+        {scene.is_animated && (!framePrompts.length || frameCount <= 1) && (
+          <div className="mt-2 space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-amber-500/70">Legacy A/B Flip</span>
+              <button
+                onClick={() => {
+                  // Convert to multi-frame: 2 frames from visual_prompt + visual_prompt_b
+                  const newPrompts = [scene.visual_prompt, scene.visual_prompt_b || ""];
+                  setFrameCount(2);
+                  setFramePrompts(newPrompts);
+                  onUpdate({
+                    frame_count: 2,
+                    frame_prompts: newPrompts,
+                    is_animated: false,
+                  });
+                }}
+                className="text-[10px] text-violet-400 hover:text-violet-300 underline transition-colors"
+              >
+                Convert to Multi-Frame
+              </button>
+            </div>
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-neutral-400">
+                Visual Prompt (B)
+              </span>
+              <textarea
+                value={visualPromptB}
+                onChange={(e) => setVisualPromptB(e.target.value)}
+                onBlur={() => commitField("visual_prompt_b", visualPromptB)}
+                className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2.5 border border-amber-700/50 resize-none focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30"
+                rows={3}
+                placeholder="Describe the second visual state (B)..."
+              />
+            </label>
+          </div>
         )}
       </div>
+
+      {/* Scene Transition */}
+      <label className="block space-y-1">
+        <span className="text-xs font-medium text-neutral-400">Scene Transition</span>
+        <select
+          value={scene.scene_transition || ""}
+          onChange={(e) => onUpdate({ scene_transition: e.target.value as Scene["scene_transition"] })}
+          className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
+        >
+          {SCENE_TRANSITIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <p className="text-[10px] text-neutral-600">Transition from previous scene into this one</p>
+      </label>
 
       {/* Video Clip Preview (for gameplay clips) */}
       {scene.video_clip_url && (
@@ -404,7 +500,18 @@ export default function PropertiesPanel({
       {/* Image Preview / Generate (for ai_generated and hardware_image) */}
       {scene.image_url ? (
         <div className="space-y-2">
-          {scene.is_animated && scene.image_url_b ? (
+          {scene.frame_urls && scene.frame_urls.length > 1 ? (
+            <div className="grid grid-cols-3 gap-1">
+              {scene.frame_urls.map((url, i) => (
+                <img
+                  key={i}
+                  src={assetUrl(url)}
+                  alt={`Frame ${i + 1}`}
+                  className="w-full object-cover rounded border border-neutral-700 h-[64px]"
+                />
+              ))}
+            </div>
+          ) : scene.is_animated && scene.image_url_b ? (
             <div className="grid grid-cols-2 gap-1">
               <div className="space-y-1">
                 <span className="text-[10px] text-neutral-500 uppercase">A</span>
@@ -441,6 +548,8 @@ export default function PropertiesPanel({
                   <span className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
                   Generating...
                 </>
+              ) : frameCount > 1 ? (
+                `Regenerate ${frameCount} Frames`
               ) : scene.is_animated ? (
                 "Regenerate Images (A+B)"
               ) : (
@@ -460,6 +569,8 @@ export default function PropertiesPanel({
               <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
               Generating...
             </>
+          ) : frameCount > 1 ? (
+            `Generate ${frameCount} Frames`
           ) : scene.is_animated ? (
             "Generate Images (A+B)"
           ) : (

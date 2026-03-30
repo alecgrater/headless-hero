@@ -13,6 +13,8 @@ from pipeline.ffmpeg_builder import (
     build_animated_scene_video_cmd,
     build_audio_concat_cmd,
     build_concat_cmd,
+    build_concat_with_transitions_cmd,
+    build_multiframe_scene_video_cmd,
     build_scene_video_cmd,
     build_title_card_zoom_cmd,
     build_tiktok_cmd,
@@ -122,10 +124,56 @@ def render_scene_video(
     image_path = _scene_image_path(script_id, scene.id)
     audio_path = _scene_audio_path(script_id, scene.id)
 
-    if not os.path.exists(image_path):
-        raise FileNotFoundError(f"Image not found: {image_path}")
     if not os.path.exists(audio_path):
         raise FileNotFoundError(f"Audio not found: {audio_path}")
+
+    # Multi-frame path: scene has frame_urls with >1 entry
+    has_frames = bool(getattr(scene, "frame_urls", None)) and len(scene.frame_urls) > 1
+    if has_frames:
+        frame_local_paths = []
+        for i in range(len(scene.frame_urls)):
+            fp = str(_data_dir / "projects" / script_id / "images" / f"{scene.id}_f{i}.png")
+            if os.path.exists(fp):
+                frame_local_paths.append(fp)
+        if len(frame_local_paths) > 1:
+            # Cache check: output mtime vs ALL frame images + audio
+            if not force and os.path.exists(output_path):
+                out_mtime = os.path.getmtime(output_path)
+                source_mtimes = [os.path.getmtime(fp) for fp in frame_local_paths]
+                source_mtimes.append(os.path.getmtime(audio_path))
+                if all(out_mtime > m for m in source_mtimes):
+                    return f"/static/projects/{script_id}/renders/scenes/{filename}"
+
+            duration = scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else scene.duration_estimate_seconds
+            kb = scene.ken_burns or KenBurnsConfig()
+            toc = scene.text_overlay_config or TextOverlayConfig()
+            brand_dict = brand or {}
+            font_family = brand_dict.get("font", "")
+
+            cmd = build_multiframe_scene_video_cmd(
+                frame_paths=frame_local_paths,
+                audio_path=audio_path,
+                output_path=output_path,
+                duration=duration,
+                width=width,
+                height=height,
+                ken_burns_effect=kb.effect,
+                ken_burns_intensity=kb.intensity,
+                text_overlay=scene.text_overlay,
+                overlay_position=toc.position,
+                overlay_style=toc.style,
+                overlay_animation=toc.animation,
+                overlay_show_at=toc.show_at,
+                overlay_duration=toc.duration,
+                fade_out_duration=fade_out,
+                speed=speed,
+                font_family=font_family,
+            )
+            _run_ffmpeg(cmd)
+            return f"/static/projects/{script_id}/renders/scenes/{filename}"
+
+    if not os.path.exists(image_path):
+        raise FileNotFoundError(f"Image not found: {image_path}")
 
     # Resolve B image for animated scenes
     is_animated = getattr(scene, "is_animated", False)
@@ -239,6 +287,7 @@ def render_full_video(
     scenes = _all_scenes(content)
     total = len(scenes)
     clip_paths: list[str] = []
+    scene_transitions: list[str] = []
 
     speed_suffix = f"_{speed}x" if speed != 1.0 else ""
 
@@ -251,6 +300,7 @@ def render_full_video(
         filename = f"{scene.id}{speed_suffix}.mp4"
         local_clip = str(_data_dir / "projects" / script_id / "renders" / "scenes" / filename)
         clip_paths.append(local_clip)
+        scene_transitions.append(getattr(scene, "scene_transition", "") or "")
 
     if on_progress:
         on_progress(0.9, "Concatenating clips...")
@@ -259,7 +309,12 @@ def render_full_video(
     output_filename = f"full_youtube{speed_suffix}.mp4"
     output_path = str(renders / output_filename)
 
-    cmd, list_file = build_concat_cmd(clip_paths, output_path)
+    # Use transitions if any non-empty scene_transition values exist
+    has_transitions = any(t and t != "" for t in scene_transitions)
+    if has_transitions:
+        cmd, list_file = build_concat_with_transitions_cmd(clip_paths, scene_transitions, output_path)
+    else:
+        cmd, list_file = build_concat_cmd(clip_paths, output_path)
     try:
         _run_ffmpeg(cmd)
     finally:

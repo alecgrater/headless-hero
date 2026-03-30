@@ -6,7 +6,7 @@ Reads IMAGE_PROVIDER from environment and delegates to the appropriate backend.
 import os
 
 
-def generate_image(prompt: str, width: int = 1344, height: int = 768) -> str:
+def generate_image(prompt: str, width: int = 1344, height: int = 768, seed: int | None = None) -> str:
     """Generate an image using the configured provider."""
     provider = os.environ.get("IMAGE_PROVIDER", "google")
 
@@ -15,4 +15,4 @@ def generate_image(prompt: str, width: int = 1344, height: int = 768) -> str:
     else:
         from integrations.google_image_client import generate_image as _gen
 
-    return _gen(prompt, width, height)
+    return _gen(prompt, width, height, seed=seed)

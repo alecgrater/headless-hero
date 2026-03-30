@@ -34,6 +34,8 @@ def generate_scene_image(
     style_guide: str = "",
     color_palette: str = "",
     font: str = "",
+    seed: int | None = None,
+    style_string: str = "",
 ) -> tuple[str, str]:
     """Generate a single scene image and save it locally.
 
@@ -44,8 +46,10 @@ def generate_scene_image(
     """
     guide = style_guide if style_guide else _STYLE_GUIDE
 
-    # Build prompt: guide → brand style → color palette → font → visual prompt
+    # Build prompt: style_string (verbatim) → guide → brand style → color palette → font → visual prompt
     parts: list[str] = []
+    if style_string:
+        parts.append(style_string)
     if guide:
         parts.append(guide)
     if brand_style:
@@ -73,7 +77,7 @@ def generate_scene_image(
         if cached_prompt == prompt:
             return web_path, prompt
 
-    tmp_path = generate_image(prompt, width=width, height=height)
+    tmp_path = generate_image(prompt, width=width, height=height, seed=seed)
 
     # Move generated image to local storage
     shutil.move(tmp_path, str(local_path))
@@ -82,6 +86,68 @@ def generate_scene_image(
     prompt_marker.write_text(prompt, encoding="utf-8")
 
     return web_path, prompt
+
+
+def generate_scene_frames(
+    scene_id: str,
+    frame_prompts: list[str],
+    brand_style: str,
+    script_id: str,
+    width: int = 1344,
+    height: int = 768,
+    force: bool = False,
+    style_guide: str = "",
+    color_palette: str = "",
+    font: str = "",
+    seed: int | None = None,
+    style_string: str = "",
+) -> list[tuple[str, str]]:
+    """Generate multiple frames for a scene and save them locally.
+
+    Each frame is saved as {scene_id}_f{i}.png with a cache file {scene_id}_f{i}.prompt.
+    Returns list of (web_path, composed_prompt) tuples.
+    """
+    guide = style_guide if style_guide else _STYLE_GUIDE
+    images_dir = _data_dir / "projects" / script_id / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+
+    results: list[tuple[str, str]] = []
+
+    for i, frame_prompt in enumerate(frame_prompts):
+        # Build prompt: style_string (verbatim) → guide → brand style → color palette → font → frame prompt
+        parts: list[str] = []
+        if style_string:
+            parts.append(style_string)
+        if guide:
+            parts.append(guide)
+        if brand_style:
+            parts.append(f"Brand art style: {brand_style}")
+        palette_desc = _format_color_palette(color_palette)
+        if palette_desc:
+            parts.append(palette_desc)
+        if font:
+            parts.append(f"Brand typography: {font}")
+        parts.append(frame_prompt)
+        prompt = "\n\n".join(parts)
+
+        filename = f"{scene_id}_f{i}.png"
+        local_path = images_dir / filename
+        prompt_marker = images_dir / f"{scene_id}_f{i}.prompt"
+        web_path = f"/static/projects/{script_id}/images/{filename}"
+
+        # Cache check
+        if not force and local_path.exists() and prompt_marker.exists():
+            cached_prompt = prompt_marker.read_text(encoding="utf-8").strip()
+            if cached_prompt == prompt:
+                results.append((web_path, prompt))
+                continue
+
+        tmp_path = generate_image(prompt, width=width, height=height, seed=seed)
+        shutil.move(tmp_path, str(local_path))
+        prompt_marker.write_text(prompt, encoding="utf-8")
+        results.append((web_path, prompt))
+
+    return results
 
 def generate_batch(
     scenes: list[dict[str, str]],
@@ -92,16 +158,48 @@ def generate_batch(
     style_guide: str = "",
     color_palette: str = "",
     font: str = "",
+    style_string: str = "",
 ) -> list[dict[str, str | None]]:
     """Generate images for a list of scenes sequentially.
 
     Each scene dict must have 'scene_id' and 'visual_prompt'.
     Optionally 'is_animated' (bool) and 'visual_prompt_b' (str) for A/B scenes.
-    Returns list of {scene_id, image_url, prompt_used, image_url_b?, error?}.
+    Optionally 'frame_prompts' (list[str]) and 'frame_seed' (int|None) for multi-frame scenes.
+    Returns list of {scene_id, image_url, prompt_used, image_url_b?, frame_urls?, error?}.
     """
     results: list[dict[str, str]] | None = []
     for scene in scenes:
         try:
+            frame_prompts = scene.get("frame_prompts", [])
+
+            # Multi-frame path
+            if frame_prompts:
+                frame_results = generate_scene_frames(
+                    scene_id=scene["scene_id"],
+                    frame_prompts=frame_prompts,
+                    brand_style=brand_style,
+                    script_id=script_id,
+                    width=width,
+                    height=height,
+                    style_guide=style_guide,
+                    color_palette=color_palette,
+                    font=font,
+                    seed=scene.get("frame_seed"),
+                    style_string=style_string,
+                )
+                frame_urls = [url for url, _ in frame_results]
+                # Use first frame as the primary image_url for backward compat
+                results.append({
+                    "scene_id": scene["scene_id"],
+                    "image_url": frame_urls[0] if frame_urls else None,
+                    "image_url_b": None,
+                    "frame_urls": frame_urls,
+                    "prompt_used": frame_results[0][1] if frame_results else None,
+                    "error": None,
+                })
+                continue
+
+            # Legacy single/A-B path
             image_url, prompt_used = generate_scene_image(
                 scene_id=scene["scene_id"],
                 visual_prompt=scene["visual_prompt"],
@@ -112,6 +210,7 @@ def generate_batch(
                 style_guide=style_guide,
                 color_palette=color_palette,
                 font=font,
+                style_string=style_string,
             )
             image_url_b = None
             if scene.get("is_animated") and scene.get("visual_prompt_b"):
@@ -126,6 +225,7 @@ def generate_batch(
                     style_guide=style_guide,
                     color_palette=color_palette,
                     font=font,
+                    style_string=style_string,
                 )
             results.append({
                 "scene_id": scene["scene_id"],
