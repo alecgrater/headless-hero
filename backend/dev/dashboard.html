@@ -45,6 +45,8 @@
   <nav class="border-b border-neutral-800 px-6 flex gap-1">
     <button onclick="switchTab('logs')" id="tab-logs" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-violet-500 text-violet-400 transition-colors">Logs</button>
     <button onclick="switchTab('jobs')" id="tab-jobs" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Jobs</button>
+    <button onclick="switchTab('api')" id="tab-api" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">API</button>
+    <button onclick="switchTab('database')" id="tab-database" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Database</button>
   </nav>
 
   <!-- Logs Tab -->
@@ -127,6 +129,77 @@
     <div id="jobsContainer" class="max-w-4xl mx-auto space-y-4"></div>
   </div>
 
+  <!-- API Tab -->
+  <div id="panel-api" class="hidden h-[calc(100vh-97px)] flex">
+    <!-- Endpoint sidebar -->
+    <div class="w-80 border-r border-neutral-800 flex flex-col overflow-hidden">
+      <div class="px-3 py-2.5 border-b border-neutral-800">
+        <input id="apiFilter" type="text" placeholder="Filter endpoints..."
+          oninput="renderEndpointList()"
+          class="w-full bg-surface-800 border border-neutral-700 text-sm rounded px-2.5 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+      </div>
+      <div id="apiEndpointList" class="flex-1 overflow-y-auto scrollbar-thin text-xs"></div>
+    </div>
+    <!-- Request / Response -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <!-- Request builder -->
+      <div id="apiRequestBuilder" class="border-b border-neutral-800 p-4 space-y-3 overflow-y-auto" style="max-height:50%">
+        <div class="text-sm text-neutral-500">Select an endpoint from the sidebar</div>
+      </div>
+      <!-- Response viewer -->
+      <div id="apiResponseViewer" class="flex-1 overflow-y-auto scrollbar-thin p-4">
+        <div class="text-sm text-neutral-500">Response will appear here</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Database Tab -->
+  <div id="panel-database" class="hidden h-[calc(100vh-97px)] flex">
+    <!-- Table list sidebar -->
+    <div class="w-64 border-r border-neutral-800 flex flex-col overflow-hidden">
+      <div class="px-3 py-2.5 border-b border-neutral-800 text-sm font-medium text-neutral-100">Tables</div>
+      <div id="dbTableList" class="flex-1 overflow-y-auto scrollbar-thin"></div>
+    </div>
+    <!-- Main area -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <!-- SQL query runner (collapsible) -->
+      <div class="border-b border-neutral-800">
+        <button onclick="toggleSqlRunner()" class="w-full px-4 py-2 text-xs text-neutral-400 hover:text-neutral-200 flex items-center gap-1.5 transition-colors">
+          <span id="sqlToggleArrow" class="transition-transform">&#9654;</span>
+          SQL Query Runner
+        </button>
+        <div id="sqlRunnerBody" class="hidden px-4 pb-3 space-y-2">
+          <textarea id="sqlInput" rows="3" placeholder="SELECT * FROM scripts LIMIT 10"
+            class="w-full bg-surface-800 border border-neutral-700 text-xs rounded px-2.5 py-2 text-neutral-300 focus:outline-none focus:border-violet-500 font-mono resize-y"></textarea>
+          <div class="flex items-center gap-2">
+            <button onclick="executeSqlQuery()" class="text-xs bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded transition-colors">Execute</button>
+            <span id="sqlError" class="text-xs text-red-400"></span>
+          </div>
+        </div>
+      </div>
+      <!-- Table browser -->
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- Header bar -->
+        <div id="dbBrowserHeader" class="px-4 py-2 border-b border-neutral-800 flex items-center justify-between text-xs">
+          <span class="text-neutral-500">Select a table to browse</span>
+        </div>
+        <!-- Data table -->
+        <div id="dbBrowserTable" class="flex-1 overflow-auto scrollbar-thin"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DB Row Detail Modal -->
+  <div id="dbDetailOverlay" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onclick="if(event.target===this)closeDbDetail()">
+    <div class="bg-surface-800 border border-neutral-700 rounded-lg w-[700px] max-h-[80vh] overflow-y-auto scrollbar-thin p-6">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-sm font-medium text-neutral-100">Row Detail</span>
+        <button onclick="closeDbDetail()" class="text-neutral-500 hover:text-neutral-300 transition-colors text-lg">&times;</button>
+      </div>
+      <div id="dbDetailContent" class="space-y-3 text-xs"></div>
+    </div>
+  </div>
+
   <!-- Expanded row detail -->
   <div id="detailOverlay" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onclick="if(event.target===this)closeDetail()">
     <div class="bg-surface-800 border border-neutral-700 rounded-lg w-[700px] max-h-[80vh] overflow-y-auto scrollbar-thin p-6">
@@ -170,6 +243,7 @@ const LEVEL_COLORS = {
 const LEVEL_ORDER = { DEBUG: 0, INFO: 1, WARNING: 2, ERROR: 3, CRITICAL: 4 };
 
 // --- Tabs ---
+const ALL_TABS = ['logs', 'jobs', 'api', 'database'];
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => {
     b.classList.remove('border-violet-500', 'text-violet-400');
@@ -177,9 +251,12 @@ function switchTab(tab) {
   });
   document.getElementById('tab-' + tab).classList.add('border-violet-500', 'text-violet-400');
   document.getElementById('tab-' + tab).classList.remove('border-transparent', 'text-neutral-500');
-  document.getElementById('panel-logs').classList.toggle('hidden', tab !== 'logs');
-  document.getElementById('panel-jobs').classList.toggle('hidden', tab !== 'jobs');
+  for (const t of ALL_TABS) {
+    document.getElementById('panel-' + t).classList.toggle('hidden', t !== tab);
+  }
   if (tab === 'jobs') fetchJobs();
+  if (tab === 'api') loadOpenApiSchema();
+  if (tab === 'database') fetchDbTables();
 }
 
 // --- Logs ---
@@ -473,8 +550,479 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Keyboard shortcut: Escape to close detail
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeDetail();
+  if (e.key === 'Escape') { closeDetail(); closeDbDetail(); }
 });
+
+// =====================================================
+// API TESTER
+// =====================================================
+let openApiSchema = null;
+let apiEndpoints = [];
+let selectedEndpoint = null;
+
+const METHOD_COLORS = {
+  get: 'bg-sky-600/30 text-sky-400',
+  post: 'bg-emerald-600/30 text-emerald-400',
+  put: 'bg-amber-600/30 text-amber-400',
+  delete: 'bg-red-600/30 text-red-400',
+  patch: 'bg-violet-600/30 text-violet-400',
+};
+
+async function loadOpenApiSchema() {
+  if (openApiSchema) return; // cached
+  try {
+    const res = await fetch('/openapi.json');
+    openApiSchema = await res.json();
+    parseEndpoints();
+    renderEndpointList();
+  } catch (e) {
+    document.getElementById('apiEndpointList').innerHTML = `<div class="p-3 text-red-400 text-xs">Failed to load OpenAPI schema</div>`;
+  }
+}
+
+function resolveRef(ref) {
+  if (!ref || !openApiSchema) return {};
+  const parts = ref.replace('#/', '').split('/');
+  let obj = openApiSchema;
+  for (const p of parts) obj = obj?.[p];
+  return obj || {};
+}
+
+function resolveSchema(schema) {
+  if (!schema) return {};
+  if (schema.$ref) return resolveSchema(resolveRef(schema.$ref));
+  if (schema.allOf) {
+    let merged = {};
+    for (const sub of schema.allOf) {
+      const resolved = resolveSchema(sub);
+      merged = { ...merged, ...resolved, properties: { ...(merged.properties || {}), ...(resolved.properties || {}) } };
+    }
+    return merged;
+  }
+  if (schema.anyOf) return resolveSchema(schema.anyOf[0]);
+  if (schema.oneOf) return resolveSchema(schema.oneOf[0]);
+  return schema;
+}
+
+function parseEndpoints() {
+  apiEndpoints = [];
+  const paths = openApiSchema.paths || {};
+  for (const [path, methods] of Object.entries(paths)) {
+    for (const [method, info] of Object.entries(methods)) {
+      if (['get', 'post', 'put', 'delete', 'patch'].indexOf(method) === -1) continue;
+      const tags = info.tags || ['other'];
+      const params = info.parameters || [];
+      const pathParams = params.filter(p => p.in === 'path');
+      const queryParams = params.filter(p => p.in === 'query');
+      let bodySchema = null;
+      if (info.requestBody?.content?.['application/json']?.schema) {
+        bodySchema = resolveSchema(info.requestBody.content['application/json'].schema);
+      }
+      apiEndpoints.push({
+        method, path, tag: tags[0],
+        summary: info.summary || '',
+        pathParams, queryParams, bodySchema,
+        hasFileUpload: !!(info.requestBody?.content?.['multipart/form-data']),
+      });
+    }
+  }
+  // Sort by tag then path
+  apiEndpoints.sort((a, b) => a.tag.localeCompare(b.tag) || a.path.localeCompare(b.path));
+}
+
+function renderEndpointList() {
+  const container = document.getElementById('apiEndpointList');
+  const filter = (document.getElementById('apiFilter').value || '').toLowerCase();
+  const filtered = filter
+    ? apiEndpoints.filter(e => e.path.toLowerCase().includes(filter) || e.tag.toLowerCase().includes(filter))
+    : apiEndpoints;
+
+  // Group by tag
+  const groups = {};
+  for (const ep of filtered) {
+    (groups[ep.tag] = groups[ep.tag] || []).push(ep);
+  }
+
+  let html = '';
+  for (const [tag, eps] of Object.entries(groups)) {
+    html += `<div class="px-3 pt-3 pb-1 text-[10px] font-medium text-neutral-500 uppercase tracking-wider">${escapeHtml(tag)}</div>`;
+    for (const ep of eps) {
+      const sel = selectedEndpoint && selectedEndpoint.method === ep.method && selectedEndpoint.path === ep.path;
+      const cls = METHOD_COLORS[ep.method] || '';
+      html += `<div onclick="selectEndpoint('${ep.method}','${ep.path}')"
+        class="px-3 py-1.5 cursor-pointer flex items-center gap-2 hover:bg-surface-700 transition-colors ${sel ? 'bg-surface-700' : ''}">
+        <span class="inline-block w-12 text-center px-1 py-0.5 rounded text-[10px] font-medium uppercase ${cls}">${ep.method}</span>
+        <span class="text-neutral-300 truncate" title="${ep.path}">${ep.path}</span>
+      </div>`;
+    }
+  }
+  container.innerHTML = html || '<div class="p-3 text-neutral-500">No endpoints found</div>';
+}
+
+function selectEndpoint(method, path) {
+  selectedEndpoint = apiEndpoints.find(e => e.method === method && e.path === path);
+  renderEndpointList();
+  renderRequestBuilder();
+}
+
+function buildExampleFromSchema(schema, depth = 0) {
+  if (!schema || depth > 5) return null;
+  const resolved = resolveSchema(schema);
+  if (resolved.type === 'object' || resolved.properties) {
+    const obj = {};
+    for (const [key, prop] of Object.entries(resolved.properties || {})) {
+      obj[key] = buildExampleFromSchema(prop, depth + 1);
+    }
+    return obj;
+  }
+  if (resolved.type === 'array') {
+    const item = buildExampleFromSchema(resolved.items, depth + 1);
+    return item !== null ? [item] : [];
+  }
+  if (resolved.type === 'string') return resolved.default ?? "";
+  if (resolved.type === 'integer' || resolved.type === 'number') return resolved.default ?? 0;
+  if (resolved.type === 'boolean') return resolved.default ?? false;
+  if (resolved.enum) return resolved.enum[0];
+  return null;
+}
+
+function renderRequestBuilder() {
+  const ep = selectedEndpoint;
+  const builder = document.getElementById('apiRequestBuilder');
+  if (!ep) { builder.innerHTML = '<div class="text-sm text-neutral-500">Select an endpoint</div>'; return; }
+
+  const cls = METHOD_COLORS[ep.method] || '';
+  let html = `<div class="flex items-center gap-2 mb-3">
+    <span class="px-2 py-0.5 rounded text-xs font-medium uppercase ${cls}">${ep.method}</span>
+    <span class="text-sm text-neutral-200 font-mono">${ep.path}</span>
+    ${ep.summary ? `<span class="text-xs text-neutral-500 ml-2">${escapeHtml(ep.summary)}</span>` : ''}
+  </div>`;
+
+  // Path params
+  if (ep.pathParams.length) {
+    html += '<div class="space-y-1.5">';
+    html += '<div class="text-[10px] font-medium text-neutral-500 uppercase">Path Parameters</div>';
+    for (const p of ep.pathParams) {
+      html += `<div class="flex items-center gap-2">
+        <label class="text-xs text-neutral-400 w-32">${p.name}</label>
+        <input type="text" id="path-${p.name}" placeholder="${p.name}"
+          class="flex-1 bg-surface-800 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500 font-mono">
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  // Query params
+  if (ep.queryParams.length) {
+    html += '<div class="space-y-1.5 mt-3">';
+    html += '<div class="text-[10px] font-medium text-neutral-500 uppercase">Query Parameters</div>';
+    for (const p of ep.queryParams) {
+      const def = p.schema?.default ?? '';
+      html += `<div class="flex items-center gap-2">
+        <label class="text-xs text-neutral-400 w-32">${p.name}</label>
+        <input type="text" id="query-${p.name}" placeholder="${p.name}" value="${def}"
+          class="flex-1 bg-surface-800 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500 font-mono">
+      </div>`;
+    }
+    html += '</div>';
+  }
+
+  // Body
+  if (ep.bodySchema) {
+    const example = buildExampleFromSchema(ep.bodySchema);
+    const exJson = example ? JSON.stringify(example, null, 2) : '{}';
+    html += `<div class="mt-3">
+      <div class="text-[10px] font-medium text-neutral-500 uppercase mb-1">Request Body</div>
+      <textarea id="apiBody" rows="6"
+        class="w-full bg-surface-800 border border-neutral-700 text-xs rounded px-2.5 py-2 text-neutral-300 focus:outline-none focus:border-violet-500 font-mono resize-y">${escapeHtml(exJson)}</textarea>
+    </div>`;
+  }
+
+  // File upload warning
+  if (ep.hasFileUpload) {
+    html += '<div class="text-xs text-amber-400 mt-2">File upload endpoints are not supported in this tester.</div>';
+  }
+
+  // Send button
+  html += `<div class="mt-3">
+    <button onclick="sendApiRequest()" id="apiSendBtn" class="text-xs bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded transition-colors" ${ep.hasFileUpload ? 'disabled' : ''}>Send Request</button>
+  </div>`;
+
+  builder.innerHTML = html;
+}
+
+async function sendApiRequest() {
+  const ep = selectedEndpoint;
+  if (!ep) return;
+
+  // Build URL with path params
+  let url = ep.path;
+  for (const p of ep.pathParams) {
+    const val = document.getElementById('path-' + p.name)?.value || '';
+    url = url.replace(`{${p.name}}`, encodeURIComponent(val));
+  }
+
+  // Query params
+  const qp = new URLSearchParams();
+  for (const p of ep.queryParams) {
+    const val = document.getElementById('query-' + p.name)?.value;
+    if (val !== undefined && val !== '') qp.set(p.name, val);
+  }
+  const qs = qp.toString();
+  if (qs) url += '?' + qs;
+
+  const opts = { method: ep.method.toUpperCase(), headers: {} };
+  if (ep.bodySchema && (ep.method === 'post' || ep.method === 'put' || ep.method === 'patch')) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = document.getElementById('apiBody')?.value || '{}';
+  }
+
+  const viewer = document.getElementById('apiResponseViewer');
+  viewer.innerHTML = '<div class="text-xs text-neutral-500">Sending...</div>';
+
+  const start = performance.now();
+  try {
+    const res = await fetch(url, opts);
+    const elapsed = (performance.now() - start).toFixed(0);
+    const statusCls = res.status < 300 ? 'bg-emerald-600/30 text-emerald-400'
+                    : res.status < 500 ? 'bg-amber-600/30 text-amber-400'
+                    : 'bg-red-600/30 text-red-400';
+
+    let bodyHtml;
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('json')) {
+      const json = await res.json();
+      bodyHtml = `<pre class="text-xs bg-surface-800 rounded p-3 overflow-x-auto whitespace-pre-wrap break-words">${syntaxHighlightJson(JSON.stringify(json, null, 2))}</pre>`;
+    } else {
+      const text = await res.text();
+      bodyHtml = `<pre class="text-xs bg-surface-800 rounded p-3 text-neutral-300 whitespace-pre-wrap break-words">${escapeHtml(text.substring(0, 5000))}</pre>`;
+    }
+
+    viewer.innerHTML = `
+      <div class="flex items-center gap-3 mb-3">
+        <span class="px-2 py-0.5 rounded text-xs font-medium ${statusCls}">${res.status} ${res.statusText}</span>
+        <span class="text-xs text-neutral-500">${elapsed}ms</span>
+      </div>
+      ${bodyHtml}`;
+  } catch (e) {
+    viewer.innerHTML = `<div class="text-xs text-red-400">Request failed: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function syntaxHighlightJson(json) {
+  return escapeHtml(json)
+    .replace(/"([^"]+)":/g, '<span class="text-violet-400">"$1"</span>:')
+    .replace(/: "([^"]*)"/g, ': <span class="text-emerald-400">"$1"</span>')
+    .replace(/: (\d+\.?\d*)/g, ': <span class="text-amber-400">$1</span>')
+    .replace(/: (true|false)/g, ': <span class="text-sky-400">$1</span>')
+    .replace(/: (null)/g, ': <span class="text-neutral-500">$1</span>');
+}
+
+// =====================================================
+// DATABASE INSPECTOR
+// =====================================================
+let dbTables = [];
+let dbSelectedTable = null;
+let dbCurrentOffset = 0;
+let dbCurrentRowCount = 0;
+let dbShowingSqlResults = false;
+const DB_PAGE_SIZE = 50;
+
+async function fetchDbTables() {
+  try {
+    const res = await fetch('/dev/api/db/tables');
+    dbTables = await res.json();
+    renderDbTableList();
+  } catch (e) {
+    document.getElementById('dbTableList').innerHTML = `<div class="p-3 text-red-400 text-xs">Failed to load tables</div>`;
+  }
+}
+
+function renderDbTableList() {
+  const container = document.getElementById('dbTableList');
+  let html = '';
+  for (const t of dbTables) {
+    const sel = dbSelectedTable === t.name;
+    html += `<div onclick="selectDbTable('${t.name}')"
+      class="px-3 py-2 cursor-pointer flex items-center justify-between hover:bg-surface-700 transition-colors ${sel ? 'bg-surface-700' : ''}">
+      <span class="text-xs text-neutral-300">${t.name}</span>
+      <span class="text-[10px] text-neutral-500 bg-surface-800 px-1.5 py-0.5 rounded">${t.row_count}</span>
+    </div>`;
+  }
+  container.innerHTML = html || '<div class="p-3 text-neutral-500 text-xs">No tables</div>';
+}
+
+async function selectDbTable(name) {
+  dbSelectedTable = name;
+  dbCurrentOffset = 0;
+  dbShowingSqlResults = false;
+  renderDbTableList();
+  await fetchDbRows();
+}
+
+async function fetchDbRows() {
+  try {
+    const res = await fetch(`/dev/api/db/tables/${dbSelectedTable}?limit=${DB_PAGE_SIZE}&offset=${dbCurrentOffset}`);
+    const data = await res.json();
+    dbCurrentRowCount = data.row_count;
+    renderDbBrowser(data);
+  } catch (e) {
+    document.getElementById('dbBrowserTable').innerHTML = `<div class="p-4 text-red-400 text-xs">Failed to load rows</div>`;
+  }
+}
+
+function renderDbBrowser(data) {
+  // Header
+  const header = document.getElementById('dbBrowserHeader');
+  const pageStart = data.offset + 1;
+  const pageEnd = Math.min(data.offset + data.rows.length, data.row_count);
+  const hasPrev = data.offset > 0;
+  const hasNext = data.offset + data.limit < data.row_count;
+  header.innerHTML = `
+    <div class="flex items-center gap-2">
+      <span class="text-neutral-200 font-medium">${escapeHtml(data.table)}</span>
+      <span class="text-neutral-500">${data.row_count} rows</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="text-neutral-500">${pageStart}–${pageEnd}</span>
+      <button onclick="dbPrevPage()" class="px-2 py-0.5 rounded bg-surface-800 hover:bg-surface-700 text-neutral-400 transition-colors ${hasPrev ? '' : 'opacity-30 pointer-events-none'}">&larr;</button>
+      <button onclick="dbNextPage()" class="px-2 py-0.5 rounded bg-surface-800 hover:bg-surface-700 text-neutral-400 transition-colors ${hasNext ? '' : 'opacity-30 pointer-events-none'}">&rarr;</button>
+    </div>`;
+
+  renderDbTable(data.columns, data.rows);
+}
+
+function renderDbTable(columns, rows) {
+  const container = document.getElementById('dbBrowserTable');
+  if (!rows.length) {
+    container.innerHTML = '<div class="p-4 text-neutral-500 text-xs">No rows</div>';
+    return;
+  }
+
+  let html = '<table class="w-full text-xs"><thead class="sticky top-0 bg-surface-900 border-b border-neutral-800 z-10"><tr>';
+  for (const col of columns) {
+    html += `<th class="px-3 py-2 text-left text-neutral-500 font-medium whitespace-nowrap">${escapeHtml(col)}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    html += `<tr class="border-b border-neutral-800/50 hover:bg-surface-800/50 cursor-pointer" onclick="showDbRowDetail(${i})">`;
+    for (const col of columns) {
+      const val = row[col];
+      const display = formatCellValue(val);
+      html += `<td class="px-3 py-1.5 text-neutral-300 max-w-[300px] truncate" title="${escapeHtml(String(val ?? ''))}">${display}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  container.innerHTML = html;
+
+  // Store rows for detail modal
+  container._columns = columns;
+  container._rows = rows;
+}
+
+function formatCellValue(val) {
+  if (val === null || val === undefined) return '<span class="text-neutral-600">null</span>';
+  const str = String(val);
+  if (isJsonString(str)) return '<span class="text-violet-400">' + escapeHtml(str.substring(0, 60)) + (str.length > 60 ? '...' : '') + '</span>';
+  if (str.length > 80) return escapeHtml(str.substring(0, 80)) + '...';
+  return escapeHtml(str);
+}
+
+function isJsonString(val) {
+  if (typeof val !== 'string') return false;
+  const trimmed = val.trimStart();
+  return trimmed.startsWith('{') || trimmed.startsWith('[');
+}
+
+function showDbRowDetail(idx) {
+  const container = document.getElementById('dbBrowserTable');
+  const columns = container._columns;
+  const row = container._rows[idx];
+  if (!row) return;
+
+  let html = '';
+  for (const col of columns) {
+    const val = row[col];
+    let display;
+    if (val === null || val === undefined) {
+      display = '<span class="text-neutral-600">null</span>';
+    } else if (isJsonString(String(val))) {
+      try {
+        const parsed = JSON.parse(val);
+        display = `<pre class="mt-1 bg-surface-900 rounded p-2 text-neutral-200 whitespace-pre-wrap break-words max-h-64 overflow-y-auto scrollbar-thin">${syntaxHighlightJson(JSON.stringify(parsed, null, 2))}</pre>`;
+      } catch {
+        display = `<pre class="mt-1 bg-surface-900 rounded p-2 text-neutral-200 whitespace-pre-wrap break-words">${escapeHtml(String(val))}</pre>`;
+      }
+    } else {
+      display = `<span class="text-neutral-200">${escapeHtml(String(val))}</span>`;
+    }
+    html += `<div><span class="text-neutral-500">${escapeHtml(col)}:</span> ${display}</div>`;
+  }
+
+  document.getElementById('dbDetailContent').innerHTML = html;
+  document.getElementById('dbDetailOverlay').classList.remove('hidden');
+}
+
+function closeDbDetail() {
+  document.getElementById('dbDetailOverlay').classList.add('hidden');
+}
+
+function dbPrevPage() {
+  if (dbCurrentOffset <= 0) return;
+  dbCurrentOffset = Math.max(0, dbCurrentOffset - DB_PAGE_SIZE);
+  fetchDbRows();
+}
+
+function dbNextPage() {
+  if (dbCurrentOffset + DB_PAGE_SIZE >= dbCurrentRowCount) return;
+  dbCurrentOffset += DB_PAGE_SIZE;
+  fetchDbRows();
+}
+
+function toggleSqlRunner() {
+  const body = document.getElementById('sqlRunnerBody');
+  const arrow = document.getElementById('sqlToggleArrow');
+  const isHidden = body.classList.contains('hidden');
+  body.classList.toggle('hidden');
+  arrow.style.transform = isHidden ? 'rotate(90deg)' : '';
+}
+
+async function executeSqlQuery() {
+  const sql = document.getElementById('sqlInput').value.trim();
+  if (!sql) return;
+  document.getElementById('sqlError').textContent = '';
+
+  try {
+    const res = await fetch('/dev/api/db/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sql, limit: 200 }),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      document.getElementById('sqlError').textContent = data.error;
+      return;
+    }
+
+    dbShowingSqlResults = true;
+    // Update header for SQL results
+    const header = document.getElementById('dbBrowserHeader');
+    header.innerHTML = `
+      <div class="flex items-center gap-2">
+        <span class="text-neutral-200 font-medium">Query Results</span>
+        <span class="text-neutral-500">${data.row_count} rows</span>
+      </div>
+      <button onclick="selectDbTable(dbSelectedTable || '${dbTables[0]?.name || ''}')" class="text-xs text-violet-400 hover:text-violet-300 transition-colors">Back to table</button>`;
+
+    renderDbTable(data.columns, data.rows);
+  } catch (e) {
+    document.getElementById('sqlError').textContent = 'Request failed: ' + e.message;
+  }
+}
 </script>
 
 </body>

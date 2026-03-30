@@ -9,6 +9,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
+from sqlalchemy import inspect, text
 from sqlmodel import Session, func, select, col
 
 from api.database import engine
@@ -204,3 +206,107 @@ def _level_and_above(level: str) -> list[str]:
         idx = order.index(level)
         return order[idx:]
     return [level]
+
+
+# --- Database Inspector ---
+
+_SENSITIVE_COLUMNS = {"access_token", "refresh_token", "value"}
+_SENSITIVE_TABLES = {"platform_credentials", "app_settings"}
+
+
+@router.get("/api/db/tables")
+async def db_tables():
+    """Return all table names with row counts and column info."""
+    inspector_obj = inspect(engine)
+    tables = inspector_obj.get_table_names()
+    result = []
+    with engine.connect() as conn:
+        for table_name in sorted(tables):
+            columns = [
+                {"name": c["name"], "type": str(c["type"])}
+                for c in inspector_obj.get_columns(table_name)
+            ]
+            row_count = conn.execute(
+                text(f"SELECT COUNT(*) FROM [{table_name}]")
+            ).scalar()
+            result.append({
+                "name": table_name,
+                "row_count": row_count,
+                "columns": columns,
+            })
+    return result
+
+
+@router.get("/api/db/tables/{table_name}")
+async def db_table_rows(
+    table_name: str,
+    limit: int = Query(default=50, le=500),
+    offset: int = 0,
+):
+    """Paginated row browser for a specific table."""
+    inspector_obj = inspect(engine)
+    valid_tables = inspector_obj.get_table_names()
+    if table_name not in valid_tables:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail=f"Table '{table_name}' not found")
+
+    columns = [c["name"] for c in inspector_obj.get_columns(table_name)]
+    should_redact = table_name in _SENSITIVE_TABLES
+
+    with engine.connect() as conn:
+        row_count = conn.execute(
+            text(f"SELECT COUNT(*) FROM [{table_name}]")
+        ).scalar()
+        rows_raw = conn.execute(
+            text(f"SELECT * FROM [{table_name}] LIMIT :lim OFFSET :off"),
+            {"lim": limit, "off": offset},
+        ).fetchall()
+
+    rows = []
+    for row in rows_raw:
+        row_dict = dict(zip(columns, row))
+        if should_redact:
+            for col_name in _SENSITIVE_COLUMNS:
+                if col_name in row_dict and row_dict[col_name]:
+                    val = str(row_dict[col_name])
+                    row_dict[col_name] = "••••••••" + val[-4:] if len(val) > 4 else "••••••••"
+        rows.append(row_dict)
+
+    return {
+        "table": table_name,
+        "columns": columns,
+        "row_count": row_count,
+        "rows": rows,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+class DbQueryRequest(BaseModel):
+    sql: str
+    limit: int = 200
+
+
+@router.post("/api/db/query")
+async def db_query(req: DbQueryRequest):
+    """Execute a read-only SQL query."""
+    sql_stripped = req.sql.strip()
+    first_keyword = sql_stripped.split()[0].upper() if sql_stripped else ""
+    allowed = {"SELECT", "PRAGMA", "EXPLAIN", "WITH"}
+    if first_keyword not in allowed:
+        return {
+            "error": f"Only {', '.join(sorted(allowed))} queries are allowed. Got: {first_keyword}",
+            "columns": [],
+            "rows": [],
+        }
+
+    limit = min(req.limit, 500)
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text(sql_stripped))
+            columns = list(result.keys()) if result.returns_rows else []
+            rows_raw = result.fetchmany(limit) if result.returns_rows else []
+            rows = [dict(zip(columns, row)) for row in rows_raw]
+        return {"columns": columns, "rows": rows, "row_count": len(rows)}
+    except Exception as e:
+        return {"error": str(e), "columns": [], "rows": []}
