@@ -574,26 +574,7 @@ export function useStoryboardState(
         }
       }
 
-      // Fetch rate limit setting (default 10s = 6 req/min for free-tier)
-      let rateLimitMs = 10000;
-      try {
-        const settingsRes = await api.get("/api/settings/keys");
-        if (settingsRes.ok) {
-          const keys = settingsRes.data as Record<string, { masked: string }>;
-          const val = parseInt(keys.IMAGE_RATE_LIMIT_MS?.masked || "10000", 10);
-          if (!isNaN(val) && val >= 0) rateLimitMs = val;
-        }
-      } catch {
-        // Use default on failure
-      }
-
-      let isFirstScene = true;
       for (const scene of scenes) {
-        // Rate-limit delay between image generation requests (skip before first)
-        if (!isFirstScene && rateLimitMs > 0) {
-          await new Promise((r) => setTimeout(r, rateLimitMs));
-        }
-        isFirstScene = false;
         statuses.set(scene.scene_id, "generating");
         setGeneratingSceneIds((prev) => new Set(prev).add(scene.scene_id));
         setBatchImageProgress((prev) => ({

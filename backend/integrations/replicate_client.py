@@ -2,8 +2,14 @@
 
 import os
 import tempfile
+import threading
+import time
 
 import replicate
+
+# Module-level rate limiter: tracks last API call time
+_last_call_lock = threading.Lock()
+_last_call_time: float = 0.0
 
 
 def generate_image(prompt: str, width: int = 1344, height: int = 768, seed: int | None = None) -> str:
@@ -14,6 +20,17 @@ def generate_image(prompt: str, width: int = 1344, height: int = 768, seed: int 
             "REPLICATE_API_TOKEN is not set. "
             "Export it in your shell or add it to the app settings."
         )
+
+    # Enforce rate limit if enabled (IMAGE_RATE_LIMIT_MS > 0)
+    rate_limit_ms = int(os.environ.get("IMAGE_RATE_LIMIT_MS", "10000"))
+    if rate_limit_ms > 0:
+        global _last_call_time
+        with _last_call_lock:
+            now = time.monotonic()
+            elapsed_ms = (now - _last_call_time) * 1000
+            if elapsed_ms < rate_limit_ms:
+                time.sleep((rate_limit_ms - elapsed_ms) / 1000)
+            _last_call_time = time.monotonic()
 
     prompt_upsampling = os.environ.get(
         "REPLICATE_PROMPT_UPSAMPLING", "true"
