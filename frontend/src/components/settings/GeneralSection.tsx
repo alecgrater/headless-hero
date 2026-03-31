@@ -10,6 +10,7 @@ interface KeyInfo {
 
 const IMAGE_PROVIDERS = [
   { value: "google", label: "Google Gemini" },
+  { value: "google", label: "Gemini - Gemini" },
   { value: "replicate", label: "Replicate (Flux)" },
 ] as const;
 

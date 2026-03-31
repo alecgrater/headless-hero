@@ -22,6 +22,8 @@ def generate_image(
 
     if provider == "replicate":
         from integrations.replicate_client import generate_image as _gen
+    elif provider == "google":
+        from integrations.google_image_client_gemini import generate_image as _gen
     else:
         from integrations.google_image_client import generate_image as _gen
 
