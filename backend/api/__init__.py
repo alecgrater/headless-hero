@@ -39,7 +39,10 @@ async def lifespan(app: FastAPI):
     prune_old_logs(_db_engine)
     log_handler = SQLiteLogHandler(_db_engine)
     log_handler.setLevel(logging.DEBUG)
-    logging.getLogger().addHandler(log_handler)
+    root_logger = logging.getLogger()
+    root_logger.addHandler(log_handler)
+    if root_logger.level > logging.DEBUG:
+        root_logger.setLevel(logging.DEBUG)
     # Load saved API keys into environment
     from api.settings import load_keys_into_env
     with Session(_db_engine) as session:
