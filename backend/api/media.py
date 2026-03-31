@@ -1,5 +1,7 @@
 """Endpoints for fetching real media (gameplay clips, hardware images) via yt-dlp."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
@@ -7,6 +9,8 @@ from sqlmodel import Session
 from api.database import get_session
 from models.script import Script, ScriptContent
 from pipeline.media_fetcher import fetch_batch, fetch_scene_media
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/media", tags=["media"])
 
@@ -57,6 +61,7 @@ class BatchFetchResponse(BaseModel):
 @router.post("/fetch", response_model=FetchMediaResponse)
 def fetch_media(req: FetchMediaRequest, session: Session = Depends(get_session)):
     """Fetch real media for a single scene and update the script_json."""
+    logger.info("Fetching %s for scene %s (script %s)", req.media_type, req.scene_id, req.script_id)
     db_script = session.get(Script, req.script_id)
     if not db_script:
         raise HTTPException(404, "Script not found")
@@ -87,6 +92,7 @@ def fetch_media(req: FetchMediaRequest, session: Session = Depends(get_session))
     session.add(db_script)
     session.commit()
 
+    logger.info("Media fetch complete for scene %s", req.scene_id)
     return FetchMediaResponse(
         scene_id=req.scene_id,
         video_clip_url=result.get("video_clip_url"),
@@ -97,6 +103,7 @@ def fetch_media(req: FetchMediaRequest, session: Session = Depends(get_session))
 @router.post("/fetch-batch", response_model=BatchFetchResponse)
 def fetch_media_batch(req: BatchFetchRequest, session: Session = Depends(get_session)):
     """Fetch real media for multiple scenes."""
+    logger.info("Batch fetching media for %d scenes (script %s)", len(req.scenes), req.script_id)
     db_script = session.get(Script, req.script_id)
     if not db_script:
         raise HTTPException(404, "Script not found")
@@ -119,6 +126,8 @@ def fetch_media_batch(req: BatchFetchRequest, session: Session = Depends(get_ses
     session.add(db_script)
     session.commit()
 
+    success_count = sum(1 for r in results if "error" not in r or r.get("error") is None)
+    logger.info("Batch media fetch complete: %d/%d scenes succeeded", success_count, len(req.scenes))
     return BatchFetchResponse(
         results=[
             BatchFetchResultItem(

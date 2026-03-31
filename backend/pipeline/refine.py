@@ -1,10 +1,13 @@
 """Scene refinement pipeline — polishes human-edited scenes to match script tone."""
 
 import json
+import logging
 
 from config import strip_markdown_fences
 from integrations.claude_client import chat
 from models.script import Scene, ScriptContent
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """\
 You are an expert YouTube scriptwriter. A human editor has revised one scene in \
@@ -42,6 +45,8 @@ def refine_scene(
     segment = script.segments[segment_index]
     target_scene = next(s for s in segment.scenes if s.id == scene_id)
 
+    logger.info("Refining scene %s in segment %d", scene_id, segment_index)
+
     # Build context: surrounding scenes for tone reference
     context_scenes: list[dict] = []
     for seg in script.segments:
@@ -76,4 +81,6 @@ def refine_scene(
     if target_scene.text_overlay_config:
         data["text_overlay_config"] = target_scene.text_overlay_config.model_dump()
 
-    return Scene.model_validate(data)
+    refined = Scene.model_validate(data)
+    logger.info("Scene %s refined successfully", scene_id)
+    return refined

@@ -4,11 +4,14 @@ Injects real media guidelines into script generation prompts and
 overrides scene rendering for gameplay clip scenes.
 """
 
+import logging
 import os
 
 from config import DATA_DIR
 from models.script import Scene, ScriptContent, TextOverlayConfig
 from pipeline.modifiers.base import ContentModifier, ModifierMeta
+
+logger = logging.getLogger(__name__)
 
 # Instructions previously hardcoded in scriptwriter.SYSTEM_PROMPT lines 76-90
 _REAL_MEDIA_PROMPT_INSTRUCTIONS = """\
@@ -48,11 +51,14 @@ class RealMediaModifier(ContentModifier):
     )
 
     def modify_script_prompt(self, system_prompt: str, user_message: str) -> tuple[str, str]:
+        logger.info("Injecting real media guidelines into script prompt")
         return system_prompt + _REAL_MEDIA_PROMPT_INSTRUCTIONS, user_message
 
     def get_render_override(self, scene: Scene, script_id: str, **kwargs) -> list[str] | None:
         if getattr(scene, "media_type", "ai_generated") != "gameplay_clip":
             return None
+
+        logger.info("Overriding render for gameplay_clip scene %s (script %s)", scene.id, script_id)
 
         clip_path = str(DATA_DIR / "projects" / script_id / "clips" / f"{scene.id}.mp4")
         audio_path = str(DATA_DIR / "projects" / script_id / "audio" / f"{scene.id}.mp3")

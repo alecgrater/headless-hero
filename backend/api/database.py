@@ -1,6 +1,10 @@
+import logging
+
 from sqlmodel import Session, SQLModel, create_engine, text
 
 from config import DATA_DIR
+
+logger = logging.getLogger(__name__)
 
 # Store the DB in a `data/` directory next to the backend package
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -10,9 +14,11 @@ engine = create_engine(f"sqlite:///{_db_path}", echo=False)
 
 def init_db() -> None:
     """Create all tables. Safe to call repeatedly."""
+    logger.info("Initializing database")
     SQLModel.metadata.create_all(engine)
     # Run lightweight migrations for new columns on existing tables
     _migrate(engine)
+    logger.info("Database ready")
 
 def _migrate(engine) -> None:
     """Add columns that may not exist in older databases."""
@@ -28,6 +34,8 @@ def _migrate(engine) -> None:
             try:
                 session.exec(text(sql))
                 session.commit()
+                name = sql.split("ADD COLUMN")[1].strip().split()[0] if "ADD COLUMN" in sql else sql[:40]
+                logger.info("Applied migration: %s", name)
             except Exception:
                 session.rollback()
 
