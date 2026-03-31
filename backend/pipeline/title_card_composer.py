@@ -77,7 +77,7 @@ def calculate_grid_layout(
     rows, cols = _GRID_LAYOUTS.get(segment_count, (2, max(3, (segment_count + 1) // 2)))
 
     if include_title:
-        grid_top = 160  # title_height(140) + 20
+        grid_top = 130  # allow title to overlap top circles slightly
     else:
         grid_top = 30  # near top of canvas
     grid_bottom = CANVAS_H - 40
@@ -132,7 +132,7 @@ def compose_title_card(
 
     # Calculate circle radius from grid cell size
     if include_title:
-        grid_top = 160
+        grid_top = 130  # match calculate_grid_layout
     else:
         grid_top = 30
     grid_bottom = CANVAS_H - 40
@@ -141,44 +141,12 @@ def compose_title_card(
     cell_w = (grid_right - grid_left) / cols
     cell_h = (grid_bottom - grid_top) / rows
     # Leave room for label text below circle
-    label_space = 30
+    label_space = 50
     max_radius = int(min(cell_w, cell_h - label_space) / 2 - 12)
 
     # Create white canvas
     canvas = Image.new("RGB", (CANVAS_W, CANVAS_H), "white")
     draw = ImageDraw.Draw(canvas)
-
-    # --- Render title text (only if include_title) ---
-    if include_title:
-        title_font = _load_font(64, bold=True)
-        title_text = card_title.upper()
-        highlight = highlight_word.upper() if highlight_word else ""
-
-        if highlight and highlight in title_text:
-            # Split title around highlight word and render segments
-            parts = title_text.split(highlight, 1)
-            before, after = parts[0], parts[1] if len(parts) > 1 else ""
-
-            # Measure total width to center
-            before_bbox = title_font.getbbox(before) if before else (0, 0, 0, 0)
-            hl_bbox = title_font.getbbox(highlight)
-            after_bbox = title_font.getbbox(after) if after else (0, 0, 0, 0)
-            total_w = (before_bbox[2] - before_bbox[0]) + (hl_bbox[2] - hl_bbox[0]) + (after_bbox[2] - after_bbox[0])
-            x = (CANVAS_W - total_w) // 2
-            y = 40
-
-            if before:
-                draw.text((x, y), before, fill="#222222", font=title_font)
-                x += before_bbox[2] - before_bbox[0]
-            draw.text((x, y), highlight, fill=accent_color, font=title_font)
-            x += hl_bbox[2] - hl_bbox[0]
-            if after:
-                draw.text((x, y), after, fill="#222222", font=title_font)
-        else:
-            # No highlight — center the full title
-            bbox = title_font.getbbox(title_text)
-            tw = bbox[2] - bbox[0]
-            draw.text(((CANVAS_W - tw) // 2, 40), title_text, fill="#222222", font=title_font)
 
     # --- Place circles ---
     zoom_targets: dict[int, tuple[int, int, int]] = {}
@@ -201,8 +169,8 @@ def compose_title_card(
             img = Image.open(circle_image_paths[i])
             cropped = circle_crop(img, max_radius * 2)
             canvas.paste(cropped, (cx - max_radius, cy - max_radius), cropped)
-        except Exception:
-            logger.warning("Failed to load circle image %d: %s", i, circle_image_paths[i])
+        except Exception as exc:
+            logger.warning("Failed to load circle image %d (%s), using solid color fallback: %s", i, circle_image_paths[i], exc)
             # Draw a placeholder circle with the color
             draw.ellipse(
                 (cx - max_radius, cy - max_radius, cx + max_radius, cy + max_radius),
@@ -220,12 +188,12 @@ def compose_title_card(
         # Draw segment label below circle — auto-scale to fit cell width
         label = segment_names[i].upper() if i < len(segment_names) else f"SEGMENT {i + 1}"
         max_label_w = int(cell_w - 20)
-        label_size = 28
+        label_size = 40
         label_font = _load_font(label_size, bold=True)
         lbox = label_font.getbbox(label)
         lw = lbox[2] - lbox[0]
         # Shrink font until label fits or we hit minimum size
-        while lw > max_label_w and label_size > 14:
+        while lw > max_label_w and label_size > 22:
             label_size -= 2
             label_font = _load_font(label_size, bold=True)
             lbox = label_font.getbbox(label)
@@ -239,6 +207,42 @@ def compose_title_card(
         )
 
         zoom_targets[i] = (cx, cy, max_radius)
+
+    # --- Render title text AFTER circles so it overlaps them ---
+    if include_title:
+        title_font = _load_font(110, bold=True)
+        title_text = card_title.upper()
+        highlight = highlight_word.upper() if highlight_word else ""
+        shadow_offsets = [(-2, -2), (-2, 2), (2, -2), (2, 2), (-3, 0), (3, 0), (0, -3), (0, 3)]
+
+        def _draw_title_segment(x: int, y: int, text: str, fill: str) -> None:
+            """Draw text with a dark outline for readability over circles."""
+            for ox, oy in shadow_offsets:
+                draw.text((x + ox, y + oy), text, fill="#000000", font=title_font)
+            draw.text((x, y), text, fill=fill, font=title_font)
+
+        if highlight and highlight in title_text:
+            parts = title_text.split(highlight, 1)
+            before, after = parts[0], parts[1] if len(parts) > 1 else ""
+
+            before_bbox = title_font.getbbox(before) if before else (0, 0, 0, 0)
+            hl_bbox = title_font.getbbox(highlight)
+            after_bbox = title_font.getbbox(after) if after else (0, 0, 0, 0)
+            total_w = (before_bbox[2] - before_bbox[0]) + (hl_bbox[2] - hl_bbox[0]) + (after_bbox[2] - after_bbox[0])
+            x = (CANVAS_W - total_w) // 2
+            y = 20
+
+            if before:
+                _draw_title_segment(x, y, before, "#ffffff")
+                x += before_bbox[2] - before_bbox[0]
+            _draw_title_segment(x, y, highlight, accent_color)
+            x += hl_bbox[2] - hl_bbox[0]
+            if after:
+                _draw_title_segment(x, y, after, "#ffffff")
+        else:
+            bbox = title_font.getbbox(title_text)
+            tw = bbox[2] - bbox[0]
+            _draw_title_segment((CANVAS_W - tw) // 2, 20, title_text, "#ffffff")
 
     canvas.save(output_path, "PNG")
     logger.info("Composite title card saved: %s (%d segments, %dx%d grid, title=%s)", output_path, count, cols, rows, include_title)
