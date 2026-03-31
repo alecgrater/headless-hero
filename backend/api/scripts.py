@@ -108,6 +108,7 @@ def delete_script(script_id: str, session: Session = Depends(get_session)):
 
 @router.post("/generate", response_model=GenerateScriptResponse)
 def generate(body: GenerateScriptRequest, session: Session = Depends(get_session)):
+    logger.info("Script generation requested: topic=%r, brand_id=%s", body.topic, body.brand_id)
     brand = session.get(BrandProfile, body.brand_id)
     if not brand:
         raise HTTPException(status_code=404, detail="Brand not found")

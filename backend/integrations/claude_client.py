@@ -28,16 +28,18 @@ def chat(
     *,
     model: str = "anthropic.claude-opus-4-6-v1",
     max_tokens: int = 4096,
+    timeout: float = 600.0,
 ) -> str:
     """Send a single-turn message to Claude and return the text response."""
     client = get_client()
-    logger.info("Calling Claude API model=%s", model)
+    logger.info("Calling Claude API model=%s max_tokens=%d timeout=%.0fs", model, max_tokens, timeout)
     try:
         response = client.messages.create(
             model=model,
             max_tokens=max_tokens,
             system=system,
             messages=[{"role": "user", "content": user_message}],
+            timeout=timeout,
         )
     except Exception:
         logger.error("Anthropic API call failed (model=%s)", model, exc_info=True)

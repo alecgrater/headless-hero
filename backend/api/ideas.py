@@ -27,6 +27,7 @@ class GenerateIdeasResponse(BaseModel):
 
 @router.post("/generate", response_model=GenerateIdeasResponse)
 def generate(body: GenerateIdeasRequest, session: Session = Depends(get_session)):
+    logger.info("Idea generation requested: niche=%r, count=%d, brand_id=%s", body.niche, body.count, body.brand_id)
     brand_context = None
     if body.brand_id:
         brand = session.get(BrandProfile, body.brand_id)
