@@ -67,8 +67,9 @@ def generate_ideas(
         )
     user_message = "\n".join(user_parts)
 
-    logger.info("Generating %s ideas for niche %r", count, niche)
-    raw = chat(SYSTEM_PROMPT, user_message)
+    model = "anthropic.claude-opus-4-6-v1"
+    logger.info("Generating %s ideas for niche %r using model=%s", count, niche, model)
+    raw = chat(SYSTEM_PROMPT, user_message, model=model)
 
     # Claude may wrap JSON in markdown fences — strip them
     text = strip_markdown_fences(raw)
