@@ -136,7 +136,7 @@ def generate_script(
         user_parts.append(f"Target segment count: {segment_count}")
     else:
         user_parts.append(
-            "Use exactly 6, 8, 10, or 12 segments (pick the most appropriate count for the topic)."
+            "Use exactly 6 or 8 segments (pick the most appropriate count for the topic)."
         )
     if brand_context:
         user_parts.append(f"Brand context (use for visual style and tone): {brand_context}")

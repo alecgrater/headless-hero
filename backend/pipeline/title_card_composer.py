@@ -19,8 +19,6 @@ CANVAS_H = 1080
 _GRID_LAYOUTS = {
     6: (2, 3),
     8: (2, 4),
-    10: (2, 5),
-    12: (3, 4),
 }
 
 # Default bold colors when Claude doesn't provide them
