@@ -9,7 +9,7 @@ from config import DATA_DIR
 from integrations.youtube_client import refresh_access_token, upload_video
 from models.credential import PlatformCredential
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 _TOKEN_REFRESH_BUFFER_SECONDS = 300  # Refresh if expiry within 5 minutes
 
@@ -34,7 +34,7 @@ def _ensure_token_fresh(credential: PlatformCredential) -> bool:
     if remaining > _TOKEN_REFRESH_BUFFER_SECONDS:
         return False
 
-    log.info("Refreshing expired YouTube token for brand %s", credential.brand_id)
+    logger.info("Refreshing expired YouTube token for brand %s", credential.brand_id)
     result = refresh_access_token(credential.refresh_token)
     credential.access_token = result["access_token"]
     if result.get("expiry"):
@@ -63,7 +63,7 @@ def publish_to_youtube(
     if not os.path.exists(local_path):
         raise FileNotFoundError(f"Video file not found: {local_path}")
 
-    log.info("Starting YouTube upload: %s (scheduled=%s)", metadata.get("title", "Untitled"), schedule_at)
+    logger.info("Starting YouTube upload: %s (scheduled=%s)", metadata.get("title", "Untitled"), schedule_at)
 
     # Refresh token if needed
     _ensure_token_fresh(credential)
@@ -89,5 +89,5 @@ def publish_to_youtube(
     if on_progress:
         on_progress(1.0, "Published!")
 
-    log.info("YouTube upload complete: video_id=%s", result.get("id"))
+    logger.info("YouTube upload complete: video_id=%s", result.get("id"))
     return result

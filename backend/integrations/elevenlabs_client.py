@@ -9,7 +9,7 @@ import httpx
 from config import DEFAULT_TTS_MODEL
 from integrations.usage_tracker import record_usage, ELEVENLABS_PER_CHAR
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 _BASE_URL = "https://api.elevenlabs.io/v1"
 
@@ -87,6 +87,7 @@ def generate_speech(
     Returns (raw audio bytes MP3, word_timestamps [{word, start_ms, end_ms}]).
     """
     url = f"{_BASE_URL}/text-to-speech/{voice_id}/with-timestamps"
+    logger.info("Calling ElevenLabs TTS voice_id=%s", voice_id)
 
     effective_settings = {**_DEFAULT_VOICE_SETTINGS}
     if voice_settings:
@@ -112,11 +113,12 @@ def generate_speech(
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError:
-            log.error("ElevenLabs TTS request failed: %s %s", response.status_code, response.text[:500])
+            logger.error("ElevenLabs TTS request failed: %s %s", response.status_code, response.text[:500])
             raise
         data = response.json()
 
     audio_bytes = base64.b64decode(data["audio_base64"])
+    logger.info("ElevenLabs TTS complete, audio_size=%d bytes", len(audio_bytes))
 
     alignment = data.get("alignment", {})
     characters = alignment.get("characters", [])
@@ -135,7 +137,7 @@ def generate_speech(
     if characters and char_starts and char_ends:
         word_timestamps = _reconstruct_words(characters, char_starts, char_ends)
     else:
-        log.warning("No alignment data returned from ElevenLabs — word timestamps unavailable")
+        logger.warning("No alignment data returned from ElevenLabs — word timestamps unavailable")
         word_timestamps = []
 
     return audio_bytes, word_timestamps

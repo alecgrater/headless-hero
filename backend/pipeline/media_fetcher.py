@@ -8,7 +8,7 @@ import tempfile
 
 from config import DATA_DIR
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def _check_ytdlp() -> None:
@@ -55,10 +55,10 @@ def _download_video(search_query: str, output_path: str) -> None:
         "--no-warnings",
         "-o", output_path,
     ]
-    log.info("yt-dlp download: %s", " ".join(cmd))
+    logger.info("yt-dlp download: %s", " ".join(cmd))
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
     if result.returncode != 0:
-        log.error("yt-dlp stderr: %s", result.stderr)
+        logger.error("yt-dlp stderr: %s", result.stderr)
         raise RuntimeError(f"yt-dlp failed: {result.stderr[-500:]}")
 
 
@@ -80,7 +80,7 @@ def search_and_download_clip(
     output_path = str(clips_dir / f"{scene_id}.mp4")
 
     if _is_cached(output_path, search_query, force):
-        log.info("Clip cache hit: %s", output_path)
+        logger.info("Clip cache hit: %s", output_path)
         return f"/static/projects/{script_id}/clips/{scene_id}.mp4"
 
     # Download to temp file
@@ -101,7 +101,7 @@ def search_and_download_clip(
             "-pix_fmt", "yuv420p",
             output_path,
         ]
-        log.info("Trimming clip: %s", " ".join(trim_cmd))
+        logger.info("Trimming clip: %s", " ".join(trim_cmd))
         result = subprocess.run(trim_cmd, capture_output=True, text=True, timeout=120)
         if result.returncode != 0:
             raise RuntimeError(f"FFmpeg trim failed: {result.stderr[-500:]}")
@@ -128,7 +128,7 @@ def search_and_extract_frame(
     output_path = str(images_dir / f"{scene_id}.png")
 
     if _is_cached(output_path, search_query, force):
-        log.info("Frame cache hit: %s", output_path)
+        logger.info("Frame cache hit: %s", output_path)
         return f"/static/projects/{script_id}/images/{scene_id}.png"
 
     # Download to temp, extract frame at 5s mark
@@ -144,7 +144,7 @@ def search_and_extract_frame(
             "-q:v", "1",
             output_path,
         ]
-        log.info("Extracting frame: %s", " ".join(frame_cmd))
+        logger.info("Extracting frame: %s", " ".join(frame_cmd))
         result = subprocess.run(frame_cmd, capture_output=True, text=True, timeout=60)
         if result.returncode != 0:
             raise RuntimeError(f"FFmpeg frame extract failed: {result.stderr[-500:]}")
@@ -197,6 +197,6 @@ def fetch_batch(
             )
             results.append(result)
         except Exception as e:
-            log.error("Failed to fetch media for scene %s: %s", scene["scene_id"], e)
+            logger.error("Failed to fetch media for scene %s: %s", scene["scene_id"], e)
             results.append({"scene_id": scene["scene_id"], "error": str(e)})
     return results

@@ -21,16 +21,16 @@ from pipeline.ffmpeg_builder import (
     build_tiktok_cmd,
 )
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 ProgressCallback = Callable[[float, str], None] | None
 
 def _run_ffmpeg(cmd: list[str]) -> None:
     """Run an FFmpeg command, raising on failure."""
-    log.info("Running: %s", " ".join(cmd))
+    logger.info("Running: %s", " ".join(cmd))
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     if result.returncode != 0:
-        log.error("FFmpeg stderr: %s", result.stderr)
+        logger.error("FFmpeg stderr: %s", result.stderr)
         raise RuntimeError(f"FFmpeg failed (exit {result.returncode}): {result.stderr[-500:]}")
 
 def _sanitize_filename(name: str) -> str:
@@ -48,7 +48,7 @@ def copy_to_downloads(title: str, src_path: str, dest_name: str) -> str:
     folder.mkdir(parents=True, exist_ok=True)
     dest = folder / dest_name
     shutil.copy2(src_path, dest)
-    log.info("Copied to downloads: %s", dest)
+    logger.info("Copied to downloads: %s", dest)
     return str(dest)
 
 def _scene_image_path(script_id: str, scene_id: str, image_url: str | None = None) -> str:
@@ -357,7 +357,7 @@ def render_full_video(
             speed_label = f" ({speed}x)" if speed != 1.0 else ""
             copy_to_downloads(title, output_path, f"{_sanitize_filename(title)} - YouTube{speed_label}.mp4")
         except Exception:
-            log.warning("Failed to copy to downloads", exc_info=True)
+            logger.warning("Failed to copy to downloads", exc_info=True)
 
     return web_path
 
@@ -466,7 +466,7 @@ def render_all_segments(
                 local = str(DATA_DIR / "projects" / script_id / "renders" / "tiktok" / f"{idx}.mp4")
                 copy_to_downloads(title, local, f"{_sanitize_filename(title)} - TikTok Segment {idx + 1}{speed_label}.mp4")
             except Exception:
-                log.warning("Failed to copy segment %d to downloads", idx, exc_info=True)
+                logger.warning("Failed to copy segment %d to downloads", idx, exc_info=True)
 
     return results
 
@@ -507,6 +507,6 @@ def export_full_audio(
         try:
             copy_to_downloads(title, output_path, f"{_sanitize_filename(title)} - Audio.mp3")
         except Exception:
-            log.warning("Failed to copy audio to downloads", exc_info=True)
+            logger.warning("Failed to copy audio to downloads", exc_info=True)
 
     return web_path

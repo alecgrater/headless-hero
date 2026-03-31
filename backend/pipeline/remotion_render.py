@@ -17,7 +17,7 @@ from typing import Any, Callable
 from config import DATA_DIR
 from models.script import KenBurnsConfig, Scene, SceneFX, ScriptContent
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 ProgressCallback = Callable[[float, str], None] | None
 
@@ -179,7 +179,7 @@ def _run_remotion(
         "--overwrite",
     ]
 
-    log.info("Running Remotion: %s", " ".join(cmd))
+    logger.info("Running Remotion: %s", " ".join(cmd))
 
     result = subprocess.run(
         cmd,
@@ -191,12 +191,12 @@ def _run_remotion(
     )
 
     if result.returncode != 0:
-        log.error("Remotion stderr: %s", result.stderr[-1000:])
+        logger.error("Remotion stderr: %s", result.stderr[-1000:])
         raise RuntimeError(
             f"Remotion render failed (exit {result.returncode}): {result.stderr[-500:]}"
         )
 
-    log.info("Remotion render complete: %s", output_path)
+    logger.info("Remotion render complete: %s", output_path)
 
 
 def render_scene_preview(
@@ -343,7 +343,7 @@ def render_full_video(
                 f"{_sanitize_filename(title)} - YouTube{speed_label}.mp4",
             )
         except Exception:
-            log.warning("Failed to copy to downloads", exc_info=True)
+            logger.warning("Failed to copy to downloads", exc_info=True)
 
     return web_path
 
@@ -355,5 +355,5 @@ def _copy_to_downloads(title: str, src_path: str, dest_name: str) -> str:
     folder.mkdir(parents=True, exist_ok=True)
     dest = folder / dest_name
     shutil.copy2(src_path, dest)
-    log.info("Copied to downloads: %s", dest)
+    logger.info("Copied to downloads: %s", dest)
     return str(dest)

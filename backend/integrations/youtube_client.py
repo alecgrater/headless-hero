@@ -9,7 +9,7 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 _SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
@@ -72,6 +72,7 @@ def refresh_access_token(refresh_token: str) -> dict:
     import google.auth.transport.requests
 
     config = _get_client_config()["web"]
+    logger.info("Refreshing YouTube OAuth token")
     creds = Credentials(
         token=None,
         refresh_token=refresh_token,
@@ -91,6 +92,7 @@ def get_channel_info(access_token: str) -> dict[str, str]:
     Returns dict with channel_id, channel_name.
     """
     creds = Credentials(token=access_token)
+    logger.info("Fetching YouTube channel info")
     youtube = build("youtube", "v3", credentials=creds)
     response = youtube.channels().list(part="snippet", mine=True).execute()
     items = response.get("items", [])
@@ -151,7 +153,7 @@ def upload_video(
             on_progress(status.progress())
 
     video_id = response["id"]
-    log.info("Uploaded video: %s", video_id)
+    logger.info("Uploaded video: %s", video_id)
     return {
         "id": video_id,
         "url": f"https://www.youtube.com/watch?v={video_id}",

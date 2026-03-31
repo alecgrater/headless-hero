@@ -50,6 +50,7 @@ def generate_image(
     """
     client = _get_client()
     aspect = _closest_aspect_ratio(width, height)
+    logger.info("Generating image via Gemini")
 
     try:
         response = client.models.generate_content(
@@ -81,6 +82,7 @@ def generate_image(
                 images=1,
                 cost_estimate=GOOGLE_IMAGE_PER_CALL,
             )
+            logger.info("Gemini image generated successfully")
             return tmp_path
 
     raise RuntimeError("Gemini response did not contain an image")

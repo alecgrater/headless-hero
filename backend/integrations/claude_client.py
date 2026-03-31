@@ -31,6 +31,7 @@ def chat(
 ) -> str:
     """Send a single-turn message to Claude and return the text response."""
     client = get_client()
+    logger.info("Calling Claude API model=%s", model)
     try:
         response = client.messages.create(
             model=model,
@@ -55,5 +56,6 @@ def chat(
         output_tokens=output_tok,
         cost_estimate=cost,
     )
+    logger.info("Claude API call complete, usage: %s input / %s output tokens", input_tok, output_tok)
 
     return response.content[0].text
