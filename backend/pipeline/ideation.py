@@ -3,7 +3,7 @@
 import json
 import logging
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from config import strip_markdown_fences
 from integrations.claude_client import chat
@@ -18,6 +18,11 @@ class VideoIdea(BaseModel):
     description: str
     keywords: list[str]
 
+    @field_validator("segments_est")
+    @classmethod
+    def cap_segments(cls, v: int) -> int:
+        return min(v, 8)
+
 SYSTEM_PROMPT = """\
 You are a YouTube content strategist specializing in educational/explainer \
 channels (like "Everything Professor"). Your job is to generate compelling \
@@ -26,7 +31,7 @@ video topic ideas that are optimized for YouTube search and viewer engagement.
 Rules:
 - Every title should follow proven YouTube patterns: listicles, "Every X Explained", \
   comparisons, "What happens when…", etc.
-- Estimate how many named segments (sub-topics) each video would have.
+- Estimate how many named segments (sub-topics) each video would have (maximum 8).
 - Provide a brief angle/hook description (1-2 sentences).
 - Suggest 3-5 relevant YouTube search keywords per idea.
 - Avoid generic or overly broad topics — be specific and clickable.
