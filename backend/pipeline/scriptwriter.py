@@ -156,8 +156,9 @@ def generate_script(
         for mod in get_active(modifier_ids):
             system_prompt, user_message = mod.modify_script_prompt(system_prompt, user_message)
 
-    logger.info("Generating script for topic %r (segments=%s, modifiers=%s)", topic, segment_count, modifier_ids)
-    raw = chat(system_prompt, user_message, max_tokens=16384)
+    model = "anthropic.claude-opus-4-6-v1"
+    logger.info("Generating script for topic %r using model=%s (segments=%s, modifiers=%s)", topic, model, segment_count, modifier_ids)
+    raw = chat(system_prompt, user_message, model=model, max_tokens=16384)
 
     # Strip markdown fences if present
     text = strip_markdown_fences(raw)
