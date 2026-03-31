@@ -156,7 +156,7 @@ def generate_script(
         for mod in get_active(modifier_ids):
             system_prompt, user_message = mod.modify_script_prompt(system_prompt, user_message)
 
-    model = "claude-sonnet-4-6-20250514"
+    model = "anthropic.claude-sonnet-4-6"
     logger.info("Generating script for topic %r using model=%s (segments=%s, modifiers=%s)", topic, model, segment_count, modifier_ids)
     raw = chat(system_prompt, user_message, model=model, max_tokens=16384, timeout=900.0)
 
