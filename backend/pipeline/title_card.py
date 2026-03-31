@@ -47,8 +47,12 @@ def ensure_title_card_images(
 
     notitle_path = images_dir / "composite_title_card_notitle.png"
 
-    # Check if both composites already exist (cache)
-    if not force and composite_path.exists() and notitle_path.exists():
+    # Check if both composites AND all circle images already exist (cache)
+    all_circles_exist = all(
+        (images_dir / f"title_card_{idx}.png").exists()
+        for idx in range(len(content.segments))
+    )
+    if not force and composite_path.exists() and notitle_path.exists() and all_circles_exist:
         logger.info("Composite title cards already exist, recomputing zoom targets only")
         from pipeline.title_card_composer import calculate_grid_layout
         from pipeline.title_card_composer import CANVAS_H, CANVAS_W
@@ -61,7 +65,7 @@ def ensure_title_card_images(
         grid_right = CANVAS_W - 80
         cell_w = (grid_right - grid_left) / cols
         cell_h = (grid_bottom - grid_top) / rows
-        label_space = 30
+        label_space = 50
         max_radius = int(min(cell_w, cell_h - label_space) / 2 - 12)
         zoom_targets = {i: (pos[0], pos[1], max_radius) for i, pos in enumerate(positions) if i < len(content.segments)}
 
