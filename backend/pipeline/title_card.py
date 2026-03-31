@@ -122,12 +122,35 @@ def ensure_title_card_images(
             circle_paths.append(circle_path)
             logger.info("Generated circle image %d/%d for segment %r", idx + 1, len(content.segments), seg.name)
         except Exception as exc:
-            logger.error(
-                "Failed to generate circle image for segment %d (%s): %s",
+            logger.warning(
+                "Circle image %d (%s) failed with style, retrying with stripped prompt: %s",
                 idx, seg.name, exc,
-                exc_info=True,
             )
-            circle_paths.append("")  # Placeholder — composer will draw colored circle
+            # Retry with minimal prompt — no style string/guide to avoid safety filters
+            try:
+                fallback_prompt = (
+                    f"A simple, colorful illustration: {prompt}. "
+                    "Cartoon style, bright colors, clean background, no text, no people."
+                )
+                web_url, _ = generate_scene_image(
+                    scene_id=f"title_card_{idx}",
+                    visual_prompt=fallback_prompt,
+                    script_id=script_id,
+                    width=768,
+                    height=768,
+                    force=True,
+                    style_guide=" ",  # space to skip default guide
+                    style_string="",  # no style string
+                )
+                circle_paths.append(circle_path)
+                logger.info("Generated circle image %d/%d for segment %r (fallback prompt)", idx + 1, len(content.segments), seg.name)
+            except Exception as exc2:
+                logger.error(
+                    "Failed to generate circle image for segment %d (%s) even with fallback: %s",
+                    idx, seg.name, exc2,
+                    exc_info=True,
+                )
+                circle_paths.append("")  # Placeholder — composer will draw colored circle
 
         # Report per-segment progress
         if job_id:
