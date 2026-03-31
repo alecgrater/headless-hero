@@ -28,6 +28,7 @@ ALLOWED_KEYS = {
     "REPLICATE_SAFETY_TOLERANCE",
     "REPLICATE_OUTPUT_FORMAT",
     "IMAGE_RATE_LIMIT_MS",
+    "SCRIPT_MODEL",
 }
 
 # Keys that should NOT be masked (non-secret settings)
@@ -39,11 +40,13 @@ _PLAINTEXT_KEYS = {
     "REPLICATE_SAFETY_TOLERANCE",
     "REPLICATE_OUTPUT_FORMAT",
     "IMAGE_RATE_LIMIT_MS",
+    "SCRIPT_MODEL",
 }
 
 # Default values for settings that have sensible defaults
 _DEFAULTS: dict[str, str] = {
     "IMAGE_RATE_LIMIT_MS": "10000",  # 6 req/min to stay under free-tier limits
+    "SCRIPT_MODEL": "claude-sonnet-4-20250514",
 }
 
 

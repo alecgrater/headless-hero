@@ -36,6 +36,14 @@ const REPLICATE_MODELS = [
   { value: "black-forest-labs/flux-schnell", label: "Flux Schnell", description: "Fastest, lowest cost" },
 ] as const;
 
+const SCRIPT_MODELS = [
+  { value: "claude-sonnet-4-20250514", label: "Claude Sonnet 4" },
+  { value: "anthropic.claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+  { value: "anthropic.claude-opus-4-6-v1", label: "Claude Opus 4.6" },
+  { value: "anthropic.claude-sonnet-4-5-20250929-v1:0", label: "Claude Sonnet 4.5" },
+  { value: "anthropic.claude-haiku-4-5-20251001-v1:0", label: "Claude Haiku 4.5" },
+] as const;
+
 export default function GeneralSection() {
   const [downloadsDir, setDownloadsDir] = useState("");
   const [imageProvider, setImageProvider] = useState("google");
@@ -46,6 +54,7 @@ export default function GeneralSection() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [rateLimitEnabled, setRateLimitEnabled] = useState("true");
+  const [scriptModel, setScriptModel] = useState("claude-sonnet-4-20250514");
   const [originalDownloads, setOriginalDownloads] = useState("");
   const [originalProvider, setOriginalProvider] = useState("google");
   const [originalUpsampling, setOriginalUpsampling] = useState("true");
@@ -53,6 +62,7 @@ export default function GeneralSection() {
   const [originalSafety, setOriginalSafety] = useState("2");
   const [originalFormat, setOriginalFormat] = useState("png");
   const [originalRateLimit, setOriginalRateLimit] = useState("true");
+  const [originalScriptModel, setOriginalScriptModel] = useState("claude-sonnet-4-20250514");
 
   useEffect(() => {
     api.get("/api/settings/keys").then((res) => {
@@ -79,6 +89,9 @@ export default function GeneralSection() {
         const rlVal = data.IMAGE_RATE_LIMIT_MS?.masked || "true";
         setRateLimitEnabled(rlVal === "0" || rlVal === "false" ? "false" : "true");
         setOriginalRateLimit(rlVal === "0" || rlVal === "false" ? "false" : "true");
+        const smVal = data.SCRIPT_MODEL?.masked || "claude-sonnet-4-20250514";
+        setScriptModel(smVal);
+        setOriginalScriptModel(smVal);
       }
       setLoading(false);
     });
@@ -94,6 +107,7 @@ export default function GeneralSection() {
       REPLICATE_SAFETY_TOLERANCE: safetyTolerance,
       REPLICATE_OUTPUT_FORMAT: outputFormat,
       IMAGE_RATE_LIMIT_MS: rateLimitEnabled === "true" ? "10000" : "0",
+      SCRIPT_MODEL: scriptModel,
     });
     setSaving(false);
 
@@ -106,6 +120,7 @@ export default function GeneralSection() {
       setOriginalSafety(safetyTolerance);
       setOriginalFormat(outputFormat);
       setOriginalRateLimit(rateLimitEnabled);
+      setOriginalScriptModel(scriptModel);
     }
   };
 
@@ -116,7 +131,8 @@ export default function GeneralSection() {
     promptUpsampling !== originalUpsampling ||
     safetyTolerance !== originalSafety ||
     outputFormat !== originalFormat ||
-    rateLimitEnabled !== originalRateLimit;
+    rateLimitEnabled !== originalRateLimit ||
+    scriptModel !== originalScriptModel;
 
   return (
     <div className="px-8 py-8 max-w-2xl space-y-6">
@@ -154,6 +170,26 @@ export default function GeneralSection() {
               placeholder="~/Downloads"
               className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 transition-colors font-mono"
             />
+          </div>
+
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-2">
+            <div>
+              <h3 className="text-sm font-medium text-neutral-100">Script Generation Model</h3>
+              <p className="text-xs text-neutral-500">
+                Which Claude model to use for generating video scripts.
+              </p>
+            </div>
+            <select
+              value={scriptModel}
+              onChange={(e) => setScriptModel(e.target.value)}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
+            >
+              {SCRIPT_MODELS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-2">

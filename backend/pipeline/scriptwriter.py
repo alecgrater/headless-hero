@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 from pathlib import Path
 
 from config import strip_markdown_fences
@@ -156,7 +157,7 @@ def generate_script(
         for mod in get_active(modifier_ids):
             system_prompt, user_message = mod.modify_script_prompt(system_prompt, user_message)
 
-    model = "claude-sonnet-4-20250514"
+    model = os.environ.get("SCRIPT_MODEL", "claude-sonnet-4-20250514")
     logger.info("Generating script for topic %r using model=%s (segments=%s, modifiers=%s)", topic, model, segment_count, modifier_ids)
     raw = chat(system_prompt, user_message, model=model, max_tokens=16384, timeout=900.0)
 
