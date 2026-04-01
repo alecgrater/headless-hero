@@ -35,7 +35,7 @@ function extractErrorMessage(status: number, data: unknown): string {
 }
 
 /** Paths that should not trigger toast notifications on error. */
-const SILENT_PATHS = ["/api/health", "/api/render/status/"];
+const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/visuals/title-cards-status/"];
 
 function shouldSilence(path: string): boolean {
   return SILENT_PATHS.some((p) => path.startsWith(p));
@@ -184,6 +184,21 @@ export async function generateFX(scriptId: string) {
 /** Regenerate FX for a single scene via Claude. */
 export async function regenerateFX(scriptId: string, sceneId: string) {
   return api.post("/api/fx/regenerate", { script_id: scriptId, scene_id: sceneId });
+}
+
+/** Poll a title card background job until it completes or fails. */
+export async function pollTitleCardJob(jobId: string): Promise<void> {
+  const POLL_INTERVAL = 1500;
+  const MAX_POLLS = 200; // ~5 minutes max
+  for (let i = 0; i < MAX_POLLS; i++) {
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+    const res = await api.get(`/api/visuals/title-cards-status/${jobId}`);
+    if (!res.ok) throw new Error("Failed to check title card job status");
+    const job = res.data as { status: string; error: string | null };
+    if (job.status === "completed") return;
+    if (job.status === "failed") throw new Error(job.error || "Title card generation failed");
+  }
+  throw new Error("Title card generation timed out");
 }
 
 /** Open a URL in the system browser (Electron shell) or a new tab (dev). */

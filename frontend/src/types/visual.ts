@@ -10,6 +10,5 @@ export interface GenerateBatchResponse {
 }
 
 export interface GenerateTitleCardsResponse {
-  generated_scene_ids: string[];
-  image_urls: Record<string, string>;
+  job_id: string;
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api";
-import { fetchMedia as apiFetchMedia, fetchMediaBatch } from "../../api";
+import { fetchMedia as apiFetchMedia, fetchMediaBatch, pollTitleCardJob } from "../../api";
 import type { Scene, ScriptContent } from "../../types/script";
 import type { GenerateBatchResponse, GenerateVisualResponse, GenerateTitleCardsResponse } from "../../types/visual";
 import type { GenerateAudioResponse, GenerateBatchAudioResponse } from "../../types/audio";
@@ -443,17 +443,13 @@ export function useStoryboardState(
           });
           if (res.ok) {
             const data = res.data as GenerateTitleCardsResponse;
-            setContent((prev) => ({
-              ...prev,
-              segments: prev.segments.map((seg) => ({
-                ...seg,
-                scenes: seg.scenes.map((sc) =>
-                  data.image_urls[sc.id]
-                    ? { ...sc, image_url: data.image_urls[sc.id] }
-                    : sc,
-                ),
-              })),
-            }));
+            await pollTitleCardJob(data.job_id);
+            // Refresh script from server to get updated image URLs
+            const scriptRes = await api.get(`/api/scripts/${scriptId}`);
+            if (scriptRes.ok) {
+              const scriptData = scriptRes.data as { script: ScriptContent };
+              setContent(scriptData.script);
+            }
             immediateFlush();
           }
         } finally {
@@ -552,7 +548,7 @@ export function useStoryboardState(
       let completed = 0;
       let failed = 0;
 
-      // Generate title cards first (instant, local FFmpeg)
+      // Generate title cards first (background job)
       if (hasTitleCards) {
         try {
           const res = await api.post("/api/visuals/generate-title-cards", {
@@ -560,17 +556,13 @@ export function useStoryboardState(
           });
           if (res.ok) {
             const data = res.data as GenerateTitleCardsResponse;
-            setContent((prev) => ({
-              ...prev,
-              segments: prev.segments.map((seg) => ({
-                ...seg,
-                scenes: seg.scenes.map((sc) =>
-                  data.image_urls[sc.id]
-                    ? { ...sc, image_url: data.image_urls[sc.id] }
-                    : sc,
-                ),
-              })),
-            }));
+            await pollTitleCardJob(data.job_id);
+            // Refresh script from server to get updated image URLs
+            const scriptRes = await api.get(`/api/scripts/${scriptId}`);
+            if (scriptRes.ok) {
+              const scriptData = scriptRes.data as { script: ScriptContent };
+              setContent(scriptData.script);
+            }
           }
         } catch {
           // Title card generation failure shouldn't block AI image generation
