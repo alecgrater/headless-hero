@@ -26,6 +26,19 @@ REMOTION_DIR = Path(__file__).resolve().parents[2] / "remotion"
 REMOTION_ENTRY = REMOTION_DIR / "src" / "index.ts"
 
 
+def _to_remotion_path(abs_path: str) -> str:
+    """Convert absolute data path to Remotion publicDir-relative path.
+
+    Remotion's publicDir is set to ../data/projects (relative to remotion/),
+    so files under data/projects/ are served at the root. This converts
+    e.g. /Users/.../data/projects/{id}/images/foo.png to /{id}/images/foo.png.
+    """
+    projects_dir = str(DATA_DIR / "projects")
+    if abs_path.startswith(projects_dir):
+        return abs_path[len(projects_dir):]
+    return abs_path
+
+
 def _sanitize_filename(name: str) -> str:
     """Strip unsafe filesystem characters and truncate to 80 chars."""
     clean = re.sub(r'[<>:"/\\|?*]', "", name).strip()
@@ -46,21 +59,21 @@ def _scene_image_path(script_id: str, scene_id: str, image_url: str | None = Non
         filename = image_url.rsplit("/", 1)[-1]
         custom = base / filename
         if custom.exists():
-            return str(custom)
+            return _to_remotion_path(str(custom))
 
     plain = base / f"{scene_id}.png"
     if plain.exists():
-        return str(plain)
+        return _to_remotion_path(str(plain))
     f0 = base / f"{scene_id}_f0.png"
     if f0.exists():
-        return str(f0)
+        return _to_remotion_path(str(f0))
     return None
 
 
 def _scene_audio_path(script_id: str, scene_id: str) -> str | None:
     """Resolve local filesystem path for a scene audio file. Returns None if not found."""
     path = DATA_DIR / "projects" / script_id / "audio" / f"{scene_id}.mp3"
-    return str(path) if path.exists() else None
+    return _to_remotion_path(str(path)) if path.exists() else None
 
 
 def _scene_frame_paths(script_id: str, scene: Scene) -> list[str]:
@@ -70,7 +83,7 @@ def _scene_frame_paths(script_id: str, scene: Scene) -> list[str]:
         for i in range(len(scene.frame_urls)):
             fp = DATA_DIR / "projects" / script_id / "images" / f"{scene.id}_f{i}.png"
             if fp.exists():
-                paths.append(str(fp))
+                paths.append(_to_remotion_path(str(fp)))
     return paths
 
 
@@ -82,19 +95,19 @@ def _video_clip_path(script_id: str, scene: Scene) -> str | None:
     filename = scene.video_clip_url.rsplit("/", 1)[-1]
     path = DATA_DIR / "projects" / script_id / "media" / filename
     if path.exists():
-        return str(path)
+        return _to_remotion_path(str(path))
     # Try directly under the images dir as fallback
     path2 = DATA_DIR / "projects" / script_id / "images" / filename
-    return str(path2) if path2.exists() else None
+    return _to_remotion_path(str(path2)) if path2.exists() else None
 
 
 def _title_card_image_path(script_id: str) -> str | None:
     """Resolve path to the title card composite image."""
     notitle = DATA_DIR / "projects" / script_id / "images" / "composite_title_card_notitle.png"
     if notitle.exists():
-        return str(notitle)
+        return _to_remotion_path(str(notitle))
     withtitle = DATA_DIR / "projects" / script_id / "images" / "composite_title_card.png"
-    return str(withtitle) if withtitle.exists() else None
+    return _to_remotion_path(str(withtitle)) if withtitle.exists() else None
 
 
 def _all_scenes(content: ScriptContent) -> list[Scene]:
