@@ -159,6 +159,7 @@ function StoryboardEditor({
   const [pendingAudioAction, setPendingAudioAction] = useState<"all" | string | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [generatingFX, setGeneratingFX] = useState(false);
+  const [confirmOverwrite, setConfirmOverwrite] = useState<"images" | "audio" | "fx" | null>(null);
 
   // Fetch render estimate when export panel or preview modal opens
   useEffect(() => {
@@ -376,6 +377,36 @@ function StoryboardEditor({
     }
   };
 
+  // Check if assets already exist for overwrite confirmation
+  const allScenes = state.content.segments.flatMap((seg) => seg.scenes);
+  const hasExistingImages = allScenes.some((sc) => sc.image_url || sc.video_clip_url || sc.frame_urls?.length);
+  const hasExistingAudio = allScenes.some((sc) => sc.audio_url);
+  const hasExistingFX = allScenes.some((sc) => sc.fx);
+
+  const confirmAndGenerateImages = () => {
+    if (hasExistingImages) {
+      setConfirmOverwrite("images");
+    } else {
+      state.generateAllImages();
+    }
+  };
+
+  const confirmAndGenerateAudio = () => {
+    if (hasExistingAudio) {
+      setConfirmOverwrite("audio");
+    } else {
+      tryGenerateAudio("all");
+    }
+  };
+
+  const confirmAndGenerateFX = () => {
+    if (hasExistingFX) {
+      setConfirmOverwrite("fx");
+    } else {
+      handleGenerateFX();
+    }
+  };
+
   const handleGenerateFX = async () => {
     setGeneratingFX(true);
     try {
@@ -458,7 +489,7 @@ function StoryboardEditor({
         {/* Group 1 — Media Generation */}
         <div className="bg-neutral-800/50 rounded-lg p-1 flex items-center gap-1.5">
           <button
-            onClick={() => state.generateAllImages()}
+            onClick={confirmAndGenerateImages}
             disabled={state.batchGenerating}
             className="text-sm px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
             title="Generate images for all scenes with visual prompts"
@@ -510,7 +541,7 @@ function StoryboardEditor({
             ))}
           </select>
           <button
-            onClick={() => tryGenerateAudio("all")}
+            onClick={confirmAndGenerateAudio}
             disabled={state.batchGeneratingAudio || (!selectedVoiceId && voices.length > 0)}
             className="text-sm px-3 py-1.5 bg-sky-500/10 border border-sky-500/20 text-sky-400 hover:bg-sky-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
             title="Generate audio for all scenes with narration"
@@ -529,7 +560,7 @@ function StoryboardEditor({
         {/* Group 2 — FX Generation */}
         <div className="bg-neutral-800/50 rounded-lg p-1 flex items-center gap-1">
           <button
-            onClick={handleGenerateFX}
+            onClick={confirmAndGenerateFX}
             disabled={generatingFX}
             className="text-sm px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
             title="Use AI to assign visual effects to all scenes"
@@ -735,6 +766,41 @@ function StoryboardEditor({
             setPendingAudioAction(null);
           }}
         />
+      )}
+
+      {confirmOverwrite && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-neutral-100 mb-2">
+              Overwrite existing {confirmOverwrite}?
+            </h3>
+            <p className="text-sm text-neutral-400 mb-6">
+              {confirmOverwrite === "images" && "Some scenes already have generated images. Regenerating will overwrite them."}
+              {confirmOverwrite === "audio" && "Some scenes already have generated audio. Regenerating will overwrite them."}
+              {confirmOverwrite === "fx" && "Some scenes already have FX assignments. Regenerating will overwrite them."}
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmOverwrite(null)}
+                className="px-4 py-2 text-sm rounded-lg text-neutral-300 hover:bg-neutral-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const action = confirmOverwrite;
+                  setConfirmOverwrite(null);
+                  if (action === "images") state.generateAllImages();
+                  else if (action === "audio") tryGenerateAudio("all");
+                  else if (action === "fx") handleGenerateFX();
+                }}
+                className="px-4 py-2 text-sm rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium transition-colors"
+              >
+                Overwrite & Regenerate
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showHelp && <ShortcutHelpOverlay onClose={() => setShowHelp(false)} />}
