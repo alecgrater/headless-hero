@@ -127,6 +127,7 @@ export default function PropertiesPanel({
   );
 
   const [regeneratingFX, setRegeneratingFX] = useState(false);
+  const [confirmOverwrite, setConfirmOverwrite] = useState<"image" | "audio" | "fx" | null>(null);
 
   const handleRegenerateFX = async () => {
     setRegeneratingFX(true);
@@ -554,7 +555,7 @@ export default function PropertiesPanel({
           )}
           {onGenerateImage && (
             <button
-              onClick={onGenerateImage}
+              onClick={() => setConfirmOverwrite("image")}
               disabled={isGenerating}
               className="w-full text-sm px-3 py-2 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
@@ -604,7 +605,7 @@ export default function PropertiesPanel({
           />
           {onGenerateAudio && (
             <button
-              onClick={onGenerateAudio}
+              onClick={() => setConfirmOverwrite("audio")}
               disabled={isGeneratingAudio}
               className="w-full text-sm px-3 py-2 text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
@@ -691,7 +692,7 @@ export default function PropertiesPanel({
               Visual Effects
             </div>
             <button
-              onClick={handleRegenerateFX}
+              onClick={() => setConfirmOverwrite("fx")}
               disabled={regeneratingFX}
               className="text-[10px] text-amber-400 hover:text-amber-300 transition-colors disabled:opacity-40 flex items-center gap-1"
             >
@@ -938,6 +939,41 @@ export default function PropertiesPanel({
         />
         <span className="text-sm text-neutral-300">Title Card</span>
       </label>
+
+      {confirmOverwrite && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-neutral-100 mb-2">
+              Overwrite existing {confirmOverwrite === "fx" ? "FX" : confirmOverwrite}?
+            </h3>
+            <p className="text-sm text-neutral-400 mb-6">
+              {confirmOverwrite === "image" && "This scene already has a generated image. Regenerating will overwrite it."}
+              {confirmOverwrite === "audio" && "This scene already has generated audio. Regenerating will overwrite it."}
+              {confirmOverwrite === "fx" && "This scene already has FX assignments. Regenerating will overwrite them."}
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmOverwrite(null)}
+                className="px-4 py-2 text-sm rounded-lg text-neutral-300 hover:bg-neutral-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const action = confirmOverwrite;
+                  setConfirmOverwrite(null);
+                  if (action === "image") onGenerateImage?.();
+                  else if (action === "audio") onGenerateAudio?.();
+                  else if (action === "fx") handleRegenerateFX();
+                }}
+                className="px-4 py-2 text-sm rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium transition-colors"
+              >
+                Overwrite & Regenerate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </aside>
   );
