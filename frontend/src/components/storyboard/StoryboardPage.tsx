@@ -378,7 +378,7 @@ function StoryboardEditor({
   };
 
   // Check if assets already exist for overwrite confirmation
-  const hasExistingImages = allScenes.some((sc) => sc.image_url || sc.video_clip_url || sc.frame_urls?.length);
+  const hasExistingImages = allScenes.some((sc) => !sc.is_title_card && (sc.image_url || sc.video_clip_url || sc.frame_urls?.length));
   const hasExistingAudio = allScenes.some((sc) => sc.audio_url);
   const hasExistingFX = allScenes.some((sc) => sc.fx);
 
