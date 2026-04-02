@@ -15,9 +15,13 @@ class EmphasisWord(BaseModel):
     """A single emphasis word with frame-precise timing and animation style."""
 
     word: str
-    start_frame: int
-    end_frame: int
-    style: str = "scale_pop"  # scale_pop | color_flash | size_burst | shake | underline_draw
+    start_frame: int = 0
+    end_frame: int = 0
+    style: str = "scale_pop"  # scale_pop | color_flash | size_burst | shake | underline_draw | glow_pulse | typewriter | slide_up | bounce_in | rotate_in | glitch | gradient_sweep
+    category: str = "keyword"  # stat | key_noun | emotional | action_verb | contrast | keyword
+    font_size: int = 64  # 48-120
+    position: str = "bottom_center"  # bottom_center | bottom_left | bottom_right | center | top_center
+    word_index: int = 0  # 0-based index into narration word list (for timestamp lookup)
 
 class KineticCaptionsFX(BaseModel):
     """Kinetic emphasis captions — frame-timed emphasis words from narration."""

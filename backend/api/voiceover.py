@@ -11,6 +11,7 @@ from sqlmodel import Session
 from api.database import get_session
 from integrations.elevenlabs_client import clone_voice, list_voices
 from models.script import Script, ScriptContent
+from pipeline.fx_generator import _apply_word_timestamps
 from pipeline.voiceover import generate_batch_audio, generate_scene_audio
 
 logger = logging.getLogger(__name__)
@@ -74,7 +75,10 @@ def _update_scene_audio(
     duration_seconds: float,
     word_timestamps: list[dict] | None = None,
 ) -> None:
-    """Persist audio_url, audio_duration_seconds, and word_timestamps into the scene inside script_json."""
+    """Persist audio_url, audio_duration_seconds, and word_timestamps into the scene inside script_json.
+
+    Also re-times existing kinetic captions if word_timestamps are provided.
+    """
     record = session.get(Script, script_id)
     if not record:
         return
@@ -86,6 +90,13 @@ def _update_scene_audio(
                 scene.audio_duration_seconds = duration_seconds
                 if word_timestamps is not None:
                     scene.word_timestamps = word_timestamps
+                # Auto-retime existing kinetic captions with new word timestamps
+                if word_timestamps and scene.fx:
+                    fx_data = scene.fx if isinstance(scene.fx, dict) else scene.fx
+                    captions = fx_data.get("kinetic_captions") if isinstance(fx_data, dict) else None
+                    if captions and captions.get("words"):
+                        duration_frames = round(duration_seconds * 30)
+                        scene.fx = _apply_word_timestamps(fx_data, word_timestamps, duration_frames)
                 break
     record.script_json = content.model_dump_json()
     session.add(record)

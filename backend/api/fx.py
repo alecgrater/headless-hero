@@ -100,6 +100,7 @@ def regenerate_scene_fx(body: RegenerateFXRequest, session: Session = Depends(ge
         raise HTTPException(status_code=404, detail="Scene not found")
 
     # Build scene summary for Claude
+    duration = target_scene.audio_duration_seconds or target_scene.duration_estimate_seconds
     scene_data = {
         "id": target_scene.id,
         "segment": content.segments[seg_idx].name,
@@ -114,9 +115,12 @@ def regenerate_scene_fx(body: RegenerateFXRequest, session: Session = Depends(ge
         "narration": target_scene.narration[:200],
         "visual_prompt": target_scene.visual_prompt[:100],
         "text_overlay": target_scene.text_overlay,
-        "duration_seconds": target_scene.audio_duration_seconds or target_scene.duration_estimate_seconds,
+        "duration_seconds": duration,
+        "duration_frames": round(duration * 30),
         "has_multiple_frames": bool(target_scene.frame_urls and len(target_scene.frame_urls) > 1),
     }
+    if target_scene.word_timestamps:
+        scene_data["word_timestamps"] = target_scene.word_timestamps
 
     result = generate_scene_fx(scene_data)
 

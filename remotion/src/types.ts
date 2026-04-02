@@ -9,7 +9,23 @@ export interface EmphasisWord {
   word: string;
   start_frame: number;
   end_frame: number;
-  style: "scale_pop" | "color_flash" | "size_burst" | "shake" | "underline_draw";
+  style:
+    | "scale_pop"
+    | "color_flash"
+    | "size_burst"
+    | "shake"
+    | "underline_draw"
+    | "glow_pulse"
+    | "typewriter"
+    | "slide_up"
+    | "bounce_in"
+    | "rotate_in"
+    | "glitch"
+    | "gradient_sweep";
+  category?: string; // stat | key_noun | emotional | action_verb | contrast | keyword
+  font_size?: number; // 48-120, default 64
+  position?: string; // bottom_center | bottom_left | bottom_right | center | top_center
+  word_index?: number; // 0-based index into narration word list
 }
 
 export interface KineticCaptionsFX {
