@@ -301,7 +301,11 @@ def render_scene_preview(
 
     Runs modifier pre-render hooks before rendering.
     """
-    # Run modifier pre-render hooks (e.g. generate title card images)
+    # Always prepare title card scenes (title cards are always active)
+    from pipeline.modifiers.title_cards import prepare_title_card_scene
+    scene = prepare_title_card_scene(scene, script_id, brand or {})
+
+    # Run modifier pre-render hooks (e.g. real media)
     if modifier_ids:
         import pipeline.modifiers  # noqa: F401
         from pipeline.modifiers.registry import get_active
@@ -360,15 +364,20 @@ def render_full_video(
     scenes = _all_scenes(content)
     total = len(scenes)
 
+    # Always prepare title card scenes (title cards are always active)
+    from pipeline.modifiers.title_cards import prepare_title_card_scene
+    brand_dict = brand or {}
+    for i, scene in enumerate(scenes):
+        if on_progress:
+            on_progress(i / (total + 2), f"Preparing scene {i + 1}/{total}")
+        scenes[i] = prepare_title_card_scene(scene, script_id, brand_dict)
+
     # Run modifier pre-render hooks for all scenes
     if modifier_ids:
         import pipeline.modifiers  # noqa: F401
         from pipeline.modifiers.registry import get_active
 
-        brand_dict = brand or {}
         for i, scene in enumerate(scenes):
-            if on_progress:
-                on_progress(i / (total + 2), f"Preparing scene {i + 1}/{total}")
             for mod in get_active(modifier_ids):
                 scenes[i] = mod.modify_scene_pre_render(scene, script_id, brand_dict)
 

@@ -149,6 +149,10 @@ def generate_script(
     system_prompt = BASE_SYSTEM_PROMPT
     user_message = "\n".join(user_parts)
 
+    # Always apply title card instructions (title cards are always active)
+    from pipeline.modifiers.title_cards import TITLE_CARD_PROMPT_INSTRUCTIONS
+    system_prompt += TITLE_CARD_PROMPT_INSTRUCTIONS
+
     # Apply modifier prompt hooks
     if modifier_ids:
         import pipeline.modifiers  # noqa: F401 — ensure registration
@@ -173,6 +177,10 @@ def generate_script(
 
     data = json.loads(text)
     content = ScriptContent.model_validate(data)
+
+    # Always enforce title card constraints
+    from pipeline.modifiers.title_cards import enforce_title_cards_and_min_scenes
+    content = enforce_title_cards_and_min_scenes(content)
 
     # Apply modifier post-processing hooks
     if modifier_ids:

@@ -8,7 +8,6 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from database import get_session
-from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.thumbnail import generate_concepts, generate_thumbnail, get_composite_thumbnail
 
@@ -43,21 +42,17 @@ def generate_thumbnails(body: GenerateThumbnailRequest, session: Session = Depen
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
 
-    # Check if a composite title card exists (from title_cards modifier)
-    # If so, use it as the primary thumbnail
-    brand = session.get(BrandProfile, record.brand_id)
-    modifier_ids = json.loads(brand.content_modifiers) if brand and brand.content_modifiers else []
-    if "title_cards" in modifier_ids:
-        composite_url = get_composite_thumbnail(body.script_id)
-        if composite_url:
-            logger.info("Using composite title card thumbnail for script %s", body.script_id)
-            results = [ThumbnailConceptResult(
-                idx=0,
-                title_text=content.card_title or content.title,
-                visual_description="Composite grid title card (auto-generated from segments)",
-                image_url=composite_url,
-            )]
-            return GenerateThumbnailResponse(concepts=results)
+    # Always check for composite title card thumbnail (title cards are always active)
+    composite_url = get_composite_thumbnail(body.script_id)
+    if composite_url:
+        logger.info("Using composite title card thumbnail for script %s", body.script_id)
+        results = [ThumbnailConceptResult(
+            idx=0,
+            title_text=content.card_title or content.title,
+            visual_description="Composite grid title card (auto-generated from segments)",
+            image_url=composite_url,
+        )]
+        return GenerateThumbnailResponse(concepts=results)
 
     # Use default system font for thumbnail text rendering
     font_family = ""

@@ -1,25 +1,23 @@
-"""Title cards content modifier — composite grid cards with zoom animation.
+"""Title cards pipeline — composite grid cards with zoom animation.
 
-Injects title card instructions into script generation prompts,
-enforces title card constraints post-generation, and generates
-composite grid title card images before rendering.
+Provides title card prompt instructions, post-processing enforcement,
+and pre-render image generation as standalone functions (always active).
 """
 
 import logging
 
 from models.script import Scene, ScriptContent, TextOverlayConfig
-from pipeline.modifiers.base import ContentModifier, ModifierMeta
 
 logger = logging.getLogger(__name__)
 
 # Default circle colors when Claude doesn't provide them
-_DEFAULT_COLORS = [
+DEFAULT_COLORS = [
     "#e91e63", "#2196f3", "#4caf50", "#ff9800",
     "#9c27b0", "#00bcd4", "#ff5722", "#8bc34a",
     "#3f51b5", "#cddc39", "#f44336", "#009688",
 ]
 
-_TITLE_CARD_PROMPT_INSTRUCTIONS = """\
+TITLE_CARD_PROMPT_INSTRUCTIONS = """\
 
 Composite Title Card System:
 - The video uses a composite grid title card showing ALL segments as circles on one image.
@@ -42,78 +40,57 @@ and animation "fade_in".
 - Segment count MUST be exactly 6, 8, 10, or 12 for balanced grid layouts."""
 
 
-class TitleCardsModifier(ContentModifier):
-    meta = ModifierMeta(
-        id="title_cards",
-        name="Composite Grid Title Cards",
-        description="Generate a grid layout title card with circular segment images and zoom transitions.",
-        icon="🎬",
-    )
+def prepare_title_card_scene(scene: Scene, script_id: str, brand: dict) -> Scene:
+    """Prepare a title card scene for rendering — generate composite image if needed.
 
-    def modify_script_prompt(self, system_prompt: str, user_message: str) -> tuple[str, str]:
-        return system_prompt + _TITLE_CARD_PROMPT_INSTRUCTIONS, user_message
-
-    def modify_script_post(self, content: ScriptContent, brand: dict) -> ScriptContent:
-        return _enforce_title_cards_and_min_scenes(content)
-
-    def modify_scene_pre_render(self, scene: Scene, script_id: str, brand: dict) -> Scene:
-        if not scene.is_title_card:
-            return scene
-
-        # Only generate composite if it doesn't already exist
-        from config import DATA_DIR
-
-        composite_path = DATA_DIR / "projects" / script_id / "images" / "composite_title_card.png"
-        notitle_path = DATA_DIR / "projects" / script_id / "images" / "composite_title_card_notitle.png"
-
-        if notitle_path.exists():
-            # Prefer no-title version for scene rendering (larger circles)
-            if not scene.image_url:
-                scene.image_url = f"/static/projects/{script_id}/images/composite_title_card_notitle.png"
-            return scene
-
-        if composite_path.exists():
-            # Fall back to with-title version
-            if not scene.image_url:
-                scene.image_url = f"/static/projects/{script_id}/images/composite_title_card.png"
-            return scene
-
-        # Composite not generated yet — this is handled by ensure_title_card_images()
-        # called from the render pipeline. The pre-render hook is a fallback for
-        # single-scene preview rendering.
-        from pipeline.title_card import ensure_title_card_images
-        from models.script import ScriptContent, Segment
-
-        # We need the full script content to generate the composite.
-        # Load it from disk if possible.
-        import json
-        from sqlmodel import Session, select
-        from models.script import Script
-
-        from database import engine
-
-        with Session(engine) as session:
-            stmt = select(Script).where(Script.id == script_id)
-            record = session.exec(stmt).first()
-            if record:
-                full_content = ScriptContent.model_validate(json.loads(record.script_json))
-                accent_color = "#e91e63"
-                ensure_title_card_images(
-                    script_id=script_id,
-                    content=full_content,
-                    accent_color=accent_color,
-                    style_string=brand.get("style_string", ""),
-                )
-                # Update this scene's URL to no-title version
-                notitle_web = f"/static/projects/{script_id}/images/composite_title_card_notitle.png"
-                title_web = f"/static/projects/{script_id}/images/composite_title_card.png"
-                notitle_local = DATA_DIR / "projects" / script_id / "images" / "composite_title_card_notitle.png"
-                scene.image_url = notitle_web if notitle_local.exists() else title_web
-
+    Called directly from the render pipeline (always active, not a modifier).
+    """
+    if not scene.is_title_card:
         return scene
 
+    from config import DATA_DIR
 
-def _enforce_title_cards_and_min_scenes(content: ScriptContent) -> ScriptContent:
+    composite_path = DATA_DIR / "projects" / script_id / "images" / "composite_title_card.png"
+    notitle_path = DATA_DIR / "projects" / script_id / "images" / "composite_title_card_notitle.png"
+
+    if notitle_path.exists():
+        if not scene.image_url:
+            scene.image_url = f"/static/projects/{script_id}/images/composite_title_card_notitle.png"
+        return scene
+
+    if composite_path.exists():
+        if not scene.image_url:
+            scene.image_url = f"/static/projects/{script_id}/images/composite_title_card.png"
+        return scene
+
+    # Composite not generated yet — generate it now (fallback for single-scene preview)
+    from pipeline.title_card import ensure_title_card_images
+
+    import json
+    from sqlmodel import Session, select
+    from models.script import Script
+    from database import engine
+
+    with Session(engine) as session:
+        stmt = select(Script).where(Script.id == script_id)
+        record = session.exec(stmt).first()
+        if record:
+            full_content = ScriptContent.model_validate(json.loads(record.script_json))
+            ensure_title_card_images(
+                script_id=script_id,
+                content=full_content,
+                accent_color="#e91e63",
+                style_string=brand.get("style_string", ""),
+            )
+            notitle_web = f"/static/projects/{script_id}/images/composite_title_card_notitle.png"
+            title_web = f"/static/projects/{script_id}/images/composite_title_card.png"
+            notitle_local = DATA_DIR / "projects" / script_id / "images" / "composite_title_card_notitle.png"
+            scene.image_url = notitle_web if notitle_local.exists() else title_web
+
+    return scene
+
+
+def enforce_title_cards_and_min_scenes(content: ScriptContent) -> ScriptContent:
     """Post-process script to ensure title card consistency and composite card fields."""
     # Enforce card_title and highlight_word
     if not content.card_title:
@@ -142,7 +119,7 @@ def _enforce_title_cards_and_min_scenes(content: ScriptContent) -> ScriptContent
     for seg_idx, seg in enumerate(content.segments):
         # Enforce circle_color
         if not seg.circle_color:
-            seg.circle_color = _DEFAULT_COLORS[seg_idx % len(_DEFAULT_COLORS)]
+            seg.circle_color = DEFAULT_COLORS[seg_idx % len(DEFAULT_COLORS)]
             logger.info("Assigned default circle_color %s to segment %r", seg.circle_color, seg.name)
 
         # Enforce title_card_image_prompt

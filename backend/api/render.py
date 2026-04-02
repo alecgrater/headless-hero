@@ -94,10 +94,10 @@ def _load_brand_and_modifiers(session: Session, script_id: str) -> tuple[dict, l
     """Load brand dict and modifier IDs for a script."""
     record = session.get(Script, script_id)
     if not record:
-        return {}, ["title_cards"]
+        return {}, []
     brand = session.get(BrandProfile, record.brand_id)
     if not brand:
-        return {}, ["title_cards"]
+        return {}, []
 
     brand_dict = {
         "name": brand.name,
@@ -110,8 +110,6 @@ def _load_brand_and_modifiers(session: Session, script_id: str) -> tuple[dict, l
         modifier_ids = parsed if isinstance(parsed, list) else []
     except Exception:
         pass
-    if not modifier_ids:
-        modifier_ids = ["title_cards"]
 
     return brand_dict, modifier_ids
 

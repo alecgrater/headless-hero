@@ -132,7 +132,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
         parts.append(f"Style: {brand.style_string}")
     brand_context = ". ".join(parts)
 
-    # Parse modifier IDs from brand (default to title_cards for backward compat)
+    # Parse modifier IDs from brand
     modifier_ids: list[str] = []
     try:
         import json as _json
@@ -140,8 +140,6 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
         modifier_ids = parsed if isinstance(parsed, list) else []
     except Exception:
         pass
-    if not modifier_ids:
-        modifier_ids = ["title_cards"]
 
     brand_dict = {
         "name": brand.name,
