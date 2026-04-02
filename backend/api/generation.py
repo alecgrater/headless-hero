@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, func, select
 
-from api.database import get_session
+from database import get_session
 from models.generation_duration import GenerationDuration, GenerationEstimateResponse
 
 ALLOWED_OPERATION_TYPES = {"idea_generation", "script_generation_youtube"}

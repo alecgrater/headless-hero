@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from api.database import get_session
+from database import get_session
 from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.image_gen import generate_batch, generate_scene_frames, generate_scene_image
@@ -228,7 +228,7 @@ def generate_title_cards(body: GenerateTitleCardsRequest, session: Session = Dep
     force = body.force
 
     def _run() -> list[str]:
-        from api.database import engine
+        from database import engine
         from sqlmodel import Session as SyncSession
 
         ensure_title_card_images(

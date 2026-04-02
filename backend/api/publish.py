@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from api.database import get_session
+from database import get_session
 from models.credential import PlatformCredential, PlatformCredentialRead
 from models.publish import PublishRecord, PublishRecordRead
 from pipeline.publishing import publish_to_youtube
@@ -219,7 +219,7 @@ def start_upload(body: UploadRequest, session: Session = Depends(get_session)):
     logger.info("Starting upload for script %s to %s", body.script_id, body.platform)
 
     def do_upload():
-        from api.database import engine as db_engine
+        from database import engine as db_engine
         from sqlmodel import Session as SyncSession
 
         # Build a temporary credential object for the pipeline

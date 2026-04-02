@@ -90,7 +90,7 @@ class TitleCardsModifier(ContentModifier):
         from sqlmodel import Session, select
         from models.script import Script
 
-        from api.database import engine
+        from database import engine
 
         with Session(engine) as session:
             stmt = select(Script).where(Script.id == script_id)

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from api.database import get_session
+from database import get_session
 from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.render_jobs import create_job, estimate_render_time, get_job, run_in_background, update_job

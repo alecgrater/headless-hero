@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from api.database import get_session
+from database import get_session
 from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.thumbnail import generate_concepts, generate_thumbnail, get_composite_thumbnail

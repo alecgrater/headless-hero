@@ -11,7 +11,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
-from api.database import get_session
+from database import get_session
 from models.brand import BrandProfile
 from models.generation_duration import GenerationDuration
 from models.script import (

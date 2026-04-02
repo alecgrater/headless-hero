@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from api.database import get_session
+from database import get_session
 from models.script import Script, ScriptContent
 from pipeline.media_fetcher import fetch_batch, fetch_scene_media
 

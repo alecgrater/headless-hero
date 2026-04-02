@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from sqlalchemy import inspect, text
 from sqlmodel import Session, func, select, col
 
-from api.database import engine
+from database import engine
 from dev.log_handler import DevLog, get_broadcast_queue
 from models.api_usage import ApiUsage
 from pipeline import render_jobs

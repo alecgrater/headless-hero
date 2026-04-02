@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import Session
 
-from api.database import get_session
+from database import get_session
 from models.brand import BrandProfile
 from models.generation_duration import GenerationDuration
 from pipeline.ideation import VideoIdea, generate_ideas

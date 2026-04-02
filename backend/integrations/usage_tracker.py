@@ -5,7 +5,7 @@ import threading
 
 from sqlmodel import Session
 
-from api.database import engine
+from database import engine
 from models.api_usage import ApiUsage
 
 logger = logging.getLogger(__name__)

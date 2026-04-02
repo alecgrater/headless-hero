@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from api.database import get_session
+from database import get_session
 from integrations.elevenlabs_client import clone_voice, list_voices
 from models.script import Script, ScriptContent
 from pipeline.fx_generator import _apply_word_timestamps

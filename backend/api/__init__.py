@@ -7,8 +7,8 @@ from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session
 
 from api.brands import router as brands_router
-from api.database import init_db
-from api.database import engine as _db_engine
+from database import init_db
+from database import engine as _db_engine
 from api.fx import router as fx_router
 from api.ideas import router as ideas_router
 from api.publish import router as publish_router

@@ -6,7 +6,7 @@ import os
 from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
 
-from api.database import get_session
+from database import get_session
 from models.settings import AppSetting
 
 logger = logging.getLogger(__name__)

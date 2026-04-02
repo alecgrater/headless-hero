@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
-from api.database import get_session
+from database import get_session
 from models.brand import (
     BrandProfile,
     BrandProfileCreate,
