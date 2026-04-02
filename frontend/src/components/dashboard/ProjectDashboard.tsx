@@ -279,10 +279,10 @@ export default function ProjectDashboard({ brand, onNewVideo, onOpenProject, onB
                   tabIndex={0}
                   onClick={() => onOpenProject(project.id)}
                   onKeyDown={(e) => { if (e.key === "Enter") onOpenProject(project.id); }}
-                  className="group text-left bg-neutral-800/50 border border-neutral-700 rounded-xl overflow-hidden hover:border-violet-500/50 hover:bg-neutral-800 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/30 transition-all duration-200 cursor-pointer"
+                  className="group text-left bg-neutral-800/50 border border-neutral-700 rounded-xl hover:border-violet-500/50 hover:bg-neutral-800 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/30 transition-all duration-200 cursor-pointer"
                 >
                   {/* Thumbnail */}
-                  <div className="aspect-video bg-neutral-900 relative overflow-hidden">
+                  <div className="aspect-video bg-neutral-900 relative overflow-hidden rounded-t-xl">
                     {project.thumbnail_url ? (
                       <img
                         src={assetUrl(project.thumbnail_url)}
