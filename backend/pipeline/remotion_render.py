@@ -26,16 +26,15 @@ REMOTION_DIR = Path(__file__).resolve().parents[2] / "remotion"
 REMOTION_ENTRY = REMOTION_DIR / "src" / "index.ts"
 
 
-def _to_remotion_path(abs_path: str) -> str:
-    """Convert absolute data path to Remotion publicDir-relative path.
+BACKEND_STATIC_BASE = "http://localhost:8420/static/projects"
 
-    Remotion's publicDir is set to ../data/projects (relative to remotion/),
-    so files under data/projects/ are served at the root. This converts
-    e.g. /Users/.../data/projects/{id}/images/foo.png to /{id}/images/foo.png.
-    """
+
+def _to_remotion_path(abs_path: str) -> str:
+    """Convert absolute data path to a URL served by the FastAPI backend."""
     projects_dir = str(DATA_DIR / "projects")
     if abs_path.startswith(projects_dir):
-        return abs_path[len(projects_dir):]
+        relative = abs_path[len(projects_dir):]
+        return f"{BACKEND_STATIC_BASE}{relative}"
     return abs_path
 
 
