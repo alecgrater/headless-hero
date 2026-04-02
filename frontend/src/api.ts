@@ -58,7 +58,7 @@ function withErrorInterceptor(
           err instanceof Error ? err.message : "Network error — is the backend running?",
         );
       }
-      return { ok: false, status: 0, data: null as unknown };
+      return { ok: false, status: 0, data: {} as unknown };
     }
   };
 }

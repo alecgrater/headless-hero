@@ -60,6 +60,7 @@ export default function ScriptGenerationPage({
       fetchGenerationEstimate("script_generation_youtube")
         .then((est) => setEstimatedSeconds(est.average_seconds))
         .catch(() => setEstimatedSeconds(null));
+      let succeeded = false;
       try {
         const res = await api.post("/api/scripts/generate", {
           topic: idea.title,
@@ -73,14 +74,43 @@ export default function ScriptGenerationPage({
           const data = res.data as GenerateScriptResponse;
           setScript(data.script);
           setScriptId(data.id);
+          succeeded = true;
         } else {
-          const err = res.data as { detail?: string };
-          setError(err.detail ?? "Failed to generate script");
+          console.error("[ScriptGeneration] API error:", res.status, res.data);
+          const detail =
+            res.data && typeof res.data === "object" && "detail" in res.data
+              ? (res.data as { detail: string }).detail
+              : undefined;
+          setError(detail ?? "Failed to generate script");
         }
-      } catch {
+      } catch (err) {
+        console.error("[ScriptGeneration] Request failed:", err);
         if (!cancelled) setError("Could not reach the backend. Is it running?");
       } finally {
         if (!cancelled) setLoading(false);
+      }
+
+      // Recovery: if the request failed, check if the script was actually created on the backend
+      if (!cancelled && !succeeded) {
+        try {
+          const listRes = await api.get(`/api/scripts?brand_id=${brand.id}`);
+          if (listRes.ok) {
+            const scripts = listRes.data as Array<{ id: string; topic_title: string }>;
+            const match = scripts.find((s) => s.topic_title === idea.title);
+            if (match) {
+              const fullRes = await api.get(`/api/scripts/${match.id}`);
+              if (fullRes.ok) {
+                const data = fullRes.data as { id: string; script: ScriptContent };
+                setScript(data.script);
+                setScriptId(data.id);
+                setError(null);
+                console.info("[ScriptGeneration] Recovered script from backend:", match.id);
+              }
+            }
+          }
+        } catch {
+          // Recovery failed — keep showing the original error
+        }
       }
     };
 
