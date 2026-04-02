@@ -31,14 +31,19 @@ export const Root: React.FC = () => {
         }}
         calculateMetadata={({ props }) => {
           const p = props as unknown as FullVideoProps;
-          const totalSeconds = p.segments.reduce(
+          const CHAPTER_TRANSITION_SECONDS = 2; // 60 frames at 30fps
+          const totalSceneSeconds = p.segments.reduce(
             (sum, seg) =>
               sum +
               seg.scenes.reduce((s, sc) => s + sc.duration_seconds, 0),
             0,
           );
+          // Add chapter transitions between segments (except before the first)
+          const chapterTransitions = Math.max(0, p.segments.length - 1);
+          const hasChapterMap = !!(p as unknown as Record<string, unknown>).chapter_map;
+          const transitionSeconds = hasChapterMap ? chapterTransitions * CHAPTER_TRANSITION_SECONDS : 0;
           return {
-            durationInFrames: Math.max(1, Math.ceil(totalSeconds * p.fps)),
+            durationInFrames: Math.max(1, Math.ceil((totalSceneSeconds + transitionSeconds) * p.fps)),
             fps: p.fps,
             width: p.width,
             height: p.height,

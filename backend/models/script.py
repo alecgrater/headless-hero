@@ -11,51 +11,81 @@ from sqlmodel import Column, Field, SQLModel, Text
 
 # --- FX models (used by Remotion renderer) ---
 
+class EmphasisWord(BaseModel):
+    """A single emphasis word with frame-precise timing and animation style."""
+
+    word: str
+    start_frame: int
+    end_frame: int
+    style: str = "scale_pop"  # scale_pop | color_flash | size_burst | shake | underline_draw
+
+class KineticCaptionsFX(BaseModel):
+    """Kinetic emphasis captions — frame-timed emphasis words from narration."""
+
+    words: list[EmphasisWord] = []
+
+class ZoomPunchFX(BaseModel):
+    """Zoom punch — quick asymmetric scale hit on key moments."""
+
+    trigger_frame: int = 0
+    scale: float = 1.06  # 1.04-1.07
+
+class SceneFX(BaseModel):
+    """Complete FX configuration for a scene, assigned by Claude."""
+
+    kinetic_captions: KineticCaptionsFX | None = None
+    zoom_punch: ZoomPunchFX | None = None
+
+class ChapterMarker(BaseModel):
+    """A chapter marker for the global progress bar."""
+
+    segment_index: int
+    label: str
+    frame_offset: int  # global frame where this chapter starts
+
+class VideoFX(BaseModel):
+    """Video-level FX computed deterministically from segment boundaries."""
+
+    chapter_markers: list[ChapterMarker] = []
+
+# --- Legacy FX models (kept for backward compat, ignored by new Remotion code) ---
+
 class CameraFX(BaseModel):
     """Camera motion effect assigned by the FX generator."""
 
-    type: str = "ken_burns"  # "ken_burns" | "zoom_punch" | "parallax" | "static"
-    direction: str | None = None  # "in" | "out" | "left" | "right" | "up" | "down"
-    intensity: str = "moderate"  # "subtle" | "moderate" | "dramatic"
-    easing: str = "spring"  # "spring" | "linear" | "ease_in_out"
+    type: str = "ken_burns"
+    direction: str | None = None
+    intensity: str = "moderate"
+    easing: str = "spring"
 
 class TextEffect(BaseModel):
     """Text effect assigned by the FX generator."""
 
-    type: str  # "lower_third" | "kinetic_caption" | "word_reveal" | "title_insert" | "source_citation"
-    text: str | None = None  # overrides scene.text_overlay if set
-    words: list[str] | None = None  # for kinetic_caption: which words to emphasize
+    type: str
+    text: str | None = None
+    words: list[str] | None = None
     position: str = "lower_third"
-    enter_at: float = 0.0  # seconds
-    duration: float = 0.0  # 0 = full scene
+    enter_at: float = 0.0
+    duration: float = 0.0
 
 class TransitionFX(BaseModel):
     """Transition between scenes."""
 
-    type: str = "cut"  # "cut" | "crossfade" | "slide" | "zoom_punch" | "smash_cut" | "wipe" | "push"
-    direction: str | None = None  # for directional transitions
+    type: str = "cut"
+    direction: str | None = None
     duration: float = 0.5
 
 class OverlayFX(BaseModel):
     """Visual overlay effect."""
 
-    type: str  # "chapter_indicator" | "film_grain" | "letterbox" | "vignette"
+    type: str
     config: dict[str, Any] | None = None
 
 class StructuralFX(BaseModel):
     """Structural video element (cold open, chapter break, etc.)."""
 
-    type: str  # "cold_open" | "chapter_transition" | "recap" | "end_screen"
+    type: str
     config: dict[str, Any] | None = None
-
-class SceneFX(BaseModel):
-    """Complete FX configuration for a scene, assigned by Claude."""
-
-    camera: CameraFX | None = None
-    text_effects: list[TextEffect] | None = None
-    transition: TransitionFX | None = None
-    overlays: list[OverlayFX] | None = None
-    structural: StructuralFX | None = None
 
 # --- Legacy models (still stored/used for backward compat) ---
 
@@ -121,6 +151,7 @@ class ScriptContent(BaseModel):
     format: str = "youtube"
     card_title: str = ""                  # condensed title for composite title card (e.g. "TYPES OF DREAMS")
     card_title_highlight_word: str = ""   # word to render in accent color (e.g. "DREAMS")
+    video_fx: dict | None = None          # VideoFX dict — computed deterministically at render time
 
 # --- SQLModel table for persistence ---
 

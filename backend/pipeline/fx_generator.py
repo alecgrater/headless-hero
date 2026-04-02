@@ -1,4 +1,11 @@
-"""FX generator — uses Claude to assign visual effects to each scene."""
+"""FX generator — uses Claude to assign visual effects to each scene.
+
+Simplified to 2 per-scene effects:
+  1. Kinetic captions — emphasis words from narration with frame-precise timing
+  2. Zoom punches — 3-6 per video, asymmetric scale hits on key moments
+
+Chapter markers are computed deterministically in remotion_render.py — no AI needed.
+"""
 
 import json
 import logging
@@ -9,86 +16,72 @@ from models.script import SceneFX, ScriptContent
 
 logger = logging.getLogger(__name__)
 
-FX_SYSTEM_PROMPT = """You are a visual effects director for educational YouTube videos. Your job is to assign appropriate visual effects (FX) to each scene in a video script.
-
-You will receive a JSON array of scenes. For each scene, assign an FX configuration that enhances the storytelling.
+FX_SYSTEM_PROMPT = """You are a visual effects director for educational YouTube videos. You assign 2 types of per-scene effects: kinetic emphasis captions and zoom punches.
 
 ## Available Effects
 
-### Camera Effects (camera)
-- **ken_burns**: Slow pan/zoom — the workhorse. Use direction: "in" (zoom in), "out" (zoom out), "left", "right", "up", "down"
-- **zoom_punch**: Quick digital push-in for emphasis moments (stats, revelations, key facts)
-- **parallax**: Foreground/background move at different rates — good for establishing shots
-- **static**: No motion — use sparingly, only for already-busy visuals like gameplay clips
+### Kinetic Captions (kinetic_captions)
+Pick the 20-30% MOST IMPACTFUL words from the narration. These are single emphasis words that flash on screen one at a time — NOT subtitles.
 
-Intensity: "subtle" (barely noticeable), "moderate" (default, professional), "dramatic" (cinematic emphasis)
-Easing: "spring" (organic, default), "linear" (mechanical), "ease_in_out" (smooth)
+For each word, specify:
+- **word**: The exact word from the narration
+- **start_frame**: Frame number within the scene where the word appears (at 30fps)
+- **end_frame**: Frame number where the word finishes (typically start_frame + 20-40 frames)
+- **style**: One of 5 animation styles (MUST vary — never use the same style 3x in a row):
+  - `scale_pop` — spring scale 80%→100% (punchy, confident)
+  - `color_flash` — violet accent color pulse (highlighting, drawing attention)
+  - `size_burst` — 3x font size springs down to 1x (dramatic, shocking)
+  - `shake` — 2px random offset for ~10 frames (dangerous, alarming)
+  - `underline_draw` — animated underline draws left→right (important, factual)
 
-### Text Effects (text_effects)
-- **lower_third**: Branded info bar that slides in — for introducing topics, names, facts
-- **kinetic_caption**: Key words pop/scale for emphasis — specify which "words" to emphasize
-- **word_reveal**: Word-by-word sync with voiceover — good for quotes or important statements
-- **title_insert**: Oversized word slam — for section titles or dramatic reveals
-- **source_citation**: Animated citation card — for when a source or statistic is mentioned
+**Rules:**
+- Time words to match when they'd be spoken in the narration (estimate based on word position and scene duration)
+- Space words at least 30 frames apart so only one is visible at a time
+- Pick words that MEAN something — numbers, key nouns, surprising adjectives
+- Not every scene needs captions. Quiet/reflective scenes can have 0 words.
+- Title card scenes should have 0 captions.
 
-### Transitions (transition)
-- **cut**: Hard cut (default, most common — don't overuse transitions)
-- **crossfade**: Alpha dissolve — good between related scenes, topic continuation
-- **slide**: Directional slide (direction: "left", "right") — good for comparison or lists
-- **push**: Push transition (direction: "up", "left") — good for segment changes
-- **smash_cut**: 2-4 frame black flash — for dramatic shifts, surprising reveals
-- **zoom_punch**: Quick zoom transition — for energetic topic changes
+### Zoom Punches (zoom_punch)
+A quick 4-7% scale hit for emphasis. Use sparingly — 3-6 per ENTIRE video.
 
-### Overlays (overlays)
-- **chapter_indicator**: Thin progress bar — use on first scene of each segment
-- **film_grain**: Subtle film noise — use sparingly for cinematic feel
-- **letterbox**: Cinematic bars — good for dramatic/emotional moments
-- **vignette**: Dark edge vignette — subtle atmosphere enhancement
+For each zoom punch, specify:
+- **trigger_frame**: Frame within the scene where the punch triggers
+- **scale**: Scale factor (1.04-1.07). Use 1.04-1.05 for subtle emphasis, 1.06-1.07 for dramatic reveals.
 
-### Structural Elements (structural)
-- **cold_open**: Bold question/hook in first 5 seconds — ONLY for the very first scene
-- **chapter_transition**: Full-screen section title — use for first scene of major segments
-- **recap**: Brief summary card — use between major sections
-- **end_screen**: Subscribe/next-video CTA — ONLY for the very last scene
-
-## Editorial Guidelines
-
-1. **Vary camera effects** — don't repeat the same direction 3+ times in a row
-2. **Most transitions should be hard cuts** — transitions are seasoning, not the main course. Use 60-70% hard cuts.
-3. **Use chapter_indicator on first scene of each segment** to show progress
-4. **Reserve dramatic effects for key moments** — a revelation, a surprising fact, a dramatic turn
-5. **Kinetic captions should emphasize 1-3 key words per scene**, not every word
-6. **Title card scenes** (is_title_card=true) should get zoom_punch camera and chapter_transition structural
-7. **Gameplay clips** (media_type=gameplay_clip) should get static camera (the video provides motion)
-8. **Educational content favors clean, readable typography** — don't overwhelm with effects
-9. **Film grain and letterbox are global mood choices** — if used, apply consistently across many scenes
-10. **The first scene should have cold_open if it has a hook/question in the narration**
-11. **The last scene should have end_screen structural element**
+**Rules:**
+- MOST scenes should have NO zoom punch (null).
+- Reserve for: shocking statistics, dramatic reveals, key turning points.
+- Never zoom punch on title card scenes or gameplay clips.
+- Never zoom punch 2 consecutive scenes.
 
 ## Output Format
 
-Return a JSON array with one object per scene (same order as input). Each object has the scene "id" and an "fx" object matching this schema:
+Return a JSON array with one object per scene (same order as input). Each object has the scene "id" and an "fx" object:
 
 ```json
 [
   {
     "id": "scene_id_here",
     "fx": {
-      "camera": { "type": "ken_burns", "direction": "in", "intensity": "moderate", "easing": "spring" },
-      "text_effects": [
-        { "type": "lower_third", "text": "Key Fact", "position": "lower_third", "enter_at": 1.0, "duration": 3.0 }
-      ],
-      "transition": { "type": "cut" },
-      "overlays": [
-        { "type": "chapter_indicator" }
-      ],
-      "structural": null
+      "kinetic_captions": {
+        "words": [
+          { "word": "billion", "start_frame": 45, "end_frame": 75, "style": "size_burst" },
+          { "word": "destroyed", "start_frame": 120, "end_frame": 150, "style": "shake" }
+        ]
+      },
+      "zoom_punch": null
+    }
+  },
+  {
+    "id": "scene_with_zoom",
+    "fx": {
+      "kinetic_captions": { "words": [] },
+      "zoom_punch": { "trigger_frame": 30, "scale": 1.06 }
     }
   }
 ]
 ```
 
-Only include fields that differ from defaults. Omit null/empty fields for brevity.
 Return ONLY the JSON array, no explanation."""
 
 
@@ -97,13 +90,13 @@ def generate_fx(content: ScriptContent) -> list[dict]:
 
     Returns a list of dicts with {id, fx} for each scene.
     """
-    # Build scene summary for Claude
     scenes_summary = []
     scene_index = 0
     total_scenes = sum(len(seg.scenes) for seg in content.segments)
 
     for seg_idx, seg in enumerate(content.segments):
         for sc_idx, scene in enumerate(seg.scenes):
+            duration = scene.audio_duration_seconds or scene.duration_estimate_seconds
             scenes_summary.append({
                 "id": scene.id,
                 "segment": seg.name,
@@ -115,10 +108,9 @@ def generate_fx(content: ScriptContent) -> list[dict]:
                 "is_first_in_segment": sc_idx == 0,
                 "is_title_card": scene.is_title_card,
                 "media_type": scene.media_type or "ai_generated",
-                "narration": scene.narration[:200],  # truncate for token efficiency
-                "visual_prompt": scene.visual_prompt[:100],
-                "text_overlay": scene.text_overlay,
-                "duration_seconds": scene.audio_duration_seconds or scene.duration_estimate_seconds,
+                "narration": scene.narration,  # full narration for accurate word picking
+                "duration_seconds": duration,
+                "duration_frames": round(duration * 30),
                 "has_multiple_frames": bool(scene.frame_urls and len(scene.frame_urls) > 1),
             })
             scene_index += 1
@@ -133,20 +125,17 @@ def generate_fx(content: ScriptContent) -> list[dict]:
         max_tokens=8192,
     )
 
-    # Parse response
     cleaned = strip_markdown_fences(response)
     fx_list = json.loads(cleaned)
 
     if not isinstance(fx_list, list):
         raise ValueError("Expected JSON array from Claude FX generator")
 
-    # Validate each entry has id and fx
     result = []
     for entry in fx_list:
         if not isinstance(entry, dict) or "id" not in entry:
             continue
         fx_data = entry.get("fx", {})
-        # Validate against Pydantic model
         try:
             SceneFX.model_validate(fx_data)
         except Exception as e:

@@ -1,114 +1,162 @@
 /**
- * KineticCaption — key words pop/scale/shake for emphasis.
+ * KineticCaption — frame-timed emphasis words from narration.
+ * Each word renders independently at its start_frame→end_frame with a per-word style.
+ * One word visible at a time (not full subtitles).
  */
 import React from "react";
 import { useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
+import type { EmphasisWord } from "../../types";
 
 interface Props {
-  text: string;
-  emphasisWords?: string[];
-  position?: string;
-  enterAt?: number;
-  duration?: number;
+  words: EmphasisWord[];
 }
 
-export const KineticCaption: React.FC<Props> = ({
-  text,
-  emphasisWords = [],
-  position = "lower_third",
-  enterAt = 0,
-  duration = 0,
-}) => {
+const ACCENT_COLOR = "#a78bfa"; // violet-400
+const FADE_OUT_FRAMES = 5;
+
+export const KineticCaption: React.FC<Props> = ({ words }) => {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames } = useVideoConfig();
-  const enterFrame = Math.round(enterAt * fps);
-  const durationFrames = duration > 0 ? Math.round(duration * fps) : durationInFrames;
-  const endFrame = enterFrame + durationFrames;
-
-  // Overall visibility
-  const fadeIn = interpolate(frame, [enterFrame, enterFrame + 10], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const fadeOut = interpolate(frame, [endFrame - 10, endFrame], [1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  const opacity = Math.min(fadeIn, fadeOut);
-
-  if (opacity <= 0) return null;
-
-  const positionStyle = getPositionStyle(position);
-  const words = text.split(/\s+/);
-  const emphasisSet = new Set(emphasisWords.map((w) => w.toLowerCase()));
+  const { fps } = useVideoConfig();
 
   return (
     <div
       style={{
-        ...positionStyle,
-        opacity,
         position: "absolute",
-        display: "flex",
-        flexWrap: "wrap",
-        justifyContent: "center",
-        gap: "0.3em",
-        padding: "16px 32px",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
         zIndex: 10,
       }}
     >
-      {words.map((word, i) => {
-        const isEmphasis = emphasisSet.has(word.toLowerCase().replace(/[^a-z]/g, ""));
-        if (isEmphasis) {
-          const wordEnter = enterFrame + i * 2;
-          const scale = spring({
-            frame: frame - wordEnter,
-            fps,
-            config: { damping: 10, mass: 0.5, stiffness: 200 },
-          });
-          return (
-            <span
-              key={i}
-              style={{
-                fontSize: "48px",
-                fontWeight: 800,
-                color: "#fff",
-                textShadow: "0 2px 8px rgba(0,0,0,0.8)",
-                transform: `scale(${0.8 + scale * 0.4})`,
-                display: "inline-block",
-              }}
-            >
-              {word}
-            </span>
-          );
-        }
-        return (
-          <span
-            key={i}
-            style={{
-              fontSize: "36px",
-              fontWeight: 600,
-              color: "rgba(255,255,255,0.9)",
-              textShadow: "0 2px 6px rgba(0,0,0,0.6)",
-            }}
-          >
-            {word}
-          </span>
-        );
-      })}
+      {words.map((w, i) => (
+        <EmphasisWordRenderer key={i} word={w} frame={frame} fps={fps} />
+      ))}
     </div>
   );
 };
 
-function getPositionStyle(position: string): React.CSSProperties {
-  switch (position) {
-    case "top":
-      return { top: "10%", left: 0, right: 0, textAlign: "center" };
-    case "center":
-      return { top: "40%", left: 0, right: 0, textAlign: "center" };
-    case "bottom":
-      return { bottom: "10%", left: 0, right: 0, textAlign: "center" };
-    case "lower_third":
+interface WordRendererProps {
+  word: EmphasisWord;
+  frame: number;
+  fps: number;
+}
+
+const EmphasisWordRenderer: React.FC<WordRendererProps> = ({ word, frame, fps }) => {
+  const localFrame = frame - word.start_frame;
+  const duration = word.end_frame - word.start_frame;
+
+  // Not yet visible or fully faded out
+  if (localFrame < 0 || localFrame > duration + FADE_OUT_FRAMES) return null;
+
+  // Fade out after end_frame
+  const fadeOut = localFrame > duration
+    ? interpolate(localFrame, [duration, duration + FADE_OUT_FRAMES], [1, 0], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      })
+    : 1;
+
+  if (fadeOut <= 0) return null;
+
+  const style = renderStyle(word.style, localFrame, fps);
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        bottom: "15%",
+        left: 0,
+        right: 0,
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        opacity: fadeOut,
+      }}
+    >
+      <span
+        style={{
+          fontSize: "64px",
+          fontWeight: 800,
+          color: "#fff",
+          textShadow: "0 4px 16px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,0.5)",
+          textTransform: "uppercase",
+          letterSpacing: "0.02em",
+          ...style,
+        }}
+      >
+        {word.word}
+      </span>
+    </div>
+  );
+};
+
+function renderStyle(
+  style: string,
+  localFrame: number,
+  fps: number,
+): React.CSSProperties {
+  switch (style) {
+    case "scale_pop": {
+      const s = spring({
+        frame: localFrame,
+        fps,
+        config: { damping: 12, mass: 0.5, stiffness: 200 },
+      });
+      return {
+        transform: `scale(${0.8 + s * 0.2})`,
+        display: "inline-block",
+      };
+    }
+    case "color_flash": {
+      const isFlash = localFrame === 0;
+      return {
+        color: isFlash ? ACCENT_COLOR : "#fff",
+        textShadow: isFlash
+          ? `0 0 20px ${ACCENT_COLOR}, 0 4px 16px rgba(0,0,0,0.9)`
+          : "0 4px 16px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,0.5)",
+      };
+    }
+    case "size_burst": {
+      const burstFrames = 15;
+      const scale = localFrame < burstFrames
+        ? interpolate(localFrame, [0, burstFrames], [3, 1], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          })
+        : 1;
+      return {
+        transform: `scale(${scale})`,
+        display: "inline-block",
+      };
+    }
+    case "shake": {
+      const shakeFrames = 10;
+      if (localFrame < shakeFrames) {
+        const offsetX = Math.sin(localFrame * 7) * 2;
+        const offsetY = Math.cos(localFrame * 5) * 2;
+        return {
+          transform: `translate(${offsetX}px, ${offsetY}px)`,
+          display: "inline-block",
+        };
+      }
+      return {};
+    }
+    case "underline_draw": {
+      const drawDuration = 15;
+      const progress = Math.min(1, localFrame / drawDuration);
+      return {
+        borderBottom: "4px solid #fff",
+        paddingBottom: "4px",
+        backgroundImage: `linear-gradient(#fff, #fff)`,
+        backgroundSize: `${progress * 100}% 4px`,
+        backgroundPosition: "left bottom",
+        backgroundRepeat: "no-repeat",
+        borderBottomColor: "transparent",
+      };
+    }
     default:
-      return { bottom: "15%", left: 0, right: 0, textAlign: "center" };
+      return {};
   }
 }

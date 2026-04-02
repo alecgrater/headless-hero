@@ -3,6 +3,53 @@
  * These mirror the Python Scene/SceneFX models from backend/models/script.py.
  */
 
+// --- New FX types (4 core effects) ---
+
+export interface EmphasisWord {
+  word: string;
+  start_frame: number;
+  end_frame: number;
+  style: "scale_pop" | "color_flash" | "size_burst" | "shake" | "underline_draw";
+}
+
+export interface KineticCaptionsFX {
+  words: EmphasisWord[];
+}
+
+export interface ZoomPunchFX {
+  trigger_frame: number;
+  scale: number; // 1.04-1.07
+}
+
+export interface SceneFX {
+  kinetic_captions?: KineticCaptionsFX | null;
+  zoom_punch?: ZoomPunchFX | null;
+}
+
+export interface ChapterMarker {
+  segment_index: number;
+  label: string;
+  frame_offset: number; // global frame where this chapter starts
+}
+
+export interface VideoFX {
+  chapter_markers: ChapterMarker[];
+}
+
+export interface ChapterCircle {
+  x: number;
+  y: number;
+  radius: number;
+  label: string;
+}
+
+export interface ChapterMapData {
+  image_path: string | null;
+  circles: ChapterCircle[];
+}
+
+// --- Legacy FX types (kept for backward compat, ignored by new code) ---
+
 export interface CameraFX {
   type: "ken_burns" | "zoom_punch" | "parallax" | "static";
   direction?: "in" | "out" | "left" | "right" | "up" | "down" | null;
@@ -10,50 +57,7 @@ export interface CameraFX {
   easing?: "spring" | "linear" | "ease_in_out";
 }
 
-export interface TextEffect {
-  type:
-    | "lower_third"
-    | "kinetic_caption"
-    | "word_reveal"
-    | "title_insert"
-    | "source_citation";
-  text?: string | null;
-  words?: string[] | null;
-  position?: string;
-  enter_at?: number;
-  duration?: number;
-}
-
-export interface TransitionFX {
-  type:
-    | "cut"
-    | "crossfade"
-    | "slide"
-    | "zoom_punch"
-    | "smash_cut"
-    | "wipe"
-    | "push";
-  direction?: string | null;
-  duration?: number;
-}
-
-export interface OverlayFX {
-  type: "chapter_indicator" | "film_grain" | "letterbox" | "vignette";
-  config?: Record<string, unknown> | null;
-}
-
-export interface StructuralFX {
-  type: "cold_open" | "chapter_transition" | "recap" | "end_screen";
-  config?: Record<string, unknown> | null;
-}
-
-export interface SceneFX {
-  camera?: CameraFX | null;
-  text_effects?: TextEffect[] | null;
-  transition?: TransitionFX | null;
-  overlays?: OverlayFX[] | null;
-  structural?: StructuralFX | null;
-}
+// --- Scene / Composition types ---
 
 export interface SceneInput {
   id: string;
@@ -72,7 +76,7 @@ export interface SceneInput {
   video_clip_path?: string | null;
   title_card_zoom_target?: { x: number; y: number; radius: number } | null;
 
-  // FX
+  // FX (new system)
   fx?: SceneFX | null;
 
   // Legacy fields (used as fallback if fx is absent)
@@ -92,6 +96,8 @@ export interface FullVideoProps {
   fps: number;
   width: number;
   height: number;
+  video_fx?: VideoFX | null;
+  chapter_map?: ChapterMapData | null;
 }
 
 export interface ScenePreviewProps {

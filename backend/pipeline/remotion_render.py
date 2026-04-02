@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from config import DATA_DIR
-from models.script import KenBurnsConfig, Scene, SceneFX, ScriptContent
+from models.script import ChapterMarker, KenBurnsConfig, Scene, SceneFX, ScriptContent, VideoFX
 
 logger = logging.getLogger(__name__)
 
@@ -165,6 +165,84 @@ def _write_input_props(props: dict[str, Any], output_path: Path) -> Path:
     return props_path
 
 
+CHAPTER_TRANSITION_FRAMES = 60  # 2 seconds at 30fps
+
+
+def _compute_chapter_markers(
+    content: ScriptContent,
+    script_id: str,
+    fps: int = 30,
+) -> tuple[list[dict], int]:
+    """Compute chapter markers and total frame count from segment boundaries.
+
+    Returns (chapter_markers, total_frames) accounting for chapter transition inserts.
+    """
+    markers: list[dict] = []
+    current_frame = 0
+    prev_seg_idx = -1
+
+    for seg in content.segments:
+        seg_idx = content.segments.index(seg)
+        # Insert chapter transition before each segment (except first)
+        if seg_idx > 0:
+            markers.append({
+                "segment_index": seg_idx,
+                "label": seg.name,
+                "frame_offset": current_frame,
+            })
+            current_frame += CHAPTER_TRANSITION_FRAMES
+
+        if seg_idx == 0:
+            markers.append({
+                "segment_index": 0,
+                "label": seg.name,
+                "frame_offset": 0,
+            })
+
+        for scene in seg.scenes:
+            duration = scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else scene.duration_estimate_seconds
+            scene_frames = max(fps, round(duration * fps))
+            current_frame += scene_frames
+
+    return markers, current_frame
+
+
+def _build_chapter_map(
+    content: ScriptContent,
+    script_id: str,
+) -> dict | None:
+    """Build chapter map data from title card composite and zoom target data.
+
+    Returns a dict with image_path and circles for the AnimatedChapterMap component,
+    or None if no title card data is available.
+    """
+    tc_image = _title_card_image_path(script_id)
+    if not tc_image:
+        return None
+
+    circles = []
+    for seg in content.segments:
+        # Find the title card scene in this segment (first scene with is_title_card)
+        for scene in seg.scenes:
+            if scene.is_title_card and scene.title_card_zoom_target:
+                target = scene.title_card_zoom_target
+                circles.append({
+                    "x": target.get("x", 0),
+                    "y": target.get("y", 0),
+                    "radius": target.get("radius", 100),
+                    "label": seg.name,
+                })
+                break
+
+    if not circles:
+        return None
+
+    return {
+        "image_path": tc_image,
+        "circles": circles,
+    }
+
+
 def _run_remotion(
     composition_id: str,
     props_path: Path,
@@ -308,12 +386,18 @@ def render_full_video(
             "scenes": seg_scenes,
         })
 
+    # Compute chapter markers and chapter map
+    chapter_markers, total_frames = _compute_chapter_markers(content, script_id)
+    chapter_map = _build_chapter_map(content, script_id)
+
     props = {
         "segments": segments_props,
         "title": title or content.title,
         "fps": 30,
         "width": width,
         "height": height,
+        "video_fx": {"chapter_markers": chapter_markers},
+        "chapter_map": chapter_map,
     }
 
     renders = _renders_dir(script_id)

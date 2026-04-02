@@ -1,42 +1,54 @@
 /**
- * ZoomPunch camera effect — quick digital push-in for emphasis.
+ * ZoomPunch camera effect — quick asymmetric scale hit on key moments.
+ * Fast in (~6 frames), slow out (~18 frames via spring with high damping).
+ * Scale range: 1.04-1.07.
  */
 import React from "react";
-import { useCurrentFrame, useVideoConfig, spring } from "remotion";
+import { useCurrentFrame, useVideoConfig, interpolate, spring } from "remotion";
 
 interface Props {
   children: React.ReactNode;
-  intensity?: "subtle" | "moderate" | "dramatic";
-  triggerAt?: number; // seconds into scene
+  triggerFrame: number;
+  scale: number; // 1.04-1.07
 }
-
-const PUNCH_SCALE: Record<string, number> = {
-  subtle: 1.08,
-  moderate: 1.15,
-  dramatic: 1.25,
-};
 
 export const ZoomPunch: React.FC<Props> = ({
   children,
-  intensity = "moderate",
-  triggerAt = 0,
+  triggerFrame,
+  scale: maxScale,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const triggerFrame = Math.round(triggerAt * fps);
-  const maxScale = PUNCH_SCALE[intensity] ?? 1.15;
+  const localFrame = frame - triggerFrame;
 
-  const progress = spring({
-    frame: frame - triggerFrame,
-    fps,
-    config: {
-      damping: 12,
-      mass: 0.4,
-      stiffness: 200,
-    },
-  });
+  let currentScale = 1;
 
-  const scale = 1 + (maxScale - 1) * progress;
+  if (localFrame >= 0) {
+    const PUNCH_IN_FRAMES = 6;
+    const punchIn = interpolate(localFrame, [0, PUNCH_IN_FRAMES], [0, 1], {
+      extrapolateLeft: "clamp",
+      extrapolateRight: "clamp",
+    });
+
+    const punchOut = localFrame >= PUNCH_IN_FRAMES
+      ? spring({
+          frame: localFrame - PUNCH_IN_FRAMES,
+          fps,
+          config: {
+            damping: 30,
+            mass: 0.8,
+            stiffness: 40,
+          },
+        })
+      : 0;
+
+    const amount = maxScale - 1;
+    if (localFrame < PUNCH_IN_FRAMES) {
+      currentScale = 1 + amount * punchIn;
+    } else {
+      currentScale = 1 + amount * (1 - punchOut);
+    }
+  }
 
   return (
     <div style={{ width: "100%", height: "100%", overflow: "hidden" }}>
@@ -44,7 +56,7 @@ export const ZoomPunch: React.FC<Props> = ({
         style={{
           width: "100%",
           height: "100%",
-          transform: `scale(${scale})`,
+          transform: `scale(${currentScale})`,
           willChange: "transform",
         }}
       >

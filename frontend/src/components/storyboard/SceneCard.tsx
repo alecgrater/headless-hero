@@ -2,7 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import { assetUrl } from "../../api";
-import type { KenBurnsConfig, Scene, SceneFX } from "../../types/script";
+import type { KenBurnsConfig, Scene } from "../../types/script";
 import { SEGMENT_COLORS, SEGMENT_RING_COLORS } from "./constants";
 
 const MOTION_ICONS: Record<NonNullable<KenBurnsConfig["effect"]>, string> = {
@@ -151,20 +151,20 @@ export default function SceneCard({
           </span>
         )}
         {/* FX badges */}
-        {scene.fx?.camera && scene.fx.camera.type !== "static" && (
+        {scene.fx?.zoom_punch && (
           <span
             className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full"
-            title={`Camera: ${scene.fx.camera.type}${scene.fx.camera.direction ? ` ${scene.fx.camera.direction}` : ""}`}
+            title={`Zoom punch: ${scene.fx.zoom_punch.scale}x`}
           >
-            {scene.fx.camera.type === "ken_burns" ? (MOTION_ICONS[`pan_${scene.fx.camera.direction ?? "left"}` as keyof typeof MOTION_ICONS] || "\u2194") : scene.fx.camera.type === "zoom_punch" ? "\u26A1" : "\u2B50"}
+            &#x26A1;
           </span>
         )}
-        {scene.fx?.transition && scene.fx.transition.type !== "cut" && (
+        {scene.fx?.kinetic_captions?.words && scene.fx.kinetic_captions.words.length > 0 && (
           <span
             className="text-[10px] bg-violet-500/20 text-violet-300 px-1.5 py-0.5 rounded-full"
-            title={`Transition: ${scene.fx.transition.type}`}
+            title={`${scene.fx.kinetic_captions.words.length} emphasis words`}
           >
-            {scene.fx.transition.type}
+            Aa
           </span>
         )}
         {scene.audio_url ? (

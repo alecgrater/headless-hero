@@ -53,16 +53,16 @@ export const TitleCardScene: React.FC<Props> = ({ scene }) => {
     frame,
     fps,
     config: {
-      damping: 100,
+      damping: 200,
       mass: 1.5,
-      stiffness: 20,
+      stiffness: 10,
       overshootClamping: true,
     },
   });
 
   // Calculate zoom level needed to fill the viewport with the circle
   const targetRadius = target.radius;
-  const finalScale = Math.max(width, height) / (targetRadius * 2);
+  const finalScale = Math.min(2.5, Math.max(width, height) / (targetRadius * 2));
 
   const scale = 1 + (finalScale - 1) * zoomProgress;
 

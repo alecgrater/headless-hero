@@ -50,10 +50,8 @@ export const MultiFrameScene: React.FC<Props> = ({ scene }) => {
 
   const n = framePaths.length;
   const framesPerImage = durationInFrames / n;
-  const kbEffect = scene.fx?.camera?.type === "ken_burns"
-    ? (scene.ken_burns_effect ?? "zoom_in")
-    : "zoom_in";
-  const kbIntensity = (scene.fx?.camera?.intensity ?? "subtle") as
+  const kbEffect = scene.ken_burns_effect ?? "zoom_in";
+  const kbIntensity = (scene.ken_burns_intensity ?? "subtle") as
     | "subtle"
     | "moderate"
     | "dramatic";
