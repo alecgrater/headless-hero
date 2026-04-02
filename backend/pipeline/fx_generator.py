@@ -21,9 +21,16 @@ FX_SYSTEM_PROMPT = """You are a visual effects director for educational YouTube 
 ## Available Effects
 
 ### Kinetic Captions (kinetic_captions)
-Pick 3-8 of the MOST IMPACTFUL words per scene (~1 every 3-5 seconds of narration). These are single emphasis words that flash on screen one at a time — NOT subtitles.
+You are selecting words for kinetic emphasis — single words that flash on screen during narration for dramatic effect. Think like an editor highlighting a transcript before a video shoot.
 
-**Category-first selection:** Before picking a word, categorize it:
+**Selection criteria — ask yourself for each candidate word:**
+1. Would removing this word weaken the argument? (→ key_noun or stat)
+2. Does this word carry emotional payload? (→ emotional)
+3. Does this word mark a turn, surprise, or contradiction? (→ contrast)
+4. Is this word the verb that drives the action of the sentence? (→ action_verb)
+If the answer to ALL four is "no" — don't pick it.
+
+**Categories:**
 - `stat` — numbers, percentages, measurements ("billion", "97%", "3x")
 - `key_noun` — core subject nouns that name what the scene is about ("mitochondria", "algorithm")
 - `emotional` — words that carry emotional weight ("devastating", "miraculous", "terrifying")
@@ -31,52 +38,33 @@ Pick 3-8 of the MOST IMPACTFUL words per scene (~1 every 3-5 seconds of narratio
 - `contrast` — words that signal opposition or surprise ("but", "however", "unlike")
 - `keyword` — other important words that don't fit above categories
 
+**Intensity tiers:**
+- **3 (peak)** — The single most dramatic/important word in the scene. Max 1 per scene. Stats that shock, thesis reversals, climactic nouns.
+- **2 (important)** — Core content words that carry the argument forward. Most emphasis words should be tier 2.
+- **1 (supporting)** — Adds texture or rhythm but isn't critical. Connecting verbs, secondary descriptors.
+
+**Density:** 3-8 words per scene (~1 every 3-5 seconds). Scale with scene importance — intro hooks get more, transitional scenes get fewer.
+
 **Anti-patterns — NEVER pick these:**
 - Generic verbs: is, was, were, have, has, had, been, being, do, does, did, get, got, make, made
 - Articles and prepositions: the, a, an, of, in, on, at, to, for, with, from, by
 - Vague adjectives: very, really, quite, some, many, much, good, bad, big, small
 - Pronouns: it, they, them, he, she, this, that, these, those
 
-For each word, specify:
+For each word, return ONLY these fields:
 - **word**: The exact word from the narration
 - **word_index**: 0-based index of this word in the narration text (split by whitespace). The scene data includes `word_timestamps` if audio exists — use those indices.
-- **style**: One of 12 animation styles (MUST vary — never use the same style 3x in a row):
-  - `scale_pop` — spring scale 80%→100% (punchy, confident)
-  - `color_flash` — violet accent color pulse (highlighting, drawing attention)
-  - `size_burst` — 3x font size springs down to 1x (dramatic, shocking)
-  - `shake` — 2px random offset for ~10 frames (dangerous, alarming)
-  - `underline_draw` — animated underline draws left→right (important, factual)
-  - `glow_pulse` — neon glow that pulses 2-3x (mystical, ethereal)
-  - `typewriter` — characters revealed one at a time left-to-right (methodical, technical)
-  - `slide_up` — slides up from below with spring easing (emergence, growth)
-  - `bounce_in` — drops from above with bouncy spring (playful, surprising)
-  - `rotate_in` — rotates from -15deg to 0 while scaling up (dynamic, energetic)
-  - `glitch` — RGB split + position jitter then clean (digital, disruption, error)
-  - `gradient_sweep` — color gradient sweeps across word (premium, flashy)
 - **category**: The word's category from the list above
-- **font_size**: 48-120px. Guidelines:
-  - 48px — subtle emphasis, background detail
-  - 64px — standard emphasis (default)
-  - 80-96px — statistics, key reveals
-  - 120px — rare dramatic peak (max 1 per video)
-- **position**: Where the word appears on screen:
-  - `bottom_center` — default position, good for most words
-  - `bottom_left` / `bottom_right` — use to vary position in sequences of words
-  - `center` — reserved for the MOST dramatic moment per scene (max 1 per scene)
-  - `top_center` — use sparingly for contrast or callbacks
+- **intensity**: 1, 2, or 3
+- **reason**: Short explanation of why this word matters (e.g. "core thesis reversal", "peak statistic", "emotional climax")
 
-**Category→style affinities (suggestions, not hard rules):**
-- `stat` → `size_burst`, `scale_pop`
-- `emotional` → `glow_pulse`, `color_flash`
-- `action_verb` → `shake`, `bounce_in`
-- `key_noun` → `underline_draw`, `typewriter`
-- `contrast` → `glitch`, `slide_up`
+Do NOT return `style`, `font_size`, `position`, `start_frame`, or `end_frame` — these are computed automatically.
 
 **Rules:**
-- Do NOT return `start_frame` or `end_frame` — timing is computed from word_timestamps automatically.
 - Space words apart — avoid picking consecutive words from the narration.
 - Not every scene needs captions. Quiet/reflective scenes can have 0 words.
 - Title card scenes should have 0 captions.
+- Max 1 intensity-3 word per scene.
 
 ### Zoom Punches (zoom_punch)
 A quick 4-7% scale hit for emphasis. Use sparingly — 3-6 per ENTIRE video.
@@ -102,8 +90,8 @@ Return a JSON array with one object per scene (same order as input). Each object
     "fx": {
       "kinetic_captions": {
         "words": [
-          { "word": "billion", "word_index": 5, "style": "size_burst", "category": "stat", "font_size": 88, "position": "bottom_center" },
-          { "word": "destroyed", "word_index": 18, "style": "shake", "category": "action_verb", "font_size": 72, "position": "bottom_center" }
+          { "word": "billion", "word_index": 5, "category": "stat", "intensity": 3, "reason": "shocking scale statistic" },
+          { "word": "destroyed", "word_index": 18, "category": "action_verb", "intensity": 2, "reason": "drives the central consequence" }
         ]
       },
       "zoom_punch": null
@@ -120,6 +108,78 @@ Return a JSON array with one object per scene (same order as input). Each object
 ```
 
 Return ONLY the JSON array, no explanation."""
+
+
+INTENSITY_MAP: dict[int, dict] = {
+    1: {"font_size": 48, "position": "bottom_center"},
+    2: {"font_size": 64, "position": "bottom_center"},
+    3: {"font_size": 96, "position": "center"},
+}
+
+CATEGORY_STYLE_MAP: dict[str, list[str]] = {
+    "stat": ["size_burst", "scale_pop"],
+    "key_noun": ["underline_draw", "typewriter"],
+    "emotional": ["glow_pulse", "color_flash"],
+    "action_verb": ["shake", "bounce_in"],
+    "contrast": ["glitch", "slide_up"],
+    "keyword": ["scale_pop", "gradient_sweep"],
+}
+
+
+def _apply_intensity_mapping(fx_data: dict) -> dict:
+    """Map intensity + category to style/font_size/position deterministically.
+
+    Runs before _apply_word_timestamps(). Overwrites any style/font_size/position
+    Claude may have returned (stale cache, etc.).
+    """
+    captions = fx_data.get("kinetic_captions")
+    if not captions:
+        return fx_data
+
+    words = captions.get("words", [])
+    if not words:
+        return fx_data
+
+    # Track per-category style cycle counters
+    style_counters: dict[str, int] = {}
+    # Track which word gets center position (highest intensity wins)
+    center_candidate_idx: int | None = None
+    center_candidate_intensity: int = 0
+
+    for i, w in enumerate(words):
+        intensity = w.get("intensity", 2)
+        intensity = max(1, min(3, intensity))  # clamp to 1-3
+        category = w.get("category", "keyword")
+
+        # Map intensity → font_size and position
+        mapping = INTENSITY_MAP.get(intensity, INTENSITY_MAP[2])
+        w["font_size"] = mapping["font_size"]
+        w["position"] = mapping["position"]
+
+        # Track center position candidate (only the highest-intensity word gets it)
+        if intensity >= center_candidate_intensity and mapping["position"] == "center":
+            if center_candidate_idx is not None:
+                # Demote previous center candidate
+                words[center_candidate_idx]["position"] = "bottom_center"
+            center_candidate_idx = i
+            center_candidate_intensity = intensity
+
+        # Map category → style, cycling through the pool
+        pool = CATEGORY_STYLE_MAP.get(category, CATEGORY_STYLE_MAP["keyword"])
+        counter = style_counters.get(category, 0)
+        w["style"] = pool[counter % len(pool)]
+        style_counters[category] = counter + 1
+
+    # For sequences of 3+ words, alternate bottom_left/bottom_right for visual variety
+    if len(words) >= 3:
+        for i, w in enumerate(words):
+            if w["position"] == "bottom_center":
+                if i % 3 == 1:
+                    w["position"] = "bottom_left"
+                elif i % 3 == 2:
+                    w["position"] = "bottom_right"
+
+    return fx_data
 
 
 def _apply_word_timestamps(
@@ -263,6 +323,9 @@ def generate_fx(content: ScriptContent) -> list[dict]:
             continue
         fx_data = entry.get("fx", {})
 
+        # Post-process: map intensity+category → style/font_size/position
+        fx_data = _apply_intensity_mapping(fx_data)
+
         # Post-process: apply word timestamps to kinetic captions
         scene_id = entry["id"]
         meta = meta_by_id.get(scene_id)
@@ -305,6 +368,9 @@ def generate_scene_fx(scene_data: dict) -> dict:
 
     entry = fx_list[0]
     fx_data = entry.get("fx", {})
+
+    # Post-process: map intensity+category → style/font_size/position
+    fx_data = _apply_intensity_mapping(fx_data)
 
     # Post-process: apply word timestamps to kinetic captions
     fx_data = _apply_word_timestamps(

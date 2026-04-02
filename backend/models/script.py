@@ -22,6 +22,8 @@ class EmphasisWord(BaseModel):
     font_size: int = 64  # 48-120
     position: str = "bottom_center"  # bottom_center | bottom_left | bottom_right | center | top_center
     word_index: int = 0  # 0-based index into narration word list (for timestamp lookup)
+    intensity: int = 2  # 1 (supporting), 2 (important), 3 (peak moment)
+    reason: str = ""  # why this word matters (e.g. "shocking statistic", "thesis reversal")
 
 class KineticCaptionsFX(BaseModel):
     """Kinetic emphasis captions — frame-timed emphasis words from narration."""

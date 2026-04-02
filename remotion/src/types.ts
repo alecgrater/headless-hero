@@ -26,6 +26,8 @@ export interface EmphasisWord {
   font_size?: number; // 48-120, default 64
   position?: string; // bottom_center | bottom_left | bottom_right | center | top_center
   word_index?: number; // 0-based index into narration word list
+  intensity?: number; // 1 (supporting), 2 (important), 3 (peak moment)
+  reason?: string; // why this word matters
 }
 
 export interface KineticCaptionsFX {
