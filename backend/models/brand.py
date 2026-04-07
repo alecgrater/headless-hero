@@ -11,7 +11,12 @@ class BrandProfileBase(SQLModel):
 
     name: str = Field(index=True)
     voice_id: str = Field(default="")  # ElevenLabs voice ID
-    content_modifiers: str = Field(default="")  # DEPRECATED — kept for DB compat, unused
+    # DEPRECATED fields — kept for DB compat with existing tables, unused
+    art_style: str | None = Field(default=None)
+    color_palette: str = Field(default="")
+    font: str = Field(default="")
+    style_string: str | None = Field(default=None)
+    content_modifiers: str = Field(default="")
     youtube_channel_id: str = Field(default="")
 
 class BrandProfile(BrandProfileBase, table=True):
