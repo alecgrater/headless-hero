@@ -28,7 +28,7 @@ const EMPTY_BATCH: BatchProgress = {
   statuses: new Map(),
 };
 
-interface StoryboardState {
+interface TimelineState {
   content: ScriptContent;
   isDirty: boolean;
   saveStatus: "saved" | "saving" | "unsaved";
@@ -119,10 +119,10 @@ function splitNarrationAtMidpoint(narration: string): [string, string] {
   ];
 }
 
-export function useStoryboardState(
+export function useTimelineState(
   scriptId: string,
   initialContent: ScriptContent,
-): StoryboardState {
+): TimelineState {
   const [content, setContent] = useState<ScriptContent>(initialContent);
   const [isDirty, setIsDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved">(

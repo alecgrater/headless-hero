@@ -76,10 +76,6 @@ def refine_scene(
     data["image_url"] = target_scene.image_url
     data["audio_url"] = target_scene.audio_url
     data["audio_duration_seconds"] = target_scene.audio_duration_seconds
-    if target_scene.ken_burns:
-        data["ken_burns"] = target_scene.ken_burns.model_dump()
-    if target_scene.text_overlay_config:
-        data["text_overlay_config"] = target_scene.text_overlay_config.model_dump()
 
     refined = Scene.model_validate(data)
     logger.info("Scene %s refined successfully", scene_id)

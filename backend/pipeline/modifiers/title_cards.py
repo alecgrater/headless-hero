@@ -6,7 +6,7 @@ and pre-render image generation as standalone functions (always active).
 
 import logging
 
-from models.script import Scene, ScriptContent, TextOverlayConfig
+from models.script import Scene, ScriptContent
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +34,7 @@ Keep it simple and readable at small sizes (it will be cropped into a circle).
 name as text_overlay and a short (2-3s) intro narration.
 - Title card scenes MUST have visual_prompt set to "" (empty string) — their visuals come from \
 the composite grid card, not individual AI generation.
-- Title card scenes MUST have text_overlay_config with style "title_card", position "center", \
-and animation "fade_in".
+- Title card scenes MUST have text_overlay set to the segment name.
 - Each segment MUST have at least 5 scenes (including the title card).
 - Segment count MUST be exactly 6, 8, 10, or 12 for balanced grid layouts."""
 
@@ -140,11 +139,6 @@ def enforce_title_cards_and_min_scenes(content: ScriptContent) -> ScriptContent:
                 text_overlay=seg.name,
                 duration_estimate_seconds=3.0,
                 is_title_card=True,
-                text_overlay_config=TextOverlayConfig(
-                    position="center",
-                    style="title_card",
-                    animation="fade_in",
-                ),
             )
             seg.scenes.insert(0, title_scene)
 
@@ -152,16 +146,8 @@ def enforce_title_cards_and_min_scenes(content: ScriptContent) -> ScriptContent:
         for sc in seg.scenes:
             if sc.is_title_card:
                 sc.visual_prompt = ""
-                sc.visual_prompt_b = ""
-                sc.is_animated = False
                 if not sc.text_overlay:
                     sc.text_overlay = seg.name
-                if not sc.text_overlay_config or sc.text_overlay_config.style != "title_card":
-                    sc.text_overlay_config = TextOverlayConfig(
-                        position="center",
-                        style="title_card",
-                        animation="fade_in",
-                    )
 
         if len(seg.scenes) < 5:
             logger.warning(

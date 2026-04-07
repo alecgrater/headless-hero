@@ -22,15 +22,12 @@ def generate_scene_image(
     width: int = 1344,
     height: int = 768,
     force: bool = False,
-    variant: str = "a",
     style_guide: str = "",
-    seed: int | None = None,
     style_string: str = "",
 ) -> tuple[str, str]:
     """Generate a single scene image and save it locally.
 
     If the image already exists and force=False, skips regeneration.
-    variant="a" uses {scene_id}.png, variant="b" uses {scene_id}_b.png.
     style_guide overrides the default _STYLE_GUIDE if provided.
     Returns (web-relative path, composed prompt used).
     """
@@ -49,20 +46,20 @@ def generate_scene_image(
     images_dir = DATA_DIR / "projects" / script_id / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
 
-    suffix = "_b" if variant == "b" else ""
-    filename = f"{scene_id}{suffix}.png"
+    suffix = ""
+    filename = f"{scene_id}.png"
     local_path = images_dir / filename
-    prompt_marker = images_dir / f"{scene_id}{suffix}.prompt"
+    prompt_marker = images_dir / f"{scene_id}.prompt"
     web_path = f"/static/projects/{script_id}/images/{filename}"
 
     if not force and local_path.exists() and prompt_marker.exists():
         cached_prompt = prompt_marker.read_text(encoding="utf-8").strip()
         if cached_prompt == prompt:
-            logger.info("Image cache hit for scene %s (variant=%s)", scene_id, variant)
+            logger.info("Image cache hit for scene %s", scene_id)
             return web_path, prompt
 
-    logger.info("Generating image for scene %s (variant=%s)", scene_id, variant)
-    tmp_path = generate_image(prompt, width=width, height=height, seed=seed)
+    logger.info("Generating image for scene %s", scene_id)
+    tmp_path = generate_image(prompt, width=width, height=height)
 
     # Move generated image to local storage
     shutil.move(tmp_path, str(local_path))
@@ -82,7 +79,6 @@ def generate_scene_frames(
     height: int = 768,
     force: bool = False,
     style_guide: str = "",
-    seed: int | None = None,
     style_string: str = "",
 ) -> list[tuple[str, str]]:
     """Generate multiple frames for a scene and save them locally.
@@ -173,7 +169,6 @@ def generate_scene_frames(
             prompt,
             width=width,
             height=height,
-            seed=seed,
             reference_image_path=str(prev_frame_path) if use_reference else None,
         )
         shutil.move(tmp_path, str(local_path))
@@ -194,9 +189,8 @@ def generate_batch(
     """Generate images for a list of scenes sequentially.
 
     Each scene dict must have 'scene_id' and 'visual_prompt'.
-    Optionally 'is_animated' (bool) and 'visual_prompt_b' (str) for A/B scenes.
-    Optionally 'frame_prompts' (list[str]) and 'frame_seed' (int|None) for multi-frame scenes.
-    Returns list of {scene_id, image_url, prompt_used, image_url_b?, frame_urls?, error?}.
+    Optionally 'frame_prompts' (list[str]) for multi-frame scenes.
+    Returns list of {scene_id, image_url, prompt_used, frame_urls?, error?}.
     """
     results: list[dict[str, str]] | None = []
     logger.info("Starting batch image generation for %s scenes (script %s)", len(scenes), script_id)
@@ -214,22 +208,19 @@ def generate_batch(
                     width=width,
                     height=height,
                     style_guide=style_guide,
-                    seed=scene.get("frame_seed"),
                     style_string=style_string,
                 )
                 frame_urls = [url for url, _ in frame_results]
-                # Use first frame as the primary image_url for backward compat
                 results.append({
                     "scene_id": scene["scene_id"],
                     "image_url": frame_urls[0] if frame_urls else None,
-                    "image_url_b": None,
                     "frame_urls": frame_urls,
                     "prompt_used": frame_results[0][1] if frame_results else None,
                     "error": None,
                 })
                 continue
 
-            # Legacy single/A-B path
+            # Single-image path
             image_url, prompt_used = generate_scene_image(
                 scene_id=scene["scene_id"],
                 visual_prompt=scene["visual_prompt"],
@@ -239,22 +230,9 @@ def generate_batch(
                 style_guide=style_guide,
                 style_string=style_string,
             )
-            image_url_b = None
-            if scene.get("is_animated") and scene.get("visual_prompt_b"):
-                image_url_b, _ = generate_scene_image(
-                    scene_id=scene["scene_id"],
-                    visual_prompt=scene["visual_prompt_b"],
-                    script_id=script_id,
-                    width=width,
-                    height=height,
-                    variant="b",
-                    style_guide=style_guide,
-                    style_string=style_string,
-                )
             results.append({
                 "scene_id": scene["scene_id"],
                 "image_url": image_url,
-                "image_url_b": image_url_b,
                 "prompt_used": prompt_used,
                 "error": None,
             })
@@ -263,7 +241,6 @@ def generate_batch(
             results.append({
                 "scene_id": scene["scene_id"],
                 "image_url": None,
-                "image_url_b": None,
                 "prompt_used": None,
                 "error": str(exc),
             })

@@ -10,7 +10,6 @@ def generate_image(
     prompt: str,
     width: int = 1344,
     height: int = 768,
-    seed: int | None = None,
     reference_image_path: str | None = None,
 ) -> str:
     """Generate an image using the configured provider.
@@ -22,9 +21,7 @@ def generate_image(
 
     if provider == "replicate":
         from integrations.replicate_client import generate_image as _gen
-    elif provider == "google":
-        from integrations.google_image_client_gemini import generate_image as _gen
     else:
         from integrations.google_image_client import generate_image as _gen
 
-    return _gen(prompt, width, height, seed=seed, reference_image_path=reference_image_path)
+    return _gen(prompt, width, height, reference_image_path=reference_image_path)

@@ -102,7 +102,7 @@ export function useKeyboardShortcuts(actions: ShortcutActions) {
           actions.openExport();
           return;
         }
-        // Note: Cmd+Z and Cmd+S already handled in useStoryboardState
+        // Note: Cmd+Z and Cmd+S already handled in useTimelineState
       }
     },
     [actions, showHelp],

@@ -6,11 +6,11 @@ import ProjectDashboard from "./components/dashboard/ProjectDashboard";
 import IdeationPage from "./components/ideation/IdeationPage";
 import ScriptGenerationPage from "./components/script/ScriptGenerationPage";
 import SettingsPage from "./components/settings/SettingsPage";
-import StoryboardPage from "./components/storyboard/StoryboardPage";
+import TimelinePage from "./components/timeline/TimelinePage";
 import type { BrandProfile, BrandProfileCreate } from "./types/brand";
 import type { VideoIdea } from "./types/idea";
 
-type View = "home" | "brand-create" | "brand-edit" | "project-dashboard" | "ideation" | "script-generation" | "storyboard" | "settings";
+type View = "home" | "brand-create" | "brand-edit" | "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings";
 
 function App() {
   const [backendStatus, setBackendStatus] = useState<string>("connecting...");
@@ -20,7 +20,7 @@ function App() {
   const [editingBrand, setEditingBrand] = useState<BrandProfile | null>(null);
   const [saving, setSaving] = useState(false);
   const [selectedIdea, setSelectedIdea] = useState<VideoIdea | null>(null);
-  const [storyboardScriptId, setStoryboardScriptId] = useState<string | null>(null);
+  const [timelineScriptId, setTimelineScriptId] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -140,7 +140,7 @@ function App() {
       </header>
 
       {/* Main content area */}
-      <main className={`flex-1 w-full ${view === "storyboard" || view === "project-dashboard" || view === "brand-create" || view === "brand-edit" || view === "settings" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
+      <main className={`flex-1 w-full ${view === "timeline" || view === "project-dashboard" || view === "brand-create" || view === "brand-edit" || view === "settings" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
         {view === "settings" && (
           <SettingsPage onBack={() => setView("home")} />
         )}
@@ -182,15 +182,15 @@ function App() {
             idea={selectedIdea}
             onBack={() => setView("ideation")}
             onContinue={(scriptId) => {
-              setStoryboardScriptId(scriptId);
-              setView("storyboard");
+              setTimelineScriptId(scriptId);
+              setView("timeline");
             }}
           />
         )}
 
-        {view === "storyboard" && storyboardScriptId && (
-          <StoryboardPage
-            scriptId={storyboardScriptId}
+        {view === "timeline" && timelineScriptId && (
+          <TimelinePage
+            scriptId={timelineScriptId}
             onBack={() => setView("project-dashboard")}
           />
         )}
@@ -200,8 +200,8 @@ function App() {
             brand={selectedBrand}
             onNewVideo={() => setView("ideation")}
             onOpenProject={(scriptId) => {
-              setStoryboardScriptId(scriptId);
-              setView("storyboard");
+              setTimelineScriptId(scriptId);
+              setView("timeline");
             }}
             onBack={() => setView("home")}
           />

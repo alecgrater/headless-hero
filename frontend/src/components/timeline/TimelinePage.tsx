@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api, { generateFX } from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
@@ -6,23 +6,21 @@ import type { BrandProfile } from "../../types/brand";
 import type { VoiceInfo, VoiceListResponse } from "../../types/audio";
 import ExportPanel from "./ExportPanel";
 import PropertiesPanel from "./PropertiesPanel";
-import SceneGrid from "./SceneGrid";
-import SegmentList from "./SegmentList";
+import TimelineLanes from "./TimelineLanes";
 import VideoPreviewModal from "./VideoPreviewModal";
 import VoiceSetupModal from "../brand/VoiceSetupModal";
 import { usePublishState } from "./usePublishState";
 import { useRenderState } from "./useRenderState";
-import { useStoryboardState } from "./useStoryboardState";
+import { useTimelineState } from "./useTimelineState";
 import { useKeyboardShortcuts, ShortcutHelpOverlay } from "./useKeyboardShortcuts";
 import { useSidebarState } from "./useSidebarState";
-import PreviewStrip from "./PreviewStrip";
 
 interface Props {
   scriptId: string;
   onBack: () => void;
 }
 
-export default function StoryboardPage({ scriptId, onBack }: Props) {
+export default function TimelinePage({ scriptId, onBack }: Props) {
   const [script, setScript] = useState<ScriptRead | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +53,7 @@ export default function StoryboardPage({ scriptId, onBack }: Props) {
     return (
       <div className="text-center py-20 space-y-4">
         <div className="inline-block w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-neutral-400">Loading storyboard...</p>
+        <p className="text-neutral-400">Loading timeline...</p>
       </div>
     );
   }
@@ -78,7 +76,7 @@ export default function StoryboardPage({ scriptId, onBack }: Props) {
     );
   }
 
-  return <StoryboardEditor scriptId={scriptId} brandId={script.brand_id} initialContent={script.script} title={script.topic_title} onBack={onBack} />;
+  return <TimelineEditor scriptId={scriptId} brandId={script.brand_id} initialContent={script.script} title={script.topic_title} onBack={onBack} />;
 }
 
 interface BatchProgressProps {
@@ -135,7 +133,7 @@ function BatchProgressBar({ progress, label }: BatchProgressProps) {
   );
 }
 
-function StoryboardEditor({
+function TimelineEditor({
   scriptId,
   brandId,
   initialContent,
@@ -148,11 +146,10 @@ function StoryboardEditor({
   title: string;
   onBack: () => void;
 }) {
-  const state = useStoryboardState(scriptId, initialContent);
+  const state = useTimelineState(scriptId, initialContent);
   const render = useRenderState(scriptId, title);
   const publish = usePublishState(scriptId, brandId);
   const sidebar = useSidebarState(scriptId);
-  const [activeSegmentIdx, setActiveSegmentIdx] = useState<number | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showVoiceSetup, setShowVoiceSetup] = useState(false);
@@ -160,6 +157,7 @@ function StoryboardEditor({
   const [previewMode, setPreviewMode] = useState(false);
   const [generatingFX, setGeneratingFX] = useState(false);
   const [confirmOverwrite, setConfirmOverwrite] = useState<"images" | "audio" | "fx" | null>(null);
+  const [pixelsPerSecond, setPixelsPerSecond] = useState(40);
 
   // Fetch render estimate when export panel or preview modal opens
   useEffect(() => {
@@ -178,7 +176,6 @@ function StoryboardEditor({
   const [brand, setBrand] = useState<BrandProfile | null>(null);
   const [voices, setVoices] = useState<VoiceInfo[]>([]);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>("");
-  const segmentRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   // Fetch brand profile for style_string
   useEffect(() => {
@@ -281,12 +278,6 @@ function StoryboardEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewMode, state.selectedSceneId]);
 
-  const handleSegmentClick = (idx: number) => {
-    setActiveSegmentIdx(idx);
-    const el = segmentRefs.current.get(idx);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
   // Build flat scene list for keyboard navigation
   const allSceneIds = state.content.segments.flatMap((seg) =>
     seg.scenes.map((sc) => sc.id),
@@ -360,23 +351,6 @@ function StoryboardEditor({
     0,
   );
 
-  // Segment-level regeneration handlers
-  const handleRegenerateSegmentImages = (segIdx: number) => {
-    const scenes = state.content.segments[segIdx]?.scenes ?? [];
-    for (const sc of scenes) {
-      state.generateImage(sc.id);
-    }
-  };
-
-  const handleRegenerateSegmentAudio = (segIdx: number) => {
-    const scenes = state.content.segments[segIdx]?.scenes ?? [];
-    for (const sc of scenes) {
-      if (sc.narration) {
-        tryGenerateAudio(sc.id);
-      }
-    }
-  };
-
   // Check if assets already exist for overwrite confirmation
   const hasExistingImages = allScenes.some((sc) => !sc.is_title_card && (sc.image_url || sc.video_clip_url || sc.frame_urls?.length));
   const hasExistingAudio = allScenes.some((sc) => sc.audio_url);
@@ -423,14 +397,14 @@ function StoryboardEditor({
     }
   };
 
-  // Handle scene selection with right sidebar auto-open
+  // Handle scene selection
   const handleSelectScene = (sceneId: string) => {
     state.selectScene(sceneId);
   };
 
   return (
     <div className="flex flex-col h-[calc(100vh-105px)]">
-      {/* Row 1 — Navigation + Title + Save */}
+      {/* Row 1 — Navigation + Title + Zoom + Save */}
       <div className="flex items-center gap-4 px-5 py-2.5 border-b border-neutral-800/60 shrink-0">
         <button
           onClick={onBack}
@@ -454,6 +428,20 @@ function StoryboardEditor({
               {totalWords.toLocaleString()} words
             </span>
           )}
+        </div>
+
+        {/* Zoom slider */}
+        <div className="flex items-center gap-2 ml-2">
+          <span className="text-[11px] text-neutral-500">Zoom:</span>
+          <input
+            type="range"
+            min={20}
+            max={100}
+            value={pixelsPerSecond}
+            onChange={(e) => setPixelsPerSecond(parseInt(e.target.value, 10))}
+            className="w-20 accent-violet-500"
+          />
+          <span className="text-[11px] text-neutral-500 font-mono w-8">{pixelsPerSecond}</span>
         </div>
 
         <div className="ml-auto flex items-center gap-2">
@@ -577,7 +565,7 @@ function StoryboardEditor({
 
         {/* Push preview + export to the right */}
         <div className="ml-auto flex items-center gap-1.5">
-          {/* Group 2 — Preview */}
+          {/* Preview group */}
           <div className="bg-neutral-800/50 rounded-lg p-1 flex items-center gap-1">
             <button
               onClick={() => setPreviewMode((prev) => !prev)}
@@ -599,18 +587,18 @@ function StoryboardEditor({
             </button>
           </div>
 
-          {/* Export CTA — the ONLY solid-color button */}
+          {/* Export CTA */}
           <button
             onClick={() => setShowExport(true)}
             className="text-sm px-4 py-1.5 bg-violet-600 hover:bg-violet-500 rounded-lg font-semibold transition-colors shadow-sm shadow-violet-500/20"
-            title="Export & Render (⌘E)"
+            title="Export & Render (Cmd+E)"
           >
             Export
           </button>
         </div>
       </div>
 
-      {/* Batch Progress Bar */}
+      {/* Batch Progress Bars */}
       <BatchProgressBar progress={state.batchImageProgress} label="images" />
       <BatchProgressBar progress={state.batchAudioProgress} label="audio" />
       <BatchProgressBar progress={state.batchMediaProgress} label="media" />
@@ -628,35 +616,19 @@ function StoryboardEditor({
         </div>
       )}
 
-      {/* Three-panel layout */}
+      {/* Two-panel layout: Timeline + Properties */}
       <div className="flex flex-1 overflow-hidden">
-        <SegmentList
-          content={state.content}
-          activeSegmentIdx={activeSegmentIdx}
-          onSegmentClick={handleSegmentClick}
-          collapsed={sidebar.leftCollapsed}
-          onToggle={sidebar.toggleLeft}
-          onRegenerateSegmentImages={handleRegenerateSegmentImages}
-          onRegenerateSegmentAudio={handleRegenerateSegmentAudio}
-        />
+        {/* Main timeline area */}
+        <div className="flex-1 overflow-auto p-4">
+          <TimelineLanes
+            content={state.content}
+            selectedSceneId={state.selectedSceneId}
+            onSelectScene={handleSelectScene}
+            pixelsPerSecond={pixelsPerSecond}
+          />
+        </div>
 
-        <SceneGrid
-          content={state.content}
-          selectedSceneId={state.selectedSceneId}
-          segmentRefs={segmentRefs}
-          onSelectScene={handleSelectScene}
-          onNarrationChange={(id, narr) =>
-            state.updateScene(id, { narration: narr })
-          }
-          onMoveScene={state.moveScene}
-          onGenerateImage={(sceneId) => state.generateImage(sceneId)}
-          generatingSceneIds={state.generatingSceneIds}
-          onGenerateAudio={(sceneId) => tryGenerateAudio(sceneId)}
-          generatingAudioSceneIds={state.generatingAudioSceneIds}
-          batchImageStatuses={state.batchImageProgress.statuses}
-          onRetryImage={(sceneId) => state.generateImage(sceneId)}
-        />
-
+        {/* Right panel: Properties */}
         <div className="flex overflow-hidden">
           {selectedScene ? (
             <PropertiesPanel
@@ -709,15 +681,6 @@ function StoryboardEditor({
           )}
         </div>
       </div>
-
-      {/* Preview Strip */}
-      {previewMode && (
-        <PreviewStrip
-          content={state.content}
-          selectedSceneId={state.selectedSceneId}
-          onSelectScene={state.selectScene}
-        />
-      )}
 
       {showPreview && (
         <VideoPreviewModal

@@ -27,24 +27,17 @@ class GenerateVisualRequest(BaseModel):
     visual_prompt: str
     width: int = 1344
     height: int = 768
-    is_animated: bool = False
-    visual_prompt_b: str = ""
     frame_prompts: list[str] = []
-    frame_seed: int | None = None
 
 class GenerateVisualResponse(BaseModel):
     image_url: str
     prompt_used: str
-    image_url_b: str | None = None
     frame_urls: list[str] = []
 
 class BatchScene(BaseModel):
     scene_id: str
     visual_prompt: str
-    is_animated: bool = False
-    visual_prompt_b: str = ""
     frame_prompts: list[str] = []
-    frame_seed: int | None = None
 
 class GenerateBatchRequest(BaseModel):
     script_id: str
@@ -55,7 +48,6 @@ class GenerateBatchRequest(BaseModel):
 class BatchResultItem(BaseModel):
     scene_id: str
     image_url: str | None = None
-    image_url_b: str | None = None
     frame_urls: list[str] = []
     prompt_used: str | None = None
     error: str | None = None
@@ -110,7 +102,6 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             visual_prompt=body.visual_prompt,
             width=body.width,
             height=body.height,
-            seed=body.frame_seed,
             style_string=brand_style_string,
         )
         frame_urls = [url for url, _ in frame_results]
@@ -121,7 +112,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             frame_urls=frame_urls,
         )
 
-    # Legacy single-image path
+    # Single-image path
     image_url, prompt_used = generate_scene_image(
         scene_id=body.scene_id,
         visual_prompt=body.visual_prompt,
@@ -133,20 +124,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
 
     _update_scene(session, body.script_id, body.scene_id, image_url=image_url)
 
-    image_url_b = None
-    if body.is_animated and body.visual_prompt_b:
-        image_url_b, _ = generate_scene_image(
-            scene_id=body.scene_id,
-            visual_prompt=body.visual_prompt_b,
-            script_id=body.script_id,
-            width=body.width,
-            height=body.height,
-            variant="b",
-            style_string=brand_style_string,
-        )
-        _update_scene(session, body.script_id, body.scene_id, image_url_b=image_url_b)
-
-    return GenerateVisualResponse(image_url=image_url, prompt_used=prompt_used, image_url_b=image_url_b)
+    return GenerateVisualResponse(image_url=image_url, prompt_used=prompt_used)
 
 @router.post("/generate-batch", response_model=GenerateBatchResponse)
 def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends(get_session)):
@@ -165,10 +143,7 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
         {
             "scene_id": s.scene_id,
             "visual_prompt": s.visual_prompt,
-            "is_animated": s.is_animated,
-            "visual_prompt_b": s.visual_prompt_b,
             "frame_prompts": s.frame_prompts,
-            "frame_seed": s.frame_seed,
         }
         for s in body.scenes
     ]
@@ -188,8 +163,6 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
             _update_scene(session, body.script_id, r["scene_id"], frame_urls=frame_urls)
         elif r["image_url"]:
             _update_scene(session, body.script_id, r["scene_id"], image_url=r["image_url"])
-        if r.get("image_url_b"):
-            _update_scene(session, body.script_id, r["scene_id"], image_url_b=r["image_url_b"])
 
     errors = sum(1 for r in results if r.get("error"))
     logger.info("Batch visual generation complete for script %s: %d succeeded, %d failed", body.script_id, len(results) - errors, errors)

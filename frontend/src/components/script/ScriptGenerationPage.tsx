@@ -677,7 +677,7 @@ export default function ScriptGenerationPage({
               onClick={() => scriptId && onContinue(scriptId)}
               className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
             >
-              Continue to Storyboard &rarr;
+              Continue to Timeline &rarr;
             </button>
             <button
               onClick={onBack}
