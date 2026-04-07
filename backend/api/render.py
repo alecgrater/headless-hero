@@ -91,7 +91,7 @@ def _total_audio_duration(content: ScriptContent) -> float:
     return total
 
 def _load_brand_and_modifiers(session: Session, script_id: str) -> tuple[dict, list[str]]:
-    """Load brand dict and modifier IDs for a script."""
+    """Load brand dict for a script. Modifier IDs always empty (title_cards handled separately)."""
     record = session.get(Script, script_id)
     if not record:
         return {}, []
@@ -103,14 +103,7 @@ def _load_brand_and_modifiers(session: Session, script_id: str) -> tuple[dict, l
         "name": brand.name,
     }
 
-    modifier_ids: list[str] = []
-    try:
-        parsed = json.loads(brand.content_modifiers) if brand.content_modifiers else []
-        modifier_ids = parsed if isinstance(parsed, list) else []
-    except Exception:
-        pass
-
-    return brand_dict, modifier_ids
+    return brand_dict, []
 
 # --- Endpoints ---
 

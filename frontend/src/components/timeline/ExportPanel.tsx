@@ -37,9 +37,6 @@ interface Props {
   // Render estimate
   estimatedSeconds: number | null;
 
-  // Active modifiers on the brand
-  activeModifierIds: string[];
-
   onClose: () => void;
 }
 
@@ -158,7 +155,7 @@ export default function ExportPanel({
   onStartPublish,
   publishHistory,
   estimatedSeconds,
-  // activeModifierIds available for future modifier-conditional UI
+
   onClose,
 }: Props) {
   const youtubeRendering = youtubeStatus?.status === "running" || youtubeStatus?.status === "pending";

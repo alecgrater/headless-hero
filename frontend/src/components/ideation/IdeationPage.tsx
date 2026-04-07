@@ -1,13 +1,11 @@
 import { useRef, useState } from "react";
 import api, { fetchGenerationEstimate } from "../../api";
-import type { BrandProfile } from "../../types/brand";
 import type { GenerateIdeasResponse, VideoIdea } from "../../types/idea";
 import GenerationProgressBar from "../GenerationProgressBar";
 import IdeaCard from "./IdeaCard";
 import IdeationInput, { type IdeationInputHandle } from "./IdeationInput";
 
 interface Props {
-  brand: BrandProfile;
   onUseIdea: (idea: VideoIdea) => void;
 }
 
@@ -22,7 +20,7 @@ const EXAMPLE_NICHES = [
   "ancient civilizations",
 ];
 
-export default function IdeationPage({ brand, onUseIdea }: Props) {
+export default function IdeationPage({ onUseIdea }: Props) {
   const [ideas, setIdeas] = useState<VideoIdea[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +43,6 @@ export default function IdeationPage({ brand, onUseIdea }: Props) {
       const res = await api.post("/api/ideas/generate", {
         niche,
         count: BATCH_SIZE,
-        brand_id: brand.id,
         exclude_titles: opts?.excludeTitles ?? [],
       });
       if (res.ok) {
@@ -107,8 +104,6 @@ export default function IdeationPage({ brand, onUseIdea }: Props) {
       <div>
         <h2 className="text-2xl font-bold mb-1">Generate Video Ideas</h2>
         <p className="text-neutral-400 text-sm">
-          Using brand{" "}
-          <span className="text-violet-400 font-medium">{brand.name}</span>.
           Enter a niche to brainstorm video topics.
         </p>
       </div>

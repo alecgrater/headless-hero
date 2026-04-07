@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import api, { assetUrl, fetchGenerationEstimate } from "../../api";
-import type { BrandProfile } from "../../types/brand";
 import type { VideoIdea } from "../../types/idea";
 import type {
   GenerateScriptResponse,
@@ -10,14 +9,14 @@ import type {
 import GenerationProgressBar from "../GenerationProgressBar";
 
 interface Props {
-  brand: BrandProfile;
+  brandId: string;
   idea: VideoIdea;
   onBack: () => void;
   onContinue: (scriptId: string) => void;
 }
 
 export default function ScriptGenerationPage({
-  brand,
+  brandId,
   idea,
   onBack,
   onContinue,
@@ -65,7 +64,7 @@ export default function ScriptGenerationPage({
         const res = await api.post("/api/scripts/generate", {
           topic: idea.title,
           description: idea.description,
-          brand_id: brand.id,
+          brand_id: brandId,
           segment_count: idea.segments_est > 0 ? idea.segments_est : undefined,
           animated_scene_count: 5,
         });
@@ -93,7 +92,7 @@ export default function ScriptGenerationPage({
       // Recovery: if the request failed, check if the script was actually created on the backend
       if (!cancelled && !succeeded) {
         try {
-          const listRes = await api.get(`/api/scripts?brand_id=${brand.id}`);
+          const listRes = await api.get("/api/scripts");
           if (listRes.ok) {
             const scripts = listRes.data as Array<{ id: string; topic_title: string }>;
             const match = scripts.find((s) => s.topic_title === idea.title);
@@ -118,7 +117,7 @@ export default function ScriptGenerationPage({
     return () => {
       cancelled = true;
     };
-  }, [brand.id, idea.title, idea.description, idea.segments_est]);
+  }, [brandId, idea.title, idea.description, idea.segments_est]);
 
   const saveScript = async (updated: ScriptContent) => {
     if (!scriptId) return;
@@ -221,14 +220,7 @@ export default function ScriptGenerationPage({
       )
     : 0;
 
-  const hasTitleCards = (() => {
-    try {
-      const mods = JSON.parse(brand.content_modifiers || "[]") as string[];
-      return mods.includes("title_cards");
-    } catch {
-      return false;
-    }
-  })();
+  const hasTitleCards = true;
 
   const generateTitleCards = async (force: boolean) => {
     if (!scriptId || !script) return;

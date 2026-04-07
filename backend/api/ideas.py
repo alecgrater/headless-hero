@@ -3,11 +3,11 @@
 import logging
 import time
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlmodel import Session
 
-from database import get_session
+from database import get_default_brand_id, get_session
 from models.brand import BrandProfile
 from models.generation_duration import GenerationDuration
 from pipeline.ideation import VideoIdea, generate_ideas
@@ -19,7 +19,6 @@ router = APIRouter(prefix="/api/ideas", tags=["ideas"])
 class GenerateIdeasRequest(BaseModel):
     niche: str = Field(..., min_length=1, description="Topic area to brainstorm")
     count: int = Field(default=10, ge=1, le=20)
-    brand_id: str | None = Field(default=None, description="Optional brand for context")
     exclude_titles: list[str] = Field(default=[], description="Titles to exclude for dedup on Load More")
 
 class GenerateIdeasResponse(BaseModel):
@@ -27,14 +26,10 @@ class GenerateIdeasResponse(BaseModel):
 
 @router.post("/generate", response_model=GenerateIdeasResponse)
 def generate(body: GenerateIdeasRequest, session: Session = Depends(get_session)):
-    logger.info("Idea generation requested: niche=%r, count=%d, brand_id=%s", body.niche, body.count, body.brand_id)
-    brand_context = None
-    if body.brand_id:
-        brand = session.get(BrandProfile, body.brand_id)
-        if not brand:
-            raise HTTPException(status_code=404, detail="Brand not found")
-        parts = [brand.name]
-        brand_context = ". ".join(parts)
+    logger.info("Idea generation requested: niche=%r, count=%d", body.niche, body.count)
+    brand_id = get_default_brand_id(session)
+    brand = session.get(BrandProfile, brand_id)
+    brand_context = brand.name if brand else None
 
     logger.info("Generating %d ideas for niche %s", body.count, body.niche)
     t0 = time.monotonic()

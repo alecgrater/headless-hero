@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import api, { assetUrl } from "../../api";
-import type { BrandProfile } from "../../types/brand";
 import type { ScriptSummary } from "../../types/script";
 
 interface Props {
-  brand: BrandProfile;
   onNewVideo: () => void;
   onOpenProject: (scriptId: string) => void;
-  onBack: () => void;
 }
 
 const STATUS_LABELS: Record<ScriptSummary["status"], string> = {
@@ -48,7 +45,7 @@ const SORT_OPTIONS: { value: SortValue; label: string }[] = [
   { value: "title", label: "Title A-Z" },
 ];
 
-export default function ProjectDashboard({ brand, onNewVideo, onOpenProject, onBack }: Props) {
+export default function ProjectDashboard({ onNewVideo, onOpenProject }: Props) {
   const [projects, setProjects] = useState<ScriptSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterValue>("all");
@@ -59,10 +56,10 @@ export default function ProjectDashboard({ brand, onNewVideo, onOpenProject, onB
 
   const fetchProjects = useCallback(async () => {
     setLoading(true);
-    const res = await api.get(`/api/scripts?brand_id=${brand.id}`);
+    const res = await api.get("/api/scripts");
     if (res.ok) setProjects(res.data as ScriptSummary[]);
     setLoading(false);
-  }, [brand.id]);
+  }, []);
 
   useEffect(() => {
     fetchProjects();
@@ -139,20 +136,10 @@ export default function ProjectDashboard({ brand, onNewVideo, onOpenProject, onB
 
   return (
     <div className="px-6 py-8 max-w-6xl mx-auto space-y-6">
-      {/* Breadcrumb Header */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2 text-sm mb-1">
-            <button
-              onClick={onBack}
-              className="text-neutral-400 hover:text-violet-400 transition-colors"
-            >
-              Brands
-            </button>
-            <span className="text-neutral-600">/</span>
-            <span className="text-neutral-300">{brand.name}</span>
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-violet-300">{brand.name}</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-violet-300">Projects</h1>
           {!loading && projects.length > 0 && (
             <p className="text-sm text-neutral-500 mt-0.5">
               {projects.length} {projects.length === 1 ? "project" : "projects"}
@@ -187,7 +174,7 @@ export default function ProjectDashboard({ brand, onNewVideo, onOpenProject, onB
           </div>
           <h2 className="text-xl font-semibold text-neutral-300">No videos yet</h2>
           <p className="text-neutral-500 max-w-sm mx-auto">
-            Create your first video for {brand.name} to get started.
+            Create your first video to get started.
           </p>
           <button
             onClick={onNewVideo}

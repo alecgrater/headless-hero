@@ -124,36 +124,6 @@ export async function cloneVoice(
   return response.json();
 }
 
-/** Fetch real media (gameplay clip or hardware image) for a single scene. */
-export async function fetchMedia(
-  scriptId: string,
-  sceneId: string,
-  mediaType: string,
-  searchQuery: string,
-  duration?: number,
-  force?: boolean,
-) {
-  return api.post("/api/media/fetch", {
-    script_id: scriptId,
-    scene_id: sceneId,
-    media_type: mediaType,
-    search_query: searchQuery,
-    duration: duration ?? 10,
-    force: force ?? false,
-  });
-}
-
-/** Batch-fetch real media for multiple scenes. */
-export async function fetchMediaBatch(
-  scriptId: string,
-  scenes: { scene_id: string; media_type: string; search_query: string; duration?: number }[],
-) {
-  return api.post("/api/media/fetch-batch", {
-    script_id: scriptId,
-    scenes,
-  });
-}
-
 /** Prepend the backend origin to a static asset path (e.g. /static/projects/...). */
 export function assetUrl(path: string): string {
   return `http://localhost:8420${path}`;
@@ -169,11 +139,6 @@ export async function fetchGenerationEstimate(
     return data;
   }
   return { average_seconds: null, sample_count: 0 };
-}
-
-/** Fetch available content modifier metadata from the backend. */
-export async function fetchModifiers() {
-  return api.get("/api/brands/modifiers");
 }
 
 /** Generate FX assignments for all scenes in a script via Claude. */

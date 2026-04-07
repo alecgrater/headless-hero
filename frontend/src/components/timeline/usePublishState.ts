@@ -32,7 +32,7 @@ export interface PublishState {
   refreshHistory: () => Promise<void>;
 }
 
-export function usePublishState(scriptId: string, brandId: string): PublishState {
+export function usePublishState(scriptId: string): PublishState {
   const [connections, setConnections] = useState<OAuthStatusResponse | null>(null);
   const [connecting, setConnecting] = useState(false);
 
@@ -44,14 +44,13 @@ export function usePublishState(scriptId: string, brandId: string): PublishState
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const connectionPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Fetch connection status
+  // Fetch connection status (no brand_id needed — backend auto-resolves)
   const fetchConnections = useCallback(async () => {
-    if (!brandId) return;
-    const res = await api.get(`/api/publish/oauth/status/${brandId}`);
+    const res = await api.get("/api/publish/oauth/status");
     if (res.ok) {
       setConnections(res.data as OAuthStatusResponse);
     }
-  }, [brandId]);
+  }, []);
 
   // Fetch publish history
   const refreshHistory = useCallback(async () => {
@@ -81,7 +80,6 @@ export function usePublishState(scriptId: string, brandId: string): PublishState
       setConnecting(true);
       try {
         const res = await api.post("/api/publish/oauth/connect", {
-          brand_id: brandId,
           platform,
         });
         if (!res.ok) return;
@@ -91,7 +89,7 @@ export function usePublishState(scriptId: string, brandId: string): PublishState
         // Poll for connection status every 2s until connected
         if (connectionPollRef.current) clearInterval(connectionPollRef.current);
         connectionPollRef.current = setInterval(async () => {
-          const statusRes = await api.get(`/api/publish/oauth/status/${brandId}`);
+          const statusRes = await api.get("/api/publish/oauth/status");
           if (!statusRes.ok) return;
           const data = statusRes.data as OAuthStatusResponse;
           const conn = data[platform as keyof OAuthStatusResponse] as PlatformConnection;
@@ -117,18 +115,17 @@ export function usePublishState(scriptId: string, brandId: string): PublishState
         setConnecting(false);
       }
     },
-    [brandId],
+    [],
   );
 
   const disconnectPlatform = useCallback(
     async (platform: string) => {
       await api.request("DELETE", "/api/publish/oauth/disconnect", {
-        brand_id: brandId,
         platform,
       });
       await fetchConnections();
     },
-    [brandId, fetchConnections],
+    [fetchConnections],
   );
 
   const startPublish = useCallback(
@@ -141,7 +138,6 @@ export function usePublishState(scriptId: string, brandId: string): PublishState
       setPublishStatus(null);
       const res = await api.post("/api/publish/upload", {
         script_id: scriptId,
-        brand_id: brandId,
         platform,
         file_url: fileUrl,
         metadata,
@@ -168,7 +164,7 @@ export function usePublishState(scriptId: string, brandId: string): PublishState
         }
       }, 1000);
     },
-    [scriptId, brandId, refreshHistory],
+    [scriptId, refreshHistory],
   );
 
   const ytConn = connections?.youtube;

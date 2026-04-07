@@ -1,6 +1,6 @@
 import logging
 
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 
 from config import DATA_DIR
 
@@ -17,6 +17,29 @@ def init_db() -> None:
     logger.info("Initializing database")
     SQLModel.metadata.create_all(engine)
     logger.info("Database ready")
+
+def ensure_default_brand() -> None:
+    """Ensure exactly one default brand exists. Create if missing."""
+    from models.brand import BrandProfile
+
+    with Session(engine) as session:
+        existing = session.exec(select(BrandProfile)).first()
+        if not existing:
+            brand = BrandProfile(name="Headless Hero")
+            session.add(brand)
+            session.commit()
+            logger.info("Created default brand: %s", brand.id)
+        else:
+            logger.info("Default brand exists: %s", existing.id)
+
+def get_default_brand_id(session: Session) -> str:
+    """Return the single default brand's ID."""
+    from models.brand import BrandProfile
+
+    brand = session.exec(select(BrandProfile)).first()
+    if not brand:
+        raise RuntimeError("No default brand found — ensure_default_brand() must run first")
+    return brand.id
 
 def get_session():
     """FastAPI dependency that yields a DB session."""

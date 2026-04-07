@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from database import get_session
+from database import get_default_brand_id, get_session
 from models.credential import PlatformCredential, PlatformCredentialRead
 from models.publish import PublishRecord, PublishRecordRead
 from pipeline.publishing import publish_to_youtube
@@ -22,14 +22,12 @@ router = APIRouter(prefix="/api/publish", tags=["publish"])
 # --- Request / Response schemas ---
 
 class ConnectRequest(BaseModel):
-    brand_id: str
     platform: str  # "youtube"
 
 class ConnectResponse(BaseModel):
     auth_url: str
 
 class DisconnectRequest(BaseModel):
-    brand_id: str
     platform: str
 
 class OAuthStatusResponse(BaseModel):
@@ -37,7 +35,6 @@ class OAuthStatusResponse(BaseModel):
 
 class UploadRequest(BaseModel):
     script_id: str
-    brand_id: str
     platform: str
     file_url: str
     metadata: dict
@@ -81,9 +78,10 @@ def _make_credential_read(platform: str, cred: PlatformCredential | None) -> Pla
 
 # --- Endpoints ---
 
-@router.get("/oauth/status/{brand_id}", response_model=OAuthStatusResponse)
-def oauth_status(brand_id: str, session: Session = Depends(get_session)):
+@router.get("/oauth/status", response_model=OAuthStatusResponse)
+def oauth_status(session: Session = Depends(get_session)):
     """Check OAuth connection status for all platforms."""
+    brand_id = get_default_brand_id(session)
     yt_cred = _get_credential(session, brand_id, "youtube")
     return OAuthStatusResponse(youtube=_make_credential_read("youtube", yt_cred))
 
@@ -95,10 +93,11 @@ def oauth_connect(body: ConnectRequest, session: Session = Depends(get_session))
 
     from integrations.youtube_client import get_auth_url
 
-    logger.info("Starting OAuth connect for brand %s on %s", body.brand_id, body.platform)
+    brand_id = get_default_brand_id(session)
+    logger.info("Starting OAuth connect for brand %s on %s", brand_id, body.platform)
 
     # Encode brand_id in state so we can associate the credential on callback
-    auth_url = get_auth_url(state=body.brand_id)
+    auth_url = get_auth_url(state=brand_id)
     return ConnectResponse(auth_url=auth_url)
 
 @router.get("/oauth/callback/{platform}", response_class=HTMLResponse)
@@ -176,11 +175,12 @@ def oauth_callback(platform: str, code: str = "", state: str = "", error: str = 
 @router.delete("/oauth/disconnect")
 def oauth_disconnect(body: DisconnectRequest, session: Session = Depends(get_session)):
     """Remove OAuth credential for a platform."""
-    cred = _get_credential(session, body.brand_id, body.platform)
+    brand_id = get_default_brand_id(session)
+    cred = _get_credential(session, brand_id, body.platform)
     if cred:
         session.delete(cred)
         session.commit()
-        logger.info("Disconnected %s for brand %s", body.platform, body.brand_id)
+        logger.info("Disconnected %s for brand %s", body.platform, brand_id)
     return {"ok": True}
 
 @router.post("/upload", response_model=UploadResponse)
@@ -189,14 +189,15 @@ def start_upload(body: UploadRequest, session: Session = Depends(get_session)):
     if body.platform != "youtube":
         raise HTTPException(status_code=400, detail=f"Unsupported platform: {body.platform}")
 
-    cred = _get_credential(session, body.brand_id, "youtube")
+    brand_id = get_default_brand_id(session)
+    cred = _get_credential(session, brand_id, "youtube")
     if not cred:
-        raise HTTPException(status_code=400, detail="YouTube not connected for this brand")
+        raise HTTPException(status_code=400, detail="YouTube not connected")
 
     # Create publish record
     record = PublishRecord(
         script_id=body.script_id,
-        brand_id=body.brand_id,
+        brand_id=brand_id,
         platform=body.platform,
         status="uploading",
         file_path=body.file_url,

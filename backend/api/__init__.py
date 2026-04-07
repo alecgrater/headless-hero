@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session
 
 from api.brands import router as brands_router
-from database import init_db
+from database import init_db, ensure_default_brand
 from database import engine as _db_engine
 from api.fx import router as fx_router
 from api.ideas import router as ideas_router
@@ -35,6 +35,7 @@ from config import DATA_DIR
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    ensure_default_brand()
     # Install dev dashboard log handler
     prune_old_logs(_db_engine)
     log_handler = SQLiteLogHandler(_db_engine)
@@ -80,14 +81,8 @@ app.include_router(generation_router)
 app.include_router(seo_router)
 app.include_router(settings_router)
 
-# Dynamic modifier routers — each modifier can optionally provide API endpoints
-import pipeline.modifiers  # noqa: F401 — ensure all modifiers are registered
-from pipeline.modifiers.registry import get_all as _get_all_modifiers
-
-for _mod in _get_all_modifiers().values():
-    _router = _mod.get_router()
-    if _router is not None:
-        app.include_router(_router)
+# Import modifiers package (no dynamic routers remaining)
+import pipeline.modifiers  # noqa: F401
 
 # Serve generated images as static files
 _projects_dir = DATA_DIR / "projects"

@@ -8,10 +8,10 @@ from pathlib import Path
 
 from datetime import datetime, timezone, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
-from database import get_session
+from database import get_default_brand_id, get_session
 from models.brand import BrandProfile
 from models.generation_duration import GenerationDuration
 from models.script import (
@@ -83,11 +83,8 @@ def _build_summary(record: Script) -> ScriptSummary:
 
 
 @router.get("", response_model=list[ScriptSummary])
-def list_scripts(
-    brand_id: str = Query(..., description="Filter by brand ID"),
-    session: Session = Depends(get_session),
-):
-    statement = select(Script).where(Script.brand_id == brand_id).order_by(Script.created_at.desc())  # type: ignore[arg-type]
+def list_scripts(session: Session = Depends(get_session)):
+    statement = select(Script).order_by(Script.created_at.desc())  # type: ignore[arg-type]
     records = session.exec(statement).all()
     return [_build_summary(r) for r in records]
 
@@ -112,16 +109,19 @@ def delete_script(script_id: str, session: Session = Depends(get_session)):
 
 @router.post("/generate", response_model=GenerateScriptResponse)
 def generate(body: GenerateScriptRequest, session: Session = Depends(get_session)):
-    logger.info("Script generation requested: topic=%r, brand_id=%s", body.topic, body.brand_id)
-    brand = session.get(BrandProfile, body.brand_id)
+    # Auto-resolve brand_id from default brand
+    brand_id = body.brand_id or get_default_brand_id(session)
+    brand = session.get(BrandProfile, brand_id)
     if not brand:
         raise HTTPException(status_code=404, detail="Brand not found")
+
+    logger.info("Script generation requested: topic=%r, brand_id=%s", body.topic, brand_id)
 
     # Dedup: if an identical script was created in the last 60 seconds, return it
     cutoff = datetime.now(timezone.utc) - timedelta(seconds=60)
     existing = session.exec(
         select(Script)
-        .where(Script.brand_id == body.brand_id, Script.topic_title == body.topic, Script.created_at >= cutoff)
+        .where(Script.brand_id == brand_id, Script.topic_title == body.topic, Script.created_at >= cutoff)
         .order_by(Script.created_at.desc())  # type: ignore[arg-type]
     ).first()
     if existing:
@@ -138,20 +138,11 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
         parts.append(f"Character:\n{_CHARACTER}")
     brand_context = "\n\n".join(parts)
 
-    # Parse modifier IDs from brand
-    modifier_ids: list[str] = []
-    try:
-        import json as _json
-        parsed = _json.loads(brand.content_modifiers) if brand.content_modifiers else []
-        modifier_ids = parsed if isinstance(parsed, list) else []
-    except Exception:
-        pass
-
     brand_dict = {
         "name": brand.name,
     }
 
-    logger.info("Generating script for brand %s, topic: %s", body.brand_id, body.topic)
+    logger.info("Generating script for brand %s, topic: %s", brand_id, body.topic)
     t0 = time.monotonic()
     script_content = generate_script(
         topic=body.topic,
@@ -159,7 +150,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
         brand_context=brand_context,
         segment_count=body.segment_count,
         animated_scene_count=body.animated_scene_count,
-        modifier_ids=modifier_ids,
+        modifier_ids=[],
         brand=brand_dict,
     )
     duration = time.monotonic() - t0
@@ -167,7 +158,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
 
     # Persist to SQLite
     record = Script(
-        brand_id=body.brand_id,
+        brand_id=brand_id,
         topic_title=body.topic,
         topic_description=body.description,
         script_json=script_content.model_dump_json(),

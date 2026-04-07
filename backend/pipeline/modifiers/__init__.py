@@ -1,7 +1,5 @@
 """Content modifiers package — registers all built-in modifiers on import."""
 
-from pipeline.modifiers.registry import register
-
-from pipeline.modifiers.real_media import RealMediaModifier
-
-register(RealMediaModifier())
+# Real media modifier removed. Title cards modifier functions are called
+# directly from scriptwriter.py and remotion_render.py, not via the
+# modifier registry.

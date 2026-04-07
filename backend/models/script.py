@@ -113,7 +113,7 @@ class Script(SQLModel, table=True):
 class GenerateScriptRequest(BaseModel):
     topic: str = PydanticField(..., min_length=1, description="Video topic / title")
     description: str = PydanticField(default="", description="Optional topic description or angle")
-    brand_id: str = PydanticField(..., description="Brand profile ID for style context")
+    brand_id: str | None = PydanticField(default=None, description="Brand profile ID (auto-resolved if omitted)")
     segment_count: int | None = PydanticField(
         default=None, ge=2, le=8, description="Desired number of segments (Claude decides if omitted)"
     )

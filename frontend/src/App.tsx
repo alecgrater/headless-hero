@@ -1,26 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import api from "./api";
-import BrandForm from "./components/brand/BrandForm";
-import BrandList from "./components/brand/BrandList";
 import ProjectDashboard from "./components/dashboard/ProjectDashboard";
 import IdeationPage from "./components/ideation/IdeationPage";
 import ScriptGenerationPage from "./components/script/ScriptGenerationPage";
 import SettingsPage from "./components/settings/SettingsPage";
 import TimelinePage from "./components/timeline/TimelinePage";
-import type { BrandProfile, BrandProfileCreate } from "./types/brand";
 import type { VideoIdea } from "./types/idea";
 
-type View = "home" | "brand-create" | "brand-edit" | "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings";
+type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings";
 
 function App() {
   const [backendStatus, setBackendStatus] = useState<string>("connecting...");
-  const [view, setView] = useState<View>("home");
-  const [brands, setBrands] = useState<BrandProfile[]>([]);
-  const [selectedBrand, setSelectedBrand] = useState<BrandProfile | null>(null);
-  const [editingBrand, setEditingBrand] = useState<BrandProfile | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [view, setView] = useState<View>("project-dashboard");
   const [selectedIdea, setSelectedIdea] = useState<VideoIdea | null>(null);
   const [timelineScriptId, setTimelineScriptId] = useState<string | null>(null);
+  const [defaultBrandId, setDefaultBrandId] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -38,66 +32,25 @@ function App() {
       });
   }, []);
 
-  const loadBrands = useCallback(async () => {
-    const res = await api.get("/api/brands");
-    if (res.ok) setBrands(res.data as BrandProfile[]);
+  // Fetch the default brand ID on startup
+  const loadDefaultBrand = useCallback(async () => {
+    const res = await api.get("/api/brand");
+    if (res.ok) {
+      const data = res.data as { id: string };
+      setDefaultBrandId(data.id);
+    }
   }, []);
 
   useEffect(() => {
-    loadBrands();
-  }, [loadBrands]);
-
-  const handleCreate = async (data: BrandProfileCreate) => {
-    setSaving(true);
-    try {
-      const res = await api.post("/api/brands", data);
-      if (res.ok) {
-        await loadBrands();
-        setSelectedBrand(res.data as BrandProfile);
-        setView("home");
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleUpdate = async (data: BrandProfileCreate) => {
-    if (!editingBrand) return;
-    setSaving(true);
-    try {
-      const res = await api.put(`/api/brands/${editingBrand.id}`, data);
-      if (res.ok) {
-        await loadBrands();
-        setSelectedBrand(res.data as BrandProfile);
-        setEditingBrand(null);
-        setView("home");
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async (brand: BrandProfile) => {
-    if (!confirm(`Delete brand "${brand.name}"?`)) return;
-    await api.delete(`/api/brands/${brand.id}`);
-    if (selectedBrand?.id === brand.id) setSelectedBrand(null);
-    await loadBrands();
-  };
-
-  const startEdit = (brand: BrandProfile) => {
-    setEditingBrand(brand);
-    setView("brand-edit");
-  };
+    loadDefaultBrand();
+  }, [loadDefaultBrand]);
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col">
       {/* Top bar */}
       <header className="border-b border-neutral-800/40 px-6 py-4 flex items-center justify-between">
         <button
-          onClick={() => {
-            setView("home");
-            setEditingBrand(null);
-          }}
+          onClick={() => setView("project-dashboard")}
           className="text-xl font-semibold tracking-tight hover:text-violet-400 transition-colors flex items-center gap-2"
         >
           <svg className="w-6 h-6" viewBox="0 0 48 46" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -106,14 +59,6 @@ function App() {
           Headless Hero
         </button>
         <div className="flex items-center gap-4">
-          {selectedBrand && (
-            <span className="text-sm text-neutral-400">
-              Brand:{" "}
-              <span className="text-violet-400 font-medium">
-                {selectedBrand.name}
-              </span>
-            </span>
-          )}
           <button
             onClick={() => setView("settings")}
             className="text-neutral-400 hover:text-neutral-200 transition-colors"
@@ -140,35 +85,13 @@ function App() {
       </header>
 
       {/* Main content area */}
-      <main className={`flex-1 w-full ${view === "timeline" || view === "project-dashboard" || view === "brand-create" || view === "brand-edit" || view === "settings" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
+      <main className={`flex-1 w-full ${view === "timeline" || view === "project-dashboard" || view === "settings" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
         {view === "settings" && (
-          <SettingsPage onBack={() => setView("home")} />
+          <SettingsPage onBack={() => setView("project-dashboard")} />
         )}
 
-        {view === "brand-create" && (
-          <BrandForm
-            onSave={handleCreate}
-            onCancel={() => setView("home")}
-            saving={saving}
-          />
-        )}
-
-        {view === "brand-edit" && editingBrand && (
-          <BrandForm
-            onSave={handleUpdate}
-            onCancel={() => {
-              setEditingBrand(null);
-              setView("home");
-            }}
-            initial={editingBrand}
-            saving={saving}
-            brandId={editingBrand.id}
-          />
-        )}
-
-        {view === "ideation" && selectedBrand && (
+        {view === "ideation" && (
           <IdeationPage
-            brand={selectedBrand}
             onUseIdea={(idea) => {
               setSelectedIdea(idea);
               setView("script-generation");
@@ -176,9 +99,9 @@ function App() {
           />
         )}
 
-        {view === "script-generation" && selectedBrand && selectedIdea && (
+        {view === "script-generation" && selectedIdea && defaultBrandId && (
           <ScriptGenerationPage
-            brand={selectedBrand}
+            brandId={defaultBrandId}
             idea={selectedIdea}
             onBack={() => setView("ideation")}
             onContinue={(scriptId) => {
@@ -195,45 +118,14 @@ function App() {
           />
         )}
 
-        {view === "project-dashboard" && selectedBrand && (
+        {view === "project-dashboard" && (
           <ProjectDashboard
-            brand={selectedBrand}
             onNewVideo={() => setView("ideation")}
             onOpenProject={(scriptId) => {
               setTimelineScriptId(scriptId);
               setView("timeline");
             }}
-            onBack={() => setView("home")}
           />
-        )}
-
-        {view === "home" && (
-          <div className="space-y-8">
-            <BrandList
-              brands={brands}
-              selectedId={selectedBrand?.id}
-              onSelect={(brand) => {
-                setSelectedBrand(brand);
-                setView("project-dashboard");
-              }}
-              onEdit={startEdit}
-              onDelete={handleDelete}
-              onCreate={() => setView("brand-create")}
-            />
-
-            {/* Empty state when no brands */}
-            {brands.length === 0 && (
-              <div className="text-center pt-8 space-y-4">
-                <h2 className="text-4xl font-bold tracking-tight">Welcome</h2>
-                <p className="text-neutral-400 text-lg max-w-md mx-auto">
-                  Your AI-powered video production pipeline.
-                  <br />
-                  Start by creating a brand profile, then generate your first
-                  video.
-                </p>
-              </div>
-            )}
-          </div>
         )}
       </main>
     </div>

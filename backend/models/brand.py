@@ -11,7 +11,7 @@ class BrandProfileBase(SQLModel):
 
     name: str = Field(index=True)
     voice_id: str = Field(default="")  # ElevenLabs voice ID
-    content_modifiers: str = Field(default="")  # JSON array of modifier IDs
+    content_modifiers: str = Field(default="")  # DEPRECATED — kept for DB compat, unused
     youtube_channel_id: str = Field(default="")
 
 class BrandProfile(BrandProfileBase, table=True):
@@ -23,20 +23,11 @@ class BrandProfile(BrandProfileBase, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-class BrandProfileCreate(BaseModel):
-    """Request body for creating a brand profile."""
-
-    name: str
-    voice_id: str = ""
-    content_modifiers: str = ""
-    youtube_channel_id: str = ""
-
 class BrandProfileUpdate(BaseModel):
-    """Request body for updating a brand profile. All fields optional."""
+    """Request body for updating the default brand. All fields optional."""
 
     name: str | None = None
     voice_id: str | None = None
-    content_modifiers: str | None = None
     youtube_channel_id: str | None = None
 
 class BrandProfileRead(BrandProfileBase):
