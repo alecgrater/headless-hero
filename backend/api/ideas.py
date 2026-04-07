@@ -34,8 +34,6 @@ def generate(body: GenerateIdeasRequest, session: Session = Depends(get_session)
         if not brand:
             raise HTTPException(status_code=404, detail="Brand not found")
         parts = [brand.name]
-        if brand.art_style:
-            parts.append(f"Art style: {brand.art_style}")
         brand_context = ". ".join(parts)
 
     logger.info("Generating %d ideas for niche %s", body.count, body.niche)

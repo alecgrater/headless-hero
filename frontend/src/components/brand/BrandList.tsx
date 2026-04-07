@@ -27,7 +27,7 @@ function timeAgo(iso: string): string {
 
 /** Check if a brand is incomplete / in "draft" state */
 function isDraft(brand: BrandProfile): boolean {
-  return !brand.style_string;
+  return !brand.voice_id;
 }
 
 export default function BrandList({
@@ -157,11 +157,6 @@ export default function BrandList({
           const isHovered = hoveredId === brand.id;
           const draft = isDraft(brand);
           const edited = timeAgo(brand.updated_at);
-          const styleExcerpt = brand.style_string
-            ? brand.style_string.length > 80
-              ? brand.style_string.slice(0, 80) + "..."
-              : brand.style_string
-            : "";
 
           return (
             <li
@@ -258,15 +253,7 @@ export default function BrandList({
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                     </svg>
                   </button>
-                ) : (
-                  <>
-                    {styleExcerpt && (
-                      <p className="text-[12px] text-neutral-500 mt-0.5 truncate leading-snug">
-                        {styleExcerpt}
-                      </p>
-                    )}
-                  </>
-                )}
+                ) : null}
 
                 {/* Stats row */}
                 <div className="flex items-center gap-1.5 mt-2 flex-wrap">

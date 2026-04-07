@@ -11,8 +11,16 @@ logger = logging.getLogger(__name__)
 
 # data/ directory lives two levels above backend/pipeline/
 
-_GUIDE_PATH = Path(__file__).resolve().parent.parent / "prompts" / "image_gen_guide.md"
+_PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
+
+_GUIDE_PATH = _PROMPTS_DIR / "image_gen_guide.md"
 _STYLE_GUIDE = _GUIDE_PATH.read_text() if _GUIDE_PATH.exists() else ""
+
+_VISUAL_STYLE_PATH = _PROMPTS_DIR / "visual_style.md"
+_VISUAL_STYLE = _VISUAL_STYLE_PATH.read_text() if _VISUAL_STYLE_PATH.exists() else ""
+
+_CHARACTER_PATH = _PROMPTS_DIR / "character.md"
+_CHARACTER = _CHARACTER_PATH.read_text() if _CHARACTER_PATH.exists() else ""
 
 
 def generate_scene_image(
@@ -23,7 +31,6 @@ def generate_scene_image(
     height: int = 768,
     force: bool = False,
     style_guide: str = "",
-    style_string: str = "",
 ) -> tuple[str, str]:
     """Generate a single scene image and save it locally.
 
@@ -33,10 +40,12 @@ def generate_scene_image(
     """
     guide = style_guide if style_guide else _STYLE_GUIDE
 
-    # Build prompt: style_string (verbatim) → guide → visual prompt
+    # Build prompt: universal style → character → guide → visual prompt
     parts: list[str] = []
-    if style_string:
-        parts.append(style_string)
+    if _VISUAL_STYLE:
+        parts.append(_VISUAL_STYLE)
+    if _CHARACTER:
+        parts.append(_CHARACTER)
     if guide:
         parts.append(guide)
     parts.append(visual_prompt)
@@ -79,7 +88,6 @@ def generate_scene_frames(
     height: int = 768,
     force: bool = False,
     style_guide: str = "",
-    style_string: str = "",
 ) -> list[tuple[str, str]]:
     """Generate multiple frames for a scene and save them locally.
 
@@ -122,8 +130,8 @@ def generate_scene_frames(
         if use_reference:
             # Kontext-optimized: edit instruction referencing the input image
             parts: list[str] = []
-            if style_string:
-                parts.append(style_string)
+            if _VISUAL_STYLE:
+                parts.append(_VISUAL_STYLE)
             parts.append(
                 f"This is frame {i + 1} of {total_frames} in an animation sequence. "
                 f"Using the input image as reference, change ONLY the following: "
@@ -135,8 +143,10 @@ def generate_scene_frames(
         else:
             # First frame or no reference: full text-to-image prompt
             parts: list[str] = []
-            if style_string:
-                parts.append(style_string)
+            if _VISUAL_STYLE:
+                parts.append(_VISUAL_STYLE)
+            if _CHARACTER:
+                parts.append(_CHARACTER)
             if guide:
                 parts.append(guide)
 
@@ -184,7 +194,6 @@ def generate_batch(
     width: int = 1344,
     height: int = 768,
     style_guide: str = "",
-    style_string: str = "",
 ) -> list[dict[str, str | None]]:
     """Generate images for a list of scenes sequentially.
 
@@ -208,7 +217,6 @@ def generate_batch(
                     width=width,
                     height=height,
                     style_guide=style_guide,
-                    style_string=style_string,
                 )
                 frame_urls = [url for url, _ in frame_results]
                 results.append({
@@ -228,7 +236,6 @@ def generate_batch(
                 width=width,
                 height=height,
                 style_guide=style_guide,
-                style_string=style_string,
             )
             results.append({
                 "scene_id": scene["scene_id"],

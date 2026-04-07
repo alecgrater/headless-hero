@@ -30,6 +30,10 @@ from pipeline.scriptwriter import generate_script
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 
+_PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
+_VISUAL_STYLE = (_PROMPTS_DIR / "visual_style.md").read_text() if (_PROMPTS_DIR / "visual_style.md").exists() else ""
+_CHARACTER = (_PROMPTS_DIR / "character.md").read_text() if (_PROMPTS_DIR / "character.md").exists() else ""
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/scripts", tags=["scripts"])
@@ -126,11 +130,13 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             script=ScriptContent.model_validate(json.loads(existing.script_json)),
         )
 
-    # Build brand context string
+    # Build brand context string with universal style + character
     parts = [brand.name]
-    if brand.style_string:
-        parts.append(f"Style: {brand.style_string}")
-    brand_context = ". ".join(parts)
+    if _VISUAL_STYLE:
+        parts.append(f"Visual Style:\n{_VISUAL_STYLE}")
+    if _CHARACTER:
+        parts.append(f"Character:\n{_CHARACTER}")
+    brand_context = "\n\n".join(parts)
 
     # Parse modifier IDs from brand
     modifier_ids: list[str] = []
@@ -143,7 +149,6 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
 
     brand_dict = {
         "name": brand.name,
-        "style_string": brand.style_string,
     }
 
     logger.info("Generating script for brand %s, topic: %s", body.brand_id, body.topic)

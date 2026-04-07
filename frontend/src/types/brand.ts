@@ -8,12 +8,8 @@ export interface ContentModifierMeta {
 export interface BrandProfile {
   id: string;
   name: string;
-  art_style: string;
-  color_palette: string;
-  font: string;
   voice_id: string;
   content_modifiers: string;
-  style_string: string;
   youtube_channel_id: string;
   created_at: string;
   updated_at: string;
@@ -23,6 +19,5 @@ export interface BrandProfileCreate {
   name: string;
   voice_id?: string;
   content_modifiers?: string;
-  style_string?: string;
   youtube_channel_id?: string;
 }

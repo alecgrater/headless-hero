@@ -101,7 +101,6 @@ def _load_brand_and_modifiers(session: Session, script_id: str) -> tuple[dict, l
 
     brand_dict = {
         "name": brand.name,
-        "style_string": brand.style_string,
     }
 
     modifier_ids: list[str] = []

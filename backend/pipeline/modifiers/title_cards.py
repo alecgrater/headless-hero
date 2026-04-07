@@ -79,7 +79,6 @@ def prepare_title_card_scene(scene: Scene, script_id: str, brand: dict) -> Scene
                 script_id=script_id,
                 content=full_content,
                 accent_color="#e91e63",
-                style_string=brand.get("style_string", ""),
             )
             notitle_web = f"/static/projects/{script_id}/images/composite_title_card_notitle.png"
             title_web = f"/static/projects/{script_id}/images/composite_title_card.png"

@@ -4,18 +4,14 @@ import uuid
 from datetime import datetime, timezone
 
 from pydantic import BaseModel
-from sqlmodel import Column, Field, SQLModel, Text
+from sqlmodel import Field, SQLModel
 
 class BrandProfileBase(SQLModel):
     """Shared fields for brand profiles."""
 
     name: str = Field(index=True)
-    art_style: str = Field(default="", sa_column=Column(Text))
-    color_palette: str = Field(default="")  # comma-separated hex codes
-    font: str = Field(default="")
     voice_id: str = Field(default="")  # ElevenLabs voice ID
     content_modifiers: str = Field(default="")  # JSON array of modifier IDs
-    style_string: str = Field(default="", sa_column=Column(Text))  # locked prompt fragment prepended to all image prompts
     youtube_channel_id: str = Field(default="")
 
 class BrandProfile(BrandProfileBase, table=True):
@@ -33,7 +29,6 @@ class BrandProfileCreate(BaseModel):
     name: str
     voice_id: str = ""
     content_modifiers: str = ""
-    style_string: str = ""
     youtube_channel_id: str = ""
 
 class BrandProfileUpdate(BaseModel):
@@ -42,7 +37,6 @@ class BrandProfileUpdate(BaseModel):
     name: str | None = None
     voice_id: str | None = None
     content_modifiers: str | None = None
-    style_string: str | None = None
     youtube_channel_id: str | None = None
 
 class BrandProfileRead(BrandProfileBase):

@@ -9,7 +9,6 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from database import get_session
-from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.image_gen import generate_batch, generate_scene_frames, generate_scene_image
 from pipeline.render_jobs import create_job, get_job, run_in_background
@@ -89,10 +88,6 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
 
     logger.info("Generating visual for scene %s in script %s", body.scene_id, body.script_id)
 
-    # Load brand style_string
-    brand = session.get(BrandProfile, record.brand_id)
-    brand_style_string = brand.style_string if brand else ""
-
     # Multi-frame path
     if body.frame_prompts:
         frame_results = generate_scene_frames(
@@ -102,7 +97,6 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             visual_prompt=body.visual_prompt,
             width=body.width,
             height=body.height,
-            style_string=brand_style_string,
         )
         frame_urls = [url for url, _ in frame_results]
         _update_scene(session, body.script_id, body.scene_id, frame_urls=frame_urls)
@@ -119,7 +113,6 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         script_id=body.script_id,
         width=body.width,
         height=body.height,
-        style_string=brand_style_string,
     )
 
     _update_scene(session, body.script_id, body.scene_id, image_url=image_url)
@@ -135,10 +128,6 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
 
     logger.info("Starting batch visual generation for script %s (%d scenes)", body.script_id, len(body.scenes))
 
-    # Load brand style_string
-    brand = session.get(BrandProfile, record.brand_id)
-    brand_style_string = brand.style_string if brand else ""
-
     scenes = [
         {
             "scene_id": s.scene_id,
@@ -153,7 +142,6 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
         script_id=body.script_id,
         width=body.width,
         height=body.height,
-        style_string=brand_style_string,
     )
 
     # Persist successful image URLs
@@ -188,10 +176,6 @@ def generate_title_cards(body: GenerateTitleCardsRequest, session: Session = Dep
     content = ScriptContent.model_validate(json.loads(record.script_json))
     segment_count = len(content.segments)
 
-    # Load brand style_string for title card image generation
-    brand = session.get(BrandProfile, record.brand_id)
-    brand_style_string = brand.style_string if brand else ""
-
     job = create_job(scene_count=segment_count)
 
     logger.info("Starting title card generation for script %s (%d segments)", body.script_id, segment_count)
@@ -207,7 +191,6 @@ def generate_title_cards(body: GenerateTitleCardsRequest, session: Session = Dep
         ensure_title_card_images(
             script_id=script_id,
             content=content,
-            style_string=brand_style_string,
             force=force,
             job_id=job.id,
         )

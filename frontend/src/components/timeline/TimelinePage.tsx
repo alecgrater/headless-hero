@@ -177,7 +177,7 @@ function TimelineEditor({
   const [voices, setVoices] = useState<VoiceInfo[]>([]);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>("");
 
-  // Fetch brand profile for style_string
+  // Fetch brand profile for voice and modifiers
   useEffect(() => {
     api.get(`/api/brands/${brandId}`).then((res) => {
       if (res.ok) {
@@ -204,7 +204,6 @@ function TimelineEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const brandStyle = brand?.style_string ?? "";
 
   // Parse active modifier IDs from brand
   const activeModifierIds: string[] = (() => {
@@ -702,7 +701,7 @@ function TimelineEditor({
           onExportAudio={render.exportAudio}
           thumbnails={render.thumbnails}
           thumbnailsGenerating={render.thumbnailsGenerating}
-          onGenerateThumbnails={() => render.generateThumbnails(brandStyle)}
+          onGenerateThumbnails={() => render.generateThumbnails("")}
           seoMetadata={render.seoMetadata}
           seoGenerating={render.seoGenerating}
           onGenerateSEO={render.generateSEO}

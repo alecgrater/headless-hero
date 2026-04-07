@@ -24,7 +24,6 @@ def ensure_title_card_images(
     script_id: str,
     content: ScriptContent,
     accent_color: str = "#e91e63",
-    style_string: str = "",
     force: bool = False,
     job_id: str | None = None,
 ) -> dict[int, tuple[int, int, int]]:
@@ -34,7 +33,6 @@ def ensure_title_card_images(
         script_id: The script ID (used for file paths).
         content: Full script content with segment metadata.
         accent_color: Hex color for title highlight word.
-        style_string: Brand style string prepended to image prompts.
         force: If True, regenerate even if composite already exists.
 
     Returns:
@@ -117,7 +115,6 @@ def ensure_title_card_images(
                 height=768,  # Square for circle cropping
                 force=force,
                 style_guide="",
-                style_string=style_string,
             )
             circle_paths.append(circle_path)
             logger.info("Generated circle image %d/%d for segment %r", idx + 1, len(content.segments), seg.name)
@@ -126,7 +123,7 @@ def ensure_title_card_images(
                 "Circle image %d (%s) failed with style, retrying with stripped prompt: %s",
                 idx, seg.name, exc,
             )
-            # Retry with minimal prompt — no style string/guide to avoid safety filters
+            # Retry with minimal prompt — no guide to avoid safety filters
             try:
                 fallback_prompt = (
                     f"A simple, colorful illustration: {prompt}. "
@@ -140,7 +137,6 @@ def ensure_title_card_images(
                     height=768,
                     force=True,
                     style_guide=" ",  # space to skip default guide
-                    style_string="",  # no style string
                 )
                 circle_paths.append(circle_path)
                 logger.info("Generated circle image %d/%d for segment %r (fallback prompt)", idx + 1, len(content.segments), seg.name)

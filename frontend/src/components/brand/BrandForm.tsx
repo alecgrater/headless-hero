@@ -11,7 +11,6 @@ const OAUTH_CONNECT_TIMEOUT_MS = 300_000; // 5 minutes
 const EMPTY_FORM: BrandProfileCreate = {
   name: "",
   content_modifiers: "",
-  style_string: "",
   voice_id: "",
   youtube_channel_id: "",
 };
@@ -265,24 +264,6 @@ export default function BrandForm({ onSave, onCancel, initial, saving, brandId }
                 className={inputCls}
                 placeholder="Everything Professor"
               />
-            </div>
-
-            {/* Style Prompt */}
-            <div>
-              <label className={labelCls}>
-                Visual Style Prompt
-              </label>
-              <textarea
-                value={form.style_string ?? ""}
-                onChange={(e) => set("style_string", e.target.value)}
-                className="w-full min-h-[100px] rounded-lg bg-[#1a1a24] border border-white/[0.08] px-3 py-2.5 text-[13px] text-white/90 placeholder:text-white/40 placeholder:font-['JetBrains_Mono'] outline-none transition-all duration-200 focus:border-[rgba(124,58,237,0.6)] focus:shadow-[0_0_0_3px_rgba(124,58,237,0.15)] resize-y"
-                placeholder="e.g. flat vector illustration, dark background, bold outlines, minimal detail, neon accents on deep purple..."
-                rows={4}
-              />
-              <p className="text-[11px] text-white/25 mt-1.5 leading-relaxed">
-                This exact text is prepended verbatim to every image generation prompt.
-                Describe your desired art style, color palette, typography, and visual feel here.
-              </p>
             </div>
           </div>
 

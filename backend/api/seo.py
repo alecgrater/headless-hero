@@ -37,10 +37,7 @@ def generate_seo_metadata(body: GenerateSEORequest, session: Session = Depends(g
     brand = session.get(BrandProfile, record.brand_id)
     brand_context = ""
     if brand:
-        parts = [brand.name]
-        if brand.art_style:
-            parts.append(f"Art style: {brand.art_style}")
-        brand_context = ". ".join(parts)
+        brand_context = brand.name
 
     metadata = generate_seo(
         video_title=content.title,
