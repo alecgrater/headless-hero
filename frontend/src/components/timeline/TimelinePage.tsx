@@ -189,10 +189,12 @@ function TimelineEditor({
       if (res.ok) {
         const data = res.data as VoiceListResponse;
         setVoices(data.voices);
-        // Default to brand voice, then Liam, then first voice
+        // Default to brand voice, then "Social Media" voice, then first voice
         if (!selectedVoiceId && data.voices.length > 0) {
-          const liam = data.voices.find((v) => v.name.startsWith("Liam"));
-          setSelectedVoiceId(liam?.voice_id ?? data.voices[0].voice_id);
+          const social = data.voices.find((v) =>
+            v.name.toLowerCase().includes("social media"),
+          );
+          setSelectedVoiceId(social?.voice_id ?? data.voices[0].voice_id);
         }
       }
     });

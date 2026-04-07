@@ -23,15 +23,25 @@ export default function VoicePublishSection() {
     });
   }, []);
 
-  // Fetch voices
+  // Fetch voices — if no voice is set on the brand, auto-select "Social Media" voice
   useEffect(() => {
     api.get("/api/voice/voices").then((res) => {
       if (res.ok) {
         const data = res.data as VoiceListResponse;
         setVoices(data.voices);
+        if (!selectedVoiceId && data.voices.length > 0) {
+          const social = data.voices.find((v) =>
+            v.name.toLowerCase().includes("social media"),
+          );
+          const fallback = social?.voice_id ?? data.voices[0].voice_id;
+          setSelectedVoiceId(fallback);
+          // Persist to brand so it sticks
+          api.put("/api/brand", { voice_id: fallback });
+        }
       }
     });
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVoiceId]);
 
   // Fetch YouTube connection status
   const fetchConnections = useCallback(async () => {
