@@ -58,8 +58,11 @@ export default function BrandForm({ onSave, onCancel, initial, saving, brandId }
       set("voice_id", voiceId);
       // Refresh voices list so the cloned voice appears in the dropdown
       const res = await api.get("/api/voice/voices");
-      if (res.ok && Array.isArray(res.data)) {
-        setVoices(res.data as Voice[]);
+      if (res.ok && res.data) {
+        const voices = (res.data as { voices: Voice[] }).voices;
+        if (Array.isArray(voices)) {
+          setVoices(voices);
+        }
       }
     },
   });
@@ -80,8 +83,11 @@ export default function BrandForm({ onSave, onCancel, initial, saving, brandId }
     });
 
     api.get("/api/voice/voices").then((res) => {
-      if (res.ok && Array.isArray(res.data)) {
-        setVoices(res.data as Voice[]);
+      if (res.ok && res.data) {
+        const voices = (res.data as { voices: Voice[] }).voices;
+        if (Array.isArray(voices)) {
+          setVoices(voices);
+        }
       }
     });
   }, []);

@@ -189,6 +189,10 @@ async def clone_voice_endpoint(
 @router.get("/voices", response_model=VoiceListResponse)
 def get_voices():
     """List available ElevenLabs voices."""
-    voices = list_voices()
+    try:
+        voices = list_voices()
+    except RuntimeError:
+        logger.warning("ElevenLabs API key not configured — returning empty voice list")
+        return VoiceListResponse(voices=[])
     logger.info("Listed %d voices", len(voices))
     return VoiceListResponse(voices=[VoiceInfo(**v) for v in voices])
