@@ -76,7 +76,6 @@ def generate_thumbnail(
     idx: int,
     visual_description: str,
     title_text: str,
-    brand_style: str = "",
     bar_color: str = "0x9333EA",
     title: str = "",
     font_family: str = "",
@@ -86,7 +85,7 @@ def generate_thumbnail(
     Returns the web-relative path to the final 1280x720 thumbnail.
     """
     logger.info("Generating thumbnail %s for script %s", idx, script_id)
-    prompt = f"{brand_style}. {visual_description}" if brand_style else visual_description
+    prompt = visual_description
 
     tmp_path = generate_image(prompt, width=1280, height=720)
 

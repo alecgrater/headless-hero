@@ -701,7 +701,7 @@ function TimelineEditor({
           onExportAudio={render.exportAudio}
           thumbnails={render.thumbnails}
           thumbnailsGenerating={render.thumbnailsGenerating}
-          onGenerateThumbnails={() => render.generateThumbnails("")}
+          onGenerateThumbnails={() => render.generateThumbnails()}
           seoMetadata={render.seoMetadata}
           seoGenerating={render.seoGenerating}
           onGenerateSEO={render.generateSEO}

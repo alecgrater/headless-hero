@@ -64,8 +64,8 @@ Writing guidelines:
 - Write narration in a conversational, engaging tone — not dry or academic.
 - Use hooks, cliffhangers between segments, and smooth transitions.
 - Visual prompts should be detailed enough for an AI image generator: describe \
-the subject, composition, style, and mood. Include "flat illustration, dark \
-background" unless the brand style says otherwise.
+the subject, composition, and mood. The art style is flat 2D cartoon illustration \
+(defined separately) — focus visual_prompt on WHAT to show, not HOW to render it.
 - Text overlays should be short key phrases (1-6 words) that reinforce the narration.
 - Scene IDs must be unique and sequential: scene_001, scene_002, etc.
 

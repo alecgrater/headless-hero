@@ -17,7 +17,6 @@ router = APIRouter(prefix="/api/thumbnail", tags=["thumbnail"])
 
 class GenerateThumbnailRequest(BaseModel):
     script_id: str
-    brand_style: str = ""
     bar_color: str = "0x9333EA"
     count: int = 3
     title: str = ""
@@ -72,7 +71,6 @@ def generate_thumbnails(body: GenerateThumbnailRequest, session: Session = Depen
                 idx=i,
                 visual_description=concept.visual_description,
                 title_text=concept.title_text,
-                brand_style=body.brand_style,
                 bar_color=body.bar_color,
                 title=body.title,
                 font_family=font_family,

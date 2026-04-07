@@ -26,7 +26,7 @@ interface RenderState {
   // Thumbnails
   thumbnails: ThumbnailConcept[];
   thumbnailsGenerating: boolean;
-  generateThumbnails: (brandStyle?: string, barColor?: string) => Promise<void>;
+  generateThumbnails: (barColor?: string) => Promise<void>;
 
   // SEO
   seoMetadata: SEOMetadata | null;
@@ -138,12 +138,11 @@ export function useRenderState(scriptId: string, title: string): RenderState {
   }, [scriptId, title]);
 
   const generateThumbnails = useCallback(
-    async (brandStyle = "", barColor = "0x9333EA") => {
+    async (barColor = "0x9333EA") => {
       setThumbnailsGenerating(true);
       try {
         const res = await api.post("/api/thumbnail/generate", {
           script_id: scriptId,
-          brand_style: brandStyle,
           bar_color: barColor,
           title,
         });
