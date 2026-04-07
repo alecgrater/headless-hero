@@ -1,4 +1,4 @@
-"""SEO metadata generation pipeline — Claude generates per-platform metadata."""
+"""SEO metadata generation pipeline — Claude generates YouTube metadata."""
 
 import json
 import logging
@@ -15,36 +15,22 @@ class YouTubeSEO(BaseModel):
     description: str
     tags: list[str]
 
-class TikTokSEO(BaseModel):
-    caption: str
-    hashtags: list[str]
-
-class InstagramSEO(BaseModel):
-    caption: str
-    hashtags: list[str]
-
 class SEOMetadata(BaseModel):
     youtube: YouTubeSEO
-    tiktok: list[TikTokSEO]
-    instagram: InstagramSEO
 
 SYSTEM_PROMPT = """\
-You are a social media SEO expert. Generate optimized metadata for video \
-content across multiple platforms. Tailor the metadata to match the brand's \
-voice, identity, and style when brand context is provided.
+You are a social media SEO expert. Generate optimized YouTube metadata for video \
+content. Tailor the metadata to match the brand's voice, identity, and style when \
+brand context is provided.
 
 Rules:
 - YouTube title: max 70 chars, include primary keyword, use power words.
 - YouTube description: 2-3 paragraphs, include timestamps if segments provided, \
   natural keyword usage, call to action.
 - YouTube tags: 30+ relevant tags, mix of broad and specific.
-- TikTok caption: max 150 chars per segment, punchy and engaging.
-- TikTok hashtags: 5-8 trending/relevant per segment.
-- Instagram caption: engaging, storytelling tone, 2-3 paragraphs.
-- Instagram hashtags: 20-30 mix of popular and niche.
 - Return ONLY valid JSON — no markdown fences, no commentary.
 
-Return a JSON object with keys: youtube, tiktok (array), instagram.
+Return a JSON object with key: youtube.
 """
 
 def generate_seo(
@@ -53,7 +39,7 @@ def generate_seo(
     video_description: str = "",
     brand_context: str = "",
 ) -> SEOMetadata:
-    """Generate SEO metadata for all platforms via Claude."""
+    """Generate SEO metadata for YouTube via Claude."""
     segment_list = "\n".join(f"- {name}" for name in segments)
     user_msg = (
         f"Generate SEO metadata for this video:\n\n"

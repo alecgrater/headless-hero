@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from config import DATA_DIR
-from models.script import ChapterMarker, KenBurnsConfig, Scene, SceneFX, ScriptContent, VideoFX
+from models.script import ChapterMarker, Scene, SceneFX, ScriptContent, VideoFX
 
 logger = logging.getLogger(__name__)
 
@@ -134,9 +134,6 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
     # Parse FX if stored as dict
     fx = scene.fx
 
-    # Legacy KB config for fallback
-    kb = scene.ken_burns or KenBurnsConfig()
-
     return {
         "id": scene.id,
         "narration": scene.narration,
@@ -146,15 +143,11 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
         "is_title_card": scene.is_title_card,
         "media_type": scene.media_type or "ai_generated",
         "image_path": image_path,
-        "image_path_b": None,  # legacy A/B not used in Remotion
         "frame_paths": frame_paths if frame_paths else None,
         "audio_path": audio_path,
         "video_clip_path": clip_path,
         "title_card_zoom_target": scene.title_card_zoom_target,
         "fx": fx,
-        "ken_burns_effect": kb.effect,
-        "ken_burns_intensity": kb.intensity,
-        "scene_transition": scene.scene_transition or "",
     }
 
 
