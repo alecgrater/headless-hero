@@ -38,7 +38,7 @@ cd frontend && npm run build  # Production frontend build
 ```
 electron/          → Main process + IPC preload bridge
 frontend/src/      → React 19 + TypeScript + Tailwind 4
-  components/      → Feature-grouped (brand/, storyboard/, etc.)
+  components/      → Feature-grouped (brand/, timeline/, etc.)
   types/           → TypeScript interfaces (one file per domain)
   api.ts           → API client with Electron IPC / fetch fallback
 backend/
@@ -150,7 +150,7 @@ Examples:
 ```
 Fix download buttons navigating away from app instead of downloading
 Update Real Media modifier to encourage mix of real footage and AI art
-Remove short-form video support entirely
+Remove legacy FFmpeg video rendering pipeline
 ```
 
 ## Environment Variables
@@ -167,6 +167,8 @@ Stored in DB via AppSettings, loaded into env at startup. Never commit `.env` fi
 - **IPC fallback**: Frontend works with or without Electron (direct HTTP to backend in dev)
 - **Static file serving**: FastAPI mounts `/static/projects` → `data/projects/`
 - **No auth**: Single-user desktop app
+- **ElevenLabs duration as timing source of truth**: Scene duration in the Remotion timeline is derived from the ElevenLabs-generated audio duration, not estimated or manually set
+- **Visual storytelling arc in scriptwriter**: Script generation prompts are structured to produce a coherent visual narrative arc across scenes, not just talking-head descriptions
 
 ## Video Rendering (Remotion)
 
@@ -180,20 +182,17 @@ Python writes scene data + FX config to JSON → invokes `npx remotion render` v
 - **ScenePreview** — Renders a single scene for preview
 
 ### Scene Types
-- `StaticImageScene` — Single image + spring-based camera motion
+- `StaticImageScene` — Single image with zoom punch or parallax motion
 - `MultiFrameScene` — N images with crossfade between them
 - `TitleCardScene` — Spring zoom into circle target
 - `VideoClipScene` — Embedded video clip (gameplay)
 
 ### FX System
-Visual effects are AI-generated (no manual editing). Each scene has an optional `fx: SceneFX` field with:
-- **camera** — Ken Burns, zoom punch, parallax, static
-- **text_effects** — Kinetic caption, word reveal, lower third, title insert, source citation
-- **transition** — Cut, crossfade, slide, push, smash cut, wipe
-- **overlays** — Chapter indicator, film grain, letterbox, vignette
-- **structural** — Cold open, chapter transition, recap, end screen
+Visual effects are AI-generated (no manual editing). Each scene has an optional `fx: SceneFX` field. Key FX types in active use:
+- **kinetic_captions** — Animated word-by-word caption overlays synced to voiceover
+- **zoom_punch** — Quick zoom-in camera punch for emphasis
 
 FX are generated via Claude (`POST /api/fx/generate`) and can be regenerated per-scene (`POST /api/fx/regenerate`). The `backend/pipeline/fx_generator.py` sends scene context to Claude and parses the structured FX response.
 
 ### YouTube 16:9 Only
-TikTok 9:16 segment rendering has been removed. All video output is 1920x1080 YouTube format.
+All video output is 1920x1080 YouTube format.
