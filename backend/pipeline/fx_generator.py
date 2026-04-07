@@ -305,11 +305,22 @@ def generate_fx(content: ScriptContent) -> list[dict]:
     response = chat(
         system=FX_SYSTEM_PROMPT,
         user_message=user_message,
-        max_tokens=8192,
+        max_tokens=16384,
     )
 
     cleaned = strip_markdown_fences(response)
-    fx_list = json.loads(cleaned)
+    try:
+        fx_list = json.loads(cleaned)
+    except json.JSONDecodeError:
+        # Response was likely truncated — retry with higher limit
+        logger.warning("FX response truncated, retrying with higher token limit")
+        response = chat(
+            system=FX_SYSTEM_PROMPT,
+            user_message=user_message,
+            max_tokens=32768,
+        )
+        cleaned = strip_markdown_fences(response)
+        fx_list = json.loads(cleaned)
 
     if not isinstance(fx_list, list):
         raise ValueError("Expected JSON array from Claude FX generator")
