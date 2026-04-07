@@ -38,7 +38,7 @@ cd frontend && npm run build  # Production frontend build
 ```
 electron/          → Main process + IPC preload bridge
 frontend/src/      → React 19 + TypeScript + Tailwind 4
-  components/      → Feature-grouped (brand/, timeline/, etc.)
+  components/      → Feature-grouped (timeline/, settings/, etc.)
   types/           → TypeScript interfaces (one file per domain)
   api.ts           → API client with Electron IPC / fetch fallback
 backend/
@@ -84,7 +84,7 @@ def generate(niche: str, count: int = 10, brand: str | None = None) -> list[Vide
 - Queries: `select()` + `session.exec()`
 
 ### API Endpoints
-- Prefix: `/api/{feature}` (e.g., `/api/brands`, `/api/scripts`)
+- Prefix: `/api/{feature}` (e.g., `/api/brand`, `/api/scripts`)
 - Always specify `response_model=`
 - Status codes: 201 (create), 204 (delete), 404/422 (errors)
 - Errors: `HTTPException(status_code=..., detail="...")`
@@ -129,14 +129,17 @@ Order: stdlib → third-party → local. Group by functionality.
 - No `any` — use proper types or `unknown`
 - Double quotes, trailing commas, 2-space indentation
 
-## Content Modifiers (Plugin System)
+## Brand Profile
 
-To add a new modifier:
-1. Create class in `backend/pipeline/modifiers/` inheriting `ContentModifier`
-2. Register in `backend/pipeline/modifiers/__init__.py`
-3. It auto-appears in BrandForm UI and hooks into the pipeline
+The app uses a **single auto-created default brand** (no multi-brand picker). The brand stores `voice_id` and `youtube_channel_id`. It's auto-created on backend startup via `ensure_default_brand()`.
 
-Available hooks: `modify_script_prompt()`, `modify_script_post()`, `modify_scene_pre_render()`, `get_render_override()`, `get_full_render_override()`, `get_router()`
+- `GET /api/brand` — returns the single default brand
+- `PUT /api/brand` — updates voice_id, youtube_channel_id, etc.
+- All endpoints auto-resolve brand_id from the default brand (no brand_id in request bodies)
+
+## Content Modifiers (Legacy)
+
+The modifier plugin system still exists structurally but is no longer dynamic. Title cards are hardcoded on; the Real Media modifier has been removed. `modifier_ids=[]` is passed everywhere.
 
 ## Git Conventions
 
