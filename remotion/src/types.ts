@@ -66,15 +66,6 @@ export interface ChapterMapData {
   circles: ChapterCircle[];
 }
 
-// --- Legacy FX types (kept for backward compat, ignored by new code) ---
-
-export interface CameraFX {
-  type: "ken_burns" | "zoom_punch" | "parallax" | "static";
-  direction?: "in" | "out" | "left" | "right" | "up" | "down" | null;
-  intensity?: "subtle" | "moderate" | "dramatic";
-  easing?: "spring" | "linear" | "ease_in_out";
-}
-
 // --- Scene / Composition types ---
 
 export interface SceneInput {
@@ -88,7 +79,6 @@ export interface SceneInput {
 
   // Asset paths (absolute filesystem paths)
   image_path?: string | null;
-  image_path_b?: string | null;
   frame_paths?: string[] | null;
   audio_path?: string | null;
   video_clip_path?: string | null;
@@ -96,11 +86,6 @@ export interface SceneInput {
 
   // FX (new system)
   fx?: SceneFX | null;
-
-  // Legacy fields (used as fallback if fx is absent)
-  ken_burns_effect?: string;
-  ken_burns_intensity?: string;
-  scene_transition?: string;
 }
 
 export interface SegmentInput {

@@ -1,10 +1,10 @@
 /**
  * MultiFrameScene — renders N images with crossfade between them.
  * Each frame gets equal screen time with smooth transitions.
+ * No camera motion; crossfade is the primary visual effect.
  */
 import React from "react";
 import { Img, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
-import { SpringKenBurns } from "../effects/camera/SpringKenBurns";
 import type { SceneInput } from "../types";
 
 interface Props {
@@ -50,11 +50,6 @@ export const MultiFrameScene: React.FC<Props> = ({ scene }) => {
 
   const n = framePaths.length;
   const framesPerImage = durationInFrames / n;
-  const kbEffect = scene.ken_burns_effect ?? "zoom_in";
-  const kbIntensity = (scene.ken_burns_intensity ?? "subtle") as
-    | "subtle"
-    | "moderate"
-    | "dramatic";
 
   return (
     <div style={{ width: "100%", height: "100%", backgroundColor: "#000", position: "relative" }}>
@@ -109,12 +104,10 @@ export const MultiFrameScene: React.FC<Props> = ({ scene }) => {
               opacity,
             }}
           >
-            <SpringKenBurns effect={kbEffect} intensity={kbIntensity}>
-              <Img
-                src={path}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
-            </SpringKenBurns>
+            <Img
+              src={path}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
           </div>
         );
       })}

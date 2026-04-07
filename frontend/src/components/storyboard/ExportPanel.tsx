@@ -355,24 +355,6 @@ export default function ExportPanel({
                       )}
                     </div>
                   </div>
-
-                  {/* Instagram */}
-                  <div className="bg-neutral-800/50 rounded-lg p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-neutral-400 uppercase">Instagram</span>
-                      <div className="flex items-center gap-2">
-                        <CopyButton text={`${seoMetadata.instagram.caption}\n\n${seoMetadata.instagram.hashtags.join(" ")}`} />
-                        <button
-                          onClick={() => openInBrowser("https://www.instagram.com/")}
-                          className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
-                        >
-                          Open Instagram
-                        </button>
-                      </div>
-                    </div>
-                    <p className="text-xs text-neutral-400 whitespace-pre-wrap">{seoMetadata.instagram.caption}</p>
-                    <p className="text-xs text-violet-400">{seoMetadata.instagram.hashtags.slice(0, 10).join(" ")}</p>
-                  </div>
                 </div>
               )}
               <button

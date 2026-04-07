@@ -15,8 +15,6 @@ export interface BrandProfile {
   content_modifiers: string;
   style_string: string;
   youtube_channel_id: string;
-  tiktok_handle: string;
-  instagram_handle: string;
   created_at: string;
   updated_at: string;
 }
@@ -27,6 +25,4 @@ export interface BrandProfileCreate {
   content_modifiers?: string;
   style_string?: string;
   youtube_channel_id?: string;
-  tiktok_handle?: string;
-  instagram_handle?: string;
 }

@@ -41,20 +41,8 @@ interface YouTubeSEO {
   tags: string[];
 }
 
-interface TikTokSEO {
-  caption: string;
-  hashtags: string[];
-}
-
-interface InstagramSEO {
-  caption: string;
-  hashtags: string[];
-}
-
 export interface SEOMetadata {
   youtube: YouTubeSEO;
-  tiktok: TikTokSEO[];
-  instagram: InstagramSEO;
 }
 
 export interface GenerateSEOResponse {

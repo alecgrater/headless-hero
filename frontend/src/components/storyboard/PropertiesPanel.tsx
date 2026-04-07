@@ -1,48 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { assetUrl, regenerateFX } from "../../api";
-import type { KenBurnsConfig, Scene, SceneFX, TextOverlayConfig } from "../../types/script";
+import type { Scene, SceneFX } from "../../types/script";
 import AudioPlayer from "./AudioPlayer";
-
-const KEN_BURNS_EFFECTS = [
-  { value: "none", label: "None" },
-  { value: "zoom_in", label: "Zoom In" },
-  { value: "zoom_out", label: "Zoom Out" },
-  { value: "pan_left", label: "Pan Left" },
-  { value: "pan_right", label: "Pan Right" },
-  { value: "pan_up", label: "Pan Up" },
-  { value: "pan_down", label: "Pan Down" },
-] as const;
-
-const INTENSITIES = ["subtle", "moderate", "dramatic"] as const;
-
-const OVERLAY_POSITIONS = [
-  { value: "top", label: "Top" },
-  { value: "center", label: "Center" },
-  { value: "bottom", label: "Bottom" },
-  { value: "lower_third", label: "Lower Third" },
-] as const;
-
-const OVERLAY_STYLES = [
-  { value: "default", label: "Default" },
-  { value: "bold", label: "Bold" },
-  { value: "subtitle", label: "Subtitle" },
-  { value: "title_card", label: "Title Card" },
-] as const;
-
-const OVERLAY_ANIMATIONS = [
-  { value: "none", label: "None" },
-  { value: "fade_in", label: "Fade In" },
-  { value: "slide_up", label: "Slide Up" },
-  { value: "typewriter", label: "Typewriter" },
-] as const;
-
-const SCENE_TRANSITIONS = [
-  { value: "", label: "Hard Cut" },
-  { value: "crossfade", label: "Crossfade" },
-  { value: "slide_left", label: "Slide Left" },
-  { value: "slide_right", label: "Slide Right" },
-  { value: "push_up", label: "Push Up" },
-] as const;
 
 interface Props {
   scene: Scene;
@@ -89,7 +48,6 @@ export default function PropertiesPanel({
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
-  const [visualPromptB, setVisualPromptB] = useState(scene.visual_prompt_b || "");
   const [textOverlay, setTextOverlay] = useState(scene.text_overlay);
   const [duration, setDuration] = useState(
     String(scene.duration_estimate_seconds),
@@ -108,7 +66,6 @@ export default function PropertiesPanel({
       sceneIdRef.current = scene.id;
       setNarration(scene.narration);
       setVisualPrompt(scene.visual_prompt);
-      setVisualPromptB(scene.visual_prompt_b || "");
       setTextOverlay(scene.text_overlay);
       setDuration(String(scene.duration_estimate_seconds));
       setIsTitleCard(scene.is_title_card);
@@ -140,37 +97,6 @@ export default function PropertiesPanel({
     } finally {
       setRegeneratingFX(false);
     }
-  };
-
-  const updateKenBurns = useCallback(
-    (patch: Partial<KenBurnsConfig>) => {
-      const current: KenBurnsConfig = scene.ken_burns ?? { effect: "none", intensity: "moderate" };
-      onUpdate({ ken_burns: { ...current, ...patch } });
-    },
-    [onUpdate, scene.ken_burns],
-  );
-
-  const updateTextOverlayConfig = useCallback(
-    (patch: Partial<TextOverlayConfig>) => {
-      const current: TextOverlayConfig = scene.text_overlay_config ?? {
-        position: "lower_third",
-        style: "default",
-        animation: "fade_in",
-        show_at: 0,
-        duration: 0,
-      };
-      onUpdate({ text_overlay_config: { ...current, ...patch } });
-    },
-    [onUpdate, scene.text_overlay_config],
-  );
-
-  const kenBurns = scene.ken_burns ?? { effect: "none", intensity: "moderate" };
-  const overlayConfig = scene.text_overlay_config ?? {
-    position: "lower_third",
-    style: "default",
-    animation: "fade_in",
-    show_at: 0,
-    duration: 0,
   };
 
   if (collapsed) {
@@ -355,7 +281,7 @@ export default function PropertiesPanel({
         <label className="block space-y-1">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-neutral-400">
-              Visual Prompt{scene.is_animated ? " (A)" : ""}
+              Visual Prompt
             </span>
             <button
               onClick={() => setPromptExpanded(!promptExpanded)}
@@ -442,63 +368,7 @@ export default function PropertiesPanel({
           </div>
         )}
 
-        {/* Legacy A/B compat: show if is_animated but no frame_prompts */}
-        {scene.is_animated && (!framePrompts.length || frameCount <= 1) && (
-          <div className="mt-2 space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-amber-500/70">Legacy A/B Flip</span>
-              <button
-                onClick={() => {
-                  // Convert to multi-frame: 2 frames from visual_prompt + visual_prompt_b
-                  const newPrompts = [scene.visual_prompt, scene.visual_prompt_b || ""];
-                  setFrameCount(2);
-                  setFramePrompts(newPrompts);
-                  onUpdate({
-                    frame_count: 2,
-                    frame_prompts: newPrompts,
-                    is_animated: false,
-                  });
-                }}
-                className="text-[10px] text-violet-400 hover:text-violet-300 underline transition-colors"
-              >
-                Convert to Multi-Frame
-              </button>
-            </div>
-            <label className="block space-y-1">
-              <span className="text-xs font-medium text-neutral-400">
-                Visual Prompt (B)
-              </span>
-              <textarea
-                value={visualPromptB}
-                onChange={(e) => setVisualPromptB(e.target.value)}
-                onBlur={() => commitField("visual_prompt_b", visualPromptB)}
-                className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2.5 border border-amber-700/50 resize-none focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30"
-                rows={3}
-                placeholder="Describe the second visual state (B)..."
-              />
-            </label>
-          </div>
-        )}
       </div>
-
-      {/* Scene Transition — only shown if no FX assigned */}
-      {!scene.fx && (
-        <label className="block space-y-1">
-          <span className="text-xs font-medium text-neutral-400">Scene Transition</span>
-          <select
-            value={scene.scene_transition || ""}
-            onChange={(e) => onUpdate({ scene_transition: e.target.value as Scene["scene_transition"] })}
-            className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
-          >
-            {SCENE_TRANSITIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <p className="text-[10px] text-neutral-600">Transition from previous scene into this one</p>
-        </label>
-      )}
 
       {/* Video Clip Preview (for gameplay clips) */}
       {scene.video_clip_url && (
@@ -527,25 +397,6 @@ export default function PropertiesPanel({
                 />
               ))}
             </div>
-          ) : scene.is_animated && scene.image_url_b ? (
-            <div className="grid grid-cols-2 gap-1">
-              <div className="space-y-1">
-                <span className="text-[10px] text-neutral-500 uppercase">A</span>
-                <img
-                  src={assetUrl(scene.image_url)}
-                  alt="Scene visual A"
-                  className={`w-full object-cover rounded-lg border border-neutral-700 h-[96px]`}
-                />
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] text-neutral-500 uppercase">B</span>
-                <img
-                  src={assetUrl(scene.image_url_b)}
-                  alt="Scene visual B"
-                  className={`w-full object-cover rounded-lg border border-amber-700/50 h-[96px]`}
-                />
-              </div>
-            </div>
           ) : (
             <img
               src={assetUrl(scene.image_url)}
@@ -566,8 +417,6 @@ export default function PropertiesPanel({
                 </>
               ) : frameCount > 1 ? (
                 `Regenerate ${frameCount} Frames`
-              ) : scene.is_animated ? (
-                "Regenerate Images (A+B)"
               ) : (
                 "Regenerate Image"
               )}
@@ -587,8 +436,6 @@ export default function PropertiesPanel({
             </>
           ) : frameCount > 1 ? (
             `Generate ${frameCount} Frames`
-          ) : scene.is_animated ? (
-            "Generate Images (A+B)"
           ) : (
             "Generate Image"
           )}
@@ -707,200 +554,30 @@ export default function PropertiesPanel({
             </button>
           </div>
           <div className="space-y-1.5">
-            {scene.fx.camera && (
+            {scene.fx.kinetic_captions && scene.fx.kinetic_captions.words.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded-full">
+                  kinetic captions
+                </span>
+                <span className="text-xs text-neutral-400">
+                  {scene.fx.kinetic_captions.words.length} word{scene.fx.kinetic_captions.words.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+            )}
+            {scene.fx.zoom_punch && (
               <div className="flex items-center gap-2">
                 <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full">
-                  camera
+                  zoom punch
                 </span>
                 <span className="text-xs text-neutral-400">
-                  {scene.fx.camera.type}
-                  {scene.fx.camera.direction ? ` ${scene.fx.camera.direction}` : ""}
-                  {scene.fx.camera.intensity ? ` (${scene.fx.camera.intensity})` : ""}
+                  frame {scene.fx.zoom_punch.trigger_frame} @ {scene.fx.zoom_punch.scale}x
                 </span>
               </div>
             )}
-            {scene.fx.transition && scene.fx.transition.type !== "cut" && (
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] bg-violet-500/20 text-violet-300 px-1.5 py-0.5 rounded-full">
-                  transition
-                </span>
-                <span className="text-xs text-neutral-400">
-                  {scene.fx.transition.type}
-                  {scene.fx.transition.direction ? ` ${scene.fx.transition.direction}` : ""}
-                  {scene.fx.transition.duration ? ` (${scene.fx.transition.duration}s)` : ""}
-                </span>
-              </div>
-            )}
-            {scene.fx.text_effects && scene.fx.text_effects.length > 0 && (
-              <div className="space-y-1">
-                {scene.fx.text_effects.map((te, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className="text-[10px] bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded-full">
-                      text
-                    </span>
-                    <span className="text-xs text-neutral-400">
-                      {te.type}
-                      {te.text ? `: "${te.text}"` : ""}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {scene.fx.overlays && scene.fx.overlays.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {scene.fx.overlays.map((ov, i) => (
-                  <span
-                    key={i}
-                    className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded-full"
-                  >
-                    {ov.type.replace(/_/g, " ")}
-                  </span>
-                ))}
-              </div>
-            )}
-            {scene.fx.structural && (
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] bg-rose-500/20 text-rose-300 px-1.5 py-0.5 rounded-full">
-                  structural
-                </span>
-                <span className="text-xs text-neutral-400">
-                  {scene.fx.structural.type.replace(/_/g, " ")}
-                </span>
-              </div>
-            )}
-            {!scene.fx.camera && !scene.fx.transition && !scene.fx.text_effects?.length && !scene.fx.overlays?.length && !scene.fx.structural && (
+            {!scene.fx.kinetic_captions && !scene.fx.zoom_punch && (
               <p className="text-[10px] text-neutral-600 italic">No effects assigned</p>
             )}
           </div>
-        </div>
-      )}
-
-      {/* Motion Effect (Ken Burns) — only shown if no FX assigned */}
-      {!scene.fx && (
-        <div className="border-t border-neutral-800 pt-3 space-y-2">
-          <div className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">
-            Motion Effect
-          </div>
-          <label className="block space-y-1">
-            <span className="text-xs font-medium text-neutral-400">Effect</span>
-            <select
-              value={kenBurns.effect}
-              onChange={(e) => updateKenBurns({ effect: e.target.value as KenBurnsConfig["effect"] })}
-              className={`w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30 ${
-                kenBurns.effect !== "none"
-                  ? "border-cyan-500/50"
-                  : "border-neutral-700/50"
-              }`}
-            >
-              {KEN_BURNS_EFFECTS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          {kenBurns.effect !== "none" && (
-            <div className="space-y-1">
-              <span className="text-xs font-medium text-neutral-400">Intensity</span>
-              <div className="flex gap-1">
-                {INTENSITIES.map((level) => (
-                  <button
-                    key={level}
-                    onClick={() => updateKenBurns({ intensity: level })}
-                    className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${
-                      kenBurns.intensity === level
-                        ? "bg-violet-600 border-violet-500 text-white"
-                        : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-600"
-                    }`}
-                  >
-                    {level.charAt(0).toUpperCase() + level.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Text Overlay Style (only when text_overlay is non-empty and no FX) */}
-      {scene.text_overlay && !scene.fx && (
-        <div className="border-t border-neutral-800 pt-3 space-y-2">
-          <div className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">
-            Text Overlay Style
-          </div>
-          <label className="block space-y-1">
-            <span className="text-xs font-medium text-neutral-400">Position</span>
-            <select
-              value={overlayConfig.position}
-              onChange={(e) => updateTextOverlayConfig({ position: e.target.value as TextOverlayConfig["position"] })}
-              className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
-            >
-              {OVERLAY_POSITIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs font-medium text-neutral-400">Style</span>
-            <select
-              value={overlayConfig.style}
-              onChange={(e) => updateTextOverlayConfig({ style: e.target.value as TextOverlayConfig["style"] })}
-              className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
-            >
-              {OVERLAY_STYLES.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block space-y-1">
-            <span className="text-xs font-medium text-neutral-400">Animation</span>
-            <select
-              value={overlayConfig.animation}
-              onChange={(e) => updateTextOverlayConfig({ animation: e.target.value as TextOverlayConfig["animation"] })}
-              className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
-            >
-              {OVERLAY_ANIMATIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <label className="block space-y-1">
-              <span className="text-xs font-medium text-neutral-400">Show At (s)</span>
-              <input
-                type="number"
-                min={0}
-                step={0.1}
-                value={overlayConfig.show_at}
-                onChange={(e) => {
-                  const n = parseFloat(e.target.value);
-                  if (!isNaN(n) && n >= 0) updateTextOverlayConfig({ show_at: n });
-                }}
-                className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-xs font-medium text-neutral-400">Duration (s)</span>
-              <input
-                type="number"
-                min={0}
-                step={0.1}
-                value={overlayConfig.duration}
-                onChange={(e) => {
-                  const n = parseFloat(e.target.value);
-                  if (!isNaN(n) && n >= 0) updateTextOverlayConfig({ duration: n });
-                }}
-                className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
-              />
-            </label>
-          </div>
-          <p className="text-[10px] text-neutral-600">Duration 0 = visible for entire scene</p>
         </div>
       )}
 

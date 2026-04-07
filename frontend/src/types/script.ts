@@ -31,21 +31,6 @@ export interface VideoFX {
   chapter_markers: ChapterMarker[];
 }
 
-// --- Legacy types (kept for backward compat) ---
-
-export interface KenBurnsConfig {
-  effect: "none" | "zoom_in" | "zoom_out" | "pan_left" | "pan_right" | "pan_up" | "pan_down";
-  intensity: "subtle" | "moderate" | "dramatic";
-}
-
-export interface TextOverlayConfig {
-  position: "top" | "center" | "bottom" | "lower_third";
-  style: "default" | "bold" | "subtitle" | "title_card";
-  animation: "none" | "fade_in" | "slide_up" | "typewriter";
-  show_at: number;
-  duration: number;
-}
-
 export interface Scene {
   id: string;
   narration: string;
@@ -53,22 +38,15 @@ export interface Scene {
   text_overlay: string;
   duration_estimate_seconds: number;
   is_title_card: boolean;
-  is_animated?: boolean;
-  visual_prompt_b?: string;
   image_url?: string;
-  image_url_b?: string;
   audio_url?: string;
   audio_duration_seconds?: number;
-  ken_burns?: KenBurnsConfig;
-  text_overlay_config?: TextOverlayConfig;
   media_type?: "ai_generated" | "gameplay_clip" | "hardware_image";
   search_query?: string;
   video_clip_url?: string;
   frame_prompts?: string[];
   frame_urls?: string[];
   frame_count?: number;
-  frame_seed?: number | null;
-  scene_transition?: "" | "crossfade" | "slide_left" | "slide_right" | "push_up";
   fx?: SceneFX | null;
 }
 
