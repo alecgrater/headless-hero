@@ -9,7 +9,7 @@ from sqlmodel import Session
 
 from database import get_session
 from models.script import Script, ScriptContent
-from pipeline.fx_generator import generate_fx, generate_scene_fx
+from pipeline.fx_generator import generate_scene_fx
 
 logger = logging.getLogger(__name__)
 
@@ -37,34 +37,55 @@ class RegenerateFXResponse(BaseModel):
 
 @router.post("/generate", response_model=GenerateFXResponse)
 def generate_all_fx(body: GenerateFXRequest, session: Session = Depends(get_session)):
-    """Generate FX assignments for all scenes in a script using Claude."""
+    """Generate FX assignments for all scenes by calling per-scene generation."""
     logger.info("Generating FX for all scenes in script %s", body.script_id)
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
+    total_scenes = sum(len(seg.scenes) for seg in content.segments)
 
-    # Generate FX
-    fx_assignments = generate_fx(content)
-
-    # Build a lookup from scene_id → fx
-    fx_map = {entry["id"]: entry["fx"] for entry in fx_assignments}
-
-    # Apply FX to scenes in the content
     updated = 0
-    for seg in content.segments:
-        for scene in seg.scenes:
-            if scene.id in fx_map:
-                scene.fx = fx_map[scene.id]
+    global_idx = 0
+    for seg_idx, seg in enumerate(content.segments):
+        for sc_idx, scene in enumerate(seg.scenes):
+            duration = scene.audio_duration_seconds or scene.duration_estimate_seconds
+            scene_data = {
+                "id": scene.id,
+                "segment": seg.name,
+                "segment_index": seg_idx,
+                "scene_index_in_segment": sc_idx,
+                "global_index": global_idx,
+                "is_first_scene": global_idx == 0,
+                "is_last_scene": global_idx == total_scenes - 1,
+                "is_first_in_segment": sc_idx == 0,
+                "is_title_card": scene.is_title_card,
+                "media_type": scene.media_type or "ai_generated",
+                "narration": scene.narration,
+                "duration_seconds": duration,
+                "duration_frames": int(duration * 30),
+                "has_multiple_frames": bool(scene.frame_urls and len(scene.frame_urls) > 1),
+            }
+            if scene.word_timestamps:
+                scene_data["word_timestamps"] = scene.word_timestamps
+
+            try:
+                result = generate_scene_fx(scene_data)
+                scene.fx = result["fx"]
                 updated += 1
+                logger.info("Generated FX for scene %d/%d (%s)", global_idx + 1, total_scenes, scene.id)
+            except Exception as e:
+                logger.warning("Failed FX for scene %s: %s", scene.id, e)
+
+            global_idx += 1
 
     # Save back to DB
     record.script_json = content.model_dump_json()
     session.add(record)
     session.commit()
 
-    logger.info("Applied FX to %d scenes for script %s", updated, body.script_id)
+    logger.info("Applied FX to %d/%d scenes for script %s", updated, total_scenes, body.script_id)
     return GenerateFXResponse(script_id=body.script_id, scenes_updated=updated)
 
 

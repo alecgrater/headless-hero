@@ -12,7 +12,7 @@ import logging
 
 from config import strip_markdown_fences
 from integrations.claude_client import chat
-from models.script import SceneFX, ScriptContent
+from models.script import SceneFX
 
 logger = logging.getLogger(__name__)
 
@@ -252,110 +252,6 @@ def _apply_word_timestamps(
         prev_end_frame = end_frame
 
     return fx_data
-
-
-def generate_fx(content: ScriptContent) -> list[dict]:
-    """Generate FX assignments for all scenes in a script.
-
-    Returns a list of dicts with {id, fx} for each scene.
-    """
-    scenes_summary = []
-    scene_index = 0
-    total_scenes = sum(len(seg.scenes) for seg in content.segments)
-
-    # Keep a parallel list of word_timestamps + duration_frames for post-processing
-    scenes_meta: list[dict] = []
-
-    for seg_idx, seg in enumerate(content.segments):
-        for sc_idx, scene in enumerate(seg.scenes):
-            duration = scene.audio_duration_seconds or scene.duration_estimate_seconds
-            duration_frames = int(duration * 30)
-            summary = {
-                "id": scene.id,
-                "segment": seg.name,
-                "segment_index": seg_idx,
-                "scene_index_in_segment": sc_idx,
-                "global_index": scene_index,
-                "is_first_scene": scene_index == 0,
-                "is_last_scene": scene_index == total_scenes - 1,
-                "is_first_in_segment": sc_idx == 0,
-                "is_title_card": scene.is_title_card,
-                "media_type": scene.media_type or "ai_generated",
-                "narration": scene.narration,
-                "duration_seconds": duration,
-                "duration_frames": duration_frames,
-                "has_multiple_frames": bool(scene.frame_urls and len(scene.frame_urls) > 1),
-            }
-            # Include word_timestamps if available (for Claude to see word indices)
-            if scene.word_timestamps:
-                summary["word_timestamps"] = scene.word_timestamps
-
-            scenes_summary.append(summary)
-            scenes_meta.append({
-                "id": scene.id,
-                "word_timestamps": scene.word_timestamps,
-                "duration_frames": duration_frames,
-            })
-            scene_index += 1
-
-    user_message = json.dumps(scenes_summary, indent=2)
-
-    logger.info("Generating FX for %d scenes via Claude", len(scenes_summary))
-
-    response = chat(
-        system=FX_SYSTEM_PROMPT,
-        user_message=user_message,
-        max_tokens=16384,
-    )
-
-    cleaned = strip_markdown_fences(response)
-    try:
-        fx_list = json.loads(cleaned)
-    except json.JSONDecodeError:
-        # Response was likely truncated — retry with higher limit
-        logger.warning("FX response truncated, retrying with higher token limit")
-        response = chat(
-            system=FX_SYSTEM_PROMPT,
-            user_message=user_message,
-            max_tokens=32768,
-        )
-        cleaned = strip_markdown_fences(response)
-        fx_list = json.loads(cleaned)
-
-    if not isinstance(fx_list, list):
-        raise ValueError("Expected JSON array from Claude FX generator")
-
-    # Build meta lookup by scene id
-    meta_by_id = {m["id"]: m for m in scenes_meta}
-
-    result = []
-    for entry in fx_list:
-        if not isinstance(entry, dict) or "id" not in entry:
-            continue
-        fx_data = entry.get("fx", {})
-
-        # Post-process: map intensity+category → style/font_size/position
-        fx_data = _apply_intensity_mapping(fx_data)
-
-        # Post-process: apply word timestamps to kinetic captions
-        scene_id = entry["id"]
-        meta = meta_by_id.get(scene_id)
-        if meta:
-            fx_data = _apply_word_timestamps(
-                fx_data,
-                meta["word_timestamps"],
-                meta["duration_frames"],
-            )
-
-        try:
-            SceneFX.model_validate(fx_data)
-        except Exception as e:
-            logger.warning("Invalid FX for scene %s: %s", entry["id"], e)
-            continue
-        result.append({"id": entry["id"], "fx": fx_data})
-
-    logger.info("Generated FX for %d/%d scenes", len(result), len(scenes_summary))
-    return result
 
 
 def generate_scene_fx(scene_data: dict) -> dict:
