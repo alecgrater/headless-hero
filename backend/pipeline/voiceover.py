@@ -76,9 +76,30 @@ def generate_scene_audio(
     local_path = audio_dir / f"{scene_id}.mp3"
     local_path.write_bytes(audio_bytes)
 
-    duration = _mp3_duration_seconds(audio_bytes)
+    # Prefer ElevenLabs-reported duration (last word end_ms) as it's more accurate
+    # than MP3 frame parsing. Fall back to MP3 parsing if timestamps are unavailable.
+    if word_timestamps:
+        last_end_ms = word_timestamps[-1].get("end_ms", 0)
+        if last_end_ms > 0:
+            duration = round(last_end_ms / 1000, 3)
+            logger.info(
+                "Audio generated for scene %s: %.3fs duration (from ElevenLabs timestamps)",
+                scene_id, duration,
+            )
+        else:
+            duration = _mp3_duration_seconds(audio_bytes)
+            logger.info(
+                "Audio generated for scene %s: %.2fs duration (from MP3 frames, timestamps had no end_ms)",
+                scene_id, duration,
+            )
+    else:
+        duration = _mp3_duration_seconds(audio_bytes)
+        logger.info(
+            "Audio generated for scene %s: %.2fs duration (from MP3 frames, no timestamps)",
+            scene_id, duration,
+        )
+
     web_path = f"/static/projects/{script_id}/audio/{scene_id}.mp3"
-    logger.info("Audio generated for scene %s: %.2fs duration", scene_id, duration)
     return web_path, duration, word_timestamps
 
 def generate_batch_audio(

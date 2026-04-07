@@ -113,6 +113,15 @@ def generate_scene_frames(
             and prev_frame_path.exists()
         )
 
+        # Build the full frame description by combining the anchor visual_prompt
+        # with the brief delta frame_prompt (new scriptwriter format).
+        # If frame_prompt already contains the full scene (legacy verbatim format),
+        # this still works correctly — we simply concatenate.
+        if visual_prompt and frame_prompt and not frame_prompt.startswith(visual_prompt[:40]):
+            full_frame_description = f"{visual_prompt} — Frame variation: {frame_prompt}"
+        else:
+            full_frame_description = frame_prompt
+
         # Build prompt: different strategy for text-only vs reference-based
         if use_reference:
             # Kontext-optimized: edit instruction referencing the input image
@@ -144,11 +153,11 @@ def generate_scene_frames(
                     f"background, composition, and color palette. "
                     f"Only the specific action/pose described below should differ "
                     f"from the base scene.\n\n"
-                    f"FRAME INSTRUCTION: {frame_prompt}"
+                    f"FRAME INSTRUCTION: {full_frame_description}"
                 )
                 parts.append(continuity)
             else:
-                parts.append(frame_prompt)
+                parts.append(full_frame_description)
 
             prompt = "\n\n".join(parts)
 

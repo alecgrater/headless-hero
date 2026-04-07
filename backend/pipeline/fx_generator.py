@@ -229,14 +229,14 @@ def _apply_word_timestamps(
                 start_ms = ts_by_word[clean_word]
 
         if start_ms is not None:
-            start_frame = round(start_ms / 1000 * 30)
+            start_frame = int(start_ms / 1000 * 30)
         else:
             # Position-based fallback: estimate from word_index / total_words
             if total_words > 0:
                 fraction = word_index / total_words
             else:
                 fraction = 0.5
-            start_frame = round(fraction * duration_frames)
+            start_frame = int(fraction * duration_frames)
 
         # Enforce minimum 30-frame gap between consecutive words
         if start_frame < prev_end_frame + 30:
@@ -269,7 +269,7 @@ def generate_fx(content: ScriptContent) -> list[dict]:
     for seg_idx, seg in enumerate(content.segments):
         for sc_idx, scene in enumerate(seg.scenes):
             duration = scene.audio_duration_seconds or scene.duration_estimate_seconds
-            duration_frames = round(duration * 30)
+            duration_frames = int(duration * 30)
             summary = {
                 "id": scene.id,
                 "segment": seg.name,
@@ -376,7 +376,7 @@ def generate_scene_fx(scene_data: dict) -> dict:
     fx_data = _apply_word_timestamps(
         fx_data,
         scene_data.get("word_timestamps"),
-        scene_data.get("duration_frames", round(scene_data.get("duration_seconds", 8) * 30)),
+        scene_data.get("duration_frames", int(scene_data.get("duration_seconds", 8) * 30)),
     )
 
     SceneFX.model_validate(fx_data)

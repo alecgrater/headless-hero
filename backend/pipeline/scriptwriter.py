@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import re
 from pathlib import Path
 
 from config import strip_markdown_fences
@@ -68,16 +69,54 @@ background" unless the brand style says otherwise.
 - Text overlays should be short key phrases (1-6 words) that reinforce the narration.
 - Scene IDs must be unique and sequential: scene_001, scene_002, etc.
 
+Visual storytelling arc:
+- Think like a documentary cinematographer. Each scene's visual_prompt should serve
+  a specific VISUAL PURPOSE from this palette:
+  * ESTABLISHING — Wide shot, environmental context, setting the stage
+  * CLOSE-UP — Tight focus on a single subject or detail
+  * DIAGRAM — Abstract visualization of data, process, or concept
+  * METAPHOR — Visual analogy that makes an abstract idea tangible
+  * REACTION — Human expression, crowd, or emotional response
+  * CONTRAST — Side-by-side or before/after juxtaposition
+  * SCALE — Comparison showing relative size, quantity, or magnitude
+  * TRANSITION — Environmental shift marking a new chapter or topic change
+
+- Vary shot types across consecutive scenes. NEVER use the same visual purpose
+  for 3+ scenes in a row. Alternate between wide/close, concrete/abstract,
+  people/objects.
+
+- The visual arc should mirror the narrative arc:
+  * Opening segment: ESTABLISHING → CLOSE-UP → DIAGRAM (set context, zoom in, explain)
+  * Middle segments: Mix of METAPHOR, CONTRAST, SCALE, REACTION (build argument)
+  * Climax: CLOSE-UP or CONTRAST (maximum impact)
+  * Resolution: ESTABLISHING or wide shot (zoom out, perspective)
+
+- Each visual_prompt MUST begin with the shot type label in brackets, e.g.:
+  "[CLOSE-UP] A honeybee's legs covered in bright yellow pollen grains..."
+  "[ESTABLISHING] Aerial view of a sprawling Amazon fulfillment center..."
+  This forces compositional variety in the generated images.
+
+- For multi-frame scenes, frame_prompts should show PROGRESSION within the same
+  shot type — not switch between types. Example: a close-up that slowly reveals
+  more detail across frames.
+
 Multi-frame scene guidelines (ANIMATION SEQUENCES):
 - Multiple frames simulate animation via crossfade — they MUST look like \
 consecutive frames of the SAME illustration with only subtle movement.
 - The "visual_prompt" field is the ANCHOR — it describes the complete static \
-scene in full detail: subject, background, composition, lighting, art style, \
-color palette, camera angle. This is the "base drawing" that every frame shares.
-- Each "frame_prompt" must REPEAT the full scene description from visual_prompt \
-verbatim, then state the ONE thing that changes (a pose, expression, position, \
-or scale shift). Frames must be indistinguishable in style, background, \
-character design, and composition — only the described action differs.
+scene in full detail (including the [SHOT_TYPE] label): subject, background, \
+composition, lighting, art style, color palette, camera angle. This is the \
+"base drawing" that every frame shares.
+- Each "frame_prompt" is a BRIEF DELTA — it describes only the ONE thing that \
+changes from the anchor scene (a pose, expression, position, or scale shift). \
+Do NOT repeat the full visual_prompt in frame_prompts; the image generator \
+will automatically combine the anchor with the delta. Example:
+  visual_prompt: "[CLOSE-UP] A honeybee clinging to a yellow flower petal, \
+legs dusted with pollen, soft bokeh background, flat illustration style, \
+dark background"
+  frame_prompts: ["Bee's left leg raised slightly off the petal",
+                  "Bee's wings fanned open at rest",
+                  "Bee beginning to lift off, wings blurred with motion"]
 - Budget guidelines for frame_count:
   - Title/hook scenes (opening, segment intros): 3-4 frames
   - Key stat or dramatic reveal scenes: 2-3 frames
@@ -87,20 +126,43 @@ character design, and composition — only the described action differs.
 - The change between frames should be MINIMAL and physically plausible — \
 a small gesture, a slight zoom, an object shifting position. NOT a completely \
 different angle, composition, or scene.
-- Example: visual_prompt = "A medieval knight in silver armor standing in a \
-green field under a cloudy sky, holding a wooden shield, flat illustration \
-style, dark background". frame_prompts = [\
-"A medieval knight in silver armor standing in a green field under a cloudy \
-sky, holding a wooden shield at his side, flat illustration style, dark \
-background", \
-"A medieval knight in silver armor standing in a green field under a cloudy \
-sky, raising a wooden shield to chest height, flat illustration style, dark \
-background", \
-"A medieval knight in silver armor standing in a green field under a cloudy \
-sky, holding a wooden shield raised overhead, flat illustration style, dark \
-background"]
 - Title card scenes (is_title_card: true) should have frame_count: 0 and \
 empty frame_prompts — they use the programmatic title card system."""
+
+
+def _warn_visual_monotony(content: "ScriptContent") -> None:
+    """Log a warning if 3+ consecutive scenes share the same [SHOT_TYPE] prefix.
+
+    Advisory only — does not block script generation.
+    """
+    _SHOT_LABEL_RE = re.compile(r"^\[([A-Z\-]+)\]")
+
+    all_scenes = [scene for seg in content.segments for scene in seg.scenes]
+    shot_types: list[str] = []
+    for scene in all_scenes:
+        if scene.is_title_card:
+            shot_types.append("TITLE_CARD")
+            continue
+        m = _SHOT_LABEL_RE.match(scene.visual_prompt or "")
+        shot_types.append(m.group(1) if m else "UNLABELED")
+
+    run_type = shot_types[0] if shot_types else None
+    run_len = 1
+    for i in range(1, len(shot_types)):
+        if shot_types[i] == run_type and run_type not in ("TITLE_CARD", "UNLABELED"):
+            run_len += 1
+            if run_len >= 3:
+                logger.warning(
+                    "Visual monotony detected: shot type [%s] used in %d+ consecutive "
+                    "scenes (scenes %d–%d). Consider varying the visual storytelling arc.",
+                    run_type,
+                    run_len,
+                    i - run_len + 2,
+                    i + 1,
+                )
+        else:
+            run_type = shot_types[i]
+            run_len = 1
 
 
 def generate_script(
@@ -143,7 +205,10 @@ def generate_script(
     user_parts.append(
         "For each scene, set frame_count and provide that many frame_prompts "
         "following the ANIMATION SEQUENCES guidelines. Each frame_prompt must "
-        "repeat the full visual_prompt and only change the animated element."
+        "be a brief delta describing only what changes from the anchor visual_prompt "
+        "(do NOT repeat the full visual_prompt in frame_prompts). "
+        "Every visual_prompt must begin with a [SHOT_TYPE] label from the Visual "
+        "storytelling arc palette."
     )
 
     system_prompt = BASE_SYSTEM_PROMPT
@@ -192,4 +257,5 @@ def generate_script(
 
     logger.info("Script generated for topic %r: %s segments, %s total scenes",
                 topic, len(content.segments), sum(len(s.scenes) for s in content.segments))
+    _warn_visual_monotony(content)
     return content

@@ -194,7 +194,7 @@ def _compute_chapter_markers(
 
         for scene in seg.scenes:
             duration = scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else scene.duration_estimate_seconds
-            scene_frames = max(fps, round(duration * fps))
+            scene_frames = max(fps, int(duration * fps))
             current_frame += scene_frames
 
     return markers, current_frame

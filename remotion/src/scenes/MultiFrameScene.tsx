@@ -49,13 +49,15 @@ export const MultiFrameScene: React.FC<Props> = ({ scene }) => {
   }
 
   const n = framePaths.length;
-  const framesPerImage = durationInFrames / n;
+  const framesPerImage = Math.floor(durationInFrames / n);
+  // Remainder frames (durationInFrames % n) go to the last image
 
   return (
     <div style={{ width: "100%", height: "100%", backgroundColor: "#000", position: "relative" }}>
       {framePaths.map((path, i) => {
         const startFrame = i * framesPerImage;
-        const endFrame = startFrame + framesPerImage;
+        // Last image absorbs any remainder frames so total always equals durationInFrames
+        const endFrame = i === n - 1 ? durationInFrames : startFrame + framesPerImage;
 
         // Opacity: fade in at start, full, fade out at end
         let opacity: number;
