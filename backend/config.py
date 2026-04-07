@@ -7,7 +7,7 @@ from pathlib import Path
 DATA_DIR = Path(
     os.environ.get(
         "HH_DATA_DIR",
-        os.environ.get("YAM_DATA_DIR", Path(__file__).resolve().parents[1] / "data"),
+        Path(__file__).resolve().parents[1] / "data",
     )
 )
 

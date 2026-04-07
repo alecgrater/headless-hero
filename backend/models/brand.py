@@ -17,8 +17,6 @@ class BrandProfileBase(SQLModel):
     content_modifiers: str = Field(default="")  # JSON array of modifier IDs
     style_string: str = Field(default="", sa_column=Column(Text))  # locked prompt fragment prepended to all image prompts
     youtube_channel_id: str = Field(default="")
-    tiktok_handle: str = Field(default="")
-    instagram_handle: str = Field(default="")
 
 class BrandProfile(BrandProfileBase, table=True):
     """Persistent brand profile stored in SQLite."""
@@ -37,8 +35,6 @@ class BrandProfileCreate(BaseModel):
     content_modifiers: str = ""
     style_string: str = ""
     youtube_channel_id: str = ""
-    tiktok_handle: str = ""
-    instagram_handle: str = ""
 
 class BrandProfileUpdate(BaseModel):
     """Request body for updating a brand profile. All fields optional."""
@@ -48,8 +44,6 @@ class BrandProfileUpdate(BaseModel):
     content_modifiers: str | None = None
     style_string: str | None = None
     youtube_channel_id: str | None = None
-    tiktok_handle: str | None = None
-    instagram_handle: str | None = None
 
 class BrandProfileRead(BrandProfileBase):
     """Response body for a brand profile."""

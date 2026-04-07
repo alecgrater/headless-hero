@@ -2,7 +2,6 @@
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any
 
 from pydantic import BaseModel, Field as PydanticField
 from sqlmodel import Column, Field, SQLModel, Text
@@ -54,62 +53,6 @@ class VideoFX(BaseModel):
 
     chapter_markers: list[ChapterMarker] = []
 
-# --- Legacy FX models (kept for backward compat, ignored by new Remotion code) ---
-
-class CameraFX(BaseModel):
-    """Camera motion effect assigned by the FX generator."""
-
-    type: str = "ken_burns"
-    direction: str | None = None
-    intensity: str = "moderate"
-    easing: str = "spring"
-
-class TextEffect(BaseModel):
-    """Text effect assigned by the FX generator."""
-
-    type: str
-    text: str | None = None
-    words: list[str] | None = None
-    position: str = "lower_third"
-    enter_at: float = 0.0
-    duration: float = 0.0
-
-class TransitionFX(BaseModel):
-    """Transition between scenes."""
-
-    type: str = "cut"
-    direction: str | None = None
-    duration: float = 0.5
-
-class OverlayFX(BaseModel):
-    """Visual overlay effect."""
-
-    type: str
-    config: dict[str, Any] | None = None
-
-class StructuralFX(BaseModel):
-    """Structural video element (cold open, chapter break, etc.)."""
-
-    type: str
-    config: dict[str, Any] | None = None
-
-# --- Legacy models (still stored/used for backward compat) ---
-
-class KenBurnsConfig(BaseModel):
-    """Ken Burns motion effect configuration for a scene."""
-
-    effect: str = "none"  # none|zoom_in|zoom_out|pan_left|pan_right|pan_up|pan_down
-    intensity: str = "moderate"  # subtle|moderate|dramatic
-
-class TextOverlayConfig(BaseModel):
-    """Text overlay styling and animation configuration."""
-
-    position: str = "lower_third"  # top|center|bottom|lower_third
-    style: str = "default"  # default|bold|subtitle|title_card
-    animation: str = "fade_in"  # none|fade_in|slide_up|typewriter
-    show_at: float = 0.0  # seconds offset
-    duration: float = 0.0  # 0 = full scene duration
-
 class Scene(BaseModel):
     """A single scene within a segment."""
 
@@ -119,14 +62,9 @@ class Scene(BaseModel):
     text_overlay: str = ""
     duration_estimate_seconds: float = 8.0
     is_title_card: bool = False
-    is_animated: bool = False
-    visual_prompt_b: str = ""
     image_url: str = ""
-    image_url_b: str = ""
     audio_url: str = ""
     audio_duration_seconds: float = 0.0
-    ken_burns: KenBurnsConfig | None = None
-    text_overlay_config: TextOverlayConfig | None = None
     word_timestamps: list[dict] | None = None
     media_type: str = "ai_generated"  # "ai_generated" | "gameplay_clip" | "hardware_image"
     search_query: str = ""            # YouTube search query for yt-dlp
@@ -135,8 +73,6 @@ class Scene(BaseModel):
     frame_prompts: list[str] = []     # per-frame visual prompts for multi-frame scenes
     frame_urls: list[str] = []        # web-relative paths to frame images
     frame_count: int = 0              # desired frame count (1-8), 0 = use legacy single-image
-    frame_seed: int | None = None     # seed for visual consistency across frames
-    scene_transition: str = ""        # "" | "crossfade" | "slide_left" | "slide_right" | "push_up"
     fx: dict | None = None             # SceneFX dict — assigned by FX generator, used by Remotion
 
 class Segment(BaseModel):
@@ -154,7 +90,6 @@ class ScriptContent(BaseModel):
     segments: list[Segment]
     intro_hook: str = ""
     outro_cta: str = ""
-    format: str = "youtube"
     card_title: str = ""                  # condensed title for composite title card (e.g. "TYPES OF DREAMS")
     card_title_highlight_word: str = ""   # word to render in accent color (e.g. "DREAMS")
     video_fx: dict | None = None          # VideoFX dict — computed deterministically at render time
@@ -171,8 +106,6 @@ class Script(SQLModel, table=True):
     topic_title: str = Field(default="")
     topic_description: str = Field(default="", sa_column=Column(Text))
     script_json: str = Field(default="{}", sa_column=Column(Text))  # serialised ScriptContent
-    content_format: str = Field(default="youtube")  # kept for backward compat (unused)
-    shortform_platforms: str = Field(default="")  # kept for backward compat (unused)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # --- Request / response schemas ---
