@@ -16,6 +16,8 @@ from api.render import router as render_router
 from api.scripts import router as scripts_router
 from api.generation import router as generation_router
 from api.seo import router as seo_router
+from api.character import router as character_router
+from api.eli import router as eli_router
 from api.settings import router as settings_router
 from api.thumbnail import router as thumbnail_router
 from api.visuals import router as visuals_router
@@ -51,6 +53,9 @@ async def lifespan(app: FastAPI):
     # Ensure projects directory exists for static file serving
     projects_dir = DATA_DIR / "projects"
     projects_dir.mkdir(parents=True, exist_ok=True)
+    # Ensure character frames directory exists
+    character_dir = DATA_DIR / "character" / "frames"
+    character_dir.mkdir(parents=True, exist_ok=True)
     yield
 
 app = FastAPI(title="Headless Hero", version="0.1.0", lifespan=lifespan)
@@ -80,6 +85,8 @@ app.include_router(thumbnail_router)
 app.include_router(generation_router)
 app.include_router(seo_router)
 app.include_router(settings_router)
+app.include_router(character_router)
+app.include_router(eli_router)
 
 # Import modifiers package (no dynamic routers remaining)
 import pipeline.modifiers  # noqa: F401
@@ -88,6 +95,10 @@ import pipeline.modifiers  # noqa: F401
 _projects_dir = DATA_DIR / "projects"
 _projects_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/static/projects", StaticFiles(directory=str(_projects_dir)), name="project-assets")
+
+_character_dir = DATA_DIR / "character"
+_character_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/static/character", StaticFiles(directory=str(_character_dir)), name="character-assets")
 
 @app.get("/api/health")
 async def health():

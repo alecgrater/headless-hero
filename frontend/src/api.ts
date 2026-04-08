@@ -174,3 +174,34 @@ export function openInBrowser(url: string): void {
     window.open(url, "_blank");
   }
 }
+
+/** Start generating the Eli character frame library. */
+export async function generateCharacterFrames(): Promise<{ job_id: string }> {
+  const res = await api.post("/api/character/generate-frames");
+  return res.data as { job_id: string };
+}
+
+/** Get character frame manifest. */
+export async function getCharacterFrames() {
+  return api.get("/api/character/frames");
+}
+
+/** Poll character frame generation job status. */
+export async function getCharacterStatus(jobId: string) {
+  return api.get(`/api/character/status/${jobId}`);
+}
+
+/** Regenerate a single character frame. */
+export async function regenerateCharacterFrame(frameId: string) {
+  return api.post("/api/character/regenerate-frame", { frame_id: frameId });
+}
+
+/** Generate Eli animation overlays for all scenes. */
+export async function generateEli(scriptId: string) {
+  return api.post("/api/eli/generate", { script_id: scriptId });
+}
+
+/** Regenerate Eli animation for a single scene. */
+export async function regenerateEli(scriptId: string, sceneId: string) {
+  return api.post("/api/eli/regenerate", { script_id: scriptId, scene_id: sceneId });
+}
