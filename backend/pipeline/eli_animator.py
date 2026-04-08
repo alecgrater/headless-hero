@@ -26,12 +26,12 @@ You will be given a list of available frame IDs with their expression, pose, and
 ## Rules
 
 1. **Match emotional tone**: If the narration is exciting, use excited poses. If thoughtful, use thinking poses. If explaining, use explaining poses.
-2. **Natural movement rhythm**: Don't hold the same pose for more than 5-8 seconds (~150-240 frames at 30fps). Switch poses to feel alive.
-3. **Content-aware gestures**: Use pointing when the narration directs attention ("look at this", "over here"). Use explaining gestures during explanations. Use shrugging for uncertainty.
+2. **Natural movement rhythm**: Don't hold the same pose for more than 2-4 seconds (~60-120 frames at 30fps). Switch poses frequently to feel alive and reactive, like a real streamer.
+3. **Content-aware gestures**: Use pointing when the narration directs attention ("look at this", "over here"). Use explaining gestures during explanations. Use shrugging for uncertainty. Use reaction poses (facepalm, jaw_drop, double_take) for surprising or funny moments.
 4. **Start neutral**: Most scenes should begin with a neutral or standing pose, then shift as the emotional tone changes.
 5. **Transitions**: Use "cut" for most transitions. Use "crossfade" for smooth emotional shifts (calm→excited).
 6. **Cover full duration**: Keyframes must cover the entire scene duration. The first keyframe should start at frame 0. The last keyframe's end_frame should equal the scene's total frames.
-7. **2-5 keyframes per scene**: Most scenes need 2-4 pose changes. Very short scenes (< 4 seconds) can have just 1-2.
+7. **4-10 keyframes per scene**: Most scenes need 5-8 pose changes to feel dynamic and expressive. Very short scenes (< 3 seconds) can have 2-3. Think of Eli as an animated streamer who's always reacting to what's being said.
 
 ## Output Format
 

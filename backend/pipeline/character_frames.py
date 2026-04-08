@@ -1,6 +1,6 @@
 """Character frame library generation — creates Eli character overlay frames.
 
-Generates ~50 frames (25 pose combos × 2 mouth states) for the Eli character
+Generates ~100 frames (50 pose combos × 2 mouth states) for the Eli character
 overlay system. Uses Gemini image generation with reference image chaining
 for cross-frame consistency.
 """
@@ -21,7 +21,7 @@ FRAMES_DIR = CHARACTER_DIR / "frames"
 MANIFEST_PATH = CHARACTER_DIR / "manifest.json"
 
 # Character spec for prompt generation (from character.md)
-CHARACTER_SPEC = """Character: "Eli" — young adult male, early-to-mid 20s, medium-brown skin, short slightly messy dark curly hair, round glasses with thin frames, warm brown eyes. Slightly large head relative to body (cartoon proportions — approx 1:5 head-to-body ratio), lean build. Wearing a muted teal crewneck t-shirt layered under an open charcoal gray zip hoodie, dark jeans, clean white sneakers. Flat 2D cartoon style, bold outlines, cel-shaded."""
+CHARACTER_SPEC = """Character: "Eli" — young adult male, early-to-mid 20s, medium-brown skin, short slightly messy dark curly hair, round glasses with thin frames, warm brown eyes. Slightly large head relative to body (cartoon proportions — approx 1:5 head-to-body ratio), lean build. Wearing a muted teal crewneck t-shirt layered under an open charcoal gray zip hoodie, dark jeans, clean white sneakers. Flat 2D cartoon style, bold outlines, cel-shaded. Framed from the waist up (upper body shot)."""
 
 FRAME_DEFINITIONS: list[dict[str, str]] = [
     # expression, pose, gesture, prompt_detail
@@ -50,6 +50,36 @@ FRAME_DEFINITIONS: list[dict[str, str]] = [
     {"expression": "neutral", "pose": "relaxed", "gesture": "none", "prompt": "standing in relaxed pose, arms loosely at sides, calm neutral expression"},
     {"expression": "smiling", "pose": "relaxed", "gesture": "none", "prompt": "standing relaxed, arms loose at sides, warm gentle smile"},
     {"expression": "excited", "pose": "explaining_forward", "gesture": "palm_up", "prompt": "leaning forward with palm up explaining, excited expression, bright eyes"},
+    # --- Expanded poses: granular emotions ---
+    {"expression": "confused", "pose": "standing_neutral", "gesture": "none", "prompt": "standing with furrowed brows, confused squinting expression, head slightly tilted to one side"},
+    {"expression": "confused", "pose": "hand_on_chin", "gesture": "none", "prompt": "hand on chin, confused frown, one eye squinting, processing something puzzling"},
+    {"expression": "skeptical", "pose": "arms_crossed", "gesture": "none", "prompt": "arms crossed over chest, one eyebrow raised high, skeptical doubting expression"},
+    {"expression": "skeptical", "pose": "standing_neutral", "gesture": "none", "prompt": "standing with slight lean back, narrowed eyes, skeptical smirk, not buying it"},
+    {"expression": "proud", "pose": "hands_on_hips", "gesture": "none", "prompt": "hands on hips, chin up slightly, proud confident smile, chest puffed out"},
+    {"expression": "worried", "pose": "standing_neutral", "gesture": "none", "prompt": "standing tense, biting lower lip, worried wide eyes, shoulders raised slightly"},
+    {"expression": "relieved", "pose": "relaxed", "gesture": "none", "prompt": "relaxed posture, eyes closed with relieved exhale expression, slight smile of relief"},
+    {"expression": "sarcastic", "pose": "standing_neutral", "gesture": "none", "prompt": "standing with exaggerated eye roll, sarcastic smirk, head tilted"},
+    # --- Expanded poses: gesture variety ---
+    {"expression": "smiling", "pose": "thumbs_up", "gesture": "thumbs_up", "prompt": "one hand giving a thumbs up, big approving smile, other arm relaxed"},
+    {"expression": "excited", "pose": "thumbs_up", "gesture": "thumbs_up", "prompt": "enthusiastic double thumbs up, big excited grin, leaning forward slightly"},
+    {"expression": "surprised", "pose": "hand_over_mouth", "gesture": "hand_over_mouth", "prompt": "one hand covering mouth in shock, wide surprised eyes, leaning back"},
+    {"expression": "thinking", "pose": "chin_scratch", "gesture": "chin_scratch", "prompt": "scratching chin thoughtfully, eyes looking upward, contemplating deeply"},
+    {"expression": "curious", "pose": "head_tilt_left", "gesture": "none", "prompt": "head tilted noticeably to the left, curious puppy-dog expression, one ear higher"},
+    {"expression": "curious", "pose": "head_tilt_right", "gesture": "none", "prompt": "head tilted noticeably to the right, inquisitive raised eyebrows, slight smile"},
+    {"expression": "neutral", "pose": "leaning_forward", "gesture": "none", "prompt": "leaning forward toward camera, neutral attentive expression, engaged posture"},
+    {"expression": "amused", "pose": "leaning_back", "gesture": "none", "prompt": "leaning back with an amused laugh expression, eyes crinkled, hand near chest"},
+    # --- Expanded poses: reactions ---
+    {"expression": "frustrated", "pose": "facepalm", "gesture": "facepalm", "prompt": "one hand on forehead in facepalm, frustrated closed eyes, slight grimace"},
+    {"expression": "amused", "pose": "facepalm", "gesture": "facepalm", "prompt": "playful facepalm with amused smile peeking through fingers, laughing at something silly"},
+    {"expression": "surprised", "pose": "jaw_drop", "gesture": "none", "prompt": "jaw dropped wide open, hands slightly raised in shock, eyes huge with disbelief"},
+    {"expression": "surprised", "pose": "double_take", "gesture": "none", "prompt": "doing a double-take, head turned sharply to one side, wide eyes, startled expression"},
+    {"expression": "disgusted", "pose": "recoiling", "gesture": "none", "prompt": "leaning back with disgusted cringe expression, nose wrinkled, one hand up defensively"},
+    # --- Expanded poses: conversational micro-poses ---
+    {"expression": "neutral", "pose": "nodding", "gesture": "none", "prompt": "mid-nod with chin slightly down, agreeable expression, attentive engaged eyes"},
+    {"expression": "serious", "pose": "head_shake", "gesture": "none", "prompt": "slight head turned to one side in disagreement, serious disapproving expression"},
+    {"expression": "thinking", "pose": "looking_up", "gesture": "none", "prompt": "head tilted back, eyes looking upward recalling something, finger touching temple"},
+    {"expression": "excited", "pose": "leaning_forward", "gesture": "palm_up", "prompt": "leaning forward eagerly, one palm up presenting, excited wide eyes about to reveal something"},
+    {"expression": "smiling", "pose": "waving", "gesture": "waving", "prompt": "friendly wave goodbye, warm smile, slight head tilt"},
 ]
 
 
@@ -81,12 +111,13 @@ def _build_prompt(definition: dict[str, str], mouth_state: str, is_canonical: bo
 
     if is_canonical:
         return (
-            f"Generate a full-body character illustration on a solid bright green (#00FF00) background.\n\n"
+            f"Generate a waist-up character illustration on a solid bright green (#00FF00) background.\n\n"
             f"{CHARACTER_SPEC}\n\n"
             f"Pose: {definition['prompt']}\n"
             f"Mouth: {mouth_desc}\n\n"
             f"IMPORTANT: Solid flat green (#00FF00) background with NO other elements. "
-            f"Full body visible from head to feet. Flat 2D cartoon style with bold outlines."
+            f"Waist-up framing — show from waist to top of head, centered in frame. "
+            f"16:9 aspect ratio composition. Flat 2D cartoon style with bold outlines."
         )
     else:
         return (
@@ -96,7 +127,8 @@ def _build_prompt(definition: dict[str, str], mouth_state: str, is_canonical: bo
             f"Pose: {definition['prompt']}\n"
             f"Mouth: {mouth_desc}\n\n"
             f"IMPORTANT: Solid flat green (#00FF00) background with NO other elements. "
-            f"Full body visible from head to feet. Same flat 2D cartoon style as reference."
+            f"Waist-up framing — show from waist to top of head, centered in frame. "
+            f"16:9 aspect ratio composition. Same flat 2D cartoon style as reference."
         )
 
 
@@ -162,7 +194,7 @@ def generate_frame_library(
                 tmp_path = generate_image(
                     prompt=prompt,
                     width=768,
-                    height=768,
+                    height=432,
                     reference_image_path=ref_path,
                 )
                 _remove_background(tmp_path, str(output_path))
@@ -231,7 +263,7 @@ def regenerate_frame(frame_id: str) -> dict:
         tmp_path = generate_image(
             prompt=prompt,
             width=768,
-            height=768,
+            height=432,
             reference_image_path=canonical_path,
         )
         _remove_background(tmp_path, str(output_path))

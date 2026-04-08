@@ -85,8 +85,9 @@ export const EliOverlay: React.FC<Props> = ({
   // Subtle breathing animation: sinusoidal Y translate ~2px at ~0.5Hz
   const breathY = Math.sin((frame / fps) * Math.PI) * 2;
 
-  // Container size: ~25% of frame width
-  const containerSize = 480; // 25% of 1920
+  // Container size: 16:9 aspect ratio, ~25% of frame width
+  const containerWidth = 480; // 25% of 1920
+  const containerHeight = 270; // 16:9 ratio
   const margin = 30;
 
   return (
@@ -95,11 +96,16 @@ export const EliOverlay: React.FC<Props> = ({
         position: "absolute",
         bottom: margin + 60, // Above kinetic captions area
         right: margin,
-        width: containerSize,
-        height: containerSize,
+        width: containerWidth,
+        height: containerHeight,
         zIndex: 5,
         pointerEvents: "none",
         transform: `translateY(${breathY}px)`,
+        borderRadius: 14,
+        overflow: "hidden",
+        border: "2px solid rgba(0, 220, 220, 0.6)",
+        boxShadow:
+          "0 0 20px rgba(0, 200, 200, 0.4), 0 0 40px rgba(0, 200, 200, 0.15)",
       }}
     >
       {/* Main character frame */}
@@ -108,7 +114,6 @@ export const EliOverlay: React.FC<Props> = ({
           width: "100%",
           height: "100%",
           position: "relative",
-          filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.4))",
         }}
       >
         <Img
@@ -116,7 +121,7 @@ export const EliOverlay: React.FC<Props> = ({
           style={{
             width: "100%",
             height: "100%",
-            objectFit: "contain",
+            objectFit: "cover",
             opacity: transitionProgress > 0 ? 1 - transitionProgress : 1,
           }}
         />
@@ -131,7 +136,7 @@ export const EliOverlay: React.FC<Props> = ({
               left: 0,
               width: "100%",
               height: "100%",
-              objectFit: "contain",
+              objectFit: "cover",
               opacity: transitionProgress,
             }}
           />

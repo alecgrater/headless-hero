@@ -19,9 +19,6 @@ _STYLE_GUIDE = _GUIDE_PATH.read_text() if _GUIDE_PATH.exists() else ""
 _VISUAL_STYLE_PATH = _PROMPTS_DIR / "visual_style.md"
 _VISUAL_STYLE = _VISUAL_STYLE_PATH.read_text() if _VISUAL_STYLE_PATH.exists() else ""
 
-_CHARACTER_PATH = _PROMPTS_DIR / "character.md"
-_CHARACTER = _CHARACTER_PATH.read_text() if _CHARACTER_PATH.exists() else ""
-
 
 def generate_scene_image(
     scene_id: str,
@@ -40,12 +37,10 @@ def generate_scene_image(
     """
     guide = style_guide if style_guide else _STYLE_GUIDE
 
-    # Build prompt: universal style → character → guide → visual prompt
+    # Build prompt: universal style → guide → visual prompt
     parts: list[str] = []
     if _VISUAL_STYLE:
         parts.append(_VISUAL_STYLE)
-    if _CHARACTER:
-        parts.append(_CHARACTER)
     if guide:
         parts.append(guide)
     parts.append(visual_prompt)
@@ -145,8 +140,6 @@ def generate_scene_frames(
             parts: list[str] = []
             if _VISUAL_STYLE:
                 parts.append(_VISUAL_STYLE)
-            if _CHARACTER:
-                parts.append(_CHARACTER)
             if guide:
                 parts.append(guide)
 
