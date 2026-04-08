@@ -45,17 +45,27 @@ def generate_image(
 ) -> str:
     """Generate an image via Gemini and return the path to a temp file.
 
-    reference_image_path is accepted for signature compatibility with the
-    Replicate provider but is currently ignored by the Google backend.
+    If reference_image_path is provided, the image is loaded as a multi-modal
+    Part so Gemini can use it as a visual reference for character/style consistency.
     """
     client = _get_client()
     aspect = _closest_aspect_ratio(width, height)
     logger.info("Generating image via Gemini")
 
+    # Build contents list — optionally include reference image as inline Part
+    contents: list = []
+    if reference_image_path:
+        ref_path = reference_image_path
+        mime = "image/png" if ref_path.lower().endswith(".png") else "image/jpeg"
+        with open(ref_path, "rb") as f:
+            contents.append(types.Part.from_bytes(data=f.read(), mime_type=mime))
+        logger.info("Including reference image: %s", ref_path)
+    contents.append(prompt)
+
     try:
         response = client.models.generate_content(
             model="gemini-2.5-flash-image",
-            contents=[prompt],
+            contents=contents,
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE"],
                 image_config=types.ImageConfig(
