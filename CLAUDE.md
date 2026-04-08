@@ -199,3 +199,33 @@ FX are generated via Claude (`POST /api/fx/generate`) and can be regenerated per
 
 ### YouTube 16:9 Only
 All video output is 1920x1080 YouTube format.
+
+## Eli Character Overlay
+
+"Eli" is a recurring animated host character overlaid on videos, like a Twitch streamer's webcam box in the corner. Character design spec lives in `backend/prompts/character.md`.
+
+### Frame Library
+Pre-generated library of ~50 character frames (25 pose/expression combos × 2 mouth states). Stored in `data/character/frames/` with a `manifest.json`. Generated via Gemini with reference image chaining for consistency. Background removal via `rembg`.
+
+- `backend/pipeline/character_frames.py` — Frame generation pipeline
+- `backend/api/character.py` — `POST /api/character/generate-frames`, `GET /api/character/frames`, `GET /api/character/status/{job_id}`, `POST /api/character/regenerate-frame`
+- Settings UI: `frontend/src/components/settings/CharacterSection.tsx`
+
+### Animation Documents
+Claude generates per-scene keyframe timelines selecting which Eli pose to show at which frame range. Follows the same pattern as FX generation.
+
+- `backend/pipeline/eli_animator.py` — Claude-powered animation director
+- `backend/api/eli.py` — `POST /api/eli/generate`, `POST /api/eli/regenerate`
+- Scene field: `eli_overlay: dict | None` in script_json (stores `EliOverlay` with `keyframes: list[EliKeyframe]`)
+- Mouth state is NOT in animation documents — computed deterministically in Remotion from `word_timestamps`
+
+### Render Layer Stack
+1. Visual layer (StaticImage/MultiFrame/TitleCard/VideoClip)
+2. ZoomPunch camera effect
+3. **EliOverlay** (z-index: 5) — `remotion/src/effects/overlays/EliOverlay.tsx`
+4. KineticCaption text overlay (z-index: 10)
+5. Audio layer
+6. ChapterIndicator (z-index: 30)
+
+### Gemini Reference Images
+`google_image_client.py` supports `reference_image_path` — loads the image as a multi-modal Part for cross-frame character consistency.
