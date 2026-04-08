@@ -169,7 +169,7 @@ export default function IdeationPage({ onUseIdea }: Props) {
           {/* Sparkles icon */}
           <div className="flex justify-center">
             <svg
-              className="w-10 h-10 text-neutral-600"
+              className="w-12 h-12 text-violet-500/40"
               fill="none"
               stroke="currentColor"
               strokeWidth={1.2}
@@ -182,10 +182,10 @@ export default function IdeationPage({ onUseIdea }: Props) {
               />
             </svg>
           </div>
-          <p className="text-lg text-neutral-400">
+          <p className="text-xl font-medium text-neutral-300">
             What should your next video be about?
           </p>
-          <p className="text-sm text-neutral-600">
+          <p className="text-sm text-neutral-500">
             Pick a niche to get started
           </p>
           <div className="flex flex-wrap justify-center gap-2 pt-1">
@@ -193,7 +193,7 @@ export default function IdeationPage({ onUseIdea }: Props) {
               <button
                 key={niche}
                 onClick={() => handleChipClick(niche)}
-                className="text-sm px-3 py-1.5 rounded-full bg-neutral-800 border border-neutral-700 text-neutral-400 hover:border-violet-500/50 hover:text-violet-400 transition-colors"
+                className="text-sm px-4 py-2 rounded-full bg-neutral-800 border border-neutral-700/60 text-neutral-400 hover:border-violet-500/50 hover:text-violet-400 hover:bg-violet-500/10 transition-colors"
               >
                 {niche}
               </button>

@@ -539,16 +539,16 @@ function TimelineEditor({
       {/* Row 2 — Action Bar */}
       <div className="flex items-center gap-1.5 px-5 py-2 border-b border-neutral-800/60 bg-neutral-900/40 shrink-0">
         {/* Group 1 — Media Generation */}
-        <div className="bg-neutral-800/50 rounded-lg p-1 flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={confirmAndGenerateImages}
             disabled={state.batchGenerating}
-            className="text-sm px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
+            className="text-sm px-3 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
             title="Generate images for all scenes with visual prompts"
           >
             {state.batchGenerating ? (
               <>
-                <span className="w-3.5 h-3.5 border-2 border-emerald-400/50 border-t-transparent rounded-full animate-spin" />
+                <span className="w-3.5 h-3.5 border-2 border-neutral-400/50 border-t-transparent rounded-full animate-spin" />
                 Generating...
               </>
             ) : (
@@ -572,12 +572,12 @@ function TimelineEditor({
           <button
             onClick={confirmAndGenerateAudio}
             disabled={state.batchGeneratingAudio || (!selectedVoiceId && voices.length > 0)}
-            className="text-sm px-3 py-1.5 bg-sky-500/10 border border-sky-500/20 text-sky-400 hover:bg-sky-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
+            className="text-sm px-3 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
             title="Generate audio for all scenes with narration"
           >
             {state.batchGeneratingAudio ? (
               <>
-                <span className="w-3.5 h-3.5 border-2 border-sky-400/50 border-t-transparent rounded-full animate-spin" />
+                <span className="w-3.5 h-3.5 border-2 border-neutral-400/50 border-t-transparent rounded-full animate-spin" />
                 Generating...
               </>
             ) : (
@@ -587,16 +587,16 @@ function TimelineEditor({
         </div>
 
         {/* Group 2 — FX Generation */}
-        <div className="bg-neutral-800/50 rounded-lg p-1 flex items-center gap-1">
+        <div className="flex items-center gap-1">
           <button
             onClick={confirmAndGenerateFX}
             disabled={generatingFX}
-            className="text-sm px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
+            className="text-sm px-3 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
             title="Use AI to assign visual effects to all scenes"
           >
             {generatingFX ? (
               <>
-                <span className="w-3.5 h-3.5 border-2 border-amber-400/50 border-t-transparent rounded-full animate-spin" />
+                <span className="w-3.5 h-3.5 border-2 border-neutral-400/50 border-t-transparent rounded-full animate-spin" />
                 Generating...
               </>
             ) : (
@@ -607,12 +607,12 @@ function TimelineEditor({
           <button
             onClick={confirmAndGenerateEli}
             disabled={generatingEli}
-            className="text-sm px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
+            className="text-sm px-3 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
             title="Add Eli character overlay to all scenes (requires voiceover)"
           >
             {generatingEli ? (
               <>
-                <span className="w-3.5 h-3.5 border-2 border-amber-400/50 border-t-transparent rounded-full animate-spin" />
+                <span className="w-3.5 h-3.5 border-2 border-neutral-400/50 border-t-transparent rounded-full animate-spin" />
                 Adding Eli...
               </>
             ) : (
@@ -624,7 +624,7 @@ function TimelineEditor({
         {/* Push preview + export to the right */}
         <div className="ml-auto flex items-center gap-1.5">
           {/* Preview group */}
-          <div className="bg-neutral-800/50 rounded-lg p-1 flex items-center gap-1">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => setPreviewMode((prev) => !prev)}
               className={`text-sm px-3 py-1.5 rounded-md font-medium transition-colors ${
@@ -665,7 +665,7 @@ function TimelineEditor({
           {/* Export CTA */}
           <button
             onClick={() => setShowExport(true)}
-            className="text-sm px-4 py-1.5 bg-violet-600 hover:bg-violet-500 rounded-lg font-semibold transition-colors shadow-sm shadow-violet-500/20"
+            className="btn-primary text-sm px-4 py-1.5 rounded-lg font-semibold"
             title="Export & Render (Cmd+E)"
           >
             Export

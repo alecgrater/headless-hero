@@ -135,21 +135,12 @@ export default function GeneralSection() {
     scriptModel !== originalScriptModel;
 
   return (
-    <div className="px-8 py-8 max-w-2xl space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">General</h2>
-          <p className="text-neutral-400 text-sm mt-1">
-            App-wide preferences.
-          </p>
-        </div>
-        <button
-          onClick={handleSave}
-          disabled={saving || !hasChanges}
-          className="px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
-        >
-          {saving ? "Saving..." : "Save"}
-        </button>
+    <div className="px-8 py-8 max-w-2xl space-y-6 pb-24">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">General</h2>
+        <p className="text-neutral-400 text-sm mt-1">
+          App-wide preferences.
+        </p>
       </div>
 
       {loading ? (
@@ -172,71 +163,73 @@ export default function GeneralSection() {
             />
           </div>
 
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-2">
-            <div>
-              <h3 className="text-sm font-medium text-neutral-100">Script Generation Model</h3>
-              <p className="text-xs text-neutral-500">
-                Which Claude model to use for generating video scripts.
-              </p>
-            </div>
-            <select
-              value={scriptModel}
-              onChange={(e) => setScriptModel(e.target.value)}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
-            >
-              {SCRIPT_MODELS.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-2">
-            <div>
-              <h3 className="text-sm font-medium text-neutral-100">Image Provider</h3>
-              <p className="text-xs text-neutral-500">
-                Choose which AI service generates scene images and thumbnails.
-              </p>
-            </div>
-            <select
-              value={imageProvider}
-              onChange={(e) => setImageProvider(e.target.value)}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
-            >
-              {IMAGE_PROVIDERS.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
-            <div className="flex items-center justify-between">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl divide-y divide-neutral-800">
+            <div className="p-5 space-y-2">
               <div>
-                <h3 className="text-sm font-medium text-neutral-100">Image Rate Limit</h3>
+                <h3 className="text-sm font-medium text-neutral-100">Script Generation Model</h3>
                 <p className="text-xs text-neutral-500">
-                  Throttle batch image generation to ~6 requests/min to stay under free-tier API limits.
+                  Which Claude model to use for generating video scripts.
                 </p>
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={rateLimitEnabled === "true"}
-                onClick={() =>
-                  setRateLimitEnabled(rateLimitEnabled === "true" ? "false" : "true")
-                }
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                  rateLimitEnabled === "true" ? "bg-violet-600" : "bg-neutral-700"
-                }`}
+              <select
+                value={scriptModel}
+                onChange={(e) => setScriptModel(e.target.value)}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
               >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                    rateLimitEnabled === "true" ? "translate-x-5" : "translate-x-0"
+                {SCRIPT_MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="p-5 space-y-2">
+              <div>
+                <h3 className="text-sm font-medium text-neutral-100">Image Provider</h3>
+                <p className="text-xs text-neutral-500">
+                  Choose which AI service generates scene images and thumbnails.
+                </p>
+              </div>
+              <select
+                value={imageProvider}
+                onChange={(e) => setImageProvider(e.target.value)}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
+              >
+                {IMAGE_PROVIDERS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-neutral-100">Image Rate Limit</h3>
+                  <p className="text-xs text-neutral-500">
+                    Throttle batch image generation to ~6 requests/min to stay under free-tier API limits.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={rateLimitEnabled === "true"}
+                  onClick={() =>
+                    setRateLimitEnabled(rateLimitEnabled === "true" ? "false" : "true")
+                  }
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                    rateLimitEnabled === "true" ? "bg-violet-600 shadow-sm shadow-violet-500/30" : "bg-neutral-700"
                   }`}
-                />
-              </button>
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                      rateLimitEnabled === "true" ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -332,6 +325,22 @@ export default function GeneralSection() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Sticky save bar */}
+      {hasChanges && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-900/95 backdrop-blur-sm px-8 py-3">
+          <div className="max-w-2xl mx-auto flex items-center justify-between">
+            <span className="text-sm text-neutral-400">You have unsaved changes</span>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="btn-primary px-5 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
         </div>
       )}
     </div>

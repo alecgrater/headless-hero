@@ -46,9 +46,9 @@ function App() {
   }, [loadDefaultBrand]);
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col">
+    <div className="min-h-screen bg-app text-neutral-100 flex flex-col">
       {/* Top bar */}
-      <header className="border-b border-neutral-800/40 px-6 py-4 flex items-center justify-between">
+      <header className="border-b border-neutral-800/40 px-6 py-4 flex items-center justify-between bg-neutral-950/80 backdrop-blur-sm">
         <button
           onClick={() => setView("project-dashboard")}
           className="text-xl font-semibold tracking-tight hover:text-violet-400 transition-colors flex items-center gap-2"

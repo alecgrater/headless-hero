@@ -70,3 +70,25 @@
 .card-enter {
   animation: cardEnter 200ms ease-out forwards;
 }
+
+.btn-primary {
+  background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+  color: white;
+  font-weight: 500;
+  transition: box-shadow 0.2s, opacity 0.2s;
+}
+
+.btn-primary:hover {
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.bg-app {
+  background-color: #0a0a0a;
+  background-image: radial-gradient(ellipse at 50% 0%, rgba(139, 92, 246, 0.04), transparent 60%);
+}
