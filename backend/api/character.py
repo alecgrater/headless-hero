@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from pipeline.character_frames import (
+    clear_all_frames,
     generate_frame_library,
     generate_reference_candidates,
     get_manifest,
@@ -181,3 +182,9 @@ def regenerate_single_frame(body: RegenerateFrameRequest):
         raise HTTPException(status_code=404, detail=str(e))
     except RuntimeError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/clear-all", status_code=200)
+def clear_all():
+    """Delete all frames, references, manifest, and selection metadata."""
+    return clear_all_frames()

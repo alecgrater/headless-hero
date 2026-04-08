@@ -290,6 +290,33 @@ def get_manifest() -> dict | None:
     return json.loads(MANIFEST_PATH.read_text())
 
 
+def clear_all_frames() -> dict[str, int]:
+    """Delete all frames, references, manifest, and selection. Returns counts."""
+    deleted_frames = 0
+    deleted_refs = 0
+
+    # Delete all frame PNGs (including selected_reference.png)
+    if FRAMES_DIR.exists():
+        for f in FRAMES_DIR.glob("*.png"):
+            f.unlink()
+            deleted_frames += 1
+
+    # Delete references
+    if REFERENCES_DIR.exists():
+        for f in REFERENCES_DIR.glob("*.png"):
+            f.unlink()
+            deleted_refs += 1
+
+    # Delete manifest and selection metadata
+    if MANIFEST_PATH.exists():
+        MANIFEST_PATH.unlink()
+    if REFERENCE_SELECTION_PATH.exists():
+        REFERENCE_SELECTION_PATH.unlink()
+
+    logger.info("Cleared all frames (%d) and references (%d)", deleted_frames, deleted_refs)
+    return {"deleted_frames": deleted_frames, "deleted_references": deleted_refs}
+
+
 # ---------------------------------------------------------------------------
 # Reference candidate generation & selection
 # ---------------------------------------------------------------------------

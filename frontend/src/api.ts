@@ -205,6 +205,12 @@ export async function getCharacterFrames() {
   return api.get("/api/character/frames");
 }
 
+/** Delete all character frames, references, and manifest. */
+export async function clearAllCharacterFrames(): Promise<{ deleted_frames: number; deleted_references: number }> {
+  const res = await api.delete("/api/character/clear-all");
+  return res.data as { deleted_frames: number; deleted_references: number };
+}
+
 /** Poll character frame generation job status. */
 export async function getCharacterStatus(jobId: string) {
   return api.get(`/api/character/status/${jobId}`);

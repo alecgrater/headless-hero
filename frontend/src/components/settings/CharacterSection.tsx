@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   assetUrl,
+  clearAllCharacterFrames,
   generateCharacterFrames,
   generateCharacterReferences,
   getCharacterFrames,
@@ -117,6 +118,15 @@ export default function CharacterSection() {
     setRegeneratingId(null);
   };
 
+  const handleClearAll = async () => {
+    if (!confirm("Delete all frames and references? You'll need to regenerate everything.")) return;
+    await clearAllCharacterFrames();
+    setManifest(null);
+    setReferences([]);
+    setSelectedRef(null);
+    setPendingRef(null);
+  };
+
   const frameCount = manifest?.frames?.length ?? 0;
   const isGeneratingRefs = !!refJobId;
   const isGeneratingFrames = !!frameJobId;
@@ -145,11 +155,22 @@ export default function CharacterSection() {
 
   return (
     <div className="p-6 space-y-8">
-      <div>
-        <h2 className="text-lg font-semibold text-neutral-100">Eli Character Frames</h2>
-        <p className="text-sm text-neutral-400 mt-1">
-          Two-step process: first select a reference style, then generate all pose frames from it.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-neutral-100">Eli Character Frames</h2>
+          <p className="text-sm text-neutral-400 mt-1">
+            Two-step process: first select a reference style, then generate all pose frames from it.
+          </p>
+        </div>
+        {(frameCount > 0 || hasSelectedRef || references.length > 0) && (
+          <button
+            onClick={handleClearAll}
+            disabled={isGeneratingRefs || isGeneratingFrames}
+            className="text-xs px-3 py-1.5 bg-red-900/40 hover:bg-red-800/60 text-red-400 hover:text-red-300 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors"
+          >
+            Delete All Frames
+          </button>
+        )}
       </div>
 
       {/* ===== SECTION 1: Reference Image ===== */}
