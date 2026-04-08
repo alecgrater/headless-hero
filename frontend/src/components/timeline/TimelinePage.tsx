@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import api, { generateFX, generateEli } from "../../api";
+import api, { generateFX, generateEli, exportTest } from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
 import type { VoiceInfo, VoiceListResponse } from "../../types/audio";
@@ -156,6 +156,8 @@ function TimelineEditor({
   const [generatingEli, setGeneratingEli] = useState(false);
   const [confirmOverwrite, setConfirmOverwrite] = useState<"images" | "audio" | "fx" | "eli" | null>(null);
   const [pixelsPerSecond, setPixelsPerSecond] = useState(40);
+  const [exportTestJobId, setExportTestJobId] = useState<string | null>(null);
+  const [exportTestStep, setExportTestStep] = useState("");
 
   // Fetch render estimate when export panel or preview modal opens
   useEffect(() => {
@@ -408,6 +410,52 @@ function TimelineEditor({
     }
   };
 
+  // Export test: start + poll
+  const handleExportTest = async () => {
+    try {
+      const { job_id } = await exportTest(scriptId);
+      setExportTestJobId(job_id);
+      setExportTestStep("Starting...");
+    } catch {
+      setExportTestJobId(null);
+      setExportTestStep("");
+    }
+  };
+
+  useEffect(() => {
+    if (!exportTestJobId) return;
+    let cancelled = false;
+    const poll = async () => {
+      while (!cancelled) {
+        await new Promise((r) => setTimeout(r, 1500));
+        if (cancelled) break;
+        const res = await api.get(`/api/render/status/${exportTestJobId}`);
+        if (!res.ok || cancelled) break;
+        const data = res.data as { status: string; current_step: string; error: string | null };
+        setExportTestStep(data.current_step);
+        if (data.status === "completed") {
+          setExportTestJobId(null);
+          setExportTestStep("");
+          // Reload script to pick up new assets
+          const refreshed = await api.get(`/api/scripts/${scriptId}`);
+          if (refreshed.ok) {
+            const d = refreshed.data as { script: ScriptContent };
+            state.setContent(d.script);
+          }
+          break;
+        }
+        if (data.status === "failed") {
+          setExportTestJobId(null);
+          setExportTestStep("");
+          break;
+        }
+      }
+    };
+    poll();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exportTestJobId]);
+
   // Handle scene selection
   const handleSelectScene = (sceneId: string) => {
     state.selectScene(sceneId);
@@ -590,6 +638,23 @@ function TimelineEditor({
               Full Preview
             </button>
           </div>
+
+          {/* Export Test */}
+          <button
+            onClick={handleExportTest}
+            disabled={!!exportTestJobId}
+            className="text-sm px-3 py-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-semibold transition-colors flex items-center gap-2"
+            title="Run full pipeline for scene 1 and copy to Downloads"
+          >
+            {exportTestJobId ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-rose-400/50 border-t-transparent rounded-full animate-spin" />
+                <span className="max-w-[140px] truncate">{exportTestStep || "Working..."}</span>
+              </>
+            ) : (
+              "Export Test"
+            )}
+          </button>
 
           {/* Export CTA */}
           <button
