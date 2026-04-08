@@ -118,6 +118,9 @@ function FxContent({ scene }: { scene: Scene }) {
   if (fx.zoom_punch) {
     badges.push("zoom");
   }
+  if (scene.eli_overlay?.enabled) {
+    badges.push("eli");
+  }
 
   if (badges.length === 0) {
     return <span className="text-[10px] text-neutral-600">--</span>;

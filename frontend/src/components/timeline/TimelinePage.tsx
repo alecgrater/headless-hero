@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import api, { generateFX } from "../../api";
+import api, { generateFX, generateEli } from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
 import type { VoiceInfo, VoiceListResponse } from "../../types/audio";
@@ -153,7 +153,8 @@ function TimelineEditor({
   const [pendingAudioAction, setPendingAudioAction] = useState<"all" | string | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [generatingFX, setGeneratingFX] = useState(false);
-  const [confirmOverwrite, setConfirmOverwrite] = useState<"images" | "audio" | "fx" | null>(null);
+  const [generatingEli, setGeneratingEli] = useState(false);
+  const [confirmOverwrite, setConfirmOverwrite] = useState<"images" | "audio" | "fx" | "eli" | null>(null);
   const [pixelsPerSecond, setPixelsPerSecond] = useState(40);
 
   // Fetch render estimate when export panel or preview modal opens
@@ -340,6 +341,7 @@ function TimelineEditor({
   const hasExistingImages = allScenes.some((sc) => !sc.is_title_card && (sc.image_url || sc.video_clip_url || sc.frame_urls?.length));
   const hasExistingAudio = allScenes.some((sc) => sc.audio_url);
   const hasExistingFX = allScenes.some((sc) => sc.fx);
+  const hasExistingEli = allScenes.some((sc) => sc.eli_overlay);
 
   const confirmAndGenerateImages = () => {
     if (hasExistingImages) {
@@ -379,6 +381,30 @@ function TimelineEditor({
       }
     } finally {
       setGeneratingFX(false);
+    }
+  };
+
+  const handleGenerateEli = async () => {
+    setGeneratingEli(true);
+    try {
+      const res = await generateEli(scriptId);
+      if (res.ok) {
+        const refreshed = await api.get(`/api/scripts/${scriptId}`);
+        if (refreshed.ok) {
+          const data = refreshed.data as { script: ScriptContent };
+          state.setContent(data.script);
+        }
+      }
+    } finally {
+      setGeneratingEli(false);
+    }
+  };
+
+  const confirmAndGenerateEli = () => {
+    if (hasExistingEli) {
+      setConfirmOverwrite("eli");
+    } else {
+      handleGenerateEli();
     }
   };
 
@@ -523,6 +549,22 @@ function TimelineEditor({
               "Generate FX"
             )}
           </button>
+          <div className="w-px h-5 bg-neutral-700" />
+          <button
+            onClick={confirmAndGenerateEli}
+            disabled={generatingEli}
+            className="text-sm px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
+            title="Add Eli character overlay to all scenes (requires voiceover)"
+          >
+            {generatingEli ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-amber-400/50 border-t-transparent rounded-full animate-spin" />
+                Adding Eli...
+              </>
+            ) : (
+              "Add Eli"
+            )}
+          </button>
         </div>
 
         {/* Push preview + export to the right */}
@@ -569,6 +611,19 @@ function TimelineEditor({
             <span className="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
             <span className="text-neutral-300">
               Generating FX assignments with AI...
+            </span>
+            <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden ml-2">
+              <div className="h-full rounded-full bg-amber-500 animate-pulse" style={{ width: "60%" }} />
+            </div>
+          </div>
+        </div>
+      )}
+      {generatingEli && (
+        <div className="px-4 py-2 border-b border-neutral-800 shrink-0 bg-amber-500/10">
+          <div className="flex items-center gap-3 text-xs">
+            <span className="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-neutral-300">
+              Generating Eli animation keyframes with AI...
             </span>
             <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden ml-2">
               <div className="h-full rounded-full bg-amber-500 animate-pulse" style={{ width: "60%" }} />
@@ -700,6 +755,7 @@ function TimelineEditor({
               {confirmOverwrite === "images" && "Some scenes already have generated images. Regenerating will overwrite them."}
               {confirmOverwrite === "audio" && "Some scenes already have generated audio. Regenerating will overwrite them."}
               {confirmOverwrite === "fx" && "Some scenes already have FX assignments. Regenerating will overwrite them."}
+              {confirmOverwrite === "eli" && "Some scenes already have Eli overlays. Regenerating will overwrite them."}
             </p>
             <div className="flex justify-end gap-3">
               <button
@@ -715,6 +771,7 @@ function TimelineEditor({
                   if (action === "images") state.generateAllImages();
                   else if (action === "audio") tryGenerateAudio("all");
                   else if (action === "fx") handleGenerateFX();
+                  else if (action === "eli") handleGenerateEli();
                 }}
                 className="px-4 py-2 text-sm rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium transition-colors"
               >
