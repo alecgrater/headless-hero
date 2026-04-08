@@ -66,6 +66,12 @@ export const FullVideo: React.FC<FullVideoProps> = ({
         </Sequence>,
       );
       currentFrame += CHAPTER_TRANSITION_FRAMES;
+
+      // If the current scene IS the title card, skip it — the chapter transition already shows it
+      if (scene.is_title_card && scene.title_card_zoom_target) {
+        prevSegmentIndex = segmentIndex;
+        continue;
+      }
     }
 
     // Record first segment marker
