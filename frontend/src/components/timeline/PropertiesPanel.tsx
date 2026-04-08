@@ -21,8 +21,6 @@ interface Props {
   onNextScene?: () => void;
   onFetchMedia?: () => void;
   isFetchingMedia?: boolean;
-  collapsed?: boolean;
-  onToggle?: () => void;
 }
 
 export default function PropertiesPanel({
@@ -43,8 +41,6 @@ export default function PropertiesPanel({
   onNextScene,
   onFetchMedia,
   isFetchingMedia = false,
-  collapsed = false,
-  onToggle,
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
@@ -99,399 +95,191 @@ export default function PropertiesPanel({
     }
   };
 
-  if (collapsed) {
-    return (
-      <div className="shrink-0 border-t border-neutral-800/60 flex items-center px-3 py-1 transition-all duration-300">
-        {onToggle && (
-          <button
-            onClick={onToggle}
-            className="text-neutral-500 hover:text-neutral-300 text-sm transition-colors"
-            title="Expand properties"
-          >
-            &#x25B2; Properties
-          </button>
-        )}
-      </div>
-    );
-  }
-
   return (
-    <div className="shrink-0 border-t border-neutral-800/60 overflow-y-auto transition-all duration-300" style={{ maxHeight: "45vh" }}>
-      {/* Panel header with collapse control */}
-      {onToggle && (
-        <div className="flex items-center px-4 py-1.5 border-b border-neutral-800/40 bg-neutral-900/60 sticky top-0 z-10">
-          <button
-            onClick={onToggle}
-            className="text-neutral-500 hover:text-neutral-300 text-sm px-1 transition-colors"
-            title="Collapse panel"
-          >
-            &#x25BC;
-          </button>
-          <span className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium ml-2">
-            Scene Properties
-          </span>
-          <span className="text-xs text-neutral-500 ml-3">
-            {segmentName} &middot; <span className="font-mono">{scene.id}</span>
-          </span>
-        </div>
-      )}
+    <div className="flex flex-col min-h-0 flex-1 border-t border-neutral-800/60">
+      {/* Header bar */}
+      <div className="flex items-center px-4 py-1.5 border-b border-neutral-800/40 bg-neutral-900/60 shrink-0">
+        <span className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">
+          Scene Properties
+        </span>
+        <span className="text-xs text-neutral-500 ml-3">
+          {segmentName} &middot; <span className="font-mono">{scene.id}</span>
+        </span>
+      </div>
 
-      <div className="p-4 grid grid-cols-[1fr_1fr_auto] gap-6">
-        {/* Column 1: Narration + Visual Prompt */}
-        <div className="space-y-3 min-w-0">
-          {/* Narration */}
-          <label className="block space-y-1">
-            <span className="text-xs font-medium text-neutral-400">Narration</span>
-            <textarea
-              value={narration}
-              onChange={(e) => setNarration(e.target.value)}
-              onBlur={() => commitField("narration", narration)}
-              className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2.5 border border-neutral-700/50 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
-              rows={4}
-            />
-          </label>
-
-          {/* Visual Prompt (hidden for real media types) */}
-          {(!scene.media_type || scene.media_type === "ai_generated") && (
+      <div className="flex-1 min-h-0 overflow-y-auto p-4">
+        <div className="grid grid-cols-2 gap-6">
+          {/* Left column: Text editing + compact settings row */}
+          <div className="space-y-3 min-w-0">
+            {/* Narration */}
             <label className="block space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-neutral-400">
-                  Visual Prompt
-                </span>
-                <button
-                  onClick={() => setPromptExpanded(!promptExpanded)}
-                  className="text-[10px] text-neutral-600 hover:text-neutral-400 transition-colors"
-                >
-                  {promptExpanded ? "Collapse" : "Expand"}
-                </button>
-              </div>
+              <span className="text-xs font-medium text-neutral-400">Narration</span>
               <textarea
-                value={visualPrompt}
-                onChange={(e) => setVisualPrompt(e.target.value)}
-                onBlur={() => commitField("visual_prompt", visualPrompt)}
+                value={narration}
+                onChange={(e) => setNarration(e.target.value)}
+                onBlur={() => commitField("narration", narration)}
                 className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2.5 border border-neutral-700/50 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
-                rows={promptExpanded ? 8 : 3}
+                rows={5}
               />
             </label>
-          )}
 
-          {/* Media Type */}
-          <label className="block space-y-1">
-            <span className="text-xs font-medium text-neutral-400">Media Type</span>
-            <select
-              value={scene.media_type || "ai_generated"}
-              onChange={(e) => onUpdate({ media_type: e.target.value as Scene["media_type"] })}
-              className={`w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30 ${
-                scene.media_type && scene.media_type !== "ai_generated"
-                  ? "border-red-500/50"
-                  : "border-neutral-700/50"
-              }`}
-            >
-              <option value="ai_generated">AI Generated</option>
-              <option value="gameplay_clip">Gameplay Clip</option>
-              <option value="hardware_image">Hardware Image</option>
-            </select>
-          </label>
+            {/* Visual Prompt (hidden for real media types) */}
+            {(!scene.media_type || scene.media_type === "ai_generated") && (
+              <label className="block space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-neutral-400">
+                    Visual Prompt
+                  </span>
+                  <button
+                    onClick={() => setPromptExpanded(!promptExpanded)}
+                    className="text-[10px] text-neutral-600 hover:text-neutral-400 transition-colors"
+                  >
+                    {promptExpanded ? "Collapse" : "Expand"}
+                  </button>
+                </div>
+                <textarea
+                  value={visualPrompt}
+                  onChange={(e) => setVisualPrompt(e.target.value)}
+                  onBlur={() => commitField("visual_prompt", visualPrompt)}
+                  className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2.5 border border-neutral-700/50 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
+                  rows={promptExpanded ? 8 : 4}
+                />
+              </label>
+            )}
 
-          {/* Search Query (for real media types) */}
-          {scene.media_type && scene.media_type !== "ai_generated" && (
+            {/* Search Query (for real media types) */}
+            {scene.media_type && scene.media_type !== "ai_generated" && (
+              <label className="block space-y-1">
+                <span className="text-xs font-medium text-neutral-400">
+                  YouTube Search Query
+                </span>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onBlur={() => commitField("search_query", searchQuery)}
+                  placeholder="e.g. Halo Infinite gameplay 4K"
+                  className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-red-700/50 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/30"
+                />
+              </label>
+            )}
+
+            {/* Fetch Media button (for real media types) */}
+            {scene.media_type && scene.media_type !== "ai_generated" && scene.search_query && onFetchMedia && (
+              <button
+                onClick={onFetchMedia}
+                disabled={isFetchingMedia}
+                className="w-full text-sm px-3 py-2 text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isFetchingMedia ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-red-400/50 border-t-transparent rounded-full animate-spin" />
+                    Fetching...
+                  </>
+                ) : scene.video_clip_url || (scene.media_type === "hardware_image" && scene.image_url) ? (
+                  "Re-fetch Media"
+                ) : (
+                  "Fetch Media"
+                )}
+              </button>
+            )}
+
+            {/* Text Overlay */}
             <label className="block space-y-1">
               <span className="text-xs font-medium text-neutral-400">
-                YouTube Search Query
+                Text Overlay
               </span>
               <input
                 type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onBlur={() => commitField("search_query", searchQuery)}
-                placeholder="e.g. Halo Infinite gameplay 4K"
-                className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-red-700/50 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/30"
+                value={textOverlay}
+                onChange={(e) => setTextOverlay(e.target.value)}
+                onBlur={() => commitField("text_overlay", textOverlay)}
+                className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
               />
             </label>
-          )}
 
-          {/* Fetch Media button (for real media types) */}
-          {scene.media_type && scene.media_type !== "ai_generated" && scene.search_query && onFetchMedia && (
-            <button
-              onClick={onFetchMedia}
-              disabled={isFetchingMedia}
-              className="w-full text-sm px-3 py-2 text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isFetchingMedia ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-red-400/50 border-t-transparent rounded-full animate-spin" />
-                  Fetching...
-                </>
-              ) : scene.video_clip_url || (scene.media_type === "hardware_image" && scene.image_url) ? (
-                "Re-fetch Media"
-              ) : (
-                "Fetch Media"
-              )}
-            </button>
-          )}
+            {/* Compact settings row: Media Type | Duration | Frames | Title Card */}
+            <div className="flex items-end gap-3 pt-1 border-t border-neutral-800/40">
+              {/* Media Type */}
+              <label className="space-y-1">
+                <span className="text-[10px] font-medium text-neutral-500">Media</span>
+                <select
+                  value={scene.media_type || "ai_generated"}
+                  onChange={(e) => onUpdate({ media_type: e.target.value as Scene["media_type"] })}
+                  className={`block text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2 py-1.5 border focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30 ${
+                    scene.media_type && scene.media_type !== "ai_generated"
+                      ? "border-red-500/50"
+                      : "border-neutral-700/50"
+                  }`}
+                >
+                  <option value="ai_generated">AI Generated</option>
+                  <option value="gameplay_clip">Gameplay Clip</option>
+                  <option value="hardware_image">Hardware Image</option>
+                </select>
+              </label>
 
-          {/* Text Overlay */}
-          <label className="block space-y-1">
-            <span className="text-xs font-medium text-neutral-400">
-              Text Overlay
-            </span>
-            <input
-              type="text"
-              value={textOverlay}
-              onChange={(e) => setTextOverlay(e.target.value)}
-              onBlur={() => commitField("text_overlay", textOverlay)}
-              className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
-            />
-          </label>
-        </div>
-
-        {/* Column 2: Media previews + Audio + Frame budget */}
-        <div className="space-y-3 min-w-0">
-          {/* Preview Mode: Video Player */}
-          {previewMode && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">
-                  Preview</div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={onPrevScene}
-                    className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
-                    title="Previous scene"
-                  >
-                    &#9664;
-                  </button>
-                  <button
-                    onClick={onNextScene}
-                    className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
-                    title="Next scene"
-                  >
-                    &#9654;
-                  </button>
-                </div>
-              </div>
-              {previewVideoUrl ? (
-                <video
-                  key={previewVideoUrl}
-                  src={assetUrl(previewVideoUrl)}
-                  controls
-                  autoPlay
-                  className="w-full rounded-lg border border-neutral-700 max-h-40"
+              {/* Duration */}
+              <label className="space-y-1">
+                <span className="text-[10px] font-medium text-neutral-500">Duration (s)</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={120}
+                  step={0.5}
+                  value={duration}
+                  onChange={(e) => setDuration(e.target.value)}
+                  onBlur={() => {
+                    const n = parseFloat(duration);
+                    if (!isNaN(n) && n > 0) {
+                      commitField("duration_estimate_seconds", n);
+                    }
+                  }}
+                  className="block w-20 text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2 py-1.5 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
                 />
-              ) : scene.image_url ? (
-                <div className="relative">
-                  <img
-                    src={assetUrl(scene.image_url)}
-                    alt="Scene visual"
-                    className="w-full rounded-lg border border-neutral-700 opacity-60 max-h-40 object-cover"
-                  />
-                  {isPreviewingScene ? (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  ) : null}
+              </label>
+
+              {/* Frame Budget */}
+              <label className="space-y-1 flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-medium text-neutral-500">Frames</span>
+                  <span className="text-[10px] text-neutral-600 font-mono">{frameCount || 1}</span>
                 </div>
-              ) : null}
-              {scene.image_url && scene.audio_url && onPreviewScene && (
-                <button
-                  onClick={onPreviewScene}
-                  disabled={isPreviewingScene}
-                  className="w-full text-sm px-3 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isPreviewingScene ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                      Rendering...
-                    </>
-                  ) : previewVideoUrl ? (
-                    "Re-render Preview"
-                  ) : (
-                    "Render Preview"
-                  )}
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Video Clip Preview (for gameplay clips) */}
-          {scene.video_clip_url && (
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-neutral-400">Gameplay Clip</div>
-              <video
-                key={scene.video_clip_url}
-                src={assetUrl(scene.video_clip_url)}
-                controls
-                className="w-full rounded-lg border border-red-700/50 max-h-32"
-              />
-            </div>
-          )}
-
-          {/* Image Preview / Generate */}
-          {scene.image_url ? (
-            <div className="space-y-2">
-              {scene.frame_urls && scene.frame_urls.length > 1 ? (
-                <div className="grid grid-cols-3 gap-1">
-                  {scene.frame_urls.map((url, i) => (
-                    <img
-                      key={i}
-                      src={assetUrl(url)}
-                      alt={`Frame ${i + 1}`}
-                      className="w-full object-cover rounded border border-neutral-700 h-[52px]"
-                    />
-                  ))}
-                </div>
-              ) : (
-                <img
-                  src={assetUrl(scene.image_url)}
-                  alt="Scene visual"
-                  className="w-full object-cover rounded-lg border border-neutral-700 h-[120px]"
+                <input
+                  type="range"
+                  min={1}
+                  max={8}
+                  value={frameCount || 1}
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value, 10);
+                    setFrameCount(n);
+                    const newPrompts = [...framePrompts];
+                    while (newPrompts.length < n) newPrompts.push("");
+                    while (newPrompts.length > n) newPrompts.pop();
+                    setFramePrompts(newPrompts);
+                    onUpdate({ frame_count: n, frame_prompts: newPrompts });
+                  }}
+                  className="w-full accent-violet-500"
                 />
-              )}
-              {onGenerateImage && (
-                <button
-                  onClick={() => setConfirmOverwrite("image")}
-                  disabled={isGenerating}
-                  className="w-full text-sm px-3 py-1.5 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isGenerating ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                      Generating...
-                    </>
-                  ) : frameCount > 1 ? (
-                    `Regenerate ${frameCount} Frames`
-                  ) : (
-                    "Regenerate Image"
-                  )}
-                </button>
-              )}
-            </div>
-          ) : onGenerateImage ? (
-            <button
-              onClick={onGenerateImage}
-              disabled={isGenerating}
-              className="w-full text-sm px-3 py-2 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isGenerating ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                  Generating...
-                </>
-              ) : frameCount > 1 ? (
-                `Generate ${frameCount} Frames`
-              ) : (
-                "Generate Image"
-              )}
-            </button>
-          ) : null}
+              </label>
 
-          {/* Audio Preview / Generate */}
-          {scene.audio_url ? (
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-neutral-400">Audio</div>
-              <AudioPlayer
-                src={assetUrl(scene.audio_url)}
-                duration={scene.audio_duration_seconds}
-              />
-              {onGenerateAudio && (
-                <button
-                  onClick={() => setConfirmOverwrite("audio")}
-                  disabled={isGeneratingAudio}
-                  className="w-full text-sm px-3 py-1.5 text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isGeneratingAudio ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    "Regenerate Audio"
-                  )}
-                </button>
-              )}
-            </div>
-          ) : onGenerateAudio ? (
-            <button
-              onClick={onGenerateAudio}
-              disabled={isGeneratingAudio}
-              className="w-full text-sm px-3 py-2 text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isGeneratingAudio ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                "Generate Audio"
-              )}
-            </button>
-          ) : null}
-
-          {/* Scene Video Preview */}
-          {scene.image_url && scene.audio_url && (
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-neutral-400">Video Preview</div>
-              {previewVideoUrl && (
-                <video
-                  key={previewVideoUrl}
-                  src={assetUrl(previewVideoUrl)}
-                  controls
-                  className="w-full rounded-lg border border-neutral-700 max-h-32"
+              {/* Title Card */}
+              <label className="flex items-center gap-1.5 cursor-pointer pb-1">
+                <input
+                  type="checkbox"
+                  checked={isTitleCard}
+                  onChange={(e) => {
+                    setIsTitleCard(e.target.checked);
+                    commitField("is_title_card", e.target.checked);
+                  }}
+                  className="rounded border-neutral-600 bg-neutral-800 text-violet-500 focus:ring-violet-500"
                 />
-              )}
-              {onPreviewScene && (
-                <button
-                  onClick={onPreviewScene}
-                  disabled={isPreviewingScene}
-                  className="w-full text-sm px-3 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isPreviewingScene ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                      Rendering...
-                    </>
-                  ) : previewVideoUrl ? (
-                    "Re-render Preview"
-                  ) : (
-                    "Preview Scene"
-                  )}
-                </button>
-              )}
+                <span className="text-[10px] font-medium text-neutral-500">Title Card</span>
+              </label>
             </div>
-          )}
-        </div>
 
-        {/* Column 3: Settings (frame budget, FX, duration, title card) */}
-        <div className="space-y-3 w-56">
-          {/* Multi-Frame / Animation Controls */}
-          <div className="border border-neutral-800 rounded-lg p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-neutral-400">Frame Budget</span>
-              <span className="text-xs text-neutral-500 font-mono">{frameCount || 1}</span>
-            </div>
-            <input
-              type="range"
-              min={1}
-              max={8}
-              value={frameCount || 1}
-              onChange={(e) => {
-                const n = parseInt(e.target.value, 10);
-                setFrameCount(n);
-                const newPrompts = [...framePrompts];
-                while (newPrompts.length < n) newPrompts.push("");
-                while (newPrompts.length > n) newPrompts.pop();
-                setFramePrompts(newPrompts);
-                onUpdate({ frame_count: n, frame_prompts: newPrompts });
-              }}
-              className="w-full accent-violet-500"
-            />
-            <p className="text-[10px] text-neutral-600">
-              1 = static, 2-8 = crossfade
-            </p>
-
-            {/* Per-frame prompt textareas */}
+            {/* Per-frame prompt textareas (shown below compact row when frames > 1) */}
             {frameCount > 1 && (
-              <div className="space-y-2 mt-1">
+              <div className="space-y-2">
                 {framePrompts.slice(0, frameCount).map((fp, i) => (
                   <label key={i} className="block space-y-1">
                     <span className="text-[10px] font-medium text-neutral-500">
@@ -515,107 +303,278 @@ export default function PropertiesPanel({
                 ))}
               </div>
             )}
+          </div>
 
-            {/* Frame image preview strip */}
-            {scene.frame_urls && scene.frame_urls.length > 1 && (
-              <div className="flex gap-1 overflow-x-auto mt-1 pb-1">
-                {scene.frame_urls.map((url, i) => (
-                  <img
-                    key={i}
-                    src={assetUrl(url)}
-                    alt={`Frame ${i + 1}`}
-                    className="h-10 w-auto rounded border border-neutral-700 shrink-0"
+          {/* Right column: Image, Audio, Video previews + FX */}
+          <div className="space-y-3 min-w-0">
+            {/* Preview Mode: Video Player */}
+            {previewMode && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">
+                    Preview</div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={onPrevScene}
+                      className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
+                      title="Previous scene"
+                    >
+                      &#9664;
+                    </button>
+                    <button
+                      onClick={onNextScene}
+                      className="text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400"
+                      title="Next scene"
+                    >
+                      &#9654;
+                    </button>
+                  </div>
+                </div>
+                {previewVideoUrl ? (
+                  <video
+                    key={previewVideoUrl}
+                    src={assetUrl(previewVideoUrl)}
+                    controls
+                    autoPlay
+                    className="w-full rounded-lg border border-neutral-700 max-h-48"
                   />
-                ))}
+                ) : scene.image_url ? (
+                  <div className="relative">
+                    <img
+                      src={assetUrl(scene.image_url)}
+                      alt="Scene visual"
+                      className="w-full rounded-lg border border-neutral-700 opacity-60 max-h-48 object-cover"
+                    />
+                    {isPreviewingScene ? (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {scene.image_url && scene.audio_url && onPreviewScene && (
+                  <button
+                    onClick={onPreviewScene}
+                    disabled={isPreviewingScene}
+                    className="w-full text-sm px-3 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isPreviewingScene ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                        Rendering...
+                      </>
+                    ) : previewVideoUrl ? (
+                      "Re-render Preview"
+                    ) : (
+                      "Render Preview"
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Video Clip Preview (for gameplay clips) */}
+            {scene.video_clip_url && (
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-neutral-400">Gameplay Clip</div>
+                <video
+                  key={scene.video_clip_url}
+                  src={assetUrl(scene.video_clip_url)}
+                  controls
+                  className="w-full rounded-lg border border-red-700/50 max-h-40"
+                />
+              </div>
+            )}
+
+            {/* Image Preview / Generate */}
+            {scene.image_url ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-medium text-neutral-400">Image</div>
+                  {onGenerateImage && (
+                    <button
+                      onClick={() => setConfirmOverwrite("image")}
+                      disabled={isGenerating}
+                      className="text-[10px] text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-40 flex items-center gap-1"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <span className="w-2.5 h-2.5 border border-emerald-400/50 border-t-transparent rounded-full animate-spin" />
+                          Generating...
+                        </>
+                      ) : frameCount > 1 ? (
+                        `Regen ${frameCount} Frames`
+                      ) : (
+                        "Regen"
+                      )}
+                    </button>
+                  )}
+                </div>
+                {scene.frame_urls && scene.frame_urls.length > 1 ? (
+                  <div className="grid grid-cols-3 gap-1">
+                    {scene.frame_urls.map((url, i) => (
+                      <img
+                        key={i}
+                        src={assetUrl(url)}
+                        alt={`Frame ${i + 1}`}
+                        className="w-full object-cover rounded border border-neutral-700 h-[60px]"
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <img
+                    src={assetUrl(scene.image_url)}
+                    alt="Scene visual"
+                    className="w-full object-cover rounded-lg border border-neutral-700 max-h-40"
+                  />
+                )}
+              </div>
+            ) : onGenerateImage ? (
+              <button
+                onClick={onGenerateImage}
+                disabled={isGenerating}
+                className="w-full text-sm px-3 py-2 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isGenerating ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                    Generating...
+                  </>
+                ) : frameCount > 1 ? (
+                  `Generate ${frameCount} Frames`
+                ) : (
+                  "Generate Image"
+                )}
+              </button>
+            ) : null}
+
+            {/* Audio Preview / Generate */}
+            {scene.audio_url ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-medium text-neutral-400">Audio</div>
+                  {onGenerateAudio && (
+                    <button
+                      onClick={() => setConfirmOverwrite("audio")}
+                      disabled={isGeneratingAudio}
+                      className="text-[10px] text-sky-400 hover:text-sky-300 transition-colors disabled:opacity-40 flex items-center gap-1"
+                    >
+                      {isGeneratingAudio ? (
+                        <>
+                          <span className="w-2.5 h-2.5 border border-sky-400/50 border-t-transparent rounded-full animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        "Regen"
+                      )}
+                    </button>
+                  )}
+                </div>
+                <AudioPlayer
+                  src={assetUrl(scene.audio_url)}
+                  duration={scene.audio_duration_seconds}
+                />
+              </div>
+            ) : onGenerateAudio ? (
+              <button
+                onClick={onGenerateAudio}
+                disabled={isGeneratingAudio}
+                className="w-full text-sm px-3 py-2 text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isGeneratingAudio ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  "Generate Audio"
+                )}
+              </button>
+            ) : null}
+
+            {/* Scene Video Preview (non-preview-mode) */}
+            {!previewMode && scene.image_url && scene.audio_url && (
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-neutral-400">Video Preview</div>
+                {previewVideoUrl && (
+                  <video
+                    key={previewVideoUrl}
+                    src={assetUrl(previewVideoUrl)}
+                    controls
+                    className="w-full rounded-lg border border-neutral-700 max-h-40"
+                  />
+                )}
+                {onPreviewScene && (
+                  <button
+                    onClick={onPreviewScene}
+                    disabled={isPreviewingScene}
+                    className="w-full text-sm px-3 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isPreviewingScene ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                        Rendering...
+                      </>
+                    ) : previewVideoUrl ? (
+                      "Re-render Preview"
+                    ) : (
+                      "Preview Scene"
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* FX Summary */}
+            {scene.fx && (
+              <div className="border border-neutral-800 rounded-lg p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">
+                    FX
+                  </div>
+                  <button
+                    onClick={() => setConfirmOverwrite("fx")}
+                    disabled={regeneratingFX}
+                    className="text-[10px] text-amber-400 hover:text-amber-300 transition-colors disabled:opacity-40 flex items-center gap-1"
+                  >
+                    {regeneratingFX ? (
+                      <>
+                        <span className="w-2.5 h-2.5 border border-amber-400/50 border-t-transparent rounded-full animate-spin" />
+                        Regen...
+                      </>
+                    ) : (
+                      "Regen"
+                    )}
+                  </button>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {scene.fx.kinetic_captions && scene.fx.kinetic_captions.words.length > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded-full">
+                        captions
+                      </span>
+                      <span className="text-xs text-neutral-400">
+                        {scene.fx.kinetic_captions.words.length}w
+                      </span>
+                    </div>
+                  )}
+                  {scene.fx.zoom_punch && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full">
+                        zoom
+                      </span>
+                      <span className="text-xs text-neutral-400">
+                        f{scene.fx.zoom_punch.trigger_frame} @ {scene.fx.zoom_punch.scale}x
+                      </span>
+                    </div>
+                  )}
+                  {!scene.fx.kinetic_captions && !scene.fx.zoom_punch && (
+                    <p className="text-[10px] text-neutral-600 italic">No effects</p>
+                  )}
+                </div>
               </div>
             )}
           </div>
-
-          {/* FX Summary */}
-          {scene.fx && (
-            <div className="border border-neutral-800 rounded-lg p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">
-                  FX
-                </div>
-                <button
-                  onClick={() => setConfirmOverwrite("fx")}
-                  disabled={regeneratingFX}
-                  className="text-[10px] text-amber-400 hover:text-amber-300 transition-colors disabled:opacity-40 flex items-center gap-1"
-                >
-                  {regeneratingFX ? (
-                    <>
-                      <span className="w-2.5 h-2.5 border border-amber-400/50 border-t-transparent rounded-full animate-spin" />
-                      Regen...
-                    </>
-                  ) : (
-                    "Regen"
-                  )}
-                </button>
-              </div>
-              <div className="space-y-1.5">
-                {scene.fx.kinetic_captions && scene.fx.kinetic_captions.words.length > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded-full">
-                      captions
-                    </span>
-                    <span className="text-xs text-neutral-400">
-                      {scene.fx.kinetic_captions.words.length}w
-                    </span>
-                  </div>
-                )}
-                {scene.fx.zoom_punch && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full">
-                      zoom
-                    </span>
-                    <span className="text-xs text-neutral-400">
-                      f{scene.fx.zoom_punch.trigger_frame} @ {scene.fx.zoom_punch.scale}x
-                    </span>
-                  </div>
-                )}
-                {!scene.fx.kinetic_captions && !scene.fx.zoom_punch && (
-                  <p className="text-[10px] text-neutral-600 italic">No effects</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Duration */}
-          <label className="block space-y-1">
-            <span className="text-xs font-medium text-neutral-400">
-              Duration (s)
-            </span>
-            <input
-              type="number"
-              min={1}
-              max={120}
-              step={0.5}
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              onBlur={() => {
-                const n = parseFloat(duration);
-                if (!isNaN(n) && n > 0) {
-                  commitField("duration_estimate_seconds", n);
-                }
-              }}
-              className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2.5 py-2 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
-            />
-          </label>
-
-          {/* Title Card Toggle */}
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isTitleCard}
-              onChange={(e) => {
-                setIsTitleCard(e.target.checked);
-                commitField("is_title_card", e.target.checked);
-              }}
-              className="rounded border-neutral-600 bg-neutral-800 text-violet-500 focus:ring-violet-500"
-            />
-            <span className="text-sm text-neutral-300">Title Card</span>
-          </label>
         </div>
       </div>
 
@@ -653,7 +612,6 @@ export default function PropertiesPanel({
           </div>
         </div>
       )}
-
     </div>
   );
 }

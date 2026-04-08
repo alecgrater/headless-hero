@@ -12,7 +12,6 @@ import { usePublishState } from "./usePublishState";
 import { useRenderState } from "./useRenderState";
 import { useTimelineState } from "./useTimelineState";
 import { useKeyboardShortcuts, ShortcutHelpOverlay } from "./useKeyboardShortcuts";
-import { useSidebarState } from "./useSidebarState";
 
 interface Props {
   scriptId: string;
@@ -146,7 +145,6 @@ function TimelineEditor({
   const state = useTimelineState(scriptId, initialContent);
   const render = useRenderState(scriptId, title);
   const publish = usePublishState(scriptId);
-  const sidebar = useSidebarState(scriptId);
   const [showExport, setShowExport] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showVoiceSetup, setShowVoiceSetup] = useState(false);
@@ -723,7 +721,7 @@ function TimelineEditor({
       {/* Vertical layout: Timeline on top (full width), Properties below */}
       <div className="flex flex-col flex-1 overflow-hidden">
         {/* Main timeline area — full width */}
-        <div className="overflow-auto p-4">
+        <div className="overflow-auto p-4 shrink-0">
           <TimelineLanes
             content={state.content}
             selectedSceneId={state.selectedSceneId}
@@ -762,11 +760,9 @@ function TimelineEditor({
               state.fetchMedia(selectedScene.scene.id)
             }
             isFetchingMedia={state.fetchingMediaSceneIds.has(selectedScene.scene.id)}
-            collapsed={sidebar.rightCollapsed}
-            onToggle={sidebar.toggleRight}
           />
-        ) : sidebar.rightCollapsed ? null : (
-          <div className="shrink-0 border-t border-neutral-800/60 px-4 py-3 flex items-center justify-center">
+        ) : (
+          <div className="flex-1 border-t border-neutral-800/60 px-4 py-3 flex items-center justify-center">
             <p className="text-sm text-neutral-600">
               Select a scene to edit its properties
             </p>
