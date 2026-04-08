@@ -193,7 +193,7 @@ def export_audio(body: ExportAudioRequest, session: Session = Depends(get_sessio
 
 @router.post("/export-test", response_model=RenderJobResponse)
 def start_export_test(body: ExportTestRequest, session: Session = Depends(get_session)):
-    """Run the full pipeline (image → audio → FX → Eli → render) for scene 1 only."""
+    """Run the full pipeline (image → audio → FX → Eli → render) for the first segment."""
     content = _load_content(session, body.script_id)
     brand_dict, modifier_ids = _load_brand_and_modifiers(session, body.script_id)
 
@@ -204,38 +204,36 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
         raise HTTPException(status_code=400, detail="No voice configured — set a voice in Settings first")
     voice_id = brand.voice_id
 
-    # Find the first non-title-card scene
-    target_scene = None
-    target_seg_idx = -1
-    target_sc_idx = -1
+    if not content.segments:
+        raise HTTPException(status_code=400, detail="Script has no segments")
+
+    first_seg = content.segments[0]
+    title = first_seg.scenes[0].text_overlay or "Untitled" if first_seg.scenes else "Untitled"
+    seg_name = first_seg.name
+
+    # Collect non-title-card scenes in first segment for processing
+    scenes_to_process: list[dict] = []
     global_idx = 0
     total_scenes = sum(len(seg.scenes) for seg in content.segments)
+    for sci, scene in enumerate(first_seg.scenes):
+        if not scene.is_title_card:
+            scenes_to_process.append({
+                "scene_id": scene.id,
+                "narration": scene.narration or "",
+                "visual_prompt": scene.visual_prompt or "",
+                "frame_prompts": scene.frame_prompts or [],
+                "media_type": scene.media_type or "ai_generated",
+                "sc_idx": sci,
+                "global_idx": global_idx,
+            })
+        global_idx += 1
 
-    for si, seg in enumerate(content.segments):
-        for sci, scene in enumerate(seg.scenes):
-            if not scene.is_title_card:
-                target_scene = scene
-                target_seg_idx = si
-                target_sc_idx = sci
-                break
-            global_idx += 1
-        if target_scene:
-            break
+    if not scenes_to_process:
+        raise HTTPException(status_code=400, detail="No non-title-card scenes in first segment")
 
-    if not target_scene:
-        raise HTTPException(status_code=400, detail="No non-title-card scene found")
-
-    # Capture what we need for the background thread (session won't be available)
     script_id = body.script_id
-    scene_id = target_scene.id
-    scene_narration = target_scene.narration or ""
-    scene_visual_prompt = target_scene.visual_prompt or ""
-    scene_frame_prompts = target_scene.frame_prompts or []
-    scene_media_type = target_scene.media_type or "ai_generated"
-    seg_name = content.segments[target_seg_idx].name
-    title = content.segments[0].scenes[0].text_overlay or "Untitled" if content.segments else "Untitled"
-
-    job = create_job(scene_count=1)
+    scene_count = len(scenes_to_process)
+    job = create_job(scene_count=scene_count)
 
     def do_export_test():
         from pipeline.eli_animator import generate_scene_eli
@@ -244,96 +242,129 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
         from pipeline.title_card import ensure_title_card_images
         from pipeline.voiceover import generate_scene_audio
 
-        # Step 1: Title cards
-        update_job(job.id, progress=0.05, current_step="Generating title card...")
+        # Phase 1: Title cards
+        update_job(job.id, progress=0.02, current_step="Generating title card...")
         content_for_tc = _reload_content(script_id)
         ensure_title_card_images(script_id, content_for_tc, force=True, job_id=job.id)
 
-        # Step 2: Image
-        update_job(job.id, progress=0.15, current_step="Generating image...")
-        if scene_frame_prompts and len(scene_frame_prompts) > 1:
-            results = generate_scene_frames(scene_id, scene_frame_prompts, script_id, visual_prompt=scene_visual_prompt, force=True)
-            frame_urls = [r[0] for r in results]
-            image_url = frame_urls[0] if frame_urls else None
-        else:
-            image_url, _ = generate_scene_image(scene_id, scene_visual_prompt, script_id, force=True)
-            frame_urls = None
+        # Progress budget: title_card=0.02, images=0.02-0.20, audio=0.20-0.45,
+        # fx=0.45-0.60, eli=0.60-0.72, render=0.72-0.95, copy=0.95-1.0
 
-        # Step 3: Audio
-        update_job(job.id, progress=0.35, current_step="Generating audio...")
-        audio_url, audio_duration, word_timestamps = generate_scene_audio(
-            scene_id, scene_narration, voice_id, script_id,
-        )
+        # Phase 2: Images for all scenes
+        for i, sc_info in enumerate(scenes_to_process):
+            p = 0.02 + (i / scene_count) * 0.18
+            update_job(job.id, progress=p, current_step=f"Generating image ({i+1}/{scene_count})...")
+            sid = sc_info["scene_id"]
+            if sc_info["frame_prompts"] and len(sc_info["frame_prompts"]) > 1:
+                results = generate_scene_frames(sid, sc_info["frame_prompts"], script_id, visual_prompt=sc_info["visual_prompt"], force=True)
+                frame_urls = [r[0] for r in results]
+                image_url = frame_urls[0] if frame_urls else None
+            else:
+                image_url, _ = generate_scene_image(sid, sc_info["visual_prompt"], script_id, force=True)
+                frame_urls = None
+            sc_info["_image_url"] = image_url
+            sc_info["_frame_urls"] = frame_urls
 
-        # Step 4: Persist to DB so FX/Eli/render pick up the new data
+        # Phase 3: Audio for all scenes
+        for i, sc_info in enumerate(scenes_to_process):
+            p = 0.20 + (i / scene_count) * 0.25
+            update_job(job.id, progress=p, current_step=f"Generating audio ({i+1}/{scene_count})...")
+            audio_url, audio_duration, word_timestamps = generate_scene_audio(
+                sc_info["scene_id"], sc_info["narration"], voice_id, script_id,
+            )
+            sc_info["_audio_url"] = audio_url
+            sc_info["_audio_duration"] = audio_duration
+            sc_info["_word_timestamps"] = word_timestamps
+
+        # Phase 4: Persist all assets to DB
         update_job(job.id, progress=0.45, current_step="Saving scene data...")
-        _persist_scene_assets(
-            script_id, scene_id,
-            image_url=image_url,
-            frame_urls=frame_urls,
-            audio_url=audio_url,
-            audio_duration=audio_duration,
-            word_timestamps=word_timestamps,
+        for sc_info in scenes_to_process:
+            _persist_scene_assets(
+                script_id, sc_info["scene_id"],
+                image_url=sc_info["_image_url"],
+                frame_urls=sc_info["_frame_urls"],
+                audio_url=sc_info["_audio_url"],
+                audio_duration=sc_info["_audio_duration"],
+                word_timestamps=sc_info["_word_timestamps"],
+            )
+
+        # Phase 5: FX for all scenes
+        for i, sc_info in enumerate(scenes_to_process):
+            p = 0.45 + (i / scene_count) * 0.15
+            update_job(job.id, progress=p, current_step=f"Generating FX ({i+1}/{scene_count})...")
+            content_now = _reload_content(script_id)
+            scene_now = _find_scene_in_content(content_now, sc_info["scene_id"])
+            duration = scene_now.audio_duration_seconds or scene_now.duration_estimate_seconds
+            scene_data = {
+                "id": sc_info["scene_id"],
+                "segment": seg_name,
+                "segment_index": 0,
+                "scene_index_in_segment": sc_info["sc_idx"],
+                "global_index": sc_info["global_idx"],
+                "is_first_scene": sc_info["global_idx"] == 0,
+                "is_last_scene": sc_info["global_idx"] == total_scenes - 1,
+                "is_first_in_segment": sc_info["sc_idx"] == 0,
+                "is_title_card": False,
+                "media_type": sc_info["media_type"],
+                "narration": scene_now.narration,
+                "duration_seconds": duration,
+                "duration_frames": int(duration * 30),
+                "has_multiple_frames": bool(scene_now.frame_urls and len(scene_now.frame_urls) > 1),
+            }
+            if scene_now.word_timestamps:
+                scene_data["word_timestamps"] = scene_now.word_timestamps
+            try:
+                fx_result = generate_scene_fx(scene_data)
+                _persist_scene_fx(script_id, sc_info["scene_id"], fx_result["fx"])
+            except Exception as e:
+                logger.warning("Failed FX for scene %s: %s", sc_info["scene_id"], e)
+
+        # Phase 6: Eli for all scenes
+        for i, sc_info in enumerate(scenes_to_process):
+            p = 0.60 + (i / scene_count) * 0.12
+            update_job(job.id, progress=p, current_step=f"Generating Eli ({i+1}/{scene_count})...")
+            content_now = _reload_content(script_id)
+            scene_now = _find_scene_in_content(content_now, sc_info["scene_id"])
+            duration = scene_now.audio_duration_seconds or scene_now.duration_estimate_seconds
+            eli_scene_data = {
+                "id": sc_info["scene_id"],
+                "segment": seg_name,
+                "segment_index": 0,
+                "scene_index_in_segment": sc_info["sc_idx"],
+                "global_index": sc_info["global_idx"],
+                "is_title_card": False,
+                "narration": scene_now.narration,
+                "duration_seconds": duration,
+                "duration_frames": int(duration * 30),
+            }
+            if scene_now.word_timestamps:
+                eli_scene_data["word_timestamps"] = scene_now.word_timestamps
+            try:
+                eli_result = generate_scene_eli(eli_scene_data)
+                _persist_scene_eli(script_id, sc_info["scene_id"], eli_result["eli_overlay"])
+            except Exception as e:
+                logger.warning("Failed Eli for scene %s: %s", sc_info["scene_id"], e)
+
+        # Phase 7: Render full video
+        update_job(job.id, progress=0.72, current_step="Rendering full video...")
+        content_now = _reload_content(script_id)
+
+        def on_render_progress(p: float, msg: str):
+            # Map render progress (0-1) into our 0.72-0.95 range
+            update_job(job.id, progress=0.72 + p * 0.23, current_step=msg)
+
+        video_url = render_full_video(
+            script_id=script_id,
+            content=content_now,
+            on_progress=on_render_progress,
+            title=title,
+            speed=1.25,
+            modifier_ids=modifier_ids,
+            brand=brand_dict,
         )
 
-        # Step 5: FX
-        update_job(job.id, progress=0.55, current_step="Generating FX...")
-        content_now = _reload_content(script_id)
-        scene_now = _find_scene_in_content(content_now, scene_id)
-        duration = scene_now.audio_duration_seconds or scene_now.duration_estimate_seconds
-        scene_data = {
-            "id": scene_id,
-            "segment": seg_name,
-            "segment_index": target_seg_idx,
-            "scene_index_in_segment": target_sc_idx,
-            "global_index": global_idx,
-            "is_first_scene": global_idx == 0,
-            "is_last_scene": global_idx == total_scenes - 1,
-            "is_first_in_segment": target_sc_idx == 0,
-            "is_title_card": False,
-            "media_type": scene_media_type,
-            "narration": scene_now.narration,
-            "duration_seconds": duration,
-            "duration_frames": int(duration * 30),
-            "has_multiple_frames": bool(scene_now.frame_urls and len(scene_now.frame_urls) > 1),
-        }
-        if scene_now.word_timestamps:
-            scene_data["word_timestamps"] = scene_now.word_timestamps
-        fx_result = generate_scene_fx(scene_data)
-        _persist_scene_fx(script_id, scene_id, fx_result["fx"])
-
-        # Step 6: Eli
-        update_job(job.id, progress=0.65, current_step="Generating Eli animation...")
-        content_now = _reload_content(script_id)
-        scene_now = _find_scene_in_content(content_now, scene_id)
-        duration = scene_now.audio_duration_seconds or scene_now.duration_estimate_seconds
-        eli_scene_data = {
-            "id": scene_id,
-            "segment": seg_name,
-            "segment_index": target_seg_idx,
-            "scene_index_in_segment": target_sc_idx,
-            "global_index": global_idx,
-            "is_title_card": False,
-            "narration": scene_now.narration,
-            "duration_seconds": duration,
-            "duration_frames": int(duration * 30),
-        }
-        if scene_now.word_timestamps:
-            eli_scene_data["word_timestamps"] = scene_now.word_timestamps
-        eli_result = generate_scene_eli(eli_scene_data)
-        _persist_scene_eli(script_id, scene_id, eli_result["eli_overlay"])
-
-        # Step 7: Render scene preview
-        update_job(job.id, progress=0.75, current_step="Rendering video...")
-        content_now = _reload_content(script_id)
-        scene_now = _find_scene_in_content(content_now, scene_id)
-        video_url = render_scene_preview(scene_now, script_id, modifier_ids=modifier_ids, brand=brand_dict)
-
-        # Step 8: Copy to Downloads
+        # Phase 8: Copy to Downloads
         update_job(job.id, progress=0.95, current_step="Copying to Downloads...")
-        src_path = str(DATA_DIR / "projects" / video_url.lstrip("/static/projects/"))
-        # video_url is like /static/projects/{script_id}/renders/scenes/{scene_id}.mp4
-        # We need the actual filesystem path
         projects_prefix = "/static/projects/"
         if video_url.startswith(projects_prefix):
             relative = video_url[len(projects_prefix):]
@@ -343,7 +374,7 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
 
         downloads_dir = os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads")
         safe_title = _sanitize_filename(title)
-        dest_path = Path(downloads_dir) / f"TEST_SCENE_1_{safe_title}.mp4"
+        dest_path = Path(downloads_dir) / f"TEST_{safe_title}.mp4"
         shutil.copy2(src_path, dest_path)
         logger.info("Export test copied to: %s", dest_path)
 
