@@ -104,11 +104,11 @@ export default function PropertiesPanel({
         </span>
       </div>
 
-      {/* Content — flex row, fills all remaining space, NO scroll */}
-      <div className="flex-1 min-h-0 flex gap-4 px-4 py-2">
-        {/* Left column: text fields that stretch to fill */}
+      {/* 3-column layout: Text | Controls | Image */}
+      <div className="flex-1 min-h-0 flex gap-3 px-4 py-2">
+
+        {/* Col 1: Text editing — textareas flex-grow to fill */}
         <div className="flex-1 flex flex-col gap-1.5 min-w-0">
-          {/* Narration — grows to fill */}
           <div className="flex flex-col flex-1 min-h-0">
             <span className="text-xs font-medium text-neutral-400 mb-0.5 shrink-0">Narration</span>
             <textarea
@@ -119,12 +119,9 @@ export default function PropertiesPanel({
             />
           </div>
 
-          {/* Visual Prompt — grows to fill (hidden for real media types) */}
           {(!scene.media_type || scene.media_type === "ai_generated") && (
             <div className="flex flex-col flex-1 min-h-0">
-              <span className="text-xs font-medium text-neutral-400 mb-0.5 shrink-0">
-                Visual Prompt
-              </span>
+              <span className="text-xs font-medium text-neutral-400 mb-0.5 shrink-0">Visual Prompt</span>
               <textarea
                 value={visualPrompt}
                 onChange={(e) => setVisualPrompt(e.target.value)}
@@ -134,7 +131,6 @@ export default function PropertiesPanel({
             </div>
           )}
 
-          {/* Search Query (for real media types) */}
           {scene.media_type && scene.media_type !== "ai_generated" && (
             <div className="shrink-0">
               <span className="text-xs font-medium text-neutral-400">YouTube Search Query</span>
@@ -149,7 +145,6 @@ export default function PropertiesPanel({
             </div>
           )}
 
-          {/* Fetch Media button (for real media types) */}
           {scene.media_type && scene.media_type !== "ai_generated" && scene.search_query && onFetchMedia && (
             <button
               onClick={onFetchMedia}
@@ -169,8 +164,8 @@ export default function PropertiesPanel({
             </button>
           )}
 
-          {/* Text Overlay + compact settings — fixed at bottom */}
-          <div className="shrink-0 space-y-1.5">
+          {/* Text Overlay + settings row pinned at bottom */}
+          <div className="shrink-0 space-y-1">
             <div>
               <span className="text-xs font-medium text-neutral-400">Text Overlay</span>
               <input
@@ -181,8 +176,6 @@ export default function PropertiesPanel({
                 className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2 py-1.5 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30 mt-0.5"
               />
             </div>
-
-            {/* Compact settings row */}
             <div className="flex items-end gap-3 pt-1 border-t border-neutral-800/40">
               <label className="space-y-0.5">
                 <span className="text-[10px] font-medium text-neutral-500">Media</span>
@@ -200,7 +193,6 @@ export default function PropertiesPanel({
                   <option value="hardware_image">Hardware</option>
                 </select>
               </label>
-
               <label className="space-y-0.5">
                 <span className="text-[10px] font-medium text-neutral-500">Duration</span>
                 <input
@@ -212,14 +204,11 @@ export default function PropertiesPanel({
                   onChange={(e) => setDuration(e.target.value)}
                   onBlur={() => {
                     const n = parseFloat(duration);
-                    if (!isNaN(n) && n > 0) {
-                      commitField("duration_estimate_seconds", n);
-                    }
+                    if (!isNaN(n) && n > 0) commitField("duration_estimate_seconds", n);
                   }}
                   className="block w-16 text-xs text-neutral-200 bg-neutral-800/60 rounded px-1.5 py-1 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50"
                 />
               </label>
-
               <label className="space-y-0.5 flex-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-medium text-neutral-500">Frames</span>
@@ -242,7 +231,6 @@ export default function PropertiesPanel({
                   className="w-full accent-violet-500"
                 />
               </label>
-
               <label className="flex items-center gap-1 cursor-pointer pb-0.5">
                 <input
                   type="checkbox"
@@ -259,86 +247,11 @@ export default function PropertiesPanel({
           </div>
         </div>
 
-        {/* Right column: media previews + actions — scrolls independently */}
-        <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5">
-          {/* Image preview */}
-          {scene.image_url ? (
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-neutral-400">Image</span>
-                {onGenerateImage && (
-                  <button
-                    onClick={() => setConfirmOverwrite("image")}
-                    disabled={isGenerating}
-                    className="text-[10px] text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-40 flex items-center gap-1"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <span className="w-2.5 h-2.5 border border-emerald-400/50 border-t-transparent rounded-full animate-spin" />
-                        Generating...
-                      </>
-                    ) : frameCount > 1 ? (
-                      `Regen ${frameCount} Frames`
-                    ) : (
-                      "Regen"
-                    )}
-                  </button>
-                )}
-              </div>
-              {scene.frame_urls && scene.frame_urls.length > 1 ? (
-                <div className="grid grid-cols-3 gap-1">
-                  {scene.frame_urls.map((url, i) => (
-                    <img
-                      key={i}
-                      src={assetUrl(url)}
-                      alt={`Frame ${i + 1}`}
-                      className="w-full object-cover rounded border border-neutral-700 h-[60px]"
-                    />
-                  ))}
-                </div>
-              ) : (
-                <img
-                  src={assetUrl(scene.image_url)}
-                  alt="Scene visual"
-                  className="w-full object-cover rounded-lg border border-neutral-700 max-h-32"
-                />
-              )}
-            </div>
-          ) : onGenerateImage ? (
-            <button
-              onClick={onGenerateImage}
-              disabled={isGenerating}
-              className="w-full text-sm px-3 py-1.5 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isGenerating ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                  Generating...
-                </>
-              ) : frameCount > 1 ? (
-                `Generate ${frameCount} Frames`
-              ) : (
-                "Generate Image"
-              )}
-            </button>
-          ) : null}
-
-          {/* Video Clip Preview (for gameplay clips) */}
-          {scene.video_clip_url && (
-            <div className="space-y-1">
-              <span className="text-xs font-medium text-neutral-400">Gameplay Clip</span>
-              <video
-                key={scene.video_clip_url}
-                src={assetUrl(scene.video_clip_url)}
-                controls
-                className="w-full rounded-lg border border-red-700/50 max-h-24"
-              />
-            </div>
-          )}
-
-          {/* Audio — compact */}
+        {/* Col 2: Controls — audio, preview, FX, frame prompts */}
+        <div className="w-56 shrink-0 flex flex-col gap-1.5 min-h-0">
+          {/* Audio */}
           {scene.audio_url ? (
-            <div className="space-y-1">
+            <div className="shrink-0 space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-neutral-400">Audio</span>
                 {onGenerateAudio && (
@@ -348,58 +261,40 @@ export default function PropertiesPanel({
                     className="text-[10px] text-sky-400 hover:text-sky-300 transition-colors disabled:opacity-40 flex items-center gap-1"
                   >
                     {isGeneratingAudio ? (
-                      <>
-                        <span className="w-2.5 h-2.5 border border-sky-400/50 border-t-transparent rounded-full animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      "Regen"
-                    )}
+                      <><span className="w-2.5 h-2.5 border border-sky-400/50 border-t-transparent rounded-full animate-spin" /> Gen...</>
+                    ) : "Regen"}
                   </button>
                 )}
               </div>
-              <AudioPlayer
-                src={assetUrl(scene.audio_url)}
-                duration={scene.audio_duration_seconds}
-              />
+              <AudioPlayer src={assetUrl(scene.audio_url)} duration={scene.audio_duration_seconds} />
             </div>
           ) : onGenerateAudio ? (
             <button
               onClick={onGenerateAudio}
               disabled={isGeneratingAudio}
-              className="w-full text-sm px-3 py-1.5 text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="shrink-0 w-full text-sm px-3 py-1.5 text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isGeneratingAudio ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                "Generate Audio"
-              )}
+                <><span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" /> Generating...</>
+              ) : "Generate Audio"}
             </button>
           ) : null}
 
-          {/* Preview Mode: Video Player */}
+          {/* Preview */}
           {previewMode && (
-            <div className="space-y-1">
+            <div className="shrink-0 space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">Preview</span>
                 <div className="flex items-center gap-1">
-                  <button onClick={onPrevScene} className="text-xs px-1.5 py-0.5 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400" title="Previous scene">&#9664;</button>
-                  <button onClick={onNextScene} className="text-xs px-1.5 py-0.5 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400" title="Next scene">&#9654;</button>
+                  <button onClick={onPrevScene} className="text-xs px-1.5 py-0.5 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400">&#9664;</button>
+                  <button onClick={onNextScene} className="text-xs px-1.5 py-0.5 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400">&#9654;</button>
                 </div>
               </div>
               {previewVideoUrl ? (
-                <video key={previewVideoUrl} src={assetUrl(previewVideoUrl)} controls autoPlay className="w-full rounded-lg border border-neutral-700 max-h-28" />
-              ) : scene.image_url ? (
-                <div className="relative">
-                  <img src={assetUrl(scene.image_url)} alt="Scene visual" className="w-full rounded-lg border border-neutral-700 opacity-60 max-h-28 object-cover" />
-                  {isPreviewingScene && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  )}
+                <video key={previewVideoUrl} src={assetUrl(previewVideoUrl)} controls autoPlay className="w-full rounded-lg border border-neutral-700 max-h-24" />
+              ) : scene.image_url && isPreviewingScene ? (
+                <div className="flex items-center justify-center py-2">
+                  <span className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : null}
               {scene.image_url && scene.audio_url && onPreviewScene && (
@@ -416,11 +311,10 @@ export default function PropertiesPanel({
             </div>
           )}
 
-          {/* Video Preview (non-preview-mode) */}
           {!previewMode && scene.image_url && scene.audio_url && onPreviewScene && (
-            <div>
+            <div className="shrink-0">
               {previewVideoUrl && (
-                <video key={previewVideoUrl} src={assetUrl(previewVideoUrl)} controls className="w-full rounded-lg border border-neutral-700 max-h-24 mb-1" />
+                <video key={previewVideoUrl} src={assetUrl(previewVideoUrl)} controls className="w-full rounded-lg border border-neutral-700 max-h-20 mb-1" />
               )}
               <button
                 onClick={onPreviewScene}
@@ -429,14 +323,14 @@ export default function PropertiesPanel({
               >
                 {isPreviewingScene ? (
                   <><span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" /> Rendering...</>
-                ) : previewVideoUrl ? "Re-render Preview" : "Preview Scene"}
+                ) : previewVideoUrl ? "Re-render" : "Preview Scene"}
               </button>
             </div>
           )}
 
-          {/* FX Summary — compact */}
+          {/* FX */}
           {scene.fx && (
-            <div className="border border-neutral-800 rounded-lg px-2.5 py-1.5">
+            <div className="shrink-0 border border-neutral-800 rounded-lg px-2.5 py-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">FX</span>
                 <button
@@ -469,13 +363,22 @@ export default function PropertiesPanel({
             </div>
           )}
 
-          {/* Per-frame prompts (only when frames > 1) */}
+          {/* Video clip */}
+          {scene.video_clip_url && (
+            <div className="shrink-0 space-y-1">
+              <span className="text-xs font-medium text-neutral-400">Gameplay Clip</span>
+              <video key={scene.video_clip_url} src={assetUrl(scene.video_clip_url)} controls className="w-full rounded-lg border border-red-700/50 max-h-20" />
+            </div>
+          )}
+
+          {/* Frame prompts — overflow if many */}
           {frameCount > 1 && (
-            <div className="space-y-1 border-t border-neutral-800/40 pt-1">
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-1 border-t border-neutral-800/40 pt-1">
               {framePrompts.slice(0, frameCount).map((fp, i) => (
                 <label key={i} className="block">
                   <span className="text-[10px] font-medium text-neutral-500">Frame {i + 1}</span>
-                  <textarea
+                  <input
+                    type="text"
                     value={fp}
                     onChange={(e) => {
                       const updated = [...framePrompts];
@@ -483,14 +386,65 @@ export default function PropertiesPanel({
                       setFramePrompts(updated);
                     }}
                     onBlur={() => onUpdate({ frame_prompts: framePrompts })}
-                    className="w-full text-xs text-neutral-200 bg-neutral-800/60 rounded p-1.5 border border-violet-700/30 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
-                    rows={1}
+                    className="w-full text-xs text-neutral-200 bg-neutral-800/60 rounded px-1.5 py-1 border border-violet-700/30 focus:outline-none focus:border-violet-500/50"
                     placeholder={`Frame ${i + 1} visual...`}
                   />
                 </label>
               ))}
             </div>
           )}
+        </div>
+
+        {/* Col 3: Image preview — fills full panel height */}
+        <div className="w-72 shrink-0 flex flex-col gap-1 min-h-0">
+          {scene.image_url ? (
+            <>
+              <div className="flex items-center justify-between shrink-0">
+                <span className="text-xs font-medium text-neutral-400">Image</span>
+                {onGenerateImage && (
+                  <button
+                    onClick={() => setConfirmOverwrite("image")}
+                    disabled={isGenerating}
+                    className="text-[10px] text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-40 flex items-center gap-1"
+                  >
+                    {isGenerating ? (
+                      <><span className="w-2.5 h-2.5 border border-emerald-400/50 border-t-transparent rounded-full animate-spin" /> Gen...</>
+                    ) : frameCount > 1 ? `Regen ${frameCount} Frames` : "Regen"}
+                  </button>
+                )}
+              </div>
+              {scene.frame_urls && scene.frame_urls.length > 1 ? (
+                <div className="flex-1 min-h-0 grid grid-cols-2 gap-1 auto-rows-fr">
+                  {scene.frame_urls.map((url, i) => (
+                    <img
+                      key={i}
+                      src={assetUrl(url)}
+                      alt={`Frame ${i + 1}`}
+                      className="w-full h-full object-cover rounded border border-neutral-700 min-h-0"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <img
+                  src={assetUrl(scene.image_url)}
+                  alt="Scene visual"
+                  className="flex-1 min-h-0 w-full object-cover rounded-lg border border-neutral-700"
+                />
+              )}
+            </>
+          ) : onGenerateImage ? (
+            <div className="flex-1 flex items-center justify-center">
+              <button
+                onClick={onGenerateImage}
+                disabled={isGenerating}
+                className="text-sm px-4 py-2 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isGenerating ? (
+                  <><span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" /> Generating...</>
+                ) : frameCount > 1 ? `Generate ${frameCount} Frames` : "Generate Image"}
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
 
