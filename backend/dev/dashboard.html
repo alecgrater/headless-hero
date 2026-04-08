@@ -1202,10 +1202,10 @@ async function executeSqlQuery() {
 // =====================================================
 
 const SERVICE_DISPLAY = {
-  anthropic: { label: 'Anthropic (Claude)', color: 'violet', icon: '🧠' },
-  google_ai: { label: 'Google AI Studio', color: 'sky', icon: '🎨' },
-  replicate: { label: 'Replicate', color: 'amber', icon: '🖼️' },
-  elevenlabs: { label: 'ElevenLabs', color: 'emerald', icon: '🔊' },
+  anthropic: { label: 'Anthropic (Claude)', color: 'violet', icon: '🧠', manageUrl: null },
+  google_ai: { label: 'Google AI Studio', color: 'sky', icon: '🎨', manageUrl: 'https://aistudio.google.com/spend?project=headless-hand' },
+  replicate: { label: 'Replicate', color: 'amber', icon: '🖼️', manageUrl: 'https://replicate.com/users/alecgrater/settings/billing/manage-credit?next=/account/billing' },
+  elevenlabs: { label: 'ElevenLabs', color: 'emerald', icon: '🔊', manageUrl: 'https://elevenlabs.io/app/subscription/creative' },
 };
 
 const SERVICE_COLORS = {
@@ -1260,14 +1260,21 @@ function renderUsageSummary(data) {
       if (svc.total_images > 0) detail += `<div>${svc.total_images} images</div>`;
     }
 
+    const manageBtn = display.manageUrl
+      ? `<a href="${display.manageUrl}" target="_blank" class="text-[10px] px-2 py-0.5 rounded border border-neutral-600 text-neutral-400 hover:text-neutral-200 hover:border-neutral-400 transition-colors cursor-pointer no-underline">Manage Account</a>`
+      : `<span class="text-[10px] px-2 py-0.5 rounded border border-neutral-700 text-neutral-600 cursor-default">Manage Account</span>`;
+
     html += `
-      <div class="border rounded-lg p-4 ${colorCls}">
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-medium">${display.icon} ${display.label}</span>
-          <span class="text-lg font-semibold">$${cost.toFixed(2)}</span>
+      <div class="flex flex-col gap-1">
+        <div class="flex justify-end">${manageBtn}</div>
+        <div class="border rounded-lg p-4 ${colorCls}">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-medium">${display.icon} ${display.label}</span>
+            <span class="text-lg font-semibold">$${cost.toFixed(2)}</span>
+          </div>
+          <div class="text-[10px] opacity-70">${calls} calls</div>
+          <div class="text-[10px] opacity-70 mt-1">${detail || 'No usage'}</div>
         </div>
-        <div class="text-[10px] opacity-70">${calls} calls</div>
-        <div class="text-[10px] opacity-70 mt-1">${detail || 'No usage'}</div>
       </div>`;
   }
   cards.innerHTML = html;
