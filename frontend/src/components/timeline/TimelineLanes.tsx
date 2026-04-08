@@ -11,11 +11,12 @@ interface Props {
   pixelsPerSecond: number;
 }
 
-const LANE_TYPES = ["images", "voiceover", "fx"] as const;
+const LANE_TYPES = ["images", "voiceover", "fx", "eli"] as const;
 const LANE_LABELS: Record<(typeof LANE_TYPES)[number], string> = {
   images: "Images",
   voiceover: "Voiceover",
   fx: "FX",
+  eli: "Eli",
 };
 
 export default function TimelineLanes({

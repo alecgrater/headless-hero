@@ -4,7 +4,7 @@ import type { Scene } from "../../types/script";
 
 interface Props {
   scene: Scene;
-  laneType: "images" | "voiceover" | "fx";
+  laneType: "images" | "voiceover" | "fx" | "eli";
   pixelsPerSecond: number;
   segmentIdx: number;
   isSelected: boolean;
@@ -40,6 +40,7 @@ export default function TimelineBlock({
         {laneType === "images" && <ImageContent scene={scene} />}
         {laneType === "voiceover" && <VoiceoverContent scene={scene} duration={duration} />}
         {laneType === "fx" && <FxContent scene={scene} />}
+        {laneType === "eli" && <EliContent scene={scene} />}
       </div>
     </button>
   );
@@ -118,9 +119,6 @@ function FxContent({ scene }: { scene: Scene }) {
   if (fx.zoom_punch) {
     badges.push("zoom");
   }
-  if (scene.eli_overlay?.enabled) {
-    badges.push("eli");
-  }
 
   if (badges.length === 0) {
     return <span className="text-[10px] text-neutral-600">--</span>;
@@ -137,5 +135,17 @@ function FxContent({ scene }: { scene: Scene }) {
         </span>
       ))}
     </div>
+  );
+}
+
+function EliContent({ scene }: { scene: Scene }) {
+  if (!scene.eli_overlay?.enabled) {
+    return <span className="text-[10px] text-neutral-600">--</span>;
+  }
+
+  return (
+    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
+      eli
+    </span>
   );
 }

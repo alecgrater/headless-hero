@@ -720,10 +720,10 @@ function TimelineEditor({
         </div>
       )}
 
-      {/* Two-panel layout: Timeline + Properties */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Main timeline area */}
-        <div className="flex-1 overflow-auto p-4">
+      {/* Vertical layout: Timeline on top (full width), Properties below */}
+      <div className="flex flex-col flex-1 overflow-hidden">
+        {/* Main timeline area — full width */}
+        <div className="overflow-auto p-4">
           <TimelineLanes
             content={state.content}
             selectedSceneId={state.selectedSceneId}
@@ -732,58 +732,46 @@ function TimelineEditor({
           />
         </div>
 
-        {/* Right panel: Properties */}
-        <div className="flex overflow-hidden">
-          {selectedScene ? (
-            <PropertiesPanel
-              scene={selectedScene.scene}
-              segmentIdx={selectedScene.segIdx}
-              segmentName={selectedScene.segName}
-              scriptId={scriptId}
-              onUpdate={(updates) =>
-                state.updateScene(selectedScene.scene.id, updates)
-              }
-              onGenerateImage={() =>
-                state.generateImage(selectedScene.scene.id)
-              }
-              isGenerating={state.generatingSceneIds.has(selectedScene.scene.id)}
-              onGenerateAudio={() =>
-                tryGenerateAudio(selectedScene.scene.id)
-              }
-              isGeneratingAudio={state.generatingAudioSceneIds.has(selectedScene.scene.id)}
-              onPreviewScene={() =>
-                render.previewScene(selectedScene.scene.id)
-              }
-              isPreviewingScene={render.previewingSceneId === selectedScene.scene.id}
-              previewVideoUrl={render.previewVideoUrl}
-              previewMode={previewMode}
-              onPrevScene={selectPrevScene}
-              onNextScene={selectNextScene}
-              onFetchMedia={() =>
-                state.fetchMedia(selectedScene.scene.id)
-              }
-              isFetchingMedia={state.fetchingMediaSceneIds.has(selectedScene.scene.id)}
-              collapsed={sidebar.rightCollapsed}
-              onToggle={sidebar.toggleRight}
-            />
-          ) : sidebar.rightCollapsed ? (
-            <aside className="w-10 shrink-0 border-l border-neutral-800/60 flex flex-col items-center pt-3">
-              <button
-                onClick={sidebar.toggleRight}
-                className="text-neutral-500 hover:text-neutral-300 text-sm transition-colors"
-                title="Expand properties"
-              >
-                &#x2039;
-              </button>
-            </aside>
-          ) : (
-            <aside className="w-[320px] shrink-0 border-l border-neutral-800/60 p-4 flex items-center justify-center">
-              <p className="text-sm text-neutral-600 text-center">
-                Select a scene to edit its properties
-              </p>
-            </aside>
-          )}
-        </div>
+        {/* Bottom panel: Properties */}
+        {selectedScene ? (
+          <PropertiesPanel
+            scene={selectedScene.scene}
+            segmentIdx={selectedScene.segIdx}
+            segmentName={selectedScene.segName}
+            scriptId={scriptId}
+            onUpdate={(updates) =>
+              state.updateScene(selectedScene.scene.id, updates)
+            }
+            onGenerateImage={() =>
+              state.generateImage(selectedScene.scene.id)
+            }
+            isGenerating={state.generatingSceneIds.has(selectedScene.scene.id)}
+            onGenerateAudio={() =>
+              tryGenerateAudio(selectedScene.scene.id)
+            }
+            isGeneratingAudio={state.generatingAudioSceneIds.has(selectedScene.scene.id)}
+            onPreviewScene={() =>
+              render.previewScene(selectedScene.scene.id)
+            }
+            isPreviewingScene={render.previewingSceneId === selectedScene.scene.id}
+            previewVideoUrl={render.previewVideoUrl}
+            previewMode={previewMode}
+            onPrevScene={selectPrevScene}
+            onNextScene={selectNextScene}
+            onFetchMedia={() =>
+              state.fetchMedia(selectedScene.scene.id)
+            }
+            isFetchingMedia={state.fetchingMediaSceneIds.has(selectedScene.scene.id)}
+            collapsed={sidebar.rightCollapsed}
+            onToggle={sidebar.toggleRight}
+          />
+        ) : sidebar.rightCollapsed ? null : (
+          <div className="shrink-0 border-t border-neutral-800/60 px-4 py-3 flex items-center justify-center">
+            <p className="text-sm text-neutral-600">
+              Select a scene to edit its properties
+            </p>
+          </div>
+        )}
       </div>
 
       {showPreview && (
