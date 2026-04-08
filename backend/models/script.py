@@ -41,6 +41,19 @@ class SceneFX(BaseModel):
     kinetic_captions: KineticCaptionsFX | None = None
     zoom_punch: ZoomPunchFX | None = None
 
+class EliKeyframe(BaseModel):
+    """A keyframe in the Eli animation timeline."""
+    start_frame: int
+    end_frame: int
+    frame_id: str       # matches manifest frame id (e.g., "neutral_standing")
+    transition: str = "cut"  # "cut" | "crossfade"
+    reason: str = ""    # for debugging
+
+class EliOverlay(BaseModel):
+    """Eli character overlay configuration for a scene."""
+    enabled: bool = True
+    keyframes: list[EliKeyframe] = []
+
 class ChapterMarker(BaseModel):
     """A chapter marker for the global progress bar."""
 
@@ -74,6 +87,7 @@ class Scene(BaseModel):
     frame_urls: list[str] = []        # web-relative paths to frame images
     frame_count: int = 0              # desired frame count (1-8), 0 = use legacy single-image
     fx: dict | None = None             # SceneFX dict — assigned by FX generator, used by Remotion
+    eli_overlay: dict | None = None    # EliOverlay dict — Eli character animation keyframes
 
 class Segment(BaseModel):
     """A named segment (e.g. "Caffeine") containing multiple scenes."""

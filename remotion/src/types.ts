@@ -44,6 +44,25 @@ export interface SceneFX {
   zoom_punch?: ZoomPunchFX | null;
 }
 
+export interface WordTimestamp {
+  word: string;
+  start_ms: number;
+  end_ms: number;
+}
+
+export interface EliKeyframe {
+  start_frame: number;
+  end_frame: number;
+  frame_id: string;
+  transition: "cut" | "crossfade";
+  reason: string;
+}
+
+export interface EliOverlay {
+  enabled: boolean;
+  keyframes: EliKeyframe[];
+}
+
 export interface ChapterMarker {
   segment_index: number;
   label: string;
@@ -86,6 +105,11 @@ export interface SceneInput {
 
   // FX (new system)
   fx?: SceneFX | null;
+
+  // Eli character overlay
+  eli_overlay?: EliOverlay | null;
+  word_timestamps?: WordTimestamp[] | null;
+  character_frames_base_url?: string | null;
 }
 
 export interface SegmentInput {

@@ -21,6 +21,19 @@ export interface SceneFX {
   zoom_punch?: ZoomPunchFX | null;
 }
 
+export interface EliKeyframe {
+  start_frame: number;
+  end_frame: number;
+  frame_id: string;
+  transition: "cut" | "crossfade";
+  reason: string;
+}
+
+export interface EliOverlay {
+  enabled: boolean;
+  keyframes: EliKeyframe[];
+}
+
 export interface ChapterMarker {
   segment_index: number;
   label: string;
@@ -48,6 +61,7 @@ export interface Scene {
   frame_urls?: string[];
   frame_count?: number;
   fx?: SceneFX | null;
+  eli_overlay?: EliOverlay | null;
 }
 
 export interface Segment {
