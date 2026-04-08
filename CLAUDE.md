@@ -205,10 +205,16 @@ All video output is 1920x1080 YouTube format.
 "Eli" is a recurring animated host character overlaid on videos, like a Twitch streamer's webcam box in the corner. Character design spec lives in `backend/prompts/character.md`.
 
 ### Frame Library
-Pre-generated library of ~50 character frames (25 pose/expression combos × 2 mouth states). Stored in `data/character/frames/` with a `manifest.json`. Generated via Gemini with reference image chaining for consistency. Background removal via `rembg`.
+Pre-generated library of ~150 character frames (150 pose/expression combos × 2 mouth states = ~300 total). Stored in `data/character/frames/` with a `manifest.json`. Generated via Gemini with reference image chaining for consistency. Background removal via `rembg`. **Chest-up framing** — head in upper third, shoulders and upper chest visible, cut off below chest (Twitch streamer webcam style).
 
-- `backend/pipeline/character_frames.py` — Frame generation pipeline
-- `backend/api/character.py` — `POST /api/character/generate-frames`, `GET /api/character/frames`, `GET /api/character/status/{job_id}`, `POST /api/character/regenerate-frame`
+#### Reference Selection Workflow
+Two-step process in Settings → Character:
+1. Generate 15 reference candidate images with subtle style variations (stored in `data/character/references/`)
+2. Select one as the canonical reference → copied to `data/character/frames/selected_reference.png`
+3. All frame generation and regeneration uses the selected reference for consistency
+
+- `backend/pipeline/character_frames.py` — Frame generation pipeline + reference candidate generation/selection
+- `backend/api/character.py` — `POST /api/character/generate-references`, `GET /api/character/references`, `POST /api/character/select-reference`, `POST /api/character/generate-frames`, `GET /api/character/frames`, `GET /api/character/status/{job_id}`, `POST /api/character/regenerate-frame`
 - Settings UI: `frontend/src/components/settings/CharacterSection.tsx`
 
 ### Animation Documents

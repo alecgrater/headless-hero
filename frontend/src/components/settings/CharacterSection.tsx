@@ -2,9 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import {
   assetUrl,
   generateCharacterFrames,
+  generateCharacterReferences,
   getCharacterFrames,
+  getCharacterReferences,
   getCharacterStatus,
   regenerateCharacterFrame,
+  selectCharacterReference,
 } from "../../api";
 
 interface FrameEntry {
@@ -23,10 +26,18 @@ interface Manifest {
 }
 
 export default function CharacterSection() {
+  // Reference state
+  const [references, setReferences] = useState<string[]>([]);
+  const [selectedRef, setSelectedRef] = useState<string | null>(null);
+  const [pendingRef, setPendingRef] = useState<string | null>(null);
+  const [refJobId, setRefJobId] = useState<string | null>(null);
+  const [refProgress, setRefProgress] = useState({ completed: 0, total: 15, current_label: "" });
+
+  // Frame state
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [loading, setLoading] = useState(true);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [progress, setProgress] = useState({ completed: 0, total: 0, current_label: "" });
+  const [frameJobId, setFrameJobId] = useState<string | null>(null);
+  const [frameProgress, setFrameProgress] = useState({ completed: 0, total: 0, current_label: "" });
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
   const fetchManifest = useCallback(async () => {
@@ -37,39 +48,66 @@ export default function CharacterSection() {
     setLoading(false);
   }, []);
 
+  const fetchReferences = useCallback(async () => {
+    const data = await getCharacterReferences();
+    setReferences(data.references);
+    setSelectedRef(data.selected);
+  }, []);
+
   useEffect(() => {
     fetchManifest();
-  }, [fetchManifest]);
+    fetchReferences();
+  }, [fetchManifest, fetchReferences]);
 
-  // Poll job status
+  // Poll reference generation job
   useEffect(() => {
-    if (!jobId) return;
+    if (!refJobId) return;
     const interval = setInterval(async () => {
-      const res = await getCharacterStatus(jobId);
+      const res = await getCharacterStatus(refJobId);
       if (!res.ok) return;
-      const status = res.data as {
-        status: string;
-        completed: number;
-        total: number;
-        current_label: string;
-      };
-      setProgress({
-        completed: status.completed,
-        total: status.total,
-        current_label: status.current_label,
-      });
+      const status = res.data as { status: string; completed: number; total: number; current_label: string };
+      setRefProgress({ completed: status.completed, total: status.total, current_label: status.current_label });
       if (status.status === "completed" || status.status === "failed") {
-        setJobId(null);
+        setRefJobId(null);
+        fetchReferences();
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [refJobId, fetchReferences]);
+
+  // Poll frame generation job
+  useEffect(() => {
+    if (!frameJobId) return;
+    const interval = setInterval(async () => {
+      const res = await getCharacterStatus(frameJobId);
+      if (!res.ok) return;
+      const status = res.data as { status: string; completed: number; total: number; current_label: string };
+      setFrameProgress({ completed: status.completed, total: status.total, current_label: status.current_label });
+      if (status.status === "completed" || status.status === "failed") {
+        setFrameJobId(null);
         fetchManifest();
       }
     }, 2000);
     return () => clearInterval(interval);
-  }, [jobId, fetchManifest]);
+  }, [frameJobId, fetchManifest]);
 
-  const handleGenerate = async () => {
+  const handleGenerateReferences = async () => {
+    const result = await generateCharacterReferences();
+    setRefJobId(result.job_id);
+    setRefProgress({ completed: 0, total: 15, current_label: "Starting..." });
+  };
+
+  const handleSelectReference = async () => {
+    if (!pendingRef) return;
+    const result = await selectCharacterReference(pendingRef);
+    setSelectedRef(result.selected);
+    setPendingRef(null);
+  };
+
+  const handleGenerateFrames = async () => {
     const result = await generateCharacterFrames();
-    setJobId(result.job_id);
-    setProgress({ completed: 0, total: 50, current_label: "Starting..." });
+    setFrameJobId(result.job_id);
+    setFrameProgress({ completed: 0, total: 300, current_label: "Starting..." });
   };
 
   const handleRegenerate = async (frameId: string) => {
@@ -80,8 +118,11 @@ export default function CharacterSection() {
   };
 
   const frameCount = manifest?.frames?.length ?? 0;
-  const isGenerating = !!jobId;
-  const pct = progress.total > 0 ? progress.completed / progress.total : 0;
+  const isGeneratingRefs = !!refJobId;
+  const isGeneratingFrames = !!frameJobId;
+  const refPct = refProgress.total > 0 ? refProgress.completed / refProgress.total : 0;
+  const framePct = frameProgress.total > 0 ? frameProgress.completed / frameProgress.total : 0;
+  const hasSelectedRef = !!selectedRef;
 
   // Group frames by expression
   const grouped = (manifest?.frames ?? []).reduce(
@@ -103,97 +144,217 @@ export default function CharacterSection() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-8">
       <div>
         <h2 className="text-lg font-semibold text-neutral-100">Eli Character Frames</h2>
         <p className="text-sm text-neutral-400 mt-1">
-          Pre-generated character overlay frames for video rendering. Each pose has open and closed mouth variants.
+          Two-step process: first select a reference style, then generate all pose frames from it.
         </p>
       </div>
 
-      {/* Status + Actions */}
-      <div className="flex items-center gap-4">
-        <div className="text-sm text-neutral-300">
-          {frameCount > 0 ? (
-            <span className="text-emerald-400">{frameCount * 2} frames generated</span>
-          ) : (
-            <span className="text-neutral-500">No frames generated yet</span>
+      {/* ===== SECTION 1: Reference Image ===== */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <h3 className="text-sm font-semibold text-neutral-200 uppercase tracking-wider">
+            Step 1: Reference Image
+          </h3>
+          {hasSelectedRef && (
+            <span className="text-xs px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-full">
+              Selected
+            </span>
           )}
         </div>
 
-        <div className="flex gap-2">
+        {/* Selected reference display */}
+        {hasSelectedRef && !isGeneratingRefs && (
+          <div className="flex items-start gap-4">
+            <div className="relative w-32 shrink-0">
+              <img
+                src={assetUrl(`/static/character/references/${selectedRef}`)}
+                alt="Selected reference"
+                className="w-full rounded-lg border-2 border-emerald-500/50"
+              />
+              <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 pt-1">
+              <span className="text-xs text-neutral-400">Current reference: {selectedRef}</span>
+              <button
+                onClick={handleGenerateReferences}
+                disabled={isGeneratingRefs}
+                className="text-xs px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-neutral-300 transition-colors w-fit"
+              >
+                Change Reference
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Generate references button (when none exist) */}
+        {!hasSelectedRef && references.length === 0 && !isGeneratingRefs && (
           <button
-            onClick={handleGenerate}
-            disabled={isGenerating}
+            onClick={handleGenerateReferences}
+            disabled={isGeneratingRefs}
             className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
           >
-            {isGenerating ? "Generating..." : frameCount > 0 ? "Regenerate All" : "Generate Frames"}
+            Generate Reference Images
           </button>
-        </div>
+        )}
+
+        {/* Progress bar for reference generation */}
+        {isGeneratingRefs && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 text-xs text-neutral-300">
+              <span className="w-3 h-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+              <span>{refProgress.completed} / {refProgress.total} candidates</span>
+              <span className="text-neutral-500">{refProgress.current_label}</span>
+            </div>
+            <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-violet-500 rounded-full transition-all duration-300"
+                style={{ width: `${refPct * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Reference candidate grid */}
+        {references.length > 0 && !hasSelectedRef && !isGeneratingRefs && (
+          <div className="space-y-3">
+            <p className="text-xs text-neutral-400">
+              Click to select a reference style, then confirm with "Use This Reference".
+            </p>
+            <div className="grid grid-cols-5 gap-3">
+              {references.map((ref) => (
+                <button
+                  key={ref}
+                  onClick={() => setPendingRef(ref)}
+                  className={`relative rounded-lg overflow-hidden border-2 transition-all ${
+                    pendingRef === ref
+                      ? "border-violet-500 ring-2 ring-violet-500/30 scale-[1.02]"
+                      : "border-neutral-700/50 hover:border-neutral-500"
+                  }`}
+                >
+                  <img
+                    src={assetUrl(`/static/character/references/${ref}`)}
+                    alt={ref}
+                    className="w-full aspect-video object-cover"
+                  />
+                  {pendingRef === ref && (
+                    <div className="absolute inset-0 bg-violet-500/10" />
+                  )}
+                  <div className="px-1.5 py-1 text-[9px] text-neutral-500 truncate">{ref}</div>
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSelectReference}
+                disabled={!pendingRef}
+                className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
+              >
+                Use This Reference
+              </button>
+              <button
+                onClick={handleGenerateReferences}
+                className="text-sm px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-neutral-300 transition-colors"
+              >
+                Regenerate Candidates
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Progress bar */}
-      {isGenerating && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-3 text-xs text-neutral-300">
-            <span className="w-3 h-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-            <span>
-              {progress.completed} / {progress.total} frames
-            </span>
-            <span className="text-neutral-500">{progress.current_label}</span>
-          </div>
-          <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-violet-500 rounded-full transition-all duration-300"
-              style={{ width: `${pct * 100}%` }}
-            />
-          </div>
-        </div>
-      )}
+      {/* ===== SECTION 2: Frame Library ===== */}
+      <div className={`space-y-4 ${!hasSelectedRef ? "opacity-40 pointer-events-none" : ""}`}>
+        <h3 className="text-sm font-semibold text-neutral-200 uppercase tracking-wider">
+          Step 2: Frame Library
+        </h3>
 
-      {/* Frame grid grouped by expression */}
-      {Object.entries(grouped).map(([expression, frames]) => (
-        <div key={expression}>
-          <h3 className="text-sm font-medium text-neutral-300 mb-2 capitalize">{expression}</h3>
-          <div className="grid grid-cols-4 gap-3">
-            {frames.map((frame) => (
-              <div
-                key={frame.id}
-                className="group relative bg-neutral-800 rounded-lg overflow-hidden border border-neutral-700/50 hover:border-neutral-600 transition-colors"
-              >
-                <div className="flex">
-                  <img
-                    src={assetUrl(`/static/character/frames/${frame.file_closed}`)}
-                    alt={`${frame.id} closed`}
-                    className="w-1/2 aspect-square object-cover"
-                  />
-                  <img
-                    src={assetUrl(`/static/character/frames/${frame.file_open}`)}
-                    alt={`${frame.id} open`}
-                    className="w-1/2 aspect-square object-cover"
-                  />
-                </div>
-                <div className="px-2 py-1.5">
-                  <div className="text-[10px] text-neutral-400 truncate">{frame.pose}</div>
-                  {frame.gesture !== "none" && (
-                    <div className="text-[9px] text-neutral-500">{frame.gesture}</div>
-                  )}
-                </div>
-                {/* Regenerate overlay */}
-                <button
-                  onClick={() => handleRegenerate(frame.id)}
-                  disabled={regeneratingId === frame.id}
-                  className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <span className="text-xs text-neutral-200 font-medium">
-                    {regeneratingId === frame.id ? "Regenerating..." : "Regenerate"}
-                  </span>
-                </button>
-              </div>
-            ))}
+        {/* Status + Actions */}
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-neutral-300">
+            {frameCount > 0 ? (
+              <span className="text-emerald-400">{frameCount * 2} frames generated</span>
+            ) : (
+              <span className="text-neutral-500">No frames generated yet</span>
+            )}
           </div>
+
+          <button
+            onClick={handleGenerateFrames}
+            disabled={isGeneratingFrames || !hasSelectedRef}
+            className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
+          >
+            {isGeneratingFrames ? "Generating..." : frameCount > 0 ? "Regenerate All" : "Generate All Frames"}
+          </button>
         </div>
-      ))}
+
+        {/* Progress bar for frame generation */}
+        {isGeneratingFrames && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 text-xs text-neutral-300">
+              <span className="w-3 h-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+              <span>{frameProgress.completed} / {frameProgress.total} frames</span>
+              <span className="text-neutral-500">{frameProgress.current_label}</span>
+            </div>
+            <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-violet-500 rounded-full transition-all duration-300"
+                style={{ width: `${framePct * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Frame grid grouped by expression */}
+        {Object.entries(grouped).map(([expression, frames]) => (
+          <div key={expression}>
+            <h3 className="text-sm font-medium text-neutral-300 mb-2 capitalize">{expression}</h3>
+            <div className="grid grid-cols-4 gap-3">
+              {frames.map((frame) => (
+                <div
+                  key={frame.id}
+                  className="group relative bg-neutral-800 rounded-lg overflow-hidden border border-neutral-700/50 hover:border-neutral-600 transition-colors"
+                >
+                  <div className="flex">
+                    <img
+                      src={assetUrl(`/static/character/frames/${frame.file_closed}`)}
+                      alt={`${frame.id} closed`}
+                      className="w-1/2 aspect-square object-cover"
+                    />
+                    <img
+                      src={assetUrl(`/static/character/frames/${frame.file_open}`)}
+                      alt={`${frame.id} open`}
+                      className="w-1/2 aspect-square object-cover"
+                    />
+                  </div>
+                  <div className="px-2 py-1.5">
+                    <div className="text-[10px] text-neutral-400 truncate">{frame.pose}</div>
+                    {frame.gesture !== "none" && (
+                      <div className="text-[9px] text-neutral-500">{frame.gesture}</div>
+                    )}
+                  </div>
+                  {/* Regenerate overlay */}
+                  <button
+                    onClick={() => handleRegenerate(frame.id)}
+                    disabled={regeneratingId === frame.id}
+                    className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <span className="text-xs text-neutral-200 font-medium">
+                      {regeneratingId === frame.id ? "Regenerating..." : "Regenerate"}
+                    </span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

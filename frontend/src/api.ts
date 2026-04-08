@@ -175,9 +175,28 @@ export function openInBrowser(url: string): void {
   }
 }
 
+/** Generate reference candidate images for character style selection. */
+export async function generateCharacterReferences(): Promise<{ job_id: string }> {
+  const res = await api.post("/api/character/generate-references");
+  return res.data as { job_id: string };
+}
+
+/** Get list of reference candidates and which is selected. */
+export async function getCharacterReferences(): Promise<{ references: string[]; selected: string | null }> {
+  const res = await api.get("/api/character/references");
+  return res.data as { references: string[]; selected: string | null };
+}
+
+/** Select a reference candidate as the canonical reference. */
+export async function selectCharacterReference(filename: string): Promise<{ selected: string; path: string }> {
+  const res = await api.post("/api/character/select-reference", { filename });
+  return res.data as { selected: string; path: string };
+}
+
 /** Start generating the Eli character frame library. */
-export async function generateCharacterFrames(): Promise<{ job_id: string }> {
-  const res = await api.post("/api/character/generate-frames");
+export async function generateCharacterFrames(referencePath?: string): Promise<{ job_id: string }> {
+  const body = referencePath ? { reference_path: referencePath } : undefined;
+  const res = await api.post("/api/character/generate-frames", body);
   return res.data as { job_id: string };
 }
 
