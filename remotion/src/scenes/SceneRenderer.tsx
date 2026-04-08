@@ -13,6 +13,7 @@ import { VideoClipScene } from "./VideoClipScene";
 
 import { ZoomPunch } from "../effects/camera/ZoomPunch";
 import { KineticCaption } from "../effects/typography/KineticCaption";
+import { EliOverlay } from "../effects/overlays/EliOverlay";
 
 interface Props {
   scene: SceneInput;
@@ -52,6 +53,15 @@ export const SceneRenderer: React.FC<Props> = ({ scene }) => {
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
       {/* Visual layer (possibly wrapped in ZoomPunch) */}
       {visualLayer}
+
+      {/* Eli character overlay */}
+      {scene.eli_overlay?.enabled && scene.eli_overlay.keyframes.length > 0 && scene.character_frames_base_url && (
+        <EliOverlay
+          overlay={scene.eli_overlay}
+          wordTimestamps={scene.word_timestamps}
+          characterFramesBaseUrl={scene.character_frames_base_url}
+        />
+      )}
 
       {/* Kinetic caption overlay */}
       {fx?.kinetic_captions?.words && fx.kinetic_captions.words.length > 0 && (

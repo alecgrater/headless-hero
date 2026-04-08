@@ -148,6 +148,9 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
         "video_clip_path": clip_path,
         "title_card_zoom_target": scene.title_card_zoom_target,
         "fx": fx,
+        "eli_overlay": scene.eli_overlay,
+        "word_timestamps": scene.word_timestamps,
+        "character_frames_base_url": "http://localhost:8420/static/character/frames",
     }
 
 
