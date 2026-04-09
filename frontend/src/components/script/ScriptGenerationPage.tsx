@@ -6,7 +6,10 @@ import type {
   Scene,
   ScriptContent,
 } from "../../types/script";
+import { SCRIPT_MODELS } from "../settings/GeneralSection";
 import GenerationProgressBar from "../GenerationProgressBar";
+
+const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 
 interface Props {
   brandId: string;
@@ -23,11 +26,17 @@ export default function ScriptGenerationPage({
 }: Props) {
   const [script, setScript] = useState<ScriptContent | null>(null);
   const [scriptId, setScriptId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Pre-generation options
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
+  const [segmented, setSegmented] = useState(false);
+  const [generationStarted, setGenerationStarted] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+
   // Editing state
-  const [editingKey, setEditingKey] = useState<string | null>(null); // "si-sceneId" or "intro" or "outro"
+  const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editNarration, setEditNarration] = useState("");
   const [editOverlay, setEditOverlay] = useState("");
   const [editHookText, setEditHookText] = useState("");
@@ -45,79 +54,92 @@ export default function ScriptGenerationPage({
   const [titleCardTotal, setTitleCardTotal] = useState(0);
   const titleCardPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const hasStarted = useRef(false);
-
+  // Load default model from settings
   useEffect(() => {
-    if (hasStarted.current) return;
-    hasStarted.current = true;
-
-    let cancelled = false;
-
-    const generate = async () => {
-      setLoading(true);
-      setError(null);
-      fetchGenerationEstimate("script_generation_youtube")
-        .then((est) => setEstimatedSeconds(est.average_seconds))
-        .catch(() => setEstimatedSeconds(null));
-      let succeeded = false;
-      try {
-        const res = await api.post("/api/scripts/generate", {
-          topic: idea.title,
-          description: idea.description,
-          brand_id: brandId,
-          segment_count: idea.segments_est > 0 ? idea.segments_est : undefined,
-          animated_scene_count: 5,
-        });
-        if (cancelled) return;
-        if (res.ok) {
-          const data = res.data as GenerateScriptResponse;
-          setScript(data.script);
-          setScriptId(data.id);
-          succeeded = true;
-        } else {
-          console.error("[ScriptGeneration] API error:", res.status, res.data);
-          const detail =
-            res.data && typeof res.data === "object" && "detail" in res.data
-              ? (res.data as { detail: string }).detail
-              : undefined;
-          setError(detail ?? "Failed to generate script");
+    api.get("/api/settings/keys").then((res) => {
+      if (res.ok) {
+        const data = res.data as Record<string, { masked: string }>;
+        const saved = data?.SCRIPT_MODEL?.masked;
+        if (saved) {
+          setSelectedModel(saved);
+          if (saved !== DEFAULT_MODEL) {
+            setSegmented(true);
+          }
         }
-      } catch (err) {
-        console.error("[ScriptGeneration] Request failed:", err);
-        if (!cancelled) setError("Could not reach the backend. Is it running?");
-      } finally {
-        if (!cancelled) setLoading(false);
       }
+      setSettingsLoaded(true);
+    }).catch(() => setSettingsLoaded(true));
+  }, []);
 
-      // Recovery: if the request failed, check if the script was actually created on the backend
-      if (!cancelled && !succeeded) {
-        try {
-          const listRes = await api.get("/api/scripts");
-          if (listRes.ok) {
-            const scripts = listRes.data as Array<{ id: string; topic_title: string }>;
-            const match = scripts.find((s) => s.topic_title === idea.title);
-            if (match) {
-              const fullRes = await api.get(`/api/scripts/${match.id}`);
-              if (fullRes.ok) {
-                const data = fullRes.data as { id: string; script: ScriptContent };
-                setScript(data.script);
-                setScriptId(data.id);
-                setError(null);
-                console.info("[ScriptGeneration] Recovered script from backend:", match.id);
-              }
+  const handleModelChange = (value: string) => {
+    setSelectedModel(value);
+    if (value !== DEFAULT_MODEL) {
+      setSegmented(true);
+    }
+  };
+
+  const handleGenerate = async () => {
+    setGenerationStarted(true);
+    setLoading(true);
+    setError(null);
+    fetchGenerationEstimate("script_generation_youtube")
+      .then((est) => setEstimatedSeconds(est.average_seconds))
+      .catch(() => setEstimatedSeconds(null));
+
+    let succeeded = false;
+    try {
+      const res = await api.post("/api/scripts/generate", {
+        topic: idea.title,
+        description: idea.description,
+        brand_id: brandId,
+        segment_count: idea.segments_est > 0 ? idea.segments_est : undefined,
+        animated_scene_count: 5,
+        model: selectedModel !== DEFAULT_MODEL ? selectedModel : undefined,
+        segmented,
+      });
+      if (res.ok) {
+        const data = res.data as GenerateScriptResponse;
+        setScript(data.script);
+        setScriptId(data.id);
+        succeeded = true;
+      } else {
+        console.error("[ScriptGeneration] API error:", res.status, res.data);
+        const detail =
+          res.data && typeof res.data === "object" && "detail" in res.data
+            ? (res.data as { detail: string }).detail
+            : undefined;
+        setError(detail ?? "Failed to generate script");
+      }
+    } catch (err) {
+      console.error("[ScriptGeneration] Request failed:", err);
+      setError("Could not reach the backend. Is it running?");
+    } finally {
+      setLoading(false);
+    }
+
+    // Recovery: if the request failed, check if the script was actually created on the backend
+    if (!succeeded) {
+      try {
+        const listRes = await api.get("/api/scripts");
+        if (listRes.ok) {
+          const scripts = listRes.data as Array<{ id: string; topic_title: string }>;
+          const match = scripts.find((s) => s.topic_title === idea.title);
+          if (match) {
+            const fullRes = await api.get(`/api/scripts/${match.id}`);
+            if (fullRes.ok) {
+              const data = fullRes.data as { id: string; script: ScriptContent };
+              setScript(data.script);
+              setScriptId(data.id);
+              setError(null);
+              console.info("[ScriptGeneration] Recovered script from backend:", match.id);
             }
           }
-        } catch {
-          // Recovery failed — keep showing the original error
         }
+      } catch {
+        // Recovery failed — keep showing the original error
       }
-    };
-
-    generate();
-    return () => {
-      cancelled = true;
-    };
-  }, [brandId, idea.title, idea.description, idea.segments_est]);
+    }
+  };
 
   const saveScript = async (updated: ScriptContent) => {
     if (!scriptId) return;
@@ -314,6 +336,62 @@ export default function ScriptGenerationPage({
         </div>
         <p className="text-sm text-neutral-400">{idea.description}</p>
       </div>
+
+      {/* Pre-generation options */}
+      {!generationStarted && settingsLoaded && (
+        <div className="rounded-lg border border-neutral-800 bg-neutral-900 px-6 py-5 space-y-5">
+          <h3 className="text-sm font-semibold text-neutral-200 uppercase tracking-wider">
+            Generation Options
+          </h3>
+
+          <div className="grid grid-cols-2 gap-6">
+            {/* Model dropdown */}
+            <div>
+              <label className="block text-xs text-neutral-500 mb-1.5">
+                Script Model
+              </label>
+              <select
+                value={selectedModel}
+                onChange={(e) => handleModelChange(e.target.value)}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-violet-500 transition-colors"
+              >
+                {SCRIPT_MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Segmented generation checkbox */}
+            <div className="flex items-end pb-1">
+              <label className="flex items-center gap-2.5 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={segmented}
+                  onChange={(e) => setSegmented(e.target.checked)}
+                  className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-violet-500 focus:ring-violet-500 focus:ring-offset-0"
+                />
+                <div>
+                  <span className="text-sm text-neutral-200 group-hover:text-neutral-100 transition-colors">
+                    Segmented generation
+                  </span>
+                  <p className="text-xs text-neutral-500">
+                    Generates each segment individually — better for advanced models
+                  </p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <button
+            onClick={handleGenerate}
+            className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
+          >
+            Generate Script
+          </button>
+        </div>
+      )}
 
       {/* Loading state */}
       {loading && (

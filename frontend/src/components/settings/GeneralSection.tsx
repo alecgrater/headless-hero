@@ -36,7 +36,7 @@ const REPLICATE_MODELS = [
   { value: "black-forest-labs/flux-schnell", label: "Flux Schnell", description: "Fastest, lowest cost" },
 ] as const;
 
-const SCRIPT_MODELS = [
+export const SCRIPT_MODELS = [
   { value: "claude-sonnet-4-20250514", label: "Claude Sonnet 4" },
   { value: "anthropic.claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
   { value: "anthropic.claude-opus-4-6-v1", label: "Claude Opus 4.6" },

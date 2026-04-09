@@ -134,6 +134,8 @@ class GenerateScriptRequest(BaseModel):
     animated_scene_count: int = PydanticField(
         default=5, ge=0, le=50, description="Number of scenes to make animated A/B flip (0 = none)"
     )
+    model: str | None = PydanticField(default=None, description="Override SCRIPT_MODEL setting for this request")
+    segmented: bool = PydanticField(default=False, description="Use two-phase segmented generation (one API call per segment)")
 
 class GenerateScriptResponse(BaseModel):
     id: str

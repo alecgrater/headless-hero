@@ -152,6 +152,8 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
         animated_scene_count=body.animated_scene_count,
         modifier_ids=[],
         brand=brand_dict,
+        model=body.model,
+        segmented=body.segmented,
     )
     duration = time.monotonic() - t0
     session.add(GenerationDuration(operation_type="script_generation_youtube", duration_seconds=duration))
