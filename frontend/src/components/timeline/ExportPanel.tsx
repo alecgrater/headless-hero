@@ -290,11 +290,14 @@ export default function ExportPanel({
                   {thumbnails.map((t) => (
                     <div key={t.idx} className="space-y-1">
                       {t.image_url ? (
-                        <img
-                          src={assetUrl(t.image_url)}
-                          alt={t.title_text}
-                          className="w-full aspect-video object-cover rounded-lg border border-neutral-700 cursor-pointer hover:border-violet-500 transition-colors"
-                        />
+                        <>
+                          <img
+                            src={assetUrl(t.image_url)}
+                            alt={t.title_text}
+                            className="w-full aspect-video object-cover rounded-lg border border-neutral-700 cursor-pointer hover:border-violet-500 transition-colors"
+                          />
+                          <DownloadButton url={t.image_url} label="Download" />
+                        </>
                       ) : t.error ? (
                         <div className="w-full aspect-video bg-red-500/10 rounded-lg flex items-center justify-center text-xs text-red-400 p-2">
                           Error: {t.error}

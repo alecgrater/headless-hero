@@ -64,6 +64,21 @@ export function useRenderState(scriptId: string, title: string): RenderState {
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Auto-load existing thumbnails on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.get(`/api/thumbnail/${scriptId}`);
+        if (res.ok) {
+          const data = res.data as GenerateThumbnailResponse;
+          if (data.concepts.length > 0) setThumbnails(data.concepts);
+        }
+      } catch {
+        // ignore — thumbnails are optional
+      }
+    })();
+  }, [scriptId]);
+
   // Polling for background jobs
   const pollJob = useCallback(
     (

@@ -31,6 +31,25 @@ class ThumbnailConceptResult(BaseModel):
 class GenerateThumbnailResponse(BaseModel):
     concepts: list[ThumbnailConceptResult]
 
+@router.get("/{script_id}", response_model=GenerateThumbnailResponse)
+def get_existing_thumbnails(script_id: str, session: Session = Depends(get_session)):
+    """Return any pre-existing thumbnails on disk (e.g. from title card generation)."""
+    record = session.get(Script, script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    content = ScriptContent.model_validate(json.loads(record.script_json))
+    composite_url = get_composite_thumbnail(script_id)
+    if composite_url:
+        return GenerateThumbnailResponse(concepts=[ThumbnailConceptResult(
+            idx=0,
+            title_text=content.card_title or content.title,
+            visual_description="Composite grid title card (auto-generated from segments)",
+            image_url=composite_url,
+        )])
+    return GenerateThumbnailResponse(concepts=[])
+
+
 @router.post("/generate", response_model=GenerateThumbnailResponse)
 def generate_thumbnails(body: GenerateThumbnailRequest, session: Session = Depends(get_session)):
     """Generate thumbnail concepts via Claude, render them via Gemini + FFmpeg."""
