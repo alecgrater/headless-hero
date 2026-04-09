@@ -12,7 +12,7 @@ import { TitleCardScene } from "./TitleCardScene";
 import { VideoClipScene } from "./VideoClipScene";
 
 import { ZoomPunch } from "../effects/camera/ZoomPunch";
-import { KineticCaption } from "../effects/typography/KineticCaption";
+import { CaptionOverlay } from "../effects/typography/KineticCaption";
 import { EliOverlay } from "../effects/overlays/EliOverlay";
 
 interface Props {
@@ -63,9 +63,14 @@ export const SceneRenderer: React.FC<Props> = ({ scene }) => {
         />
       )}
 
-      {/* Kinetic caption overlay */}
-      {fx?.kinetic_captions?.words && fx.kinetic_captions.words.length > 0 && (
-        <KineticCaption words={fx.kinetic_captions.words} />
+      {/* Caption overlay — base subtitles + kinetic emphasis */}
+      {!scene.is_title_card && (
+        (fx?.kinetic_captions?.words?.length ?? 0) > 0 || (scene.word_timestamps?.length ?? 0) > 0
+      ) && (
+        <CaptionOverlay
+          words={fx?.kinetic_captions?.words ?? []}
+          wordTimestamps={scene.word_timestamps}
+        />
       )}
 
       {/* Audio layer — narration voiceover */}
