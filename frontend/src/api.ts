@@ -205,6 +205,12 @@ export async function getCharacterFrames() {
   return api.get("/api/character/frames");
 }
 
+/** Start generating only missing Eli character frames. */
+export async function generateMissingCharacterFrames(): Promise<{ job_id: string }> {
+  const res = await api.post("/api/character/generate-missing");
+  return res.data as { job_id: string };
+}
+
 /** Delete all character frames, references, and manifest. */
 export async function clearAllCharacterFrames(): Promise<{ deleted_frames: number; deleted_references: number }> {
   const res = await api.delete("/api/character/clear-all");

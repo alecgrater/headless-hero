@@ -9,7 +9,9 @@ from pydantic import BaseModel
 
 from pipeline.character_frames import (
     clear_all_frames,
+    count_missing_frames,
     generate_frame_library,
+    generate_missing_frames,
     generate_reference_candidates,
     get_manifest,
     get_reference_candidates,
@@ -169,7 +171,46 @@ def get_job_status(job_id: str):
 def get_frames():
     """Return the frame manifest (or empty dict if not generated)."""
     manifest = get_manifest()
-    return manifest or {"frames": [], "canonical_frame": None, "generated_at": None}
+    result = manifest or {"frames": [], "canonical_frame": None, "generated_at": None}
+    result["missing_count"] = count_missing_frames()
+    return result
+
+
+@router.post("/generate-missing", response_model=GenerateFramesResponse)
+def start_generate_missing():
+    """Trigger background generation of only missing frames."""
+    for job in _jobs.values():
+        if job["status"] == "running" and job.get("type") == "frames":
+            raise HTTPException(status_code=409, detail="Frame generation already in progress")
+
+    job_id = uuid.uuid4().hex[:8]
+    _jobs[job_id] = {
+        "type": "frames",
+        "status": "running",
+        "completed": 0,
+        "total": 0,
+        "current_label": "",
+        "error": None,
+    }
+
+    def run():
+        def on_progress(completed: int, total: int, label: str):
+            _jobs[job_id]["completed"] = completed
+            _jobs[job_id]["total"] = total
+            _jobs[job_id]["current_label"] = label
+
+        try:
+            generate_missing_frames(on_progress=on_progress)
+            _jobs[job_id]["status"] = "completed"
+        except Exception as e:
+            logger.error("Missing frame generation failed", exc_info=True)
+            _jobs[job_id]["status"] = "failed"
+            _jobs[job_id]["error"] = str(e)
+
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+
+    return GenerateFramesResponse(job_id=job_id)
 
 
 @router.post("/regenerate-frame")

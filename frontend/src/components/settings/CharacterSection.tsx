@@ -4,6 +4,7 @@ import {
   clearAllCharacterFrames,
   generateCharacterFrames,
   generateCharacterReferences,
+  generateMissingCharacterFrames,
   getCharacterFrames,
   getCharacterReferences,
   getCharacterStatus,
@@ -24,6 +25,7 @@ interface Manifest {
   canonical_frame: string | null;
   generated_at: string | null;
   frames: FrameEntry[];
+  missing_count: number;
 }
 
 export default function CharacterSection() {
@@ -111,6 +113,12 @@ export default function CharacterSection() {
     setFrameProgress({ completed: 0, total: 300, current_label: "Starting..." });
   };
 
+  const handleGenerateMissing = async () => {
+    const result = await generateMissingCharacterFrames();
+    setFrameJobId(result.job_id);
+    setFrameProgress({ completed: 0, total: 0, current_label: "Starting..." });
+  };
+
   const handleRegenerate = async (frameId: string) => {
     setRegeneratingId(frameId);
     await regenerateCharacterFrame(frameId);
@@ -128,6 +136,7 @@ export default function CharacterSection() {
   };
 
   const frameCount = manifest?.frames?.length ?? 0;
+  const missingCount = manifest?.missing_count ?? 0;
   const isGeneratingRefs = !!refJobId;
   const isGeneratingFrames = !!frameJobId;
   const refPct = refProgress.total > 0 ? refProgress.completed / refProgress.total : 0;
@@ -300,11 +309,26 @@ export default function CharacterSection() {
         <div className="flex items-center gap-4">
           <div className="text-sm text-neutral-300">
             {frameCount > 0 ? (
-              <span className="text-emerald-400">{frameCount * 2} frames generated</span>
+              <span className="text-emerald-400">
+                {frameCount * 2} frames generated
+                {missingCount > 0 && (
+                  <span className="text-amber-400 ml-2">({missingCount * 2} missing)</span>
+                )}
+              </span>
             ) : (
               <span className="text-neutral-500">No frames generated yet</span>
             )}
           </div>
+
+          {missingCount > 0 && (
+            <button
+              onClick={handleGenerateMissing}
+              disabled={isGeneratingFrames || !hasSelectedRef}
+              className="text-sm px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
+            >
+              Generate Missing ({missingCount * 2})
+            </button>
+          )}
 
           <button
             onClick={handleGenerateFrames}

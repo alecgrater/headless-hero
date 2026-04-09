@@ -574,3 +574,107 @@ def regenerate_frame(frame_id: str) -> dict:
         "pose": defn["pose"],
         "gesture": defn["gesture"],
     }
+
+
+def count_missing_frames() -> int:
+    """Count how many frame definitions are missing one or both PNG files on disk."""
+    frame_ids = _make_unique_ids(FRAME_DEFINITIONS)
+    missing = 0
+    for frame_id in frame_ids:
+        closed = FRAMES_DIR / f"{frame_id}_closed.png"
+        opened = FRAMES_DIR / f"{frame_id}_open.png"
+        if not closed.exists() or not opened.exists():
+            missing += 1
+    return missing
+
+
+def generate_missing_frames(
+    on_progress: Callable[[int, int, str], None] | None = None,
+) -> dict:
+    """Generate only frames whose PNG files are missing from disk.
+
+    Skips any frame where both closed and open mouth PNGs already exist.
+    Uses selected_reference.png as the canonical reference.
+    Returns the manifest dict.
+    """
+    FRAMES_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Resolve reference
+    if SELECTED_REFERENCE_PATH.exists():
+        canonical_path = str(SELECTED_REFERENCE_PATH)
+    else:
+        manifest = get_manifest()
+        if manifest and manifest.get("canonical_frame"):
+            canonical_path = str(FRAMES_DIR / manifest["canonical_frame"])
+        else:
+            raise RuntimeError("No reference image available. Select a reference first.")
+
+    frame_ids = _make_unique_ids(FRAME_DEFINITIONS)
+
+    # Identify which frames need generation
+    missing: list[tuple[int, str]] = []  # (defn_index, frame_id)
+    for i, frame_id in enumerate(frame_ids):
+        closed = FRAMES_DIR / f"{frame_id}_closed.png"
+        opened = FRAMES_DIR / f"{frame_id}_open.png"
+        if not closed.exists() or not opened.exists():
+            missing.append((i, frame_id))
+
+    total = len(missing) * 2  # 2 mouth states each
+    completed = 0
+
+    for defn_idx, frame_id in missing:
+        defn = FRAME_DEFINITIONS[defn_idx]
+
+        for mouth_state in ["closed", "open"]:
+            filename = f"{frame_id}_{mouth_state}.png"
+            output_path = FRAMES_DIR / filename
+            label = f"{frame_id} ({mouth_state})"
+
+            # Skip if this specific file already exists (e.g. only one mouth state was missing)
+            if output_path.exists():
+                completed += 1
+                if on_progress:
+                    on_progress(completed, total, label)
+                continue
+
+            logger.info("Generating missing frame %d/%d: %s", completed + 1, total, label)
+
+            prompt = _build_prompt(defn, mouth_state, False)
+
+            try:
+                tmp_path = generate_image(
+                    prompt=prompt,
+                    width=768,
+                    height=432,
+                    reference_image_path=canonical_path,
+                )
+                _remove_background(tmp_path, str(output_path))
+            except Exception:
+                logger.error("Failed to generate frame %s", label, exc_info=True)
+
+            completed += 1
+            if on_progress:
+                on_progress(completed, total, label)
+
+    # Rebuild manifest with all frame definitions
+    manifest_frames = []
+    for frame_id, defn in zip(frame_ids, FRAME_DEFINITIONS):
+        manifest_frames.append({
+            "id": frame_id,
+            "file_closed": f"{frame_id}_closed.png",
+            "file_open": f"{frame_id}_open.png",
+            "expression": defn["expression"],
+            "pose": defn["pose"],
+            "gesture": defn["gesture"],
+        })
+
+    manifest = {
+        "canonical_frame": f"{frame_ids[0]}_closed.png",
+        "reference_source": "selected_reference",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "frames": manifest_frames,
+    }
+    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2))
+    logger.info("Missing frames generated: %d frames filled in", len(missing))
+
+    return manifest
