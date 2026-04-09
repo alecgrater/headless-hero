@@ -80,6 +80,7 @@ ipcMain.handle("api-request", async (_event, { method, path, body }) => {
     const options = {
       method,
       headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(20 * 60 * 1000), // 20 minutes — segmented script gen can take 7+min
     };
     if (body && method !== "GET") {
       options.body = JSON.stringify(body);
@@ -88,7 +89,7 @@ ipcMain.handle("api-request", async (_event, { method, path, body }) => {
     const data = await response.json();
     return { ok: response.ok, status: response.status, data };
   } catch (error) {
-    return { ok: false, status: 0, data: { error: error.message } };
+    return { ok: false, status: 0, data: { error: `${error.name}: ${error.message}` } };
   }
 });
 

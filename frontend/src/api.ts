@@ -70,6 +70,7 @@ const rawApi: ApiClient = window.api ?? {
     const options: RequestInit = {
       method,
       headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(20 * 60 * 1000), // 20 minutes — segmented script gen can take 7+min
     };
     if (body && method !== "GET") {
       options.body = JSON.stringify(body);
