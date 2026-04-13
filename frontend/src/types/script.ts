@@ -82,6 +82,7 @@ export interface ScriptContent {
   intro_hook: string;
   outro_cta: string;
   video_fx?: VideoFX | null;
+  eli_position?: { x: number; y: number } | null;
 }
 
 export interface GenerateScriptResponse {

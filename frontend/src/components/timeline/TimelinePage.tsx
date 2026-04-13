@@ -5,6 +5,8 @@ import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
 import type { VoiceInfo, VoiceListResponse } from "../../types/audio";
 import type { ThumbnailConcept } from "../../types/render";
+import type { EliPosition } from "../../types/brand";
+import EliPositionPicker from "../shared/EliPositionPicker";
 import ExportPanel from "./ExportPanel";
 import ExportTestModal from "./ExportTestModal";
 import PropertiesPanel from "./PropertiesPanel";
@@ -167,6 +169,13 @@ function TimelineEditor({
   const [showVoicePicker, setShowVoicePicker] = useState(false);
   const voicePickerRef = useRef<HTMLDivElement>(null);
 
+  // Eli overlay position state
+  const [showEliPositionPicker, setShowEliPositionPicker] = useState(false);
+  const [eliPositionMode, setEliPositionMode] = useState<"default" | "custom">("default");
+  const [brandEliPosition, setBrandEliPosition] = useState<EliPosition>({ x: 1410, y: 720 });
+  const [customEliPosition, setCustomEliPosition] = useState<EliPosition>({ x: 1410, y: 720 });
+  const eliPositionRef = useRef<HTMLDivElement>(null);
+
   // Close voice picker on outside click
   useEffect(() => {
     if (!showVoicePicker) return;
@@ -178,6 +187,18 @@ function TimelineEditor({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showVoicePicker]);
+
+  // Close Eli position picker on outside click
+  useEffect(() => {
+    if (!showEliPositionPicker) return;
+    const handler = (e: MouseEvent) => {
+      if (eliPositionRef.current && !eliPositionRef.current.contains(e.target as Node)) {
+        setShowEliPositionPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showEliPositionPicker]);
 
   // Cancel refs for single async operations
   const fxCancelledRef = useRef(false);
@@ -202,14 +223,20 @@ function TimelineEditor({
   const [voices, setVoices] = useState<VoiceInfo[]>([]);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>("");
 
-  // Fetch default brand voice
+  // Fetch default brand voice + eli position
   useEffect(() => {
     api.get("/api/brand").then((res) => {
       if (res.ok) {
-        const b = res.data as { voice_id: string };
+        const b = res.data as { voice_id: string; eli_position: EliPosition | null };
         if (b.voice_id) setSelectedVoiceId(b.voice_id);
+        if (b.eli_position) setBrandEliPosition(b.eli_position);
       }
     });
+    // Initialize custom position from script if present
+    if (initialContent.eli_position) {
+      setEliPositionMode("custom");
+      setCustomEliPosition(initialContent.eli_position);
+    }
   }, []);
 
   // Fetch available voices
@@ -779,6 +806,66 @@ function TimelineEditor({
                 "Add Eli"
               )}
             </button>
+            {/* Eli position popover */}
+            <div ref={eliPositionRef} className="relative">
+              <button
+                onClick={() => setShowEliPositionPicker((prev) => !prev)}
+                className={`text-[10px] px-2 py-1.5 border rounded-md transition-colors ${
+                  showEliPositionPicker
+                    ? "border-teal-500/50 bg-teal-500/10 text-teal-300"
+                    : "border-neutral-700/50 bg-neutral-800/60 text-neutral-500 hover:text-neutral-400 hover:bg-neutral-700/40"
+                }`}
+                title="Configure Eli overlay position"
+              >
+                Pos
+              </button>
+              {showEliPositionPicker && (
+                <div className="absolute top-full left-0 mt-1 w-[360px] bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl z-50 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setEliPositionMode("default");
+                        state.setContent({ ...state.content, eli_position: null });
+                      }}
+                      className={`text-[11px] px-2.5 py-1 rounded-md border transition-colors ${
+                        eliPositionMode === "default"
+                          ? "border-teal-500/50 bg-teal-500/15 text-teal-300"
+                          : "border-neutral-700 bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
+                      }`}
+                    >
+                      Default
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEliPositionMode("custom");
+                        setCustomEliPosition(brandEliPosition);
+                        state.setContent({ ...state.content, eli_position: brandEliPosition });
+                      }}
+                      className={`text-[11px] px-2.5 py-1 rounded-md border transition-colors ${
+                        eliPositionMode === "custom"
+                          ? "border-teal-500/50 bg-teal-500/15 text-teal-300"
+                          : "border-neutral-700 bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
+                      }`}
+                    >
+                      Custom for this video
+                    </button>
+                  </div>
+                  {eliPositionMode === "custom" ? (
+                    <EliPositionPicker
+                      value={customEliPosition}
+                      onChange={(pos) => {
+                        setCustomEliPosition(pos);
+                        state.setContent({ ...state.content, eli_position: pos });
+                      }}
+                    />
+                  ) : (
+                    <div className="text-xs text-neutral-500">
+                      Using brand default position ({brandEliPosition.x}, {brandEliPosition.y})
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Divider + Generate FX (supplementary, unnumbered) */}

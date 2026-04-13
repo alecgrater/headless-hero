@@ -115,6 +115,7 @@ class ScriptContent(BaseModel):
     card_title: str = ""                  # condensed title for composite title card (e.g. "TYPES OF DREAMS")
     card_title_highlight_word: str = ""   # word to render in accent color (e.g. "DREAMS")
     video_fx: dict | None = None          # VideoFX dict — computed deterministically at render time
+    eli_position: dict | None = None      # Per-video Eli overlay position override {x, y}
 
 # --- SQLModel table for persistence ---
 

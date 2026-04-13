@@ -58,9 +58,15 @@ export interface EliKeyframe {
   reason: string;
 }
 
+export interface EliPosition {
+  x: number;
+  y: number;
+}
+
 export interface EliOverlay {
   enabled: boolean;
   keyframes: EliKeyframe[];
+  position?: EliPosition | null;
 }
 
 export interface FrameDirective {

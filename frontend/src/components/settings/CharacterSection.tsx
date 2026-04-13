@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import {
+import api, {
   assetUrl,
   clearAllCharacterFrames,
   generateCharacterFrames,
@@ -11,6 +11,8 @@ import {
   regenerateCharacterFrame,
   selectCharacterReference,
 } from "../../api";
+import type { EliPosition } from "../../types/brand";
+import EliPositionPicker from "../shared/EliPositionPicker";
 
 interface FrameEntry {
   id: string;
@@ -43,6 +45,9 @@ export default function CharacterSection() {
   const [frameProgress, setFrameProgress] = useState({ completed: 0, total: 0, current_label: "" });
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
+  // Overlay position state
+  const [eliPosition, setEliPosition] = useState<EliPosition>({ x: 1410, y: 720 });
+
   const fetchManifest = useCallback(async () => {
     const res = await getCharacterFrames();
     if (res.ok) {
@@ -60,6 +65,13 @@ export default function CharacterSection() {
   useEffect(() => {
     fetchManifest();
     fetchReferences();
+    // Fetch current brand eli_position
+    api.get("/api/brand").then((res) => {
+      if (res.ok) {
+        const brand = res.data as { eli_position: EliPosition | null };
+        if (brand.eli_position) setEliPosition(brand.eli_position);
+      }
+    });
   }, [fetchManifest, fetchReferences]);
 
   // Poll reference generation job
@@ -399,6 +411,23 @@ export default function CharacterSection() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* ===== SECTION 3: Overlay Position ===== */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-neutral-200 uppercase tracking-wider">
+          Overlay Position (Default)
+        </h3>
+        <p className="text-xs text-neutral-400">
+          Set the default position for the Eli overlay on all videos. Can be overridden per-video in the timeline.
+        </p>
+        <EliPositionPicker
+          value={eliPosition}
+          onChange={(pos) => {
+            setEliPosition(pos);
+            api.put("/api/brand", { eli_position: pos });
+          }}
+        />
       </div>
     </div>
   );

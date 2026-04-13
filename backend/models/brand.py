@@ -1,16 +1,26 @@
 """Brand profile data models."""
 
+import json
 import uuid
 from datetime import datetime, timezone
 
 from pydantic import BaseModel
 from sqlmodel import Field, SQLModel
 
+
+class EliPosition(BaseModel):
+    """Position of the Eli overlay in 1920×1080 pixel space (top-left origin)."""
+
+    x: int = 1410  # 1920 - 480 - 30
+    y: int = 720   # 1080 - 270 - 90
+
+
 class BrandProfileBase(SQLModel):
     """Shared fields for brand profiles."""
 
     name: str = Field(index=True)
     voice_id: str = Field(default="")  # ElevenLabs voice ID
+    eli_position_json: str = Field(default="")  # JSON-serialized EliPosition
     # DEPRECATED fields — kept for DB compat with existing tables, unused
     art_style: str | None = Field(default=None)
     color_palette: str = Field(default="")
@@ -34,10 +44,15 @@ class BrandProfileUpdate(BaseModel):
     name: str | None = None
     voice_id: str | None = None
     youtube_channel_id: str | None = None
+    eli_position: EliPosition | None = None
 
-class BrandProfileRead(BrandProfileBase):
+class BrandProfileRead(BaseModel):
     """Response body for a brand profile."""
 
     id: str
+    name: str
+    voice_id: str
+    youtube_channel_id: str
+    eli_position: EliPosition | None = None
     created_at: datetime
     updated_at: datetime

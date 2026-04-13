@@ -16,6 +16,7 @@ def init_db() -> None:
     """Create all tables. Safe to call repeatedly."""
     logger.info("Initializing database")
     SQLModel.metadata.create_all(engine)
+    _migrate_add_eli_position()
     logger.info("Database ready")
 
 def ensure_default_brand() -> None:
@@ -45,3 +46,19 @@ def get_session():
     """FastAPI dependency that yields a DB session."""
     with Session(engine) as session:
         yield session
+
+
+def _migrate_add_eli_position() -> None:
+    """Add eli_position_json column to brand_profiles if missing."""
+    import sqlite3
+
+    conn = sqlite3.connect(str(_db_path))
+    try:
+        cursor = conn.execute("PRAGMA table_info(brand_profiles)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "eli_position_json" not in columns:
+            conn.execute("ALTER TABLE brand_profiles ADD COLUMN eli_position_json TEXT DEFAULT ''")
+            conn.commit()
+            logger.info("Migrated: added eli_position_json to brand_profiles")
+    finally:
+        conn.close()

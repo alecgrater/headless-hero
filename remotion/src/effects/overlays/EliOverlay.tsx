@@ -88,14 +88,17 @@ export const EliOverlay: React.FC<Props> = ({
   // Container size: 16:9 aspect ratio, ~25% of frame width
   const containerWidth = 480; // 25% of 1920
   const containerHeight = 270; // 16:9 ratio
-  const margin = 30;
+
+  // Position: use overlay.position if provided, otherwise default (bottom-right)
+  const posX = overlay.position?.x ?? 1410; // 1920 - 480 - 30
+  const posY = overlay.position?.y ?? 720;  // 1080 - 270 - 90
 
   return (
     <div
       style={{
         position: "absolute",
-        bottom: margin + 60, // Above kinetic captions area
-        right: margin,
+        left: posX,
+        top: posY,
         width: containerWidth,
         height: containerHeight,
         zIndex: 5,

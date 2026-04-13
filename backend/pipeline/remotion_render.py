@@ -112,7 +112,7 @@ def _all_scenes(content: ScriptContent) -> list[Scene]:
     return [sc for seg in content.segments for sc in seg.scenes]
 
 
-def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
+def _scene_to_input_props(scene: Scene, script_id: str, eli_position: dict | None = None) -> dict[str, Any]:
     """Convert a Scene model to the input props expected by Remotion."""
     # Resolve asset paths
     image_path = _scene_image_path(script_id, scene.id, scene.image_url or None)
@@ -131,6 +131,11 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
     # Parse FX if stored as dict
     fx = scene.fx
 
+    # Merge resolved eli position into eli_overlay
+    eli_overlay = scene.eli_overlay
+    if eli_overlay and eli_position:
+        eli_overlay = {**eli_overlay, "position": eli_position}
+
     return {
         "id": scene.id,
         "narration": scene.narration,
@@ -143,7 +148,7 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
         "audio_path": audio_path,
         "title_card_zoom_target": scene.title_card_zoom_target,
         "fx": fx,
-        "eli_overlay": scene.eli_overlay,
+        "eli_overlay": eli_overlay,
         "word_timestamps": scene.word_timestamps,
         "character_frames_base_url": "http://localhost:8420/static/character/frames",
         "visual_beat": scene.visual_beat,
@@ -310,12 +315,23 @@ def render_full_video(
     if on_progress:
         on_progress(0.3, "Building Remotion composition...")
 
+    # Resolve Eli overlay position: script override > brand default > None
+    eli_position = content.eli_position
+    if not eli_position and brand_dict:
+        import json as _json
+        raw = brand_dict.get("eli_position_json", "")
+        if raw:
+            try:
+                eli_position = _json.loads(raw)
+            except (ValueError, TypeError):
+                pass
+
     # Build input props for the full video
     segments_props = []
     for seg in content.segments:
         seg_scenes = []
         for sc in seg.scenes:
-            seg_scenes.append(_scene_to_input_props(sc, script_id))
+            seg_scenes.append(_scene_to_input_props(sc, script_id, eli_position))
         segments_props.append({
             "name": seg.name,
             "scenes": seg_scenes,
