@@ -1,6 +1,6 @@
 /**
  * SceneRenderer — dispatches to the appropriate scene component
- * based on scene type, media_type, and flags.
+ * based on scene type and flags.
  * Optionally wraps with ZoomPunch and KineticCaption effects.
  */
 import React from "react";
@@ -28,8 +28,6 @@ export const SceneRenderer: React.FC<Props> = ({ scene }) => {
   // Visual layer dispatch
   let visualLayer: React.ReactNode;
   if (isTitleCard) {
-    visualLayer = <TitleCardScene scene={scene} />;
-  } else if (isAhaSubtitle) {
     visualLayer = <TitleCardScene scene={scene} />;
   } else if (isAhaSubtitle) {
     visualLayer = <SubtitleScene scene={scene} />;
