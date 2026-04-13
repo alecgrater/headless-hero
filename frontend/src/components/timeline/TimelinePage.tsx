@@ -604,7 +604,7 @@ function TimelineEditor({
               {state.hasTitleCards && (
                 <button
                   onClick={titleCardGenerating ? () => { titleCardCancelledRef.current = true; setTitleCardGenerating(false); } : () => handleGenerateTitleCards(titleCardGenerated)}
-                  className={`text-sm px-3 py-1.5 border rounded-md font-medium transition-colors flex items-center gap-2 ${
+                  className={`text-sm px-3 py-1.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-2 min-w-[130px] ${
                     titleCardGenerating
                       ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                       : titleCardGenerated
@@ -639,7 +639,7 @@ function TimelineEditor({
             }`}>2</span>
             <button
               onClick={state.batchGenerating ? () => state.cancelImageGeneration() : confirmAndGenerateImages}
-              className={`text-sm px-3 py-1.5 border rounded-md font-medium transition-colors flex items-center gap-2 ${
+              className={`text-sm px-3 py-1.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-2 min-w-[130px] ${
                 state.batchGenerating
                   ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                   : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
@@ -671,7 +671,7 @@ function TimelineEditor({
               <button
                 onClick={state.batchGeneratingAudio ? () => state.cancelAudioGeneration() : confirmAndGenerateAudio}
                 disabled={!state.batchGeneratingAudio && !selectedVoiceId && voices.length > 0}
-                className={`text-sm pl-3 pr-2 py-1.5 border border-r-0 rounded-l-md font-medium transition-colors flex flex-col items-start gap-0 disabled:opacity-40 disabled:cursor-not-allowed ${
+                className={`text-sm pl-3 pr-2 py-1.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-2 min-w-[130px] disabled:opacity-40 disabled:cursor-not-allowed ${
                   state.batchGeneratingAudio
                     ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                     : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
@@ -684,12 +684,7 @@ function TimelineEditor({
                     Cancel
                   </span>
                 ) : (
-                  <>
-                    <span>Generate Audio</span>
-                    {voices.find((v) => v.voice_id === selectedVoiceId)?.name && (
-                      <span className="text-[10px] text-neutral-500 leading-tight">{voices.find((v) => v.voice_id === selectedVoiceId)?.name}</span>
-                    )}
-                  </>
+                  "Generate Audio"
                 )}
               </button>
               {!state.batchGeneratingAudio && (
@@ -750,40 +745,43 @@ function TimelineEditor({
                 ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
                 : "border-neutral-600 text-neutral-500"
             }`}>4</span>
-            <button
-              onClick={generatingEli ? () => { eliCancelledRef.current = true; setGeneratingEli(false); } : confirmAndGenerateEli}
-              className={`text-sm px-3 py-1.5 border rounded-md font-medium transition-colors flex items-center gap-2 ${
-                generatingEli
-                  ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
-                  : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
-              }`}
-              title={generatingEli ? "Cancel Eli generation" : "Add Eli character overlay to all scenes (requires voiceover)"}
-            >
-              {generatingEli ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
-                  Cancel
-                </>
-              ) : (
-                "Add Eli"
-              )}
-            </button>
-            {/* Eli position popover */}
-            <div ref={eliPositionRef} className="relative">
+            <div ref={eliPositionRef} className="relative flex items-stretch">
               <button
-                onClick={() => setShowEliPositionPicker((prev) => !prev)}
-                className={`p-1.5 border rounded-md transition-colors ${
-                  showEliPositionPicker
-                    ? "border-teal-500/50 bg-teal-500/10 text-teal-300"
-                    : "border-neutral-700/50 bg-neutral-800/60 text-neutral-500 hover:text-neutral-400 hover:bg-neutral-700/40"
+                onClick={generatingEli ? () => { eliCancelledRef.current = true; setGeneratingEli(false); } : confirmAndGenerateEli}
+                className={`text-sm pl-3 pr-2 py-1.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-2 min-w-[130px] ${
+                  generatingEli
+                    ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
+                    : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
                 }`}
-                title="Configure Eli overlay position"
+                title={generatingEli ? "Cancel Eli generation" : "Add Eli character overlay to all scenes (requires voiceover)"}
               >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 14 14" fill="none">
-                  <rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.2" />
-                  <circle cx="10" cy="10" r="2" fill="currentColor" />
-                </svg>
+                {generatingEli ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
+                    Cancel
+                  </>
+                ) : (
+                  "Add Eli"
+                )}
               </button>
+              {!generatingEli ? (
+                <button
+                  onClick={() => setShowEliPositionPicker((prev) => !prev)}
+                  className="text-sm px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-md transition-colors flex items-center"
+                  title="Configure Eli overlay position"
+                >
+                  <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                    <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              ) : (
+                <span className="text-sm px-1.5 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-md flex items-center">
+                  <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
+                    <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              )}
+              {/* Eli position popover */}
               {showEliPositionPicker && (
                 <div className="absolute top-full left-0 mt-1 w-[360px] bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl z-50 p-4 space-y-3">
                   <div className="flex items-center gap-2">
@@ -843,7 +841,7 @@ function TimelineEditor({
             }`}>5</span>
             <button
               onClick={generatingFX ? () => { fxCancelledRef.current = true; setGeneratingFX(false); } : confirmAndGenerateFX}
-              className={`text-sm px-3 py-1.5 border rounded-md font-medium transition-colors flex items-center gap-2 ${
+              className={`text-sm px-3 py-1.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-2 min-w-[130px] ${
                 generatingFX
                   ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                   : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
@@ -862,7 +860,7 @@ function TimelineEditor({
           </div>
           </div>
           </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 px-5 pb-2.5">
           {/* Export Test */}
           <button
             onClick={exportTestJobId ? () => setExportTestJobId(null) : () => setShowExportTestModal(true)}
