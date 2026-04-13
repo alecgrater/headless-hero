@@ -119,6 +119,7 @@ class ScriptContent(BaseModel):
     card_title_highlight_word: str = ""   # word to render in accent color (e.g. "DREAMS")
     video_fx: dict | None = None          # VideoFX dict — computed deterministically at render time
     eli_position: dict | None = None      # Per-video Eli overlay position override {x, y}
+    segment_timer_enabled: bool = False   # Global toggle for segment countdown timer overlay
 
 # --- SQLModel table for persistence ---
 

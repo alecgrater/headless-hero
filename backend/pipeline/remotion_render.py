@@ -348,6 +348,7 @@ def render_full_video(
         "height": height,
         "video_fx": {"chapter_markers": chapter_markers},
         "chapter_map": chapter_map,
+        "segment_timer": {"enabled": True} if content.segment_timer_enabled else None,
     }
 
     renders = _renders_dir(script_id)

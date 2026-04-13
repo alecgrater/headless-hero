@@ -84,6 +84,7 @@ export interface ScriptContent {
   outro_cta: string;
   video_fx?: VideoFX | null;
   eli_position?: { x: number; y: number } | null;
+  segment_timer_enabled?: boolean;
 }
 
 export interface ScriptRead {

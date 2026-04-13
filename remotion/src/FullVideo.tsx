@@ -8,6 +8,7 @@ import type { FullVideoProps, SceneInput, ChapterMarker } from "./types";
 import { SceneRenderer } from "./scenes/SceneRenderer";
 import { AnimatedChapterMap } from "./effects/structural/AnimatedChapterMap";
 import { ChapterIndicator } from "./effects/overlays/ChapterIndicator";
+import { SegmentTimer } from "./effects/overlays/SegmentTimer";
 import { secondsToFrames, CHAPTER_TRANSITION_SECONDS } from "./utils/timing";
 
 const CHAPTER_TRANSITION_FRAMES = CHAPTER_TRANSITION_SECONDS * 30;
@@ -17,6 +18,7 @@ export const FullVideo: React.FC<FullVideoProps> = ({
   fps,
   video_fx,
   chapter_map,
+  segment_timer,
 }) => {
   // Flatten all scenes with segment info
   const allScenes: { scene: SceneInput; segmentIndex: number; segmentName: string }[] = [];
@@ -37,12 +39,21 @@ export const FullVideo: React.FC<FullVideoProps> = ({
   // Track computed markers if none provided
   const computedMarkers: ChapterMarker[] = markers.length > 0 ? markers : [];
 
+  // Track segment content frame ranges for timer overlay
+  const segmentRanges: { start_frame: number; end_frame: number }[] = [];
+  let segmentContentStart = 0;
+
   for (let i = 0; i < allScenes.length; i++) {
     const { scene, segmentIndex, segmentName } = allScenes[i];
     const durationFrames = Math.max(fps, secondsToFrames(scene.duration_seconds, fps));
 
     // Insert chapter transition before first scene of each segment (except first)
     if (segmentIndex !== prevSegmentIndex && segmentIndex > 0 && chapter_map) {
+      // Close previous segment range
+      if (prevSegmentIndex >= 0) {
+        segmentRanges.push({ start_frame: segmentContentStart, end_frame: currentFrame });
+      }
+
       // Record marker if computing dynamically
       if (markers.length === 0) {
         computedMarkers.push({
@@ -67,6 +78,9 @@ export const FullVideo: React.FC<FullVideoProps> = ({
       );
       currentFrame += CHAPTER_TRANSITION_FRAMES;
 
+      // New segment content starts after transition
+      segmentContentStart = currentFrame;
+
       // If the current scene IS the title card, skip it — the chapter transition already shows it
       if (scene.is_title_card && scene.title_card_zoom_target) {
         prevSegmentIndex = segmentIndex;
@@ -81,6 +95,11 @@ export const FullVideo: React.FC<FullVideoProps> = ({
         label: segmentName,
         frame_offset: currentFrame,
       });
+      segmentContentStart = currentFrame;
+    } else if (segmentIndex !== prevSegmentIndex && prevSegmentIndex >= 0 && !chapter_map) {
+      // Close previous segment range (no chapter map case)
+      segmentRanges.push({ start_frame: segmentContentStart, end_frame: currentFrame });
+      segmentContentStart = currentFrame;
     }
 
     prevSegmentIndex = segmentIndex;
@@ -99,6 +118,11 @@ export const FullVideo: React.FC<FullVideoProps> = ({
     currentFrame += durationFrames;
   }
 
+  // Close the final segment range
+  if (prevSegmentIndex >= 0) {
+    segmentRanges.push({ start_frame: segmentContentStart, end_frame: currentFrame });
+  }
+
   const totalFrames = currentFrame;
   const activeMarkers = markers.length > 0 ? markers : computedMarkers;
 
@@ -110,6 +134,13 @@ export const FullVideo: React.FC<FullVideoProps> = ({
       {activeMarkers.length > 0 && (
         <Sequence from={0} durationInFrames={totalFrames}>
           <ChapterIndicator markers={activeMarkers} totalFrames={totalFrames} />
+        </Sequence>
+      )}
+
+      {/* Segment countdown timer */}
+      {segment_timer?.enabled && segmentRanges.length > 0 && (
+        <Sequence from={0} durationInFrames={totalFrames}>
+          <SegmentTimer segmentRanges={segmentRanges} />
         </Sequence>
       )}
     </div>

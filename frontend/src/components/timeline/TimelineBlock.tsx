@@ -4,11 +4,12 @@ import type { Scene } from "../../types/script";
 
 interface Props {
   scene: Scene;
-  laneType: "images" | "voiceover" | "fx" | "eli";
+  laneType: "images" | "voiceover" | "fx" | "eli" | "timer";
   pixelsPerSecond: number;
   segmentIdx: number;
   isSelected: boolean;
   onClick: () => void;
+  segmentTimerEnabled?: boolean;
 }
 
 export default function TimelineBlock({
@@ -18,6 +19,7 @@ export default function TimelineBlock({
   segmentIdx,
   isSelected,
   onClick,
+  segmentTimerEnabled,
 }: Props) {
   const duration = scene.audio_duration_seconds || scene.duration_estimate_seconds;
   const width = Math.max(40, duration * pixelsPerSecond);
@@ -41,6 +43,7 @@ export default function TimelineBlock({
         {laneType === "voiceover" && <VoiceoverContent scene={scene} duration={duration} />}
         {laneType === "fx" && <FxContent scene={scene} />}
         {laneType === "eli" && <EliContent scene={scene} />}
+        {laneType === "timer" && <TimerContent enabled={!!segmentTimerEnabled} />}
       </div>
     </button>
   );
@@ -150,6 +153,21 @@ function EliContent({ scene }: { scene: Scene }) {
       {hasEli ? (
         <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
           eli
+        </span>
+      ) : (
+        <span className="text-[10px] text-neutral-600">--</span>
+      )}
+    </div>
+  );
+}
+
+function TimerContent({ enabled }: { enabled: boolean }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`w-2 h-2 rounded-full shrink-0 ${enabled ? "bg-emerald-500" : "bg-neutral-600"}`} />
+      {enabled ? (
+        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 font-medium">
+          timer
         </span>
       ) : (
         <span className="text-[10px] text-neutral-600">--</span>

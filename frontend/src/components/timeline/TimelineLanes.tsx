@@ -8,21 +8,24 @@ interface Props {
   content: ScriptContent;
   selectedSceneId: string | null;
   onSelectScene: (sceneId: string) => void;
+  onToggleTimer: () => void;
   pixelsPerSecond: number;
 }
 
-const LANE_TYPES = ["images", "voiceover", "fx", "eli"] as const;
+const LANE_TYPES = ["images", "voiceover", "fx", "eli", "timer"] as const;
 const LANE_LABELS: Record<(typeof LANE_TYPES)[number], string> = {
   images: "Images",
   voiceover: "Voiceover",
   fx: "FX",
   eli: "Eli",
+  timer: "Timer",
 };
 
 export default function TimelineLanes({
   content,
   selectedSceneId,
   onSelectScene,
+  onToggleTimer,
   pixelsPerSecond,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -144,8 +147,9 @@ export default function TimelineLanes({
                     laneType={laneType}
                     pixelsPerSecond={pixelsPerSecond}
                     segmentIdx={segmentIdx}
-                    isSelected={scene.id === selectedSceneId}
-                    onClick={() => onSelectScene(scene.id)}
+                    isSelected={laneType !== "timer" && scene.id === selectedSceneId}
+                    onClick={() => laneType === "timer" ? onToggleTimer() : onSelectScene(scene.id)}
+                    segmentTimerEnabled={content.segment_timer_enabled}
                   />
                 ))}
 

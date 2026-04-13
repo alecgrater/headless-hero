@@ -590,6 +590,17 @@ function TimelineEditor({
     state.selectScene(sceneId);
   };
 
+  // Handle global timer toggle
+  const handleToggleTimer = () => {
+    const updated = {
+      ...state.content,
+      segment_timer_enabled: !state.content.segment_timer_enabled,
+    };
+    state.setContent(updated);
+    // Persist immediately since setContent doesn't trigger auto-save
+    api.put(`/api/scripts/${scriptId}`, { script: updated });
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-105px)]">
       {/* Header — Title + Pipeline + Thumbnail */}
@@ -831,6 +842,7 @@ function TimelineEditor({
             content={state.content}
             selectedSceneId={state.selectedSceneId}
             onSelectScene={handleSelectScene}
+            onToggleTimer={handleToggleTimer}
             pixelsPerSecond={pixelsPerSecond}
           />
         </div>

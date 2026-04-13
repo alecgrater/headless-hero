@@ -132,6 +132,10 @@ export interface SegmentInput {
   scenes: SceneInput[];
 }
 
+export interface SegmentTimerConfig {
+  enabled: boolean;
+}
+
 export interface FullVideoProps {
   segments: SegmentInput[];
   title: string;
@@ -140,4 +144,5 @@ export interface FullVideoProps {
   height: number;
   video_fx?: VideoFX | null;
   chapter_map?: ChapterMapData | null;
+  segment_timer?: SegmentTimerConfig | null;
 }
