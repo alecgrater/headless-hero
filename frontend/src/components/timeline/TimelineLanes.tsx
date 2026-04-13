@@ -27,15 +27,7 @@ export default function TimelineLanes({
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Calculate total duration
-  let totalDuration = 0;
-  for (const segment of content.segments) {
-    for (const scene of segment.scenes) {
-      totalDuration += scene.audio_duration_seconds || scene.duration_estimate_seconds;
-    }
-  }
-
-  const totalWidth = totalDuration * pixelsPerSecond;
+  const GAP_PX = 2; // matches gap-0.5 on lane rows
 
   // Flatten scenes with segment info for rendering
   const flatScenes: { scene: Scene; segmentIdx: number }[] = [];
@@ -45,30 +37,42 @@ export default function TimelineLanes({
     }
   }
 
-  // Calculate segment boundary positions for dividers
-  const segmentBoundaries: { x: number; segmentIdx: number }[] = [];
-  let cumTime = 0;
-  for (let si = 0; si < content.segments.length; si++) {
-    if (si > 0) {
-      segmentBoundaries.push({ x: cumTime * pixelsPerSecond, segmentIdx: si });
-    }
-    for (const scene of content.segments[si].scenes) {
-      cumTime += scene.audio_duration_seconds || scene.duration_estimate_seconds;
-    }
+  // Calculate total width matching actual flexbox layout (min-width + gaps)
+  let totalWidth = 0;
+  for (const { scene } of flatScenes) {
+    const dur = scene.audio_duration_seconds || scene.duration_estimate_seconds;
+    totalWidth += Math.max(40, dur * pixelsPerSecond);
+  }
+  totalWidth += Math.max(0, flatScenes.length - 1) * GAP_PX;
+
+  // Total duration still needed for ruler
+  let totalDuration = 0;
+  for (const { scene } of flatScenes) {
+    totalDuration += scene.audio_duration_seconds || scene.duration_estimate_seconds;
   }
 
-  // Calculate segment spans for header row
+  // Calculate segment boundary positions and header spans together
+  const segmentBoundaries: { x: number; segmentIdx: number }[] = [];
   const segmentSpans: { name: string; x: number; width: number; idx: number }[] = [];
-  let spanTime = 0;
+  let offsetX = 0;
   for (let si = 0; si < content.segments.length; si++) {
     const seg = content.segments[si];
-    const startX = spanTime * pixelsPerSecond;
-    let segDuration = 0;
-    for (const scene of seg.scenes) {
-      segDuration += scene.audio_duration_seconds || scene.duration_estimate_seconds;
+    if (si > 0) {
+      segmentBoundaries.push({ x: offsetX, segmentIdx: si });
     }
-    segmentSpans.push({ name: seg.name, x: startX, width: segDuration * pixelsPerSecond, idx: si });
-    spanTime += segDuration;
+    const startX = offsetX;
+    let segWidth = 0;
+    for (let i = 0; i < seg.scenes.length; i++) {
+      const scene = seg.scenes[i];
+      const dur = scene.audio_duration_seconds || scene.duration_estimate_seconds;
+      segWidth += Math.max(40, dur * pixelsPerSecond);
+      if (i < seg.scenes.length - 1) segWidth += GAP_PX;
+    }
+    segmentSpans.push({ name: seg.name, x: startX, width: segWidth, idx: si });
+    offsetX += segWidth;
+    if (si < content.segments.length - 1) {
+      offsetX += GAP_PX; // gap before next segment's first block
+    }
   }
 
   return (
