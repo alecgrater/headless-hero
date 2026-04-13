@@ -242,7 +242,7 @@ function TimelineEditor({
   }, [state.isDirty, state.saveStatus, state.canUndo, state.save, state.undo, onSaveStateChange]);
 
   // JIT voice check: if no voice selected and no voices available, show modal
-  const tryGenerateAudio = (action: "all" | string) => {
+  const tryGenerateAudio = (action: "all" | "missing" | string) => {
     if (!voicePicker.selectedVoiceId && voicePicker.voices.length === 0) {
       setPendingAudioAction(action);
       setShowVoiceSetup(true);
@@ -250,6 +250,8 @@ function TimelineEditor({
     }
     if (action === "all") {
       state.generateAllAudio(voicePicker.selectedVoiceId);
+    } else if (action === "missing") {
+      state.generateAllAudio(voicePicker.selectedVoiceId, true);
     } else {
       state.generateAudio(action, voicePicker.selectedVoiceId);
     }
@@ -260,6 +262,8 @@ function TimelineEditor({
     setShowVoiceSetup(false);
     if (pendingAudioAction === "all") {
       state.generateAllAudio(voiceId);
+    } else if (pendingAudioAction === "missing") {
+      state.generateAllAudio(voiceId, true);
     } else if (pendingAudioAction) {
       state.generateAudio(pendingAudioAction, voiceId);
     }
@@ -426,6 +430,43 @@ function TimelineEditor({
     }
   };
 
+  const generateMissingImages = () => state.generateAllImages(true);
+  const generateMissingAudio = () => tryGenerateAudio("missing");
+  const generateMissingFX = async () => {
+    fxCancelledRef.current = false;
+    setGeneratingFX(true);
+    try {
+      const res = await generateFX(scriptId, true);
+      if (fxCancelledRef.current) return;
+      if (res.ok) {
+        const refreshed = await api.get(`/api/scripts/${scriptId}`);
+        if (refreshed.ok && !fxCancelledRef.current) {
+          const data = refreshed.data as { script: ScriptContent };
+          state.setContent(data.script);
+        }
+      }
+    } finally {
+      setGeneratingFX(false);
+    }
+  };
+  const generateMissingEli = async () => {
+    eliCancelledRef.current = false;
+    setGeneratingEli(true);
+    try {
+      const res = await generateEli(scriptId, true);
+      if (eliCancelledRef.current) return;
+      if (res.ok) {
+        const refreshed = await api.get(`/api/scripts/${scriptId}`);
+        if (refreshed.ok && !eliCancelledRef.current) {
+          const data = refreshed.data as { script: ScriptContent };
+          state.setContent(data.script);
+        }
+      }
+    } finally {
+      setGeneratingEli(false);
+    }
+  };
+
   const handleGenerateTitleCards = async (force = false) => {
     titleCardCancelledRef.current = false;
     setTitleCardGenerating(true);
@@ -574,6 +615,14 @@ function TimelineEditor({
             confirmAndGenerateAudio={confirmAndGenerateAudio}
             confirmAndGenerateFX={confirmAndGenerateFX}
             confirmAndGenerateEli={confirmAndGenerateEli}
+            generateMissingImages={generateMissingImages}
+            generateMissingAudio={generateMissingAudio}
+            generateMissingFX={generateMissingFX}
+            generateMissingEli={generateMissingEli}
+            hasExistingImages={hasExistingImages}
+            hasExistingAudio={hasExistingAudio}
+            hasExistingFX={hasExistingFX}
+            hasExistingEli={hasExistingEli}
             cancelImageGeneration={state.cancelImageGeneration}
             cancelAudioGeneration={state.cancelAudioGeneration}
             fxCancelledRef={fxCancelledRef}

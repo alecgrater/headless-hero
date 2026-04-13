@@ -19,6 +19,7 @@ router = APIRouter(prefix="/api/eli", tags=["eli"])
 
 class GenerateEliRequest(BaseModel):
     script_id: str
+    missing_only: bool = False
 
 
 class GenerateEliResponse(BaseModel):
@@ -53,6 +54,9 @@ def generate_all_eli(body: GenerateEliRequest, session: Session = Depends(get_se
         for sc_idx, scene in enumerate(seg.scenes):
             # Skip title cards — Eli doesn't appear on title cards
             if scene.is_title_card:
+                global_idx += 1
+                continue
+            if body.missing_only and scene.eli_overlay:
                 global_idx += 1
                 continue
 

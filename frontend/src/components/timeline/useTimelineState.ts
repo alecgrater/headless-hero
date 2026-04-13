@@ -501,7 +501,7 @@ export function useTimelineState(
   );
 
   const generateAllImages = useCallback(
-    async () => {
+    async (missingOnly = false) => {
       // Collect AI-generated scenes
       const scenes: { scene_id: string; visual_prompt: string; name: string; frame_prompts: string[]; frame_directives: any[] }[] = [];
       // Collect title card scene IDs for progress tracking
@@ -511,6 +511,7 @@ export function useTimelineState(
           if (sc.is_title_card) {
             hasTitleCards = true;
           } else if (sc.visual_prompt && !sc.is_title_card) {
+            if (missingOnly && (sc.image_url || (sc.frame_urls && sc.frame_urls.length > 0))) continue;
             scenes.push({
               scene_id: sc.id,
               visual_prompt: sc.visual_prompt,
@@ -706,11 +707,12 @@ export function useTimelineState(
   );
 
   const generateAllAudio = useCallback(
-    async (voiceId: string) => {
+    async (voiceId: string, missingOnly = false) => {
       const scenes: { scene_id: string; narration: string; name: string }[] = [];
       for (const seg of contentRef.current.segments) {
         for (const sc of seg.scenes) {
           if (sc.narration) {
+            if (missingOnly && sc.audio_url) continue;
             scenes.push({
               scene_id: sc.id,
               narration: sc.narration,

@@ -143,8 +143,8 @@ export async function fetchGenerationEstimate(
 }
 
 /** Generate FX assignments for all scenes in a script via Claude. */
-export async function generateFX(scriptId: string) {
-  return api.post("/api/fx/generate", { script_id: scriptId });
+export async function generateFX(scriptId: string, missingOnly = false) {
+  return api.post("/api/fx/generate", { script_id: scriptId, missing_only: missingOnly });
 }
 
 /** Regenerate FX for a single scene via Claude. */
@@ -241,8 +241,8 @@ export async function reprocessCharacterBackgrounds(): Promise<{ job_id: string 
 }
 
 /** Generate Eli animation overlays for all scenes. */
-export async function generateEli(scriptId: string) {
-  return api.post("/api/eli/generate", { script_id: scriptId });
+export async function generateEli(scriptId: string, missingOnly = false) {
+  return api.post("/api/eli/generate", { script_id: scriptId, missing_only: missingOnly });
 }
 
 /** Regenerate Eli animation for a single scene. */

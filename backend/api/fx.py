@@ -19,6 +19,7 @@ router = APIRouter(prefix="/api/fx", tags=["fx"])
 
 class GenerateFXRequest(BaseModel):
     script_id: str
+    missing_only: bool = False
 
 
 class GenerateFXResponse(BaseModel):
@@ -48,9 +49,14 @@ def generate_all_fx(body: GenerateFXRequest, session: Session = Depends(get_sess
     total_scenes = sum(len(seg.scenes) for seg in content.segments)
 
     updated = 0
+    skipped = 0
     global_idx = 0
     for seg_idx, seg in enumerate(content.segments):
         for sc_idx, scene in enumerate(seg.scenes):
+            if body.missing_only and scene.fx:
+                global_idx += 1
+                skipped += 1
+                continue
             duration = scene.audio_duration_seconds or scene.duration_estimate_seconds
             scene_data = {
                 "id": scene.id,
