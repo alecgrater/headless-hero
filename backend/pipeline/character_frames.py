@@ -46,8 +46,30 @@ MANIFEST_PATH = CHARACTER_DIR / "manifest.json"
 REFERENCE_SELECTION_PATH = CHARACTER_DIR / "reference_selection.json"
 SELECTED_REFERENCE_PATH = FRAMES_DIR / "selected_reference.png"
 
-# Character spec for prompt generation (from character.md)
-CHARACTER_SPEC = """Character: "Eli" — young adult male, early-to-mid 20s, medium-brown skin, short slightly messy dark curly hair, round glasses with thin frames, warm brown eyes. Slightly large head relative to body (cartoon proportions — approx 1:5 head-to-body ratio), lean build. Wearing a muted teal crewneck t-shirt layered under an open charcoal gray zip hoodie. Flat 2D cartoon style, bold outlines, cel-shaded. Close-up chest-up framing — head positioned in the upper third of the frame, shoulders and upper chest visible, cut off below the chest. Like a Twitch streamer webcam PIP. NO waist, NO lower body visible."""
+# Load character spec from canonical source
+_CHARACTER_MD_PATH = Path(__file__).resolve().parent.parent / "prompts" / "character.md"
+_CHARACTER_MD = _CHARACTER_MD_PATH.read_text() if _CHARACTER_MD_PATH.exists() else ""
+
+# Condensed visual spec extracted from character.md for image generation prompts.
+# Framing instructions are kept separate since they're specific to frame generation.
+CHARACTER_SPEC = (
+    "Character: \"Eli\" — " + (
+        "young adult male, early-to-mid 20s, medium-brown skin, short slightly messy "
+        "dark curly hair, round glasses with thin frames, warm brown eyes. Slightly large "
+        "head relative to body (cartoon proportions — approx 1:5 head-to-body ratio), "
+        "lean build. Wearing a muted teal crewneck t-shirt layered under an open charcoal "
+        "gray zip hoodie. Flat 2D cartoon style, bold outlines, cel-shaded."
+    )
+)
+
+# Repeated prompt fragments used across multiple prompt-building sites
+GREEN_BG_INSTRUCTION = (
+    "Solid flat green (#00FF00) background with NO other elements."
+)
+REFERENCE_CONSISTENCY_INSTRUCTION = (
+    "Maintain identical character design, proportions, outfit colors, glasses, "
+    "hair style, and rendering style."
+)
 
 FRAME_DEFINITIONS: list[dict[str, str]] = [
     # ===== CORE POSES (original 24) =====
@@ -267,18 +289,17 @@ def _build_prompt(definition: dict[str, str], mouth_state: str, is_canonical: bo
             f"{CHARACTER_SPEC}\n\n"
             f"Pose: {definition['prompt']}\n"
             f"Mouth: {mouth_desc}\n\n"
-            f"IMPORTANT: Solid flat green (#00FF00) background with NO other elements. "
+            f"IMPORTANT: {GREEN_BG_INSTRUCTION} "
             f"{FRAMING_INSTRUCTION} "
             f"16:9 aspect ratio composition. Flat 2D cartoon style with bold outlines."
         )
     else:
         return (
             f"Using the reference image as the character design reference, render the EXACT same character "
-            f"in a different pose. Maintain identical character design, proportions, outfit colors, glasses, "
-            f"hair style, and rendering style.\n\n"
+            f"in a different pose. {REFERENCE_CONSISTENCY_INSTRUCTION}\n\n"
             f"Pose: {definition['prompt']}\n"
             f"Mouth: {mouth_desc}\n\n"
-            f"IMPORTANT: Solid flat green (#00FF00) background with NO other elements. "
+            f"IMPORTANT: {GREEN_BG_INSTRUCTION} "
             f"{FRAMING_INSTRUCTION} "
             f"16:9 aspect ratio composition. Same flat 2D cartoon style as reference."
         )
@@ -404,7 +425,7 @@ def generate_reference_candidates(
             f"Pose: shoulders relaxed, neutral calm expression, looking forward at camera\n"
             f"Mouth: mouth closed\n\n"
             f"Style variation: {variation}\n\n"
-            f"IMPORTANT: Solid flat green (#00FF00) background with NO other elements. "
+            f"IMPORTANT: {GREEN_BG_INSTRUCTION} "
             f"{FRAMING_INSTRUCTION} "
             f"16:9 aspect ratio composition. Flat 2D cartoon style with bold outlines."
         )
@@ -733,14 +754,13 @@ def _build_variant_prompt(definition: dict[str, str], mouth_state: str, variant_
 
     return (
         f"Using the reference image as the character design reference, render the EXACT same character "
-        f"in the EXACT same pose with a very subtle body micro-variation. Maintain identical character "
-        f"design, proportions, outfit colors, glasses, hair style, rendering style, AND the same "
+        f"in the EXACT same pose with a very subtle body micro-variation. {REFERENCE_CONSISTENCY_INSTRUCTION.rstrip('.')}, AND the same "
         f"expression and gesture.\n\n"
         f"Pose: {definition['prompt']}\n"
         f"Mouth: {mouth_desc}\n"
         f"Subtle variation: {variation_instruction}\n\n"
         f"IMPORTANT: The variation must be VERY subtle — this is the same pose with a tiny body shift, "
-        f"not a different pose. Solid flat green (#00FF00) background with NO other elements. "
+        f"not a different pose. {GREEN_BG_INSTRUCTION} "
         f"{FRAMING_INSTRUCTION} "
         f"16:9 aspect ratio composition. Same flat 2D cartoon style as reference."
     )

@@ -4,7 +4,7 @@
 
 ### 1. Anthropic Claude API (`ANTHROPIC_API_KEY`)
 
-**Used for:** Script generation, idea generation, SEO metadata, thumbnail concepts
+**Used for:** Script generation, idea generation, FX generation, Eli animation, SEO metadata, thumbnail concepts
 
 **How to get it:**
 1. Go to https://console.anthropic.com/
@@ -16,17 +16,17 @@
 
 ---
 
-### 2. fal.ai (`FAL_KEY`)
+### 2. Google AI Studio (`GOOGLE_AI_KEY`)
 
-**Used for:** AI image generation (scene images + thumbnails) via the Flux model
+**Used for:** AI image generation (scene images, thumbnails, Eli character frames) via Gemini 2.5 Flash
 
 **How to get it:**
-1. Go to https://fal.ai/
-2. Sign up or log in
-3. Navigate to **Keys** at https://fal.ai/dashboard/keys
-4. Create a new key, copy the value
+1. Go to https://ai.google.dev/
+2. Sign up or log in with your Google account
+3. Click **Get API key** → **Create API key**
+4. Copy the generated key
 
-**Pricing:** Pay-per-use. Flux image generation is typically a few cents per image.
+**Pricing:** Free tier available with rate limits. Pay-as-you-go for higher volume.
 
 **Required:** Yes — image generation will fail without this key.
 
@@ -75,11 +75,30 @@
 
 ---
 
+### 5. Replicate (`REPLICATE_API_TOKEN`) — Optional
+
+**Used for:** Alternative image generation via Flux 1.1 Pro (can be used instead of Google Gemini)
+
+**How to get it:**
+1. Go to https://replicate.com and sign up
+2. Add a payment method at [replicate.com/account/billing](https://replicate.com/account/billing) (Flux costs ~$0.04/image)
+3. Create a token at [replicate.com/account/api-tokens](https://replicate.com/account/api-tokens) — it starts with `r8_`
+
+**How to enable:**
+1. In Headless Hero, go to **Settings → API Keys** and paste your token
+2. Go to **Settings → General** and change the **Image Provider** dropdown to **Replicate (Flux)**
+
+To switch back, change the Image Provider dropdown back to **Google Gemini**.
+
+**Required:** No — Google Gemini is the default image provider.
+
+---
+
 ## System Dependencies
 
-### 5. FFmpeg
+### 6. FFmpeg
 
-**Used for:** Video rendering, scene assembly, TikTok export, thumbnail compositing
+**Used for:** Audio concatenation and thumbnail compositing
 
 **How to install:**
 
@@ -96,7 +115,7 @@ choco install ffmpeg
 
 Verify it's installed: `ffmpeg -version`
 
-**Required:** Yes — video rendering will fail without FFmpeg.
+**Required:** Yes — audio export will fail without FFmpeg.
 
 ---
 
@@ -107,12 +126,15 @@ Create a `.env` file in the project root or export the variables in your shell:
 ```bash
 # Required for AI features
 export ANTHROPIC_API_KEY="sk-ant-..."
-export FAL_KEY="..."
+export GOOGLE_AI_KEY="..."
 export ELEVENLABS_API_KEY="..."
 
 # Optional — only for YouTube publishing
 export GOOGLE_CLIENT_ID="...apps.googleusercontent.com"
 export GOOGLE_CLIENT_SECRET="GOCSPX-..."
+
+# Optional — only if using Replicate instead of Gemini
+export REPLICATE_API_TOKEN="r8_..."
 ```
 
 If running via Electron (`npm run dev`), the backend inherits environment variables from your shell. Make sure they're exported before launching.
@@ -124,7 +146,7 @@ If running via Electron (`npm run dev`), the backend inherits environment variab
 ```bash
 # 1. Set your API keys (add to ~/.zshrc or ~/.bashrc for persistence)
 export ANTHROPIC_API_KEY="your-key"
-export FAL_KEY="your-key"
+export GOOGLE_AI_KEY="your-key"
 export ELEVENLABS_API_KEY="your-key"
 
 # 2. Install dependencies
@@ -142,8 +164,8 @@ npm run dev
 
 | Problem | Likely Cause |
 |---------|-------------|
-| Images fail to generate | `FAL_KEY` not set or invalid |
+| Images fail to generate | `GOOGLE_AI_KEY` not set or invalid (or `REPLICATE_API_TOKEN` if using Replicate) |
 | Audio fails to generate | `ELEVENLABS_API_KEY` not set or invalid |
 | Script/idea generation fails | `ANTHROPIC_API_KEY` not set and no local proxy running |
 | YouTube publish fails | `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` not set, or OAuth redirect URI misconfigured |
-| Video render fails | FFmpeg not installed or not on PATH |
+| Audio export fails | FFmpeg not installed or not on PATH |

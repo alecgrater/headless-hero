@@ -1,5 +1,7 @@
 # Headless Hero — Product Requirements Document
 
+> **Note (April 2026):** This document was written for the original MVP and has not been fully updated to reflect Phase 6 changes. Key differences from the current implementation: the storyboard grid was replaced by a lane-based timeline editor; TikTok/Reels/Shorts export was removed (YouTube 16:9 only); multi-brand support was replaced by a single default brand; image generation switched from fal.ai Flux to Google Gemini; video rendering switched from FFmpeg filter graphs to Remotion 4; Zustand was replaced by useState; state management uses props, not stores. The phase checklists in Section 12 are kept current. For up-to-date architecture, see `CLAUDE.md` and `README.md`.
+
 ## 1. Executive Summary
 
 Headless Hero is a desktop application that provides an end-to-end pipeline for creating faceless educational/explainer YouTube content using AI. It replaces the current fragmented workflow of 5+ separate tools (ChatGPT for scripts, ElevenLabs for voice, InVideo for assembly, Midjourney for images, Canva for thumbnails) with a single integrated application.

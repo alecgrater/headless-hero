@@ -34,7 +34,7 @@ The app is structured as four layers:
 
 | Endpoint | Purpose |
 |----------|---------|
-| `/api/brands` | Brand profile CRUD |
+| `/api/brand` | Brand profile (single default) |
 | `/api/ideas` | AI topic generation |
 | `/api/scripts` | Script generation and editing |
 | `/api/visuals` | Image generation (single + batch + multi-frame) |
