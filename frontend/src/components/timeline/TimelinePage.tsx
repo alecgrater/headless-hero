@@ -906,7 +906,7 @@ function TimelineEditor({
                 <img
                   src={assetUrl(thumbnailsInline[0].image_url)}
                   alt="Thumbnail preview"
-                  className="h-24 aspect-video object-cover rounded-lg border border-neutral-700 group-hover:border-violet-500 transition-colors"
+                  className="h-36 aspect-video object-cover rounded-lg border border-neutral-700 group-hover:border-violet-500 transition-colors"
                 />
                 {thumbnailsInlineGenerating && (
                   <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
@@ -918,7 +918,7 @@ function TimelineEditor({
                 </span>
               </div>
             ) : (
-              <div className={`h-24 aspect-video rounded-lg border border-dashed flex items-center justify-center transition-colors ${
+              <div className={`h-36 aspect-video rounded-lg border border-dashed flex items-center justify-center transition-colors ${
                 thumbnailsInlineGenerating
                   ? "border-violet-500/50 bg-violet-500/5"
                   : "border-neutral-700 bg-neutral-900/40 group-hover:border-violet-500/50"
