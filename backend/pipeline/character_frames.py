@@ -272,9 +272,16 @@ def _remove_background(src_path: str, dst_path: str) -> None:
         with open(src_path, "rb") as f:
             input_bytes = f.read()
         output_bytes = remove(input_bytes)
-        img = Image.open(io.BytesIO(output_bytes))
+        img = Image.open(io.BytesIO(output_bytes)).convert("RGBA")
         img.save(dst_path, "PNG")
-        logger.info("Background removed via rembg: %s", dst_path)
+        # Verify corners actually have transparency
+        w, h = img.size
+        corners = [img.getpixel((5, 5)), img.getpixel((w - 6, 5)),
+                   img.getpixel((5, h - 6)), img.getpixel((w - 6, h - 6))]
+        if all(c[3] == 255 for c in corners):
+            logger.warning("rembg output still opaque (no transparency detected): %s", dst_path)
+        else:
+            logger.info("Background removed via rembg: %s", dst_path)
     except ImportError:
         logger.warning("rembg not installed, copying raw frame (green background preserved)")
         shutil.copy2(src_path, dst_path)
