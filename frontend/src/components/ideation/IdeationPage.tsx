@@ -26,7 +26,14 @@ export default function IdeationPage({ onUseIdea }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [lastNiche, setLastNiche] = useState("");
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
-  const [bookmarked, setBookmarked] = useState<Set<number>>(new Set());
+  const [bookmarked, setBookmarked] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem("hh-bookmarked-ideas");
+      return stored ? new Set(JSON.parse(stored) as string[]) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
   const [animateFromIndex, setAnimateFromIndex] = useState(0);
   const inputRef = useRef<IdeationInputHandle>(null);
   const cancelledRef = useRef(false);
@@ -56,7 +63,6 @@ export default function IdeationPage({ onUseIdea }: Props) {
         } else {
           setAnimateFromIndex(0);
           setIdeas(data.ideas);
-          setBookmarked(new Set());
         }
         setLastNiche(niche);
       } else {
@@ -88,11 +94,12 @@ export default function IdeationPage({ onUseIdea }: Props) {
     });
   };
 
-  const toggleBookmark = (index: number) => {
+  const toggleBookmark = (title: string) => {
     setBookmarked((prev) => {
       const next = new Set(prev);
-      if (next.has(index)) next.delete(index);
-      else next.add(index);
+      if (next.has(title)) next.delete(title);
+      else next.add(title);
+      localStorage.setItem("hh-bookmarked-ideas", JSON.stringify([...next]));
       return next;
     });
   };
@@ -147,8 +154,8 @@ export default function IdeationPage({ onUseIdea }: Props) {
                 key={`${idea.title}-${i}`}
                 idea={idea}
                 index={i}
-                bookmarked={bookmarked.has(i)}
-                onToggleBookmark={() => toggleBookmark(i)}
+                bookmarked={bookmarked.has(idea.title)}
+                onToggleBookmark={() => toggleBookmark(idea.title)}
                 onMoreLikeThis={handleMoreLikeThis}
                 onUseIdea={onUseIdea}
                 animationDelay={

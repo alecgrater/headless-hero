@@ -3,20 +3,20 @@ import api, { assetUrl, generateFX, generateEli, exportTest } from "../../api";
 import type { ExportTestOptions } from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
-import type { VoiceInfo, VoiceListResponse } from "../../types/audio";
 import type { ThumbnailConcept } from "../../types/render";
-import type { EliPosition } from "../../types/brand";
 import type { SaveState } from "../../App";
-import EliPositionPicker from "../shared/EliPositionPicker";
 import ExportPanel from "./ExportPanel";
 import ExportTestModal from "./ExportTestModal";
+import PipelineSteps from "./PipelineSteps";
 import PropertiesPanel from "./PropertiesPanel";
 import ThumbnailModal from "./ThumbnailModal";
 import TimelineLanes from "./TimelineLanes";
 import VoiceSetupModal from "../brand/VoiceSetupModal";
+import { useEliPosition } from "./useEliPosition";
 import { usePublishState } from "./usePublishState";
 import { useRenderState } from "./useRenderState";
 import { useTimelineState } from "./useTimelineState";
+import { useVoicePicker } from "./useVoicePicker";
 import { useKeyboardShortcuts, ShortcutHelpOverlay } from "./useKeyboardShortcuts";
 import { DEFAULT_BAR_COLOR } from "./constants";
 
@@ -155,6 +155,13 @@ function TimelineEditor({
   const state = useTimelineState(scriptId, initialContent);
   const render = useRenderState(scriptId, title);
   const publish = usePublishState(scriptId);
+
+  // Voice picker hook
+  const voicePicker = useVoicePicker();
+
+  // Eli position hook
+  const eliPosition = useEliPosition(initialContent);
+
   const [showExport, setShowExport] = useState(false);
   const [showVoiceSetup, setShowVoiceSetup] = useState(false);
   const [pendingAudioAction, setPendingAudioAction] = useState<"all" | string | null>(null);
@@ -172,15 +179,6 @@ function TimelineEditor({
   const [thumbnailsInline, setThumbnailsInline] = useState<ThumbnailConcept[]>([]);
   const [thumbnailsInlineGenerating, setThumbnailsInlineGenerating] = useState(false);
   const [showThumbnailModal, setShowThumbnailModal] = useState(false);
-  const [showVoicePicker, setShowVoicePicker] = useState(false);
-  const voicePickerRef = useRef<HTMLDivElement>(null);
-
-  // Eli overlay position state
-  const [showEliPositionPicker, setShowEliPositionPicker] = useState(false);
-  const [eliPositionMode, setEliPositionMode] = useState<"default" | "custom">("default");
-  const [brandEliPosition, setBrandEliPosition] = useState<EliPosition>({ x: 1410, y: 720 });
-  const [customEliPosition, setCustomEliPosition] = useState<EliPosition>({ x: 1410, y: 720 });
-  const eliPositionRef = useRef<HTMLDivElement>(null);
 
   // Export split-button dropdown state
   const [showExportDropdown, setShowExportDropdown] = useState(false);
@@ -198,30 +196,6 @@ function TimelineEditor({
       } catch (_) { /* thumbnails are optional */ }
     })();
   }, [scriptId]);
-
-  // Close voice picker on outside click
-  useEffect(() => {
-    if (!showVoicePicker) return;
-    const handler = (e: MouseEvent) => {
-      if (voicePickerRef.current && !voicePickerRef.current.contains(e.target as Node)) {
-        setShowVoicePicker(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showVoicePicker]);
-
-  // Close Eli position picker on outside click
-  useEffect(() => {
-    if (!showEliPositionPicker) return;
-    const handler = (e: MouseEvent) => {
-      if (eliPositionRef.current && !eliPositionRef.current.contains(e.target as Node)) {
-        setShowEliPositionPicker(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showEliPositionPicker]);
 
   // Close export dropdown on outside click
   useEffect(() => {
@@ -255,42 +229,6 @@ function TimelineEditor({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showExport]);
-  const [voices, setVoices] = useState<VoiceInfo[]>([]);
-  const [selectedVoiceId, setSelectedVoiceId] = useState<string>("");
-
-  // Fetch default brand voice + eli position
-  useEffect(() => {
-    api.get("/api/brand").then((res) => {
-      if (res.ok) {
-        const b = res.data as { voice_id: string; eli_position: EliPosition | null };
-        if (b.voice_id) setSelectedVoiceId(b.voice_id);
-        if (b.eli_position) setBrandEliPosition(b.eli_position);
-      }
-    });
-    // Initialize custom position from script if present
-    if (initialContent.eli_position) {
-      setEliPositionMode("custom");
-      setCustomEliPosition(initialContent.eli_position);
-    }
-  }, []);
-
-  // Fetch available voices
-  useEffect(() => {
-    api.get("/api/voice/voices").then((res) => {
-      if (res.ok) {
-        const data = res.data as VoiceListResponse;
-        setVoices(data.voices);
-        // Default to brand voice, then "Social Media" voice, then first voice
-        if (!selectedVoiceId && data.voices.length > 0) {
-          const social = data.voices.find((v) =>
-            v.name.toLowerCase().includes("social media"),
-          );
-          setSelectedVoiceId(social?.voice_id ?? data.voices[0].voice_id);
-        }
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Surface save state to App top bar
   useEffect(() => {
@@ -303,24 +241,22 @@ function TimelineEditor({
     });
   }, [state.isDirty, state.saveStatus, state.canUndo, state.save, state.undo, onSaveStateChange]);
 
-
-
   // JIT voice check: if no voice selected and no voices available, show modal
   const tryGenerateAudio = (action: "all" | string) => {
-    if (!selectedVoiceId && voices.length === 0) {
+    if (!voicePicker.selectedVoiceId && voicePicker.voices.length === 0) {
       setPendingAudioAction(action);
       setShowVoiceSetup(true);
       return;
     }
     if (action === "all") {
-      state.generateAllAudio(selectedVoiceId);
+      state.generateAllAudio(voicePicker.selectedVoiceId);
     } else {
-      state.generateAudio(action, selectedVoiceId);
+      state.generateAudio(action, voicePicker.selectedVoiceId);
     }
   };
 
   const handleVoiceSelected = (voiceId: string) => {
-    setSelectedVoiceId(voiceId);
+    voicePicker.setSelectedVoiceId(voiceId);
     setShowVoiceSetup(false);
     if (pendingAudioAction === "all") {
       state.generateAllAudio(voiceId);
@@ -504,6 +440,11 @@ function TimelineEditor({
     }
   };
 
+  const cancelTitleCards = () => {
+    titleCardCancelledRef.current = true;
+    setTitleCardGenerating(false);
+  };
+
   const handleGenerateThumbnailsInline = async () => {
     thumbnailsCancelledRef.current = false;
     setThumbnailsInlineGenerating(true);
@@ -613,371 +554,56 @@ function TimelineEditor({
           </div>
 
           {/* Row 2 — Pipeline Steps */}
-          <div className="flex flex-col gap-1.5 px-5 py-2 bg-gradient-to-b from-neutral-900/60 to-neutral-900/40">
-            <div className="grid items-center gap-1.5" style={{ gridTemplateColumns: "1fr auto 1fr auto 1fr auto 1fr auto 1fr auto 1fr" }}>
-
-            {/* Step 1 — Title Cards */}
-            <div className="flex items-center gap-1.5">
-              <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
-                titleCardGenerating
-                  ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
-                  : titleCardGenerated || !state.hasTitleCards
-                    ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
-                    : "border-neutral-600 text-neutral-500"
-              }`}>1</span>
-              {state.hasTitleCards && (
-                <button
-                  onClick={titleCardGenerating ? () => { titleCardCancelledRef.current = true; setTitleCardGenerating(false); } : () => handleGenerateTitleCards(titleCardGenerated)}
-                  className={`text-sm px-2 py-2.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
-                    titleCardGenerating
-                      ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
-                      : titleCardGenerated
-                        ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
-                        : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
-                  }`}
-                  title={titleCardGenerating ? "Cancel title card generation" : "Generate composite title card images for all segments"}
-                >
-                  {titleCardGenerating ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
-                      Cancel
-                    </>
-                  ) : titleCardGenerated ? (
-                    "Title Cards \u2713"
-                  ) : (
-                    "Title Cards"
-                  )}
-                </button>
-              )}
-            </div>
-
-          {/* Chevron connector */}
-          <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-
-          {/* Step 2 — Generate Images */}
-          <div className="flex items-center gap-1.5">
-            <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
-              state.batchGenerating
-                ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
-                : allImagesGenerated
-                  ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
-                  : "border-neutral-600 text-neutral-500"
-            }`}>2</span>
-            <button
-              onClick={state.batchGenerating ? () => state.cancelImageGeneration() : confirmAndGenerateImages}
-              className={`text-sm px-2 py-2.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
-                state.batchGenerating
-                  ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
-                  : allImagesGenerated
-                    ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
-                    : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
-              }`}
-              title={state.batchGenerating ? "Cancel image generation" : "Generate images for all scenes with visual prompts"}
-            >
-              {state.batchGenerating ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
-                  Cancel
-                </>
-              ) : allImagesGenerated ? (
-                "Generate Images \u2713"
-              ) : (
-                "Generate Images"
-              )}
-            </button>
-          </div>
-
-          {/* Chevron connector */}
-          <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-
-          {/* Step 3 — Generate Audio (split-button with voice picker) */}
-          <div className="flex items-center gap-1.5">
-            <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
-              state.batchGeneratingAudio
-                ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
-                : allAudioGenerated
-                  ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
-                  : "border-neutral-600 text-neutral-500"
-            }`}>3</span>
-            <div ref={voicePickerRef} className="relative flex items-stretch flex-1">
-              <button
-                onClick={state.batchGeneratingAudio ? () => state.cancelAudioGeneration() : confirmAndGenerateAudio}
-                disabled={!state.batchGeneratingAudio && !selectedVoiceId && voices.length > 0}
-                className={`text-sm pl-2 pr-1.5 py-2.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
-                  state.batchGeneratingAudio
-                    ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
-                    : allAudioGenerated
-                      ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
-                      : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
-                }`}
-                title={state.batchGeneratingAudio ? "Cancel audio generation" : "Generate audio for all scenes with narration"}
-              >
-                {state.batchGeneratingAudio ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
-                    Cancel
-                  </span>
-                ) : allAudioGenerated ? (
-                  "Generate Audio \u2713"
-                ) : (
-                  "Generate Audio"
-                )}
-              </button>
-              {!state.batchGeneratingAudio && (
-                <button
-                  onClick={() => setShowVoicePicker((prev) => !prev)}
-                  className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-md transition-colors flex items-center"
-                  title="Select voice"
-                >
-                  <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
-                    <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-              )}
-              {state.batchGeneratingAudio && (
-                <span className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-md flex items-center">
-                  <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
-                    <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </span>
-              )}
-              {/* Voice picker popover */}
-              {showVoicePicker && (
-                <div className="absolute top-full left-0 mt-1 w-56 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
-                  {voices.length === 0 ? (
-                    <div className="px-3 py-2 text-xs text-neutral-500">No voices available</div>
-                  ) : (
-                    voices.map((v) => (
-                      <button
-                        key={v.voice_id}
-                        onClick={() => { setSelectedVoiceId(v.voice_id); setShowVoicePicker(false); }}
-                        className={`w-full text-left px-3 py-1.5 text-sm transition-colors flex items-center justify-between ${
-                          v.voice_id === selectedVoiceId
-                            ? "bg-violet-500/15 text-violet-300"
-                            : "text-neutral-300 hover:bg-neutral-700"
-                        }`}
-                      >
-                        <span>{v.name}</span>
-                        {v.voice_id === selectedVoiceId && (
-                          <svg className="w-3.5 h-3.5 text-violet-400" viewBox="0 0 14 14" fill="none">
-                            <path d="M2 7L5.5 10.5L12 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Chevron connector */}
-          <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-
-          {/* Step 4 — Add Eli */}
-          <div className="flex items-center gap-1.5">
-            <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
-              generatingEli
-                ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
-                : allEliGenerated
-                  ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
-                  : "border-neutral-600 text-neutral-500"
-            }`}>4</span>
-            <div ref={eliPositionRef} className="relative flex items-stretch flex-1">
-              <button
-                onClick={generatingEli ? () => { eliCancelledRef.current = true; setGeneratingEli(false); } : confirmAndGenerateEli}
-                className={`text-sm pl-2 pr-1.5 py-2.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
-                  generatingEli
-                    ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
-                    : allEliGenerated
-                      ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
-                      : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
-                }`}
-                title={generatingEli ? "Cancel Eli generation" : "Add Eli character overlay to all scenes (requires voiceover)"}
-              >
-                {generatingEli ? (
-                  <>
-                    <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
-                    Cancel
-                  </>
-                ) : allEliGenerated ? (
-                  "Add Eli \u2713"
-                ) : (
-                  "Add Eli"
-                )}
-              </button>
-              {!generatingEli ? (
-                <button
-                  onClick={() => setShowEliPositionPicker((prev) => !prev)}
-                  className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-md transition-colors flex items-center"
-                  title="Configure Eli overlay position"
-                >
-                  <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
-                    <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-              ) : (
-                <span className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-md flex items-center">
-                  <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
-                    <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </span>
-              )}
-              {/* Eli position popover */}
-              {showEliPositionPicker && (
-                <div className="absolute top-full left-0 mt-1 w-[360px] bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl z-50 p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setEliPositionMode("default");
-                        state.setContent({ ...state.content, eli_position: null });
-                      }}
-                      className={`text-[11px] px-2.5 py-1 rounded-md border transition-colors ${
-                        eliPositionMode === "default"
-                          ? "border-teal-500/50 bg-teal-500/15 text-teal-300"
-                          : "border-neutral-700 bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
-                      }`}
-                    >
-                      Default
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEliPositionMode("custom");
-                        setCustomEliPosition(brandEliPosition);
-                        state.setContent({ ...state.content, eli_position: brandEliPosition });
-                      }}
-                      className={`text-[11px] px-2.5 py-1 rounded-md border transition-colors ${
-                        eliPositionMode === "custom"
-                          ? "border-teal-500/50 bg-teal-500/15 text-teal-300"
-                          : "border-neutral-700 bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
-                      }`}
-                    >
-                      Custom for this video
-                    </button>
-                  </div>
-                  {eliPositionMode === "custom" ? (
-                    <EliPositionPicker
-                      value={customEliPosition}
-                      onChange={(pos) => {
-                        setCustomEliPosition(pos);
-                        state.setContent({ ...state.content, eli_position: pos });
-                      }}
-                    />
-                  ) : (
-                    <div className="text-xs text-neutral-500">
-                      Using brand default position ({brandEliPosition.x}, {brandEliPosition.y})
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Chevron connector + Step 5 — Generate FX */}
-          <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          <div className="flex items-center gap-1.5">
-            <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
-              generatingFX
-                ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
-                : allFXGenerated
-                  ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
-                  : "border-neutral-600 text-neutral-500"
-            }`}>5</span>
-            <button
-              onClick={generatingFX ? () => { fxCancelledRef.current = true; setGeneratingFX(false); } : confirmAndGenerateFX}
-              className={`text-sm px-2 py-2.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
-                generatingFX
-                  ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
-                  : allFXGenerated
-                    ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
-                    : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
-              }`}
-              title={generatingFX ? "Cancel FX generation" : "Use AI to assign visual effects to all scenes"}
-            >
-              {generatingFX ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
-                  Cancel
-                </>
-              ) : allFXGenerated ? (
-                "Generate FX \u2713"
-              ) : (
-                "Generate FX"
-              )}
-            </button>
-          </div>
-
-          {/* Chevron connector + Step 6 — Export (split-button with Export Test dropdown) */}
-          <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          <div className="flex items-center gap-1.5">
-            <span className="w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums border-neutral-600 text-neutral-500">6</span>
-            <div ref={exportDropdownRef} className="relative flex items-stretch flex-1">
-              <button
-                onClick={exportTestJobId ? () => setExportTestJobId(null) : () => setShowExport(true)}
-                className={`text-sm pl-2 pr-1.5 py-2.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
-                  exportTestJobId
-                    ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
-                    : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
-                }`}
-                title={exportTestJobId ? "Cancel export test" : "Export & Render (Cmd+E)"}
-              >
-                {exportTestJobId ? (
-                  <>
-                    <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
-                    Cancel
-                  </>
-                ) : (
-                  "Export"
-                )}
-              </button>
-              {!exportTestJobId ? (
-                <button
-                  onClick={() => setShowExportDropdown((prev) => !prev)}
-                  className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-md transition-colors flex items-center"
-                  title="Export options"
-                >
-                  <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
-                    <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-              ) : (
-                <span className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-md flex items-center">
-                  <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
-                    <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </span>
-              )}
-              {/* Export dropdown popover */}
-              {showExportDropdown && (
-                <div className="absolute top-full left-0 mt-1 w-44 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 py-1">
-                  <button
-                    onClick={() => { setShowExportDropdown(false); setShowExportTestModal(true); }}
-                    className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors"
-                  >
-                    Export Test
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-          </div>
-          {/* Zoom slider — own section below buttons */}
-          <div className="border-t border-neutral-800/60 px-5 py-1.5">
-            <div className="flex items-center gap-3 w-full">
-              <span className="text-[11px] text-neutral-500 shrink-0">Zoom</span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={pixelsPerSecond}
-                onChange={(e) => setPixelsPerSecond(parseInt(e.target.value, 10))}
-                className="flex-1 w-full accent-violet-500"
-                style={{ minWidth: 0 }}
-              />
-              <span className="text-[11px] text-neutral-500 font-mono shrink-0">{pixelsPerSecond}</span>
-            </div>
-          </div>
-          </div>
+          <PipelineSteps
+            titleCardGenerating={titleCardGenerating}
+            titleCardGenerated={titleCardGenerated}
+            allImagesGenerated={allImagesGenerated}
+            allAudioGenerated={allAudioGenerated}
+            allFXGenerated={allFXGenerated}
+            allEliGenerated={allEliGenerated}
+            batchGenerating={state.batchGenerating}
+            batchGeneratingAudio={state.batchGeneratingAudio}
+            hasTitleCards={state.hasTitleCards}
+            generatingFX={generatingFX}
+            setGeneratingFX={setGeneratingFX}
+            generatingEli={generatingEli}
+            setGeneratingEli={setGeneratingEli}
+            handleGenerateTitleCards={handleGenerateTitleCards}
+            cancelTitleCards={cancelTitleCards}
+            confirmAndGenerateImages={confirmAndGenerateImages}
+            confirmAndGenerateAudio={confirmAndGenerateAudio}
+            confirmAndGenerateFX={confirmAndGenerateFX}
+            confirmAndGenerateEli={confirmAndGenerateEli}
+            cancelImageGeneration={state.cancelImageGeneration}
+            cancelAudioGeneration={state.cancelAudioGeneration}
+            fxCancelledRef={fxCancelledRef}
+            eliCancelledRef={eliCancelledRef}
+            showVoicePicker={voicePicker.showVoicePicker}
+            setShowVoicePicker={voicePicker.setShowVoicePicker}
+            voices={voicePicker.voices}
+            selectedVoiceId={voicePicker.selectedVoiceId}
+            setSelectedVoiceId={voicePicker.setSelectedVoiceId}
+            voicePickerRef={voicePicker.voicePickerRef}
+            showEliPositionPicker={eliPosition.showEliPositionPicker}
+            setShowEliPositionPicker={eliPosition.setShowEliPositionPicker}
+            eliPositionMode={eliPosition.eliPositionMode}
+            setEliPositionMode={eliPosition.setEliPositionMode}
+            brandEliPosition={eliPosition.brandEliPosition}
+            customEliPosition={eliPosition.customEliPosition}
+            setCustomEliPosition={eliPosition.setCustomEliPosition}
+            eliPositionRef={eliPosition.eliPositionRef}
+            content={state.content}
+            setContent={state.setContent}
+            exportTestJobId={exportTestJobId}
+            setExportTestJobId={setExportTestJobId}
+            showExportDropdown={showExportDropdown}
+            setShowExportDropdown={setShowExportDropdown}
+            exportDropdownRef={exportDropdownRef}
+            setShowExport={setShowExport}
+            setShowExportTestModal={setShowExportTestModal}
+            pixelsPerSecond={pixelsPerSecond}
+            setPixelsPerSecond={setPixelsPerSecond}
+          />
         </div>
 
         {/* Right — Thumbnail Preview */}

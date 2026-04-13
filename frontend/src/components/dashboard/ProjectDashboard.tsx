@@ -333,18 +333,6 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject }: Props) {
                           >
                             Open
                           </button>
-                          <button
-                            disabled
-                            className="w-full text-left px-3 py-1.5 text-sm text-neutral-600 cursor-not-allowed"
-                          >
-                            Duplicate
-                          </button>
-                          <button
-                            disabled
-                            className="w-full text-left px-3 py-1.5 text-sm text-neutral-600 cursor-not-allowed"
-                          >
-                            Rename
-                          </button>
                           <div className="border-t border-neutral-700 my-1" />
                           <button
                             onClick={(e) => handleDelete(e, project)}
