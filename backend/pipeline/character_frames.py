@@ -860,12 +860,26 @@ def generate_missing_frames(
 def load_variant_counts() -> dict[str, int]:
     """Read manifest and return a map of {frame_id: variant_count}.
 
+    Checks actual files on disk rather than trusting manifest values,
+    so we never return a count for variants that don't exist.
+
     Returns empty dict if manifest doesn't exist.
     """
     manifest = get_manifest()
     if not manifest:
         return {}
-    return {f["id"]: f.get("variant_count", 1) for f in manifest.get("frames", [])}
+    frames_dir = _character_dir() / "frames"
+    counts: dict[str, int] = {}
+    for f in manifest.get("frames", []):
+        fid = f["id"]
+        actual = 1  # base file always exists
+        for v in range(2, f.get("variant_count", 1) + 1):
+            if (frames_dir / f"{fid}_v{v}_closed.png").exists():
+                actual = v
+            else:
+                break
+        counts[fid] = actual
+    return counts
 
 
 def _build_variant_prompt(definition: dict[str, str], mouth_state: str, variant_num: int) -> str:
