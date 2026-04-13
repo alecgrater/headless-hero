@@ -182,6 +182,10 @@ function TimelineEditor({
   const [customEliPosition, setCustomEliPosition] = useState<EliPosition>({ x: 1410, y: 720 });
   const eliPositionRef = useRef<HTMLDivElement>(null);
 
+  // Export split-button dropdown state
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const exportDropdownRef = useRef<HTMLDivElement>(null);
+
   // Auto-load thumbnails from disk on mount
   useEffect(() => {
     (async () => {
@@ -218,6 +222,18 @@ function TimelineEditor({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showEliPositionPicker]);
+
+  // Close export dropdown on outside click
+  useEffect(() => {
+    if (!showExportDropdown) return;
+    const handler = (e: MouseEvent) => {
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(e.target as Node)) {
+        setShowExportDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showExportDropdown]);
 
   // Cancel refs for single async operations
   const fxCancelledRef = useRef(false);
@@ -890,38 +906,62 @@ function TimelineEditor({
               )}
             </button>
           </div>
-          </div>
-          </div>
-        <div className="flex items-center gap-2 px-5 pb-2.5">
-          {/* Export Test */}
-          <button
-            onClick={exportTestJobId ? () => setExportTestJobId(null) : () => setShowExportTestModal(true)}
-            className={`text-sm px-3 py-1.5 border rounded-md font-medium transition-colors flex items-center gap-2 ${
-              exportTestJobId
-                ? "bg-rose-500/10 border-red-500/30 text-rose-400 hover:border-red-500/50"
-                : "bg-rose-500/8 border-rose-500/25 text-rose-400 hover:bg-rose-500/15"
-            }`}
-            title={exportTestJobId ? "Cancel export test" : "Run full pipeline for scene 1 and copy to Downloads"}
-          >
-            {exportTestJobId ? (
-              <>
-                <span className="w-3.5 h-3.5 border-2 border-rose-400/50 border-t-transparent rounded-full animate-spin" />
-                Cancel
-              </>
-            ) : (
-              "Export Test"
-            )}
-          </button>
 
-          {/* Export CTA */}
-          <button
-            onClick={() => setShowExport(true)}
-            className="btn-primary text-sm px-4 py-1.5 rounded-lg font-semibold"
-            title="Export & Render (Cmd+E)"
-          >
-            Export
-          </button>
-        </div>
+          {/* Chevron connector + Step 6 — Export (split-button with Export Test dropdown) */}
+          <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <div className="flex items-center gap-1.5">
+            <span className="w-[22px] h-[22px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums border-neutral-600 text-neutral-500">6</span>
+            <div ref={exportDropdownRef} className="relative flex items-stretch">
+              <button
+                onClick={exportTestJobId ? () => setExportTestJobId(null) : () => setShowExport(true)}
+                className={`text-sm pl-3 pr-2 py-1.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-2 min-w-[130px] ${
+                  exportTestJobId
+                    ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
+                    : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
+                }`}
+                title={exportTestJobId ? "Cancel export test" : "Export & Render (Cmd+E)"}
+              >
+                {exportTestJobId ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
+                    Cancel
+                  </>
+                ) : (
+                  "Export"
+                )}
+              </button>
+              {!exportTestJobId ? (
+                <button
+                  onClick={() => setShowExportDropdown((prev) => !prev)}
+                  className="text-sm px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-md transition-colors flex items-center"
+                  title="Export options"
+                >
+                  <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                    <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              ) : (
+                <span className="text-sm px-1.5 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-md flex items-center">
+                  <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
+                    <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              )}
+              {/* Export dropdown popover */}
+              {showExportDropdown && (
+                <div className="absolute top-full left-0 mt-1 w-44 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 py-1">
+                  <button
+                    onClick={() => { setShowExportDropdown(false); setShowExportTestModal(true); }}
+                    className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors"
+                  >
+                    Export Test
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          </div>
+          </div>
         </div>
 
         {/* Right — Thumbnail Preview */}
