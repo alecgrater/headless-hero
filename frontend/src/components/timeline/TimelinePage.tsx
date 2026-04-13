@@ -356,15 +356,14 @@ function TimelineEditor({
 
   // Check if ALL scenes are complete for each step (for completion checkmarks)
   const nonTitleScenes = allScenes.filter((sc) => !sc.is_title_card);
-  const narratedScenes = allScenes.filter((sc) => sc.narration);
+  // Narrated non-title scenes: the set that gets audio, Eli, and FX generated
+  const narratedScenes = nonTitleScenes.filter((sc) => sc.narration);
   // Image scenes: non-title scenes that have a visual_prompt (excludes aha_subtitle which are text-on-black)
   const imageScenes = nonTitleScenes.filter((sc) => sc.visual_prompt);
   const allImagesGenerated = imageScenes.length > 0 && imageScenes.every((sc) => sc.image_url || sc.frame_urls?.length);
   const allAudioGenerated = narratedScenes.length > 0 && narratedScenes.every((sc) => sc.audio_url);
   const allFXGenerated = nonTitleScenes.length > 0 && nonTitleScenes.every((sc) => sc.fx);
-  // Eli scenes: narrated non-title scenes (Eli generation skips title cards)
-  const eliScenes = narratedScenes.filter((sc) => !sc.is_title_card);
-  const allEliGenerated = eliScenes.length > 0 && eliScenes.every((sc) => sc.eli_overlay);
+  const allEliGenerated = narratedScenes.length > 0 && narratedScenes.every((sc) => sc.eli_overlay);
 
   const confirmAndGenerateImages = () => {
     if (hasExistingImages) {
