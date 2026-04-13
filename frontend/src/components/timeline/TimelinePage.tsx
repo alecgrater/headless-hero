@@ -959,9 +959,8 @@ function TimelineEditor({
                 </div>
               )}
             </div>
-          </div>
           {/* Zoom slider */}
-          <div className="flex items-center gap-3 w-full">
+          <div className="flex items-center gap-3 w-full" style={{ gridColumn: "1 / -1" }}>
             <span className="text-[11px] text-neutral-500 shrink-0">Zoom</span>
             <input
               type="range"
