@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import api, { assetUrl, generateFX, generateEli, exportTest } from "../../api";
+import api, { assetUrl, generateFX, generateEli, exportTest, fetchScriptCost } from "../../api";
 import type { ExportTestOptions } from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
@@ -179,6 +179,21 @@ function TimelineEditor({
   const [thumbnailsInline, setThumbnailsInline] = useState<ThumbnailConcept[]>([]);
   const [thumbnailsInlineGenerating, setThumbnailsInlineGenerating] = useState(false);
   const [showThumbnailModal, setShowThumbnailModal] = useState(false);
+  const [totalCost, setTotalCost] = useState<number>(0);
+
+  const refreshCost = useCallback(async () => {
+    const data = await fetchScriptCost(scriptId);
+    setTotalCost(data.total_cost);
+  }, [scriptId]);
+
+  // Fetch cost on mount
+  useEffect(() => { refreshCost(); }, [refreshCost]);
+
+  // Refresh cost when image or audio batch generation completes
+  const imgDone = state.batchImageProgress.total > 0 && (state.batchImageProgress.completed + state.batchImageProgress.failed) >= state.batchImageProgress.total;
+  const audioDone = state.batchAudioProgress.total > 0 && (state.batchAudioProgress.completed + state.batchAudioProgress.failed) >= state.batchAudioProgress.total;
+  useEffect(() => { if (imgDone) refreshCost(); }, [imgDone, refreshCost]);
+  useEffect(() => { if (audioDone) refreshCost(); }, [audioDone, refreshCost]);
 
   // Export split-button dropdown state
   const [showExportDropdown, setShowExportDropdown] = useState(false);
@@ -409,6 +424,7 @@ function TimelineEditor({
       }
     } finally {
       setGeneratingFX(false);
+      refreshCost();
     }
   };
 
@@ -427,6 +443,7 @@ function TimelineEditor({
       }
     } finally {
       setGeneratingEli(false);
+      refreshCost();
     }
   };
 
@@ -599,6 +616,9 @@ function TimelineEditor({
                   {totalWords.toLocaleString()} words
                 </span>
               )}
+              <span className="text-[11px] text-emerald-400/80 border border-emerald-700/40 px-2 py-0.5 rounded-full">
+                ${totalCost.toFixed(2)}
+              </span>
             </div>
           </div>
 

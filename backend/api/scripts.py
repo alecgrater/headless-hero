@@ -256,6 +256,23 @@ def get_script(script_id: str, session: Session = Depends(get_session)):
         created_at=record.created_at,
     )
 
+
+class ScriptCostResponse(BaseModel):
+    script_id: str
+    total_cost: float
+
+
+@router.get("/{script_id}/cost", response_model=ScriptCostResponse)
+def get_script_cost(script_id: str, session: Session = Depends(get_session)):
+    """Return the total estimated cost for a script based on API usage records."""
+    from sqlmodel import func
+    from models.api_usage import ApiUsage
+
+    result = session.exec(
+        select(func.coalesce(func.sum(ApiUsage.cost_estimate), 0.0)).where(ApiUsage.script_id == script_id)
+    ).one()
+    return ScriptCostResponse(script_id=script_id, total_cost=round(float(result), 4))
+
 @router.post("/{script_id}/refine-scene", response_model=RefineSceneResponse)
 def refine_scene_endpoint(
     script_id: str,

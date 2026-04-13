@@ -65,7 +65,7 @@ Return a JSON object with the scene "id" and an "eli_overlay" object:
 Return ONLY the JSON object, no explanation."""
 
 
-def generate_scene_eli(scene_data: dict) -> dict:
+def generate_scene_eli(scene_data: dict, script_id: str | None = None) -> dict:
     """Generate Eli animation keyframes for a single scene.
 
     Takes a scene summary dict, returns {id, eli_overlay}.
@@ -93,6 +93,7 @@ def generate_scene_eli(scene_data: dict) -> dict:
         system=ELI_SYSTEM_PROMPT,
         user_message=user_message,
         max_tokens=2048,
+        script_id=script_id,
     )
 
     cleaned = strip_markdown_fences(response)

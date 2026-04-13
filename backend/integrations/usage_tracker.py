@@ -22,6 +22,7 @@ def record_usage(
     images: int = 0,
     cost_estimate: float = 0.0,
     metadata_json: str = "",
+    script_id: str | None = None,
 ) -> None:
     """Record an API usage event in a background thread (fire-and-forget)."""
     def _write():
@@ -36,6 +37,7 @@ def record_usage(
                 images=images,
                 cost_estimate=cost_estimate,
                 metadata_json=metadata_json,
+                script_id=script_id,
             )
             with Session(engine) as session:
                 session.add(row)

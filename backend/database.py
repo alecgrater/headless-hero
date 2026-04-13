@@ -18,6 +18,7 @@ def init_db() -> None:
     SQLModel.metadata.create_all(engine)
     _migrate_add_eli_position()
     _migrate_script_model_default()
+    _migrate_add_script_id_to_api_usage()
     logger.info("Database ready")
 
 def ensure_default_brand() -> None:
@@ -61,6 +62,23 @@ def _migrate_add_eli_position() -> None:
             conn.execute("ALTER TABLE brand_profiles ADD COLUMN eli_position_json TEXT DEFAULT ''")
             conn.commit()
             logger.info("Migrated: added eli_position_json to brand_profiles")
+    finally:
+        conn.close()
+
+
+def _migrate_add_script_id_to_api_usage() -> None:
+    """Add script_id column to api_usage if missing."""
+    import sqlite3
+
+    conn = sqlite3.connect(str(_db_path))
+    try:
+        cursor = conn.execute("PRAGMA table_info(api_usage)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "script_id" not in columns:
+            conn.execute("ALTER TABLE api_usage ADD COLUMN script_id TEXT DEFAULT NULL")
+            conn.execute("CREATE INDEX IF NOT EXISTS ix_api_usage_script_id ON api_usage(script_id)")
+            conn.commit()
+            logger.info("Migrated: added script_id to api_usage")
     finally:
         conn.close()
 

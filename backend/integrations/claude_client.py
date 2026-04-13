@@ -29,6 +29,7 @@ def chat(
     model: str = "anthropic.claude-opus-4-6-v1",
     max_tokens: int = 4096,
     timeout: float = 600.0,
+    script_id: str | None = None,
 ) -> str:
     """Send a single-turn message to Claude and return the text response."""
     client = get_client()
@@ -57,6 +58,7 @@ def chat(
         input_tokens=input_tok,
         output_tokens=output_tok,
         cost_estimate=cost,
+        script_id=script_id,
     )
     logger.info("Claude API call complete, usage: %s input / %s output tokens", input_tok, output_tok)
 

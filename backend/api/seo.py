@@ -44,6 +44,7 @@ def generate_seo_metadata(body: GenerateSEORequest, session: Session = Depends(g
         segments=segment_names,
         video_description=record.topic_description,
         brand_context=brand_context,
+        script_id=body.script_id,
     )
 
     logger.info("SEO metadata generated for script %s", body.script_id)

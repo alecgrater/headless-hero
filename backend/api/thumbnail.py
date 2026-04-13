@@ -79,6 +79,7 @@ def generate_thumbnails(body: GenerateThumbnailRequest, session: Session = Depen
     concepts = generate_concepts(
         video_title=content.title,
         count=body.count,
+        script_id=body.script_id,
     )
 
     # Render each concept

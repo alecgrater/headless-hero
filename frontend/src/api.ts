@@ -142,6 +142,15 @@ export async function fetchGenerationEstimate(
   return { average_seconds: null, sample_count: 0 };
 }
 
+/** Fetch the total estimated cost for a script. */
+export async function fetchScriptCost(scriptId: string): Promise<{ total_cost: number }> {
+  const res = await api.get(`/api/scripts/${scriptId}/cost`);
+  if (res.ok) {
+    return res.data as { total_cost: number };
+  }
+  return { total_cost: 0 };
+}
+
 /** Generate FX assignments for all scenes in a script via Claude. */
 export async function generateFX(scriptId: string, missingOnly = false) {
   return api.post("/api/fx/generate", { script_id: scriptId, missing_only: missingOnly });

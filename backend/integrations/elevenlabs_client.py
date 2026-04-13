@@ -81,6 +81,7 @@ def generate_speech(
     model_id: str = DEFAULT_TTS_MODEL,
     output_format: str = "mp3_44100_128",
     voice_settings: dict | None = None,
+    script_id: str | None = None,
 ) -> tuple[bytes, list[dict]]:
     """Generate speech audio bytes from text using ElevenLabs TTS with timestamps.
 
@@ -132,6 +133,7 @@ def generate_speech(
         model=model_id,
         characters=char_count,
         cost_estimate=char_count * ELEVENLABS_PER_CHAR,
+        script_id=script_id,
     )
 
     if characters and char_starts and char_ends:

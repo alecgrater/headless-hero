@@ -43,6 +43,7 @@ def generate_concepts(
     video_title: str,
     video_description: str = "",
     count: int = 3,
+    script_id: str | None = None,
 ) -> list[ThumbnailConcept]:
     """Use Claude to generate thumbnail concepts for the video."""
     logger.info("Generating %s thumbnail concepts for %r", count, video_title)
@@ -50,7 +51,7 @@ def generate_concepts(
     if video_description:
         user_msg += f"\nDescription: {video_description}"
 
-    raw = chat(SYSTEM_PROMPT, user_msg)
+    raw = chat(SYSTEM_PROMPT, user_msg, script_id=script_id)
     text = strip_markdown_fences(raw)
 
     data = json.loads(text)
@@ -87,7 +88,7 @@ def generate_thumbnail(
     logger.info("Generating thumbnail %s for script %s", idx, script_id)
     prompt = visual_description
 
-    tmp_path = generate_image(prompt, width=1280, height=720)
+    tmp_path = generate_image(prompt, width=1280, height=720, script_id=script_id)
 
     # Move illustration to renders directory
     thumbs_dir = DATA_DIR / "projects" / script_id / "renders" / "thumbnails"

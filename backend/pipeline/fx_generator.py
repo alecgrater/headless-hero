@@ -263,7 +263,7 @@ def _apply_word_timestamps(
     return fx_data
 
 
-def generate_scene_fx(scene_data: dict) -> dict:
+def generate_scene_fx(scene_data: dict, script_id: str | None = None) -> dict:
     """Generate FX for a single scene. Used for per-scene regeneration.
 
     Takes a scene summary dict (same format as in batch), returns {id, fx}.
@@ -274,6 +274,7 @@ def generate_scene_fx(scene_data: dict) -> dict:
         system=FX_SYSTEM_PROMPT,
         user_message=user_message,
         max_tokens=2048,
+        script_id=script_id,
     )
 
     cleaned = strip_markdown_fences(response)

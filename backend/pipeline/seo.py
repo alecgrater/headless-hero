@@ -38,6 +38,7 @@ def generate_seo(
     segments: list[str],
     video_description: str = "",
     brand_context: str = "",
+    script_id: str | None = None,
 ) -> SEOMetadata:
     """Generate SEO metadata for YouTube via Claude."""
     segment_list = "\n".join(f"- {name}" for name in segments)
@@ -52,7 +53,7 @@ def generate_seo(
         user_msg += f"\n\nBrand: {brand_context}"
 
     logger.info("Generating SEO metadata for %r (%s segments)", video_title, len(segments))
-    raw = chat(SYSTEM_PROMPT, user_msg, max_tokens=4096)
+    raw = chat(SYSTEM_PROMPT, user_msg, max_tokens=4096, script_id=script_id)
     text = strip_markdown_fences(raw)
 
     data = json.loads(text)

@@ -129,6 +129,7 @@ def generate_scene_image(
             prompt, width=width, height=height,
             original_prompt=visual_prompt,
             reference_image_path=reference_image_path,
+            script_id=script_id,
         )
     except RuntimeError:
         logger.error("All image generation failed for scene %s, trying direct scraper fallback", scene_id)
@@ -276,6 +277,7 @@ def generate_scene_frames(
             height=height,
             reference_image_path=ref_path,
             original_prompt=full_frame_description,
+            script_id=script_id,
         )
         shutil.move(tmp_path, str(local_path))
         prompt_marker.write_text(prompt, encoding="utf-8")
@@ -427,6 +429,7 @@ def generate_scene_frames_v2(
             height=height,
             reference_image_path=ref_path,
             original_prompt=directive_prompt,
+            script_id=script_id,
         )
         shutil.move(tmp_path, str(local_path))
         prompt_marker.write_text(prompt, encoding="utf-8")

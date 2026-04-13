@@ -42,6 +42,7 @@ def _call_gemini(
     client: genai.Client,
     contents: list,
     aspect: str,
+    script_id: str | None = None,
 ) -> str | None:
     """Single Gemini image generation call. Returns temp file path or None if blocked."""
     try:
@@ -74,6 +75,7 @@ def _call_gemini(
                 model="gemini-2.5-flash-image",
                 images=1,
                 cost_estimate=GOOGLE_IMAGE_PER_CALL,
+                script_id=script_id,
             )
             logger.info("Gemini image generated successfully")
             return tmp_path
@@ -88,6 +90,7 @@ def generate_image(
     seed: int | None = None,
     reference_image_path: str | None = None,
     original_prompt: str | None = None,
+    script_id: str | None = None,
 ) -> str:
     """Generate an image via Gemini and return the path to a temp file.
 
@@ -118,7 +121,7 @@ def generate_image(
         contents.append(ref_part)
     contents.append(prompt)
 
-    result = _call_gemini(client, contents, aspect)
+    result = _call_gemini(client, contents, aspect, script_id=script_id)
     if result:
         return result
 
@@ -138,7 +141,7 @@ def generate_image(
         contents.append(ref_part)
     contents.append(retry_prompt)
 
-    result = _call_gemini(client, contents, aspect)
+    result = _call_gemini(client, contents, aspect, script_id=script_id)
     if result:
         return result
 

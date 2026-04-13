@@ -19,4 +19,5 @@ class ApiUsage(SQLModel, table=True):
     images: int = 0                             # for image gen
     cost_estimate: float = 0.0                  # estimated USD cost
     metadata_json: str = ""                     # optional extra info as JSON
+    script_id: str | None = Field(default=None, index=True)  # attribute cost to a video
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

@@ -78,7 +78,7 @@ def generate_all_fx(body: GenerateFXRequest, session: Session = Depends(get_sess
                 scene_data["word_timestamps"] = scene.word_timestamps
 
             try:
-                result = generate_scene_fx(scene_data)
+                result = generate_scene_fx(scene_data, script_id=body.script_id)
                 scene.fx = result["fx"]
                 updated += 1
                 logger.info("Generated FX for scene %d/%d (%s)", global_idx + 1, total_scenes, scene.id)

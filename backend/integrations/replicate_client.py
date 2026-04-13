@@ -68,6 +68,7 @@ def generate_image(
     height: int = IMAGE_HEIGHT,
     seed: int | None = None,
     reference_image_path: str | None = None,
+    script_id: str | None = None,
 ) -> str:
     """Generate an image via Replicate Flux and return the path to a temp file.
 
@@ -79,6 +80,7 @@ def generate_image(
             prompt=prompt,
             reference_image_path=reference_image_path,
             seed=seed,
+            script_id=script_id,
         )
 
     _require_token()
@@ -122,6 +124,7 @@ def generate_image(
         model=model,
         images=1,
         cost_estimate=REPLICATE_FLUX_PER_IMAGE,
+        script_id=script_id,
     )
     return tmp_path
 
@@ -130,6 +133,7 @@ def generate_image_from_reference(
     prompt: str,
     reference_image_path: str,
     seed: int | None = None,
+    script_id: str | None = None,
 ) -> str:
     """Generate an image using a reference via FLUX Kontext Pro.
 
@@ -173,5 +177,6 @@ def generate_image_from_reference(
         model=model,
         images=1,
         cost_estimate=REPLICATE_KONTEXT_PER_IMAGE,
+        script_id=script_id,
     )
     return tmp_path

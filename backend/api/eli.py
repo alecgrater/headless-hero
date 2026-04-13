@@ -76,7 +76,7 @@ def generate_all_eli(body: GenerateEliRequest, session: Session = Depends(get_se
                 scene_data["word_timestamps"] = scene.word_timestamps
 
             try:
-                result = generate_scene_eli(scene_data)
+                result = generate_scene_eli(scene_data, script_id=body.script_id)
                 scene.eli_overlay = result["eli_overlay"]
                 updated += 1
                 logger.info("Generated Eli overlay for scene %d/%d (%s)", global_idx + 1, total_scenes, scene.id)
@@ -143,7 +143,7 @@ def regenerate_scene_eli_endpoint(body: RegenerateEliRequest, session: Session =
     if target_scene.word_timestamps:
         scene_data["word_timestamps"] = target_scene.word_timestamps
 
-    result = generate_scene_eli(scene_data)
+    result = generate_scene_eli(scene_data, script_id=body.script_id)
 
     target_scene.eli_overlay = result["eli_overlay"]
 
