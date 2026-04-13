@@ -7,6 +7,8 @@ import IdeationInput, { type IdeationInputHandle } from "./IdeationInput";
 
 interface Props {
   onUseIdea: (idea: VideoIdea) => void;
+  initialNiche?: string | null;
+  initialIdeas?: VideoIdea[] | null;
 }
 
 const BATCH_SIZE = 5;
@@ -20,11 +22,11 @@ const EXAMPLE_NICHES = [
   "ancient civilizations",
 ];
 
-export default function IdeationPage({ onUseIdea }: Props) {
-  const [ideas, setIdeas] = useState<VideoIdea[]>([]);
+export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas }: Props) {
+  const [ideas, setIdeas] = useState<VideoIdea[]>(initialIdeas ?? []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastNiche, setLastNiche] = useState("");
+  const [lastNiche, setLastNiche] = useState(initialNiche ?? "");
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
   const [bookmarked, setBookmarked] = useState<Set<string>>(() => {
     try {

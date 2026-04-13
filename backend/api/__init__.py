@@ -20,6 +20,7 @@ from api.character import router as character_router
 from api.eli import router as eli_router
 from api.settings import router as settings_router
 from api.thumbnail import router as thumbnail_router
+from api.trending import router as trending_router
 from api.visuals import router as visuals_router
 from api.voiceover import router as voiceover_router
 from dev.log_handler import DevLog as _DevLog  # noqa: F401 — register table
@@ -31,6 +32,7 @@ from models.script import Script as _Script  # noqa: F401 — register table
 from models.generation_duration import GenerationDuration as _GenerationDuration  # noqa: F401 — register table
 from models.settings import AppSetting as _AppSetting  # noqa: F401 — register table
 from models.api_usage import ApiUsage as _ApiUsage  # noqa: F401 — register table
+from models.trending import TrendingTopic as _TrendingTopic  # noqa: F401 — register table
 
 from config import DATA_DIR
 
@@ -87,6 +89,7 @@ app.include_router(seo_router)
 app.include_router(settings_router)
 app.include_router(character_router)
 app.include_router(eli_router)
+app.include_router(trending_router)
 
 # Import modifiers package (no dynamic routers remaining)
 import pipeline.modifiers  # noqa: F401

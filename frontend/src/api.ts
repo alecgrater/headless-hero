@@ -36,7 +36,7 @@ function extractErrorMessage(status: number, data: unknown): string {
 }
 
 /** Paths that should not trigger toast notifications on error. */
-const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/"];
+const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/trending/refresh-status/"];
 
 function shouldSilence(path: string): boolean {
   return SILENT_PATHS.some((p) => path.startsWith(p));
@@ -273,4 +273,41 @@ export async function exportTest(scriptId: string, options: ExportTestOptions): 
   const res = await api.post("/api/render/export-test", { script_id: scriptId, ...options });
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Export test failed");
   return res.data as { job_id: string };
+}
+
+// ---------------------------------------------------------------------------
+// Trending topics
+// ---------------------------------------------------------------------------
+
+import type { TrendingTopic, TrendingRefreshStatus } from "./types/trending";
+
+/** Start a background trending topic refresh job. */
+export async function refreshTrending(): Promise<{ job_id: string }> {
+  const res = await api.post("/api/trending/refresh");
+  return res.data as { job_id: string };
+}
+
+/** Get status of a trending refresh job. */
+export async function getTrendingRefreshStatus(jobId: string): Promise<TrendingRefreshStatus> {
+  const res = await api.get(`/api/trending/refresh-status/${jobId}`);
+  return res.data as TrendingRefreshStatus;
+}
+
+/** Get trending topics, optionally filtered by status. */
+export async function getTrendingTopics(status?: string): Promise<TrendingTopic[]> {
+  const query = status ? `?status=${status}` : "";
+  const res = await api.get(`/api/trending/topics${query}`);
+  return (res.ok ? res.data : []) as TrendingTopic[];
+}
+
+/** Update a topic's status (dismiss or mark as used). */
+export async function updateTopicStatus(id: string, status: "dismissed" | "used"): Promise<void> {
+  await api.request("PATCH", `/api/trending/topics/${id}/status`, { status });
+}
+
+/** Generate video ideas from a trending topic. */
+export async function generateIdeasFromTopic(topicId: string): Promise<{ ideas: Array<{ title: string; segments_est: number; description: string; keywords: string[] }>; niche: string }> {
+  const res = await api.post("/api/trending/generate-ideas", { topic_id: topicId });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to generate ideas");
+  return res.data as { ideas: Array<{ title: string; segments_est: number; description: string; keywords: string[] }>; niche: string };
 }

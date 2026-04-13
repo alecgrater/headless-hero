@@ -19,6 +19,10 @@ dependencies = [
     "replicate>=1.0.7",
     "Pillow>=11.0.0",
     "rembg[cpu]>=2.0.50",
+    "pytrends>=4.9.0",
+    "feedparser>=6.0.0",
+    "newsapi-python>=0.2.7",
+    "thefuzz[speedup]>=0.22.0",
 ]
 
 [dependency-groups]
