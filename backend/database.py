@@ -17,6 +17,7 @@ def init_db() -> None:
     logger.info("Initializing database")
     SQLModel.metadata.create_all(engine)
     _migrate_add_eli_position()
+    _migrate_script_model_default()
     logger.info("Database ready")
 
 def ensure_default_brand() -> None:
@@ -62,3 +63,15 @@ def _migrate_add_eli_position() -> None:
             logger.info("Migrated: added eli_position_json to brand_profiles")
     finally:
         conn.close()
+
+
+def _migrate_script_model_default() -> None:
+    """Clear stale SCRIPT_MODEL if it's the old Sonnet default so the new Opus default takes effect."""
+    from models.settings import AppSetting
+
+    with Session(engine) as session:
+        setting = session.get(AppSetting, "SCRIPT_MODEL")
+        if setting and setting.value == "claude-sonnet-4-20250514":
+            session.delete(setting)
+            session.commit()
+            logger.info("Migrated: cleared stale SCRIPT_MODEL default (was claude-sonnet-4)")
