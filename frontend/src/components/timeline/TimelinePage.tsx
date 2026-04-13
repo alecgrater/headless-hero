@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import api, { assetUrl, generateFX, generateEli, exportTest } from "../../api";
 import type { ExportTestOptions } from "../../api";
 import type { ScriptContent } from "../../types/script";
@@ -167,6 +167,12 @@ function TimelineEditor({
   const [thumbnailsInline, setThumbnailsInline] = useState<ThumbnailConcept[]>([]);
   const [thumbnailsInlineGenerating, setThumbnailsInlineGenerating] = useState(false);
   const [thumbnailsInlineGenerated, setThumbnailsInlineGenerated] = useState(false);
+
+  // Cancel refs for single async operations
+  const fxCancelledRef = useRef(false);
+  const eliCancelledRef = useRef(false);
+  const titleCardCancelledRef = useRef(false);
+  const thumbnailsCancelledRef = useRef(false);
 
   // Fetch render estimate when export panel or preview modal opens
   useEffect(() => {
@@ -379,13 +385,14 @@ function TimelineEditor({
   };
 
   const handleGenerateFX = async () => {
+    fxCancelledRef.current = false;
     setGeneratingFX(true);
     try {
       const res = await generateFX(scriptId);
+      if (fxCancelledRef.current) return;
       if (res.ok) {
-        // Reload the script to get updated FX data
         const refreshed = await api.get(`/api/scripts/${scriptId}`);
-        if (refreshed.ok) {
+        if (refreshed.ok && !fxCancelledRef.current) {
           const data = refreshed.data as { script: ScriptContent };
           state.setContent(data.script);
         }
@@ -396,12 +403,14 @@ function TimelineEditor({
   };
 
   const handleGenerateEli = async () => {
+    eliCancelledRef.current = false;
     setGeneratingEli(true);
     try {
       const res = await generateEli(scriptId);
+      if (eliCancelledRef.current) return;
       if (res.ok) {
         const refreshed = await api.get(`/api/scripts/${scriptId}`);
-        if (refreshed.ok) {
+        if (refreshed.ok && !eliCancelledRef.current) {
           const data = refreshed.data as { script: ScriptContent };
           state.setContent(data.script);
         }
@@ -420,17 +429,21 @@ function TimelineEditor({
   };
 
   const handleGenerateTitleCards = async (force = false) => {
+    titleCardCancelledRef.current = false;
     setTitleCardGenerating(true);
     try {
       await state.generateTitleCardsStandalone(force);
-      setTitleCardGenerated(true);
-      setTitleCardTimestamp(Date.now());
+      if (!titleCardCancelledRef.current) {
+        setTitleCardGenerated(true);
+        setTitleCardTimestamp(Date.now());
+      }
     } finally {
       setTitleCardGenerating(false);
     }
   };
 
   const handleGenerateThumbnailsInline = async () => {
+    thumbnailsCancelledRef.current = false;
     setThumbnailsInlineGenerating(true);
     try {
       const res = await api.post("/api/thumbnail/generate", {
@@ -438,7 +451,7 @@ function TimelineEditor({
         bar_color: "0x9333EA",
         title,
       });
-      if (res.ok) {
+      if (res.ok && !thumbnailsCancelledRef.current) {
         const data = res.data as { concepts: ThumbnailConcept[] };
         setThumbnailsInline(data.concepts);
         setThumbnailsInlineGenerated(true);
@@ -579,15 +592,16 @@ function TimelineEditor({
         {/* Group 1 — Media Generation */}
         <div className="flex items-center gap-1.5">
           <button
-            onClick={confirmAndGenerateImages}
-            disabled={state.batchGenerating}
-            className="text-sm px-3 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
-            title="Generate images for all scenes with visual prompts"
+            onClick={state.batchGenerating ? () => state.cancelImageGeneration() : confirmAndGenerateImages}
+            className={`text-sm px-3 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700 rounded-md font-medium transition-colors flex items-center gap-2 ${
+              state.batchGenerating ? "border-red-500/30 hover:border-red-500/50" : ""
+            }`}
+            title={state.batchGenerating ? "Cancel image generation" : "Generate images for all scenes with visual prompts"}
           >
             {state.batchGenerating ? (
               <>
                 <span className="w-3.5 h-3.5 border-2 border-neutral-400/50 border-t-transparent rounded-full animate-spin" />
-                Generating...
+                Cancel
               </>
             ) : (
               "Generate Images"
@@ -608,15 +622,17 @@ function TimelineEditor({
             ))}
           </select>
           <button
-            onClick={confirmAndGenerateAudio}
-            disabled={state.batchGeneratingAudio || (!selectedVoiceId && voices.length > 0)}
-            className="text-sm px-3 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
-            title="Generate audio for all scenes with narration"
+            onClick={state.batchGeneratingAudio ? () => state.cancelAudioGeneration() : confirmAndGenerateAudio}
+            disabled={!state.batchGeneratingAudio && !selectedVoiceId && voices.length > 0}
+            className={`text-sm px-3 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2 ${
+              state.batchGeneratingAudio ? "border-red-500/30 hover:border-red-500/50" : ""
+            }`}
+            title={state.batchGeneratingAudio ? "Cancel audio generation" : "Generate audio for all scenes with narration"}
           >
             {state.batchGeneratingAudio ? (
               <>
                 <span className="w-3.5 h-3.5 border-2 border-neutral-400/50 border-t-transparent rounded-full animate-spin" />
-                Generating...
+                Cancel
               </>
             ) : (
               "Generate Audio"
@@ -627,15 +643,16 @@ function TimelineEditor({
         {/* Group 2 — FX Generation */}
         <div className="flex items-center gap-1">
           <button
-            onClick={confirmAndGenerateFX}
-            disabled={generatingFX}
-            className="text-sm px-3 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
-            title="Use AI to assign visual effects to all scenes"
+            onClick={generatingFX ? () => { fxCancelledRef.current = true; setGeneratingFX(false); } : confirmAndGenerateFX}
+            className={`text-sm px-3 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700 rounded-md font-medium transition-colors flex items-center gap-2 ${
+              generatingFX ? "border-red-500/30 hover:border-red-500/50" : ""
+            }`}
+            title={generatingFX ? "Cancel FX generation" : "Use AI to assign visual effects to all scenes"}
           >
             {generatingFX ? (
               <>
                 <span className="w-3.5 h-3.5 border-2 border-neutral-400/50 border-t-transparent rounded-full animate-spin" />
-                Generating...
+                Cancel
               </>
             ) : (
               "Generate FX"
@@ -643,15 +660,16 @@ function TimelineEditor({
           </button>
           <div className="w-px h-5 bg-neutral-700" />
           <button
-            onClick={confirmAndGenerateEli}
-            disabled={generatingEli}
-            className="text-sm px-3 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-md font-medium transition-colors flex items-center gap-2"
-            title="Add Eli character overlay to all scenes (requires voiceover)"
+            onClick={generatingEli ? () => { eliCancelledRef.current = true; setGeneratingEli(false); } : confirmAndGenerateEli}
+            className={`text-sm px-3 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700 rounded-md font-medium transition-colors flex items-center gap-2 ${
+              generatingEli ? "border-red-500/30 hover:border-red-500/50" : ""
+            }`}
+            title={generatingEli ? "Cancel Eli generation" : "Add Eli character overlay to all scenes (requires voiceover)"}
           >
             {generatingEli ? (
               <>
                 <span className="w-3.5 h-3.5 border-2 border-neutral-400/50 border-t-transparent rounded-full animate-spin" />
-                Adding Eli...
+                Cancel
               </>
             ) : (
               "Add Eli"
@@ -663,19 +681,20 @@ function TimelineEditor({
         <div className="flex items-center gap-1">
           {state.hasTitleCards && (
             <button
-              onClick={() => handleGenerateTitleCards(titleCardGenerated)}
-              disabled={titleCardGenerating}
+              onClick={titleCardGenerating ? () => { titleCardCancelledRef.current = true; setTitleCardGenerating(false); } : () => handleGenerateTitleCards(titleCardGenerated)}
               className={`text-sm px-3 py-1.5 border rounded-md font-medium transition-colors flex items-center gap-2 ${
-                titleCardGenerated
-                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
-                  : "bg-neutral-800 border-neutral-700 text-neutral-200 hover:bg-neutral-700"
-              } disabled:opacity-40 disabled:cursor-not-allowed`}
-              title="Generate composite title card images for all segments"
+                titleCardGenerating
+                  ? "bg-neutral-800 border-red-500/30 text-neutral-200 hover:border-red-500/50"
+                  : titleCardGenerated
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                    : "bg-neutral-800 border-neutral-700 text-neutral-200 hover:bg-neutral-700"
+              }`}
+              title={titleCardGenerating ? "Cancel title card generation" : "Generate composite title card images for all segments"}
             >
               {titleCardGenerating ? (
                 <>
                   <span className="w-3.5 h-3.5 border-2 border-neutral-400/50 border-t-transparent rounded-full animate-spin" />
-                  Generating...
+                  Cancel
                 </>
               ) : titleCardGenerated ? (
                 "Title Cards \u2713"
@@ -685,19 +704,20 @@ function TimelineEditor({
             </button>
           )}
           <button
-            onClick={handleGenerateThumbnailsInline}
-            disabled={thumbnailsInlineGenerating}
+            onClick={thumbnailsInlineGenerating ? () => { thumbnailsCancelledRef.current = true; setThumbnailsInlineGenerating(false); } : handleGenerateThumbnailsInline}
             className={`text-sm px-3 py-1.5 border rounded-md font-medium transition-colors flex items-center gap-2 ${
-              thumbnailsInlineGenerated
-                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
-                : "bg-neutral-800 border-neutral-700 text-neutral-200 hover:bg-neutral-700"
-            } disabled:opacity-40 disabled:cursor-not-allowed`}
-            title="Generate 3 YouTube thumbnail concepts"
+              thumbnailsInlineGenerating
+                ? "bg-neutral-800 border-red-500/30 text-neutral-200 hover:border-red-500/50"
+                : thumbnailsInlineGenerated
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                  : "bg-neutral-800 border-neutral-700 text-neutral-200 hover:bg-neutral-700"
+            }`}
+            title={thumbnailsInlineGenerating ? "Cancel thumbnail generation" : "Generate 3 YouTube thumbnail concepts"}
           >
             {thumbnailsInlineGenerating ? (
               <>
                 <span className="w-3.5 h-3.5 border-2 border-neutral-400/50 border-t-transparent rounded-full animate-spin" />
-                Generating...
+                Cancel
               </>
             ) : thumbnailsInlineGenerated ? (
               "Thumbnails \u2713"
@@ -733,15 +753,18 @@ function TimelineEditor({
 
           {/* Export Test */}
           <button
-            onClick={() => setShowExportTestModal(true)}
-            disabled={!!exportTestJobId}
-            className="text-sm px-3 py-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-semibold transition-colors flex items-center gap-2"
-            title="Run full pipeline for scene 1 and copy to Downloads"
+            onClick={exportTestJobId ? () => setExportTestJobId(null) : () => setShowExportTestModal(true)}
+            className={`text-sm px-3 py-1.5 border rounded-lg font-semibold transition-colors flex items-center gap-2 ${
+              exportTestJobId
+                ? "bg-rose-500/10 border-red-500/30 text-rose-400 hover:border-red-500/50"
+                : "bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/15"
+            }`}
+            title={exportTestJobId ? "Cancel export test" : "Run full pipeline for scene 1 and copy to Downloads"}
           >
             {exportTestJobId ? (
               <>
                 <span className="w-3.5 h-3.5 border-2 border-rose-400/50 border-t-transparent rounded-full animate-spin" />
-                Testing...
+                Cancel
               </>
             ) : (
               "Export Test"

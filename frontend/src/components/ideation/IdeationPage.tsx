@@ -29,11 +29,13 @@ export default function IdeationPage({ onUseIdea }: Props) {
   const [bookmarked, setBookmarked] = useState<Set<number>>(new Set());
   const [animateFromIndex, setAnimateFromIndex] = useState(0);
   const inputRef = useRef<IdeationInputHandle>(null);
+  const cancelledRef = useRef(false);
 
   const generate = async (
     niche: string,
     opts?: { append?: boolean; excludeTitles?: string[] },
   ) => {
+    cancelledRef.current = false;
     setLoading(true);
     setError(null);
     fetchGenerationEstimate("idea_generation")
@@ -45,6 +47,7 @@ export default function IdeationPage({ onUseIdea }: Props) {
         count: BATCH_SIZE,
         exclude_titles: opts?.excludeTitles ?? [],
       });
+      if (cancelledRef.current) return;
       if (res.ok) {
         const data = res.data as GenerateIdeasResponse;
         if (opts?.append) {
@@ -61,10 +64,17 @@ export default function IdeationPage({ onUseIdea }: Props) {
         setError(err.detail ?? "Failed to generate ideas");
       }
     } catch {
-      setError("Could not reach the backend. Is it running?");
+      if (!cancelledRef.current) {
+        setError("Could not reach the backend. Is it running?");
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancel = () => {
+    cancelledRef.current = true;
+    setLoading(false);
   };
 
   const handleMoreLikeThis = (idea: VideoIdea) => {
@@ -108,7 +118,7 @@ export default function IdeationPage({ onUseIdea }: Props) {
         </p>
       </div>
 
-      <IdeationInput ref={inputRef} onGenerate={generate} loading={loading} />
+      <IdeationInput ref={inputRef} onGenerate={generate} onCancel={handleCancel} loading={loading} />
 
       {loading && (
         <div className="px-1">

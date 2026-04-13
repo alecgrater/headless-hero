@@ -64,12 +64,14 @@ interface TimelineState {
   batchGenerating: boolean;
   generateImage: (sceneId: string) => Promise<void>;
   generateAllImages: () => Promise<void>;
+  cancelImageGeneration: () => void;
 
   // Audio generation
   generatingAudioSceneIds: Set<string>;
   batchGeneratingAudio: boolean;
   generateAudio: (sceneId: string, voiceId: string) => Promise<void>;
   generateAllAudio: (voiceId: string) => Promise<void>;
+  cancelAudioGeneration: () => void;
 
   // Batch progress
   batchImageProgress: BatchProgress;
@@ -136,6 +138,10 @@ export function useTimelineState(
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
   contentRef.current = content;
+
+  // Cancellation refs for batch operations
+  const imagesCancelRef = useRef(false);
+  const audioCancelRef = useRef(false);
 
   // Immediate save — used after generation to ensure persistence
   const immediateFlush = useCallback(() => {
@@ -519,6 +525,7 @@ export function useTimelineState(
       }
       if (scenes.length === 0 && !hasTitleCards) return;
 
+      imagesCancelRef.current = false;
       setBatchGenerating(true);
       const statuses = new Map<string, BatchSceneStatus>();
       scenes.forEach((s) => statuses.set(s.scene_id, "pending"));
@@ -557,6 +564,8 @@ export function useTimelineState(
       }
 
       for (const scene of scenes) {
+        if (imagesCancelRef.current) break;
+
         statuses.set(scene.scene_id, "generating");
         setGeneratingSceneIds((prev) => new Set(prev).add(scene.scene_id));
         setBatchImageProgress((prev) => ({
@@ -714,6 +723,7 @@ export function useTimelineState(
       }
       if (scenes.length === 0) return;
 
+      audioCancelRef.current = false;
       setBatchGeneratingAudio(true);
       const statuses = new Map<string, BatchSceneStatus>();
       scenes.forEach((s) => statuses.set(s.scene_id, "pending"));
@@ -731,6 +741,8 @@ export function useTimelineState(
       let failed = 0;
 
       for (const scene of scenes) {
+        if (audioCancelRef.current) break;
+
         statuses.set(scene.scene_id, "generating");
         setGeneratingAudioSceneIds((prev) => new Set(prev).add(scene.scene_id));
         setBatchAudioProgress((prev) => ({
@@ -792,6 +804,14 @@ export function useTimelineState(
     [scriptId, immediateFlush],
   );
 
+  const cancelImageGeneration = useCallback(() => {
+    imagesCancelRef.current = true;
+  }, []);
+
+  const cancelAudioGeneration = useCallback(() => {
+    audioCancelRef.current = true;
+  }, []);
+
   return {
     content,
     isDirty,
@@ -812,10 +832,12 @@ export function useTimelineState(
     batchGenerating,
     generateImage,
     generateAllImages,
+    cancelImageGeneration,
     generatingAudioSceneIds,
     batchGeneratingAudio,
     generateAudio,
     generateAllAudio,
+    cancelAudioGeneration,
     batchImageProgress,
     batchAudioProgress,
     hasTitleCards,

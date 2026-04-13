@@ -44,6 +44,7 @@ export default function ScriptGenerationPage({
   const [refiningScene, setRefiningScene] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
+  const cancelledRef = useRef(false);
 
   // Title card generation state
   const [titleCardGenerating, setTitleCardGenerating] = useState(false);
@@ -79,6 +80,7 @@ export default function ScriptGenerationPage({
   };
 
   const handleGenerate = async () => {
+    cancelledRef.current = false;
     setGenerationStarted(true);
     setLoading(true);
     setError(null);
@@ -97,6 +99,7 @@ export default function ScriptGenerationPage({
         model: selectedModel !== DEFAULT_MODEL ? selectedModel : undefined,
         segmented,
       });
+      if (cancelledRef.current) return;
       if (res.ok) {
         const data = res.data as GenerateScriptResponse;
         setScript(data.script);
@@ -113,8 +116,10 @@ export default function ScriptGenerationPage({
         setError(detail ?? "Failed to generate script");
       }
     } catch (err) {
-      console.error("[ScriptGeneration] Request failed:", err);
-      setError("Could not reach the backend. Is it running?");
+      if (!cancelledRef.current) {
+        console.error("[ScriptGeneration] Request failed:", err);
+        setError("Could not reach the backend. Is it running?");
+      }
     } finally {
       setLoading(false);
     }
@@ -146,6 +151,11 @@ export default function ScriptGenerationPage({
         }
       }
     }
+  };
+
+  const handleCancelGeneration = () => {
+    cancelledRef.current = true;
+    setLoading(false);
   };
 
   const saveScript = async (updated: ScriptContent) => {
@@ -410,6 +420,12 @@ export default function ScriptGenerationPage({
           <div className="max-w-md mx-auto">
             <GenerationProgressBar estimatedSeconds={estimatedSeconds} active={loading} />
           </div>
+          <button
+            onClick={handleCancelGeneration}
+            className="text-sm px-4 py-2 bg-neutral-800 border border-red-500/30 text-neutral-200 hover:border-red-500/50 rounded-lg font-medium transition-colors"
+          >
+            Cancel
+          </button>
         </div>
       )}
 

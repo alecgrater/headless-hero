@@ -2,6 +2,7 @@ import { forwardRef, useImperativeHandle, useState } from "react";
 
 interface Props {
   onGenerate: (niche: string) => void;
+  onCancel?: () => void;
   loading: boolean;
 }
 
@@ -10,7 +11,7 @@ export interface IdeationInputHandle {
 }
 
 const IdeationInput = forwardRef<IdeationInputHandle, Props>(
-  function IdeationInput({ onGenerate, loading }, ref) {
+  function IdeationInput({ onGenerate, onCancel, loading }, ref) {
     const [niche, setNiche] = useState("");
 
     useImperativeHandle(ref, () => ({
@@ -19,6 +20,10 @@ const IdeationInput = forwardRef<IdeationInputHandle, Props>(
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
+      if (loading && onCancel) {
+        onCancel();
+        return;
+      }
       if (niche.trim()) onGenerate(niche.trim());
     };
 
@@ -33,10 +38,14 @@ const IdeationInput = forwardRef<IdeationInputHandle, Props>(
         />
         <button
           type="submit"
-          disabled={loading || !niche.trim()}
-          className="btn-primary px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg whitespace-nowrap"
+          disabled={!loading && !niche.trim()}
+          className={`px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg whitespace-nowrap font-medium transition-colors ${
+            loading
+              ? "bg-neutral-800 border border-red-500/30 text-neutral-200 hover:border-red-500/50"
+              : "btn-primary"
+          }`}
         >
-          {loading ? "Generating..." : "Generate Ideas"}
+          {loading ? "Cancel" : "Generate Ideas"}
         </button>
       </form>
     );
