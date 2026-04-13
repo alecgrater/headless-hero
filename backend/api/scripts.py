@@ -9,9 +9,10 @@ from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from database import get_default_brand_id, get_session
+from database import get_default_brand_id, get_session, engine
 from models.brand import BrandProfile
 from models.generation_duration import GenerationDuration
 from models.script import (
@@ -26,6 +27,7 @@ from models.script import (
     UpdateScriptRequest,
 )
 from pipeline.refine import refine_scene
+from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
 from pipeline.scriptwriter import generate_script
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
@@ -111,7 +113,11 @@ def delete_script(script_id: str, session: Session = Depends(get_session)):
     return {"ok": True}
 
 
-@router.post("/generate", response_model=GenerateScriptResponse)
+class GenerateJobResponse(BaseModel):
+    job_id: str
+
+
+@router.post("/generate", response_model=GenerateJobResponse)
 def generate(body: GenerateScriptRequest, session: Session = Depends(get_session)):
     # Auto-resolve brand_id from default brand
     brand_id = body.brand_id or get_default_brand_id(session)
@@ -121,7 +127,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
 
     logger.info("Script generation requested: topic=%r, brand_id=%s", body.topic, brand_id)
 
-    # Dedup: if an identical script was created in the last 60 seconds, return it
+    # Dedup: if an identical script was created in the last 60 seconds, return it as a completed job
     cutoff = datetime.now(timezone.utc) - timedelta(seconds=60)
     existing = session.exec(
         select(Script)
@@ -129,10 +135,10 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
         .order_by(Script.created_at.desc())  # type: ignore[arg-type]
     ).first()
     if existing:
-        return GenerateScriptResponse(
-            id=existing.id,
-            script=ScriptContent.model_validate(json.loads(existing.script_json)),
-        )
+        # Create an already-completed job pointing to the existing script
+        job = create_job()
+        update_job(job.id, status="completed", progress=1.0, current_step="Complete", output_urls=[existing.id])
+        return GenerateJobResponse(job_id=job.id)
 
     # Build brand context string with universal style + character
     parts = [brand.name]
@@ -146,34 +152,72 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
         "name": brand.name,
     }
 
-    logger.info("Generating script for brand %s, topic: %s", brand_id, body.topic)
-    t0 = time.monotonic()
-    script_content = generate_script(
-        topic=body.topic,
-        description=body.description,
-        brand_context=brand_context,
-        segment_count=body.segment_count,
-        animated_scene_count=body.animated_scene_count,
-        brand=brand_dict,
-        model=body.model,
-        segmented=body.segmented,
-    )
-    duration = time.monotonic() - t0
-    session.add(GenerationDuration(operation_type="script_generation_youtube", duration_seconds=duration))
+    # Capture request params for the background thread
+    topic = body.topic
+    description = body.description
+    segment_count = body.segment_count
+    animated_scene_count = body.animated_scene_count
+    model = body.model
+    segmented = body.segmented
 
-    # Persist to SQLite
-    record = Script(
-        brand_id=brand_id,
-        topic_title=body.topic,
-        topic_description=body.description,
-        script_json=script_content.model_dump_json(),
-    )
-    session.add(record)
-    session.commit()
-    session.refresh(record)
+    job = create_job()
+    job_id = job.id
 
-    logger.info("Script generated: %s (%d segments) in %.1fs", record.id, len(script_content.segments), duration)
-    return GenerateScriptResponse(id=record.id, script=script_content)
+    def _run_generation() -> list[str]:
+        def _progress(segment: int, total: int, name: str) -> None:
+            update_job(job_id, current_step=json.dumps({
+                "segment": segment,
+                "total": total,
+                "name": name,
+            }))
+
+        logger.info("Background script gen started: job=%s, topic=%r", job_id, topic)
+        t0 = time.monotonic()
+        script_content = generate_script(
+            topic=topic,
+            description=description,
+            brand_context=brand_context,
+            segment_count=segment_count,
+            animated_scene_count=animated_scene_count,
+            brand=brand_dict,
+            model=model,
+            segmented=segmented,
+            progress_callback=_progress,
+        )
+        duration = time.monotonic() - t0
+
+        # Persist to SQLite using a fresh session (background thread)
+        from sqlmodel import Session as SqlSession
+        with SqlSession(engine) as bg_session:
+            bg_session.add(GenerationDuration(operation_type="script_generation_youtube", duration_seconds=duration))
+            record = Script(
+                brand_id=brand_id,
+                topic_title=topic,
+                topic_description=description,
+                script_json=script_content.model_dump_json(),
+            )
+            bg_session.add(record)
+            bg_session.commit()
+            bg_session.refresh(record)
+            script_id = record.id
+
+        logger.info("Script generated: %s (%d segments) in %.1fs", script_id, len(script_content.segments), duration)
+        return [script_id]
+
+    run_in_background(job_id, _run_generation)
+    return GenerateJobResponse(job_id=job_id)
+
+
+@router.get("/generate-status/{job_id}")
+def generate_status(job_id: str):
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    result = job.to_dict()
+    # If completed, include script_id for convenience
+    if job.status == "completed" and job.output_urls:
+        result["script_id"] = job.output_urls[0]
+    return result
 
 
 @router.put("/{script_id}", response_model=ScriptRead)

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import api, { assetUrl, fetchGenerationEstimate } from "../../api";
 import type { VideoIdea } from "../../types/idea";
 import type {
-  GenerateScriptResponse,
   Scene,
   ScriptContent,
 } from "../../types/script";
@@ -46,6 +45,11 @@ export default function ScriptGenerationPage({
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
   const cancelledRef = useRef(false);
 
+  // Script generation polling state
+  const [genSegments, setGenSegments] = useState<{ segment: number; total: number; name: string } | null>(null);
+  const [genCompletedSegments, setGenCompletedSegments] = useState<number[]>([]);
+  const genPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Title card generation state
   const [titleCardGenerating, setTitleCardGenerating] = useState(false);
   const [titleCardGenerated, setTitleCardGenerated] = useState(false);
@@ -84,11 +88,12 @@ export default function ScriptGenerationPage({
     setGenerationStarted(true);
     setLoading(true);
     setError(null);
+    setGenSegments(null);
+    setGenCompletedSegments([]);
     fetchGenerationEstimate("script_generation_youtube")
       .then((est) => setEstimatedSeconds(est.average_seconds))
       .catch(() => setEstimatedSeconds(null));
 
-    let succeeded = false;
     try {
       const res = await api.post("/api/scripts/generate", {
         topic: idea.title,
@@ -100,61 +105,95 @@ export default function ScriptGenerationPage({
         segmented,
       });
       if (cancelledRef.current) return;
-      if (res.ok) {
-        const data = res.data as GenerateScriptResponse;
-        setScript(data.script);
-        setScriptId(data.id);
-        succeeded = true;
-      } else {
-        console.error("[ScriptGeneration] API error:", res.status, res.data);
+      if (!res.ok) {
         const detail =
           res.data && typeof res.data === "object" && "detail" in res.data
             ? (res.data as { detail: string }).detail
-            : res.data && typeof res.data === "object" && "error" in res.data
-              ? (res.data as { error: string }).error
-              : undefined;
-        setError(detail ?? "Failed to generate script");
+            : "Failed to start script generation";
+        setError(detail);
+        setLoading(false);
+        return;
       }
-    } catch (err) {
-      if (!cancelledRef.current) {
-        console.error("[ScriptGeneration] Request failed:", err);
-        setError("Could not reach the backend. Is it running?");
-      }
-    } finally {
-      setLoading(false);
-    }
 
-    // Recovery: if the request failed, check if the script was actually created on the backend
-    // Retry after a delay in case the backend is still finishing (e.g., timeout during long generation)
-    if (!succeeded) {
-      for (const delay of [0, 30_000]) {
-        if (delay) await new Promise((r) => setTimeout(r, delay));
+      const { job_id } = res.data as { job_id: string };
+
+      // Poll for progress
+      genPollRef.current = setInterval(async () => {
+        if (cancelledRef.current) {
+          if (genPollRef.current) clearInterval(genPollRef.current);
+          genPollRef.current = null;
+          return;
+        }
         try {
-          const listRes = await api.get("/api/scripts");
-          if (listRes.ok) {
-            const scripts = listRes.data as Array<{ id: string; topic_title: string }>;
-            const match = scripts.find((s) => s.topic_title === idea.title);
-            if (match) {
-              const fullRes = await api.get(`/api/scripts/${match.id}`);
+          const statusRes = await api.get(`/api/scripts/generate-status/${job_id}`);
+          if (!statusRes.ok) return;
+
+          const job = statusRes.data as {
+            status: string;
+            current_step: string;
+            error: string | null;
+            script_id?: string;
+          };
+
+          // Parse per-segment progress
+          if (job.current_step && job.current_step !== "Complete") {
+            try {
+              const progress = JSON.parse(job.current_step) as {
+                segment: number;
+                total: number;
+                name: string;
+              };
+              setGenSegments(progress);
+              // Mark previous segments as completed
+              setGenCompletedSegments((prev) => {
+                const completed = [];
+                for (let i = 1; i < progress.segment; i++) {
+                  completed.push(i);
+                }
+                return completed;
+              });
+            } catch {
+              // current_step may not be JSON
+            }
+          }
+
+          if (job.status === "completed") {
+            if (genPollRef.current) clearInterval(genPollRef.current);
+            genPollRef.current = null;
+
+            if (job.script_id) {
+              // Fetch full script data
+              const fullRes = await api.get(`/api/scripts/${job.script_id}`);
               if (fullRes.ok) {
                 const data = fullRes.data as { id: string; script: ScriptContent };
                 setScript(data.script);
                 setScriptId(data.id);
-                setError(null);
-                console.info("[ScriptGeneration] Recovered script from backend:", match.id);
-                break;
               }
             }
+            setLoading(false);
+          } else if (job.status === "failed") {
+            if (genPollRef.current) clearInterval(genPollRef.current);
+            genPollRef.current = null;
+            setError(job.error ?? "Script generation failed");
+            setLoading(false);
           }
         } catch {
-          // Recovery failed — keep showing the original error
+          // Network error during poll — ignore, will retry
         }
+      }, 1500);
+    } catch (err) {
+      if (!cancelledRef.current) {
+        console.error("[ScriptGeneration] Request failed:", err);
+        setError("Could not reach the backend. Is it running?");
+        setLoading(false);
       }
     }
   };
 
   const handleCancelGeneration = () => {
     cancelledRef.current = true;
+    if (genPollRef.current) clearInterval(genPollRef.current);
+    genPollRef.current = null;
     setLoading(false);
   };
 
@@ -331,10 +370,11 @@ export default function ScriptGenerationPage({
     }
   };
 
-  // Cleanup poll interval on unmount
+  // Cleanup poll intervals on unmount
   useEffect(() => {
     return () => {
       if (titleCardPollRef.current) clearInterval(titleCardPollRef.current);
+      if (genPollRef.current) clearInterval(genPollRef.current);
     };
   }, []);
 
@@ -417,9 +457,39 @@ export default function ScriptGenerationPage({
           <p className="text-neutral-400 text-lg">
             Generating script with Claude...
           </p>
-          <div className="max-w-md mx-auto">
-            <GenerationProgressBar estimatedSeconds={estimatedSeconds} active={loading} />
-          </div>
+
+          {/* Per-segment progress */}
+          {genSegments && genSegments.total > 1 && (
+            <div className="max-w-sm mx-auto text-left space-y-1.5 py-2">
+              {Array.from({ length: genSegments.total }, (_, i) => {
+                const segNum = i + 1;
+                const done = genCompletedSegments.includes(segNum);
+                const active = genSegments.segment === segNum && !done;
+                return (
+                  <div key={i} className="flex items-center gap-2.5">
+                    {done ? (
+                      <svg className="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : active ? (
+                      <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                    ) : (
+                      <div className="w-4 h-4 rounded-full border border-neutral-700 shrink-0" />
+                    )}
+                    <span className={`text-sm ${done ? "text-neutral-300" : active ? "text-neutral-200" : "text-neutral-600"}`}>
+                      Segment {segNum}{active && genSegments.name ? `: ${genSegments.name}` : ""}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!genSegments && (
+            <div className="max-w-md mx-auto">
+              <GenerationProgressBar estimatedSeconds={estimatedSeconds} active={loading} />
+            </div>
+          )}
           <button
             onClick={handleCancelGeneration}
             className="text-sm px-4 py-2 bg-neutral-800 border border-red-500/30 text-neutral-200 hover:border-red-500/50 rounded-lg font-medium transition-colors"

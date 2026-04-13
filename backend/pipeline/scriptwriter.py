@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from config import strip_markdown_fences
@@ -93,6 +94,7 @@ def generate_script(
     brand: dict | None = None,
     model: str | None = None,
     segmented: bool = False,
+    progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> ScriptContent:
     """Generate a segmented video script via Claude.
 
@@ -150,6 +152,7 @@ def generate_script(
             brand_context=brand_context,
             segment_count=segment_count,
             model=resolved_model,
+            progress_callback=progress_callback,
         )
     else:
         logger.info("Generating script for topic %r using model=%s (segments=%s)", topic, resolved_model, segment_count)
@@ -327,6 +330,7 @@ def _generate_segmented(
     brand_context: str,
     segment_count: int | None,
     model: str,
+    progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> ScriptContent:
     """Orchestrate two-phase segmented script generation."""
     total_t0 = time.monotonic()
@@ -339,6 +343,9 @@ def _generate_segmented(
     global_scene_id = 1
 
     for i, seg_outline in enumerate(outline["segments"]):
+        seg_name = seg_outline.get("name", f"Segment {i + 1}")
+        if progress_callback:
+            progress_callback(i + 1, len(outline["segments"]), seg_name)
         try:
             scenes = _generate_segment_scenes(system_prompt, outline, i, model)
         except Exception as e:

@@ -35,7 +35,7 @@ function extractErrorMessage(status: number, data: unknown): string {
 }
 
 /** Paths that should not trigger toast notifications on error. */
-const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/visuals/title-cards-status/", "/api/character/status/"];
+const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/"];
 
 function shouldSilence(path: string): boolean {
   return SILENT_PATHS.some((p) => path.startsWith(p));
