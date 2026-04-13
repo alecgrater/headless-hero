@@ -19,8 +19,6 @@ interface Props {
   previewMode?: boolean;
   onPrevScene?: () => void;
   onNextScene?: () => void;
-  onFetchMedia?: () => void;
-  isFetchingMedia?: boolean;
 }
 
 export default function PropertiesPanel({
@@ -39,8 +37,6 @@ export default function PropertiesPanel({
   previewMode = false,
   onPrevScene,
   onNextScene,
-  onFetchMedia,
-  isFetchingMedia = false,
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
@@ -49,7 +45,6 @@ export default function PropertiesPanel({
     String(scene.duration_estimate_seconds),
   );
   const [isTitleCard, setIsTitleCard] = useState(scene.is_title_card);
-  const [searchQuery, setSearchQuery] = useState(scene.search_query || "");
   const [framePrompts, setFramePrompts] = useState<string[]>(scene.frame_prompts || []);
   const [frameCount, setFrameCount] = useState(scene.frame_count || 0);
 
@@ -63,7 +58,6 @@ export default function PropertiesPanel({
       setTextOverlay(scene.text_overlay);
       setDuration(String(scene.duration_estimate_seconds));
       setIsTitleCard(scene.is_title_card);
-      setSearchQuery(scene.search_query || "");
       setFramePrompts(scene.frame_prompts || []);
       setFrameCount(scene.frame_count || 0);
     }
@@ -119,7 +113,7 @@ export default function PropertiesPanel({
             />
           </div>
 
-          {(!scene.media_type || scene.media_type === "ai_generated") && (
+          {(
             <div className="flex flex-col flex-1 min-h-0">
               <span className="text-xs font-medium text-neutral-400 mb-0.5 shrink-0">Visual Prompt</span>
               <textarea
@@ -129,39 +123,6 @@ export default function PropertiesPanel({
                 className="flex-1 min-h-0 w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2 border border-neutral-700/50 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
               />
             </div>
-          )}
-
-          {scene.media_type && scene.media_type !== "ai_generated" && (
-            <div className="shrink-0">
-              <span className="text-xs font-medium text-neutral-400">YouTube Search Query</span>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onBlur={() => commitField("search_query", searchQuery)}
-                placeholder="e.g. Halo Infinite gameplay 4K"
-                className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2 py-1.5 border border-red-700/50 focus:outline-none focus:border-red-500/50 focus:ring-1 focus:ring-red-500/30 mt-0.5"
-              />
-            </div>
-          )}
-
-          {scene.media_type && scene.media_type !== "ai_generated" && scene.search_query && onFetchMedia && (
-            <button
-              onClick={onFetchMedia}
-              disabled={isFetchingMedia}
-              className="shrink-0 w-full text-sm px-3 py-1.5 text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isFetchingMedia ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-red-400/50 border-t-transparent rounded-full animate-spin" />
-                  Fetching...
-                </>
-              ) : scene.video_clip_url || (scene.media_type === "hardware_image" && scene.image_url) ? (
-                "Re-fetch Media"
-              ) : (
-                "Fetch Media"
-              )}
-            </button>
           )}
 
           {/* Text Overlay + settings row pinned at bottom */}
@@ -177,22 +138,6 @@ export default function PropertiesPanel({
               />
             </div>
             <div className="flex items-end gap-3 pt-1 border-t border-neutral-800/40">
-              <label className="space-y-0.5">
-                <span className="text-[10px] font-medium text-neutral-500">Media</span>
-                <select
-                  value={scene.media_type || "ai_generated"}
-                  onChange={(e) => onUpdate({ media_type: e.target.value as Scene["media_type"] })}
-                  className={`block text-xs text-neutral-200 bg-neutral-800/60 rounded px-1.5 py-1 border focus:outline-none focus:border-violet-500/50 ${
-                    scene.media_type && scene.media_type !== "ai_generated"
-                      ? "border-red-500/50"
-                      : "border-neutral-700/50"
-                  }`}
-                >
-                  <option value="ai_generated">AI Generated</option>
-                  <option value="gameplay_clip">Gameplay</option>
-                  <option value="hardware_image">Hardware</option>
-                </select>
-              </label>
               <label className="space-y-0.5">
                 <span className="text-[10px] font-medium text-neutral-500">Duration</span>
                 <input
@@ -360,14 +305,6 @@ export default function PropertiesPanel({
                   <p className="text-[10px] text-neutral-600 italic">No effects</p>
                 )}
               </div>
-            </div>
-          )}
-
-          {/* Video clip */}
-          {scene.video_clip_url && (
-            <div className="shrink-0 space-y-1">
-              <span className="text-xs font-medium text-neutral-400">Gameplay Clip</span>
-              <video key={scene.video_clip_url} src={assetUrl(scene.video_clip_url)} controls className="w-full rounded-lg border border-red-700/50 max-h-20" />
             </div>
           )}
 

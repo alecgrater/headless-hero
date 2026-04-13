@@ -150,7 +150,6 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
         brand_context=brand_context,
         segment_count=body.segment_count,
         animated_scene_count=body.animated_scene_count,
-        modifier_ids=[],
         brand=brand_dict,
         model=body.model,
         segmented=body.segmented,

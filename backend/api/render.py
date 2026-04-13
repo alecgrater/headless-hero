@@ -98,20 +98,18 @@ def _total_audio_duration(content: ScriptContent) -> float:
                 total += sc.audio_duration_seconds
     return total
 
-def _load_brand_and_modifiers(session: Session, script_id: str) -> tuple[dict, list[str]]:
-    """Load brand dict for a script. Modifier IDs always empty (title_cards handled separately)."""
+def _load_brand(session: Session, script_id: str) -> dict:
+    """Load brand dict for a script."""
     record = session.get(Script, script_id)
     if not record:
-        return {}, []
+        return {}
     brand = session.get(BrandProfile, record.brand_id)
     if not brand:
-        return {}, []
+        return {}
 
-    brand_dict = {
+    return {
         "name": brand.name,
     }
-
-    return brand_dict, []
 
 # --- Endpoints ---
 
@@ -119,7 +117,7 @@ def _load_brand_and_modifiers(session: Session, script_id: str) -> tuple[dict, l
 def preview_scene(body: PreviewSceneRequest, session: Session = Depends(get_session)):
     """Render a single scene to MP4 via Remotion (synchronous)."""
     content = _load_content(session, body.script_id)
-    brand_dict, modifier_ids = _load_brand_and_modifiers(session, body.script_id)
+    brand_dict = _load_brand(session, body.script_id)
     scene = _find_scene(content, body.scene_id)
     if not scene:
         raise HTTPException(status_code=404, detail="Scene not found")
@@ -127,7 +125,7 @@ def preview_scene(body: PreviewSceneRequest, session: Session = Depends(get_sess
     logger.info("Rendering scene preview: scene %s in script %s", body.scene_id, body.script_id)
     video_url = render_scene_preview(
         scene, body.script_id, body.width, body.height,
-        modifier_ids=modifier_ids, brand=brand_dict,
+        brand=brand_dict,
     )
     return PreviewSceneResponse(video_url=video_url)
 
@@ -135,7 +133,7 @@ def preview_scene(body: PreviewSceneRequest, session: Session = Depends(get_sess
 def start_full_render(body: RenderFullRequest, session: Session = Depends(get_session)):
     """Start a full YouTube video render via Remotion in the background."""
     content = _load_content(session, body.script_id)
-    brand_dict, modifier_ids = _load_brand_and_modifiers(session, body.script_id)
+    brand_dict = _load_brand(session, body.script_id)
     scene_count = _count_scenes(content)
     audio_dur = _total_audio_duration(content)
     job = create_job(scene_count=scene_count, total_audio_duration=audio_dur)
@@ -156,7 +154,6 @@ def start_full_render(body: RenderFullRequest, session: Session = Depends(get_se
             on_progress=on_progress,
             title=body.title,
             speed=speed,
-            modifier_ids=modifier_ids,
             brand=brand_dict,
         )
 
@@ -195,7 +192,7 @@ def export_audio(body: ExportAudioRequest, session: Session = Depends(get_sessio
 def start_export_test(body: ExportTestRequest, session: Session = Depends(get_session)):
     """Run the full pipeline (image → audio → FX → Eli → render) for the first segment."""
     content = _load_content(session, body.script_id)
-    brand_dict, modifier_ids = _load_brand_and_modifiers(session, body.script_id)
+    brand_dict = _load_brand(session, body.script_id)
 
     # Resolve voice_id from the default brand
     brand_id = get_default_brand_id(session)
@@ -222,7 +219,6 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
                 "narration": scene.narration or "",
                 "visual_prompt": scene.visual_prompt or "",
                 "frame_prompts": scene.frame_prompts or [],
-                "media_type": scene.media_type or "ai_generated",
                 "sc_idx": sci,
                 "global_idx": global_idx,
             })
@@ -305,7 +301,6 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
                 "is_last_scene": sc_info["global_idx"] == total_scenes - 1,
                 "is_first_in_segment": sc_info["sc_idx"] == 0,
                 "is_title_card": False,
-                "media_type": sc_info["media_type"],
                 "narration": scene_now.narration,
                 "duration_seconds": duration,
                 "duration_frames": int(duration * 30),
@@ -359,7 +354,6 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
             on_progress=on_render_progress,
             title=title,
             speed=1.25,
-            modifier_ids=modifier_ids,
             brand=brand_dict,
         )
 

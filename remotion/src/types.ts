@@ -102,13 +102,10 @@ export interface SceneInput {
   text_overlay: string;
   duration_seconds: number;
   is_title_card: boolean;
-  media_type: "ai_generated" | "gameplay_clip" | "hardware_image";
-
   // Asset paths (absolute filesystem paths)
   image_path?: string | null;
   frame_paths?: string[] | null;
   audio_path?: string | null;
-  video_clip_path?: string | null;
   title_card_zoom_target?: { x: number; y: number; radius: number } | null;
 
   // FX (new system)

@@ -9,7 +9,6 @@ import type { SceneInput } from "../types";
 import { StaticImageScene } from "./StaticImageScene";
 import { MultiFrameScene } from "./MultiFrameScene";
 import { TitleCardScene } from "./TitleCardScene";
-import { VideoClipScene } from "./VideoClipScene";
 import { SubtitleScene } from "./SubtitleScene";
 
 import { ZoomPunch } from "../effects/camera/ZoomPunch";
@@ -22,16 +21,15 @@ interface Props {
 
 export const SceneRenderer: React.FC<Props> = ({ scene }) => {
   const hasMultipleFrames = scene.frame_paths && scene.frame_paths.length > 1;
-  const isVideoClip = scene.media_type === "gameplay_clip" && scene.video_clip_path;
   const isTitleCard = scene.is_title_card && scene.title_card_zoom_target;
   const isAhaSubtitle = scene.visual_beat === "aha_subtitle";
   const fx = scene.fx;
 
   // Visual layer dispatch
   let visualLayer: React.ReactNode;
-  if (isVideoClip) {
-    visualLayer = <VideoClipScene scene={scene} />;
-  } else if (isTitleCard) {
+  if (isTitleCard) {
+    visualLayer = <TitleCardScene scene={scene} />;
+  } else if (isAhaSubtitle) {
     visualLayer = <TitleCardScene scene={scene} />;
   } else if (isAhaSubtitle) {
     visualLayer = <SubtitleScene scene={scene} />;

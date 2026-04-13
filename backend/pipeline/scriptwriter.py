@@ -16,8 +16,7 @@ logger = logging.getLogger(__name__)
 _GUIDE_PATH = Path(__file__).resolve().parent.parent / "prompts" / "scriptwriting_guide.md"
 _STYLE_GUIDE = _GUIDE_PATH.read_text() if _GUIDE_PATH.exists() else ""
 
-# Base system prompt — modifier-specific instructions (title cards, real media)
-# are injected dynamically via ContentModifier.modify_script_prompt().
+# Base system prompt — title card instructions are injected separately.
 BASE_SYSTEM_PROMPT = (_STYLE_GUIDE + "\n\n" if _STYLE_GUIDE else "") + """\
 You are an expert YouTube scriptwriter specializing in educational/explainer \
 content (like "Everything Professor" or "Kurzgesagt" style). Your job is to \
@@ -51,9 +50,7 @@ Output rules:
             {"prompt": "[CLOSE-UP] Subject detail shot...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""},
             {"prompt": "[REACTION] Human response...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""},
             {"prompt": "[DETAIL] Key element close-up...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""}
-          ],
-          "media_type": "ai_generated",
-          "search_query": ""
+          ]
         }
       ]
     }
@@ -219,7 +216,6 @@ def generate_script(
     brand_context: str = "",
     segment_count: int | None = None,
     animated_scene_count: int = 5,
-    modifier_ids: list[str] | None = None,
     brand: dict | None = None,
     model: str | None = None,
     segmented: bool = False,
@@ -232,7 +228,6 @@ def generate_script(
         brand_context: Brand name + art style for tone/visual context.
         segment_count: Desired number of segments (Claude chooses if None).
         animated_scene_count: Number of scenes to mark as animated A/B flip.
-        modifier_ids: Active content modifier IDs from the brand.
         brand: Brand profile dict for modifier hooks.
         model: Override SCRIPT_MODEL setting for this request.
         segmented: Use two-phase segmented generation (one API call per segment).
@@ -271,14 +266,6 @@ def generate_script(
     from pipeline.modifiers.title_cards import TITLE_CARD_PROMPT_INSTRUCTIONS
     system_prompt += TITLE_CARD_PROMPT_INSTRUCTIONS
 
-    # Apply modifier prompt hooks
-    if modifier_ids:
-        import pipeline.modifiers  # noqa: F401 — ensure registration
-        from pipeline.modifiers.registry import get_active
-
-        for mod in get_active(modifier_ids):
-            system_prompt, user_message = mod.modify_script_prompt(system_prompt, user_message)
-
     if segmented:
         logger.info("Using SEGMENTED generation for topic %r (model=%s)", topic, resolved_model)
         content = _generate_segmented(
@@ -291,7 +278,7 @@ def generate_script(
             model=resolved_model,
         )
     else:
-        logger.info("Generating script for topic %r using model=%s (segments=%s, modifiers=%s)", topic, resolved_model, segment_count, modifier_ids)
+        logger.info("Generating script for topic %r using model=%s (segments=%s)", topic, resolved_model, segment_count)
         raw = chat(system_prompt, user_message, model=resolved_model, max_tokens=16384, timeout=900.0)
 
         # Strip markdown fences if present
@@ -310,14 +297,6 @@ def generate_script(
     # Always enforce title card constraints
     from pipeline.modifiers.title_cards import enforce_title_cards_and_min_scenes
     content = enforce_title_cards_and_min_scenes(content)
-
-    # Apply modifier post-processing hooks
-    if modifier_ids:
-        from pipeline.modifiers.registry import get_active
-
-        brand_dict = brand or {}
-        for mod in get_active(modifier_ids):
-            content = mod.modify_script_post(content, brand_dict)
 
     logger.info("Script generated for topic %r: %s segments, %s total scenes",
                 topic, len(content.segments), sum(len(s.scenes) for s in content.segments))
@@ -368,9 +347,7 @@ Return ONLY a valid JSON array of scene objects. Example:
     "frame_directives": [
       {"prompt": "...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""},
       {"prompt": "...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""}
-    ],
-    "media_type": "ai_generated",
-    "search_query": ""
+    ]
   }
 ]
 

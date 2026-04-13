@@ -46,9 +46,9 @@ backend/
   pipeline/        → Business logic (no web framework imports)
   integrations/    → Thin external API wrappers (Claude, Gemini, ElevenLabs, YouTube)
   models/          → SQLModel tables + Pydantic schemas (no logic)
-  pipeline/modifiers/  → Content modifier plugin system
+  pipeline/modifiers/  → Title card modifier (hardcoded on)
 remotion/          → Remotion 4 video rendering project (React + TypeScript)
-  src/scenes/      → Scene components (StaticImage, MultiFrame, TitleCard, VideoClip)
+  src/scenes/      → Scene components (StaticImage, MultiFrame, TitleCard, Subtitle)
   src/effects/     → Composable FX (camera, typography, transitions, overlays, structural)
   src/types.ts     → Input props types mirroring Python SceneFX models
 data/              → Runtime data (SQLite DB, generated assets) — gitignored
@@ -137,10 +137,6 @@ The app uses a **single auto-created default brand** (no multi-brand picker). Th
 - `PUT /api/brand` — updates voice_id, youtube_channel_id, etc.
 - All endpoints auto-resolve brand_id from the default brand (no brand_id in request bodies)
 
-## Content Modifiers (Legacy)
-
-The modifier plugin system still exists structurally but is no longer dynamic. Title cards are hardcoded on; the Real Media modifier has been removed. `modifier_ids=[]` is passed everywhere.
-
 ## Git Conventions
 
 ### Commit Messages
@@ -188,7 +184,7 @@ Python writes scene data + FX config to JSON → invokes `npx remotion render` v
 - `StaticImageScene` — Single image with zoom punch or parallax motion
 - `MultiFrameScene` — N images with crossfade between them
 - `TitleCardScene` — Spring zoom into circle target
-- `VideoClipScene` — Embedded video clip (gameplay)
+- `SubtitleScene` — White text on black (aha_subtitle beat)
 
 ### FX System
 Visual effects are AI-generated (no manual editing). Each scene has an optional `fx: SceneFX` field. Key FX types in active use:
@@ -226,7 +222,7 @@ Claude generates per-scene keyframe timelines selecting which Eli pose to show a
 - Mouth state is NOT in animation documents — computed deterministically in Remotion from `word_timestamps`
 
 ### Render Layer Stack
-1. Visual layer (StaticImage/MultiFrame/TitleCard/VideoClip)
+1. Visual layer (StaticImage/MultiFrame/TitleCard/Subtitle)
 2. ZoomPunch camera effect
 3. **EliOverlay** (z-index: 5) — `remotion/src/effects/overlays/EliOverlay.tsx`
 4. KineticCaption text overlay (z-index: 10)

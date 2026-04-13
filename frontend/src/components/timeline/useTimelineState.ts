@@ -74,13 +74,6 @@ interface TimelineState {
   // Batch progress
   batchImageProgress: BatchProgress;
   batchAudioProgress: BatchProgress;
-  batchMediaProgress: BatchProgress;
-
-  // Media fetching (real clips/images)
-  fetchingMediaSceneIds: Set<string>;
-  batchFetchingMedia: boolean;
-  fetchMedia: (sceneId: string) => Promise<void>;
-  fetchAllMedia: () => Promise<void>;
 
   // External content update (e.g. after FX generation refreshes from server)
   setContent: (content: ScriptContent) => void;
@@ -135,9 +128,6 @@ export function useTimelineState(
   const [batchGeneratingAudio, setBatchGeneratingAudio] = useState(false);
   const [batchImageProgress, setBatchImageProgress] = useState<BatchProgress>(EMPTY_BATCH);
   const [batchAudioProgress, setBatchAudioProgress] = useState<BatchProgress>(EMPTY_BATCH);
-  const fetchingMediaSceneIds = new Set<string>();
-  const batchFetchingMedia = false;
-  const batchMediaProgress = EMPTY_BATCH;
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
@@ -517,7 +507,7 @@ export function useTimelineState(
         for (const sc of seg.scenes) {
           if (sc.is_title_card) {
             hasTitleCards = true;
-          } else if (sc.visual_prompt && (!sc.media_type || sc.media_type === "ai_generated")) {
+          } else if (sc.visual_prompt && !sc.is_title_card) {
             scenes.push({
               scene_id: sc.id,
               visual_prompt: sc.visual_prompt,
@@ -781,10 +771,6 @@ export function useTimelineState(
     [scriptId, immediateFlush],
   );
 
-  // Media fetching removed (real media modifier removed)
-  const fetchMediaForScene = useCallback(async (_sceneId: string) => {}, []);
-  const fetchAllMediaScenes = useCallback(async () => {}, []);
-
   return {
     content,
     isDirty,
@@ -811,11 +797,6 @@ export function useTimelineState(
     generateAllAudio,
     batchImageProgress,
     batchAudioProgress,
-    batchMediaProgress,
-    fetchingMediaSceneIds,
-    batchFetchingMedia,
-    fetchMedia: fetchMediaForScene,
-    fetchAllMedia: fetchAllMediaScenes,
     setContent,
   };
 }

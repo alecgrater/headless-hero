@@ -88,9 +88,6 @@ class Scene(BaseModel):
     audio_url: str = ""
     audio_duration_seconds: float = 0.0
     word_timestamps: list[dict] | None = None
-    media_type: str = "ai_generated"  # "ai_generated" | "gameplay_clip" | "hardware_image"
-    search_query: str = ""            # YouTube search query for yt-dlp
-    video_clip_url: str = ""          # web-relative path to downloaded clip
     title_card_zoom_target: dict | None = None  # {"x": int, "y": int, "radius": int} for zoompan
     frame_prompts: list[str] = []     # per-frame visual prompts for multi-frame scenes
     frame_urls: list[str] = []        # web-relative paths to frame images

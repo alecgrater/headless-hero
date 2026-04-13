@@ -62,9 +62,6 @@ export interface Scene {
   image_url?: string;
   audio_url?: string;
   audio_duration_seconds?: number;
-  media_type?: "ai_generated" | "gameplay_clip" | "hardware_image";
-  search_query?: string;
-  video_clip_url?: string;
   frame_prompts?: string[];
   frame_urls?: string[];
   frame_count?: number;

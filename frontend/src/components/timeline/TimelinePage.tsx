@@ -339,7 +339,7 @@ function TimelineEditor({
   );
 
   // Check if assets already exist for overwrite confirmation
-  const hasExistingImages = allScenes.some((sc) => !sc.is_title_card && (sc.image_url || sc.video_clip_url || sc.frame_urls?.length));
+  const hasExistingImages = allScenes.some((sc) => !sc.is_title_card && (sc.image_url || sc.frame_urls?.length));
   const hasExistingAudio = allScenes.some((sc) => sc.audio_url);
   const hasExistingFX = allScenes.some((sc) => sc.fx);
   const hasExistingEli = allScenes.some((sc) => sc.eli_overlay);
@@ -756,10 +756,6 @@ function TimelineEditor({
             previewMode={previewMode}
             onPrevScene={selectPrevScene}
             onNextScene={selectNextScene}
-            onFetchMedia={() =>
-              state.fetchMedia(selectedScene.scene.id)
-            }
-            isFetchingMedia={state.fetchingMediaSceneIds.has(selectedScene.scene.id)}
           />
         ) : (
           <div className="flex-1 border-t border-neutral-800/60 px-4 py-3 flex items-center justify-center">

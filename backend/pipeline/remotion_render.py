@@ -98,20 +98,6 @@ def _scene_frame_paths(script_id: str, scene: Scene) -> list[str]:
     return paths
 
 
-def _video_clip_path(script_id: str, scene: Scene) -> str | None:
-    """Resolve local filesystem path for a video clip."""
-    if not scene.video_clip_url:
-        return None
-    # video_clip_url format: /static/projects/{script_id}/...
-    filename = scene.video_clip_url.rsplit("/", 1)[-1]
-    path = DATA_DIR / "projects" / script_id / "media" / filename
-    if path.exists():
-        return _to_remotion_path(str(path))
-    # Try directly under the images dir as fallback
-    path2 = DATA_DIR / "projects" / script_id / "images" / filename
-    return _to_remotion_path(str(path2)) if path2.exists() else None
-
-
 def _title_card_image_path(script_id: str) -> str | None:
     """Resolve path to the title card composite image."""
     notitle = DATA_DIR / "projects" / script_id / "images" / "composite_title_card_notitle.png"
@@ -132,7 +118,6 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
     image_path = _scene_image_path(script_id, scene.id, scene.image_url or None)
     audio_path = _scene_audio_path(script_id, scene.id)
     frame_paths = _scene_frame_paths(script_id, scene)
-    clip_path = _video_clip_path(script_id, scene)
 
     # For title cards, use the composite image
     if scene.is_title_card and scene.title_card_zoom_target:
@@ -153,11 +138,9 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
         "text_overlay": scene.text_overlay,
         "duration_seconds": duration,
         "is_title_card": scene.is_title_card,
-        "media_type": scene.media_type or "ai_generated",
         "image_path": image_path,
         "frame_paths": frame_paths if frame_paths else None,
         "audio_path": audio_path,
-        "video_clip_path": clip_path,
         "title_card_zoom_target": scene.title_card_zoom_target,
         "fx": fx,
         "eli_overlay": scene.eli_overlay,
@@ -304,25 +287,12 @@ def render_scene_preview(
     script_id: str,
     width: int = 1920,
     height: int = 1080,
-    modifier_ids: list[str] | None = None,
     brand: dict | None = None,
 ) -> str:
-    """Render a single scene to MP4 via Remotion and return the web-relative path.
-
-    Runs modifier pre-render hooks before rendering.
-    """
+    """Render a single scene to MP4 via Remotion and return the web-relative path."""
     # Always prepare title card scenes (title cards are always active)
     from pipeline.modifiers.title_cards import prepare_title_card_scene
     scene = prepare_title_card_scene(scene, script_id, brand or {})
-
-    # Run modifier pre-render hooks (e.g. real media)
-    if modifier_ids:
-        import pipeline.modifiers  # noqa: F401
-        from pipeline.modifiers.registry import get_active
-
-        brand_dict = brand or {}
-        for mod in get_active(modifier_ids):
-            scene = mod.modify_scene_pre_render(scene, script_id, brand_dict)
 
     renders = _renders_dir(script_id)
     scenes_dir = renders / "scenes"
@@ -364,7 +334,6 @@ def render_full_video(
     on_progress: ProgressCallback = None,
     title: str = "",
     speed: float = 1.0,
-    modifier_ids: list[str] | None = None,
     brand: dict | None = None,
 ) -> str:
     """Render the full video as a single Remotion composition.
@@ -381,15 +350,6 @@ def render_full_video(
         if on_progress:
             on_progress(i / (total + 2), f"Preparing scene {i + 1}/{total}")
         scenes[i] = prepare_title_card_scene(scene, script_id, brand_dict)
-
-    # Run modifier pre-render hooks for all scenes
-    if modifier_ids:
-        import pipeline.modifiers  # noqa: F401
-        from pipeline.modifiers.registry import get_active
-
-        for i, scene in enumerate(scenes):
-            for mod in get_active(modifier_ids):
-                scenes[i] = mod.modify_scene_pre_render(scene, script_id, brand_dict)
 
     if on_progress:
         on_progress(0.3, "Building Remotion composition...")
