@@ -6,6 +6,7 @@ and pre-render image generation as standalone functions (always active).
 
 import logging
 
+from config import ALLOWED_SEGMENT_COUNTS
 from models.script import Scene, ScriptContent
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,9 @@ DEFAULT_COLORS = [
     "#3f51b5", "#cddc39", "#f44336", "#009688",
 ]
 
-TITLE_CARD_PROMPT_INSTRUCTIONS = """\
+_ALLOWED_SEGMENTS_STR = " or ".join(str(n) for n in ALLOWED_SEGMENT_COUNTS)
+
+TITLE_CARD_PROMPT_INSTRUCTIONS = f"""\
 
 Composite Title Card System:
 - The video uses a composite grid title card showing ALL segments as circles on one image.
@@ -35,7 +38,7 @@ Keep it simple and readable at small sizes (it will be cropped into a circle).
 - Title card scenes MUST have visual_prompt set to "" (empty string) — their visuals come from \
 the composite grid card, not individual AI generation.
 - Each segment MUST have at least 5 scenes (including the title card).
-- Segment count MUST be exactly 8 or 10 for balanced grid layouts."""
+- Segment count MUST be exactly {_ALLOWED_SEGMENTS_STR} for balanced grid layouts."""
 
 
 def prepare_title_card_scene(scene: Scene, script_id: str, brand: dict) -> Scene:

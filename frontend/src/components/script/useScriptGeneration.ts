@@ -4,6 +4,7 @@ import type { VideoIdea } from "../../types/idea";
 import type { ScriptContent } from "../../types/script";
 
 const DEFAULT_MODEL = "anthropic.claude-opus-4-6-v1";
+// Mirrors backend config.ALLOWED_SEGMENT_COUNTS — keep in sync
 const ALLOWED_SEGMENT_COUNTS = [8, 10] as const;
 
 /** Snap an arbitrary segment count to the nearest allowed value (8 or 10). */
