@@ -54,6 +54,15 @@ class EliOverlay(BaseModel):
     enabled: bool = True
     keyframes: list[EliKeyframe] = []
 
+class FrameDirective(BaseModel):
+    """Per-frame generation directive for the Visual Beat System."""
+    prompt: str
+    source: str = "ai_generated"       # "ai_generated" | "real_photo" | "subtitle"
+    search_query: str = ""
+    transition: str = "crossfade"      # "cut" | "crossfade" | "fade_black"
+    reference_previous: bool = True
+
+
 class ChapterMarker(BaseModel):
     """A chapter marker for the global progress bar."""
 
@@ -88,6 +97,8 @@ class Scene(BaseModel):
     frame_count: int = 0              # desired frame count (1-8), 0 = use legacy single-image
     fx: dict | None = None             # SceneFX dict — assigned by FX generator, used by Remotion
     eli_overlay: dict | None = None    # EliOverlay dict — Eli character animation keyframes
+    visual_beat: str = "static"        # "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage"
+    frame_directives: list[dict] = []  # FrameDirective dicts; validated at runtime
 
 class Segment(BaseModel):
     """A named segment (e.g. "Caffeine") containing multiple scenes."""

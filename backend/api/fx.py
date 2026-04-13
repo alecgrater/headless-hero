@@ -66,6 +66,7 @@ def generate_all_fx(body: GenerateFXRequest, session: Session = Depends(get_sess
                 "duration_seconds": duration,
                 "duration_frames": int(duration * 30),
                 "has_multiple_frames": bool(scene.frame_urls and len(scene.frame_urls) > 1),
+                "visual_beat": scene.visual_beat or "static",
             }
             if scene.word_timestamps:
                 scene_data["word_timestamps"] = scene.word_timestamps
@@ -139,6 +140,7 @@ def regenerate_scene_fx(body: RegenerateFXRequest, session: Session = Depends(ge
         "duration_seconds": duration,
         "duration_frames": round(duration * 30),
         "has_multiple_frames": bool(target_scene.frame_urls and len(target_scene.frame_urls) > 1),
+        "visual_beat": target_scene.visual_beat or "static",
     }
     if target_scene.word_timestamps:
         scene_data["word_timestamps"] = target_scene.word_timestamps

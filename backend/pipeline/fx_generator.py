@@ -77,7 +77,16 @@ For each zoom punch, specify:
 - MOST scenes should have NO zoom punch (null).
 - Reserve for: shocking statistics, dramatic reveals, key turning points.
 - Never zoom punch on title card scenes or gameplay clips.
+- Never zoom punch on "aha_subtitle" scenes (no image to zoom — these are text-on-black).
 - Never zoom punch 2 consecutive scenes.
+
+## Visual Beat Context
+Each scene includes a "visual_beat" field indicating its presentation type:
+- "static" — single image, standard FX rules
+- "continuous" — smooth frame progression, standard FX rules
+- "quick_cuts" — independent shots with hard cuts, zoom_punch can trigger on one frame
+- "aha_subtitle" — text on black, NO zoom_punch allowed, kinetic captions still OK
+- "montage" — mixed real/AI frames, standard FX rules
 
 ## Output Format
 

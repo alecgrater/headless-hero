@@ -472,6 +472,7 @@ export function useTimelineState(
           is_animated: scene.is_animated || false,
           visual_prompt_b: scene.visual_prompt_b || "",
           frame_prompts: scene.frame_prompts || [],
+          frame_directives: scene.frame_directives || [],
           frame_seed: scene.frame_seed ?? null,
         });
         if (res.ok) {
@@ -509,7 +510,7 @@ export function useTimelineState(
   const generateAllImages = useCallback(
     async () => {
       // Collect AI-generated scenes
-      const scenes: { scene_id: string; visual_prompt: string; name: string; is_animated: boolean; visual_prompt_b: string; frame_prompts: string[]; frame_seed: number | null }[] = [];
+      const scenes: { scene_id: string; visual_prompt: string; name: string; is_animated: boolean; visual_prompt_b: string; frame_prompts: string[]; frame_directives: any[]; frame_seed: number | null }[] = [];
       // Collect title card scene IDs for progress tracking
       let hasTitleCards = false;
       for (const seg of contentRef.current.segments) {
@@ -524,6 +525,7 @@ export function useTimelineState(
               is_animated: sc.is_animated || false,
               visual_prompt_b: sc.visual_prompt_b || "",
               frame_prompts: sc.frame_prompts || [],
+              frame_directives: sc.frame_directives || [],
               frame_seed: sc.frame_seed ?? null,
             });
           }
@@ -586,6 +588,7 @@ export function useTimelineState(
             is_animated: scene.is_animated,
             visual_prompt_b: scene.visual_prompt_b,
             frame_prompts: scene.frame_prompts,
+            frame_directives: scene.frame_directives,
             frame_seed: scene.frame_seed,
           });
           if (res.ok) {

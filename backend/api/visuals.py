@@ -10,7 +10,7 @@ from sqlmodel import Session
 
 from database import get_session
 from models.script import Script, ScriptContent
-from pipeline.image_gen import generate_batch, generate_scene_frames, generate_scene_image
+from pipeline.image_gen import generate_batch, generate_scene_frames, generate_scene_frames_v2, generate_scene_image
 from pipeline.render_jobs import create_job, get_job, run_in_background
 from pipeline.title_card import ensure_title_card_images
 
@@ -27,6 +27,7 @@ class GenerateVisualRequest(BaseModel):
     width: int = 1344
     height: int = 768
     frame_prompts: list[str] = []
+    frame_directives: list[dict] = []
 
 class GenerateVisualResponse(BaseModel):
     image_url: str
@@ -37,6 +38,7 @@ class BatchScene(BaseModel):
     scene_id: str
     visual_prompt: str
     frame_prompts: list[str] = []
+    frame_directives: list[dict] = []
 
 class GenerateBatchRequest(BaseModel):
     script_id: str
@@ -69,9 +71,11 @@ def _update_scene(
             if scene.id == scene_id:
                 for key, value in fields.items():
                     setattr(scene, key, value)
-                # When setting frame_urls, also set image_url to first frame
+                # When setting frame_urls, also set image_url to first non-empty frame
                 if "frame_urls" in fields and fields["frame_urls"]:
-                    scene.image_url = fields["frame_urls"][0]
+                    first_image = next((u for u in fields["frame_urls"] if u), "")
+                    if first_image:
+                        scene.image_url = first_image
                 break
     record.script_json = content.model_dump_json()
     session.add(record)
@@ -88,7 +92,28 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
 
     logger.info("Generating visual for scene %s in script %s", body.scene_id, body.script_id)
 
-    # Multi-frame path
+    # Visual Beat System v2 path: per-frame directives
+    if body.frame_directives:
+        frame_results = generate_scene_frames_v2(
+            scene_id=body.scene_id,
+            frame_directives=body.frame_directives,
+            script_id=body.script_id,
+            visual_prompt=body.visual_prompt,
+            width=body.width,
+            height=body.height,
+        )
+        frame_urls = [url for url, _ in frame_results]
+        # Guard: only set image_url from first non-empty frame URL
+        first_image = next((u for u in frame_urls if u), "")
+        if frame_urls:
+            _update_scene(session, body.script_id, body.scene_id, frame_urls=frame_urls)
+        return GenerateVisualResponse(
+            image_url=first_image,
+            prompt_used=frame_results[0][1] if frame_results else "",
+            frame_urls=frame_urls,
+        )
+
+    # Legacy multi-frame path
     if body.frame_prompts:
         frame_results = generate_scene_frames(
             scene_id=body.scene_id,
@@ -133,6 +158,7 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
             "scene_id": s.scene_id,
             "visual_prompt": s.visual_prompt,
             "frame_prompts": s.frame_prompts,
+            "frame_directives": s.frame_directives,
         }
         for s in body.scenes
     ]

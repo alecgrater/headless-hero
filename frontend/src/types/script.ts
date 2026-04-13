@@ -44,6 +44,14 @@ export interface VideoFX {
   chapter_markers: ChapterMarker[];
 }
 
+export interface FrameDirective {
+  prompt: string;
+  source: "ai_generated" | "real_photo" | "subtitle";
+  search_query?: string;
+  transition: "cut" | "crossfade" | "fade_black";
+  reference_previous: boolean;
+}
+
 export interface Scene {
   id: string;
   narration: string;
@@ -60,6 +68,8 @@ export interface Scene {
   frame_prompts?: string[];
   frame_urls?: string[];
   frame_count?: number;
+  visual_beat?: "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage";
+  frame_directives?: FrameDirective[];
   fx?: SceneFX | null;
   eli_overlay?: EliOverlay | null;
 }

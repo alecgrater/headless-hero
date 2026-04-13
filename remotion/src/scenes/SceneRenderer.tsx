@@ -10,6 +10,7 @@ import { StaticImageScene } from "./StaticImageScene";
 import { MultiFrameScene } from "./MultiFrameScene";
 import { TitleCardScene } from "./TitleCardScene";
 import { VideoClipScene } from "./VideoClipScene";
+import { SubtitleScene } from "./SubtitleScene";
 
 import { ZoomPunch } from "../effects/camera/ZoomPunch";
 import { CaptionOverlay } from "../effects/typography/KineticCaption";
@@ -23,6 +24,7 @@ export const SceneRenderer: React.FC<Props> = ({ scene }) => {
   const hasMultipleFrames = scene.frame_paths && scene.frame_paths.length > 1;
   const isVideoClip = scene.media_type === "gameplay_clip" && scene.video_clip_path;
   const isTitleCard = scene.is_title_card && scene.title_card_zoom_target;
+  const isAhaSubtitle = scene.visual_beat === "aha_subtitle";
   const fx = scene.fx;
 
   // Visual layer dispatch
@@ -31,14 +33,16 @@ export const SceneRenderer: React.FC<Props> = ({ scene }) => {
     visualLayer = <VideoClipScene scene={scene} />;
   } else if (isTitleCard) {
     visualLayer = <TitleCardScene scene={scene} />;
+  } else if (isAhaSubtitle) {
+    visualLayer = <SubtitleScene scene={scene} />;
   } else if (hasMultipleFrames) {
     visualLayer = <MultiFrameScene scene={scene} />;
   } else {
     visualLayer = <StaticImageScene scene={scene} />;
   }
 
-  // Wrap with ZoomPunch if assigned
-  if (fx?.zoom_punch) {
+  // Wrap with ZoomPunch if assigned (but not for subtitle scenes — no image to zoom)
+  if (fx?.zoom_punch && !isAhaSubtitle) {
     visualLayer = (
       <ZoomPunch
         triggerFrame={fx.zoom_punch.trigger_frame}

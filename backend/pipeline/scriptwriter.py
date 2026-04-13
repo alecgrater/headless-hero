@@ -46,11 +46,11 @@ Output rules:
           "text_overlay": "Key text to display on screen (short phrase).",
           "duration_estimate_seconds": 8,
           "is_title_card": false,
-          "frame_count": 3,
-          "frame_prompts": [
-            "Frame 1: Wide establishing shot of the subject...",
-            "Frame 2: Closer view showing detail...",
-            "Frame 3: Final state with result..."
+          "visual_beat": "quick_cuts",
+          "frame_directives": [
+            {"prompt": "[CLOSE-UP] Subject detail shot...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""},
+            {"prompt": "[REACTION] Human response...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""},
+            {"prompt": "[DETAIL] Key element close-up...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""}
           ],
           "media_type": "ai_generated",
           "search_query": ""
@@ -101,34 +101,55 @@ Visual storytelling arc:
   shot type — not switch between types. Example: a close-up that slowly reveals
   more detail across frames.
 
-Multi-frame scene guidelines (ANIMATION SEQUENCES):
-- Multiple frames simulate animation via crossfade — they MUST look like \
-consecutive frames of the SAME illustration with only subtle movement.
-- The "visual_prompt" field is the ANCHOR — it describes the complete static \
-scene in full detail (including the [SHOT_TYPE] label): subject, background, \
-composition, lighting, art style, color palette, camera angle. This is the \
-"base drawing" that every frame shares.
-- Each "frame_prompt" is a BRIEF DELTA — it describes only the ONE thing that \
-changes from the anchor scene (a pose, expression, position, or scale shift). \
-Do NOT repeat the full visual_prompt in frame_prompts; the image generator \
-will automatically combine the anchor with the delta. Example:
-  visual_prompt: "[CLOSE-UP] A honeybee clinging to a yellow flower petal, \
-legs dusted with pollen, soft bokeh background, flat illustration style, \
-dark background"
-  frame_prompts: ["Bee's left leg raised slightly off the petal",
-                  "Bee's wings fanned open at rest",
-                  "Bee beginning to lift off, wings blurred with motion"]
-- Budget guidelines for frame_count:
-  - Title/hook scenes (opening, segment intros): 3-4 frames
-  - Key stat or dramatic reveal scenes: 2-3 frames
-  - Standard explanation scenes: 2 frames
-  - Filler/transition scenes: 1 frame
-- Keep frame counts LOW (2-4). Fewer frames = stronger visual consistency.
-- The change between frames should be MINIMAL and physically plausible — \
-a small gesture, a slight zoom, an object shifting position. NOT a completely \
-different angle, composition, or scene.
-- Title card scenes (is_title_card: true) should have frame_count: 0 and \
-empty frame_prompts — they use the programmatic title card system."""
+Visual Beat System:
+- Instead of frame_count and frame_prompts, use "visual_beat" and "frame_directives" \
+to control how each scene looks. This gives you a rich vocabulary of visual \
+presentation techniques.
+
+BEAT TYPE VOCABULARY:
+- "static" — Standard explanation scene where a single strong image suffices. \
+The default fallback. Aim for <30% of non-title-card scenes. 1 frame directive \
+with source "ai_generated".
+- "continuous" — When narration describes a physical process unfolding over time \
+(pouring, growing, building). 2-4 frames with reference_previous: true and \
+transition: "crossfade". Frames show subtle progression of the SAME scene.
+- "quick_cuts" — When narration covers multiple examples, lists, comparisons, \
+or rapid context switches. 3-8 frames with reference_previous: false and \
+transition: "cut" (primarily). Each frame is a completely DIFFERENT shot — \
+different subject, angle, composition. This is the primary tool for visual energy.
+- "aha_subtitle" — When a sentence delivers a shocking stat, counterintuitive \
+fact, or "wait, really?" moment. Pure white text on black. 1 frame directive \
+with source: "subtitle". Use sparingly: 1-3 per video max. Must be preceded \
+and followed by image-bearing beats for contrast. visual_prompt should be empty.
+- "montage" — When real-world authenticity adds impact (real places, products, \
+events). Mix of source: "ai_generated" and source: "real_photo". 4-8 frames. \
+Each real_photo frame must include a search_query for Google Images. \
+reference_previous: false for all frames. Transitions: mostly "cut" with \
+occasional "crossfade".
+
+DISTRIBUTION RULES (follow strictly):
+1. Never use the same beat type 3+ times consecutively.
+2. quick_cuts + montage should comprise 30-50% of non-title-card scenes.
+3. aha_subtitle must be sandwiched between image-bearing beats.
+4. continuous is reserved for genuine motion progression — NOT the default for multi-frame.
+5. static should be the minority, not the majority.
+6. Vary transitions within quick_cuts scenes — mostly "cut" but occasional "crossfade".
+
+FRAME DIRECTIVES FORMAT:
+Each scene MUST have "visual_beat" and "frame_directives" (list of objects). \
+Each frame directive has:
+  - "prompt": Visual description (for ai_generated/real_photo) or subtitle text (for subtitle)
+  - "source": "ai_generated" | "real_photo" | "subtitle"
+  - "transition": "cut" | "crossfade" | "fade_black"
+  - "reference_previous": true/false (true = use prev frame as reference, false = independent)
+  - "search_query": Google Images query (required when source is "real_photo", empty otherwise)
+
+For ai_generated frames, the "prompt" is a BRIEF DELTA if reference_previous is true \
+(describing only what changes from the visual_prompt anchor), or a FULL independent \
+description if reference_previous is false.
+
+- Title card scenes (is_title_card: true) should have visual_beat: "static" and \
+empty frame_directives — they use the programmatic title card system."""
 
 
 def _warn_visual_monotony(content: "ScriptContent") -> None:
@@ -163,6 +184,32 @@ def _warn_visual_monotony(content: "ScriptContent") -> None:
                 )
         else:
             run_type = shot_types[i]
+            run_len = 1
+
+    # Also check visual_beat monotony (3+ consecutive same beat type)
+    beat_types: list[str] = []
+    for scene in all_scenes:
+        if scene.is_title_card:
+            beat_types.append("TITLE_CARD")
+        else:
+            beat_types.append(scene.visual_beat or "static")
+
+    run_beat = beat_types[0] if beat_types else None
+    run_len = 1
+    for i in range(1, len(beat_types)):
+        if beat_types[i] == run_beat and run_beat != "TITLE_CARD":
+            run_len += 1
+            if run_len >= 3:
+                logger.warning(
+                    "Visual beat monotony detected: beat type '%s' used in %d+ consecutive "
+                    "scenes (scenes %d–%d). Consider varying visual beat types.",
+                    run_beat,
+                    run_len,
+                    i - run_len + 2,
+                    i + 1,
+                )
+        else:
+            run_beat = beat_types[i]
             run_len = 1
 
 
@@ -210,10 +257,9 @@ def generate_script(
     if brand_context:
         user_parts.append(f"Brand context (use for visual style and tone): {brand_context}")
     user_parts.append(
-        "For each scene, set frame_count and provide that many frame_prompts "
-        "following the ANIMATION SEQUENCES guidelines. Each frame_prompt must "
-        "be a brief delta describing only what changes from the anchor visual_prompt "
-        "(do NOT repeat the full visual_prompt in frame_prompts). "
+        "For each scene, set visual_beat and provide matching frame_directives "
+        "following the Visual Beat System guidelines. Use varied beat types "
+        "across the video for maximum visual energy. "
         "Every visual_prompt must begin with a [SHOT_TYPE] label from the Visual "
         "storytelling arc palette."
     )
@@ -318,18 +364,21 @@ Return ONLY a valid JSON array of scene objects. Example:
     "text_overlay": "...",
     "duration_estimate_seconds": 8,
     "is_title_card": false,
-    "frame_count": 3,
-    "frame_prompts": ["Frame 1: ...", "Frame 2: ...", "Frame 3: ..."],
+    "visual_beat": "quick_cuts",
+    "frame_directives": [
+      {"prompt": "...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""},
+      {"prompt": "...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""}
+    ],
     "media_type": "ai_generated",
     "search_query": ""
   }
 ]
 
 RULES:
-- The FIRST scene of EVERY segment MUST be a title card (is_title_card: true, frame_count: 0, frame_prompts: []).
+- The FIRST scene of EVERY segment MUST be a title card (is_title_card: true, visual_beat: "static", frame_directives: []).
 - After the title card, write 4-7 content scenes.
 - Scene IDs should start at scene_001 within this segment (they will be renumbered globally later).
-- Follow all visual storytelling arc, multi-frame, and shot type guidelines from the system prompt.
+- Follow all visual storytelling arc, Visual Beat System, and shot type guidelines from the system prompt.
 - Return ONLY the JSON array — no markdown fences, no commentary.
 """
 

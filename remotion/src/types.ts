@@ -63,6 +63,14 @@ export interface EliOverlay {
   keyframes: EliKeyframe[];
 }
 
+export interface FrameDirective {
+  prompt: string;
+  source: "ai_generated" | "real_photo" | "subtitle";
+  transition: "cut" | "crossfade" | "fade_black";
+  reference_previous: boolean;
+  search_query?: string;
+}
+
 export interface ChapterMarker {
   segment_index: number;
   label: string;
@@ -105,6 +113,10 @@ export interface SceneInput {
 
   // FX (new system)
   fx?: SceneFX | null;
+
+  // Visual Beat System
+  visual_beat?: "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage";
+  frame_directives?: FrameDirective[] | null;
 
   // Eli character overlay
   eli_overlay?: EliOverlay | null;

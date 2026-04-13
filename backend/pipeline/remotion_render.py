@@ -76,13 +76,25 @@ def _scene_audio_path(script_id: str, scene_id: str) -> str | None:
 
 
 def _scene_frame_paths(script_id: str, scene: Scene) -> list[str]:
-    """Resolve local filesystem paths for multi-frame scene images."""
+    """Resolve local filesystem paths for multi-frame scene images.
+
+    For frames with source == "subtitle" (via frame_directives), appends
+    an empty string so Remotion renders text-on-black instead of loading an image.
+    """
     paths = []
+    directives = scene.frame_directives or []
+
     if scene.frame_urls and len(scene.frame_urls) > 1:
         for i in range(len(scene.frame_urls)):
+            # Check if this frame is a subtitle (no image needed)
+            if i < len(directives) and directives[i].get("source") == "subtitle":
+                paths.append("")
+                continue
             fp = DATA_DIR / "projects" / script_id / "images" / f"{scene.id}_f{i}.png"
             if fp.exists():
                 paths.append(_to_remotion_path(str(fp)))
+            else:
+                paths.append("")
     return paths
 
 
@@ -151,6 +163,8 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
         "eli_overlay": scene.eli_overlay,
         "word_timestamps": scene.word_timestamps,
         "character_frames_base_url": "http://localhost:8420/static/character/frames",
+        "visual_beat": scene.visual_beat,
+        "frame_directives": scene.frame_directives or None,
     }
 
 

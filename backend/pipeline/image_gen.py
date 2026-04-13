@@ -181,6 +181,135 @@ def generate_scene_frames(
 
     return results
 
+
+def generate_scene_frames_v2(
+    scene_id: str,
+    frame_directives: list[dict],
+    script_id: str,
+    visual_prompt: str = "",
+    width: int = 1344,
+    height: int = 768,
+    force: bool = False,
+    style_guide: str = "",
+) -> list[tuple[str, str]]:
+    """Generate frames using the Visual Beat System's per-frame directives.
+
+    Dispatches per-directive based on source and reference_previous:
+      - source == "subtitle" → skip generation, return ("", prompt)
+      - source == "real_photo" → scrape Google Images; fallback to AI
+      - source == "ai_generated" + reference_previous → Gemini image-to-image
+      - source == "ai_generated" + !reference_previous → Gemini text-to-image (independent)
+
+    Returns list of (web_path, prompt) tuples. Empty string web_path for subtitle frames.
+    """
+    from models.script import FrameDirective as FrameDirectiveModel
+
+    guide = style_guide if style_guide else _STYLE_GUIDE
+    images_dir = DATA_DIR / "projects" / script_id / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+
+    total_frames = len(frame_directives)
+    logger.info("Generating %d frames (v2) for scene %s", total_frames, scene_id)
+    results: list[tuple[str, str]] = []
+    prev_frame_path: Path | None = None
+
+    for i, raw_directive in enumerate(frame_directives):
+        # Validate directive
+        directive = FrameDirectiveModel.model_validate(raw_directive)
+
+        filename = f"{scene_id}_f{i}.png"
+        local_path = images_dir / filename
+        prompt_marker = images_dir / f"{scene_id}_f{i}.prompt"
+        web_path = f"/static/projects/{script_id}/images/{filename}"
+
+        # --- Subtitle frames: no image generation ---
+        if directive.source == "subtitle":
+            results.append(("", directive.prompt))
+            # Don't update prev_frame_path — subtitles can't be references
+            continue
+
+        # --- Real photo frames: Google Images scraper ---
+        if directive.source == "real_photo" and directive.search_query:
+            from integrations.google_image_scraper import scrape_google_image_sync
+
+            # Cache check
+            if not force and local_path.exists() and prompt_marker.exists():
+                cached = prompt_marker.read_text(encoding="utf-8").strip()
+                if cached == directive.search_query:
+                    results.append((web_path, directive.search_query))
+                    prev_frame_path = local_path
+                    continue
+
+            scraped = scrape_google_image_sync(
+                query=directive.search_query,
+                output_path=str(local_path),
+                width=1920,
+                height=1080,
+            )
+            if scraped:
+                prompt_marker.write_text(directive.search_query, encoding="utf-8")
+                results.append((web_path, directive.search_query))
+                prev_frame_path = local_path
+                continue
+
+            # Fallback to AI generation using search_query as prompt
+            logger.info("Google scrape failed for %r, falling back to AI gen", directive.search_query)
+            directive_prompt = directive.search_query
+        else:
+            directive_prompt = directive.prompt
+
+        # --- AI-generated frames ---
+        use_reference = (
+            directive.reference_previous
+            and prev_frame_path is not None
+            and prev_frame_path.exists()
+        )
+
+        if use_reference:
+            # Kontext-optimized: edit instruction referencing the input image
+            parts: list[str] = []
+            if _VISUAL_STYLE:
+                parts.append(_VISUAL_STYLE)
+            parts.append(
+                f"This is frame {i + 1} of {total_frames} in an animation sequence. "
+                f"Using the input image as reference, change ONLY the following: "
+                f"{directive_prompt}\n"
+                f"Maintain identical style, background, composition, character design, "
+                f"and color palette. Only the described action should change."
+            )
+            prompt = "\n\n".join(parts)
+        else:
+            # Independent text-to-image (no reference chaining)
+            parts: list[str] = []
+            if _VISUAL_STYLE:
+                parts.append(_VISUAL_STYLE)
+            if guide:
+                parts.append(guide)
+            parts.append(directive_prompt)
+            prompt = "\n\n".join(parts)
+
+        # Cache check
+        if not force and local_path.exists() and prompt_marker.exists():
+            cached_prompt = prompt_marker.read_text(encoding="utf-8").strip()
+            if cached_prompt == prompt:
+                results.append((web_path, prompt))
+                prev_frame_path = local_path
+                continue
+
+        tmp_path = generate_image(
+            prompt,
+            width=width,
+            height=height,
+            reference_image_path=str(prev_frame_path) if use_reference else None,
+        )
+        shutil.move(tmp_path, str(local_path))
+        prompt_marker.write_text(prompt, encoding="utf-8")
+        results.append((web_path, prompt))
+        prev_frame_path = local_path
+
+    return results
+
+
 def generate_batch(
     scenes: list[dict[str, str]],
     script_id: str,
@@ -198,9 +327,31 @@ def generate_batch(
     logger.info("Starting batch image generation for %s scenes (script %s)", len(scenes), script_id)
     for scene in scenes:
         try:
+            frame_directives = scene.get("frame_directives", [])
             frame_prompts = scene.get("frame_prompts", [])
 
-            # Multi-frame path
+            # Visual Beat System v2 path: per-frame directives
+            if frame_directives:
+                frame_results = generate_scene_frames_v2(
+                    scene_id=scene["scene_id"],
+                    frame_directives=frame_directives,
+                    script_id=script_id,
+                    visual_prompt=scene.get("visual_prompt", ""),
+                    width=width,
+                    height=height,
+                    style_guide=style_guide,
+                )
+                frame_urls = [url for url, _ in frame_results]
+                results.append({
+                    "scene_id": scene["scene_id"],
+                    "image_url": next((u for u in frame_urls if u), None),
+                    "frame_urls": frame_urls,
+                    "prompt_used": frame_results[0][1] if frame_results else None,
+                    "error": None,
+                })
+                continue
+
+            # Legacy multi-frame path
             if frame_prompts:
                 frame_results = generate_scene_frames(
                     scene_id=scene["scene_id"],
