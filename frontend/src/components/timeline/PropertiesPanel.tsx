@@ -28,9 +28,6 @@ export default function PropertiesPanel({
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
-  const [duration, setDuration] = useState(
-    String(scene.duration_estimate_seconds),
-  );
   const [isTitleCard, setIsTitleCard] = useState(scene.is_title_card);
   const [framePrompts, setFramePrompts] = useState<string[]>(scene.frame_prompts || []);
   const [frameCount, setFrameCount] = useState(scene.frame_count || 0);
@@ -42,7 +39,6 @@ export default function PropertiesPanel({
       sceneIdRef.current = scene.id;
       setNarration(scene.narration);
       setVisualPrompt(scene.visual_prompt);
-      setDuration(String(scene.duration_estimate_seconds));
       setIsTitleCard(scene.is_title_card);
       setFramePrompts(scene.frame_prompts || []);
       setFrameCount(scene.frame_count || 0);
@@ -114,22 +110,6 @@ export default function PropertiesPanel({
           {/* Settings row pinned at bottom */}
           <div className="shrink-0 space-y-1">
             <div className="flex items-end gap-3 pt-1 border-t border-neutral-800/40">
-              <label className="space-y-0.5">
-                <span className="text-[10px] font-medium text-neutral-500">Duration</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={120}
-                  step={0.5}
-                  value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
-                  onBlur={() => {
-                    const n = parseFloat(duration);
-                    if (!isNaN(n) && n > 0) commitField("duration_estimate_seconds", n);
-                  }}
-                  className="block w-16 text-xs text-neutral-200 bg-neutral-800/60 rounded px-1.5 py-1 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50"
-                />
-              </label>
               <label className="space-y-0.5 flex-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-medium text-neutral-500">Frames</span>

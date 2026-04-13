@@ -286,14 +286,6 @@ export default function ScriptGenerationPage({
   const totalScenes = script
     ? script.segments.reduce((sum, seg) => sum + seg.scenes.length, 0)
     : 0;
-  const totalDuration = script
-    ? script.segments.reduce(
-        (sum, seg) =>
-          sum +
-          seg.scenes.reduce((s, sc) => s + sc.duration_estimate_seconds, 0),
-        0,
-      )
-    : 0;
 
   const hasTitleCards = true;
 
@@ -520,13 +512,6 @@ export default function ScriptGenerationPage({
               </span>{" "}
               scenes
             </span>
-            <span>
-              ~
-              <span className="text-neutral-100 font-medium">
-                {Math.round(totalDuration / 60)}
-              </span>{" "}
-              min estimated
-            </span>
             {saving && (
               <span className="text-violet-400 ml-auto">Saving...</span>
             )}
@@ -697,9 +682,6 @@ export default function ScriptGenerationPage({
                             edited
                           </span>
                         )}
-                        <span className="text-xs text-neutral-500 ml-auto">
-                          {scene.duration_estimate_seconds}s
-                        </span>
                         {!isEditing && !isRefining && (
                           <span className="text-xs text-neutral-600">
                             click to edit
