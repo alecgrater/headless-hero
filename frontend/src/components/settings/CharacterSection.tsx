@@ -218,6 +218,9 @@ export default function CharacterSection() {
   const framesNeedingVariants = (manifest?.frames ?? []).filter((f) => (f.variant_count ?? 1) > 1).length;
   const tier1Count = (manifest?.frames ?? []).filter((f) => (f.variant_count ?? 1) === 5).length;
   const tier2Count = (manifest?.frames ?? []).filter((f) => (f.variant_count ?? 1) === 3).length;
+  // tier1: (5-1) variants × 2 mouth states = 8 new frames per base frame
+  // tier2: (3-1) variants × 2 mouth states = 4 new frames per base frame
+  const totalVariantFrames = tier1Count * 8 + tier2Count * 4;
 
   // Group frames by expression
   const grouped = (manifest?.frames ?? []).reduce(
@@ -511,9 +514,10 @@ export default function CharacterSection() {
         </h3>
         <p className="text-xs text-neutral-400">
           Generate body micro-variations per expression for a more alive/animated character.
-          {tier1Count > 0 && (
+          {totalVariantFrames > 0 && (
             <span className="ml-1">
-              Tier 1 ({tier1Count} frames): 5 variants each. Tier 2 ({tier2Count} frames): 3 variants each.
+              Will generate <span className="text-neutral-200 font-medium">{totalVariantFrames} total variant frames</span>
+              {" "}({tier1Count} Tier 1 × 8 + {tier2Count} Tier 2 × 4).
             </span>
           )}
         </p>
@@ -524,7 +528,7 @@ export default function CharacterSection() {
             disabled={isGeneratingVariants || isGeneratingFrames || frameCount === 0}
             className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
           >
-            {isGeneratingVariants ? "Generating..." : "Generate Variants"}
+            {isGeneratingVariants ? "Generating..." : `Generate Variants (${totalVariantFrames} frames)`}
           </button>
           {framesNeedingVariants > 0 && (
             <span className="text-xs text-neutral-400">
