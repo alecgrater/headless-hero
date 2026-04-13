@@ -959,6 +959,7 @@ function TimelineEditor({
                 </div>
               )}
             </div>
+          </div>
           {/* Zoom slider */}
           <div className="flex items-center gap-2 px-1">
             <span className="text-[10px] text-neutral-500">Zoom</span>
