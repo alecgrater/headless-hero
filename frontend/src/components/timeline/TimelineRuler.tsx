@@ -12,19 +12,9 @@ function formatTimestamp(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export default function TimelineRuler({ totalDuration, pixelsPerSecond, segments }: Props) {
+export default function TimelineRuler({ totalDuration, pixelsPerSecond }: Props) {
   const totalWidth = totalDuration * pixelsPerSecond;
   const tickCount = Math.ceil(totalDuration);
-
-  // Calculate cumulative segment start times
-  const segmentStarts: { name: string; startTime: number }[] = [];
-  let cumulative = 0;
-  for (const segment of segments) {
-    segmentStarts.push({ name: segment.name, startTime: cumulative });
-    for (const scene of segment.scenes) {
-      cumulative += scene.audio_duration_seconds || scene.duration_estimate_seconds;
-    }
-  }
 
   return (
     <div
@@ -49,16 +39,6 @@ export default function TimelineRuler({ totalDuration, pixelsPerSecond, segments
         );
       })}
 
-      {/* Segment name labels */}
-      {segmentStarts.map((seg, i) => (
-        <div
-          key={i}
-          className="absolute bottom-0.5 text-[9px] text-neutral-500 font-medium truncate"
-          style={{ left: `${seg.startTime * pixelsPerSecond + 4}px`, maxWidth: "120px" }}
-        >
-          {seg.name}
-        </div>
-      ))}
     </div>
   );
 }
