@@ -858,7 +858,7 @@ def load_variant_counts() -> dict[str, int]:
     manifest = get_manifest()
     if not manifest:
         return {}
-    frames_dir = _character_dir() / "frames"
+    frames_dir = FRAMES_DIR
     counts: dict[str, int] = {}
     for f in manifest.get("frames", []):
         fid = f["id"]
