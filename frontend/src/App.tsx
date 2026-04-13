@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "./api";
 import ProjectDashboard from "./components/dashboard/ProjectDashboard";
 import IdeationPage from "./components/ideation/IdeationPage";
@@ -9,12 +9,21 @@ import type { VideoIdea } from "./types/idea";
 
 type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings";
 
+export interface SaveState {
+  isDirty: boolean;
+  saveStatus: string;
+  save: () => void;
+  canUndo: boolean;
+  undo: () => void;
+}
+
 function App() {
   const [backendStatus, setBackendStatus] = useState<string>("connecting...");
   const [view, setView] = useState<View>("project-dashboard");
   const [selectedIdea, setSelectedIdea] = useState<VideoIdea | null>(null);
   const [timelineScriptId, setTimelineScriptId] = useState<string | null>(null);
   const [defaultBrandId, setDefaultBrandId] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<SaveState | null>(null);
 
   useEffect(() => {
     api
@@ -45,12 +54,21 @@ function App() {
     loadDefaultBrand();
   }, [loadDefaultBrand]);
 
+  // Clear save state when leaving timeline
+  const handleSetView = useCallback((v: View) => {
+    if (v !== "timeline") setSaveState(null);
+    setView(v);
+  }, []);
+
+  // Stable callback for save state changes
+  const handleSaveStateChange = useMemo(() => (s: SaveState) => setSaveState(s), []);
+
   return (
     <div className="min-h-screen bg-app text-neutral-100 flex flex-col">
       {/* Top bar */}
       <header className="border-b border-neutral-800/40 px-6 py-4 flex items-center justify-between bg-neutral-950/80 backdrop-blur-sm">
         <button
-          onClick={() => setView("project-dashboard")}
+          onClick={() => handleSetView("project-dashboard")}
           className="text-xl font-semibold tracking-tight hover:text-violet-400 transition-colors flex items-center gap-2"
         >
           <svg className="w-6 h-6" viewBox="0 0 48 46" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -59,8 +77,44 @@ function App() {
           Headless Hero
         </button>
         <div className="flex items-center gap-4">
+          {/* Save controls — only visible on timeline view */}
+          {view === "timeline" && saveState && (
+            <div className="flex items-center gap-2">
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                saveState.saveStatus === "saved"
+                  ? "bg-emerald-400"
+                  : saveState.saveStatus === "saving"
+                    ? "bg-yellow-400"
+                    : "bg-red-400 animate-pulse"
+              }`} />
+              <span className="text-[11px] text-neutral-500">
+                {saveState.saveStatus === "saved" ? "Saved" : saveState.saveStatus === "saving" ? "Saving..." : "Unsaved"}
+              </span>
+              {saveState.canUndo && (
+                <button
+                  onClick={saveState.undo}
+                  className="text-[11px] px-2 py-1 text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800 rounded-md transition-colors"
+                  title="Undo (Cmd+Z)"
+                >
+                  Undo
+                </button>
+              )}
+              <button
+                onClick={saveState.save}
+                disabled={!saveState.isDirty}
+                className={`text-sm px-3 py-1 rounded-lg font-medium transition-colors ${
+                  saveState.isDirty
+                    ? "bg-neutral-200 text-neutral-900 hover:bg-white"
+                    : "bg-neutral-800 text-neutral-500 cursor-default"
+                }`}
+                title="Cmd+S"
+              >
+                Save
+              </button>
+            </div>
+          )}
           <button
-            onClick={() => setView("settings")}
+            onClick={() => handleSetView("settings")}
             className="text-neutral-400 hover:text-neutral-200 transition-colors"
             title="Settings"
           >
@@ -87,14 +141,14 @@ function App() {
       {/* Main content area */}
       <main className={`flex-1 w-full ${view === "timeline" || view === "project-dashboard" || view === "settings" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
         {view === "settings" && (
-          <SettingsPage onBack={() => setView("project-dashboard")} />
+          <SettingsPage onBack={() => handleSetView("project-dashboard")} />
         )}
 
         {view === "ideation" && (
           <IdeationPage
             onUseIdea={(idea) => {
               setSelectedIdea(idea);
-              setView("script-generation");
+              handleSetView("script-generation");
             }}
           />
         )}
@@ -103,10 +157,10 @@ function App() {
           <ScriptGenerationPage
             brandId={defaultBrandId}
             idea={selectedIdea}
-            onBack={() => setView("ideation")}
+            onBack={() => handleSetView("ideation")}
             onContinue={(scriptId) => {
               setTimelineScriptId(scriptId);
-              setView("timeline");
+              handleSetView("timeline");
             }}
           />
         )}
@@ -114,16 +168,17 @@ function App() {
         {view === "timeline" && timelineScriptId && (
           <TimelinePage
             scriptId={timelineScriptId}
-            onBack={() => setView("project-dashboard")}
+            onBack={() => handleSetView("project-dashboard")}
+            onSaveStateChange={handleSaveStateChange}
           />
         )}
 
         {view === "project-dashboard" && (
           <ProjectDashboard
-            onNewVideo={() => setView("ideation")}
+            onNewVideo={() => handleSetView("ideation")}
             onOpenProject={(scriptId) => {
               setTimelineScriptId(scriptId);
-              setView("timeline");
+              handleSetView("timeline");
             }}
           />
         )}
