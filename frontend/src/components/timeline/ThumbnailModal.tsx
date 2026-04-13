@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { assetUrl } from "../../api";
 import type { ThumbnailConcept } from "../../types/render";
 
@@ -9,6 +10,16 @@ interface Props {
 }
 
 export default function ThumbnailModal({ thumbnails, generating, onGenerate, onClose }: Props) {
+  const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedUrl) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedUrl(null);
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [selectedUrl]);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl p-6 max-w-2xl w-full mx-4">
@@ -34,7 +45,8 @@ export default function ThumbnailModal({ thumbnails, generating, onGenerate, onC
                     <img
                       src={assetUrl(t.image_url)}
                       alt={t.title_text}
-                      className="w-full aspect-video object-cover rounded-lg border border-neutral-700"
+                      onClick={() => setSelectedUrl(assetUrl(t.image_url))}
+                      className="w-full aspect-video object-cover rounded-lg border border-neutral-700 cursor-pointer hover:border-violet-500 transition-colors"
                     />
                     <a
                       href={assetUrl(t.image_url)}
@@ -93,6 +105,29 @@ export default function ThumbnailModal({ thumbnails, generating, onGenerate, onC
           </button>
         </div>
       </div>
+
+      {/* Lightbox overlay */}
+      {selectedUrl && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80"
+          onClick={() => setSelectedUrl(null)}
+        >
+          <button
+            onClick={() => setSelectedUrl(null)}
+            className="absolute top-4 right-4 text-neutral-400 hover:text-white transition-colors"
+          >
+            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <img
+            src={selectedUrl}
+            alt="Thumbnail preview"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }
