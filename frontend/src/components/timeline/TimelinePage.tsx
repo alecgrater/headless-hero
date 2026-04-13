@@ -398,6 +398,14 @@ function TimelineEditor({
   const hasExistingFX = allScenes.some((sc) => sc.fx);
   const hasExistingEli = allScenes.some((sc) => sc.eli_overlay);
 
+  // Check if ALL scenes are complete for each step (for completion checkmarks)
+  const nonTitleScenes = allScenes.filter((sc) => !sc.is_title_card);
+  const narratedScenes = allScenes.filter((sc) => sc.narration);
+  const allImagesGenerated = nonTitleScenes.length > 0 && nonTitleScenes.every((sc) => sc.image_url || sc.frame_urls?.length);
+  const allAudioGenerated = narratedScenes.length > 0 && narratedScenes.every((sc) => sc.audio_url);
+  const allFXGenerated = nonTitleScenes.length > 0 && nonTitleScenes.every((sc) => sc.fx);
+  const allEliGenerated = narratedScenes.length > 0 && narratedScenes.every((sc) => sc.eli_overlay);
+
   const confirmAndGenerateImages = () => {
     if (hasExistingImages) {
       setConfirmOverwrite("images");
@@ -635,14 +643,18 @@ function TimelineEditor({
             <span className={`w-[22px] h-[22px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
               state.batchGenerating
                 ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
-                : "border-neutral-600 text-neutral-500"
+                : allImagesGenerated
+                  ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
+                  : "border-neutral-600 text-neutral-500"
             }`}>2</span>
             <button
               onClick={state.batchGenerating ? () => state.cancelImageGeneration() : confirmAndGenerateImages}
               className={`text-sm px-3 py-1.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-2 min-w-[130px] ${
                 state.batchGenerating
                   ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
-                  : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
+                  : allImagesGenerated
+                    ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
+                    : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
               }`}
               title={state.batchGenerating ? "Cancel image generation" : "Generate images for all scenes with visual prompts"}
             >
@@ -651,6 +663,8 @@ function TimelineEditor({
                   <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
                   Cancel
                 </>
+              ) : allImagesGenerated ? (
+                "Generate Images \u2713"
               ) : (
                 "Generate Images"
               )}
@@ -665,7 +679,9 @@ function TimelineEditor({
             <span className={`w-[22px] h-[22px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
               state.batchGeneratingAudio
                 ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
-                : "border-neutral-600 text-neutral-500"
+                : allAudioGenerated
+                  ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
+                  : "border-neutral-600 text-neutral-500"
             }`}>3</span>
             <div ref={voicePickerRef} className="relative flex items-stretch">
               <button
@@ -674,7 +690,9 @@ function TimelineEditor({
                 className={`text-sm pl-3 pr-2 py-1.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-2 min-w-[130px] disabled:opacity-40 disabled:cursor-not-allowed ${
                   state.batchGeneratingAudio
                     ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
-                    : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
+                    : allAudioGenerated
+                      ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
+                      : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
                 }`}
                 title={state.batchGeneratingAudio ? "Cancel audio generation" : "Generate audio for all scenes with narration"}
               >
@@ -683,6 +701,8 @@ function TimelineEditor({
                     <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
                     Cancel
                   </span>
+                ) : allAudioGenerated ? (
+                  "Generate Audio \u2713"
                 ) : (
                   "Generate Audio"
                 )}
@@ -743,7 +763,9 @@ function TimelineEditor({
             <span className={`w-[22px] h-[22px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
               generatingEli
                 ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
-                : "border-neutral-600 text-neutral-500"
+                : allEliGenerated
+                  ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
+                  : "border-neutral-600 text-neutral-500"
             }`}>4</span>
             <div ref={eliPositionRef} className="relative flex items-stretch">
               <button
@@ -751,7 +773,9 @@ function TimelineEditor({
                 className={`text-sm pl-3 pr-2 py-1.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-2 min-w-[130px] ${
                   generatingEli
                     ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
-                    : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
+                    : allEliGenerated
+                      ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
+                      : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
                 }`}
                 title={generatingEli ? "Cancel Eli generation" : "Add Eli character overlay to all scenes (requires voiceover)"}
               >
@@ -760,6 +784,8 @@ function TimelineEditor({
                     <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
                     Cancel
                   </>
+                ) : allEliGenerated ? (
+                  "Add Eli \u2713"
                 ) : (
                   "Add Eli"
                 )}
@@ -837,14 +863,18 @@ function TimelineEditor({
             <span className={`w-[22px] h-[22px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
               generatingFX
                 ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
-                : "border-neutral-600 text-neutral-500"
+                : allFXGenerated
+                  ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
+                  : "border-neutral-600 text-neutral-500"
             }`}>5</span>
             <button
               onClick={generatingFX ? () => { fxCancelledRef.current = true; setGeneratingFX(false); } : confirmAndGenerateFX}
               className={`text-sm px-3 py-1.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-2 min-w-[130px] ${
                 generatingFX
                   ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
-                  : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
+                  : allFXGenerated
+                    ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
+                    : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
               }`}
               title={generatingFX ? "Cancel FX generation" : "Use AI to assign visual effects to all scenes"}
             >
@@ -853,6 +883,8 @@ function TimelineEditor({
                   <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
                   Cancel
                 </>
+              ) : allFXGenerated ? (
+                "Generate FX \u2713"
               ) : (
                 "Generate FX"
               )}
