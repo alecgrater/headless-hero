@@ -9,6 +9,7 @@ interface Props {
   selectedSceneId: string | null;
   onSelectScene: (sceneId: string) => void;
   pixelsPerSecond: number;
+  onZoomChange?: (value: number) => void;
 }
 
 const LANE_TYPES = ["images", "voiceover", "fx", "eli"] as const;
@@ -24,6 +25,7 @@ export default function TimelineLanes({
   selectedSceneId,
   onSelectScene,
   pixelsPerSecond,
+  onZoomChange,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -63,8 +65,24 @@ export default function TimelineLanes({
       <div className="flex">
         {/* Fixed label column */}
         <div className="shrink-0 w-20 bg-neutral-900 border-r border-neutral-800 z-10">
-          {/* Ruler label spacer */}
-          <div className="h-7 border-b border-neutral-800" />
+          {/* Zoom control in ruler spacer */}
+          <div className="h-7 border-b border-neutral-800 flex items-center justify-center gap-1 px-1">
+            {onZoomChange ? (
+              <>
+                <input
+                  type="range"
+                  min={20}
+                  max={100}
+                  value={pixelsPerSecond}
+                  onChange={(e) => onZoomChange(parseInt(e.target.value, 10))}
+                  className="w-12 accent-violet-500"
+                />
+                <span className="text-[10px] text-neutral-500 font-mono w-5">{pixelsPerSecond}</span>
+              </>
+            ) : (
+              <span className="text-[10px] text-neutral-500">Zoom</span>
+            )}
+          </div>
           {LANE_TYPES.map((lane) => (
             <div
               key={lane}

@@ -182,6 +182,19 @@ function TimelineEditor({
   const [customEliPosition, setCustomEliPosition] = useState<EliPosition>({ x: 1410, y: 720 });
   const eliPositionRef = useRef<HTMLDivElement>(null);
 
+  // Auto-load thumbnails from disk on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.get(`/api/thumbnail/${scriptId}`);
+        if (res.ok) {
+          const data = res.data as { concepts: ThumbnailConcept[] };
+          if (data.concepts.length > 0) setThumbnailsInline(data.concepts);
+        }
+      } catch { /* thumbnails are optional */ }
+    })();
+  }, [scriptId]);
+
   // Close voice picker on outside click
   useEffect(() => {
     if (!showVoicePicker) return;
@@ -544,7 +557,7 @@ function TimelineEditor({
 
   return (
     <div className="flex flex-col h-[calc(100vh-105px)]">
-      {/* Row 1 — Navigation + Title + Zoom */}
+      {/* Row 1 — Navigation + Title */}
       <div className="flex items-center gap-4 px-5 py-2.5 border-b border-neutral-800/60 shrink-0">
         <button
           onClick={onBack}
@@ -570,26 +583,13 @@ function TimelineEditor({
           )}
         </div>
 
-        {/* Zoom slider */}
-        <div className="flex items-center gap-2 ml-auto">
-          <span className="text-[11px] text-neutral-500">Zoom:</span>
-          <input
-            type="range"
-            min={20}
-            max={100}
-            value={pixelsPerSecond}
-            onChange={(e) => setPixelsPerSecond(parseInt(e.target.value, 10))}
-            className="w-20 accent-violet-500"
-          />
-          <span className="text-[11px] text-neutral-500 font-mono w-8">{pixelsPerSecond}</span>
-        </div>
       </div>
 
-      {/* Row 2 — Action Bar: Pipeline (left ~70%) + Thumbnail Preview (right ~30%) */}
-      <div className="flex items-stretch border-b border-neutral-800/60 bg-gradient-to-b from-neutral-900/60 to-neutral-900/40 shrink-0">
-        {/* Left — Pipeline Steps */}
-        <div className="flex items-center gap-1.5 px-5 py-2.5 w-[70%] min-w-0">
-          <div className="flex items-center gap-1.5">
+      {/* Row 2 — Action Bar: Pipeline buttons + Thumbnail Preview */}
+      <div className="flex items-start border-b border-neutral-800/60 bg-gradient-to-b from-neutral-900/60 to-neutral-900/40 shrink-0">
+        {/* Left — Pipeline Steps + Export buttons */}
+        <div className="flex flex-col gap-2 px-5 py-2.5 flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
 
             {/* Step 1 — Title Cards */}
             <div className="flex items-center gap-1.5">
@@ -831,9 +831,11 @@ function TimelineEditor({
               )}
             </div>
           </div>
+          </div>
 
-          {/* Chevron connector + Generate FX (supplementary, unnumbered) */}
-          <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        {/* Second row: Export buttons */}
+        <div className="flex items-center gap-2">
+          {/* Generate FX */}
           <button
             onClick={generatingFX ? () => { fxCancelledRef.current = true; setGeneratingFX(false); } : confirmAndGenerateFX}
             className={`text-sm px-3 py-1.5 border rounded-md font-medium transition-colors flex items-center gap-2 ${
@@ -852,10 +854,7 @@ function TimelineEditor({
               "Generate FX"
             )}
           </button>
-        </div>
 
-        {/* Push export to the right */}
-        <div className="ml-auto flex items-center gap-2">
           {/* Export Test */}
           <button
             onClick={exportTestJobId ? () => setExportTestJobId(null) : () => setShowExportTestModal(true)}
@@ -887,11 +886,11 @@ function TimelineEditor({
         </div>
         </div>
 
-        {/* Right — Thumbnail Preview */}
-        <div className="w-[30%] border-l border-neutral-800/60 px-4 py-2.5 flex items-center justify-center">
+        {/* Right — Thumbnail Preview (larger) */}
+        <div className="shrink-0 border-l border-neutral-800/60 px-4 py-2.5 flex items-center justify-center">
           <button
             onClick={() => setShowThumbnailModal(true)}
-            className="relative group w-full"
+            className="relative group"
             title="Click to manage thumbnails"
           >
             {thumbnailsInline.length > 0 && thumbnailsInline[0].image_url ? (
@@ -899,27 +898,27 @@ function TimelineEditor({
                 <img
                   src={assetUrl(thumbnailsInline[0].image_url)}
                   alt="Thumbnail preview"
-                  className="h-12 aspect-video object-cover rounded-md border border-neutral-700 group-hover:border-violet-500 transition-colors"
+                  className="h-24 aspect-video object-cover rounded-lg border border-neutral-700 group-hover:border-violet-500 transition-colors"
                 />
                 {thumbnailsInlineGenerating && (
-                  <div className="absolute inset-0 bg-black/50 rounded-md flex items-center justify-center">
-                    <span className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+                  <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
+                    <span className="w-5 h-5 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
                   </div>
                 )}
-                <span className="absolute bottom-0.5 right-0.5 text-[9px] bg-black/70 text-neutral-300 px-1 rounded">
-                  {thumbnailsInline.length}
+                <span className="absolute bottom-1 right-1 text-[10px] bg-black/70 text-neutral-300 px-1.5 py-0.5 rounded">
+                  {thumbnailsInline.length} thumbnail{thumbnailsInline.length !== 1 ? "s" : ""}
                 </span>
               </div>
             ) : (
-              <div className={`h-12 aspect-video rounded-md border border-dashed flex items-center justify-center transition-colors ${
+              <div className={`h-24 aspect-video rounded-lg border border-dashed flex items-center justify-center transition-colors ${
                 thumbnailsInlineGenerating
                   ? "border-violet-500/50 bg-violet-500/5"
                   : "border-neutral-700 bg-neutral-900/40 group-hover:border-violet-500/50"
               }`}>
                 {thumbnailsInlineGenerating ? (
-                  <span className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+                  <span className="w-5 h-5 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  <span className="text-[10px] text-neutral-600">No Thumbnail</span>
+                  <span className="text-[11px] text-neutral-600">No Thumbnail</span>
                 )}
               </div>
             )}
@@ -1021,6 +1020,7 @@ function TimelineEditor({
             selectedSceneId={state.selectedSceneId}
             onSelectScene={handleSelectScene}
             pixelsPerSecond={pixelsPerSecond}
+            onZoomChange={setPixelsPerSecond}
           />
         </div>
 
