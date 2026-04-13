@@ -191,7 +191,7 @@ function TimelineEditor({
           const data = res.data as { concepts: ThumbnailConcept[] };
           if (data.concepts.length > 0) setThumbnailsInline(data.concepts);
         }
-      } catch { /* thumbnails are optional */ }
+      } catch (_) { /* thumbnails are optional */ }
     })();
   }, [scriptId]);
 
@@ -861,8 +861,7 @@ function TimelineEditor({
             </button>
           </div>
           </div>
-
-        {/* Row 3: Export buttons */}
+          </div>
         <div className="flex items-center gap-2">
           {/* Export Test */}
           <button
