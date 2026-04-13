@@ -305,32 +305,58 @@ def _build_prompt(definition: dict[str, str], mouth_state: str, is_canonical: bo
         )
 
 
+def _chroma_key_green(img: "Image.Image") -> "Image.Image":
+    """Replace pixels near #00FF00 with transparent using numpy for performance."""
+    import numpy as np
+
+    arr = np.array(img.convert("RGBA"), dtype=np.float32)
+    r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
+    # Mask: high green, low red and blue (with tolerance)
+    mask = (g > 180) & (r < 100) & (b < 100)
+    arr[mask, 3] = 0  # set alpha to 0
+    from PIL import Image as PILImage
+    return PILImage.fromarray(arr.astype(np.uint8), "RGBA")
+
+
+def _corners_are_opaque(img: "Image.Image") -> bool:
+    """Check if all four corners of an RGBA image are fully opaque."""
+    w, h = img.size
+    corners = [
+        img.getpixel((5, 5)), img.getpixel((w - 6, 5)),
+        img.getpixel((5, h - 6)), img.getpixel((w - 6, h - 6)),
+    ]
+    return all(c[3] == 255 for c in corners)
+
+
 def _remove_background(src_path: str, dst_path: str) -> None:
-    """Remove background from generated image using rembg, falling back to simple copy."""
+    """Remove background from generated image using rembg + chroma key fallback."""
+    from PIL import Image
+    import io
+
     try:
         from rembg import remove
-        from PIL import Image
-        import io
 
         with open(src_path, "rb") as f:
             input_bytes = f.read()
         output_bytes = remove(input_bytes)
         img = Image.open(io.BytesIO(output_bytes)).convert("RGBA")
+
+        if _corners_are_opaque(img):
+            logger.warning("rembg output still opaque, applying chroma key fallback: %s", dst_path)
+            img = _chroma_key_green(img)
+
         img.save(dst_path, "PNG")
-        # Verify corners actually have transparency
-        w, h = img.size
-        corners = [img.getpixel((5, 5)), img.getpixel((w - 6, 5)),
-                   img.getpixel((5, h - 6)), img.getpixel((w - 6, h - 6))]
-        if all(c[3] == 255 for c in corners):
-            logger.warning("rembg output still opaque (no transparency detected): %s", dst_path)
-        else:
-            logger.info("Background removed via rembg: %s", dst_path)
+        logger.info("Background removed: %s", dst_path)
     except ImportError:
-        logger.warning("rembg not installed, copying raw frame (green background preserved)")
-        shutil.copy2(src_path, dst_path)
+        logger.warning("rembg not installed, applying chroma key fallback: %s", dst_path)
+        img = Image.open(src_path).convert("RGBA")
+        img = _chroma_key_green(img)
+        img.save(dst_path, "PNG")
     except Exception:
-        logger.warning("rembg failed, copying raw frame", exc_info=True)
-        shutil.copy2(src_path, dst_path)
+        logger.warning("rembg failed, applying chroma key fallback: %s", dst_path, exc_info=True)
+        img = Image.open(src_path).convert("RGBA")
+        img = _chroma_key_green(img)
+        img.save(dst_path, "PNG")
 
 
 def get_manifest() -> dict | None:
@@ -908,3 +934,44 @@ def generate_frame_variants(frame_id: str) -> dict:
         "gesture": defn["gesture"],
         "variant_count": vc,
     }
+
+
+def reprocess_backgrounds(
+    on_progress: Callable[[int, int, str], None] | None = None,
+) -> int:
+    """Re-run background removal on frames that still have opaque green backgrounds.
+
+    Scans all PNGs in FRAMES_DIR (excluding selected_reference.png),
+    checks if corners are opaque, and re-runs _remove_background() on affected frames.
+
+    Returns count of frames reprocessed.
+    """
+    from PIL import Image
+
+    if not FRAMES_DIR.exists():
+        return 0
+
+    all_pngs = [
+        f for f in sorted(FRAMES_DIR.glob("*.png"))
+        if f.name != "selected_reference.png"
+    ]
+    total = len(all_pngs)
+    reprocessed = 0
+
+    for i, png_path in enumerate(all_pngs):
+        label = png_path.stem
+        try:
+            img = Image.open(str(png_path)).convert("RGBA")
+            if _corners_are_opaque(img):
+                logger.info("Reprocessing green background: %s", png_path.name)
+                # Re-run removal (reads from same path, writes back to same path)
+                _remove_background(str(png_path), str(png_path))
+                reprocessed += 1
+        except Exception:
+            logger.error("Failed to check/reprocess %s", png_path.name, exc_info=True)
+
+        if on_progress:
+            on_progress(i + 1, total, label)
+
+    logger.info("Background reprocessing complete: %d/%d frames fixed", reprocessed, total)
+    return reprocessed

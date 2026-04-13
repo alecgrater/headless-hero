@@ -10,6 +10,7 @@ import api, {
   getCharacterReferences,
   getCharacterStatus,
   regenerateCharacterFrame,
+  reprocessCharacterBackgrounds,
   selectCharacterReference,
 } from "../../api";
 import type { EliPosition } from "../../types/brand";
@@ -50,6 +51,10 @@ export default function CharacterSection() {
   // Variant state
   const [variantJobId, setVariantJobId] = useState<string | null>(null);
   const [variantProgress, setVariantProgress] = useState({ completed: 0, total: 0, current_label: "" });
+
+  // Reprocess state
+  const [reprocessJobId, setReprocessJobId] = useState<string | null>(null);
+  const [reprocessProgress, setReprocessProgress] = useState({ completed: 0, total: 0, current_label: "" });
 
   // Overlay position state
   const [eliPosition, setEliPosition] = useState<EliPosition>({ x: 1410, y: 720 });
@@ -128,6 +133,22 @@ export default function CharacterSection() {
     return () => clearInterval(interval);
   }, [variantJobId, fetchManifest]);
 
+  // Poll reprocess job
+  useEffect(() => {
+    if (!reprocessJobId) return;
+    const interval = setInterval(async () => {
+      const res = await getCharacterStatus(reprocessJobId);
+      if (!res.ok) return;
+      const status = res.data as { status: string; completed: number; total: number; current_label: string };
+      setReprocessProgress({ completed: status.completed, total: status.total, current_label: status.current_label });
+      if (status.status === "completed" || status.status === "failed") {
+        setReprocessJobId(null);
+        fetchManifest();
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [reprocessJobId, fetchManifest]);
+
   const handleGenerateReferences = async () => {
     const result = await generateCharacterReferences();
     setRefJobId(result.job_id);
@@ -159,6 +180,12 @@ export default function CharacterSection() {
     setVariantProgress({ completed: 0, total: 0, current_label: "Starting..." });
   };
 
+  const handleReprocessBackgrounds = async () => {
+    const result = await reprocessCharacterBackgrounds();
+    setReprocessJobId(result.job_id);
+    setReprocessProgress({ completed: 0, total: 0, current_label: "Starting..." });
+  };
+
   const handleRegenerate = async (frameId: string) => {
     setRegeneratingId(frameId);
     await regenerateCharacterFrame(frameId);
@@ -180,9 +207,11 @@ export default function CharacterSection() {
   const isGeneratingRefs = !!refJobId;
   const isGeneratingFrames = !!frameJobId;
   const isGeneratingVariants = !!variantJobId;
+  const isReprocessing = !!reprocessJobId;
   const refPct = refProgress.total > 0 ? refProgress.completed / refProgress.total : 0;
   const framePct = frameProgress.total > 0 ? frameProgress.completed / frameProgress.total : 0;
   const variantPct = variantProgress.total > 0 ? variantProgress.completed / variantProgress.total : 0;
+  const reprocessPct = reprocessProgress.total > 0 ? reprocessProgress.completed / reprocessProgress.total : 0;
   const hasSelectedRef = !!selectedRef;
 
   // Count frames needing variants (variant_count > 1)
@@ -384,7 +413,34 @@ export default function CharacterSection() {
           >
             {isGeneratingFrames ? "Generating..." : frameCount > 0 ? "Regenerate All" : "Generate All Frames"}
           </button>
+
+          {frameCount > 0 && (
+            <button
+              onClick={handleReprocessBackgrounds}
+              disabled={isReprocessing || isGeneratingFrames}
+              className="text-sm px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
+            >
+              {isReprocessing ? "Fixing..." : "Fix Backgrounds"}
+            </button>
+          )}
         </div>
+
+        {/* Progress bar for background reprocessing */}
+        {isReprocessing && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 text-xs text-neutral-300">
+              <span className="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+              <span>{reprocessProgress.completed} / {reprocessProgress.total} frames checked</span>
+              <span className="text-neutral-500">{reprocessProgress.current_label}</span>
+            </div>
+            <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-amber-500 rounded-full transition-all duration-300"
+                style={{ width: `${reprocessPct * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Progress bar for frame generation */}
         {isGeneratingFrames && (

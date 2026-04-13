@@ -234,6 +234,12 @@ export async function generateCharacterVariants(): Promise<{ job_id: string }> {
   return res.data as { job_id: string };
 }
 
+/** Start reprocessing character frames with green backgrounds. */
+export async function reprocessCharacterBackgrounds(): Promise<{ job_id: string }> {
+  const res = await api.post("/api/character/reprocess-backgrounds");
+  return res.data as { job_id: string };
+}
+
 /** Generate Eli animation overlays for all scenes. */
 export async function generateEli(scriptId: string) {
   return api.post("/api/eli/generate", { script_id: scriptId });

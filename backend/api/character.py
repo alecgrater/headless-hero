@@ -19,6 +19,7 @@ from pipeline.character_frames import (
     get_reference_candidates,
     get_selected_reference,
     regenerate_frame,
+    reprocess_backgrounds,
     select_reference,
 )
 
@@ -255,6 +256,43 @@ def start_generate_variants():
             _jobs[job_id]["status"] = "completed"
         except Exception as e:
             logger.error("Variant generation failed", exc_info=True)
+            _jobs[job_id]["status"] = "failed"
+            _jobs[job_id]["error"] = str(e)
+
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+
+    return GenerateFramesResponse(job_id=job_id)
+
+
+@router.post("/reprocess-backgrounds", response_model=GenerateFramesResponse)
+def start_reprocess_backgrounds():
+    """Trigger background reprocessing of frames with green backgrounds."""
+    for job in _jobs.values():
+        if job["status"] == "running" and job.get("type") == "reprocess":
+            raise HTTPException(status_code=409, detail="Background reprocessing already in progress")
+
+    job_id = uuid.uuid4().hex[:8]
+    _jobs[job_id] = {
+        "type": "reprocess",
+        "status": "running",
+        "completed": 0,
+        "total": 0,
+        "current_label": "Starting...",
+        "error": None,
+    }
+
+    def run():
+        def on_progress(completed: int, total: int, label: str):
+            _jobs[job_id]["completed"] = completed
+            _jobs[job_id]["total"] = total
+            _jobs[job_id]["current_label"] = label
+
+        try:
+            reprocess_backgrounds(on_progress=on_progress)
+            _jobs[job_id]["status"] = "completed"
+        except Exception as e:
+            logger.error("Background reprocessing failed", exc_info=True)
             _jobs[job_id]["status"] = "failed"
             _jobs[job_id]["error"] = str(e)
 
