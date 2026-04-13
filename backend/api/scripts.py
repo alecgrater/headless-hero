@@ -49,12 +49,16 @@ def _build_summary(record: Script) -> ScriptSummary:
     renders_dir = DATA_DIR / "projects" / record.id / "renders"
     has_renders = renders_dir.exists() and any(renders_dir.iterdir())
 
-    # Use first scene with an image as thumbnail
+    # Prefer composite title card thumbnail, fall back to first scene image
     thumbnail_url = ""
-    for s in scenes:
-        if s.image_url:
-            thumbnail_url = s.image_url
-            break
+    composite = DATA_DIR / "projects" / record.id / "images" / "composite_title_card.png"
+    if composite.exists():
+        thumbnail_url = f"/static/projects/{record.id}/images/composite_title_card.png"
+    else:
+        for s in scenes:
+            if s.image_url:
+                thumbnail_url = s.image_url
+                break
 
     # Derive status
     if has_renders:
