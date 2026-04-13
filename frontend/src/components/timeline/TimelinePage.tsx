@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import api, { generateFX, generateEli, exportTest } from "../../api";
+import api, { assetUrl, generateFX, generateEli, exportTest } from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
 import type { VoiceInfo, VoiceListResponse } from "../../types/audio";
+import type { ThumbnailConcept } from "../../types/render";
 import ExportPanel from "./ExportPanel";
 import PropertiesPanel from "./PropertiesPanel";
 import TimelineLanes from "./TimelineLanes";
@@ -157,6 +158,12 @@ function TimelineEditor({
   const [exportTestJobId, setExportTestJobId] = useState<string | null>(null);
   const [exportTestStep, setExportTestStep] = useState("");
   const [exportTestProgress, setExportTestProgress] = useState(0);
+  const [titleCardGenerating, setTitleCardGenerating] = useState(false);
+  const [titleCardGenerated, setTitleCardGenerated] = useState(false);
+  const [titleCardTimestamp, setTitleCardTimestamp] = useState(0);
+  const [thumbnailsInline, setThumbnailsInline] = useState<ThumbnailConcept[]>([]);
+  const [thumbnailsInlineGenerating, setThumbnailsInlineGenerating] = useState(false);
+  const [thumbnailsInlineGenerated, setThumbnailsInlineGenerated] = useState(false);
 
   // Fetch render estimate when export panel or preview modal opens
   useEffect(() => {
@@ -409,6 +416,35 @@ function TimelineEditor({
     }
   };
 
+  const handleGenerateTitleCards = async (force = false) => {
+    setTitleCardGenerating(true);
+    try {
+      await state.generateTitleCardsStandalone(force);
+      setTitleCardGenerated(true);
+      setTitleCardTimestamp(Date.now());
+    } finally {
+      setTitleCardGenerating(false);
+    }
+  };
+
+  const handleGenerateThumbnailsInline = async () => {
+    setThumbnailsInlineGenerating(true);
+    try {
+      const res = await api.post("/api/thumbnail/generate", {
+        script_id: scriptId,
+        bar_color: "0x9333EA",
+        title,
+      });
+      if (res.ok) {
+        const data = res.data as { concepts: ThumbnailConcept[] };
+        setThumbnailsInline(data.concepts);
+        setThumbnailsInlineGenerated(true);
+      }
+    } finally {
+      setThumbnailsInlineGenerating(false);
+    }
+  };
+
   // Export test: start + poll
   const handleExportTest = async () => {
     try {
@@ -619,6 +655,54 @@ function TimelineEditor({
           </button>
         </div>
 
+        {/* Group 3 — Title Cards & Thumbnails */}
+        <div className="flex items-center gap-1">
+          {state.hasTitleCards && (
+            <button
+              onClick={() => handleGenerateTitleCards(titleCardGenerated)}
+              disabled={titleCardGenerating}
+              className={`text-sm px-3 py-1.5 border rounded-md font-medium transition-colors flex items-center gap-2 ${
+                titleCardGenerated
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                  : "bg-neutral-800 border-neutral-700 text-neutral-200 hover:bg-neutral-700"
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
+              title="Generate composite title card images for all segments"
+            >
+              {titleCardGenerating ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-neutral-400/50 border-t-transparent rounded-full animate-spin" />
+                  Generating...
+                </>
+              ) : titleCardGenerated ? (
+                "Title Cards \u2713"
+              ) : (
+                "Title Cards"
+              )}
+            </button>
+          )}
+          <button
+            onClick={handleGenerateThumbnailsInline}
+            disabled={thumbnailsInlineGenerating}
+            className={`text-sm px-3 py-1.5 border rounded-md font-medium transition-colors flex items-center gap-2 ${
+              thumbnailsInlineGenerated
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+                : "bg-neutral-800 border-neutral-700 text-neutral-200 hover:bg-neutral-700"
+            } disabled:opacity-40 disabled:cursor-not-allowed`}
+            title="Generate 3 YouTube thumbnail concepts"
+          >
+            {thumbnailsInlineGenerating ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-neutral-400/50 border-t-transparent rounded-full animate-spin" />
+                Generating...
+              </>
+            ) : thumbnailsInlineGenerated ? (
+              "Thumbnails \u2713"
+            ) : (
+              "Thumbnails"
+            )}
+          </button>
+        </div>
+
         {/* Push preview + export to the right */}
         <div className="ml-auto flex items-center gap-1.5">
           {/* Preview group */}
@@ -714,6 +798,82 @@ function TimelineEditor({
               />
             </div>
             <span className="text-neutral-500 tabular-nums">{Math.round(exportTestProgress * 100)}%</span>
+          </div>
+        </div>
+      )}
+      {titleCardGenerating && (
+        <div className="px-4 py-2 border-b border-neutral-800 shrink-0 bg-violet-500/10">
+          <div className="flex items-center gap-3 text-xs">
+            <span className="w-3 h-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-neutral-300">
+              Generating title card composites...
+            </span>
+            <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden ml-2">
+              <div className="h-full rounded-full bg-violet-500 animate-pulse" style={{ width: "60%" }} />
+            </div>
+          </div>
+        </div>
+      )}
+      {titleCardGenerated && !titleCardGenerating && (
+        <div className="px-4 py-2 border-b border-neutral-800 shrink-0 bg-neutral-900/60">
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-neutral-500 shrink-0">Title Cards:</span>
+            <div className="flex gap-3">
+              <div className="space-y-0.5">
+                <img
+                  src={assetUrl(`/static/projects/${scriptId}/images/composite_title_card.png`) + `?t=${titleCardTimestamp}`}
+                  alt="Thumbnail"
+                  className="h-16 aspect-video object-cover rounded border border-neutral-700"
+                />
+                <p className="text-[10px] text-neutral-500">With title</p>
+              </div>
+              <div className="space-y-0.5">
+                <img
+                  src={assetUrl(`/static/projects/${scriptId}/images/composite_title_card_notitle.png`) + `?t=${titleCardTimestamp}`}
+                  alt="Title Slide"
+                  className="h-16 aspect-video object-cover rounded border border-neutral-700"
+                />
+                <p className="text-[10px] text-neutral-500">No title</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {thumbnailsInlineGenerating && (
+        <div className="px-4 py-2 border-b border-neutral-800 shrink-0 bg-amber-500/10">
+          <div className="flex items-center gap-3 text-xs">
+            <span className="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-neutral-300">
+              Generating thumbnail concepts...
+            </span>
+            <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden ml-2">
+              <div className="h-full rounded-full bg-amber-500 animate-pulse" style={{ width: "60%" }} />
+            </div>
+          </div>
+        </div>
+      )}
+      {thumbnailsInlineGenerated && !thumbnailsInlineGenerating && thumbnailsInline.length > 0 && (
+        <div className="px-4 py-2 border-b border-neutral-800 shrink-0 bg-neutral-900/60">
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-neutral-500 shrink-0">Thumbnails:</span>
+            <div className="flex gap-3">
+              {thumbnailsInline.map((t) => (
+                <div key={t.idx} className="space-y-0.5">
+                  {t.image_url ? (
+                    <img
+                      src={assetUrl(t.image_url)}
+                      alt={t.title_text}
+                      className="h-16 aspect-video object-cover rounded border border-neutral-700 cursor-pointer hover:border-violet-500 transition-colors"
+                    />
+                  ) : t.error ? (
+                    <div className="h-16 aspect-video bg-red-500/10 rounded flex items-center justify-center text-[10px] text-red-400 px-1">
+                      Error
+                    </div>
+                  ) : null}
+                  <p className="text-[10px] text-neutral-500 truncate max-w-[120px]">{t.title_text}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

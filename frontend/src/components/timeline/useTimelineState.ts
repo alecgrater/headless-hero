@@ -75,6 +75,10 @@ interface TimelineState {
   batchImageProgress: BatchProgress;
   batchAudioProgress: BatchProgress;
 
+  // Title cards
+  hasTitleCards: boolean;
+  generateTitleCardsStandalone: (force?: boolean) => Promise<void>;
+
   // External content update (e.g. after FX generation refreshes from server)
   setContent: (content: ScriptContent) => void;
 }
@@ -665,6 +669,35 @@ export function useTimelineState(
     [scriptId, immediateFlush],
   );
 
+  // Title card helpers
+  const hasTitleCards = content.segments.some((seg) =>
+    seg.scenes.some((sc) => sc.is_title_card),
+  );
+
+  const generateTitleCardsStandalone = useCallback(
+    async (force = false) => {
+      try {
+        const res = await api.post("/api/visuals/generate-title-cards", {
+          script_id: scriptId,
+          force,
+        });
+        if (res.ok) {
+          const data = res.data as GenerateTitleCardsResponse;
+          await pollTitleCardJob(data.job_id);
+          const scriptRes = await api.get(`/api/scripts/${scriptId}`);
+          if (scriptRes.ok) {
+            const scriptData = scriptRes.data as { script: ScriptContent };
+            setContent(scriptData.script);
+          }
+          immediateFlush();
+        }
+      } catch {
+        // Error toast handled by API interceptor
+      }
+    },
+    [scriptId, immediateFlush],
+  );
+
   const generateAllAudio = useCallback(
     async (voiceId: string) => {
       const scenes: { scene_id: string; narration: string; name: string }[] = [];
@@ -785,6 +818,8 @@ export function useTimelineState(
     generateAllAudio,
     batchImageProgress,
     batchAudioProgress,
+    hasTitleCards,
+    generateTitleCardsStandalone,
     setContent,
   };
 }
