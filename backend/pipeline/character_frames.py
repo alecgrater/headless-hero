@@ -306,16 +306,91 @@ def _build_prompt(definition: dict[str, str], mouth_state: str, is_canonical: bo
 
 
 def _chroma_key_green(img: "Image.Image") -> "Image.Image":
-    """Replace pixels near #00FF00 with transparent using numpy for performance."""
+    """Replace green-ish background pixels with transparent using numpy.
+
+    Handles both pure green (#00FF00) and the muted sage/pastel greens
+    that Gemini often generates instead. Uses HSV color space for robust
+    detection of any green-dominant background.
+    """
     import numpy as np
 
-    arr = np.array(img.convert("RGBA"), dtype=np.float32)
-    r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
-    # Mask: high green, low red and blue (with tolerance)
-    mask = (g > 180) & (r < 100) & (b < 100)
+    arr = np.array(img.convert("RGBA"), dtype=np.uint8)
+    rgb = arr[:, :, :3].astype(np.float32)
+    r, g, b = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
+
+    # Method 1: Pure green (original) — g high, r and b low
+    pure_green = (g > 180) & (r < 100) & (b < 100)
+
+    # Method 2: Muted/sage green — green is dominant channel by a margin
+    # Catches backgrounds like (140, 190, 130), (120, 180, 120), etc.
+    green_dominant = (g > 120) & (g > r + 20) & (g > b + 20) & (r < 200) & (b < 200)
+
+    # Method 3: Pastel/light green — lighter backgrounds where all channels are
+    # high but green still leads. E.g. (170, 210, 160)
+    pastel_green = (g > 150) & (g > r) & (g > b) & (r > 100) & (b > 100) & ((g - r) > 10) & ((g - b) > 10)
+
+    mask = pure_green | green_dominant | pastel_green
+    pixels_removed = int(np.sum(mask))
+    total_pixels = arr.shape[0] * arr.shape[1]
+
+    logger.info(
+        "Chroma key: %d/%d pixels (%.1f%%) matched green — pure=%d, dominant=%d, pastel=%d",
+        pixels_removed, total_pixels, pixels_removed / total_pixels * 100,
+        int(np.sum(pure_green)), int(np.sum(green_dominant)), int(np.sum(pastel_green)),
+    )
+
     arr[mask, 3] = 0  # set alpha to 0
     from PIL import Image as PILImage
-    return PILImage.fromarray(arr.astype(np.uint8), "RGBA")
+    return PILImage.fromarray(arr, "RGBA")
+
+
+def _has_background(img: "Image.Image", filename: str = "") -> bool:
+    """Detect whether an RGBA image still has a non-transparent background.
+
+    Samples corners and edges. Returns True if significant opaque areas are
+    found in regions that should be transparent background.
+    """
+    import numpy as np
+
+    w, h = img.size
+    arr = np.array(img.convert("RGBA"), dtype=np.uint8)
+    alpha = arr[:, :, 3]
+
+    # Sample multiple points in corners and edges (areas likely to be background)
+    sample_points = [
+        # Corners (multiple points per corner for robustness)
+        (2, 2), (5, 5), (10, 10),
+        (w - 3, 2), (w - 6, 5), (w - 11, 10),
+        (2, h - 3), (5, h - 6), (10, h - 11),
+        (w - 3, h - 3), (w - 6, h - 6), (w - 11, h - 11),
+        # Edge midpoints
+        (w // 2, 2), (w // 2, h - 3),  # top/bottom center
+        (2, h // 2), (w - 3, h // 2),  # left/right center
+    ]
+
+    opaque_count = 0
+    for x, y in sample_points:
+        if 0 <= x < w and 0 <= y < h and alpha[y, x] > 200:
+            opaque_count += 1
+
+    # Also check what fraction of the top 10 rows are opaque (a strong background signal)
+    top_strip = alpha[:10, :]
+    top_opaque_frac = float(np.mean(top_strip > 200))
+
+    # Check overall image transparency ratio
+    total_opaque_frac = float(np.mean(alpha > 200))
+
+    has_bg = opaque_count >= 8 or top_opaque_frac > 0.8
+
+    logger.info(
+        "Background check [%s]: opaque_samples=%d/%d, top_strip_opaque=%.1f%%, "
+        "total_opaque=%.1f%% → %s",
+        filename, opaque_count, len(sample_points),
+        top_opaque_frac * 100, total_opaque_frac * 100,
+        "HAS BACKGROUND" if has_bg else "ok",
+    )
+
+    return has_bg
 
 
 def _corners_are_opaque(img: "Image.Image") -> bool:
@@ -333,20 +408,32 @@ def _remove_background(src_path: str, dst_path: str) -> None:
     from PIL import Image
     import io
 
+    src_name = src_path.rsplit("/", 1)[-1] if "/" in src_path else src_path
+    logger.info("Background removal starting: %s → %s", src_name, dst_path)
+
     try:
         from rembg import remove
 
         with open(src_path, "rb") as f:
             input_bytes = f.read()
+
+        logger.info("Running rembg on %s (%d bytes)", src_name, len(input_bytes))
         output_bytes = remove(input_bytes)
         img = Image.open(io.BytesIO(output_bytes)).convert("RGBA")
 
-        if _corners_are_opaque(img):
-            logger.warning("rembg output still opaque, applying chroma key fallback: %s", dst_path)
+        if _has_background(img, f"rembg-output:{src_name}"):
+            logger.warning("rembg output still has background, applying chroma key: %s", src_name)
             img = _chroma_key_green(img)
 
+            if _has_background(img, f"after-chroma:{src_name}"):
+                logger.warning("Background STILL detected after chroma key: %s (may need manual review)", src_name)
+            else:
+                logger.info("Chroma key successfully removed remaining background: %s", src_name)
+        else:
+            logger.info("rembg fully removed background: %s", src_name)
+
         img.save(dst_path, "PNG")
-        logger.info("Background removed: %s", dst_path)
+        logger.info("Background removed and saved: %s", dst_path)
     except ImportError:
         logger.warning("rembg not installed, applying chroma key fallback: %s", dst_path)
         img = Image.open(src_path).convert("RGBA")
@@ -939,16 +1026,18 @@ def generate_frame_variants(frame_id: str) -> dict:
 def reprocess_backgrounds(
     on_progress: Callable[[int, int, str], None] | None = None,
 ) -> int:
-    """Re-run background removal on frames that still have opaque green backgrounds.
+    """Re-run background removal on frames that still have non-transparent backgrounds.
 
     Scans all PNGs in FRAMES_DIR (excluding selected_reference.png),
-    checks if corners are opaque, and re-runs _remove_background() on affected frames.
+    uses multi-point sampling to detect backgrounds, and re-runs chroma key
+    + rembg on affected frames.
 
     Returns count of frames reprocessed.
     """
     from PIL import Image
 
     if not FRAMES_DIR.exists():
+        logger.warning("FRAMES_DIR does not exist: %s", FRAMES_DIR)
         return 0
 
     all_pngs = [
@@ -957,21 +1046,57 @@ def reprocess_backgrounds(
     ]
     total = len(all_pngs)
     reprocessed = 0
+    skipped = 0
+
+    logger.info("=== Background reprocessing started: scanning %d frames in %s ===", total, FRAMES_DIR)
 
     for i, png_path in enumerate(all_pngs):
         label = png_path.stem
         try:
             img = Image.open(str(png_path)).convert("RGBA")
-            if _corners_are_opaque(img):
-                logger.info("Reprocessing green background: %s", png_path.name)
-                # Re-run removal (reads from same path, writes back to same path)
-                _remove_background(str(png_path), str(png_path))
+            logger.debug("Checking frame %d/%d: %s (size=%s)", i + 1, total, png_path.name, img.size)
+
+            if _has_background(img, png_path.name):
+                logger.info(">>> Reprocessing frame with background: %s", png_path.name)
+
+                # First try chroma key (fast, handles green backgrounds)
+                fixed = _chroma_key_green(img)
+
+                if _has_background(fixed, f"after-chroma:{png_path.name}"):
+                    # Chroma key wasn't enough, try rembg
+                    logger.info("Chroma key insufficient for %s, trying rembg", png_path.name)
+                    try:
+                        from rembg import remove
+                        import io
+
+                        with open(str(png_path), "rb") as f:
+                            input_bytes = f.read()
+                        output_bytes = remove(input_bytes)
+                        fixed = Image.open(io.BytesIO(output_bytes)).convert("RGBA")
+
+                        if _has_background(fixed, f"after-rembg:{png_path.name}"):
+                            # rembg wasn't enough either, apply chroma key on top
+                            logger.warning("rembg insufficient, applying chroma key on rembg output: %s", png_path.name)
+                            fixed = _chroma_key_green(fixed)
+                    except ImportError:
+                        logger.warning("rembg not installed, using chroma key result for %s", png_path.name)
+                    except Exception:
+                        logger.error("rembg failed for %s, using chroma key result", png_path.name, exc_info=True)
+
+                fixed.save(str(png_path), "PNG")
                 reprocessed += 1
+                logger.info("Saved reprocessed frame: %s", png_path.name)
+            else:
+                skipped += 1
+                logger.debug("Frame OK (no background detected): %s", png_path.name)
         except Exception:
             logger.error("Failed to check/reprocess %s", png_path.name, exc_info=True)
 
         if on_progress:
             on_progress(i + 1, total, label)
 
-    logger.info("Background reprocessing complete: %d/%d frames fixed", reprocessed, total)
+    logger.info(
+        "=== Background reprocessing complete: %d reprocessed, %d already OK, %d total ===",
+        reprocessed, skipped, total,
+    )
     return reprocessed
