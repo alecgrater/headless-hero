@@ -614,10 +614,10 @@ function TimelineEditor({
 
           {/* Row 2 — Pipeline Steps */}
           <div className="flex flex-col gap-2 px-5 py-2.5 bg-gradient-to-b from-neutral-900/60 to-neutral-900/40">
-            <div className="flex items-center gap-1.5 flex-nowrap">
+            <div className="grid items-center gap-1.5" style={{ gridTemplateColumns: "1fr auto 1fr auto 1fr auto 1fr auto 1fr auto 1fr" }}>
 
             {/* Step 1 — Title Cards */}
-            <div className="flex items-center gap-1.5 flex-1">
+            <div className="flex items-center gap-1.5">
               <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
                 titleCardGenerating
                   ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
@@ -655,7 +655,7 @@ function TimelineEditor({
           <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
 
           {/* Step 2 — Generate Images */}
-          <div className="flex items-center gap-1.5 flex-1">
+          <div className="flex items-center gap-1.5">
             <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
               state.batchGenerating
                 ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
@@ -691,7 +691,7 @@ function TimelineEditor({
           <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
 
           {/* Step 3 — Generate Audio (split-button with voice picker) */}
-          <div className="flex items-center gap-1.5 flex-1">
+          <div className="flex items-center gap-1.5">
             <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
               state.batchGeneratingAudio
                 ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
@@ -699,7 +699,7 @@ function TimelineEditor({
                   ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
                   : "border-neutral-600 text-neutral-500"
             }`}>3</span>
-            <div ref={voicePickerRef} className="relative flex items-stretch">
+            <div ref={voicePickerRef} className="relative flex items-stretch flex-1">
               <button
                 onClick={state.batchGeneratingAudio ? () => state.cancelAudioGeneration() : confirmAndGenerateAudio}
                 disabled={!state.batchGeneratingAudio && !selectedVoiceId && voices.length > 0}
@@ -775,7 +775,7 @@ function TimelineEditor({
           <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
 
           {/* Step 4 — Add Eli */}
-          <div className="flex items-center gap-1.5 flex-1">
+          <div className="flex items-center gap-1.5">
             <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
               generatingEli
                 ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
@@ -783,7 +783,7 @@ function TimelineEditor({
                   ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
                   : "border-neutral-600 text-neutral-500"
             }`}>4</span>
-            <div ref={eliPositionRef} className="relative flex items-stretch">
+            <div ref={eliPositionRef} className="relative flex items-stretch flex-1">
               <button
                 onClick={generatingEli ? () => { eliCancelledRef.current = true; setGeneratingEli(false); } : confirmAndGenerateEli}
                 className={`text-sm pl-2 pr-1.5 py-1.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
@@ -875,7 +875,7 @@ function TimelineEditor({
 
           {/* Chevron connector + Step 5 — Generate FX */}
           <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          <div className="flex items-center gap-1.5 flex-1">
+          <div className="flex items-center gap-1.5">
             <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
               generatingFX
                 ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
@@ -909,9 +909,9 @@ function TimelineEditor({
 
           {/* Chevron connector + Step 6 — Export (split-button with Export Test dropdown) */}
           <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          <div className="flex items-center gap-1.5 flex-1">
+          <div className="flex items-center gap-1.5">
             <span className="w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums border-neutral-600 text-neutral-500">6</span>
-            <div ref={exportDropdownRef} className="relative flex items-stretch">
+            <div ref={exportDropdownRef} className="relative flex items-stretch flex-1">
               <button
                 onClick={exportTestJobId ? () => setExportTestJobId(null) : () => setShowExport(true)}
                 className={`text-sm pl-2 pr-1.5 py-1.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
