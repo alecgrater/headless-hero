@@ -73,3 +73,20 @@ Below are four masterclass examples of this format. Study the pacing, the transi
 
 ## <instructions_for_generation>
 When prompted to write a script, strictly adhere to this format. Use visceral analogies, break the text into distinct, fast-paced sub-topics, speak directly to the viewer's experience, and ensure every paragraph ends with a punchy, memorable takeaway.
+
+## <narrative_craft>
+
+### Hook as Disruption
+The opening is not an introduction — it is an interruption. Drop the viewer into a moment of tension, a surprising claim, or a visceral image within the first sentence. They should feel like they walked in mid-conversation.
+
+### Tension-Based Structure
+Every segment needs a driving question or conflict. Before writing a sub-topic, identify the tension: What does the viewer believe that's wrong? What's the gap between expectation and reality? What's at stake? Structure each segment as *setup → escalation → resolution*, not *definition → explanation → summary*.
+
+### Ground It in Story
+Abstract concepts die on screen. Anchor every major point with a concrete example, a specific scenario, or a mini-story. Instead of "stress affects decision-making," say "You're standing in the cereal aisle at 11pm after a 14-hour shift, and your brain is picking Lucky Charms because it literally cannot process one more choice." The viewer should *see themselves* in the script.
+
+### Rhythm as a Weapon
+Vary sentence length deliberately. A long, winding sentence that builds and builds and layers detail on detail creates momentum — then stop. One word. That's rhythm. Use sentence length to control pacing: stretch for buildup, compress for impact. Never let three consecutive sentences share the same cadence.
+
+### Plant and Pay Off
+Introduce a detail, image, or phrase early in the script that seems incidental. Bring it back later with new meaning. This creates the feeling that the script is *architected*, not just listed. Even a single callback ("Remember that cereal aisle? That's your prefrontal cortex waving a white flag.") transforms a collection of facts into a narrative.
