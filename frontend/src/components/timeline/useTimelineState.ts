@@ -655,19 +655,12 @@ export function useTimelineState(
           voice_id: voiceId,
         });
         if (res.ok) {
-          const data = res.data as GenerateAudioResponse;
-          setContent((prev) => ({
-            ...prev,
-            segments: prev.segments.map((seg) => ({
-              ...seg,
-              scenes: seg.scenes.map((sc) =>
-                sc.id === sceneId
-                  ? { ...sc, audio_url: data.audio_url, audio_duration_seconds: data.duration_seconds }
-                  : sc,
-              ),
-            })),
-          }));
-          immediateFlush();
+          // Re-fetch from backend which already persisted the audio data
+          const scriptRes = await api.get(`/api/scripts/${scriptId}`);
+          if (scriptRes.ok) {
+            const scriptData = scriptRes.data as { script: ScriptContent };
+            setContent(scriptData.script);
+          }
         }
       } finally {
         setGeneratingAudioSceneIds((prev) => {
@@ -677,7 +670,7 @@ export function useTimelineState(
         });
       }
     },
-    [scriptId, immediateFlush],
+    [scriptId],
   );
 
   // Title card helpers
@@ -801,10 +794,15 @@ export function useTimelineState(
 
       setGeneratingAudioSceneIds(new Set());
       setBatchGeneratingAudio(false);
-      immediateFlush();
+      // Re-fetch from backend which already persisted all audio data
+      const scriptRes = await api.get(`/api/scripts/${scriptId}`);
+      if (scriptRes.ok) {
+        const scriptData = scriptRes.data as { script: ScriptContent };
+        setContent(scriptData.script);
+      }
       setTimeout(() => setBatchAudioProgress(EMPTY_BATCH), 3000);
     },
-    [scriptId, immediateFlush],
+    [scriptId],
   );
 
   const cancelImageGeneration = useCallback(() => {
