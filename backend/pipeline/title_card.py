@@ -74,7 +74,7 @@ def ensure_title_card_images(
         return zoom_targets
 
     # Step 1: Generate individual circle images for each segment
-    segment_names = [seg.name for seg in content.segments]
+    segment_names = [seg.short_name or " ".join(seg.name.split()[:3]) for seg in content.segments]
     total_segments = len(content.segments)
 
     # Report initial progress

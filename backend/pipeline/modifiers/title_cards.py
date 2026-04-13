@@ -25,6 +25,7 @@ Composite Title Card System:
   - "card_title": A condensed 2-4 word UPPERCASE title for the card (e.g. "TYPES OF DREAMS")
   - "card_title_highlight_word": One word from card_title to highlight in accent color (e.g. "DREAMS")
 - Each segment MUST include:
+  - "short_name": A punchy 1-3 word UPPERCASE label for the segment (used on thumbnail). Must be 3 words or fewer.
   - "circle_color": A bold, distinct hex color for the circle background (e.g. "#e91e63"). \
 Pick thematically appropriate colors — each segment gets a unique color.
   - "title_card_image_prompt": A vivid visual description for the AI-generated circle image. \
@@ -113,6 +114,11 @@ def enforce_title_cards_and_min_scenes(content: ScriptContent) -> ScriptContent:
             scene_counter = max(scene_counter, num)
 
     for seg_idx, seg in enumerate(content.segments):
+        # Enforce short_name (3 words max for thumbnail display)
+        if not seg.short_name:
+            seg.short_name = " ".join(seg.name.split()[:3])
+            logger.info("Derived short_name %r from segment name %r", seg.short_name, seg.name)
+
         # Enforce circle_color
         if not seg.circle_color:
             seg.circle_color = DEFAULT_COLORS[seg_idx % len(DEFAULT_COLORS)]

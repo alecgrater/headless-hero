@@ -103,6 +103,7 @@ class Segment(BaseModel):
     """A named segment (e.g. "Caffeine") containing multiple scenes."""
 
     name: str
+    short_name: str = ""                # 3-word-max label for thumbnail/title card display
     scenes: list[Scene]
     circle_color: str = ""              # hex color for composite title card circle background
     title_card_image_prompt: str = ""   # visual prompt for AI-generated circle image

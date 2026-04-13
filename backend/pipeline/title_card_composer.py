@@ -221,7 +221,7 @@ def _draw_3d_title_text(
 ) -> Image.Image:
     """Render title with 3D extrusion, gradient fill, stroke, and drop shadow."""
     w, h = canvas.size
-    font = _load_title_font(110)
+    font = _load_title_font(140)
 
     # Split title into segments: before, highlight, after
     highlight = highlight_word.upper() if highlight_word else ""
@@ -354,7 +354,7 @@ def calculate_grid_layout(
     rows, cols = _GRID_LAYOUTS.get(segment_count, (2, max(3, (segment_count + 1) // 2)))
 
     if include_title:
-        grid_top = 130  # allow title to overlap top circles slightly
+        grid_top = 160  # allow title to overlap top circles slightly
     else:
         grid_top = 30  # near top of canvas
     grid_bottom = CANVAS_H - 40
@@ -409,7 +409,7 @@ def compose_title_card(
 
     # Calculate circle radius from grid cell size
     if include_title:
-        grid_top = 130  # match calculate_grid_layout
+        grid_top = 160  # match calculate_grid_layout
     else:
         grid_top = 30
     grid_bottom = CANVAS_H - 40

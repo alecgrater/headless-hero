@@ -197,6 +197,7 @@ Return valid JSON with this structure:
   "segments": [
     {
       "name": "Segment Name",
+      "short_name": "Short Label",
       "circle_color": "#e91e63",
       "title_card_image_prompt": "Visual description for the segment circle image.",
       "topic_summary": "2-3 sentences describing what this segment covers — key points, narrative arc, what the viewer learns."
@@ -361,6 +362,7 @@ def _generate_segmented(
 
         segments.append(Segment(
             name=seg_outline.get("name", f"Segment {i + 1}"),
+            short_name=seg_outline.get("short_name", ""),
             scenes=scenes,
             circle_color=seg_outline.get("circle_color", "#e91e63"),
             title_card_image_prompt=seg_outline.get("title_card_image_prompt", ""),
