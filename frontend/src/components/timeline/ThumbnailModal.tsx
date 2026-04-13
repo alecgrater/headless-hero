@@ -22,7 +22,7 @@ export default function ThumbnailModal({ thumbnails, generating, onGenerate, onC
   }, [selectedUrl]);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl p-6 max-w-2xl w-full mx-4">
+      <div className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl p-6 max-w-4xl w-full mx-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-neutral-100">Thumbnails</h3>
           <button
@@ -37,7 +37,7 @@ export default function ThumbnailModal({ thumbnails, generating, onGenerate, onC
 
         {/* Thumbnail grid */}
         {thumbnails.length > 0 ? (
-          <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: `repeat(${Math.min(thumbnails.length, 3)}, 1fr)` }}>
             {thumbnails.map((t) => (
               <div key={t.idx} className="space-y-1.5">
                 {t.image_url ? (
