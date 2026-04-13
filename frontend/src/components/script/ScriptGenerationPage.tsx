@@ -30,7 +30,7 @@ export default function ScriptGenerationPage({
 
   // Pre-generation options
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
-  const [segmented, setSegmented] = useState(false);
+  const [segmented, setSegmented] = useState(true);
   const [generationStarted, setGenerationStarted] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 

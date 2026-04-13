@@ -46,7 +46,7 @@ _PLAINTEXT_KEYS = {
 # Default values for settings that have sensible defaults
 _DEFAULTS: dict[str, str] = {
     "IMAGE_RATE_LIMIT_MS": "10000",  # 6 req/min to stay under free-tier limits
-    "SCRIPT_MODEL": "claude-sonnet-4-20250514",
+    "SCRIPT_MODEL": "anthropic.claude-opus-4-6-v1",
 }
 
 
