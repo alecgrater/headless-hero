@@ -117,9 +117,6 @@ function VoiceoverContent({ scene, duration }: { scene: Scene; duration: number 
 function FxContent({ scene }: { scene: Scene }) {
   const fx = scene.fx;
   const badges: string[] = [];
-  if (fx?.kinetic_captions?.words?.length) {
-    badges.push(`${fx.kinetic_captions.words.length}w`);
-  }
   if (fx?.zoom_punch) {
     badges.push("zoom");
   }

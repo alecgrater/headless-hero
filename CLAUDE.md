@@ -189,9 +189,10 @@ Python writes scene data + FX config to JSON → invokes `npx remotion render` v
 - `SubtitleScene` — White text on black (aha_subtitle beat)
 
 ### FX System
-Visual effects are AI-generated (no manual editing). Each scene has an optional `fx: SceneFX` field. Key FX types in active use:
-- **kinetic_captions** — Animated word-by-word caption overlays synced to voiceover
+Visual effects are AI-generated (no manual editing). Each scene has an optional `fx: SceneFX` field. Active FX:
 - **zoom_punch** — Quick zoom-in camera punch for emphasis
+
+Standard phrase-based subtitles are rendered automatically from `word_timestamps` (no AI generation needed). Subtitle scenes (`aha_subtitle`) show text synced to voiceover timing.
 
 FX are generated via Claude (`POST /api/fx/generate`) and can be regenerated per-scene (`POST /api/fx/regenerate`). The `backend/pipeline/fx_generator.py` sends scene context to Claude and parses the structured FX response.
 
@@ -227,7 +228,7 @@ Claude generates per-scene keyframe timelines selecting which Eli pose to show a
 1. Visual layer (StaticImage/MultiFrame/TitleCard/Subtitle)
 2. ZoomPunch camera effect
 3. **EliOverlay** (z-index: 5) — `remotion/src/effects/overlays/EliOverlay.tsx`
-4. KineticCaption text overlay (z-index: 10)
+4. Subtitles (z-index: 10) — `remotion/src/effects/typography/Subtitles.tsx`
 5. Audio layer
 6. ChapterIndicator (z-index: 30)
 

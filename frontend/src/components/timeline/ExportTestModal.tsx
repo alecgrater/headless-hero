@@ -10,7 +10,7 @@ const STEPS = [
   { key: "regen_title_cards" as const, label: "Title Cards", desc: "Regenerate composite title card images", cost: "Gemini" },
   { key: "regen_images" as const, label: "Images", desc: "Regenerate scene images", cost: "Gemini" },
   { key: "regen_audio" as const, label: "Audio", desc: "Regenerate voiceover", cost: "ElevenLabs" },
-  { key: "regen_fx" as const, label: "FX", desc: "Regenerate kinetic captions + zoom punch", cost: "Claude" },
+  { key: "regen_fx" as const, label: "FX", desc: "Regenerate zoom punch", cost: "Claude" },
   { key: "regen_eli" as const, label: "Eli Overlays", desc: "Regenerate character animation keyframes", cost: "Claude" },
 ];
 

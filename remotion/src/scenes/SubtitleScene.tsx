@@ -1,7 +1,7 @@
 /**
  * SubtitleScene — white text on pure black background.
  * Used for "aha_subtitle" visual beats: dramatic reveals, shocking stats.
- * Spring pop-in animation: scale 0.85 → 1.0.
+ * Spring pop-in animation timed to when the voiceover starts speaking.
  */
 import React from "react";
 import { useCurrentFrame, useVideoConfig, spring } from "remotion";
@@ -23,9 +23,17 @@ export const SubtitleScene: React.FC<Props> = ({ scene }) => {
   const charCount = text.length;
   const fontSize = charCount < 60 ? 96 : charCount < 120 ? 72 : 56;
 
+  // Determine speech start frame from word_timestamps
+  const speechStartFrame = scene.word_timestamps?.[0]
+    ? Math.round((scene.word_timestamps[0].start_ms / 1000) * fps)
+    : 0;
+
+  // Offset animation to start when speech begins
+  const animFrame = Math.max(0, frame - speechStartFrame);
+
   // Spring pop-in: scale from 0.85 to 1.0
   const scale = spring({
-    frame,
+    frame: animFrame,
     fps,
     config: { damping: 15, mass: 0.8 },
     from: 0.85,
@@ -34,12 +42,19 @@ export const SubtitleScene: React.FC<Props> = ({ scene }) => {
 
   // Fade in opacity
   const opacity = spring({
-    frame,
+    frame: animFrame,
     fps,
     config: { damping: 20, mass: 0.5 },
     from: 0,
     to: 1,
   });
+
+  // Don't show text before speech starts
+  if (frame < speechStartFrame) {
+    return (
+      <div style={{ width: "100%", height: "100%", backgroundColor: "#000" }} />
+    );
+  }
 
   return (
     <div

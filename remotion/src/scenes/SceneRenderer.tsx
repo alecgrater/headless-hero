@@ -1,7 +1,7 @@
 /**
  * SceneRenderer — dispatches to the appropriate scene component
  * based on scene type and flags.
- * Optionally wraps with ZoomPunch and KineticCaption effects.
+ * Optionally wraps with ZoomPunch effect and subtitle overlay.
  */
 import React from "react";
 import { Audio } from "remotion";
@@ -12,7 +12,7 @@ import { TitleCardScene } from "./TitleCardScene";
 import { SubtitleScene } from "./SubtitleScene";
 
 import { ZoomPunch } from "../effects/camera/ZoomPunch";
-import { CaptionOverlay } from "../effects/typography/KineticCaption";
+import { SubtitleOverlay } from "../effects/typography/Subtitles";
 import { EliOverlay } from "../effects/overlays/EliOverlay";
 
 interface Props {
@@ -64,14 +64,9 @@ export const SceneRenderer: React.FC<Props> = ({ scene }) => {
         />
       )}
 
-      {/* Caption overlay — base subtitles + kinetic emphasis */}
-      {!scene.is_title_card && (
-        (fx?.kinetic_captions?.words?.length ?? 0) > 0 || (scene.word_timestamps?.length ?? 0) > 0
-      ) && (
-        <CaptionOverlay
-          words={fx?.kinetic_captions?.words ?? []}
-          wordTimestamps={scene.word_timestamps}
-        />
+      {/* Subtitle overlay — standard phrase subtitles (not on title cards or subtitle scenes) */}
+      {!scene.is_title_card && !isAhaSubtitle && (scene.word_timestamps?.length ?? 0) > 0 && (
+        <SubtitleOverlay wordTimestamps={scene.word_timestamps} />
       )}
 
       {/* Audio layer — narration voiceover */}

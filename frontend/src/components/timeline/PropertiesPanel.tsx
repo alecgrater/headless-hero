@@ -197,19 +197,13 @@ export default function PropertiesPanel({
                 </button>
               </div>
               <div className="flex flex-wrap items-center gap-2 mt-1">
-                {scene.fx.kinetic_captions && scene.fx.kinetic_captions.words.length > 0 && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded-full">captions</span>
-                    <span className="text-[10px] text-neutral-400">{scene.fx.kinetic_captions.words.length}w</span>
-                  </div>
-                )}
                 {scene.fx.zoom_punch && (
                   <div className="flex items-center gap-1">
                     <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full">zoom</span>
                     <span className="text-[10px] text-neutral-400">f{scene.fx.zoom_punch.trigger_frame} @ {scene.fx.zoom_punch.scale}x</span>
                   </div>
                 )}
-                {!scene.fx.kinetic_captions && !scene.fx.zoom_punch && (
+                {!scene.fx.zoom_punch && (
                   <p className="text-[10px] text-neutral-600 italic">No effects</p>
                 )}
               </div>
