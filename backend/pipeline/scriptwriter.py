@@ -109,7 +109,7 @@ def generate_script(
     Returns:
         A validated ScriptContent object.
     """
-    resolved_model = model or os.environ.get("SCRIPT_MODEL", "claude-sonnet-4-20250514")
+    resolved_model = model or os.environ.get("SCRIPT_MODEL", "anthropic.claude-opus-4-6-v1")
 
     user_parts = [f'Write a full segmented video script for: "{topic}"']
     if description:

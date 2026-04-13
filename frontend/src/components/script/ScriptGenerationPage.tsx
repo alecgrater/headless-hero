@@ -9,7 +9,7 @@ import type {
 import { SCRIPT_MODELS } from "../settings/GeneralSection";
 import GenerationProgressBar from "../GenerationProgressBar";
 
-const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+const DEFAULT_MODEL = "anthropic.claude-opus-4-6-v1";
 
 interface Props {
   brandId: string;
