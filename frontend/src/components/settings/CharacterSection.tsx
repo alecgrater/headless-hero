@@ -204,6 +204,9 @@ export default function CharacterSection() {
 
   const frameCount = manifest?.frames?.length ?? 0;
   const missingCount = manifest?.missing_count ?? 0;
+  // Cache-busting suffix derived from manifest timestamp — forces browser to reload
+  // images after regeneration or background reprocessing
+  const cacheBust = manifest?.generated_at ? `?t=${new Date(manifest.generated_at).getTime()}` : "";
   const isGeneratingRefs = !!refJobId;
   const isGeneratingFrames = !!frameJobId;
   const isGeneratingVariants = !!variantJobId;
@@ -474,12 +477,12 @@ export default function CharacterSection() {
                 >
                   <div className="flex">
                     <img
-                      src={assetUrl(`/static/character/frames/${frame.file_closed}`)}
+                      src={assetUrl(`/static/character/frames/${frame.file_closed}`) + cacheBust}
                       alt={`${frame.id} closed`}
                       className="w-1/2 aspect-square object-cover"
                     />
                     <img
-                      src={assetUrl(`/static/character/frames/${frame.file_open}`)}
+                      src={assetUrl(`/static/character/frames/${frame.file_open}`) + cacheBust}
                       alt={`${frame.id} open`}
                       className="w-1/2 aspect-square object-cover"
                     />

@@ -1099,4 +1099,12 @@ def reprocess_backgrounds(
         "=== Background reprocessing complete: %d reprocessed, %d already OK, %d total ===",
         reprocessed, skipped, total,
     )
+
+    # Always update manifest timestamp so frontend cache-busting refreshes images
+    if MANIFEST_PATH.exists():
+        manifest = json.loads(MANIFEST_PATH.read_text())
+        manifest["generated_at"] = datetime.now(timezone.utc).isoformat()
+        MANIFEST_PATH.write_text(json.dumps(manifest, indent=2))
+        logger.info("Updated manifest timestamp for cache busting")
+
     return reprocessed
