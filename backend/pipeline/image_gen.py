@@ -319,8 +319,8 @@ def generate_scene_frames_v2(
             parts: list[str] = []
             if _VISUAL_STYLE:
                 parts.append(_VISUAL_STYLE)
-            if guide:
-                parts.append(guide)
+            if guide and guide != directive_prompt:
+                parts.append(f"Scene context: {guide}\n\nThis specific frame:")
             parts.append(directive_prompt)
             prompt = "\n\n".join(parts)
 

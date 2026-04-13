@@ -33,3 +33,14 @@ export const SEGMENT_TEXT_COLORS = [
   "text-fuchsia-400",
   "text-lime-400",
 ];
+
+export const SEGMENT_BG_COLORS = [
+  "bg-violet-500/10",
+  "bg-sky-500/10",
+  "bg-emerald-500/10",
+  "bg-amber-500/10",
+  "bg-rose-500/10",
+  "bg-cyan-500/10",
+  "bg-fuchsia-500/10",
+  "bg-lime-500/10",
+];

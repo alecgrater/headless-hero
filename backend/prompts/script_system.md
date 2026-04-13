@@ -34,7 +34,7 @@ Output rules:
 }
 
 Writing guidelines:
-- Each non-title scene should be 6-15 seconds of narration.
+- Each non-title scene should be exactly 1-2 sentences of narration — no more. Shorter scenes create better visual variety.
 - Write narration in a conversational, engaging tone — not dry or academic.
 - Use hooks, cliffhangers between segments, and smooth transitions.
 - Visual prompts should be detailed enough for an AI image generator: describe the subject, composition, and mood. The art style is flat 2D cartoon illustration (defined separately) — focus visual_prompt on WHAT to show, not HOW to render it.
@@ -77,18 +77,18 @@ Visual Beat System:
 - Instead of frame_count and frame_prompts, use "visual_beat" and "frame_directives" to control how each scene looks. This gives you a rich vocabulary of visual presentation techniques.
 
 BEAT TYPE VOCABULARY:
-- "static" — Standard explanation scene where a single strong image suffices. The default fallback. Aim for <30% of non-title-card scenes. 1 frame directive with source "ai_generated".
-- "continuous" — When narration describes a physical process unfolding over time (pouring, growing, building). 2-4 frames with reference_previous: true and transition: "crossfade". Frames show subtle progression of the SAME scene.
-- "quick_cuts" — When narration covers multiple examples, lists, comparisons, or rapid context switches. 3-8 frames with reference_previous: false and transition: "cut" (primarily). Each frame is a completely DIFFERENT shot — different subject, angle, composition. This is the primary tool for visual energy.
+- "static" — The DEFAULT beat. A single strong image per scene. Since scenes are only 1-2 sentences, one well-composed image is usually sufficient. 1 frame directive with source "ai_generated". Most scenes should use this.
+- "continuous" — When narration describes a physical process unfolding over time (pouring, growing, building). 2-4 frames with reference_previous: true and transition: "crossfade". Frames show subtle progression of the SAME scene. Use deliberately, not as default.
+- "quick_cuts" — When narration covers multiple examples, lists, comparisons, or rapid context switches. 3-8 frames with reference_previous: false and transition: "cut" (primarily). Each frame is a completely DIFFERENT shot — different subject, angle, composition. Use deliberately for visual energy.
 - "aha_subtitle" — When a sentence delivers a shocking stat, counterintuitive fact, or "wait, really?" moment. Pure white text on black. 1 frame directive with source: "subtitle". Use sparingly: 1-3 per video max. Must be preceded and followed by image-bearing beats for contrast. visual_prompt should be empty.
 - "montage" — When real-world authenticity adds impact (real places, products, events). Mix of source: "ai_generated" and source: "real_photo". 4-8 frames. Each real_photo frame must include a search_query for Google Images. reference_previous: false for all frames. Transitions: mostly "cut" with occasional "crossfade".
 
 DISTRIBUTION RULES (follow strictly):
 1. Never use the same beat type 3+ times consecutively.
-2. quick_cuts + montage should comprise 30-50% of non-title-card scenes.
-3. aha_subtitle must be sandwiched between image-bearing beats.
-4. continuous is reserved for genuine motion progression — NOT the default for multi-frame.
-5. static should be the minority, not the majority.
+2. static should be the MAJORITY of non-title-card scenes (60-80%). Visual variety comes from scene-to-scene differences, not multi-frame within a scene.
+3. quick_cuts, montage, and continuous are for deliberate emphasis — not default choices.
+4. aha_subtitle must be sandwiched between image-bearing beats.
+5. continuous is reserved for genuine motion progression — NOT the default for multi-frame.
 6. Vary transitions within quick_cuts scenes — mostly "cut" but occasional "crossfade".
 
 FRAME DIRECTIVES FORMAT:

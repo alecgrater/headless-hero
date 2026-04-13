@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import TimelineRuler from "./TimelineRuler";
 import TimelineBlock from "./TimelineBlock";
-import { SEGMENT_COLORS } from "./constants";
+import { SEGMENT_COLORS, SEGMENT_TEXT_COLORS, SEGMENT_BG_COLORS } from "./constants";
 import type { ScriptContent, Scene } from "../../types/script";
 
 interface Props {
@@ -57,6 +57,20 @@ export default function TimelineLanes({
     }
   }
 
+  // Calculate segment spans for header row
+  const segmentSpans: { name: string; x: number; width: number; idx: number }[] = [];
+  let spanTime = 0;
+  for (let si = 0; si < content.segments.length; si++) {
+    const seg = content.segments[si];
+    const startX = spanTime * pixelsPerSecond;
+    let segDuration = 0;
+    for (const scene of seg.scenes) {
+      segDuration += scene.audio_duration_seconds || scene.duration_estimate_seconds;
+    }
+    segmentSpans.push({ name: seg.name, x: startX, width: segDuration * pixelsPerSecond, idx: si });
+    spanTime += segDuration;
+  }
+
   return (
     <div className="flex flex-col bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden">
       {/* Scrollable area with label gutter */}
@@ -66,6 +80,10 @@ export default function TimelineLanes({
           {/* Ruler spacer */}
           <div className="h-7 border-b border-neutral-800 flex items-center justify-center gap-1 px-1">
             <span className="text-[10px] text-neutral-500 font-mono">{pixelsPerSecond}</span>
+          </div>
+          {/* Segment header label */}
+          <div className="h-6 flex items-center px-3 text-[10px] text-neutral-500 font-medium border-b border-neutral-800/50">
+            Segments
           </div>
           {LANE_TYPES.map((lane) => (
             <div
@@ -86,6 +104,27 @@ export default function TimelineLanes({
               pixelsPerSecond={pixelsPerSecond}
               segments={content.segments}
             />
+
+            {/* Segment header row */}
+            <div className="relative h-6 flex border-b border-neutral-800/50">
+              {segmentSpans.map(({ name, x, width, idx }) => (
+                <div
+                  key={`seg-header-${idx}`}
+                  className={`absolute top-0 h-full flex items-center overflow-hidden ${
+                    SEGMENT_BG_COLORS[idx % SEGMENT_BG_COLORS.length]
+                  }`}
+                  style={{ left: `${x}px`, width: `${width}px` }}
+                >
+                  <span
+                    className={`text-[10px] font-medium truncate px-2 ${
+                      SEGMENT_TEXT_COLORS[idx % SEGMENT_TEXT_COLORS.length]
+                    }`}
+                  >
+                    {name}
+                  </span>
+                </div>
+              ))}
+            </div>
 
             {/* Lanes */}
             {LANE_TYPES.map((laneType) => (

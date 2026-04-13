@@ -229,7 +229,7 @@ Return ONLY a valid JSON array of scene objects. Example:
 
 RULES:
 - The FIRST scene of EVERY segment MUST be a title card (is_title_card: true, visual_beat: "static", frame_directives: []).
-- After the title card, write 4-7 content scenes.
+- After the title card, write one content scene per 1-2 sentences of narration. Each scene should have exactly 1-2 sentences and default to 1 frame (visual_beat: "static"). There is no fixed scene count — let the narration length determine scene count.
 - Scene IDs should start at scene_001 within this segment (they will be renumbered globally later).
 - Follow all visual storytelling arc, Visual Beat System, and shot type guidelines from the system prompt.
 - Return ONLY the JSON array — no markdown fences, no commentary.
