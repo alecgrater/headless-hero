@@ -348,7 +348,6 @@ export function useTimelineState(
           image_url: undefined,
           audio_url: undefined,
           audio_duration_seconds: undefined,
-          image_url_b: undefined,
         };
 
         const segments = prev.segments.map((seg, si) => {
@@ -459,11 +458,8 @@ export function useTimelineState(
           script_id: scriptId,
           scene_id: sceneId,
           visual_prompt: scene.visual_prompt,
-          is_animated: scene.is_animated || false,
-          visual_prompt_b: scene.visual_prompt_b || "",
           frame_prompts: scene.frame_prompts || [],
           frame_directives: scene.frame_directives || [],
-          frame_seed: scene.frame_seed ?? null,
         });
         if (res.ok) {
           const data = res.data as GenerateVisualResponse;
@@ -477,7 +473,6 @@ export function useTimelineState(
                   ? {
                       ...sc,
                       image_url: data.image_url,
-                      image_url_b: data.image_url_b || sc.image_url_b,
                       frame_urls: data.frame_urls || sc.frame_urls,
                     }
                   : sc,
@@ -500,7 +495,7 @@ export function useTimelineState(
   const generateAllImages = useCallback(
     async () => {
       // Collect AI-generated scenes
-      const scenes: { scene_id: string; visual_prompt: string; name: string; is_animated: boolean; visual_prompt_b: string; frame_prompts: string[]; frame_directives: any[]; frame_seed: number | null }[] = [];
+      const scenes: { scene_id: string; visual_prompt: string; name: string; frame_prompts: string[]; frame_directives: any[] }[] = [];
       // Collect title card scene IDs for progress tracking
       let hasTitleCards = false;
       for (const seg of contentRef.current.segments) {
@@ -512,11 +507,8 @@ export function useTimelineState(
               scene_id: sc.id,
               visual_prompt: sc.visual_prompt,
               name: sc.text_overlay || sc.narration.slice(0, 40) || sc.id,
-              is_animated: sc.is_animated || false,
-              visual_prompt_b: sc.visual_prompt_b || "",
               frame_prompts: sc.frame_prompts || [],
               frame_directives: sc.frame_directives || [],
-              frame_seed: sc.frame_seed ?? null,
             });
           }
         }
@@ -575,11 +567,8 @@ export function useTimelineState(
             script_id: scriptId,
             scene_id: scene.scene_id,
             visual_prompt: scene.visual_prompt,
-            is_animated: scene.is_animated,
-            visual_prompt_b: scene.visual_prompt_b,
             frame_prompts: scene.frame_prompts,
             frame_directives: scene.frame_directives,
-            frame_seed: scene.frame_seed,
           });
           if (res.ok) {
             const data = res.data as GenerateVisualResponse;
@@ -592,7 +581,6 @@ export function useTimelineState(
                     ? {
                         ...sc,
                         image_url: data.image_url,
-                        image_url_b: data.image_url_b || sc.image_url_b,
                         frame_urls: data.frame_urls || sc.frame_urls,
                       }
                     : sc,
