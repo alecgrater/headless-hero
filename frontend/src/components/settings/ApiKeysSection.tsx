@@ -62,6 +62,22 @@ const SERVICES: ServiceConfig[][] = [
       placeholder: "GOCSPX-...",
     },
   ],
+  [
+    {
+      key: "YOUTUBE_API_KEY",
+      label: "YouTube Data API",
+      description: "YouTube Data API key for trending topic discovery.",
+      placeholder: "AIza...",
+    },
+  ],
+  [
+    {
+      key: "NEWS_API_KEY",
+      label: "NewsAPI",
+      description: "News headlines for trending topic discovery.",
+      placeholder: "abc123...",
+    },
+  ],
 ];
 
 function EyeIcon({ className }: { className?: string }) {
