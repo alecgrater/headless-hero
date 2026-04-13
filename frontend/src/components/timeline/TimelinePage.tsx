@@ -975,6 +975,7 @@ function TimelineEditor({
           </div>
           </div>
           </div>
+          </div>
         </div>
 
         {/* Right — Thumbnail Preview */}
