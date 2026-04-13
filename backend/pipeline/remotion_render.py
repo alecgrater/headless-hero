@@ -130,6 +130,10 @@ def _scene_to_input_props(scene: Scene, script_id: str, eli_position: dict | Non
     if eli_overlay and eli_position:
         eli_overlay = {**eli_overlay, "position": eli_position}
 
+    # Suppress eli overlay when Eli is already in the generated image
+    if eli_overlay and scene.contains_person:
+        eli_overlay = {**eli_overlay, "enabled": False}
+
     return {
         "id": scene.id,
         "narration": scene.narration,

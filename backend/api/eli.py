@@ -52,8 +52,8 @@ def generate_all_eli(body: GenerateEliRequest, session: Session = Depends(get_se
     global_idx = 0
     for seg_idx, seg in enumerate(content.segments):
         for sc_idx, scene in enumerate(seg.scenes):
-            # Skip title cards — Eli doesn't appear on title cards
-            if scene.is_title_card:
+            # Skip title cards and scenes where Eli is in the main image
+            if scene.is_title_card or scene.contains_person:
                 global_idx += 1
                 continue
             if body.missing_only and scene.eli_overlay:
