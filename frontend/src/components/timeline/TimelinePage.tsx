@@ -960,20 +960,22 @@ function TimelineEditor({
               )}
             </div>
           </div>
-          {/* Zoom slider */}
-          <div className="flex items-center gap-3 w-full">
-            <span className="text-[11px] text-neutral-500 shrink-0">Zoom</span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={pixelsPerSecond}
-              onChange={(e) => setPixelsPerSecond(parseInt(e.target.value, 10))}
-              className="flex-1 w-full accent-violet-500"
-              style={{ minWidth: 0 }}
-            />
-            <span className="text-[11px] text-neutral-500 font-mono shrink-0">{pixelsPerSecond}</span>
           </div>
+          {/* Zoom slider — own section below buttons */}
+          <div className="border-t border-neutral-800/60 px-5 py-1.5">
+            <div className="flex items-center gap-3 w-full">
+              <span className="text-[11px] text-neutral-500 shrink-0">Zoom</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={pixelsPerSecond}
+                onChange={(e) => setPixelsPerSecond(parseInt(e.target.value, 10))}
+                className="flex-1 w-full accent-violet-500"
+                style={{ minWidth: 0 }}
+              />
+              <span className="text-[11px] text-neutral-500 font-mono shrink-0">{pixelsPerSecond}</span>
+            </div>
           </div>
           </div>
         </div>
