@@ -20,8 +20,8 @@ CANVAS_H = VIDEO_HEIGHT
 
 # Grid layout mappings: segment_count -> (rows, cols)
 _GRID_LAYOUTS = {
-    6: (2, 3),
     8: (2, 4),
+    10: (2, 5),
 }
 
 # Default bold colors when Claude doesn't provide them

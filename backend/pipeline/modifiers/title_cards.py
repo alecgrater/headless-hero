@@ -34,7 +34,7 @@ Keep it simple and readable at small sizes (it will be cropped into a circle).
 - Title card scenes MUST have visual_prompt set to "" (empty string) — their visuals come from \
 the composite grid card, not individual AI generation.
 - Each segment MUST have at least 5 scenes (including the title card).
-- Segment count MUST be exactly 6, 8, 10, or 12 for balanced grid layouts."""
+- Segment count MUST be exactly 8 or 10 for balanced grid layouts."""
 
 
 def prepare_title_card_scene(scene: Scene, script_id: str, brand: dict) -> Scene:
