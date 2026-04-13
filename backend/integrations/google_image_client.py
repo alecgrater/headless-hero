@@ -78,6 +78,12 @@ def generate_image(
         raise
 
     # Extract image bytes from response (matching official SDK pattern)
+    if not response.parts:
+        raise RuntimeError(
+            f"Gemini returned empty response (no parts). "
+            f"Possible content filter or safety block. "
+            f"Prompt: {prompt[:200]}"
+        )
     for part in response.parts:
         if part.inline_data is not None:
             # Write to a temp file and return its path
