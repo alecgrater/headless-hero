@@ -17,7 +17,8 @@ class RenderJob:
     """Tracks the state of a background render task."""
 
     __slots__ = ("id", "status", "progress", "current_step", "output_urls", "error",
-                 "scene_count", "total_audio_duration", "duration_seconds", "_start_time")
+                 "scene_count", "total_audio_duration", "duration_seconds", "estimated_seconds",
+                 "_start_time")
 
     def __init__(self, job_id: str) -> None:
         self.id = job_id
@@ -29,6 +30,7 @@ class RenderJob:
         self.scene_count: int = 0
         self.total_audio_duration: float = 0.0
         self.duration_seconds: float | None = None
+        self.estimated_seconds: float | None = None
         self._start_time: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -39,6 +41,7 @@ class RenderJob:
             "current_step": self.current_step,
             "output_urls": self.output_urls,
             "error": self.error,
+            "estimated_seconds": self.estimated_seconds,
         }
 
 _jobs: dict[str, RenderJob] = {}
@@ -119,6 +122,7 @@ def run_in_background(
                             "scene_count": job.scene_count,
                             "duration_seconds": job.duration_seconds,
                         })
+                        _persist_render_duration(job.scene_count, job.duration_seconds)
         except Exception:
             logger.exception("Render job %s failed", job_id)
             update_job(job_id, status="failed", error=traceback.format_exc()[-1000:])
@@ -126,12 +130,32 @@ def run_in_background(
     t = threading.Thread(target=_wrapper, daemon=True)
     t.start()
 
+def _persist_render_duration(scene_count: int, duration_seconds: float) -> None:
+    """Write a render duration record to the database."""
+    try:
+        from database import engine
+        from models.generation_duration import GenerationDuration
+        from sqlmodel import Session
+
+        with Session(engine) as session:
+            record = GenerationDuration(
+                operation_type="video_render",
+                duration_seconds=duration_seconds,
+                scene_count=scene_count,
+            )
+            session.add(record)
+            session.commit()
+    except Exception:
+        logger.warning("Failed to persist render duration to DB", exc_info=True)
+
+
 def estimate_render_time(scene_count: int, total_audio_duration: float = 0.0) -> float:
     """Estimate render duration in seconds based on historical data.
 
-    Returns estimated seconds. Uses average seconds-per-scene from completed jobs,
-    falling back to a default if no history exists.
+    Returns estimated seconds. Uses average seconds-per-scene from completed jobs
+    (in-memory first, then DB), falling back to a default if no history exists.
     """
+    # Try in-memory history first
     with _lock:
         history = list(_completed_history)
 
@@ -139,10 +163,27 @@ def estimate_render_time(scene_count: int, total_audio_duration: float = 0.0) ->
         total_scenes = sum(h["scene_count"] for h in history)
         total_duration = sum(h["duration_seconds"] for h in history)
         if total_scenes > 0:
-            secs_per_scene = total_duration / total_scenes
-        else:
-            secs_per_scene = _DEFAULT_SECONDS_PER_SCENE
-    else:
-        secs_per_scene = _DEFAULT_SECONDS_PER_SCENE
+            return round((total_duration / total_scenes) * scene_count, 1)
 
-    return round(secs_per_scene * scene_count, 1)
+    # Fall back to DB history
+    try:
+        from database import engine
+        from sqlmodel import Session, select, func
+        from models.generation_duration import GenerationDuration
+
+        with Session(engine) as session:
+            stmt = select(
+                func.sum(GenerationDuration.duration_seconds),
+                func.sum(GenerationDuration.scene_count),
+            ).where(
+                GenerationDuration.operation_type == "video_render",
+                GenerationDuration.scene_count.is_not(None),
+            )
+            result = session.exec(stmt).one()
+            total_duration, total_scenes = result
+            if total_duration and total_scenes and total_scenes > 0:
+                return round((total_duration / total_scenes) * scene_count, 1)
+    except Exception:
+        logger.warning("Failed to query render duration history from DB", exc_info=True)
+
+    return round(_DEFAULT_SECONDS_PER_SCENE * scene_count, 1)

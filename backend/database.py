@@ -19,6 +19,7 @@ def init_db() -> None:
     _migrate_add_eli_position()
     _migrate_script_model_default()
     _migrate_add_script_id_to_api_usage()
+    _migrate_add_scene_count_to_generation_durations()
     logger.info("Database ready")
 
 def ensure_default_brand() -> None:
@@ -93,3 +94,19 @@ def _migrate_script_model_default() -> None:
             session.delete(setting)
             session.commit()
             logger.info("Migrated: cleared stale SCRIPT_MODEL default (was claude-sonnet-4)")
+
+
+def _migrate_add_scene_count_to_generation_durations() -> None:
+    """Add scene_count column to generation_durations if missing."""
+    import sqlite3
+
+    conn = sqlite3.connect(str(_db_path))
+    try:
+        cursor = conn.execute("PRAGMA table_info(generation_durations)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "scene_count" not in columns:
+            conn.execute("ALTER TABLE generation_durations ADD COLUMN scene_count INTEGER DEFAULT NULL")
+            conn.commit()
+            logger.info("Migrated: added scene_count to generation_durations")
+    finally:
+        conn.close()

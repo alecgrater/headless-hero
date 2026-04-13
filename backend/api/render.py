@@ -4,6 +4,8 @@ import json
 import logging
 import os
 import shutil
+import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -42,6 +44,7 @@ class RenderStatusResponse(BaseModel):
     current_step: str
     output_urls: list[str]
     error: str | None = None
+    estimated_seconds: float | None = None
 
 class ExportAudioRequest(BaseModel):
     script_id: str
@@ -292,22 +295,44 @@ def _phase_eli(ctx: ExportContext) -> None:
 
 
 def _phase_render(ctx: ExportContext) -> None:
-    """Phase 7: Render full video via Remotion (always runs). Sets ctx.video_url."""
+    """Phase 7: Render full video via Remotion (always runs). Sets ctx.video_url.
+
+    Uses timer-based progress instead of Remotion's sparse on_progress callbacks,
+    so the progress bar moves smoothly during the long render subprocess.
+    """
     render_start, render_end = ctx.phase_ranges["render"]
     update_job(ctx.job.id, progress=render_start, current_step="Rendering full video...")
     content_now = _reload_content(ctx.script_id)
 
-    def on_render_progress(p: float, msg: str):
-        update_job(ctx.job.id, progress=render_start + p * (render_end - render_start), current_step=msg)
+    estimated = estimate_render_time(ctx.job.scene_count)
+    stop_timer = threading.Event()
 
-    ctx.video_url = render_full_video(
-        script_id=ctx.script_id,
-        content=content_now,
-        on_progress=on_render_progress,
-        title=ctx.title,
-        speed=1.25,
-        brand=ctx.brand_dict,
-    )
+    def _timer_updater():
+        start = time.monotonic()
+        while not stop_timer.is_set():
+            elapsed = time.monotonic() - start
+            frac = min(0.95, elapsed / estimated) if estimated > 0 else 0.5
+            progress = render_start + frac * (render_end - render_start)
+            update_job(ctx.job.id, progress=progress)
+            stop_timer.wait(1.0)
+
+    timer = threading.Thread(target=_timer_updater, daemon=True)
+    timer.start()
+
+    try:
+        ctx.video_url = render_full_video(
+            script_id=ctx.script_id,
+            content=content_now,
+            on_progress=None,
+            title=ctx.title,
+            speed=1.25,
+            brand=ctx.brand_dict,
+        )
+    finally:
+        stop_timer.set()
+        timer.join(timeout=2)
+
+    update_job(ctx.job.id, progress=render_end)
 
 
 def _phase_copy_to_downloads(ctx: ExportContext) -> None:
@@ -337,25 +362,61 @@ def start_full_render(body: RenderFullRequest, session: Session = Depends(get_se
     scene_count = _count_scenes(content)
     audio_dur = _total_audio_duration(content)
     job = create_job(scene_count=scene_count, total_audio_duration=audio_dur)
+    job.estimated_seconds = estimate_render_time(scene_count, audio_dur)
 
     logger.info("Starting full render for script %s (%d scenes, %.1fs audio)", body.script_id, scene_count, audio_dur)
 
     speed = max(0.5, min(3.0, body.speed))
 
     def do_render():
+        # render_full_video calls on_progress at these points:
+        #   0..0.3 — preparing scenes
+        #   0.4 — "Rendering video with Remotion..." (right before subprocess.run)
+        #   1.0 — "Complete"
+        # We use timer-based progress for the 0.4→1.0 Remotion phase.
+
+        estimated = estimate_render_time(scene_count, audio_dur)
+        stop_timer = threading.Event()
+        timer_started = threading.Event()
+
+        def _timer_updater():
+            start = time.monotonic()
+            while not stop_timer.is_set():
+                elapsed = time.monotonic() - start
+                frac = min(0.95, elapsed / estimated) if estimated > 0 else 0.5
+                progress = 0.4 + frac * 0.6
+                update_job(job.id, progress=progress, current_step="Rendering full video...")
+                stop_timer.wait(1.0)
+
+        timer = threading.Thread(target=_timer_updater, daemon=True)
+
         def on_progress(p: float, msg: str):
+            if p >= 0.4 and not timer_started.is_set():
+                # Remotion render phase starting — switch to timer
+                timer_started.set()
+                timer.start()
+                return
+            if timer_started.is_set():
+                return  # Timer handles progress from here
             update_job(job.id, progress=p, current_step=msg)
 
-        return render_full_video(
-            script_id=body.script_id,
-            content=content,
-            width=body.width,
-            height=body.height,
-            on_progress=on_progress,
-            title=body.title,
-            speed=speed,
-            brand=brand_dict,
-        )
+        try:
+            result = render_full_video(
+                script_id=body.script_id,
+                content=content,
+                width=body.width,
+                height=body.height,
+                on_progress=on_progress,
+                title=body.title,
+                speed=speed,
+                brand=brand_dict,
+            )
+        finally:
+            stop_timer.set()
+            if timer.is_alive():
+                timer.join(timeout=2)
+
+        return result
 
     run_in_background(job.id, do_render)
     return RenderJobResponse(job_id=job.id)
@@ -429,6 +490,7 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
 
     scene_count = len(scenes_to_process)
     job = create_job(scene_count=scene_count)
+    job.estimated_seconds = estimate_render_time(scene_count)
 
     ctx = ExportContext(
         script_id=body.script_id,

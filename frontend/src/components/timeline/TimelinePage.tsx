@@ -172,6 +172,7 @@ function TimelineEditor({
   const [exportTestJobId, setExportTestJobId] = useState<string | null>(null);
   const [exportTestStep, setExportTestStep] = useState("");
   const [exportTestProgress, setExportTestProgress] = useState(0);
+  const [exportTestEstimatedSeconds, setExportTestEstimatedSeconds] = useState<number | null>(null);
   const [showExportTestModal, setShowExportTestModal] = useState(false);
   const [titleCardGenerating, setTitleCardGenerating] = useState(false);
   const [titleCardGenerated, setTitleCardGenerated] = useState(false);
@@ -537,10 +538,12 @@ function TimelineEditor({
       setExportTestJobId(job_id);
       setExportTestStep("Starting...");
       setExportTestProgress(0);
+      setExportTestEstimatedSeconds(null);
     } catch {
       setExportTestJobId(null);
       setExportTestStep("");
       setExportTestProgress(0);
+      setExportTestEstimatedSeconds(null);
     }
   };
 
@@ -553,9 +556,10 @@ function TimelineEditor({
         if (cancelled) break;
         const res = await api.get(`/api/render/status/${exportTestJobId}`);
         if (!res.ok || cancelled) break;
-        const data = res.data as { status: string; progress: number; current_step: string; error: string | null };
+        const data = res.data as { status: string; progress: number; current_step: string; error: string | null; estimated_seconds: number | null };
         setExportTestStep(data.current_step);
         setExportTestProgress(data.progress);
+        if (data.estimated_seconds != null) setExportTestEstimatedSeconds(data.estimated_seconds);
         if (data.status === "completed") {
           setExportTestJobId(null);
           setExportTestStep("");
@@ -752,7 +756,16 @@ function TimelineEditor({
           </div>
         </div>
       )}
-      {exportTestJobId && (
+      {exportTestJobId && (() => {
+        const remaining = exportTestEstimatedSeconds && exportTestProgress > 0 && exportTestProgress < 1
+          ? Math.max(0, Math.round(exportTestEstimatedSeconds * (1 - exportTestProgress)))
+          : null;
+        const etaStr = remaining !== null && remaining > 0
+          ? remaining >= 60
+            ? `~${Math.ceil(remaining / 60)}m left`
+            : `~${remaining}s left`
+          : "";
+        return (
         <div className="px-4 py-2 border-b border-neutral-800 shrink-0 bg-rose-500/10">
           <div className="flex items-center gap-3 text-xs">
             <span className="w-3 h-3 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
@@ -765,10 +778,12 @@ function TimelineEditor({
                 style={{ width: `${exportTestProgress * 100}%` }}
               />
             </div>
+            {etaStr && <span className="text-neutral-500">{etaStr}</span>}
             <span className="text-neutral-500 tabular-nums">{Math.round(exportTestProgress * 100)}%</span>
           </div>
         </div>
-      )}
+        );
+      })()}
       {titleCardGenerating && (
         <div className="px-4 py-2 border-b border-neutral-800 shrink-0 bg-violet-500/10">
           <div className="flex items-center gap-3 text-xs">

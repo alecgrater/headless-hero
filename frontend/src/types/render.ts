@@ -13,6 +13,7 @@ export interface RenderStatusResponse {
   current_step: string;
   output_urls: string[];
   error?: string;
+  estimated_seconds?: number;
 }
 
 export interface ExportAudioResponse {

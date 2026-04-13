@@ -57,12 +57,25 @@ function formatEstimate(seconds: number): string {
   return secs > 0 ? `~${mins} min ${secs} sec` : `~${mins} min`;
 }
 
-function ProgressBar({ progress, label }: { progress: number; label: string }) {
+function ProgressBar({ progress, label, estimatedSeconds }: { progress: number; label: string; estimatedSeconds?: number }) {
+  // Compute remaining time from estimated_seconds and progress
+  const remaining = estimatedSeconds && progress > 0 && progress < 1
+    ? Math.max(0, Math.round(estimatedSeconds * (1 - progress)))
+    : null;
+  const etaStr = remaining !== null && remaining > 0
+    ? remaining >= 60
+      ? `~${Math.ceil(remaining / 60)}m remaining`
+      : `~${remaining}s remaining`
+    : null;
+
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-xs text-neutral-400">
         <span>{label}</span>
-        <span>{Math.round(progress * 100)}%</span>
+        <span className="flex items-center gap-2">
+          {etaStr && <span className="text-neutral-500">{etaStr}</span>}
+          {Math.round(progress * 100)}%
+        </span>
       </div>
       <div className="w-full h-2 bg-neutral-800 rounded-full overflow-hidden">
         <div
@@ -244,7 +257,7 @@ export default function ExportPanel({
                   YouTube Export (16:9)
                 </h3>
                 {youtubeRendering && youtubeStatus ? (
-                  <ProgressBar progress={youtubeStatus.progress} label={youtubeStatus.current_step} />
+                  <ProgressBar progress={youtubeStatus.progress} label={youtubeStatus.current_step} estimatedSeconds={youtubeStatus.estimated_seconds} />
                 ) : youtubeUrl ? (
                   <div className="space-y-3">
                     <video

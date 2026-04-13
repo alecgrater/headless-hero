@@ -13,6 +13,7 @@ class GenerationDuration(SQLModel, table=True):
     id: str = Field(default_factory=lambda: uuid.uuid4().hex, primary_key=True)
     operation_type: str = Field(index=True)
     duration_seconds: float
+    scene_count: int | None = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
