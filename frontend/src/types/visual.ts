@@ -5,10 +5,6 @@ export interface GenerateVisualResponse {
   frame_urls?: string[];
 }
 
-export interface GenerateBatchResponse {
-  results: { scene_id: string; image_url?: string; image_url_b?: string; frame_urls?: string[]; prompt_used?: string; error?: string }[];
-}
-
 export interface GenerateTitleCardsResponse {
   job_id: string;
 }

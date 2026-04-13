@@ -2,6 +2,9 @@
  * Frame/second conversion helpers for Remotion compositions.
  */
 
+/** Duration of chapter transitions in seconds. */
+export const CHAPTER_TRANSITION_SECONDS = 2;
+
 /** Convert seconds to frames at the given FPS. */
 export function secondsToFrames(seconds: number, fps: number): number {
   return Math.floor(seconds * fps);

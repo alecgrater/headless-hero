@@ -31,6 +31,53 @@ router = APIRouter(prefix="/api/character", tags=["character"])
 _jobs: dict[str, dict] = {}
 
 
+def _start_background_job(
+    job_type: str,
+    target_fn,
+    *,
+    conflict_msg: str = "Job already in progress",
+    initial_total: int = 0,
+    initial_label: str = "Starting...",
+    target_kwargs: dict | None = None,
+) -> str:
+    """Create a tracked background job and run target_fn in a daemon thread.
+
+    target_fn is called with an on_progress(completed, total, label) callback
+    plus any additional target_kwargs.
+    """
+    for job in _jobs.values():
+        if job["status"] == "running" and job.get("type") == job_type:
+            raise HTTPException(status_code=409, detail=conflict_msg)
+
+    job_id = uuid.uuid4().hex[:8]
+    _jobs[job_id] = {
+        "type": job_type,
+        "status": "running",
+        "completed": 0,
+        "total": initial_total,
+        "current_label": initial_label,
+        "error": None,
+    }
+
+    def run():
+        def on_progress(completed: int, total: int, label: str):
+            _jobs[job_id]["completed"] = completed
+            _jobs[job_id]["total"] = total
+            _jobs[job_id]["current_label"] = label
+
+        try:
+            kwargs = target_kwargs or {}
+            target_fn(on_progress=on_progress, **kwargs)
+            _jobs[job_id]["status"] = "completed"
+        except Exception as e:
+            logger.error("%s job failed", job_type, exc_info=True)
+            _jobs[job_id]["status"] = "failed"
+            _jobs[job_id]["error"] = str(e)
+
+    threading.Thread(target=run, daemon=True).start()
+    return job_id
+
+
 class GenerateFramesRequest(BaseModel):
     reference_path: str | None = None
 
@@ -68,37 +115,13 @@ class ReferencesResponse(BaseModel):
 @router.post("/generate-references", response_model=GenerateFramesResponse)
 def start_generate_references():
     """Trigger background generation of reference candidate images."""
-    for job in _jobs.values():
-        if job["status"] == "running" and job.get("type") == "references":
-            raise HTTPException(status_code=409, detail="Reference generation already in progress")
-
-    job_id = uuid.uuid4().hex[:8]
-    _jobs[job_id] = {
-        "type": "references",
-        "status": "running",
-        "completed": 0,
-        "total": 15,
-        "current_label": "Starting...",
-        "error": None,
-    }
-
-    def run():
-        def on_progress(completed: int, total: int, label: str):
-            _jobs[job_id]["completed"] = completed
-            _jobs[job_id]["total"] = total
-            _jobs[job_id]["current_label"] = label
-
-        try:
-            generate_reference_candidates(count=15, on_progress=on_progress)
-            _jobs[job_id]["status"] = "completed"
-        except Exception as e:
-            logger.error("Reference generation failed", exc_info=True)
-            _jobs[job_id]["status"] = "failed"
-            _jobs[job_id]["error"] = str(e)
-
-    thread = threading.Thread(target=run, daemon=True)
-    thread.start()
-
+    job_id = _start_background_job(
+        "references",
+        generate_reference_candidates,
+        conflict_msg="Reference generation already in progress",
+        initial_total=15,
+        target_kwargs={"count": 15},
+    )
     return GenerateFramesResponse(job_id=job_id)
 
 
@@ -124,40 +147,13 @@ def select_reference_endpoint(body: SelectReferenceRequest):
 @router.post("/generate-frames", response_model=GenerateFramesResponse)
 def start_generate_frames(body: GenerateFramesRequest | None = None):
     """Trigger background generation of the full Eli frame library."""
-    # Check if already running
-    for job in _jobs.values():
-        if job["status"] == "running" and job.get("type") == "frames":
-            raise HTTPException(status_code=409, detail="Frame generation already in progress")
-
-    job_id = uuid.uuid4().hex[:8]
-    _jobs[job_id] = {
-        "type": "frames",
-        "status": "running",
-        "completed": 0,
-        "total": 0,
-        "current_label": "",
-        "error": None,
-    }
-
     reference_path = body.reference_path if body else None
-
-    def run():
-        def on_progress(completed: int, total: int, label: str):
-            _jobs[job_id]["completed"] = completed
-            _jobs[job_id]["total"] = total
-            _jobs[job_id]["current_label"] = label
-
-        try:
-            generate_frame_library(reference_path=reference_path, on_progress=on_progress)
-            _jobs[job_id]["status"] = "completed"
-        except Exception as e:
-            logger.error("Frame generation failed", exc_info=True)
-            _jobs[job_id]["status"] = "failed"
-            _jobs[job_id]["error"] = str(e)
-
-    thread = threading.Thread(target=run, daemon=True)
-    thread.start()
-
+    job_id = _start_background_job(
+        "frames",
+        generate_frame_library,
+        conflict_msg="Frame generation already in progress",
+        target_kwargs={"reference_path": reference_path},
+    )
     return GenerateFramesResponse(job_id=job_id)
 
 
@@ -182,37 +178,11 @@ def get_frames():
 @router.post("/generate-missing", response_model=GenerateFramesResponse)
 def start_generate_missing():
     """Trigger background generation of only missing frames."""
-    for job in _jobs.values():
-        if job["status"] == "running" and job.get("type") == "frames":
-            raise HTTPException(status_code=409, detail="Frame generation already in progress")
-
-    job_id = uuid.uuid4().hex[:8]
-    _jobs[job_id] = {
-        "type": "frames",
-        "status": "running",
-        "completed": 0,
-        "total": 0,
-        "current_label": "",
-        "error": None,
-    }
-
-    def run():
-        def on_progress(completed: int, total: int, label: str):
-            _jobs[job_id]["completed"] = completed
-            _jobs[job_id]["total"] = total
-            _jobs[job_id]["current_label"] = label
-
-        try:
-            generate_missing_frames(on_progress=on_progress)
-            _jobs[job_id]["status"] = "completed"
-        except Exception as e:
-            logger.error("Missing frame generation failed", exc_info=True)
-            _jobs[job_id]["status"] = "failed"
-            _jobs[job_id]["error"] = str(e)
-
-    thread = threading.Thread(target=run, daemon=True)
-    thread.start()
-
+    job_id = _start_background_job(
+        "frames",
+        generate_missing_frames,
+        conflict_msg="Frame generation already in progress",
+    )
     return GenerateFramesResponse(job_id=job_id)
 
 
@@ -231,74 +201,22 @@ def regenerate_single_frame(body: RegenerateFrameRequest):
 @router.post("/generate-variants", response_model=GenerateFramesResponse)
 def start_generate_variants():
     """Trigger background generation of body micro-variants for all frames that need them."""
-    for job in _jobs.values():
-        if job["status"] == "running" and job.get("type") == "variants":
-            raise HTTPException(status_code=409, detail="Variant generation already in progress")
-
-    job_id = uuid.uuid4().hex[:8]
-    _jobs[job_id] = {
-        "type": "variants",
-        "status": "running",
-        "completed": 0,
-        "total": 0,
-        "current_label": "Starting...",
-        "error": None,
-    }
-
-    def run():
-        def on_progress(completed: int, total: int, label: str):
-            _jobs[job_id]["completed"] = completed
-            _jobs[job_id]["total"] = total
-            _jobs[job_id]["current_label"] = label
-
-        try:
-            generate_variants(on_progress=on_progress)
-            _jobs[job_id]["status"] = "completed"
-        except Exception as e:
-            logger.error("Variant generation failed", exc_info=True)
-            _jobs[job_id]["status"] = "failed"
-            _jobs[job_id]["error"] = str(e)
-
-    thread = threading.Thread(target=run, daemon=True)
-    thread.start()
-
+    job_id = _start_background_job(
+        "variants",
+        generate_variants,
+        conflict_msg="Variant generation already in progress",
+    )
     return GenerateFramesResponse(job_id=job_id)
 
 
 @router.post("/reprocess-backgrounds", response_model=GenerateFramesResponse)
 def start_reprocess_backgrounds():
     """Trigger background reprocessing of frames with green backgrounds."""
-    for job in _jobs.values():
-        if job["status"] == "running" and job.get("type") == "reprocess":
-            raise HTTPException(status_code=409, detail="Background reprocessing already in progress")
-
-    job_id = uuid.uuid4().hex[:8]
-    _jobs[job_id] = {
-        "type": "reprocess",
-        "status": "running",
-        "completed": 0,
-        "total": 0,
-        "current_label": "Starting...",
-        "error": None,
-    }
-
-    def run():
-        def on_progress(completed: int, total: int, label: str):
-            _jobs[job_id]["completed"] = completed
-            _jobs[job_id]["total"] = total
-            _jobs[job_id]["current_label"] = label
-
-        try:
-            reprocess_backgrounds(on_progress=on_progress)
-            _jobs[job_id]["status"] = "completed"
-        except Exception as e:
-            logger.error("Background reprocessing failed", exc_info=True)
-            _jobs[job_id]["status"] = "failed"
-            _jobs[job_id]["error"] = str(e)
-
-    thread = threading.Thread(target=run, daemon=True)
-    thread.start()
-
+    job_id = _start_background_job(
+        "reprocess",
+        reprocess_backgrounds,
+        conflict_msg="Background reprocessing already in progress",
+    )
     return GenerateFramesResponse(job_id=job_id)
 
 

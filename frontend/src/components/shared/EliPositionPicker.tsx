@@ -1,9 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-
-interface EliPosition {
-  x: number;
-  y: number;
-}
+import type { EliPosition } from "../../types/brand";
 
 interface Props {
   value: EliPosition;

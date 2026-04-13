@@ -84,11 +84,6 @@ export interface ScriptContent {
   eli_position?: { x: number; y: number } | null;
 }
 
-export interface GenerateScriptResponse {
-  id: string;
-  script: ScriptContent;
-}
-
 export interface ScriptRead {
   id: string;
   brand_id: string;

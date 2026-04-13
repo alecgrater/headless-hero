@@ -69,14 +69,6 @@ def _load_content(session: Session, script_id: str) -> ScriptContent:
         raise HTTPException(status_code=404, detail="Script not found")
     return ScriptContent.model_validate(json.loads(record.script_json))
 
-def _find_scene(content: ScriptContent, scene_id: str):
-    """Find a scene by ID across all segments."""
-    for seg in content.segments:
-        for sc in seg.scenes:
-            if sc.id == scene_id:
-                return sc
-    return None
-
 def _count_scenes(content: ScriptContent) -> int:
     """Count total scenes across all segments."""
     return sum(len(seg.scenes) for seg in content.segments)
@@ -428,6 +420,24 @@ def _find_scene_in_content(content: ScriptContent, scene_id: str):
     raise RuntimeError(f"Scene {scene_id} not found in content")
 
 
+def _persist_scene_update(script_id: str, scene_id: str, updater) -> None:
+    """Load a script from DB, find scene by ID, apply updater(scene), and save back."""
+    from database import engine
+    with Session(engine) as session:
+        record = session.get(Script, script_id)
+        if not record:
+            return
+        content = ScriptContent.model_validate(json.loads(record.script_json))
+        for seg in content.segments:
+            for sc in seg.scenes:
+                if sc.id == scene_id:
+                    updater(sc)
+                    break
+        record.script_json = content.model_dump_json()
+        session.add(record)
+        session.commit()
+
+
 def _persist_scene_assets(
     script_id: str,
     scene_id: str,
@@ -439,59 +449,22 @@ def _persist_scene_assets(
     word_timestamps: list[dict],
 ) -> None:
     """Update a scene's media fields in the DB."""
-    from database import engine
-    with Session(engine) as session:
-        record = session.get(Script, script_id)
-        if not record:
-            return
-        content = ScriptContent.model_validate(json.loads(record.script_json))
-        for seg in content.segments:
-            for sc in seg.scenes:
-                if sc.id == scene_id:
-                    if image_url:
-                        sc.image_url = image_url
-                    if frame_urls:
-                        sc.frame_urls = frame_urls
-                    sc.audio_url = audio_url
-                    sc.audio_duration_seconds = audio_duration
-                    sc.word_timestamps = word_timestamps
-                    break
-        record.script_json = content.model_dump_json()
-        session.add(record)
-        session.commit()
+    def update(sc):
+        if image_url:
+            sc.image_url = image_url
+        if frame_urls:
+            sc.frame_urls = frame_urls
+        sc.audio_url = audio_url
+        sc.audio_duration_seconds = audio_duration
+        sc.word_timestamps = word_timestamps
+    _persist_scene_update(script_id, scene_id, update)
 
 
 def _persist_scene_fx(script_id: str, scene_id: str, fx: dict) -> None:
     """Update a scene's FX in the DB."""
-    from database import engine
-    with Session(engine) as session:
-        record = session.get(Script, script_id)
-        if not record:
-            return
-        content = ScriptContent.model_validate(json.loads(record.script_json))
-        for seg in content.segments:
-            for sc in seg.scenes:
-                if sc.id == scene_id:
-                    sc.fx = fx
-                    break
-        record.script_json = content.model_dump_json()
-        session.add(record)
-        session.commit()
+    _persist_scene_update(script_id, scene_id, lambda sc: setattr(sc, "fx", fx))
 
 
 def _persist_scene_eli(script_id: str, scene_id: str, eli_overlay: dict) -> None:
     """Update a scene's Eli overlay in the DB."""
-    from database import engine
-    with Session(engine) as session:
-        record = session.get(Script, script_id)
-        if not record:
-            return
-        content = ScriptContent.model_validate(json.loads(record.script_json))
-        for seg in content.segments:
-            for sc in seg.scenes:
-                if sc.id == scene_id:
-                    sc.eli_overlay = eli_overlay
-                    break
-        record.script_json = content.model_dump_json()
-        session.add(record)
-        session.commit()
+    _persist_scene_update(script_id, scene_id, lambda sc: setattr(sc, "eli_overlay", eli_overlay))

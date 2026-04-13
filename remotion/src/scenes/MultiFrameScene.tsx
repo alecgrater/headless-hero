@@ -7,7 +7,7 @@
  * Subtitle frames (source === "subtitle") render text-on-black instead of <Img>.
  */
 import React from "react";
-import { Img, useCurrentFrame, useVideoConfig, interpolate, spring } from "remotion";
+import { Img, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
 import type { SceneInput, FrameDirective } from "../types";
 
 interface Props {

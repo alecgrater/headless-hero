@@ -2,6 +2,7 @@ import React from "react";
 import { Composition } from "remotion";
 import { FullVideo } from "./FullVideo";
 import type { FullVideoProps } from "./types";
+import { CHAPTER_TRANSITION_SECONDS } from "./utils/timing";
 import "./styles.css";
 
 // Remotion 4 expects LooseComponentType<Record<string, unknown>>.
@@ -28,7 +29,6 @@ export const Root: React.FC = () => {
         }}
         calculateMetadata={({ props }) => {
           const p = props as unknown as FullVideoProps;
-          const CHAPTER_TRANSITION_SECONDS = 2; // 60 frames at 30fps
           const totalSceneSeconds = p.segments.reduce(
             (sum, seg) =>
               sum +

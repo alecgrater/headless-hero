@@ -393,16 +393,6 @@ def _has_background(img: "Image.Image", filename: str = "") -> bool:
     return has_bg
 
 
-def _corners_are_opaque(img: "Image.Image") -> bool:
-    """Check if all four corners of an RGBA image are fully opaque."""
-    w, h = img.size
-    corners = [
-        img.getpixel((5, 5)), img.getpixel((w - 6, 5)),
-        img.getpixel((5, h - 6)), img.getpixel((w - 6, h - 6)),
-    ]
-    return all(c[3] == 255 for c in corners)
-
-
 def _remove_background(src_path: str, dst_path: str) -> None:
     """Remove background from generated image using rembg + chroma key fallback."""
     from PIL import Image

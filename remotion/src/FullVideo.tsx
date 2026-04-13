@@ -8,9 +8,9 @@ import type { FullVideoProps, SceneInput, ChapterMarker } from "./types";
 import { SceneRenderer } from "./scenes/SceneRenderer";
 import { AnimatedChapterMap } from "./effects/structural/AnimatedChapterMap";
 import { ChapterIndicator } from "./effects/overlays/ChapterIndicator";
-import { secondsToFrames } from "./utils/timing";
+import { secondsToFrames, CHAPTER_TRANSITION_SECONDS } from "./utils/timing";
 
-const CHAPTER_TRANSITION_FRAMES = 60; // 2 seconds at 30fps
+const CHAPTER_TRANSITION_FRAMES = CHAPTER_TRANSITION_SECONDS * 30;
 
 export const FullVideo: React.FC<FullVideoProps> = ({
   segments,

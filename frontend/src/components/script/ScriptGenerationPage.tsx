@@ -144,7 +144,7 @@ export default function ScriptGenerationPage({
               };
               setGenSegments(progress);
               // Mark previous segments as completed
-              setGenCompletedSegments((prev) => {
+              setGenCompletedSegments((_prev) => {
                 const completed = [];
                 for (let i = 1; i < progress.segment; i++) {
                   completed.push(i);

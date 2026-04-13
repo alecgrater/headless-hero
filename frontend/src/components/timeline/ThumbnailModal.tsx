@@ -45,7 +45,7 @@ export default function ThumbnailModal({ thumbnails, generating, onGenerate, onC
                     <img
                       src={assetUrl(t.image_url)}
                       alt={t.title_text}
-                      onClick={() => setSelectedUrl(assetUrl(t.image_url))}
+                      onClick={() => setSelectedUrl(assetUrl(t.image_url!))}
                       className="w-full aspect-video object-cover rounded-lg border border-neutral-700 cursor-pointer hover:border-violet-500 transition-colors"
                     />
                     <a

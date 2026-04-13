@@ -147,8 +147,6 @@ export const CaptionOverlay: React.FC<Props> = ({ words, wordTimestamps }) => {
   );
 };
 
-// Keep old export name for backwards compatibility
-export const KineticCaption = CaptionOverlay;
 
 // ─── Suppression mapping ────────────────────────────────────────────
 
