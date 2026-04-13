@@ -8,7 +8,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from config import strip_markdown_fences
+from config import ALLOWED_SEGMENT_COUNTS, snap_segment_count, strip_markdown_fences
 from integrations.claude_client import chat
 from models.script import Scene, ScriptContent, Segment
 
@@ -117,13 +117,12 @@ def generate_script(
     if description:
         user_parts.append(f"Angle/description: {description}")
     if segment_count:
-        # Constrain to even numbers for balanced grid layouts
-        if segment_count % 2 != 0:
-            segment_count = segment_count + 1
+        segment_count = snap_segment_count(segment_count)
         user_parts.append(f"Target segment count: {segment_count}")
     else:
+        allowed = " or ".join(str(n) for n in ALLOWED_SEGMENT_COUNTS)
         user_parts.append(
-            "Use exactly 8 or 10 segments (pick the most appropriate count for the topic)."
+            f"Use exactly {allowed} segments (pick the most appropriate count for the topic)."
         )
     if brand_context:
         user_parts.append(f"Brand context (use for visual style and tone): {brand_context}")

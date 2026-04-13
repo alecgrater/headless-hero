@@ -26,6 +26,17 @@ IMAGE_HEIGHT = 768
 # Frames per second for all video rendering
 FPS = 30
 
+# Allowed segment counts for video scripts (8 or 10 only)
+ALLOWED_SEGMENT_COUNTS = (8, 10)
+
+
+def snap_segment_count(n: int) -> int:
+    """Snap an arbitrary segment count to the nearest allowed value (8 or 10).
+
+    Ties (e.g. 9) round up to the higher count.
+    """
+    return min(ALLOWED_SEGMENT_COUNTS, key=lambda x: (abs(x - n), -x))
+
 
 def strip_markdown_fences(text: str) -> str:
     """Strip markdown code fences (```json ... ```) from an LLM response."""

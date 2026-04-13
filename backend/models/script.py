@@ -142,7 +142,7 @@ class GenerateScriptRequest(BaseModel):
     description: str = PydanticField(default="", description="Optional topic description or angle")
     brand_id: str | None = PydanticField(default=None, description="Brand profile ID (auto-resolved if omitted)")
     segment_count: Literal[8, 10] | None = PydanticField(
-        default=None, description="Desired number of segments — must be 8 or 10 (Claude decides if omitted)"
+        default=None, description="Desired number of segments — must be 8 or 10 (see config.ALLOWED_SEGMENT_COUNTS)"
     )
     animated_scene_count: int = PydanticField(
         default=5, ge=0, le=50, description="Number of scenes to make animated A/B flip (0 = none)"
