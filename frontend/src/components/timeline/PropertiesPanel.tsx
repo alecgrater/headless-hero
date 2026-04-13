@@ -28,7 +28,6 @@ export default function PropertiesPanel({
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
-  const [textOverlay, setTextOverlay] = useState(scene.text_overlay);
   const [duration, setDuration] = useState(
     String(scene.duration_estimate_seconds),
   );
@@ -43,7 +42,6 @@ export default function PropertiesPanel({
       sceneIdRef.current = scene.id;
       setNarration(scene.narration);
       setVisualPrompt(scene.visual_prompt);
-      setTextOverlay(scene.text_overlay);
       setDuration(String(scene.duration_estimate_seconds));
       setIsTitleCard(scene.is_title_card);
       setFramePrompts(scene.frame_prompts || []);
@@ -113,18 +111,8 @@ export default function PropertiesPanel({
             </div>
           )}
 
-          {/* Text Overlay + settings row pinned at bottom */}
+          {/* Settings row pinned at bottom */}
           <div className="shrink-0 space-y-1">
-            <div>
-              <span className="text-xs font-medium text-neutral-400">Text Overlay</span>
-              <input
-                type="text"
-                value={textOverlay}
-                onChange={(e) => setTextOverlay(e.target.value)}
-                onBlur={() => commitField("text_overlay", textOverlay)}
-                className="w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg px-2 py-1.5 border border-neutral-700/50 focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30 mt-0.5"
-              />
-            </div>
             <div className="flex items-end gap-3 pt-1 border-t border-neutral-800/40">
               <label className="space-y-0.5">
                 <span className="text-[10px] font-medium text-neutral-500">Duration</span>

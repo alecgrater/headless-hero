@@ -134,7 +134,6 @@ def _scene_to_input_props(scene: Scene, script_id: str, eli_position: dict | Non
         "id": scene.id,
         "narration": scene.narration,
         "visual_prompt": scene.visual_prompt,
-        "text_overlay": scene.text_overlay,
         "duration_seconds": duration,
         "is_title_card": scene.is_title_card,
         "image_path": image_path,

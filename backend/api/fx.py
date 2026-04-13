@@ -135,7 +135,6 @@ def regenerate_scene_fx(body: RegenerateFXRequest, session: Session = Depends(ge
         "is_title_card": target_scene.is_title_card,
         "narration": target_scene.narration[:200],
         "visual_prompt": target_scene.visual_prompt[:100],
-        "text_overlay": target_scene.text_overlay,
         "duration_seconds": duration,
         "duration_frames": round(duration * FPS),
         "has_multiple_frames": bool(target_scene.frame_urls and len(target_scene.frame_urls) > 1),

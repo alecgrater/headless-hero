@@ -37,7 +37,6 @@ export default function ScriptGenerationPage({
   // Editing state
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editNarration, setEditNarration] = useState("");
-  const [editOverlay, setEditOverlay] = useState("");
   const [editHookText, setEditHookText] = useState("");
   const [editedScenes, setEditedScenes] = useState<Set<string>>(new Set());
   const [refiningScene, setRefiningScene] = useState<string | null>(null);
@@ -208,7 +207,6 @@ export default function ScriptGenerationPage({
     const key = `${si}-${scene.id}`;
     setEditingKey(key);
     setEditNarration(scene.narration);
-    setEditOverlay(scene.text_overlay);
   };
 
   const cancelEdit = () => {
@@ -221,7 +219,6 @@ export default function ScriptGenerationPage({
     const scene = updated.segments[si].scenes.find((s) => s.id === sceneId);
     if (!scene) return;
     scene.narration = editNarration;
-    scene.text_overlay = editOverlay;
     setScript(updated);
     setEditingKey(null);
     setEditedScenes((prev) => new Set(prev).add(sceneId));
@@ -733,17 +730,6 @@ export default function ScriptGenerationPage({
                               onChange={(e) => setEditNarration(e.target.value)}
                             />
                           </div>
-                          <div>
-                            <label className="text-xs text-neutral-500 mb-1 block">
-                              Text Overlay
-                            </label>
-                            <input
-                              type="text"
-                              className="w-full bg-neutral-800 border border-neutral-700 rounded-md px-3 py-2 text-neutral-200 text-sm focus:outline-none focus:border-violet-500"
-                              value={editOverlay}
-                              onChange={(e) => setEditOverlay(e.target.value)}
-                            />
-                          </div>
                           <div className="flex gap-2">
                             <button
                               onClick={() => saveSceneEdit(si, scene.id)}
@@ -764,11 +750,6 @@ export default function ScriptGenerationPage({
                           <p className="text-neutral-200 text-sm leading-relaxed">
                             {scene.narration}
                           </p>
-                          {scene.text_overlay && (
-                            <p className="text-xs text-amber-400/80 mt-1">
-                              Overlay: {scene.text_overlay}
-                            </p>
-                          )}
                           {wasEdited && (
                             <button
                               onClick={(e) => {

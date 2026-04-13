@@ -105,7 +105,6 @@ export interface SceneInput {
   id: string;
   narration: string;
   visual_prompt: string;
-  text_overlay: string;
   duration_seconds: number;
   is_title_card: boolean;
   // Asset paths (absolute filesystem paths)

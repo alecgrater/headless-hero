@@ -248,7 +248,6 @@ headless-hero/
           "id": "scene_001",
           "narration": "Caffeine is a stimulant, a chemical that speeds up your brain...",
           "visual_prompt": "Flat illustration of a glowing coffee cup with neural pathways emanating from it, dark background, muted earth tones",
-          "text_overlay": "CAFFEINE",
           "duration_estimate_seconds": 8,
           "is_title_card": true
         },
@@ -256,7 +255,6 @@ headless-hero/
           "id": "scene_002",
           "narration": "Once you drink it, caffeine enters your bloodstream and quickly travels to your brain...",
           "visual_prompt": "Cross-section illustration of a human brain with caffeine molecules (shown as small glowing dots) traveling through blood vessels toward brain receptors",
-          "text_overlay": "Blocks adenosine → hides exhaustion",
           "duration_estimate_seconds": 12,
           "is_title_card": false
         }

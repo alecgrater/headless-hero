@@ -331,7 +331,6 @@ export function useTimelineState(
           duration_estimate_seconds:
             current.duration_estimate_seconds +
             next.duration_estimate_seconds,
-          text_overlay: current.text_overlay || next.text_overlay,
         };
 
         const segments = prev.segments.map((seg, si) => {
@@ -384,7 +383,6 @@ export function useTimelineState(
               id: generateId(),
               narration: "",
               visual_prompt: "",
-              text_overlay: "",
               duration_estimate_seconds: 8,
               is_title_card: false,
             },
@@ -516,7 +514,7 @@ export function useTimelineState(
             scenes.push({
               scene_id: sc.id,
               visual_prompt: sc.visual_prompt,
-              name: sc.text_overlay || sc.narration.slice(0, 40) || sc.id,
+              name: sc.narration.slice(0, 40) || sc.id,
               frame_prompts: sc.frame_prompts || [],
               frame_directives: sc.frame_directives || [],
             });
@@ -716,7 +714,7 @@ export function useTimelineState(
             scenes.push({
               scene_id: sc.id,
               narration: sc.narration,
-              name: sc.text_overlay || sc.narration.slice(0, 40) || sc.id,
+              name: sc.narration.slice(0, 40) || sc.id,
             });
           }
         }

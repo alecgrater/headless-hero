@@ -181,7 +181,7 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
         raise HTTPException(status_code=400, detail="Script has no segments")
 
     first_seg = content.segments[0]
-    title = first_seg.scenes[0].text_overlay or "Untitled" if first_seg.scenes else "Untitled"
+    title = first_seg.name if first_seg.scenes else "Untitled"
     seg_name = first_seg.name
 
     # Collect non-title-card scenes in first segment for processing

@@ -19,7 +19,6 @@ Rules:
 - Maintain the same conversational, engaging tone as the rest of the script.
 - Keep the narration length roughly the same (do not drastically expand or shrink).
 - Preserve any new facts, angles, or emphasis the human introduced.
-- If the text_overlay was edited, polish it to be punchy (1-6 words).
 - Keep the visual_prompt and other fields unchanged unless they conflict with the \
   edited narration (in which case, update the visual_prompt to match).
 - Return ONLY valid JSON — no markdown fences, no commentary.
@@ -54,7 +53,6 @@ def refine_scene(
             context_scenes.append({
                 "id": sc.id,
                 "narration": sc.narration,
-                "text_overlay": sc.text_overlay,
             })
 
     user_message = json.dumps({

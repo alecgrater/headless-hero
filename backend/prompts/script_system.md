@@ -19,7 +19,6 @@ Output rules:
           "id": "scene_001",
           "narration": "The narration text the voiceover artist reads.",
           "visual_prompt": "Primary/summary description of what the illustration should depict.",
-          "text_overlay": "Key text to display on screen (short phrase).",
           "duration_estimate_seconds": 8,
           "is_title_card": false,
           "visual_beat": "quick_cuts",

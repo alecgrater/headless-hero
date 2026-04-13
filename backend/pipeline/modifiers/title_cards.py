@@ -30,11 +30,9 @@ Pick thematically appropriate colors — each segment gets a unique color.
   - "title_card_image_prompt": A vivid visual description for the AI-generated circle image. \
 Describe a single iconic subject centered on a clean background, matching the brand art style. \
 Keep it simple and readable at small sizes (it will be cropped into a circle).
-- The first scene of each segment MUST be a title card (is_title_card: true) with the segment \
-name as text_overlay and a short (2-3s) intro narration.
+- The first scene of each segment MUST be a title card (is_title_card: true) with a short (2-3s) intro narration.
 - Title card scenes MUST have visual_prompt set to "" (empty string) — their visuals come from \
 the composite grid card, not individual AI generation.
-- Title card scenes MUST have text_overlay set to the segment name.
 - Each segment MUST have at least 5 scenes (including the title card).
 - Segment count MUST be exactly 6, 8, 10, or 12 for balanced grid layouts."""
 
@@ -135,7 +133,6 @@ def enforce_title_cards_and_min_scenes(content: ScriptContent) -> ScriptContent:
                 id=f"scene_{scene_counter:03d}",
                 narration=f"Welcome to {seg.name}.",
                 visual_prompt="",
-                text_overlay=seg.name,
                 duration_estimate_seconds=3.0,
                 is_title_card=True,
             )
@@ -145,8 +142,6 @@ def enforce_title_cards_and_min_scenes(content: ScriptContent) -> ScriptContent:
         for sc in seg.scenes:
             if sc.is_title_card:
                 sc.visual_prompt = ""
-                if not sc.text_overlay:
-                    sc.text_overlay = seg.name
 
         if len(seg.scenes) < 5:
             logger.warning(

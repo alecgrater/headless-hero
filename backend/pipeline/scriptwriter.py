@@ -217,7 +217,6 @@ Return ONLY a valid JSON array of scene objects. Example:
     "id": "scene_001",
     "narration": "...",
     "visual_prompt": "[SHOT_TYPE] ...",
-    "text_overlay": "...",
     "duration_estimate_seconds": 8,
     "is_title_card": false,
     "visual_beat": "quick_cuts",

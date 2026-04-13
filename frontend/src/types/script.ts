@@ -56,7 +56,6 @@ export interface Scene {
   id: string;
   narration: string;
   visual_prompt: string;
-  text_overlay: string;
   duration_estimate_seconds: number;
   is_title_card: boolean;
   image_url?: string;
