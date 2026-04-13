@@ -46,12 +46,15 @@ backend/
   pipeline/        → Business logic (no web framework imports)
   integrations/    → Thin external API wrappers (Claude, Gemini, ElevenLabs, YouTube)
   models/          → SQLModel tables + Pydantic schemas (no logic)
-  pipeline/modifiers/  → Title card modifier (hardcoded on)
+  pipeline/modifiers/title_cards.py → Title card prompt injection + post-processing
+  config.py          → Shared constants (DATA_DIR, FPS, dimensions)
+  dev/               → Dev dashboard (routes, log handler, HTML)
 remotion/          → Remotion 4 video rendering project (React + TypeScript)
   src/scenes/      → Scene components (StaticImage, MultiFrame, TitleCard, Subtitle)
   src/effects/     → Composable FX (camera, typography, transitions, overlays, structural)
   src/types.ts     → Input props types mirroring Python SceneFX models
 data/              → Runtime data (SQLite DB, generated assets) — gitignored
+docs/              → PRD, setup guide, superpowers skills
 ```
 
 ## Backend Conventions (Python)
@@ -148,14 +151,14 @@ The app uses a **single auto-created default brand** (no multi-brand picker). Th
 Examples:
 ```
 Fix download buttons navigating away from app instead of downloading
-Update Real Media modifier to encourage mix of real footage and AI art
+Strengthen no-text-in-images instructions across prompt chain
 Remove legacy FFmpeg video rendering pipeline
 ```
 
 ## Environment Variables
 
 Required: `ANTHROPIC_API_KEY`, `GOOGLE_AI_KEY`, `ELEVENLABS_API_KEY`
-Optional: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (YouTube publishing)
+Optional: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (YouTube publishing), `REPLICATE_API_TOKEN` (alternative image provider)
 
 Stored in DB via AppSettings, loaded into env at startup. Never commit `.env` files.
 
@@ -178,7 +181,6 @@ Python writes scene data + FX config to JSON → invokes `npx remotion render` v
 
 ### Compositions
 - **FullVideo** — Renders entire video as one composition (all segments sequenced with transitions)
-- **ScenePreview** — Renders a single scene for preview
 
 ### Scene Types
 - `StaticImageScene` — Single image with zoom punch or parallax motion
