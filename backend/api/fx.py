@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
+from config import FPS
 from database import get_session
 from models.script import Script, ScriptContent
 from pipeline.fx_generator import generate_scene_fx
@@ -64,7 +65,7 @@ def generate_all_fx(body: GenerateFXRequest, session: Session = Depends(get_sess
                 "media_type": scene.media_type or "ai_generated",
                 "narration": scene.narration,
                 "duration_seconds": duration,
-                "duration_frames": int(duration * 30),
+                "duration_frames": int(duration * FPS),
                 "has_multiple_frames": bool(scene.frame_urls and len(scene.frame_urls) > 1),
                 "visual_beat": scene.visual_beat or "static",
             }
@@ -138,7 +139,7 @@ def regenerate_scene_fx(body: RegenerateFXRequest, session: Session = Depends(ge
         "visual_prompt": target_scene.visual_prompt[:100],
         "text_overlay": target_scene.text_overlay,
         "duration_seconds": duration,
-        "duration_frames": round(duration * 30),
+        "duration_frames": round(duration * FPS),
         "has_multiple_frames": bool(target_scene.frame_urls and len(target_scene.frame_urls) > 1),
         "visual_beat": target_scene.visual_beat or "static",
     }

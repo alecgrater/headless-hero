@@ -2,13 +2,12 @@
 
 import logging
 import os
-import re
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Callable
 
-from config import DATA_DIR
+from config import DATA_DIR, sanitize_filename
 from models.script import Scene, ScriptContent
 from pipeline.ffmpeg_builder import build_audio_concat_cmd
 
@@ -24,18 +23,13 @@ def _run_ffmpeg(cmd: list[str]) -> None:
         logger.error("FFmpeg stderr: %s", result.stderr)
         raise RuntimeError(f"FFmpeg failed (exit {result.returncode}): {result.stderr[-500:]}")
 
-def _sanitize_filename(name: str) -> str:
-    """Strip unsafe filesystem characters and truncate to 80 chars."""
-    clean = re.sub(r'[<>:"/\\|?*]', "", name).strip()
-    return clean[:80] if clean else "Untitled"
-
 def copy_to_downloads(title: str, src_path: str, dest_name: str) -> str:
     """Copy a rendered file to the downloads directory.
 
     Returns the destination path.
     """
     base = os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads")
-    folder = Path(base) / _sanitize_filename(title)
+    folder = Path(base) / sanitize_filename(title)
     folder.mkdir(parents=True, exist_ok=True)
     dest = folder / dest_name
     shutil.copy2(src_path, dest)
@@ -95,7 +89,7 @@ def export_full_audio(
 
     if title:
         try:
-            copy_to_downloads(title, output_path, f"{_sanitize_filename(title)} - Audio.mp3")
+            copy_to_downloads(title, output_path, f"{sanitize_filename(title)} - Audio.mp3")
         except Exception:
             logger.warning("Failed to copy audio to downloads", exc_info=True)
 

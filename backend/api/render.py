@@ -10,15 +10,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from config import DATA_DIR
+from config import DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH, sanitize_filename
 from database import get_default_brand_id, get_session
 from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.render_jobs import create_job, estimate_render_time, get_job, run_in_background, update_job
-from pipeline.remotion_render import (
-    _sanitize_filename,
-    render_full_video,
-)
+from pipeline.remotion_render import render_full_video
 from pipeline.video_render import export_full_audio
 
 logger = logging.getLogger(__name__)
@@ -29,8 +26,8 @@ router = APIRouter(prefix="/api/render", tags=["render"])
 
 class RenderFullRequest(BaseModel):
     script_id: str
-    width: int = 1920
-    height: int = 1080
+    width: int = VIDEO_WIDTH
+    height: int = VIDEO_HEIGHT
     title: str = ""
     speed: float = 1.0
 
@@ -334,7 +331,7 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
                     "is_title_card": False,
                     "narration": scene_now.narration,
                     "duration_seconds": duration,
-                    "duration_frames": int(duration * 30),
+                    "duration_frames": int(duration * FPS),
                     "has_multiple_frames": bool(scene_now.frame_urls and len(scene_now.frame_urls) > 1),
                 }
                 if scene_now.word_timestamps:
@@ -362,7 +359,7 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
                     "is_title_card": False,
                     "narration": scene_now.narration,
                     "duration_seconds": duration,
-                    "duration_frames": int(duration * 30),
+                    "duration_frames": int(duration * FPS),
                 }
                 if scene_now.word_timestamps:
                     eli_scene_data["word_timestamps"] = scene_now.word_timestamps
@@ -399,7 +396,7 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
             src_path = video_url
 
         downloads_dir = os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads")
-        safe_title = _sanitize_filename(title)
+        safe_title = sanitize_filename(title)
         dest_path = Path(downloads_dir) / f"TEST_{safe_title}.mp4"
         shutil.copy2(src_path, dest_path)
         logger.info("Export test copied to: %s", dest_path)

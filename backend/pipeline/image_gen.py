@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from config import DATA_DIR
+from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH, VIDEO_HEIGHT, VIDEO_WIDTH
 from integrations.image_client import generate_image
 from integrations.google_image_scraper import scrape_google_image_sync
 
@@ -41,8 +41,8 @@ def generate_scene_image(
     scene_id: str,
     visual_prompt: str,
     script_id: str,
-    width: int = 1344,
-    height: int = 768,
+    width: int = IMAGE_WIDTH,
+    height: int = IMAGE_HEIGHT,
     force: bool = False,
     style_guide: str = "",
 ) -> tuple[str, str]:
@@ -114,8 +114,8 @@ def generate_scene_frames(
     frame_prompts: list[str],
     script_id: str,
     visual_prompt: str = "",
-    width: int = 1344,
-    height: int = 768,
+    width: int = IMAGE_WIDTH,
+    height: int = IMAGE_HEIGHT,
     force: bool = False,
     style_guide: str = "",
 ) -> list[tuple[str, str]]:
@@ -223,8 +223,8 @@ def generate_scene_frames_v2(
     frame_directives: list[dict],
     script_id: str,
     visual_prompt: str = "",
-    width: int = 1344,
-    height: int = 768,
+    width: int = IMAGE_WIDTH,
+    height: int = IMAGE_HEIGHT,
     force: bool = False,
     style_guide: str = "",
 ) -> list[tuple[str, str]]:
@@ -279,8 +279,8 @@ def generate_scene_frames_v2(
             scraped = scrape_google_image_sync(
                 query=directive.search_query,
                 output_path=str(local_path),
-                width=1920,
-                height=1080,
+                width=VIDEO_WIDTH,
+                height=VIDEO_HEIGHT,
             )
             if scraped:
                 prompt_marker.write_text(directive.search_query, encoding="utf-8")
@@ -350,8 +350,8 @@ def generate_scene_frames_v2(
 def generate_batch(
     scenes: list[dict[str, str]],
     script_id: str,
-    width: int = 1344,
-    height: int = 768,
+    width: int = IMAGE_WIDTH,
+    height: int = IMAGE_HEIGHT,
     style_guide: str = "",
 ) -> list[dict[str, str | None]]:
     """Generate images for a list of scenes sequentially.

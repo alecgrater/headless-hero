@@ -1,3 +1,6 @@
+/** Default progress bar color for thumbnails (violet-600 in 0x hex). */
+export const DEFAULT_BAR_COLOR = "0x9333EA";
+
 export const SEGMENT_COLORS = [
   "bg-violet-500",
   "bg-sky-500",

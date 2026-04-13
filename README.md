@@ -11,14 +11,13 @@ Replace the fragmented workflow of ChatGPT + ElevenLabs + Midjourney + InVideo +
 Headless Hero handles the entire content creation pipeline:
 
 1. **Idea Generation** — AI suggests video topics for your niche with keyword analysis
-2. **Script Writing** — Generates segmented scripts with hooks, transitions, and auto-detected TikTok split points
-3. **Storyboard Editing** — Card-based scene editor with drag-and-drop reorder, split, merge, and full editorial control
-4. **Image Generation** — Per-scene AI illustrations enforcing your brand's art style
-5. **Voiceover** — AI voice synthesis with voice cloning support
-6. **Video Assembly** — FFmpeg-based rendering with Ken Burns motion, text overlays, and effects
-7. **Multi-Format Export** — YouTube 16:9 long-form + TikTok/Reels 9:16 per segment
-8. **Thumbnail & SEO** — AI-generated thumbnails and optimized metadata for YouTube, TikTok, and Instagram
-9. **YouTube Publishing** — Direct upload with scheduling via OAuth2
+2. **Script Writing** — Generates segmented scripts with visual storytelling arc, hooks, and transitions
+3. **Timeline Editing** — Lane-based timeline editor with scene editing, split, merge, and full editorial control
+4. **Image Generation** — Per-scene AI illustrations via Google Gemini or Replicate Flux
+5. **Voiceover** — AI voice synthesis with voice cloning support via ElevenLabs
+6. **Video Rendering** — Remotion-based frame-by-frame rendering with kinetic captions, zoom punch, and Eli character overlay
+7. **Thumbnail & SEO** — AI-generated thumbnails and optimized metadata for YouTube
+8. **YouTube Publishing** — Direct upload via OAuth2
 
 ## Architecture
 
@@ -27,9 +26,9 @@ The app is structured as four layers:
 | Layer | Tech | Role |
 |-------|------|------|
 | **Desktop Shell** | Electron 41 | Window management, IPC bridge, system integration |
-| **Frontend** | React 19, Vite, TypeScript, Tailwind 4 | UI views: brands, ideation, script editor, storyboard, export/publish |
+| **Frontend** | React 19, Vite, TypeScript, Tailwind 4 | UI views: dashboard, ideation, script editor, timeline, settings |
 | **Backend** | FastAPI, Python 3.12, uv, SQLite (SQLModel) | REST API on `:8420`, database, static file serving |
-| **Pipeline** | Claude API, Google Gemini, ElevenLabs, FFmpeg | AI orchestration: ideation, scriptwriting, image gen, TTS, rendering, SEO, publishing |
+| **Pipeline** | Claude API, Google Gemini, ElevenLabs, Remotion, FFmpeg | AI orchestration: ideation, scriptwriting, image gen, TTS, video rendering, SEO, publishing |
 
 ### API Routes
 
@@ -38,12 +37,16 @@ The app is structured as four layers:
 | `/api/brands` | Brand profile CRUD |
 | `/api/ideas` | AI topic generation |
 | `/api/scripts` | Script generation and editing |
-| `/api/visuals` | Image generation (single + batch) |
+| `/api/visuals` | Image generation (single + batch + multi-frame) |
 | `/api/voice` | TTS generation, batch audio, voice cloning, voice listing |
-| `/api/render` | Video rendering (preview, full, segments, status, export audio) |
+| `/api/render` | Video rendering (full, export test, status, export audio) |
+| `/api/fx` | AI-powered FX generation (kinetic captions, zoom punch) |
+| `/api/eli` | Eli character animation keyframe generation |
+| `/api/character` | Character frame library management |
 | `/api/thumbnail` | Thumbnail generation |
 | `/api/seo` | SEO metadata generation |
 | `/api/publish` | YouTube OAuth, upload, status, history |
+| `/api/settings` | API key management |
 | `/dev/` | Dev dashboard (log viewer, job monitor, API tester, DB inspector, usage tracker) |
 
 ### External Services
@@ -52,9 +55,10 @@ The app is structured as four layers:
 |---------|---------|---------|
 | [Anthropic Claude](https://console.anthropic.com/) | Ideas, scripts, SEO, thumbnail concepts | `ANTHROPIC_API_KEY` |
 | [Google Gemini](https://ai.google.dev/) | Image generation (gemini-2.5-flash) | `GOOGLE_AI_KEY` |
+| [Replicate](https://replicate.com/) | Alternative image generation (Flux) | `REPLICATE_API_TOKEN` (optional) |
 | [ElevenLabs](https://elevenlabs.io/) | Text-to-speech + voice cloning | `ELEVENLABS_API_KEY` |
-| [YouTube Data API v3](https://console.cloud.google.com/) | Video upload + scheduling | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
-| FFmpeg 8.1 | Video rendering, Ken Burns, overlays, concat, 9:16 export | System install |
+| [YouTube Data API v3](https://console.cloud.google.com/) | Video upload | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
+| FFmpeg 8.1 | Audio concatenation | System install |
 
 ## Prerequisites
 
@@ -122,18 +126,21 @@ headless-hero/
 │       ├── api.ts            # API client, assetUrl(), error interceptor
 │       ├── App.tsx           # Root component with view routing
 │       ├── components/
-│       │   ├── brand/        # Brand profile management
-│       │   ├── ideation/     # Idea generation UI
-│       │   ├── script/       # Script editor
-│       │   ├── storyboard/   # Storyboard editor (scene cards, properties,
-│       │   │                 #   grid, render state, publish state)
+│       │   ├── brand/        # Voice setup modal + voice cloning
 │       │   ├── dashboard/    # Project list and management
-│       │   ├── settings/     # API key and app settings
+│       │   ├── ideation/     # Idea generation UI
+│       │   ├── script/       # Script generation + editing
+│       │   ├── settings/     # API keys, voice, character, general settings
+│       │   ├── shared/       # Shared components (EliPositionPicker)
+│       │   ├── timeline/     # Timeline editor (lanes, blocks, properties,
+│       │   │                 #   export, render/publish state hooks)
 │       │   ├── ErrorBoundary.tsx
+│       │   ├── GenerationProgressBar.tsx
 │       │   └── ToastContainer.tsx
-│       └── types/            # TypeScript interfaces (visual, audio, render, publish)
+│       └── types/            # TypeScript interfaces (script, audio, render, publish, etc.)
 ├── backend/
-│   ├── config.py            # Shared constants (DATA_DIR, DEFAULT_TTS_MODEL, etc.)
+│   ├── config.py            # Shared constants (DATA_DIR, FPS, dimensions, utilities)
+│   ├── database.py          # SQLite engine + session dependency
 │   ├── api/
 │   │   ├── __init__.py       # FastAPI app, router registration, static mount
 │   │   ├── brands.py         # Brand CRUD endpoints
@@ -142,28 +149,32 @@ headless-hero/
 │   │   ├── visuals.py        # Image generation (single + batch)
 │   │   ├── voiceover.py      # TTS generation + voice cloning
 │   │   ├── render.py         # Video render endpoints + job status
+│   │   ├── fx.py             # FX generation (kinetic captions, zoom punch)
+│   │   ├── eli.py            # Eli animation keyframe generation
+│   │   ├── character.py      # Character frame library management
 │   │   ├── thumbnail.py      # Thumbnail generation
 │   │   ├── seo.py            # SEO metadata generation
 │   │   ├── publish.py        # YouTube OAuth + upload
 │   │   ├── settings.py       # API key management
-│   │   ├── generation.py     # Generation time estimates
-│   │   ├── media.py          # Real media fetch (gameplay clips)
-│   │   └── database.py       # SQLite engine + session dependency
+│   │   └── generation.py     # Generation time estimates
 │   ├── pipeline/
 │   │   ├── ideation.py       # Idea generation via Claude
 │   │   ├── scriptwriter.py   # Script generation via Claude
 │   │   ├── image_gen.py      # Image gen: prompt → Gemini → local file
 │   │   ├── voiceover.py      # TTS: ElevenLabs → MP3 + duration
-│   │   ├── video_render.py   # Render orchestration (scenes → full video)
+│   │   ├── remotion_render.py # Remotion CLI orchestration → full video
+│   │   ├── video_render.py   # Audio concatenation via FFmpeg
 │   │   ├── ffmpeg_builder.py # FFmpeg CLI arg construction
 │   │   ├── render_jobs.py    # Background job tracking with threading
+│   │   ├── fx_generator.py   # Claude-powered FX assignment
+│   │   ├── eli_animator.py   # Claude-powered Eli animation
+│   │   ├── character_frames.py # Eli frame library generation
 │   │   ├── thumbnail.py      # Claude concepts + Gemini + FFmpeg composite
 │   │   ├── seo.py            # SEO metadata via Claude
 │   │   ├── publishing.py     # YouTube upload orchestration
-│   │   ├── shortform_scriptwriter.py  # Short-form script generation
-│   │   ├── shortform_render.py        # 9:16 vertical video rendering
-│   │   ├── media_fetcher.py  # Real media via yt-dlp
-│   │   ├── auto_editor.py    # Auto-edit timeline generation
+│   │   ├── title_card.py     # Per-segment title card generation
+│   │   ├── title_card_composer.py # Composite title card grid assembly
+│   │   ├── refine.py         # Scene refinement
 │   │   └── modifiers/        # Content modifier plugin system
 │   ├── integrations/
 │   │   ├── claude_client.py       # Anthropic SDK wrapper
@@ -172,10 +183,11 @@ headless-hero/
 │   │   ├── youtube_client.py      # YouTube Data API v3 wrapper
 │   │   ├── replicate_client.py    # Replicate API wrapper (optional)
 │   │   ├── image_client.py        # Image provider router (Google/Replicate)
+│   │   ├── google_image_scraper.py # Google Image scraping for real photos
 │   │   └── usage_tracker.py       # API usage recording + pricing constants
 │   ├── models/
 │   │   ├── brand.py          # BrandProfile table + schemas
-│   │   ├── script.py         # Script table + Scene/Segment models
+│   │   ├── script.py         # Script table + Scene/Segment/FX models
 │   │   ├── credential.py     # OAuth token storage
 │   │   ├── publish.py        # Upload history tracking
 │   │   ├── settings.py       # Key-value app settings
@@ -187,21 +199,31 @@ headless-hero/
 │   │   └── dashboard.html    # Self-contained dashboard UI
 │   ├── prompts/              # LLM system prompt guides (.md files)
 │   └── pyproject.toml        # Python dependencies (uv)
-├── data/
+├── remotion/
+│   └── src/
+│       ├── Root.tsx           # Remotion composition definitions
+│       ├── FullVideo.tsx      # Main video composition (all scenes sequenced)
+│       ├── scenes/            # Scene components (StaticImage, MultiFrame,
+│       │                      #   TitleCard, Subtitle, SceneRenderer)
+│       ├── effects/
+│       │   ├── camera/        # ZoomPunch effect
+│       │   ├── typography/    # KineticCaption overlay
+│       │   ├── overlays/      # EliOverlay, ChapterIndicator
+│       │   └── structural/    # AnimatedChapterMap
+│       ├── utils/             # Frame/second conversion helpers
+│       └── types.ts           # Input props types mirroring Python models
+├── data/                      # Runtime data (gitignored)
 │   ├── db.sqlite             # SQLite database
+│   ├── character/            # Eli frame library
 │   └── projects/             # Generated assets per script
 │       └── {script_id}/
 │           ├── images/       # Scene images (.png)
 │           ├── audio/        # Scene audio (.mp3)
-│           ├── renders/      # Rendered videos
-│           │   ├── scenes/   # Individual scene videos
-│           │   ├── tiktok/   # 9:16 segment exports
-│           │   └── thumbnails/
-│           └── full_youtube.mp4
-├── package.json              # Root package (Electron + concurrently)
+│           └── renders/      # Rendered videos + thumbnails
 ├── docs/
 │   ├── PRD.md                # Product Requirements Document
 │   └── SETUP.md              # API keys & service setup guide
+├── package.json              # Root package (Electron + concurrently)
 └── CLAUDE.md                 # Development conventions & AI instructions
 ```
 
@@ -283,13 +305,14 @@ Logs are stored in SQLite (`data/db.sqlite` in the `dev_logs` table) and persist
 
 ### How It Works
 
-1. **Brand Setup** — Create a brand profile with art style, voice preferences, and color palette
+1. **Brand Setup** — Configure voice preferences and Eli character overlay in Settings
 2. **Ideate** — Enter a niche/topic, Claude generates video ideas with keyword analysis
-3. **Script** — Select an idea, Claude writes a segmented script with narration and scene descriptions
-4. **Storyboard** — Edit scenes in the card-based editor. Generate images (Gemini) and audio (ElevenLabs) per scene
-5. **Render** — FFmpeg assembles scenes into a full video with Ken Burns motion, text overlays, and transitions
-6. **Export** — Download YouTube 16:9 video, TikTok 9:16 clips per segment, audio-only, and thumbnails
-7. **Publish** — Upload directly to YouTube with scheduling, copy metadata for TikTok/Instagram
+3. **Script** — Select an idea, Claude writes a segmented script with narration, scene descriptions, and title cards
+4. **Timeline** — Edit scenes in the lane-based timeline editor. Generate images (Gemini) and audio (ElevenLabs) per scene
+5. **Effects** — AI generates kinetic captions and zoom punch effects; Eli character animation keyframes
+6. **Render** — Remotion renders the full video with all effects, overlays, and transitions
+7. **Export** — Download YouTube 16:9 video, audio-only, and thumbnails
+8. **Publish** — Upload directly to YouTube with metadata
 
 ### Caching
 

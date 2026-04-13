@@ -10,7 +10,7 @@ Chapter markers are computed deterministically in remotion_render.py — no AI n
 import json
 import logging
 
-from config import strip_markdown_fences
+from config import FPS, strip_markdown_fences
 from integrations.claude_client import chat
 from models.script import SceneFX
 
@@ -238,7 +238,7 @@ def _apply_word_timestamps(
                 start_ms = ts_by_word[clean_word]
 
         if start_ms is not None:
-            start_frame = int(start_ms / 1000 * 30)
+            start_frame = int(start_ms / 1000 * FPS)
         else:
             # Position-based fallback: estimate from word_index / total_words
             if total_words > 0:
@@ -292,7 +292,7 @@ def generate_scene_fx(scene_data: dict) -> dict:
     fx_data = _apply_word_timestamps(
         fx_data,
         scene_data.get("word_timestamps"),
-        scene_data.get("duration_frames", int(scene_data.get("duration_seconds", 8) * 30)),
+        scene_data.get("duration_frames", int(scene_data.get("duration_seconds", 8) * FPS)),
     )
 
     SceneFX.model_validate(fx_data)

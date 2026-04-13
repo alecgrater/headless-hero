@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
+from config import FPS
 from database import get_session
 from models.script import Script, ScriptContent
 from pipeline.eli_animator import generate_scene_eli
@@ -65,7 +66,7 @@ def generate_all_eli(body: GenerateEliRequest, session: Session = Depends(get_se
                 "is_title_card": False,
                 "narration": scene.narration,
                 "duration_seconds": duration,
-                "duration_frames": int(duration * 30),
+                "duration_frames": int(duration * FPS),
             }
             if scene.word_timestamps:
                 scene_data["word_timestamps"] = scene.word_timestamps
@@ -133,7 +134,7 @@ def regenerate_scene_eli_endpoint(body: RegenerateEliRequest, session: Session =
         "is_title_card": False,
         "narration": target_scene.narration,
         "duration_seconds": duration,
-        "duration_frames": int(duration * 30),
+        "duration_frames": int(duration * FPS),
     }
     if target_scene.word_timestamps:
         scene_data["word_timestamps"] = target_scene.word_timestamps

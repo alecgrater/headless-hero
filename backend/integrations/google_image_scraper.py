@@ -14,6 +14,8 @@ from pathlib import Path
 import httpx
 from PIL import Image
 
+from config import VIDEO_HEIGHT, VIDEO_WIDTH
+
 logger = logging.getLogger(__name__)
 
 _USER_AGENT = (
@@ -84,8 +86,8 @@ def _resize_center_crop(img: Image.Image, width: int, height: int) -> Image.Imag
 def scrape_google_image_sync(
     query: str,
     output_path: str,
-    width: int = 1920,
-    height: int = 1080,
+    width: int = VIDEO_WIDTH,
+    height: int = VIDEO_HEIGHT,
 ) -> str | None:
     """Search Google Images, download top result, resize to target dimensions.
 

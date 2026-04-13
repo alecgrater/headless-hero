@@ -1,6 +1,7 @@
 """Shared configuration constants and utilities for the backend."""
 
 import os
+import re
 from pathlib import Path
 
 # Root data directory — resolved from env vars with fallback to `<repo>/data`
@@ -14,6 +15,17 @@ DATA_DIR = Path(
 # Default ElevenLabs TTS model
 DEFAULT_TTS_MODEL = "eleven_multilingual_v2"
 
+# Video output dimensions (YouTube 16:9)
+VIDEO_WIDTH = 1920
+VIDEO_HEIGHT = 1080
+
+# Default image generation dimensions (landscape, optimized for AI models)
+IMAGE_WIDTH = 1344
+IMAGE_HEIGHT = 768
+
+# Frames per second for all video rendering
+FPS = 30
+
 
 def strip_markdown_fences(text: str) -> str:
     """Strip markdown code fences (```json ... ```) from an LLM response."""
@@ -23,3 +35,9 @@ def strip_markdown_fences(text: str) -> str:
     if text.endswith("```"):
         text = text[:-3]
     return text.strip()
+
+
+def sanitize_filename(name: str) -> str:
+    """Strip unsafe filesystem characters and truncate to 80 chars."""
+    clean = re.sub(r'[<>:"/\\|?*]', "", name).strip()
+    return clean[:80] if clean else "Untitled"

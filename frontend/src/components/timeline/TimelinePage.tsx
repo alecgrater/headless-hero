@@ -16,6 +16,7 @@ import { usePublishState } from "./usePublishState";
 import { useRenderState } from "./useRenderState";
 import { useTimelineState } from "./useTimelineState";
 import { useKeyboardShortcuts, ShortcutHelpOverlay } from "./useKeyboardShortcuts";
+import { DEFAULT_BAR_COLOR } from "./constants";
 
 interface Props {
   scriptId: string;
@@ -470,7 +471,7 @@ function TimelineEditor({
     try {
       const res = await api.post("/api/thumbnail/generate", {
         script_id: scriptId,
-        bar_color: "0x9333EA",
+        bar_color: DEFAULT_BAR_COLOR,
         title,
       });
       if (res.ok && !thumbnailsCancelledRef.current) {

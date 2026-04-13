@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api";
+import { DEFAULT_BAR_COLOR } from "./constants";
 import type {
   ExportAudioResponse,
   GenerateSEOResponse,
@@ -145,7 +146,7 @@ export function useRenderState(scriptId: string, title: string): RenderState {
   }, [scriptId, title]);
 
   const generateThumbnails = useCallback(
-    async (barColor = "0x9333EA") => {
+    async (barColor = DEFAULT_BAR_COLOR) => {
       setThumbnailsGenerating(true);
       try {
         const res = await api.post("/api/thumbnail/generate", {

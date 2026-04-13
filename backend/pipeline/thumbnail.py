@@ -12,11 +12,11 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from config import DATA_DIR, strip_markdown_fences
+from config import DATA_DIR, sanitize_filename, strip_markdown_fences
 from integrations.claude_client import chat
 from integrations.google_image_client import generate_image
 from pipeline.ffmpeg_builder import build_thumbnail_composite_cmd
-from pipeline.video_render import copy_to_downloads, _sanitize_filename
+from pipeline.video_render import copy_to_downloads
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +120,7 @@ def generate_thumbnail(
 
     if title:
         try:
-            copy_to_downloads(title, final_path, f"{_sanitize_filename(title)} - Thumbnail {idx + 1}.png")
+            copy_to_downloads(title, final_path, f"{sanitize_filename(title)} - Thumbnail {idx + 1}.png")
         except Exception:
             logger.warning("Failed to copy thumbnail to downloads", exc_info=True)
 

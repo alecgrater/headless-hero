@@ -3,7 +3,7 @@
 import json
 import logging
 
-from config import DEFAULT_TTS_MODEL
+from config import DEFAULT_TTS_MODEL, FPS
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlmodel import Session
@@ -95,7 +95,7 @@ def _update_scene_audio(
                     fx_data = scene.fx if isinstance(scene.fx, dict) else scene.fx
                     captions = fx_data.get("kinetic_captions") if isinstance(fx_data, dict) else None
                     if captions and captions.get("words"):
-                        duration_frames = round(duration_seconds * 30)
+                        duration_frames = round(duration_seconds * FPS)
                         scene.fx = _apply_word_timestamps(fx_data, word_timestamps, duration_frames)
                 break
     record.script_json = content.model_dump_json()

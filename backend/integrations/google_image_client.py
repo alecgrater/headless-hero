@@ -7,6 +7,7 @@ import tempfile
 from google import genai
 from google.genai import types
 
+from config import IMAGE_HEIGHT, IMAGE_WIDTH
 from integrations.google_image_scraper import scrape_google_image_sync
 from integrations.usage_tracker import record_usage, GOOGLE_IMAGE_PER_CALL
 
@@ -82,8 +83,8 @@ def _call_gemini(
 
 def generate_image(
     prompt: str,
-    width: int = 1344,
-    height: int = 768,
+    width: int = IMAGE_WIDTH,
+    height: int = IMAGE_HEIGHT,
     seed: int | None = None,
     reference_image_path: str | None = None,
     original_prompt: str | None = None,

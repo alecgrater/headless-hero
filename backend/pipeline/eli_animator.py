@@ -9,7 +9,7 @@ word_timestamps.
 import json
 import logging
 
-from config import strip_markdown_fences
+from config import FPS, strip_markdown_fences
 from integrations.claude_client import chat
 from pipeline.character_frames import get_manifest
 
@@ -104,7 +104,7 @@ def generate_scene_eli(scene_data: dict) -> dict:
     eli_overlay = result.get("eli_overlay", {})
 
     # Post-process: validate and clamp keyframes
-    duration_frames = scene_data.get("duration_frames", int(scene_data.get("duration_seconds", 8) * 30))
+    duration_frames = scene_data.get("duration_frames", int(scene_data.get("duration_seconds", 8) * FPS))
     keyframes = eli_overlay.get("keyframes", [])
 
     valid_ids = {f["id"] for f in manifest["frames"]}

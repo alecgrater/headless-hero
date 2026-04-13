@@ -9,11 +9,13 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+from config import VIDEO_HEIGHT, VIDEO_WIDTH
+
 logger = logging.getLogger(__name__)
 
 # Canvas dimensions
-CANVAS_W = 1920
-CANVAS_H = 1080
+CANVAS_W = VIDEO_WIDTH
+CANVAS_H = VIDEO_HEIGHT
 
 # Grid layout mappings: segment_count -> (rows, cols)
 _GRID_LAYOUTS = {

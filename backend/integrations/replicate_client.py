@@ -9,6 +9,7 @@ import time
 import replicate
 from replicate.exceptions import ReplicateError
 
+from config import IMAGE_HEIGHT, IMAGE_WIDTH
 from integrations.usage_tracker import record_usage, REPLICATE_FLUX_PER_IMAGE, REPLICATE_KONTEXT_PER_IMAGE
 
 logger = logging.getLogger(__name__)
@@ -63,8 +64,8 @@ def _run_with_retry(model: str, input_dict: dict) -> object:
 
 def generate_image(
     prompt: str,
-    width: int = 1344,
-    height: int = 768,
+    width: int = IMAGE_WIDTH,
+    height: int = IMAGE_HEIGHT,
     seed: int | None = None,
     reference_image_path: str | None = None,
 ) -> str:

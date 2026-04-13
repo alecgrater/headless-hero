@@ -5,11 +5,13 @@ Reads IMAGE_PROVIDER from environment and delegates to the appropriate backend.
 
 import os
 
+from config import IMAGE_HEIGHT, IMAGE_WIDTH
+
 
 def generate_image(
     prompt: str,
-    width: int = 1344,
-    height: int = 768,
+    width: int = IMAGE_WIDTH,
+    height: int = IMAGE_HEIGHT,
     reference_image_path: str | None = None,
     original_prompt: str | None = None,
 ) -> str:

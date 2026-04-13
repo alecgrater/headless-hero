@@ -8,13 +8,12 @@ API layer can swap to this module with minimal changes.
 import json
 import logging
 import os
-import re
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Any, Callable
 
-from config import DATA_DIR
+from config import DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH, sanitize_filename
 from models.script import ChapterMarker, Scene, SceneFX, ScriptContent, VideoFX
 
 logger = logging.getLogger(__name__)
@@ -36,12 +35,6 @@ def _to_remotion_path(abs_path: str) -> str:
         relative = abs_path[len(projects_dir):]
         return f"{BACKEND_STATIC_BASE}{relative}"
     return abs_path
-
-
-def _sanitize_filename(name: str) -> str:
-    """Strip unsafe filesystem characters and truncate to 80 chars."""
-    clean = re.sub(r'[<>:"/\\|?*]', "", name).strip()
-    return clean[:80] if clean else "Untitled"
 
 
 def _renders_dir(script_id: str) -> Path:
@@ -169,7 +162,7 @@ CHAPTER_TRANSITION_FRAMES = 60  # 2 seconds at 30fps
 def _compute_chapter_markers(
     content: ScriptContent,
     script_id: str,
-    fps: int = 30,
+    fps: int = FPS,
 ) -> tuple[list[dict], int]:
     """Compute chapter markers and total frame count from segment boundaries.
 
@@ -245,9 +238,9 @@ def _run_remotion(
     composition_id: str,
     props_path: Path,
     output_path: Path,
-    width: int = 1920,
-    height: int = 1080,
-    fps: int = 30,
+    width: int = VIDEO_WIDTH,
+    height: int = VIDEO_HEIGHT,
+    fps: int = FPS,
     log_level: str = "warn",
 ) -> None:
     """Run Remotion render via npx subprocess."""
@@ -290,8 +283,8 @@ def _run_remotion(
 def render_full_video(
     script_id: str,
     content: ScriptContent,
-    width: int = 1920,
-    height: int = 1080,
+    width: int = VIDEO_WIDTH,
+    height: int = VIDEO_HEIGHT,
     on_progress: ProgressCallback = None,
     title: str = "",
     speed: float = 1.0,
@@ -344,7 +337,7 @@ def render_full_video(
     props = {
         "segments": segments_props,
         "title": title or content.title,
-        "fps": 30,
+        "fps": FPS,
         "width": width,
         "height": height,
         "video_fx": {"chapter_markers": chapter_markers},
@@ -387,7 +380,7 @@ def render_full_video(
             _copy_to_downloads(
                 title,
                 str(output_path),
-                f"{_sanitize_filename(title)} - YouTube{speed_label}.mp4",
+                f"{sanitize_filename(title)} - YouTube{speed_label}.mp4",
             )
         except Exception:
             logger.warning("Failed to copy to downloads", exc_info=True)
@@ -398,7 +391,7 @@ def render_full_video(
 def _copy_to_downloads(title: str, src_path: str, dest_name: str) -> str:
     """Copy a rendered file to the downloads directory."""
     base = os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads")
-    folder = Path(base) / _sanitize_filename(title)
+    folder = Path(base) / sanitize_filename(title)
     folder.mkdir(parents=True, exist_ok=True)
     dest = folder / dest_name
     shutil.copy2(src_path, dest)

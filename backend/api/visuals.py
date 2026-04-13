@@ -2,12 +2,12 @@
 
 import json
 import logging
-import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
+from config import IMAGE_HEIGHT, IMAGE_WIDTH
 from database import get_session
 from models.script import Script, ScriptContent
 from pipeline.image_gen import generate_batch, generate_scene_frames, generate_scene_frames_v2, generate_scene_image
@@ -24,8 +24,8 @@ class GenerateVisualRequest(BaseModel):
     script_id: str
     scene_id: str
     visual_prompt: str
-    width: int = 1344
-    height: int = 768
+    width: int = IMAGE_WIDTH
+    height: int = IMAGE_HEIGHT
     frame_prompts: list[str] = []
     frame_directives: list[dict] = []
 
@@ -43,8 +43,8 @@ class BatchScene(BaseModel):
 class GenerateBatchRequest(BaseModel):
     script_id: str
     scenes: list[BatchScene]
-    width: int = 1344
-    height: int = 768
+    width: int = IMAGE_WIDTH
+    height: int = IMAGE_HEIGHT
 
 class BatchResultItem(BaseModel):
     scene_id: str
