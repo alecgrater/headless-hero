@@ -356,14 +356,19 @@ function TimelineEditor({
 
   // Check if ALL scenes are complete for each step (for completion checkmarks)
   const nonTitleScenes = allScenes.filter((sc) => !sc.is_title_card);
-  // Narrated non-title scenes: the set that gets audio, Eli, and FX generated
-  const narratedScenes = nonTitleScenes.filter((sc) => sc.narration);
+  const titleScenes = allScenes.filter((sc) => sc.is_title_card);
+  // Audio generates for ALL scenes with narration (including title cards)
+  const narratedScenes = allScenes.filter((sc) => sc.narration);
   // Image scenes: non-title scenes that have a visual_prompt (excludes aha_subtitle which are text-on-black)
   const imageScenes = nonTitleScenes.filter((sc) => sc.visual_prompt);
+  // Title cards complete when all title card scenes have an image
+  const allTitleCardsGenerated = titleScenes.length > 0 && titleScenes.every((sc) => sc.image_url);
   const allImagesGenerated = imageScenes.length > 0 && imageScenes.every((sc) => sc.image_url || sc.frame_urls?.length);
   const allAudioGenerated = narratedScenes.length > 0 && narratedScenes.every((sc) => sc.audio_url);
   const allFXGenerated = nonTitleScenes.length > 0 && nonTitleScenes.every((sc) => sc.fx);
-  const allEliGenerated = narratedScenes.length > 0 && narratedScenes.every((sc) => sc.eli_overlay);
+  // Eli generates for narrated non-title scenes only (skips title cards)
+  const eliScenes = nonTitleScenes.filter((sc) => sc.narration);
+  const allEliGenerated = eliScenes.length > 0 && eliScenes.every((sc) => sc.eli_overlay);
 
   const confirmAndGenerateImages = () => {
     if (hasExistingImages) {
@@ -600,7 +605,7 @@ function TimelineEditor({
           {/* Row 2 — Pipeline Steps */}
           <PipelineSteps
             titleCardGenerating={titleCardGenerating}
-            titleCardGenerated={titleCardGenerated}
+            titleCardGenerated={titleCardGenerated || allTitleCardsGenerated}
             allImagesGenerated={allImagesGenerated}
             allAudioGenerated={allAudioGenerated}
             allFXGenerated={allFXGenerated}
