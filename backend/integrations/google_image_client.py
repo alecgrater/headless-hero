@@ -7,6 +7,7 @@ import tempfile
 from google import genai
 from google.genai import types
 
+from integrations.google_image_scraper import scrape_google_image_sync
 from integrations.usage_tracker import record_usage, GOOGLE_IMAGE_PER_CALL
 
 logger = logging.getLogger(__name__)
@@ -79,36 +80,23 @@ def _call_gemini(
     return None
 
 
-def _simplify_prompt(prompt: str) -> str:
-    """Strip the style guide preamble and keep only the scene description.
-
-    When Gemini blocks a long prompt, a shorter version focusing on the
-    visual description often succeeds.
-    """
-    # The visual style guide is separated by double newlines — take the last
-    # section which is the actual scene visual prompt
-    sections = prompt.split("\n\n")
-    # Keep only the last 1-2 sections (the actual visual description)
-    if len(sections) > 2:
-        simplified = "\n\n".join(sections[-2:])
-    else:
-        simplified = prompt
-    return f"Educational illustration, flat 2D cartoon style: {simplified}"
-
-
 def generate_image(
     prompt: str,
     width: int = 1344,
     height: int = 768,
     seed: int | None = None,
     reference_image_path: str | None = None,
+    original_prompt: str | None = None,
 ) -> str:
     """Generate an image via Gemini and return the path to a temp file.
 
     If reference_image_path is provided, the image is loaded as a multi-modal
     Part so Gemini can use it as a visual reference for character/style consistency.
 
-    Retries once with a simplified prompt if Gemini blocks the original.
+    original_prompt is the raw visual description before style guide was prepended.
+    Used for retry when Gemini blocks the full prompt.
+
+    Falls back to Google Image scraper if both Gemini attempts fail.
     """
     client = _get_client()
     aspect = _closest_aspect_ratio(width, height)
@@ -133,23 +121,49 @@ def generate_image(
     if result:
         return result
 
-    # Retry with simplified prompt (strip style guide preamble)
-    simplified = _simplify_prompt(prompt)
+    # Retry with original visual prompt (no style guide preamble)
+    retry_prompt = (
+        f"Educational illustration, flat 2D cartoon style: {original_prompt}"
+        if original_prompt
+        else f"Educational illustration, flat 2D cartoon style: {prompt[:500]}"
+    )
     logger.warning(
         "Gemini returned empty response (content filter?), retrying with simplified prompt: %s",
-        simplified[:200],
+        retry_prompt[:200],
     )
 
     contents = []
     if ref_part:
         contents.append(ref_part)
-    contents.append(simplified)
+    contents.append(retry_prompt)
 
     result = _call_gemini(client, contents, aspect)
     if result:
         return result
 
+    # Last resort: Google Image scraper
+    search_query = (original_prompt or prompt)[:120]
+    logger.warning(
+        "Gemini failed on both attempts, falling back to Google Image scraper: %s",
+        search_query,
+    )
+    fd, tmp_path = tempfile.mkstemp(suffix=".png")
+    os.close(fd)
+    scraped = scrape_google_image_sync(
+        query=search_query,
+        output_path=tmp_path,
+        width=width,
+        height=height,
+    )
+    if scraped:
+        logger.warning("Using scraped web image as fallback for: %s", search_query)
+        return scraped
+
+    # Clean up temp file if scraper didn't use it
+    if os.path.exists(tmp_path):
+        os.unlink(tmp_path)
+
     raise RuntimeError(
-        f"Gemini returned empty response on both attempts (content filter). "
-        f"Prompt: {prompt[:200]}"
+        f"Gemini returned empty response on both attempts and Google Image scraper "
+        f"also failed. Prompt: {prompt[:200]}"
     )

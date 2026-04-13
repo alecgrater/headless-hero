@@ -4,8 +4,11 @@ import logging
 import shutil
 from pathlib import Path
 
+from PIL import Image, ImageDraw, ImageFont
+
 from config import DATA_DIR
 from integrations.image_client import generate_image
+from integrations.google_image_scraper import scrape_google_image_sync
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +21,20 @@ _STYLE_GUIDE = _GUIDE_PATH.read_text() if _GUIDE_PATH.exists() else ""
 
 _VISUAL_STYLE_PATH = _PROMPTS_DIR / "visual_style.md"
 _VISUAL_STYLE = _VISUAL_STYLE_PATH.read_text() if _VISUAL_STYLE_PATH.exists() else ""
+
+
+def _create_placeholder_image(path: Path, width: int, height: int, text: str) -> None:
+    """Create a solid-color placeholder image with error text."""
+    img = Image.new("RGB", (width, height), color=(30, 30, 40))
+    draw = ImageDraw.Draw(img)
+    # Wrap text to fit
+    wrapped = text[:120]
+    try:
+        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 28)
+    except (OSError, IOError):
+        font = ImageFont.load_default()
+    draw.text((width // 2, height // 2), wrapped, fill=(180, 180, 200), font=font, anchor="mm")
+    img.save(str(path))
 
 
 def generate_scene_image(
@@ -63,7 +80,25 @@ def generate_scene_image(
             return web_path, prompt
 
     logger.info("Generating image for scene %s", scene_id)
-    tmp_path = generate_image(prompt, width=width, height=height)
+    try:
+        tmp_path = generate_image(prompt, width=width, height=height, original_prompt=visual_prompt)
+    except RuntimeError:
+        logger.error("All image generation failed for scene %s, trying direct scraper fallback", scene_id)
+        scraped = scrape_google_image_sync(
+            query=visual_prompt[:120],
+            output_path=str(local_path),
+            width=width,
+            height=height,
+        )
+        if scraped:
+            logger.warning("Using scraped web image for scene %s", scene_id)
+            prompt_marker.write_text(prompt, encoding="utf-8")
+            return web_path, prompt
+
+        logger.error("Scraper also failed for scene %s, creating placeholder", scene_id)
+        _create_placeholder_image(local_path, width, height, f"Image generation failed:\n{visual_prompt[:80]}")
+        prompt_marker.write_text(prompt, encoding="utf-8")
+        return web_path, prompt
 
     # Move generated image to local storage
     shutil.move(tmp_path, str(local_path))
@@ -173,6 +208,7 @@ def generate_scene_frames(
             width=width,
             height=height,
             reference_image_path=str(prev_frame_path) if use_reference else None,
+            original_prompt=full_frame_description,
         )
         shutil.move(tmp_path, str(local_path))
         prompt_marker.write_text(prompt, encoding="utf-8")
@@ -301,6 +337,7 @@ def generate_scene_frames_v2(
             width=width,
             height=height,
             reference_image_path=str(prev_frame_path) if use_reference else None,
+            original_prompt=directive_prompt,
         )
         shutil.move(tmp_path, str(local_path))
         prompt_marker.write_text(prompt, encoding="utf-8")
