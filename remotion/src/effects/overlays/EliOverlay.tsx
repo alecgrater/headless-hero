@@ -9,10 +9,59 @@ import React from "react";
 import { useCurrentFrame, useVideoConfig, Img } from "remotion";
 import type { EliOverlay as EliOverlayType, EliKeyframe, WordTimestamp } from "../../types";
 
+/** Simple string hash for deterministic pseudo-random seeding. */
+function hashCode(s: string): number {
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    hash = ((hash << 5) - hash + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+/**
+ * Build a pseudo-random variant sequence from a seed.
+ * Creates an 8-12 item sequence that's mostly sequential but occasionally
+ * repeats or skips for an organic, not-perfectly-predictable feel.
+ */
+function buildVariantSequence(seed: number, variantCount: number): number[] {
+  const seqLength = 8 + (seed % 5); // 8-12 items
+  const sequence: number[] = [];
+  let rng = seed;
+
+  for (let i = 0; i < seqLength; i++) {
+    // Simple LCG for deterministic pseudo-random
+    rng = (rng * 1664525 + 1013904223) & 0x7fffffff;
+    const variant = (rng % variantCount) + 1; // 1-based variant number
+    sequence.push(variant);
+  }
+
+  return sequence;
+}
+
+/**
+ * Determine which variant to show at a given frame within a keyframe.
+ * Cycles through variants every ~6 frames (~200ms at 30fps) using a
+ * seeded pseudo-random sequence for organic feel.
+ */
+function getVariant(
+  frame: number,
+  keyframe: EliKeyframe,
+  variantCount: number,
+): number {
+  if (variantCount <= 1) return 1;
+
+  const cycleLength = 6; // frames per variant hold (~200ms at 30fps)
+  const seed = hashCode(keyframe.frame_id + String(keyframe.start_frame));
+  const sequence = buildVariantSequence(seed, variantCount);
+  const cycleIndex = Math.floor((frame - keyframe.start_frame) / cycleLength);
+  return sequence[cycleIndex % sequence.length];
+}
+
 interface Props {
   overlay: EliOverlayType;
   wordTimestamps?: WordTimestamp[] | null;
   characterFramesBaseUrl: string;
+  variantCounts?: Record<string, number> | null;
 }
 
 function isSpeaking(
@@ -64,6 +113,7 @@ export const EliOverlay: React.FC<Props> = ({
   overlay,
   wordTimestamps,
   characterFramesBaseUrl,
+  variantCounts,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -77,10 +127,20 @@ export const EliOverlay: React.FC<Props> = ({
   const speaking = isSpeaking(frame, fps, wordTimestamps);
   const mouthSuffix = speaking ? "open" : "closed";
 
-  const currentSrc = `${characterFramesBaseUrl}/${current.frame_id}_${mouthSuffix}.png`;
-  const nextSrc = next
-    ? `${characterFramesBaseUrl}/${next.frame_id}_${mouthSuffix}.png`
-    : null;
+  // Variant cycling for current keyframe
+  const currentVariantCount = variantCounts?.[current.frame_id] ?? 1;
+  const currentVariant = getVariant(frame, current, currentVariantCount);
+  const currentVariantSuffix = currentVariant === 1 ? "" : `_v${currentVariant}`;
+  const currentSrc = `${characterFramesBaseUrl}/${current.frame_id}${currentVariantSuffix}_${mouthSuffix}.png`;
+
+  // Variant cycling for next keyframe (during crossfade)
+  let nextSrc: string | null = null;
+  if (next && transitionProgress > 0) {
+    const nextVariantCount = variantCounts?.[next.frame_id] ?? 1;
+    const nextVariant = getVariant(frame, next, nextVariantCount);
+    const nextVariantSuffix = nextVariant === 1 ? "" : `_v${nextVariant}`;
+    nextSrc = `${characterFramesBaseUrl}/${next.frame_id}${nextVariantSuffix}_${mouthSuffix}.png`;
+  }
 
   // Subtle breathing animation: sinusoidal Y translate ~2px at ~0.5Hz
   const breathY = Math.sin((frame / fps) * Math.PI) * 2;

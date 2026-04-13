@@ -17,6 +17,28 @@ from integrations.google_image_client import generate_image
 
 logger = logging.getLogger(__name__)
 
+# --- Variant tier configuration ---
+TIER_1_EXPRESSIONS = {"neutral", "thinking", "excited", "explaining", "curious", "smiling"}
+TIER_2_EXPRESSIONS = {"surprised", "confused", "skeptical", "serious", "worried"}
+
+
+def variant_count_for_expression(expression: str) -> int:
+    """Return how many body micro-variants a given expression should have."""
+    if expression in TIER_1_EXPRESSIONS:
+        return 5
+    if expression in TIER_2_EXPRESSIONS:
+        return 3
+    return 1
+
+
+# Subtle variation instructions per variant number (v2-v5)
+_VARIANT_PROMPTS: dict[int, str] = {
+    2: "head tilted very slightly to the left, eyes looking slightly right",
+    3: "head tilted very slightly to the right, weight shifted to other side",
+    4: "chin slightly raised, shoulders relaxed differently",
+    5: "subtle lean forward, eyes looking slightly up",
+}
+
 CHARACTER_DIR = DATA_DIR / "character"
 FRAMES_DIR = CHARACTER_DIR / "frames"
 REFERENCES_DIR = CHARACTER_DIR / "references"
@@ -512,6 +534,7 @@ def generate_frame_library(
             "expression": defn["expression"],
             "pose": defn["pose"],
             "gesture": defn["gesture"],
+            "variant_count": variant_count_for_expression(defn["expression"]),
         })
 
     # Write manifest
@@ -580,6 +603,7 @@ def regenerate_frame(frame_id: str) -> dict:
         "expression": defn["expression"],
         "pose": defn["pose"],
         "gesture": defn["gesture"],
+        "variant_count": variant_count_for_expression(defn["expression"]),
     }
 
 
@@ -673,6 +697,7 @@ def generate_missing_frames(
             "expression": defn["expression"],
             "pose": defn["pose"],
             "gesture": defn["gesture"],
+            "variant_count": variant_count_for_expression(defn["expression"]),
         })
 
     manifest = {
@@ -685,3 +710,181 @@ def generate_missing_frames(
     logger.info("Missing frames generated: %d frames filled in", len(missing))
 
     return manifest
+
+
+def load_variant_counts() -> dict[str, int]:
+    """Read manifest and return a map of {frame_id: variant_count}.
+
+    Returns empty dict if manifest doesn't exist.
+    """
+    manifest = get_manifest()
+    if not manifest:
+        return {}
+    return {f["id"]: f.get("variant_count", 1) for f in manifest.get("frames", [])}
+
+
+def _build_variant_prompt(definition: dict[str, str], mouth_state: str, variant_num: int) -> str:
+    """Build the image generation prompt for a variant frame.
+
+    Uses the original frame (variant 1) as reference and adds subtle variation instructions.
+    """
+    mouth_desc = "mouth open, speaking" if mouth_state == "open" else "mouth closed"
+    variation_instruction = _VARIANT_PROMPTS.get(variant_num, "")
+
+    return (
+        f"Using the reference image as the character design reference, render the EXACT same character "
+        f"in the EXACT same pose with a very subtle body micro-variation. Maintain identical character "
+        f"design, proportions, outfit colors, glasses, hair style, rendering style, AND the same "
+        f"expression and gesture.\n\n"
+        f"Pose: {definition['prompt']}\n"
+        f"Mouth: {mouth_desc}\n"
+        f"Subtle variation: {variation_instruction}\n\n"
+        f"IMPORTANT: The variation must be VERY subtle — this is the same pose with a tiny body shift, "
+        f"not a different pose. Solid flat green (#00FF00) background with NO other elements. "
+        f"{FRAMING_INSTRUCTION} "
+        f"16:9 aspect ratio composition. Same flat 2D cartoon style as reference."
+    )
+
+
+def generate_variants(
+    on_progress: Callable[[int, int, str], None] | None = None,
+) -> dict:
+    """Generate body micro-variants for all frames that need them.
+
+    Reads the manifest to find frames with variant_count > 1, then generates
+    variants 2..N for each. Uses the existing frame (variant 1) as reference
+    image for consistency.
+
+    Returns the updated manifest.
+    """
+    manifest = get_manifest()
+    if not manifest:
+        raise RuntimeError("No frame library exists. Generate the full library first.")
+
+    frame_ids = _make_unique_ids(FRAME_DEFINITIONS)
+    frames_by_id = {f["id"]: f for f in manifest.get("frames", [])}
+
+    # Build work list: (defn_index, frame_id, variant_num)
+    work: list[tuple[int, str, int]] = []
+    for i, frame_id in enumerate(frame_ids):
+        frame_entry = frames_by_id.get(frame_id)
+        if not frame_entry:
+            continue
+        vc = frame_entry.get("variant_count", 1)
+        if vc <= 1:
+            continue
+        for v in range(2, vc + 1):
+            # Skip if variant files already exist
+            suffix = f"_v{v}"
+            closed = FRAMES_DIR / f"{frame_id}{suffix}_closed.png"
+            opened = FRAMES_DIR / f"{frame_id}{suffix}_open.png"
+            if closed.exists() and opened.exists():
+                continue
+            work.append((i, frame_id, v))
+
+    total = len(work) * 2  # 2 mouth states each
+    completed = 0
+
+    for defn_idx, frame_id, variant_num in work:
+        defn = FRAME_DEFINITIONS[defn_idx]
+        variant_suffix = f"_v{variant_num}"
+
+        # Use the original frame (variant 1, closed mouth) as reference for consistency
+        ref_path = str(FRAMES_DIR / f"{frame_id}_closed.png")
+        if not Path(ref_path).exists():
+            logger.warning("Original frame missing for %s, skipping variants", frame_id)
+            completed += 2
+            if on_progress:
+                on_progress(completed, total, f"{frame_id} v{variant_num} (skipped)")
+            continue
+
+        for mouth_state in ["closed", "open"]:
+            filename = f"{frame_id}{variant_suffix}_{mouth_state}.png"
+            output_path = FRAMES_DIR / filename
+            label = f"{frame_id} v{variant_num} ({mouth_state})"
+
+            logger.info("Generating variant %d/%d: %s", completed + 1, total, label)
+
+            prompt = _build_variant_prompt(defn, mouth_state, variant_num)
+
+            try:
+                tmp_path = generate_image(
+                    prompt=prompt,
+                    width=768,
+                    height=432,
+                    reference_image_path=ref_path,
+                )
+                _remove_background(tmp_path, str(output_path))
+            except Exception:
+                logger.error("Failed to generate variant %s", label, exc_info=True)
+
+            completed += 1
+            if on_progress:
+                on_progress(completed, total, label)
+
+    # Update manifest timestamp
+    manifest["generated_at"] = datetime.now(timezone.utc).isoformat()
+    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2))
+    logger.info("Variant generation complete: %d variant frames generated", len(work) * 2)
+
+    return manifest
+
+
+def generate_frame_variants(frame_id: str) -> dict:
+    """Generate variants for a single frame.
+
+    Uses the original frame (variant 1) as reference.
+    Returns the updated frame entry.
+    """
+    manifest = get_manifest()
+    if not manifest:
+        raise RuntimeError("No frame library exists. Generate the full library first.")
+
+    frame_ids = _make_unique_ids(FRAME_DEFINITIONS)
+    defn_idx = None
+    for i, fid in enumerate(frame_ids):
+        if fid == frame_id:
+            defn_idx = i
+            break
+
+    if defn_idx is None:
+        raise ValueError(f"Unknown frame_id: {frame_id}")
+
+    defn = FRAME_DEFINITIONS[defn_idx]
+    vc = variant_count_for_expression(defn["expression"])
+
+    if vc <= 1:
+        raise ValueError(f"Frame {frame_id} (expression: {defn['expression']}) has no variants (tier 3)")
+
+    ref_path = str(FRAMES_DIR / f"{frame_id}_closed.png")
+    if not Path(ref_path).exists():
+        raise RuntimeError(f"Original frame not found: {ref_path}")
+
+    for v in range(2, vc + 1):
+        variant_suffix = f"_v{v}"
+        for mouth_state in ["closed", "open"]:
+            filename = f"{frame_id}{variant_suffix}_{mouth_state}.png"
+            output_path = FRAMES_DIR / filename
+
+            prompt = _build_variant_prompt(defn, mouth_state, v)
+            tmp_path = generate_image(
+                prompt=prompt,
+                width=768,
+                height=432,
+                reference_image_path=ref_path,
+            )
+            _remove_background(tmp_path, str(output_path))
+
+    # Update manifest timestamp
+    manifest["generated_at"] = datetime.now(timezone.utc).isoformat()
+    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2))
+
+    return {
+        "id": frame_id,
+        "file_closed": f"{frame_id}_closed.png",
+        "file_open": f"{frame_id}_open.png",
+        "expression": defn["expression"],
+        "pose": defn["pose"],
+        "gesture": defn["gesture"],
+        "variant_count": vc,
+    }

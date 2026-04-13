@@ -4,6 +4,7 @@ import api, {
   clearAllCharacterFrames,
   generateCharacterFrames,
   generateCharacterReferences,
+  generateCharacterVariants,
   generateMissingCharacterFrames,
   getCharacterFrames,
   getCharacterReferences,
@@ -21,6 +22,7 @@ interface FrameEntry {
   expression: string;
   pose: string;
   gesture: string;
+  variant_count: number;
 }
 
 interface Manifest {
@@ -44,6 +46,10 @@ export default function CharacterSection() {
   const [frameJobId, setFrameJobId] = useState<string | null>(null);
   const [frameProgress, setFrameProgress] = useState({ completed: 0, total: 0, current_label: "" });
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+
+  // Variant state
+  const [variantJobId, setVariantJobId] = useState<string | null>(null);
+  const [variantProgress, setVariantProgress] = useState({ completed: 0, total: 0, current_label: "" });
 
   // Overlay position state
   const [eliPosition, setEliPosition] = useState<EliPosition>({ x: 1410, y: 720 });
@@ -106,6 +112,22 @@ export default function CharacterSection() {
     return () => clearInterval(interval);
   }, [frameJobId, fetchManifest]);
 
+  // Poll variant generation job
+  useEffect(() => {
+    if (!variantJobId) return;
+    const interval = setInterval(async () => {
+      const res = await getCharacterStatus(variantJobId);
+      if (!res.ok) return;
+      const status = res.data as { status: string; completed: number; total: number; current_label: string };
+      setVariantProgress({ completed: status.completed, total: status.total, current_label: status.current_label });
+      if (status.status === "completed" || status.status === "failed") {
+        setVariantJobId(null);
+        fetchManifest();
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [variantJobId, fetchManifest]);
+
   const handleGenerateReferences = async () => {
     const result = await generateCharacterReferences();
     setRefJobId(result.job_id);
@@ -131,6 +153,12 @@ export default function CharacterSection() {
     setFrameProgress({ completed: 0, total: 0, current_label: "Starting..." });
   };
 
+  const handleGenerateVariants = async () => {
+    const result = await generateCharacterVariants();
+    setVariantJobId(result.job_id);
+    setVariantProgress({ completed: 0, total: 0, current_label: "Starting..." });
+  };
+
   const handleRegenerate = async (frameId: string) => {
     setRegeneratingId(frameId);
     await regenerateCharacterFrame(frameId);
@@ -151,9 +179,16 @@ export default function CharacterSection() {
   const missingCount = manifest?.missing_count ?? 0;
   const isGeneratingRefs = !!refJobId;
   const isGeneratingFrames = !!frameJobId;
+  const isGeneratingVariants = !!variantJobId;
   const refPct = refProgress.total > 0 ? refProgress.completed / refProgress.total : 0;
   const framePct = frameProgress.total > 0 ? frameProgress.completed / frameProgress.total : 0;
+  const variantPct = variantProgress.total > 0 ? variantProgress.completed / variantProgress.total : 0;
   const hasSelectedRef = !!selectedRef;
+
+  // Count frames needing variants (variant_count > 1)
+  const framesNeedingVariants = (manifest?.frames ?? []).filter((f) => (f.variant_count ?? 1) > 1).length;
+  const tier1Count = (manifest?.frames ?? []).filter((f) => (f.variant_count ?? 1) === 5).length;
+  const tier2Count = (manifest?.frames ?? []).filter((f) => (f.variant_count ?? 1) === 3).length;
 
   // Group frames by expression
   const grouped = (manifest?.frames ?? []).reduce(
@@ -411,6 +446,52 @@ export default function CharacterSection() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* ===== SECTION 2.5: Frame Variants ===== */}
+      <div className={`space-y-4 ${frameCount === 0 ? "opacity-40 pointer-events-none" : ""}`}>
+        <h3 className="text-sm font-semibold text-neutral-200 uppercase tracking-wider">
+          Step 3: Frame Variants
+        </h3>
+        <p className="text-xs text-neutral-400">
+          Generate body micro-variations per expression for a more alive/animated character.
+          {tier1Count > 0 && (
+            <span className="ml-1">
+              Tier 1 ({tier1Count} frames): 5 variants each. Tier 2 ({tier2Count} frames): 3 variants each.
+            </span>
+          )}
+        </p>
+
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleGenerateVariants}
+            disabled={isGeneratingVariants || isGeneratingFrames || frameCount === 0}
+            className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
+          >
+            {isGeneratingVariants ? "Generating..." : "Generate Variants"}
+          </button>
+          {framesNeedingVariants > 0 && (
+            <span className="text-xs text-neutral-400">
+              {framesNeedingVariants} frames will get variants
+            </span>
+          )}
+        </div>
+
+        {isGeneratingVariants && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 text-xs text-neutral-300">
+              <span className="w-3 h-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+              <span>{variantProgress.completed} / {variantProgress.total} variant frames</span>
+              <span className="text-neutral-500">{variantProgress.current_label}</span>
+            </div>
+            <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-violet-500 rounded-full transition-all duration-300"
+                style={{ width: `${variantPct * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ===== SECTION 3: Overlay Position ===== */}

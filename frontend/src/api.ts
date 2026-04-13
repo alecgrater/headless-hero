@@ -228,6 +228,12 @@ export async function regenerateCharacterFrame(frameId: string) {
   return api.post("/api/character/regenerate-frame", { frame_id: frameId });
 }
 
+/** Start generating body micro-variants for all character frames. */
+export async function generateCharacterVariants(): Promise<{ job_id: string }> {
+  const res = await api.post("/api/character/generate-variants");
+  return res.data as { job_id: string };
+}
+
 /** Generate Eli animation overlays for all scenes. */
 export async function generateEli(scriptId: string) {
   return api.post("/api/eli/generate", { script_id: scriptId });

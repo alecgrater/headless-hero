@@ -15,6 +15,7 @@ from typing import Any, Callable
 
 from config import DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH, sanitize_filename
 from models.script import ChapterMarker, Scene, SceneFX, ScriptContent, VideoFX
+from pipeline.character_frames import load_variant_counts
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +106,7 @@ def _all_scenes(content: ScriptContent) -> list[Scene]:
     return [sc for seg in content.segments for sc in seg.scenes]
 
 
-def _scene_to_input_props(scene: Scene, script_id: str, eli_position: dict | None = None) -> dict[str, Any]:
+def _scene_to_input_props(scene: Scene, script_id: str, eli_position: dict | None = None, variant_counts: dict[str, int] | None = None) -> dict[str, Any]:
     """Convert a Scene model to the input props expected by Remotion."""
     # Resolve asset paths
     image_path = _scene_image_path(script_id, scene.id, scene.image_url or None)
@@ -144,6 +145,7 @@ def _scene_to_input_props(scene: Scene, script_id: str, eli_position: dict | Non
         "eli_overlay": eli_overlay,
         "word_timestamps": scene.word_timestamps,
         "character_frames_base_url": "http://localhost:8420/static/character/frames",
+        "variant_counts": variant_counts,
         "visual_beat": scene.visual_beat,
         "frame_directives": scene.frame_directives or None,
     }
@@ -320,11 +322,12 @@ def render_full_video(
                 pass
 
     # Build input props for the full video
+    variant_counts = load_variant_counts()
     segments_props = []
     for seg in content.segments:
         seg_scenes = []
         for sc in seg.scenes:
-            seg_scenes.append(_scene_to_input_props(sc, script_id, eli_position))
+            seg_scenes.append(_scene_to_input_props(sc, script_id, eli_position, variant_counts))
         segments_props.append({
             "name": seg.name,
             "scenes": seg_scenes,

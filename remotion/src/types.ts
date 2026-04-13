@@ -125,6 +125,7 @@ export interface SceneInput {
   eli_overlay?: EliOverlay | null;
   word_timestamps?: WordTimestamp[] | null;
   character_frames_base_url?: string | null;
+  variant_counts?: Record<string, number> | null;
 }
 
 export interface SegmentInput {

@@ -60,6 +60,7 @@ export const SceneRenderer: React.FC<Props> = ({ scene }) => {
           overlay={scene.eli_overlay}
           wordTimestamps={scene.word_timestamps}
           characterFramesBaseUrl={scene.character_frames_base_url}
+          variantCounts={scene.variant_counts}
         />
       )}
 
