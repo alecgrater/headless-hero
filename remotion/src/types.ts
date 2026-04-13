@@ -135,10 +135,3 @@ export interface FullVideoProps {
   video_fx?: VideoFX | null;
   chapter_map?: ChapterMapData | null;
 }
-
-export interface ScenePreviewProps {
-  scene: SceneInput;
-  fps: number;
-  width: number;
-  height: number;
-}

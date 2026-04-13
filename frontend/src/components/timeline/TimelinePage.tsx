@@ -9,7 +9,6 @@ import ExportPanel from "./ExportPanel";
 import ExportTestModal from "./ExportTestModal";
 import PropertiesPanel from "./PropertiesPanel";
 import TimelineLanes from "./TimelineLanes";
-import VideoPreviewModal from "./VideoPreviewModal";
 import VoiceSetupModal from "../brand/VoiceSetupModal";
 import { usePublishState } from "./usePublishState";
 import { useRenderState } from "./useRenderState";
@@ -149,10 +148,8 @@ function TimelineEditor({
   const render = useRenderState(scriptId, title);
   const publish = usePublishState(scriptId);
   const [showExport, setShowExport] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const [showVoiceSetup, setShowVoiceSetup] = useState(false);
   const [pendingAudioAction, setPendingAudioAction] = useState<"all" | string | null>(null);
-  const [previewMode, setPreviewMode] = useState(false);
   const [generatingFX, setGeneratingFX] = useState(false);
   const [generatingEli, setGeneratingEli] = useState(false);
   const [confirmOverwrite, setConfirmOverwrite] = useState<"images" | "audio" | "fx" | "eli" | null>(null);
@@ -188,9 +185,9 @@ function TimelineEditor({
   const titleCardCancelledRef = useRef(false);
   const thumbnailsCancelledRef = useRef(false);
 
-  // Fetch render estimate when export panel or preview modal opens
+  // Fetch render estimate when export panel opens
   useEffect(() => {
-    if (!showExport && !showPreview) return;
+    if (!showExport) return;
     const scenes = state.content.segments.flatMap((seg) => seg.scenes);
     const sceneCount = scenes.length;
     const totalAudioDuration = scenes.reduce(
@@ -201,7 +198,7 @@ function TimelineEditor({
       render.fetchEstimate(sceneCount, totalAudioDuration);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showExport, showPreview]);
+  }, [showExport]);
   const [voices, setVoices] = useState<VoiceInfo[]>([]);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>("");
 
@@ -278,22 +275,6 @@ function TimelineEditor({
         return null;
       })()
     : null;
-
-  // Auto-render preview when scene changes in preview mode
-  useEffect(() => {
-    if (!previewMode || !state.selectedSceneId) return;
-    const scene = (() => {
-      for (const seg of state.content.segments) {
-        const sc = seg.scenes.find((s) => s.id === state.selectedSceneId);
-        if (sc) return sc;
-      }
-      return null;
-    })();
-    if (scene?.image_url && scene?.audio_url) {
-      render.previewScene(state.selectedSceneId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [previewMode, state.selectedSceneId]);
 
   // Build flat scene list for keyboard navigation
   const allSceneIds = state.content.segments.flatMap((seg) =>
@@ -822,30 +803,8 @@ function TimelineEditor({
           </button>
         </div>
 
-        {/* Push preview + export to the right */}
+        {/* Push export to the right */}
         <div className="ml-auto flex items-center gap-1.5">
-          {/* Preview group */}
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPreviewMode((prev) => !prev)}
-              className={`text-sm px-3 py-1.5 rounded-md font-medium transition-colors ${
-                previewMode
-                  ? "bg-violet-500/20 text-violet-300"
-                  : "text-neutral-400 hover:bg-neutral-700/60"
-              }`}
-              title="Toggle scene preview mode (P)"
-            >
-              Preview
-            </button>
-            <button
-              onClick={() => setShowPreview(true)}
-              className="text-sm px-3 py-1.5 text-neutral-400 hover:bg-neutral-700/60 rounded-md font-medium transition-colors"
-              title="Preview full rendered video"
-            >
-              Full Preview
-            </button>
-          </div>
-
           {/* Export Test */}
           <button
             onClick={exportTestJobId ? () => setExportTestJobId(null) : () => setShowExportTestModal(true)}
@@ -1030,14 +989,6 @@ function TimelineEditor({
               tryGenerateAudio(selectedScene.scene.id)
             }
             isGeneratingAudio={state.generatingAudioSceneIds.has(selectedScene.scene.id)}
-            onPreviewScene={() =>
-              render.previewScene(selectedScene.scene.id)
-            }
-            isPreviewingScene={render.previewingSceneId === selectedScene.scene.id}
-            previewVideoUrl={render.previewVideoUrl}
-            previewMode={previewMode}
-            onPrevScene={selectPrevScene}
-            onNextScene={selectNextScene}
           />
         ) : (
           <div className="flex-1 border-t border-neutral-800/60 px-4 py-3 flex items-center justify-center">
@@ -1052,16 +1003,6 @@ function TimelineEditor({
         <ExportTestModal
           onRun={handleExportTest}
           onClose={() => setShowExportTestModal(false)}
-        />
-      )}
-
-      {showPreview && (
-        <VideoPreviewModal
-          youtubeStatus={render.youtubeStatus}
-          youtubeUrl={render.youtubeUrl}
-          estimatedSeconds={render.estimatedSeconds}
-          onStartRender={render.startYoutubeRender}
-          onClose={() => setShowPreview(false)}
         />
       )}
 

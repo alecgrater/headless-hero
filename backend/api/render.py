@@ -18,7 +18,6 @@ from pipeline.render_jobs import create_job, estimate_render_time, get_job, run_
 from pipeline.remotion_render import (
     _sanitize_filename,
     render_full_video,
-    render_scene_preview,
 )
 from pipeline.video_render import export_full_audio
 
@@ -27,15 +26,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/render", tags=["render"])
 
 # --- Request / Response schemas ---
-
-class PreviewSceneRequest(BaseModel):
-    script_id: str
-    scene_id: str
-    width: int = 1920
-    height: int = 1080
-
-class PreviewSceneResponse(BaseModel):
-    video_url: str
 
 class RenderFullRequest(BaseModel):
     script_id: str
@@ -117,22 +107,6 @@ def _load_brand(session: Session, script_id: str) -> dict:
     }
 
 # --- Endpoints ---
-
-@router.post("/preview-scene", response_model=PreviewSceneResponse)
-def preview_scene(body: PreviewSceneRequest, session: Session = Depends(get_session)):
-    """Render a single scene to MP4 via Remotion (synchronous)."""
-    content = _load_content(session, body.script_id)
-    brand_dict = _load_brand(session, body.script_id)
-    scene = _find_scene(content, body.scene_id)
-    if not scene:
-        raise HTTPException(status_code=404, detail="Scene not found")
-
-    logger.info("Rendering scene preview: scene %s in script %s", body.scene_id, body.script_id)
-    video_url = render_scene_preview(
-        scene, body.script_id, body.width, body.height,
-        brand=brand_dict,
-    )
-    return PreviewSceneResponse(video_url=video_url)
 
 @router.post("/full", response_model=RenderJobResponse)
 def start_full_render(body: RenderFullRequest, session: Session = Depends(get_session)):

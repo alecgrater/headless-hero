@@ -33,11 +33,6 @@ interface RenderState {
   seoGenerating: boolean;
   generateSEO: () => Promise<void>;
 
-  // Scene preview
-  previewingSceneId: string | null;
-  previewVideoUrl: string | null;
-  previewScene: (sceneId: string) => Promise<void>;
-
   // Render estimate
   estimatedSeconds: number | null;
   fetchEstimate: (sceneCount: number, totalAudioDuration: number) => Promise<void>;
@@ -56,9 +51,6 @@ export function useRenderState(scriptId: string, title: string): RenderState {
 
   const [seoMetadata, setSeoMetadata] = useState<SEOMetadata | null>(null);
   const [seoGenerating, setSeoGenerating] = useState(false);
-
-  const [previewingSceneId, setPreviewingSceneId] = useState<string | null>(null);
-  const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null);
 
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
 
@@ -187,26 +179,6 @@ export function useRenderState(scriptId: string, title: string): RenderState {
     }
   }, [scriptId]);
 
-  const previewScene = useCallback(
-    async (sceneId: string) => {
-      setPreviewingSceneId(sceneId);
-      setPreviewVideoUrl(null);
-      try {
-        const res = await api.post("/api/render/preview-scene", {
-          script_id: scriptId,
-          scene_id: sceneId,
-        });
-        if (res.ok) {
-          const data = res.data as { video_url: string };
-          setPreviewVideoUrl(data.video_url);
-        }
-      } finally {
-        setPreviewingSceneId(null);
-      }
-    },
-    [scriptId],
-  );
-
   const fetchEstimate = useCallback(
     async (sceneCount: number, totalAudioDuration: number) => {
       try {
@@ -238,9 +210,6 @@ export function useRenderState(scriptId: string, title: string): RenderState {
     seoMetadata,
     seoGenerating,
     generateSEO,
-    previewingSceneId,
-    previewVideoUrl,
-    previewScene,
     estimatedSeconds,
     fetchEstimate,
   };

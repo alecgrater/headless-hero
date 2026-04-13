@@ -13,12 +13,6 @@ interface Props {
   isGenerating?: boolean;
   onGenerateAudio?: () => void;
   isGeneratingAudio?: boolean;
-  onPreviewScene?: () => void;
-  isPreviewingScene?: boolean;
-  previewVideoUrl?: string | null;
-  previewMode?: boolean;
-  onPrevScene?: () => void;
-  onNextScene?: () => void;
 }
 
 export default function PropertiesPanel({
@@ -31,12 +25,6 @@ export default function PropertiesPanel({
   isGenerating = false,
   onGenerateAudio,
   isGeneratingAudio = false,
-  onPreviewScene,
-  isPreviewingScene = false,
-  previewVideoUrl,
-  previewMode = false,
-  onPrevScene,
-  onNextScene,
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
@@ -224,54 +212,6 @@ export default function PropertiesPanel({
               ) : "Generate Audio"}
             </button>
           ) : null}
-
-          {/* Preview */}
-          {previewMode && (
-            <div className="shrink-0 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">Preview</span>
-                <div className="flex items-center gap-1">
-                  <button onClick={onPrevScene} className="text-xs px-1.5 py-0.5 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400">&#9664;</button>
-                  <button onClick={onNextScene} className="text-xs px-1.5 py-0.5 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors text-neutral-400">&#9654;</button>
-                </div>
-              </div>
-              {previewVideoUrl ? (
-                <video key={previewVideoUrl} src={assetUrl(previewVideoUrl)} controls autoPlay className="w-full rounded-lg border border-neutral-700 max-h-24" />
-              ) : scene.image_url && isPreviewingScene ? (
-                <div className="flex items-center justify-center py-2">
-                  <span className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : null}
-              {scene.image_url && scene.audio_url && onPreviewScene && (
-                <button
-                  onClick={onPreviewScene}
-                  disabled={isPreviewingScene}
-                  className="w-full text-sm px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isPreviewingScene ? (
-                    <><span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" /> Rendering...</>
-                  ) : previewVideoUrl ? "Re-render" : "Render Preview"}
-                </button>
-              )}
-            </div>
-          )}
-
-          {!previewMode && scene.image_url && scene.audio_url && onPreviewScene && (
-            <div className="shrink-0">
-              {previewVideoUrl && (
-                <video key={previewVideoUrl} src={assetUrl(previewVideoUrl)} controls className="w-full rounded-lg border border-neutral-700 max-h-20 mb-1" />
-              )}
-              <button
-                onClick={onPreviewScene}
-                disabled={isPreviewingScene}
-                className="w-full text-sm px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isPreviewingScene ? (
-                  <><span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" /> Rendering...</>
-                ) : previewVideoUrl ? "Re-render" : "Preview Scene"}
-              </button>
-            </div>
-          )}
 
           {/* FX */}
           {scene.fx && (

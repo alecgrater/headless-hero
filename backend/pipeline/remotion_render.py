@@ -282,50 +282,6 @@ def _run_remotion(
     logger.info("Remotion render complete: %s", output_path)
 
 
-def render_scene_preview(
-    scene: Scene,
-    script_id: str,
-    width: int = 1920,
-    height: int = 1080,
-    brand: dict | None = None,
-) -> str:
-    """Render a single scene to MP4 via Remotion and return the web-relative path."""
-    # Always prepare title card scenes (title cards are always active)
-    from pipeline.modifiers.title_cards import prepare_title_card_scene
-    scene = prepare_title_card_scene(scene, script_id, brand or {})
-
-    renders = _renders_dir(script_id)
-    scenes_dir = renders / "scenes"
-    scenes_dir.mkdir(parents=True, exist_ok=True)
-    output_path = scenes_dir / f"{scene.id}.mp4"
-
-    scene_props = _scene_to_input_props(scene, script_id)
-    props = {
-        "scene": scene_props,
-        "fps": 30,
-        "width": width,
-        "height": height,
-    }
-    props_path = _write_input_props(props, output_path)
-
-    try:
-        _run_remotion(
-            composition_id="ScenePreview",
-            props_path=props_path,
-            output_path=output_path,
-            width=width,
-            height=height,
-        )
-    finally:
-        # Clean up props file
-        try:
-            props_path.unlink()
-        except OSError:
-            pass
-
-    return f"/static/projects/{script_id}/renders/scenes/{scene.id}.mp4"
-
-
 def render_full_video(
     script_id: str,
     content: ScriptContent,
