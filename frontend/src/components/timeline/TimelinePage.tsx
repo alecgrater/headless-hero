@@ -161,7 +161,7 @@ function TimelineEditor({
   const [generatingFX, setGeneratingFX] = useState(false);
   const [generatingEli, setGeneratingEli] = useState(false);
   const [confirmOverwrite, setConfirmOverwrite] = useState<"images" | "audio" | "fx" | "eli" | null>(null);
-  const [pixelsPerSecond, setPixelsPerSecond] = useState(40);
+  const [pixelsPerSecond, setPixelsPerSecond] = useState(5);
   const [exportTestJobId, setExportTestJobId] = useState<string | null>(null);
   const [exportTestStep, setExportTestStep] = useState("");
   const [exportTestProgress, setExportTestProgress] = useState(0);
@@ -613,7 +613,7 @@ function TimelineEditor({
           </div>
 
           {/* Row 2 — Pipeline Steps */}
-          <div className="flex flex-col gap-2 px-5 py-2.5 bg-gradient-to-b from-neutral-900/60 to-neutral-900/40">
+          <div className="flex flex-col gap-1.5 px-5 py-2 bg-gradient-to-b from-neutral-900/60 to-neutral-900/40">
             <div className="grid items-center gap-1.5" style={{ gridTemplateColumns: "1fr auto 1fr auto 1fr auto 1fr auto 1fr auto 1fr" }}>
 
             {/* Step 1 — Title Cards */}
@@ -628,7 +628,7 @@ function TimelineEditor({
               {state.hasTitleCards && (
                 <button
                   onClick={titleCardGenerating ? () => { titleCardCancelledRef.current = true; setTitleCardGenerating(false); } : () => handleGenerateTitleCards(titleCardGenerated)}
-                  className={`text-sm px-2 py-1.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
+                  className={`text-sm px-2 py-2.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
                     titleCardGenerating
                       ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                       : titleCardGenerated
@@ -665,7 +665,7 @@ function TimelineEditor({
             }`}>2</span>
             <button
               onClick={state.batchGenerating ? () => state.cancelImageGeneration() : confirmAndGenerateImages}
-              className={`text-sm px-2 py-1.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
+              className={`text-sm px-2 py-2.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
                 state.batchGenerating
                   ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                   : allImagesGenerated
@@ -703,7 +703,7 @@ function TimelineEditor({
               <button
                 onClick={state.batchGeneratingAudio ? () => state.cancelAudioGeneration() : confirmAndGenerateAudio}
                 disabled={!state.batchGeneratingAudio && !selectedVoiceId && voices.length > 0}
-                className={`text-sm pl-2 pr-1.5 py-1.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
+                className={`text-sm pl-2 pr-1.5 py-2.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
                   state.batchGeneratingAudio
                     ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                     : allAudioGenerated
@@ -786,7 +786,7 @@ function TimelineEditor({
             <div ref={eliPositionRef} className="relative flex items-stretch flex-1">
               <button
                 onClick={generatingEli ? () => { eliCancelledRef.current = true; setGeneratingEli(false); } : confirmAndGenerateEli}
-                className={`text-sm pl-2 pr-1.5 py-1.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
+                className={`text-sm pl-2 pr-1.5 py-2.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
                   generatingEli
                     ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                     : allEliGenerated
@@ -885,7 +885,7 @@ function TimelineEditor({
             }`}>5</span>
             <button
               onClick={generatingFX ? () => { fxCancelledRef.current = true; setGeneratingFX(false); } : confirmAndGenerateFX}
-              className={`text-sm px-2 py-1.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
+              className={`text-sm px-2 py-2.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
                 generatingFX
                   ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                   : allFXGenerated
@@ -914,7 +914,7 @@ function TimelineEditor({
             <div ref={exportDropdownRef} className="relative flex items-stretch flex-1">
               <button
                 onClick={exportTestJobId ? () => setExportTestJobId(null) : () => setShowExport(true)}
-                className={`text-sm pl-2 pr-1.5 py-1.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
+                className={`text-sm pl-2 pr-1.5 py-2.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
                   exportTestJobId
                     ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                     : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
@@ -959,6 +959,18 @@ function TimelineEditor({
                 </div>
               )}
             </div>
+          {/* Zoom slider */}
+          <div className="flex items-center gap-2 px-1">
+            <span className="text-[10px] text-neutral-500">Zoom</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={pixelsPerSecond}
+              onChange={(e) => setPixelsPerSecond(parseInt(e.target.value, 10))}
+              className="flex-1 accent-violet-500 h-1"
+            />
+            <span className="text-[10px] text-neutral-500 font-mono w-4 text-right">{pixelsPerSecond}</span>
           </div>
           </div>
           </div>
@@ -1098,7 +1110,6 @@ function TimelineEditor({
             selectedSceneId={state.selectedSceneId}
             onSelectScene={handleSelectScene}
             pixelsPerSecond={pixelsPerSecond}
-            onZoomChange={setPixelsPerSecond}
           />
         </div>
 
