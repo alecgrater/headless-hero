@@ -1,5 +1,6 @@
 """Image generation pipeline — connects visual prompts to Google Gemini."""
 
+import hashlib
 import logging
 import shutil
 from pathlib import Path
@@ -21,6 +22,36 @@ _STYLE_GUIDE = _GUIDE_PATH.read_text() if _GUIDE_PATH.exists() else ""
 
 _VISUAL_STYLE_PATH = _PROMPTS_DIR / "visual_style.md"
 _VISUAL_STYLE = _VISUAL_STYLE_PATH.read_text() if _VISUAL_STYLE_PATH.exists() else ""
+
+_CHARACTER_PROMPT_PATH = _PROMPTS_DIR / "character_in_scene.md"
+_CHARACTER_PROMPT = _CHARACTER_PROMPT_PATH.read_text() if _CHARACTER_PROMPT_PATH.exists() else ""
+
+# --- Character reference helpers ---
+
+_char_ref_cache: dict[str, str] = {}  # mtime -> hash
+
+
+def _get_character_reference() -> str | None:
+    """Return path to selected character reference image, or None."""
+    from pipeline.character_frames import SELECTED_REFERENCE_PATH
+    if SELECTED_REFERENCE_PATH.exists():
+        return str(SELECTED_REFERENCE_PATH)
+    return None
+
+
+def _character_ref_hash() -> str:
+    """Short hash of the character reference image for cache invalidation."""
+    from pipeline.character_frames import SELECTED_REFERENCE_PATH
+    if not SELECTED_REFERENCE_PATH.exists():
+        return ""
+    mtime = str(SELECTED_REFERENCE_PATH.stat().st_mtime)
+    if mtime in _char_ref_cache:
+        return _char_ref_cache[mtime]
+    with open(SELECTED_REFERENCE_PATH, "rb") as f:
+        h = hashlib.md5(f.read(4096)).hexdigest()[:8]
+    _char_ref_cache.clear()
+    _char_ref_cache[mtime] = h
+    return h
 
 
 def _create_placeholder_image(path: Path, width: int, height: int, text: str) -> None:
@@ -45,23 +76,36 @@ def generate_scene_image(
     height: int = IMAGE_HEIGHT,
     force: bool = False,
     style_guide: str = "",
+    contains_person: bool = False,
 ) -> tuple[str, str]:
     """Generate a single scene image and save it locally.
 
     If the image already exists and force=False, skips regeneration.
     style_guide overrides the default _STYLE_GUIDE if provided.
+    When contains_person is True, injects Eli character reference + prompt.
     Returns (web-relative path, composed prompt used).
     """
     guide = style_guide if style_guide else _STYLE_GUIDE
 
-    # Build prompt: universal style → guide → visual prompt
+    # Build prompt: universal style → guide → character → visual prompt
     parts: list[str] = []
     if _VISUAL_STYLE:
         parts.append(_VISUAL_STYLE)
     if guide:
         parts.append(guide)
+    if contains_person and _CHARACTER_PROMPT:
+        parts.append(_CHARACTER_PROMPT)
     parts.append(visual_prompt)
     prompt = "\n\n".join(parts)
+
+    # Append character ref hash for cache invalidation
+    if contains_person:
+        ref_hash = _character_ref_hash()
+        if ref_hash:
+            prompt += f"\n[char_ref:{ref_hash}]"
+
+    # Resolve character reference image
+    reference_image_path = _get_character_reference() if contains_person else None
 
     # Check cache: if image exists and we have a matching prompt marker, skip regen
     images_dir = DATA_DIR / "projects" / script_id / "images"
@@ -79,9 +123,13 @@ def generate_scene_image(
             logger.info("Image cache hit for scene %s", scene_id)
             return web_path, prompt
 
-    logger.info("Generating image for scene %s", scene_id)
+    logger.info("Generating image for scene %s (contains_person=%s)", scene_id, contains_person)
     try:
-        tmp_path = generate_image(prompt, width=width, height=height, original_prompt=visual_prompt)
+        tmp_path = generate_image(
+            prompt, width=width, height=height,
+            original_prompt=visual_prompt,
+            reference_image_path=reference_image_path,
+        )
     except RuntimeError:
         logger.error("All image generation failed for scene %s, trying direct scraper fallback", scene_id)
         scraped = scrape_google_image_sync(
@@ -118,6 +166,7 @@ def generate_scene_frames(
     height: int = IMAGE_HEIGHT,
     force: bool = False,
     style_guide: str = "",
+    contains_person: bool = False,
 ) -> list[tuple[str, str]]:
     """Generate multiple frames for a scene and save them locally.
 
@@ -162,6 +211,8 @@ def generate_scene_frames(
             parts: list[str] = []
             if _VISUAL_STYLE:
                 parts.append(_VISUAL_STYLE)
+            if contains_person and _CHARACTER_PROMPT:
+                parts.append(_CHARACTER_PROMPT)
             parts.append(
                 f"This is frame {i + 1} of {total_frames} in an animation sequence. "
                 f"Using the input image as reference, change ONLY the following: "
@@ -177,6 +228,8 @@ def generate_scene_frames(
                 parts.append(_VISUAL_STYLE)
             if guide:
                 parts.append(guide)
+            if contains_person and _CHARACTER_PROMPT:
+                parts.append(_CHARACTER_PROMPT)
 
             if visual_prompt and total_frames > 1:
                 continuity = (
@@ -195,6 +248,12 @@ def generate_scene_frames(
 
             prompt = "\n\n".join(parts)
 
+        # Append character ref hash for cache invalidation
+        if contains_person:
+            ref_hash = _character_ref_hash()
+            if ref_hash:
+                prompt += f"\n[char_ref:{ref_hash}]"
+
         # Cache check
         if not force and local_path.exists() and prompt_marker.exists():
             cached_prompt = prompt_marker.read_text(encoding="utf-8").strip()
@@ -203,11 +262,19 @@ def generate_scene_frames(
                 prev_frame_path = local_path
                 continue
 
+        # Frame 0 with person: use character reference; frames 1+: use prev frame for continuity
+        if use_reference:
+            ref_path = str(prev_frame_path)
+        elif contains_person:
+            ref_path = _get_character_reference()
+        else:
+            ref_path = None
+
         tmp_path = generate_image(
             prompt,
             width=width,
             height=height,
-            reference_image_path=str(prev_frame_path) if use_reference else None,
+            reference_image_path=ref_path,
             original_prompt=full_frame_description,
         )
         shutil.move(tmp_path, str(local_path))
@@ -227,6 +294,7 @@ def generate_scene_frames_v2(
     height: int = IMAGE_HEIGHT,
     force: bool = False,
     style_guide: str = "",
+    contains_person: bool = False,
 ) -> list[tuple[str, str]]:
     """Generate frames using the Visual Beat System's per-frame directives.
 
@@ -295,6 +363,9 @@ def generate_scene_frames_v2(
             directive_prompt = directive.prompt
 
         # --- AI-generated frames ---
+        # Per-frame contains_person: check directive first, fall back to scene-level
+        frame_has_person = directive.contains_person or contains_person
+
         use_reference = (
             directive.reference_previous
             and prev_frame_path is not None
@@ -306,6 +377,8 @@ def generate_scene_frames_v2(
             parts: list[str] = []
             if _VISUAL_STYLE:
                 parts.append(_VISUAL_STYLE)
+            if frame_has_person and _CHARACTER_PROMPT:
+                parts.append(_CHARACTER_PROMPT)
             parts.append(
                 f"This is frame {i + 1} of {total_frames} in an animation sequence. "
                 f"Using the input image as reference, change ONLY the following: "
@@ -321,8 +394,16 @@ def generate_scene_frames_v2(
                 parts.append(_VISUAL_STYLE)
             if guide and guide != directive_prompt:
                 parts.append(f"Scene context: {guide}\n\nThis specific frame:")
+            if frame_has_person and _CHARACTER_PROMPT:
+                parts.append(_CHARACTER_PROMPT)
             parts.append(directive_prompt)
             prompt = "\n\n".join(parts)
+
+        # Append character ref hash for cache invalidation
+        if frame_has_person:
+            ref_hash = _character_ref_hash()
+            if ref_hash:
+                prompt += f"\n[char_ref:{ref_hash}]"
 
         # Cache check
         if not force and local_path.exists() and prompt_marker.exists():
@@ -332,11 +413,19 @@ def generate_scene_frames_v2(
                 prev_frame_path = local_path
                 continue
 
+        # reference_previous wins for animation continuity; otherwise use character ref
+        if use_reference:
+            ref_path = str(prev_frame_path)
+        elif frame_has_person:
+            ref_path = _get_character_reference()
+        else:
+            ref_path = None
+
         tmp_path = generate_image(
             prompt,
             width=width,
             height=height,
-            reference_image_path=str(prev_frame_path) if use_reference else None,
+            reference_image_path=ref_path,
             original_prompt=directive_prompt,
         )
         shutil.move(tmp_path, str(local_path))
@@ -366,6 +455,7 @@ def generate_batch(
         try:
             frame_directives = scene.get("frame_directives", [])
             frame_prompts = scene.get("frame_prompts", [])
+            scene_contains_person = scene.get("contains_person", False)
 
             # Visual Beat System v2 path: per-frame directives
             if frame_directives:
@@ -377,6 +467,7 @@ def generate_batch(
                     width=width,
                     height=height,
                     style_guide=style_guide,
+                    contains_person=scene_contains_person,
                 )
                 frame_urls = [url for url, _ in frame_results]
                 results.append({
@@ -398,6 +489,7 @@ def generate_batch(
                     width=width,
                     height=height,
                     style_guide=style_guide,
+                    contains_person=scene_contains_person,
                 )
                 frame_urls = [url for url, _ in frame_results]
                 results.append({
@@ -417,6 +509,7 @@ def generate_batch(
                 width=width,
                 height=height,
                 style_guide=style_guide,
+                contains_person=scene_contains_person,
             )
             results.append({
                 "scene_id": scene["scene_id"],

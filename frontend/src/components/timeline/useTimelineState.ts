@@ -468,6 +468,7 @@ export function useTimelineState(
           visual_prompt: scene.visual_prompt,
           frame_prompts: scene.frame_prompts || [],
           frame_directives: scene.frame_directives || [],
+          contains_person: scene.contains_person || false,
         });
         if (res.ok) {
           const data = res.data as GenerateVisualResponse;
@@ -503,7 +504,7 @@ export function useTimelineState(
   const generateAllImages = useCallback(
     async (missingOnly = false) => {
       // Collect AI-generated scenes
-      const scenes: { scene_id: string; visual_prompt: string; name: string; frame_prompts: string[]; frame_directives: any[] }[] = [];
+      const scenes: { scene_id: string; visual_prompt: string; name: string; frame_prompts: string[]; frame_directives: any[]; contains_person: boolean }[] = [];
       // Collect title card scene IDs for progress tracking
       let hasTitleCards = false;
       for (const seg of contentRef.current.segments) {
@@ -518,6 +519,7 @@ export function useTimelineState(
               name: sc.narration.slice(0, 40) || sc.id,
               frame_prompts: sc.frame_prompts || [],
               frame_directives: sc.frame_directives || [],
+              contains_person: sc.contains_person || false,
             });
           }
         }
@@ -581,6 +583,7 @@ export function useTimelineState(
             visual_prompt: scene.visual_prompt,
             frame_prompts: scene.frame_prompts,
             frame_directives: scene.frame_directives,
+            contains_person: scene.contains_person,
           });
           if (res.ok) {
             const data = res.data as GenerateVisualResponse;

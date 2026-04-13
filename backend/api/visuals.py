@@ -28,6 +28,7 @@ class GenerateVisualRequest(BaseModel):
     height: int = IMAGE_HEIGHT
     frame_prompts: list[str] = []
     frame_directives: list[dict] = []
+    contains_person: bool = False
 
 class GenerateVisualResponse(BaseModel):
     image_url: str
@@ -39,6 +40,7 @@ class BatchScene(BaseModel):
     visual_prompt: str
     frame_prompts: list[str] = []
     frame_directives: list[dict] = []
+    contains_person: bool = False
 
 class GenerateBatchRequest(BaseModel):
     script_id: str
@@ -101,6 +103,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             visual_prompt=body.visual_prompt,
             width=body.width,
             height=body.height,
+            contains_person=body.contains_person,
         )
         frame_urls = [url for url, _ in frame_results]
         # Guard: only set image_url from first non-empty frame URL
@@ -122,6 +125,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             visual_prompt=body.visual_prompt,
             width=body.width,
             height=body.height,
+            contains_person=body.contains_person,
         )
         frame_urls = [url for url, _ in frame_results]
         _update_scene(session, body.script_id, body.scene_id, frame_urls=frame_urls)
@@ -138,6 +142,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         script_id=body.script_id,
         width=body.width,
         height=body.height,
+        contains_person=body.contains_person,
     )
 
     _update_scene(session, body.script_id, body.scene_id, image_url=image_url)
@@ -159,6 +164,7 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
             "visual_prompt": s.visual_prompt,
             "frame_prompts": s.frame_prompts,
             "frame_directives": s.frame_directives,
+            "contains_person": s.contains_person,
         }
         for s in body.scenes
     ]

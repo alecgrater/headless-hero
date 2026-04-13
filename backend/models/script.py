@@ -62,6 +62,7 @@ class FrameDirective(BaseModel):
     search_query: str = ""
     transition: str = "crossfade"      # "cut" | "crossfade" | "fade_black"
     reference_previous: bool = True
+    contains_person: bool = False      # true when frame depicts a human figure
 
 
 class ChapterMarker(BaseModel):
@@ -96,6 +97,7 @@ class Scene(BaseModel):
     eli_overlay: dict | None = None    # EliOverlay dict — Eli character animation keyframes
     visual_beat: str = "static"        # "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage"
     frame_directives: list[dict] = []  # FrameDirective dicts; validated at runtime
+    contains_person: bool = False       # true if any frame depicts a human figure
 
 class Segment(BaseModel):
     """A named segment (e.g. "Caffeine") containing multiple scenes."""

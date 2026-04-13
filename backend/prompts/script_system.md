@@ -22,10 +22,11 @@ Output rules:
           "duration_estimate_seconds": 8,
           "is_title_card": false,
           "visual_beat": "quick_cuts",
+          "contains_person": true,
           "frame_directives": [
-            {"prompt": "[CLOSE-UP] Subject detail shot...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""},
-            {"prompt": "[REACTION] Human response...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""},
-            {"prompt": "[DETAIL] Key element close-up...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""}
+            {"prompt": "[CLOSE-UP] Subject detail shot...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": "", "contains_person": false},
+            {"prompt": "[REACTION] Human response...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": "", "contains_person": true},
+            {"prompt": "[DETAIL] Key element close-up...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": "", "contains_person": false}
           ]
         }
       ]
@@ -98,6 +99,13 @@ Each scene MUST have "visual_beat" and "frame_directives" (list of objects). Eac
   - "transition": "cut" | "crossfade" | "fade_black"
   - "reference_previous": true/false (true = use prev frame as reference, false = independent)
   - "search_query": Google Images query (required when source is "real_photo", empty otherwise)
+  - "contains_person": true/false — whether this frame depicts a person, human figure, or character
+
+contains_person tagging rules:
+- Set "contains_person": true on a frame directive when the frame depicts any person, human figure, character, or humanoid (including crowds, silhouettes, or partial views like hands gesturing).
+- Set "contains_person": false for objects, landscapes, diagrams, abstract concepts, metaphors without human figures, food, animals, buildings, or environments with no people.
+- Set scene-level "contains_person": true if ANY frame directive in that scene has contains_person: true.
+- Title card scenes always have "contains_person": false.
 
 For ai_generated frames, the "prompt" is a BRIEF DELTA if reference_previous is true (describing only what changes from the visual_prompt anchor), or a FULL independent description if reference_previous is false.
 

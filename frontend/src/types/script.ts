@@ -50,6 +50,7 @@ export interface FrameDirective {
   search_query?: string;
   transition: "cut" | "crossfade" | "fade_black";
   reference_previous: boolean;
+  contains_person?: boolean;
 }
 
 export interface Scene {
@@ -66,6 +67,7 @@ export interface Scene {
   frame_count?: number;
   visual_beat?: "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage";
   frame_directives?: FrameDirective[];
+  contains_person?: boolean;
   fx?: SceneFX | null;
   eli_overlay?: EliOverlay | null;
 }
