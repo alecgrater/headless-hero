@@ -447,10 +447,21 @@ def _remove_background(src_path: str, dst_path: str) -> None:
 
 
 def get_manifest() -> dict | None:
-    """Read the frame manifest, or None if not generated yet."""
+    """Read the frame manifest, or None if not generated yet.
+
+    Backfills variant_count for frames generated before the variant system was added.
+    """
     if not MANIFEST_PATH.exists():
         return None
-    return json.loads(MANIFEST_PATH.read_text())
+    manifest = json.loads(MANIFEST_PATH.read_text())
+    dirty = False
+    for frame in manifest.get("frames", []):
+        if "variant_count" not in frame:
+            frame["variant_count"] = variant_count_for_expression(frame.get("expression", ""))
+            dirty = True
+    if dirty:
+        MANIFEST_PATH.write_text(json.dumps(manifest, indent=2))
+    return manifest
 
 
 def clear_all_frames() -> dict[str, int]:
