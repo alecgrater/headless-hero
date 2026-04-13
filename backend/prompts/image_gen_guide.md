@@ -29,6 +29,7 @@ The universal style (flat 2D cartoon, bold outlines, saturated colors) and chara
 1. **Always Align with the Script's "Mic-Drop":** If the script is explaining how caffeine blocks tiredness, the image must literalize that exact battle (e.g., a glowing shield deflecting spiky spheres).
 2. **Consistency is King:** Every image uses the same flat 2D cartoon style. The entire video must look like it belongs to a single cohesive, high-budget animated production.
 3. **Eli Anchors the Scene:** When the narration is conversational or explanatory, Eli should appear in the image — reacting, pointing, or interacting with the visual metaphor. When the image is purely illustrative (a close-up of a concept), Eli can be absent.
+4. **Absolutely No Text in Images:** Generated images must contain zero text, letters, numbers, labels, signs, or written characters. If the scene involves a book, sign, or screen, show it blank or with abstract scribble marks — never legible text.
 </execution_rules>
 
 ## <animation_frame_consistency>

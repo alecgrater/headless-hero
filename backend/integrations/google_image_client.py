@@ -124,9 +124,9 @@ def generate_image(
 
     # Retry with original visual prompt (no style guide preamble)
     retry_prompt = (
-        f"Educational illustration, flat 2D cartoon style: {original_prompt}"
+        f"Educational illustration, flat 2D cartoon style, absolutely no text or letters in the image: {original_prompt}"
         if original_prompt
-        else f"Educational illustration, flat 2D cartoon style: {prompt[:500]}"
+        else f"Educational illustration, flat 2D cartoon style, absolutely no text or letters in the image: {prompt[:500]}"
     )
     logger.warning(
         "Gemini returned empty response (content filter?), retrying with simplified prompt: %s",

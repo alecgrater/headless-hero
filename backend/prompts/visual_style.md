@@ -11,7 +11,7 @@ You are generating illustrations for an educational YouTube channel. Every image
 - **Backgrounds:** Simple, slightly textured solid or two-tone backdrops. Never busy, never photorealistic. Subtle grain or paper texture is OK.
 - **Color palette:** Bold, saturated primary tones with one or two accent pops per image. High contrast between subject and background. Avoid muddy or desaturated palettes.
 - **Composition:** Clean and uncluttered. Massive negative space. The subject takes up 60–80% of the frame with room to breathe. One clear focal point — the viewer understands the image in under half a second.
-- **Typography:** No text or words rendered in the image unless explicitly requested. Avoid accidental text artifacts.
+- **Typography:** NEVER include any text, letters, numbers, words, labels, signs, or written characters in the image. This includes partial or stylized text. The only visual elements should be illustrations — no written language of any kind.
 - **People:** When people appear, they should be stylized cartoon characters with simple, expressive features — not realistic portraits. Exaggerated proportions are encouraged (slightly large heads, expressive hands).
 - **Mood:** Warm, approachable, slightly playful. Never dark/gritty, never sterile/corporate.
 
