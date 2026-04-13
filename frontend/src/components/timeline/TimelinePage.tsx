@@ -628,7 +628,7 @@ function TimelineEditor({
               {state.hasTitleCards && (
                 <button
                   onClick={titleCardGenerating ? () => { titleCardCancelledRef.current = true; setTitleCardGenerating(false); } : () => handleGenerateTitleCards(titleCardGenerated)}
-                  className={`text-sm px-2 py-1.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 ${
+                  className={`text-sm px-2 py-1.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
                     titleCardGenerating
                       ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                       : titleCardGenerated
@@ -665,7 +665,7 @@ function TimelineEditor({
             }`}>2</span>
             <button
               onClick={state.batchGenerating ? () => state.cancelImageGeneration() : confirmAndGenerateImages}
-              className={`text-sm px-2 py-1.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 ${
+              className={`text-sm px-2 py-1.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
                 state.batchGenerating
                   ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                   : allImagesGenerated
@@ -699,11 +699,11 @@ function TimelineEditor({
                   ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
                   : "border-neutral-600 text-neutral-500"
             }`}>3</span>
-            <div ref={voicePickerRef} className="relative flex items-stretch flex-1">
+            <div ref={voicePickerRef} className="relative flex items-stretch">
               <button
                 onClick={state.batchGeneratingAudio ? () => state.cancelAudioGeneration() : confirmAndGenerateAudio}
                 disabled={!state.batchGeneratingAudio && !selectedVoiceId && voices.length > 0}
-                className={`text-sm pl-2 pr-1.5 py-1.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 disabled:opacity-40 disabled:cursor-not-allowed ${
+                className={`text-sm pl-2 pr-1.5 py-1.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
                   state.batchGeneratingAudio
                     ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                     : allAudioGenerated
@@ -783,10 +783,10 @@ function TimelineEditor({
                   ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
                   : "border-neutral-600 text-neutral-500"
             }`}>4</span>
-            <div ref={eliPositionRef} className="relative flex items-stretch flex-1">
+            <div ref={eliPositionRef} className="relative flex items-stretch">
               <button
                 onClick={generatingEli ? () => { eliCancelledRef.current = true; setGeneratingEli(false); } : confirmAndGenerateEli}
-                className={`text-sm pl-2 pr-1.5 py-1.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 ${
+                className={`text-sm pl-2 pr-1.5 py-1.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
                   generatingEli
                     ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                     : allEliGenerated
@@ -885,7 +885,7 @@ function TimelineEditor({
             }`}>5</span>
             <button
               onClick={generatingFX ? () => { fxCancelledRef.current = true; setGeneratingFX(false); } : confirmAndGenerateFX}
-              className={`text-sm px-2 py-1.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 ${
+              className={`text-sm px-2 py-1.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
                 generatingFX
                   ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                   : allFXGenerated
@@ -911,10 +911,10 @@ function TimelineEditor({
           <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
           <div className="flex items-center gap-1.5 flex-1">
             <span className="w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums border-neutral-600 text-neutral-500">6</span>
-            <div ref={exportDropdownRef} className="relative flex items-stretch flex-1">
+            <div ref={exportDropdownRef} className="relative flex items-stretch">
               <button
                 onClick={exportTestJobId ? () => setExportTestJobId(null) : () => setShowExport(true)}
-                className={`text-sm pl-2 pr-1.5 py-1.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 ${
+                className={`text-sm pl-2 pr-1.5 py-1.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
                   exportTestJobId
                     ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                     : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
