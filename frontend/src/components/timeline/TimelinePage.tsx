@@ -961,7 +961,7 @@ function TimelineEditor({
             </div>
           </div>
           {/* Zoom slider */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 w-full">
             <span className="text-[11px] text-neutral-500 shrink-0">Zoom</span>
             <input
               type="range"
@@ -969,7 +969,8 @@ function TimelineEditor({
               max={100}
               value={pixelsPerSecond}
               onChange={(e) => setPixelsPerSecond(parseInt(e.target.value, 10))}
-              className="flex-1 accent-violet-500"
+              className="flex-1 w-full accent-violet-500"
+              style={{ minWidth: 0 }}
             />
             <span className="text-[11px] text-neutral-500 font-mono shrink-0">{pixelsPerSecond}</span>
           </div>
