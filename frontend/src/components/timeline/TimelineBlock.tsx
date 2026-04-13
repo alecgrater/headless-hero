@@ -47,10 +47,12 @@ export default function TimelineBlock({
 }
 
 function ImageContent({ scene }: { scene: Scene }) {
+  const hasImage = !!scene.image_url || (scene.frame_urls && scene.frame_urls.length > 0);
+
   if (scene.frame_urls && scene.frame_urls.length > 0) {
-    // Multi-frame: show small grid
     return (
-      <div className="flex gap-0.5 items-center h-full">
+      <div className="flex gap-1.5 items-center h-full">
+        <span className={`w-2 h-2 rounded-full shrink-0 ${hasImage ? "bg-emerald-500" : "bg-neutral-600"}`} />
         {scene.frame_urls.slice(0, 3).map((url, i) => (
           <img
             key={i}
@@ -70,23 +72,29 @@ function ImageContent({ scene }: { scene: Scene }) {
 
   if (scene.image_url) {
     return (
-      <img
-        src={assetUrl(scene.image_url)}
-        alt=""
-        className="h-7 w-10 rounded-sm object-cover"
-      />
+      <div className="flex gap-1.5 items-center">
+        <span className="w-2 h-2 rounded-full shrink-0 bg-emerald-500" />
+        <img
+          src={assetUrl(scene.image_url)}
+          alt=""
+          className="h-7 w-10 rounded-sm object-cover"
+        />
+      </div>
     );
   }
 
   // Placeholder
   return (
-    <svg className="w-4 h-4 text-neutral-600" viewBox="0 0 20 20" fill="currentColor">
-      <path
-        fillRule="evenodd"
-        d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-        clipRule="evenodd"
-      />
-    </svg>
+    <div className="flex gap-1.5 items-center">
+      <span className="w-2 h-2 rounded-full shrink-0 bg-neutral-600" />
+      <svg className="w-4 h-4 text-neutral-600" viewBox="0 0 20 20" fill="currentColor">
+        <path
+          fillRule="evenodd"
+          d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+          clipRule="evenodd"
+        />
+      </svg>
+    </div>
   );
 }
 
@@ -108,44 +116,47 @@ function VoiceoverContent({ scene, duration }: { scene: Scene; duration: number 
 
 function FxContent({ scene }: { scene: Scene }) {
   const fx = scene.fx;
-  if (!fx) {
-    return <span className="text-[10px] text-neutral-600">--</span>;
-  }
-
   const badges: string[] = [];
-  if (fx.kinetic_captions?.words?.length) {
+  if (fx?.kinetic_captions?.words?.length) {
     badges.push(`${fx.kinetic_captions.words.length}w`);
   }
-  if (fx.zoom_punch) {
+  if (fx?.zoom_punch) {
     badges.push("zoom");
   }
-
-  if (badges.length === 0) {
-    return <span className="text-[10px] text-neutral-600">--</span>;
-  }
+  const hasFx = badges.length > 0;
 
   return (
-    <div className="flex items-center gap-1">
-      {badges.map((badge, i) => (
-        <span
-          key={i}
-          className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-300 font-medium"
-        >
-          {badge}
-        </span>
-      ))}
+    <div className="flex items-center gap-1.5">
+      <span className={`w-2 h-2 rounded-full shrink-0 ${hasFx ? "bg-emerald-500" : "bg-neutral-600"}`} />
+      {hasFx ? (
+        badges.map((badge, i) => (
+          <span
+            key={i}
+            className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-300 font-medium"
+          >
+            {badge}
+          </span>
+        ))
+      ) : (
+        <span className="text-[10px] text-neutral-600">--</span>
+      )}
     </div>
   );
 }
 
 function EliContent({ scene }: { scene: Scene }) {
-  if (!scene.eli_overlay?.enabled) {
-    return <span className="text-[10px] text-neutral-600">--</span>;
-  }
+  const hasEli = !!scene.eli_overlay?.enabled;
 
   return (
-    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
-      eli
-    </span>
+    <div className="flex items-center gap-1.5">
+      <span className={`w-2 h-2 rounded-full shrink-0 ${hasEli ? "bg-emerald-500" : "bg-neutral-600"}`} />
+      {hasEli ? (
+        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
+          eli
+        </span>
+      ) : (
+        <span className="text-[10px] text-neutral-600">--</span>
+      )}
+    </div>
   );
 }
