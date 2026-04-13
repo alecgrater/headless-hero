@@ -238,9 +238,17 @@ export async function regenerateEli(scriptId: string, sceneId: string) {
   return api.post("/api/eli/regenerate", { script_id: scriptId, scene_id: sceneId });
 }
 
-/** Start export test pipeline (image → audio → FX → Eli → render) for scene 1 only. */
-export async function exportTest(scriptId: string): Promise<{ job_id: string }> {
-  const res = await api.post("/api/render/export-test", { script_id: scriptId });
+export interface ExportTestOptions {
+  regen_title_cards: boolean;
+  regen_images: boolean;
+  regen_audio: boolean;
+  regen_fx: boolean;
+  regen_eli: boolean;
+}
+
+/** Start export test pipeline with selective regeneration for scene 1 only. */
+export async function exportTest(scriptId: string, options: ExportTestOptions): Promise<{ job_id: string }> {
+  const res = await api.post("/api/render/export-test", { script_id: scriptId, ...options });
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Export test failed");
   return res.data as { job_id: string };
 }

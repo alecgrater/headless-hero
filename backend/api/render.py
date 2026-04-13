@@ -67,6 +67,11 @@ class RenderEstimateResponse(BaseModel):
 
 class ExportTestRequest(BaseModel):
     script_id: str
+    regen_title_cards: bool = False
+    regen_images: bool = False
+    regen_audio: bool = False
+    regen_fx: bool = False
+    regen_eli: bool = False
 
 # --- Helpers ---
 
@@ -231,6 +236,13 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
     scene_count = len(scenes_to_process)
     job = create_job(scene_count=scene_count)
 
+    # Capture regen flags
+    regen_title_cards = body.regen_title_cards
+    regen_images = body.regen_images
+    regen_audio = body.regen_audio
+    regen_fx = body.regen_fx
+    regen_eli = body.regen_eli
+
     def do_export_test():
         from pipeline.eli_animator import generate_scene_eli
         from pipeline.fx_generator import generate_scene_fx
@@ -238,115 +250,161 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
         from pipeline.title_card import ensure_title_card_images
         from pipeline.voiceover import generate_scene_audio
 
-        # Phase 1: Title cards
-        update_job(job.id, progress=0.02, current_step="Generating title card...")
-        content_for_tc = _reload_content(script_id)
-        ensure_title_card_images(script_id, content_for_tc, force=True, job_id=job.id)
+        # Build dynamic progress ranges from weights of active phases
+        phase_weights = {}
+        if regen_title_cards:
+            phase_weights["title_cards"] = 2
+        if regen_images:
+            phase_weights["images"] = 18
+        if regen_audio:
+            phase_weights["audio"] = 25
+        if regen_images or regen_audio:
+            phase_weights["persist"] = 2
+        if regen_fx:
+            phase_weights["fx"] = 15
+        if regen_eli:
+            phase_weights["eli"] = 12
+        phase_weights["render"] = 23
+        phase_weights["copy"] = 3
 
-        # Progress budget: title_card=0.02, images=0.02-0.20, audio=0.20-0.45,
-        # fx=0.45-0.60, eli=0.60-0.72, render=0.72-0.95, copy=0.95-1.0
+        total_weight = sum(phase_weights.values())
+        phase_ranges: dict[str, tuple[float, float]] = {}
+        cursor = 0.0
+        for phase_name in ["title_cards", "images", "audio", "persist", "fx", "eli", "render", "copy"]:
+            if phase_name in phase_weights:
+                start = cursor
+                span = phase_weights[phase_name] / total_weight
+                cursor += span
+                phase_ranges[phase_name] = (start, start + span)
+
+        def phase_progress(phase: str, frac: float) -> float:
+            """Map a 0-1 fraction within a phase to the global progress range."""
+            start, end = phase_ranges[phase]
+            return start + frac * (end - start)
+
+        # Phase 1: Title cards
+        if regen_title_cards:
+            update_job(job.id, progress=phase_progress("title_cards", 0), current_step="Generating title card...")
+            content_for_tc = _reload_content(script_id)
+            ensure_title_card_images(script_id, content_for_tc, force=True, job_id=job.id)
 
         # Phase 2: Images for all scenes
-        for i, sc_info in enumerate(scenes_to_process):
-            p = 0.02 + (i / scene_count) * 0.18
-            update_job(job.id, progress=p, current_step=f"Generating image ({i+1}/{scene_count})...")
-            sid = sc_info["scene_id"]
-            if sc_info["frame_prompts"] and len(sc_info["frame_prompts"]) > 1:
-                results = generate_scene_frames(sid, sc_info["frame_prompts"], script_id, visual_prompt=sc_info["visual_prompt"], force=True)
-                frame_urls = [r[0] for r in results]
-                image_url = frame_urls[0] if frame_urls else None
-            else:
-                image_url, _ = generate_scene_image(sid, sc_info["visual_prompt"], script_id, force=True)
-                frame_urls = None
-            sc_info["_image_url"] = image_url
-            sc_info["_frame_urls"] = frame_urls
+        if regen_images:
+            for i, sc_info in enumerate(scenes_to_process):
+                p = phase_progress("images", i / scene_count)
+                update_job(job.id, progress=p, current_step=f"Generating image ({i+1}/{scene_count})...")
+                sid = sc_info["scene_id"]
+                if sc_info["frame_prompts"] and len(sc_info["frame_prompts"]) > 1:
+                    results = generate_scene_frames(sid, sc_info["frame_prompts"], script_id, visual_prompt=sc_info["visual_prompt"], force=True)
+                    frame_urls = [r[0] for r in results]
+                    image_url = frame_urls[0] if frame_urls else None
+                else:
+                    image_url, _ = generate_scene_image(sid, sc_info["visual_prompt"], script_id, force=True)
+                    frame_urls = None
+                sc_info["_image_url"] = image_url
+                sc_info["_frame_urls"] = frame_urls
 
         # Phase 3: Audio for all scenes
-        for i, sc_info in enumerate(scenes_to_process):
-            p = 0.20 + (i / scene_count) * 0.25
-            update_job(job.id, progress=p, current_step=f"Generating audio ({i+1}/{scene_count})...")
-            audio_url, audio_duration, word_timestamps = generate_scene_audio(
-                sc_info["scene_id"], sc_info["narration"], voice_id, script_id,
-            )
-            sc_info["_audio_url"] = audio_url
-            sc_info["_audio_duration"] = audio_duration
-            sc_info["_word_timestamps"] = word_timestamps
+        if regen_audio:
+            for i, sc_info in enumerate(scenes_to_process):
+                p = phase_progress("audio", i / scene_count)
+                update_job(job.id, progress=p, current_step=f"Generating audio ({i+1}/{scene_count})...")
+                audio_url, audio_duration, word_timestamps = generate_scene_audio(
+                    sc_info["scene_id"], sc_info["narration"], voice_id, script_id,
+                )
+                sc_info["_audio_url"] = audio_url
+                sc_info["_audio_duration"] = audio_duration
+                sc_info["_word_timestamps"] = word_timestamps
 
-        # Phase 4: Persist all assets to DB
-        update_job(job.id, progress=0.45, current_step="Saving scene data...")
-        for sc_info in scenes_to_process:
-            _persist_scene_assets(
-                script_id, sc_info["scene_id"],
-                image_url=sc_info["_image_url"],
-                frame_urls=sc_info["_frame_urls"],
-                audio_url=sc_info["_audio_url"],
-                audio_duration=sc_info["_audio_duration"],
-                word_timestamps=sc_info["_word_timestamps"],
-            )
+        # Phase 4: Persist regenerated assets to DB
+        if regen_images or regen_audio:
+            update_job(job.id, progress=phase_progress("persist", 0), current_step="Saving scene data...")
+            for sc_info in scenes_to_process:
+                # Load existing data for fields we didn't regenerate
+                if not regen_images or not regen_audio:
+                    content_now = _reload_content(script_id)
+                    scene_now = _find_scene_in_content(content_now, sc_info["scene_id"])
+                    if "_image_url" not in sc_info:
+                        sc_info["_image_url"] = scene_now.image_url
+                        sc_info["_frame_urls"] = scene_now.frame_urls
+                    if "_audio_url" not in sc_info:
+                        sc_info["_audio_url"] = scene_now.audio_url
+                        sc_info["_audio_duration"] = scene_now.audio_duration_seconds
+                        sc_info["_word_timestamps"] = scene_now.word_timestamps
+                _persist_scene_assets(
+                    script_id, sc_info["scene_id"],
+                    image_url=sc_info["_image_url"],
+                    frame_urls=sc_info["_frame_urls"],
+                    audio_url=sc_info["_audio_url"],
+                    audio_duration=sc_info["_audio_duration"],
+                    word_timestamps=sc_info["_word_timestamps"],
+                )
 
         # Phase 5: FX for all scenes
-        for i, sc_info in enumerate(scenes_to_process):
-            p = 0.45 + (i / scene_count) * 0.15
-            update_job(job.id, progress=p, current_step=f"Generating FX ({i+1}/{scene_count})...")
-            content_now = _reload_content(script_id)
-            scene_now = _find_scene_in_content(content_now, sc_info["scene_id"])
-            duration = scene_now.audio_duration_seconds or scene_now.duration_estimate_seconds
-            scene_data = {
-                "id": sc_info["scene_id"],
-                "segment": seg_name,
-                "segment_index": 0,
-                "scene_index_in_segment": sc_info["sc_idx"],
-                "global_index": sc_info["global_idx"],
-                "is_first_scene": sc_info["global_idx"] == 0,
-                "is_last_scene": sc_info["global_idx"] == total_scenes - 1,
-                "is_first_in_segment": sc_info["sc_idx"] == 0,
-                "is_title_card": False,
-                "narration": scene_now.narration,
-                "duration_seconds": duration,
-                "duration_frames": int(duration * 30),
-                "has_multiple_frames": bool(scene_now.frame_urls and len(scene_now.frame_urls) > 1),
-            }
-            if scene_now.word_timestamps:
-                scene_data["word_timestamps"] = scene_now.word_timestamps
-            try:
-                fx_result = generate_scene_fx(scene_data)
-                _persist_scene_fx(script_id, sc_info["scene_id"], fx_result["fx"])
-            except Exception as e:
-                logger.warning("Failed FX for scene %s: %s", sc_info["scene_id"], e)
+        if regen_fx:
+            for i, sc_info in enumerate(scenes_to_process):
+                p = phase_progress("fx", i / scene_count)
+                update_job(job.id, progress=p, current_step=f"Generating FX ({i+1}/{scene_count})...")
+                content_now = _reload_content(script_id)
+                scene_now = _find_scene_in_content(content_now, sc_info["scene_id"])
+                duration = scene_now.audio_duration_seconds or scene_now.duration_estimate_seconds
+                scene_data = {
+                    "id": sc_info["scene_id"],
+                    "segment": seg_name,
+                    "segment_index": 0,
+                    "scene_index_in_segment": sc_info["sc_idx"],
+                    "global_index": sc_info["global_idx"],
+                    "is_first_scene": sc_info["global_idx"] == 0,
+                    "is_last_scene": sc_info["global_idx"] == total_scenes - 1,
+                    "is_first_in_segment": sc_info["sc_idx"] == 0,
+                    "is_title_card": False,
+                    "narration": scene_now.narration,
+                    "duration_seconds": duration,
+                    "duration_frames": int(duration * 30),
+                    "has_multiple_frames": bool(scene_now.frame_urls and len(scene_now.frame_urls) > 1),
+                }
+                if scene_now.word_timestamps:
+                    scene_data["word_timestamps"] = scene_now.word_timestamps
+                try:
+                    fx_result = generate_scene_fx(scene_data)
+                    _persist_scene_fx(script_id, sc_info["scene_id"], fx_result["fx"])
+                except Exception as e:
+                    logger.warning("Failed FX for scene %s: %s", sc_info["scene_id"], e)
 
         # Phase 6: Eli for all scenes
-        for i, sc_info in enumerate(scenes_to_process):
-            p = 0.60 + (i / scene_count) * 0.12
-            update_job(job.id, progress=p, current_step=f"Generating Eli ({i+1}/{scene_count})...")
-            content_now = _reload_content(script_id)
-            scene_now = _find_scene_in_content(content_now, sc_info["scene_id"])
-            duration = scene_now.audio_duration_seconds or scene_now.duration_estimate_seconds
-            eli_scene_data = {
-                "id": sc_info["scene_id"],
-                "segment": seg_name,
-                "segment_index": 0,
-                "scene_index_in_segment": sc_info["sc_idx"],
-                "global_index": sc_info["global_idx"],
-                "is_title_card": False,
-                "narration": scene_now.narration,
-                "duration_seconds": duration,
-                "duration_frames": int(duration * 30),
-            }
-            if scene_now.word_timestamps:
-                eli_scene_data["word_timestamps"] = scene_now.word_timestamps
-            try:
-                eli_result = generate_scene_eli(eli_scene_data)
-                _persist_scene_eli(script_id, sc_info["scene_id"], eli_result["eli_overlay"])
-            except Exception as e:
-                logger.warning("Failed Eli for scene %s: %s", sc_info["scene_id"], e)
+        if regen_eli:
+            for i, sc_info in enumerate(scenes_to_process):
+                p = phase_progress("eli", i / scene_count)
+                update_job(job.id, progress=p, current_step=f"Generating Eli ({i+1}/{scene_count})...")
+                content_now = _reload_content(script_id)
+                scene_now = _find_scene_in_content(content_now, sc_info["scene_id"])
+                duration = scene_now.audio_duration_seconds or scene_now.duration_estimate_seconds
+                eli_scene_data = {
+                    "id": sc_info["scene_id"],
+                    "segment": seg_name,
+                    "segment_index": 0,
+                    "scene_index_in_segment": sc_info["sc_idx"],
+                    "global_index": sc_info["global_idx"],
+                    "is_title_card": False,
+                    "narration": scene_now.narration,
+                    "duration_seconds": duration,
+                    "duration_frames": int(duration * 30),
+                }
+                if scene_now.word_timestamps:
+                    eli_scene_data["word_timestamps"] = scene_now.word_timestamps
+                try:
+                    eli_result = generate_scene_eli(eli_scene_data)
+                    _persist_scene_eli(script_id, sc_info["scene_id"], eli_result["eli_overlay"])
+                except Exception as e:
+                    logger.warning("Failed Eli for scene %s: %s", sc_info["scene_id"], e)
 
-        # Phase 7: Render full video
-        update_job(job.id, progress=0.72, current_step="Rendering full video...")
+        # Phase 7: Render full video (always runs)
+        render_start, render_end = phase_ranges["render"]
+        update_job(job.id, progress=render_start, current_step="Rendering full video...")
         content_now = _reload_content(script_id)
 
         def on_render_progress(p: float, msg: str):
-            # Map render progress (0-1) into our 0.72-0.95 range
-            update_job(job.id, progress=0.72 + p * 0.23, current_step=msg)
+            update_job(job.id, progress=render_start + p * (render_end - render_start), current_step=msg)
 
         video_url = render_full_video(
             script_id=script_id,
@@ -357,8 +415,8 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
             brand=brand_dict,
         )
 
-        # Phase 8: Copy to Downloads
-        update_job(job.id, progress=0.95, current_step="Copying to Downloads...")
+        # Phase 8: Copy to Downloads (always runs)
+        update_job(job.id, progress=phase_ranges["copy"][0], current_step="Copying to Downloads...")
         projects_prefix = "/static/projects/"
         if video_url.startswith(projects_prefix):
             relative = video_url[len(projects_prefix):]

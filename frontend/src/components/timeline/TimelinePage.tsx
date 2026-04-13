@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import api, { assetUrl, generateFX, generateEli, exportTest } from "../../api";
+import type { ExportTestOptions } from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
 import type { VoiceInfo, VoiceListResponse } from "../../types/audio";
 import type { ThumbnailConcept } from "../../types/render";
 import ExportPanel from "./ExportPanel";
+import ExportTestModal from "./ExportTestModal";
 import PropertiesPanel from "./PropertiesPanel";
 import TimelineLanes from "./TimelineLanes";
 import VideoPreviewModal from "./VideoPreviewModal";
@@ -158,6 +160,7 @@ function TimelineEditor({
   const [exportTestJobId, setExportTestJobId] = useState<string | null>(null);
   const [exportTestStep, setExportTestStep] = useState("");
   const [exportTestProgress, setExportTestProgress] = useState(0);
+  const [showExportTestModal, setShowExportTestModal] = useState(false);
   const [titleCardGenerating, setTitleCardGenerating] = useState(false);
   const [titleCardGenerated, setTitleCardGenerated] = useState(false);
   const [titleCardTimestamp, setTitleCardTimestamp] = useState(0);
@@ -446,9 +449,10 @@ function TimelineEditor({
   };
 
   // Export test: start + poll
-  const handleExportTest = async () => {
+  const handleExportTest = async (options: ExportTestOptions) => {
+    setShowExportTestModal(false);
     try {
-      const { job_id } = await exportTest(scriptId);
+      const { job_id } = await exportTest(scriptId, options);
       setExportTestJobId(job_id);
       setExportTestStep("Starting...");
       setExportTestProgress(0);
@@ -729,7 +733,7 @@ function TimelineEditor({
 
           {/* Export Test */}
           <button
-            onClick={handleExportTest}
+            onClick={() => setShowExportTestModal(true)}
             disabled={!!exportTestJobId}
             className="text-sm px-3 py-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/15 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-semibold transition-colors flex items-center gap-2"
             title="Run full pipeline for scene 1 and copy to Downloads"
@@ -925,6 +929,13 @@ function TimelineEditor({
           </div>
         )}
       </div>
+
+      {showExportTestModal && (
+        <ExportTestModal
+          onRun={handleExportTest}
+          onClose={() => setShowExportTestModal(false)}
+        />
+      )}
 
       {showPreview && (
         <VideoPreviewModal
