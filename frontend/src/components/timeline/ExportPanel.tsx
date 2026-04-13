@@ -93,12 +93,22 @@ function DownloadButton({ url, label }: { url: string; label: string }) {
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const response = await fetch(assetUrl(url));
+      const fullUrl = assetUrl(url);
+      const filename = url.split("/").pop() || "download";
+
+      // Use Electron native save dialog if available
+      if (window.api?.downloadFile) {
+        await window.api.downloadFile(fullUrl, filename);
+        return;
+      }
+
+      // Fallback for browser dev mode
+      const response = await fetch(fullUrl);
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = blobUrl;
-      a.download = url.split("/").pop() || "download";
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

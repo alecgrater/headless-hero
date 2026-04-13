@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog } = require("electron");
+const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
 
@@ -73,6 +74,19 @@ function createWindow() {
 
 // IPC: open external URLs in the default browser
 ipcMain.handle("open-external", (_event, url) => shell.openExternal(url));
+
+// IPC: download a file from the backend via native save dialog
+ipcMain.handle("download-file", async (_event, { url, defaultFilename }) => {
+  const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: defaultFilename || "download",
+  });
+  if (canceled || !filePath) return { canceled: true };
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Download failed: ${response.status}`);
+  const buffer = Buffer.from(await response.arrayBuffer());
+  fs.writeFileSync(filePath, buffer);
+  return { canceled: false, filePath };
+});
 
 // IPC: forward API calls from renderer to backend
 ipcMain.handle("api-request", async (_event, { method, path, body }) => {

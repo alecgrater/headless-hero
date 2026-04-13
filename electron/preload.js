@@ -12,4 +12,8 @@ contextBridge.exposeInMainWorld("api", {
 
   // Shell integration
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
+
+  // File download via native save dialog
+  downloadFile: (url, defaultFilename) =>
+    ipcRenderer.invoke("download-file", { url, defaultFilename }),
 });

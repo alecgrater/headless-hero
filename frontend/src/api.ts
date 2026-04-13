@@ -13,6 +13,7 @@ interface ApiClient {
   delete: (path: string) => Promise<ApiResponse>;
   request: (method: string, path: string, body?: unknown) => Promise<ApiResponse>;
   openExternal?: (url: string) => Promise<void>;
+  downloadFile?: (url: string, defaultFilename: string) => Promise<{ canceled: boolean; filePath?: string }>;
 }
 
 declare global {
