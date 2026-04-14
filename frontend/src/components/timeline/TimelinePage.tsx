@@ -381,8 +381,8 @@ function TimelineEditor({
   const allImagesGenerated = imageScenes.length > 0 && imageScenes.every((sc) => sc.image_url || sc.frame_urls?.length);
   const allAudioGenerated = narratedScenes.length > 0 && narratedScenes.every((sc) => sc.audio_url);
   const allFXGenerated = nonTitleScenes.length > 0 && nonTitleScenes.every((sc) => sc.fx);
-  // Eli generates for narrated non-title scenes only (skips title cards)
-  const eliScenes = nonTitleScenes.filter((sc) => sc.narration);
+  // Eli generates for narrated non-title scenes without a person (backend skips contains_person)
+  const eliScenes = nonTitleScenes.filter((sc) => sc.narration && !sc.contains_person);
   const allEliGenerated = eliScenes.length > 0 && eliScenes.every((sc) => sc.eli_overlay);
 
   // Missing counts for "Generate Missing (N)" labels
