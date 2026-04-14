@@ -31,6 +31,7 @@ export interface ScriptGenerationState {
   generationStarted: boolean;
   settingsLoaded: boolean;
   estimatedSeconds: number | null;
+  elapsedSeconds: number | null;
   genSegments: { segment: number; total: number; name: string } | null;
   genCompletedSegments: number[];
   setScript: (s: ScriptContent) => void;
@@ -54,6 +55,7 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
 
   const [genSegments, setGenSegments] = useState<{ segment: number; total: number; name: string } | null>(null);
   const [genCompletedSegments, setGenCompletedSegments] = useState<number[]>([]);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);
 
   const cancelledRef = useRef(false);
   const genPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -96,6 +98,7 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
     setError(null);
     setGenSegments(null);
     setGenCompletedSegments([]);
+    setElapsedSeconds(null);
     fetchGenerationEstimate("script_generation_youtube")
       .then((est) => setEstimatedSeconds(est.average_seconds))
       .catch(() => setEstimatedSeconds(null));
@@ -123,7 +126,10 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
 
       const { job_id } = res.data as { job_id: string };
 
-      // Poll for progress
+      // Poll for progress — track consecutive failures to detect lost jobs
+      let consecutiveFailures = 0;
+      const MAX_POLL_FAILURES = 5;
+
       genPollRef.current = setInterval(async () => {
         if (cancelledRef.current) {
           if (genPollRef.current) clearInterval(genPollRef.current);
@@ -132,14 +138,31 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
         }
         try {
           const statusRes = await api.get(`/api/scripts/generate-status/${job_id}`);
-          if (!statusRes.ok) return;
+          if (!statusRes.ok) {
+            consecutiveFailures++;
+            if (consecutiveFailures >= MAX_POLL_FAILURES) {
+              if (genPollRef.current) clearInterval(genPollRef.current);
+              genPollRef.current = null;
+              setError(
+                "Lost connection to the generation job. The backend may have restarted. Please try again.",
+              );
+              setLoading(false);
+            }
+            return;
+          }
+          consecutiveFailures = 0;
 
           const job = statusRes.data as {
             status: string;
             current_step: string;
             error: string | null;
             script_id?: string;
+            elapsed_seconds?: number;
           };
+
+          if (job.elapsed_seconds != null) {
+            setElapsedSeconds(job.elapsed_seconds);
+          }
 
           // Parse per-segment progress
           if (job.current_step && job.current_step !== "Complete") {
@@ -182,7 +205,15 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
             setLoading(false);
           }
         } catch {
-          // Network error during poll — ignore, will retry
+          consecutiveFailures++;
+          if (consecutiveFailures >= MAX_POLL_FAILURES) {
+            if (genPollRef.current) clearInterval(genPollRef.current);
+            genPollRef.current = null;
+            setError(
+              "Lost connection to the backend. Please check that it's running and try again.",
+            );
+            setLoading(false);
+          }
         }
       }, 1500);
     } catch (err) {
@@ -211,6 +242,7 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
     generationStarted,
     settingsLoaded,
     estimatedSeconds,
+    elapsedSeconds,
     genSegments,
     genCompletedSegments,
     setScript,

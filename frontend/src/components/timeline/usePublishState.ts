@@ -149,18 +149,57 @@ export function usePublishState(scriptId: string): PublishState {
 
       // Poll for status
       if (pollRef.current) clearInterval(pollRef.current);
+      let consecutiveFailures = 0;
+      const MAX_POLL_FAILURES = 5;
+
       pollRef.current = setInterval(async () => {
-        const statusRes = await api.get(`/api/publish/status/${job_id}`);
-        if (!statusRes.ok) return;
-        const status = statusRes.data as RenderStatusResponse;
-        setPublishStatus(status);
-        if (status.status === "completed" || status.status === "failed") {
-          if (pollRef.current) {
-            clearInterval(pollRef.current);
-            pollRef.current = null;
+        try {
+          const statusRes = await api.get(`/api/publish/status/${job_id}`);
+          if (!statusRes.ok) {
+            consecutiveFailures++;
+            if (consecutiveFailures >= MAX_POLL_FAILURES) {
+              if (pollRef.current) {
+                clearInterval(pollRef.current);
+                pollRef.current = null;
+              }
+              setPublishStatus({
+                job_id: job_id,
+                status: "failed",
+                progress: 0,
+                current_step: "",
+                output_urls: [],
+                error: "Lost connection to the publish job. The backend may have restarted.",
+              });
+            }
+            return;
           }
-          // Refresh history after publish completes
-          refreshHistory();
+          consecutiveFailures = 0;
+          const status = statusRes.data as RenderStatusResponse;
+          setPublishStatus(status);
+          if (status.status === "completed" || status.status === "failed") {
+            if (pollRef.current) {
+              clearInterval(pollRef.current);
+              pollRef.current = null;
+            }
+            // Refresh history after publish completes
+            refreshHistory();
+          }
+        } catch {
+          consecutiveFailures++;
+          if (consecutiveFailures >= MAX_POLL_FAILURES) {
+            if (pollRef.current) {
+              clearInterval(pollRef.current);
+              pollRef.current = null;
+            }
+            setPublishStatus({
+              job_id: job_id,
+              status: "failed",
+              progress: 0,
+              current_step: "",
+              output_urls: [],
+              error: "Lost connection to the backend. Please check that it's running.",
+            });
+          }
         }
       }, 1000);
     },

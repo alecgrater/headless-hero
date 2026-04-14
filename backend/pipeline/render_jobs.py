@@ -34,6 +34,9 @@ class RenderJob:
         self._start_time: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        elapsed = None
+        if self._start_time is not None:
+            elapsed = round(time.monotonic() - self._start_time, 1)
         return {
             "job_id": self.id,
             "status": self.status,
@@ -42,6 +45,7 @@ class RenderJob:
             "output_urls": self.output_urls,
             "error": self.error,
             "estimated_seconds": self.estimated_seconds,
+            "elapsed_seconds": elapsed,
         }
 
 _jobs: dict[str, RenderJob] = {}

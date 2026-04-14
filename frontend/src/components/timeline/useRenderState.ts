@@ -81,10 +81,30 @@ export function useRenderState(scriptId: string, title: string): RenderState {
     ) => {
       if (pollRef.current) clearInterval(pollRef.current);
 
+      let consecutiveFailures = 0;
+      const MAX_POLL_FAILURES = 5;
+
       pollRef.current = setInterval(async () => {
         try {
           const res = await api.get(`/api/render/status/${jobId}`);
-          if (!res.ok) return;
+          if (!res.ok) {
+            consecutiveFailures++;
+            if (consecutiveFailures >= MAX_POLL_FAILURES) {
+              if (pollRef.current) clearInterval(pollRef.current);
+              pollRef.current = null;
+              setStatus({
+                job_id: jobId,
+                status: "failed",
+                progress: 0,
+                current_step: "",
+                output_urls: [],
+                error: "Lost connection to the render job. The backend may have restarted.",
+                estimated_seconds: undefined,
+              });
+            }
+            return;
+          }
+          consecutiveFailures = 0;
           const status = res.data as RenderStatusResponse;
           setStatus(status);
 
@@ -96,7 +116,20 @@ export function useRenderState(scriptId: string, title: string): RenderState {
             }
           }
         } catch {
-          // ignore poll errors
+          consecutiveFailures++;
+          if (consecutiveFailures >= MAX_POLL_FAILURES) {
+            if (pollRef.current) clearInterval(pollRef.current);
+            pollRef.current = null;
+            setStatus({
+              job_id: jobId,
+              status: "failed",
+              progress: 0,
+              current_step: "",
+              output_urls: [],
+              error: "Lost connection to the backend. Please check that it's running.",
+              estimated_seconds: undefined,
+            });
+          }
         }
       }, 1000);
     },

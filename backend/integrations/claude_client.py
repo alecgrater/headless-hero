@@ -2,6 +2,7 @@
 
 import logging
 import os
+import time
 
 import anthropic
 
@@ -35,6 +36,7 @@ def chat(
     """Send a single-turn message to Claude and return the text response."""
     client = get_client()
     logger.info("Calling Claude API model=%s max_tokens=%d timeout=%.0fs", model, max_tokens, timeout)
+    t0 = time.monotonic()
     try:
         response = client.messages.create(
             model=model,
@@ -44,8 +46,11 @@ def chat(
             timeout=timeout,
         )
     except Exception:
-        logger.error("Anthropic API call failed (model=%s)", model, exc_info=True)
+        elapsed = time.monotonic() - t0
+        logger.error("Anthropic API call failed after %.1fs (model=%s)", elapsed, model, exc_info=True)
         raise
+
+    elapsed = time.monotonic() - t0
 
     # Record usage
     usage = response.usage
@@ -61,6 +66,9 @@ def chat(
         cost_estimate=cost,
         script_id=script_id,
     )
-    logger.info("Claude API call complete, usage: %s input / %s output tokens", input_tok, output_tok)
+    logger.info(
+        "Claude API call complete in %.1fs — %s input / %s output tokens (model=%s)",
+        elapsed, input_tok, output_tok, model,
+    )
 
     return response.content[0].text

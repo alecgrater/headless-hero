@@ -29,6 +29,7 @@ export default function ScriptGenerationPage({
     generationStarted,
     settingsLoaded,
     estimatedSeconds,
+    elapsedSeconds,
     genSegments,
     genCompletedSegments,
     setScript,
@@ -152,6 +153,16 @@ export default function ScriptGenerationPage({
           <p className="text-neutral-400 text-lg">
             Generating script with Claude...
           </p>
+
+          {/* Elapsed time */}
+          {elapsedSeconds != null && (
+            <p className="text-neutral-500 text-sm">
+              {Math.floor(elapsedSeconds / 60)}:{String(Math.floor(elapsedSeconds % 60)).padStart(2, "0")} elapsed
+              {estimatedSeconds != null && estimatedSeconds > 0 && (
+                <> / ~{Math.floor(estimatedSeconds / 60)}:{String(Math.floor(estimatedSeconds % 60)).padStart(2, "0")} estimated</>
+              )}
+            </p>
+          )}
 
           {/* Per-segment progress */}
           {genSegments && genSegments.total > 1 && (

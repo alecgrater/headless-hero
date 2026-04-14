@@ -55,11 +55,24 @@ export default function useTitleCardGeneration({ scriptId, script }: Params): Ti
 
       const { job_id } = res.data as { job_id: string };
 
-      // Poll for progress
+      // Poll for progress — track consecutive failures to detect lost jobs
+      let consecutiveFailures = 0;
+      const MAX_POLL_FAILURES = 5;
+
       titleCardPollRef.current = setInterval(async () => {
         try {
           const statusRes = await api.get(`/api/visuals/title-cards-status/${job_id}`);
-          if (!statusRes.ok) return;
+          if (!statusRes.ok) {
+            consecutiveFailures++;
+            if (consecutiveFailures >= MAX_POLL_FAILURES) {
+              if (titleCardPollRef.current) clearInterval(titleCardPollRef.current);
+              titleCardPollRef.current = null;
+              setTitleCardGenerating(false);
+              setTitleCardError("Lost connection to the generation job. The backend may have restarted. Please try again.");
+            }
+            return;
+          }
+          consecutiveFailures = 0;
 
           const job = statusRes.data as {
             status: string;
@@ -95,7 +108,13 @@ export default function useTitleCardGeneration({ scriptId, script }: Params): Ti
             setTitleCardError(job.error ?? "Title card generation failed");
           }
         } catch {
-          // Network error during poll — ignore, will retry
+          consecutiveFailures++;
+          if (consecutiveFailures >= MAX_POLL_FAILURES) {
+            if (titleCardPollRef.current) clearInterval(titleCardPollRef.current);
+            titleCardPollRef.current = null;
+            setTitleCardGenerating(false);
+            setTitleCardError("Lost connection to the backend. Please check that it's running and try again.");
+          }
         }
       }, 1000);
     } catch {
