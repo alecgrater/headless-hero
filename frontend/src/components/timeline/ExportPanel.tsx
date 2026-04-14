@@ -15,7 +15,6 @@ interface Props {
   thumbnails: ThumbnailConcept[];
   thumbnailsGenerating: boolean;
   onRecompositeThumbnail: () => void;
-  onRecompositeThumbnailWithoutEli: () => void;
 
   seoMetadata: SEOMetadata | null;
   seoGenerating: boolean;
@@ -168,7 +167,6 @@ export default function ExportPanel({
   thumbnails,
   thumbnailsGenerating,
   onRecompositeThumbnail,
-  onRecompositeThumbnailWithoutEli,
   seoMetadata,
   seoGenerating,
   onGenerateSEO,
@@ -292,7 +290,7 @@ export default function ExportPanel({
               </h3>
 
               {thumbnails.length > 0 && (
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   {thumbnails.map((t) => (
                     <div key={t.idx} className="space-y-1">
                       {t.image_url ? (
@@ -314,36 +312,20 @@ export default function ExportPanel({
                   ))}
                 </div>
               )}
-              <div className="flex gap-2">
-                <button
-                  onClick={onRecompositeThumbnail}
-                  disabled={thumbnailsGenerating}
-                  className="text-sm px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
-                >
-                  {thumbnailsGenerating ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                      Regenerating...
-                    </>
-                  ) : (
-                    "Regenerate Thumbnail"
-                  )}
-                </button>
-                <button
-                  onClick={onRecompositeThumbnailWithoutEli}
-                  disabled={thumbnailsGenerating}
-                  className="text-sm px-4 py-2 bg-neutral-600 hover:bg-neutral-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
-                >
-                  {thumbnailsGenerating ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    "Generate Without Eli"
-                  )}
-                </button>
-              </div>
+              <button
+                onClick={onRecompositeThumbnail}
+                disabled={thumbnailsGenerating}
+                className="text-sm px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+              >
+                {thumbnailsGenerating ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                    Regenerating...
+                  </>
+                ) : (
+                  "Regenerate Thumbnails"
+                )}
+              </button>
             </section>
           )}
 

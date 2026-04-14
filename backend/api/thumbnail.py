@@ -12,7 +12,7 @@ from sqlmodel import Session
 from config import DATA_DIR, DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS
 from database import get_session
 from models.script import Script, ScriptContent
-from pipeline.thumbnail import get_composite_thumbnail
+from pipeline.thumbnail import get_composite_thumbnail, get_composite_thumbnail_no_eli
 from pipeline.title_card_composer import compose_title_card
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,6 @@ router = APIRouter(prefix="/api/thumbnail", tags=["thumbnail"])
 
 class RecompositeThumbnailRequest(BaseModel):
     script_id: str
-    include_eli: bool = True
 
 
 class ThumbnailConceptResult(BaseModel):
@@ -45,25 +44,39 @@ def get_existing_thumbnails(script_id: str, session: Session = Depends(get_sessi
         raise HTTPException(status_code=404, detail="Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
+    card_title = content.card_title or content.title
+
+    concepts: list[ThumbnailConceptResult] = []
+
     composite_url = get_composite_thumbnail(script_id)
     if composite_url:
-        return GenerateThumbnailResponse(concepts=[ThumbnailConceptResult(
+        concepts.append(ThumbnailConceptResult(
             idx=0,
-            title_text=content.card_title or content.title,
-            visual_description="Composite grid title card (auto-generated from segments)",
+            title_text=f"{card_title} (with Eli)",
+            visual_description="Composite grid title card with Eli overlay",
             image_url=composite_url,
-        )])
-    return GenerateThumbnailResponse(concepts=[])
+        ))
+
+    no_eli_url = get_composite_thumbnail_no_eli(script_id)
+    if no_eli_url:
+        concepts.append(ThumbnailConceptResult(
+            idx=1,
+            title_text=f"{card_title} (without Eli)",
+            visual_description="Composite grid title card without Eli overlay",
+            image_url=no_eli_url,
+        ))
+
+    return GenerateThumbnailResponse(concepts=concepts)
 
 
 @router.post("/recomposite", response_model=GenerateThumbnailResponse)
 def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = Depends(get_session)):
     """Re-run compositing on existing circle images (no AI generation).
 
-    Reapplies gradient background, circle layout, label badges, 3D title text,
-    Eli overlay, and color boost using existing segment circle images on disk.
+    Always generates both with-Eli and without-Eli variants so both are
+    visible and downloadable in the UI.
     """
-    logger.info("Recompositing thumbnail for script %s", body.script_id)
+    logger.info("Recompositing thumbnails for script %s", body.script_id)
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
@@ -82,7 +95,7 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
             )
         circle_paths.append(str(circle_path))
 
-    # Build compositing inputs (same as Steps 2-5 of ensure_title_card_images)
+    # Build compositing inputs
     segment_names = [seg.short_name or " ".join(seg.name.split()[:3]) for seg in content.segments]
     circle_colors = [
         seg.circle_color or DEFAULT_SEGMENT_COLORS[i % len(DEFAULT_SEGMENT_COLORS)]
@@ -91,10 +104,15 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
     card_title = content.card_title or content.title
     highlight_word = content.card_title_highlight_word or ""
 
+    thumbs_dir = DATA_DIR / "projects" / body.script_id / "renders" / "thumbnails"
+    thumbs_dir.mkdir(parents=True, exist_ok=True)
+
+    concepts: list[ThumbnailConceptResult] = []
+
+    # --- With-Eli variant ---
     composite_path = images_dir / "composite_title_card.png"
     notitle_path = images_dir / "composite_title_card_notitle.png"
 
-    # Compose with-title version (for thumbnail)
     compose_title_card(
         circle_image_paths=circle_paths,
         segment_names=segment_names,
@@ -104,10 +122,8 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
         accent_color=DEFAULT_ACCENT_COLOR,
         output_path=str(composite_path),
         include_title=True,
-        include_eli=body.include_eli,
+        include_eli=True,
     )
-
-    # Compose no-title version (for scene rendering)
     compose_title_card(
         circle_image_paths=circle_paths,
         segment_names=segment_names,
@@ -117,20 +133,37 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
         accent_color=DEFAULT_ACCENT_COLOR,
         output_path=str(notitle_path),
         include_title=False,
-        include_eli=body.include_eli,
+        include_eli=True,
     )
-
-    # Copy with-title composite to thumbnail location
-    thumbs_dir = DATA_DIR / "projects" / body.script_id / "renders" / "thumbnails"
-    thumbs_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(str(composite_path), str(thumbs_dir / "0.png"))
-
-    thumbnail_url = f"/static/projects/{body.script_id}/renders/thumbnails/0.png"
-    logger.info("Recomposited thumbnail for script %s", body.script_id)
-
-    return GenerateThumbnailResponse(concepts=[ThumbnailConceptResult(
+    concepts.append(ThumbnailConceptResult(
         idx=0,
-        title_text=card_title,
-        visual_description="Composite grid title card (recomposited from existing segments)",
-        image_url=thumbnail_url,
-    )])
+        title_text=f"{card_title} (with Eli)",
+        visual_description="Composite grid title card with Eli overlay",
+        image_url=f"/static/projects/{body.script_id}/renders/thumbnails/0.png",
+    ))
+
+    # --- Without-Eli variant ---
+    composite_no_eli_path = images_dir / "composite_title_card_no_eli.png"
+
+    compose_title_card(
+        circle_image_paths=circle_paths,
+        segment_names=segment_names,
+        circle_colors=circle_colors,
+        card_title=card_title,
+        highlight_word=highlight_word,
+        accent_color=DEFAULT_ACCENT_COLOR,
+        output_path=str(composite_no_eli_path),
+        include_title=True,
+        include_eli=False,
+    )
+    shutil.copy2(str(composite_no_eli_path), str(thumbs_dir / "0_no_eli.png"))
+    concepts.append(ThumbnailConceptResult(
+        idx=1,
+        title_text=f"{card_title} (without Eli)",
+        visual_description="Composite grid title card without Eli overlay",
+        image_url=f"/static/projects/{body.script_id}/renders/thumbnails/0_no_eli.png",
+    ))
+
+    logger.info("Recomposited both thumbnail variants for script %s", body.script_id)
+    return GenerateThumbnailResponse(concepts=concepts)
