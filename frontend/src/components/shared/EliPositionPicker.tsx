@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { ELI_OVERLAY_HEIGHT, ELI_OVERLAY_WIDTH } from "../../constants";
 import type { EliPosition } from "../../types/brand";
 
 interface Props {
@@ -8,8 +9,8 @@ interface Props {
 
 const VIDEO_W = 1920;
 const VIDEO_H = 1080;
-const OVERLAY_W = 480;
-const OVERLAY_H = 270;
+const OVERLAY_W = ELI_OVERLAY_WIDTH;
+const OVERLAY_H = ELI_OVERLAY_HEIGHT;
 
 // Preview dimensions
 const PREVIEW_W = 320;

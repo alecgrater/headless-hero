@@ -146,10 +146,12 @@ export const EliOverlay: React.FC<Props> = ({
   const breathY = Math.sin((frame / fps) * Math.PI) * 2;
 
   // Container size: 16:9 aspect ratio, ~25% of frame width
+  // Keep in sync with frontend/src/constants.ts ELI_OVERLAY_WIDTH/HEIGHT
   const containerWidth = 480; // 25% of 1920
   const containerHeight = 270; // 16:9 ratio
 
   // Position: use overlay.position if provided, otherwise default (bottom-right)
+  // Keep in sync with frontend/src/constants.ts DEFAULT_ELI_POSITION
   const posX = overlay.position?.x ?? 1410; // 1920 - 480 - 30
   const posY = overlay.position?.y ?? 720;  // 1080 - 270 - 90
 

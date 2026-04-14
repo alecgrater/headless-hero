@@ -12,7 +12,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from config import DATA_DIR, sanitize_filename, strip_markdown_fences
+from config import DATA_DIR, THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH, sanitize_filename, strip_markdown_fences
 from integrations.claude_client import chat
 from integrations.google_image_client import generate_image
 from pipeline.ffmpeg_builder import build_thumbnail_composite_cmd
@@ -88,7 +88,7 @@ def generate_thumbnail(
     logger.info("Generating thumbnail %s for script %s", idx, script_id)
     prompt = visual_description
 
-    tmp_path = generate_image(prompt, width=1280, height=720, script_id=script_id)
+    tmp_path = generate_image(prompt, width=THUMBNAIL_WIDTH, height=THUMBNAIL_HEIGHT, script_id=script_id)
 
     # Move illustration to renders directory
     thumbs_dir = DATA_DIR / "projects" / script_id / "renders" / "thumbnails"

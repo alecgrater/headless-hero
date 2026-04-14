@@ -29,6 +29,29 @@ FPS = 30
 # Allowed segment counts for video scripts (8 or 10 only)
 ALLOWED_SEGMENT_COUNTS = (8, 10)
 
+# Default segment circle colors for title card grids
+DEFAULT_SEGMENT_COLORS = [
+    "#e91e63", "#2196f3", "#4caf50", "#ff9800",
+    "#9c27b0", "#00bcd4", "#ff5722", "#8bc34a",
+    "#3f51b5", "#cddc39", "#f44336", "#009688",
+]
+
+# Default accent color for title highlights and UI elements
+DEFAULT_ACCENT_COLOR = "#e91e63"
+
+# Default Claude model for script generation and LLM tasks
+DEFAULT_CLAUDE_MODEL = "anthropic.claude-opus-4-6-v1"
+
+# Default Gemini model for image generation
+DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image"
+
+# YouTube thumbnail dimensions
+THUMBNAIL_WIDTH = 1280
+THUMBNAIL_HEIGHT = 720
+
+# Backend server port
+BACKEND_PORT = 8420
+
 
 def snap_segment_count(n: int) -> int:
     """Snap an arbitrary segment count to the nearest allowed value (8 or 10).

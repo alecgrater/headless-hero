@@ -13,6 +13,7 @@ import api, {
   reprocessCharacterBackgrounds,
   selectCharacterReference,
 } from "../../api";
+import { DEFAULT_ELI_POSITION } from "../../constants";
 import type { EliPosition } from "../../types/brand";
 import EliPositionPicker from "../shared/EliPositionPicker";
 
@@ -56,8 +57,11 @@ export default function CharacterSection() {
   const [reprocessJobId, setReprocessJobId] = useState<string | null>(null);
   const [reprocessProgress, setReprocessProgress] = useState({ completed: 0, total: 0, current_label: "" });
 
+  // Image cache-bust counter — incremented after any image change to force browser refresh
+  const [imgVersion, setImgVersion] = useState(() => Date.now());
+
   // Overlay position state
-  const [eliPosition, setEliPosition] = useState<EliPosition>({ x: 1410, y: 720 });
+  const [eliPosition, setEliPosition] = useState<EliPosition>(DEFAULT_ELI_POSITION);
 
   const fetchManifest = useCallback(async () => {
     const res = await getCharacterFrames();
@@ -111,6 +115,7 @@ export default function CharacterSection() {
       setFrameProgress({ completed: status.completed, total: status.total, current_label: status.current_label });
       if (status.status === "completed" || status.status === "failed") {
         setFrameJobId(null);
+        setImgVersion(Date.now());
         fetchManifest();
       }
     }, 2000);
@@ -127,6 +132,7 @@ export default function CharacterSection() {
       setVariantProgress({ completed: status.completed, total: status.total, current_label: status.current_label });
       if (status.status === "completed" || status.status === "failed") {
         setVariantJobId(null);
+        setImgVersion(Date.now());
         fetchManifest();
       }
     }, 2000);
@@ -143,6 +149,7 @@ export default function CharacterSection() {
       setReprocessProgress({ completed: status.completed, total: status.total, current_label: status.current_label });
       if (status.status === "completed" || status.status === "failed") {
         setReprocessJobId(null);
+        setImgVersion(Date.now());
         fetchManifest();
       }
     }, 2000);
@@ -188,7 +195,10 @@ export default function CharacterSection() {
 
   const handleRegenerate = async (frameId: string) => {
     setRegeneratingId(frameId);
-    await regenerateCharacterFrame(frameId);
+    const res = await regenerateCharacterFrame(frameId);
+    if (res.ok) {
+      setImgVersion(Date.now());
+    }
     await fetchManifest();
     setRegeneratingId(null);
   };
@@ -204,9 +214,9 @@ export default function CharacterSection() {
 
   const frameCount = manifest?.frames?.length ?? 0;
   const missingCount = manifest?.missing_count ?? 0;
-  // Cache-busting suffix derived from manifest timestamp — forces browser to reload
+  // Cache-busting suffix — uses local counter to force browser to reload
   // images after regeneration or background reprocessing
-  const cacheBust = manifest?.generated_at ? `?t=${new Date(manifest.generated_at).getTime()}` : "";
+  const cacheBust = `?v=${imgVersion}`;
   const isGeneratingRefs = !!refJobId;
   const isGeneratingFrames = !!frameJobId;
   const isGeneratingVariants = !!variantJobId;

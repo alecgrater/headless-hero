@@ -13,7 +13,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Callable
 
-from config import DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH, sanitize_filename
+from config import BACKEND_PORT, DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH, sanitize_filename
 from models.script import ChapterMarker, Scene, SceneFX, ScriptContent, VideoFX
 from pipeline.character_frames import load_variant_counts
 
@@ -26,7 +26,7 @@ REMOTION_DIR = Path(__file__).resolve().parents[2] / "remotion"
 REMOTION_ENTRY = REMOTION_DIR / "src" / "index.ts"
 
 
-BACKEND_STATIC_BASE = "http://localhost:8420/static/projects"
+BACKEND_STATIC_BASE = f"http://localhost:{BACKEND_PORT}/static/projects"
 
 
 def _to_remotion_path(abs_path: str) -> str:
@@ -147,7 +147,7 @@ def _scene_to_input_props(scene: Scene, script_id: str, eli_position: dict | Non
         "fx": fx,
         "eli_overlay": eli_overlay,
         "word_timestamps": scene.word_timestamps,
-        "character_frames_base_url": "http://localhost:8420/static/character/frames",
+        "character_frames_base_url": f"http://localhost:{BACKEND_PORT}/static/character/frames",
         "variant_counts": variant_counts,
         "visual_beat": scene.visual_beat,
         "frame_directives": scene.frame_directives or None,

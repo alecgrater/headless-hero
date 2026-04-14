@@ -10,7 +10,7 @@ from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
-from config import VIDEO_HEIGHT, VIDEO_WIDTH
+from config import DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS, VIDEO_HEIGHT, VIDEO_WIDTH
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +25,7 @@ _GRID_LAYOUTS = {
 }
 
 # Default bold colors when Claude doesn't provide them
-_DEFAULT_COLORS = [
-    "#e91e63", "#2196f3", "#4caf50", "#ff9800",
-    "#9c27b0", "#00bcd4", "#ff5722", "#8bc34a",
-    "#3f51b5", "#cddc39", "#f44336", "#009688",
-]
+_DEFAULT_COLORS = DEFAULT_SEGMENT_COLORS
 
 # Path to bundled fonts
 _BUNDLED_FONT = Path(__file__).resolve().parent.parent / "assets" / "fonts" / "PermanentMarker-Regular.ttf"
@@ -383,7 +379,7 @@ def compose_title_card(
     circle_colors: list[str],
     card_title: str,
     highlight_word: str,
-    accent_color: str = "#e91e63",
+    accent_color: str = DEFAULT_ACCENT_COLOR,
     output_path: str = "",
     include_title: bool = True,
 ) -> tuple[str, dict[int, tuple[int, int, int]]]:

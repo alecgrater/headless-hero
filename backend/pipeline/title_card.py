@@ -11,7 +11,7 @@ import os
 import shutil
 from pathlib import Path
 
-from config import DATA_DIR
+from config import DATA_DIR, DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS
 from models.script import ScriptContent
 from pipeline.image_gen import generate_scene_image
 from pipeline.render_jobs import update_job
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 def ensure_title_card_images(
     script_id: str,
     content: ScriptContent,
-    accent_color: str = "#e91e63",
+    accent_color: str = DEFAULT_ACCENT_COLOR,
     force: bool = False,
     job_id: str | None = None,
 ) -> dict[int, tuple[int, int, int]]:
@@ -222,8 +222,4 @@ def _set_title_card_urls_and_zoom(
 
 
 # Default circle colors (used when Claude doesn't provide them)
-_DEFAULT_COLORS = [
-    "#e91e63", "#2196f3", "#4caf50", "#ff9800",
-    "#9c27b0", "#00bcd4", "#ff5722", "#8bc34a",
-    "#3f51b5", "#cddc39", "#f44336", "#009688",
-]
+_DEFAULT_COLORS = DEFAULT_SEGMENT_COLORS

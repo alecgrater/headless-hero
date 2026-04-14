@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import api from "../../api";
+import { DEFAULT_ELI_POSITION } from "../../constants";
 import type { ScriptContent } from "../../types/script";
 import type { EliPosition } from "../../types/brand";
 
@@ -18,8 +19,8 @@ interface UseEliPositionResult {
 export function useEliPosition(initialContent: ScriptContent): UseEliPositionResult {
   const [showEliPositionPicker, setShowEliPositionPicker] = useState(false);
   const [eliPositionMode, setEliPositionMode] = useState<"default" | "custom">("default");
-  const [brandEliPosition, setBrandEliPosition] = useState<EliPosition>({ x: 1410, y: 720 });
-  const [customEliPosition, setCustomEliPosition] = useState<EliPosition>({ x: 1410, y: 720 });
+  const [brandEliPosition, setBrandEliPosition] = useState<EliPosition>(DEFAULT_ELI_POSITION);
+  const [customEliPosition, setCustomEliPosition] = useState<EliPosition>(DEFAULT_ELI_POSITION);
   const eliPositionRef = useRef<HTMLDivElement>(null);
 
   // Fetch brand eli_position

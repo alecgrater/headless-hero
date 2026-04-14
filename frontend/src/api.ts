@@ -1,4 +1,5 @@
 import { showToast } from "./components/ToastContainer";
+import { BACKEND_PORT } from "./constants";
 
 export interface ApiResponse<T = unknown> {
   ok: boolean;
@@ -76,7 +77,7 @@ const rawApi: ApiClient = window.api ?? {
     if (body && method !== "GET") {
       options.body = JSON.stringify(body);
     }
-    const response = await fetch(`http://localhost:8420${path}`, options);
+    const response = await fetch(`http://localhost:${BACKEND_PORT}${path}`, options);
     const data = await response.json();
     return { ok: response.ok, status: response.status, data };
   },
@@ -112,7 +113,7 @@ export async function cloneVoice(
     formData.append("files", file);
   }
 
-  const baseUrl = window.api ? "" : "http://localhost:8420";
+  const baseUrl = window.api ? "" : `http://localhost:${BACKEND_PORT}`;
   const response = await fetch(`${baseUrl}/api/voice/clone`, {
     method: "POST",
     body: formData,
@@ -128,7 +129,7 @@ export async function cloneVoice(
 
 /** Prepend the backend origin to a static asset path (e.g. /static/projects/...). */
 export function assetUrl(path: string): string {
-  return `http://localhost:8420${path}`;
+  return `http://localhost:${BACKEND_PORT}${path}`;
 }
 
 /** Fetch generation time estimate for a given operation type. */

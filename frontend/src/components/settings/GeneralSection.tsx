@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../../api";
+import { DEFAULT_MODEL } from "../../constants";
 import { showToast } from "../ToastContainer";
 
 interface KeyInfo {
@@ -37,7 +38,7 @@ const REPLICATE_MODELS = [
 ] as const;
 
 export const SCRIPT_MODELS = [
-  { value: "anthropic.claude-opus-4-6-v1", label: "Claude Opus 4.6" },
+  { value: DEFAULT_MODEL, label: "Claude Opus 4.6" },
   { value: "claude-sonnet-4-20250514", label: "Claude Sonnet 4" },
   { value: "anthropic.claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
   { value: "anthropic.claude-sonnet-4-5-20250929-v1:0", label: "Claude Sonnet 4.5" },
@@ -54,7 +55,7 @@ export default function GeneralSection() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [rateLimitEnabled, setRateLimitEnabled] = useState("true");
-  const [scriptModel, setScriptModel] = useState("anthropic.claude-opus-4-6-v1");
+  const [scriptModel, setScriptModel] = useState(DEFAULT_MODEL);
   const [originalDownloads, setOriginalDownloads] = useState("");
   const [originalProvider, setOriginalProvider] = useState("google");
   const [originalUpsampling, setOriginalUpsampling] = useState("true");
@@ -62,7 +63,7 @@ export default function GeneralSection() {
   const [originalSafety, setOriginalSafety] = useState("2");
   const [originalFormat, setOriginalFormat] = useState("png");
   const [originalRateLimit, setOriginalRateLimit] = useState("true");
-  const [originalScriptModel, setOriginalScriptModel] = useState("anthropic.claude-opus-4-6-v1");
+  const [originalScriptModel, setOriginalScriptModel] = useState(DEFAULT_MODEL);
 
   useEffect(() => {
     api.get("/api/settings/keys").then((res) => {
@@ -89,7 +90,7 @@ export default function GeneralSection() {
         const rlVal = data.IMAGE_RATE_LIMIT_MS?.masked || "true";
         setRateLimitEnabled(rlVal === "0" || rlVal === "false" ? "false" : "true");
         setOriginalRateLimit(rlVal === "0" || rlVal === "false" ? "false" : "true");
-        const smVal = data.SCRIPT_MODEL?.masked || "anthropic.claude-opus-4-6-v1";
+        const smVal = data.SCRIPT_MODEL?.masked || DEFAULT_MODEL;
         setScriptModel(smVal);
         setOriginalScriptModel(smVal);
       }

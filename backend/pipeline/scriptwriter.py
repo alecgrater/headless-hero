@@ -8,7 +8,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from config import ALLOWED_SEGMENT_COUNTS, snap_segment_count, strip_markdown_fences
+from config import ALLOWED_SEGMENT_COUNTS, DEFAULT_ACCENT_COLOR, DEFAULT_CLAUDE_MODEL, snap_segment_count, strip_markdown_fences
 from integrations.claude_client import chat
 from models.script import Scene, ScriptContent, Segment
 
@@ -111,7 +111,7 @@ def generate_script(
     Returns:
         A validated ScriptContent object.
     """
-    resolved_model = model or os.environ.get("SCRIPT_MODEL", "anthropic.claude-opus-4-6-v1")
+    resolved_model = model or os.environ.get("SCRIPT_MODEL", DEFAULT_CLAUDE_MODEL)
 
     user_parts = [f'Write a full segmented video script for: "{topic}"']
     if description:
@@ -295,7 +295,7 @@ def _generate_segment_scenes(
         f"```json\n{outline_json}\n```\n\n"
         f"WRITE SCENES FOR SEGMENT {segment_index + 1}/{total}: \"{seg_name}\"\n"
         f"Topic summary: {segment.get('topic_summary', '')}\n"
-        f"Circle color: {segment.get('circle_color', '#e91e63')}\n"
+        f"Circle color: {segment.get('circle_color', DEFAULT_ACCENT_COLOR)}\n"
         f"Title card image prompt: {segment.get('title_card_image_prompt', '')}\n\n"
         f"{_SEGMENT_SCENES_INSTRUCTIONS}"
     )
@@ -363,7 +363,7 @@ def _generate_segmented(
             name=seg_outline.get("name", f"Segment {i + 1}"),
             short_name=seg_outline.get("short_name", ""),
             scenes=scenes,
-            circle_color=seg_outline.get("circle_color", "#e91e63"),
+            circle_color=seg_outline.get("circle_color", DEFAULT_ACCENT_COLOR),
             title_card_image_prompt=seg_outline.get("title_card_image_prompt", ""),
         ))
 

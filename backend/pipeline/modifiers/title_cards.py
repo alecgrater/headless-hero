@@ -6,17 +6,13 @@ and pre-render image generation as standalone functions (always active).
 
 import logging
 
-from config import ALLOWED_SEGMENT_COUNTS
+from config import ALLOWED_SEGMENT_COUNTS, DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS
 from models.script import Scene, ScriptContent
 
 logger = logging.getLogger(__name__)
 
 # Default circle colors when Claude doesn't provide them
-DEFAULT_COLORS = [
-    "#e91e63", "#2196f3", "#4caf50", "#ff9800",
-    "#9c27b0", "#00bcd4", "#ff5722", "#8bc34a",
-    "#3f51b5", "#cddc39", "#f44336", "#009688",
-]
+DEFAULT_COLORS = DEFAULT_SEGMENT_COLORS
 
 _ALLOWED_SEGMENTS_STR = " or ".join(str(n) for n in ALLOWED_SEGMENT_COUNTS)
 
@@ -80,7 +76,7 @@ def prepare_title_card_scene(scene: Scene, script_id: str, brand: dict) -> Scene
             ensure_title_card_images(
                 script_id=script_id,
                 content=full_content,
-                accent_color="#e91e63",
+                accent_color=DEFAULT_ACCENT_COLOR,
             )
             notitle_web = f"/static/projects/{script_id}/images/composite_title_card_notitle.png"
             title_web = f"/static/projects/{script_id}/images/composite_title_card.png"

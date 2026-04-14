@@ -9,6 +9,8 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
+from config import BACKEND_PORT
+
 logger = logging.getLogger(__name__)
 
 _SCOPES = [
@@ -16,7 +18,7 @@ _SCOPES = [
     "https://www.googleapis.com/auth/youtube.readonly",
 ]
 
-_REDIRECT_URI_DEFAULT = "http://localhost:8420/api/publish/oauth/callback/youtube"
+_REDIRECT_URI_DEFAULT = f"http://localhost:{BACKEND_PORT}/api/publish/oauth/callback/youtube"
 _TOKEN_URI = "https://oauth2.googleapis.com/token"
 _UPLOAD_CHUNK_SIZE = 10 * 1024 * 1024  # 10 MB
 

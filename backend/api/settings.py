@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
 
 from database import get_session
+from config import DEFAULT_CLAUDE_MODEL
 from models.settings import AppSetting
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,7 @@ _PLAINTEXT_KEYS = {
 # Default values for settings that have sensible defaults
 _DEFAULTS: dict[str, str] = {
     "IMAGE_RATE_LIMIT_MS": "10000",  # 6 req/min to stay under free-tier limits
-    "SCRIPT_MODEL": "anthropic.claude-opus-4-6-v1",
+    "SCRIPT_MODEL": DEFAULT_CLAUDE_MODEL,
 }
 
 

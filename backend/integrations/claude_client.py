@@ -5,6 +5,7 @@ import os
 
 import anthropic
 
+from config import DEFAULT_CLAUDE_MODEL
 from integrations.usage_tracker import (
     record_usage,
     ANTHROPIC_INPUT_PER_TOKEN,
@@ -26,7 +27,7 @@ def chat(
     system: str,
     user_message: str,
     *,
-    model: str = "anthropic.claude-opus-4-6-v1",
+    model: str = DEFAULT_CLAUDE_MODEL,
     max_tokens: int = 4096,
     timeout: float = 600.0,
     script_id: str | None = None,

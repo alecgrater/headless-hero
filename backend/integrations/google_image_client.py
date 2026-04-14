@@ -7,7 +7,7 @@ import tempfile
 from google import genai
 from google.genai import types
 
-from config import IMAGE_HEIGHT, IMAGE_WIDTH
+from config import DEFAULT_IMAGE_MODEL, IMAGE_HEIGHT, IMAGE_WIDTH
 from integrations.google_image_scraper import scrape_google_image_sync
 from integrations.usage_tracker import record_usage, GOOGLE_IMAGE_PER_CALL
 
@@ -47,7 +47,7 @@ def _call_gemini(
     """Single Gemini image generation call. Returns temp file path or None if blocked."""
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash-image",
+            model=DEFAULT_IMAGE_MODEL,
             contents=contents,
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE"],
@@ -72,7 +72,7 @@ def _call_gemini(
             record_usage(
                 service="google_ai",
                 operation="image_gen",
-                model="gemini-2.5-flash-image",
+                model=DEFAULT_IMAGE_MODEL,
                 images=1,
                 cost_estimate=GOOGLE_IMAGE_PER_CALL,
                 script_id=script_id,

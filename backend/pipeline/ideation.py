@@ -5,7 +5,7 @@ import logging
 
 from pydantic import BaseModel, field_validator
 
-from config import ALLOWED_SEGMENT_COUNTS, snap_segment_count, strip_markdown_fences
+from config import ALLOWED_SEGMENT_COUNTS, DEFAULT_CLAUDE_MODEL, snap_segment_count, strip_markdown_fences
 from integrations.claude_client import chat
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ def generate_ideas(
         )
     user_message = "\n".join(user_parts)
 
-    model = "anthropic.claude-opus-4-6-v1"
+    model = DEFAULT_CLAUDE_MODEL
     logger.info("Generating %s ideas for niche %r using model=%s", count, niche, model)
     raw = chat(SYSTEM_PROMPT, user_message, model=model)
 
