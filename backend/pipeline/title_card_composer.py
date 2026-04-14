@@ -60,6 +60,10 @@ _BURST_COLOR = (255, 245, 180)  # warm yellow glow
 _BURST_ALPHA = 100
 _COLOR_SATURATION = 1.15
 _COLOR_CONTRAST = 1.08
+_ELI_GLOW_COLOR = (0, 220, 255)    # bright cyan glow
+_ELI_GLOW_EXPAND = 9               # MaxFilter kernel size (must be odd) — controls outline thickness
+_ELI_GLOW_BLUR = 12                # GaussianBlur radius — controls softness
+_ELI_GLOW_ALPHA = 200              # glow opacity (0-255)
 
 
 def _load_font(size: int, bold: bool = True) -> ImageFont.FreeTypeFont:
@@ -430,7 +434,16 @@ def _overlay_eli_frame(canvas: Image.Image) -> Image.Image:
         paste_x = w - target_w
         paste_y = 0
 
+        # --- Glowing outline ---
+        alpha = eli_img.getchannel("A")
+        expanded = alpha.filter(ImageFilter.MaxFilter(size=_ELI_GLOW_EXPAND))
+        glow_rgba = Image.new("RGBA", eli_img.size, (*_ELI_GLOW_COLOR, 0))
+        glow_alpha = expanded.point(lambda p: _ELI_GLOW_ALPHA if p > 0 else 0)
+        glow_rgba.putalpha(glow_alpha)
+        glow_rgba = glow_rgba.filter(ImageFilter.GaussianBlur(radius=_ELI_GLOW_BLUR))
+
         eli_layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        eli_layer.paste(glow_rgba, (paste_x, paste_y), glow_rgba)
         eli_layer.paste(eli_img, (paste_x, paste_y), eli_img)
         return Image.alpha_composite(canvas, eli_layer)
 
