@@ -909,6 +909,7 @@ function TimelineEditor({
           thumbnails={render.thumbnails}
           thumbnailsGenerating={render.thumbnailsGenerating}
           onRecompositeThumbnail={() => render.recompositeThumbnail()}
+          onRecompositeThumbnailWithoutEli={() => render.recompositeThumbnailWithoutEli()}
           seoMetadata={render.seoMetadata}
           seoGenerating={render.seoGenerating}
           onGenerateSEO={render.generateSEO}

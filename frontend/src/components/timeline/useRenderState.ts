@@ -194,6 +194,25 @@ export function useRenderState(scriptId: string, title: string): RenderState {
     [scriptId],
   );
 
+  const recompositeThumbnailWithoutEli = useCallback(
+    async () => {
+      setThumbnailsGenerating(true);
+      try {
+        const res = await api.post("/api/thumbnail/recomposite", {
+          script_id: scriptId,
+          include_eli: false,
+        });
+        if (res.ok) {
+          const data = res.data as GenerateThumbnailResponse;
+          setThumbnails(data.concepts);
+        }
+      } finally {
+        setThumbnailsGenerating(false);
+      }
+    },
+    [scriptId],
+  );
+
   const generateSEO = useCallback(async () => {
     setSeoGenerating(true);
     try {
@@ -237,6 +256,7 @@ export function useRenderState(scriptId: string, title: string): RenderState {
     thumbnails,
     thumbnailsGenerating,
     recompositeThumbnail,
+    recompositeThumbnailWithoutEli,
     seoMetadata,
     seoGenerating,
     generateSEO,

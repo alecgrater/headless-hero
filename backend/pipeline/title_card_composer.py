@@ -461,6 +461,7 @@ def compose_title_card(
     accent_color: str = DEFAULT_ACCENT_COLOR,
     output_path: str = "",
     include_title: bool = True,
+    include_eli: bool = True,
 ) -> tuple[str, dict[int, tuple[int, int, int]]]:
     """Compose a grid title card image with circular segment thumbnails.
 
@@ -582,7 +583,8 @@ def compose_title_card(
         canvas = _draw_3d_title_text(canvas, title_text, highlight_word, accent_color, y=20)
 
     # --- Layer 8: Eli character overlay (top-right corner) ---
-    canvas = _overlay_eli_frame(canvas)
+    if include_eli:
+        canvas = _overlay_eli_frame(canvas)
 
     # --- Layer 9: Color boost ---
     final = _boost_colors(canvas)

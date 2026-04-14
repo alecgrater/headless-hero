@@ -22,6 +22,7 @@ router = APIRouter(prefix="/api/thumbnail", tags=["thumbnail"])
 
 class RecompositeThumbnailRequest(BaseModel):
     script_id: str
+    include_eli: bool = True
 
 
 class ThumbnailConceptResult(BaseModel):
@@ -103,6 +104,7 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
         accent_color=DEFAULT_ACCENT_COLOR,
         output_path=str(composite_path),
         include_title=True,
+        include_eli=body.include_eli,
     )
 
     # Compose no-title version (for scene rendering)
@@ -115,6 +117,7 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
         accent_color=DEFAULT_ACCENT_COLOR,
         output_path=str(notitle_path),
         include_title=False,
+        include_eli=body.include_eli,
     )
 
     # Copy with-title composite to thumbnail location
