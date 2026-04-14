@@ -53,7 +53,8 @@ function getVariant(
   const cycleLength = 6; // frames per variant hold (~200ms at 30fps)
   const seed = hashCode(keyframe.frame_id + String(keyframe.start_frame));
   const sequence = buildVariantSequence(seed, variantCount);
-  const cycleIndex = Math.floor((frame - keyframe.start_frame) / cycleLength);
+  const elapsed = Math.max(0, frame - keyframe.start_frame);
+  const cycleIndex = Math.floor(elapsed / cycleLength);
   return sequence[cycleIndex % sequence.length];
 }
 
