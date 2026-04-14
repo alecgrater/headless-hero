@@ -385,6 +385,12 @@ function TimelineEditor({
   const eliScenes = nonTitleScenes.filter((sc) => sc.narration);
   const allEliGenerated = eliScenes.length > 0 && eliScenes.every((sc) => sc.eli_overlay);
 
+  // Missing counts for "Generate Missing (N)" labels
+  const missingImageCount = imageScenes.filter((sc) => !sc.image_url && !sc.frame_urls?.length).length;
+  const missingAudioCount = narratedScenes.filter((sc) => !sc.audio_url).length;
+  const missingFXCount = nonTitleScenes.filter((sc) => !sc.fx).length;
+  const missingEliCount = eliScenes.filter((sc) => !sc.eli_overlay).length;
+
   const confirmAndGenerateImages = () => {
     if (hasExistingImages) {
       setConfirmOverwrite("images");
@@ -663,6 +669,10 @@ function TimelineEditor({
             hasExistingAudio={hasExistingAudio}
             hasExistingFX={hasExistingFX}
             hasExistingEli={hasExistingEli}
+            missingImageCount={missingImageCount}
+            missingAudioCount={missingAudioCount}
+            missingFXCount={missingFXCount}
+            missingEliCount={missingEliCount}
             cancelImageGeneration={state.cancelImageGeneration}
             cancelAudioGeneration={state.cancelAudioGeneration}
             fxCancelledRef={fxCancelledRef}

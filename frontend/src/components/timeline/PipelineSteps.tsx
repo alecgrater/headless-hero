@@ -36,6 +36,10 @@ interface Props {
   hasExistingAudio: boolean;
   hasExistingFX: boolean;
   hasExistingEli: boolean;
+  missingImageCount: number;
+  missingAudioCount: number;
+  missingFXCount: number;
+  missingEliCount: number;
   cancelImageGeneration: () => void;
   cancelAudioGeneration: () => void;
   // Cancel refs
@@ -100,6 +104,10 @@ export default function PipelineSteps({
   hasExistingAudio,
   hasExistingFX,
   hasExistingEli,
+  missingImageCount,
+  missingAudioCount,
+  missingFXCount,
+  missingEliCount,
   cancelImageGeneration,
   cancelAudioGeneration,
   fxCancelledRef,
@@ -247,7 +255,7 @@ export default function PipelineSteps({
                   disabled={allImagesGenerated || !hasExistingImages}
                   className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Generate Missing
+                  Generate Missing ({missingImageCount})
                 </button>
               </div>
             )}
@@ -317,7 +325,7 @@ export default function PipelineSteps({
                       onClick={() => { setShowVoicePicker(false); generateMissingAudio(); }}
                       className="w-full text-left px-3 py-1.5 text-sm text-sky-300 hover:bg-neutral-700 transition-colors"
                     >
-                      Generate Missing
+                      Generate Missing ({missingAudioCount})
                     </button>
                     <div className="border-t border-neutral-700 my-1" />
                   </>
@@ -410,7 +418,7 @@ export default function PipelineSteps({
                       onClick={() => { setShowEliPositionPicker(false); generateMissingEli(); }}
                       className="w-full text-left px-2 py-1.5 text-sm text-sky-300 hover:bg-neutral-800 rounded-md transition-colors"
                     >
-                      Generate Missing
+                      Generate Missing ({missingEliCount})
                     </button>
                     <div className="border-t border-neutral-700" />
                   </>
@@ -519,7 +527,7 @@ export default function PipelineSteps({
                   disabled={allFXGenerated || !hasExistingFX}
                   className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Generate Missing
+                  Generate Missing ({missingFXCount})
                 </button>
               </div>
             )}
