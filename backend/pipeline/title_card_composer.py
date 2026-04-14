@@ -419,17 +419,16 @@ def _overlay_eli_frame(canvas: Image.Image) -> Image.Image:
 
         eli_img = Image.open(frame_path).convert("RGBA")
 
-        # Resize to ~30% of canvas height, maintaining aspect ratio
+        # Resize to ~75% of canvas height, maintaining aspect ratio
         w, h = canvas.size
-        target_h = int(h * 0.3)
+        target_h = int(h * 0.75)
         scale = target_h / eli_img.height
         target_w = int(eli_img.width * scale)
         eli_img = eli_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
-        # Position in top-right corner with small margin
-        margin = 20
-        paste_x = w - target_w - margin
-        paste_y = margin
+        # Position flush in top-right corner
+        paste_x = w - target_w
+        paste_y = 0
 
         eli_layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         eli_layer.paste(eli_img, (paste_x, paste_y), eli_img)
