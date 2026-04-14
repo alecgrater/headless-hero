@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api";
-import { DEFAULT_BAR_COLOR } from "./constants";
 import type {
   ExportAudioResponse,
   GenerateSEOResponse,
@@ -27,7 +26,7 @@ interface RenderState {
   // Thumbnails
   thumbnails: ThumbnailConcept[];
   thumbnailsGenerating: boolean;
-  generateThumbnails: (barColor?: string) => Promise<void>;
+  recompositeThumbnail: () => Promise<void>;
 
   // SEO
   seoMetadata: SEOMetadata | null;
@@ -177,14 +176,12 @@ export function useRenderState(scriptId: string, title: string): RenderState {
     }
   }, [scriptId, title]);
 
-  const generateThumbnails = useCallback(
-    async (barColor = DEFAULT_BAR_COLOR) => {
+  const recompositeThumbnail = useCallback(
+    async () => {
       setThumbnailsGenerating(true);
       try {
-        const res = await api.post("/api/thumbnail/generate", {
+        const res = await api.post("/api/thumbnail/recomposite", {
           script_id: scriptId,
-          bar_color: barColor,
-          title,
         });
         if (res.ok) {
           const data = res.data as GenerateThumbnailResponse;
@@ -194,7 +191,7 @@ export function useRenderState(scriptId: string, title: string): RenderState {
         setThumbnailsGenerating(false);
       }
     },
-    [scriptId, title],
+    [scriptId],
   );
 
   const generateSEO = useCallback(async () => {
@@ -239,7 +236,7 @@ export function useRenderState(scriptId: string, title: string): RenderState {
     exportAudio,
     thumbnails,
     thumbnailsGenerating,
-    generateThumbnails,
+    recompositeThumbnail,
     seoMetadata,
     seoGenerating,
     generateSEO,

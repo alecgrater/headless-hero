@@ -2,24 +2,27 @@
 
 import json
 import logging
+import os
+import shutil
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
+from config import DATA_DIR, DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS
 from database import get_session
 from models.script import Script, ScriptContent
-from pipeline.thumbnail import generate_concepts, generate_thumbnail, get_composite_thumbnail
+from pipeline.thumbnail import get_composite_thumbnail
+from pipeline.title_card_composer import compose_title_card
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/thumbnail", tags=["thumbnail"])
 
-class GenerateThumbnailRequest(BaseModel):
+
+class RecompositeThumbnailRequest(BaseModel):
     script_id: str
-    bar_color: str = "0x9333EA"
-    count: int = 3
-    title: str = ""
+
 
 class ThumbnailConceptResult(BaseModel):
     idx: int
@@ -28,8 +31,10 @@ class ThumbnailConceptResult(BaseModel):
     image_url: str | None = None
     error: str | None = None
 
+
 class GenerateThumbnailResponse(BaseModel):
     concepts: list[ThumbnailConceptResult]
+
 
 @router.get("/{script_id}", response_model=GenerateThumbnailResponse)
 def get_existing_thumbnails(script_id: str, session: Session = Depends(get_session)):
@@ -50,65 +55,79 @@ def get_existing_thumbnails(script_id: str, session: Session = Depends(get_sessi
     return GenerateThumbnailResponse(concepts=[])
 
 
-@router.post("/generate", response_model=GenerateThumbnailResponse)
-def generate_thumbnails(body: GenerateThumbnailRequest, session: Session = Depends(get_session)):
-    """Generate thumbnail concepts via Claude, render them via Gemini + FFmpeg."""
-    logger.info("Generating thumbnails for script %s (count=%d)", body.script_id, body.count)
+@router.post("/recomposite", response_model=GenerateThumbnailResponse)
+def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = Depends(get_session)):
+    """Re-run compositing on existing circle images (no AI generation).
+
+    Reapplies gradient background, circle layout, label badges, 3D title text,
+    Eli overlay, and color boost using existing segment circle images on disk.
+    """
+    logger.info("Recompositing thumbnail for script %s", body.script_id)
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
+    images_dir = DATA_DIR / "projects" / body.script_id / "images"
 
-    # Always check for composite title card thumbnail (title cards are always active)
-    composite_url = get_composite_thumbnail(body.script_id)
-    if composite_url:
-        logger.info("Using composite title card thumbnail for script %s", body.script_id)
-        results = [ThumbnailConceptResult(
-            idx=0,
-            title_text=content.card_title or content.title,
-            visual_description="Composite grid title card (auto-generated from segments)",
-            image_url=composite_url,
-        )]
-        return GenerateThumbnailResponse(concepts=results)
+    # Collect existing circle images
+    circle_paths: list[str] = []
+    for idx in range(len(content.segments)):
+        circle_path = images_dir / f"title_card_{idx}.png"
+        if not circle_path.exists():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Circle image missing for segment {idx}. Generate title card images first.",
+            )
+        circle_paths.append(str(circle_path))
 
-    # Use default system font for thumbnail text rendering
-    font_family = ""
+    # Build compositing inputs (same as Steps 2-5 of ensure_title_card_images)
+    segment_names = [seg.short_name or " ".join(seg.name.split()[:3]) for seg in content.segments]
+    circle_colors = [
+        seg.circle_color or DEFAULT_SEGMENT_COLORS[i % len(DEFAULT_SEGMENT_COLORS)]
+        for i, seg in enumerate(content.segments)
+    ]
+    card_title = content.card_title or content.title
+    highlight_word = content.card_title_highlight_word or ""
 
-    # Generate concepts from Claude
-    concepts = generate_concepts(
-        video_title=content.title,
-        count=body.count,
-        script_id=body.script_id,
+    composite_path = images_dir / "composite_title_card.png"
+    notitle_path = images_dir / "composite_title_card_notitle.png"
+
+    # Compose with-title version (for thumbnail)
+    compose_title_card(
+        circle_image_paths=circle_paths,
+        segment_names=segment_names,
+        circle_colors=circle_colors,
+        card_title=card_title,
+        highlight_word=highlight_word,
+        accent_color=DEFAULT_ACCENT_COLOR,
+        output_path=str(composite_path),
+        include_title=True,
     )
 
-    # Render each concept
-    results: list[ThumbnailConceptResult] = []
-    for i, concept in enumerate(concepts):
-        try:
-            image_url = generate_thumbnail(
-                script_id=body.script_id,
-                idx=i,
-                visual_description=concept.visual_description,
-                title_text=concept.title_text,
-                bar_color=body.bar_color,
-                title=body.title,
-                font_family=font_family,
-            )
-            results.append(ThumbnailConceptResult(
-                idx=i,
-                title_text=concept.title_text,
-                visual_description=concept.visual_description,
-                image_url=image_url,
-            ))
-        except Exception as exc:
-            logger.exception("Failed to render thumbnail concept %d for script %s", i, body.script_id)
-            results.append(ThumbnailConceptResult(
-                idx=i,
-                title_text=concept.title_text,
-                visual_description=concept.visual_description,
-                error=str(exc),
-            ))
+    # Compose no-title version (for scene rendering)
+    compose_title_card(
+        circle_image_paths=circle_paths,
+        segment_names=segment_names,
+        circle_colors=circle_colors,
+        card_title=card_title,
+        highlight_word=highlight_word,
+        accent_color=DEFAULT_ACCENT_COLOR,
+        output_path=str(notitle_path),
+        include_title=False,
+    )
 
-    logger.info("Thumbnail generation complete for script %s: %d concepts rendered", body.script_id, len(results))
-    return GenerateThumbnailResponse(concepts=results)
+    # Copy with-title composite to thumbnail location
+    thumbs_dir = DATA_DIR / "projects" / body.script_id / "renders" / "thumbnails"
+    thumbs_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(str(composite_path), str(thumbs_dir / "0.png"))
+
+    thumbnail_url = f"/static/projects/{body.script_id}/renders/thumbnails/0.png"
+    logger.info("Recomposited thumbnail for script %s", body.script_id)
+
+    return GenerateThumbnailResponse(concepts=[ThumbnailConceptResult(
+        idx=0,
+        title_text=card_title,
+        visual_description="Composite grid title card (recomposited from existing segments)",
+        image_url=thumbnail_url,
+    )])

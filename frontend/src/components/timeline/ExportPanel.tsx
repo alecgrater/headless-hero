@@ -14,7 +14,7 @@ interface Props {
 
   thumbnails: ThumbnailConcept[];
   thumbnailsGenerating: boolean;
-  onGenerateThumbnails: () => void;
+  onRecompositeThumbnail: () => void;
 
   seoMetadata: SEOMetadata | null;
   seoGenerating: boolean;
@@ -166,7 +166,7 @@ export default function ExportPanel({
   onExportAudio,
   thumbnails,
   thumbnailsGenerating,
-  onGenerateThumbnails,
+  onRecompositeThumbnail,
   seoMetadata,
   seoGenerating,
   onGenerateSEO,
@@ -313,19 +313,17 @@ export default function ExportPanel({
                 </div>
               )}
               <button
-                onClick={onGenerateThumbnails}
+                onClick={onRecompositeThumbnail}
                 disabled={thumbnailsGenerating}
                 className="text-sm px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
               >
                 {thumbnailsGenerating ? (
                   <>
                     <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                    Generating...
+                    Regenerating...
                   </>
-                ) : thumbnails.length > 0 ? (
-                  "Regenerate Thumbnails"
                 ) : (
-                  "Generate Thumbnails"
+                  "Regenerate Thumbnail"
                 )}
               </button>
             </section>

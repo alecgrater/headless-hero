@@ -101,7 +101,7 @@ export default function ThumbnailModal({ thumbnails, generating, onGenerate, onC
                 : "bg-violet-600 hover:bg-violet-500 text-white"
             }`}
           >
-            {thumbnails.length > 0 ? "Regenerate Thumbnails" : "Generate Thumbnails"}
+            {thumbnails.length > 0 ? "Regenerate Thumbnail" : "Generate Thumbnail"}
           </button>
         </div>
       </div>

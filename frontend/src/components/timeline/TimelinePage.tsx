@@ -18,7 +18,6 @@ import { useRenderState } from "./useRenderState";
 import { useTimelineState } from "./useTimelineState";
 import { useVoicePicker } from "./useVoicePicker";
 import { useKeyboardShortcuts, ShortcutHelpOverlay } from "./useKeyboardShortcuts";
-import { DEFAULT_BAR_COLOR } from "./constants";
 
 interface Props {
   scriptId: string;
@@ -512,14 +511,12 @@ function TimelineEditor({
     setTitleCardGenerating(false);
   };
 
-  const handleGenerateThumbnailsInline = async () => {
+  const handleRecompositeThumbnailInline = async () => {
     thumbnailsCancelledRef.current = false;
     setThumbnailsInlineGenerating(true);
     try {
-      const res = await api.post("/api/thumbnail/generate", {
+      const res = await api.post("/api/thumbnail/recomposite", {
         script_id: scriptId,
-        bar_color: DEFAULT_BAR_COLOR,
-        title,
       });
       if (res.ok && !thumbnailsCancelledRef.current) {
         const data = res.data as { concepts: ThumbnailConcept[] };
@@ -886,7 +883,7 @@ function TimelineEditor({
         <ThumbnailModal
           thumbnails={thumbnailsInline}
           generating={thumbnailsInlineGenerating}
-          onGenerate={handleGenerateThumbnailsInline}
+          onGenerate={handleRecompositeThumbnailInline}
           onClose={() => setShowThumbnailModal(false)}
         />
       )}
@@ -901,7 +898,7 @@ function TimelineEditor({
           onExportAudio={render.exportAudio}
           thumbnails={render.thumbnails}
           thumbnailsGenerating={render.thumbnailsGenerating}
-          onGenerateThumbnails={() => render.generateThumbnails()}
+          onRecompositeThumbnail={() => render.recompositeThumbnail()}
           seoMetadata={render.seoMetadata}
           seoGenerating={render.seoGenerating}
           onGenerateSEO={render.generateSEO}
