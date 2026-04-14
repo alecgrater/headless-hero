@@ -47,5 +47,11 @@ def generate_seo_metadata(body: GenerateSEORequest, session: Session = Depends(g
         script_id=body.script_id,
     )
 
+    # Persist SEO metadata in the script JSON blob
+    content.seo_metadata = metadata.model_dump()
+    record.script_json = content.model_dump_json()
+    session.add(record)
+    session.commit()
+
     logger.info("SEO metadata generated for script %s", body.script_id)
     return GenerateSEOResponse(metadata=metadata)

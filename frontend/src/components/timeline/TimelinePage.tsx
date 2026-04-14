@@ -152,7 +152,7 @@ function TimelineEditor({
   onSaveStateChange?: (state: SaveState) => void;
 }) {
   const state = useTimelineState(scriptId, initialContent);
-  const render = useRenderState(scriptId, title);
+  const render = useRenderState(scriptId, title, initialContent.seo_metadata);
   const publish = usePublishState(scriptId);
 
   // Voice picker hook

@@ -120,6 +120,7 @@ class ScriptContent(BaseModel):
     video_fx: dict | None = None          # VideoFX dict — computed deterministically at render time
     eli_position: dict | None = None      # Per-video Eli overlay position override {x, y}
     segment_timer_enabled: bool = True    # Global toggle for segment countdown timer overlay
+    seo_metadata: dict | None = None      # Generated SEO metadata (title, description, tags)
 
 # --- SQLModel table for persistence ---
 

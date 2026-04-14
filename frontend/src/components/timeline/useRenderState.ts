@@ -38,7 +38,7 @@ interface RenderState {
   fetchEstimate: (sceneCount: number, totalAudioDuration: number) => Promise<void>;
 }
 
-export function useRenderState(scriptId: string, title: string): RenderState {
+export function useRenderState(scriptId: string, title: string, initialSeoMetadata?: SEOMetadata | null): RenderState {
   const [youtubeJobId, setYoutubeJobId] = useState<string | null>(null);
   const [youtubeStatus, setYoutubeStatus] = useState<RenderStatusResponse | null>(null);
   const [youtubeUrl, setYoutubeUrl] = useState<string | null>(null);
@@ -49,7 +49,7 @@ export function useRenderState(scriptId: string, title: string): RenderState {
   const [thumbnails, setThumbnails] = useState<ThumbnailConcept[]>([]);
   const [thumbnailsGenerating, setThumbnailsGenerating] = useState(false);
 
-  const [seoMetadata, setSeoMetadata] = useState<SEOMetadata | null>(null);
+  const [seoMetadata, setSeoMetadata] = useState<SEOMetadata | null>(initialSeoMetadata ?? null);
   const [seoGenerating, setSeoGenerating] = useState(false);
 
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);

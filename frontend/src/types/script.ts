@@ -1,3 +1,5 @@
+import { SEOMetadata } from "./render";
+
 // --- New FX types (4 core effects) ---
 
 export interface EmphasisWord {
@@ -85,6 +87,7 @@ export interface ScriptContent {
   video_fx?: VideoFX | null;
   eli_position?: { x: number; y: number } | null;
   segment_timer_enabled?: boolean;
+  seo_metadata?: SEOMetadata | null;
 }
 
 export interface ScriptRead {
