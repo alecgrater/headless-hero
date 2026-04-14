@@ -6,6 +6,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 import feedparser
+import requests as req_lib
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,9 @@ def _fetch_rss() -> list[dict]:
 
     for feed_url in RSS_FEEDS:
         try:
-            feed = feedparser.parse(feed_url)
+            resp = req_lib.get(feed_url, timeout=15.0, proxies={"http": None, "https": None, "http://": None, "https://": None})
+            resp.raise_for_status()
+            feed = feedparser.parse(resp.content)
             for entry in feed.entries:
                 # Check publication date
                 published = entry.get("published_parsed") or entry.get("updated_parsed")

@@ -3,7 +3,7 @@
 import logging
 import time
 
-import httpx
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -19,13 +19,15 @@ SUBREDDITS = [
 
 HEADERS = {"User-Agent": "HeadlessHero/1.0"}
 TIMEOUT = 15.0
+# Bypass env-var proxy — these are public API calls that don't need proxying
+NO_PROXY = {"http": None, "https": None, "http://": None, "https://": None}
 
 
 def _fetch_subreddit(sub: str, sort: str, limit: int = 25) -> list[dict]:
     """Fetch posts from a subreddit's JSON endpoint."""
     url = f"https://www.reddit.com/r/{sub}/{sort}.json?limit={limit}"
     try:
-        resp = httpx.get(url, headers=HEADERS, timeout=TIMEOUT, follow_redirects=True)
+        resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT, proxies=NO_PROXY)
         resp.raise_for_status()
         data = resp.json()
         return data.get("data", {}).get("children", [])

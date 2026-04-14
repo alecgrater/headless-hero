@@ -13,7 +13,9 @@ def fetch_google_trends_topics() -> list[dict]:
     try:
         from pytrends.request import TrendReq
 
-        pytrends = TrendReq(hl="en-US", tz=360)
+        pytrends = TrendReq(hl="en-US", tz=360, requests_args={
+            "proxies": {"http": None, "https": None, "http://": None, "https://": None},
+        })
 
         # Fetch trending searches (real-time trending)
         try:
