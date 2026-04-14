@@ -6,11 +6,12 @@ high-CTR thumbnails.
 """
 
 import logging
+import random
 from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
-from config import DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS, VIDEO_HEIGHT, VIDEO_WIDTH
+from config import DATA_DIR, DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS, VIDEO_HEIGHT, VIDEO_WIDTH
 
 logger = logging.getLogger(__name__)
 
@@ -32,18 +33,20 @@ _BUNDLED_FONT = Path(__file__).resolve().parent.parent / "assets" / "fonts" / "P
 _BUNDLED_TITLE_FONT = Path(__file__).resolve().parent.parent / "assets" / "fonts" / "Anton-Regular.ttf"
 
 # --- Style constants ---
-_BG_COLOR = (255, 250, 240)  # warm cream
+_BG_COLOR = (255, 250, 240)  # warm cream (fallback only)
+_BG_GRAD_TOP = (26, 5, 51)  # deep purple #1a0533
+_BG_GRAD_BOTTOM = (10, 46, 61)  # dark teal #0a2e3d
 _VIGNETTE_STRENGTH = 100  # alpha of dark edge overlay
 _CENTER_GLOW_RADIUS = 60  # blur radius for center glow
 _CIRCLE_BORDER_WIDTH = 8
 _CIRCLE_SHADOW_OFFSET = (6, 8)
 _CIRCLE_SHADOW_BLUR = 15
 _CIRCLE_SHADOW_ALPHA = 90
-_BADGE_OVERLAP_PX = 12  # how far badge overlaps bottom of circle
-_BADGE_PAD_X = 18
-_BADGE_PAD_Y = 6
-_BADGE_RADIUS = 14  # corner radius
-_BADGE_GLOW_BLUR = 8
+_BADGE_OVERLAP_PX = 20  # how far badge overlaps bottom of circle
+_BADGE_PAD_X = 28
+_BADGE_PAD_Y = 12
+_BADGE_RADIUS = 20  # corner radius
+_BADGE_GLOW_BLUR = 12
 _TITLE_SHADOW_OFFSET = (5, 7)
 _TITLE_SHADOW_BLUR = 12
 _TITLE_SHADOW_ALPHA = 140
@@ -109,8 +112,15 @@ def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
 
 
 def _draw_warm_background(w: int, h: int) -> Image.Image:
-    """Create warm cream canvas with center glow and edge vignette."""
-    canvas = Image.new("RGBA", (w, h), _BG_COLOR + (255,))
+    """Create saturated gradient canvas with center glow and edge vignette."""
+    # Vertical gradient from deep purple to dark teal
+    canvas = Image.new("RGBA", (w, h), (0, 0, 0, 255))
+    for row in range(h):
+        t = row / max(h - 1, 1)
+        r = int(_BG_GRAD_TOP[0] + (_BG_GRAD_BOTTOM[0] - _BG_GRAD_TOP[0]) * t)
+        g = int(_BG_GRAD_TOP[1] + (_BG_GRAD_BOTTOM[1] - _BG_GRAD_TOP[1]) * t)
+        b = int(_BG_GRAD_TOP[2] + (_BG_GRAD_BOTTOM[2] - _BG_GRAD_TOP[2]) * t)
+        ImageDraw.Draw(canvas).line([(0, row), (w, row)], fill=(r, g, b, 255))
 
     # Center glow: white ellipse, blurred, composited at reduced opacity
     glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
@@ -202,7 +212,7 @@ def _draw_label_badge(
     td = ImageDraw.Draw(text_layer)
     tx = cx - tw // 2
     ty = by + _BADGE_PAD_Y - bbox[1]
-    td.text((tx, ty), label, fill=(255, 255, 255, 255), font=font, stroke_width=2, stroke_fill=(0, 0, 0, 255))
+    td.text((tx, ty), label, fill=(255, 255, 255, 255), font=font, stroke_width=3, stroke_fill=(0, 0, 0, 255))
     canvas = Image.alpha_composite(canvas, text_layer)
 
     return canvas
@@ -373,6 +383,63 @@ def calculate_grid_layout(
     return rows, cols, positions
 
 
+def _overlay_eli_frame(canvas: Image.Image) -> Image.Image:
+    """Composite a random Eli character frame in the top-right corner."""
+    try:
+        from pipeline.character_frames import get_manifest, FRAMES_DIR
+
+        manifest = get_manifest()
+        if not manifest or not manifest.get("frames"):
+            return canvas
+
+        frames = manifest["frames"]
+        frame = random.choice(frames)
+
+        # Pick a random variant (or base) if variants exist
+        variant_count = frame.get("variant_count", 1)
+        if variant_count > 1:
+            variant_idx = random.randint(0, variant_count)  # 0 = base, 1..N = variants
+        else:
+            variant_idx = 0
+
+        if variant_idx == 0:
+            file_name = frame.get("file_closed", "")
+        else:
+            # Variant file: e.g. "neutral_standing_closed_v2.png"
+            base_name = frame.get("file_closed", "")
+            stem = Path(base_name).stem  # e.g. "neutral_standing_closed"
+            file_name = f"{stem}_v{variant_idx + 1}.png"
+
+        frame_path = FRAMES_DIR / file_name
+        if not frame_path.exists():
+            # Fallback to base frame if variant missing
+            frame_path = FRAMES_DIR / frame.get("file_closed", "")
+            if not frame_path.exists():
+                return canvas
+
+        eli_img = Image.open(frame_path).convert("RGBA")
+
+        # Resize to ~30% of canvas height, maintaining aspect ratio
+        w, h = canvas.size
+        target_h = int(h * 0.3)
+        scale = target_h / eli_img.height
+        target_w = int(eli_img.width * scale)
+        eli_img = eli_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
+
+        # Position in top-right corner with small margin
+        margin = 20
+        paste_x = w - target_w - margin
+        paste_y = margin
+
+        eli_layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        eli_layer.paste(eli_img, (paste_x, paste_y), eli_img)
+        return Image.alpha_composite(canvas, eli_layer)
+
+    except Exception as exc:
+        logger.debug("Skipping Eli overlay on title card: %s", exc)
+        return canvas
+
+
 def compose_title_card(
     circle_image_paths: list[str],
     segment_names: list[str],
@@ -482,12 +549,12 @@ def compose_title_card(
         # Layer 6: Label badge — auto-scale to fit cell width
         label = segment_names[i].upper() if i < len(segment_names) else f"SEGMENT {i + 1}"
         max_label_w = int(cell_w - 20)
-        label_size = 40
+        label_size = 64
         label_font = _load_font(label_size, bold=True)
         lbox = label_font.getbbox(label)
         lw = lbox[2] - lbox[0]
         # Shrink font until label fits or we hit minimum size
-        while lw > max_label_w and label_size > 22:
+        while lw > max_label_w and label_size > 36:
             label_size -= 2
             label_font = _load_font(label_size, bold=True)
             lbox = label_font.getbbox(label)
@@ -502,7 +569,10 @@ def compose_title_card(
         title_text = card_title.upper()
         canvas = _draw_3d_title_text(canvas, title_text, highlight_word, accent_color, y=20)
 
-    # --- Layer 8: Color boost ---
+    # --- Layer 8: Eli character overlay (top-right corner) ---
+    canvas = _overlay_eli_frame(canvas)
+
+    # --- Layer 9: Color boost ---
     final = _boost_colors(canvas)
 
     final.save(output_path, "PNG")
