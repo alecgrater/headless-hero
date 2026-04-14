@@ -271,7 +271,7 @@ def _run_remotion(
         cmd,
         capture_output=True,
         text=True,
-        timeout=1200,  # 20 min max
+        timeout=3600,  # 60 min max
         cwd=str(REMOTION_DIR),
         env={**os.environ, "NODE_OPTIONS": "--max-old-space-size=4096"},
     )
