@@ -25,6 +25,8 @@ interface FrameEntry {
   pose: string;
   gesture: string;
   variant_count: number;
+  variant_of?: string;
+  variant_num?: number;
 }
 
 interface Manifest {
@@ -481,12 +483,19 @@ export default function CharacterSection() {
         {/* Frame grid grouped by expression */}
         {Object.entries(grouped).map(([expression, frames]) => (
           <div key={expression}>
-            <h3 className="text-sm font-medium text-neutral-300 mb-2 capitalize">{expression}</h3>
+            <h3 className="text-sm font-medium text-neutral-300 mb-2 capitalize">
+              {expression}
+              <span className="text-neutral-500 font-normal ml-2 text-xs">{frames.length}</span>
+            </h3>
             <div className="grid grid-cols-4 gap-3">
               {frames.map((frame) => (
                 <div
                   key={frame.id}
-                  className="group relative bg-neutral-800 rounded-lg overflow-hidden border border-neutral-700/50 hover:border-neutral-600 transition-colors"
+                  className={`group relative bg-neutral-800 rounded-lg overflow-hidden border transition-colors ${
+                    frame.variant_of
+                      ? "border-neutral-800 hover:border-neutral-600"
+                      : "border-neutral-700/50 hover:border-neutral-600"
+                  }`}
                 >
                   <div className="flex">
                     <img
@@ -501,7 +510,12 @@ export default function CharacterSection() {
                     />
                   </div>
                   <div className="px-2 py-1.5">
-                    <div className="text-[10px] text-neutral-400 truncate">{frame.pose}</div>
+                    <div className="text-[10px] text-neutral-400 truncate">
+                      {frame.pose}
+                      {frame.variant_num && (
+                        <span className="text-violet-400 ml-1">v{frame.variant_num}</span>
+                      )}
+                    </div>
                     {frame.gesture !== "none" && (
                       <div className="text-[9px] text-neutral-500">{frame.gesture}</div>
                     )}

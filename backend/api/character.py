@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from pipeline.character_frames import (
+    FRAMES_DIR,
     clear_all_frames,
     count_existing_variant_frames,
     count_missing_frames,
@@ -170,9 +171,35 @@ def get_job_status(job_id: str):
 
 @router.get("/frames")
 def get_frames():
-    """Return the frame manifest (or empty dict if not generated)."""
+    """Return the frame manifest with variant entries expanded."""
     manifest = get_manifest()
     result = manifest or {"frames": [], "canonical_frame": None, "generated_at": None}
+
+    # Expand variant entries into the frames list so the UI can display them
+    expanded_frames = []
+    for frame in result.get("frames", []):
+        expanded_frames.append(frame)
+        vc = frame.get("variant_count", 1)
+        if vc <= 1:
+            continue
+        base_id = frame["id"]
+        for v in range(2, vc + 1):
+            closed_file = f"{base_id}_v{v}_closed.png"
+            open_file = f"{base_id}_v{v}_open.png"
+            if (FRAMES_DIR / closed_file).exists() and (FRAMES_DIR / open_file).exists():
+                expanded_frames.append({
+                    "id": f"{base_id}_v{v}",
+                    "file_closed": closed_file,
+                    "file_open": open_file,
+                    "expression": frame["expression"],
+                    "pose": frame["pose"],
+                    "gesture": frame["gesture"],
+                    "variant_count": 1,
+                    "variant_of": base_id,
+                    "variant_num": v,
+                })
+    result["frames"] = expanded_frames
+
     result["missing_count"] = count_missing_frames()
     result["existing_variant_count"] = count_existing_variant_frames()
     result["total_variant_count"] = count_total_variant_frames()
