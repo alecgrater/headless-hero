@@ -64,7 +64,10 @@ CHARACTER_SPEC = (
 
 # Repeated prompt fragments used across multiple prompt-building sites
 GREEN_BG_INSTRUCTION = (
-    "Solid flat green (#00FF00) background with NO other elements."
+    "Solid flat green (#00FF00) background with NO other elements. "
+    "The character's ENTIRE upper body — arms, hands, shoulders, clothing — must be "
+    "fully visible and sharply contrast against the green background. No body parts "
+    "should blend into or fade into the background."
 )
 REFERENCE_CONSISTENCY_INSTRUCTION = (
     "Maintain identical character design, proportions, outfit colors, glasses, "
@@ -393,47 +396,91 @@ def _has_background(img: "Image.Image", filename: str = "") -> bool:
     return has_bg
 
 
+def _check_body_coverage(img: "Image.Image", filename: str = "") -> bool:
+    """Check if the image has enough opaque content to include a body (not just a head).
+
+    Returns True if the image likely has a full chest-up character,
+    False if it's probably just a floating head.
+    """
+    import numpy as np
+
+    arr = np.array(img.convert("RGBA"), dtype=np.uint8)
+    alpha = arr[:, :, 3]
+    h, w = alpha.shape
+
+    # Check the lower half of the image — a chest-up frame should have
+    # significant opaque content in the bottom half (shoulders/chest)
+    lower_half = alpha[h // 2 :, :]
+    lower_opaque_frac = float(np.mean(lower_half > 50))
+
+    # Also check overall opaque fraction
+    total_opaque_frac = float(np.mean(alpha > 50))
+
+    # A full chest-up character should have at least 8% opaque in the lower half
+    # and at least 10% opaque overall. A floating head typically has < 5% lower half.
+    has_body = lower_opaque_frac > 0.08 and total_opaque_frac > 0.10
+
+    logger.info(
+        "Body coverage check [%s]: lower_half_opaque=%.1f%%, total_opaque=%.1f%% → %s",
+        filename,
+        lower_opaque_frac * 100,
+        total_opaque_frac * 100,
+        "HAS BODY" if has_body else "HEAD ONLY",
+    )
+
+    return has_body
+
+
 def _remove_background(src_path: str, dst_path: str) -> None:
-    """Remove background from generated image using rembg + chroma key fallback."""
+    """Remove background from generated image using chroma key first, rembg fallback.
+
+    Chroma key is preferred because we request a green (#00FF00) background,
+    and rembg can be overly aggressive — stripping the character's body/arms
+    along with the background, leaving only a floating head.
+    """
     from PIL import Image
-    import io
 
     src_name = src_path.rsplit("/", 1)[-1] if "/" in src_path else src_path
     logger.info("Background removal starting: %s → %s", src_name, dst_path)
 
+    img = Image.open(src_path).convert("RGBA")
+
+    # Step 1: Try chroma key first (preserves body/arms much better)
+    chroma_result = _chroma_key_green(img)
+
+    if not _has_background(chroma_result, f"chroma-key:{src_name}"):
+        logger.info("Chroma key fully removed background: %s", src_name)
+        chroma_result.save(dst_path, "PNG")
+        return
+
+    # Step 2: Chroma key left residual background — try rembg
+    logger.warning("Chroma key left residual background, trying rembg: %s", src_name)
     try:
+        import io
         from rembg import remove
 
         with open(src_path, "rb") as f:
             input_bytes = f.read()
 
-        logger.info("Running rembg on %s (%d bytes)", src_name, len(input_bytes))
         output_bytes = remove(input_bytes)
-        img = Image.open(io.BytesIO(output_bytes)).convert("RGBA")
+        rembg_result = Image.open(io.BytesIO(output_bytes)).convert("RGBA")
 
-        if _has_background(img, f"rembg-output:{src_name}"):
-            logger.warning("rembg output still has background, applying chroma key: %s", src_name)
-            img = _chroma_key_green(img)
-
-            if _has_background(img, f"after-chroma:{src_name}"):
-                logger.warning("Background STILL detected after chroma key: %s (may need manual review)", src_name)
-            else:
-                logger.info("Chroma key successfully removed remaining background: %s", src_name)
+        # Check if rembg preserved the body or just kept the head
+        if _check_body_coverage(rembg_result, f"rembg:{src_name}"):
+            # rembg kept the body — use its result, apply chroma key for any residual green
+            if _has_background(rembg_result, f"rembg-output:{src_name}"):
+                rembg_result = _chroma_key_green(rembg_result)
+            rembg_result.save(dst_path, "PNG")
+            logger.info("Used rembg result (body preserved): %s", src_name)
         else:
-            logger.info("rembg fully removed background: %s", src_name)
-
-        img.save(dst_path, "PNG")
-        logger.info("Background removed and saved: %s", dst_path)
-    except ImportError:
-        logger.warning("rembg not installed, applying chroma key fallback: %s", dst_path)
-        img = Image.open(src_path).convert("RGBA")
-        img = _chroma_key_green(img)
-        img.save(dst_path, "PNG")
-    except Exception:
-        logger.warning("rembg failed, applying chroma key fallback: %s", dst_path, exc_info=True)
-        img = Image.open(src_path).convert("RGBA")
-        img = _chroma_key_green(img)
-        img.save(dst_path, "PNG")
+            # rembg stripped the body — fall back to chroma key result even if imperfect
+            logger.warning(
+                "rembg stripped body/arms, falling back to chroma key result: %s", src_name
+            )
+            chroma_result.save(dst_path, "PNG")
+    except (ImportError, Exception):
+        logger.warning("rembg unavailable/failed, using chroma key result: %s", src_name, exc_info=True)
+        chroma_result.save(dst_path, "PNG")
 
 
 def get_manifest() -> dict | None:
@@ -726,6 +773,19 @@ def regenerate_frame(frame_id: str) -> dict:
             reference_image_path=canonical_path,
         )
         _remove_background(tmp_path, str(output_path))
+
+        # Validate body coverage — retry once if only a floating head remains
+        from PIL import Image as PILImage
+        result_img = PILImage.open(str(output_path)).convert("RGBA")
+        if not _check_body_coverage(result_img, f"regenerate:{filename}"):
+            logger.warning("Body missing after generation, retrying: %s", filename)
+            tmp_path = generate_image(
+                prompt=prompt,
+                width=768,
+                height=432,
+                reference_image_path=canonical_path,
+            )
+            _remove_background(tmp_path, str(output_path))
 
     # Update manifest timestamp
     manifest["generated_at"] = datetime.now(timezone.utc).isoformat()
