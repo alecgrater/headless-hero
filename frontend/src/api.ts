@@ -289,8 +289,9 @@ export async function refreshTrending(): Promise<{ job_id: string }> {
 }
 
 /** Get status of a trending refresh job. */
-export async function getTrendingRefreshStatus(jobId: string): Promise<TrendingRefreshStatus> {
+export async function getTrendingRefreshStatus(jobId: string): Promise<TrendingRefreshStatus | null> {
   const res = await api.get(`/api/trending/refresh-status/${jobId}`);
+  if (!res.ok) return null;
   return res.data as TrendingRefreshStatus;
 }
 

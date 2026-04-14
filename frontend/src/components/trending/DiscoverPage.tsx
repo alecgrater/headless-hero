@@ -105,6 +105,7 @@ export default function DiscoverPage({ onGenerateIdeas }: Props) {
     pollRef.current = setInterval(async () => {
       try {
         const status = await getTrendingRefreshStatus(jobId);
+        if (!status) return;
         setRefreshStatus(status);
         if (status.status === "completed" || status.status === "failed") {
           if (pollRef.current) clearInterval(pollRef.current);
@@ -200,7 +201,7 @@ export default function DiscoverPage({ onGenerateIdeas }: Props) {
     : null;
 
   // Failed sources warning
-  const failedSources = refreshStatus
+  const failedSources = refreshStatus?.sources
     ? Object.entries(refreshStatus.sources)
         .filter(([, s]) => s === "failed")
         .map(([name]) => name)
@@ -263,7 +264,7 @@ export default function DiscoverPage({ onGenerateIdeas }: Props) {
               style={{ width: `${refreshStatus.progress * 100}%` }}
             />
           </div>
-          <SourceStatusIndicator sources={refreshStatus.sources} />
+          {refreshStatus.sources && <SourceStatusIndicator sources={refreshStatus.sources} />}
         </div>
       )}
 
