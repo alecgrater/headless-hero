@@ -32,6 +32,8 @@ interface Manifest {
   generated_at: string | null;
   frames: FrameEntry[];
   missing_count: number;
+  existing_variant_count: number;
+  total_variant_count: number;
 }
 
 export default function CharacterSection() {
@@ -227,13 +229,14 @@ export default function CharacterSection() {
   const reprocessPct = reprocessProgress.total > 0 ? reprocessProgress.completed / reprocessProgress.total : 0;
   const hasSelectedRef = !!selectedRef;
 
-  // Count frames needing variants (variant_count > 1)
-  const framesNeedingVariants = (manifest?.frames ?? []).filter((f) => (f.variant_count ?? 1) > 1).length;
-  const tier1Count = (manifest?.frames ?? []).filter((f) => (f.variant_count ?? 1) === 5).length;
-  const tier2Count = (manifest?.frames ?? []).filter((f) => (f.variant_count ?? 1) === 3).length;
-  // tier1: (5-1) variants × 2 mouth states = 8 new frames per base frame
-  // tier2: (3-1) variants × 2 mouth states = 4 new frames per base frame
-  const totalVariantFrames = tier1Count * 8 + tier2Count * 4;
+  // Variant counts from backend (counts variant sets, not individual mouth-state files)
+  const existingVariants = manifest?.existing_variant_count ?? 0;
+  const totalVariants = manifest?.total_variant_count ?? 0;
+  // Each variant set = 2 mouth-state files (closed + open)
+  const totalVariantFrames = totalVariants * 2;
+  const existingVariantFrames = existingVariants * 2;
+  const missingVariantFrames = totalVariantFrames - existingVariantFrames;
+  const allVariantsExist = totalVariants > 0 && existingVariants >= totalVariants;
 
   // Group frames by expression
   const grouped = (manifest?.frames ?? []).reduce(
@@ -522,33 +525,40 @@ export default function CharacterSection() {
 
       {/* ===== SECTION 2.5: Frame Variants ===== */}
       <div className={`space-y-4 ${frameCount === 0 ? "opacity-40 pointer-events-none" : ""}`}>
-        <h3 className="text-sm font-semibold text-neutral-200 uppercase tracking-wider">
-          Step 3: Frame Variants
-        </h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-sm font-semibold text-neutral-200 uppercase tracking-wider">
+            Step 3: Frame Variants
+          </h3>
+          {allVariantsExist && (
+            <span className="text-xs px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-full">
+              {existingVariantFrames} frames generated
+            </span>
+          )}
+        </div>
         <p className="text-xs text-neutral-400">
           Generate body micro-variations per expression for a more alive/animated character.
-          {totalVariantFrames > 0 && (
+          {totalVariantFrames > 0 && !allVariantsExist && (
             <span className="ml-1">
-              Will generate <span className="text-neutral-200 font-medium">{totalVariantFrames} total variant frames</span>
-              {" "}({tier1Count} Tier 1 × 8 + {tier2Count} Tier 2 × 4).
+              {existingVariantFrames > 0 ? (
+                <><span className="text-emerald-400 font-medium">{existingVariantFrames}</span> of {totalVariantFrames} variant frames generated.</>
+              ) : (
+                <>Will generate <span className="text-neutral-200 font-medium">{totalVariantFrames} total variant frames</span>.</>
+              )}
             </span>
           )}
         </p>
 
-        <div className="flex items-center gap-4">
-          <button
-            onClick={handleGenerateVariants}
-            disabled={isGeneratingVariants || isGeneratingFrames || frameCount === 0}
-            className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
-          >
-            {isGeneratingVariants ? "Generating..." : `Generate Variants (${totalVariantFrames} frames)`}
-          </button>
-          {framesNeedingVariants > 0 && (
-            <span className="text-xs text-neutral-400">
-              {framesNeedingVariants} frames will get variants
-            </span>
-          )}
-        </div>
+        {!allVariantsExist && (
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleGenerateVariants}
+              disabled={isGeneratingVariants || isGeneratingFrames || frameCount === 0}
+              className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
+            >
+              {isGeneratingVariants ? "Generating..." : missingVariantFrames > 0 ? `Generate Missing Variants (${missingVariantFrames} frames)` : `Generate Variants (${totalVariantFrames} frames)`}
+            </button>
+          </div>
+        )}
 
         {isGeneratingVariants && (
           <div className="space-y-2">

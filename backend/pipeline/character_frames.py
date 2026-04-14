@@ -814,6 +814,42 @@ def count_missing_frames() -> int:
     return missing
 
 
+def count_existing_variant_frames() -> int:
+    """Count how many variant frame files already exist on disk."""
+    manifest = get_manifest()
+    if not manifest:
+        return 0
+    frame_ids = _make_unique_ids(FRAME_DEFINITIONS)
+    frames_by_id = {f["id"]: f for f in manifest.get("frames", [])}
+    existing = 0
+    for frame_id in frame_ids:
+        frame_entry = frames_by_id.get(frame_id)
+        if not frame_entry:
+            continue
+        vc = frame_entry.get("variant_count", 1)
+        if vc <= 1:
+            continue
+        for v in range(2, vc + 1):
+            closed = FRAMES_DIR / f"{frame_id}_v{v}_closed.png"
+            opened = FRAMES_DIR / f"{frame_id}_v{v}_open.png"
+            if closed.exists() and opened.exists():
+                existing += 1
+    return existing
+
+
+def count_total_variant_frames() -> int:
+    """Count total expected variant frames (frames with variant_count > 1)."""
+    manifest = get_manifest()
+    if not manifest:
+        return 0
+    total = 0
+    for frame in manifest.get("frames", []):
+        vc = frame.get("variant_count", 1)
+        if vc > 1:
+            total += vc - 1  # variants 2..N
+    return total
+
+
 def generate_missing_frames(
     on_progress: Callable[[int, int, str], None] | None = None,
 ) -> dict:

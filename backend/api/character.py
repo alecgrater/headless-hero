@@ -9,7 +9,9 @@ from pydantic import BaseModel
 
 from pipeline.character_frames import (
     clear_all_frames,
+    count_existing_variant_frames,
     count_missing_frames,
+    count_total_variant_frames,
     generate_frame_library,
     generate_frame_variants,
     generate_missing_frames,
@@ -172,6 +174,8 @@ def get_frames():
     manifest = get_manifest()
     result = manifest or {"frames": [], "canonical_frame": None, "generated_at": None}
     result["missing_count"] = count_missing_frames()
+    result["existing_variant_count"] = count_existing_variant_frames()
+    result["total_variant_count"] = count_total_variant_frames()
     return result
 
 
