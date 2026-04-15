@@ -61,16 +61,18 @@ _BURST_ALPHA = 100
 _COLOR_SATURATION = 1.15
 _COLOR_CONTRAST = 1.08
 _ELI_SCALE = 0.42                          # fraction of canvas height
-_ELI_ROTATION_DEG = 0                      # upright, no tilt
-_ELI_STROKE_COLOR = (255, 140, 30)         # warm orange solid stroke
-_ELI_STROKE_EXPAND = 7                     # MaxFilter kernel — ~3px outline
-_ELI_GLOW_COLOR = (255, 160, 40)           # warm amber outer glow
-_ELI_GLOW_EXPAND = 15                      # MaxFilter kernel for glow spread
-_ELI_GLOW_BLUR = 18                        # GaussianBlur radius
-_ELI_GLOW_ALPHA = 180                      # glow opacity
-_ELI_SHADOW_OFFSET = (6, 8)               # drop shadow (dx, dy)
-_ELI_SHADOW_BLUR = 10                      # drop shadow blur radius
-_ELI_SHADOW_ALPHA = 120                    # drop shadow opacity
+_ELI_ROTATION_DEG = 5                      # slight counter-clockwise tilt
+_ELI_RIGHT_OVERFLOW = 0.20                 # fraction of eli width allowed to overflow right edge
+_ELI_STROKE_WIDTH = 9                      # MaxFilter kernel — crisp outline
+_ELI_GLOW_EXPAND = 21                      # MaxFilter kernel for glow spread
+_ELI_GLOW_BLUR = 22                        # GaussianBlur radius
+_ELI_GLOW_ALPHA = 230                      # glow opacity (punchy)
+_ELI_SHADOW_OFFSET = (8, 10)              # drop shadow (dx, dy)
+_ELI_SHADOW_BLUR = 14                      # drop shadow blur radius
+_ELI_SHADOW_ALPHA = 140                    # drop shadow opacity
+# Gradient outline colors (top → bottom): hot magenta → golden orange → electric cyan
+_ELI_GRAD_TOP = (255, 50, 180)            # hot magenta/pink
+_ELI_GRAD_BOTTOM = (0, 220, 255)          # electric cyan
 
 
 def _load_font(size: int, bold: bool = True) -> ImageFont.FreeTypeFont:
@@ -442,8 +444,9 @@ def _overlay_eli_frame(canvas: Image.Image) -> Image.Image:
         if _ELI_ROTATION_DEG:
             eli_img = eli_img.rotate(_ELI_ROTATION_DEG, expand=True, resample=Image.Resampling.BICUBIC)
 
-        # Position flush in upper-right corner
-        paste_x = w - eli_img.width
+        # Position: push right so body overflows canvas edge, face stays visible
+        overflow_px = int(eli_img.width * _ELI_RIGHT_OVERFLOW)
+        paste_x = w - eli_img.width + overflow_px
         paste_y = 0
 
         alpha = eli_img.getchannel("A")
@@ -456,24 +459,37 @@ def _overlay_eli_frame(canvas: Image.Image) -> Image.Image:
         shadow_rgba.putalpha(shadow_alpha)
         sx, sy = _ELI_SHADOW_OFFSET
 
-        # --- Outer glow (warm amber) ---
+        # --- Outer glow with vertical gradient (magenta → cyan) ---
         glow_expanded = alpha.filter(ImageFilter.MaxFilter(size=_ELI_GLOW_EXPAND))
-        glow_rgba = Image.new("RGBA", eli_img.size, (*_ELI_GLOW_COLOR, 0))
-        glow_alpha = glow_expanded.point(lambda p: _ELI_GLOW_ALPHA if p > 0 else 0)
-        glow_rgba.putalpha(glow_alpha)
-        glow_rgba = glow_rgba.filter(ImageFilter.GaussianBlur(radius=_ELI_GLOW_BLUR))
+        glow_mask = glow_expanded.point(lambda p: _ELI_GLOW_ALPHA if p > 0 else 0)
+        # Build vertical gradient fill for the glow
+        glow_grad = Image.new("RGBA", eli_img.size, (0, 0, 0, 0))
+        for row in range(eli_img.height):
+            t = row / max(eli_img.height - 1, 1)
+            r = int(_ELI_GRAD_TOP[0] + (_ELI_GRAD_BOTTOM[0] - _ELI_GRAD_TOP[0]) * t)
+            g = int(_ELI_GRAD_TOP[1] + (_ELI_GRAD_BOTTOM[1] - _ELI_GRAD_TOP[1]) * t)
+            b = int(_ELI_GRAD_TOP[2] + (_ELI_GRAD_BOTTOM[2] - _ELI_GRAD_TOP[2]) * t)
+            ImageDraw.Draw(glow_grad).line([(0, row), (eli_img.width, row)], fill=(r, g, b, 255))
+        glow_grad.putalpha(glow_mask)
+        glow_rgba = glow_grad.filter(ImageFilter.GaussianBlur(radius=_ELI_GLOW_BLUR))
 
-        # --- Solid stroke (warm orange, crisp) ---
-        stroke_expanded = alpha.filter(ImageFilter.MaxFilter(size=_ELI_STROKE_EXPAND))
-        stroke_rgba = Image.new("RGBA", eli_img.size, (*_ELI_STROKE_COLOR, 0))
-        stroke_alpha = stroke_expanded.point(lambda p: 255 if p > 0 else 0)
-        stroke_rgba.putalpha(stroke_alpha)
+        # --- Solid stroke with same gradient (crisp, no blur) ---
+        stroke_expanded = alpha.filter(ImageFilter.MaxFilter(size=_ELI_STROKE_WIDTH))
+        stroke_mask = stroke_expanded.point(lambda p: 255 if p > 0 else 0)
+        stroke_grad = Image.new("RGBA", eli_img.size, (0, 0, 0, 0))
+        for row in range(eli_img.height):
+            t = row / max(eli_img.height - 1, 1)
+            r = int(_ELI_GRAD_TOP[0] + (_ELI_GRAD_BOTTOM[0] - _ELI_GRAD_TOP[0]) * t)
+            g = int(_ELI_GRAD_TOP[1] + (_ELI_GRAD_BOTTOM[1] - _ELI_GRAD_TOP[1]) * t)
+            b = int(_ELI_GRAD_TOP[2] + (_ELI_GRAD_BOTTOM[2] - _ELI_GRAD_TOP[2]) * t)
+            ImageDraw.Draw(stroke_grad).line([(0, row), (eli_img.width, row)], fill=(r, g, b, 255))
+        stroke_grad.putalpha(stroke_mask)
 
         # --- Composite layers back-to-front ---
         eli_layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         eli_layer.paste(shadow_rgba, (paste_x + sx, paste_y + sy), shadow_rgba)
         eli_layer.paste(glow_rgba, (paste_x, paste_y), glow_rgba)
-        eli_layer.paste(stroke_rgba, (paste_x, paste_y), stroke_rgba)
+        eli_layer.paste(stroke_grad, (paste_x, paste_y), stroke_grad)
         eli_layer.paste(eli_img, (paste_x, paste_y), eli_img)
         return Image.alpha_composite(canvas, eli_layer)
 
