@@ -205,7 +205,8 @@ def transform_with_references(
     # Build contents: all images first, then prompt text
     contents: list = []
     for img_path in image_paths:
-        mime = "image/png" if img_path.lower().endswith(".png") else "image/jpeg"
+        ext = os.path.splitext(img_path.lower())[1]
+        mime = {".png": "image/png", ".webp": "image/webp"}.get(ext, "image/jpeg")
         with open(img_path, "rb") as f:
             part = types.Part.from_bytes(data=f.read(), mime_type=mime)
         contents.append(part)
