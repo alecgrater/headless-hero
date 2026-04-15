@@ -33,5 +33,8 @@ export function sceneToRemotionInput(scene: Scene): SceneInput {
       search_query: d.search_query,
     })) ?? null,
     word_timestamps: scene.word_timestamps ?? null,
+    frame_timings: scene.frame_timings ?? null,
+    visual_in_seconds: scene.visual_in_seconds ?? 0,
+    visual_out_seconds: scene.visual_out_seconds ?? 0,
   };
 }

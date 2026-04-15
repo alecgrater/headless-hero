@@ -65,6 +65,9 @@ export interface Scene {
   eli_overlay?: EliOverlay | null;
   word_timestamps?: WordTimestamp[];
   title_card_zoom_target?: { x: number; y: number; radius: number };
+  frame_timings?: number[] | null;
+  visual_in_seconds?: number;
+  visual_out_seconds?: number;
 }
 
 export interface Segment {

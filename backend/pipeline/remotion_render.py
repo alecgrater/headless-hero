@@ -138,6 +138,9 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
         "word_timestamps": scene.word_timestamps,
         "visual_beat": scene.visual_beat,
         "frame_directives": scene.frame_directives or None,
+        "frame_timings": scene.frame_timings,
+        "visual_in_seconds": scene.visual_in_seconds,
+        "visual_out_seconds": scene.visual_out_seconds,
     }
 
 

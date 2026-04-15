@@ -90,6 +90,11 @@ export interface SceneInput {
 
   // Timing
   word_timestamps?: WordTimestamp[] | null;
+
+  // Micro-timeline visual timing overrides
+  frame_timings?: number[] | null;
+  visual_in_seconds?: number;
+  visual_out_seconds?: number;
 }
 
 export interface SegmentInput {
