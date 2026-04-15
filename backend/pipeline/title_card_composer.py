@@ -69,9 +69,11 @@ _SUBTITLE_STROKE_COLOR = (80, 0, 0)  # dark red stroke
 _SUBTITLE_SHADOW_ALPHA = 160
 _COLOR_SATURATION = 1.15
 _COLOR_CONTRAST = 1.08
-_ELI_SCALE = 0.62                          # fraction of canvas height — extends down near 4th circle label
+_ELI_SCALE = 0.55                          # fraction of canvas height
 _ELI_ROTATION_DEG = 3                      # slight CCW tilt — leaning into the content
-_ELI_RIGHT_OVERFLOW = 0.35                 # fraction of eli width allowed to overflow right edge
+_ELI_RIGHT_OVERFLOW = 0.40                 # fraction of eli width allowed to overflow right edge
+_ELI_BOTTOM_CROP = 0.20                    # crop bottom 20% of character
+_ELI_PERSPECTIVE_SKEW = 0.06              # perspective distortion to look toward content
 _ELI_STROKE_WIDTH = 9                      # MaxFilter kernel — crisp outline
 _ELI_GLOW_EXPAND = 21                      # MaxFilter kernel for glow spread
 _ELI_GLOW_BLUR = 22                        # GaussianBlur radius
@@ -514,20 +516,40 @@ def _overlay_eli_frame(canvas: Image.Image) -> Image.Image:
 
         w, h = canvas.size
 
-        # Scale to 42% of canvas height
+        # Scale
         target_h = int(h * _ELI_SCALE)
         scale = target_h / eli_img.height
         target_w = int(eli_img.width * scale)
         eli_img = eli_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
+        # Perspective distortion — squish left side to make Eli look toward content
+        if _ELI_PERSPECTIVE_SKEW:
+            ew, eh = eli_img.size
+            skew = _ELI_PERSPECTIVE_SKEW
+            # Quad transform: shrink left edge vertically, keep right edge full height
+            coeffs = (
+                0, int(eh * skew),           # top-left → pushed down
+                0, int(eh * (1 - skew)),     # bottom-left → pushed up
+                ew, eh,                       # bottom-right → unchanged
+                ew, 0,                        # top-right → unchanged
+            )
+            eli_img = eli_img.transform(
+                (ew, eh), Image.Transform.QUAD, coeffs, Image.Resampling.BICUBIC
+            )
+
+        # Crop bottom 20%
+        if _ELI_BOTTOM_CROP:
+            crop_h = int(eli_img.height * (1 - _ELI_BOTTOM_CROP))
+            eli_img = eli_img.crop((0, 0, eli_img.width, crop_h))
+
         # Rotate if configured
         if _ELI_ROTATION_DEG:
             eli_img = eli_img.rotate(_ELI_ROTATION_DEG, expand=True, resample=Image.Resampling.BICUBIC)
 
-        # Position: push right so body overflows canvas edge, face stays visible
+        # Position: push right and up
         overflow_px = int(eli_img.width * _ELI_RIGHT_OVERFLOW)
         paste_x = w - eli_img.width + overflow_px
-        paste_y = -int(eli_img.height * 0.05)  # slight upward nudge
+        paste_y = -int(eli_img.height * 0.08)
 
         alpha = eli_img.getchannel("A")
 
