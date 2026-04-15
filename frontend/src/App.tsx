@@ -141,7 +141,7 @@ function App() {
   return (
     <div className="min-h-screen bg-app text-neutral-100 flex flex-col">
       {/* Top bar */}
-      <header className="border-b border-neutral-800/40 px-6 py-4 flex items-center justify-between bg-neutral-950/80 backdrop-blur-sm">
+      <header className="relative z-50 border-b border-neutral-800/40 px-6 py-4 flex items-center justify-between bg-neutral-950/80 backdrop-blur-sm">
         <div className="flex items-center gap-6">
           <button
             onClick={() => handleSetView("project-dashboard")}
