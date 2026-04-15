@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Keyboard } from "lucide-react";
 import api, { assetUrl } from "./api";
 import ProjectDashboard from "./components/dashboard/ProjectDashboard";
 import IdeationPage from "./components/ideation/IdeationPage";
 import ScriptGenerationPage from "./components/script/ScriptGenerationPage";
 import SettingsPage, { SECTIONS, SectionIcon, type SectionId } from "./components/settings/SettingsPage";
 import TimelinePage from "./components/timeline/TimelinePage";
+import { ShortcutHelpOverlay } from "./components/timeline/useKeyboardShortcuts";
 import DiscoverPage from "./components/trending/DiscoverPage";
 import useLongPress from "./hooks/useLongPress";
 import type { VideoIdea } from "./types/idea";
@@ -45,6 +47,7 @@ function App() {
   const [settingsDropdownOpen, setSettingsDropdownOpen] = useState(false);
   const [recentProjects, setRecentProjects] = useState<ScriptSummary[]>([]);
   const [settingsDefaultSection, setSettingsDefaultSection] = useState<SectionId | null>(null);
+  const [showShortcutHelp, setShowShortcutHelp] = useState(false);
   const projectsDropdownRef = useRef<HTMLDivElement>(null);
   const settingsDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -310,6 +313,14 @@ function App() {
               </button>
             </div>
           )}
+          {/* Keyboard shortcuts */}
+          <button
+            onClick={() => setShowShortcutHelp((prev) => !prev)}
+            className="text-neutral-500 hover:text-neutral-300 transition-colors p-1 rounded-md hover:bg-neutral-800"
+            title="Keyboard shortcuts (?)"
+          >
+            <Keyboard size={16} />
+          </button>
           <div className="flex items-center gap-2 text-sm text-neutral-500">
             <span
               className={`inline-block w-2 h-2 rounded-full ${
@@ -386,6 +397,9 @@ function App() {
           />
         )}
       </main>
+      {showShortcutHelp && (
+        <ShortcutHelpOverlay onClose={() => setShowShortcutHelp(false)} />
+      )}
     </div>
   );
 }
