@@ -131,7 +131,7 @@ def generate_scene_image(
             reference_image_path=reference_image_path,
             script_id=script_id,
         )
-    except RuntimeError:
+    except Exception:
         logger.error("All image generation failed for scene %s, trying direct scraper fallback", scene_id)
         scraped = scrape_google_image_sync(
             query=visual_prompt[:120],

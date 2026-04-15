@@ -44,23 +44,42 @@ def _call_gemini(
     contents: list,
     aspect: str,
     script_id: str | None = None,
+    max_retries: int = 3,
 ) -> str | None:
-    """Single Gemini image generation call. Returns temp file path or None if blocked."""
+    """Single Gemini image generation call. Returns temp file path or None if blocked.
+
+    Retries on transient server errors (503, 500, 429) with exponential backoff.
+    """
     t0 = time.monotonic()
-    try:
-        response = client.models.generate_content(
-            model=DEFAULT_IMAGE_MODEL,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                response_modalities=["IMAGE"],
-                image_config=types.ImageConfig(
-                    aspect_ratio=aspect,
+    last_exc: Exception | None = None
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(
+                model=DEFAULT_IMAGE_MODEL,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    response_modalities=["IMAGE"],
+                    image_config=types.ImageConfig(
+                        aspect_ratio=aspect,
+                    ),
                 ),
-            ),
-        )
-    except Exception:
-        logger.error("Gemini image generation API call failed", exc_info=True)
-        raise
+            )
+            last_exc = None
+            break
+        except Exception as exc:
+            last_exc = exc
+            # Retry on transient server errors
+            status = getattr(exc, "status_code", None)
+            if status in (500, 503, 429) and attempt < max_retries - 1:
+                wait = 2 ** attempt * 5  # 5s, 10s, 20s
+                logger.warning(
+                    "Gemini returned %s, retrying in %ds (attempt %d/%d)",
+                    status, wait, attempt + 1, max_retries,
+                )
+                time.sleep(wait)
+                continue
+            logger.error("Gemini image generation API call failed", exc_info=True)
+            raise
 
     if not response.parts:
         return None
@@ -123,9 +142,12 @@ def generate_image(
         contents.append(ref_part)
     contents.append(prompt)
 
-    result = _call_gemini(client, contents, aspect, script_id=script_id)
-    if result:
-        return result
+    try:
+        result = _call_gemini(client, contents, aspect, script_id=script_id)
+        if result:
+            return result
+    except Exception:
+        logger.warning("First Gemini attempt raised, will retry with simplified prompt")
 
     # Retry with original visual prompt (no style guide preamble)
     retry_prompt = (
@@ -143,9 +165,12 @@ def generate_image(
         contents.append(ref_part)
     contents.append(retry_prompt)
 
-    result = _call_gemini(client, contents, aspect, script_id=script_id)
-    if result:
-        return result
+    try:
+        result = _call_gemini(client, contents, aspect, script_id=script_id)
+        if result:
+            return result
+    except Exception:
+        logger.warning("Second Gemini attempt also raised, falling back to scraper")
 
     # Last resort: Google Image scraper
     search_query = (original_prompt or prompt)[:120]
