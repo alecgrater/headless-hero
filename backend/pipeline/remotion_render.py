@@ -10,6 +10,7 @@ import logging
 import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -267,6 +268,7 @@ def _run_remotion(
 
     logger.info("Running Remotion: %s", " ".join(cmd))
 
+    t0 = time.monotonic()
     result = subprocess.run(
         cmd,
         capture_output=True,
@@ -275,6 +277,7 @@ def _run_remotion(
         cwd=str(REMOTION_DIR),
         env={**os.environ, "NODE_OPTIONS": "--max-old-space-size=4096"},
     )
+    elapsed = time.monotonic() - t0
 
     if result.returncode != 0:
         logger.error("Remotion stderr: %s", result.stderr[-1000:])
@@ -282,7 +285,7 @@ def _run_remotion(
             f"Remotion render failed (exit {result.returncode}): {result.stderr[-500:]}"
         )
 
-    logger.info("Remotion render complete: %s", output_path)
+    logger.info("Remotion render complete in %.1fs: %s", elapsed, output_path)
 
 
 def render_full_video(
@@ -302,12 +305,18 @@ def render_full_video(
     scenes = _all_scenes(content)
     total = len(scenes)
 
+    logger.info(
+        "[%s] render_full_video started — %d scenes, speed=%.1fx, title=%r",
+        script_id, total, speed, title or content.title,
+    )
+
     # Always prepare title card scenes (title cards are always active)
     from pipeline.modifiers.title_cards import prepare_title_card_scene
     brand_dict = brand or {}
     for i, scene in enumerate(scenes):
         if on_progress:
             on_progress(i / (total + 2), f"Preparing scene {i + 1}/{total}")
+        logger.info("[%s] Preparing scene %d/%d (scene_id=%s)", script_id, i + 1, total, scene.id)
         scenes[i] = prepare_title_card_scene(scene, script_id, brand_dict)
 
     if on_progress:
@@ -324,6 +333,12 @@ def render_full_video(
             except (ValueError, TypeError):
                 pass
 
+    if eli_position:
+        eli_source = "script override" if content.eli_position else "brand default"
+        logger.info("[%s] Eli position resolved from %s: %s", script_id, eli_source, eli_position)
+    else:
+        logger.info("[%s] No Eli position configured (overlay disabled)", script_id)
+
     # Build input props for the full video
     variant_counts = load_variant_counts()
     segments_props = []
@@ -339,6 +354,10 @@ def render_full_video(
     # Compute chapter markers and chapter map
     chapter_markers, total_frames = _compute_chapter_markers(content, script_id)
     chapter_map = _build_chapter_map(content, script_id)
+    logger.info(
+        "[%s] Chapter markers: %d markers, %d total frames (%.1fs at %d fps)",
+        script_id, len(chapter_markers), total_frames, total_frames / FPS, FPS,
+    )
 
     props = {
         "segments": segments_props,
@@ -362,6 +381,7 @@ def render_full_video(
         on_progress(0.4, "Rendering video with Remotion...")
 
     try:
+        render_start = time.monotonic()
         _run_remotion(
             composition_id="FullVideo",
             props_path=props_path,
@@ -369,6 +389,11 @@ def render_full_video(
             width=width,
             height=height,
             log_level="verbose",
+        )
+        render_elapsed = time.monotonic() - render_start
+        logger.info(
+            "[%s] Remotion render finished in %.1fs — output: %s",
+            script_id, render_elapsed, output_path,
         )
     finally:
         try:
