@@ -142,7 +142,7 @@ def generate_script(
     system_prompt += TITLE_CARD_PROMPT_INSTRUCTIONS
 
     if segmented:
-        logger.info("Using SEGMENTED generation for topic %r (model=%s)", topic, resolved_model)
+        logger.info("Using SEGMENTED generation for topic %r, description=%r (model=%s)", topic, description, resolved_model)
         content = _generate_segmented(
             system_prompt=system_prompt,
             user_message=user_message,
@@ -154,7 +154,7 @@ def generate_script(
             progress_callback=progress_callback,
         )
     else:
-        logger.info("Generating script for topic %r using model=%s (segments=%s)", topic, resolved_model, segment_count)
+        logger.info("Generating script for topic %r, description=%r using model=%s (segments=%s)", topic, description, resolved_model, segment_count)
         raw = chat(system_prompt, user_message, model=resolved_model, max_tokens=16384, timeout=900.0)
 
         # Strip markdown fences if present
@@ -285,8 +285,8 @@ def _generate_segment_scenes(
 
     t0 = time.monotonic()
     logger.info(
-        "SEGMENTED: Phase 2 — generating scenes for segment %d/%d: %r",
-        segment_index + 1, total, seg_name,
+        "SEGMENTED: Phase 2 — generating scenes for segment %d/%d: %r (model=%s)",
+        segment_index + 1, total, seg_name, model,
     )
 
     # Build the per-segment user message with full outline context
