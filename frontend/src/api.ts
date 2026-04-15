@@ -270,9 +270,21 @@ export async function getThumbnailReferences(): Promise<{
 }
 
 export async function uploadThumbnailReference(file: File): Promise<{ filename: string; url: string }> {
-  const form = new FormData();
-  form.append("file", file);
-  return api.post("/api/character/thumbnail-references", form);
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const baseUrl = window.api ? "" : `http://localhost:${BACKEND_PORT}`;
+  const response = await fetch(`${baseUrl}/api/character/thumbnail-references`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: "Upload failed" }));
+    throw new Error(err.detail || "Thumbnail reference upload failed");
+  }
+
+  return response.json();
 }
 
 export async function deleteThumbnailReference(filename: string): Promise<{ deleted: string }> {
