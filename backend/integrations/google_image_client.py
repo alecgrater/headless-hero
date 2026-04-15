@@ -171,3 +171,51 @@ def generate_image(
         f"Gemini returned empty response on both attempts and Google Image scraper "
         f"also failed. Prompt: {prompt[:200]}"
     )
+
+
+def transform_with_references(
+    prompt: str,
+    image_paths: list[str],
+    width: int = IMAGE_WIDTH,
+    height: int = IMAGE_HEIGHT,
+    script_id: str | None = None,
+) -> str:
+    """Transform an image using Gemini with multiple reference images.
+
+    Sends all provided images as multi-modal Parts alongside the text prompt.
+    Gemini returns a single transformed image.
+
+    Args:
+        prompt: Text instructions for how to transform the image.
+        image_paths: List of image file paths to include (base image, references, etc.).
+        width: Output width for aspect ratio calculation.
+        height: Output height for aspect ratio calculation.
+        script_id: Optional script ID for usage tracking.
+
+    Returns:
+        Path to the generated image temp file.
+
+    Raises:
+        RuntimeError: If Gemini fails to produce an image.
+    """
+    client = _get_client()
+    aspect = _closest_aspect_ratio(width, height)
+    logger.info("Transforming image via Gemini with %d reference images", len(image_paths))
+
+    # Build contents: all images first, then prompt text
+    contents: list = []
+    for img_path in image_paths:
+        mime = "image/png" if img_path.lower().endswith(".png") else "image/jpeg"
+        with open(img_path, "rb") as f:
+            part = types.Part.from_bytes(data=f.read(), mime_type=mime)
+        contents.append(part)
+    contents.append(prompt)
+
+    result = _call_gemini(client, contents, aspect, script_id=script_id)
+    if result:
+        return result
+
+    raise RuntimeError(
+        f"Gemini returned empty response for image transformation. "
+        f"Prompt: {prompt[:200]}"
+    )
