@@ -266,7 +266,8 @@ export async function regenerateThumbnailFrame(frameId: string) {
 export async function getThumbnailReferences(): Promise<{
   references: { filename: string; url: string }[];
 }> {
-  return api.get("/api/character/thumbnail-references");
+  const res = await api.get("/api/character/thumbnail-references");
+  return res.data as { references: { filename: string; url: string }[] };
 }
 
 export async function uploadThumbnailReference(file: File): Promise<{ filename: string; url: string }> {
@@ -288,7 +289,8 @@ export async function uploadThumbnailReference(file: File): Promise<{ filename: 
 }
 
 export async function deleteThumbnailReference(filename: string): Promise<{ deleted: string }> {
-  return api.delete(`/api/character/thumbnail-references/${encodeURIComponent(filename)}`);
+  const res = await api.delete(`/api/character/thumbnail-references/${encodeURIComponent(filename)}`);
+  return res.data as { deleted: string };
 }
 
 export interface ExportTestOptions {
