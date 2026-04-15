@@ -60,8 +60,8 @@ _BURST_COLOR = (255, 245, 180)  # warm yellow glow
 _BURST_ALPHA = 100
 _COLOR_SATURATION = 1.15
 _COLOR_CONTRAST = 1.08
-_ELI_SCALE = 0.42                          # fraction of canvas height (was 0.75)
-_ELI_ROTATION_DEG = 10                     # counter-clockwise tilt
+_ELI_SCALE = 0.42                          # fraction of canvas height
+_ELI_ROTATION_DEG = 0                      # upright, no tilt
 _ELI_STROKE_COLOR = (255, 140, 30)         # warm orange solid stroke
 _ELI_STROKE_EXPAND = 7                     # MaxFilter kernel — ~3px outline
 _ELI_GLOW_COLOR = (255, 160, 40)           # warm amber outer glow
@@ -438,13 +438,13 @@ def _overlay_eli_frame(canvas: Image.Image) -> Image.Image:
         target_w = int(eli_img.width * scale)
         eli_img = eli_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
-        # Rotate 10° CCW (expand=True keeps corners visible)
-        eli_img = eli_img.rotate(_ELI_ROTATION_DEG, expand=True, resample=Image.Resampling.BICUBIC)
+        # Rotate if configured
+        if _ELI_ROTATION_DEG:
+            eli_img = eli_img.rotate(_ELI_ROTATION_DEG, expand=True, resample=Image.Resampling.BICUBIC)
 
-        # Position tucked into upper-right corner with small margins
-        margin_x, margin_y = 20, 15
-        paste_x = w - eli_img.width - margin_x
-        paste_y = margin_y
+        # Position flush in upper-right corner
+        paste_x = w - eli_img.width
+        paste_y = 0
 
         alpha = eli_img.getchannel("A")
 
