@@ -47,10 +47,11 @@ export const SegmentTimer: React.FC<Props> = ({ segmentRanges }) => {
   const remainingFrames = currentRange.end_frame - frame;
   const remainingSeconds = Math.ceil(remainingFrames / fps);
 
-  // Fade in/out at segment boundaries
+  // Fade in/out at segment boundaries (guard against short segments)
+  const fadeSafe = Math.min(FADE_FRAMES, Math.floor(segmentDuration / 2));
   const opacity = interpolate(
     elapsed,
-    [0, FADE_FRAMES, segmentDuration - FADE_FRAMES, segmentDuration],
+    [0, fadeSafe, segmentDuration - fadeSafe, segmentDuration],
     [0, 0.74, 0.74, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
@@ -79,13 +80,13 @@ export const SegmentTimer: React.FC<Props> = ({ segmentRanges }) => {
   const completionScale = isCompleting
     ? interpolate(
         framesFromEnd,
-        [COMPLETION_FRAMES, COMPLETION_FRAMES / 2, 0],
+        [0, COMPLETION_FRAMES / 2, COMPLETION_FRAMES],
         [1.0, 1.14, 1.0],
         { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
       )
     : 1.0;
   const completionOpacityBoost = isCompleting
-    ? interpolate(framesFromEnd, [COMPLETION_FRAMES, COMPLETION_FRAMES / 2, 0], [0, 0.2, 0], {
+    ? interpolate(framesFromEnd, [0, COMPLETION_FRAMES / 2, COMPLETION_FRAMES], [0, 0.2, 0], {
         extrapolateLeft: "clamp",
         extrapolateRight: "clamp",
       })
@@ -96,7 +97,7 @@ export const SegmentTimer: React.FC<Props> = ({ segmentRanges }) => {
 
   // Ring color: vivid violet base, brightens during tick pulse, shifts to emerald green during completion
   const completionMix = isCompleting
-    ? interpolate(framesFromEnd, [COMPLETION_FRAMES, COMPLETION_FRAMES / 2, 0], [0, 1, 0], {
+    ? interpolate(framesFromEnd, [0, COMPLETION_FRAMES / 2, COMPLETION_FRAMES], [0, 1, 0], {
         extrapolateLeft: "clamp",
         extrapolateRight: "clamp",
       })
