@@ -185,11 +185,7 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
         });
         if (res.ok) {
           const data = res.data as GenerateThumbnailResponse;
-          const ts = Date.now();
-          setThumbnails(data.concepts.map((c) => ({
-            ...c,
-            image_url: c.image_url ? `${c.image_url}?t=${ts}` : c.image_url,
-          })));
+          setThumbnails(data.concepts);
         }
       } finally {
         setThumbnailsGenerating(false);

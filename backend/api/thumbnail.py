@@ -12,7 +12,7 @@ from sqlmodel import Session
 from config import DATA_DIR, DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS
 from database import get_session
 from models.script import Script, ScriptContent
-from pipeline.thumbnail import get_composite_thumbnail, get_composite_thumbnail_no_eli
+from pipeline.thumbnail import get_composite_thumbnail, get_composite_thumbnail_no_eli, _cache_bust
 from pipeline.title_card_composer import compose_title_card
 
 logger = logging.getLogger(__name__)
@@ -136,11 +136,12 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
         include_eli=True,
     )
     shutil.copy2(str(composite_path), str(thumbs_dir / "0.png"))
+    url_0 = f"/static/projects/{body.script_id}/renders/thumbnails/0.png"
     concepts.append(ThumbnailConceptResult(
         idx=0,
         title_text=f"{card_title} (with Eli)",
         visual_description="Composite grid title card with Eli overlay",
-        image_url=f"/static/projects/{body.script_id}/renders/thumbnails/0.png",
+        image_url=_cache_bust(url_0, str(thumbs_dir / "0.png")),
     ))
 
     # --- Without-Eli variant ---
@@ -158,11 +159,12 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
         include_eli=False,
     )
     shutil.copy2(str(composite_no_eli_path), str(thumbs_dir / "0_no_eli.png"))
+    url_1 = f"/static/projects/{body.script_id}/renders/thumbnails/0_no_eli.png"
     concepts.append(ThumbnailConceptResult(
         idx=1,
         title_text=f"{card_title} (without Eli)",
         visual_description="Composite grid title card without Eli overlay",
-        image_url=f"/static/projects/{body.script_id}/renders/thumbnails/0_no_eli.png",
+        image_url=_cache_bust(url_1, str(thumbs_dir / "0_no_eli.png")),
     ))
 
     logger.info("Recomposited both thumbnail variants for script %s", body.script_id)
