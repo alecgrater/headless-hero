@@ -98,6 +98,7 @@
           class="bg-surface-800 border border-neutral-700 text-sm rounded px-2.5 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500 w-64">
         <button onclick="fetchLogs()" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Search</button>
         <div class="flex-1"></div>
+        <button onclick="killAll()" id="killAllBtn" class="text-xs bg-red-700 hover:bg-red-600 text-white px-3 py-1.5 rounded transition-colors font-semibold">Kill All</button>
         <button onclick="toggleLogView()" id="viewToggleBtn" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Raw</button>
         <button onclick="togglePause()" id="pauseBtn" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Pause</button>
         <button onclick="clearLogs()" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Clear</button>
@@ -458,6 +459,35 @@ function closeDetail() {
 function clearLogs() {
   logs = [];
   renderLogs();
+}
+
+async function killAll() {
+  const btn = document.getElementById('killAllBtn');
+  if (!confirm('Cancel ALL running jobs (renders, image gen, audio gen, character gen)?')) return;
+  btn.textContent = 'Killing...';
+  btn.disabled = true;
+  btn.classList.add('opacity-60');
+  try {
+    const res = await fetch('/dev/api/kill-all', { method: 'POST' });
+    const data = await res.json();
+    btn.textContent = `Killed ${data.cancelled}`;
+    btn.classList.remove('bg-red-700');
+    btn.classList.add('bg-emerald-700');
+    setTimeout(() => {
+      btn.textContent = 'Kill All';
+      btn.classList.remove('bg-emerald-700');
+      btn.classList.add('bg-red-700');
+      btn.disabled = false;
+      btn.classList.remove('opacity-60');
+    }, 2000);
+  } catch (e) {
+    btn.textContent = 'Error';
+    setTimeout(() => {
+      btn.textContent = 'Kill All';
+      btn.disabled = false;
+      btn.classList.remove('opacity-60');
+    }, 2000);
+  }
 }
 
 function togglePause() {

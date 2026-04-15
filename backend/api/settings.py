@@ -63,9 +63,13 @@ def _mask(value: str) -> str:
 def load_keys_into_env(session: Session) -> None:
     """Load all saved API keys from DB into os.environ."""
     settings = session.exec(select(AppSetting)).all()
+    loaded = []
     for s in settings:
         if s.key in ALLOWED_KEYS and s.value:
             os.environ[s.key] = s.value
+            loaded.append(s.key)
+    if loaded:
+        logger.info("Loaded %d API keys from DB into env: %s", len(loaded), ", ".join(loaded))
 
 
 @router.get("/keys")

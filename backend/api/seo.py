@@ -10,7 +10,7 @@ from sqlmodel import Session
 from database import get_session
 from models.brand import BrandProfile
 from models.script import Script, ScriptContent
-from pipeline.seo import SEOMetadata, generate_seo
+from pipeline.seo import SEOMetadata, generate_seo, _format_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,14 @@ def generate_seo_metadata(body: GenerateSEORequest, session: Session = Depends(g
         raise HTTPException(status_code=404, detail="Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
-    segment_names = [seg.name for seg in content.segments]
+
+    # Compute cumulative timestamps from scene audio durations
+    segments: list[tuple[str, str]] = []
+    elapsed = 0.0
+    for seg in content.segments:
+        segments.append((seg.name, _format_timestamp(elapsed)))
+        for scene in seg.scenes:
+            elapsed += scene.audio_duration_seconds
 
     # Build brand context for SEO generation
     brand = session.get(BrandProfile, record.brand_id)
@@ -41,7 +48,7 @@ def generate_seo_metadata(body: GenerateSEORequest, session: Session = Depends(g
 
     metadata = generate_seo(
         video_title=content.title,
-        segments=segment_names,
+        segments=segments,
         video_description=record.topic_description,
         brand_context=brand_context,
         script_id=body.script_id,

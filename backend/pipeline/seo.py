@@ -25,23 +25,36 @@ brand context is provided.
 
 Rules:
 - YouTube title: max 70 chars, include primary keyword, use power words.
-- YouTube description: 2-3 paragraphs, include timestamps if segments provided, \
-  natural keyword usage, call to action.
+- YouTube description: 2-3 paragraphs, include timestamps using the exact values \
+  provided (do NOT invent your own), natural keyword usage, call to action.
 - YouTube tags: 30+ relevant tags, mix of broad and specific.
 - Return ONLY valid JSON — no markdown fences, no commentary.
 
 Return a JSON object with key: youtube.
 """
 
+
+def _format_timestamp(total_seconds: float) -> str:
+    """Format seconds as M:SS (or H:MM:SS if >= 1 hour)."""
+    total = int(total_seconds)
+    hours, remainder = divmod(total, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}:{seconds:02d}"
+    return f"{minutes}:{seconds:02d}"
+
 def generate_seo(
     video_title: str,
-    segments: list[str],
+    segments: list[tuple[str, str]],
     video_description: str = "",
     brand_context: str = "",
     script_id: str | None = None,
 ) -> SEOMetadata:
-    """Generate SEO metadata for YouTube via Claude."""
-    segment_list = "\n".join(f"- {name}" for name in segments)
+    """Generate SEO metadata for YouTube via Claude.
+
+    segments: list of (name, timestamp) tuples, e.g. [("Intro", "0:00"), ("Caffeine", "1:23")].
+    """
+    segment_list = "\n".join(f"- {ts} {name}" for name, ts in segments)
     user_msg = (
         f"Generate SEO metadata for this video:\n\n"
         f"Title: {video_title}\n"
@@ -52,11 +65,12 @@ def generate_seo(
     if brand_context:
         user_msg += f"\n\nBrand: {brand_context}"
 
-    logger.info("Generating SEO metadata for %r (%s segments)", video_title, len(segments))
+    logger.info("[%s] Generating SEO metadata for %r (%d segments)", script_id or "no-id", video_title, len(segments))
     raw = chat(SYSTEM_PROMPT, user_msg, max_tokens=4096, script_id=script_id)
     text = strip_markdown_fences(raw)
 
     data = json.loads(text)
     result = SEOMetadata.model_validate(data)
-    logger.info("SEO metadata generated for %r", video_title)
+    yt = result.youtube
+    logger.info("[%s] SEO metadata generated for %r (title=%d chars, %d tags)", script_id or "no-id", video_title, len(yt.title), len(yt.tags))
     return result

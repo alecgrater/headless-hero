@@ -19,6 +19,7 @@ from database import engine
 from dev.log_handler import DevLog, get_broadcast_queue
 from models.api_usage import ApiUsage
 from pipeline import render_jobs
+from pipeline.render_jobs import cancel_all_jobs
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +191,18 @@ async def get_jobs():
             d["start_time"] = job._start_time
             jobs.append(d)
     return jobs
+
+
+@router.post("/api/kill-all")
+async def kill_all():
+    """Cancel all running render and character jobs."""
+    from api.character import cancel_all_character_jobs
+
+    render_count = cancel_all_jobs()
+    char_count = cancel_all_character_jobs()
+    total = render_count + char_count
+    logger.info("Kill all: cancelled %d render + %d character = %d total jobs", render_count, char_count, total)
+    return {"cancelled": total, "render_jobs": render_count, "character_jobs": char_count}
 
 
 @router.websocket("/ws/logs")

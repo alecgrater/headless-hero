@@ -1,10 +1,14 @@
 """Endpoints for generation time estimates."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, func, select
 
 from database import get_session
 from models.generation_duration import GenerationDuration, GenerationEstimateResponse
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_OPERATION_TYPES = {"idea_generation", "script_generation_youtube"}
 
@@ -18,6 +22,8 @@ def get_estimate(
 ):
     if operation_type not in ALLOWED_OPERATION_TYPES:
         raise HTTPException(status_code=422, detail=f"Invalid operation_type. Must be one of: {', '.join(sorted(ALLOWED_OPERATION_TYPES))}")
+
+    logger.info("Fetching generation estimate for %s", operation_type)
 
     statement = select(
         func.avg(GenerationDuration.duration_seconds),

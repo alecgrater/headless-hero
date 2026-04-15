@@ -3,9 +3,12 @@
 Reads IMAGE_PROVIDER from environment and delegates to the appropriate backend.
 """
 
+import logging
 import os
 
 from config import IMAGE_HEIGHT, IMAGE_WIDTH
+
+logger = logging.getLogger(__name__)
 
 
 def generate_image(
@@ -25,6 +28,8 @@ def generate_image(
     used by Google provider for retry on content filter blocks.
     """
     provider = os.environ.get("IMAGE_PROVIDER", "google")
+    logger.info("Image generation via %s (width=%d, height=%d, has_reference=%s)",
+                provider, width, height, reference_image_path is not None)
 
     if provider == "replicate":
         from integrations.replicate_client import generate_image as _gen

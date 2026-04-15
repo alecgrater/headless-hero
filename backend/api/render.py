@@ -17,7 +17,7 @@ from config import DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH, sanitize_filename
 from database import get_default_brand_id, get_session
 from models.brand import BrandProfile
 from models.script import Script, ScriptContent
-from pipeline.render_jobs import RenderJob, create_job, estimate_render_time, get_job, run_in_background, update_job
+from pipeline.render_jobs import RenderJob, create_job, estimate_render_time, get_job, is_cancelled, run_in_background, update_job
 from pipeline.remotion_render import render_full_video
 from pipeline.video_render import export_full_audio
 
@@ -158,13 +158,21 @@ def _build_phase_ranges(ctx: ExportContext) -> None:
     ctx.phase_ranges = phase_ranges
 
 
+def _check_cancelled(job_id: str) -> None:
+    """Raise RuntimeError if the job has been cancelled."""
+    if is_cancelled(job_id):
+        raise RuntimeError("Job cancelled")
+
+
 def _phase_title_cards(ctx: ExportContext) -> None:
     """Phase 1: Generate title card images."""
     from pipeline.title_card import ensure_title_card_images
 
+    logger.info("[%s] Phase: title_cards — generating title card images", ctx.script_id)
     update_job(ctx.job.id, progress=_phase_progress(ctx, "title_cards", 0), current_step="Generating title card...")
     content_for_tc = _reload_content(ctx.script_id)
     ensure_title_card_images(ctx.script_id, content_for_tc, force=True, job_id=ctx.job.id)
+    logger.info("[%s] Phase: title_cards — complete", ctx.script_id)
 
 
 def _phase_images(ctx: ExportContext) -> None:
@@ -172,10 +180,13 @@ def _phase_images(ctx: ExportContext) -> None:
     from pipeline.image_gen import generate_scene_frames, generate_scene_image
 
     scene_count = len(ctx.scenes)
+    logger.info("[%s] Phase: images — generating %d scene images", ctx.script_id, scene_count)
     for i, sc_info in enumerate(ctx.scenes):
+        _check_cancelled(ctx.job.id)
         p = _phase_progress(ctx, "images", i / scene_count)
         update_job(ctx.job.id, progress=p, current_step=f"Generating image ({i+1}/{scene_count})...")
         sid = sc_info["scene_id"]
+        logger.info("[%s] Generating image for scene %s (%d/%d)", ctx.script_id, sid, i + 1, scene_count)
         if sc_info["frame_prompts"] and len(sc_info["frame_prompts"]) > 1:
             results = generate_scene_frames(sid, sc_info["frame_prompts"], ctx.script_id, visual_prompt=sc_info["visual_prompt"], force=True)
             frame_urls = [r[0] for r in results]
@@ -185,6 +196,7 @@ def _phase_images(ctx: ExportContext) -> None:
             frame_urls = None
         sc_info["_image_url"] = image_url
         sc_info["_frame_urls"] = frame_urls
+    logger.info("[%s] Phase: images — complete (%d scenes)", ctx.script_id, scene_count)
 
 
 def _phase_audio(ctx: ExportContext) -> None:
@@ -192,19 +204,24 @@ def _phase_audio(ctx: ExportContext) -> None:
     from pipeline.voiceover import generate_scene_audio
 
     scene_count = len(ctx.scenes)
+    logger.info("[%s] Phase: audio — generating %d scene audio clips (voice %s)", ctx.script_id, scene_count, ctx.voice_id)
     for i, sc_info in enumerate(ctx.scenes):
+        _check_cancelled(ctx.job.id)
         p = _phase_progress(ctx, "audio", i / scene_count)
         update_job(ctx.job.id, progress=p, current_step=f"Generating audio ({i+1}/{scene_count})...")
+        logger.info("[%s] Generating audio for scene %s (%d/%d)", ctx.script_id, sc_info["scene_id"], i + 1, scene_count)
         audio_url, audio_duration, word_timestamps = generate_scene_audio(
             sc_info["scene_id"], sc_info["narration"], ctx.voice_id, ctx.script_id,
         )
         sc_info["_audio_url"] = audio_url
         sc_info["_audio_duration"] = audio_duration
         sc_info["_word_timestamps"] = word_timestamps
+    logger.info("[%s] Phase: audio — complete (%d scenes)", ctx.script_id, scene_count)
 
 
 def _phase_persist(ctx: ExportContext) -> None:
     """Phase 4: Persist regenerated assets to DB."""
+    logger.info("[%s] Phase: persist — saving %d scene assets to DB", ctx.script_id, len(ctx.scenes))
     update_job(ctx.job.id, progress=_phase_progress(ctx, "persist", 0), current_step="Saving scene data...")
     for sc_info in ctx.scenes:
         # Load existing data for fields we didn't regenerate
@@ -233,7 +250,9 @@ def _phase_fx(ctx: ExportContext) -> None:
     from pipeline.fx_generator import generate_scene_fx
 
     scene_count = len(ctx.scenes)
+    logger.info("[%s] Phase: fx — generating FX for %d scenes", ctx.script_id, scene_count)
     for i, sc_info in enumerate(ctx.scenes):
+        _check_cancelled(ctx.job.id)
         p = _phase_progress(ctx, "fx", i / scene_count)
         update_job(ctx.job.id, progress=p, current_step=f"Generating FX ({i+1}/{scene_count})...")
         content_now = _reload_content(ctx.script_id)
@@ -268,7 +287,9 @@ def _phase_eli(ctx: ExportContext) -> None:
     from pipeline.eli_animator import generate_scene_eli
 
     scene_count = len(ctx.scenes)
+    logger.info("[%s] Phase: eli — generating Eli animation for %d scenes", ctx.script_id, scene_count)
     for i, sc_info in enumerate(ctx.scenes):
+        _check_cancelled(ctx.job.id)
         p = _phase_progress(ctx, "eli", i / scene_count)
         update_job(ctx.job.id, progress=p, current_step=f"Generating Eli ({i+1}/{scene_count})...")
         content_now = _reload_content(ctx.script_id)
@@ -301,6 +322,7 @@ def _phase_render(ctx: ExportContext) -> None:
     so the progress bar moves smoothly during the long render subprocess.
     """
     render_start, render_end = ctx.phase_ranges["render"]
+    logger.info("[%s] Phase: render — starting Remotion render (%d scenes)", ctx.script_id, ctx.job.scene_count)
     update_job(ctx.job.id, progress=render_start, current_step="Rendering full video...")
     content_now = _reload_content(ctx.script_id)
 
@@ -333,10 +355,12 @@ def _phase_render(ctx: ExportContext) -> None:
         timer.join(timeout=2)
 
     update_job(ctx.job.id, progress=render_end)
+    logger.info("[%s] Phase: render — Remotion complete, output: %s", ctx.script_id, ctx.video_url)
 
 
 def _phase_copy_to_downloads(ctx: ExportContext) -> None:
     """Phase 8: Copy rendered video to Downloads folder (always runs)."""
+    logger.info("[%s] Phase: copy — copying to Downloads", ctx.script_id)
     update_job(ctx.job.id, progress=ctx.phase_ranges["copy"][0], current_step="Copying to Downloads...")
     projects_prefix = "/static/projects/"
     if ctx.video_url.startswith(projects_prefix):
@@ -369,6 +393,7 @@ def start_full_render(body: RenderFullRequest, session: Session = Depends(get_se
     speed = max(0.5, min(3.0, body.speed))
 
     def do_render():
+        _check_cancelled(job.id)
         # render_full_video calls on_progress at these points:
         #   0..0.3 — preparing scenes
         #   0.4 — "Rendering video with Remotion..." (right before subprocess.run)
@@ -489,6 +514,10 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
         raise HTTPException(status_code=400, detail="No non-title-card scenes in first segment")
 
     scene_count = len(scenes_to_process)
+    regen_flags = [k for k, v in {"title_cards": body.regen_title_cards, "images": body.regen_images,
+                                   "audio": body.regen_audio, "fx": body.regen_fx, "eli": body.regen_eli}.items() if v]
+    logger.info("Starting export test for script %s, segment %r (%d scenes, regen: %s)",
+                body.script_id, seg_name, scene_count, ", ".join(regen_flags) or "render only")
     job = create_job(scene_count=scene_count)
     job.estimated_seconds = estimate_render_time(scene_count)
 
@@ -512,18 +541,25 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
         _build_phase_ranges(ctx)
 
         if ctx.regen_title_cards:
+            _check_cancelled(ctx.job.id)
             _phase_title_cards(ctx)
         if ctx.regen_images:
+            _check_cancelled(ctx.job.id)
             _phase_images(ctx)
         if ctx.regen_audio:
+            _check_cancelled(ctx.job.id)
             _phase_audio(ctx)
         if ctx.regen_images or ctx.regen_audio:
+            _check_cancelled(ctx.job.id)
             _phase_persist(ctx)
         if ctx.regen_fx:
+            _check_cancelled(ctx.job.id)
             _phase_fx(ctx)
         if ctx.regen_eli:
+            _check_cancelled(ctx.job.id)
             _phase_eli(ctx)
 
+        _check_cancelled(ctx.job.id)
         _phase_render(ctx)
         _phase_copy_to_downloads(ctx)
 

@@ -3,6 +3,7 @@
 import base64
 import logging
 import os
+import time
 
 import httpx
 
@@ -88,7 +89,7 @@ def generate_speech(
     Returns (raw audio bytes MP3, word_timestamps [{word, start_ms, end_ms}]).
     """
     url = f"{_BASE_URL}/text-to-speech/{voice_id}/with-timestamps"
-    logger.info("Calling ElevenLabs TTS voice_id=%s", voice_id)
+    logger.info("Calling ElevenLabs TTS voice_id=%s model=%s chars=%d", voice_id, model_id, len(text))
 
     effective_settings = {**_DEFAULT_VOICE_SETTINGS}
     if voice_settings:
@@ -101,6 +102,7 @@ def generate_speech(
         "output_format": output_format,
     }
 
+    t0 = time.monotonic()
     with httpx.Client(timeout=120.0) as client:
         response = client.post(
             url,
@@ -118,8 +120,9 @@ def generate_speech(
             raise
         data = response.json()
 
+    elapsed = time.monotonic() - t0
     audio_bytes = base64.b64decode(data["audio_base64"])
-    logger.info("ElevenLabs TTS complete, audio_size=%d bytes", len(audio_bytes))
+    logger.info("ElevenLabs TTS complete, audio_size=%d bytes, elapsed=%.1fs", len(audio_bytes), elapsed)
 
     alignment = data.get("alignment", {})
     characters = alignment.get("characters", [])
@@ -160,6 +163,7 @@ def clone_voice(
         The voice_id of the newly created cloned voice.
     """
     url = f"{_BASE_URL}/voices/add"
+    logger.info("Cloning voice %r (%d audio files)", name, len(audio_files))
 
     files = [("files", (fname, fbytes, "audio/mpeg")) for fname, fbytes in audio_files]
     data = {"name": name, "description": description}
@@ -180,6 +184,7 @@ def clone_voice(
         characters=0,
         cost_estimate=0.0,
     )
+    logger.info("Voice cloned successfully: %r → voice_id=%s", name, voice_id)
     return voice_id
 
 def list_voices() -> list[dict[str, str]]:
@@ -188,6 +193,7 @@ def list_voices() -> list[dict[str, str]]:
     Returns list of {voice_id, name, category} dicts.
     """
     url = f"{_BASE_URL}/voices"
+    logger.info("Listing ElevenLabs voices")
 
     with httpx.Client(timeout=30.0) as client:
         response = client.get(url, headers=_headers())
@@ -204,6 +210,7 @@ def list_voices() -> list[dict[str, str]]:
             "name": v["name"],
             "category": category,
         })
+    logger.info("Listed %d ElevenLabs voices (filtered premade)", len(voices))
     return voices
 
 
@@ -215,6 +222,7 @@ def search_library_voices(search: str, page_size: int = 20) -> list[dict]:
     """
     url = f"{_BASE_URL}/shared-voices"
     params = {"search": search, "page_size": page_size}
+    logger.info("Searching ElevenLabs voice library: query=%r, page_size=%d", search, page_size)
 
     with httpx.Client(timeout=30.0) as client:
         response = client.get(url, headers=_headers(), params=params)
@@ -235,6 +243,7 @@ def search_library_voices(search: str, page_size: int = 20) -> list[dict]:
             "category": v.get("category", ""),
             "use_case": v.get("use_case", ""),
         })
+    logger.info("Voice library search returned %d results for %r", len(results), search)
     return results
 
 
@@ -244,6 +253,7 @@ def add_library_voice(public_user_id: str, voice_id: str, new_name: str) -> str:
     Returns the voice_id of the newly added voice in your account.
     """
     url = f"{_BASE_URL}/voices/add/{public_user_id}/{voice_id}"
+    logger.info("Adding library voice %s to account as %r", voice_id, new_name)
 
     with httpx.Client(timeout=30.0) as client:
         response = client.post(

@@ -67,6 +67,12 @@ def generate_scene_fx(scene_data: dict, script_id: str | None = None) -> dict:
 
     Takes a scene summary dict (same format as in batch), returns {id, fx}.
     """
+    scene_id = scene_data.get("id", "unknown")
+    logger.info("[%s] Generating FX for scene %s (beat=%s, duration=%.1fs)",
+                script_id or "no-id", scene_id,
+                scene_data.get("visual_beat", "unknown"),
+                scene_data.get("duration_seconds", 0))
+
     user_message = json.dumps([scene_data], indent=2)
 
     response = chat(
@@ -86,4 +92,7 @@ def generate_scene_fx(scene_data: dict, script_id: str | None = None) -> dict:
     fx_data = entry.get("fx", {})
 
     SceneFX.model_validate(fx_data)
+
+    has_zoom = fx_data.get("zoom_punch") is not None
+    logger.info("[%s] FX assigned for scene %s: zoom_punch=%s", script_id or "no-id", scene_id, has_zoom)
     return {"id": entry.get("id", scene_data.get("id")), "fx": fx_data}

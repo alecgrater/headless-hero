@@ -645,6 +645,8 @@ def compose_title_card(
         segment_index -> (center_x, center_y, radius).
     """
     count = len(circle_image_paths)
+    logger.info("Composing title card: %d segments, title=%r, include_title=%s, include_eli=%s",
+                count, card_title, include_title, include_eli)
     rows, cols, positions = calculate_grid_layout(count, include_title=include_title)
 
     # Calculate circle radius from grid cell size
@@ -766,6 +768,7 @@ def compose_title_card(
     # Also save as base image for Gemini enhancement
     base_path = str(Path(output_path).parent / "composite_title_card_base.png")
     final.save(base_path, "PNG")
-    logger.info("Composite title card saved: %s (%d segments, %dx%d grid, title=%s)", output_path, count, cols, rows, include_title)
+    file_size_kb = Path(output_path).stat().st_size // 1024
+    logger.info("Composite title card saved: %s (%d segments, %dx%d grid, title=%s, %dKB)", output_path, count, cols, rows, include_title, file_size_kb)
 
     return output_path, zoom_targets

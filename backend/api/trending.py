@@ -49,6 +49,7 @@ class TrendingTopicRead(BaseModel):
 @router.post("/refresh")
 async def refresh_trending():
     """Start a background trending topic refresh job."""
+    logger.info("Starting trending topic refresh")
     job = start_refresh()
     return {"job_id": job.id}
 
@@ -132,6 +133,7 @@ async def generate_ideas_from_topic(
     from pipeline.ideation import generate_ideas
 
     brand_id = get_default_brand_id(session)
+    logger.info("Generating ideas from trending topic %r (topic_id=%s)", topic.title, body.topic_id)
     ideas = generate_ideas(niche=enriched_niche, count=5)
 
     # Mark topic as used

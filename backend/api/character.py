@@ -57,6 +57,7 @@ def _start_background_job(
             raise HTTPException(status_code=409, detail=conflict_msg)
 
     job_id = uuid.uuid4().hex[:8]
+    cancel_event = threading.Event()
     _jobs[job_id] = {
         "type": job_type,
         "status": "running",
@@ -64,10 +65,13 @@ def _start_background_job(
         "total": initial_total,
         "current_label": initial_label,
         "error": None,
+        "cancel_event": cancel_event,
     }
 
     def run():
         def on_progress(completed: int, total: int, label: str):
+            if cancel_event.is_set():
+                raise RuntimeError("Job cancelled")
             _jobs[job_id]["completed"] = completed
             _jobs[job_id]["total"] = total
             _jobs[job_id]["current_label"] = label
@@ -75,11 +79,20 @@ def _start_background_job(
         try:
             kwargs = target_kwargs or {}
             target_fn(on_progress=on_progress, **kwargs)
-            _jobs[job_id]["status"] = "completed"
+            if cancel_event.is_set():
+                _jobs[job_id]["status"] = "cancelled"
+                _jobs[job_id]["current_label"] = "Cancelled"
+            else:
+                _jobs[job_id]["status"] = "completed"
         except Exception as e:
-            logger.error("%s job failed", job_type, exc_info=True)
-            _jobs[job_id]["status"] = "failed"
-            _jobs[job_id]["error"] = str(e)
+            if cancel_event.is_set():
+                _jobs[job_id]["status"] = "cancelled"
+                _jobs[job_id]["current_label"] = "Cancelled"
+                logger.info("Character %s job cancelled", job_type)
+            else:
+                logger.error("%s job failed", job_type, exc_info=True)
+                _jobs[job_id]["status"] = "failed"
+                _jobs[job_id]["error"] = str(e)
 
     threading.Thread(target=run, daemon=True).start()
     return job_id
@@ -87,6 +100,22 @@ def _start_background_job(
 
 class GenerateFramesRequest(BaseModel):
     reference_path: str | None = None
+
+
+def cancel_all_character_jobs() -> int:
+    """Cancel all running character jobs. Returns count cancelled."""
+    count = 0
+    for job in _jobs.values():
+        if job["status"] == "running":
+            cancel_event = job.get("cancel_event")
+            if cancel_event:
+                cancel_event.set()
+                job["status"] = "cancelled"
+                job["current_label"] = "Cancelled"
+                count += 1
+    if count:
+        logger.info("Cancelled %d character job(s)", count)
+    return count
 
 
 class GenerateFramesResponse(BaseModel):
@@ -170,7 +199,7 @@ def get_job_status(job_id: str):
     job = _jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return JobStatusResponse(**{k: v for k, v in job.items() if k != "type"})
+    return JobStatusResponse(**{k: v for k, v in job.items() if k not in ("type", "cancel_event")})
 
 
 @router.get("/frames")

@@ -95,6 +95,8 @@ def gemini_enhance_thumbnail(
         Path to the enhanced image, or None if enhancement can't be performed
         (no references uploaded, no character frames, etc.).
     """
+    logger.info("[%s] Starting Gemini thumbnail enhancement for %r", script_id or "no-id", video_title)
+
     from integrations.google_image_client import transform_with_references
     from pipeline.character_frames import get_manifest, FRAMES_DIR
 
@@ -111,6 +113,8 @@ def gemini_enhance_thumbnail(
     if not ref_files:
         logger.info("No thumbnail references uploaded — skipping enhancement")
         return None
+
+    logger.info("[%s] Found %d thumbnail references", script_id or "no-id", len(ref_files))
 
     # Pick a random reference thumbnail
     ref_path = str(random.choice(ref_files))
@@ -131,6 +135,7 @@ def gemini_enhance_thumbnail(
                 candidate = FRAMES_DIR / file_name
                 if candidate.exists():
                     eli_frame_path = str(candidate)
+                    logger.info("[%s] Selected Eli frame for thumbnail: %s", script_id or "no-id", file_name)
     except Exception as exc:
         logger.debug("Could not load Eli frame for thumbnail: %s", exc)
 

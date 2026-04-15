@@ -3,6 +3,7 @@
 import logging
 import os
 import tempfile
+import time
 
 from google import genai
 from google.genai import types
@@ -45,6 +46,7 @@ def _call_gemini(
     script_id: str | None = None,
 ) -> str | None:
     """Single Gemini image generation call. Returns temp file path or None if blocked."""
+    t0 = time.monotonic()
     try:
         response = client.models.generate_content(
             model=DEFAULT_IMAGE_MODEL,
@@ -77,7 +79,7 @@ def _call_gemini(
                 cost_estimate=GOOGLE_IMAGE_PER_CALL,
                 script_id=script_id,
             )
-            logger.info("Gemini image generated successfully")
+            logger.info("Gemini image generated successfully (%.1fs)", time.monotonic() - t0)
             return tmp_path
 
     return None
@@ -104,7 +106,7 @@ def generate_image(
     """
     client = _get_client()
     aspect = _closest_aspect_ratio(width, height)
-    logger.info("Generating image via Gemini")
+    logger.info("Generating image via Gemini (aspect=%s, has_reference=%s)", aspect, reference_image_path is not None)
 
     # Build reference image part (reusable across retries)
     ref_part = None
