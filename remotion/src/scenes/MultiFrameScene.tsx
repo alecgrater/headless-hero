@@ -63,7 +63,7 @@ const SubtitleFrame: React.FC<{ text: string; opacity: number }> = ({
 
 export const MultiFrameScene: React.FC<Props> = ({ scene }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, fps } = useVideoConfig();
   const framePaths = scene.frame_paths ?? [];
   const directives = scene.frame_directives ?? [];
 
@@ -103,7 +103,24 @@ export const MultiFrameScene: React.FC<Props> = ({ scene }) => {
   }
 
   const n = framePaths.length;
-  const framesPerImage = Math.floor(durationInFrames / n);
+
+  // Compute per-frame start/end from frame_timings or even split
+  const frameRanges: { start: number; end: number }[] = [];
+  if (scene.frame_timings && scene.frame_timings.length === n) {
+    for (let i = 0; i < n; i++) {
+      const start = Math.round(scene.frame_timings[i] * fps);
+      const end = i < n - 1 ? Math.round(scene.frame_timings[i + 1] * fps) : durationInFrames;
+      frameRanges.push({ start, end });
+    }
+  } else {
+    const framesPerImage = Math.floor(durationInFrames / n);
+    for (let i = 0; i < n; i++) {
+      frameRanges.push({
+        start: i * framesPerImage,
+        end: i === n - 1 ? durationInFrames : (i + 1) * framesPerImage,
+      });
+    }
+  }
 
   // Determine transition type for each frame
   const getTransition = (i: number): "cut" | "crossfade" | "fade_black" => {
@@ -120,8 +137,8 @@ export const MultiFrameScene: React.FC<Props> = ({ scene }) => {
   return (
     <div style={{ width: "100%", height: "100%", backgroundColor: "#000", position: "relative" }}>
       {framePaths.map((path, i) => {
-        const startFrame = i * framesPerImage;
-        const endFrame = i === n - 1 ? durationInFrames : startFrame + framesPerImage;
+        const startFrame = frameRanges[i].start;
+        const endFrame = frameRanges[i].end;
         const transition = getTransition(i);
         const nextTransition = i < n - 1 ? getTransition(i + 1) : "crossfade";
 
