@@ -85,7 +85,7 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
     thumbs_dir = DATA_DIR / "projects" / body.script_id / "renders" / "thumbnails"
     thumbs_dir.mkdir(parents=True, exist_ok=True)
 
-    # Generate base composite (no Eli overlay, no circle outlines — Gemini handles those)
+    # Generate base composite (no Eli corner overlay — Gemini places Eli into a circle)
     output_path = str(images_dir / "composite_title_card.png")
     compose_title_card(
         circle_image_paths=circle_paths,
