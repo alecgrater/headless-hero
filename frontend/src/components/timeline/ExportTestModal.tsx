@@ -8,9 +8,10 @@ interface Props {
 
 const STEPS = [
   { key: "regen_title_cards" as const, label: "Title Cards", desc: "Regenerate composite title card images", cost: "Gemini" },
-  { key: "regen_images" as const, label: "Images", desc: "Regenerate scene images", cost: "Gemini" },
   { key: "regen_audio" as const, label: "Audio", desc: "Regenerate voiceover", cost: "ElevenLabs" },
+  { key: "regen_images" as const, label: "Images", desc: "Regenerate scene images", cost: "Gemini" },
   { key: "regen_fx" as const, label: "FX", desc: "Regenerate zoom punch", cost: "Claude" },
+  { key: "regen_eli" as const, label: "Eli", desc: "Regenerate Eli animation", cost: "Claude" },
 ];
 
 export default function ExportTestModal({ onRun, onClose }: Props) {
@@ -19,6 +20,7 @@ export default function ExportTestModal({ onRun, onClose }: Props) {
     regen_images: false,
     regen_audio: false,
     regen_fx: false,
+    regen_eli: false,
   });
 
   const selectedCount = Object.values(options).filter(Boolean).length;
@@ -31,11 +33,20 @@ export default function ExportTestModal({ onRun, onClose }: Props) {
       regen_images: next,
       regen_audio: next,
       regen_fx: next,
+      regen_eli: next,
     });
   };
 
   const toggle = (key: keyof ExportTestOptions) => {
-    setOptions((prev) => ({ ...prev, [key]: !prev[key] }));
+    setOptions((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      // Cascade: toggling Audio ON auto-checks FX and Eli (user can manually uncheck)
+      if (key === "regen_audio" && !prev.regen_audio) {
+        next.regen_fx = true;
+        next.regen_eli = true;
+      }
+      return next;
+    });
   };
 
   return (

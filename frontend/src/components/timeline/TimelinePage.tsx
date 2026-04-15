@@ -175,6 +175,8 @@ function TimelineEditor({
   const [thumbnailsInlineGenerating, setThumbnailsInlineGenerating] = useState(false);
   const [showThumbnailModal, setShowThumbnailModal] = useState(false);
   const [totalCost, setTotalCost] = useState<number>(0);
+  const [lastAudioGenTimestamp, setLastAudioGenTimestamp] = useState(0);
+  const [lastFXGenTimestamp, setLastFXGenTimestamp] = useState(0);
 
   const refreshCost = useCallback(async () => {
     const data = await fetchScriptCost(scriptId);
@@ -189,6 +191,25 @@ function TimelineEditor({
   const audioDone = state.batchAudioProgress.total > 0 && (state.batchAudioProgress.completed + state.batchAudioProgress.failed) >= state.batchAudioProgress.total;
   useEffect(() => { if (imgDone) refreshCost(); }, [imgDone, refreshCost]);
   useEffect(() => { if (audioDone) refreshCost(); }, [audioDone, refreshCost]);
+
+  // Track audio/FX generation timestamps for staleness detection
+  const prevBatchAudio = useRef(false);
+  const prevSingleAudioCount = useRef(0);
+  useEffect(() => {
+    // Detect batch audio completion (was generating, now done)
+    if (prevBatchAudio.current && !state.batchGeneratingAudio) {
+      setLastAudioGenTimestamp(Date.now());
+    }
+    prevBatchAudio.current = state.batchGeneratingAudio;
+  }, [state.batchGeneratingAudio]);
+  useEffect(() => {
+    // Detect single-scene audio completion (generating set was non-empty, now empty)
+    const count = state.generatingAudioSceneIds.size;
+    if (prevSingleAudioCount.current > 0 && count === 0) {
+      setLastAudioGenTimestamp(Date.now());
+    }
+    prevSingleAudioCount.current = count;
+  }, [state.generatingAudioSceneIds]);
 
   // Export split-button dropdown state
   const [showExportDropdown, setShowExportDropdown] = useState(false);
@@ -419,6 +440,7 @@ function TimelineEditor({
       }
     } finally {
       setGeneratingFX(false);
+      setLastFXGenTimestamp(Date.now());
       refreshCost();
     }
   };
@@ -440,6 +462,7 @@ function TimelineEditor({
       }
     } finally {
       setGeneratingFX(false);
+      setLastFXGenTimestamp(Date.now());
     }
   };
 
@@ -629,6 +652,7 @@ function TimelineEditor({
             exportDropdownRef={exportDropdownRef}
             setShowExport={setShowExport}
             setShowExportTestModal={setShowExportTestModal}
+            fxPotentiallyStale={lastAudioGenTimestamp > 0 && lastAudioGenTimestamp > lastFXGenTimestamp}
           />
         </div>
 

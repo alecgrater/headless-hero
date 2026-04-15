@@ -306,6 +306,7 @@ export interface ExportTestOptions {
   regen_images: boolean;
   regen_audio: boolean;
   regen_fx: boolean;
+  regen_eli: boolean;
 }
 
 /** Start export test pipeline with selective regeneration for scene 1 only. */

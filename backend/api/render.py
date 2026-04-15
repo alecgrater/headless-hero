@@ -155,7 +155,7 @@ def _build_phase_ranges(ctx: ExportContext) -> None:
     total_weight = sum(phase_weights.values())
     phase_ranges: dict[str, tuple[float, float]] = {}
     cursor = 0.0
-    for phase_name in ["title_cards", "images", "audio", "persist", "fx", "eli", "render", "copy"]:
+    for phase_name in ["title_cards", "audio", "images", "persist", "fx", "eli", "render", "copy"]:
         if phase_name in phase_weights:
             start = cursor
             span = phase_weights[phase_name] / total_weight
@@ -183,7 +183,7 @@ def _phase_title_cards(ctx: ExportContext) -> None:
 
 
 def _phase_images(ctx: ExportContext) -> None:
-    """Phase 2: Generate images for all scenes."""
+    """Phase 3: Generate images for all scenes."""
     from pipeline.image_gen import generate_scene_frames, generate_scene_image
 
     scene_count = len(ctx.scenes)
@@ -207,7 +207,7 @@ def _phase_images(ctx: ExportContext) -> None:
 
 
 def _phase_audio(ctx: ExportContext) -> None:
-    """Phase 3: Generate audio for all scenes."""
+    """Phase 2: Generate audio for all scenes."""
     from pipeline.voiceover import generate_scene_audio
 
     scene_count = len(ctx.scenes)
@@ -545,7 +545,7 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
 
 @router.post("/export-test", response_model=RenderJobResponse)
 def start_export_test(body: ExportTestRequest, session: Session = Depends(get_session)):
-    """Run the full pipeline (image → audio → FX → Eli → render) for the first segment."""
+    """Run the full pipeline (audio → image → FX → Eli → render) for the first segment."""
     content = _load_content(session, body.script_id)
     brand_dict = _load_brand(session, body.script_id)
 
@@ -612,12 +612,12 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
         if ctx.regen_title_cards:
             _check_cancelled(ctx.job.id)
             _phase_title_cards(ctx)
-        if ctx.regen_images:
-            _check_cancelled(ctx.job.id)
-            _phase_images(ctx)
         if ctx.regen_audio:
             _check_cancelled(ctx.job.id)
             _phase_audio(ctx)
+        if ctx.regen_images:
+            _check_cancelled(ctx.job.id)
+            _phase_images(ctx)
         if ctx.regen_images or ctx.regen_audio:
             _check_cancelled(ctx.job.id)
             _phase_persist(ctx)
