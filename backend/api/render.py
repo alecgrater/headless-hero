@@ -184,7 +184,7 @@ def _phase_title_cards(ctx: ExportContext) -> None:
 
 def _phase_images(ctx: ExportContext) -> None:
     """Phase 3: Generate images for all scenes."""
-    from pipeline.image_gen import generate_scene_frames, generate_scene_image
+    from pipeline.image_gen import generate_scene_image
 
     scene_count = len(ctx.scenes)
     logger.info("[%s] Phase: images — generating %d scene images", ctx.script_id, scene_count)
@@ -194,15 +194,9 @@ def _phase_images(ctx: ExportContext) -> None:
         update_job(ctx.job.id, progress=p, current_step=f"Generating image ({i+1}/{scene_count})...")
         sid = sc_info["scene_id"]
         logger.info("[%s] Generating image for scene %s (%d/%d)", ctx.script_id, sid, i + 1, scene_count)
-        if sc_info["frame_prompts"] and len(sc_info["frame_prompts"]) > 1:
-            results = generate_scene_frames(sid, sc_info["frame_prompts"], ctx.script_id, visual_prompt=sc_info["visual_prompt"], force=True)
-            frame_urls = [r[0] for r in results]
-            image_url = frame_urls[0] if frame_urls else None
-        else:
-            image_url, _ = generate_scene_image(sid, sc_info["visual_prompt"], ctx.script_id, force=True)
-            frame_urls = None
+        image_url, _ = generate_scene_image(sid, sc_info["visual_prompt"], ctx.script_id, force=True)
         sc_info["_image_url"] = image_url
-        sc_info["_frame_urls"] = frame_urls
+        sc_info["_frame_urls"] = None
     logger.info("[%s] Phase: images — complete (%d scenes)", ctx.script_id, scene_count)
 
 
@@ -227,42 +221,58 @@ def _phase_audio(ctx: ExportContext) -> None:
 
 
 def _phase_persist(ctx: ExportContext) -> None:
-    """Phase 4: Persist regenerated assets to DB."""
+    """Phase 4: Persist regenerated assets to DB in a single write."""
     logger.info("[%s] Phase: persist — saving %d scene assets to DB", ctx.script_id, len(ctx.scenes))
     update_job(ctx.job.id, progress=_phase_progress(ctx, "persist", 0), current_step="Saving scene data...")
-    for sc_info in ctx.scenes:
-        # Load existing data for fields we didn't regenerate
-        if not ctx.regen_images or not ctx.regen_audio:
-            content_now = _reload_content(ctx.script_id)
-            scene_now = _find_scene_in_content(content_now, sc_info["scene_id"])
+
+    from database import engine
+    with Session(engine) as session:
+        record = session.get(Script, ctx.script_id)
+        if not record:
+            return
+        content = ScriptContent.model_validate(json.loads(record.script_json))
+        scene_map = {sc.id: sc for seg in content.segments for sc in seg.scenes}
+
+        for sc_info in ctx.scenes:
+            sc = scene_map.get(sc_info["scene_id"])
+            if not sc:
+                continue
+            # Fill in missing fields from existing data if not regenerated
             if "_image_url" not in sc_info:
-                sc_info["_image_url"] = scene_now.image_url
-                sc_info["_frame_urls"] = scene_now.frame_urls
+                sc_info["_image_url"] = sc.image_url
+                sc_info["_frame_urls"] = sc.frame_urls
             if "_audio_url" not in sc_info:
-                sc_info["_audio_url"] = scene_now.audio_url
-                sc_info["_audio_duration"] = scene_now.audio_duration_seconds
-                sc_info["_word_timestamps"] = scene_now.word_timestamps
-        _persist_scene_assets(
-            ctx.script_id, sc_info["scene_id"],
-            image_url=sc_info["_image_url"],
-            frame_urls=sc_info["_frame_urls"],
-            audio_url=sc_info["_audio_url"],
-            audio_duration=sc_info["_audio_duration"],
-            word_timestamps=sc_info["_word_timestamps"],
-        )
+                sc_info["_audio_url"] = sc.audio_url
+                sc_info["_audio_duration"] = sc.audio_duration_seconds
+                sc_info["_word_timestamps"] = sc.word_timestamps
+
+            if sc_info.get("_image_url"):
+                sc.image_url = sc_info["_image_url"]
+            if sc_info.get("_frame_urls"):
+                sc.frame_urls = sc_info["_frame_urls"]
+            sc.audio_url = sc_info.get("_audio_url", sc.audio_url)
+            sc.audio_duration_seconds = sc_info.get("_audio_duration", sc.audio_duration_seconds)
+            sc.word_timestamps = sc_info.get("_word_timestamps", sc.word_timestamps)
+
+        record.script_json = content.model_dump_json()
+        session.add(record)
+        session.commit()
 
 
 def _phase_fx(ctx: ExportContext) -> None:
-    """Phase 5: Generate FX for all scenes."""
+    """Phase 5: Generate FX for all scenes, persist in a single write."""
     from pipeline.fx_generator import generate_scene_fx
 
     scene_count = len(ctx.scenes)
     logger.info("[%s] Phase: fx — generating FX for %d scenes", ctx.script_id, scene_count)
+
+    # Generate FX for each scene, collecting results
+    content_now = _reload_content(ctx.script_id)
+    fx_updates: dict[str, dict] = {}
     for i, sc_info in enumerate(ctx.scenes):
         _check_cancelled(ctx.job.id)
         p = _phase_progress(ctx, "fx", i / scene_count)
         update_job(ctx.job.id, progress=p, current_step=f"Generating FX ({i+1}/{scene_count})...")
-        content_now = _reload_content(ctx.script_id)
         scene_now = _find_scene_in_content(content_now, sc_info["scene_id"])
         duration = scene_now.audio_duration_seconds or scene_now.duration_estimate_seconds
         scene_data = {
@@ -284,22 +294,44 @@ def _phase_fx(ctx: ExportContext) -> None:
             scene_data["word_timestamps"] = scene_now.word_timestamps
         try:
             fx_result = generate_scene_fx(scene_data)
-            _persist_scene_fx(ctx.script_id, sc_info["scene_id"], fx_result["fx"])
+            fx_updates[sc_info["scene_id"]] = fx_result["fx"]
         except Exception as e:
             logger.warning("Failed FX for scene %s: %s", sc_info["scene_id"], e)
 
+    # Persist all FX in a single DB write
+    if fx_updates:
+        from database import engine
+        with Session(engine) as session:
+            record = session.get(Script, ctx.script_id)
+            if record:
+                content = ScriptContent.model_validate(json.loads(record.script_json))
+                scene_map = {sc.id: sc for seg in content.segments for sc in seg.scenes}
+                for scene_id, fx in fx_updates.items():
+                    sc = scene_map.get(scene_id)
+                    if sc:
+                        sc.fx = fx
+                record.script_json = content.model_dump_json()
+                session.add(record)
+                session.commit()
+
 
 def _phase_eli(ctx: ExportContext) -> None:
-    """Phase 6: Generate Eli animation for all scenes."""
-    from pipeline.eli_animator import generate_scene_eli
+    """Phase 6: Generate Eli animation for all scenes, persist in a single write."""
+    try:
+        from pipeline.eli_animator import generate_scene_eli
+    except ImportError:
+        logger.warning("eli_animator module not found — skipping Eli phase")
+        return
 
     scene_count = len(ctx.scenes)
     logger.info("[%s] Phase: eli — generating Eli animation for %d scenes", ctx.script_id, scene_count)
+
+    content_now = _reload_content(ctx.script_id)
+    eli_updates: dict[str, dict] = {}
     for i, sc_info in enumerate(ctx.scenes):
         _check_cancelled(ctx.job.id)
         p = _phase_progress(ctx, "eli", i / scene_count)
         update_job(ctx.job.id, progress=p, current_step=f"Generating Eli ({i+1}/{scene_count})...")
-        content_now = _reload_content(ctx.script_id)
         scene_now = _find_scene_in_content(content_now, sc_info["scene_id"])
         duration = scene_now.audio_duration_seconds or scene_now.duration_estimate_seconds
         eli_scene_data = {
@@ -317,9 +349,25 @@ def _phase_eli(ctx: ExportContext) -> None:
             eli_scene_data["word_timestamps"] = scene_now.word_timestamps
         try:
             eli_result = generate_scene_eli(eli_scene_data)
-            _persist_scene_eli(ctx.script_id, sc_info["scene_id"], eli_result["eli_overlay"])
+            eli_updates[sc_info["scene_id"]] = eli_result["eli_overlay"]
         except Exception as e:
             logger.warning("Failed Eli for scene %s: %s", sc_info["scene_id"], e)
+
+    # Persist all Eli overlays in a single DB write
+    if eli_updates:
+        from database import engine
+        with Session(engine) as session:
+            record = session.get(Script, ctx.script_id)
+            if record:
+                content = ScriptContent.model_validate(json.loads(record.script_json))
+                scene_map = {sc.id: sc for seg in content.segments for sc in seg.scenes}
+                for scene_id, eli_overlay in eli_updates.items():
+                    sc = scene_map.get(scene_id)
+                    if sc:
+                        sc.eli_overlay = eli_overlay
+                record.script_json = content.model_dump_json()
+                session.add(record)
+                session.commit()
 
 
 def _phase_render(ctx: ExportContext) -> None:
@@ -573,7 +621,6 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
                 "scene_id": scene.id,
                 "narration": scene.narration or "",
                 "visual_prompt": scene.visual_prompt or "",
-                "frame_prompts": scene.frame_prompts or [],
                 "sc_idx": sci,
                 "global_idx": global_idx,
             })
@@ -657,53 +704,3 @@ def _find_scene_in_content(content: ScriptContent, scene_id: str):
             if sc.id == scene_id:
                 return sc
     raise RuntimeError(f"Scene {scene_id} not found in content")
-
-
-def _persist_scene_update(script_id: str, scene_id: str, updater) -> None:
-    """Load a script from DB, find scene by ID, apply updater(scene), and save back."""
-    from database import engine
-    with Session(engine) as session:
-        record = session.get(Script, script_id)
-        if not record:
-            return
-        content = ScriptContent.model_validate(json.loads(record.script_json))
-        for seg in content.segments:
-            for sc in seg.scenes:
-                if sc.id == scene_id:
-                    updater(sc)
-                    break
-        record.script_json = content.model_dump_json()
-        session.add(record)
-        session.commit()
-
-
-def _persist_scene_assets(
-    script_id: str,
-    scene_id: str,
-    *,
-    image_url: str | None,
-    frame_urls: list[str] | None,
-    audio_url: str,
-    audio_duration: float,
-    word_timestamps: list[dict],
-) -> None:
-    """Update a scene's media fields in the DB."""
-    def update(sc):
-        if image_url:
-            sc.image_url = image_url
-        if frame_urls:
-            sc.frame_urls = frame_urls
-        sc.audio_url = audio_url
-        sc.audio_duration_seconds = audio_duration
-        sc.word_timestamps = word_timestamps
-    _persist_scene_update(script_id, scene_id, update)
-
-
-def _persist_scene_fx(script_id: str, scene_id: str, fx: dict) -> None:
-    """Update a scene's FX in the DB."""
-    _persist_scene_update(script_id, scene_id, lambda sc: setattr(sc, "fx", fx))
-
-
-def _persist_scene_eli(script_id: str, scene_id: str, eli_overlay: dict) -> None:
-    """Update a scene's Eli overlay in the DB."""
-    _persist_scene_update(script_id, scene_id, lambda sc: setattr(sc, "eli_overlay", eli_overlay))

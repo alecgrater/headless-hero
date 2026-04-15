@@ -3,36 +3,7 @@
  * These mirror the Python Scene/SceneFX models from backend/models/script.py.
  */
 
-// --- New FX types (4 core effects) ---
-
-export interface EmphasisWord {
-  word: string;
-  start_frame: number;
-  end_frame: number;
-  style:
-    | "scale_pop"
-    | "color_flash"
-    | "size_burst"
-    | "shake"
-    | "underline_draw"
-    | "glow_pulse"
-    | "typewriter"
-    | "slide_up"
-    | "bounce_in"
-    | "rotate_in"
-    | "glitch"
-    | "gradient_sweep";
-  category?: string; // stat | key_noun | emotional | action_verb | contrast | keyword
-  font_size?: number; // 48-120, default 64
-  position?: string; // bottom_center | bottom_left | bottom_right | center | top_center
-  word_index?: number; // 0-based index into narration word list
-  intensity?: number; // 1 (supporting), 2 (important), 3 (peak moment)
-  reason?: string; // why this word matters
-}
-
-export interface KineticCaptionsFX {
-  words: EmphasisWord[];
-}
+// --- FX types ---
 
 export interface ZoomPunchFX {
   trigger_frame: number;
@@ -40,7 +11,6 @@ export interface ZoomPunchFX {
 }
 
 export interface SceneFX {
-  kinetic_captions?: KineticCaptionsFX | null;
   zoom_punch?: ZoomPunchFX | null;
 }
 
@@ -55,7 +25,6 @@ export interface EliKeyframe {
   end_frame: number;
   frame_id: string;
   transition: "cut" | "crossfade";
-  reason: string;
 }
 
 export interface EliPosition {
@@ -104,7 +73,6 @@ export interface ChapterMapData {
 export interface SceneInput {
   id: string;
   narration: string;
-  visual_prompt: string;
   duration_seconds: number;
   is_title_card: boolean;
   // Asset paths (absolute filesystem paths)
@@ -120,11 +88,8 @@ export interface SceneInput {
   visual_beat?: "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage";
   frame_directives?: FrameDirective[] | null;
 
-  // Eli character overlay
-  eli_overlay?: EliOverlay | null;
+  // Timing
   word_timestamps?: WordTimestamp[] | null;
-  character_frames_base_url?: string | null;
-  variant_counts?: Record<string, number> | null;
 }
 
 export interface SegmentInput {

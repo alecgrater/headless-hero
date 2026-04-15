@@ -29,8 +29,6 @@ export default function PropertiesPanel({
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
   const [isTitleCard, setIsTitleCard] = useState(scene.is_title_card);
-  const [framePrompts, setFramePrompts] = useState<string[]>(scene.frame_prompts || []);
-  const [frameCount, setFrameCount] = useState(scene.frame_count || 0);
 
   const sceneIdRef = useRef(scene.id);
 
@@ -40,8 +38,6 @@ export default function PropertiesPanel({
       setNarration(scene.narration);
       setVisualPrompt(scene.visual_prompt);
       setIsTitleCard(scene.is_title_card);
-      setFramePrompts(scene.frame_prompts || []);
-      setFrameCount(scene.frame_count || 0);
     }
   }, [scene]);
 
@@ -110,28 +106,6 @@ export default function PropertiesPanel({
           {/* Settings row pinned at bottom */}
           <div className="shrink-0 space-y-1">
             <div className="flex items-end gap-3 pt-1 border-t border-neutral-800/40">
-              <label className="space-y-0.5 flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-medium text-neutral-500">Frames</span>
-                  <span className="text-[10px] text-neutral-600 font-mono">{frameCount || 1}</span>
-                </div>
-                <input
-                  type="range"
-                  min={1}
-                  max={8}
-                  value={frameCount || 1}
-                  onChange={(e) => {
-                    const n = parseInt(e.target.value, 10);
-                    setFrameCount(n);
-                    const newPrompts = [...framePrompts];
-                    while (newPrompts.length < n) newPrompts.push("");
-                    while (newPrompts.length > n) newPrompts.pop();
-                    setFramePrompts(newPrompts);
-                    onUpdate({ frame_count: n, frame_prompts: newPrompts });
-                  }}
-                  className="w-full accent-violet-500"
-                />
-              </label>
               <label className="flex items-center gap-1 cursor-pointer pb-0.5">
                 <input
                   type="checkbox"
@@ -209,29 +183,6 @@ export default function PropertiesPanel({
               </div>
             </div>
           )}
-
-          {/* Frame prompts — overflow if many */}
-          {frameCount > 1 && (
-            <div className="flex-1 min-h-0 overflow-y-auto space-y-1 border-t border-neutral-800/40 pt-1">
-              {framePrompts.slice(0, frameCount).map((fp, i) => (
-                <label key={i} className="block">
-                  <span className="text-[10px] font-medium text-neutral-500">Frame {i + 1}</span>
-                  <input
-                    type="text"
-                    value={fp}
-                    onChange={(e) => {
-                      const updated = [...framePrompts];
-                      updated[i] = e.target.value;
-                      setFramePrompts(updated);
-                    }}
-                    onBlur={() => onUpdate({ frame_prompts: framePrompts })}
-                    className="w-full text-xs text-neutral-200 bg-neutral-800/60 rounded px-1.5 py-1 border border-violet-700/30 focus:outline-none focus:border-violet-500/50"
-                    placeholder={`Frame ${i + 1} visual...`}
-                  />
-                </label>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Col 3: Image preview — fills full panel height */}
@@ -248,7 +199,7 @@ export default function PropertiesPanel({
                   >
                     {isGenerating ? (
                       <><span className="w-2.5 h-2.5 border border-emerald-400/50 border-t-transparent rounded-full animate-spin" /> Gen...</>
-                    ) : frameCount > 1 ? `Regen ${frameCount} Frames` : "Regen"}
+                    ) : "Regen"}
                   </button>
                 )}
               </div>
@@ -280,7 +231,7 @@ export default function PropertiesPanel({
               >
                 {isGenerating ? (
                   <><span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" /> Generating...</>
-                ) : frameCount > 1 ? `Generate ${frameCount} Frames` : "Generate Image"}
+                ) : "Generate Image"}
               </button>
             </div>
           ) : null}

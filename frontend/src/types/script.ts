@@ -1,17 +1,6 @@
 import { SEOMetadata } from "./render";
 
-// --- New FX types (4 core effects) ---
-
-export interface EmphasisWord {
-  word: string;
-  start_frame: number;
-  end_frame: number;
-  style: "scale_pop" | "color_flash" | "size_burst" | "shake" | "underline_draw";
-}
-
-export interface KineticCaptionsFX {
-  words: EmphasisWord[];
-}
+// --- FX types ---
 
 export interface ZoomPunchFX {
   trigger_frame: number;
@@ -19,7 +8,6 @@ export interface ZoomPunchFX {
 }
 
 export interface SceneFX {
-  kinetic_captions?: KineticCaptionsFX | null;
   zoom_punch?: ZoomPunchFX | null;
 }
 
@@ -28,7 +16,6 @@ export interface EliKeyframe {
   end_frame: number;
   frame_id: string;
   transition: "cut" | "crossfade";
-  reason: string;
 }
 
 export interface EliOverlay {
@@ -64,9 +51,7 @@ export interface Scene {
   image_url?: string;
   audio_url?: string;
   audio_duration_seconds?: number;
-  frame_prompts?: string[];
   frame_urls?: string[];
-  frame_count?: number;
   visual_beat?: "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage";
   frame_directives?: FrameDirective[];
   contains_person?: boolean;

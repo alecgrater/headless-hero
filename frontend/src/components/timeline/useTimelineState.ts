@@ -455,7 +455,6 @@ export function useTimelineState(
           script_id: scriptId,
           scene_id: sceneId,
           visual_prompt: scene.visual_prompt,
-          frame_prompts: scene.frame_prompts || [],
           frame_directives: scene.frame_directives || [],
           contains_person: scene.contains_person || false,
         });
@@ -481,7 +480,7 @@ export function useTimelineState(
   const generateAllImages = useCallback(
     async (missingOnly = false) => {
       // Collect AI-generated scenes
-      const scenes: { scene_id: string; visual_prompt: string; name: string; frame_prompts: string[]; frame_directives: any[]; contains_person: boolean }[] = [];
+      const scenes: { scene_id: string; visual_prompt: string; name: string; frame_directives: any[]; contains_person: boolean }[] = [];
       // Collect title card scene IDs for progress tracking
       let hasTitleCards = false;
       for (const seg of contentRef.current.segments) {
@@ -494,7 +493,6 @@ export function useTimelineState(
               scene_id: sc.id,
               visual_prompt: sc.visual_prompt,
               name: sc.narration.slice(0, 40) || sc.id,
-              frame_prompts: sc.frame_prompts || [],
               frame_directives: sc.frame_directives || [],
               contains_person: sc.contains_person || false,
             });
@@ -558,7 +556,6 @@ export function useTimelineState(
             script_id: scriptId,
             scene_id: scene.scene_id,
             visual_prompt: scene.visual_prompt,
-            frame_prompts: scene.frame_prompts,
             frame_directives: scene.frame_directives,
             contains_person: scene.contains_person,
           });

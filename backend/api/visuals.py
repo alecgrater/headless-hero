@@ -10,7 +10,7 @@ from sqlmodel import Session
 from config import IMAGE_HEIGHT, IMAGE_WIDTH
 from database import get_session
 from models.script import Script, ScriptContent
-from pipeline.image_gen import generate_batch, generate_scene_frames, generate_scene_frames_v2, generate_scene_image
+from pipeline.image_gen import generate_batch, generate_scene_frames_v2, generate_scene_image
 from pipeline.render_jobs import create_job, get_job, run_in_background
 from pipeline.title_card import ensure_title_card_images
 
@@ -26,7 +26,6 @@ class GenerateVisualRequest(BaseModel):
     visual_prompt: str
     width: int = IMAGE_WIDTH
     height: int = IMAGE_HEIGHT
-    frame_prompts: list[str] = []
     frame_directives: list[dict] = []
     contains_person: bool = False
 
@@ -38,7 +37,6 @@ class GenerateVisualResponse(BaseModel):
 class BatchScene(BaseModel):
     scene_id: str
     visual_prompt: str
-    frame_prompts: list[str] = []
     frame_directives: list[dict] = []
     contains_person: bool = False
 
@@ -116,25 +114,6 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             frame_urls=frame_urls,
         )
 
-    # Legacy multi-frame path
-    if body.frame_prompts:
-        frame_results = generate_scene_frames(
-            scene_id=body.scene_id,
-            frame_prompts=body.frame_prompts,
-            script_id=body.script_id,
-            visual_prompt=body.visual_prompt,
-            width=body.width,
-            height=body.height,
-            contains_person=body.contains_person,
-        )
-        frame_urls = [url for url, _ in frame_results]
-        _update_scene(session, body.script_id, body.scene_id, frame_urls=frame_urls)
-        return GenerateVisualResponse(
-            image_url=frame_urls[0] if frame_urls else "",
-            prompt_used=frame_results[0][1] if frame_results else "",
-            frame_urls=frame_urls,
-        )
-
     # Single-image path
     image_url, prompt_used = generate_scene_image(
         scene_id=body.scene_id,
@@ -162,7 +141,6 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
         {
             "scene_id": s.scene_id,
             "visual_prompt": s.visual_prompt,
-            "frame_prompts": s.frame_prompts,
             "frame_directives": s.frame_directives,
             "contains_person": s.contains_person,
         }
@@ -176,13 +154,24 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
         height=body.height,
     )
 
-    # Persist successful image URLs
+    # Persist all successful results in a single DB write
+    content = ScriptContent.model_validate(json.loads(record.script_json))
+    scene_map = {sc.id: sc for seg in content.segments for sc in seg.scenes}
     for r in results:
+        sc = scene_map.get(r["scene_id"])
+        if not sc:
+            continue
         frame_urls = r.get("frame_urls", [])
         if frame_urls:
-            _update_scene(session, body.script_id, r["scene_id"], frame_urls=frame_urls)
-        elif r["image_url"]:
-            _update_scene(session, body.script_id, r["scene_id"], image_url=r["image_url"])
+            sc.frame_urls = frame_urls
+            first_image = next((u for u in frame_urls if u), "")
+            if first_image:
+                sc.image_url = first_image
+        elif r.get("image_url"):
+            sc.image_url = r["image_url"]
+    record.script_json = content.model_dump_json()
+    session.add(record)
+    session.commit()
 
     errors = sum(1 for r in results if r.get("error"))
     logger.info("Batch visual generation complete for script %s: %d succeeded, %d failed", body.script_id, len(results) - errors, errors)

@@ -11,25 +11,6 @@ from sqlmodel import Column, Field, SQLModel, Text
 
 # --- FX models (used by Remotion renderer) ---
 
-class EmphasisWord(BaseModel):
-    """A single emphasis word with frame-precise timing and animation style."""
-
-    word: str
-    start_frame: int = 0
-    end_frame: int = 0
-    style: str = "scale_pop"  # scale_pop | color_flash | size_burst | shake | underline_draw | glow_pulse | typewriter | slide_up | bounce_in | rotate_in | glitch | gradient_sweep
-    category: str = "keyword"  # stat | key_noun | emotional | action_verb | contrast | keyword
-    font_size: int = 64  # 48-120
-    position: str = "bottom_center"  # bottom_center | bottom_left | bottom_right | center | top_center
-    word_index: int = 0  # 0-based index into narration word list (for timestamp lookup)
-    intensity: int = 2  # 1 (supporting), 2 (important), 3 (peak moment)
-    reason: str = ""  # why this word matters (e.g. "shocking statistic", "thesis reversal")
-
-class KineticCaptionsFX(BaseModel):
-    """Kinetic emphasis captions — frame-timed emphasis words from narration."""
-
-    words: list[EmphasisWord] = []
-
 class ZoomPunchFX(BaseModel):
     """Zoom punch — quick asymmetric scale hit on key moments."""
 
@@ -39,7 +20,6 @@ class ZoomPunchFX(BaseModel):
 class SceneFX(BaseModel):
     """Complete FX configuration for a scene, assigned by Claude."""
 
-    kinetic_captions: KineticCaptionsFX | None = None
     zoom_punch: ZoomPunchFX | None = None
 
 class EliKeyframe(BaseModel):
@@ -48,7 +28,6 @@ class EliKeyframe(BaseModel):
     end_frame: int
     frame_id: str       # matches manifest frame id (e.g., "neutral_standing")
     transition: str = "cut"  # "cut" | "crossfade"
-    reason: str = ""    # for debugging
 
 class EliOverlay(BaseModel):
     """Eli character overlay configuration for a scene."""
@@ -90,9 +69,7 @@ class Scene(BaseModel):
     audio_duration_seconds: float = 0.0
     word_timestamps: list[dict] | None = None
     title_card_zoom_target: dict | None = None  # {"x": int, "y": int, "radius": int} for zoompan
-    frame_prompts: list[str] = []     # per-frame visual prompts for multi-frame scenes
     frame_urls: list[str] = []        # web-relative paths to frame images
-    frame_count: int = 0              # desired frame count (1-8), 0 = use legacy single-image
     fx: dict | None = None             # SceneFX dict — assigned by FX generator, used by Remotion
     eli_overlay: dict | None = None    # EliOverlay dict — Eli character animation keyframes
     visual_beat: str = "static"        # "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage"

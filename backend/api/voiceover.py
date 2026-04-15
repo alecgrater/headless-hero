@@ -168,17 +168,22 @@ def generate_audio_batch(
         voice_settings=body.voice_settings,
     )
 
-    # Persist successful audio URLs
+    # Persist all successful results in a single DB write
+    content = ScriptContent.model_validate(json.loads(record.script_json))
+    scene_map = {sc.id: sc for seg in content.segments for sc in seg.scenes}
     for r in results:
-        if r["audio_url"]:
-            _update_scene_audio(
-                session,
-                body.script_id,
-                r["scene_id"],
-                r["audio_url"],
-                float(r["duration_seconds"]),
-                r.get("word_timestamps"),
-            )
+        if not r["audio_url"]:
+            continue
+        sc = scene_map.get(r["scene_id"])
+        if not sc:
+            continue
+        sc.audio_url = r["audio_url"]
+        sc.audio_duration_seconds = float(r["duration_seconds"])
+        if r.get("word_timestamps") is not None:
+            sc.word_timestamps = r["word_timestamps"]
+    record.script_json = content.model_dump_json()
+    session.add(record)
+    session.commit()
 
     errors = sum(1 for r in results if r.get("error"))
     logger.info("Batch audio generation complete for script %s: %d succeeded, %d failed", body.script_id, len(results) - errors, errors)
