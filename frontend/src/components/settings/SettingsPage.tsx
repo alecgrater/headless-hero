@@ -1,19 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ApiKeysSection from "./ApiKeysSection";
 import CharacterSection from "./CharacterSection";
 import GeneralSection from "./GeneralSection";
 import VoicePublishSection from "./VoicePublishSection";
 
-const SECTIONS = [
+export const SECTIONS = [
   { id: "general", label: "General", icon: "folder" },
   { id: "voice-publish", label: "Voice & Publishing", icon: "mic" },
   { id: "character", label: "Character", icon: "sparkles" },
   { id: "api-keys", label: "API Keys", icon: "key" },
 ] as const;
 
-type SectionId = (typeof SECTIONS)[number]["id"];
+export type SectionId = (typeof SECTIONS)[number]["id"];
 
-function SectionIcon({ icon, className }: { icon: string; className?: string }) {
+export function SectionIcon({ icon, className }: { icon: string; className?: string }) {
   switch (icon) {
     case "key":
       return (
@@ -46,10 +46,19 @@ function SectionIcon({ icon, className }: { icon: string; className?: string }) 
 
 interface Props {
   onBack: () => void;
+  defaultSection?: SectionId | null;
+  onConsumeDefaultSection?: () => void;
 }
 
-export default function SettingsPage({ onBack }: Props) {
-  const [activeSection, setActiveSection] = useState<SectionId>("general");
+export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultSection }: Props) {
+  const [activeSection, setActiveSection] = useState<SectionId>(defaultSection ?? "general");
+
+  useEffect(() => {
+    if (defaultSection) {
+      setActiveSection(defaultSection);
+      onConsumeDefaultSection?.();
+    }
+  }, [defaultSection, onConsumeDefaultSection]);
 
   return (
     <div className="flex flex-col h-full">
