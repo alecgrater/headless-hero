@@ -323,7 +323,7 @@ export default function ExportPanel({
                     Regenerating...
                   </>
                 ) : (
-                  "Regenerate Thumbnails"
+                  "Regenerate Thumbnail"
                 )}
               </button>
             </section>
