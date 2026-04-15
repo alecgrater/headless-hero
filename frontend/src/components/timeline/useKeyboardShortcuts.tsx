@@ -10,6 +10,7 @@ interface ShortcutActions {
   openExport: () => void;
   toggleAudioPreview: () => void;
   deleteScene: () => void;
+  toggleProperties: () => void;
 }
 
 interface Shortcut {
@@ -27,6 +28,7 @@ export const SHORTCUTS: Shortcut[] = [
   { key: "G", label: "Generate all images", shortcutDisplay: "\u2318\u21E7G" },
   { key: "e", label: "Open export panel", shortcutDisplay: "\u2318E" },
   { key: "Space", label: "Play/pause audio preview", shortcutDisplay: "Space" },
+  { key: "p", label: "Toggle properties panel", shortcutDisplay: "P" },
   { key: "Delete", label: "Delete selected scene", shortcutDisplay: "Delete" },
 ];
 
@@ -75,6 +77,13 @@ export function useKeyboardShortcuts(actions: ShortcutActions) {
       if (e.key === " ") {
         e.preventDefault();
         actions.toggleAudioPreview();
+        return;
+      }
+
+      // P for properties toggle
+      if (e.key === "p" || e.key === "P") {
+        e.preventDefault();
+        actions.toggleProperties();
         return;
       }
 

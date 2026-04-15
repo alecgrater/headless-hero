@@ -88,6 +88,19 @@
   box-shadow: none;
 }
 
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 200ms ease-out forwards;
+}
+
 .bg-app {
   background-color: #0a0a0a;
   background-image: radial-gradient(ellipse at 50% 0%, rgba(139, 92, 246, 0.04), transparent 60%);

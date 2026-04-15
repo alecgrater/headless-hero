@@ -8,7 +8,9 @@ import type { SaveState } from "../../App";
 import ExportPanel from "./ExportPanel";
 import ExportTestModal from "./ExportTestModal";
 import PipelineSteps from "./PipelineSteps";
+import PreviewPanel from "./PreviewPanel";
 import PropertiesPanel from "./PropertiesPanel";
+import PropertiesPopup from "./PropertiesPopup";
 import ThumbnailModal from "./ThumbnailModal";
 import TimelineLanes from "./TimelineLanes";
 import VoiceSetupModal from "../brand/VoiceSetupModal";
@@ -159,6 +161,7 @@ function TimelineEditor({
 
   const [showExport, setShowExport] = useState(false);
   const [showVoiceSetup, setShowVoiceSetup] = useState(false);
+  const [showProperties, setShowProperties] = useState(false);
   const [pendingAudioAction, setPendingAudioAction] = useState<"all" | string | null>(null);
   const [generatingFX, setGeneratingFX] = useState(false);
   const [confirmOverwrite, setConfirmOverwrite] = useState<"images" | "audio" | "fx" | null>(null);
@@ -348,6 +351,10 @@ function TimelineEditor({
     // We don't actually delete scenes — split/merge is the pattern. No-op for safety.
   }, []);
 
+  const toggleProperties = useCallback(() => {
+    setShowProperties((prev) => !prev);
+  }, []);
+
   const { showHelp, setShowHelp } = useKeyboardShortcuts({
     selectPrevScene,
     selectNextScene,
@@ -360,6 +367,7 @@ function TimelineEditor({
     openExport: () => setShowExport(true),
     toggleAudioPreview,
     deleteScene,
+    toggleProperties,
   });
 
   // Scene stats
@@ -560,6 +568,21 @@ function TimelineEditor({
   const handleSelectScene = (sceneId: string) => {
     state.selectScene(sceneId);
   };
+
+  // Handle time-based scene split via backend
+  const handleSplitSceneAtTime = useCallback(async (splitTimeMs: number) => {
+    if (!state.selectedSceneId) return;
+    // Clear debounce to prevent auto-save race condition
+    state.save();
+    const res = await api.post(`/api/scripts/${scriptId}/split-scene`, {
+      scene_id: state.selectedSceneId,
+      split_time_ms: splitTimeMs,
+    });
+    if (res.ok) {
+      const data = res.data as { script: ScriptContent };
+      state.setContent(data.script);
+    }
+  }, [scriptId, state]);
 
   // Handle global timer toggle
   const handleToggleTimer = () => {
@@ -809,8 +832,27 @@ function TimelineEditor({
           />
         </div>
 
-        {/* Bottom panel: Properties */}
+        {/* Bottom panel: Preview */}
         {selectedScene ? (
+          <PreviewPanel
+            scene={selectedScene.scene}
+            segmentName={selectedScene.segName}
+            scriptId={scriptId}
+            onToggleProperties={toggleProperties}
+            onSplitScene={handleSplitSceneAtTime}
+          />
+        ) : (
+          <div className="flex-1 border-t border-neutral-800/60 px-4 py-3 flex items-center justify-center">
+            <p className="text-sm text-neutral-600">
+              Select a scene to preview
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Properties popup (slide-over) */}
+      {showProperties && selectedScene && (
+        <PropertiesPopup onClose={() => setShowProperties(false)}>
           <PropertiesPanel
             scene={selectedScene.scene}
             segmentIdx={selectedScene.segIdx}
@@ -828,14 +870,8 @@ function TimelineEditor({
             }
             isGeneratingAudio={state.generatingAudioSceneIds.has(selectedScene.scene.id)}
           />
-        ) : (
-          <div className="flex-1 border-t border-neutral-800/60 px-4 py-3 flex items-center justify-center">
-            <p className="text-sm text-neutral-600">
-              Select a scene to edit its properties
-            </p>
-          </div>
-        )}
-      </div>
+        </PropertiesPopup>
+      )}
 
       {showExportTestModal && (
         <ExportTestModal

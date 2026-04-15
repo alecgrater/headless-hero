@@ -20,6 +20,7 @@ from models.script import (
     GenerateScriptResponse,
     RefineSceneRequest,
     RefineSceneResponse,
+    Scene,
     Script,
     ScriptContent,
     ScriptRead,
@@ -29,6 +30,7 @@ from models.script import (
 from pipeline.refine import refine_scene
 from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
 from pipeline.scriptwriter import generate_script
+from pipeline.audio_split import split_scene_audio
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 
@@ -295,3 +297,71 @@ def refine_scene_endpoint(
     logger.info("Refining scene %s in script %s", body.scene_id, script_id)
     refined = refine_scene(script_content, body.segment_index, body.scene_id)
     return RefineSceneResponse(scene=refined)
+
+
+class SplitSceneRequest(BaseModel):
+    scene_id: str
+    split_time_ms: int
+
+
+@router.post("/{script_id}/split-scene", response_model=ScriptRead)
+def split_scene_endpoint(
+    script_id: str,
+    body: SplitSceneRequest,
+    session: Session = Depends(get_session),
+):
+    record = session.get(Script, script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    script_content = ScriptContent.model_validate(json.loads(record.script_json))
+
+    # Find the scene and its segment
+    target_seg_idx = None
+    target_scene_idx = None
+    target_scene = None
+    for si, seg in enumerate(script_content.segments):
+        for sci, sc in enumerate(seg.scenes):
+            if sc.id == body.scene_id:
+                target_seg_idx = si
+                target_scene_idx = sci
+                target_scene = sc
+                break
+        if target_scene is not None:
+            break
+
+    if target_scene is None:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    if not target_scene.audio_url:
+        raise HTTPException(status_code=422, detail="Scene has no audio to split")
+
+    # Perform the split
+    scene_dict = target_scene.model_dump()
+    scene_a, scene_b = split_scene_audio(script_id, scene_dict, body.split_time_ms)
+
+    # Splice into the segment: replace original with [A, B]
+    segment = script_content.segments[target_seg_idx]
+    new_scenes = list(segment.scenes)
+    new_scenes[target_scene_idx:target_scene_idx + 1] = [
+        Scene.model_validate(scene_a),
+        Scene.model_validate(scene_b),
+    ]
+    segment.scenes = new_scenes
+
+    # Persist
+    record.script_json = script_content.model_dump_json()
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+
+    logger.info("Split scene %s in script %s at %dms", body.scene_id, script_id, body.split_time_ms)
+
+    return ScriptRead(
+        id=record.id,
+        brand_id=record.brand_id,
+        topic_title=record.topic_title,
+        topic_description=record.topic_description,
+        script=script_content,
+        created_at=record.created_at,
+    )

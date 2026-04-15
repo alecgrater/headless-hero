@@ -8,7 +8,7 @@
  */
 import React from "react";
 import { Img, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
-import type { SceneInput, FrameDirective } from "../types";
+import type { SceneInput } from "../types";
 
 interface Props {
   scene: SceneInput;
@@ -18,7 +18,6 @@ const CROSSFADE_FRAMES = 12; // ~0.4s at 30fps
 const FADE_BLACK_OUT = 6;
 const FADE_BLACK_HOLD = 3;
 const FADE_BLACK_IN = 6;
-const FADE_BLACK_TOTAL = FADE_BLACK_OUT + FADE_BLACK_HOLD + FADE_BLACK_IN;
 
 /**
  * Renders a subtitle frame: white text centered on black.
@@ -118,8 +117,6 @@ export const MultiFrameScene: React.FC<Props> = ({ scene }) => {
 
   // Compute opacity for fade_black: uses a black overlay that fades in/out
   // This is handled separately with a black overlay div
-  let fadeBlackOverlayOpacity = 0;
-
   return (
     <div style={{ width: "100%", height: "100%", backgroundColor: "#000", position: "relative" }}>
       {framePaths.map((path, i) => {

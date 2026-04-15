@@ -12,7 +12,7 @@ interface Props {
 
 export const TitleCardScene: React.FC<Props> = ({ scene }) => {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames, width, height } = useVideoConfig();
+  const { fps, width, height } = useVideoConfig();
 
   const imagePath = scene.image_path;
   const target = scene.title_card_zoom_target;

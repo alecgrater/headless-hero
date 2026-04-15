@@ -10,9 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@remotion/google-fonts": "^4.0.441",
+    "@remotion/paths": "^4.0.441",
+    "@remotion/player": "^4.0.441",
     "lucide-react": "^1.7.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "remotion": "^4.0.441",
+    "wavesurfer.js": "^7.12.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

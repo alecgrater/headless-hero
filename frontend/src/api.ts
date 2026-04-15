@@ -164,6 +164,14 @@ export async function regenerateFX(scriptId: string, sceneId: string) {
   return api.post("/api/fx/regenerate", { script_id: scriptId, scene_id: sceneId });
 }
 
+/** Split a scene at a specific audio timestamp via the backend. */
+export async function splitSceneAtTime(scriptId: string, sceneId: string, splitTimeMs: number) {
+  return api.post(`/api/scripts/${scriptId}/split-scene`, {
+    scene_id: sceneId,
+    split_time_ms: splitTimeMs,
+  });
+}
+
 /** Poll a title card background job until it completes or fails. */
 export async function pollTitleCardJob(jobId: string): Promise<void> {
   const POLL_INTERVAL = 1500;

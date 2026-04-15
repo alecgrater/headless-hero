@@ -65,12 +65,9 @@ export default function PropertiesPanel({
   };
 
   return (
-    <div className="flex flex-col min-h-0 flex-1 border-t border-neutral-800/60">
+    <div className="flex flex-col min-h-0 flex-1">
       {/* Header bar */}
       <div className="flex items-center px-4 py-1 border-b border-neutral-800/40 bg-neutral-900/60 shrink-0">
-        <span className="text-[11px] text-neutral-600 uppercase tracking-widest font-medium">
-          Scene Properties
-        </span>
         <span className="text-xs text-neutral-500 ml-3">
           {segmentName} &middot; <span className="font-mono">{scene.id}</span>
         </span>

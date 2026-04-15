@@ -42,6 +42,12 @@ export interface FrameDirective {
   contains_person?: boolean;
 }
 
+export interface WordTimestamp {
+  word: string;
+  start_ms: number;
+  end_ms: number;
+}
+
 export interface Scene {
   id: string;
   narration: string;
@@ -57,6 +63,8 @@ export interface Scene {
   contains_person?: boolean;
   fx?: SceneFX | null;
   eli_overlay?: EliOverlay | null;
+  word_timestamps?: WordTimestamp[];
+  title_card_zoom_target?: { x: number; y: number; radius: number };
 }
 
 export interface Segment {
