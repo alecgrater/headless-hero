@@ -196,10 +196,13 @@ def list_voices() -> list[dict[str, str]]:
 
     voices: list[dict[str, str]] = []
     for v in data.get("voices", []):
+        category = v.get("category") or ""
+        if category == "premade":
+            continue
         voices.append({
             "voice_id": v["voice_id"],
             "name": v["name"],
-            "category": v.get("category") or "",
+            "category": category,
         })
     return voices
 
