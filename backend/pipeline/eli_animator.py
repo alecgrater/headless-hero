@@ -29,7 +29,7 @@ You will be given a list of available frame IDs with their expression, pose, and
 2. **Natural movement rhythm**: Don't hold the same pose for more than 2-4 seconds (~60-120 frames at 30fps). Switch poses frequently to feel alive and reactive, like a real streamer.
 3. **Content-aware gestures**: Use pointing when the narration directs attention ("look at this", "over here"). Use explaining gestures during explanations. Use shrugging for uncertainty. Use reaction poses (facepalm, jaw_drop, double_take) for surprising or funny moments.
 4. **Start neutral**: Most scenes should begin with a neutral or standing pose, then shift as the emotional tone changes.
-5. **Transitions**: Use "cut" for most transitions. Use "crossfade" for smooth emotional shifts (calm→excited).
+5. **Transitions**: Default to "crossfade" for all transitions — this gives Eli smooth, natural movement. Reserve "cut" only for dramatic moments: surprise reactions, punchlines, sudden emotional shifts, or comedic timing (e.g., a sudden facepalm or jaw drop). Most scenes should have 0-2 cuts at most.
 6. **Cover full duration**: Keyframes must cover the entire scene duration. The first keyframe should start at frame 0. The last keyframe's end_frame should equal the scene's total frames.
 7. **4-10 keyframes per scene**: Most scenes need 5-8 pose changes to feel dynamic and expressive. Very short scenes (< 3 seconds) can have 2-3. Think of Eli as an animated streamer who's always reacting to what's being said.
 
@@ -125,7 +125,7 @@ def generate_scene_eli(scene_data: dict, script_id: str | None = None) -> dict:
             "start_frame": start,
             "end_frame": end,
             "frame_id": kf["frame_id"],
-            "transition": kf.get("transition", "cut"),
+            "transition": kf.get("transition", "crossfade"),
             "reason": kf.get("reason", ""),
         })
 

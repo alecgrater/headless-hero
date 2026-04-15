@@ -38,24 +38,54 @@ function buildVariantSequence(seed: number, variantCount: number): number[] {
   return sequence;
 }
 
+/** Variant cycle length in frames (~3s at 30fps). */
+const VARIANT_CYCLE_FRAMES = 90;
+
+/** Fraction of the cycle spent crossfading between variants (last 20%). */
+const VARIANT_BLEND_FRACTION = 0.2;
+
+interface VariantBlend {
+  currentVariant: number;
+  nextVariant: number;
+  blendProgress: number; // 0 = fully current, 1 = fully next
+}
+
 /**
- * Determine which variant to show at a given frame within a keyframe.
- * Cycles through variants every ~6 frames (~200ms at 30fps) using a
- * seeded pseudo-random sequence for organic feel.
+ * Determine which variant(s) to show at a given frame within a keyframe.
+ * Returns a blend between two variants — cycles every ~90 frames (~3s)
+ * with a smooth crossfade over the last 20% of each cycle.
+ *
+ * When `frozen` is true (during pose crossfade), variant cycling is
+ * paused and only the current variant is returned with no blend.
  */
-function getVariant(
+function getVariantBlend(
   frame: number,
   keyframe: EliKeyframe,
   variantCount: number,
-): number {
-  if (variantCount <= 1) return 1;
+  frozen: boolean,
+): VariantBlend {
+  if (variantCount <= 1) return { currentVariant: 1, nextVariant: 1, blendProgress: 0 };
 
-  const cycleLength = 6; // frames per variant hold (~200ms at 30fps)
   const seed = hashCode(keyframe.frame_id + String(keyframe.start_frame));
   const sequence = buildVariantSequence(seed, variantCount);
   const elapsed = Math.max(0, frame - keyframe.start_frame);
-  const cycleIndex = Math.floor(elapsed / cycleLength);
-  return sequence[cycleIndex % sequence.length];
+  const cycleIndex = Math.floor(elapsed / VARIANT_CYCLE_FRAMES);
+  const currentVariant = sequence[cycleIndex % sequence.length];
+
+  if (frozen) {
+    return { currentVariant, nextVariant: currentVariant, blendProgress: 0 };
+  }
+
+  const nextVariant = sequence[(cycleIndex + 1) % sequence.length];
+  const posInCycle = (elapsed % VARIANT_CYCLE_FRAMES) / VARIANT_CYCLE_FRAMES;
+  const blendStart = 1 - VARIANT_BLEND_FRACTION;
+
+  let blendProgress = 0;
+  if (posInCycle >= blendStart) {
+    blendProgress = (posInCycle - blendStart) / VARIANT_BLEND_FRACTION;
+  }
+
+  return { currentVariant, nextVariant, blendProgress };
 }
 
 interface Props {
@@ -92,8 +122,8 @@ function getCurrentKeyframe(
     if (frame >= kf.start_frame && frame < kf.end_frame) {
       const nextKf = i + 1 < keyframes.length ? keyframes[i + 1] : null;
 
-      // Check if we're in a crossfade transition zone (last 6 frames of keyframe)
-      const CROSSFADE_FRAMES = 6; // ~200ms at 30fps
+      // Check if we're in a crossfade transition zone (last 15 frames of keyframe)
+      const CROSSFADE_FRAMES = 15; // ~500ms at 30fps
       let transitionProgress = 0;
       if (nextKf && nextKf.transition === "crossfade") {
         const transitionStart = kf.end_frame - CROSSFADE_FRAMES;
@@ -128,18 +158,28 @@ export const EliOverlay: React.FC<Props> = ({
   const speaking = isSpeaking(frame, fps, wordTimestamps);
   const mouthSuffix = speaking ? "open" : "closed";
 
-  // Variant cycling for current keyframe
-  const currentVariantCount = variantCounts?.[current.frame_id] ?? 1;
-  const currentVariant = getVariant(frame, current, currentVariantCount);
-  const currentVariantSuffix = currentVariant === 1 ? "" : `_v${currentVariant}`;
-  const currentSrc = `${characterFramesBaseUrl}/${current.frame_id}${currentVariantSuffix}_${mouthSuffix}.png`;
+  // Freeze variant cycling during pose crossfade to avoid compounding blends
+  const variantFrozen = transitionProgress > 0;
 
-  // Variant cycling for next keyframe (during crossfade)
+  // Variant blend for current keyframe
+  const currentVariantCount = variantCounts?.[current.frame_id] ?? 1;
+  const currentBlend = getVariantBlend(frame, current, currentVariantCount, variantFrozen);
+
+  const currentV1Suffix = currentBlend.currentVariant === 1 ? "" : `_v${currentBlend.currentVariant}`;
+  const currentV1Src = `${characterFramesBaseUrl}/${current.frame_id}${currentV1Suffix}_${mouthSuffix}.png`;
+
+  let currentV2Src: string | null = null;
+  if (currentBlend.blendProgress > 0 && currentBlend.currentVariant !== currentBlend.nextVariant) {
+    const currentV2Suffix = currentBlend.nextVariant === 1 ? "" : `_v${currentBlend.nextVariant}`;
+    currentV2Src = `${characterFramesBaseUrl}/${current.frame_id}${currentV2Suffix}_${mouthSuffix}.png`;
+  }
+
+  // Next pose frame (during pose crossfade)
   let nextSrc: string | null = null;
   if (next && transitionProgress > 0) {
     const nextVariantCount = variantCounts?.[next.frame_id] ?? 1;
-    const nextVariant = getVariant(frame, next, nextVariantCount);
-    const nextVariantSuffix = nextVariant === 1 ? "" : `_v${nextVariant}`;
+    const nextBlend = getVariantBlend(frame, next, nextVariantCount, true); // frozen — just pick one variant
+    const nextVariantSuffix = nextBlend.currentVariant === 1 ? "" : `_v${nextBlend.currentVariant}`;
     nextSrc = `${characterFramesBaseUrl}/${next.frame_id}${nextVariantSuffix}_${mouthSuffix}.png`;
   }
 
@@ -174,7 +214,7 @@ export const EliOverlay: React.FC<Props> = ({
           "0 0 20px rgba(0, 200, 200, 0.4), 0 0 40px rgba(0, 200, 200, 0.15)",
       }}
     >
-      {/* Main character frame */}
+      {/* Main character frame with variant blending */}
       <div
         style={{
           width: "100%",
@@ -182,17 +222,40 @@ export const EliOverlay: React.FC<Props> = ({
           position: "relative",
         }}
       >
+        {/* Current variant layer A */}
         <Img
-          src={currentSrc}
+          src={currentV1Src}
           style={{
             width: "100%",
             height: "100%",
             objectFit: "cover",
-            opacity: transitionProgress > 0 ? 1 - transitionProgress : 1,
+            opacity: transitionProgress > 0
+              ? 1 - transitionProgress
+              : currentV2Src
+                ? 1 - currentBlend.blendProgress
+                : 1,
           }}
         />
 
-        {/* Crossfade next frame */}
+        {/* Current variant layer B (variant crossfade) */}
+        {currentV2Src && (
+          <Img
+            src={currentV2Src}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              opacity: transitionProgress > 0
+                ? 0 // hidden during pose crossfade
+                : currentBlend.blendProgress,
+            }}
+          />
+        )}
+
+        {/* Crossfade next pose frame */}
         {nextSrc && transitionProgress > 0 && (
           <Img
             src={nextSrc}
