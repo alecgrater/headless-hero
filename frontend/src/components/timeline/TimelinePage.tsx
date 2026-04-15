@@ -368,6 +368,13 @@ function TimelineEditor({
     toggleAudioPreview,
     deleteScene,
     toggleProperties,
+    splitAtPlayhead: () => {},
+    placeMarker: () => {},
+    nudgeBack: () => {},
+    nudgeForward: () => {},
+    selectLane: () => {},
+    deselectMicroTimeline: () => {},
+    deleteMarker: () => { /* fallback to existing deleteScene behavior */ },
   });
 
   // Scene stats
