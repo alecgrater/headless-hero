@@ -262,6 +262,23 @@ export async function regenerateThumbnailFrame(frameId: string) {
   return api.post("/api/character/regenerate-thumbnail-frame", { frame_id: frameId });
 }
 
+// Thumbnail reference management
+export async function getThumbnailReferences(): Promise<{
+  references: { filename: string; url: string }[];
+}> {
+  return api.get("/api/character/thumbnail-references");
+}
+
+export async function uploadThumbnailReference(file: File): Promise<{ filename: string; url: string }> {
+  const form = new FormData();
+  form.append("file", file);
+  return api.post("/api/character/thumbnail-references", form);
+}
+
+export async function deleteThumbnailReference(filename: string): Promise<{ deleted: string }> {
+  return api.delete(`/api/character/thumbnail-references/${encodeURIComponent(filename)}`);
+}
+
 /** Generate Eli animation overlays for all scenes. */
 export async function generateEli(scriptId: string, missingOnly = false) {
   return api.post("/api/eli/generate", { script_id: scriptId, missing_only: missingOnly });

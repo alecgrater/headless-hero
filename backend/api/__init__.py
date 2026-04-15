@@ -17,8 +17,8 @@ from api.scripts import router as scripts_router
 from api.generation import router as generation_router
 from api.seo import router as seo_router
 from api.character import router as character_router
-from api.eli import router as eli_router
 from api.settings import router as settings_router
+from api.thumbnail_references import router as thumbnail_references_router
 from api.thumbnail import router as thumbnail_router
 from api.trending import router as trending_router
 from api.visuals import router as visuals_router
@@ -58,6 +58,8 @@ async def lifespan(app: FastAPI):
     # Ensure character frames directory exists
     character_dir = DATA_DIR / "character" / "frames"
     character_dir.mkdir(parents=True, exist_ok=True)
+    thumb_ref_dir = DATA_DIR / "character" / "thumbnail_references"
+    thumb_ref_dir.mkdir(parents=True, exist_ok=True)
     yield
 
 app = FastAPI(title="Headless Hero", version="0.1.0", lifespan=lifespan)
@@ -88,7 +90,7 @@ app.include_router(generation_router)
 app.include_router(seo_router)
 app.include_router(settings_router)
 app.include_router(character_router)
-app.include_router(eli_router)
+app.include_router(thumbnail_references_router)
 app.include_router(trending_router)
 
 # Import modifiers package (no dynamic routers remaining)
