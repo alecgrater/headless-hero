@@ -189,12 +189,14 @@ Python writes scene data + FX config to JSON → invokes `npx remotion render` v
 - `SubtitleScene` — White text on black (aha_subtitle beat)
 
 ### FX System
-Visual effects are AI-generated (no manual editing). Each scene has an optional `fx: SceneFX` field. Active FX:
+Visual effects are AI-generated (no manual editing of the FX *assignment* itself). Each scene has an optional `fx: SceneFX` field. Active FX:
 - **zoom_punch** — Quick zoom-in camera punch for emphasis
 
 Standard phrase-based subtitles are rendered automatically from `word_timestamps` (no AI generation needed). Subtitle scenes (`aha_subtitle`) show text synced to voiceover timing.
 
 FX are generated via Claude (`POST /api/fx/generate`) and can be regenerated per-scene (`POST /api/fx/regenerate`). The `backend/pipeline/fx_generator.py` sends scene context to Claude and parses the structured FX response.
+
+FX *timing* (trigger frame, crossfade points, etc.) can be manually adjusted via the scene micro-timeline — see below.
 
 ### YouTube 16:9 Only
 All video output is 1920x1080 YouTube format.
@@ -234,3 +236,40 @@ Claude generates per-scene keyframe timelines selecting which Eli pose to show a
 
 ### Gemini Reference Images
 `google_image_client.py` supports `reference_image_path` — loads the image as a multi-modal Part for cross-frame character consistency.
+
+## Scene Micro-Timeline
+
+Per-scene micro-timeline in the preview panel for frame-precise visual timing control. Appears below the Remotion player when a scene with audio is selected. Design spec: `docs/superpowers/specs/2026-04-15-scene-micro-timeline-design.md`.
+
+### Scene Timing Fields (stored in script_json blob)
+- `frame_timings: list[float] | None` — seconds into scene when each frame starts; `None` = even split (default)
+- `visual_in_seconds: float = 0.0` — visual appears this many seconds into the audio (black → fade in)
+- `visual_out_seconds: float = 0.0` — visual ends this many seconds before audio ends (fade out → black)
+
+All fields are backward-compatible — null/0 means use current auto-calculated behavior. No new API endpoints; changes flow through the existing `updateScene()` → auto-save pipeline.
+
+### Architecture
+- `frontend/src/components/timeline/SceneMicroTimeline.tsx` — Container with `forwardRef` imperative API for keyboard shortcuts
+- `frontend/src/components/timeline/micro-timeline/shared.ts` — Shared types (`LaneProps`, `MarkerDragState`), time↔pixel helpers, word-snap utility
+- `frontend/src/components/timeline/micro-timeline/InOutLane.tsx` — Draggable left/right handles for visual in/out
+- `frontend/src/components/timeline/micro-timeline/ImageLane.tsx` — Draggable crossfade markers for multi-frame scenes
+- `frontend/src/components/timeline/micro-timeline/FxLane.tsx` — Draggable zoom punch trigger marker
+- `frontend/src/components/timeline/micro-timeline/EliLane.tsx` — Draggable Eli keyframe boundary markers
+
+### Lane Visibility
+Lanes appear conditionally based on scene content:
+- **InOutLane** — Always visible (every scene can have visual trim)
+- **ImageLane** — Only if `frame_urls.length > 1` (multi-frame scenes)
+- **FxLane** — Only if `fx.zoom_punch` is set
+- **EliLane** — Only if `eli_overlay.enabled` and has keyframes
+
+### Interaction Patterns
+- Markers snap to word boundaries by default; hold **Shift** to disable snap for sub-word precision
+- Double-click In/Out handles to reset to zero
+- Keyboard: `1-4` select lanes, `[`/`]` nudge 1 frame (Shift for 10), `S` split at playhead, `M` place marker, `Esc` deselect
+- `?` or keyboard icon in header opens grouped shortcut cheat sheet (`ShortcutHelpOverlay`)
+- Stale marker warning shown when audio is regenerated and manual timings exist
+
+### Remotion Rendering
+- `MultiFrameScene.tsx` — Uses `frame_timings` when provided instead of even-split calculation
+- `SceneRenderer.tsx` — Wraps visual+subtitle layer in opacity div for `visual_in/out_seconds` fade; audio plays through unaffected
