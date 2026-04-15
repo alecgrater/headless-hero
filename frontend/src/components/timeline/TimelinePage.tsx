@@ -840,6 +840,7 @@ function TimelineEditor({
             scriptId={scriptId}
             onToggleProperties={toggleProperties}
             onSplitScene={handleSplitSceneAtTime}
+            onUpdateScene={(sceneId, updates) => state.updateScene(sceneId, updates)}
           />
         ) : (
           <div className="flex-1 border-t border-neutral-800/60 px-4 py-3 flex items-center justify-center">

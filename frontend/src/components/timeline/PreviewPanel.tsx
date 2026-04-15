@@ -7,8 +7,7 @@ import { Player, type PlayerRef } from "@remotion/player";
 import { SingleScenePreview } from "@remotion-src/SingleScenePreview";
 import { sceneToRemotionInput } from "../../utils/sceneToRemotionInput";
 import type { Scene } from "../../types/script";
-import WaveformSplitter from "./WaveformSplitter";
-import { assetUrl } from "../../api";
+import SceneMicroTimeline from "./SceneMicroTimeline";
 import { Settings } from "lucide-react";
 
 const FPS = 30;
@@ -21,6 +20,7 @@ interface Props {
   scriptId: string;
   onToggleProperties: () => void;
   onSplitScene: (splitTimeMs: number) => void;
+  onUpdateScene: (sceneId: string, updates: Partial<Scene>) => void;
 }
 
 export default function PreviewPanel({
@@ -28,6 +28,7 @@ export default function PreviewPanel({
   segmentName,
   onToggleProperties,
   onSplitScene,
+  onUpdateScene,
 }: Props) {
   const playerRef = useRef<PlayerRef>(null);
   const [currentTime, setCurrentTime] = useState(0);
@@ -97,21 +98,15 @@ export default function PreviewPanel({
           </div>
         </div>
 
-        {/* Right: Waveform + Split controls */}
+        {/* Right: Micro-timeline */}
         <div className="flex-1 min-w-0 min-h-0 flex flex-col">
-          {scene.audio_url ? (
-            <WaveformSplitter
-              audioUrl={assetUrl(scene.audio_url)}
-              wordTimestamps={scene.word_timestamps}
-              onSplit={onSplitScene}
-            />
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <p className="text-xs text-neutral-600">
-                Generate audio to enable waveform & splitting
-              </p>
-            </div>
-          )}
+          <SceneMicroTimeline
+            scene={scene}
+            playerRef={playerRef}
+            playheadSeconds={currentTime}
+            onUpdateScene={(updates) => onUpdateScene(scene.id, updates)}
+            onSplitScene={onSplitScene}
+          />
         </div>
       </div>
     </div>
