@@ -71,9 +71,6 @@ interface Props {
   exportDropdownRef: RefObject<HTMLDivElement | null>;
   setShowExport: (show: boolean) => void;
   setShowExportTestModal: (show: boolean) => void;
-  // Zoom
-  pixelsPerSecond: number;
-  setPixelsPerSecond: (v: number) => void;
 }
 
 export default function PipelineSteps({
@@ -135,8 +132,6 @@ export default function PipelineSteps({
   exportDropdownRef,
   setShowExport,
   setShowExportTestModal,
-  pixelsPerSecond,
-  setPixelsPerSecond,
 }: Props) {
   const [showImagesDropdown, setShowImagesDropdown] = useState(false);
   const [showFXDropdown, setShowFXDropdown] = useState(false);
@@ -589,22 +584,6 @@ export default function PipelineSteps({
         </div>
       </div>
 
-      {/* Zoom slider — own section below buttons */}
-      <div className="border-t border-neutral-800/60 px-5 py-1.5">
-        <div className="flex items-center gap-3 w-full">
-          <span className="text-[11px] text-neutral-500 shrink-0">Zoom</span>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={pixelsPerSecond}
-            onChange={(e) => setPixelsPerSecond(parseInt(e.target.value, 10))}
-            className="flex-1 w-full accent-violet-500"
-            style={{ minWidth: 0 }}
-          />
-          <span className="text-[11px] text-neutral-500 font-mono shrink-0">{pixelsPerSecond}</span>
-        </div>
-      </div>
     </div>
   );
 }
