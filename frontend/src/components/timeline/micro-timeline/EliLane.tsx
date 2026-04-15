@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { EliKeyframe, WordTimestamp } from "../../../types/script";
 import {
   type LaneProps,
@@ -34,6 +34,8 @@ export default function EliLane({
 }: Props) {
   const laneRef = useRef<HTMLDivElement>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
+  const shiftHeldRef = useRef(shiftHeld);
+  useEffect(() => { shiftHeldRef.current = shiftHeld; }, [shiftHeld]);
 
   // Drag the boundary between keyframe[idx-1] and keyframe[idx]
   const handleBoundaryMouseDown = useCallback(
@@ -50,7 +52,7 @@ export default function EliLane({
         const px = me.clientX - rect.left;
         let sec = pxToSeconds(px, durationSeconds, widthPx);
 
-        if (!shiftHeld) {
+        if (!shiftHeldRef.current) {
           sec = snapToWordBoundary(sec, wordTimestamps);
         }
 
@@ -77,7 +79,7 @@ export default function EliLane({
       window.addEventListener("mousemove", onMouseMove);
       window.addEventListener("mouseup", onMouseUp);
     },
-    [durationSeconds, widthPx, keyframes, wordTimestamps, onChange, onSelectMarker, shiftHeld],
+    [durationSeconds, widthPx, keyframes, wordTimestamps, onChange, onSelectMarker],
   );
 
   return (

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { WordTimestamp } from "../../../types/script";
 import {
   type LaneProps,
@@ -35,6 +35,8 @@ export default function FxLane({
 }: Props) {
   const laneRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
+  const shiftHeldRef = useRef(shiftHeld);
+  useEffect(() => { shiftHeldRef.current = shiftHeld; }, [shiftHeld]);
 
   const triggerSeconds = triggerFrame / FPS;
   const triggerPx = secondsToPx(triggerSeconds, durationSeconds, widthPx);
@@ -52,7 +54,7 @@ export default function FxLane({
         const px = me.clientX - rect.left;
         let sec = pxToSeconds(px, durationSeconds, widthPx);
 
-        if (!shiftHeld) {
+        if (!shiftHeldRef.current) {
           sec = snapToWordBoundary(sec, wordTimestamps);
         }
 
@@ -69,7 +71,7 @@ export default function FxLane({
       window.addEventListener("mousemove", onMouseMove);
       window.addEventListener("mouseup", onMouseUp);
     },
-    [durationSeconds, widthPx, wordTimestamps, onChange, onSelectMarker, shiftHeld],
+    [durationSeconds, widthPx, wordTimestamps, onChange, onSelectMarker],
   );
 
   const isActive = isMarkerSelected || dragging;

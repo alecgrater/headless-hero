@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { WordTimestamp } from "../../../types/script";
 import {
   type LaneProps,
@@ -40,6 +40,8 @@ export default function ImageLane({
 }: Props) {
   const laneRef = useRef<HTMLDivElement>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
+  const shiftHeldRef = useRef(shiftHeld);
+  useEffect(() => { shiftHeldRef.current = shiftHeld; }, [shiftHeld]);
 
   const handleMarkerMouseDown = useCallback(
     (idx: number) => (e: React.MouseEvent) => {
@@ -56,7 +58,7 @@ export default function ImageLane({
         let sec = pxToSeconds(px, durationSeconds, widthPx);
 
         // Snap to word boundary unless shift held
-        if (!shiftHeld) {
+        if (!shiftHeldRef.current) {
           sec = snapToWordBoundary(sec, wordTimestamps);
         }
 
@@ -79,7 +81,7 @@ export default function ImageLane({
       window.addEventListener("mousemove", onMouseMove);
       window.addEventListener("mouseup", onMouseUp);
     },
-    [durationSeconds, widthPx, frameTimings, wordTimestamps, onChange, onSelectMarker, shiftHeld],
+    [durationSeconds, widthPx, frameTimings, wordTimestamps, onChange, onSelectMarker],
   );
 
   return (

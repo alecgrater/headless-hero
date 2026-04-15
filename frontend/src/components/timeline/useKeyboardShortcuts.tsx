@@ -151,15 +151,15 @@ export function useKeyboardShortcuts(actions: ShortcutActions) {
         return;
       }
 
-      // [ and ] for nudge
-      if (e.key === "[") {
+      // [ and ] for nudge (Shift+[ produces "{", Shift+] produces "}")
+      if (e.key === "[" || e.key === "{") {
         e.preventDefault();
-        actions.nudgeBack(e.shiftKey);
+        actions.nudgeBack(e.shiftKey || e.key === "{");
         return;
       }
-      if (e.key === "]") {
+      if (e.key === "]" || e.key === "}") {
         e.preventDefault();
-        actions.nudgeForward(e.shiftKey);
+        actions.nudgeForward(e.shiftKey || e.key === "}");
         return;
       }
 
