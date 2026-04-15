@@ -13,7 +13,10 @@ import { loadFont } from "@remotion/google-fonts/Inter";
 import type { SceneInput } from "../types";
 import { findWordBoundary } from "../utils/wordMatch";
 
-const { fontFamily } = loadFont();
+const { fontFamily } = loadFont("normal", {
+  weights: ["800"],
+  subsets: ["latin"],
+});
 
 interface Props {
   scene: SceneInput;
