@@ -60,10 +60,17 @@ _BURST_COLOR = (255, 245, 180)  # warm yellow glow
 _BURST_ALPHA = 100
 _COLOR_SATURATION = 1.15
 _COLOR_CONTRAST = 1.08
-_ELI_GLOW_COLOR = (0, 220, 255)    # bright cyan glow
-_ELI_GLOW_EXPAND = 9               # MaxFilter kernel size (must be odd) — controls outline thickness
-_ELI_GLOW_BLUR = 12                # GaussianBlur radius — controls softness
-_ELI_GLOW_ALPHA = 200              # glow opacity (0-255)
+_ELI_SCALE = 0.42                          # fraction of canvas height (was 0.75)
+_ELI_ROTATION_DEG = 10                     # counter-clockwise tilt
+_ELI_STROKE_COLOR = (255, 140, 30)         # warm orange solid stroke
+_ELI_STROKE_EXPAND = 7                     # MaxFilter kernel — ~3px outline
+_ELI_GLOW_COLOR = (255, 160, 40)           # warm amber outer glow
+_ELI_GLOW_EXPAND = 15                      # MaxFilter kernel for glow spread
+_ELI_GLOW_BLUR = 18                        # GaussianBlur radius
+_ELI_GLOW_ALPHA = 180                      # glow opacity
+_ELI_SHADOW_OFFSET = (6, 8)               # drop shadow (dx, dy)
+_ELI_SHADOW_BLUR = 10                      # drop shadow blur radius
+_ELI_SHADOW_ALPHA = 120                    # drop shadow opacity
 
 
 def _load_font(size: int, bold: bool = True) -> ImageFont.FreeTypeFont:
@@ -423,27 +430,50 @@ def _overlay_eli_frame(canvas: Image.Image) -> Image.Image:
 
         eli_img = Image.open(frame_path).convert("RGBA")
 
-        # Resize to ~75% of canvas height, maintaining aspect ratio
         w, h = canvas.size
-        target_h = int(h * 0.75)
+
+        # Scale to 42% of canvas height
+        target_h = int(h * _ELI_SCALE)
         scale = target_h / eli_img.height
         target_w = int(eli_img.width * scale)
         eli_img = eli_img.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
-        # Position flush in top-right corner
-        paste_x = w - target_w
-        paste_y = 0
+        # Rotate 10° CCW (expand=True keeps corners visible)
+        eli_img = eli_img.rotate(_ELI_ROTATION_DEG, expand=True, resample=Image.Resampling.BICUBIC)
 
-        # --- Glowing outline ---
+        # Position tucked into upper-right corner with small margins
+        margin_x, margin_y = 20, 15
+        paste_x = w - eli_img.width - margin_x
+        paste_y = margin_y
+
         alpha = eli_img.getchannel("A")
-        expanded = alpha.filter(ImageFilter.MaxFilter(size=_ELI_GLOW_EXPAND))
+
+        # --- Drop shadow ---
+        shadow_alpha = alpha.filter(ImageFilter.MaxFilter(size=3))
+        shadow_alpha = shadow_alpha.filter(ImageFilter.GaussianBlur(radius=_ELI_SHADOW_BLUR))
+        shadow_alpha = shadow_alpha.point(lambda p: min(p, _ELI_SHADOW_ALPHA))
+        shadow_rgba = Image.new("RGBA", eli_img.size, (0, 0, 0, 0))
+        shadow_rgba.putalpha(shadow_alpha)
+        sx, sy = _ELI_SHADOW_OFFSET
+
+        # --- Outer glow (warm amber) ---
+        glow_expanded = alpha.filter(ImageFilter.MaxFilter(size=_ELI_GLOW_EXPAND))
         glow_rgba = Image.new("RGBA", eli_img.size, (*_ELI_GLOW_COLOR, 0))
-        glow_alpha = expanded.point(lambda p: _ELI_GLOW_ALPHA if p > 0 else 0)
+        glow_alpha = glow_expanded.point(lambda p: _ELI_GLOW_ALPHA if p > 0 else 0)
         glow_rgba.putalpha(glow_alpha)
         glow_rgba = glow_rgba.filter(ImageFilter.GaussianBlur(radius=_ELI_GLOW_BLUR))
 
+        # --- Solid stroke (warm orange, crisp) ---
+        stroke_expanded = alpha.filter(ImageFilter.MaxFilter(size=_ELI_STROKE_EXPAND))
+        stroke_rgba = Image.new("RGBA", eli_img.size, (*_ELI_STROKE_COLOR, 0))
+        stroke_alpha = stroke_expanded.point(lambda p: 255 if p > 0 else 0)
+        stroke_rgba.putalpha(stroke_alpha)
+
+        # --- Composite layers back-to-front ---
         eli_layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        eli_layer.paste(shadow_rgba, (paste_x + sx, paste_y + sy), shadow_rgba)
         eli_layer.paste(glow_rgba, (paste_x, paste_y), glow_rgba)
+        eli_layer.paste(stroke_rgba, (paste_x, paste_y), stroke_rgba)
         eli_layer.paste(eli_img, (paste_x, paste_y), eli_img)
         return Image.alpha_composite(canvas, eli_layer)
 
