@@ -36,7 +36,7 @@ export default function VoicePublishSection() {
     });
   }, []);
 
-  // Fetch voices — if no voice is set on the brand, auto-select "Social Media" voice
+  // Fetch voices — if no voice is set on the brand, auto-select Liam
   useEffect(() => {
     api.get("/api/voice/voices").then((res) => {
       if (res.ok) {
@@ -44,18 +44,18 @@ export default function VoicePublishSection() {
         const sorted = [...data.voices].sort((a, b) => {
           const priority = (v: VoiceInfo) => {
             const n = v.name.toLowerCase();
-            if (n.startsWith("ben")) return 0;
-            if (n.startsWith("liam")) return 1;
+            if (n.startsWith("liam")) return 0;
+            if (n.startsWith("ben")) return 1;
             return 2;
           };
           return priority(a) - priority(b) || a.name.localeCompare(b.name);
         });
         setVoices(sorted);
         if (!selectedVoiceId && data.voices.length > 0) {
-          const ben = data.voices.find((v) =>
-            v.name.toLowerCase().startsWith("ben"),
+          const liam = data.voices.find((v) =>
+            v.name.toLowerCase().startsWith("liam"),
           );
-          const fallback = ben?.voice_id ?? data.voices[0].voice_id;
+          const fallback = liam?.voice_id ?? data.voices[0].voice_id;
           setSelectedVoiceId(fallback);
           // Persist to brand so it sticks
           api.put("/api/brand", { voice_id: fallback });
@@ -95,8 +95,8 @@ export default function VoicePublishSection() {
       const sorted = [...data.voices].sort((a, b) => {
         const priority = (v: VoiceInfo) => {
           const n = v.name.toLowerCase();
-          if (n.startsWith("ben")) return 0;
-          if (n.startsWith("liam")) return 1;
+          if (n.startsWith("liam")) return 0;
+          if (n.startsWith("ben")) return 1;
           return 2;
         };
         return priority(a) - priority(b) || a.name.localeCompare(b.name);
