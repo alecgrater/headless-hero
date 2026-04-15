@@ -713,7 +713,18 @@ def compose_title_card(
             )
             canvas = Image.alpha_composite(canvas, fill_layer)
 
-        # Layers 5/5b removed — Gemini adds glowing borders during enhancement
+        # Layer 5: Circle outline (dark border stroke)
+        outline_layer = Image.new("RGBA", (CANVAS_W, CANVAS_H), (0, 0, 0, 0))
+        od = ImageDraw.Draw(outline_layer)
+        od.ellipse(
+            (cx - bg_radius, cy - bg_radius, cx + bg_radius, cy + bg_radius),
+            outline=border_rgb + (255,),
+            width=_CIRCLE_BORDER_WIDTH,
+        )
+        canvas = Image.alpha_composite(canvas, outline_layer)
+
+        # Layer 5b: Energy glow ring
+        canvas = _draw_circle_energy_ring(canvas, cx, cy, bg_radius, color)
 
         # Layer 6: Label badge — auto-scale to fit cell width
         label = segment_names[i].upper() if i < len(segment_names) else f"SEGMENT {i + 1}"

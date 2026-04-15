@@ -192,13 +192,27 @@ def ensure_title_card_images(
         card_subtitle=card_subtitle,
     )
 
-    # Step 4: Copy with-title composite to thumbnail location
+    # Step 4: Gemini enhancement — swap Eli into a circle + CTR-optimize
+    from pipeline.thumbnail import gemini_enhance_thumbnail
+
+    base_path = str(images_dir / "composite_title_card_base.png")
+    if Path(base_path).exists():
+        enhanced_path = gemini_enhance_thumbnail(
+            base_image_path=base_path,
+            video_title=card_title,
+            script_id=script_id,
+        )
+        if enhanced_path:
+            shutil.copy2(enhanced_path, str(composite_path))
+            logger.info("Applied Gemini thumbnail enhancement")
+
+    # Step 5: Copy with-title composite to thumbnail location
     thumbs_dir = DATA_DIR / "projects" / script_id / "renders" / "thumbnails"
     thumbs_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(str(composite_path), str(thumbs_dir / "0.png"))
     logger.info("Copied composite title card to thumbnail: %s", thumbs_dir / "0.png")
 
-    # Step 5: Set image_url on title card scenes to no-title version (for zoom rendering)
+    # Step 6: Set image_url on title card scenes to no-title version (for zoom rendering)
     web_path = f"/static/projects/{script_id}/images/composite_title_card_notitle.png"
     _set_title_card_urls_and_zoom(content, web_path, zoom_targets)
 
