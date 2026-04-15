@@ -66,6 +66,28 @@ const SceneMicroTimeline = forwardRef<MicroTimelineHandle, Props>(function Scene
     return () => ro.disconnect();
   }, []);
 
+  // Track previous audio duration for stale marker detection
+  const prevAudioDuration = useRef(scene.audio_duration_seconds);
+  const [isStale, setIsStale] = useState(false);
+
+  useEffect(() => {
+    if (
+      prevAudioDuration.current > 0 &&
+      scene.audio_duration_seconds > 0 &&
+      prevAudioDuration.current !== scene.audio_duration_seconds
+    ) {
+      // Audio was regenerated with a different duration
+      const hasManualTimings =
+        scene.frame_timings != null ||
+        (scene.visual_in_seconds ?? 0) > 0 ||
+        (scene.visual_out_seconds ?? 0) > 0;
+      if (hasManualTimings) {
+        setIsStale(true);
+      }
+    }
+    prevAudioDuration.current = scene.audio_duration_seconds;
+  }, [scene.audio_duration_seconds, scene.frame_timings, scene.visual_in_seconds, scene.visual_out_seconds]);
+
   // Determine which lanes are visible
   const hasMultiFrame = (scene.frame_urls?.length ?? 0) > 1;
   const hasZoomPunch = !!scene.fx?.zoom_punch;
@@ -216,6 +238,19 @@ const SceneMicroTimeline = forwardRef<MicroTimelineHandle, Props>(function Scene
         wordTimestamps={scene.word_timestamps}
         onSplit={onSplitScene}
       />
+
+      {/* Stale marker warning */}
+      {isStale && (
+        <div className="flex items-center gap-2 px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded text-[10px] text-amber-400">
+          <span>Audio changed — timing markers may need adjustment.</span>
+          <button
+            onClick={() => setIsStale(false)}
+            className="text-amber-500 hover:text-amber-300 underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Event lanes */}
       <div className="flex flex-col gap-px relative">
