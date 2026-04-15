@@ -199,6 +199,6 @@ def list_voices() -> list[dict[str, str]]:
         voices.append({
             "voice_id": v["voice_id"],
             "name": v["name"],
-            "category": v.get("category", ""),
+            "category": v.get("category") or "",
         })
     return voices
