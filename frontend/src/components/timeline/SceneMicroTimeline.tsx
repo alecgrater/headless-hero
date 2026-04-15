@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo, forwardRef, useImperativeHandle } from "react";
 import type { Scene, EliKeyframe } from "../../types/script";
 import type { PlayerRef } from "@remotion/player";
 import WaveformSplitter from "./WaveformSplitter";
@@ -9,7 +9,16 @@ import EliLane from "./micro-timeline/EliLane";
 import { FPS, FRAME_SECONDS, secondsToPx, snapToWordBoundary } from "./micro-timeline/shared";
 import { assetUrl } from "../../api";
 
-type LaneId = "images" | "fx" | "eli" | "inout";
+export type LaneId = "images" | "fx" | "eli" | "inout";
+
+export interface MicroTimelineHandle {
+  selectedLane: LaneId | null;
+  setSelectedLane: (lane: LaneId | null) => void;
+  placeMarkerAtPlayhead: () => void;
+  nudge: (frames: number) => void;
+  deleteSelectedMarker: () => void;
+  hasSelectedMarker: () => boolean;
+}
 
 interface Props {
   scene: Scene;
@@ -19,13 +28,10 @@ interface Props {
   onSplitScene: (splitTimeMs: number) => void;
 }
 
-export default function SceneMicroTimeline({
-  scene,
-  playerRef,
-  playheadSeconds,
-  onUpdateScene,
-  onSplitScene,
-}: Props) {
+const SceneMicroTimeline = forwardRef<MicroTimelineHandle, Props>(function SceneMicroTimeline(
+  { scene, playerRef, playheadSeconds, onUpdateScene, onSplitScene },
+  ref,
+) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(400);
   const [selectedLane, setSelectedLane] = useState<LaneId | null>(null);
@@ -111,6 +117,75 @@ export default function SceneMicroTimeline({
     },
     [scene.eli_overlay, onUpdateScene],
   );
+
+  // Imperative API for keyboard shortcuts
+  useImperativeHandle(ref, () => ({
+    selectedLane,
+    setSelectedLane,
+    placeMarkerAtPlayhead: () => {
+      // No-op for now — marker placement from keyboard is lane-specific
+      // and most useful when we add "insert crossfade at playhead" later
+    },
+    nudge: (frames: number) => {
+      const delta = frames / FPS;
+      if (selectedLane === "images" && selectedImageMarker !== null) {
+        const updated = [...frameTimings];
+        const idx = selectedImageMarker;
+        if (idx > 0) {
+          const minSec = (frameTimings[idx - 1] ?? 0) + 0.1;
+          const maxSec = (frameTimings[idx + 1] ?? durationSeconds) - 0.1;
+          updated[idx] = Math.max(minSec, Math.min(maxSec, updated[idx] + delta));
+          updated[idx] = Math.round(updated[idx] * 1000) / 1000;
+          onUpdateScene({ frame_timings: updated });
+        }
+      } else if (selectedLane === "fx" && selectedFxMarker) {
+        const currentFrame = scene.fx?.zoom_punch?.trigger_frame ?? 0;
+        const newFrame = Math.max(0, Math.min(Math.round(durationSeconds * FPS), currentFrame + frames));
+        handleZoomPunchChange(newFrame);
+      } else if (selectedLane === "eli" && selectedEliMarker !== null) {
+        const kfs = scene.eli_overlay?.keyframes as EliKeyframe[] | undefined;
+        if (kfs && selectedEliMarker > 0) {
+          const idx = selectedEliMarker;
+          const newFrame = kfs[idx].start_frame + frames;
+          const minFrame = (kfs[idx - 1]?.start_frame ?? 0) + 1;
+          const maxFrame = (kfs[idx]?.end_frame ?? Math.round(durationSeconds * FPS)) - 1;
+          const clamped = Math.max(minFrame, Math.min(maxFrame, newFrame));
+          const updated = kfs.map((kf, i) => {
+            if (i === idx - 1) return { ...kf, end_frame: clamped };
+            if (i === idx) return { ...kf, start_frame: clamped };
+            return kf;
+          });
+          handleEliKeyframesChange(updated);
+        }
+      } else if (selectedLane === "inout") {
+        // Nudge whichever handle was last active (in by default)
+        const currentIn = scene.visual_in_seconds ?? 0;
+        const newIn = Math.max(0, currentIn + delta);
+        onUpdateScene({ visual_in_seconds: Math.round(newIn * 1000) / 1000 });
+      }
+    },
+    deleteSelectedMarker: () => {
+      if (selectedLane === "images" && selectedImageMarker !== null) {
+        // Reset to even split
+        onUpdateScene({ frame_timings: null });
+        setSelectedImageMarker(null);
+      } else if (selectedLane === "fx" && selectedFxMarker) {
+        // Reset zoom punch trigger to 0
+        handleZoomPunchChange(0);
+        setSelectedFxMarker(false);
+      } else if (selectedLane === "inout") {
+        // Reset in/out to 0
+        onUpdateScene({ visual_in_seconds: 0, visual_out_seconds: 0 });
+      }
+      // Eli markers can't be deleted (they're structural)
+    },
+    hasSelectedMarker: () => {
+      if (selectedLane === "images" && selectedImageMarker !== null) return true;
+      if (selectedLane === "fx" && selectedFxMarker) return true;
+      if (selectedLane === "eli" && selectedEliMarker !== null) return true;
+      return false;
+    },
+  }), [selectedLane, selectedImageMarker, selectedFxMarker, selectedEliMarker, frameTimings, durationSeconds, scene, onUpdateScene, handleZoomPunchChange, handleEliKeyframesChange]);
 
   // Playhead line position
   const playheadPx = secondsToPx(playheadSeconds, durationSeconds, containerWidth);
@@ -217,4 +292,6 @@ export default function SceneMicroTimeline({
       </div>
     </div>
   );
-}
+});
+
+export default SceneMicroTimeline;

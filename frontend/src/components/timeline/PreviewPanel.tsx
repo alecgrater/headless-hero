@@ -8,6 +8,7 @@ import { SingleScenePreview } from "@remotion-src/SingleScenePreview";
 import { sceneToRemotionInput } from "../../utils/sceneToRemotionInput";
 import type { Scene } from "../../types/script";
 import SceneMicroTimeline from "./SceneMicroTimeline";
+import type { MicroTimelineHandle } from "./SceneMicroTimeline";
 import { Settings } from "lucide-react";
 
 const FPS = 30;
@@ -21,6 +22,7 @@ interface Props {
   onToggleProperties: () => void;
   onSplitScene: (splitTimeMs: number) => void;
   onUpdateScene: (sceneId: string, updates: Partial<Scene>) => void;
+  microTimelineRef?: React.Ref<MicroTimelineHandle>;
 }
 
 export default function PreviewPanel({
@@ -29,6 +31,7 @@ export default function PreviewPanel({
   onToggleProperties,
   onSplitScene,
   onUpdateScene,
+  microTimelineRef,
 }: Props) {
   const playerRef = useRef<PlayerRef>(null);
   const [currentTime, setCurrentTime] = useState(0);
@@ -101,6 +104,7 @@ export default function PreviewPanel({
         {/* Right: Micro-timeline */}
         <div className="flex-1 min-w-0 min-h-0 flex flex-col">
           <SceneMicroTimeline
+            ref={microTimelineRef}
             scene={scene}
             playerRef={playerRef}
             playheadSeconds={currentTime}

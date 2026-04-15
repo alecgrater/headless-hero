@@ -5,6 +5,7 @@ import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
 import type { ThumbnailConcept } from "../../types/render";
 import type { SaveState } from "../../App";
+import type { MicroTimelineHandle } from "./SceneMicroTimeline";
 import ExportPanel from "./ExportPanel";
 import ExportTestModal from "./ExportTestModal";
 import PipelineSteps from "./PipelineSteps";
@@ -180,6 +181,7 @@ function TimelineEditor({
   const [totalCost, setTotalCost] = useState<number>(0);
   const [lastAudioGenTimestamp, setLastAudioGenTimestamp] = useState(0);
   const [lastFXGenTimestamp, setLastFXGenTimestamp] = useState(0);
+  const microTimelineRef = useRef<MicroTimelineHandle>(null);
 
   const refreshCost = useCallback(async () => {
     const data = await fetchScriptCost(scriptId);
@@ -368,13 +370,32 @@ function TimelineEditor({
     toggleAudioPreview,
     deleteScene,
     toggleProperties,
-    splitAtPlayhead: () => {},
-    placeMarker: () => {},
-    nudgeBack: () => {},
-    nudgeForward: () => {},
-    selectLane: () => {},
-    deselectMicroTimeline: () => {},
-    deleteMarker: () => { /* fallback to existing deleteScene behavior */ },
+    splitAtPlayhead: () => {
+      // Split is available via waveform click in SceneMicroTimeline — no direct
+      // playhead access from TimelinePage, so this remains a no-op here.
+    },
+    placeMarker: () => {
+      microTimelineRef.current?.placeMarkerAtPlayhead();
+    },
+    nudgeBack: (large: boolean) => {
+      microTimelineRef.current?.nudge(large ? -10 : -1);
+    },
+    nudgeForward: (large: boolean) => {
+      microTimelineRef.current?.nudge(large ? 10 : 1);
+    },
+    selectLane: (lane: number) => {
+      const lanes: Array<"images" | "fx" | "eli" | "inout"> = ["images", "fx", "eli", "inout"];
+      microTimelineRef.current?.setSelectedLane(lanes[lane - 1] ?? null);
+    },
+    deselectMicroTimeline: () => {
+      microTimelineRef.current?.setSelectedLane(null);
+    },
+    deleteMarker: () => {
+      if (microTimelineRef.current?.hasSelectedMarker()) {
+        microTimelineRef.current.deleteSelectedMarker();
+      }
+      // If no marker selected, intentionally do nothing
+    },
   });
 
   // Scene stats
@@ -848,6 +869,7 @@ function TimelineEditor({
             onToggleProperties={toggleProperties}
             onSplitScene={handleSplitSceneAtTime}
             onUpdateScene={(sceneId, updates) => state.updateScene(sceneId, updates)}
+            microTimelineRef={microTimelineRef}
           />
         ) : (
           <div className="flex-1 border-t border-neutral-800/60 px-4 py-3 flex items-center justify-center">
