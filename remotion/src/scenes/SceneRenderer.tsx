@@ -13,7 +13,6 @@ import { SubtitleScene } from "./SubtitleScene";
 
 import { ZoomPunch } from "../effects/camera/ZoomPunch";
 import { SubtitleOverlay } from "../effects/typography/Subtitles";
-import { EliOverlay } from "../effects/overlays/EliOverlay";
 
 interface Props {
   scene: SceneInput;
@@ -53,16 +52,6 @@ export const SceneRenderer: React.FC<Props> = ({ scene }) => {
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
       {/* Visual layer (possibly wrapped in ZoomPunch) */}
       {visualLayer}
-
-      {/* Eli character overlay */}
-      {scene.eli_overlay?.enabled && scene.eli_overlay.keyframes.length > 0 && scene.character_frames_base_url && (
-        <EliOverlay
-          overlay={scene.eli_overlay}
-          wordTimestamps={scene.word_timestamps}
-          characterFramesBaseUrl={scene.character_frames_base_url}
-          variantCounts={scene.variant_counts}
-        />
-      )}
 
       {/* Subtitle overlay — standard phrase subtitles (not on title cards or subtitle scenes) */}
       {!scene.is_title_card && !isAhaSubtitle && (scene.word_timestamps?.length ?? 0) > 0 && (
