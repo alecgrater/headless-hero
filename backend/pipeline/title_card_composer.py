@@ -69,9 +69,9 @@ _SUBTITLE_STROKE_COLOR = (80, 0, 0)  # dark red stroke
 _SUBTITLE_SHADOW_ALPHA = 160
 _COLOR_SATURATION = 1.15
 _COLOR_CONTRAST = 1.08
-_ELI_SCALE = 0.55                          # fraction of canvas height
+_ELI_SCALE = 0.62                          # fraction of canvas height
 _ELI_ROTATION_DEG = 3                      # slight CCW tilt — leaning into the content
-_ELI_RIGHT_OVERFLOW = 0.40                 # fraction of eli width allowed to overflow right edge
+_ELI_RIGHT_OVERFLOW = 0.43                 # fraction of eli width allowed to overflow right edge
 _ELI_BOTTOM_CROP = 0.20                    # crop bottom 20% of character
 _ELI_PERSPECTIVE_SKEW = 0.06              # perspective distortion to look toward content
 _ELI_STROKE_WIDTH = 9                      # MaxFilter kernel — crisp outline
@@ -549,7 +549,7 @@ def _overlay_eli_frame(canvas: Image.Image) -> Image.Image:
         # Position: push right and up
         overflow_px = int(eli_img.width * _ELI_RIGHT_OVERFLOW)
         paste_x = w - eli_img.width + overflow_px
-        paste_y = -int(eli_img.height * 0.08)
+        paste_y = -int(eli_img.height * 0.10)
 
         alpha = eli_img.getchannel("A")
 
