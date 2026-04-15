@@ -251,6 +251,17 @@ export async function reprocessCharacterBackgrounds(): Promise<{ job_id: string 
   return res.data as { job_id: string };
 }
 
+/** Start generating thumbnail expression frames. */
+export async function generateThumbnailFrames(): Promise<{ job_id: string }> {
+  const res = await api.post("/api/character/generate-thumbnail-frames");
+  return res.data as { job_id: string };
+}
+
+/** Regenerate a single thumbnail expression frame. */
+export async function regenerateThumbnailFrame(frameId: string) {
+  return api.post("/api/character/regenerate-thumbnail-frame", { frame_id: frameId });
+}
+
 /** Generate Eli animation overlays for all scenes. */
 export async function generateEli(scriptId: string, missingOnly = false) {
   return api.post("/api/eli/generate", { script_id: scriptId, missing_only: missingOnly });

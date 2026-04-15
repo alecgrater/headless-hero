@@ -479,7 +479,11 @@ def calculate_grid_layout(
 
 
 def _overlay_eli_frame(canvas: Image.Image) -> Image.Image:
-    """Composite a random Eli character frame in the top-right corner."""
+    """Composite a random Eli character frame in the top-right corner.
+
+    Prefers thumbnail-specific frames (high-CTR expressions) with open mouth.
+    Falls back to all frames with closed mouth if no thumbnail frames exist.
+    """
     try:
         from pipeline.character_frames import get_manifest, FRAMES_DIR
 
@@ -487,28 +491,38 @@ def _overlay_eli_frame(canvas: Image.Image) -> Image.Image:
         if not manifest or not manifest.get("frames"):
             return canvas
 
-        frames = manifest["frames"]
+        # Prefer thumbnail frames; fall back to all frames
+        thumbnail_frames = manifest.get("thumbnail_frames", [])
+        if thumbnail_frames:
+            frames = thumbnail_frames
+            use_open_mouth = True
+        else:
+            frames = manifest["frames"]
+            use_open_mouth = False
+
         frame = random.choice(frames)
 
-        # Pick a random variant (or base) if variants exist
+        # Pick a random variant (or base) if variants exist (only for regular frames)
         variant_count = frame.get("variant_count", 1)
         if variant_count > 1:
             variant_idx = random.randint(0, variant_count)  # 0 = base, 1..N = variants
         else:
             variant_idx = 0
 
+        mouth_key = "file_open" if use_open_mouth else "file_closed"
+
         if variant_idx == 0:
-            file_name = frame.get("file_closed", "")
+            file_name = frame.get(mouth_key, "")
         else:
             # Variant file: e.g. "neutral_standing_closed_v2.png"
-            base_name = frame.get("file_closed", "")
-            stem = Path(base_name).stem  # e.g. "neutral_standing_closed"
+            base_name = frame.get(mouth_key, "")
+            stem = Path(base_name).stem
             file_name = f"{stem}_v{variant_idx + 1}.png"
 
         frame_path = FRAMES_DIR / file_name
         if not frame_path.exists():
             # Fallback to base frame if variant missing
-            frame_path = FRAMES_DIR / frame.get("file_closed", "")
+            frame_path = FRAMES_DIR / frame.get(mouth_key, "")
             if not frame_path.exists():
                 return canvas
 

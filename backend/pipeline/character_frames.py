@@ -253,6 +253,31 @@ FRAME_DEFINITIONS: list[dict[str, str]] = [
 ]
 
 
+THUMBNAIL_FRAME_DEFINITIONS: list[dict[str, str]] = [
+    # --- Pattern Interrupt (High Surprise) ---
+    {"expression": "gasped", "pose": "breath_intake", "gesture": "none",
+     "prompt": "mouth slightly open in a gasp, eyes wide open, eyebrows raised high, shocked intake of breath, looking directly at camera"},
+    {"expression": "cringe", "pose": "wince", "gesture": "none",
+     "prompt": "one eye squinting shut, mouth pulled to the side in a cringe, uncomfortable wincing expression"},
+    {"expression": "hyperfocus", "pose": "leaning_forward", "gesture": "none",
+     "prompt": "leaning slightly into camera, pupils dilated, wide intense eyes, mouth slightly open, hyper-focused stare at something incredible"},
+    # --- Negative Tension (Anxiety & Concern) ---
+    {"expression": "furrowed", "pose": "hand_on_forehead", "gesture": "hand_on_forehead",
+     "prompt": "brows pinched together, deep forehead furrow, hand on forehead, worried concerned expression, mouth slightly open processing something troubling"},
+    {"expression": "tearful", "pose": "glistening_eyes", "gesture": "none",
+     "prompt": "eyes glistening with held-back tears, red-rimmed eyes, emotional expression, bottom lip slightly quivering, mouth slightly open, deeply moved"},
+    {"expression": "secretive", "pose": "shush", "gesture": "finger_to_lips",
+     "prompt": "index finger pressed to lips in shush gesture, eyes darting to the side, secretive conspiratorial expression, mouth slightly open behind finger"},
+    # --- Action-Oriented (Excitement & Joy) ---
+    {"expression": "laughing", "pose": "mid_laugh", "gesture": "none",
+     "prompt": "genuine squinty-eyed laugh, mouth wide open laughing, eyes crinkled shut with joy, head tilted back slightly, infectious full laughter"},
+    {"expression": "lookatthis", "pose": "gazing_offscreen", "gesture": "none",
+     "prompt": "NOT looking at camera, head turned to the side gazing at something off-screen with intense wonder, mouth open in awe, captivated by something amazing"},
+    {"expression": "exertion", "pose": "struggle", "gesture": "none",
+     "prompt": "teeth gritted with effort, brow sweating, strained exertion expression, mouth open showing gritted teeth, determined struggle"},
+]
+
+
 def _frame_id(definition: dict[str, str]) -> str:
     """Generate a frame ID from definition fields."""
     expr = definition["expression"]
@@ -1219,3 +1244,174 @@ def reprocess_backgrounds(
         logger.info("Updated manifest timestamp for cache busting")
 
     return reprocessed
+
+
+# ---------------------------------------------------------------------------
+# Thumbnail frame generation
+# ---------------------------------------------------------------------------
+
+
+def _make_unique_thumb_ids(definitions: list[dict[str, str]]) -> list[str]:
+    """Generate unique frame IDs for thumbnail frames, prefixed with 'thumb_'."""
+    ids: list[str] = []
+    seen: dict[str, int] = {}
+    for d in definitions:
+        base = f"thumb_{_frame_id(d)}"
+        if base in seen:
+            seen[base] += 1
+            ids.append(f"{base}_{seen[base]}")
+        else:
+            seen[base] = 0
+            ids.append(base)
+    return ids
+
+
+def get_thumbnail_frames() -> list[dict[str, Any]]:
+    """Return the thumbnail_frames list from manifest, or [] if none exist."""
+    manifest = get_manifest()
+    if not manifest:
+        return []
+    return manifest.get("thumbnail_frames", [])
+
+
+def generate_thumbnail_frames(
+    on_progress: Callable[[int, int, str], None] | None = None,
+) -> dict:
+    """Generate the 9 high-CTR thumbnail expression frames (18 images total).
+
+    Requires a selected reference image. Writes results to manifest["thumbnail_frames"].
+    Returns the updated manifest dict.
+    """
+    FRAMES_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Resolve reference
+    if SELECTED_REFERENCE_PATH.exists():
+        canonical_path = str(SELECTED_REFERENCE_PATH)
+    else:
+        manifest = get_manifest()
+        if manifest and manifest.get("canonical_frame"):
+            canonical_path = str(FRAMES_DIR / manifest["canonical_frame"])
+        else:
+            raise RuntimeError("No reference image available. Select a reference first.")
+
+    thumb_ids = _make_unique_thumb_ids(THUMBNAIL_FRAME_DEFINITIONS)
+    total = len(THUMBNAIL_FRAME_DEFINITIONS) * 2  # 2 mouth states each
+    completed = 0
+
+    thumb_frames: list[dict[str, Any]] = []
+
+    for defn, frame_id in zip(THUMBNAIL_FRAME_DEFINITIONS, thumb_ids):
+        for mouth_state in ["closed", "open"]:
+            filename = f"{frame_id}_{mouth_state}.png"
+            output_path = FRAMES_DIR / filename
+            label = f"{frame_id} ({mouth_state})"
+
+            logger.info("Generating thumbnail frame %d/%d: %s", completed + 1, total, label)
+
+            prompt = _build_prompt(defn, mouth_state, False)
+
+            try:
+                tmp_path = generate_image(
+                    prompt=prompt,
+                    width=768,
+                    height=432,
+                    reference_image_path=canonical_path,
+                )
+                _remove_background(tmp_path, str(output_path))
+            except Exception:
+                logger.error("Failed to generate thumbnail frame %s", label, exc_info=True)
+
+            completed += 1
+            if on_progress:
+                on_progress(completed, total, label)
+
+        thumb_frames.append({
+            "id": frame_id,
+            "file_closed": f"{frame_id}_closed.png",
+            "file_open": f"{frame_id}_open.png",
+            "expression": defn["expression"],
+            "pose": defn["pose"],
+            "gesture": defn["gesture"],
+        })
+
+    # Update manifest — preserve existing data, add/replace thumbnail_frames
+    manifest = get_manifest() or {
+        "canonical_frame": None,
+        "reference_source": "selected_reference",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "frames": [],
+    }
+    manifest["thumbnail_frames"] = thumb_frames
+    manifest["generated_at"] = datetime.now(timezone.utc).isoformat()
+    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2))
+    logger.info("Thumbnail frames generated: %d frames", len(thumb_frames))
+
+    return manifest
+
+
+def regenerate_thumbnail_frame(frame_id: str) -> dict:
+    """Regenerate a single thumbnail frame (both mouth states).
+
+    Returns the updated frame entry.
+    """
+    manifest = get_manifest()
+    if not manifest:
+        raise RuntimeError("No frame library exists. Generate the full library first.")
+
+    # Find the thumbnail frame definition
+    thumb_ids = _make_unique_thumb_ids(THUMBNAIL_FRAME_DEFINITIONS)
+    defn_idx = None
+    for i, tid in enumerate(thumb_ids):
+        if tid == frame_id:
+            defn_idx = i
+            break
+
+    if defn_idx is None:
+        raise ValueError(f"Unknown thumbnail frame_id: {frame_id}")
+
+    defn = THUMBNAIL_FRAME_DEFINITIONS[defn_idx]
+
+    # Prefer selected reference over manifest canonical
+    if SELECTED_REFERENCE_PATH.exists():
+        canonical_path = str(SELECTED_REFERENCE_PATH)
+    else:
+        canonical_path = str(FRAMES_DIR / manifest["canonical_frame"])
+
+    for mouth_state in ["closed", "open"]:
+        filename = f"{frame_id}_{mouth_state}.png"
+        output_path = FRAMES_DIR / filename
+
+        prompt = _build_prompt(defn, mouth_state, False)
+        tmp_path = generate_image(
+            prompt=prompt,
+            width=768,
+            height=432,
+            reference_image_path=canonical_path,
+        )
+        _remove_background(tmp_path, str(output_path))
+
+        # Validate body coverage — retry once if only a floating head remains
+        from PIL import Image as PILImage
+        result_img = PILImage.open(str(output_path)).convert("RGBA")
+        if not _check_body_coverage(result_img, f"regenerate-thumb:{filename}"):
+            logger.warning("Body missing after generation, retrying: %s", filename)
+            tmp_path = generate_image(
+                prompt=prompt,
+                width=768,
+                height=432,
+                reference_image_path=canonical_path,
+            )
+            _remove_background(tmp_path, str(output_path))
+
+    # Update manifest timestamp
+    manifest["generated_at"] = datetime.now(timezone.utc).isoformat()
+    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2))
+
+    return {
+        "id": frame_id,
+        "file_closed": f"{frame_id}_closed.png",
+        "file_open": f"{frame_id}_open.png",
+        "expression": defn["expression"],
+        "pose": defn["pose"],
+        "gesture": defn["gesture"],
+    }

@@ -6,10 +6,12 @@ import api, {
   generateCharacterReferences,
   generateCharacterVariants,
   generateMissingCharacterFrames,
+  generateThumbnailFrames,
   getCharacterFrames,
   getCharacterReferences,
   getCharacterStatus,
   regenerateCharacterFrame,
+  regenerateThumbnailFrame,
   reprocessCharacterBackgrounds,
   selectCharacterReference,
 } from "../../api";
@@ -36,6 +38,7 @@ interface Manifest {
   missing_count: number;
   existing_variant_count: number;
   total_variant_count: number;
+  thumbnail_frames: FrameEntry[];
 }
 
 export default function CharacterSection() {
@@ -60,6 +63,11 @@ export default function CharacterSection() {
   // Reprocess state
   const [reprocessJobId, setReprocessJobId] = useState<string | null>(null);
   const [reprocessProgress, setReprocessProgress] = useState({ completed: 0, total: 0, current_label: "" });
+
+  // Thumbnail frame state
+  const [thumbJobId, setThumbJobId] = useState<string | null>(null);
+  const [thumbProgress, setThumbProgress] = useState({ completed: 0, total: 0, current_label: "" });
+  const [thumbRegeneratingId, setThumbRegeneratingId] = useState<string | null>(null);
 
   // Image cache-bust counter — incremented after any image change to force browser refresh
   const [imgVersion, setImgVersion] = useState(() => Date.now());
@@ -160,6 +168,23 @@ export default function CharacterSection() {
     return () => clearInterval(interval);
   }, [reprocessJobId, fetchManifest]);
 
+  // Poll thumbnail frame generation job
+  useEffect(() => {
+    if (!thumbJobId) return;
+    const interval = setInterval(async () => {
+      const res = await getCharacterStatus(thumbJobId);
+      if (!res.ok) return;
+      const status = res.data as { status: string; completed: number; total: number; current_label: string };
+      setThumbProgress({ completed: status.completed, total: status.total, current_label: status.current_label });
+      if (status.status === "completed" || status.status === "failed") {
+        setThumbJobId(null);
+        setImgVersion(Date.now());
+        fetchManifest();
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [thumbJobId, fetchManifest]);
+
   const handleGenerateReferences = async () => {
     const result = await generateCharacterReferences();
     setRefJobId(result.job_id);
@@ -197,6 +222,22 @@ export default function CharacterSection() {
     setReprocessProgress({ completed: 0, total: 0, current_label: "Starting..." });
   };
 
+  const handleGenerateThumbnailFrames = async () => {
+    const result = await generateThumbnailFrames();
+    setThumbJobId(result.job_id);
+    setThumbProgress({ completed: 0, total: 18, current_label: "Starting..." });
+  };
+
+  const handleRegenerateThumbnail = async (frameId: string) => {
+    setThumbRegeneratingId(frameId);
+    const res = await regenerateThumbnailFrame(frameId);
+    if (res.ok) {
+      setImgVersion(Date.now());
+    }
+    await fetchManifest();
+    setThumbRegeneratingId(null);
+  };
+
   const handleRegenerate = async (frameId: string) => {
     setRegeneratingId(frameId);
     const res = await regenerateCharacterFrame(frameId);
@@ -225,10 +266,12 @@ export default function CharacterSection() {
   const isGeneratingFrames = !!frameJobId;
   const isGeneratingVariants = !!variantJobId;
   const isReprocessing = !!reprocessJobId;
+  const isGeneratingThumbs = !!thumbJobId;
   const refPct = refProgress.total > 0 ? refProgress.completed / refProgress.total : 0;
   const framePct = frameProgress.total > 0 ? frameProgress.completed / frameProgress.total : 0;
   const variantPct = variantProgress.total > 0 ? variantProgress.completed / variantProgress.total : 0;
   const reprocessPct = reprocessProgress.total > 0 ? reprocessProgress.completed / reprocessProgress.total : 0;
+  const thumbPct = thumbProgress.total > 0 ? thumbProgress.completed / thumbProgress.total : 0;
   const hasSelectedRef = !!selectedRef;
 
   // Variant counts from backend (counts variant sets, not individual mouth-state files)
@@ -587,6 +630,103 @@ export default function CharacterSection() {
                 style={{ width: `${variantPct * 100}%` }}
               />
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* ===== SECTION 3.5: Thumbnail Expressions ===== */}
+      <div className={`space-y-4 ${!hasSelectedRef ? "opacity-40 pointer-events-none" : ""}`}>
+        <div className="flex items-center gap-3">
+          <h3 className="text-sm font-semibold text-neutral-200 uppercase tracking-wider">
+            Thumbnail Expressions
+          </h3>
+          {(manifest?.thumbnail_frames?.length ?? 0) > 0 && (
+            <span className="text-xs px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-full">
+              {manifest!.thumbnail_frames.length} expressions
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-neutral-400">
+          Curated high-CTR expressions used in YouTube thumbnails. Open-mouth variants for maximum impact.
+        </p>
+
+        <button
+          onClick={handleGenerateThumbnailFrames}
+          disabled={isGeneratingThumbs || !hasSelectedRef}
+          className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
+        >
+          {isGeneratingThumbs ? "Generating..." : (manifest?.thumbnail_frames?.length ?? 0) > 0 ? "Regenerate Thumbnail Frames" : "Generate Thumbnail Frames"}
+        </button>
+
+        {isGeneratingThumbs && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 text-xs text-neutral-300">
+              <span className="w-3 h-3 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+              <span>{thumbProgress.completed} / {thumbProgress.total} frames</span>
+              <span className="text-neutral-500">{thumbProgress.current_label}</span>
+            </div>
+            <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-violet-500 rounded-full transition-all duration-300"
+                style={{ width: `${thumbPct * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {(manifest?.thumbnail_frames?.length ?? 0) > 0 && (
+          <div className="space-y-4">
+            {([
+              { label: "Pattern Interrupt", expressions: ["gasped", "cringe", "hyperfocus"] },
+              { label: "Negative Tension", expressions: ["furrowed", "tearful", "secretive"] },
+              { label: "Action-Oriented", expressions: ["laughing", "lookatthis", "exertion"] },
+            ] as const).map((group) => {
+              const groupFrames = manifest!.thumbnail_frames.filter((f) =>
+                group.expressions.includes(f.expression),
+              );
+              if (groupFrames.length === 0) return null;
+              return (
+                <div key={group.label}>
+                  <h4 className="text-xs font-medium text-neutral-400 mb-2 uppercase tracking-wider">
+                    {group.label}
+                  </h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    {groupFrames.map((frame) => (
+                      <div
+                        key={frame.id}
+                        className="group relative bg-neutral-800 rounded-lg overflow-hidden border border-neutral-700/50 hover:border-neutral-600 transition-colors"
+                      >
+                        <div className="flex">
+                          <img
+                            src={assetUrl(`/static/character/frames/${frame.file_closed}`) + cacheBust}
+                            alt={`${frame.expression} closed`}
+                            className="w-1/2 aspect-square object-cover"
+                          />
+                          <img
+                            src={assetUrl(`/static/character/frames/${frame.file_open}`) + cacheBust}
+                            alt={`${frame.expression} open`}
+                            className="w-1/2 aspect-square object-cover"
+                          />
+                        </div>
+                        <div className="px-2 py-1.5">
+                          <div className="text-[10px] text-neutral-400 truncate capitalize">{frame.expression}</div>
+                          <div className="text-[9px] text-neutral-500">{frame.pose}</div>
+                        </div>
+                        <button
+                          onClick={() => handleRegenerateThumbnail(frame.id)}
+                          disabled={thumbRegeneratingId === frame.id}
+                          className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <span className="text-xs text-neutral-200 font-medium">
+                            {thumbRegeneratingId === frame.id ? "Regenerating..." : "Regenerate"}
+                          </span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

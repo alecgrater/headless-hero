@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from pipeline.character_frames import (
     FRAMES_DIR,
+    THUMBNAIL_FRAME_DEFINITIONS,
     clear_all_frames,
     count_existing_variant_frames,
     count_missing_frames,
@@ -17,11 +18,14 @@ from pipeline.character_frames import (
     generate_frame_variants,
     generate_missing_frames,
     generate_reference_candidates,
+    generate_thumbnail_frames,
     generate_variants,
     get_manifest,
     get_reference_candidates,
     get_selected_reference,
+    get_thumbnail_frames,
     regenerate_frame,
+    regenerate_thumbnail_frame,
     reprocess_backgrounds,
     select_reference,
 )
@@ -203,6 +207,7 @@ def get_frames():
     result["missing_count"] = count_missing_frames()
     result["existing_variant_count"] = count_existing_variant_frames()
     result["total_variant_count"] = count_total_variant_frames()
+    result["thumbnail_frames"] = get_thumbnail_frames()
     return result
 
 
@@ -249,6 +254,30 @@ def start_reprocess_backgrounds():
         conflict_msg="Background reprocessing already in progress",
     )
     return GenerateFramesResponse(job_id=job_id)
+
+
+@router.post("/generate-thumbnail-frames", response_model=GenerateFramesResponse)
+def start_generate_thumbnail_frames():
+    """Trigger background generation of thumbnail expression frames."""
+    job_id = _start_background_job(
+        "thumbnail_frames",
+        generate_thumbnail_frames,
+        conflict_msg="Thumbnail frame generation already in progress",
+        initial_total=len(THUMBNAIL_FRAME_DEFINITIONS) * 2,
+    )
+    return GenerateFramesResponse(job_id=job_id)
+
+
+@router.post("/regenerate-thumbnail-frame")
+def regenerate_single_thumbnail_frame(body: RegenerateFrameRequest):
+    """Regenerate a single thumbnail frame (both mouth states)."""
+    try:
+        result = regenerate_thumbnail_frame(body.frame_id)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.delete("/clear-all", status_code=200)
