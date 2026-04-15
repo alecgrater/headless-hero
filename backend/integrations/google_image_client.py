@@ -9,20 +9,11 @@ from google import genai
 from google.genai import types
 
 from config import DEFAULT_IMAGE_MODEL, IMAGE_HEIGHT, IMAGE_WIDTH
+from integrations.google_client_base import get_google_client
 from integrations.google_image_scraper import scrape_google_image_sync
 from integrations.usage_tracker import record_usage, GOOGLE_IMAGE_PER_CALL
 
 logger = logging.getLogger(__name__)
-
-
-def _get_client() -> genai.Client:
-    key = os.environ.get("GOOGLE_AI_KEY")
-    if not key:
-        raise RuntimeError(
-            "GOOGLE_AI_KEY is not set. "
-            "Export it in your shell or add it to the app settings."
-        )
-    return genai.Client(api_key=key)
 
 
 def _closest_aspect_ratio(width: int, height: int) -> str:
@@ -123,7 +114,7 @@ def generate_image(
 
     Falls back to Google Image scraper if both Gemini attempts fail.
     """
-    client = _get_client()
+    client = get_google_client()
     aspect = _closest_aspect_ratio(width, height)
     logger.info("Generating image via Gemini (aspect=%s, has_reference=%s)", aspect, reference_image_path is not None)
 
@@ -225,7 +216,7 @@ def transform_with_references(
     Raises:
         RuntimeError: If Gemini fails to produce an image.
     """
-    client = _get_client()
+    client = get_google_client()
     aspect = _closest_aspect_ratio(width, height)
     logger.info("Transforming image via Gemini with %d reference images", len(image_paths))
 

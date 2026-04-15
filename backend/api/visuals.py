@@ -9,6 +9,7 @@ from sqlmodel import Session
 
 from config import IMAGE_HEIGHT, IMAGE_WIDTH
 from database import get_session
+from api._helpers import update_scene
 from models.script import Script, ScriptContent
 from pipeline.image_gen import generate_batch, generate_scene_frames_v2, generate_scene_image
 from pipeline.render_jobs import create_job, get_job, run_in_background
@@ -58,28 +59,16 @@ class GenerateBatchResponse(BaseModel):
 
 # --- Helpers ---
 
-def _update_scene(
+def _update_scene_with_frames(
     session: Session, script_id: str, scene_id: str, **fields: object
 ) -> None:
-    """Persist one or more field updates into a scene inside script_json."""
-    record = session.get(Script, script_id)
-    if not record:
-        return
-    content = ScriptContent.model_validate(json.loads(record.script_json))
-    for seg in content.segments:
-        for scene in seg.scenes:
-            if scene.id == scene_id:
-                for key, value in fields.items():
-                    setattr(scene, key, value)
-                # When setting frame_urls, also set image_url to first non-empty frame
-                if "frame_urls" in fields and fields["frame_urls"]:
-                    first_image = next((u for u in fields["frame_urls"] if u), "")
-                    if first_image:
-                        scene.image_url = first_image
-                break
-    record.script_json = content.model_dump_json()
-    session.add(record)
-    session.commit()
+    """Update scene fields, and when setting frame_urls, also set image_url to first non-empty frame."""
+    # When setting frame_urls, also derive image_url
+    if "frame_urls" in fields and fields["frame_urls"]:
+        first_image = next((u for u in fields["frame_urls"] if u), "")
+        if first_image:
+            fields["image_url"] = first_image
+    update_scene(session, script_id, scene_id, **fields)
 
 # --- Endpoints ---
 
@@ -107,7 +96,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         # Guard: only set image_url from first non-empty frame URL
         first_image = next((u for u in frame_urls if u), "")
         if frame_urls:
-            _update_scene(session, body.script_id, body.scene_id, frame_urls=frame_urls)
+            _update_scene_with_frames(session, body.script_id, body.scene_id, frame_urls=frame_urls)
         return GenerateVisualResponse(
             image_url=first_image,
             prompt_used=frame_results[0][1] if frame_results else "",
@@ -124,7 +113,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         contains_person=body.contains_person,
     )
 
-    _update_scene(session, body.script_id, body.scene_id, image_url=image_url)
+    update_scene(session, body.script_id, body.scene_id, image_url=image_url)
 
     return GenerateVisualResponse(image_url=image_url, prompt_used=prompt_used)
 

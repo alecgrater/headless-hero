@@ -1,4 +1,4 @@
-"""Video rendering pipeline — FFmpeg audio export utilities."""
+"""Audio export pipeline — FFmpeg audio concatenation + download copy utilities."""
 
 import logging
 import os
@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from config import DATA_DIR, sanitize_filename
-from models.script import Scene, ScriptContent
+from models.script import ScriptContent
 from pipeline.ffmpeg_builder import build_audio_concat_cmd
 
 logger = logging.getLogger(__name__)
@@ -45,14 +45,6 @@ def _renders_dir(script_id: str) -> Path:
     d.mkdir(parents=True, exist_ok=True)
     return d
 
-def _all_scenes(content: ScriptContent) -> list[Scene]:
-    """Flatten all scenes from all segments in order."""
-    scenes: list[Scene] = []
-    for seg in content.segments:
-        for sc in seg.scenes:
-            scenes.append(sc)
-    return scenes
-
 
 def export_full_audio(
     script_id: str,
@@ -63,7 +55,7 @@ def export_full_audio(
 
     Returns the web-relative path to the output.
     """
-    scenes = _all_scenes(content)
+    scenes = content.all_scenes()
     audio_paths: list[str] = []
     for scene in scenes:
         path = _scene_audio_path(script_id, scene.id)

@@ -1,25 +1,15 @@
 """Thin wrapper around the Google GenAI SDK for text generation via Gemini."""
 
 import logging
-import os
 import time
 
-from google import genai
 from google.genai import types
+
+from integrations.google_client_base import get_google_client
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_TEXT_MODEL = "gemini-3.1-pro-preview"
-
-
-def _get_client() -> genai.Client:
-    key = os.environ.get("GOOGLE_AI_KEY")
-    if not key:
-        raise RuntimeError(
-            "GOOGLE_AI_KEY is not set. "
-            "Export it in your shell or add it to the app settings."
-        )
-    return genai.Client(api_key=key)
 
 
 def generate_text(
@@ -42,7 +32,7 @@ def generate_text(
     Raises:
         RuntimeError: If the API key is missing or the call returns no content.
     """
-    client = _get_client()
+    client = get_google_client()
     t0 = time.monotonic()
     logger.info("Generating text via Gemini (model=%s)", model)
 

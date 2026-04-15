@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api, { openInBrowser } from "../../api";
+import { usePollJob } from "../../hooks/usePollJob";
 import type {
   ConnectResponse,
   OAuthStatusResponse,
@@ -41,7 +42,6 @@ export function usePublishState(scriptId: string): PublishState {
 
   const [publishHistory, setPublishHistory] = useState<PublishRecord[]>([]);
 
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const connectionPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Fetch connection status (no brand_id needed — backend auto-resolves)
@@ -61,6 +61,32 @@ export function usePublishState(scriptId: string): PublishState {
     }
   }, [scriptId]);
 
+  const { startPolling: startPublishPolling } = usePollJob<RenderStatusResponse>({
+    pollFn: async (jobId) => {
+      const res = await api.get(`/api/publish/status/${jobId}`);
+      if (!res.ok) return null;
+      return res.data as RenderStatusResponse;
+    },
+    isComplete: (s) => s.status === "completed",
+    isFailed: (s) => s.status === "failed",
+    onStatus: (status) => {
+      setPublishStatus(status);
+      if (status.status === "completed" || status.status === "failed") {
+        refreshHistory();
+      }
+    },
+    onConnectionLost: () => {
+      setPublishStatus({
+        job_id: publishJobId ?? "",
+        status: "failed",
+        progress: 0,
+        current_step: "",
+        output_urls: [],
+        error: "Lost connection to the publish job. The backend may have restarted.",
+      });
+    },
+  });
+
   // Load on mount
   useEffect(() => {
     fetchConnections();
@@ -70,7 +96,6 @@ export function usePublishState(scriptId: string): PublishState {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
       if (connectionPollRef.current) clearInterval(connectionPollRef.current);
     };
   }, []);
@@ -146,64 +171,9 @@ export function usePublishState(scriptId: string): PublishState {
       if (!res.ok) return;
       const { job_id } = res.data as { job_id: string };
       setPublishJobId(job_id);
-
-      // Poll for status
-      if (pollRef.current) clearInterval(pollRef.current);
-      let consecutiveFailures = 0;
-      const MAX_POLL_FAILURES = 5;
-
-      pollRef.current = setInterval(async () => {
-        try {
-          const statusRes = await api.get(`/api/publish/status/${job_id}`);
-          if (!statusRes.ok) {
-            consecutiveFailures++;
-            if (consecutiveFailures >= MAX_POLL_FAILURES) {
-              if (pollRef.current) {
-                clearInterval(pollRef.current);
-                pollRef.current = null;
-              }
-              setPublishStatus({
-                job_id: job_id,
-                status: "failed",
-                progress: 0,
-                current_step: "",
-                output_urls: [],
-                error: "Lost connection to the publish job. The backend may have restarted.",
-              });
-            }
-            return;
-          }
-          consecutiveFailures = 0;
-          const status = statusRes.data as RenderStatusResponse;
-          setPublishStatus(status);
-          if (status.status === "completed" || status.status === "failed") {
-            if (pollRef.current) {
-              clearInterval(pollRef.current);
-              pollRef.current = null;
-            }
-            // Refresh history after publish completes
-            refreshHistory();
-          }
-        } catch {
-          consecutiveFailures++;
-          if (consecutiveFailures >= MAX_POLL_FAILURES) {
-            if (pollRef.current) {
-              clearInterval(pollRef.current);
-              pollRef.current = null;
-            }
-            setPublishStatus({
-              job_id: job_id,
-              status: "failed",
-              progress: 0,
-              current_step: "",
-              output_urls: [],
-              error: "Lost connection to the backend. Please check that it's running.",
-            });
-          }
-        }
-      }, 1000);
+      startPublishPolling(job_id);
     },
-    [scriptId, refreshHistory],
+    [scriptId, startPublishPolling],
   );
 
   const ytConn = connections?.youtube;

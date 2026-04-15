@@ -104,6 +104,10 @@ class ScriptContent(BaseModel):
     segment_timer_enabled: bool = True    # Global toggle for segment countdown timer overlay
     seo_metadata: dict | None = None      # Generated SEO metadata (title, description, tags)
 
+    def all_scenes(self) -> list["Scene"]:
+        """Flatten all scenes from all segments in order."""
+        return [scene for seg in self.segments for scene in seg.scenes]
+
 # --- SQLModel table for persistence ---
 
 class Script(SQLModel, table=True):

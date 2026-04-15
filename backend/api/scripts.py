@@ -46,7 +46,7 @@ router = APIRouter(prefix="/api/scripts", tags=["scripts"])
 def _build_summary(record: Script) -> ScriptSummary:
     """Build a ScriptSummary from a Script record."""
     content = ScriptContent.model_validate(json.loads(record.script_json))
-    scenes = [s for seg in content.segments for s in seg.scenes]
+    scenes = content.all_scenes()
     image_count = sum(1 for s in scenes if s.image_url)
     audio_count = sum(1 for s in scenes if s.audio_url)
 

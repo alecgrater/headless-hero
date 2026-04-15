@@ -101,11 +101,6 @@ def _title_card_image_path(script_id: str) -> str | None:
     return _to_remotion_path(str(withtitle)) if withtitle.exists() else None
 
 
-def _all_scenes(content: ScriptContent) -> list[Scene]:
-    """Flatten all scenes from all segments in order."""
-    return [sc for seg in content.segments for sc in seg.scenes]
-
-
 def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
     """Convert a Scene model to the input props expected by Remotion."""
     # Resolve asset paths
@@ -320,7 +315,7 @@ def render_full_video(
 
     Returns the web-relative path to the final MP4.
     """
-    scenes = _all_scenes(content)
+    scenes = content.all_scenes()
     total = len(scenes)
 
     logger.info(

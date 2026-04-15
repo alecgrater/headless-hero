@@ -14,7 +14,7 @@ class PublishRecord(SQLModel, table=True):
     id: str = Field(default_factory=lambda: uuid.uuid4().hex, primary_key=True)
     script_id: str = Field(index=True)
     brand_id: str = Field(index=True)
-    platform: str = Field(default="youtube")  # youtube | tiktok | instagram
+    platform: str = Field(default="youtube")
     status: str = Field(default="pending")  # pending | uploading | scheduled | published | failed
     platform_content_id: str = Field(default="")
     platform_url: str = Field(default="")

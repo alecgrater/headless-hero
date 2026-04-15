@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import api, { fetchGenerationEstimate } from "../../api";
 import { DEFAULT_MODEL } from "../../constants";
+import { usePollJob } from "../../hooks/usePollJob";
 import type { VideoIdea } from "../../types/idea";
 import type { ScriptContent } from "../../types/script";
 
@@ -19,6 +20,14 @@ function snapSegmentCount(n: number): 8 | 10 {
 interface Params {
   brandId: string;
   idea: VideoIdea;
+}
+
+interface GenJobStatus {
+  status: string;
+  current_step: string;
+  error: string | null;
+  script_id?: string;
+  elapsed_seconds?: number;
 }
 
 export interface ScriptGenerationState {
@@ -58,7 +67,66 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
   const [elapsedSeconds, setElapsedSeconds] = useState<number | null>(null);
 
   const cancelledRef = useRef(false);
-  const genPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const { startPolling, stopPolling } = usePollJob<GenJobStatus>({
+    pollFn: async (jobId) => {
+      if (cancelledRef.current) {
+        stopPolling();
+        return null;
+      }
+      const res = await api.get(`/api/scripts/generate-status/${jobId}`);
+      if (!res.ok) return null;
+      return res.data as GenJobStatus;
+    },
+    isComplete: (s) => s.status === "completed",
+    isFailed: (s) => s.status === "failed",
+    onStatus: async (job) => {
+      if (job.elapsed_seconds != null) {
+        setElapsedSeconds(job.elapsed_seconds);
+      }
+
+      // Parse per-segment progress
+      if (job.current_step && job.current_step !== "Complete") {
+        try {
+          const progress = JSON.parse(job.current_step) as {
+            segment: number;
+            total: number;
+            name: string;
+          };
+          setGenSegments(progress);
+          setGenCompletedSegments(() => {
+            const completed = [];
+            for (let i = 1; i < progress.segment; i++) {
+              completed.push(i);
+            }
+            return completed;
+          });
+        } catch {
+          // current_step may not be JSON
+        }
+      }
+
+      if (job.status === "completed" && job.script_id) {
+        const fullRes = await api.get(`/api/scripts/${job.script_id}`);
+        if (fullRes.ok) {
+          const data = fullRes.data as { id: string; script: ScriptContent };
+          setScript(data.script);
+          setScriptId(data.id);
+        }
+        setLoading(false);
+      } else if (job.status === "failed") {
+        setError(job.error ?? "Script generation failed");
+        setLoading(false);
+      }
+    },
+    onConnectionLost: () => {
+      setError(
+        "Lost connection to the generation job. The backend may have restarted. Please try again.",
+      );
+      setLoading(false);
+    },
+    intervalMs: 1500,
+  });
 
   // Load default model from settings
   useEffect(() => {
@@ -75,13 +143,6 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
       }
       setSettingsLoaded(true);
     }).catch(() => setSettingsLoaded(true));
-  }, []);
-
-  // Cleanup poll interval on unmount
-  useEffect(() => {
-    return () => {
-      if (genPollRef.current) clearInterval(genPollRef.current);
-    };
   }, []);
 
   const handleModelChange = (value: string) => {
@@ -125,97 +186,7 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
       }
 
       const { job_id } = res.data as { job_id: string };
-
-      // Poll for progress — track consecutive failures to detect lost jobs
-      let consecutiveFailures = 0;
-      const MAX_POLL_FAILURES = 5;
-
-      genPollRef.current = setInterval(async () => {
-        if (cancelledRef.current) {
-          if (genPollRef.current) clearInterval(genPollRef.current);
-          genPollRef.current = null;
-          return;
-        }
-        try {
-          const statusRes = await api.get(`/api/scripts/generate-status/${job_id}`);
-          if (!statusRes.ok) {
-            consecutiveFailures++;
-            if (consecutiveFailures >= MAX_POLL_FAILURES) {
-              if (genPollRef.current) clearInterval(genPollRef.current);
-              genPollRef.current = null;
-              setError(
-                "Lost connection to the generation job. The backend may have restarted. Please try again.",
-              );
-              setLoading(false);
-            }
-            return;
-          }
-          consecutiveFailures = 0;
-
-          const job = statusRes.data as {
-            status: string;
-            current_step: string;
-            error: string | null;
-            script_id?: string;
-            elapsed_seconds?: number;
-          };
-
-          if (job.elapsed_seconds != null) {
-            setElapsedSeconds(job.elapsed_seconds);
-          }
-
-          // Parse per-segment progress
-          if (job.current_step && job.current_step !== "Complete") {
-            try {
-              const progress = JSON.parse(job.current_step) as {
-                segment: number;
-                total: number;
-                name: string;
-              };
-              setGenSegments(progress);
-              setGenCompletedSegments((_prev) => {
-                const completed = [];
-                for (let i = 1; i < progress.segment; i++) {
-                  completed.push(i);
-                }
-                return completed;
-              });
-            } catch {
-              // current_step may not be JSON
-            }
-          }
-
-          if (job.status === "completed") {
-            if (genPollRef.current) clearInterval(genPollRef.current);
-            genPollRef.current = null;
-
-            if (job.script_id) {
-              const fullRes = await api.get(`/api/scripts/${job.script_id}`);
-              if (fullRes.ok) {
-                const data = fullRes.data as { id: string; script: ScriptContent };
-                setScript(data.script);
-                setScriptId(data.id);
-              }
-            }
-            setLoading(false);
-          } else if (job.status === "failed") {
-            if (genPollRef.current) clearInterval(genPollRef.current);
-            genPollRef.current = null;
-            setError(job.error ?? "Script generation failed");
-            setLoading(false);
-          }
-        } catch {
-          consecutiveFailures++;
-          if (consecutiveFailures >= MAX_POLL_FAILURES) {
-            if (genPollRef.current) clearInterval(genPollRef.current);
-            genPollRef.current = null;
-            setError(
-              "Lost connection to the backend. Please check that it's running and try again.",
-            );
-            setLoading(false);
-          }
-        }
-      }, 1500);
+      startPolling(job_id);
     } catch (err) {
       if (!cancelledRef.current) {
         console.error("[ScriptGeneration] Request failed:", err);
@@ -227,8 +198,7 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
 
   const handleCancelGeneration = () => {
     cancelledRef.current = true;
-    if (genPollRef.current) clearInterval(genPollRef.current);
-    genPollRef.current = null;
+    stopPolling();
     setLoading(false);
   };
 

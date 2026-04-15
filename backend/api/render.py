@@ -15,11 +15,12 @@ from sqlmodel import Session
 
 from config import DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH, sanitize_filename
 from database import get_default_brand_id, get_session
+from api._helpers import find_scene_in_content
 from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.render_jobs import RenderJob, create_job, estimate_render_time, get_job, is_cancelled, run_in_background, update_job
 from pipeline.remotion_render import render_full_video
-from pipeline.video_render import export_full_audio
+from pipeline.audio_export import export_full_audio
 
 logger = logging.getLogger(__name__)
 
@@ -273,7 +274,7 @@ def _phase_fx(ctx: ExportContext) -> None:
         _check_cancelled(ctx.job.id)
         p = _phase_progress(ctx, "fx", i / scene_count)
         update_job(ctx.job.id, progress=p, current_step=f"Generating FX ({i+1}/{scene_count})...")
-        scene_now = _find_scene_in_content(content_now, sc_info["scene_id"])
+        scene_now = find_scene_in_content(content_now, sc_info["scene_id"])
         duration = scene_now.audio_duration_seconds or scene_now.duration_estimate_seconds
         scene_data = {
             "id": sc_info["scene_id"],
@@ -332,7 +333,7 @@ def _phase_eli(ctx: ExportContext) -> None:
         _check_cancelled(ctx.job.id)
         p = _phase_progress(ctx, "eli", i / scene_count)
         update_job(ctx.job.id, progress=p, current_step=f"Generating Eli ({i+1}/{scene_count})...")
-        scene_now = _find_scene_in_content(content_now, sc_info["scene_id"])
+        scene_now = find_scene_in_content(content_now, sc_info["scene_id"])
         duration = scene_now.audio_duration_seconds or scene_now.duration_estimate_seconds
         eli_scene_data = {
             "id": sc_info["scene_id"],
@@ -695,12 +696,3 @@ def _reload_content(script_id: str) -> ScriptContent:
         if not record:
             raise RuntimeError(f"Script {script_id} not found")
         return ScriptContent.model_validate(json.loads(record.script_json))
-
-
-def _find_scene_in_content(content: ScriptContent, scene_id: str):
-    """Find a scene by ID across all segments."""
-    for seg in content.segments:
-        for sc in seg.scenes:
-            if sc.id == scene_id:
-                return sc
-    raise RuntimeError(f"Scene {scene_id} not found in content")

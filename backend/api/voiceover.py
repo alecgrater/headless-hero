@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from database import get_session
+from api._helpers import update_scene
 from integrations.elevenlabs_client import (
     add_library_voice,
     clone_voice,
@@ -96,33 +97,6 @@ class AddLibraryVoiceRequest(BaseModel):
 class AddLibraryVoiceResponse(BaseModel):
     voice_id: str
 
-# --- Helpers ---
-
-def _update_scene_audio(
-    session: Session,
-    script_id: str,
-    scene_id: str,
-    audio_url: str,
-    duration_seconds: float,
-    word_timestamps: list[dict] | None = None,
-) -> None:
-    """Persist audio_url, audio_duration_seconds, and word_timestamps into the scene inside script_json."""
-    record = session.get(Script, script_id)
-    if not record:
-        return
-    content = ScriptContent.model_validate(json.loads(record.script_json))
-    for seg in content.segments:
-        for scene in seg.scenes:
-            if scene.id == scene_id:
-                scene.audio_url = audio_url
-                scene.audio_duration_seconds = duration_seconds
-                if word_timestamps is not None:
-                    scene.word_timestamps = word_timestamps
-                break
-    record.script_json = content.model_dump_json()
-    session.add(record)
-    session.commit()
-
 # --- Endpoints ---
 
 @router.post("/generate", response_model=GenerateAudioResponse)
@@ -142,7 +116,13 @@ def generate_audio(body: GenerateAudioRequest, session: Session = Depends(get_se
         voice_settings=body.voice_settings,
     )
 
-    _update_scene_audio(session, body.script_id, body.scene_id, audio_url, duration, word_timestamps)
+    fields: dict = {
+        "audio_url": audio_url,
+        "audio_duration_seconds": duration,
+    }
+    if word_timestamps is not None:
+        fields["word_timestamps"] = word_timestamps
+    update_scene(session, body.script_id, body.scene_id, **fields)
 
     logger.info("Audio generated for scene %s: %.1fs duration", body.scene_id, duration)
     return GenerateAudioResponse(audio_url=audio_url, duration_seconds=duration, word_timestamps=word_timestamps)

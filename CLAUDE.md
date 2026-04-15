@@ -229,7 +229,7 @@ Claude generates per-scene keyframe timelines selecting which Eli pose to show a
 ### Render Layer Stack
 1. Visual layer (StaticImage/MultiFrame/TitleCard/Subtitle)
 2. ZoomPunch camera effect
-3. **EliOverlay** (z-index: 5) — `remotion/src/effects/overlays/EliOverlay.tsx`
+3. **EliOverlay** (z-index: 5) — not yet implemented as a Remotion component
 4. Subtitles (z-index: 10) — `remotion/src/effects/typography/Subtitles.tsx`
 5. Audio layer
 6. ChapterIndicator (z-index: 30)

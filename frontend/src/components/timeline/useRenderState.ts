@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api from "../../api";
+import { usePollJob } from "../../hooks/usePollJob";
 import type {
   ExportAudioResponse,
   ExportBundleResponse,
@@ -63,7 +64,32 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
   const [exportBundleLoading, setExportBundleLoading] = useState(false);
   const [exportBundleResult, setExportBundleResult] = useState<ExportBundleResponse | null>(null);
 
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { startPolling } = usePollJob<RenderStatusResponse>({
+    pollFn: async (jobId) => {
+      const res = await api.get(`/api/render/status/${jobId}`);
+      if (!res.ok) return null;
+      return res.data as RenderStatusResponse;
+    },
+    isComplete: (s) => s.status === "completed",
+    isFailed: (s) => s.status === "failed",
+    onStatus: (status) => {
+      setYoutubeStatus(status);
+      if (status.status === "completed" && status.output_urls.length > 0) {
+        setYoutubeUrl(status.output_urls[0]);
+      }
+    },
+    onConnectionLost: () => {
+      setYoutubeStatus({
+        job_id: youtubeJobId ?? "",
+        status: "failed",
+        progress: 0,
+        current_step: "",
+        output_urls: [],
+        error: "Lost connection to the render job. The backend may have restarted.",
+        estimated_seconds: undefined,
+      });
+    },
+  });
 
   // Auto-load existing thumbnails on mount
   useEffect(() => {
@@ -80,77 +106,6 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
     })();
   }, [scriptId]);
 
-  // Polling for background jobs
-  const pollJob = useCallback(
-    (
-      jobId: string,
-      setStatus: (s: RenderStatusResponse) => void,
-      onComplete: (urls: string[]) => void,
-    ) => {
-      if (pollRef.current) clearInterval(pollRef.current);
-
-      let consecutiveFailures = 0;
-      const MAX_POLL_FAILURES = 5;
-
-      pollRef.current = setInterval(async () => {
-        try {
-          const res = await api.get(`/api/render/status/${jobId}`);
-          if (!res.ok) {
-            consecutiveFailures++;
-            if (consecutiveFailures >= MAX_POLL_FAILURES) {
-              if (pollRef.current) clearInterval(pollRef.current);
-              pollRef.current = null;
-              setStatus({
-                job_id: jobId,
-                status: "failed",
-                progress: 0,
-                current_step: "",
-                output_urls: [],
-                error: "Lost connection to the render job. The backend may have restarted.",
-                estimated_seconds: undefined,
-              });
-            }
-            return;
-          }
-          consecutiveFailures = 0;
-          const status = res.data as RenderStatusResponse;
-          setStatus(status);
-
-          if (status.status === "completed" || status.status === "failed") {
-            if (pollRef.current) clearInterval(pollRef.current);
-            pollRef.current = null;
-            if (status.status === "completed") {
-              onComplete(status.output_urls);
-            }
-          }
-        } catch {
-          consecutiveFailures++;
-          if (consecutiveFailures >= MAX_POLL_FAILURES) {
-            if (pollRef.current) clearInterval(pollRef.current);
-            pollRef.current = null;
-            setStatus({
-              job_id: jobId,
-              status: "failed",
-              progress: 0,
-              current_step: "",
-              output_urls: [],
-              error: "Lost connection to the backend. Please check that it's running.",
-              estimated_seconds: undefined,
-            });
-          }
-        }
-      }, 1000);
-    },
-    [],
-  );
-
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, []);
-
   const startYoutubeRender = useCallback(
     async () => {
       setYoutubeUrl(null);
@@ -162,11 +117,9 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
       if (!res.ok) return;
       const { job_id } = res.data as RenderJobResponse;
       setYoutubeJobId(job_id);
-      pollJob(job_id, setYoutubeStatus, (urls) => {
-        if (urls.length > 0) setYoutubeUrl(urls[0]);
-      });
+      startPolling(job_id);
     },
-    [scriptId, title, pollJob],
+    [scriptId, title, startPolling],
   );
 
   const exportAudio = useCallback(async () => {

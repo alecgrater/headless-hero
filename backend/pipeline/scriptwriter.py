@@ -31,7 +31,7 @@ def _warn_visual_monotony(content: "ScriptContent") -> None:
     """
     _SHOT_LABEL_RE = re.compile(r"^\[([A-Z\-]+)\]")
 
-    all_scenes = [scene for seg in content.segments for scene in seg.scenes]
+    all_scenes = content.all_scenes()
     shot_types: list[str] = []
     for scene in all_scenes:
         if scene.is_title_card:
