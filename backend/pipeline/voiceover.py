@@ -62,7 +62,7 @@ def generate_scene_audio(
 
     Returns (web-relative path, duration in seconds, word_timestamps).
     """
-    logger.info("Generating audio for scene %s (voice=%s, model=%s)", scene_id, voice_id, model_id)
+    logger.info("Generating audio for scene %s (script=%s, voice=%s, model=%s, chars=%d)", scene_id, script_id, voice_id, model_id, len(narration))
     audio_bytes, word_timestamps = generate_speech(
         text=narration,
         voice_id=voice_id,
@@ -116,7 +116,7 @@ def generate_batch_audio(
     Returns list of {scene_id, audio_url, duration_seconds, error?}.
     """
     results: list[dict] = []
-    logger.info("Starting batch audio generation for %s scenes (script %s)", len(scenes), script_id)
+    logger.info("Starting batch audio generation for %d scenes (script=%s, voice=%s)", len(scenes), script_id, voice_id)
     for scene in scenes:
         try:
             audio_url, duration, word_timestamps = generate_scene_audio(
