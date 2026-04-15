@@ -291,22 +291,11 @@ export async function deleteThumbnailReference(filename: string): Promise<{ dele
   return api.delete(`/api/character/thumbnail-references/${encodeURIComponent(filename)}`);
 }
 
-/** Generate Eli animation overlays for all scenes. */
-export async function generateEli(scriptId: string, missingOnly = false) {
-  return api.post("/api/eli/generate", { script_id: scriptId, missing_only: missingOnly });
-}
-
-/** Regenerate Eli animation for a single scene. */
-export async function regenerateEli(scriptId: string, sceneId: string) {
-  return api.post("/api/eli/regenerate", { script_id: scriptId, scene_id: sceneId });
-}
-
 export interface ExportTestOptions {
   regen_title_cards: boolean;
   regen_images: boolean;
   regen_audio: boolean;
   regen_fx: boolean;
-  regen_eli: boolean;
 }
 
 /** Start export test pipeline with selective regeneration for scene 1 only. */

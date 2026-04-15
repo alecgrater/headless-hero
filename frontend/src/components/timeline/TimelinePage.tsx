@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import api, { assetUrl, generateFX, generateEli, exportTest, fetchScriptCost } from "../../api";
+import api, { assetUrl, generateFX, exportTest, fetchScriptCost } from "../../api";
 import type { ExportTestOptions } from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
@@ -12,7 +12,6 @@ import PropertiesPanel from "./PropertiesPanel";
 import ThumbnailModal from "./ThumbnailModal";
 import TimelineLanes from "./TimelineLanes";
 import VoiceSetupModal from "../brand/VoiceSetupModal";
-import { useEliPosition } from "./useEliPosition";
 import { usePublishState } from "./usePublishState";
 import { useRenderState } from "./useRenderState";
 import { useTimelineState } from "./useTimelineState";
@@ -158,15 +157,11 @@ function TimelineEditor({
   // Voice picker hook
   const voicePicker = useVoicePicker();
 
-  // Eli position hook
-  const eliPosition = useEliPosition(initialContent);
-
   const [showExport, setShowExport] = useState(false);
   const [showVoiceSetup, setShowVoiceSetup] = useState(false);
   const [pendingAudioAction, setPendingAudioAction] = useState<"all" | string | null>(null);
   const [generatingFX, setGeneratingFX] = useState(false);
-  const [generatingEli, setGeneratingEli] = useState(false);
-  const [confirmOverwrite, setConfirmOverwrite] = useState<"images" | "audio" | "fx" | "eli" | null>(null);
+  const [confirmOverwrite, setConfirmOverwrite] = useState<"images" | "audio" | "fx" | null>(null);
   const [pixelsPerSecond, setPixelsPerSecond] = useState(5);
   const [exportTestJobId, setExportTestJobId] = useState<string | null>(null);
   const [exportTestStep, setExportTestStep] = useState("");
@@ -226,7 +221,6 @@ function TimelineEditor({
 
   // Cancel refs for single async operations
   const fxCancelledRef = useRef(false);
-  const eliCancelledRef = useRef(false);
   const titleCardCancelledRef = useRef(false);
   const thumbnailsCancelledRef = useRef(false);
 
@@ -367,7 +361,6 @@ function TimelineEditor({
   const hasExistingImages = allScenes.some((sc) => !sc.is_title_card && (sc.image_url || sc.frame_urls?.length));
   const hasExistingAudio = allScenes.some((sc) => sc.audio_url);
   const hasExistingFX = allScenes.some((sc) => sc.fx);
-  const hasExistingEli = allScenes.some((sc) => sc.eli_overlay);
 
   // Check if ALL scenes are complete for each step (for completion checkmarks)
   const nonTitleScenes = allScenes.filter((sc) => !sc.is_title_card);
@@ -381,15 +374,11 @@ function TimelineEditor({
   const allImagesGenerated = imageScenes.length > 0 && imageScenes.every((sc) => sc.image_url || sc.frame_urls?.length);
   const allAudioGenerated = narratedScenes.length > 0 && narratedScenes.every((sc) => sc.audio_url);
   const allFXGenerated = nonTitleScenes.length > 0 && nonTitleScenes.every((sc) => sc.fx);
-  // Eli generates for narrated non-title scenes without a person (backend skips contains_person)
-  const eliScenes = nonTitleScenes.filter((sc) => sc.narration && !sc.contains_person);
-  const allEliGenerated = eliScenes.length > 0 && eliScenes.every((sc) => sc.eli_overlay);
 
   // Missing counts for "Generate Missing (N)" labels
   const missingImageCount = imageScenes.filter((sc) => !sc.image_url && !sc.frame_urls?.length).length;
   const missingAudioCount = narratedScenes.filter((sc) => !sc.audio_url).length;
   const missingFXCount = nonTitleScenes.filter((sc) => !sc.fx).length;
-  const missingEliCount = eliScenes.filter((sc) => !sc.eli_overlay).length;
 
   const confirmAndGenerateImages = () => {
     if (hasExistingImages) {
@@ -434,33 +423,6 @@ function TimelineEditor({
     }
   };
 
-  const handleGenerateEli = async () => {
-    eliCancelledRef.current = false;
-    setGeneratingEli(true);
-    try {
-      const res = await generateEli(scriptId);
-      if (eliCancelledRef.current) return;
-      if (res.ok) {
-        const refreshed = await api.get(`/api/scripts/${scriptId}`);
-        if (refreshed.ok && !eliCancelledRef.current) {
-          const data = refreshed.data as { script: ScriptContent };
-          state.setContent(data.script);
-        }
-      }
-    } finally {
-      setGeneratingEli(false);
-      refreshCost();
-    }
-  };
-
-  const confirmAndGenerateEli = () => {
-    if (hasExistingEli) {
-      setConfirmOverwrite("eli");
-    } else {
-      handleGenerateEli();
-    }
-  };
-
   const generateMissingImages = () => state.generateAllImages(true);
   const generateMissingAudio = () => tryGenerateAudio("missing");
   const generateMissingFX = async () => {
@@ -478,23 +440,6 @@ function TimelineEditor({
       }
     } finally {
       setGeneratingFX(false);
-    }
-  };
-  const generateMissingEli = async () => {
-    eliCancelledRef.current = false;
-    setGeneratingEli(true);
-    try {
-      const res = await generateEli(scriptId, true);
-      if (eliCancelledRef.current) return;
-      if (res.ok) {
-        const refreshed = await api.get(`/api/scripts/${scriptId}`);
-        if (refreshed.ok && !eliCancelledRef.current) {
-          const data = refreshed.data as { script: ScriptContent };
-          state.setContent(data.script);
-        }
-      }
-    } finally {
-      setGeneratingEli(false);
     }
   };
 
@@ -647,50 +592,34 @@ function TimelineEditor({
             allImagesGenerated={allImagesGenerated}
             allAudioGenerated={allAudioGenerated}
             allFXGenerated={allFXGenerated}
-            allEliGenerated={allEliGenerated}
             batchGenerating={state.batchGenerating}
             batchGeneratingAudio={state.batchGeneratingAudio}
             hasTitleCards={state.hasTitleCards}
             generatingFX={generatingFX}
             setGeneratingFX={setGeneratingFX}
-            generatingEli={generatingEli}
-            setGeneratingEli={setGeneratingEli}
             handleGenerateTitleCards={handleGenerateTitleCards}
             cancelTitleCards={cancelTitleCards}
             confirmAndGenerateImages={confirmAndGenerateImages}
             confirmAndGenerateAudio={confirmAndGenerateAudio}
             confirmAndGenerateFX={confirmAndGenerateFX}
-            confirmAndGenerateEli={confirmAndGenerateEli}
             generateMissingImages={generateMissingImages}
             generateMissingAudio={generateMissingAudio}
             generateMissingFX={generateMissingFX}
-            generateMissingEli={generateMissingEli}
             hasExistingImages={hasExistingImages}
             hasExistingAudio={hasExistingAudio}
             hasExistingFX={hasExistingFX}
-            hasExistingEli={hasExistingEli}
             missingImageCount={missingImageCount}
             missingAudioCount={missingAudioCount}
             missingFXCount={missingFXCount}
-            missingEliCount={missingEliCount}
             cancelImageGeneration={state.cancelImageGeneration}
             cancelAudioGeneration={state.cancelAudioGeneration}
             fxCancelledRef={fxCancelledRef}
-            eliCancelledRef={eliCancelledRef}
             showVoicePicker={voicePicker.showVoicePicker}
             setShowVoicePicker={voicePicker.setShowVoicePicker}
             voices={voicePicker.voices}
             selectedVoiceId={voicePicker.selectedVoiceId}
             setSelectedVoiceId={voicePicker.setSelectedVoiceId}
             voicePickerRef={voicePicker.voicePickerRef}
-            showEliPositionPicker={eliPosition.showEliPositionPicker}
-            setShowEliPositionPicker={eliPosition.setShowEliPositionPicker}
-            eliPositionMode={eliPosition.eliPositionMode}
-            setEliPositionMode={eliPosition.setEliPositionMode}
-            brandEliPosition={eliPosition.brandEliPosition}
-            customEliPosition={eliPosition.customEliPosition}
-            setCustomEliPosition={eliPosition.setCustomEliPosition}
-            eliPositionRef={eliPosition.eliPositionRef}
             content={state.content}
             setContent={state.setContent}
             exportTestJobId={exportTestJobId}
@@ -752,19 +681,6 @@ function TimelineEditor({
             <span className="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
             <span className="text-neutral-300">
               Generating FX assignments with AI...
-            </span>
-            <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden ml-2">
-              <div className="h-full rounded-full bg-amber-500 animate-pulse" style={{ width: "60%" }} />
-            </div>
-          </div>
-        </div>
-      )}
-      {generatingEli && (
-        <div className="px-4 py-2 border-b border-neutral-800 shrink-0 bg-amber-500/10">
-          <div className="flex items-center gap-3 text-xs">
-            <span className="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-neutral-300">
-              Generating Eli animation keyframes with AI...
             </span>
             <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden ml-2">
               <div className="h-full rounded-full bg-amber-500 animate-pulse" style={{ width: "60%" }} />
@@ -960,7 +876,6 @@ function TimelineEditor({
               {confirmOverwrite === "images" && "Some scenes already have generated images. Regenerating will overwrite them."}
               {confirmOverwrite === "audio" && "Some scenes already have generated audio. Regenerating will overwrite them."}
               {confirmOverwrite === "fx" && "Some scenes already have FX assignments. Regenerating will overwrite them."}
-              {confirmOverwrite === "eli" && "Some scenes already have Eli overlays. Regenerating will overwrite them."}
             </p>
             <div className="flex justify-end gap-3">
               <button
@@ -976,7 +891,6 @@ function TimelineEditor({
                   if (action === "images") state.generateAllImages();
                   else if (action === "audio") tryGenerateAudio("all");
                   else if (action === "fx") handleGenerateFX();
-                  else if (action === "eli") handleGenerateEli();
                 }}
                 className="px-4 py-2 text-sm rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium transition-colors"
               >
