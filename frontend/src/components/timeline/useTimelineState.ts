@@ -143,16 +143,6 @@ export function useTimelineState(
   const imagesCancelRef = useRef(false);
   const audioCancelRef = useRef(false);
 
-  // Immediate save — used after generation to ensure persistence
-  const immediateFlush = useCallback(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    // Use a microtask so React state updates settle first
-    queueMicrotask(() => {
-      doSave(contentRef.current);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scriptId]);
-
   const pushUndo = useCallback(() => {
     setUndoStack((prev) => [...prev.slice(-49), contentRef.current]);
   }, []);
@@ -446,7 +436,6 @@ export function useTimelineState(
               const scriptData = scriptRes.data as { script: ScriptContent };
               setContent(scriptData.script);
             }
-            immediateFlush();
           }
         } finally {
           setGeneratingSceneIds((prev) => {
@@ -471,24 +460,12 @@ export function useTimelineState(
           contains_person: scene.contains_person || false,
         });
         if (res.ok) {
-          const data = res.data as GenerateVisualResponse;
-          // Update scene without pushing to undo stack (server already persisted)
-          setContent((prev) => ({
-            ...prev,
-            segments: prev.segments.map((seg) => ({
-              ...seg,
-              scenes: seg.scenes.map((sc) =>
-                sc.id === sceneId
-                  ? {
-                      ...sc,
-                      image_url: data.image_url,
-                      frame_urls: data.frame_urls || sc.frame_urls,
-                    }
-                  : sc,
-              ),
-            })),
-          }));
-          immediateFlush();
+          // Re-fetch from backend which already persisted the image data
+          const scriptRes = await api.get(`/api/scripts/${scriptId}`);
+          if (scriptRes.ok) {
+            const scriptData = scriptRes.data as { script: ScriptContent };
+            setContent(scriptData.script);
+          }
         }
       } finally {
         setGeneratingSceneIds((prev) => {
@@ -498,7 +475,7 @@ export function useTimelineState(
         });
       }
     },
-    [scriptId, immediateFlush],
+    [scriptId],
   );
 
   const generateAllImages = useCallback(
@@ -628,11 +605,16 @@ export function useTimelineState(
 
       setGeneratingSceneIds(new Set());
       setBatchGenerating(false);
-      immediateFlush();
+      // Re-fetch from backend which already persisted all image data
+      const scriptRes = await api.get(`/api/scripts/${scriptId}`);
+      if (scriptRes.ok) {
+        const scriptData = scriptRes.data as { script: ScriptContent };
+        setContent(scriptData.script);
+      }
       // Keep progress visible briefly, then clear
       setTimeout(() => setBatchImageProgress(EMPTY_BATCH), 3000);
     },
-    [scriptId, immediateFlush],
+    [scriptId],
   );
 
   const generateAudio = useCallback(
@@ -693,13 +675,12 @@ export function useTimelineState(
             const scriptData = scriptRes.data as { script: ScriptContent };
             setContent(scriptData.script);
           }
-          immediateFlush();
         }
       } catch {
         // Error toast handled by API interceptor
       }
     },
-    [scriptId, immediateFlush],
+    [scriptId],
   );
 
   const generateAllAudio = useCallback(
