@@ -14,14 +14,14 @@ from models.script import Scene, ScriptContent, Segment
 
 logger = logging.getLogger(__name__)
 
-_GUIDE_PATH = Path(__file__).resolve().parent.parent / "prompts" / "scriptwriting_guide.md"
-_STYLE_GUIDE = _GUIDE_PATH.read_text() if _GUIDE_PATH.exists() else ""
-
-_SYSTEM_PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "script_system.md"
-_SYSTEM_PROMPT_BODY = _SYSTEM_PROMPT_PATH.read_text() if _SYSTEM_PROMPT_PATH.exists() else ""
+_PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "script_prompt.md"
+_PROMPT_BODY = _PROMPT_PATH.read_text() if _PROMPT_PATH.exists() else ""
 
 # Base system prompt — title card instructions are injected separately.
-BASE_SYSTEM_PROMPT = (_STYLE_GUIDE + "\n\n" if _STYLE_GUIDE else "") + _SYSTEM_PROMPT_BODY
+BASE_SYSTEM_PROMPT = _PROMPT_BODY
+
+# Maximum number of generation attempts (initial + retries on review failure)
+MAX_ATTEMPTS = 3
 
 
 def _warn_visual_monotony(content: "ScriptContent") -> None:
@@ -111,6 +111,9 @@ def generate_script(
     Returns:
         A validated ScriptContent object.
     """
+    from pipeline.modifiers.title_cards import TITLE_CARD_PROMPT_INSTRUCTIONS, enforce_title_cards_and_min_scenes
+    from pipeline.script_reviewer import review_script
+
     resolved_model = model or os.environ.get("SCRIPT_MODEL", DEFAULT_CLAUDE_MODEL)
 
     user_parts = [f'Write a full segmented video script for: "{topic}"']
@@ -135,44 +138,85 @@ def generate_script(
     )
 
     system_prompt = BASE_SYSTEM_PROMPT
-    user_message = "\n".join(user_parts)
+    base_user_message = "\n".join(user_parts)
 
     # Always apply title card instructions (title cards are always active)
-    from pipeline.modifiers.title_cards import TITLE_CARD_PROMPT_INSTRUCTIONS
     system_prompt += TITLE_CARD_PROMPT_INSTRUCTIONS
 
-    if segmented:
-        logger.info("Using SEGMENTED generation for topic %r, description=%r (model=%s)", topic, description, resolved_model)
-        content = _generate_segmented(
-            system_prompt=system_prompt,
-            user_message=user_message,
-            topic=topic,
-            description=description,
-            brand_context=brand_context,
-            segment_count=segment_count,
-            model=resolved_model,
-            progress_callback=progress_callback,
+    # --- Generation + review loop (up to MAX_ATTEMPTS) ---
+    content: ScriptContent | None = None
+    user_message = base_user_message
+
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        if segmented:
+            logger.info("Using SEGMENTED generation for topic %r, description=%r (model=%s, attempt %d/%d)", topic, description, resolved_model, attempt, MAX_ATTEMPTS)
+            content = _generate_segmented(
+                system_prompt=system_prompt,
+                user_message=user_message,
+                topic=topic,
+                description=description,
+                brand_context=brand_context,
+                segment_count=segment_count,
+                model=resolved_model,
+                progress_callback=progress_callback,
+            )
+        else:
+            logger.info("Generating script for topic %r, description=%r using model=%s (segments=%s, attempt %d/%d)", topic, description, resolved_model, segment_count, attempt, MAX_ATTEMPTS)
+            raw = chat(system_prompt, user_message, model=resolved_model, max_tokens=16384, timeout=900.0)
+
+            # Strip markdown fences if present
+            text = strip_markdown_fences(raw)
+
+            if not text.endswith("}"):
+                raise RuntimeError(
+                    "Script generation failed: Claude response was truncated. "
+                    "The generated script was too long to fit within the token limit. "
+                    "Try a simpler topic or fewer segments."
+                )
+
+            data = json.loads(text)
+            content = ScriptContent.model_validate(data)
+
+        # Always enforce title card constraints
+        content = enforce_title_cards_and_min_scenes(content)
+
+        # --- Quality review ---
+        if attempt == MAX_ATTEMPTS:
+            # Final attempt — accept regardless of review
+            logger.info("Final attempt (%d/%d) — accepting script without review gate", attempt, MAX_ATTEMPTS)
+            break
+
+        if progress_callback:
+            progress_callback(0, 0, "Reviewing script quality...")
+
+        review = review_script(content)
+        pass_count = review.pass_count()
+
+        if review.overall_pass:
+            logger.info("Script quality review passed (%d/5 skillsets)", pass_count)
+            if progress_callback:
+                progress_callback(0, 0, "Script quality review passed")
+            break
+
+        # Review failed — inject critique and retry
+        critique = review.critique_summary()
+        logger.info(
+            "Script quality review: %d/5 skillsets passed (attempt %d/%d). Regenerating...",
+            pass_count, attempt, MAX_ATTEMPTS,
         )
-    else:
-        logger.info("Generating script for topic %r, description=%r using model=%s (segments=%s)", topic, description, resolved_model, segment_count)
-        raw = chat(system_prompt, user_message, model=resolved_model, max_tokens=16384, timeout=900.0)
-
-        # Strip markdown fences if present
-        text = strip_markdown_fences(raw)
-
-        if not text.endswith("}"):
-            raise RuntimeError(
-                "Script generation failed: Claude response was truncated. "
-                "The generated script was too long to fit within the token limit. "
-                "Try a simpler topic or fewer segments."
+        if progress_callback:
+            progress_callback(
+                0, 0,
+                f"Review: {pass_count}/5 skillsets passed. Regenerating (attempt {attempt + 1}/{MAX_ATTEMPTS})...",
             )
 
-        data = json.loads(text)
-        content = ScriptContent.model_validate(data)
+        user_message = (
+            f"IMPORTANT: A previous version of this script was reviewed and found "
+            f"lacking in these areas. Address each one:\n{critique}\n\n"
+            f"{base_user_message}"
+        )
 
-    # Always enforce title card constraints
-    from pipeline.modifiers.title_cards import enforce_title_cards_and_min_scenes
-    content = enforce_title_cards_and_min_scenes(content)
+    assert content is not None
 
     logger.info("Script generated for topic %r: %s segments, %s total scenes",
                 topic, len(content.segments), sum(len(s.scenes) for s in content.segments))
