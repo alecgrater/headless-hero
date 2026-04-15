@@ -18,11 +18,11 @@ class RenderJob:
 
     __slots__ = ("id", "status", "progress", "current_step", "output_urls", "error",
                  "scene_count", "total_audio_duration", "duration_seconds", "estimated_seconds",
-                 "_start_time")
+                 "_start_time", "_cancel_event")
 
     def __init__(self, job_id: str) -> None:
         self.id = job_id
-        self.status = "pending"  # pending | running | completed | failed
+        self.status = "pending"  # pending | running | completed | failed | cancelled
         self.progress = 0.0  # 0.0 – 1.0
         self.current_step = ""
         self.output_urls: list[str] = []
@@ -32,6 +32,7 @@ class RenderJob:
         self.duration_seconds: float | None = None
         self.estimated_seconds: float | None = None
         self._start_time: float | None = None
+        self._cancel_event: threading.Event = threading.Event()
 
     def to_dict(self) -> dict[str, Any]:
         elapsed = None
@@ -62,6 +63,7 @@ def create_job(*, scene_count: int = 0, total_audio_duration: float = 0.0) -> Re
     job.total_audio_duration = total_audio_duration
     with _lock:
         _jobs[job.id] = job
+    logger.info("Created render job %s (scene_count=%d)", job.id, scene_count)
     return job
 
 def get_job(job_id: str) -> RenderJob | None:
@@ -94,6 +96,42 @@ def update_job(
         if error is not None:
             job.error = error
 
+def cancel_job(job_id: str) -> bool:
+    """Signal a job to cancel. Returns True if found."""
+    with _lock:
+        job = _jobs.get(job_id)
+        if not job:
+            return False
+        job._cancel_event.set()
+        if job.status in ("pending", "running"):
+            job.status = "cancelled"
+            job.current_step = "Cancelled"
+            logger.info("Job %s cancelled", job_id)
+        return True
+
+
+def cancel_all_jobs() -> int:
+    """Cancel all pending/running jobs. Returns count cancelled."""
+    count = 0
+    with _lock:
+        for job in _jobs.values():
+            if job.status in ("pending", "running"):
+                job._cancel_event.set()
+                job.status = "cancelled"
+                job.current_step = "Cancelled"
+                count += 1
+    if count:
+        logger.info("Cancelled %d render job(s)", count)
+    return count
+
+
+def is_cancelled(job_id: str) -> bool:
+    """Check if a job has been cancelled."""
+    with _lock:
+        job = _jobs.get(job_id)
+        return job._cancel_event.is_set() if job else False
+
+
 def run_in_background(
     job_id: str,
     target: Callable[[], Any],
@@ -101,13 +139,22 @@ def run_in_background(
     """Run *target* in a daemon thread, updating the job on completion/failure."""
 
     def _wrapper() -> None:
+        logger.info("Background thread started for job %s", job_id)
         with _lock:
             job = _jobs.get(job_id)
             if job:
                 job._start_time = time.monotonic()
+        # Check cancellation before starting
+        if is_cancelled(job_id):
+            logger.info("Job %s cancelled before start", job_id)
+            return
         update_job(job_id, status="running")
         try:
             result = target()
+            # Check cancellation after completion
+            if is_cancelled(job_id):
+                logger.info("Job %s cancelled during execution", job_id)
+                return
             # target should return a list of output URLs (or a single string)
             if isinstance(result, str):
                 urls = [result]
@@ -116,6 +163,11 @@ def run_in_background(
             else:
                 urls = []
             update_job(job_id, status="completed", progress=1.0, current_step="Complete", output_urls=urls)
+            # Log success with elapsed time
+            with _lock:
+                j = _jobs.get(job_id)
+                elapsed = round(time.monotonic() - j._start_time, 1) if j and j._start_time else None
+            logger.info("Render job %s completed in %.1fs", job_id, elapsed or 0.0)
             # Record duration for estimation
             with _lock:
                 job = _jobs.get(job_id)
@@ -128,6 +180,9 @@ def run_in_background(
                         })
                         _persist_render_duration(job.scene_count, job.duration_seconds)
         except Exception:
+            if is_cancelled(job_id):
+                logger.info("Job %s cancelled (exception during teardown)", job_id)
+                return
             logger.exception("Render job %s failed", job_id)
             update_job(job_id, status="failed", error=traceback.format_exc()[-1000:])
 
@@ -167,7 +222,9 @@ def estimate_render_time(scene_count: int, total_audio_duration: float = 0.0) ->
         total_scenes = sum(h["scene_count"] for h in history)
         total_duration = sum(h["duration_seconds"] for h in history)
         if total_scenes > 0:
-            return round((total_duration / total_scenes) * scene_count, 1)
+            estimate = round((total_duration / total_scenes) * scene_count, 1)
+            logger.info("Render estimate for %d scenes: %.1fs (source=in-memory, %d historical jobs)", scene_count, estimate, len(history))
+            return estimate
 
     # Fall back to DB history
     try:
@@ -186,8 +243,12 @@ def estimate_render_time(scene_count: int, total_audio_duration: float = 0.0) ->
             result = session.exec(stmt).one()
             total_duration, total_scenes = result
             if total_duration and total_scenes and total_scenes > 0:
-                return round((total_duration / total_scenes) * scene_count, 1)
+                estimate = round((total_duration / total_scenes) * scene_count, 1)
+                logger.info("Render estimate for %d scenes: %.1fs (source=database)", scene_count, estimate)
+                return estimate
     except Exception:
         logger.warning("Failed to query render duration history from DB", exc_info=True)
 
-    return round(_DEFAULT_SECONDS_PER_SCENE * scene_count, 1)
+    estimate = round(_DEFAULT_SECONDS_PER_SCENE * scene_count, 1)
+    logger.info("Render estimate for %d scenes: %.1fs (source=default, %.1fs/scene)", scene_count, estimate, _DEFAULT_SECONDS_PER_SCENE)
+    return estimate
