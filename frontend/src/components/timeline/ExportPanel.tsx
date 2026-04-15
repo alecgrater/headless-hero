@@ -342,7 +342,7 @@ export default function ExportPanel({
                   <div className="bg-neutral-800/50 rounded-lg p-4 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-neutral-400 uppercase">YouTube</span>
-                      <CopyButton text={`${seoMetadata.youtube.title}\n\n${seoMetadata.youtube.description}\n\n${seoMetadata.youtube.tags.join(", ")}`} />
+                      <CopyButton text={`Title:\n${seoMetadata.youtube.title}\n\nDescription:\n${seoMetadata.youtube.description}\n\nTags:\n${seoMetadata.youtube.tags.join(", ")}`} />
                     </div>
                     <p className="text-sm font-medium text-neutral-200">{seoMetadata.youtube.title}</p>
                     <p className="text-xs text-neutral-400 whitespace-pre-wrap">{seoMetadata.youtube.description}</p>
