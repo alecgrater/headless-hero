@@ -12,7 +12,7 @@ from sqlmodel import Session
 from config import DATA_DIR, DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS
 from database import get_session
 from models.script import Script, ScriptContent
-from pipeline.thumbnail import get_composite_thumbnail, get_composite_thumbnail_no_eli, _cache_bust
+from pipeline.thumbnail import get_composite_thumbnail, _cache_bust, gemini_enhance_thumbnail
 from pipeline.title_card_composer import compose_title_card
 
 logger = logging.getLogger(__name__)
@@ -38,45 +38,22 @@ class GenerateThumbnailResponse(BaseModel):
 
 @router.get("/{script_id}", response_model=GenerateThumbnailResponse)
 def get_existing_thumbnails(script_id: str, session: Session = Depends(get_session)):
-    """Return any pre-existing thumbnails on disk (e.g. from title card generation)."""
+    """Return pre-existing thumbnail for a script."""
     record = session.get(Script, script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
 
-    content = ScriptContent.model_validate(json.loads(record.script_json))
-    card_title = content.card_title or content.title
-
     concepts: list[ThumbnailConceptResult] = []
-
-    composite_url = get_composite_thumbnail(script_id)
-    if composite_url:
-        concepts.append(ThumbnailConceptResult(
-            idx=0,
-            title_text=f"{card_title} (with Eli)",
-            visual_description="Composite grid title card with Eli overlay",
-            image_url=composite_url,
-        ))
-
-    no_eli_url = get_composite_thumbnail_no_eli(script_id)
-    if no_eli_url:
-        concepts.append(ThumbnailConceptResult(
-            idx=1,
-            title_text=f"{card_title} (without Eli)",
-            visual_description="Composite grid title card without Eli overlay",
-            image_url=no_eli_url,
-        ))
-
+    url = get_composite_thumbnail(script_id)
+    if url:
+        concepts.append(ThumbnailConceptResult(idx=0, title_text="", visual_description="Title card thumbnail", image_url=url))
     return GenerateThumbnailResponse(concepts=concepts)
 
 
 @router.post("/recomposite", response_model=GenerateThumbnailResponse)
 def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = Depends(get_session)):
-    """Re-run compositing on existing circle images (no AI generation).
-
-    Always generates both with-Eli and without-Eli variants so both are
-    visible and downloadable in the UI.
-    """
-    logger.info("Recompositing thumbnails for script %s", body.script_id)
+    """Re-run compositing on existing circle images, then enhance with Gemini."""
+    logger.info("Recompositing thumbnail for script %s", body.script_id)
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
@@ -108,12 +85,8 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
     thumbs_dir = DATA_DIR / "projects" / body.script_id / "renders" / "thumbnails"
     thumbs_dir.mkdir(parents=True, exist_ok=True)
 
-    concepts: list[ThumbnailConceptResult] = []
-
-    # --- With-Eli variant ---
-    composite_path = images_dir / "composite_title_card.png"
-    notitle_path = images_dir / "composite_title_card_notitle.png"
-
+    # Generate base composite (no Eli overlay, no circle outlines — Gemini handles those)
+    output_path = str(images_dir / "composite_title_card.png")
     compose_title_card(
         circle_image_paths=circle_paths,
         segment_names=segment_names,
@@ -121,55 +94,46 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
         card_title=card_title,
         highlight_word=highlight_word,
         accent_color=DEFAULT_ACCENT_COLOR,
-        output_path=str(composite_path),
-        include_title=True,
-        include_eli=True,
-        card_subtitle=card_subtitle,
-    )
-    compose_title_card(
-        circle_image_paths=circle_paths,
-        segment_names=segment_names,
-        circle_colors=circle_colors,
-        card_title=card_title,
-        highlight_word=highlight_word,
-        accent_color=DEFAULT_ACCENT_COLOR,
-        output_path=str(notitle_path),
-        include_title=False,
-        include_eli=True,
-        card_subtitle=card_subtitle,
-    )
-    shutil.copy2(str(composite_path), str(thumbs_dir / "0.png"))
-    url_0 = f"/static/projects/{body.script_id}/renders/thumbnails/0.png"
-    concepts.append(ThumbnailConceptResult(
-        idx=0,
-        title_text=f"{card_title} (with Eli)",
-        visual_description="Composite grid title card with Eli overlay",
-        image_url=_cache_bust(url_0, str(thumbs_dir / "0.png")),
-    ))
-
-    # --- Without-Eli variant ---
-    composite_no_eli_path = images_dir / "composite_title_card_no_eli.png"
-
-    compose_title_card(
-        circle_image_paths=circle_paths,
-        segment_names=segment_names,
-        circle_colors=circle_colors,
-        card_title=card_title,
-        highlight_word=highlight_word,
-        accent_color=DEFAULT_ACCENT_COLOR,
-        output_path=str(composite_no_eli_path),
+        output_path=output_path,
         include_title=True,
         include_eli=False,
         card_subtitle=card_subtitle,
     )
-    shutil.copy2(str(composite_no_eli_path), str(thumbs_dir / "0_no_eli.png"))
-    url_1 = f"/static/projects/{body.script_id}/renders/thumbnails/0_no_eli.png"
-    concepts.append(ThumbnailConceptResult(
-        idx=1,
-        title_text=f"{card_title} (without Eli)",
-        visual_description="Composite grid title card without Eli overlay",
-        image_url=_cache_bust(url_1, str(thumbs_dir / "0_no_eli.png")),
-    ))
 
-    logger.info("Recomposited both thumbnail variants for script %s", body.script_id)
-    return GenerateThumbnailResponse(concepts=concepts)
+    # Also generate no-title variant for video zoom scenes (stays Pillow-only)
+    notitle_path = str(images_dir / "composite_title_card_notitle.png")
+    compose_title_card(
+        circle_image_paths=circle_paths,
+        segment_names=segment_names,
+        circle_colors=circle_colors,
+        card_title=card_title,
+        highlight_word=highlight_word,
+        accent_color=DEFAULT_ACCENT_COLOR,
+        output_path=notitle_path,
+        include_title=False,
+        include_eli=False,
+        card_subtitle=card_subtitle,
+    )
+
+    # Gemini enhancement — transforms the base into a CTR-optimized thumbnail
+    base_path = str(images_dir / "composite_title_card_base.png")
+    enhanced_path = gemini_enhance_thumbnail(
+        base_image_path=base_path,
+        video_title=card_title,
+        script_id=body.script_id,
+    )
+
+    # If Gemini succeeded, use the enhanced version as the final thumbnail
+    if enhanced_path:
+        shutil.copy2(enhanced_path, output_path)
+        logger.info("Using Gemini-enhanced thumbnail")
+
+    # Copy to renders/thumbnails for export
+    thumb_dest = thumbs_dir / "0.png"
+    shutil.copy2(output_path, str(thumb_dest))
+    url = f"/static/projects/{body.script_id}/renders/thumbnails/0.png"
+    url = _cache_bust(url, str(thumb_dest))
+
+    return GenerateThumbnailResponse(
+        concepts=[ThumbnailConceptResult(idx=0, title_text=card_title, visual_description="Gemini-enhanced title card", image_url=url)]
+    )
