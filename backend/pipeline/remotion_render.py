@@ -249,7 +249,7 @@ def _run_remotion(
     fps: int = FPS,
     log_level: str = "warn",
 ) -> None:
-    """Run Remotion render via npx subprocess."""
+    """Run Remotion render via npx subprocess with streamed progress."""
     cmd = [
         "npx",
         "remotion",
@@ -269,20 +269,49 @@ def _run_remotion(
     logger.info("Running Remotion: %s", " ".join(cmd))
 
     t0 = time.monotonic()
-    result = subprocess.run(
+    last_progress_log = t0
+    stderr_tail: list[str] = []
+
+    proc = subprocess.Popen(
         cmd,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        timeout=3600,  # 60 min max
         cwd=str(REMOTION_DIR),
         env={**os.environ, "NODE_OPTIONS": "--max-old-space-size=4096"},
     )
+
+    try:
+        assert proc.stderr is not None
+        for line in proc.stderr:
+            line = line.rstrip()
+            if not line:
+                continue
+            stderr_tail.append(line)
+            if len(stderr_tail) > 50:
+                stderr_tail.pop(0)
+
+            # Log Remotion progress lines (contain %) at most every 10s
+            now = time.monotonic()
+            if "%" in line and now - last_progress_log >= 10:
+                logger.info("Remotion progress: %s", line.strip())
+                last_progress_log = now
+            elif "error" in line.lower() or "warn" in line.lower():
+                logger.warning("Remotion: %s", line.strip())
+
+        proc.wait(timeout=3600)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+        raise RuntimeError("Remotion render timed out after 60 minutes")
+
     elapsed = time.monotonic() - t0
 
-    if result.returncode != 0:
-        logger.error("Remotion stderr: %s", result.stderr[-1000:])
+    if proc.returncode != 0:
+        tail = "\n".join(stderr_tail[-20:])
+        logger.error("Remotion stderr tail:\n%s", tail)
         raise RuntimeError(
-            f"Remotion render failed (exit {result.returncode}): {result.stderr[-500:]}"
+            f"Remotion render failed (exit {proc.returncode}): {tail[-500:]}"
         )
 
     logger.info("Remotion render complete in %.1fs: %s", elapsed, output_path)
