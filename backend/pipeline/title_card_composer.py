@@ -623,7 +623,7 @@ def compose_title_card(
     accent_color: str = DEFAULT_ACCENT_COLOR,
     output_path: str = "",
     include_title: bool = True,
-    include_eli: bool = True,
+    include_eli: bool = False,
     card_subtitle: str = "",
 ) -> tuple[str, dict[int, tuple[int, int, int]]]:
     """Compose a grid title card image with circular segment thumbnails.
@@ -713,18 +713,7 @@ def compose_title_card(
             )
             canvas = Image.alpha_composite(canvas, fill_layer)
 
-        # Layer 5: Circle outline (dark border stroke)
-        outline_layer = Image.new("RGBA", (CANVAS_W, CANVAS_H), (0, 0, 0, 0))
-        od = ImageDraw.Draw(outline_layer)
-        od.ellipse(
-            (cx - bg_radius, cy - bg_radius, cx + bg_radius, cy + bg_radius),
-            outline=border_rgb + (255,),
-            width=_CIRCLE_BORDER_WIDTH,
-        )
-        canvas = Image.alpha_composite(canvas, outline_layer)
-
-        # Layer 5b: Energy glow ring
-        canvas = _draw_circle_energy_ring(canvas, cx, cy, bg_radius, color)
+        # Layers 5/5b removed — Gemini adds glowing borders during enhancement
 
         # Layer 6: Label badge — auto-scale to fit cell width
         label = segment_names[i].upper() if i < len(segment_names) else f"SEGMENT {i + 1}"
@@ -763,6 +752,9 @@ def compose_title_card(
     final = _boost_colors(canvas)
 
     final.save(output_path, "PNG")
+    # Also save as base image for Gemini enhancement
+    base_path = str(Path(output_path).parent / "composite_title_card_base.png")
+    final.save(base_path, "PNG")
     logger.info("Composite title card saved: %s (%d segments, %dx%d grid, title=%s)", output_path, count, cols, rows, include_title)
 
     return output_path, zoom_targets
