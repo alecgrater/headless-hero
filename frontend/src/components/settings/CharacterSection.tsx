@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import api, {
+import {
   assetUrl,
   clearAllCharacterFrames,
+  deleteThumbnailReference,
   generateCharacterFrames,
   generateCharacterReferences,
   generateCharacterVariants,
@@ -10,14 +11,13 @@ import api, {
   getCharacterFrames,
   getCharacterReferences,
   getCharacterStatus,
+  getThumbnailReferences,
   regenerateCharacterFrame,
   regenerateThumbnailFrame,
   reprocessCharacterBackgrounds,
   selectCharacterReference,
+  uploadThumbnailReference,
 } from "../../api";
-import { DEFAULT_ELI_POSITION } from "../../constants";
-import type { EliPosition } from "../../types/brand";
-import EliPositionPicker from "../shared/EliPositionPicker";
 
 interface FrameEntry {
   id: string;
@@ -69,11 +69,12 @@ export default function CharacterSection() {
   const [thumbProgress, setThumbProgress] = useState({ completed: 0, total: 0, current_label: "" });
   const [thumbRegeneratingId, setThumbRegeneratingId] = useState<string | null>(null);
 
+  // Thumbnail reference state
+  const [thumbnailRefs, setThumbnailRefs] = useState<{ filename: string; url: string }[]>([]);
+  const [uploadingRef, setUploadingRef] = useState(false);
+
   // Image cache-bust counter — incremented after any image change to force browser refresh
   const [imgVersion, setImgVersion] = useState(() => Date.now());
-
-  // Overlay position state
-  const [eliPosition, setEliPosition] = useState<EliPosition>(DEFAULT_ELI_POSITION);
 
   const fetchManifest = useCallback(async () => {
     const res = await getCharacterFrames();
@@ -92,13 +93,7 @@ export default function CharacterSection() {
   useEffect(() => {
     fetchManifest();
     fetchReferences();
-    // Fetch current brand eli_position
-    api.get("/api/brand").then((res) => {
-      if (res.ok) {
-        const brand = res.data as { eli_position: EliPosition | null };
-        if (brand.eli_position) setEliPosition(brand.eli_position);
-      }
-    });
+    getThumbnailReferences().then((data) => setThumbnailRefs(data.references)).catch(() => {});
   }, [fetchManifest, fetchReferences]);
 
   // Poll reference generation job
@@ -256,6 +251,24 @@ export default function CharacterSection() {
     setSelectedRef(null);
     setPendingRef(null);
   };
+
+  async function handleUploadThumbnailRef(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingRef(true);
+    try {
+      const result = await uploadThumbnailReference(file);
+      setThumbnailRefs((prev) => [...prev, result]);
+    } finally {
+      setUploadingRef(false);
+      e.target.value = "";
+    }
+  }
+
+  async function handleDeleteThumbnailRef(filename: string) {
+    await deleteThumbnailReference(filename);
+    setThumbnailRefs((prev) => prev.filter((r) => r.filename !== filename));
+  }
 
   const frameCount = manifest?.frames?.length ?? 0;
   const missingCount = manifest?.missing_count ?? 0;
@@ -731,21 +744,51 @@ export default function CharacterSection() {
         )}
       </div>
 
-      {/* ===== SECTION 3: Overlay Position ===== */}
+      {/* ===== SECTION 3: Thumbnail References ===== */}
       <div className="space-y-4">
         <h3 className="text-sm font-semibold text-neutral-200 uppercase tracking-wider">
-          Overlay Position (Default)
+          Thumbnail References
         </h3>
-        <p className="text-xs text-neutral-400">
-          Set the default position for the Eli overlay on all videos. Can be overridden per-video in the timeline.
+        <p className="text-xs text-neutral-500">
+          Upload thumbnails from channels you admire. These guide the style of your generated thumbnails — glowing borders, character placement, title treatment.
         </p>
-        <EliPositionPicker
-          value={eliPosition}
-          onChange={(pos) => {
-            setEliPosition(pos);
-            api.put("/api/brand", { eli_position: pos });
-          }}
-        />
+
+        {/* Upload button */}
+        <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white text-sm rounded-lg cursor-pointer transition-colors">
+          {uploadingRef ? "Uploading..." : "Upload Reference"}
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleUploadThumbnailRef}
+            disabled={uploadingRef}
+          />
+        </label>
+
+        {/* Grid of uploaded references */}
+        {thumbnailRefs.length > 0 && (
+          <div className="grid grid-cols-3 gap-3">
+            {thumbnailRefs.map((ref) => (
+              <div key={ref.filename} className="relative group rounded-lg overflow-hidden border border-neutral-800">
+                <img
+                  src={assetUrl(ref.url)}
+                  alt={ref.filename}
+                  className="w-full aspect-video object-cover"
+                />
+                <button
+                  onClick={() => handleDeleteThumbnailRef(ref.filename)}
+                  className="absolute top-1 right-1 w-6 h-6 bg-red-600 hover:bg-red-500 rounded-full text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                  title="Delete reference"
+                >
+                  x
+                </button>
+                <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 text-xs text-neutral-300 truncate">
+                  {ref.filename}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
