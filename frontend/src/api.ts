@@ -113,7 +113,7 @@ export async function cloneVoice(
     formData.append("files", file);
   }
 
-  const baseUrl = window.api ? "" : `http://localhost:${BACKEND_PORT}`;
+  const baseUrl = `http://localhost:${BACKEND_PORT}`;
   const response = await fetch(`${baseUrl}/api/voice/clone`, {
     method: "POST",
     body: formData,
@@ -274,7 +274,7 @@ export async function uploadThumbnailReference(file: File): Promise<{ filename: 
   const formData = new FormData();
   formData.append("file", file);
 
-  const baseUrl = window.api ? "" : `http://localhost:${BACKEND_PORT}`;
+  const baseUrl = `http://localhost:${BACKEND_PORT}`;
   const response = await fetch(`${baseUrl}/api/character/thumbnail-references`, {
     method: "POST",
     body: formData,

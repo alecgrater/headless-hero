@@ -317,6 +317,53 @@ export default function CharacterSection() {
 
   return (
     <div className="p-6 space-y-8">
+      {/* ===== SECTION: Thumbnail References ===== */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-neutral-200 uppercase tracking-wider">
+          Thumbnail References
+        </h3>
+        <p className="text-xs text-neutral-500">
+          Upload thumbnails from channels you admire. These guide the style of your generated thumbnails — glowing borders, character placement, title treatment.
+        </p>
+
+        {/* Upload button */}
+        <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white text-sm rounded-lg cursor-pointer transition-colors">
+          {uploadingRef ? "Uploading..." : "Upload Reference"}
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleUploadThumbnailRef}
+            disabled={uploadingRef}
+          />
+        </label>
+
+        {/* Grid of uploaded references */}
+        {thumbnailRefs.length > 0 && (
+          <div className="grid grid-cols-3 gap-3">
+            {thumbnailRefs.map((ref) => (
+              <div key={ref.filename} className="relative group rounded-lg overflow-hidden border border-neutral-800">
+                <img
+                  src={assetUrl(ref.url)}
+                  alt={ref.filename}
+                  className="w-full aspect-video object-cover"
+                />
+                <button
+                  onClick={() => handleDeleteThumbnailRef(ref.filename)}
+                  className="absolute top-1 right-1 w-6 h-6 bg-red-600 hover:bg-red-500 rounded-full text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                  title="Delete reference"
+                >
+                  x
+                </button>
+                <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 text-xs text-neutral-300 truncate">
+                  {ref.filename}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-neutral-100">Eli Character Frames</h2>
@@ -744,52 +791,6 @@ export default function CharacterSection() {
         )}
       </div>
 
-      {/* ===== SECTION 3: Thumbnail References ===== */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-neutral-200 uppercase tracking-wider">
-          Thumbnail References
-        </h3>
-        <p className="text-xs text-neutral-500">
-          Upload thumbnails from channels you admire. These guide the style of your generated thumbnails — glowing borders, character placement, title treatment.
-        </p>
-
-        {/* Upload button */}
-        <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white text-sm rounded-lg cursor-pointer transition-colors">
-          {uploadingRef ? "Uploading..." : "Upload Reference"}
-          <input
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleUploadThumbnailRef}
-            disabled={uploadingRef}
-          />
-        </label>
-
-        {/* Grid of uploaded references */}
-        {thumbnailRefs.length > 0 && (
-          <div className="grid grid-cols-3 gap-3">
-            {thumbnailRefs.map((ref) => (
-              <div key={ref.filename} className="relative group rounded-lg overflow-hidden border border-neutral-800">
-                <img
-                  src={assetUrl(ref.url)}
-                  alt={ref.filename}
-                  className="w-full aspect-video object-cover"
-                />
-                <button
-                  onClick={() => handleDeleteThumbnailRef(ref.filename)}
-                  className="absolute top-1 right-1 w-6 h-6 bg-red-600 hover:bg-red-500 rounded-full text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                  title="Delete reference"
-                >
-                  x
-                </button>
-                <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1 text-xs text-neutral-300 truncate">
-                  {ref.filename}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
