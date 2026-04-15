@@ -14,23 +14,20 @@ interface Props {
   segmentRanges: SegmentRange[];
 }
 
-const SIZE = 80;
-const RADIUS = 31;
-const STROKE_WIDTH = 3;
+const SIZE = 90;
+const RADIUS = 35;
+const STROKE_WIDTH = 3.5;
 const CENTER = SIZE / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 const FADE_FRAMES = 15;
-const COMPLETION_FRAMES = 12;
+const COMPLETION_FRAMES = 18;
 const TICK_INTERVAL_SECONDS = 20;
 const TICK_PULSE_FRAMES = 10;
 
 function formatTime(seconds: number): string {
-  if (seconds >= 60) {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, "0")}`;
-  }
-  return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")} left`;
 }
 
 export const SegmentTimer: React.FC<Props> = ({ segmentRanges }) => {
@@ -50,11 +47,11 @@ export const SegmentTimer: React.FC<Props> = ({ segmentRanges }) => {
   const remainingFrames = currentRange.end_frame - frame;
   const remainingSeconds = Math.ceil(remainingFrames / fps);
 
-  // Fade in/out at segment boundaries (capped at 0.85 max)
+  // Fade in/out at segment boundaries
   const opacity = interpolate(
     elapsed,
     [0, FADE_FRAMES, segmentDuration - FADE_FRAMES, segmentDuration],
-    [0, 0.85, 0.85, 0],
+    [0, 0.74, 0.74, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
 
@@ -68,6 +65,13 @@ export const SegmentTimer: React.FC<Props> = ({ segmentRanges }) => {
           extrapolateRight: "clamp",
         })
       : 1.0;
+  const tickRingBrightness =
+    elapsed > 0 && frameIntoTick < TICK_PULSE_FRAMES
+      ? interpolate(frameIntoTick, [0, 5, TICK_PULSE_FRAMES], [0, 0.4, 0], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        })
+      : 0;
 
   // Completion flash in last COMPLETION_FRAMES of segment
   const framesFromEnd = segmentDuration - elapsed;
@@ -76,12 +80,12 @@ export const SegmentTimer: React.FC<Props> = ({ segmentRanges }) => {
     ? interpolate(
         framesFromEnd,
         [COMPLETION_FRAMES, COMPLETION_FRAMES / 2, 0],
-        [1.0, 1.08, 1.0],
+        [1.0, 1.14, 1.0],
         { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
       )
     : 1.0;
   const completionOpacityBoost = isCompleting
-    ? interpolate(framesFromEnd, [COMPLETION_FRAMES, COMPLETION_FRAMES / 2, 0], [0, 0.15, 0], {
+    ? interpolate(framesFromEnd, [COMPLETION_FRAMES, COMPLETION_FRAMES / 2, 0], [0, 0.2, 0], {
         extrapolateLeft: "clamp",
         extrapolateRight: "clamp",
       })
@@ -90,23 +94,25 @@ export const SegmentTimer: React.FC<Props> = ({ segmentRanges }) => {
   const combinedScale = tickPulseScale * completionScale;
   const combinedOpacity = Math.min(1, opacity + completionOpacityBoost);
 
-  // Ring color: normally violet-tinted, brightens to full white during completion
-  const ringStroke = isCompleting
+  // Ring color: vivid violet base, brightens during tick pulse, shifts to emerald green during completion
+  const completionMix = isCompleting
     ? interpolate(framesFromEnd, [COMPLETION_FRAMES, COMPLETION_FRAMES / 2, 0], [0, 1, 0], {
         extrapolateLeft: "clamp",
         extrapolateRight: "clamp",
       })
     : 0;
-  const ringR = Math.round(200 + ringStroke * 55);
-  const ringG = Math.round(210 + ringStroke * 45);
-  const ringB = 255;
-  const ringA = 0.95 + ringStroke * 0.05;
+  const baseR = 140 + tickRingBrightness * 115;
+  const baseG = 120 + tickRingBrightness * 135;
+  const baseB = 255;
+  const ringR = Math.round(baseR + completionMix * (100 - baseR));
+  const ringG = Math.round(baseG + completionMix * (220 - baseG));
+  const ringB = Math.round(baseB + completionMix * (130 - baseB));
+  const ringA = 0.95 + completionMix * 0.05;
 
   // Ring progress: starts as a dot, traces clockwise to full circle
   const dashOffset = CIRCUMFERENCE * (1 - progress);
 
   const timeText = formatTime(remainingSeconds);
-  const fontSize = remainingSeconds >= 60 ? 15 : 18;
 
   return (
     <div
@@ -120,13 +126,13 @@ export const SegmentTimer: React.FC<Props> = ({ segmentRanges }) => {
         opacity: combinedOpacity,
         transform: `scale(${combinedScale})`,
         transformOrigin: "center center",
-        filter: "drop-shadow(0 0 8px rgba(0, 0, 0, 0.6))",
+        filter: "drop-shadow(0 0 10px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 20px rgba(140, 120, 255, 0.15))",
       }}
     >
       <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`}>
         <defs>
           <filter id="timer-glow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feGaussianBlur stdDeviation="4" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
@@ -139,7 +145,7 @@ export const SegmentTimer: React.FC<Props> = ({ segmentRanges }) => {
           cx={CENTER}
           cy={CENTER}
           r={RADIUS + 2}
-          fill="rgba(0, 0, 0, 0.75)"
+          fill="rgba(0, 0, 0, 0.9)"
         />
 
         {/* Track ring (subtle) */}
@@ -174,7 +180,7 @@ export const SegmentTimer: React.FC<Props> = ({ segmentRanges }) => {
           textAnchor="middle"
           dominantBaseline="central"
           fill="white"
-          fontSize={fontSize}
+          fontSize={13}
           fontFamily="monospace"
           fontWeight="bold"
           filter="url(#timer-glow)"
