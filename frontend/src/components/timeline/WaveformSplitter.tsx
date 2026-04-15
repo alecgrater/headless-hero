@@ -3,6 +3,7 @@
  * Uses wavesurfer.js to render the waveform and snap split markers to word boundaries.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import WaveSurfer from "wavesurfer.js";
 import type { WordTimestamp } from "../../types/script";
 
 interface Props {
@@ -18,49 +19,40 @@ export default function WaveformSplitter({ audioUrl, wordTimestamps, onSplit }: 
   const [ready, setReady] = useState(false);
   const audioUrlRef = useRef(audioUrl);
 
-  // Dynamically import wavesurfer.js to avoid SSR issues
   useEffect(() => {
     if (!containerRef.current) return;
 
     let cancelled = false;
 
-    const init = async () => {
-      const WaveSurfer = (await import("wavesurfer.js")).default;
+    const ws = WaveSurfer.create({
+      container: containerRef.current,
+      waveColor: "#525252",
+      progressColor: "#7c3aed",
+      cursorColor: "#a78bfa",
+      cursorWidth: 2,
+      height: "auto",
+      barWidth: 2,
+      barGap: 1,
+      barRadius: 2,
+      normalize: true,
+      interact: true,
+    });
 
-      if (cancelled || !containerRef.current) return;
+    ws.load(audioUrl);
+    audioUrlRef.current = audioUrl;
 
-      const ws = WaveSurfer.create({
-        container: containerRef.current,
-        waveColor: "#525252",
-        progressColor: "#7c3aed",
-        cursorColor: "#a78bfa",
-        cursorWidth: 2,
-        height: "auto",
-        barWidth: 2,
-        barGap: 1,
-        barRadius: 2,
-        normalize: true,
-        interact: true,
-      });
+    ws.on("ready", () => {
+      if (!cancelled) setReady(true);
+    });
 
-      ws.load(audioUrl);
-      audioUrlRef.current = audioUrl;
+    ws.on("click", (relativeX: number) => {
+      const duration = ws.getDuration();
+      const clickTimeMs = Math.round(relativeX * duration * 1000);
+      const snapped = snapToWordBoundary(clickTimeMs, wordTimestamps);
+      setSplitTimeMs(snapped);
+    });
 
-      ws.on("ready", () => {
-        if (!cancelled) setReady(true);
-      });
-
-      ws.on("click", (relativeX: number) => {
-        const duration = ws.getDuration();
-        const clickTimeMs = Math.round(relativeX * duration * 1000);
-        const snapped = snapToWordBoundary(clickTimeMs, wordTimestamps);
-        setSplitTimeMs(snapped);
-      });
-
-      wavesurferRef.current = ws;
-    };
-
-    init();
+    wavesurferRef.current = ws;
 
     return () => {
       cancelled = true;
