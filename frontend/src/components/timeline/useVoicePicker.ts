@@ -32,7 +32,16 @@ export function useVoicePicker(): UseVoicePickerResult {
     api.get("/api/voice/voices").then((res) => {
       if (res.ok) {
         const data = res.data as VoiceListResponse;
-        setVoices(data.voices);
+        const sorted = [...data.voices].sort((a, b) => {
+          const priority = (v: VoiceInfo) => {
+            const n = v.name.toLowerCase();
+            if (n.startsWith("ben")) return 0;
+            if (n.startsWith("liam")) return 1;
+            return 2;
+          };
+          return priority(a) - priority(b) || a.name.localeCompare(b.name);
+        });
+        setVoices(sorted);
         // Default to brand voice, then "Social Media" voice, then first voice
         setSelectedVoiceId((prev) => {
           if (!prev && data.voices.length > 0) {

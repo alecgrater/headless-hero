@@ -41,7 +41,16 @@ export default function VoicePublishSection() {
     api.get("/api/voice/voices").then((res) => {
       if (res.ok) {
         const data = res.data as VoiceListResponse;
-        setVoices(data.voices);
+        const sorted = [...data.voices].sort((a, b) => {
+          const priority = (v: VoiceInfo) => {
+            const n = v.name.toLowerCase();
+            if (n.startsWith("ben")) return 0;
+            if (n.startsWith("liam")) return 1;
+            return 2;
+          };
+          return priority(a) - priority(b) || a.name.localeCompare(b.name);
+        });
+        setVoices(sorted);
         if (!selectedVoiceId && data.voices.length > 0) {
           const ben = data.voices.find((v) =>
             v.name.toLowerCase().startsWith("ben"),
@@ -83,7 +92,16 @@ export default function VoicePublishSection() {
     const res = await api.get("/api/voice/voices");
     if (res.ok) {
       const data = res.data as VoiceListResponse;
-      setVoices(data.voices);
+      const sorted = [...data.voices].sort((a, b) => {
+        const priority = (v: VoiceInfo) => {
+          const n = v.name.toLowerCase();
+          if (n.startsWith("ben")) return 0;
+          if (n.startsWith("liam")) return 1;
+          return 2;
+        };
+        return priority(a) - priority(b) || a.name.localeCompare(b.name);
+      });
+      setVoices(sorted);
     }
   };
 
