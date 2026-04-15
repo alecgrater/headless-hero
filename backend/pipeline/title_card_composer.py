@@ -36,28 +36,37 @@ _BUNDLED_TITLE_FONT = Path(__file__).resolve().parent.parent / "assets" / "fonts
 _BG_COLOR = (255, 250, 240)  # warm cream (fallback only)
 _BG_GRAD_TOP = (26, 5, 51)  # deep purple #1a0533
 _BG_GRAD_BOTTOM = (10, 46, 61)  # dark teal #0a2e3d
-_VIGNETTE_STRENGTH = 100  # alpha of dark edge overlay
+_VIGNETTE_STRENGTH = 160  # alpha of dark edge overlay (stronger spotlight)
 _CENTER_GLOW_RADIUS = 60  # blur radius for center glow
-_CIRCLE_BORDER_WIDTH = 8
+_CIRCLE_BORDER_WIDTH = 6
 _CIRCLE_SHADOW_OFFSET = (6, 8)
 _CIRCLE_SHADOW_BLUR = 15
 _CIRCLE_SHADOW_ALPHA = 90
+_CIRCLE_ENERGY_BLUR = 18  # energy ring glow blur
+_CIRCLE_ENERGY_ALPHA = 100  # energy ring glow opacity
 _BADGE_OVERLAP_PX = 20  # how far badge overlaps bottom of circle
 _BADGE_PAD_X = 28
 _BADGE_PAD_Y = 12
 _BADGE_RADIUS = 20  # corner radius
 _BADGE_GLOW_BLUR = 12
+_BADGE_BG_ALPHA = 240  # darker badge backing for readability
+_TITLE_FONT_SIZE = 160  # larger title for more top real estate
 _TITLE_SHADOW_OFFSET = (5, 7)
 _TITLE_SHADOW_BLUR = 12
 _TITLE_SHADOW_ALPHA = 140
-_TITLE_EXTRUSION_DEPTH = 5
+_TITLE_EXTRUSION_DEPTH = 6
 _TITLE_EXTRUSION_COLOR = (15, 15, 60)
-_TITLE_STROKE_WIDTH = 7
+_TITLE_STROKE_WIDTH = 8
 _TITLE_STROKE_COLOR = (0, 30, 120)
 _TITLE_GRAD_TOP = (255, 230, 0)  # yellow
 _TITLE_GRAD_BOTTOM = (255, 140, 0)  # orange
 _BURST_COLOR = (255, 245, 180)  # warm yellow glow
 _BURST_ALPHA = 100
+_SUBTITLE_FONT_SIZE = 72  # subtitle below title
+_SUBTITLE_COLOR = (220, 30, 30)  # aggressive red
+_SUBTITLE_STROKE_WIDTH = 5
+_SUBTITLE_STROKE_COLOR = (80, 0, 0)  # dark red stroke
+_SUBTITLE_SHADOW_ALPHA = 160
 _COLOR_SATURATION = 1.15
 _COLOR_CONTRAST = 1.08
 _ELI_SCALE = 0.42                          # fraction of canvas height
@@ -217,7 +226,7 @@ def _draw_label_badge(
     badge_rgb = _hex_to_rgb(badge_fill)
     badge = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     bd = ImageDraw.Draw(badge)
-    bd.rounded_rectangle((bx, by, bx + bw, by + bh), radius=_BADGE_RADIUS, fill=badge_rgb + (230,))
+    bd.rounded_rectangle((bx, by, bx + bw, by + bh), radius=_BADGE_RADIUS, fill=badge_rgb + (_BADGE_BG_ALPHA,))
     canvas = Image.alpha_composite(canvas, badge)
 
     # White text with dark stroke
@@ -240,7 +249,7 @@ def _draw_3d_title_text(
 ) -> Image.Image:
     """Render title with 3D extrusion, gradient fill, stroke, and drop shadow."""
     w, h = canvas.size
-    font = _load_title_font(140)
+    font = _load_title_font(_TITLE_FONT_SIZE)
 
     # Split title into segments: before, highlight, after
     highlight = highlight_word.upper() if highlight_word else ""
@@ -340,6 +349,77 @@ def _draw_3d_title_text(
     return canvas
 
 
+def _draw_subtitle_text(
+    canvas: Image.Image,
+    subtitle: str,
+    y: int,
+) -> Image.Image:
+    """Render an aggressive red subtitle below the main title."""
+    if not subtitle:
+        return canvas
+
+    w, h = canvas.size
+    font = _load_title_font(_SUBTITLE_FONT_SIZE)
+    text = subtitle.upper()
+
+    bbox = font.getbbox(text)
+    tw = bbox[2] - bbox[0]
+    th = bbox[3] - bbox[1]
+    x = (w - tw) // 2
+
+    # Drop shadow
+    shadow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shadow)
+    sd.text((x + 3, y + 4), text, fill=(0, 0, 0, _SUBTITLE_SHADOW_ALPHA), font=font)
+    shadow = shadow.filter(ImageFilter.GaussianBlur(8))
+    canvas = Image.alpha_composite(canvas, shadow)
+
+    # Red backing glow
+    glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    pad_x, pad_y = 30, 8
+    gd.rounded_rectangle(
+        (x - pad_x, y - pad_y, x + tw + pad_x, y + th + pad_y + bbox[1] * 2),
+        radius=12,
+        fill=(150, 0, 0, 120),
+    )
+    glow = glow.filter(ImageFilter.GaussianBlur(10))
+    canvas = Image.alpha_composite(canvas, glow)
+
+    # Dark stroke + red fill
+    text_layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    td = ImageDraw.Draw(text_layer)
+    td.text(
+        (x, y), text, fill=_SUBTITLE_COLOR + (255,), font=font,
+        stroke_width=_SUBTITLE_STROKE_WIDTH, stroke_fill=_SUBTITLE_STROKE_COLOR + (255,),
+    )
+    canvas = Image.alpha_composite(canvas, text_layer)
+
+    return canvas
+
+
+def _draw_circle_energy_ring(
+    canvas: Image.Image,
+    cx: int,
+    cy: int,
+    radius: int,
+    color: str,
+) -> Image.Image:
+    """Draw a subtle colored energy glow ring around a circle."""
+    w, h = canvas.size
+    ring = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    rd = ImageDraw.Draw(ring)
+    ring_radius = radius + 12
+    rgb = _hex_to_rgb(color)
+    rd.ellipse(
+        (cx - ring_radius, cy - ring_radius, cx + ring_radius, cy + ring_radius),
+        outline=rgb + (_CIRCLE_ENERGY_ALPHA,),
+        width=4,
+    )
+    ring = ring.filter(ImageFilter.GaussianBlur(_CIRCLE_ENERGY_BLUR))
+    return Image.alpha_composite(canvas, ring)
+
+
 def _boost_colors(img: Image.Image) -> Image.Image:
     """Subtle saturation and contrast boost."""
     rgb = img.convert("RGB")
@@ -373,7 +453,7 @@ def calculate_grid_layout(
     rows, cols = _GRID_LAYOUTS.get(segment_count, (2, max(3, (segment_count + 1) // 2)))
 
     if include_title:
-        grid_top = 160  # allow title to overlap top circles slightly
+        grid_top = 200  # reserve space for larger title + subtitle
     else:
         grid_top = 30  # near top of canvas
     grid_bottom = CANVAS_H - 40
@@ -508,6 +588,7 @@ def compose_title_card(
     output_path: str = "",
     include_title: bool = True,
     include_eli: bool = True,
+    card_subtitle: str = "",
 ) -> tuple[str, dict[int, tuple[int, int, int]]]:
     """Compose a grid title card image with circular segment thumbnails.
 
@@ -521,6 +602,7 @@ def compose_title_card(
         output_path: Where to save the composite PNG.
         include_title: If True, render title text at top. If False, skip title
             and use the extra space for larger circles.
+        card_subtitle: Optional action subtitle below title (e.g. "RE-WRITING HISTORY").
 
     Returns:
         (output_path, zoom_targets) where zoom_targets maps
@@ -548,7 +630,7 @@ def compose_title_card(
 
     # --- Layer 1: Title burst ---
     if include_title:
-        canvas = _draw_title_burst(canvas, 20, 120)
+        canvas = _draw_title_burst(canvas, 10, 180)
 
     # --- Layer 2: Circle shadows (all drawn before circles) ---
     for i, (cx, cy) in enumerate(positions):
@@ -605,6 +687,9 @@ def compose_title_card(
         )
         canvas = Image.alpha_composite(canvas, outline_layer)
 
+        # Layer 5b: Energy glow ring
+        canvas = _draw_circle_energy_ring(canvas, cx, cy, bg_radius, color)
+
         # Layer 6: Label badge — auto-scale to fit cell width
         label = segment_names[i].upper() if i < len(segment_names) else f"SEGMENT {i + 1}"
         max_label_w = int(cell_w - 20)
@@ -623,10 +708,16 @@ def compose_title_card(
 
         zoom_targets[i] = (cx, cy, max_radius)
 
-    # --- Layer 7: Title text ---
+    # --- Layer 7: Title text + subtitle ---
     if include_title:
         title_text = card_title.upper()
-        canvas = _draw_3d_title_text(canvas, title_text, highlight_word, accent_color, y=20)
+        canvas = _draw_3d_title_text(canvas, title_text, highlight_word, accent_color, y=10)
+        if card_subtitle:
+            # Position subtitle below title — measure title height to place it
+            title_font = _load_title_font(_TITLE_FONT_SIZE)
+            title_bbox = title_font.getbbox(title_text)
+            subtitle_y = 10 + title_bbox[3] + 5
+            canvas = _draw_subtitle_text(canvas, card_subtitle, y=subtitle_y)
 
     # --- Layer 8: Eli character overlay (top-right corner) ---
     if include_eli:

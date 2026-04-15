@@ -165,6 +165,7 @@ def ensure_title_card_images(
 
     card_title = content.card_title or content.title
     highlight_word = content.card_title_highlight_word or ""
+    card_subtitle = content.card_subtitle or ""
 
     compose_title_card(
         circle_image_paths=[p for p in circle_paths],
@@ -175,6 +176,7 @@ def ensure_title_card_images(
         accent_color=accent_color,
         output_path=str(composite_path),
         include_title=True,
+        card_subtitle=card_subtitle,
     )
 
     # Step 3: Compose no-title version (for zoom scene rendering — larger circles)
@@ -187,6 +189,7 @@ def ensure_title_card_images(
         accent_color=accent_color,
         output_path=str(notitle_path),
         include_title=False,
+        card_subtitle=card_subtitle,
     )
 
     # Step 4: Copy with-title composite to thumbnail location

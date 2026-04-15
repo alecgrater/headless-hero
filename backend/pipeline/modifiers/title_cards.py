@@ -23,6 +23,8 @@ Composite Title Card System:
 - You MUST provide these top-level fields:
   - "card_title": A condensed 2-4 word UPPERCASE title for the card (e.g. "TYPES OF DREAMS")
   - "card_title_highlight_word": One word from card_title to highlight in accent color (e.g. "DREAMS")
+  - "card_subtitle": A short 2-4 word UPPERCASE action subtitle that creates urgency (e.g. "RE-WRITING HISTORY", \
+"BREAKING THE RULES", "PUSHING THE LIMITS"). This appears below the title in red to add energy and promise a narrative.
 - Each segment MUST include:
   - "short_name": A punchy 1-3 word UPPERCASE label for the segment (used on thumbnail). Must be 3 words or fewer.
   - "circle_color": A bold, distinct hex color for the circle background (e.g. "#e91e63"). \

@@ -103,6 +103,7 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
     ]
     card_title = content.card_title or content.title
     highlight_word = content.card_title_highlight_word or ""
+    card_subtitle = content.card_subtitle or ""
 
     thumbs_dir = DATA_DIR / "projects" / body.script_id / "renders" / "thumbnails"
     thumbs_dir.mkdir(parents=True, exist_ok=True)
@@ -123,6 +124,7 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
         output_path=str(composite_path),
         include_title=True,
         include_eli=True,
+        card_subtitle=card_subtitle,
     )
     compose_title_card(
         circle_image_paths=circle_paths,
@@ -134,6 +136,7 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
         output_path=str(notitle_path),
         include_title=False,
         include_eli=True,
+        card_subtitle=card_subtitle,
     )
     shutil.copy2(str(composite_path), str(thumbs_dir / "0.png"))
     url_0 = f"/static/projects/{body.script_id}/renders/thumbnails/0.png"
@@ -157,6 +160,7 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
         output_path=str(composite_no_eli_path),
         include_title=True,
         include_eli=False,
+        card_subtitle=card_subtitle,
     )
     shutil.copy2(str(composite_no_eli_path), str(thumbs_dir / "0_no_eli.png"))
     url_1 = f"/static/projects/{body.script_id}/renders/thumbnails/0_no_eli.png"

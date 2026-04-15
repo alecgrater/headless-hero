@@ -117,6 +117,7 @@ class ScriptContent(BaseModel):
     outro_cta: str = ""
     card_title: str = ""                  # condensed title for composite title card (e.g. "TYPES OF DREAMS")
     card_title_highlight_word: str = ""   # word to render in accent color (e.g. "DREAMS")
+    card_subtitle: str = ""              # action subtitle below title (e.g. "RE-WRITING HISTORY")
     video_fx: dict | None = None          # VideoFX dict — computed deterministically at render time
     eli_position: dict | None = None      # Per-video Eli overlay position override {x, y}
     segment_timer_enabled: bool = True    # Global toggle for segment countdown timer overlay

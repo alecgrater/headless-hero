@@ -191,6 +191,7 @@ Return valid JSON with this structure:
   "title": "Video Title",
   "card_title": "SHORT TITLE",
   "card_title_highlight_word": "KEYWORD",
+  "card_subtitle": "ACTION PHRASE",
   "intro_hook": "A punchy 1-2 sentence hook.",
   "outro_cta": "A call-to-action for the end.",
   "segments": [
@@ -375,6 +376,7 @@ def _generate_segmented(
         outro_cta=outline.get("outro_cta", ""),
         card_title=outline.get("card_title", ""),
         card_title_highlight_word=outline.get("card_title_highlight_word", ""),
+        card_subtitle=outline.get("card_subtitle", ""),
     )
 
     total_elapsed = time.monotonic() - total_t0
