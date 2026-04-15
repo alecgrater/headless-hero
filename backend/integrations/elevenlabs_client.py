@@ -202,3 +202,54 @@ def list_voices() -> list[dict[str, str]]:
             "category": v.get("category") or "",
         })
     return voices
+
+
+def search_library_voices(search: str, page_size: int = 20) -> list[dict]:
+    """Search the ElevenLabs shared voice library.
+
+    Returns list of dicts with voice_id, name, public_owner_id, accent,
+    gender, age, description, preview_url, category, use_case.
+    """
+    url = f"{_BASE_URL}/shared-voices"
+    params = {"search": search, "page_size": page_size}
+
+    with httpx.Client(timeout=30.0) as client:
+        response = client.get(url, headers=_headers(), params=params)
+        response.raise_for_status()
+        data = response.json()
+
+    results: list[dict] = []
+    for v in data.get("voices", []):
+        results.append({
+            "voice_id": v.get("voice_id", ""),
+            "name": v.get("name", ""),
+            "public_owner_id": v.get("public_owner_id", ""),
+            "accent": v.get("accent", ""),
+            "gender": v.get("gender", ""),
+            "age": v.get("age", ""),
+            "description": v.get("description", ""),
+            "preview_url": v.get("preview_url", ""),
+            "category": v.get("category", ""),
+            "use_case": v.get("use_case", ""),
+        })
+    return results
+
+
+def add_library_voice(public_user_id: str, voice_id: str, new_name: str) -> str:
+    """Add a shared voice from the library to your ElevenLabs account.
+
+    Returns the voice_id of the newly added voice in your account.
+    """
+    url = f"{_BASE_URL}/voices/add/{public_user_id}/{voice_id}"
+
+    with httpx.Client(timeout=30.0) as client:
+        response = client.post(
+            url,
+            json={"new_name": new_name},
+            headers={
+                "xi-api-key": _get_key(),
+                "Content-Type": "application/json",
+            },
+        )
+        response.raise_for_status()
+        return response.json()["voice_id"]

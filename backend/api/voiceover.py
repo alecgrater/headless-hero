@@ -9,7 +9,12 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from database import get_session
-from integrations.elevenlabs_client import clone_voice, list_voices
+from integrations.elevenlabs_client import (
+    add_library_voice,
+    clone_voice,
+    list_voices,
+    search_library_voices,
+)
 from models.script import Script, ScriptContent
 from pipeline.voiceover import generate_batch_audio, generate_scene_audio
 
@@ -62,6 +67,33 @@ class VoiceListResponse(BaseModel):
     voices: list[VoiceInfo]
 
 class CloneVoiceResponse(BaseModel):
+    voice_id: str
+
+class LibrarySearchRequest(BaseModel):
+    search: str
+    page_size: int = 20
+
+class LibraryVoiceInfo(BaseModel):
+    voice_id: str
+    name: str
+    public_owner_id: str
+    accent: str = ""
+    gender: str = ""
+    age: str = ""
+    description: str = ""
+    preview_url: str = ""
+    category: str = ""
+    use_case: str = ""
+
+class LibrarySearchResponse(BaseModel):
+    voices: list[LibraryVoiceInfo]
+
+class AddLibraryVoiceRequest(BaseModel):
+    public_owner_id: str
+    voice_id: str
+    name: str
+
+class AddLibraryVoiceResponse(BaseModel):
     voice_id: str
 
 # --- Helpers ---
@@ -185,3 +217,24 @@ def get_voices():
         return VoiceListResponse(voices=[])
     logger.info("Listed %d voices", len(voices))
     return VoiceListResponse(voices=[VoiceInfo(**v) for v in voices])
+
+
+@router.post("/library/search", response_model=LibrarySearchResponse)
+def search_library(body: LibrarySearchRequest):
+    """Search the ElevenLabs shared voice library."""
+    try:
+        results = search_library_voices(body.search, body.page_size)
+    except RuntimeError:
+        logger.warning("ElevenLabs API key not configured")
+        return LibrarySearchResponse(voices=[])
+    logger.info("Library search for %r returned %d results", body.search, len(results))
+    return LibrarySearchResponse(voices=[LibraryVoiceInfo(**v) for v in results])
+
+
+@router.post("/library/add", response_model=AddLibraryVoiceResponse, status_code=201)
+def add_from_library(body: AddLibraryVoiceRequest):
+    """Add a voice from the ElevenLabs shared library to your account."""
+    logger.info("Adding library voice %s (%s)", body.voice_id, body.name)
+    new_voice_id = add_library_voice(body.public_owner_id, body.voice_id, body.name)
+    logger.info("Library voice added as %s", new_voice_id)
+    return AddLibraryVoiceResponse(voice_id=new_voice_id)

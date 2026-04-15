@@ -1,12 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api, { openInBrowser } from "../../api";
-import type { VoiceInfo, VoiceListResponse } from "../../types/audio";
+import type {
+  LibrarySearchResponse,
+  LibraryVoiceInfo,
+  VoiceInfo,
+  VoiceListResponse,
+} from "../../types/audio";
 import type { OAuthStatusResponse, PlatformConnection } from "../../types/publish";
 
 export default function VoicePublishSection() {
   const [voices, setVoices] = useState<VoiceInfo[]>([]);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>("");
   const [saving, setSaving] = useState(false);
+
+  // Library search state
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [libraryResults, setLibraryResults] = useState<LibraryVoiceInfo[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [adding, setAdding] = useState<string | null>(null);
+  const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
+  const [playingId, setPlayingId] = useState<string | null>(null);
 
   // YouTube OAuth state
   const [connections, setConnections] = useState<OAuthStatusResponse | null>(null);
@@ -64,6 +77,62 @@ export default function VoicePublishSection() {
     setSaving(true);
     await api.put("/api/brand", { voice_id: voiceId });
     setSaving(false);
+  };
+
+  const refreshVoices = async () => {
+    const res = await api.get("/api/voice/voices");
+    if (res.ok) {
+      const data = res.data as VoiceListResponse;
+      setVoices(data.voices);
+    }
+  };
+
+  const handleLibrarySearch = async () => {
+    if (!librarySearch.trim()) return;
+    setSearching(true);
+    const res = await api.post("/api/voice/library/search", { search: librarySearch.trim() });
+    if (res.ok) {
+      setLibraryResults((res.data as LibrarySearchResponse).voices);
+    }
+    setSearching(false);
+  };
+
+  const handleAddLibraryVoice = async (voice: LibraryVoiceInfo) => {
+    setAdding(voice.voice_id);
+    const res = await api.post("/api/voice/library/add", {
+      public_owner_id: voice.public_owner_id,
+      voice_id: voice.voice_id,
+      name: voice.name,
+    });
+    if (res.ok) {
+      const { voice_id: newId } = res.data as { voice_id: string };
+      await refreshVoices();
+      await handleVoiceChange(newId);
+      setLibraryResults([]);
+      setLibrarySearch("");
+    }
+    setAdding(null);
+  };
+
+  const handlePreview = (voice: LibraryVoiceInfo) => {
+    if (!voice.preview_url) return;
+    if (previewAudio) {
+      previewAudio.pause();
+      previewAudio.currentTime = 0;
+    }
+    if (playingId === voice.voice_id) {
+      setPlayingId(null);
+      setPreviewAudio(null);
+      return;
+    }
+    const audio = new Audio(voice.preview_url);
+    audio.onended = () => {
+      setPlayingId(null);
+      setPreviewAudio(null);
+    };
+    audio.play();
+    setPreviewAudio(audio);
+    setPlayingId(voice.voice_id);
   };
 
   const handleConnectYouTube = async () => {
@@ -133,6 +202,64 @@ export default function VoicePublishSection() {
           ))}
         </select>
         {saving && <p className="text-xs text-violet-400">Saving...</p>}
+      </div>
+
+      {/* Voice Library Search */}
+      <div className="space-y-3">
+        <h3 className="text-lg font-semibold text-neutral-100">Voice Library</h3>
+        <p className="text-sm text-neutral-400">
+          Search the ElevenLabs community library to find and add new voices.
+        </p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={librarySearch}
+            onChange={(e) => setLibrarySearch(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleLibrarySearch()}
+            placeholder="Search voices..."
+            className="flex-1 px-3 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-200 text-sm placeholder-neutral-500 focus:outline-none focus:border-violet-500/50 transition-colors"
+          />
+          <button
+            onClick={handleLibrarySearch}
+            disabled={searching || !librarySearch.trim()}
+            className="px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+          >
+            {searching ? "Searching..." : "Search"}
+          </button>
+        </div>
+
+        {libraryResults.length > 0 && (
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {libraryResults.map((v) => (
+              <div
+                key={v.voice_id}
+                className="flex items-center gap-3 p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/50"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-neutral-200 truncate">{v.name}</p>
+                  <p className="text-xs text-neutral-500">
+                    {[v.gender, v.age, v.accent, v.use_case].filter(Boolean).join(" · ")}
+                  </p>
+                </div>
+                {v.preview_url && (
+                  <button
+                    onClick={() => handlePreview(v)}
+                    className="shrink-0 px-2.5 py-1.5 rounded-md bg-neutral-700 hover:bg-neutral-600 text-xs text-neutral-300 transition-colors"
+                  >
+                    {playingId === v.voice_id ? "Stop" : "Preview"}
+                  </button>
+                )}
+                <button
+                  onClick={() => handleAddLibraryVoice(v)}
+                  disabled={adding === v.voice_id}
+                  className="shrink-0 px-3 py-1.5 rounded-md bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-xs font-medium transition-colors"
+                >
+                  {adding === v.voice_id ? "Adding..." : "Add"}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* YouTube OAuth */}
