@@ -43,10 +43,10 @@ export default function VoicePublishSection() {
         const data = res.data as VoiceListResponse;
         setVoices(data.voices);
         if (!selectedVoiceId && data.voices.length > 0) {
-          const social = data.voices.find((v) =>
-            v.name.toLowerCase().includes("social media"),
+          const ben = data.voices.find((v) =>
+            v.name.toLowerCase().startsWith("ben"),
           );
-          const fallback = social?.voice_id ?? data.voices[0].voice_id;
+          const fallback = ben?.voice_id ?? data.voices[0].voice_id;
           setSelectedVoiceId(fallback);
           // Persist to brand so it sticks
           api.put("/api/brand", { voice_id: fallback });
