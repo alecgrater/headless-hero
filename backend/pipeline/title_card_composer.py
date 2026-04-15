@@ -62,7 +62,7 @@ _COLOR_SATURATION = 1.15
 _COLOR_CONTRAST = 1.08
 _ELI_SCALE = 0.42                          # fraction of canvas height
 _ELI_ROTATION_DEG = 5                      # slight counter-clockwise tilt
-_ELI_RIGHT_OVERFLOW = 0.20                 # fraction of eli width allowed to overflow right edge
+_ELI_RIGHT_OVERFLOW = 0.35                 # fraction of eli width allowed to overflow right edge
 _ELI_STROKE_WIDTH = 9                      # MaxFilter kernel — crisp outline
 _ELI_GLOW_EXPAND = 21                      # MaxFilter kernel for glow spread
 _ELI_GLOW_BLUR = 22                        # GaussianBlur radius
@@ -447,7 +447,7 @@ def _overlay_eli_frame(canvas: Image.Image) -> Image.Image:
         # Position: push right so body overflows canvas edge, face stays visible
         overflow_px = int(eli_img.width * _ELI_RIGHT_OVERFLOW)
         paste_x = w - eli_img.width + overflow_px
-        paste_y = 0
+        paste_y = -int(eli_img.height * 0.08)  # nudge up so top clips off edge
 
         alpha = eli_img.getchannel("A")
 
