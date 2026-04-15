@@ -56,6 +56,13 @@ class ExportAudioResponse(BaseModel):
 class RenderEstimateResponse(BaseModel):
     estimated_seconds: float
 
+class ExportBundleRequest(BaseModel):
+    script_id: str
+
+class ExportBundleResponse(BaseModel):
+    folder_path: str
+    files: list[str]
+
 class ExportTestRequest(BaseModel):
     script_id: str
     regen_title_cards: bool = False
@@ -472,6 +479,68 @@ def export_audio(body: ExportAudioRequest, session: Session = Depends(get_sessio
     audio_url = export_full_audio(body.script_id, content, title=body.title)
     logger.info("Audio export complete for script %s: %s", body.script_id, audio_url)
     return ExportAudioResponse(audio_url=audio_url)
+
+
+@router.post("/export-bundle", response_model=ExportBundleResponse)
+def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_session)):
+    """Bundle all available exports (video, audio, thumbnail, SEO) into a single Downloads folder."""
+    record = session.get(Script, body.script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    content = ScriptContent.model_validate(json.loads(record.script_json))
+    safe_title = sanitize_filename(record.topic_title or "Untitled")
+    date_str = record.created_at.strftime("%Y-%m-%d")
+    folder_name = f"{safe_title} - {date_str}"
+
+    downloads_dir = os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads")
+    folder = Path(downloads_dir) / folder_name
+    folder.mkdir(parents=True, exist_ok=True)
+
+    project_dir = DATA_DIR / "projects" / body.script_id
+    copied_files: list[str] = []
+
+    # Video — find full_youtube*.mp4
+    renders_dir = project_dir / "renders"
+    if renders_dir.exists():
+        for mp4 in sorted(renders_dir.glob("full_youtube*.mp4")):
+            dest = folder / f"{safe_title} - YouTube.mp4"
+            shutil.copy2(str(mp4), dest)
+            copied_files.append(dest.name)
+            break  # take the first match
+
+    # Audio — full_audio.mp3
+    audio_src = renders_dir / "full_audio.mp3"
+    if audio_src.exists():
+        dest = folder / f"{safe_title} - Audio.mp3"
+        shutil.copy2(str(audio_src), dest)
+        copied_files.append(dest.name)
+
+    # Thumbnail — renders/thumbnails/0.png
+    thumb_src = renders_dir / "thumbnails" / "0.png"
+    if thumb_src.exists():
+        dest = folder / f"{safe_title} - Thumbnail.png"
+        shutil.copy2(str(thumb_src), dest)
+        copied_files.append(dest.name)
+
+    # SEO metadata — write as text file
+    if content.seo_metadata:
+        seo = content.seo_metadata
+        yt = seo.get("youtube", {})
+        lines = []
+        if yt.get("title"):
+            lines.append(f"Title:\n{yt['title']}")
+        if yt.get("description"):
+            lines.append(f"\nDescription:\n{yt['description']}")
+        if yt.get("tags"):
+            lines.append(f"\nTags:\n{', '.join(yt['tags'])}")
+        if lines:
+            dest = folder / f"{safe_title} - SEO.txt"
+            dest.write_text("\n".join(lines), encoding="utf-8")
+            copied_files.append(dest.name)
+
+    logger.info("Export bundle created at %s with %d files: %s", folder, len(copied_files), copied_files)
+    return ExportBundleResponse(folder_path=str(folder), files=copied_files)
 
 
 @router.post("/export-test", response_model=RenderJobResponse)

@@ -15,6 +15,7 @@ interface ApiClient {
   request: (method: string, path: string, body?: unknown) => Promise<ApiResponse>;
   openExternal?: (url: string) => Promise<void>;
   downloadFile?: (url: string, defaultFilename: string) => Promise<{ canceled: boolean; filePath?: string }>;
+  showItemInFolder?: (fullPath: string) => Promise<void>;
 }
 
 declare global {
@@ -184,6 +185,13 @@ export function openInBrowser(url: string): void {
     window.api.openExternal(url);
   } else {
     window.open(url, "_blank");
+  }
+}
+
+/** Reveal a file or folder in Finder/Explorer (Electron only, no-op in browser). */
+export function showInFolder(fullPath: string): void {
+  if (window.api?.showItemInFolder) {
+    window.api.showItemInFolder(fullPath);
   }
 }
 

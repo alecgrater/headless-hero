@@ -55,3 +55,10 @@ export interface GenerateSEOResponse {
 export interface RenderEstimateResponse {
   estimated_seconds: number;
 }
+
+// --- Export Bundle ---
+
+export interface ExportBundleResponse {
+  folder_path: string;
+  files: string[];
+}

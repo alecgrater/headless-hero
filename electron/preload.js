@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld("api", {
   // Shell integration
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
 
+  // Reveal a file/folder in Finder/Explorer
+  showItemInFolder: (fullPath) => ipcRenderer.invoke("show-item-in-folder", fullPath),
+
   // File download via native save dialog
   downloadFile: (url, defaultFilename) =>
     ipcRenderer.invoke("download-file", { url, defaultFilename }),

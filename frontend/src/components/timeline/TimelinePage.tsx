@@ -851,6 +851,9 @@ function TimelineEditor({
           onStartPublish={publish.startPublish}
           publishHistory={publish.publishHistory}
           estimatedSeconds={render.estimatedSeconds}
+          exportBundleLoading={render.exportBundleLoading}
+          exportBundleResult={render.exportBundleResult}
+          onExportBundle={render.exportBundle}
           onClose={() => setShowExport(false)}
         />
       )}

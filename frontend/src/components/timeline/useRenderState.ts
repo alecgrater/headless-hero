@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api";
 import type {
   ExportAudioResponse,
+  ExportBundleResponse,
   GenerateSEOResponse,
   GenerateThumbnailResponse,
   RenderEstimateResponse,
@@ -36,6 +37,11 @@ interface RenderState {
   // Render estimate
   estimatedSeconds: number | null;
   fetchEstimate: (sceneCount: number, totalAudioDuration: number) => Promise<void>;
+
+  // Export bundle
+  exportBundleLoading: boolean;
+  exportBundleResult: ExportBundleResponse | null;
+  exportBundle: () => Promise<void>;
 }
 
 export function useRenderState(scriptId: string, title: string, initialSeoMetadata?: SEOMetadata | null): RenderState {
@@ -53,6 +59,9 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
   const [seoGenerating, setSeoGenerating] = useState(false);
 
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
+
+  const [exportBundleLoading, setExportBundleLoading] = useState(false);
+  const [exportBundleResult, setExportBundleResult] = useState<ExportBundleResponse | null>(null);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -226,6 +235,21 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
     [],
   );
 
+  const exportBundle = useCallback(async () => {
+    setExportBundleLoading(true);
+    setExportBundleResult(null);
+    try {
+      const res = await api.post("/api/render/export-bundle", {
+        script_id: scriptId,
+      });
+      if (res.ok) {
+        setExportBundleResult(res.data as ExportBundleResponse);
+      }
+    } finally {
+      setExportBundleLoading(false);
+    }
+  }, [scriptId]);
+
   return {
     youtubeJobId,
     youtubeStatus,
@@ -242,5 +266,8 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
     generateSEO,
     estimatedSeconds,
     fetchEstimate,
+    exportBundleLoading,
+    exportBundleResult,
+    exportBundle,
   };
 }
