@@ -526,7 +526,12 @@ function TimelineEditor({
       });
       if (res.ok && !thumbnailsCancelledRef.current) {
         const data = res.data as { concepts: ThumbnailConcept[] };
-        setThumbnailsInline(data.concepts);
+        const ts = Date.now();
+        const busted = data.concepts.map((c) => ({
+          ...c,
+          image_url: c.image_url ? `${c.image_url}?t=${ts}` : c.image_url,
+        }));
+        setThumbnailsInline(busted);
       }
     } finally {
       setThumbnailsInlineGenerating(false);
