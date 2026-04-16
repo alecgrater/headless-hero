@@ -220,6 +220,41 @@ const baseSections = [
 let customItems = JSON.parse(localStorage.getItem('customItems') || '[]');
 let deletedBaseItems = JSON.parse(localStorage.getItem('deletedBaseItems') || '[]');
 
+// Migrate old checkbox states to new ID format
+function migrateCheckboxStates() {
+  // Always try to migrate from old format if it exists
+  let itemIndex = 0;
+  baseSections.forEach((section) => {
+    section.items.forEach((item) => {
+      const oldId = `base-${itemIndex}`;
+      const newId = `item-${item[0].replace(/[^a-zA-Z0-9]/g, '-')}`;
+      const oldValue = localStorage.getItem(oldId);
+      
+      // Only migrate if new ID doesn't exist yet but old one does
+      if (oldValue !== null && localStorage.getItem(newId) === null) {
+        localStorage.setItem(newId, oldValue);
+      }
+      itemIndex++;
+    });
+  });
+  
+  // Pre-check completed features based on git commits
+  const completedFeatures = [
+    'A-B-cold-open-testing',
+    'Scene-duration-variance',
+    'More-aha_subtitle-moments'
+  ];
+  
+  completedFeatures.forEach(feature => {
+    const id = `item-${feature}`;
+    if (localStorage.getItem(id) === null) {
+      localStorage.setItem(id, 'true');
+    }
+  });
+}
+
+migrateCheckboxStates();
+
 function render() {
   const container = document.getElementById('app');
   container.innerHTML = '';
@@ -234,7 +269,8 @@ function render() {
       const itemKey = `${sectionIdx}-${itemIdx}`;
       if (deletedBaseItems.includes(itemKey)) return;
 
-      const id = `base-${sectionIdx}-${itemIdx}`;
+      // Use title-based ID for consistency with old storage
+      const id = `item-${item[0].replace(/[^a-zA-Z0-9]/g, '-')}`;
       const checked = localStorage.getItem(id) === 'true';
 
       const card = document.createElement('div');
