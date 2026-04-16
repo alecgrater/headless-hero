@@ -198,6 +198,17 @@ FX are generated via Claude (`POST /api/fx/generate`) and can be regenerated per
 
 FX *timing* (trigger frame, crossfade points, etc.) can be manually adjusted via the scene micro-timeline — see below.
 
+### Scene-Boundary Transitions
+Each scene has a `transition_in: str = "cut"` field (stored in script_json blob — no migration). Claude assigns transitions alongside FX during generation. Types:
+- **cut** — instant switch (default, most scenes)
+- **fade_black** — fade through black (0.33s each direction) — somber/reflective tone shifts
+- **flash_white** — flash to white (0.13s exit, 0.27s enter) — shocking reveals, energy spikes
+- **wipe** — horizontal wipe (0.40s each direction) — clean topic pivots
+
+Rules: 3-5 non-cut transitions per video. Never on first scene of segment, title_card, or aha_subtitle scenes. Never same type on consecutive boundaries.
+
+Implementation: `SceneTransition` component (`remotion/src/effects/transitions/SceneTransition.tsx`) wraps visual+subtitle+Eli layers; audio plays through. `transition_out` is computed in `FullVideo.tsx` from the next scene's `transition_in`.
+
 ### YouTube 16:9 Only
 All video output is 1920x1080 YouTube format.
 
@@ -229,10 +240,11 @@ Claude generates per-scene keyframe timelines selecting which Eli pose to show a
 ### Render Layer Stack
 1. Visual layer (StaticImage/MultiFrame/TitleCard/Subtitle)
 2. ZoomPunch camera effect
-3. **EliOverlay** (z-index: 5) — not yet implemented as a Remotion component
-4. Subtitles (z-index: 10) — `remotion/src/effects/typography/Subtitles.tsx`
-5. Audio layer
-6. ChapterIndicator (z-index: 30)
+3. **SceneTransition** wraps layers 1-5 (fade_black/flash_white/wipe at scene boundaries)
+4. **EliOverlay** (z-index: 5) — not yet implemented as a Remotion component
+5. Subtitles (z-index: 10) — `remotion/src/effects/typography/Subtitles.tsx`
+6. Audio layer (outside transition — plays through)
+7. ChapterIndicator (z-index: 30)
 
 ### Gemini Reference Images
 `google_image_client.py` supports `reference_image_path` — loads the image as a multi-modal Part for cross-frame character consistency.
