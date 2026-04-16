@@ -7,6 +7,7 @@ re-voices in a single pass.
 
 import json
 import logging
+from typing import Any
 
 from config import DEFAULT_TTS_MODEL, strip_markdown_fences
 from integrations.claude_client import chat
@@ -84,7 +85,7 @@ def check_and_tighten(
     session: Session,
     voice_id: str,
     model_id: str = DEFAULT_TTS_MODEL,
-    voice_settings: dict | None = None,
+    voice_settings: dict[str, Any] | None = None,
 ) -> list[str]:
     """Check high-energy scenes for duration overruns and rewrite if needed.
 

@@ -200,3 +200,40 @@ class TestCheckAndTighten:
         )
         # Scene was not successfully re-voiced, so not in result
         assert result == []
+
+    @patch("pipeline.duration_variance.generate_scene_audio")
+    @patch("pipeline.duration_variance.chat")
+    def test_script_not_found_returns_empty(self, mock_chat, mock_audio):
+        session = MagicMock()
+        session.get.return_value = None
+
+        result = check_and_tighten(
+            script_id="nonexistent",
+            session=session,
+            voice_id="voice-123",
+        )
+        assert result == []
+        mock_chat.assert_not_called()
+        mock_audio.assert_not_called()
+
+    @patch("pipeline.duration_variance.generate_scene_audio")
+    @patch("pipeline.duration_variance.chat")
+    def test_ignores_unknown_scene_id_from_claude(self, mock_chat, mock_audio):
+        record, _ = _make_script_record([
+            {"id": "scene_001", "visual_beat": "quick_cuts", "narration": "Long.", "audio_duration_seconds": 12.0},
+        ])
+        session = MagicMock()
+        session.get.return_value = record
+
+        # Claude returns a rewrite for a scene_id that doesn't exist
+        mock_chat.return_value = json.dumps({"scene_999": "Ghost scene."})
+
+        result = check_and_tighten(
+            script_id="test-script",
+            session=session,
+            voice_id="voice-123",
+        )
+        assert result == []
+        mock_audio.assert_not_called()
+        # No DB write since nothing was tightened
+        session.commit.assert_not_called()
