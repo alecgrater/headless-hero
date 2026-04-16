@@ -5,8 +5,7 @@
 import { assetUrl } from "../api";
 import type { Scene, ZoomPunchFX, WordTimestamp } from "../types/script";
 import type { SceneInput } from "@remotion-src/types";
-
-const FPS = 30;
+import { FPS } from "../components/timeline/micro-timeline/shared";
 
 /**
  * Resolve trigger_word → trigger_frame for the preview player.

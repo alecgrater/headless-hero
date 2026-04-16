@@ -8,6 +8,7 @@ API layer can swap to this module with minimal changes.
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -122,11 +123,11 @@ def _resolve_zoom_punch_frame(
 
     # Try to find the word in timestamps
     if word_timestamps:
-        lower = trigger_word.lower().strip()
+        lower = re.sub(r"[^a-z0-9]", "", trigger_word.lower())
         for wt in word_timestamps:
-            wt_word = wt.get("word", "").lower().strip().strip(".,!?;:\"'")
-            if wt_word == lower or wt_word.rstrip(".,!?;:\"'") == lower:
-                frame = round(wt["start_ms"] / 1000 * FPS)
+            wt_word = re.sub(r"[^a-z0-9]", "", wt.get("word", "").lower())
+            if wt_word == lower:
+                frame = round(wt.get("start_ms", 0) / 1000 * FPS)
                 return {**fx, "zoom_punch": {**zp, "trigger_frame": frame}}
 
     # Fallback: estimate from word position in narration (mid-scene if no narration context)
