@@ -76,3 +76,42 @@ class TestFlagOverlongScenes:
         ])
         flagged = _flag_overlong_scenes(content)
         assert flagged == []
+
+
+from pipeline.duration_variance import _rewrite_narrations
+
+
+class TestRewriteNarrations:
+    @patch("pipeline.duration_variance.chat")
+    def test_returns_mapping_from_claude_response(self, mock_chat):
+        mock_chat.return_value = json.dumps({
+            "scene_001": "Shorter version.",
+            "scene_003": "Punchy fact.",
+        })
+        scenes = [
+            MagicMock(id="scene_001", visual_beat="quick_cuts", narration="Long narration here.", audio_duration_seconds=12.5),
+            MagicMock(id="scene_003", visual_beat="aha_subtitle", narration="Another long narration.", audio_duration_seconds=11.0),
+        ]
+        result = _rewrite_narrations(scenes, script_id="test-script")
+        assert result == {"scene_001": "Shorter version.", "scene_003": "Punchy fact."}
+        mock_chat.assert_called_once()
+        call_kwargs = mock_chat.call_args
+        assert "script_id" in call_kwargs.kwargs or call_kwargs[1].get("script_id")
+
+    @patch("pipeline.duration_variance.chat")
+    def test_returns_empty_on_claude_failure(self, mock_chat):
+        mock_chat.side_effect = RuntimeError("API error")
+        scenes = [
+            MagicMock(id="scene_001", visual_beat="quick_cuts", narration="Long.", audio_duration_seconds=12.0),
+        ]
+        result = _rewrite_narrations(scenes, script_id="test-script")
+        assert result == {}
+
+    @patch("pipeline.duration_variance.chat")
+    def test_returns_empty_on_invalid_json(self, mock_chat):
+        mock_chat.return_value = "not valid json"
+        scenes = [
+            MagicMock(id="scene_001", visual_beat="quick_cuts", narration="Long.", audio_duration_seconds=12.0),
+        ]
+        result = _rewrite_narrations(scenes, script_id="test-script")
+        assert result == {}
