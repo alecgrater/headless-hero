@@ -364,14 +364,15 @@ def _phase_render(ctx: ExportContext) -> None:
     Uses timer-based progress instead of Remotion's sparse on_progress callbacks.
     """
     render_start, render_end = ctx.phase_ranges["render"]
-    logger.info("[%s] Phase: render — starting Remotion render (first segment, %d scenes)", ctx.script_id, ctx.job.scene_count)
     update_job(ctx.job.id, progress=render_start, current_step="Rendering first segment...")
     content_now = _reload_content(ctx.script_id)
 
     # Filter to first segment only
     first_seg_content = content_now.model_copy(update={"segments": content_now.segments[:1]})
+    render_scene_count = sum(len(s.scenes) for s in first_seg_content.segments)
 
-    estimated = estimate_render_time(ctx.job.scene_count)
+    logger.info("[%s] Phase: render — starting Remotion render (first segment, %d scenes)", ctx.script_id, render_scene_count)
+    estimated = estimate_render_time(render_scene_count)
     stop_timer = threading.Event()
 
     def _timer_updater():
