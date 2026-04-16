@@ -1,0 +1,110 @@
+<h2>Revised v3: Magic Glow Border — Matching Reference</h2>
+<p class="subtitle">Bright neon-like glowing ring, not subtle frosted glass</p>
+
+<div class="section">
+  <div class="label">What I was getting wrong vs what it actually is</div>
+  <div style="display:flex; gap:24px; justify-content:center; align-items:start; padding:24px; background:#0f0920;">
+
+    <!-- WRONG: subtle -->
+    <div style="text-align:center;">
+      <div style="position:relative; width:150px; height:150px; display:flex; align-items:center; justify-content:center; margin:0 auto;">
+        <div style="position:absolute; inset:-16px; border-radius:50%; background:radial-gradient(circle, rgba(200,240,255,0.12) 45%, transparent 80%);"></div>
+        <div style="width:130px; height:130px; border-radius:50%; background:#334155; display:flex; align-items:center; justify-content:center;">
+          <span style="font-size:28px;">🏛️</span>
+        </div>
+      </div>
+      <div style="color:#ef4444; font-size:12px; margin-top:12px;">❌ What I kept doing<br><span style="color:#636e72;">Too subtle, frosted glass</span></div>
+    </div>
+
+    <div style="color:#636e72; font-size:24px; padding-top:60px;">→</div>
+
+    <!-- RIGHT: bright neon glow -->
+    <div style="text-align:center;">
+      <div style="position:relative; width:170px; height:170px; display:flex; align-items:center; justify-content:center; margin:0 auto;">
+        <!-- Outermost diffuse glow -->
+        <div style="position:absolute; inset:-30px; border-radius:50%; background:radial-gradient(circle, transparent 40%, rgba(180,230,255,0.12) 55%, rgba(180,230,255,0.2) 65%, rgba(180,230,255,0.08) 80%, transparent 95%); filter:blur(6px);"></div>
+        <!-- Bright core glow ring -->
+        <div style="position:absolute; inset:-8px; border-radius:50%; border:5px solid rgba(220,245,255,0.7); box-shadow: 0 0 15px rgba(180,230,255,0.8), 0 0 30px rgba(180,230,255,0.4), 0 0 50px rgba(150,210,255,0.2), inset 0 0 15px rgba(180,230,255,0.3);"></div>
+        <!-- Circle with image -->
+        <div style="width:140px; height:140px; border-radius:50%; background:#3a2a1a; position:relative; overflow:hidden;">
+          <div style="position:absolute; inset:0; background:linear-gradient(135deg, #8B4513, #654321); display:flex; align-items:center; justify-content:center;">
+            <span style="font-size:32px;">🏛️</span>
+          </div>
+          <!-- Slight inner edge darken -->
+          <div style="position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle, transparent 60%, rgba(0,0,0,0.25) 90%, rgba(0,0,0,0.4) 100%);"></div>
+          <!-- Top highlight -->
+          <div style="position:absolute; top:-5px; left:20%; right:20%; height:35%; background:radial-gradient(ellipse at 50% 20%, rgba(255,255,255,0.2) 0%, transparent 70%);"></div>
+        </div>
+      </div>
+      <div style="color:#34d399; font-size:12px; margin-top:12px;">✓ What the reference shows<br><span style="color:#94a3b8;">Bright neon glow ring</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <div class="label">Full row mockup — like the reference layout</div>
+  <div class="mockup">
+    <div class="mockup-header">Glass Orb Circles with Bright Glow</div>
+    <div class="mockup-body" style="display:flex; gap:20px; justify-content:center; align-items:center; padding:32px 20px; background:linear-gradient(180deg, #1a0a30, #0a2535);">
+
+      <!-- Orb 1 -->
+      <div style="position:relative; width:145px; height:145px; display:flex; align-items:center; justify-content:center;">
+        <div style="position:absolute; inset:-25px; border-radius:50%; background:radial-gradient(circle, transparent 38%, rgba(180,230,255,0.1) 50%, rgba(180,230,255,0.18) 62%, rgba(180,230,255,0.06) 78%, transparent 92%); filter:blur(5px);"></div>
+        <div style="position:absolute; inset:-6px; border-radius:50%; border:4px solid rgba(220,245,255,0.65); box-shadow: 0 0 12px rgba(180,230,255,0.7), 0 0 25px rgba(180,230,255,0.35), 0 0 45px rgba(150,210,255,0.15), inset 0 0 12px rgba(180,230,255,0.25);"></div>
+        <div style="width:120px; height:120px; border-radius:50%; overflow:hidden; position:relative;">
+          <div style="position:absolute; inset:0; background:linear-gradient(135deg, #8B4513, #654321); display:flex; align-items:center; justify-content:center;"><span style="font-size:28px;">🏛️</span></div>
+          <div style="position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle, transparent 55%, rgba(0,0,0,0.3) 90%, rgba(0,0,0,0.45) 100%);"></div>
+          <div style="position:absolute; top:-5px; left:18%; right:18%; height:35%; background:radial-gradient(ellipse at 50% 15%, rgba(255,255,255,0.22) 0%, transparent 70%);"></div>
+        </div>
+      </div>
+
+      <!-- Orb 2 -->
+      <div style="position:relative; width:145px; height:145px; display:flex; align-items:center; justify-content:center;">
+        <div style="position:absolute; inset:-25px; border-radius:50%; background:radial-gradient(circle, transparent 38%, rgba(200,255,220,0.1) 50%, rgba(200,255,220,0.18) 62%, rgba(200,255,220,0.06) 78%, transparent 92%); filter:blur(5px);"></div>
+        <div style="position:absolute; inset:-6px; border-radius:50%; border:4px solid rgba(220,255,230,0.65); box-shadow: 0 0 12px rgba(200,255,220,0.7), 0 0 25px rgba(200,255,220,0.35), 0 0 45px rgba(180,255,200,0.15), inset 0 0 12px rgba(200,255,220,0.25);"></div>
+        <div style="width:120px; height:120px; border-radius:50%; overflow:hidden; position:relative;">
+          <div style="position:absolute; inset:0; background:linear-gradient(135deg, #2d4a3e, #1a3530); display:flex; align-items:center; justify-content:center;"><span style="font-size:28px;">🐀</span></div>
+          <div style="position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle, transparent 55%, rgba(0,0,0,0.3) 90%, rgba(0,0,0,0.45) 100%);"></div>
+          <div style="position:absolute; top:-5px; left:18%; right:18%; height:35%; background:radial-gradient(ellipse at 50% 15%, rgba(255,255,255,0.22) 0%, transparent 70%);"></div>
+        </div>
+      </div>
+
+      <!-- Orb 3 -->
+      <div style="position:relative; width:145px; height:145px; display:flex; align-items:center; justify-content:center;">
+        <div style="position:absolute; inset:-25px; border-radius:50%; background:radial-gradient(circle, transparent 38%, rgba(220,200,255,0.1) 50%, rgba(220,200,255,0.18) 62%, rgba(220,200,255,0.06) 78%, transparent 92%); filter:blur(5px);"></div>
+        <div style="position:absolute; inset:-6px; border-radius:50%; border:4px solid rgba(230,220,255,0.65); box-shadow: 0 0 12px rgba(220,200,255,0.7), 0 0 25px rgba(220,200,255,0.35), 0 0 45px rgba(200,180,255,0.15), inset 0 0 12px rgba(220,200,255,0.25);"></div>
+        <div style="width:120px; height:120px; border-radius:50%; overflow:hidden; position:relative;">
+          <div style="position:absolute; inset:0; background:linear-gradient(135deg, #2a3a5e, #1a2545); display:flex; align-items:center; justify-content:center;"><span style="font-size:28px;">⛵</span></div>
+          <div style="position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle, transparent 55%, rgba(0,0,0,0.3) 90%, rgba(0,0,0,0.45) 100%);"></div>
+          <div style="position:absolute; top:-5px; left:18%; right:18%; height:35%; background:radial-gradient(ellipse at 50% 15%, rgba(255,255,255,0.22) 0%, transparent 70%);"></div>
+        </div>
+      </div>
+
+      <!-- Orb 4 -->
+      <div style="position:relative; width:145px; height:145px; display:flex; align-items:center; justify-content:center;">
+        <div style="position:absolute; inset:-25px; border-radius:50%; background:radial-gradient(circle, transparent 38%, rgba(180,240,255,0.1) 50%, rgba(180,240,255,0.18) 62%, rgba(180,240,255,0.06) 78%, transparent 92%); filter:blur(5px);"></div>
+        <div style="position:absolute; inset:-6px; border-radius:50%; border:4px solid rgba(200,240,255,0.65); box-shadow: 0 0 12px rgba(180,240,255,0.7), 0 0 25px rgba(180,240,255,0.35), 0 0 45px rgba(160,220,255,0.15), inset 0 0 12px rgba(180,240,255,0.25);"></div>
+        <div style="width:120px; height:120px; border-radius:50%; overflow:hidden; position:relative;">
+          <div style="position:absolute; inset:0; background:linear-gradient(135deg, #3a4a2e, #2a3520); display:flex; align-items:center; justify-content:center;"><span style="font-size:28px;">📖</span></div>
+          <div style="position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle, transparent 55%, rgba(0,0,0,0.3) 90%, rgba(0,0,0,0.45) 100%);"></div>
+          <div style="position:absolute; top:-5px; left:18%; right:18%; height:35%; background:radial-gradient(ellipse at 50% 15%, rgba(255,255,255,0.22) 0%, transparent 70%);"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:20px; padding:16px; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); border-radius:8px;">
+  <div class="label" style="color:#60a5fa;">Pillow Implementation — Revised</div>
+  <ol style="color:#d1d5db; font-size:13px; line-height:1.8; padding-left:16px;">
+    <li><strong>Bright core ring:</strong> Draw a white/cyan circle outline (~4-5px width, high alpha ~170) at circle edge. This is the bright visible border.</li>
+    <li><strong>Inner glow:</strong> Duplicate the ring, Gaussian blur ~12px inward. Creates the glow bleeding into the image.</li>
+    <li><strong>Outer glow:</strong> Duplicate the ring, Gaussian blur ~20-25px outward. Creates the wide magical emanation.</li>
+    <li><strong>Second outer bloom:</strong> Even wider, softer pass (~45px blur, low alpha) for the furthest glow reach.</li>
+    <li><strong>Inner vignette:</strong> Radial gradient mask on the circle image — transparent center, darkening at edges.</li>
+    <li><strong>Top specular:</strong> Small white ellipse highlight on upper portion.</li>
+    <li><strong>Tint:</strong> Ring color is mostly white (220,245,255) with a very subtle per-circle tint derived from segment color.</li>
+  </ol>
+  <p style="color:#94a3b8; font-size:12px; margin-top:12px;">The key insight I was missing: the <strong>ring itself is visible and bright</strong> — it's not invisible ambient glow, it's a distinct glowing circle outline with bloom spreading from it.</p>
+</div>

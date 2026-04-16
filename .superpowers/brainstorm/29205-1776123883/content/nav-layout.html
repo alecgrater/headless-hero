@@ -1,0 +1,78 @@
+<h2>Navigation Bar Layout</h2>
+<p class="subtitle">Where should the nav items sit in the header? Click to select.</p>
+
+<div class="cards">
+  <!-- Option A: Centered -->
+  <div class="card" data-choice="centered" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #111;">
+      <div style="display:flex; align-items:center; justify-content:space-between; background:#0a0a0a; border:1px solid #333; border-radius:8px; padding:12px 20px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="color:#a78bfa; font-weight:700; font-size:14px;">⚡ Headless Hero</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:2px; background:#1a1a1a; border-radius:8px; padding:3px;">
+          <div style="background:#7c3aed; color:white; padding:6px 16px; border-radius:6px; font-size:12px; font-weight:600;">📁 Projects</div>
+          <div style="color:#888; padding:6px 16px; border-radius:6px; font-size:12px;">🌐 Discover</div>
+          <div style="color:#888; padding:6px 16px; border-radius:6px; font-size:12px;">⚙️ Settings</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>
+          <span style="color:#666; font-size:11px;">Connected</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. Centered Pill Switcher</h3>
+      <p>Nav sits in the center of the header as a segmented control. Logo left, status right. Clean and balanced.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Left-aligned after logo -->
+  <div class="card" data-choice="left" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #111;">
+      <div style="display:flex; align-items:center; justify-content:space-between; background:#0a0a0a; border:1px solid #333; border-radius:8px; padding:12px 20px;">
+        <div style="display:flex; align-items:center; gap:24px;">
+          <div style="color:#a78bfa; font-weight:700; font-size:14px;">⚡ Headless Hero</div>
+          <div style="display:flex; align-items:center; gap:0; border-bottom:2px solid transparent;">
+            <div style="padding:6px 14px; font-size:12px; font-weight:600; color:white; border-bottom:2px solid #7c3aed;">📁 Projects</div>
+            <div style="padding:6px 14px; font-size:12px; color:#888; border-bottom:2px solid transparent;">🌐 Discover</div>
+            <div style="padding:6px 14px; font-size:12px; color:#888; border-bottom:2px solid transparent;">⚙️ Settings</div>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>
+          <span style="color:#666; font-size:11px;">Connected</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. Left-Aligned Tabs</h3>
+      <p>Nav items flow naturally after the logo with underline active indicator. Familiar tab pattern, like GitHub or VS Code.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Right-aligned -->
+  <div class="card" data-choice="right" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 16px; background: #111;">
+      <div style="display:flex; align-items:center; justify-content:space-between; background:#0a0a0a; border:1px solid #333; border-radius:8px; padding:12px 20px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="color:#a78bfa; font-weight:700; font-size:14px;">⚡ Headless Hero</div>
+        </div>
+        <div style="display:flex; align-items:center; gap:16px;">
+          <div style="display:flex; align-items:center; gap:2px; background:#1a1a1a; border-radius:8px; padding:3px;">
+            <div style="background:#7c3aed; color:white; padding:6px 16px; border-radius:6px; font-size:12px; font-weight:600;">📁 Projects</div>
+            <div style="color:#888; padding:6px 16px; border-radius:6px; font-size:12px;">🌐 Discover</div>
+            <div style="color:#888; padding:6px 16px; border-radius:6px; font-size:12px;">⚙️ Settings</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;"></span>
+            <span style="color:#666; font-size:11px;">Connected</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. Right-Aligned Pill Bar</h3>
+      <p>Nav replaces the current icon buttons in the same area. Pill switcher with filled active state. Keeps logo area clean.</p>
+    </div>
+  </div>
+</div>

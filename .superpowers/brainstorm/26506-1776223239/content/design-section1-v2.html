@@ -1,0 +1,94 @@
+<h2>Revised: Glass Orb Border — Matching Reference</h2>
+<p class="subtitle">Updated after studying the reference more closely</p>
+
+<div class="section">
+  <div class="label">What I see in your reference</div>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+
+    <div style="padding:16px; background:rgba(59,130,246,0.05); border:1px solid rgba(59,130,246,0.2); border-radius:8px;">
+      <h3 style="color:#60a5fa; font-size:14px; margin-bottom:8px;">Key traits</h3>
+      <ul style="color:#d1d5db; font-size:13px; line-height:1.8; padding-left:16px;">
+        <li><strong>No hard border</strong> — no colored outline at all. The edge is purely glow-based.</li>
+        <li><strong>Wide soft outer glow</strong> — extends 20-30px outward, white/cyan tinted, very diffuse</li>
+        <li><strong>Inner edge vignette</strong> — the image inside darkens toward the edge, making it feel "inside" a sphere</li>
+        <li><strong>Specular highlight</strong> — bright white arc at top (light bouncing off glass surface)</li>
+        <li><strong>Slight color tint</strong> — each orb's glow has a very subtle unique tint (greenish, bluish, pinkish) but mostly white</li>
+        <li><strong>No iridescent rainbow</strong> — it's not prismatic, it's more frosted glass</li>
+      </ul>
+    </div>
+
+    <div style="padding:16px; background:rgba(239,68,68,0.05); border:1px solid rgba(239,68,68,0.2); border-radius:8px;">
+      <h3 style="color:#ef4444; font-size:14px; margin-bottom:8px;">What I got wrong</h3>
+      <ul style="color:#d1d5db; font-size:13px; line-height:1.8; padding-left:16px;">
+        <li><s>Iridescent conic gradient</s> — too rainbow-y</li>
+        <li><s>2px inner white border</s> — too hard/visible</li>
+        <li>Outer glow was too small — needs to be wider and softer</li>
+        <li>Missing the inner vignette (darkened edges inside the circle)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <div class="label">Revised mockup</div>
+  <div class="mockup">
+    <div class="mockup-header">Glass Orb Effect — Revised</div>
+    <div class="mockup-body" style="display:flex; gap:32px; justify-content:center; align-items:center; padding:40px; background:#12091f;">
+
+      <!-- Orb 1 — slight cyan tint -->
+      <div style="position:relative; width:170px; height:170px; display:flex; align-items:center; justify-content:center;">
+        <!-- Wide soft outer glow -->
+        <div style="position:absolute; inset:-24px; border-radius:50%; background:radial-gradient(circle, rgba(200,240,255,0.18) 40%, rgba(200,240,255,0.08) 60%, rgba(200,240,255,0.02) 80%, transparent 100%); filter:blur(4px);"></div>
+        <!-- Circle with image -->
+        <div style="width:140px; height:140px; border-radius:50%; background:#3a2a1a; position:relative; overflow:hidden;">
+          <!-- Fake scene image -->
+          <div style="position:absolute; inset:0; background:linear-gradient(135deg, #8B4513, #654321); display:flex; align-items:center; justify-content:center;">
+            <span style="font-size:32px;">🏛️</span>
+          </div>
+          <!-- Inner edge vignette -->
+          <div style="position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle, transparent 50%, rgba(0,0,0,0.35) 85%, rgba(0,0,0,0.6) 100%);"></div>
+          <!-- Top specular highlight -->
+          <div style="position:absolute; top:-10px; left:15%; right:15%; height:50%; background:radial-gradient(ellipse at 50% 20%, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 30%, transparent 70%);"></div>
+        </div>
+      </div>
+
+      <!-- Orb 2 — slight green tint -->
+      <div style="position:relative; width:170px; height:170px; display:flex; align-items:center; justify-content:center;">
+        <div style="position:absolute; inset:-24px; border-radius:50%; background:radial-gradient(circle, rgba(200,255,220,0.18) 40%, rgba(200,255,220,0.08) 60%, rgba(200,255,220,0.02) 80%, transparent 100%); filter:blur(4px);"></div>
+        <div style="width:140px; height:140px; border-radius:50%; background:#1a2a1a; position:relative; overflow:hidden;">
+          <div style="position:absolute; inset:0; background:linear-gradient(135deg, #2d4a3e, #1a3530); display:flex; align-items:center; justify-content:center;">
+            <span style="font-size:32px;">🐀</span>
+          </div>
+          <div style="position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle, transparent 50%, rgba(0,0,0,0.35) 85%, rgba(0,0,0,0.6) 100%);"></div>
+          <div style="position:absolute; top:-10px; left:15%; right:15%; height:50%; background:radial-gradient(ellipse at 50% 20%, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 30%, transparent 70%);"></div>
+        </div>
+      </div>
+
+      <!-- Orb 3 — slight pink tint -->
+      <div style="position:relative; width:170px; height:170px; display:flex; align-items:center; justify-content:center;">
+        <div style="position:absolute; inset:-24px; border-radius:50%; background:radial-gradient(circle, rgba(255,200,220,0.18) 40%, rgba(255,200,220,0.08) 60%, rgba(255,200,220,0.02) 80%, transparent 100%); filter:blur(4px);"></div>
+        <div style="width:140px; height:140px; border-radius:50%; background:#2a1a2a; position:relative; overflow:hidden;">
+          <div style="position:absolute; inset:0; background:linear-gradient(135deg, #4a2a3e, #351a30); display:flex; align-items:center; justify-content:center;">
+            <span style="font-size:32px;">⛵</span>
+          </div>
+          <div style="position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle, transparent 50%, rgba(0,0,0,0.35) 85%, rgba(0,0,0,0.6) 100%);"></div>
+          <div style="position:absolute; top:-10px; left:15%; right:15%; height:50%; background:radial-gradient(ellipse at 50% 20%, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 30%, transparent 70%);"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:20px; padding:16px; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); border-radius:8px;">
+  <div class="label" style="color:#60a5fa;">Revised Pillow Implementation</div>
+  <ol style="color:#d1d5db; font-size:13px; line-height:1.8; padding-left:16px;">
+    <li><strong>Remove</strong> solid colored outline (Layer 5) and energy ring (Layer 5b) entirely</li>
+    <li><strong>Wide outer glow:</strong> Radial gradient ellipse extending ~25px past circle edge, white with subtle per-circle color tint (derived from segment color), heavily Gaussian blurred (~20px)</li>
+    <li><strong>Inner vignette:</strong> After pasting the circle image, overlay a radial gradient mask — transparent center, darkening to 50-60% black at edges. This makes the image look "inside" a sphere.</li>
+    <li><strong>Specular highlight:</strong> Semi-transparent white ellipse on upper portion of circle, blurred to simulate light bounce on glass surface</li>
+    <li><strong>Tint color:</strong> Each circle's glow gets a very subtle color derived from its <code>circle_color</code> (desaturated, lightened) — mostly white with just a hint</li>
+  </ol>
+</div>
+
+<p style="color:#94a3b8; font-size:13px; margin-top:16px;">Closer to the reference now? The key changes: no hard borders, wider glow, dark vignette inside, no rainbow effect.</p>

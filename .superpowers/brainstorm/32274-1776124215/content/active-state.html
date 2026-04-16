@@ -1,0 +1,55 @@
+<h2>Active State Style</h2>
+<p class="subtitle">Left-aligned tabs after logo — which active indicator style do you prefer?</p>
+
+<div class="cards">
+  <div class="card" data-choice="underline" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 20px 16px 0; background: #111;">
+      <div style="display:flex; align-items:center; gap:28px; background:#0a0a0a; border:1px solid #333; border-radius:8px 8px 0 0; padding:14px 24px 0;">
+        <div style="color:#a78bfa; font-weight:700; font-size:14px; padding-bottom:14px;">⚡ Headless Hero</div>
+        <div style="display:flex; align-items:center; gap:0;">
+          <div style="padding:8px 16px 14px; font-size:13px; font-weight:600; color:white; border-bottom:2px solid #7c3aed;">📁 Projects</div>
+          <div style="padding:8px 16px 14px; font-size:13px; color:#666; border-bottom:2px solid transparent;">🌐 Discover</div>
+          <div style="padding:8px 16px 14px; font-size:13px; color:#666; border-bottom:2px solid transparent;">⚙️ Settings</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. Violet Underline</h3>
+      <p>Clean 2px bottom border in violet. Active text is white, inactive is muted. Classic tab pattern.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="filled" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 20px 16px 0; background: #111;">
+      <div style="display:flex; align-items:center; gap:28px; background:#0a0a0a; border:1px solid #333; border-radius:8px 8px 0 0; padding:14px 24px 0;">
+        <div style="color:#a78bfa; font-weight:700; font-size:14px; padding-bottom:14px;">⚡ Headless Hero</div>
+        <div style="display:flex; align-items:center; gap:4px; padding-bottom:10px;">
+          <div style="background:rgba(124,58,237,0.15); color:#c4b5fd; padding:6px 14px; border-radius:6px; font-size:13px; font-weight:600;">📁 Projects</div>
+          <div style="color:#666; padding:6px 14px; border-radius:6px; font-size:13px;">🌐 Discover</div>
+          <div style="color:#666; padding:6px 14px; border-radius:6px; font-size:13px;">⚙️ Settings</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. Subtle Violet Fill</h3>
+      <p>Active tab gets a soft violet background tint with lighter text. Feels more modern/app-like.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="combo" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding: 20px 16px 0; background: #111;">
+      <div style="display:flex; align-items:center; gap:28px; background:#0a0a0a; border:1px solid #333; border-radius:8px 8px 0 0; padding:14px 24px 0;">
+        <div style="color:#a78bfa; font-weight:700; font-size:14px; padding-bottom:14px;">⚡ Headless Hero</div>
+        <div style="display:flex; align-items:center; gap:4px;">
+          <div style="background:rgba(124,58,237,0.1); color:#c4b5fd; padding:6px 14px 8px; border-radius:6px 6px 0 0; font-size:13px; font-weight:600; border-bottom:2px solid #7c3aed;">📁 Projects</div>
+          <div style="color:#666; padding:6px 14px 10px; font-size:13px; border-bottom:2px solid transparent;">🌐 Discover</div>
+          <div style="color:#666; padding:6px 14px 10px; font-size:13px; border-bottom:2px solid transparent;">⚙️ Settings</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. Fill + Underline Combo</h3>
+      <p>Both a soft violet fill AND a bottom border. Double emphasis — richer but bolder.</p>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,58 @@
+<h2>Proposed Approaches</h2>
+<p class="subtitle">Three ways to build the Eli vortex thumbnail + glass orb borders</p>
+
+<div class="options">
+  <div class="option" data-choice="integrated" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Integrated into existing compositing pipeline (Recommended)</h3>
+      <p>Keep everything in <code>title_card_composer.py</code>. During title card generation:</p>
+      <ol style="color:#b2bec3; font-size:13px; margin:8px 0; padding-left:20px; line-height:1.8;">
+        <li>Generate all segment circle images normally (existing flow)</li>
+        <li>Claude picks expression category from the 3 CTR tiers based on video title</li>
+        <li>Generate Eli vortex image via Gemini (character reference + expression + "popping out of blue plasma portal")</li>
+        <li>Randomly pick one circle → replace its image with the vortex image</li>
+        <li>Render glass orb/bubble borders on ALL circles (new PIL layer replacing current outline + energy ring)</li>
+        <li>Skip the corner Eli overlay (removed)</li>
+      </ol>
+      <div style="margin-top:8px; padding:8px 12px; background:rgba(52,211,153,0.1); border-radius:6px; font-size:12px; color:#34d399;">
+        <strong>Pros:</strong> Minimal new infrastructure. Stays within the existing Pillow compositing pipeline. One API call generates everything. Title card images can be re-composited without regenerating Eli.
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="separate-step" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Separate Eli vortex generation step</h3>
+      <p>New API endpoint <code>POST /api/eli/generate-thumbnail</code> that generates the vortex image independently. Compositing then assembles it alongside circle images.</p>
+      <div style="margin-top:8px; padding:8px 12px; background:rgba(251,191,36,0.1); border-radius:6px; font-size:12px; color:#fbbf24;">
+        <strong>Trade-off:</strong> More flexible (can regenerate vortex image without re-running all compositing), but adds a new pipeline step the user has to trigger. More moving parts.
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="prompt-injection" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Modify one circle's generation prompt</h3>
+      <p>During segment circle image generation, for the randomly picked segment, change its Gemini prompt to "Eli popping out of a portal" instead of the segment topic. No separate generation step.</p>
+      <div style="margin-top:8px; padding:8px 12px; background:rgba(239,68,68,0.1); border-radius:6px; font-size:12px; color:#ef4444;">
+        <strong>Downside:</strong> Couples Eli vortex to the circle image generation pass. Can't regenerate Eli without regenerating all circle images. Less control over the vortex composition.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:24px; padding:16px; background:rgba(124,58,237,0.1); border:1px solid rgba(124,58,237,0.3); border-radius:8px;">
+  <div class="label" style="color:#a78bfa;">My recommendation: Option A</div>
+  <p style="color:#d1d5db; font-size:13px; margin:8px 0;">
+    The existing <code>title_card_composer.py</code> already handles all the layering — background, circles, outlines, labels, Eli placement. We just modify <em>what</em> it composites:
+  </p>
+  <ul style="color:#d1d5db; font-size:13px; line-height:1.7; padding-left:16px;">
+    <li>Replace the solid outline + energy ring layers with glass orb rendering</li>
+    <li>Replace the corner Eli overlay with "pick one circle, use vortex image"</li>
+    <li>Add Claude expression selection call before Gemini image gen</li>
+    <li>The "recomposite" endpoint still works — it re-layers existing images</li>
+  </ul>
+</div>
