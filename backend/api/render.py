@@ -468,6 +468,11 @@ def start_full_render(body: RenderFullRequest, session: Session = Depends(get_se
                 timer.start()
                 return
             if timer_started.is_set():
+                if p >= 0.9:
+                    # Post-processing phase (e.g. FFmpeg speed) — stop timer, show real step
+                    stop_timer.set()
+                    update_job(job.id, progress=p, current_step=msg)
+                    return
                 return  # Timer handles progress from here
             update_job(job.id, progress=p, current_step=msg)
 

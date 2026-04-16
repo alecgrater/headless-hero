@@ -318,7 +318,7 @@ export default function ExportPanel({
                       onClick={() => onStartYoutubeRender(1.25)}
                       className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
                     >
-                      {youtubeUrl ? "Re-render (1.25x)" : "Render YouTube Video (1.25X Speed)"}
+                      {youtubeUrl ? "Re-render (1.25x)" : "Render YouTube Video (1.25x Speed)"}
                     </button>
                     {estimatedSeconds != null && !youtubeUrl && (
                       <span className="text-xs text-neutral-500">
