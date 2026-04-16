@@ -53,6 +53,8 @@ You will be given a list of available frame IDs with their expression, pose, and
 
 9. **Position hints** (optional): If the scene's visual content occupies the default corner where Eli sits, you may add `"position_hint": "left"` or `"position_hint": "center"` to shift Eli. Use sparingly — most keyframes should NOT include a position_hint (Eli stays in the default right position).
 
+10. **Content-directing poses**: When the narration references, introduces, or describes the on-screen visual (e.g., "take a look at this," "as you can see," "this shows," or when a new image appears), use a "look at content" pose — pointing, presenting, or glancing toward the visual. Check `toward_content_direction` in the input to know whether to pick `_left` or `_right` variants. Use at most 1-2 content-directing poses per scene. These work best at the start of a scene (introducing the visual) or at key "look at this" moments in narration.
+
 ## Output Format
 
 Return a JSON object with the scene "id" and an "eli_overlay" object. Each keyframe must include a "mood" field ("ambient" or "reaction"):
@@ -87,7 +89,7 @@ Return a JSON object with the scene "id" and an "eli_overlay" object. Each keyfr
 Return ONLY the JSON object, no explanation."""
 
 
-def generate_scene_eli(scene_data: dict, script_id: str | None = None) -> dict:
+def generate_scene_eli(scene_data: dict, script_id: str | None = None, eli_position: dict | None = None) -> dict:
     """Generate Eli animation keyframes for a single scene.
 
     Takes a scene summary dict, returns {id, eli_overlay}.
@@ -109,6 +111,7 @@ def generate_scene_eli(scene_data: dict, script_id: str | None = None) -> dict:
     user_message = json.dumps({
         "scene": scene_data,
         "available_frames": available_frames,
+        "toward_content_direction": "left" if (eli_position or {}).get("x", 1410) > 960 else "right",
     }, indent=2)
 
     response = chat(

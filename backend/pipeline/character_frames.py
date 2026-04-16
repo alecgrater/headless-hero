@@ -177,6 +177,41 @@ FRAME_DEFINITIONS: list[dict[str, str]] = [
     {"expression": "excited", "pose": "entering_frame", "gesture": "waving", "prompt": "appearing from bottom of frame popping up, excited wave, just arrived energy"},
     {"expression": "smiling", "pose": "settling_in", "gesture": "none", "prompt": "adjusting position as if just sat down, settling into frame, comfortable smile, getting cozy"},
 
+    # ===== NEW: LOOK AT CONTENT (~10) =====
+    # Directional pairs — animator selects _left or _right based on Eli's position.
+    # "left" means Eli looks/points to HIS left (screen-left). Use when Eli is on the right.
+    # "right" means Eli looks/points to HIS right (screen-right). Use when Eli is on the left.
+
+    # 1. Excited pointing at content
+    {"expression": "excited", "pose": "pointing_at_content_left", "gesture": "pointing",
+     "prompt": "head and eyes turned to look to the LEFT, one arm extended pointing to the LEFT with index finger, excited amazed expression, clearly directing attention to something off-screen to the left, torso angled slightly left"},
+    {"expression": "excited", "pose": "pointing_at_content_right", "gesture": "pointing",
+     "prompt": "head and eyes turned to look to the RIGHT, one arm extended pointing to the RIGHT with index finger, excited amazed expression, clearly directing attention to something off-screen to the right, torso angled slightly right"},
+
+    # 2. Presenting/showcasing (open palm toward content)
+    {"expression": "smiling", "pose": "presenting_content_left", "gesture": "palm_out",
+     "prompt": "head turned to the LEFT, one arm extended to the LEFT with open palm facing up in a presenting gesture, warm proud smile, showcasing something to the left like a game show host"},
+    {"expression": "smiling", "pose": "presenting_content_right", "gesture": "palm_out",
+     "prompt": "head turned to the RIGHT, one arm extended to the RIGHT with open palm facing up in a presenting gesture, warm proud smile, showcasing something to the right like a game show host"},
+
+    # 3. Curious glance toward content (subtle, no pointing)
+    {"expression": "curious", "pose": "glancing_at_content_left", "gesture": "none",
+     "prompt": "head slightly turned to the LEFT, eyes looking to the LEFT, curious interested expression, subtly glancing at something happening to the left, body still mostly facing camera"},
+    {"expression": "curious", "pose": "glancing_at_content_right", "gesture": "none",
+     "prompt": "head slightly turned to the RIGHT, eyes looking to the RIGHT, curious interested expression, subtly glancing at something happening to the right, body still mostly facing camera"},
+
+    # 4. Both hands presenting (big reveal toward content)
+    {"expression": "excited", "pose": "revealing_content_left", "gesture": "both_palms",
+     "prompt": "both hands extended to the LEFT with palms up in a big reveal gesture, head turned to the LEFT, excited wide eyes and open mouth, ta-da energy showcasing something amazing to the left"},
+    {"expression": "excited", "pose": "revealing_content_right", "gesture": "both_palms",
+     "prompt": "both hands extended to the RIGHT with palms up in a big reveal gesture, head turned to the RIGHT, excited wide eyes and open mouth, ta-da energy showcasing something amazing to the right"},
+
+    # 5. Explaining while referencing content (one hand gestures toward content, still facing camera)
+    {"expression": "explaining", "pose": "referencing_content_left", "gesture": "palm_up",
+     "prompt": "body facing camera, one hand gesturing casually to the LEFT with open palm, calm explaining expression, referencing something to the left while talking to the viewer"},
+    {"expression": "explaining", "pose": "referencing_content_right", "gesture": "palm_up",
+     "prompt": "body facing camera, one hand gesturing casually to the RIGHT with open palm, calm explaining expression, referencing something to the right while talking to the viewer"},
+
     # ===== NEW: CONVERSATIONAL MICRO-EXPRESSIONS (~12) =====
     {"expression": "skeptical", "pose": "raised_eyebrow", "gesture": "none", "prompt": "one eyebrow raised very high, other normal, skeptical questioning look, slight head tilt"},
     {"expression": "amused", "pose": "knowing_smirk", "gesture": "none", "prompt": "closed-mouth knowing smirk, eyes slightly narrowed with amusement, I-know-something expression"},

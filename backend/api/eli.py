@@ -9,6 +9,7 @@ from sqlmodel import Session
 
 from config import FPS
 from database import get_session
+from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.eli_animator import generate_scene_eli
 
@@ -48,6 +49,16 @@ def generate_all_eli(body: GenerateEliRequest, session: Session = Depends(get_se
     content = ScriptContent.model_validate(json.loads(record.script_json))
     total_scenes = sum(len(seg.scenes) for seg in content.segments)
 
+    # Resolve Eli position: script override > brand default > None
+    eli_position = content.eli_position
+    if not eli_position:
+        brand = session.get(BrandProfile, record.brand_id)
+        if brand and brand.eli_position_json:
+            try:
+                eli_position = json.loads(brand.eli_position_json)
+            except (ValueError, TypeError):
+                pass
+
     updated = 0
     global_idx = 0
     for seg_idx, seg in enumerate(content.segments):
@@ -76,7 +87,7 @@ def generate_all_eli(body: GenerateEliRequest, session: Session = Depends(get_se
                 scene_data["word_timestamps"] = scene.word_timestamps
 
             try:
-                result = generate_scene_eli(scene_data, script_id=body.script_id)
+                result = generate_scene_eli(scene_data, script_id=body.script_id, eli_position=eli_position)
                 scene.eli_overlay = result["eli_overlay"]
                 updated += 1
                 logger.info("Generated Eli overlay for scene %d/%d (%s)", global_idx + 1, total_scenes, scene.id)
@@ -103,6 +114,16 @@ def regenerate_scene_eli_endpoint(body: RegenerateEliRequest, session: Session =
         raise HTTPException(status_code=404, detail="Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
+
+    # Resolve Eli position: script override > brand default > None
+    eli_position = content.eli_position
+    if not eli_position:
+        brand = session.get(BrandProfile, record.brand_id)
+        if brand and brand.eli_position_json:
+            try:
+                eli_position = json.loads(brand.eli_position_json)
+            except (ValueError, TypeError):
+                pass
 
     # Find the scene
     target_scene = None
@@ -143,7 +164,7 @@ def regenerate_scene_eli_endpoint(body: RegenerateEliRequest, session: Session =
     if target_scene.word_timestamps:
         scene_data["word_timestamps"] = target_scene.word_timestamps
 
-    result = generate_scene_eli(scene_data, script_id=body.script_id)
+    result = generate_scene_eli(scene_data, script_id=body.script_id, eli_position=eli_position)
 
     target_scene.eli_overlay = result["eli_overlay"]
 
