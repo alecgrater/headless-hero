@@ -8,12 +8,6 @@
 
 **Every time a feature or fix is completed, automatically commit and push the changes.** Do not wait for the user to ask — stage the relevant files, write a descriptive commit message, and push to `main`. Follow the commit message conventions below.
 
-### Post-commit: Gemini Code Review
-
-Gemini code review runs automatically via a git `post-push` hook (outside Claude Code's sandbox). **Do not run `gemini` directly** — it cannot bind ports from within the sandbox.
-
-If the user pastes Gemini review output with a **NEEDS CHANGES** verdict, treat the numbered action list as a new task. Fix each item, then commit and push in a single follow-up commit.
-
 ## Project Overview
 
 AI-powered Electron desktop app for creating faceless educational YouTube content. Full pipeline: idea → script → visuals → voice → video → publish.
