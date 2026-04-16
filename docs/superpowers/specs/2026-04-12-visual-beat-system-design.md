@@ -77,7 +77,7 @@ The scriptwriter learns when to use each beat type:
 - **`static`** — Standard explanation scenes where a single strong image suffices. Default fallback. Aim for <30% of non-title-card scenes.
 - **`continuous`** — When narration describes a physical process that unfolds over time (pouring, growing, building). Frames show subtle progression. 2-4 frames with `reference_previous: true`.
 - **`quick_cuts`** — When narration covers multiple examples, lists, comparisons, or rapid context switches. Each frame is a completely different shot — different subject, angle, composition. 3-8 frames with `reference_previous: false`. This is the primary tool for visual energy.
-- **`aha_subtitle`** — When a sentence delivers a shocking stat, counterintuitive fact, or "wait, really?" moment. Pure white text on black. Use sparingly: 1-3 per video max. Must be preceded and followed by image-bearing beats for contrast.
+- **`aha_subtitle`** — When a sentence delivers a shocking stat, counterintuitive fact, or "wait, really?" moment. Pure white text on black. Aim for 5-6 per video, no more than 7. Must be preceded and followed by image-bearing beats for contrast.
 - **`montage`** — When real-world authenticity adds impact (real places, real products, real events). Mix of `ai_generated` and `real_photo` sources. 4-8 frames. Each `real_photo` frame includes a `search_query` for Google Images.
 
 ### Distribution Rules
