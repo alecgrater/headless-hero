@@ -42,6 +42,39 @@ class TrendingTopicRead(BaseModel):
     evidence_snippet: str
 
 
+class ContentProfileRead(BaseModel):
+    script_count: int
+    common_topics: list[str]
+    narration_style: str
+    visual_approach: str
+    typical_keywords: list[str]
+    audience_profile: str
+    avg_segment_count: float
+    analyzed_at: str
+    is_stale: bool
+
+
+class SmartIdea(BaseModel):
+    title: str
+    description: str
+    segments_est: int
+    keywords: list[str]
+    trending_source: str
+    style_match_score: float
+    reasoning: str
+    angle: str
+
+
+class SmartIdeasResponse(BaseModel):
+    ideas: list[SmartIdea]
+    profile_used: bool
+    trending_topics_used: int
+
+
+class SmartIdeasRequest(BaseModel):
+    count: int = 10
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -145,3 +178,76 @@ async def generate_ideas_from_topic(
         "ideas": [idea.model_dump() for idea in ideas],
         "niche": topic.title,
     }
+
+
+# ---------------------------------------------------------------------------
+# Content profile endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/content-profile", response_model=ContentProfileRead | None)
+async def get_content_profile():
+    """Return cached content profile with staleness flag. No Claude call."""
+    from pipeline.content_profile import get_cached_profile
+    profile = get_cached_profile()
+    if not profile:
+        return None
+    return ContentProfileRead(**profile)
+
+
+@router.post("/content-profile/refresh", response_model=ContentProfileRead)
+async def refresh_content_profile():
+    """Force-regenerate content profile via Claude. Returns updated profile."""
+    from pipeline.content_profile import analyze_content_profile
+    profile = analyze_content_profile()
+    if not profile:
+        raise HTTPException(status_code=422, detail="No scripts found to analyze")
+    return ContentProfileRead(**profile)
+
+
+# ---------------------------------------------------------------------------
+# Smart ideas endpoint
+# ---------------------------------------------------------------------------
+
+@router.post("/smart-ideas", response_model=SmartIdeasResponse)
+async def generate_smart_ideas(
+    body: SmartIdeasRequest,
+    session: Session = Depends(get_session),
+):
+    """Generate personalized video ideas combining content profile + trending topics."""
+    from pipeline.content_profile import get_cached_profile, analyze_content_profile
+    from pipeline.smart_ideation import generate_smart_ideas as _generate
+
+    # Auto-load or regenerate profile
+    profile = get_cached_profile()
+    if not profile or profile.get("is_stale"):
+        profile = analyze_content_profile()
+        if not profile:
+            raise HTTPException(status_code=422, detail="No scripts found — need at least 3")
+
+    if profile["script_count"] < 3:
+        raise HTTPException(status_code=422, detail="Need at least 3 scripts for smart ideas")
+
+    # Load top trending topics
+    stmt = select(TrendingTopic).where(
+        TrendingTopic.status == "new"
+    ).order_by(TrendingTopic.score.desc()).limit(20)
+    topics = session.exec(stmt).all()
+
+    trending_data = [
+        {
+            "title": t.title,
+            "source": t.source,
+            "score": t.score,
+            "evidence": t.evidence_snippet,
+            "is_breakout": t.is_breakout,
+        }
+        for t in topics
+    ]
+
+    ideas = _generate(profile, trending_data, count=body.count)
+
+    return SmartIdeasResponse(
+        ideas=[SmartIdea(**idea) for idea in ideas],
+        profile_used=True,
+        trending_topics_used=len(trending_data),
+    )

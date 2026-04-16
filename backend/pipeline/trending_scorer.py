@@ -33,6 +33,9 @@ class TrendingRefreshJob:
             "google_trends": "pending",
             "reddit": "pending",
             "news": "pending",
+            "hackernews": "pending",
+            "wikipedia": "pending",
+            "stackexchange": "pending",
         }
 
     def to_dict(self) -> dict:
@@ -265,21 +268,27 @@ def _run_refresh(job: TrendingRefreshJob) -> None:
     from pipeline.trending_reddit import fetch_reddit_topics
     from pipeline.trending_pytrends import fetch_google_trends_topics
     from pipeline.trending_news import fetch_news_topics
+    from pipeline.trending_hackernews import fetch_hackernews_topics
+    from pipeline.trending_wikipedia import fetch_wikipedia_topics
+    from pipeline.trending_stackexchange import fetch_stackexchange_topics
 
     job.status = "running"
     all_topics: list[dict] = []
-    source_count = 4
+    source_count = 7
     completed = 0
 
-    # Fetch from all 4 sources in parallel
+    # Fetch from all 7 sources in parallel
     fetchers = {
         "youtube": fetch_youtube_topics,
         "reddit": fetch_reddit_topics,
         "google_trends": fetch_google_trends_topics,
         "news": fetch_news_topics,
+        "hackernews": fetch_hackernews_topics,
+        "wikipedia": fetch_wikipedia_topics,
+        "stackexchange": fetch_stackexchange_topics,
     }
 
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    with ThreadPoolExecutor(max_workers=7) as executor:
         futures = {}
         for name, fn in fetchers.items():
             job.sources_status[name] = "running"

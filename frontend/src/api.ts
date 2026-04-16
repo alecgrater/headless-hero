@@ -328,7 +328,7 @@ export async function exportTest(scriptId: string, options: ExportTestOptions): 
 // Trending topics
 // ---------------------------------------------------------------------------
 
-import type { TrendingTopic, TrendingRefreshStatus } from "./types/trending";
+import type { TrendingTopic, TrendingRefreshStatus, ContentProfile, SmartIdeasResponse } from "./types/trending";
 
 /** Start a background trending topic refresh job. */
 export async function refreshTrending(): Promise<{ job_id: string }> {
@@ -360,4 +360,25 @@ export async function generateIdeasFromTopic(topicId: string): Promise<{ ideas: 
   const res = await api.post("/api/trending/generate-ideas", { topic_id: topicId });
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to generate ideas");
   return res.data as { ideas: Array<{ title: string; segments_est: number; description: string; keywords: string[] }>; niche: string };
+}
+
+/** Get cached content profile (fast, no Claude call). */
+export async function getContentProfile(): Promise<ContentProfile | null> {
+  const res = await api.get("/api/trending/content-profile");
+  if (!res.ok || !res.data) return null;
+  return res.data as ContentProfile;
+}
+
+/** Force-regenerate content profile via Claude. */
+export async function refreshContentProfile(): Promise<ContentProfile> {
+  const res = await api.post("/api/trending/content-profile/refresh");
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to refresh profile");
+  return res.data as ContentProfile;
+}
+
+/** Generate smart ideas combining profile + trending. */
+export async function generateSmartIdeas(count: number = 10): Promise<SmartIdeasResponse> {
+  const res = await api.post("/api/trending/smart-ideas", { count });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to generate smart ideas");
+  return res.data as SmartIdeasResponse;
 }

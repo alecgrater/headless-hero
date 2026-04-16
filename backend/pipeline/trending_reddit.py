@@ -15,6 +15,12 @@ SUBREDDITS = [
     "explainlikeimfive",
     "science",
     "selfimprovement",
+    "todayilearned",
+    "askscience",
+    "AskHistorians",
+    "Futurology",
+    "space",
+    "technology",
 ]
 
 HEADERS = {"User-Agent": "HeadlessHero/1.0"}
@@ -22,22 +28,43 @@ TIMEOUT = 15.0
 # Bypass env-var proxy — these are public API calls that don't need proxying
 NO_PROXY = {"http": None, "https": None, "http://": None, "https://": None}
 
+# Module-level cache (15-minute TTL)
+_cache: list[dict] | None = None
+_cache_ts: float = 0.0
+_CACHE_TTL = 900.0
+
 
 def _fetch_subreddit(sub: str, sort: str, limit: int = 25) -> list[dict]:
-    """Fetch posts from a subreddit's JSON endpoint."""
+    """Fetch posts from a subreddit's JSON endpoint with retry on 429."""
     url = f"https://www.reddit.com/r/{sub}/{sort}.json?limit={limit}"
-    try:
-        resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT, proxies=NO_PROXY)
-        resp.raise_for_status()
-        data = resp.json()
-        return data.get("data", {}).get("children", [])
-    except Exception:
-        logger.warning("Failed to fetch r/%s/%s", sub, sort, exc_info=True)
-        return []
+    for attempt in range(3):
+        try:
+            resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT, proxies=NO_PROXY)
+            if resp.status_code == 429:
+                wait = 2 ** attempt
+                logger.info("Reddit 429 for r/%s/%s, retrying in %ds", sub, sort, wait)
+                time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            return data.get("data", {}).get("children", [])
+        except Exception:
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+                continue
+            logger.warning("Failed to fetch r/%s/%s after retries", sub, sort, exc_info=True)
+            return []
+    return []
 
 
 def fetch_reddit_topics() -> list[dict]:
     """Fetch trending topics from Reddit. No API key needed."""
+    global _cache, _cache_ts
+
+    if _cache is not None and (time.time() - _cache_ts) < _CACHE_TTL:
+        logger.info("Reddit fetcher returning cached %d topics", len(_cache))
+        return list(_cache)
+
     logger.info("Fetching trending topics from Reddit")
     cutoff = time.time() - 86400  # last 24 hours
     raw_posts: list[dict] = []
@@ -90,5 +117,7 @@ def fetch_reddit_topics() -> list[dict]:
             "is_breakout": False,
         })
 
+    _cache = list(topics)
+    _cache_ts = time.time()
     logger.info("Reddit fetcher returned %d topics", len(topics))
     return topics

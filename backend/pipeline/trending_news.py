@@ -18,6 +18,8 @@ RSS_FEEDS = [
     "https://api.quantamagazine.org/feed/",
     "https://www.smithsonianmag.com/rss/latest_articles/",
     "https://www.newscientist.com/section/news/feed/",
+    "https://nautil.us/feed/",
+    "https://www.technologyreview.com/feed/",
 ]
 
 

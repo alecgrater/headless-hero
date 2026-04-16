@@ -5,6 +5,9 @@ const SOURCE_COLORS: Record<string, { bg: string; text: string }> = {
   reddit: { bg: "bg-orange-500/15", text: "text-orange-400" },
   google_trends: { bg: "bg-sky-500/15", text: "text-sky-400" },
   news: { bg: "bg-neutral-500/15", text: "text-neutral-400" },
+  hackernews: { bg: "bg-amber-500/15", text: "text-amber-400" },
+  wikipedia: { bg: "bg-cyan-500/15", text: "text-cyan-400" },
+  stackexchange: { bg: "bg-indigo-500/15", text: "text-indigo-400" },
 };
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -12,6 +15,9 @@ const SOURCE_LABELS: Record<string, string> = {
   reddit: "Reddit",
   google_trends: "Trends",
   news: "News",
+  hackernews: "HN",
+  wikipedia: "Wikipedia",
+  stackexchange: "SE",
 };
 
 interface Props {

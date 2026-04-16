@@ -1,14 +1,43 @@
 """Google Trends fetcher using pytrends."""
 
 import logging
+import signal
+import time
 
 logger = logging.getLogger(__name__)
+
+# Module-level cache (30-minute TTL)
+_cache: list[dict] | None = None
+_cache_ts: float = 0.0
+_CACHE_TTL = 1800.0
+
+
+class _Timeout(Exception):
+    pass
+
+
+def _timeout_handler(signum, frame):
+    raise _Timeout("pytrends timed out")
 
 
 def fetch_google_trends_topics() -> list[dict]:
     """Fetch trending topics from Google Trends. Rate-limited; may return empty."""
+    global _cache, _cache_ts
+
+    if _cache is not None and (time.time() - _cache_ts) < _CACHE_TTL:
+        logger.info("Google Trends fetcher returning cached %d topics", len(_cache))
+        return list(_cache)
+
     logger.info("Fetching trending topics from Google Trends")
     topics: list[dict] = []
+
+    # Set 30-second timeout — if pytrends hangs, bail immediately
+    old_handler = None
+    try:
+        old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+        signal.alarm(30)
+    except (ValueError, OSError):
+        pass  # Not on main thread or no SIGALRM support
 
     try:
         from pytrends.request import TrendReq
@@ -73,9 +102,23 @@ def fetch_google_trends_topics() -> list[dict]:
             except Exception:
                 logger.warning("Failed to get related queries for %r", keyword, exc_info=True)
 
+    except _Timeout:
+        logger.warning("Google Trends fetcher timed out after 30s — returning empty")
+        return []
     except Exception:
         logger.warning("Google Trends fetcher failed entirely", exc_info=True)
         return []
+    finally:
+        # Cancel alarm and restore old handler
+        try:
+            signal.alarm(0)
+            if old_handler is not None:
+                signal.signal(signal.SIGALRM, old_handler)
+        except (ValueError, OSError):
+            pass
 
+    if topics:
+        _cache = list(topics)
+        _cache_ts = time.time()
     logger.info("Google Trends fetcher returned %d topics", len(topics))
     return topics

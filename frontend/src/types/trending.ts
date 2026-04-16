@@ -24,3 +24,32 @@ export interface TrendingRefreshStatus {
   result_count: number;
   error: string | null;
 }
+
+export interface ContentProfile {
+  script_count: number;
+  common_topics: string[];
+  narration_style: string;
+  visual_approach: string;
+  typical_keywords: string[];
+  audience_profile: string;
+  avg_segment_count: number;
+  analyzed_at: string;
+  is_stale: boolean;
+}
+
+export interface SmartIdea {
+  title: string;
+  description: string;
+  segments_est: number;
+  keywords: string[];
+  trending_source: string;
+  style_match_score: number;
+  reasoning: string;
+  angle: string;
+}
+
+export interface SmartIdeasResponse {
+  ideas: SmartIdea[];
+  profile_used: boolean;
+  trending_topics_used: number;
+}
