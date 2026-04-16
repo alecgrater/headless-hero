@@ -23,6 +23,7 @@ dependencies = [
     "feedparser>=6.0.0",
     "newsapi-python>=0.2.7",
     "thefuzz[speedup]>=0.22.0",
+    "pytest>=9.0.3",
 ]
 
 [dependency-groups]
