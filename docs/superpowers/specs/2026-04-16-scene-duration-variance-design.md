@@ -80,7 +80,13 @@ def check_and_tighten(
    - Update `scene.narration` in the `ScriptContent` object.
 6. Re-voice only the changed scenes via `generate_scene_audio()` from `backend/pipeline/voiceover.py`.
    - Update `audio_url`, `audio_duration_seconds`, `word_timestamps` on each scene.
-7. Persist the updated `ScriptContent` back to the script's `script_json` blob.
+7. Persist the updated `ScriptContent` back to the DB:
+   ```python
+   record.script_json = content.model_dump_json()
+   session.add(record)
+   session.commit()
+   ```
+   This matches the pattern used by the batch voiceover endpoint (voiceover.py lines 164-166).
 8. Return list of rewritten scene IDs.
 
 ### Claude Rewrite Prompt
@@ -107,46 +113,30 @@ Return ONLY valid JSON: {"scene_id": "new narration", ...}
 
 **File:** `backend/api/voiceover.py`
 
+Add to the module-level imports:
+
+```python
+from pipeline.duration_variance import check_and_tighten
+```
+
 In the `generate_audio_batch` endpoint (line 130), after persisting batch results to DB (line 166), add:
 
 ```python
-from backend.pipeline.duration_variance import check_and_tighten
-
-# After batch persist, check high-energy scene durations
-tightened = check_and_tighten(body.script_id, session)
-if tightened:
-    logger.info("Duration variance: rewrote %d scenes: %s", len(tightened), tightened)
+    # After batch persist, check high-energy scene durations
+    tightened = check_and_tighten(
+        script_id=body.script_id,
+        session=session,
+        voice_id=body.voice_id,
+        model_id=body.model_id,
+        voice_settings=body.voice_settings,
+    )
+    if tightened:
+        logger.info("Duration variance: rewrote %d scenes: %s", len(tightened), tightened)
 ```
 
 The call is synchronous within the same request. Batch voiceover is already a long-running sequential call, so one Claude rewrite + a few re-voices doesn't meaningfully change latency.
 
 The response model (`GenerateBatchAudioResponse`) stays unchanged. The frontend already re-reads script data after voiceover completes, so it picks up the updated narrations and durations automatically.
-
-### Voice Settings Passthrough
-
-`check_and_tighten` needs the voice_id and voice settings to re-voice scenes. These are passed through from the batch request:
-
-```python
-tightened = check_and_tighten(
-    script_id=body.script_id,
-    session=session,
-    voice_id=body.voice_id,
-    model_id=body.model_id,
-    voice_settings=body.voice_settings,
-)
-```
-
-Updated function signature:
-
-```python
-def check_and_tighten(
-    script_id: str,
-    session: Session,
-    voice_id: str,
-    model_id: str = "eleven_multilingual_v2",
-    voice_settings: dict | None = None,
-) -> list[str]:
-```
 
 ---
 
