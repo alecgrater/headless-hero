@@ -18,6 +18,7 @@ from integrations.elevenlabs_client import (
 )
 from models.script import Script, ScriptContent
 from pipeline.voiceover import generate_batch_audio, generate_scene_audio
+from pipeline.duration_variance import check_and_tighten
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +165,17 @@ def generate_audio_batch(
     record.script_json = content.model_dump_json()
     session.add(record)
     session.commit()
+
+    # Check high-energy scene durations and tighten if needed
+    tightened = check_and_tighten(
+        script_id=body.script_id,
+        session=session,
+        voice_id=body.voice_id,
+        model_id=body.model_id,
+        voice_settings=body.voice_settings,
+    )
+    if tightened:
+        logger.info("Duration variance: rewrote %d scenes: %s", len(tightened), tightened)
 
     errors = sum(1 for r in results if r.get("error"))
     logger.info("Batch audio generation complete for script %s: %d succeeded, %d failed", body.script_id, len(results) - errors, errors)
