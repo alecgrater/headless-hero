@@ -115,3 +115,92 @@ class TestRewriteNarrations:
         ]
         result = _rewrite_narrations(scenes, script_id="test-script")
         assert result == {}
+
+
+from pipeline.duration_variance import check_and_tighten
+from config import DEFAULT_TTS_MODEL
+
+
+def _make_script_record(scenes_data: list[dict]) -> tuple:
+    """Build a Script record and ScriptContent for testing."""
+    content = _make_script_content(scenes_data)
+    record = MagicMock()
+    record.script_json = content.model_dump_json()
+    return record, content
+
+
+class TestCheckAndTighten:
+    @patch("pipeline.duration_variance.generate_scene_audio")
+    @patch("pipeline.duration_variance.chat")
+    def test_no_overlong_scenes_returns_empty(self, mock_chat, mock_audio):
+        record, _ = _make_script_record([
+            {"id": "scene_001", "visual_beat": "quick_cuts", "audio_duration_seconds": 8.0},
+        ])
+        session = MagicMock()
+        session.get.return_value = record
+
+        result = check_and_tighten(
+            script_id="test-script",
+            session=session,
+            voice_id="voice-123",
+        )
+        assert result == []
+        mock_chat.assert_not_called()
+        mock_audio.assert_not_called()
+
+    @patch("pipeline.duration_variance.generate_scene_audio")
+    @patch("pipeline.duration_variance.chat")
+    def test_rewrites_and_revoices_overlong_scenes(self, mock_chat, mock_audio):
+        record, _ = _make_script_record([
+            {"id": "scene_001", "visual_beat": "quick_cuts", "narration": "Too long narration.", "audio_duration_seconds": 12.5},
+            {"id": "scene_002", "visual_beat": "static", "narration": "Normal scene.", "audio_duration_seconds": 8.0},
+        ])
+        session = MagicMock()
+        session.get.return_value = record
+
+        mock_chat.return_value = json.dumps({"scene_001": "Short version."})
+        mock_audio.return_value = ("/static/projects/test/audio/scene_001.mp3", 7.5, [{"word": "Short", "start_ms": 0, "end_ms": 500}])
+
+        result = check_and_tighten(
+            script_id="test-script",
+            session=session,
+            voice_id="voice-123",
+        )
+        assert result == ["scene_001"]
+        mock_audio.assert_called_once_with(
+            scene_id="scene_001",
+            narration="Short version.",
+            voice_id="voice-123",
+            script_id="test-script",
+            model_id=DEFAULT_TTS_MODEL,
+            voice_settings=None,
+        )
+        # Verify DB persistence
+        session.add.assert_called_once_with(record)
+        session.commit.assert_called_once()
+
+        # Verify updated script_json
+        updated_content = ScriptContent.model_validate(json.loads(record.script_json))
+        scene_001 = updated_content.segments[0].scenes[0]
+        assert scene_001.narration == "Short version."
+        assert scene_001.audio_duration_seconds == 7.5
+
+    @patch("pipeline.duration_variance.generate_scene_audio")
+    @patch("pipeline.duration_variance.chat")
+    def test_skips_scene_if_revoice_fails(self, mock_chat, mock_audio):
+        record, _ = _make_script_record([
+            {"id": "scene_001", "visual_beat": "aha_subtitle", "narration": "Long fact.", "audio_duration_seconds": 11.0},
+        ])
+        session = MagicMock()
+        session.get.return_value = record
+
+        mock_chat.return_value = json.dumps({"scene_001": "Short fact."})
+        mock_audio.side_effect = RuntimeError("ElevenLabs down")
+
+        result = check_and_tighten(
+            script_id="test-script",
+            session=session,
+            voice_id="voice-123",
+        )
+        # Scene was not successfully re-voiced, so not in result
+        assert result == []
