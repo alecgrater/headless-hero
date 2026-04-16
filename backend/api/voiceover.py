@@ -179,6 +179,8 @@ def generate_audio_batch(
 
     errors = sum(1 for r in results if r.get("error"))
     logger.info("Batch audio generation complete for script %s: %d succeeded, %d failed", body.script_id, len(results) - errors, errors)
+    # Note: response uses original batch results — tightened scenes are persisted
+    # in script_json; the frontend re-reads the script after voiceover completes.
     return GenerateBatchAudioResponse(results=[BatchAudioResultItem(**r) for r in results])
 
 @router.post("/clone", response_model=CloneVoiceResponse)

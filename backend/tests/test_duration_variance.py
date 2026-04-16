@@ -14,7 +14,10 @@ from pipeline.duration_variance import (
     HIGH_ENERGY_BEATS,
     MAX_DURATION_SECONDS,
     _flag_overlong_scenes,
+    _rewrite_narrations,
+    check_and_tighten,
 )
+from config import DEFAULT_TTS_MODEL
 from models.script import ScriptContent
 
 
@@ -78,9 +81,6 @@ class TestFlagOverlongScenes:
         assert flagged == []
 
 
-from pipeline.duration_variance import _rewrite_narrations
-
-
 class TestRewriteNarrations:
     @patch("pipeline.duration_variance.chat")
     def test_returns_mapping_from_claude_response(self, mock_chat):
@@ -115,10 +115,6 @@ class TestRewriteNarrations:
         ]
         result = _rewrite_narrations(scenes, script_id="test-script")
         assert result == {}
-
-
-from pipeline.duration_variance import check_and_tighten
-from config import DEFAULT_TTS_MODEL
 
 
 def _make_script_record(scenes_data: list[dict]) -> tuple:

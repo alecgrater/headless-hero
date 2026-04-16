@@ -512,7 +512,6 @@ dependencies = [
     { name = "newsapi-python" },
     { name = "pillow" },
     { name = "pydantic" },
-    { name = "pytest" },
     { name = "python-multipart" },
     { name = "pytrends" },
     { name = "rembg", extra = ["cpu"] },
@@ -525,6 +524,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "httpx" },
+    { name = "pytest" },
 ]
 
 [package.metadata]
@@ -540,7 +540,6 @@ requires-dist = [
     { name = "newsapi-python", specifier = ">=0.2.7" },
     { name = "pillow", specifier = ">=11.0.0" },
     { name = "pydantic", specifier = ">=2.10.6" },
-    { name = "pytest", specifier = ">=9.0.3" },
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "pytrends", specifier = ">=4.9.0" },
     { name = "rembg", extras = ["cpu"], specifier = ">=2.0.50" },
@@ -551,7 +550,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "httpx", specifier = ">=0.28.1" }]
+dev = [
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "pytest", specifier = ">=9.0.3" },
+]
 
 [[package]]
 name = "httpcore"

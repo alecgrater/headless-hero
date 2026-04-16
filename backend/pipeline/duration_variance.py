@@ -12,6 +12,7 @@ from config import DEFAULT_TTS_MODEL, strip_markdown_fences
 from integrations.claude_client import chat
 from models.script import Scene, Script, ScriptContent
 from pipeline.voiceover import generate_scene_audio
+from sqlmodel import Session
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,7 @@ _TIGHTEN_SYSTEM_PROMPT = (
     "Rewrite each narration to be shorter and punchier while preserving the core fact or message.\n"
     "- quick_cuts scenes: 1 short punchy sentence\n"
     "- aha_subtitle scenes: 1 short sentence with the key stat or fact\n"
+    "Target: under 8 seconds of speech (roughly 20-25 words).\n"
     'Return ONLY valid JSON: {"scene_id": "new narration", ...}'
 )
 
@@ -79,7 +81,7 @@ def _rewrite_narrations(
 
 def check_and_tighten(
     script_id: str,
-    session,  # sqlmodel.Session — not typed to avoid circular import
+    session: Session,
     voice_id: str,
     model_id: str = DEFAULT_TTS_MODEL,
     voice_settings: dict | None = None,
