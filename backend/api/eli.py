@@ -38,6 +38,19 @@ class RegenerateEliResponse(BaseModel):
     eli_overlay: dict
 
 
+def _resolve_eli_position(content: ScriptContent, session: Session, brand_id: str) -> dict | None:
+    """Resolve Eli position: script override > brand default > None."""
+    if content.eli_position:
+        return content.eli_position
+    brand = session.get(BrandProfile, brand_id)
+    if brand and brand.eli_position_json:
+        try:
+            return json.loads(brand.eli_position_json)
+        except (ValueError, TypeError) as e:
+            logger.warning("Failed to parse brand eli_position_json: %s", e)
+    return None
+
+
 @router.post("/generate", response_model=GenerateEliResponse)
 def generate_all_eli(body: GenerateEliRequest, session: Session = Depends(get_session)):
     """Generate Eli animation keyframes for all non-title-card scenes."""
@@ -49,15 +62,7 @@ def generate_all_eli(body: GenerateEliRequest, session: Session = Depends(get_se
     content = ScriptContent.model_validate(json.loads(record.script_json))
     total_scenes = sum(len(seg.scenes) for seg in content.segments)
 
-    # Resolve Eli position: script override > brand default > None
-    eli_position = content.eli_position
-    if not eli_position:
-        brand = session.get(BrandProfile, record.brand_id)
-        if brand and brand.eli_position_json:
-            try:
-                eli_position = json.loads(brand.eli_position_json)
-            except (ValueError, TypeError):
-                pass
+    eli_position = _resolve_eli_position(content, session, record.brand_id)
 
     updated = 0
     global_idx = 0
@@ -115,15 +120,7 @@ def regenerate_scene_eli_endpoint(body: RegenerateEliRequest, session: Session =
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
 
-    # Resolve Eli position: script override > brand default > None
-    eli_position = content.eli_position
-    if not eli_position:
-        brand = session.get(BrandProfile, record.brand_id)
-        if brand and brand.eli_position_json:
-            try:
-                eli_position = json.loads(brand.eli_position_json)
-            except (ValueError, TypeError):
-                pass
+    eli_position = _resolve_eli_position(content, session, record.brand_id)
 
     # Find the scene
     target_scene = None

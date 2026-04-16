@@ -111,7 +111,7 @@ def generate_scene_eli(scene_data: dict, script_id: str | None = None, eli_posit
     user_message = json.dumps({
         "scene": scene_data,
         "available_frames": available_frames,
-        "toward_content_direction": "left" if (eli_position or {}).get("x", 1410) > 960 else "right",
+        "toward_content_direction": "left" if (eli_position.get("x", 1410) if eli_position else 1410) > 960 else "right",
     }, indent=2)
 
     response = chat(
