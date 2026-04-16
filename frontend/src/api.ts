@@ -310,7 +310,6 @@ export async function deleteThumbnailReference(filename: string): Promise<{ dele
 }
 
 export interface ExportTestOptions {
-  regen_title_cards: boolean;
   regen_images: boolean;
   regen_audio: boolean;
   regen_fx: boolean;

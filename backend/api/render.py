@@ -66,7 +66,6 @@ class ExportBundleResponse(BaseModel):
 
 class ExportTestRequest(BaseModel):
     script_id: str
-    regen_title_cards: bool = False
     regen_images: bool = False
     regen_audio: bool = False
     regen_fx: bool = False
@@ -119,7 +118,6 @@ class ExportContext:
     voice_id: str
     brand_dict: dict
     title: str
-    regen_title_cards: bool
     regen_images: bool
     regen_audio: bool
     regen_fx: bool
@@ -138,12 +136,10 @@ def _phase_progress(ctx: ExportContext, phase_name: str, frac: float) -> float:
 def _build_phase_ranges(ctx: ExportContext) -> None:
     """Compute phase_weights and set ctx.phase_ranges."""
     phase_weights: dict[str, int] = {}
-    if ctx.regen_title_cards:
-        phase_weights["title_cards"] = 2
-    if ctx.regen_images:
-        phase_weights["images"] = 18
     if ctx.regen_audio:
         phase_weights["audio"] = 25
+    if ctx.regen_images:
+        phase_weights["images"] = 18
     if ctx.regen_images or ctx.regen_audio:
         phase_weights["persist"] = 2
     if ctx.regen_fx:
@@ -156,7 +152,7 @@ def _build_phase_ranges(ctx: ExportContext) -> None:
     total_weight = sum(phase_weights.values())
     phase_ranges: dict[str, tuple[float, float]] = {}
     cursor = 0.0
-    for phase_name in ["title_cards", "audio", "images", "persist", "fx", "eli", "render", "copy"]:
+    for phase_name in ["audio", "images", "persist", "fx", "eli", "render", "copy"]:
         if phase_name in phase_weights:
             start = cursor
             span = phase_weights[phase_name] / total_weight
@@ -170,17 +166,6 @@ def _check_cancelled(job_id: str) -> None:
     """Raise RuntimeError if the job has been cancelled."""
     if is_cancelled(job_id):
         raise RuntimeError("Job cancelled")
-
-
-def _phase_title_cards(ctx: ExportContext) -> None:
-    """Phase 1: Generate title card images."""
-    from pipeline.title_card import ensure_title_card_images
-
-    logger.info("[%s] Phase: title_cards — generating title card images", ctx.script_id)
-    update_job(ctx.job.id, progress=_phase_progress(ctx, "title_cards", 0), current_step="Generating title card...")
-    content_for_tc = _reload_content(ctx.script_id)
-    ensure_title_card_images(ctx.script_id, content_for_tc, force=True, job_id=ctx.job.id)
-    logger.info("[%s] Phase: title_cards — complete", ctx.script_id)
 
 
 def _phase_images(ctx: ExportContext) -> None:
@@ -372,15 +357,19 @@ def _phase_eli(ctx: ExportContext) -> None:
 
 
 def _phase_render(ctx: ExportContext) -> None:
-    """Phase 7: Render full video via Remotion (always runs). Sets ctx.video_url.
+    """Render only the first segment via Remotion (always runs). Sets ctx.video_url.
 
-    Uses timer-based progress instead of Remotion's sparse on_progress callbacks,
-    so the progress bar moves smoothly during the long render subprocess.
+    Creates a filtered ScriptContent containing only the first segment, so
+    render_full_video produces a short clip instead of the entire video.
+    Uses timer-based progress instead of Remotion's sparse on_progress callbacks.
     """
     render_start, render_end = ctx.phase_ranges["render"]
-    logger.info("[%s] Phase: render — starting Remotion render (%d scenes)", ctx.script_id, ctx.job.scene_count)
-    update_job(ctx.job.id, progress=render_start, current_step="Rendering full video...")
+    logger.info("[%s] Phase: render — starting Remotion render (first segment, %d scenes)", ctx.script_id, ctx.job.scene_count)
+    update_job(ctx.job.id, progress=render_start, current_step="Rendering first segment...")
     content_now = _reload_content(ctx.script_id)
+
+    # Filter to first segment only
+    first_seg_content = content_now.model_copy(update={"segments": content_now.segments[:1]})
 
     estimated = estimate_render_time(ctx.job.scene_count)
     stop_timer = threading.Event()
@@ -400,9 +389,9 @@ def _phase_render(ctx: ExportContext) -> None:
     try:
         ctx.video_url = render_full_video(
             script_id=ctx.script_id,
-            content=content_now,
+            content=first_seg_content,
             on_progress=None,
-            title=ctx.title,
+            title="",  # Don't copy to Downloads inside render_full_video — _phase_copy handles it
             speed=1.25,
             brand=ctx.brand_dict,
         )
@@ -411,7 +400,7 @@ def _phase_render(ctx: ExportContext) -> None:
         timer.join(timeout=2)
 
     update_job(ctx.job.id, progress=render_end)
-    logger.info("[%s] Phase: render — Remotion complete, output: %s", ctx.script_id, ctx.video_url)
+    logger.info("[%s] Phase: render — Remotion complete (first segment), output: %s", ctx.script_id, ctx.video_url)
 
 
 def _phase_copy_to_downloads(ctx: ExportContext) -> None:
@@ -631,8 +620,8 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
         raise HTTPException(status_code=400, detail="No non-title-card scenes in first segment")
 
     scene_count = len(scenes_to_process)
-    regen_flags = [k for k, v in {"title_cards": body.regen_title_cards, "images": body.regen_images,
-                                   "audio": body.regen_audio, "fx": body.regen_fx, "eli": body.regen_eli}.items() if v]
+    regen_flags = [k for k, v in {"audio": body.regen_audio, "images": body.regen_images,
+                                   "eli": body.regen_eli, "fx": body.regen_fx}.items() if v]
     logger.info("Starting export test for script %s, segment %r (%d scenes, regen: %s)",
                 body.script_id, seg_name, scene_count, ", ".join(regen_flags) or "render only")
     job = create_job(scene_count=scene_count)
@@ -647,7 +636,6 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
         voice_id=voice_id,
         brand_dict=brand_dict,
         title=title,
-        regen_title_cards=body.regen_title_cards,
         regen_images=body.regen_images,
         regen_audio=body.regen_audio,
         regen_fx=body.regen_fx,
@@ -657,9 +645,6 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
     def do_export_test():
         _build_phase_ranges(ctx)
 
-        if ctx.regen_title_cards:
-            _check_cancelled(ctx.job.id)
-            _phase_title_cards(ctx)
         if ctx.regen_audio:
             _check_cancelled(ctx.job.id)
             _phase_audio(ctx)
