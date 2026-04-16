@@ -19,23 +19,43 @@ ELI_SYSTEM_PROMPT = """You are an animation director for "Eli," a recurring anim
 
 Your job: for each scene, create a keyframe timeline selecting which pose/expression Eli should show and when.
 
+## Core Philosophy
+
+Eli is like a real YouTube presenter. A good presenter holds a comfortable resting pose (neutral, soft smile, attentive) for most of the narration and only shifts expression for genuinely significant emotional beats — surprises, punchlines, revelations, emphasis. Constant fidgeting looks robotic, not lively.
+
+Think of it this way: if you watch a real person talking, they hold a baseline expression 70-80% of the time, with brief, well-timed reactions for the remaining 20-30%.
+
 ## Available Poses
 
 You will be given a list of available frame IDs with their expression, pose, and gesture tags. Select from ONLY these IDs.
 
 ## Rules
 
-1. **Match emotional tone**: If the narration is exciting, use excited poses. If thoughtful, use thinking poses. If explaining, use explaining poses.
-2. **Natural movement rhythm**: Don't hold the same pose for more than 2-4 seconds (~60-120 frames at 30fps). Switch poses frequently to feel alive and reactive, like a real streamer.
-3. **Content-aware gestures**: Use pointing when the narration directs attention ("look at this", "over here"). Use explaining gestures during explanations. Use shrugging for uncertainty. Use reaction poses (facepalm, jaw_drop, double_take) for surprising or funny moments.
-4. **Start neutral**: Most scenes should begin with a neutral or standing pose, then shift as the emotional tone changes.
-5. **Transitions**: Default to "crossfade" for all transitions — this gives Eli smooth, natural movement. Reserve "cut" only for dramatic moments: surprise reactions, punchlines, sudden emotional shifts, or comedic timing (e.g., a sudden facepalm or jaw drop). Most scenes should have 0-2 cuts at most.
-6. **Cover full duration**: Keyframes must cover the entire scene duration. The first keyframe should start at frame 0. The last keyframe's end_frame should equal the scene's total frames.
-7. **4-10 keyframes per scene**: Most scenes need 5-8 pose changes to feel dynamic and expressive. Very short scenes (< 3 seconds) can have 2-3. Think of Eli as an animated streamer who's always reacting to what's being said.
+1. **Ambient vs reaction**: Most keyframes should be "ambient" — comfortable baseline poses (neutral, soft smile, attentive, explaining). Only mark a keyframe as "reaction" when Eli is genuinely reacting to something surprising, funny, or emotionally significant. Ambient keyframes get gentle crossfades; reaction keyframes get snappier, punchier transitions.
+
+2. **Pacing**: No more than 1 significant expression change per 3 seconds (~90 frames at 30fps). Ambient shifts (neutral → soft smile → neutral) don't count as significant. Significant = changing to a clearly different emotional register (neutral → excited, explaining → surprised).
+
+3. **Keyframe count guidelines**:
+   - Short scenes (<5s / <150 frames): 2-4 keyframes
+   - Medium scenes (5-15s / 150-450 frames): 3-6 keyframes
+   - Long, emotionally varied scenes (>15s / >450 frames): 5-8 keyframes
+   Quality over quantity — a well-timed reaction beats constant fidgeting.
+
+4. **Content-aware gestures**: Use pointing when the narration directs attention. Use explaining gestures during explanations. Use reaction poses (facepalm, jaw_drop, double_take) sparingly for genuinely surprising or funny moments.
+
+5. **Start neutral**: Begin with a neutral or attentive pose, then shift only as the emotional content warrants.
+
+6. **Transitions**: Default to "crossfade" for all transitions. Reserve "cut" only for sharp dramatic moments (surprise reactions, punchlines). Most scenes should have 0-1 cuts at most.
+
+7. **Cover full duration**: Keyframes must cover the entire scene. First keyframe starts at frame 0. Last keyframe's end_frame equals the scene's total frames.
+
+8. **Minimum keyframe duration**: Every keyframe must be at least 15 frames (~0.5s). Shorter keyframes look like glitches.
+
+9. **Position hints** (optional): If the scene's visual content occupies the default corner where Eli sits, you may add `"position_hint": "left"` or `"position_hint": "center"` to shift Eli. Use sparingly — most keyframes should NOT include a position_hint (Eli stays in the default right position).
 
 ## Output Format
 
-Return a JSON object with the scene "id" and an "eli_overlay" object:
+Return a JSON object with the scene "id" and an "eli_overlay" object. Each keyframe must include a "mood" field ("ambient" or "reaction"):
 
 ```json
 {
@@ -45,17 +65,19 @@ Return a JSON object with the scene "id" and an "eli_overlay" object:
     "keyframes": [
       {
         "start_frame": 0,
-        "end_frame": 90,
+        "end_frame": 120,
         "frame_id": "neutral_standingneutral",
         "transition": "cut",
-        "reason": "opening neutral stance"
+        "mood": "ambient",
+        "reason": "opening neutral stance — holding baseline"
       },
       {
-        "start_frame": 90,
-        "end_frame": 180,
+        "start_frame": 120,
+        "end_frame": 240,
         "frame_id": "excited_handsup",
         "transition": "crossfade",
-        "reason": "narration builds excitement about the topic"
+        "mood": "reaction",
+        "reason": "narration reveals surprising fact — genuine reaction beat"
       }
     ]
   }
@@ -109,6 +131,8 @@ def generate_scene_eli(scene_data: dict, script_id: str | None = None) -> dict:
     keyframes = eli_overlay.get("keyframes", [])
 
     valid_ids = {f["id"] for f in manifest["frames"]}
+    valid_moods = {"ambient", "reaction"}
+    valid_positions = {"left", "right", "center"}
 
     validated_keyframes = []
     for kf in keyframes:
@@ -121,13 +145,25 @@ def generate_scene_eli(scene_data: dict, script_id: str | None = None) -> dict:
         start = max(0, min(kf.get("start_frame", 0), duration_frames))
         end = max(start + 1, min(kf.get("end_frame", duration_frames), duration_frames))
 
-        validated_keyframes.append({
+        entry: dict = {
             "start_frame": start,
             "end_frame": end,
             "frame_id": kf["frame_id"],
             "transition": kf.get("transition", "crossfade"),
             "reason": kf.get("reason", ""),
-        })
+        }
+
+        # Preserve mood tag (validated)
+        mood = kf.get("mood")
+        if mood in valid_moods:
+            entry["mood"] = mood
+
+        # Preserve position hint (validated)
+        pos_hint = kf.get("position_hint")
+        if pos_hint in valid_positions:
+            entry["position_hint"] = pos_hint
+
+        validated_keyframes.append(entry)
 
     # Fill gaps: ensure keyframes cover full duration
     if validated_keyframes:
@@ -141,6 +177,18 @@ def generate_scene_eli(scene_data: dict, script_id: str | None = None) -> dict:
 
         # Remove any keyframes that became zero-length after overlap collapse
         validated_keyframes = [kf for kf in validated_keyframes if kf["end_frame"] > kf["start_frame"]]
+
+        # Enforce minimum 15-frame keyframe duration: merge short keyframes into neighbors
+        MIN_KF_FRAMES = 15
+        merged = []
+        for kf in validated_keyframes:
+            duration = kf["end_frame"] - kf["start_frame"]
+            if duration < MIN_KF_FRAMES and merged:
+                # Extend previous keyframe to absorb this one
+                merged[-1]["end_frame"] = kf["end_frame"]
+            else:
+                merged.append(kf)
+        validated_keyframes = merged
 
         if not validated_keyframes:
             # All keyframes collapsed — fall back to neutral standing
@@ -176,6 +224,12 @@ def generate_scene_eli(scene_data: dict, script_id: str | None = None) -> dict:
 
     eli_overlay["enabled"] = True
     eli_overlay["keyframes"] = validated_keyframes
+
+    if len(validated_keyframes) > 8:
+        logger.warning(
+            "Scene %s has %d Eli keyframes (target max 8) — may look fidgety",
+            scene_data.get("id"), len(validated_keyframes),
+        )
 
     return {
         "id": result.get("id", scene_data.get("id")),

@@ -1,13 +1,30 @@
 /**
- * EliOverlay — Renders the Eli character overlay in the bottom-right corner.
+ * EliOverlay — Renders the Eli character overlay with spring-physics
+ * transitions, continuous mouth blending, compound breathing, variant
+ * cycling, and entrance/exit animations.
  *
- * Selects which pose frame to show based on animation keyframes from Claude.
- * Mouth state (open/closed) is determined from word_timestamps — open when
- * a word is being spoken, closed during gaps > 200ms.
+ * Mouth openness is derived from word_timestamps as a continuous 0-1
+ * value (not binary). Both open and closed frames are rendered stacked
+ * with complementary opacities for smooth blending.
  */
 import React from "react";
-import { useCurrentFrame, useVideoConfig, Img } from "remotion";
-import type { EliOverlay as EliOverlayType, EliKeyframe, WordTimestamp } from "../../types";
+import {
+  useCurrentFrame,
+  useVideoConfig,
+  Img,
+  interpolate,
+  spring,
+  Easing,
+} from "remotion";
+import type {
+  EliOverlay as EliOverlayType,
+  EliKeyframe,
+  WordTimestamp,
+} from "../../types";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 /** Simple string hash for deterministic pseudo-random seeding. */
 function hashCode(s: string): number {
@@ -19,52 +36,156 @@ function hashCode(s: string): number {
 }
 
 /**
- * Build a pseudo-random variant sequence from a seed.
- * Creates an 8-12 item sequence that's mostly sequential but occasionally
- * repeats or skips for an organic, not-perfectly-predictable feel.
+ * Build a pseudo-random variant sequence avoiding consecutive duplicates.
  */
 function buildVariantSequence(seed: number, variantCount: number): number[] {
-  const seqLength = 8 + (seed % 5); // 8-12 items
+  const seqLength = 8 + (seed % 5);
   const sequence: number[] = [];
   let rng = seed;
+  let lastVariant = -1;
 
   for (let i = 0; i < seqLength; i++) {
-    // Simple LCG for deterministic pseudo-random
     rng = (rng * 1664525 + 1013904223) & 0x7fffffff;
-    const variant = (rng % variantCount) + 1; // 1-based variant number
+    let variant = (rng % variantCount) + 1;
+    // Re-roll once if same as previous
+    if (variant === lastVariant && variantCount > 1) {
+      rng = (rng * 1664525 + 1013904223) & 0x7fffffff;
+      variant = (rng % variantCount) + 1;
+    }
     sequence.push(variant);
+    lastVariant = variant;
   }
 
   return sequence;
 }
 
-/** Variant cycle length in frames (~3s at 30fps). */
-const VARIANT_CYCLE_FRAMES = 90;
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
 
-/** Fraction of the cycle spent crossfading between variants (last 20%). */
-const VARIANT_BLEND_FRACTION = 0.2;
+/** Variant cycle length in frames (~4s at 30fps). */
+const VARIANT_CYCLE_FRAMES = 120;
+
+/** Fraction of the cycle spent crossfading between variants (last 30%). */
+const VARIANT_BLEND_FRACTION = 0.3;
+
+/** Number of frames for pose crossfade zone. */
+const CROSSFADE_FRAMES = 20;
+
+/** Entrance animation duration in frames. */
+const ENTRANCE_FRAMES = 18;
+
+/** Exit animation duration in frames. */
+const EXIT_FRAMES = 10;
+
+/** Position presets for keyframe position_hint. */
+const POSITION_PRESETS: Record<string, { x: number; y: number }> = {
+  left: { x: 30, y: 720 },
+  right: { x: 1410, y: 720 },
+  center: { x: 720, y: 720 },
+};
+
+/** Expression → breathing rate multiplier. */
+const BREATH_RATES: Record<string, number> = {
+  excited: 1.3, surprised: 1.3, hyping: 1.3,
+  neutral: 1.0, explaining: 1.0, thinking: 1.0, curious: 1.0,
+  smiling: 0.9, relaxed: 0.8, calm: 0.8, serious: 0.9,
+};
+
+// ---------------------------------------------------------------------------
+// Mouth openness (continuous 0-1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute continuous mouth openness at a given frame.
+ * Returns 0 (fully closed) to 1 (fully open) with smooth ramps.
+ */
+function getMouthOpenness(
+  frame: number,
+  fps: number,
+  wordTimestamps: WordTimestamp[] | null | undefined,
+): number {
+  if (!wordTimestamps || wordTimestamps.length === 0) return 0;
+  const timeMs = (frame / fps) * 1000;
+
+  for (let i = 0; i < wordTimestamps.length; i++) {
+    const ts = wordTimestamps[i];
+    const wordDuration = ts.end_ms - ts.start_ms;
+    const rampMs = Math.min(40, wordDuration * 0.15);
+
+    // Ramp up: closed → partially open
+    if (timeMs >= ts.start_ms - rampMs && timeMs < ts.start_ms) {
+      return interpolate(
+        timeMs,
+        [ts.start_ms - rampMs, ts.start_ms],
+        [0, 0.6],
+        { easing: Easing.inOut(Easing.ease) },
+      );
+    }
+
+    // Inside word
+    if (timeMs >= ts.start_ms && timeMs <= ts.end_ms) {
+      const rampUpEnd = ts.start_ms + wordDuration * 0.15;
+      const rampDownStart = ts.end_ms - rampMs;
+
+      if (timeMs < rampUpEnd) {
+        return interpolate(
+          timeMs,
+          [ts.start_ms, rampUpEnd],
+          [0.6, 1.0],
+          { easing: Easing.inOut(Easing.ease) },
+        );
+      }
+      if (timeMs <= rampDownStart) {
+        return 1.0;
+      }
+      return interpolate(
+        timeMs,
+        [rampDownStart, ts.end_ms],
+        [1.0, 0.4],
+        { easing: Easing.inOut(Easing.ease) },
+      );
+    }
+
+    // Short gap to next word — hold partially open
+    const next = wordTimestamps[i + 1];
+    if (next && timeMs > ts.end_ms && timeMs < next.start_ms) {
+      if (next.start_ms - ts.end_ms < 80) {
+        return 0.3;
+      }
+      // Longer gap — ramp down from end of current word
+      if (timeMs < ts.end_ms + rampMs) {
+        return interpolate(
+          timeMs,
+          [ts.end_ms, ts.end_ms + rampMs],
+          [0.4, 0],
+          { easing: Easing.inOut(Easing.ease) },
+        );
+      }
+    }
+  }
+
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
+// Variant cycling
+// ---------------------------------------------------------------------------
 
 interface VariantBlend {
   currentVariant: number;
   nextVariant: number;
-  blendProgress: number; // 0 = fully current, 1 = fully next
+  blendProgress: number;
 }
 
-/**
- * Determine which variant(s) to show at a given frame within a keyframe.
- * Returns a blend between two variants — cycles every ~90 frames (~3s)
- * with a smooth crossfade over the last 20% of each cycle.
- *
- * When `frozen` is true (during pose crossfade), variant cycling is
- * paused and only the current variant is returned with no blend.
- */
 function getVariantBlend(
   frame: number,
   keyframe: EliKeyframe,
   variantCount: number,
   frozen: boolean,
 ): VariantBlend {
-  if (variantCount <= 1) return { currentVariant: 1, nextVariant: 1, blendProgress: 0 };
+  if (variantCount <= 1)
+    return { currentVariant: 1, nextVariant: 1, blendProgress: 0 };
 
   const seed = hashCode(keyframe.frame_id + String(keyframe.start_frame));
   const sequence = buildVariantSequence(seed, variantCount);
@@ -77,7 +198,8 @@ function getVariantBlend(
   }
 
   const nextVariant = sequence[(cycleIndex + 1) % sequence.length];
-  const posInCycle = (elapsed % VARIANT_CYCLE_FRAMES) / VARIANT_CYCLE_FRAMES;
+  const posInCycle =
+    (elapsed % VARIANT_CYCLE_FRAMES) / VARIANT_CYCLE_FRAMES;
   const blendStart = 1 - VARIANT_BLEND_FRACTION;
 
   let blendProgress = 0;
@@ -88,42 +210,29 @@ function getVariantBlend(
   return { currentVariant, nextVariant, blendProgress };
 }
 
-interface Props {
-  overlay: EliOverlayType;
-  wordTimestamps?: WordTimestamp[] | null;
-  characterFramesBaseUrl: string;
-  variantCounts?: Record<string, number> | null;
-}
+// ---------------------------------------------------------------------------
+// Keyframe lookup
+// ---------------------------------------------------------------------------
 
-function isSpeaking(
-  frame: number,
-  fps: number,
-  wordTimestamps: WordTimestamp[] | null | undefined,
-): boolean {
-  if (!wordTimestamps || wordTimestamps.length === 0) return false;
-  const timeMs = (frame / fps) * 1000;
-  // Mouth is open if we're within any word's time range (with 50ms grace for natural feel)
-  for (const ts of wordTimestamps) {
-    if (timeMs >= ts.start_ms - 50 && timeMs <= ts.end_ms + 50) {
-      return true;
-    }
-  }
-  return false;
+interface KeyframeState {
+  current: EliKeyframe;
+  next: EliKeyframe | null;
+  prev: EliKeyframe | null;
+  transitionProgress: number;
 }
 
 function getCurrentKeyframe(
   frame: number,
   keyframes: EliKeyframe[],
-): { current: EliKeyframe; next: EliKeyframe | null; transitionProgress: number } | null {
+): KeyframeState | null {
   if (keyframes.length === 0) return null;
 
   for (let i = 0; i < keyframes.length; i++) {
     const kf = keyframes[i];
     if (frame >= kf.start_frame && frame < kf.end_frame) {
       const nextKf = i + 1 < keyframes.length ? keyframes[i + 1] : null;
+      const prevKf = i > 0 ? keyframes[i - 1] : null;
 
-      // Check if we're in a crossfade transition zone (last 15 frames of keyframe)
-      const CROSSFADE_FRAMES = 15; // ~500ms at 30fps
       let transitionProgress = 0;
       if (nextKf && nextKf.transition === "crossfade") {
         const transitionStart = kf.end_frame - CROSSFADE_FRAMES;
@@ -132,12 +241,29 @@ function getCurrentKeyframe(
         }
       }
 
-      return { current: kf, next: nextKf, transitionProgress };
+      return { current: kf, next: nextKf, prev: prevKf, transitionProgress };
     }
   }
 
-  // Fallback to last keyframe
-  return { current: keyframes[keyframes.length - 1], next: null, transitionProgress: 0 };
+  return {
+    current: keyframes[keyframes.length - 1],
+    next: null,
+    prev: keyframes.length > 1 ? keyframes[keyframes.length - 2] : null,
+    transitionProgress: 0,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+interface Props {
+  overlay: EliOverlayType;
+  wordTimestamps?: WordTimestamp[] | null;
+  characterFramesBaseUrl: string;
+  variantCounts?: Record<string, number> | null;
+  /** Total scene duration in frames (for exit animation). */
+  sceneDurationInFrames?: number;
 }
 
 export const EliOverlay: React.FC<Props> = ({
@@ -145,6 +271,7 @@ export const EliOverlay: React.FC<Props> = ({
   wordTimestamps,
   characterFramesBaseUrl,
   variantCounts,
+  sceneDurationInFrames,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -154,45 +281,228 @@ export const EliOverlay: React.FC<Props> = ({
   const kfState = getCurrentKeyframe(frame, overlay.keyframes ?? []);
   if (!kfState) return null;
 
-  const { current, next, transitionProgress } = kfState;
-  const speaking = isSpeaking(frame, fps, wordTimestamps);
-  const mouthSuffix = speaking ? "open" : "closed";
+  const { current, next, prev, transitionProgress } = kfState;
 
-  // Freeze variant cycling during pose crossfade to avoid compounding blends
+  // --- Mouth openness (continuous 0-1) ---
+  const mouthOpenness = getMouthOpenness(frame, fps, wordTimestamps);
+
+  // --- Eased crossfade progress ---
+  const easedTransition = interpolate(
+    transitionProgress,
+    [0, 1],
+    [0, 1],
+    { easing: Easing.bezier(0.25, 0.1, 0.25, 1.0) },
+  );
+
+  // Freeze variant cycling during pose crossfade
   const variantFrozen = transitionProgress > 0;
 
-  // Variant blend for current keyframe
+  // --- Variant blend for current keyframe ---
   const currentVariantCount = variantCounts?.[current.frame_id] ?? 1;
-  const currentBlend = getVariantBlend(frame, current, currentVariantCount, variantFrozen);
+  const currentBlend = getVariantBlend(
+    frame,
+    current,
+    currentVariantCount,
+    variantFrozen,
+  );
 
-  const currentV1Suffix = currentBlend.currentVariant === 1 ? "" : `_v${currentBlend.currentVariant}`;
-  const currentV1Src = `${characterFramesBaseUrl}/${current.frame_id}${currentV1Suffix}_${mouthSuffix}.png`;
+  // --- Build image srcs ---
+  const buildSrc = (
+    frameId: string,
+    variant: number,
+    mouth: "open" | "closed",
+  ) => {
+    const vSuffix = variant === 1 ? "" : `_v${variant}`;
+    return `${characterFramesBaseUrl}/${frameId}${vSuffix}_${mouth}.png`;
+  };
 
-  let currentV2Src: string | null = null;
-  if (currentBlend.blendProgress > 0 && currentBlend.currentVariant !== currentBlend.nextVariant) {
-    const currentV2Suffix = currentBlend.nextVariant === 1 ? "" : `_v${currentBlend.nextVariant}`;
-    currentV2Src = `${characterFramesBaseUrl}/${current.frame_id}${currentV2Suffix}_${mouthSuffix}.png`;
+  // Current keyframe — variant A open + closed
+  const curV1OpenSrc = buildSrc(current.frame_id, currentBlend.currentVariant, "open");
+  const curV1ClosedSrc = buildSrc(current.frame_id, currentBlend.currentVariant, "closed");
+
+  // Current keyframe — variant B (during variant crossfade)
+  let curV2OpenSrc: string | null = null;
+  let curV2ClosedSrc: string | null = null;
+  if (
+    currentBlend.blendProgress > 0 &&
+    currentBlend.currentVariant !== currentBlend.nextVariant
+  ) {
+    curV2OpenSrc = buildSrc(current.frame_id, currentBlend.nextVariant, "open");
+    curV2ClosedSrc = buildSrc(current.frame_id, currentBlend.nextVariant, "closed");
   }
 
-  // Next pose frame (during pose crossfade)
-  let nextSrc: string | null = null;
+  // Next pose (during pose crossfade)
+  let nextOpenSrc: string | null = null;
+  let nextClosedSrc: string | null = null;
   if (next && transitionProgress > 0) {
     const nextVariantCount = variantCounts?.[next.frame_id] ?? 1;
-    const nextBlend = getVariantBlend(frame, next, nextVariantCount, true); // frozen — just pick one variant
-    const nextVariantSuffix = nextBlend.currentVariant === 1 ? "" : `_v${nextBlend.currentVariant}`;
-    nextSrc = `${characterFramesBaseUrl}/${next.frame_id}${nextVariantSuffix}_${mouthSuffix}.png`;
+    const nextBlend = getVariantBlend(frame, next, nextVariantCount, true);
+    nextOpenSrc = buildSrc(next.frame_id, nextBlend.currentVariant, "open");
+    nextClosedSrc = buildSrc(next.frame_id, nextBlend.currentVariant, "closed");
   }
 
-  // Subtle breathing animation: sinusoidal Y translate ~2px at ~0.5Hz
-  const breathY = Math.sin((frame / fps) * Math.PI) * 2;
+  // --- Spring scale overshoot on new keyframe entry ---
+  const poseAge = frame - current.start_frame;
+  const isReaction = current.mood === "reaction";
+  const scaleSpring = spring({
+    frame: poseAge,
+    fps,
+    config: {
+      damping: isReaction ? 10 : 14,
+      mass: isReaction ? 0.5 : 0.7,
+      stiffness: isReaction ? 140 : 100,
+    },
+    durationInFrames: 20,
+  });
+  const poseScale = interpolate(
+    scaleSpring,
+    [0, 1],
+    [isReaction ? 1.04 : 1.02, 1.0],
+  );
 
-  // Container size: 16:9 aspect ratio, ~25% of frame width
-  const containerWidth = 480; // 25% of 1920
-  const containerHeight = 270; // 16:9 ratio
+  // --- Compound breathing animation ---
+  const expression = current.frame_id.split("_")[0];
+  const breathRate = BREATH_RATES[expression] ?? 1.0;
+  const t = (frame / fps) * breathRate;
 
-  // Position: use overlay.position if provided, otherwise default (bottom-right)
-  const posX = overlay.position?.x ?? 1410; // 1920 - 480 - 30
-  const posY = overlay.position?.y ?? 720;  // 1080 - 270 - 90
+  const breathY = Math.sin(t * Math.PI) * 2;
+  const breathScale = 1 + Math.sin(t * Math.PI + 0.3) * 0.003;
+  const breathRotate = Math.sin(t * Math.PI + 1.2) * 0.3;
+
+  // Secondary idle: slower ambient drift
+  const idleT = (frame / fps) * 0.63;
+  const idleY = Math.sin(idleT * Math.PI) * 1;
+  const idleRotate = Math.sin(idleT * Math.PI) * 0.2;
+
+  // --- Entrance animation ---
+  const entranceSpring = spring({
+    frame: Math.min(frame, ENTRANCE_FRAMES),
+    fps,
+    config: { damping: 14, mass: 0.7, stiffness: 100 },
+    durationInFrames: ENTRANCE_FRAMES,
+  });
+  const entranceY = interpolate(entranceSpring, [0, 1], [50, 0]);
+  const entranceOpacity = interpolate(entranceSpring, [0, 1], [0, 1]);
+
+  // --- Exit animation ---
+  const totalFrames =
+    sceneDurationInFrames ??
+    (overlay.keyframes ?? []).reduce(
+      (max, kf) => Math.max(max, kf.end_frame),
+      0,
+    );
+  const framesFromEnd = totalFrames - frame;
+  const exitOpacity =
+    framesFromEnd <= EXIT_FRAMES
+      ? interpolate(framesFromEnd, [0, EXIT_FRAMES], [0, 1], {
+          easing: Easing.inOut(Easing.ease),
+        })
+      : 1;
+
+  // --- Dynamic position from keyframe hints ---
+  const defaultPos = {
+    x: overlay.position?.x ?? 1410,
+    y: overlay.position?.y ?? 720,
+  };
+  const resolvePos = (kf: EliKeyframe | null) => {
+    if (!kf?.position_hint) return defaultPos;
+    return POSITION_PRESETS[kf.position_hint] ?? defaultPos;
+  };
+
+  const currentPos = resolvePos(current);
+  const prevPos = prev ? resolvePos(prev) : currentPos;
+
+  let posX: number;
+  let posY: number;
+  if (
+    prevPos.x !== currentPos.x ||
+    prevPos.y !== currentPos.y
+  ) {
+    const posSpring = spring({
+      frame: poseAge,
+      fps,
+      config: { damping: 20, mass: 1, stiffness: 60 },
+      durationInFrames: 30,
+    });
+    posX = interpolate(posSpring, [0, 1], [prevPos.x, currentPos.x]);
+    posY = interpolate(posSpring, [0, 1], [prevPos.y, currentPos.y]);
+  } else {
+    posX = currentPos.x;
+    posY = currentPos.y;
+  }
+
+  // --- Combined transforms ---
+  const combinedScale = breathScale * poseScale;
+  const combinedY = breathY + idleY + entranceY;
+  const combinedRotate = breathRotate + idleRotate;
+  const combinedOpacity = entranceOpacity * exitOpacity;
+
+  // Container size
+  const containerWidth = 480;
+  const containerHeight = 270;
+
+  // --- Render helper for a blended open/closed image pair ---
+  const renderMouthBlend = (
+    openSrc: string,
+    closedSrc: string,
+    layerOpacity: number,
+    key: string,
+    isAbsolute: boolean,
+  ) => (
+    <div
+      key={key}
+      style={{
+        position: isAbsolute ? "absolute" : "relative",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        opacity: layerOpacity,
+      }}
+    >
+      {/* Closed mouth layer */}
+      <Img
+        src={closedSrc}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          opacity: 1 - mouthOpenness,
+        }}
+      />
+      {/* Open mouth layer */}
+      <Img
+        src={openSrc}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          position: "absolute",
+          top: 0,
+          left: 0,
+          opacity: mouthOpenness,
+        }}
+      />
+    </div>
+  );
+
+  // --- Compute layer opacities ---
+  // Current variant A opacity
+  let curV1Opacity: number;
+  if (easedTransition > 0) {
+    curV1Opacity = 1 - easedTransition;
+  } else if (curV2OpenSrc) {
+    curV1Opacity = 1 - currentBlend.blendProgress;
+  } else {
+    curV1Opacity = 1;
+  }
+
+  // Current variant B opacity
+  const curV2Opacity =
+    easedTransition > 0 ? 0 : currentBlend.blendProgress;
 
   return (
     <div
@@ -204,7 +514,8 @@ export const EliOverlay: React.FC<Props> = ({
         height: containerHeight,
         zIndex: 5,
         pointerEvents: "none",
-        transform: `translateY(${breathY}px)`,
+        opacity: combinedOpacity,
+        transform: `translateY(${combinedY}px) scale(${combinedScale}) rotate(${combinedRotate}deg)`,
         borderRadius: 14,
         overflow: "hidden",
         border: "2px solid rgba(0, 220, 220, 0.6)",
@@ -212,7 +523,6 @@ export const EliOverlay: React.FC<Props> = ({
           "0 0 20px rgba(0, 200, 200, 0.4), 0 0 40px rgba(0, 200, 200, 0.15)",
       }}
     >
-      {/* Main character frame with variant blending */}
       <div
         style={{
           width: "100%",
@@ -220,54 +530,20 @@ export const EliOverlay: React.FC<Props> = ({
           position: "relative",
         }}
       >
-        {/* Current variant layer A */}
-        <Img
-          src={currentV1Src}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            opacity: transitionProgress > 0
-              ? 1 - transitionProgress
-              : currentV2Src
-                ? 1 - currentBlend.blendProgress
-                : 1,
-          }}
-        />
+        {/* Current variant A — mouth-blended */}
+        {renderMouthBlend(curV1OpenSrc, curV1ClosedSrc, curV1Opacity, "curV1", false)}
 
-        {/* Current variant layer B (variant crossfade) */}
-        {currentV2Src && (
-          <Img
-            src={currentV2Src}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              opacity: transitionProgress > 0
-                ? 0 // hidden during pose crossfade
-                : currentBlend.blendProgress,
-            }}
-          />
-        )}
+        {/* Current variant B — mouth-blended (variant crossfade) */}
+        {curV2OpenSrc &&
+          curV2ClosedSrc &&
+          curV2Opacity > 0 &&
+          renderMouthBlend(curV2OpenSrc, curV2ClosedSrc, curV2Opacity, "curV2", true)}
 
-        {/* Crossfade next pose frame */}
-        {nextSrc && transitionProgress > 0 && (
-          <Img
-            src={nextSrc}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              opacity: transitionProgress,
-            }}
-          />
-        )}
+        {/* Next pose — mouth-blended (pose crossfade) */}
+        {nextOpenSrc &&
+          nextClosedSrc &&
+          easedTransition > 0 &&
+          renderMouthBlend(nextOpenSrc, nextClosedSrc, easedTransition, "next", true)}
       </div>
     </div>
   );

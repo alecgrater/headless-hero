@@ -110,6 +110,7 @@ export const SceneRenderer: React.FC<Props> = ({ scene }) => {
           wordTimestamps={scene.word_timestamps}
           characterFramesBaseUrl={scene.character_frames_base_url}
           variantCounts={scene.variant_counts}
+          sceneDurationInFrames={totalSceneFrames}
         />
       )}
 

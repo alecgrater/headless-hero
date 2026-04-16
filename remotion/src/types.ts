@@ -32,6 +32,8 @@ export interface EliKeyframe {
   end_frame: number;
   frame_id: string;
   transition: "cut" | "crossfade";
+  mood?: "ambient" | "reaction";
+  position_hint?: "left" | "right" | "center" | null;
 }
 
 export interface EliPosition {

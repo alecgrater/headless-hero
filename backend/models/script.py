@@ -36,6 +36,8 @@ class EliKeyframe(BaseModel):
     end_frame: int
     frame_id: str       # matches manifest frame id (e.g., "neutral_standing")
     transition: str = "cut"  # "cut" | "crossfade"
+    mood: str | None = None              # "ambient" | "reaction"
+    position_hint: str | None = None     # "left" | "right" | "center"
 
 class EliOverlay(BaseModel):
     """Eli character overlay configuration for a scene."""
