@@ -230,7 +230,8 @@ Python writes scene data + FX config to JSON → invokes `npx remotion render` v
 
 ### FX System
 Visual effects are AI-generated (no manual editing of the FX *assignment* itself). Each scene has an optional `fx: SceneFX` field. Active FX:
-- **zoom_punch** — Quick zoom-in camera punch for emphasis
+- **drift** — Continuous camera motion (zoom_in, zoom_out, pan_left, pan_right, drift_diagonal) assigned to every image scene. Intensity 5-8%, anchor on 9-point grid. No two consecutive scenes share the same motion type. Rendered by `remotion/src/effects/camera/CameraDrift.tsx`.
+- **zoom_punch** — Quick zoom-in camera punch for emphasis (3-6 per video)
 
 Standard phrase-based subtitles are rendered automatically from `word_timestamps` (no AI generation needed). Subtitle scenes (`aha_subtitle`) show text synced to voiceover timing.
 
