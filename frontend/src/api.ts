@@ -164,6 +164,16 @@ export async function regenerateFX(scriptId: string, sceneId: string) {
   return api.post("/api/fx/regenerate", { script_id: scriptId, scene_id: sceneId });
 }
 
+/** Generate Eli animation overlays for all scenes in a script via Claude. */
+export async function generateEli(scriptId: string, missingOnly = false) {
+  return api.post("/api/eli/generate", { script_id: scriptId, missing_only: missingOnly });
+}
+
+/** Regenerate Eli overlay for a single scene via Claude. */
+export async function regenerateEli(scriptId: string, sceneId: string) {
+  return api.post("/api/eli/regenerate", { script_id: scriptId, scene_id: sceneId });
+}
+
 /** Split a scene at a specific audio timestamp via the backend. */
 export async function splitSceneAtTime(scriptId: string, sceneId: string, splitTimeMs: number) {
   return api.post(`/api/scripts/${scriptId}/split-scene`, {

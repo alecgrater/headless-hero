@@ -4,7 +4,7 @@ import type { Scene } from "../../types/script";
 
 interface Props {
   scene: Scene;
-  laneType: "images" | "voiceover" | "fx" | "timer";
+  laneType: "images" | "voiceover" | "fx" | "eli" | "timer";
   pixelsPerSecond: number;
   segmentIdx: number;
   isSelected: boolean;
@@ -42,6 +42,7 @@ export default function TimelineBlock({
         {laneType === "images" && <ImageContent scene={scene} />}
         {laneType === "voiceover" && <VoiceoverContent scene={scene} duration={duration} />}
         {laneType === "fx" && <FxContent scene={scene} />}
+        {laneType === "eli" && <EliContent scene={scene} />}
         {laneType === "timer" && <TimerContent enabled={!!segmentTimerEnabled} />}
       </div>
     </button>
@@ -139,6 +140,23 @@ function FxContent({ scene }: { scene: Scene }) {
             {badge}
           </span>
         ))
+      ) : (
+        <span className="text-[10px] text-neutral-600">--</span>
+      )}
+    </div>
+  );
+}
+
+function EliContent({ scene }: { scene: Scene }) {
+  const hasEli = !!scene.eli_overlay?.enabled;
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`w-2 h-2 rounded-full shrink-0 ${hasEli ? "bg-emerald-500" : "bg-neutral-600"}`} />
+      {hasEli ? (
+        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
+          eli
+        </span>
       ) : (
         <span className="text-[10px] text-neutral-600">--</span>
       )}

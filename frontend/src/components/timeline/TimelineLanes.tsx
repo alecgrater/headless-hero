@@ -12,11 +12,12 @@ interface Props {
   pixelsPerSecond: number;
 }
 
-const LANE_TYPES = ["images", "voiceover", "fx", "timer"] as const;
+const LANE_TYPES = ["images", "voiceover", "fx", "eli", "timer"] as const;
 const LANE_LABELS: Record<(typeof LANE_TYPES)[number], string> = {
   images: "Images",
   voiceover: "Voiceover",
   fx: "FX",
+  eli: "Eli",
   timer: "Timer",
 };
 
