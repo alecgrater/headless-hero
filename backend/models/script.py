@@ -17,10 +17,18 @@ class ZoomPunchFX(BaseModel):
     trigger_frame: int = 0
     scale: float = 1.06  # 1.04-1.07
 
+class DriftFX(BaseModel):
+    """Camera drift — slow continuous camera motion over the entire scene."""
+
+    motion: str  # "zoom_in" | "zoom_out" | "pan_left" | "pan_right" | "drift_diagonal"
+    intensity: float  # 0.05-0.08
+    anchor: str  # 9-point grid: "top-left" | "top-center" | ... | "bottom-right"
+
 class SceneFX(BaseModel):
     """Complete FX configuration for a scene, assigned by Claude."""
 
     zoom_punch: ZoomPunchFX | None = None
+    drift: DriftFX | None = None
 
 class EliKeyframe(BaseModel):
     """A keyframe in the Eli animation timeline."""

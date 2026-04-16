@@ -119,6 +119,9 @@ function VoiceoverContent({ scene, duration }: { scene: Scene; duration: number 
 function FxContent({ scene }: { scene: Scene }) {
   const fx = scene.fx;
   const badges: string[] = [];
+  if (fx?.drift) {
+    badges.push(fx.drift.motion.replace("_", " "));
+  }
   if (fx?.zoom_punch) {
     badges.push("zoom");
   }

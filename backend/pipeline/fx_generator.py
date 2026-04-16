@@ -14,7 +14,28 @@ from models.script import SceneFX
 
 logger = logging.getLogger(__name__)
 
-FX_SYSTEM_PROMPT = """You are a visual effects director for educational YouTube videos. You assign zoom punches — quick camera scale hits for emphasis.
+FX_SYSTEM_PROMPT = """You are a visual effects director for educational YouTube videos. You assign camera drift and zoom punches to each scene.
+
+## Camera Drift (drift)
+Slow continuous camera motion over the entire scene duration. Assigned to **every** image scene to eliminate static frames.
+
+For each drift, specify:
+- **motion**: One of "zoom_in", "zoom_out", "pan_left", "pan_right", "drift_diagonal"
+  - zoom_in — slow push toward the anchor point
+  - zoom_out — slow pull back from the anchor point
+  - pan_left — slow lateral slide left (anchor sets vertical position)
+  - pan_right — slow lateral slide right (anchor sets vertical position)
+  - drift_diagonal — slow diagonal slide toward/away from anchor corner (RAREST — only for scenes with a clear corner-weighted subject)
+- **intensity**: 0.05-0.08 (percent of total movement). Vary per scene — do NOT use the same intensity every time.
+- **anchor**: 9-point grid position — "top-left", "top-center", "top-right", "center-left", "center", "center-right", "bottom-left", "bottom-center", "bottom-right". For zoom_in, anchor at the focal point. For zoom_out, start at the focal point and pull back. For pans, anchor sets the vertical band.
+
+**Rules:**
+- Assign drift to EVERY image scene (static, continuous, quick_cuts, montage).
+- NO drift on "aha_subtitle" scenes (text on black) or title_card scenes.
+- **Never repeat the same motion type on consecutive scenes.** If the previous scene used "zoom_in", this scene MUST use something else.
+- drift_diagonal is the RAREST pick — reserve for scenes with a clear corner-weighted subject.
+- Vary intensity across scenes (don't always pick 0.06).
+- If "previous_drift" is provided, read its motion type and choose a DIFFERENT one.
 
 ## Zoom Punches (zoom_punch)
 A quick 4-7% scale hit for emphasis. Use sparingly — 3-6 per ENTIRE video.
@@ -35,7 +56,7 @@ Each scene includes a "visual_beat" field indicating its presentation type:
 - "static" — single image, standard FX rules
 - "continuous" — smooth frame progression, standard FX rules
 - "quick_cuts" — independent shots with hard cuts, zoom_punch can trigger on one frame
-- "aha_subtitle" — text on black, NO zoom_punch allowed
+- "aha_subtitle" — text on black, NO drift or zoom_punch allowed
 - "montage" — mixed real/AI frames, standard FX rules
 
 ## Output Format
@@ -47,13 +68,22 @@ Return a JSON array with one object per scene (same order as input). Each object
   {
     "id": "scene_id_here",
     "fx": {
+      "drift": { "motion": "pan_left", "intensity": 0.06, "anchor": "center" },
       "zoom_punch": null
     }
   },
   {
     "id": "scene_with_zoom",
     "fx": {
+      "drift": { "motion": "zoom_in", "intensity": 0.07, "anchor": "center-right" },
       "zoom_punch": { "trigger_frame": 30, "scale": 1.06 }
+    }
+  },
+  {
+    "id": "aha_subtitle_scene",
+    "fx": {
+      "drift": null,
+      "zoom_punch": null
     }
   }
 ]
@@ -94,5 +124,7 @@ def generate_scene_fx(scene_data: dict, script_id: str | None = None) -> dict:
     SceneFX.model_validate(fx_data)
 
     has_zoom = fx_data.get("zoom_punch") is not None
-    logger.info("[%s] FX assigned for scene %s: zoom_punch=%s", script_id or "no-id", scene_id, has_zoom)
+    has_drift = fx_data.get("drift") is not None
+    logger.info("[%s] FX assigned for scene %s: drift=%s zoom_punch=%s",
+                script_id or "no-id", scene_id, has_drift, has_zoom)
     return {"id": entry.get("id", scene_data.get("id")), "fx": fx_data}

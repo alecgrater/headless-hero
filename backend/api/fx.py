@@ -51,9 +51,14 @@ def generate_all_fx(body: GenerateFXRequest, session: Session = Depends(get_sess
     updated = 0
     skipped = 0
     global_idx = 0
+    previous_drift = None
     for seg_idx, seg in enumerate(content.segments):
         for sc_idx, scene in enumerate(seg.scenes):
             if body.missing_only and scene.fx:
+                # Track drift from skipped scenes too for continuity
+                fx_data = scene.fx if isinstance(scene.fx, dict) else {}
+                if fx_data.get("drift"):
+                    previous_drift = fx_data["drift"]
                 global_idx += 1
                 skipped += 1
                 continue
@@ -76,10 +81,16 @@ def generate_all_fx(body: GenerateFXRequest, session: Session = Depends(get_sess
             }
             if scene.word_timestamps:
                 scene_data["word_timestamps"] = scene.word_timestamps
+            if previous_drift:
+                scene_data["previous_drift"] = previous_drift
 
             try:
                 result = generate_scene_fx(scene_data, script_id=body.script_id)
                 scene.fx = result["fx"]
+                # Track drift for next scene
+                fx_result = result["fx"] if isinstance(result["fx"], dict) else {}
+                if fx_result.get("drift"):
+                    previous_drift = fx_result["drift"]
                 updated += 1
                 logger.info("Generated FX for scene %d/%d (%s)", global_idx + 1, total_scenes, scene.id)
             except Exception as e:
@@ -148,6 +159,14 @@ def regenerate_scene_fx(body: RegenerateFXRequest, session: Session = Depends(ge
     }
     if target_scene.word_timestamps:
         scene_data["word_timestamps"] = target_scene.word_timestamps
+
+    # Find neighboring scene's drift for context
+    all_scenes = content.all_scenes()
+    if global_idx > 0:
+        prev_scene = all_scenes[global_idx - 1]
+        prev_fx = prev_scene.fx if isinstance(prev_scene.fx, dict) else {}
+        if prev_fx.get("drift"):
+            scene_data["previous_drift"] = prev_fx["drift"]
 
     result = generate_scene_fx(scene_data)
 

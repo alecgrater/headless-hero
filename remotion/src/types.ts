@@ -10,8 +10,15 @@ export interface ZoomPunchFX {
   scale: number; // 1.04-1.07
 }
 
+export interface DriftFX {
+  motion: "zoom_in" | "zoom_out" | "pan_left" | "pan_right" | "drift_diagonal";
+  intensity: number; // 0.05-0.08
+  anchor: "top-left" | "top-center" | "top-right" | "center-left" | "center" | "center-right" | "bottom-left" | "bottom-center" | "bottom-right";
+}
+
 export interface SceneFX {
   zoom_punch?: ZoomPunchFX | null;
+  drift?: DriftFX | null;
 }
 
 export interface WordTimestamp {

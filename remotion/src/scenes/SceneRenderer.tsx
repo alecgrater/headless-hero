@@ -12,6 +12,7 @@ import { TitleCardScene } from "./TitleCardScene";
 import { SubtitleScene } from "./SubtitleScene";
 
 import { ZoomPunch } from "../effects/camera/ZoomPunch";
+import { CameraDrift } from "../effects/camera/CameraDrift";
 import { SubtitleOverlay } from "../effects/typography/Subtitles";
 
 interface Props {
@@ -64,6 +65,19 @@ export const SceneRenderer: React.FC<Props> = ({ scene }) => {
     visualLayer = <MultiFrameScene scene={scene} />;
   } else {
     visualLayer = <StaticImageScene scene={scene} />;
+  }
+
+  // Wrap with CameraDrift if assigned (not for subtitle or title card scenes)
+  if (fx?.drift && !isAhaSubtitle && !isTitleCard) {
+    visualLayer = (
+      <CameraDrift
+        motion={fx.drift.motion}
+        intensity={fx.drift.intensity}
+        anchor={fx.drift.anchor}
+      >
+        {visualLayer}
+      </CameraDrift>
+    );
   }
 
   // Wrap with ZoomPunch if assigned (but not for subtitle scenes — no image to zoom)
