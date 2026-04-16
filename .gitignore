@@ -13,8 +13,19 @@ __pycache__/
 # Data
 data/projects/
 data/voices/
+data/character/
 data/db.sqlite
 backend/data/
+
+# Superpowers brainstorm sessions
+.superpowers/
+
+# Test scratch files
+test.html
+test.js
+test2.js
+test3.js
+test_transform.html
 
 # Env
 .env
