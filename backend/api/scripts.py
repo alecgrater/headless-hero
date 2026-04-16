@@ -89,6 +89,7 @@ def _build_summary(record: Script) -> ScriptSummary:
         has_renders=has_renders,
         thumbnail_url=thumbnail_url,
         status=status,
+        hook_score_overall=content.hook_score.get("overall") if isinstance(content.hook_score, dict) else None,
     )
 
 

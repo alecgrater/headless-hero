@@ -351,8 +351,19 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject }: Props) {
                       {project.topic_description || "No description"}
                     </p>
                     <div className="flex items-center justify-between text-xs text-neutral-500 pt-1">
-                      <span>
-                        {project.segment_count} segments &middot; {project.scene_count} scenes
+                      <span className="flex items-center gap-2">
+                        <span>{project.segment_count} segments &middot; {project.scene_count} scenes</span>
+                        {project.hook_score_overall != null && (
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            project.hook_score_overall >= 80
+                              ? "bg-emerald-500/20 text-emerald-300"
+                              : project.hook_score_overall >= 50
+                                ? "bg-amber-500/20 text-amber-300"
+                                : "bg-red-500/20 text-red-300"
+                          }`} title="Hook retention score">
+                            Hook {project.hook_score_overall}
+                          </span>
+                        )}
                       </span>
                       <span className="flex items-center gap-1.5">
                         <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT_COLORS[project.status]}`} />

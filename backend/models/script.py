@@ -203,3 +203,4 @@ class ScriptSummary(BaseModel):
     has_renders: bool
     thumbnail_url: str
     status: str  # "script" | "images" | "audio" | "exported"
+    hook_score_overall: int | None = None

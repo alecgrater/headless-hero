@@ -119,6 +119,7 @@ export interface ScriptSummary {
   has_renders: boolean;
   thumbnail_url: string;
   status: "script" | "images" | "audio" | "exported";
+  hook_score_overall?: number | null;
 }
 
 // --- Hook score types ---
