@@ -10,17 +10,10 @@
 
 ### Post-commit: Gemini Code Review
 
-After every feature or fix commit, run an automated Gemini code review:
+Gemini code review runs automatically via a git `post-push` hook (outside Claude Code's sandbox). **Do not run `gemini` directly** — it cannot bind ports from within the sandbox.
 
-```bash
-gemini -p "$(cat ~/.claude/commands/review.md)"
-```
+If the user pastes Gemini review output with a **NEEDS CHANGES** verdict, treat the numbered action list as a new task. Fix each item, then commit and push in a single follow-up commit.
 
-Then:
-1. Read the full Gemini output.
-2. If the verdict is **LGTM** — report this to the user and continue.
-3. If the verdict is **NEEDS CHANGES** — treat Gemini's numbered action list as a new task. Fix each item, then commit and push in a single follow-up commit. Do not run Gemini again on that follow-up commit.
-4. Tell the user the Gemini verdict in one line: either "Gemini: LGTM" or "Gemini: NEEDS CHANGES — fixed [x, y, z]".
 ## Project Overview
 
 AI-powered Electron desktop app for creating faceless educational YouTube content. Full pipeline: idea → script → visuals → voice → video → publish.
