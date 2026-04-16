@@ -54,7 +54,6 @@ export interface ScriptGenerationState {
   genCompletedSegments: number[];
   phase: GenerationPhase;
   coldOpenResult: ColdOpenResult | null;
-  selectedColdOpen: ColdOpenVariant | null;
   setScript: (s: ScriptContent) => void;
   handleGenerate: () => Promise<void>;
   handleCancelGeneration: () => void;
@@ -330,7 +329,6 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
     genCompletedSegments,
     phase,
     coldOpenResult,
-    selectedColdOpen,
     setScript,
     handleGenerate,
     handleCancelGeneration,

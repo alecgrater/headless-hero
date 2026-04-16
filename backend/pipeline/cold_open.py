@@ -120,7 +120,11 @@ def generate_cold_opens(
     )
 
     text = strip_markdown_fences(raw)
-    data = json.loads(text)
+
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Cold open generation returned invalid JSON: {e}") from e
 
     # Parse variants and compute overall scores
     variants: list[ColdOpenVariant] = []

@@ -2,7 +2,6 @@
 
 import json
 import logging
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -12,11 +11,11 @@ from database import get_default_brand_id, get_session
 from models.brand import BrandProfile
 from models.cold_open import GenerateColdOpensRequest
 from pipeline.cold_open import generate_cold_opens
-from pipeline.render_jobs import create_job, get_job, run_in_background
+from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
+from api._helpers import read_prompt
 
-_PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
-_VISUAL_STYLE = (_PROMPTS_DIR / "visual_style.md").read_text() if (_PROMPTS_DIR / "visual_style.md").exists() else ""
-_CHARACTER = (_PROMPTS_DIR / "character.md").read_text() if (_PROMPTS_DIR / "character.md").exists() else ""
+_VISUAL_STYLE = read_prompt("visual_style.md")
+_CHARACTER = read_prompt("character.md")
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +60,8 @@ def generate_cold_opens_endpoint(
             brand_context=brand_context,
             model=model,
         )
-        # Store result JSON in output_urls[0]
-        return [result.model_dump_json()]
+        update_job(job_id, output_data=result.model_dump_json())
+        return []
 
     run_in_background(job_id, _run)
     return ColdOpenJobResponse(job_id=job_id)
@@ -74,7 +73,7 @@ def cold_opens_status(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     result = job.to_dict()
-    # If completed, parse the ColdOpenResult from output_urls
-    if job.status == "completed" and job.output_urls:
-        result["cold_open_result"] = json.loads(job.output_urls[0])
+    # If completed, parse the ColdOpenResult from output_data
+    if job.status == "completed" and job.output_data:
+        result["cold_open_result"] = json.loads(job.output_data)
     return result

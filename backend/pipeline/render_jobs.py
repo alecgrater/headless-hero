@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class RenderJob:
     """Tracks the state of a background render task."""
 
-    __slots__ = ("id", "status", "progress", "current_step", "output_urls", "error",
+    __slots__ = ("id", "status", "progress", "current_step", "output_urls", "output_data", "error",
                  "scene_count", "total_audio_duration", "duration_seconds", "estimated_seconds",
                  "_start_time", "_cancel_event")
 
@@ -26,6 +26,7 @@ class RenderJob:
         self.progress = 0.0  # 0.0 – 1.0
         self.current_step = ""
         self.output_urls: list[str] = []
+        self.output_data: str | None = None  # arbitrary JSON payload for non-URL results
         self.error: str | None = None
         self.scene_count: int = 0
         self.total_audio_duration: float = 0.0
@@ -44,6 +45,7 @@ class RenderJob:
             "progress": round(self.progress, 3),
             "current_step": self.current_step,
             "output_urls": self.output_urls,
+            "output_data": self.output_data,
             "error": self.error,
             "estimated_seconds": self.estimated_seconds,
             "elapsed_seconds": elapsed,
@@ -78,6 +80,7 @@ def update_job(
     progress: float | None = None,
     current_step: str | None = None,
     output_urls: list[str] | None = None,
+    output_data: str | None = None,
     error: str | None = None,
 ) -> None:
     """Thread-safe update of job fields."""
@@ -93,6 +96,8 @@ def update_job(
             job.current_step = current_step
         if output_urls is not None:
             job.output_urls = output_urls
+        if output_data is not None:
+            job.output_data = output_data
         if error is not None:
             job.error = error
 

@@ -31,12 +31,12 @@ from pipeline.refine import refine_scene
 from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
 from pipeline.scriptwriter import generate_script
 from pipeline.audio_split import split_scene_audio
+from api._helpers import read_prompt
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 
-_PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
-_VISUAL_STYLE = (_PROMPTS_DIR / "visual_style.md").read_text() if (_PROMPTS_DIR / "visual_style.md").exists() else ""
-_CHARACTER = (_PROMPTS_DIR / "character.md").read_text() if (_PROMPTS_DIR / "character.md").exists() else ""
+_VISUAL_STYLE = read_prompt("visual_style.md")
+_CHARACTER = read_prompt("character.md")
 
 logger = logging.getLogger(__name__)
 
