@@ -185,6 +185,40 @@ Stored in DB via AppSettings, loaded into env at startup. Never commit `.env` fi
 - **ElevenLabs duration as timing source of truth**: Scene duration in the Remotion timeline is derived from the ElevenLabs-generated audio duration, not estimated or manually set
 - **Visual storytelling arc in scriptwriter**: Script generation prompts are structured to produce a coherent visual narrative arc across scenes, not just talking-head descriptions
 
+## Discover Tab / Trending System
+
+Two-tab Discover page: **Trending** (aggregated topics from 7 sources) and **For You** (personalized ideas from content profile + trending).
+
+### Sources (7 total, 4 require zero API keys)
+| Source | API Key | Fetcher |
+|--------|---------|---------|
+| Hacker News | No | `pipeline/trending_hackernews.py` (Firebase API) |
+| Wikipedia | No | `pipeline/trending_wikipedia.py` (Wikimedia REST) |
+| Stack Exchange | No | `pipeline/trending_stackexchange.py` (7 sites) |
+| RSS Feeds (8) | No | `pipeline/trending_news.py` |
+| Reddit (12 subs) | No | `pipeline/trending_reddit.py` (retry + 15min cache) |
+| YouTube | YOUTUBE_API_KEY | `pipeline/trending_youtube.py` |
+| Google Trends | No | `pipeline/trending_pytrends.py` (30s timeout + 30min cache) |
+
+All fetchers run in parallel via `ThreadPoolExecutor(max_workers=7)` in `pipeline/trending_scorer.py`.
+
+### Content Profile System
+- **Model**: `models/content_profile.py` — single-row `ContentProfile` table
+- **Pipeline**: `pipeline/content_profile.py` — Python feature extraction + Claude Sonnet synthesis
+- **Staleness**: Compares `script_count` in profile vs actual count; GET returns stale flag, POST regenerates
+- **Endpoints**: `GET /api/trending/content-profile`, `POST /api/trending/content-profile/refresh`
+
+### Smart Ideation
+- **Pipeline**: `pipeline/smart_ideation.py` — Claude Sonnet generates ideas from profile + top 20 trending topics
+- **Endpoint**: `POST /api/trending/smart-ideas` — auto-regenerates stale profile, requires 3+ scripts
+
+### Frontend Components
+- `DiscoverPage.tsx` — thin two-tab shell (hidden/block toggle preserves state)
+- `TrendingTab.tsx` — extracted trending logic with 7-source filter chips
+- `ForYouTab.tsx` — gated behind 3+ scripts, shows ContentProfileCard + SmartIdeaCard grid
+- `ContentProfileCard.tsx` — collapsible profile summary with refresh + stale indicator
+- `SmartIdeaCard.tsx` — style match badge, trending source chips, reasoning, "Use Idea" action
+
 ## Video Rendering (Remotion)
 
 Video rendering uses **Remotion 4** (React-based frame-by-frame renderer) instead of FFmpeg filter graphs. FFmpeg is still used for audio concat export only.
