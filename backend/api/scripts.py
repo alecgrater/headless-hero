@@ -161,6 +161,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
     animated_scene_count = body.animated_scene_count
     model = body.model
     segmented = body.segmented
+    cold_open_text = body.cold_open_text
 
     job = create_job()
     job_id = job.id
@@ -184,6 +185,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             brand=brand_dict,
             model=model,
             segmented=segmented,
+            cold_open_text=cold_open_text,
             progress_callback=_progress,
         )
         duration = time.monotonic() - t0

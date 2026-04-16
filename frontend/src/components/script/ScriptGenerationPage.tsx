@@ -5,6 +5,7 @@ import GenerationProgressBar from "../GenerationProgressBar";
 import useScriptGeneration from "./useScriptGeneration";
 import useSceneEditing from "./useSceneEditing";
 import useTitleCardGeneration from "./useTitleCardGeneration";
+import ColdOpenSelector from "./ColdOpenSelector";
 
 interface Props {
   brandId: string;
@@ -32,10 +33,13 @@ export default function ScriptGenerationPage({
     elapsedSeconds,
     genSegments,
     genCompletedSegments,
+    phase,
+    coldOpenResult,
     setScript,
     handleGenerate,
     handleCancelGeneration,
     handleModelChange,
+    handleColdOpenSelect,
     setSegmented,
   } = useScriptGeneration({ brandId, idea });
 
@@ -73,6 +77,11 @@ export default function ScriptGenerationPage({
     : 0;
 
   const hasTitleCards = true;
+
+  const loadingText =
+    phase === "cold_opens"
+      ? "Generating cold open variants..."
+      : "Generating script with Claude...";
 
   return (
     <div className="space-y-6">
@@ -151,21 +160,21 @@ export default function ScriptGenerationPage({
         <div className="text-center py-12 space-y-4">
           <div className="inline-block w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
           <p className="text-neutral-400 text-lg">
-            Generating script with Claude...
+            {loadingText}
           </p>
 
           {/* Elapsed time */}
           {elapsedSeconds != null && (
             <p className="text-neutral-500 text-sm">
               {Math.floor(elapsedSeconds / 60)}:{String(Math.floor(elapsedSeconds % 60)).padStart(2, "0")} elapsed
-              {estimatedSeconds != null && estimatedSeconds > 0 && (
+              {phase === "script" && estimatedSeconds != null && estimatedSeconds > 0 && (
                 <> / ~{Math.floor(estimatedSeconds / 60)}:{String(Math.floor(estimatedSeconds % 60)).padStart(2, "0")} estimated</>
               )}
             </p>
           )}
 
-          {/* Per-segment progress */}
-          {genSegments && genSegments.total > 1 && (
+          {/* Per-segment progress (only during script phase) */}
+          {phase === "script" && genSegments && genSegments.total > 1 && (
             <div className="max-w-sm mx-auto text-left space-y-1.5 py-2">
               {Array.from({ length: genSegments.total }, (_, i) => {
                 const segNum = i + 1;
@@ -191,7 +200,7 @@ export default function ScriptGenerationPage({
             </div>
           )}
 
-          {!genSegments && (
+          {phase === "script" && !genSegments && (
             <div className="max-w-md mx-auto">
               <GenerationProgressBar estimatedSeconds={estimatedSeconds} active={loading} />
             </div>
@@ -203,6 +212,11 @@ export default function ScriptGenerationPage({
             Cancel
           </button>
         </div>
+      )}
+
+      {/* Cold open selection */}
+      {phase === "selecting" && coldOpenResult && !loading && (
+        <ColdOpenSelector result={coldOpenResult} onSelect={handleColdOpenSelect} />
       )}
 
       {/* Error state */}

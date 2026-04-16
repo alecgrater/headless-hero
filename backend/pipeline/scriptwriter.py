@@ -94,6 +94,7 @@ def generate_script(
     brand: dict | None = None,
     model: str | None = None,
     segmented: bool = False,
+    cold_open_text: str | None = None,
     progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> ScriptContent:
     """Generate a segmented video script via Claude.
@@ -136,6 +137,14 @@ def generate_script(
         "Every visual_prompt must begin with a [SHOT_TYPE] label from the Visual "
         "storytelling arc palette."
     )
+    if cold_open_text:
+        user_parts.append(
+            "MANDATORY COLD OPEN — use this EXACT opening for the video.\n"
+            "The intro_hook and first 2-3 content scenes MUST use this text verbatim "
+            "or with minimal polish. Build the rest of the script to flow naturally "
+            "from this opening:\n\n"
+            f"{cold_open_text}"
+        )
 
     system_prompt = BASE_SYSTEM_PROMPT
     base_user_message = "\n".join(user_parts)

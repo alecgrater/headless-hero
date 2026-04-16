@@ -118,3 +118,26 @@ export interface ScriptSummary {
   thumbnail_url: string;
   status: "script" | "images" | "audio" | "exported";
 }
+
+// --- Cold open A/B testing ---
+
+export interface ColdOpenScores {
+  tension: number;
+  specificity: number;
+  drop_rate_risk: number;
+  overall: number;
+  reasoning: string;
+}
+
+export interface ColdOpenVariant {
+  id: string;
+  style: string;
+  intro_hook: string;
+  opening_narration: string;
+  scores: ColdOpenScores;
+}
+
+export interface ColdOpenResult {
+  variants: ColdOpenVariant[];
+  winner_id: string;
+}

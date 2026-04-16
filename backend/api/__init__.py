@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session
 
 from api.brands import router as brands_router
+from api.cold_opens import router as cold_opens_router
 from database import init_db, ensure_default_brand
 from database import engine as _db_engine
 from api.eli import router as eli_router
@@ -80,6 +81,7 @@ app.include_router(_dev_router)
 
 # Core routers
 app.include_router(brands_router)
+app.include_router(cold_opens_router)
 app.include_router(eli_router)
 app.include_router(fx_router)
 app.include_router(ideas_router)

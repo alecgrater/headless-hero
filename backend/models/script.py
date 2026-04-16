@@ -146,6 +146,7 @@ class GenerateScriptRequest(BaseModel):
     )
     model: str | None = PydanticField(default=None, description="Override SCRIPT_MODEL setting for this request")
     segmented: bool = PydanticField(default=False, description="Use two-phase segmented generation (one API call per segment)")
+    cold_open_text: str | None = PydanticField(default=None, description="Pre-selected cold open text to inject into script generation")
 
 class GenerateScriptResponse(BaseModel):
     id: str
