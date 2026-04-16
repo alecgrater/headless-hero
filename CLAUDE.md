@@ -189,7 +189,7 @@ Stored in DB via AppSettings, loaded into env at startup. Never commit `.env` fi
 
 Two-tab Discover page: **Trending** (aggregated topics from 7 sources) and **For You** (personalized ideas from content profile + trending).
 
-### Sources (7 total, 4 require zero API keys)
+### Sources (7 total, 6 require zero API keys)
 | Source | API Key | Fetcher |
 |--------|---------|---------|
 | Hacker News | No | `pipeline/trending_hackernews.py` (Firebase API) |
