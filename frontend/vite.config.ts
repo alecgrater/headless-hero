@@ -9,6 +9,7 @@ export default defineConfig({
     alias: {
       "@remotion-src": path.resolve(__dirname, "../remotion/src"),
     },
+    dedupe: ["react", "react-dom", "remotion", "@remotion/google-fonts"],
   },
   server: {
     port: 5173,
