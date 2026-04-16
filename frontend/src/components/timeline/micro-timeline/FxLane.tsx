@@ -6,14 +6,21 @@ import {
   pxToSeconds,
   clamp,
   snapToWordBoundary,
+  wordToSeconds,
+  secondsToWord,
+  estimateWordPosition,
   FPS,
 } from "./shared";
 
 interface Props extends LaneProps {
   /** Zoom punch trigger frame number. */
   triggerFrame: number;
+  /** Trigger word (source of truth when present). */
+  triggerWord?: string;
+  /** Scene narration text (for word estimation fallback). */
+  narration: string;
   wordTimestamps?: WordTimestamp[] | null;
-  onChange: (triggerFrame: number) => void;
+  onChange: (triggerWord: string, triggerFrame: number) => void;
   isMarkerSelected: boolean;
   onSelectMarker: (selected: boolean) => void;
   shiftHeld: boolean;
@@ -27,6 +34,8 @@ export default function FxLane({
   isSelected,
   onSelect,
   triggerFrame,
+  triggerWord,
+  narration,
   wordTimestamps,
   onChange,
   isMarkerSelected,
@@ -38,7 +47,11 @@ export default function FxLane({
   const shiftHeldRef = useRef(shiftHeld);
   useEffect(() => { shiftHeldRef.current = shiftHeld; }, [shiftHeld]);
 
-  const triggerSeconds = triggerFrame / FPS;
+  // Resolve marker position: trigger_word → seconds, with fallbacks
+  const triggerSeconds = triggerWord
+    ? (wordToSeconds(triggerWord, wordTimestamps)
+      ?? estimateWordPosition(triggerWord, narration, durationSeconds))
+    : triggerFrame / FPS;
   const triggerPx = secondsToPx(triggerSeconds, durationSeconds, widthPx);
 
   const handleMouseDown = useCallback(
@@ -59,7 +72,9 @@ export default function FxLane({
         }
 
         sec = clamp(sec, 0, durationSeconds);
-        onChange(Math.round(sec * FPS));
+        const frame = Math.round(sec * FPS);
+        const word = secondsToWord(sec, wordTimestamps);
+        onChange(word ?? "", frame);
       };
 
       const onMouseUp = () => {

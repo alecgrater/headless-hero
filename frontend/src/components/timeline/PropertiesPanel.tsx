@@ -177,7 +177,11 @@ export default function PropertiesPanel({
                 {scene.fx.zoom_punch && (
                   <div className="flex items-center gap-1">
                     <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full">zoom</span>
-                    <span className="text-[10px] text-neutral-400">f{scene.fx.zoom_punch.trigger_frame} @ {scene.fx.zoom_punch.scale}x</span>
+                    <span className="text-[10px] text-neutral-400">
+                      {scene.fx.zoom_punch.trigger_word
+                        ? `"${scene.fx.zoom_punch.trigger_word}" @ ${scene.fx.zoom_punch.scale}x`
+                        : `f${scene.fx.zoom_punch.trigger_frame} @ ${scene.fx.zoom_punch.scale}x`}
+                    </span>
                   </div>
                 )}
                 {!scene.fx.zoom_punch && !scene.fx.drift && (

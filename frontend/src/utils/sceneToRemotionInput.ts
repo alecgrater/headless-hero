@@ -3,12 +3,44 @@
  * Converts web-relative paths to full HTTP URLs via assetUrl().
  */
 import { assetUrl } from "../api";
-import type { Scene } from "../types/script";
+import type { Scene, ZoomPunchFX, WordTimestamp } from "../types/script";
 import type { SceneInput } from "@remotion-src/types";
+
+const FPS = 30;
+
+/**
+ * Resolve trigger_word → trigger_frame for the preview player.
+ * Remotion still receives trigger_frame — this converts word-based FX.
+ */
+function resolveZoomPunchFrame(
+  zp: ZoomPunchFX,
+  wordTimestamps: WordTimestamp[] | undefined | null,
+  durationSeconds: number,
+): ZoomPunchFX {
+  if (!zp.trigger_word) return zp;
+
+  if (wordTimestamps && wordTimestamps.length > 0) {
+    const lower = zp.trigger_word.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const match = wordTimestamps.find(
+      (wt) => wt.word.toLowerCase().replace(/[^a-z0-9]/g, "") === lower,
+    );
+    if (match) {
+      return { ...zp, trigger_frame: Math.round(match.start_ms / 1000 * FPS) };
+    }
+  }
+
+  // Fallback: mid-scene
+  return { ...zp, trigger_frame: Math.round(durationSeconds / 2 * FPS) };
+}
 
 export function sceneToRemotionInput(scene: Scene): SceneInput {
   const duration =
     scene.audio_duration_seconds || scene.duration_estimate_seconds || 5;
+
+  // Resolve zoom punch trigger_word → trigger_frame for Remotion
+  const resolvedZoomPunch = scene.fx?.zoom_punch
+    ? resolveZoomPunchFrame(scene.fx.zoom_punch, scene.word_timestamps, duration)
+    : null;
 
   return {
     id: scene.id,
@@ -21,7 +53,7 @@ export function sceneToRemotionInput(scene: Scene): SceneInput {
     title_card_zoom_target: scene.title_card_zoom_target ?? null,
     fx: scene.fx
       ? {
-          zoom_punch: scene.fx.zoom_punch ?? null,
+          zoom_punch: resolvedZoomPunch,
         }
       : null,
     visual_beat: scene.visual_beat,

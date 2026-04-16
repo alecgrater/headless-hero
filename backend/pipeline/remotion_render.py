@@ -102,6 +102,38 @@ def _title_card_image_path(script_id: str) -> str | None:
     return _to_remotion_path(str(withtitle)) if withtitle.exists() else None
 
 
+def _resolve_zoom_punch_frame(
+    fx: dict | None,
+    word_timestamps: list[dict] | None,
+    duration_seconds: float,
+) -> dict | None:
+    """Resolve trigger_word → trigger_frame on zoom_punch FX.
+
+    If trigger_word is set and word_timestamps exist, looks up the word's
+    start_ms and converts to a frame number. Falls back to mid-scene if the
+    word is not found. Returns fx unchanged if no zoom_punch or no trigger_word.
+    """
+    if not fx or not fx.get("zoom_punch"):
+        return fx
+    zp = fx["zoom_punch"]
+    trigger_word = zp.get("trigger_word")
+    if not trigger_word:
+        return fx
+
+    # Try to find the word in timestamps
+    if word_timestamps:
+        lower = trigger_word.lower().strip()
+        for wt in word_timestamps:
+            wt_word = wt.get("word", "").lower().strip().strip(".,!?;:\"'")
+            if wt_word == lower or wt_word.rstrip(".,!?;:\"'") == lower:
+                frame = round(wt["start_ms"] / 1000 * FPS)
+                return {**fx, "zoom_punch": {**zp, "trigger_frame": frame}}
+
+    # Fallback: estimate from word position in narration (mid-scene if no narration context)
+    frame = round(duration_seconds / 2 * FPS)
+    return {**fx, "zoom_punch": {**zp, "trigger_frame": frame}}
+
+
 def _scene_to_input_props(scene: Scene, script_id: str, eli_position: dict | None = None, variant_counts: dict[str, int] | None = None) -> dict[str, Any]:
     """Convert a Scene model to the input props expected by Remotion."""
     # Resolve asset paths
@@ -115,11 +147,9 @@ def _scene_to_input_props(scene: Scene, script_id: str, eli_position: dict | Non
         if tc_path:
             image_path = tc_path
 
-    # Use audio duration if available, otherwise estimate
+    # Parse FX if stored as dict — resolve trigger_word → trigger_frame
     duration = scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else scene.duration_estimate_seconds
-
-    # Parse FX if stored as dict
-    fx = scene.fx
+    fx = _resolve_zoom_punch_frame(scene.fx, scene.word_timestamps, duration)
 
     # Merge resolved eli position into eli_overlay
     eli_overlay = scene.eli_overlay

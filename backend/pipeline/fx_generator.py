@@ -41,7 +41,7 @@ For each drift, specify:
 A quick 4-7% scale hit for emphasis. Use sparingly — 3-6 per ENTIRE video.
 
 For each zoom punch, specify:
-- **trigger_frame**: Frame within the scene where the punch triggers
+- **trigger_word**: The exact word from the narration where the punch lands. Pick one emphatic content word — dramatic nouns, strong verbs, shocking numbers (e.g. "devastating", "exploded", "billion"). Never pick function words (the, a, and, is).
 - **scale**: Scale factor (1.04-1.07). Use 1.04-1.05 for subtle emphasis, 1.06-1.07 for dramatic reveals.
 
 **Rules:**
@@ -96,7 +96,7 @@ Return a JSON array with one object per scene (same order as input). Each object
     "id": "scene_with_transition",
     "fx": {
       "drift": { "motion": "zoom_in", "intensity": 0.07, "anchor": "center-right" },
-      "zoom_punch": { "trigger_frame": 30, "scale": 1.06 }
+      "zoom_punch": { "trigger_word": "devastating", "scale": 1.06 }
     },
     "transition_in": "fade_black"
   },

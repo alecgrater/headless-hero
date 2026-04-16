@@ -6,7 +6,7 @@ import InOutLane from "./micro-timeline/InOutLane";
 import ImageLane from "./micro-timeline/ImageLane";
 import FxLane from "./micro-timeline/FxLane";
 import EliLane from "./micro-timeline/EliLane";
-import { FPS, FRAME_SECONDS, secondsToPx, snapToWordBoundary } from "./micro-timeline/shared";
+import { FPS, FRAME_SECONDS, secondsToPx, snapToWordBoundary, wordToSeconds, estimateWordPosition } from "./micro-timeline/shared";
 import { assetUrl } from "../../api";
 
 export type LaneId = "images" | "fx" | "eli" | "inout";
@@ -120,11 +120,18 @@ const SceneMicroTimeline = forwardRef<MicroTimelineHandle, Props>(function Scene
   );
 
   const handleZoomPunchChange = useCallback(
-    (triggerFrame: number) => {
+    (triggerWord: string, triggerFrame: number) => {
       const currentFx = scene.fx ?? {};
       const currentZoom = currentFx.zoom_punch ?? { trigger_frame: 0, scale: 1.06 };
       onUpdateScene({
-        fx: { ...currentFx, zoom_punch: { ...currentZoom, trigger_frame: triggerFrame } },
+        fx: {
+          ...currentFx,
+          zoom_punch: {
+            ...currentZoom,
+            trigger_word: triggerWord || undefined,
+            trigger_frame: triggerFrame,
+          },
+        },
       });
     },
     [scene.fx, onUpdateScene],
@@ -161,9 +168,30 @@ const SceneMicroTimeline = forwardRef<MicroTimelineHandle, Props>(function Scene
           onUpdateScene({ frame_timings: updated });
         }
       } else if (selectedLane === "fx" && selectedFxMarker) {
-        const currentFrame = scene.fx?.zoom_punch?.trigger_frame ?? 0;
-        const newFrame = Math.max(0, Math.min(Math.round(durationSeconds * FPS), currentFrame + frames));
-        handleZoomPunchChange(newFrame);
+        // Jump to prev/next word instead of frame delta
+        const wts = scene.word_timestamps;
+        const currentWord = scene.fx?.zoom_punch?.trigger_word;
+        if (wts && wts.length > 0) {
+          // Find current position in seconds
+          const currentSec = currentWord
+            ? (wordToSeconds(currentWord, wts) ?? estimateWordPosition(currentWord, scene.narration, durationSeconds))
+            : (scene.fx?.zoom_punch?.trigger_frame ?? 0) / FPS;
+          // Find the nearest word index
+          let nearestIdx = 0;
+          let nearestDist = Infinity;
+          for (let i = 0; i < wts.length; i++) {
+            const d = Math.abs(wts[i].start_ms / 1000 - currentSec);
+            if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
+          }
+          const newIdx = Math.max(0, Math.min(wts.length - 1, nearestIdx + (frames > 0 ? 1 : -1)));
+          const newWord = wts[newIdx].word;
+          const newFrame = Math.round(wts[newIdx].start_ms / 1000 * FPS);
+          handleZoomPunchChange(newWord, newFrame);
+        } else {
+          const currentFrame = scene.fx?.zoom_punch?.trigger_frame ?? 0;
+          const newFrame = Math.max(0, Math.min(Math.round(durationSeconds * FPS), currentFrame + frames));
+          handleZoomPunchChange(currentWord ?? "", newFrame);
+        }
       } else if (selectedLane === "eli" && selectedEliMarker !== null) {
         const kfs = scene.eli_overlay?.keyframes as EliKeyframe[] | undefined;
         if (kfs && selectedEliMarker > 0) {
@@ -193,7 +221,7 @@ const SceneMicroTimeline = forwardRef<MicroTimelineHandle, Props>(function Scene
         setSelectedImageMarker(null);
       } else if (selectedLane === "fx" && selectedFxMarker) {
         // Reset zoom punch trigger to 0
-        handleZoomPunchChange(0);
+        handleZoomPunchChange("", 0);
         setSelectedFxMarker(false);
       } else if (selectedLane === "inout") {
         // Reset in/out to 0
@@ -281,6 +309,8 @@ const SceneMicroTimeline = forwardRef<MicroTimelineHandle, Props>(function Scene
             isSelected={selectedLane === "fx"}
             onSelect={() => setSelectedLane("fx")}
             triggerFrame={scene.fx!.zoom_punch!.trigger_frame}
+            triggerWord={scene.fx!.zoom_punch!.trigger_word}
+            narration={scene.narration}
             wordTimestamps={scene.word_timestamps}
             onChange={handleZoomPunchChange}
             isMarkerSelected={selectedLane === "fx" && selectedFxMarker}

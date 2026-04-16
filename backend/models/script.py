@@ -14,6 +14,7 @@ from sqlmodel import Column, Field, SQLModel, Text
 class ZoomPunchFX(BaseModel):
     """Zoom punch — quick asymmetric scale hit on key moments."""
 
+    trigger_word: str | None = None
     trigger_frame: int = 0
     scale: float = 1.06  # 1.04-1.07
 

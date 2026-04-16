@@ -1,4 +1,5 @@
 import type { WordTimestamp } from "../../../types/script";
+export type { WordTimestamp };
 
 /** Props common to all lane sub-components. */
 export interface LaneProps {
@@ -77,3 +78,58 @@ export const FPS = 30;
 
 /** Nudge amount in seconds for 1 frame. */
 export const FRAME_SECONDS = 1 / FPS;
+
+/**
+ * Look up a word's start time in word_timestamps.
+ * Returns seconds, or null if not found.
+ */
+export function wordToSeconds(
+  word: string,
+  wordTimestamps: WordTimestamp[] | undefined | null,
+): number | null {
+  if (!wordTimestamps || wordTimestamps.length === 0 || !word) return null;
+  const lower = word.toLowerCase();
+  const match = wordTimestamps.find(
+    (wt) => wt.word.toLowerCase().replace(/[^a-z0-9]/g, "") === lower.replace(/[^a-z0-9]/g, ""),
+  );
+  return match ? match.start_ms / 1000 : null;
+}
+
+/**
+ * Find the nearest word to a given time in seconds.
+ * Returns the word text, or null if no timestamps.
+ */
+export function secondsToWord(
+  seconds: number,
+  wordTimestamps: WordTimestamp[] | undefined | null,
+): string | null {
+  if (!wordTimestamps || wordTimestamps.length === 0) return null;
+  let closest: WordTimestamp | null = null;
+  let closestDist = Infinity;
+  for (const wt of wordTimestamps) {
+    const d = Math.abs(wt.start_ms / 1000 - seconds);
+    if (d < closestDist) {
+      closestDist = d;
+      closest = wt;
+    }
+  }
+  return closest ? closest.word : null;
+}
+
+/**
+ * Estimate word position when no word_timestamps are available.
+ * Linearly estimates based on word index in narration text.
+ */
+export function estimateWordPosition(
+  word: string,
+  narration: string,
+  durationSeconds: number,
+): number {
+  const words = narration.split(/\s+/);
+  const lower = word.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const idx = words.findIndex(
+    (w) => w.toLowerCase().replace(/[^a-z0-9]/g, "") === lower,
+  );
+  if (idx < 0 || words.length <= 1) return durationSeconds / 2;
+  return (idx / (words.length - 1)) * durationSeconds;
+}

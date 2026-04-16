@@ -3,6 +3,7 @@ import { SEOMetadata } from "./render";
 // --- FX types ---
 
 export interface ZoomPunchFX {
+  trigger_word?: string;
   trigger_frame: number;
   scale: number; // 1.04-1.07
 }
