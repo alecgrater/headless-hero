@@ -8,12 +8,6 @@
 
 **Every time a feature or fix is completed, automatically commit and push the changes.** Do not wait for the user to ask — stage the relevant files, write a descriptive commit message, and push to `main`. Follow the commit message conventions below.
 
-### Post-commit: Gemini Code Review
-
-Gemini code review runs automatically via a git `post-push` hook (outside Claude Code's sandbox). **Do not run `gemini` directly** — it cannot bind ports from within the sandbox.
-
-If the user pastes Gemini review output with a **NEEDS CHANGES** verdict, treat the numbered action list as a new task. Fix each item, then commit and push in a single follow-up commit.
-
 ## Project Overview
 
 AI-powered Electron desktop app for creating faceless educational YouTube content. Full pipeline: idea → script → visuals → voice → video → publish.
@@ -178,40 +172,6 @@ Stored in DB via AppSettings, loaded into env at startup. Never commit `.env` fi
 - **ElevenLabs duration as timing source of truth**: Scene duration in the Remotion timeline is derived from the ElevenLabs-generated audio duration, not estimated or manually set
 - **Visual storytelling arc in scriptwriter**: Script generation prompts are structured to produce a coherent visual narrative arc across scenes, not just talking-head descriptions
 
-## Discover Tab / Trending System
-
-Two-tab Discover page: **Trending** (aggregated topics from 7 sources) and **For You** (personalized ideas from content profile + trending).
-
-### Sources (7 total, 6 require zero API keys)
-| Source | API Key | Fetcher |
-|--------|---------|---------|
-| Hacker News | No | `pipeline/trending_hackernews.py` (Firebase API) |
-| Wikipedia | No | `pipeline/trending_wikipedia.py` (Wikimedia REST) |
-| Stack Exchange | No | `pipeline/trending_stackexchange.py` (7 sites) |
-| RSS Feeds (8) | No | `pipeline/trending_news.py` |
-| Reddit (12 subs) | No | `pipeline/trending_reddit.py` (retry + 15min cache) |
-| YouTube | YOUTUBE_API_KEY | `pipeline/trending_youtube.py` |
-| Google Trends | No | `pipeline/trending_pytrends.py` (30s timeout + 30min cache) |
-
-All fetchers run in parallel via `ThreadPoolExecutor(max_workers=7)` in `pipeline/trending_scorer.py`.
-
-### Content Profile System
-- **Model**: `models/content_profile.py` — single-row `ContentProfile` table
-- **Pipeline**: `pipeline/content_profile.py` — Python feature extraction + Claude Sonnet synthesis
-- **Staleness**: Compares `script_count` in profile vs actual count; GET returns stale flag, POST regenerates
-- **Endpoints**: `GET /api/trending/content-profile`, `POST /api/trending/content-profile/refresh`
-
-### Smart Ideation
-- **Pipeline**: `pipeline/smart_ideation.py` — Claude Sonnet generates ideas from profile + top 20 trending topics
-- **Endpoint**: `POST /api/trending/smart-ideas` — auto-regenerates stale profile, requires 3+ scripts
-
-### Frontend Components
-- `DiscoverPage.tsx` — thin two-tab shell (hidden/block toggle preserves state)
-- `TrendingTab.tsx` — extracted trending logic with 7-source filter chips
-- `ForYouTab.tsx` — gated behind 3+ scripts, shows ContentProfileCard + SmartIdeaCard grid
-- `ContentProfileCard.tsx` — collapsible profile summary with refresh + stale indicator
-- `SmartIdeaCard.tsx` — style match badge, trending source chips, reasoning, "Use Idea" action
-
 ## Video Rendering (Remotion)
 
 Video rendering uses **Remotion 4** (React-based frame-by-frame renderer) instead of FFmpeg filter graphs. FFmpeg is still used for audio concat export only.
@@ -230,8 +190,7 @@ Python writes scene data + FX config to JSON → invokes `npx remotion render` v
 
 ### FX System
 Visual effects are AI-generated (no manual editing of the FX *assignment* itself). Each scene has an optional `fx: SceneFX` field. Active FX:
-- **drift** — Continuous camera motion (zoom_in, zoom_out, pan_left, pan_right, drift_diagonal) assigned to every image scene. Intensity 5-8%, anchor on 9-point grid. No two consecutive scenes share the same motion type. Rendered by `remotion/src/effects/camera/CameraDrift.tsx`.
-- **zoom_punch** — Quick zoom-in camera punch for emphasis (3-6 per video)
+- **zoom_punch** — Quick zoom-in camera punch for emphasis
 
 Standard phrase-based subtitles are rendered automatically from `word_timestamps` (no AI generation needed). Subtitle scenes (`aha_subtitle`) show text synced to voiceover timing.
 
