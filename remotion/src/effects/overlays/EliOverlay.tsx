@@ -37,8 +37,15 @@ function hashCode(s: string): number {
 
 /**
  * Build a pseudo-random variant sequence avoiding consecutive duplicates.
+ * Cached by (seed, variantCount) to avoid allocation on every frame.
  */
+const variantSequenceCache = new Map<string, number[]>();
+
 function buildVariantSequence(seed: number, variantCount: number): number[] {
+  const cacheKey = `${seed}:${variantCount}`;
+  const cached = variantSequenceCache.get(cacheKey);
+  if (cached) return cached;
+
   const seqLength = 8 + (seed % 5);
   const sequence: number[] = [];
   let rng = seed;
@@ -56,6 +63,7 @@ function buildVariantSequence(seed: number, variantCount: number): number[] {
     lastVariant = variant;
   }
 
+  variantSequenceCache.set(cacheKey, sequence);
   return sequence;
 }
 
@@ -162,6 +170,8 @@ function getMouthOpenness(
           { easing: Easing.inOut(Easing.ease) },
         );
       }
+      // Past ramp-down, before next word ramp-up — fully closed
+      return 0;
     }
   }
 
@@ -446,11 +456,9 @@ export const EliOverlay: React.FC<Props> = ({
     openSrc: string,
     closedSrc: string,
     layerOpacity: number,
-    key: string,
     isAbsolute: boolean,
   ) => (
     <div
-      key={key}
       style={{
         position: isAbsolute ? "absolute" : "relative",
         top: 0,
@@ -531,19 +539,19 @@ export const EliOverlay: React.FC<Props> = ({
         }}
       >
         {/* Current variant A — mouth-blended */}
-        {renderMouthBlend(curV1OpenSrc, curV1ClosedSrc, curV1Opacity, "curV1", false)}
+        {renderMouthBlend(curV1OpenSrc, curV1ClosedSrc, curV1Opacity, false)}
 
         {/* Current variant B — mouth-blended (variant crossfade) */}
         {curV2OpenSrc &&
           curV2ClosedSrc &&
           curV2Opacity > 0 &&
-          renderMouthBlend(curV2OpenSrc, curV2ClosedSrc, curV2Opacity, "curV2", true)}
+          renderMouthBlend(curV2OpenSrc, curV2ClosedSrc, curV2Opacity, true)}
 
         {/* Next pose — mouth-blended (pose crossfade) */}
         {nextOpenSrc &&
           nextClosedSrc &&
           easedTransition > 0 &&
-          renderMouthBlend(nextOpenSrc, nextClosedSrc, easedTransition, "next", true)}
+          renderMouthBlend(nextOpenSrc, nextClosedSrc, easedTransition, true)}
       </div>
     </div>
   );

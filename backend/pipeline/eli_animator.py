@@ -183,9 +183,13 @@ def generate_scene_eli(scene_data: dict, script_id: str | None = None) -> dict:
         merged = []
         for kf in validated_keyframes:
             duration = kf["end_frame"] - kf["start_frame"]
-            if duration < MIN_KF_FRAMES and merged:
-                # Extend previous keyframe to absorb this one
-                merged[-1]["end_frame"] = kf["end_frame"]
+            if duration < MIN_KF_FRAMES:
+                if merged:
+                    # Absorb into previous keyframe
+                    merged[-1]["end_frame"] = kf["end_frame"]
+                else:
+                    # Short first keyframe — skip it; gap-fill will cover its range
+                    continue
             else:
                 merged.append(kf)
         validated_keyframes = merged
