@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Retention Checklist</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0f1a;
+    --card: rgba(255,255,255,0.05);
+    --border: rgba(255,255,255,0.08);
+    --text: #e6ecff;
+    --sub: #9aa4c7;
+    --accent: #6ee7ff;
+    --glow: 0 0 25px rgba(110,231,255,0.5);
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    background: radial-gradient(circle at 20% 20%, #111633, #05070f);
+    color: var(--text);
+  }
+
+  h1 { text-align: center; margin: 40px 0 10px; }
+  .subtitle { text-align: center; color: var(--sub); margin-bottom: 20px; }
+
+  .container { max-width: 1100px; margin: auto; padding: 20px; }
+
+  .section { margin-bottom: 40px; }
+
+  .section-title {
+    font-size: 20px;
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .badge {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+
+  .high { background: rgba(255,80,80,0.2); }
+  .med { background: rgba(255,200,80,0.2); }
+  .low { background: rgba(80,255,160,0.2); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 10px;
+    backdrop-filter: blur(10px);
+    transition: all 0.25s ease;
+  }
+
+  .card:hover { transform: translateY(-2px); box-shadow: var(--glow); }
+
+  label { display: flex; gap: 12px; cursor: pointer; }
+
+  .delete-btn {
+    padding: 6px 12px;
+    border: none;
+    background: rgba(255,80,80,0.2);
+    color: #ff5050;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    transition: 0.2s;
+    align-self: flex-start;
+  }
+
+  .delete-btn:hover {
+    background: rgba(255,80,80,0.4);
+    transform: scale(1.1);
+  }
+
+  .card { display: flex; gap: 12px; align-items: flex-start; }
+
+  input[type="checkbox"] { transform: scale(1.3); accent-color: #6ee7ff; }
+
+  .title { font-weight: 600; }
+  .desc { font-size: 13px; color: var(--sub); }
+
+  /* ADD BOX */
+  .add-section {
+    margin-top: 60px;
+    padding: 25px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(110,231,255,0.12), rgba(180,120,255,0.12));
+    border: 1px solid var(--border);
+    box-shadow: var(--glow);
+  }
+
+  .add-title {
+    font-size: 22px;
+    margin-bottom: 15px;
+    text-align: center;
+  }
+
+  .add-box {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  input, select {
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.05);
+    color: var(--text);
+  }
+
+  .add-btn {
+    padding: 12px 20px;
+    font-weight: 600;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    background: linear-gradient(135deg, #6ee7ff, #a78bfa);
+    color: #000;
+    box-shadow: 0 0 20px rgba(110,231,255,0.6);
+    transition: 0.2s;
+  }
+
+  .add-btn:hover { transform: scale(1.05); }
+
+</style>
+</head>
+<body>
+
+<h1>Retention System Checklist</h1>
+<div class="subtitle">Track what actually moves retention</div>
+
+<div class="container" id="app"></div>
+
+<div class="container section">
+  <div class="section-title">Your Custom Additions</div>
+  <div id="custom"></div>
+</div>
+
+<div class="container add-section">
+  <div class="add-title">➕ Add New Retention Feature</div>
+  <div class="add-box">
+    <input id="newTitle" placeholder="Feature name" />
+    <input id="newDesc" placeholder="Detailed implementation description" />
+    <select id="newImpact">
+      <option value="HIGH">HIGH</option>
+      <option value="MED">MED</option>
+      <option value="LOW">LOW</option>
+    </select>
+    <button class="add-btn" onclick="addItem()">ADD FEATURE</button>
+  </div>
+</div>
+
+<script>
+const baseSections = [
+  {
+    title: "Hook & Structure",
+    impact: "HIGH",
+    items: [
+      ["A/B cold open testing", "Generate 2–3 cold open variants per video and let an LLM score them on tension, specificity, and \"drop rate risk\". Pick the winner before generating the rest."],
+      ["30-second hook score", "After script generation, run a dedicated Claude pass that scores the first 3–5 scenes on a retention rubric (promise, tension, payoff hint). Block the pipeline if score is below threshold."],
+      ["Open-loop tracker", "Instruct Claude to annotate which scenes \"open\" a loop vs \"close\" one. Surface this as a timeline view so you can verify the mosaic structure actually landed."]
+    ]
+  },
+  {
+    title: "Pacing & Rhythm",
+    impact: "HIGH",
+    items: [
+      ["Energy map", "Compute a per-scene energy score from beat type + ElevenLabs audio pace + ZoomPunch presence. Plot it as a waveform — you should see peaks at reveals and valleys at explanation. Flat = dangerous."],
+      ["Scene duration variance", "High-energy sections (quick_cuts, aha_subtitle) should have shorter audio. Feed audio duration back to Claude as a re-prompt signal if high-energy scenes drift above 10s average."],
+      ["More aha_subtitle moments", "3 per video may be too conservative. Test 5–6. They're the cheapest pattern interrupt to produce and have outsized re-engagement effect."]
+    ]
+  },
+  {
+    title: "Eli Character",
+    impact: "MED",
+    items: [
+      ["Reaction-to-reveal sync", "Claude currently matches general tone — upgrade to detecting \"reveal moments\" in narration and triggering a specific surprised/mind-blown pose exactly 1–2 frames before the word lands."],
+      ["PIP position variety", "Default bottom-right is fine, but moving Eli to bottom-left or center-right on specific scene types adds variety. Claude could assign position as part of FX generation."],
+      ["Eli \"look at\" gesture", "Add a pointing-toward-image pose variant. When Eli points toward the main visual, it reinforces the connection between character and content — proven in PIP-style YouTube."]
+    ]
+  },
+  {
+    title: "Visuals & Effects",
+    impact: "MED",
+    items: [
+      ["Visual metaphor QA pass", "After Gemini generates images, run a Claude vision pass asking \"does this image match the metaphor described in the prompt?\" Flag literal interpretations for regeneration."],
+      ["Transition variety", "Crossfade is overused. Add a \"wipe\" and \"flash-to-white\" transition type alongside fade-to-black. Claude can assign transition type per scene boundary based on emotional tone shift."],
+      ["ZoomPunch word-lock", "Currently ZoomPunch triggers at a frame number. Lock it instead to a specific word from ElevenLabs word_timestamps — guaranteed to land exactly on the emphasis word."]
+    ]
+  },
+  {
+    title: "Subtitles & Accessibility",
+    impact: "LOW",
+    items: [
+      ["Keyword highlighting", "Add an optional mode: key terms render in amber/accent color rather than uniform white. Claude marks 1–2 keywords per phrase group at script time. Gives karaoke-style pop without full word-by-word jumping."],
+      ["Subtitle position awareness", "If Eli PIP position is bottom-right and subtitles are bottom-center, they currently overlap. Add a layout conflict check that nudges subtitles to 12% from bottom when Eli is in that quadrant."]
+    ]
+  },
+  {
+    title: "Title Cards & SEO",
+    impact: "LOW",
+    items: [
+      ["Segment label curiosity gap", "Current 1–3 word UPPERCASE labels are descriptive (\"HISTORY\", \"IMPACT\"). Switch to curiosity-gap framing (\"THE SECRET\", \"NOBODY TOLD YOU\") — the title card roadmap doubles as a teaser."],
+      ["Thumbnail moment extraction", "At script time, have Claude flag the single most \"clickable\" scene — the one with the most dramatic visual prompt and best one-liner. Auto-export that frame as a thumbnail candidate."],
+      ["Chapter timestamp generation", "You already have segment timing from audio durations. Auto-generate YouTube chapter timestamps in the description — proven to increase average view duration by surfacing rewatch entry points."]
+    ]
+  }
+];
+
+let customItems = JSON.parse(localStorage.getItem('customItems') || '[]');
+
+function render() {
+  const container = document.getElementById('app');
+  container.innerHTML = '';
+
+  baseSections.forEach(section => {
+    const div = document.createElement('div');
+    div.className = 'section';
+
+    div.innerHTML = `<div class="section-title">${section.title} <span class="badge ${section.impact.toLowerCase()}">${section.impact}</span></div>`;
+
+    section.items.forEach((item, i) => {
+      const id = `base-${i}`;
+      const checked = localStorage.getItem(id) === 'true';
+
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <label>
+          <input type="checkbox" id="${id}" ${checked ? 'checked' : ''}>
+          <div>
+            <div class="title">${item[0]}</div>
+            <div class="desc">${item[1]}</div>
+          </div>
+        </label>`;
+
+      div.appendChild(card);
+
+      setTimeout(() => {
+        document.getElementById(id).onchange = e => localStorage.setItem(id, e.target.checked);
+      });
+    });
+
+    container.appendChild(div);
+  });
+
+  const customDiv = document.getElementById('custom');
+  customDiv.innerHTML = '';
+
+  customItems.forEach((item, i) => {
+    const id = `custom-${i}`;
+    const checked = localStorage.getItem(id) === 'true';
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <label style="flex: 1;">
+        <input type="checkbox" id="${id}" ${checked ? 'checked' : ''}>
+        <div>
+          <div class="title">${item.title} (${item.impact})</div>
+          <div class="desc">${item.desc}</div>
+        </div>
+      </label>
+      <button class="delete-btn" onclick="deleteItem(${i})">✕</button>`;
+
+    customDiv.appendChild(card);
+
+    setTimeout(() => {
+      document.getElementById(id).onchange = e => localStorage.setItem(id, e.target.checked);
+    });
+  });
+}
+
+function deleteItem(index) {
+  if (confirm('Delete this item?')) {
+    customItems.splice(index, 1);
+    localStorage.setItem('customItems', JSON.stringify(customItems));
+    render();
+  }
+}
+
+function addItem() {
+  const title = document.getElementById('newTitle').value;
+  const desc = document.getElementById('newDesc').value;
+  const impact = document.getElementById('newImpact').value;
+
+  if (!title || !desc) return;
+
+  customItems.push({ title, desc, impact });
+  localStorage.setItem('customItems', JSON.stringify(customItems));
+
+  document.getElementById('newTitle').value = '';
+  document.getElementById('newDesc').value = '';
+
+  render();
+}
+
+render();
+</script>
+
+</body>
+</html>
