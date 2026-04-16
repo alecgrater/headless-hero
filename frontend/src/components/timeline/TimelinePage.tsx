@@ -556,6 +556,7 @@ function TimelineEditor({
       }
     } finally {
       setGeneratingEli(false);
+      refreshCost();
     }
   };
 
@@ -843,9 +844,6 @@ function TimelineEditor({
             <span className="text-neutral-300">
               Generating Eli animation keyframes with AI...
             </span>
-            <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden ml-2">
-              <div className="h-full rounded-full bg-teal-500 animate-pulse" style={{ width: "60%" }} />
-            </div>
           </div>
         </div>
       )}

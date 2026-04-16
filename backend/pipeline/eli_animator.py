@@ -142,8 +142,17 @@ def generate_scene_eli(scene_data: dict, script_id: str | None = None) -> dict:
         # Remove any keyframes that became zero-length after overlap collapse
         validated_keyframes = [kf for kf in validated_keyframes if kf["end_frame"] > kf["start_frame"]]
 
+        if not validated_keyframes:
+            # All keyframes collapsed — fall back to neutral standing
+            validated_keyframes = [{
+                "start_frame": 0,
+                "end_frame": duration_frames,
+                "frame_id": manifest["frames"][0]["id"] if manifest["frames"] else "neutral_standingneutral",
+                "transition": "cut",
+            }]
+
         # Ensure first keyframe starts at 0
-        if validated_keyframes and validated_keyframes[0]["start_frame"] > 0:
+        if validated_keyframes[0]["start_frame"] > 0:
             validated_keyframes[0]["start_frame"] = 0
 
         # Ensure last keyframe extends to end
