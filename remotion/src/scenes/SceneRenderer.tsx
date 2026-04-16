@@ -14,6 +14,7 @@ import { SubtitleScene } from "./SubtitleScene";
 import { ZoomPunch } from "../effects/camera/ZoomPunch";
 import { CameraDrift } from "../effects/camera/CameraDrift";
 import { SubtitleOverlay } from "../effects/typography/Subtitles";
+import { EliOverlay } from "../effects/overlays/EliOverlay";
 
 interface Props {
   scene: SceneInput;
@@ -101,6 +102,16 @@ export const SceneRenderer: React.FC<Props> = ({ scene }) => {
           <SubtitleOverlay wordTimestamps={scene.word_timestamps} />
         )}
       </div>
+
+      {/* Eli character overlay — z:5, always visible (not affected by visual in/out) */}
+      {scene.eli_overlay?.enabled && scene.eli_overlay.keyframes.length > 0 && scene.character_frames_base_url && (
+        <EliOverlay
+          overlay={scene.eli_overlay}
+          wordTimestamps={scene.word_timestamps}
+          characterFramesBaseUrl={scene.character_frames_base_url}
+          variantCounts={scene.variant_counts}
+        />
+      )}
 
       {/* Audio layer — always plays regardless of visual in/out */}
       {scene.audio_path && (

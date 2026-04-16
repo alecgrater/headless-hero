@@ -91,6 +91,11 @@ export interface SceneInput {
   // FX (new system)
   fx?: SceneFX | null;
 
+  // Eli character overlay
+  eli_overlay?: EliOverlay | null;
+  character_frames_base_url?: string | null;
+  variant_counts?: Record<string, number> | null;
+
   // Visual Beat System
   visual_beat?: "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage";
   frame_directives?: FrameDirective[] | null;

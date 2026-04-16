@@ -9,6 +9,7 @@ from sqlmodel import Session
 from api.brands import router as brands_router
 from database import init_db, ensure_default_brand
 from database import engine as _db_engine
+from api.eli import router as eli_router
 from api.fx import router as fx_router
 from api.ideas import router as ideas_router
 from api.publish import router as publish_router
@@ -79,6 +80,7 @@ app.include_router(_dev_router)
 
 # Core routers
 app.include_router(brands_router)
+app.include_router(eli_router)
 app.include_router(fx_router)
 app.include_router(ideas_router)
 app.include_router(scripts_router)

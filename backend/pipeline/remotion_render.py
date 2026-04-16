@@ -16,6 +16,7 @@ from typing import Any, Callable
 
 from config import BACKEND_PORT, DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH, sanitize_filename
 from models.script import ChapterMarker, Scene, SceneFX, ScriptContent, VideoFX
+from pipeline.character_frames import load_variant_counts
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +102,7 @@ def _title_card_image_path(script_id: str) -> str | None:
     return _to_remotion_path(str(withtitle)) if withtitle.exists() else None
 
 
-def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
+def _scene_to_input_props(scene: Scene, script_id: str, eli_position: dict | None = None, variant_counts: dict[str, int] | None = None) -> dict[str, Any]:
     """Convert a Scene model to the input props expected by Remotion."""
     # Resolve asset paths
     image_path = _scene_image_path(script_id, scene.id, scene.image_url or None)
@@ -120,6 +121,15 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
     # Parse FX if stored as dict
     fx = scene.fx
 
+    # Merge resolved eli position into eli_overlay
+    eli_overlay = scene.eli_overlay
+    if eli_overlay and eli_position:
+        eli_overlay = {**eli_overlay, "position": eli_position}
+
+    # Suppress eli overlay when Eli is already in the generated image
+    if eli_overlay and scene.contains_person:
+        eli_overlay = {**eli_overlay, "enabled": False}
+
     return {
         "id": scene.id,
         "narration": scene.narration,
@@ -130,6 +140,9 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
         "audio_path": audio_path,
         "title_card_zoom_target": scene.title_card_zoom_target,
         "fx": fx,
+        "eli_overlay": eli_overlay,
+        "character_frames_base_url": f"http://localhost:{BACKEND_PORT}/static/character/frames",
+        "variant_counts": variant_counts,
         "word_timestamps": scene.word_timestamps,
         "visual_beat": scene.visual_beat,
         "frame_directives": scene.frame_directives or None,
@@ -335,12 +348,24 @@ def render_full_video(
     if on_progress:
         on_progress(0.3, "Building Remotion composition...")
 
+    # Resolve Eli overlay position: script override > brand default > None
+    eli_position = content.eli_position
+    if not eli_position and brand_dict:
+        import json as _json
+        raw = brand_dict.get("eli_position_json", "")
+        if raw:
+            try:
+                eli_position = _json.loads(raw)
+            except (ValueError, TypeError):
+                pass
+
     # Build input props for the full video
+    variant_counts = load_variant_counts()
     segments_props = []
     for seg in content.segments:
         seg_scenes = []
         for sc in seg.scenes:
-            seg_scenes.append(_scene_to_input_props(sc, script_id))
+            seg_scenes.append(_scene_to_input_props(sc, script_id, eli_position, variant_counts))
         segments_props.append({
             "name": seg.name,
             "scenes": seg_scenes,
