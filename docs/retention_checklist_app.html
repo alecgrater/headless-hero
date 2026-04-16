@@ -218,31 +218,36 @@ const baseSections = [
 ];
 
 let customItems = JSON.parse(localStorage.getItem('customItems') || '[]');
+let deletedBaseItems = JSON.parse(localStorage.getItem('deletedBaseItems') || '[]');
 
 function render() {
   const container = document.getElementById('app');
   container.innerHTML = '';
 
-  baseSections.forEach(section => {
+  baseSections.forEach((section, sectionIdx) => {
     const div = document.createElement('div');
     div.className = 'section';
 
     div.innerHTML = `<div class="section-title">${section.title} <span class="badge ${section.impact.toLowerCase()}">${section.impact}</span></div>`;
 
-    section.items.forEach((item, i) => {
-      const id = `base-${i}`;
+    section.items.forEach((item, itemIdx) => {
+      const itemKey = `${sectionIdx}-${itemIdx}`;
+      if (deletedBaseItems.includes(itemKey)) return;
+
+      const id = `base-${sectionIdx}-${itemIdx}`;
       const checked = localStorage.getItem(id) === 'true';
 
       const card = document.createElement('div');
       card.className = 'card';
       card.innerHTML = `
-        <label>
+        <label style="flex: 1;">
           <input type="checkbox" id="${id}" ${checked ? 'checked' : ''}>
           <div>
             <div class="title">${item[0]}</div>
             <div class="desc">${item[1]}</div>
           </div>
-        </label>`;
+        </label>
+        <button class="delete-btn" onclick="deleteBaseItem('${itemKey}')">✕</button>`;
 
       div.appendChild(card);
 
@@ -279,6 +284,14 @@ function render() {
       document.getElementById(id).onchange = e => localStorage.setItem(id, e.target.checked);
     });
   });
+}
+
+function deleteBaseItem(itemKey) {
+  if (confirm('Delete this item?')) {
+    deletedBaseItems.push(itemKey);
+    localStorage.setItem('deletedBaseItems', JSON.stringify(deletedBaseItems));
+    render();
+  }
 }
 
 function deleteItem(index) {
