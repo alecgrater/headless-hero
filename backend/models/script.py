@@ -66,6 +66,19 @@ class VideoFX(BaseModel):
 
     chapter_markers: list[ChapterMarker] = []
 
+class HookScoreDimension(BaseModel):
+    """A single scored dimension of the hook."""
+    score: int  # 0-100
+    reasoning: str
+
+class HookScore(BaseModel):
+    """30-second hook retention score."""
+    promise: HookScoreDimension
+    tension: HookScoreDimension
+    payoff_hint: HookScoreDimension
+    overall: int  # 0-100
+    suggestions: list[str] = []
+
 class Scene(BaseModel):
     """A single scene within a segment."""
 
@@ -115,6 +128,7 @@ class ScriptContent(BaseModel):
     eli_position: dict | None = None      # Per-video Eli overlay position override {x, y}
     segment_timer_enabled: bool = True    # Global toggle for segment countdown timer overlay
     seo_metadata: dict | None = None      # Generated SEO metadata (title, description, tags)
+    hook_score: dict | None = None        # 30-second hook retention score (HookScore dict)
 
     def all_scenes(self) -> list["Scene"]:
         """Flatten all scenes from all segments in order."""

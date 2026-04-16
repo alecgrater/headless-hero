@@ -31,6 +31,7 @@ from pipeline.refine import refine_scene
 from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
 from pipeline.scriptwriter import generate_script
 from pipeline.audio_split import split_scene_audio
+from pipeline.hook_scorer import score_hook
 from api._helpers import read_prompt
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
@@ -367,3 +368,39 @@ def split_scene_endpoint(
         script=script_content,
         created_at=record.created_at,
     )
+
+
+@router.post("/{script_id}/hook-score")
+def hook_score_endpoint(script_id: str, session: Session = Depends(get_session)):
+    record = session.get(Script, script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    content = ScriptContent.model_validate(json.loads(record.script_json))
+
+    # Collect first 3-5 non-title-card scenes up to ~30s total
+    hook_scenes: list[Scene] = []
+    total_duration = 0.0
+    for seg in content.segments:
+        for scene in seg.scenes:
+            if scene.is_title_card:
+                continue
+            hook_scenes.append(scene)
+            total_duration += scene.duration_estimate_seconds
+            if len(hook_scenes) >= 5 or total_duration >= 30:
+                break
+        if len(hook_scenes) >= 5 or total_duration >= 30:
+            break
+
+    if not hook_scenes:
+        raise HTTPException(status_code=422, detail="No scorable scenes found")
+
+    result = score_hook(content.intro_hook, hook_scenes, content.title, script_id)
+
+    # Persist
+    content.hook_score = result.model_dump()
+    record.script_json = content.model_dump_json()
+    session.add(record)
+    session.commit()
+
+    return {"hook_score": result.model_dump()}

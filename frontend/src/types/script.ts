@@ -93,6 +93,7 @@ export interface ScriptContent {
   eli_position?: { x: number; y: number } | null;
   segment_timer_enabled?: boolean;
   seo_metadata?: SEOMetadata | null;
+  hook_score?: HookScore | null;
 }
 
 export interface ScriptRead {
@@ -117,6 +118,21 @@ export interface ScriptSummary {
   has_renders: boolean;
   thumbnail_url: string;
   status: "script" | "images" | "audio" | "exported";
+}
+
+// --- Hook score types ---
+
+export interface HookScoreDimension {
+  score: number;
+  reasoning: string;
+}
+
+export interface HookScore {
+  promise: HookScoreDimension;
+  tension: HookScoreDimension;
+  payoff_hint: HookScoreDimension;
+  overall: number;
+  suggestions: string[];
 }
 
 // --- Cold open A/B testing ---

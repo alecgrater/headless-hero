@@ -338,6 +338,14 @@ export async function exportTest(scriptId: string, options: ExportTestOptions): 
 // ---------------------------------------------------------------------------
 
 import type { TrendingTopic, TrendingRefreshStatus, ContentProfile, SmartIdeasResponse } from "./types/trending";
+import type { HookScore } from "./types/script";
+
+/** Score the first ~30 seconds of a script for viewer retention via Claude. */
+export async function scoreHook(scriptId: string): Promise<HookScore> {
+  const res = await api.post(`/api/scripts/${scriptId}/hook-score`);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Hook scoring failed");
+  return (res.data as { hook_score: HookScore }).hook_score;
+}
 
 /** Start a background trending topic refresh job. */
 export async function refreshTrending(): Promise<{ job_id: string }> {

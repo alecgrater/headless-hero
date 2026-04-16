@@ -1,0 +1,44 @@
+import { useState, useEffect, useCallback } from "react";
+import { scoreHook } from "../../api";
+import type { HookScore, ScriptContent } from "../../types/script";
+
+interface UseHookScoreOptions {
+  scriptId: string | null;
+  script: ScriptContent | null;
+}
+
+export default function useHookScore({ scriptId, script }: UseHookScoreOptions) {
+  const [hookScore, setHookScore] = useState<HookScore | null>(null);
+  const [hookScoreLoading, setHookScoreLoading] = useState(false);
+  const [hookScoreError, setHookScoreError] = useState<string | null>(null);
+
+  const triggerHookScore = useCallback(async () => {
+    if (!scriptId) return;
+    setHookScoreLoading(true);
+    setHookScoreError(null);
+    try {
+      const result = await scoreHook(scriptId);
+      setHookScore(result);
+    } catch (err) {
+      setHookScoreError(err instanceof Error ? err.message : "Hook scoring failed");
+    } finally {
+      setHookScoreLoading(false);
+    }
+  }, [scriptId]);
+
+  // Auto-trigger when script loads and has no existing score
+  useEffect(() => {
+    if (scriptId && script && !script.hook_score && !hookScore && !hookScoreLoading) {
+      triggerHookScore();
+    }
+  }, [scriptId, script, hookScore, hookScoreLoading, triggerHookScore]);
+
+  // Populate from existing score on script load
+  useEffect(() => {
+    if (script?.hook_score && !hookScore) {
+      setHookScore(script.hook_score);
+    }
+  }, [script, hookScore]);
+
+  return { hookScore, hookScoreLoading, hookScoreError, triggerHookScore };
+}
