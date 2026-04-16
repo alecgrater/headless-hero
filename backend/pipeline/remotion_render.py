@@ -314,6 +314,27 @@ def _run_remotion(
     logger.info("Remotion render complete in %.1fs: %s", elapsed, output_path)
 
 
+def _apply_speed(input_path: Path, output_path: Path, speed: float) -> None:
+    """Re-encode video at a different playback speed using FFmpeg.
+
+    Uses setpts for video and atempo for audio so pitch stays natural.
+    """
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", str(input_path),
+        "-filter_complex",
+        f"[0:v]setpts=PTS/{speed}[v];[0:a]atempo={speed}[a]",
+        "-map", "[v]", "-map", "[a]",
+        str(output_path),
+    ]
+    logger.info("Applying speed %.2fx: %s", speed, " ".join(cmd))
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    if result.returncode != 0:
+        logger.error("FFmpeg stderr: %s", result.stderr)
+        raise RuntimeError(f"FFmpeg speed filter failed (exit {result.returncode}): {result.stderr[-500:]}")
+    logger.info("Speed adjustment complete: %s", output_path)
+
+
 def render_full_video(
     script_id: str,
     content: ScriptContent,
@@ -394,7 +415,11 @@ def render_full_video(
     output_filename = f"full_youtube{speed_suffix}.mp4"
     output_path = renders / output_filename
 
-    props_path = _write_input_props(props, output_path)
+    # When applying speed, Remotion renders to a temp file first
+    needs_speed = speed != 1.0
+    remotion_output = renders / f"full_youtube{speed_suffix}_raw.mp4" if needs_speed else output_path
+
+    props_path = _write_input_props(props, remotion_output)
 
     if on_progress:
         on_progress(0.4, "Rendering video with Remotion...")
@@ -404,7 +429,7 @@ def render_full_video(
         _run_remotion(
             composition_id="FullVideo",
             props_path=props_path,
-            output_path=output_path,
+            output_path=remotion_output,
             width=width,
             height=height,
             log_level="verbose",
@@ -412,13 +437,23 @@ def render_full_video(
         render_elapsed = time.monotonic() - render_start
         logger.info(
             "[%s] Remotion render finished in %.1fs — output: %s",
-            script_id, render_elapsed, output_path,
+            script_id, render_elapsed, remotion_output,
         )
+
+        if needs_speed:
+            if on_progress:
+                on_progress(0.9, f"Applying {speed}x speed...")
+            _apply_speed(remotion_output, output_path, speed)
     finally:
         try:
             props_path.unlink()
         except OSError:
             pass
+        if needs_speed:
+            try:
+                remotion_output.unlink()
+            except OSError:
+                pass
 
     if on_progress:
         on_progress(1.0, "Complete")

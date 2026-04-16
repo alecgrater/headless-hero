@@ -18,7 +18,7 @@ interface RenderState {
   youtubeJobId: string | null;
   youtubeStatus: RenderStatusResponse | null;
   youtubeUrl: string | null;
-  startYoutubeRender: () => Promise<void>;
+  startYoutubeRender: (speed?: number) => Promise<void>;
 
   // Audio export
   audioUrl: string | null;
@@ -107,12 +107,13 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
   }, [scriptId]);
 
   const startYoutubeRender = useCallback(
-    async () => {
+    async (speed?: number) => {
       setYoutubeUrl(null);
       setYoutubeStatus(null);
       const res = await api.post("/api/render/full", {
         script_id: scriptId,
         title,
+        ...(speed != null && speed !== 1.0 ? { speed } : {}),
       });
       if (!res.ok) return;
       const { job_id } = res.data as RenderJobResponse;
