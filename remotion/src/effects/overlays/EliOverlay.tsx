@@ -149,9 +149,9 @@ export const EliOverlay: React.FC<Props> = ({
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  if (!overlay.enabled || overlay.keyframes.length === 0) return null;
+  if (!overlay.enabled || (overlay.keyframes ?? []).length === 0) return null;
 
-  const kfState = getCurrentKeyframe(frame, overlay.keyframes);
+  const kfState = getCurrentKeyframe(frame, overlay.keyframes ?? []);
   if (!kfState) return null;
 
   const { current, next, transitionProgress } = kfState;

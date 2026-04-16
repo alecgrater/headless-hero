@@ -351,11 +351,10 @@ def render_full_video(
     # Resolve Eli overlay position: script override > brand default > None
     eli_position = content.eli_position
     if not eli_position and brand_dict:
-        import json as _json
         raw = brand_dict.get("eli_position_json", "")
         if raw:
             try:
-                eli_position = _json.loads(raw)
+                eli_position = json.loads(raw)
             except (ValueError, TypeError):
                 pass
 
