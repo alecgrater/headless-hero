@@ -171,7 +171,7 @@ function TimelineEditor({
   const [generatingFX, setGeneratingFX] = useState(false);
   const [generatingEli, setGeneratingEli] = useState(false);
   const [confirmOverwrite, setConfirmOverwrite] = useState<"images" | "audio" | "fx" | "eli" | null>(null);
-  const [pixelsPerSecond, setPixelsPerSecond] = useState(5);
+  const [pixelsPerSecond, setPixelsPerSecond] = useState(20);
   const [exportTestJobId, setExportTestJobId] = useState<string | null>(null);
   const [exportTestStep, setExportTestStep] = useState("");
   const [exportTestProgress, setExportTestProgress] = useState(0);
