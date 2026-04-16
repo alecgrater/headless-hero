@@ -15,6 +15,7 @@ import { ZoomPunch } from "../effects/camera/ZoomPunch";
 import { CameraDrift } from "../effects/camera/CameraDrift";
 import { SubtitleOverlay } from "../effects/typography/Subtitles";
 import { EliOverlay } from "../effects/overlays/EliOverlay";
+import { SceneTransition } from "../effects/transitions/SceneTransition";
 
 interface Props {
   scene: SceneInput;
@@ -95,26 +96,29 @@ export const SceneRenderer: React.FC<Props> = ({ scene }) => {
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
-      {/* Visual + subtitle layer with in/out opacity */}
-      <div style={{ width: "100%", height: "100%", opacity: visualOpacity }}>
-        {visualLayer}
-        {!scene.is_title_card && !isAhaSubtitle && (scene.word_timestamps?.length ?? 0) > 0 && (
-          <SubtitleOverlay wordTimestamps={scene.word_timestamps} />
+      {/* Scene transition wraps visual + subtitle + Eli; audio stays outside */}
+      <SceneTransition transitionIn={scene.transition_in} transitionOut={scene.transition_out}>
+        {/* Visual + subtitle layer with in/out opacity */}
+        <div style={{ width: "100%", height: "100%", opacity: visualOpacity }}>
+          {visualLayer}
+          {!scene.is_title_card && !isAhaSubtitle && (scene.word_timestamps?.length ?? 0) > 0 && (
+            <SubtitleOverlay wordTimestamps={scene.word_timestamps} />
+          )}
+        </div>
+
+        {/* Eli character overlay — z:5, always visible (not affected by visual in/out) */}
+        {scene.eli_overlay?.enabled && scene.eli_overlay.keyframes.length > 0 && scene.character_frames_base_url && (
+          <EliOverlay
+            overlay={scene.eli_overlay}
+            wordTimestamps={scene.word_timestamps}
+            characterFramesBaseUrl={scene.character_frames_base_url}
+            variantCounts={scene.variant_counts}
+            sceneDurationInFrames={totalSceneFrames}
+          />
         )}
-      </div>
+      </SceneTransition>
 
-      {/* Eli character overlay — z:5, always visible (not affected by visual in/out) */}
-      {scene.eli_overlay?.enabled && scene.eli_overlay.keyframes.length > 0 && scene.character_frames_base_url && (
-        <EliOverlay
-          overlay={scene.eli_overlay}
-          wordTimestamps={scene.word_timestamps}
-          characterFramesBaseUrl={scene.character_frames_base_url}
-          variantCounts={scene.variant_counts}
-          sceneDurationInFrames={totalSceneFrames}
-        />
-      )}
-
-      {/* Audio layer — always plays regardless of visual in/out */}
+      {/* Audio layer — always plays regardless of visual in/out and transitions */}
       {scene.audio_path && (
         <Audio src={scene.audio_path} volume={1} />
       )}

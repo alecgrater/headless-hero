@@ -109,6 +109,10 @@ export interface SceneInput {
   frame_timings?: number[] | null;
   visual_in_seconds?: number;
   visual_out_seconds?: number;
+
+  // Scene-boundary transitions
+  transition_in?: "cut" | "fade_black" | "flash_white" | "wipe";
+  transition_out?: "cut" | "fade_black" | "flash_white" | "wipe";
 }
 
 export interface SegmentInput {

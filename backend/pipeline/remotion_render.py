@@ -149,6 +149,7 @@ def _scene_to_input_props(scene: Scene, script_id: str, eli_position: dict | Non
         "frame_timings": scene.frame_timings,
         "visual_in_seconds": scene.visual_in_seconds,
         "visual_out_seconds": scene.visual_out_seconds,
+        "transition_in": scene.transition_in if scene.transition_in != "cut" else None,
     }
 
 

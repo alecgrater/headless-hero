@@ -85,6 +85,8 @@ class Scene(BaseModel):
     visual_beat: str = "static"        # "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage"
     frame_directives: list[dict] = []  # FrameDirective dicts; validated at runtime
     contains_person: bool = False       # true if any frame depicts a human figure
+    # --- Scene-boundary transition ---
+    transition_in: str = "cut"  # "cut" | "fade_black" | "flash_white" | "wipe"
     # --- Micro-timeline visual timing overrides ---
     frame_timings: list[float] | None = None  # seconds into scene when each frame starts; None = even split
     visual_in_seconds: float = 0.0      # visual appears this many seconds into the audio

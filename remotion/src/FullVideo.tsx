@@ -111,7 +111,16 @@ export const FullVideo: React.FC<FullVideoProps> = ({
         durationInFrames={durationFrames}
         name={`Scene ${i + 1}: ${scene.id}`}
       >
-        <SceneRenderer scene={scene} />
+        <SceneRenderer scene={{
+          ...scene,
+          // Compute transition_out from the next scene's transition_in
+          // (only within the same segment — chapter transitions handle segment boundaries)
+          transition_out: (() => {
+            const next = allScenes[i + 1];
+            if (!next || next.segmentIndex !== segmentIndex) return "cut";
+            return next.scene.transition_in ?? "cut";
+          })(),
+        }} />
       </Sequence>,
     );
 
