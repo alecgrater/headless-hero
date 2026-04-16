@@ -18,6 +18,7 @@ from models.generation_duration import GenerationDuration
 from models.script import (
     GenerateScriptRequest,
     GenerateScriptResponse,
+    HookScore,
     RefineSceneRequest,
     RefineSceneResponse,
     Scene,
@@ -370,7 +371,11 @@ def split_scene_endpoint(
     )
 
 
-@router.post("/{script_id}/hook-score")
+class HookScoreResponse(BaseModel):
+    hook_score: HookScore
+
+
+@router.post("/{script_id}/hook-score", response_model=HookScoreResponse)
 def hook_score_endpoint(script_id: str, session: Session = Depends(get_session)):
     record = session.get(Script, script_id)
     if not record:

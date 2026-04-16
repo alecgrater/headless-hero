@@ -77,8 +77,13 @@ def score_hook(
     raw = chat(SYSTEM_PROMPT, user_msg, max_tokens=2048, script_id=script_id)
     text = strip_markdown_fences(raw)
 
-    data = json.loads(text)
-    result = HookScore.model_validate(data)
+    try:
+        data = json.loads(text)
+        result = HookScore.model_validate(data)
+    except (json.JSONDecodeError, ValueError) as exc:
+        logger.error("[%s] Failed to parse hook score response: %s\nRaw: %s", script_id or "no-id", exc, text[:500])
+        raise RuntimeError(f"Hook scoring returned invalid JSON: {exc}") from exc
+
     logger.info("[%s] Hook score: overall=%d, promise=%d, tension=%d, payoff=%d",
                 script_id or "no-id", result.overall, result.promise.score,
                 result.tension.score, result.payoff_hint.score)

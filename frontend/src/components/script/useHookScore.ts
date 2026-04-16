@@ -28,10 +28,10 @@ export default function useHookScore({ scriptId, script }: UseHookScoreOptions) 
 
   // Auto-trigger when script loads and has no existing score
   useEffect(() => {
-    if (scriptId && script && !script.hook_score && !hookScore && !hookScoreLoading) {
+    if (scriptId && script && !script.hook_score && !hookScore && !hookScoreLoading && !hookScoreError) {
       triggerHookScore();
     }
-  }, [scriptId, script, hookScore, hookScoreLoading, triggerHookScore]);
+  }, [scriptId, script, hookScore, hookScoreLoading, hookScoreError, triggerHookScore]);
 
   // Populate from existing score on script load
   useEffect(() => {
