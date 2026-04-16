@@ -8,6 +8,19 @@
 
 **Every time a feature or fix is completed, automatically commit and push the changes.** Do not wait for the user to ask — stage the relevant files, write a descriptive commit message, and push to `main`. Follow the commit message conventions below.
 
+### Post-commit: Gemini Code Review
+
+After every feature or fix commit, run an automated Gemini code review:
+
+```bash
+gemini -p "$(cat ~/.claude/commands/review.md)"
+```
+
+Then:
+1. Read the full Gemini output.
+2. If the verdict is **LGTM** — report this to the user and continue.
+3. If the verdict is **NEEDS CHANGES** — treat Gemini's numbered action list as a new task. Fix each item, then commit and push in a single follow-up commit. Do not run Gemini again on that follow-up commit.
+4. Tell the user the Gemini verdict in one line: either "Gemini: LGTM" or "Gemini: NEEDS CHANGES — fixed [x, y, z]".
 ## Project Overview
 
 AI-powered Electron desktop app for creating faceless educational YouTube content. Full pipeline: idea → script → visuals → voice → video → publish.
