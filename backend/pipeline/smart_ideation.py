@@ -70,7 +70,6 @@ def generate_smart_ideas(
     raw = chat(
         SMART_IDEATION_SYSTEM,
         f"Generate {count} video ideas:\n{user_msg}",
-        model="anthropic.claude-sonnet-4-6-v1",
         max_tokens=4096,
     )
 

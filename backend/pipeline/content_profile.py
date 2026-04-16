@@ -111,7 +111,6 @@ def analyze_content_profile() -> dict:
     raw = chat(
         PROFILE_SYSTEM_PROMPT,
         f"Analyze this creator's content library:\n{user_msg}",
-        model="anthropic.claude-sonnet-4-6-v1",
         max_tokens=1024,
     )
     result = json.loads(strip_markdown_fences(raw))

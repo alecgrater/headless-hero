@@ -164,7 +164,7 @@ def _score_format_fit(topics: list[dict]) -> dict[str, dict]:
 
         try:
             user_message = f"Rate these {len(batch)} topics:\n{json.dumps(titles_list)}"
-            raw = chat(FORMAT_FIT_SYSTEM, user_message, model="anthropic.claude-sonnet-4-6-v1", max_tokens=2048)
+            raw = chat(FORMAT_FIT_SYSTEM, user_message, max_tokens=2048)
             text = strip_markdown_fences(raw)
             scored = json.loads(text)
             for item in scored:
