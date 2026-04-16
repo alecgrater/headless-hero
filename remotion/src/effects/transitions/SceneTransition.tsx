@@ -50,6 +50,11 @@ export const SceneTransition: React.FC<Props> = ({
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
 
+  // No-op passthrough when both transitions are instant cuts
+  if (transitionIn === "cut" && transitionOut === "cut") {
+    return <>{children}</>;
+  }
+
   const enterFrames = getEnterFrames(transitionIn, fps);
   const exitFrames = getExitFrames(transitionOut, fps);
   const exitStart = durationInFrames - exitFrames;
@@ -73,7 +78,7 @@ export const SceneTransition: React.FC<Props> = ({
         });
         break;
       case "wipe":
-        // Reveal from right: clip-path inset slides left edge from 100% to 0%
+        // Reveal right-to-left: clip-path inset slides left edge from 100% to 0%
         const enterProgress = interpolate(frame, [0, enterFrames], [100, 0], {
           extrapolateRight: "clamp",
         });
@@ -115,8 +120,9 @@ export const SceneTransition: React.FC<Props> = ({
   // Combine opacity (both enter and exit can affect it)
   const combinedOpacity = enterOpacity * exitOpacity;
 
-  // Combine clip paths (only one can be active at a time since enter/exit don't overlap)
-  const clipPath = enterClipPath || exitClipPath;
+  // Combine clip paths — enter and exit don't overlap in practice (enter < exitStart),
+  // but if they ever did, prefer the exit clip-path since we're leaving.
+  const clipPath = exitClipPath || enterClipPath;
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>

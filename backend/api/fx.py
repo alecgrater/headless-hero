@@ -35,6 +35,7 @@ class RegenerateFXRequest(BaseModel):
 class RegenerateFXResponse(BaseModel):
     scene_id: str
     fx: dict
+    transition_in: str = "cut"
 
 
 @router.post("/generate", response_model=GenerateFXResponse)
@@ -188,4 +189,4 @@ def regenerate_scene_fx(body: RegenerateFXRequest, session: Session = Depends(ge
     session.commit()
 
     logger.info("Regenerated FX for scene %s", body.scene_id)
-    return RegenerateFXResponse(scene_id=body.scene_id, fx=result["fx"])
+    return RegenerateFXResponse(scene_id=body.scene_id, fx=result["fx"], transition_in=target_scene.transition_in)
