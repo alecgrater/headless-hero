@@ -53,8 +53,8 @@ def generate_all_eli(body: GenerateEliRequest, session: Session = Depends(get_se
     previous_corner: str | None = None
     for seg_idx, seg in enumerate(content.segments):
         for sc_idx, scene in enumerate(seg.scenes):
-            # Skip title cards (Eli doesn't overlay title card scenes)
-            if scene.is_title_card:
+            # Skip title cards and scenes where Eli is in the main image
+            if scene.is_title_card or scene.contains_person:
                 global_idx += 1
                 continue
             if body.missing_only and scene.eli_overlay:
@@ -121,7 +121,7 @@ def regenerate_scene_eli_endpoint(body: RegenerateEliRequest, session: Session =
                 sc_idx = sci
                 break
             # Track previous non-title-card scene's corner
-            if not scene.is_title_card and scene.eli_overlay:
+            if not scene.is_title_card and not scene.contains_person and scene.eli_overlay:
                 previous_corner = scene.eli_overlay.get("corner")
             global_idx += 1
         if target_scene:
