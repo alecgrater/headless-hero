@@ -223,11 +223,11 @@ Each scene MUST have "visual_beat" and "frame_directives" (list of objects). Eac
   - "transition": "cut" | "crossfade" | "fade_black"
   - "reference_previous": true/false (true = use prev frame as reference, false = independent)
   - "search_query": Google Images query (required when source is "real_photo", empty otherwise)
-  - "contains_person": true/false — whether this frame depicts a person, human figure, or character
+  - "contains_person": true/false — whether this frame depicts a visible human face
 
 contains_person tagging rules:
-- Set "contains_person": true on a frame directive when the frame depicts any person, human figure, character, or humanoid (including crowds, silhouettes, or partial views like hands gesturing).
-- Set "contains_person": false for objects, landscapes, diagrams, abstract concepts, metaphors without human figures, food, animals, buildings, or environments with no people.
+- Set "contains_person": true ONLY when the frame depicts a clearly visible human face (front-facing, profile, or three-quarter view where facial features are recognizable).
+- Set "contains_person": false for: faceless body parts (hands, silhouettes, backs of heads, torsos), crowds seen from a distance, stylized/abstract human figures without clear faces, animals, objects, landscapes, diagrams, or environments.
 - Set scene-level "contains_person": true if ANY frame directive in that scene has contains_person: true.
 - Title card scenes always have "contains_person": false.
 
