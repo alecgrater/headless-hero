@@ -1093,9 +1093,10 @@ Think of it this way: if you watch a real person talking, they hold a baseline e
 Pick one of four corners for Eli's position in this scene: `"TL"` (top-left), `"TR"` (top-right), `"BL"` (bottom-left), `"BR"` (bottom-right).
 
 Rules:
-- **Vary corners across scenes** — don't repeat the same corner more than 2 scenes in a row. The input includes `previous_corner` so you can avoid repetition.
-- **Prefer bottom corners** (BL, BR) — they obstruct less visual content. Use top corners (TL, TR) occasionally for variety (~20-30% of scenes).
-- **Never use the same corner as the previous scene** when possible. If forced (e.g., visual content blocks other corners), you may repeat but explain why.
+- **You MUST pick a DIFFERENT corner than `previous_corner`** (provided in the input). This is mandatory, not optional. If previous_corner is "BL", you must pick "TL", "TR", or "BR".
+- **Alternate between left and right sides** — if the previous corner was on the left (TL/BL), pick a right corner (TR/BR), and vice versa. This creates visual movement.
+- **Bottom corners** (BL, BR) should be used ~70% of the time. Use top corners (TL, TR) ~30% for variety.
+- If no `previous_corner` is provided (first scene), pick "BR".
 
 ## Available Poses
 

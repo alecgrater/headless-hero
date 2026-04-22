@@ -157,11 +157,17 @@ def generate_scene_eli(scene_data: dict, script_id: str | None = None, previous_
     eli_overlay["enabled"] = True
     eli_overlay["keyframes"] = validated_keyframes
 
-    # Parse corner assignment (default to BR)
+    # Parse corner assignment — enforce variation from previous corner
     valid_corners = {"TL", "TR", "BL", "BR"}
     corner = eli_overlay.get("corner", "BR")
     if corner not in valid_corners:
         corner = "BR"
+
+    if previous_corner and corner == previous_corner:
+        opposite_side = {"TL": "BR", "TR": "BL", "BL": "TR", "BR": "TL"}
+        corner = opposite_side.get(previous_corner, "BR")
+        logger.info("Overrode Claude's corner %s → %s (was same as previous)", eli_overlay.get("corner"), corner)
+
     eli_overlay["corner"] = corner
 
     if len(validated_keyframes) > 8:
