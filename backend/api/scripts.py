@@ -160,7 +160,6 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
     # Capture request params for the background thread
     topic = body.topic
     description = body.description
-    segment_count = body.segment_count
     animated_scene_count = body.animated_scene_count
     model = body.model
     segmented = body.segmented
@@ -183,7 +182,6 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             topic=topic,
             description=description,
             brand_context=brand_context,
-            segment_count=segment_count,
             animated_scene_count=animated_scene_count,
             brand=brand_dict,
             model=model,

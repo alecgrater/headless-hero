@@ -86,7 +86,6 @@ def generate_script(
     topic: str,
     description: str = "",
     brand_context: str = "",
-    segment_count: int | None = None,
     animated_scene_count: int = 5,
     brand: dict | None = None,
     model: str | None = None,
@@ -100,7 +99,6 @@ def generate_script(
         topic: The video title/topic.
         description: Optional angle or description for the video.
         brand_context: Brand name + art style for tone/visual context.
-        segment_count: Desired number of segments (Claude chooses if None).
         animated_scene_count: Number of scenes to mark as animated A/B flip.
         brand: Brand profile dict for modifier hooks.
         model: Override SCRIPT_MODEL setting for this request.
@@ -155,12 +153,11 @@ def generate_script(
                 topic=topic,
                 description=description,
                 brand_context=brand_context,
-                segment_count=segment_count,
                 model=resolved_model,
                 progress_callback=progress_callback,
             )
         else:
-            logger.info("Generating script for topic %r, description=%r using model=%s (segments=%s, attempt %d/%d)", topic, description, resolved_model, segment_count, attempt, MAX_ATTEMPTS)
+            logger.info("Generating script for topic %r, description=%r using model=%s (segments=%d, attempt %d/%d)", topic, description, resolved_model, SEGMENT_COUNT, attempt, MAX_ATTEMPTS)
             raw = chat(system_prompt, user_message, model=resolved_model, max_tokens=16384, timeout=900.0)
 
             # Strip markdown fences if present
@@ -322,7 +319,6 @@ def _generate_segmented(
     topic: str,
     description: str,
     brand_context: str,
-    segment_count: int | None,
     model: str,
     progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> ScriptContent:
