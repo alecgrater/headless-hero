@@ -36,7 +36,7 @@ export default function VoicePublishSection() {
     });
   }, []);
 
-  // Fetch voices — if no voice is set on the brand, auto-select "Liam - Viral Short-Form Storyteller"
+  // Fetch voices — if no voice is set on the brand, auto-select "Lucan Rook - Energetic Male"
   useEffect(() => {
     api.get("/api/voice/voices").then((res) => {
       if (res.ok) {
@@ -44,21 +44,20 @@ export default function VoicePublishSection() {
         const sorted = [...data.voices].sort((a, b) => {
           const priority = (v: VoiceInfo) => {
             const n = v.name.toLowerCase();
-            if (n === "liam - viral short-form storyteller") return 0;
-            if (n.startsWith("liam")) return 1;
-            if (n.startsWith("ben")) return 2;
-            return 3;
+            if (n === "lucan rook - energetic male") return 0;
+            if (n.startsWith("lucan")) return 1;
+            return 2;
           };
           return priority(a) - priority(b) || a.name.localeCompare(b.name);
         });
         setVoices(sorted);
         if (!selectedVoiceId && data.voices.length > 0) {
-          const liam = data.voices.find((v) =>
-            v.name.toLowerCase() === "liam - viral short-form storyteller",
+          const lucan = data.voices.find((v) =>
+            v.name.toLowerCase() === "lucan rook - energetic male",
           ) ?? data.voices.find((v) =>
-            v.name.toLowerCase().startsWith("liam"),
+            v.name.toLowerCase().startsWith("lucan"),
           );
-          const fallback = liam?.voice_id ?? data.voices[0].voice_id;
+          const fallback = lucan?.voice_id ?? data.voices[0].voice_id;
           setSelectedVoiceId(fallback);
           // Persist to brand so it sticks
           api.put("/api/brand", { voice_id: fallback });
@@ -98,10 +97,9 @@ export default function VoicePublishSection() {
       const sorted = [...data.voices].sort((a, b) => {
         const priority = (v: VoiceInfo) => {
           const n = v.name.toLowerCase();
-          if (n === "liam - viral short-form storyteller") return 0;
-          if (n.startsWith("liam")) return 1;
-          if (n.startsWith("ben")) return 2;
-          return 3;
+          if (n === "lucan rook - energetic male") return 0;
+          if (n.startsWith("lucan")) return 1;
+          return 2;
         };
         return priority(a) - priority(b) || a.name.localeCompare(b.name);
       });
