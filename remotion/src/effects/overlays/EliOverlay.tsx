@@ -71,11 +71,11 @@ function buildVariantSequence(seed: number, variantCount: number): number[] {
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Variant cycle length in frames (~4s at 30fps). */
-const VARIANT_CYCLE_FRAMES = 120;
+/** Variant cycle length in frames (3s at 30fps). */
+const VARIANT_CYCLE_FRAMES = 90;
 
-/** Fraction of the cycle spent crossfading between variants (last 30%). */
-const VARIANT_BLEND_FRACTION = 0.3;
+/** Fraction of the cycle spent crossfading between variants (continuous). */
+const VARIANT_BLEND_FRACTION = 1.0;
 
 /** Number of frames for pose crossfade zone. */
 const CROSSFADE_FRAMES = 20;
@@ -214,7 +214,10 @@ function getVariantBlend(
 
   let blendProgress = 0;
   if (posInCycle >= blendStart) {
-    blendProgress = (posInCycle - blendStart) / VARIANT_BLEND_FRACTION;
+    const raw = (posInCycle - blendStart) / VARIANT_BLEND_FRACTION;
+    blendProgress = interpolate(raw, [0, 1], [0, 1], {
+      easing: Easing.inOut(Easing.ease),
+    });
   }
 
   return { currentVariant, nextVariant, blendProgress };
@@ -367,7 +370,7 @@ export const EliOverlay: React.FC<Props> = ({
   const poseScale = interpolate(
     scaleSpring,
     [0, 1],
-    [isReaction ? 1.04 : 1.02, 1.0],
+    [isReaction ? 1.02 : 1.008, 1.0],
   );
 
   // --- Compound breathing animation ---

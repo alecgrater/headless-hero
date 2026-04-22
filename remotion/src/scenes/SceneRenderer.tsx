@@ -96,7 +96,7 @@ export const SceneRenderer: React.FC<Props> = ({ scene }) => {
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
-      {/* Scene transition wraps visual + subtitle + Eli; audio stays outside */}
+      {/* Scene transition wraps visual + subtitle; audio and Eli stay outside */}
       <SceneTransition transitionIn={scene.transition_in} transitionOut={scene.transition_out}>
         {/* Visual + subtitle layer with in/out opacity */}
         <div style={{ width: "100%", height: "100%", opacity: visualOpacity }}>
@@ -105,18 +105,18 @@ export const SceneRenderer: React.FC<Props> = ({ scene }) => {
             <SubtitleOverlay wordTimestamps={scene.word_timestamps} />
           )}
         </div>
-
-        {/* Eli character overlay — z:5, always visible (not affected by visual in/out) */}
-        {scene.eli_overlay?.enabled && scene.eli_overlay.keyframes.length > 0 && scene.character_frames_base_url && (
-          <EliOverlay
-            overlay={scene.eli_overlay}
-            wordTimestamps={scene.word_timestamps}
-            characterFramesBaseUrl={scene.character_frames_base_url}
-            variantCounts={scene.variant_counts}
-            sceneDurationInFrames={totalSceneFrames}
-          />
-        )}
       </SceneTransition>
+
+      {/* Eli character overlay — z:5, outside SceneTransition so it won't fade/clip during transitions */}
+      {scene.eli_overlay?.enabled && scene.eli_overlay.keyframes.length > 0 && scene.character_frames_base_url && (
+        <EliOverlay
+          overlay={scene.eli_overlay}
+          wordTimestamps={scene.word_timestamps}
+          characterFramesBaseUrl={scene.character_frames_base_url}
+          variantCounts={scene.variant_counts}
+          sceneDurationInFrames={totalSceneFrames}
+        />
+      )}
 
       {/* Audio layer — always plays regardless of visual in/out and transitions */}
       {scene.audio_path && (
