@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime, timezone
+from typing import Literal
 
 from pydantic import BaseModel, Field as PydanticField
 from sqlmodel import Column, Field, SQLModel, Text
@@ -42,7 +43,7 @@ class EliKeyframe(BaseModel):
 class EliOverlay(BaseModel):
     """Eli character overlay configuration for a scene."""
     enabled: bool = True
-    corner: str = "BR"  # "TL" | "TR" | "BL" | "BR"
+    corner: Literal["TL", "TR", "BL", "BR"] = "BR"
     keyframes: list[EliKeyframe] = []
 
 class FrameDirective(BaseModel):

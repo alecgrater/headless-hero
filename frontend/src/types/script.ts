@@ -29,7 +29,7 @@ export interface EliKeyframe {
 
 export interface EliOverlay {
   enabled: boolean;
-  corner?: "TL" | "TR" | "BL" | "BR";
+  corner?: "TL" | "TR" | "BL" | "BR" | null;
   keyframes: EliKeyframe[];
 }
 
