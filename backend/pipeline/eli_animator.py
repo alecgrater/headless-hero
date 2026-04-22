@@ -17,7 +17,7 @@ from prompts import ELI_ANIMATOR_SYSTEM
 logger = logging.getLogger(__name__)
 
 
-def generate_scene_eli(scene_data: dict, script_id: str | None = None, eli_position: dict | None = None) -> dict:
+def generate_scene_eli(scene_data: dict, script_id: str | None = None, previous_corner: str | None = None) -> dict:
     """Generate Eli animation keyframes for a single scene.
 
     Takes a scene summary dict, returns {id, eli_overlay}.
@@ -36,11 +36,14 @@ def generate_scene_eli(scene_data: dict, script_id: str | None = None, eli_posit
             "gesture": frame["gesture"],
         })
 
-    user_message = json.dumps({
+    user_payload: dict = {
         "scene": scene_data,
         "available_frames": available_frames,
-        "toward_content_direction": "left" if (eli_position.get("x", 1410) if eli_position else 1410) > 960 else "right",
-    }, indent=2)
+    }
+    if previous_corner:
+        user_payload["previous_corner"] = previous_corner
+
+    user_message = json.dumps(user_payload, indent=2)
 
     response = chat(
         system=ELI_ANIMATOR_SYSTEM.template,
@@ -63,7 +66,6 @@ def generate_scene_eli(scene_data: dict, script_id: str | None = None, eli_posit
 
     valid_ids = {f["id"] for f in manifest["frames"]}
     valid_moods = {"ambient", "reaction"}
-    valid_positions = {"left", "right", "center"}
 
     validated_keyframes = []
     for kf in keyframes:
@@ -88,11 +90,6 @@ def generate_scene_eli(scene_data: dict, script_id: str | None = None, eli_posit
         mood = kf.get("mood")
         if mood in valid_moods:
             entry["mood"] = mood
-
-        # Preserve position hint (validated)
-        pos_hint = kf.get("position_hint")
-        if pos_hint in valid_positions:
-            entry["position_hint"] = pos_hint
 
         validated_keyframes.append(entry)
 
@@ -159,6 +156,13 @@ def generate_scene_eli(scene_data: dict, script_id: str | None = None, eli_posit
 
     eli_overlay["enabled"] = True
     eli_overlay["keyframes"] = validated_keyframes
+
+    # Parse corner assignment (default to BR)
+    valid_corners = {"TL", "TR", "BL", "BR"}
+    corner = eli_overlay.get("corner", "BR")
+    if corner not in valid_corners:
+        corner = "BR"
+    eli_overlay["corner"] = corner
 
     if len(validated_keyframes) > 8:
         logger.warning(

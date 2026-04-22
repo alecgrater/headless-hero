@@ -33,7 +33,6 @@ export interface EliKeyframe {
   frame_id: string;
   transition: "cut" | "crossfade";
   mood?: "ambient" | "reaction";
-  position_hint?: "left" | "right" | "center" | null;
 }
 
 export interface EliPosition {
@@ -43,8 +42,9 @@ export interface EliPosition {
 
 export interface EliOverlay {
   enabled: boolean;
+  corner?: "TL" | "TR" | "BL" | "BR" | null;
   keyframes: EliKeyframe[];
-  position?: EliPosition | null;
+  position?: EliPosition | null; // legacy — used for old scripts without corner
 }
 
 export interface FrameDirective {

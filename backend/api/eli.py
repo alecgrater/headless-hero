@@ -9,7 +9,6 @@ from sqlmodel import Session
 
 from config import FPS
 from database import get_session
-from models.brand import BrandProfile
 from models.script import Script, ScriptContent
 from pipeline.eli_animator import generate_scene_eli
 
@@ -38,19 +37,6 @@ class RegenerateEliResponse(BaseModel):
     eli_overlay: dict
 
 
-def _resolve_eli_position(content: ScriptContent, session: Session, brand_id: str) -> dict | None:
-    """Resolve Eli position: script override > brand default > None."""
-    if content.eli_position:
-        return content.eli_position
-    brand = session.get(BrandProfile, brand_id)
-    if brand and brand.eli_position_json:
-        try:
-            return json.loads(brand.eli_position_json)
-        except (ValueError, TypeError) as e:
-            logger.warning("Failed to parse brand eli_position_json: %s", e)
-    return None
-
-
 @router.post("/generate", response_model=GenerateEliResponse)
 def generate_all_eli(body: GenerateEliRequest, session: Session = Depends(get_session)):
     """Generate Eli animation keyframes for all non-title-card scenes."""
@@ -62,10 +48,9 @@ def generate_all_eli(body: GenerateEliRequest, session: Session = Depends(get_se
     content = ScriptContent.model_validate(json.loads(record.script_json))
     total_scenes = sum(len(seg.scenes) for seg in content.segments)
 
-    eli_position = _resolve_eli_position(content, session, record.brand_id)
-
     updated = 0
     global_idx = 0
+    previous_corner: str | None = None
     for seg_idx, seg in enumerate(content.segments):
         for sc_idx, scene in enumerate(seg.scenes):
             # Skip title cards and scenes where Eli is in the main image
@@ -92,8 +77,9 @@ def generate_all_eli(body: GenerateEliRequest, session: Session = Depends(get_se
                 scene_data["word_timestamps"] = scene.word_timestamps
 
             try:
-                result = generate_scene_eli(scene_data, script_id=body.script_id, eli_position=eli_position)
+                result = generate_scene_eli(scene_data, script_id=body.script_id, previous_corner=previous_corner)
                 scene.eli_overlay = result["eli_overlay"]
+                previous_corner = result["eli_overlay"].get("corner", "BR")
                 updated += 1
                 logger.info("Generated Eli overlay for scene %d/%d (%s)", global_idx + 1, total_scenes, scene.id)
             except Exception as e:
@@ -120,14 +106,12 @@ def regenerate_scene_eli_endpoint(body: RegenerateEliRequest, session: Session =
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
 
-    eli_position = _resolve_eli_position(content, session, record.brand_id)
-
-    # Find the scene
+    # Find the scene and determine previous scene's corner
     target_scene = None
     seg_idx = -1
     sc_idx = -1
     global_idx = 0
-    total_scenes = sum(len(seg.scenes) for seg in content.segments)
+    previous_corner: str | None = None
 
     for si, seg in enumerate(content.segments):
         for sci, scene in enumerate(seg.scenes):
@@ -136,6 +120,9 @@ def regenerate_scene_eli_endpoint(body: RegenerateEliRequest, session: Session =
                 seg_idx = si
                 sc_idx = sci
                 break
+            # Track previous non-title-card scene's corner
+            if not scene.is_title_card and not scene.contains_person and scene.eli_overlay:
+                previous_corner = scene.eli_overlay.get("corner")
             global_idx += 1
         if target_scene:
             break
@@ -161,7 +148,7 @@ def regenerate_scene_eli_endpoint(body: RegenerateEliRequest, session: Session =
     if target_scene.word_timestamps:
         scene_data["word_timestamps"] = target_scene.word_timestamps
 
-    result = generate_scene_eli(scene_data, script_id=body.script_id, eli_position=eli_position)
+    result = generate_scene_eli(scene_data, script_id=body.script_id, previous_corner=previous_corner)
 
     target_scene.eli_overlay = result["eli_overlay"]
 

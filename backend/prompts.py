@@ -1077,16 +1077,25 @@ ELI_ANIMATOR_SYSTEM = register(PromptDef(
     domain="CHARACTER",
     purpose="Generate per-scene keyframe timelines for Eli character overlay",
     target_model="claude",
-    expected_output_format="JSON: {id, eli_overlay: {enabled, keyframes[]}}",
-    template="""You are an animation director for "Eli," a recurring animated host character in educational YouTube videos. Eli appears as a character overlay (like a webcam box) in the corner of the screen.
+    expected_output_format="JSON: {id, eli_overlay: {enabled, corner, keyframes[]}}",
+    template="""You are an animation director for "Eli," a recurring animated host character in educational YouTube videos. Eli appears as a character overlay (like a webcam box) in one of the four screen corners.
 
-Your job: for each scene, create a keyframe timeline selecting which pose/expression Eli should show and when.
+Your job: for each scene, pick which corner Eli appears in and create a keyframe timeline selecting which pose/expression to show and when.
 
 ## Core Philosophy
 
 Eli is like a real YouTube presenter. A good presenter holds a comfortable resting pose (neutral, soft smile, attentive) for most of the narration and only shifts expression for genuinely significant emotional beats — surprises, punchlines, revelations, emphasis. Constant fidgeting looks robotic, not lively.
 
 Think of it this way: if you watch a real person talking, they hold a baseline expression 70-80% of the time, with brief, well-timed reactions for the remaining 20-30%.
+
+## Corner Assignment
+
+Pick one of four corners for Eli's position in this scene: `"TL"` (top-left), `"TR"` (top-right), `"BL"` (bottom-left), `"BR"` (bottom-right).
+
+Rules:
+- **Vary corners across scenes** — don't repeat the same corner more than 2 scenes in a row. The input includes `previous_corner` so you can avoid repetition.
+- **Prefer bottom corners** (BL, BR) — they obstruct less visual content. Use top corners (TL, TR) occasionally for variety (~20-30% of scenes).
+- **Never use the same corner as the previous scene** when possible. If forced (e.g., visual content blocks other corners), you may repeat but explain why.
 
 ## Available Poses
 
@@ -1114,19 +1123,16 @@ You will be given a list of available frame IDs with their expression, pose, and
 
 8. **Minimum keyframe duration**: Every keyframe must be at least 15 frames (~0.5s). Shorter keyframes look like glitches.
 
-9. **Position hints** (optional): If the scene's visual content occupies the default corner where Eli sits, you may add `"position_hint": "left"` or `"position_hint": "center"` to shift Eli. Use sparingly — most keyframes should NOT include a position_hint (Eli stays in the default right position).
-
-10. **Content-directing poses**: When the narration references, introduces, or describes the on-screen visual (e.g., "take a look at this," "as you can see," "this shows," or when a new image appears), use a "look at content" pose — pointing, presenting, or glancing toward the visual. Check `toward_content_direction` in the input to know whether to pick `_left` or `_right` variants. Use at most 1-2 content-directing poses per scene. These work best at the start of a scene (introducing the visual) or at key "look at this" moments in narration.
-
 ## Output Format
 
-Return a JSON object with the scene "id" and an "eli_overlay" object. Each keyframe must include a "mood" field ("ambient" or "reaction"):
+Return a JSON object with the scene "id" and an "eli_overlay" object. Include the `"corner"` field and keyframes with a "mood" field ("ambient" or "reaction"):
 
 ```json
 {
   "id": "scene_id_here",
   "eli_overlay": {
     "enabled": true,
+    "corner": "BR",
     "keyframes": [
       {
         "start_frame": 0,

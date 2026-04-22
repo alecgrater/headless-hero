@@ -25,11 +25,11 @@ export interface EliKeyframe {
   frame_id: string;
   transition: "cut" | "crossfade";
   mood?: "ambient" | "reaction";
-  position_hint?: "left" | "right" | "center" | null;
 }
 
 export interface EliOverlay {
   enabled: boolean;
+  corner?: "TL" | "TR" | "BL" | "BR";
   keyframes: EliKeyframe[];
 }
 
@@ -91,7 +91,6 @@ export interface ScriptContent {
   intro_hook: string;
   outro_cta: string;
   video_fx?: VideoFX | null;
-  eli_position?: { x: number; y: number } | null;
   segment_timer_enabled?: boolean;
   seo_metadata?: SEOMetadata | null;
   hook_score?: HookScore | null;

@@ -86,11 +86,12 @@ const ENTRANCE_FRAMES = 18;
 /** Exit animation duration in frames. */
 const EXIT_FRAMES = 10;
 
-/** Position presets for keyframe position_hint. */
-const POSITION_PRESETS: Record<string, { x: number; y: number }> = {
-  left: { x: 30, y: 720 },
-  right: { x: 1410, y: 720 },
-  center: { x: 720, y: 720 },
+/** Corner presets for per-scene Eli placement. */
+const CORNER_PRESETS: Record<string, { x: number; y: number }> = {
+  TL: { x: 30, y: 30 },
+  TR: { x: 1410, y: 30 },
+  BL: { x: 30, y: 720 },
+  BR: { x: 1410, y: 720 },
 };
 
 /** Expression → breathing rate multiplier. */
@@ -412,37 +413,18 @@ export const EliOverlay: React.FC<Props> = ({
         })
       : 1;
 
-  // --- Dynamic position from keyframe hints ---
-  const defaultPos = {
-    x: overlay.position?.x ?? 1410,
-    y: overlay.position?.y ?? 720,
-  };
-  const resolvePos = (kf: EliKeyframe | null) => {
-    if (!kf?.position_hint) return defaultPos;
-    return POSITION_PRESETS[kf.position_hint] ?? defaultPos;
+  // --- Position from per-scene corner (or legacy position fallback) ---
+  const resolveCornerPos = () => {
+    if (overlay.corner && CORNER_PRESETS[overlay.corner]) {
+      return CORNER_PRESETS[overlay.corner];
+    }
+    if (overlay.position) {
+      return { x: overlay.position.x, y: overlay.position.y };
+    }
+    return CORNER_PRESETS.BR;
   };
 
-  const currentPos = resolvePos(current);
-  const prevPos = prev ? resolvePos(prev) : currentPos;
-
-  let posX: number;
-  let posY: number;
-  if (
-    prevPos.x !== currentPos.x ||
-    prevPos.y !== currentPos.y
-  ) {
-    const posSpring = spring({
-      frame: poseAge,
-      fps,
-      config: { damping: 20, mass: 1, stiffness: 60 },
-      durationInFrames: 30,
-    });
-    posX = interpolate(posSpring, [0, 1], [prevPos.x, currentPos.x]);
-    posY = interpolate(posSpring, [0, 1], [prevPos.y, currentPos.y]);
-  } else {
-    posX = currentPos.x;
-    posY = currentPos.y;
-  }
+  const { x: posX, y: posY } = resolveCornerPos();
 
   // --- Combined transforms ---
   const combinedScale = breathScale * poseScale;

@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { VoiceInfo } from "../../types/audio";
-import type { EliPosition } from "../../types/brand";
 import type { ScriptContent } from "../../types/script";
-import EliPositionPicker from "../shared/EliPositionPicker";
 
 interface Props {
   // Step completion states
@@ -65,15 +63,6 @@ interface Props {
   hasExistingEli: boolean;
   missingEliCount: number;
   eliCancelledRef: RefObject<boolean>;
-  // Eli position picker
-  showEliPositionPicker: boolean;
-  setShowEliPositionPicker: (show: boolean) => void;
-  eliPositionMode: "default" | "custom";
-  setEliPositionMode: (mode: "default" | "custom") => void;
-  brandEliPosition: EliPosition;
-  customEliPosition: EliPosition;
-  setCustomEliPosition: (pos: EliPosition) => void;
-  eliPositionRef: RefObject<HTMLDivElement | null>;
 }
 
 export default function PipelineSteps({
@@ -128,19 +117,13 @@ export default function PipelineSteps({
   hasExistingEli,
   missingEliCount,
   eliCancelledRef,
-  showEliPositionPicker,
-  setShowEliPositionPicker,
-  eliPositionMode,
-  setEliPositionMode,
-  brandEliPosition,
-  customEliPosition,
-  setCustomEliPosition,
-  eliPositionRef,
 }: Props) {
   const [showImagesDropdown, setShowImagesDropdown] = useState(false);
   const [showFXDropdown, setShowFXDropdown] = useState(false);
+  const [showEliDropdown, setShowEliDropdown] = useState(false);
   const imagesDropdownRef = useRef<HTMLDivElement>(null);
   const fxDropdownRef = useRef<HTMLDivElement>(null);
+  const eliDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -151,10 +134,13 @@ export default function PipelineSteps({
       if (showFXDropdown && fxDropdownRef.current && !fxDropdownRef.current.contains(e.target as Node)) {
         setShowFXDropdown(false);
       }
+      if (showEliDropdown && eliDropdownRef.current && !eliDropdownRef.current.contains(e.target as Node)) {
+        setShowEliDropdown(false);
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [showImagesDropdown, showFXDropdown]);
+  }, [showImagesDropdown, showFXDropdown, showEliDropdown]);
 
   return (
     <div className="flex flex-col gap-1.5 px-5 py-2 bg-gradient-to-b from-neutral-900/60 to-neutral-900/40">
@@ -436,7 +422,7 @@ export default function PipelineSteps({
                 ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
                 : "border-neutral-600 text-neutral-500"
           }`}>5</span>
-          <div ref={eliPositionRef} className="relative flex items-stretch flex-1">
+          <div ref={eliDropdownRef} className="relative flex items-stretch flex-1">
             <button
               onClick={generatingEli ? () => { eliCancelledRef.current = true; setGeneratingEli(false); } : confirmAndGenerateEli}
               className={`text-sm pl-2 pr-1.5 py-2.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
@@ -461,9 +447,9 @@ export default function PipelineSteps({
             </button>
             {!generatingEli ? (
               <button
-                onClick={() => setShowEliPositionPicker(!showEliPositionPicker)}
+                onClick={() => setShowEliDropdown(!showEliDropdown)}
                 className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-md transition-colors flex items-center"
-                title="Configure Eli overlay position"
+                title="Eli generation options"
               >
                 <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
                   <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -476,62 +462,15 @@ export default function PipelineSteps({
                 </svg>
               </span>
             )}
-            {/* Eli position popover */}
-            {showEliPositionPicker && (
-              <div className="absolute top-full left-0 mt-1 w-[360px] bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl z-50 p-4 space-y-3">
-                {!allEliGenerated && hasExistingEli && (
-                  <>
-                    <button
-                      onClick={() => { setShowEliPositionPicker(false); generateMissingEli(); }}
-                      className="w-full text-left px-2 py-1.5 text-sm text-sky-300 hover:bg-neutral-800 rounded-md transition-colors"
-                    >
-                      Generate Missing ({missingEliCount})
-                    </button>
-                    <div className="border-t border-neutral-700" />
-                  </>
-                )}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      setEliPositionMode("default");
-                      setContent({ ...content, eli_position: null });
-                    }}
-                    className={`text-[11px] px-2.5 py-1 rounded-md border transition-colors ${
-                      eliPositionMode === "default"
-                        ? "border-teal-500/50 bg-teal-500/15 text-teal-300"
-                        : "border-neutral-700 bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
-                    }`}
-                  >
-                    Default
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEliPositionMode("custom");
-                      setCustomEliPosition(brandEliPosition);
-                      setContent({ ...content, eli_position: brandEliPosition });
-                    }}
-                    className={`text-[11px] px-2.5 py-1 rounded-md border transition-colors ${
-                      eliPositionMode === "custom"
-                        ? "border-teal-500/50 bg-teal-500/15 text-teal-300"
-                        : "border-neutral-700 bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
-                    }`}
-                  >
-                    Custom for this video
-                  </button>
-                </div>
-                {eliPositionMode === "custom" ? (
-                  <EliPositionPicker
-                    value={customEliPosition}
-                    onChange={(pos) => {
-                      setCustomEliPosition(pos);
-                      setContent({ ...content, eli_position: pos });
-                    }}
-                  />
-                ) : (
-                  <div className="text-xs text-neutral-500">
-                    Using brand default position ({brandEliPosition.x}, {brandEliPosition.y})
-                  </div>
-                )}
+            {showEliDropdown && (
+              <div className="absolute top-full left-0 mt-1 w-48 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 py-1">
+                <button
+                  onClick={() => { setShowEliDropdown(false); generateMissingEli(); }}
+                  disabled={allEliGenerated || !hasExistingEli}
+                  className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Generate Missing ({missingEliCount})
+                </button>
               </div>
             )}
           </div>

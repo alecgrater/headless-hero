@@ -37,11 +37,12 @@ class EliKeyframe(BaseModel):
     frame_id: str       # matches manifest frame id (e.g., "neutral_standing")
     transition: str = "cut"  # "cut" | "crossfade"
     mood: str | None = None              # "ambient" | "reaction"
-    position_hint: str | None = None     # "left" | "right" | "center"
+    position_hint: str | None = None     # deprecated — kept for old scripts
 
 class EliOverlay(BaseModel):
     """Eli character overlay configuration for a scene."""
     enabled: bool = True
+    corner: str = "BR"  # "TL" | "TR" | "BL" | "BR"
     keyframes: list[EliKeyframe] = []
 
 class FrameDirective(BaseModel):

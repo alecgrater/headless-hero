@@ -18,7 +18,7 @@ import VoiceSetupModal from "../brand/VoiceSetupModal";
 import { usePublishState } from "./usePublishState";
 import { useRenderState } from "./useRenderState";
 import { useTimelineState } from "./useTimelineState";
-import { useEliPosition } from "./useEliPosition";
+
 import { useVoicePicker } from "./useVoicePicker";
 import { useKeyboardShortcuts, ShortcutHelpOverlay } from "./useKeyboardShortcuts";
 
@@ -160,9 +160,6 @@ function TimelineEditor({
 
   // Voice picker hook
   const voicePicker = useVoicePicker();
-
-  // Eli position hook
-  const eliPosition = useEliPosition(initialContent);
 
   const [showExport, setShowExport] = useState(false);
   const [showVoiceSetup, setShowVoiceSetup] = useState(false);
@@ -770,14 +767,6 @@ function TimelineEditor({
             hasExistingEli={hasExistingEli}
             missingEliCount={missingEliCount}
             eliCancelledRef={eliCancelledRef}
-            showEliPositionPicker={eliPosition.showEliPositionPicker}
-            setShowEliPositionPicker={eliPosition.setShowEliPositionPicker}
-            eliPositionMode={eliPosition.eliPositionMode}
-            setEliPositionMode={eliPosition.setEliPositionMode}
-            brandEliPosition={eliPosition.brandEliPosition}
-            customEliPosition={eliPosition.customEliPosition}
-            setCustomEliPosition={eliPosition.setCustomEliPosition}
-            eliPositionRef={eliPosition.eliPositionRef}
           />
         </div>
 

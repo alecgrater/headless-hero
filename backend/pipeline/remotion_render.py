@@ -135,7 +135,7 @@ def _resolve_zoom_punch_frame(
     return {**fx, "zoom_punch": {**zp, "trigger_frame": frame}}
 
 
-def _scene_to_input_props(scene: Scene, script_id: str, eli_position: dict | None = None, variant_counts: dict[str, int] | None = None) -> dict[str, Any]:
+def _scene_to_input_props(scene: Scene, script_id: str, variant_counts: dict[str, int] | None = None) -> dict[str, Any]:
     """Convert a Scene model to the input props expected by Remotion."""
     # Resolve asset paths
     image_path = _scene_image_path(script_id, scene.id, scene.image_url or None)
@@ -152,10 +152,8 @@ def _scene_to_input_props(scene: Scene, script_id: str, eli_position: dict | Non
     duration = scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else scene.duration_estimate_seconds
     fx = _resolve_zoom_punch_frame(scene.fx, scene.word_timestamps, duration)
 
-    # Merge resolved eli position into eli_overlay
+    # Eli overlay passes through as-is (corner is set per-scene by generator)
     eli_overlay = scene.eli_overlay
-    if eli_overlay and eli_position:
-        eli_overlay = {**eli_overlay, "position": eli_position}
 
     # Suppress eli overlay when Eli is already in the generated image
     if eli_overlay and scene.contains_person:
@@ -401,23 +399,13 @@ def render_full_video(
     if on_progress:
         on_progress(0.3, "Building Remotion composition...")
 
-    # Resolve Eli overlay position: script override > brand default > None
-    eli_position = content.eli_position
-    if not eli_position and brand_dict:
-        raw = brand_dict.get("eli_position_json", "")
-        if raw:
-            try:
-                eli_position = json.loads(raw)
-            except (ValueError, TypeError):
-                pass
-
     # Build input props for the full video
     variant_counts = load_variant_counts()
     segments_props = []
     for seg in content.segments:
         seg_scenes = []
         for sc in seg.scenes:
-            seg_scenes.append(_scene_to_input_props(sc, script_id, eli_position, variant_counts))
+            seg_scenes.append(_scene_to_input_props(sc, script_id, variant_counts))
         segments_props.append({
             "name": seg.name,
             "scenes": seg_scenes,
