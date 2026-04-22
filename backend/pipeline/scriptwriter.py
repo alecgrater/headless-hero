@@ -10,7 +10,7 @@ from collections.abc import Callable
 from config import ALLOWED_SEGMENT_COUNTS, DEFAULT_ACCENT_COLOR, DEFAULT_CLAUDE_MODEL, snap_segment_count, strip_markdown_fences
 from integrations.claude_client import chat
 from models.script import Scene, ScriptContent, Segment
-from prompts import SCRIPT_OUTLINE_INSTRUCTIONS, SCRIPT_SEGMENT_SCENES_INSTRUCTIONS, SCRIPT_SYSTEM
+from prompts import SCRIPT_OUTLINE_INSTRUCTIONS, SCRIPT_RETRY_CRITIQUE, SCRIPT_SEGMENT_SCENES_INSTRUCTIONS, SCRIPT_SYSTEM
 
 logger = logging.getLogger(__name__)
 
@@ -217,9 +217,8 @@ def generate_script(
             )
 
         user_message = (
-            f"IMPORTANT: A previous version of this script was reviewed and found "
-            f"lacking in these areas. Address each one:\n{critique}\n\n"
-            f"{base_user_message}"
+            SCRIPT_RETRY_CRITIQUE.build(critique)
+            + base_user_message
         )
 
     assert content is not None

@@ -57,7 +57,7 @@ def generate_ideas(
 
     model = DEFAULT_CLAUDE_MODEL
     logger.info("Generating %s ideas for niche %r using model=%s", count, niche, model)
-    raw = chat(IDEATION_SYSTEM.builder(_ALLOWED_SEGMENTS_STR), user_message, model=model)
+    raw = chat(IDEATION_SYSTEM.build(_ALLOWED_SEGMENTS_STR), user_message, model=model)
 
     # Claude may wrap JSON in markdown fences — strip them
     text = strip_markdown_fences(raw)

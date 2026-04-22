@@ -40,6 +40,12 @@ class PromptDef:
     target_model: str = "claude"
     retention: RetentionMeta = field(default_factory=RetentionMeta)
 
+    def build(self, *args: object, **kwargs: object) -> str:
+        """Call the builder function, raising if this prompt has no builder."""
+        if self.builder is None:
+            raise TypeError(f"PromptDef {self.name!r} has no builder function")
+        return self.builder(*args, **kwargs)
+
 
 PROMPTS: dict[str, PromptDef] = {}
 
