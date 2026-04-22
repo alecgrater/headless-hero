@@ -508,7 +508,7 @@ Keep it simple and readable at small sizes (it will be cropped into a circle).
 - Title card scenes MUST have visual_prompt set to "" (empty string) — their visuals come from \
 the composite grid card, not individual AI generation.
 - Each segment MUST have at least 5 scenes (including the title card).
-- Segment count MUST be exactly {allowed_segments_str} for balanced grid layouts."""
+- Segment count MUST be exactly {allowed_segments_str} for a balanced grid layout."""
 
 
 TITLE_CARD_INSTRUCTIONS = register(PromptDef(
@@ -1407,7 +1407,7 @@ video topic ideas that are optimized for YouTube search and viewer engagement.
 Rules:
 - Every title should follow proven YouTube patterns: listicles, "Every X Explained", \
   comparisons, "What happens when…", etc.
-- Each video should have exactly {allowed_segments_str} segments — no other counts.
+- Each video should have exactly {allowed_segments_str} segments.
 - Provide a brief angle/hook description (1-2 sentences).
 - Suggest 3-5 relevant YouTube search keywords per idea.
 - Avoid generic or overly broad topics — be specific and clickable.
@@ -1453,7 +1453,7 @@ feel natural for the creator's audience while capitalizing on trending search in
 For each idea return a JSON object with these exact fields:
 - title: compelling YouTube title (50-70 chars)
 - description: 2-3 sentence video description
-- segments_est: estimated segment count (8 or 10)
+- segments_est: estimated segment count (8)
 - keywords: list of 3-5 SEO keywords
 - trending_source: which trending topic(s) inspired this idea
 - style_match_score: 0-100 how well this fits the creator's style

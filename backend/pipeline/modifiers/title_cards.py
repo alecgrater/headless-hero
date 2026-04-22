@@ -6,7 +6,7 @@ and pre-render image generation as standalone functions (always active).
 
 import logging
 
-from config import ALLOWED_SEGMENT_COUNTS, DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS
+from config import DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS, SEGMENT_COUNT
 from models.script import Scene, ScriptContent
 from prompts import TITLE_CARD_INSTRUCTIONS
 
@@ -15,9 +15,7 @@ logger = logging.getLogger(__name__)
 # Default circle colors when Claude doesn't provide them
 DEFAULT_COLORS = DEFAULT_SEGMENT_COLORS
 
-_ALLOWED_SEGMENTS_STR = " or ".join(str(n) for n in ALLOWED_SEGMENT_COUNTS)
-
-TITLE_CARD_PROMPT_INSTRUCTIONS = TITLE_CARD_INSTRUCTIONS.build(_ALLOWED_SEGMENTS_STR)
+TITLE_CARD_PROMPT_INSTRUCTIONS = TITLE_CARD_INSTRUCTIONS.build(str(SEGMENT_COUNT))
 
 
 def prepare_title_card_scene(scene: Scene, script_id: str, brand: dict) -> Scene:

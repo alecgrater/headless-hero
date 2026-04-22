@@ -7,7 +7,7 @@ import re
 import time
 from collections.abc import Callable
 
-from config import ALLOWED_SEGMENT_COUNTS, DEFAULT_ACCENT_COLOR, DEFAULT_CLAUDE_MODEL, snap_segment_count, strip_markdown_fences
+from config import DEFAULT_ACCENT_COLOR, DEFAULT_CLAUDE_MODEL, SEGMENT_COUNT, strip_markdown_fences
 from integrations.claude_client import chat
 from models.script import Scene, ScriptContent, Segment
 from prompts import SCRIPT_OUTLINE_INSTRUCTIONS, SCRIPT_RETRY_CRITIQUE, SCRIPT_SEGMENT_SCENES_INSTRUCTIONS, SCRIPT_SYSTEM
@@ -117,14 +117,7 @@ def generate_script(
     user_parts = [f'Write a full segmented video script for: "{topic}"']
     if description:
         user_parts.append(f"Angle/description: {description}")
-    if segment_count:
-        segment_count = snap_segment_count(segment_count)
-        user_parts.append(f"Target segment count: {segment_count}")
-    else:
-        allowed = " or ".join(str(n) for n in ALLOWED_SEGMENT_COUNTS)
-        user_parts.append(
-            f"Use exactly {allowed} segments (pick the most appropriate count for the topic)."
-        )
+    user_parts.append(f"Use exactly {SEGMENT_COUNT} segments.")
     if brand_context:
         user_parts.append(f"Brand context (use for visual style and tone): {brand_context}")
     user_parts.append(

@@ -5,7 +5,7 @@ import logging
 
 from pydantic import BaseModel, field_validator
 
-from config import ALLOWED_SEGMENT_COUNTS, DEFAULT_CLAUDE_MODEL, snap_segment_count, strip_markdown_fences
+from config import DEFAULT_CLAUDE_MODEL, SEGMENT_COUNT, strip_markdown_fences
 from integrations.claude_client import chat
 from prompts import IDEATION_SYSTEM
 
@@ -22,9 +22,7 @@ class VideoIdea(BaseModel):
     @field_validator("segments_est")
     @classmethod
     def cap_segments(cls, v: int) -> int:
-        return snap_segment_count(v)
-
-_ALLOWED_SEGMENTS_STR = " or ".join(str(n) for n in ALLOWED_SEGMENT_COUNTS)
+        return SEGMENT_COUNT
 
 def generate_ideas(
     niche: str,
@@ -57,7 +55,7 @@ def generate_ideas(
 
     model = DEFAULT_CLAUDE_MODEL
     logger.info("Generating %s ideas for niche %r using model=%s", count, niche, model)
-    raw = chat(IDEATION_SYSTEM.build(_ALLOWED_SEGMENTS_STR), user_message, model=model)
+    raw = chat(IDEATION_SYSTEM.build(str(SEGMENT_COUNT)), user_message, model=model)
 
     # Claude may wrap JSON in markdown fences — strip them
     text = strip_markdown_fences(raw)
