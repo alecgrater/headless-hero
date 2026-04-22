@@ -155,10 +155,6 @@ def _scene_to_input_props(scene: Scene, script_id: str, variant_counts: dict[str
     # Eli overlay passes through as-is (corner is set per-scene by generator)
     eli_overlay = scene.eli_overlay
 
-    # Suppress eli overlay when Eli is already in the generated image
-    if eli_overlay and scene.contains_person:
-        eli_overlay = {**eli_overlay, "enabled": False}
-
     return {
         "id": scene.id,
         "narration": scene.narration,
