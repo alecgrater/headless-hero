@@ -36,7 +36,7 @@ export default function VoicePublishSection() {
     });
   }, []);
 
-  // Fetch voices — if no voice is set on the brand, auto-select Liam
+  // Fetch voices — if no voice is set on the brand, auto-select "Liam - Viral Short-Form Storyteller"
   useEffect(() => {
     api.get("/api/voice/voices").then((res) => {
       if (res.ok) {
@@ -44,15 +44,18 @@ export default function VoicePublishSection() {
         const sorted = [...data.voices].sort((a, b) => {
           const priority = (v: VoiceInfo) => {
             const n = v.name.toLowerCase();
-            if (n.startsWith("liam")) return 0;
-            if (n.startsWith("ben")) return 1;
-            return 2;
+            if (n === "liam - viral short-form storyteller") return 0;
+            if (n.startsWith("liam")) return 1;
+            if (n.startsWith("ben")) return 2;
+            return 3;
           };
           return priority(a) - priority(b) || a.name.localeCompare(b.name);
         });
         setVoices(sorted);
         if (!selectedVoiceId && data.voices.length > 0) {
           const liam = data.voices.find((v) =>
+            v.name.toLowerCase() === "liam - viral short-form storyteller",
+          ) ?? data.voices.find((v) =>
             v.name.toLowerCase().startsWith("liam"),
           );
           const fallback = liam?.voice_id ?? data.voices[0].voice_id;
@@ -95,9 +98,10 @@ export default function VoicePublishSection() {
       const sorted = [...data.voices].sort((a, b) => {
         const priority = (v: VoiceInfo) => {
           const n = v.name.toLowerCase();
-          if (n.startsWith("liam")) return 0;
-          if (n.startsWith("ben")) return 1;
-          return 2;
+          if (n === "liam - viral short-form storyteller") return 0;
+          if (n.startsWith("liam")) return 1;
+          if (n.startsWith("ben")) return 2;
+          return 3;
         };
         return priority(a) - priority(b) || a.name.localeCompare(b.name);
       });
