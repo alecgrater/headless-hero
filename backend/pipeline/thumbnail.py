@@ -11,6 +11,7 @@ import shutil
 from pathlib import Path
 
 from config import DATA_DIR
+from prompts import IMAGE_CTR_EXPRESSION_GUIDANCE
 
 logger = logging.getLogger(__name__)
 
@@ -54,26 +55,7 @@ def get_composite_thumbnail_no_eli(script_id: str) -> str | None:
 THUMBNAIL_REFERENCES_DIR = DATA_DIR / "character" / "thumbnail_references"
 
 # CTR expression tier guidance for Gemini prompt
-_CTR_EXPRESSION_GUIDANCE = """
-Choose the character's expression/pose based on the video title and topic, using one of these CTR-optimized tiers:
-
-1. Pattern Interrupt (High Surprise) — for shocking/unexpected content:
-   - Gasped Breath: mouth slightly open, eyes wide, eyebrows raised
-   - Wince/Cringe: one eye squinting, mouth pulled to side
-   - Wide-Eyed Hyper-Focus: leaning into camera, dilated pupils
-
-2. Negative Tension (Anxiety & Concern) — for warning/cautionary content:
-   - Forehead Furrow: brows pinched, hand on chin/forehead
-   - Tears/Red Eyes: glistening eyes, empathy-driving
-   - Secretive "Shush": finger to lips, eyes darting
-
-3. Action-Oriented (Excitement & Joy) — for travel, tech, challenge content:
-   - Mid-Laugh: genuine squinty-eyed laugh
-   - "Look at This" Gaze: looking with wonder at the subject
-   - Exertion/Struggle: teeth grit, brow sweating
-
-Pick the tier and specific expression that best matches the video title/topic.
-"""
+_CTR_EXPRESSION_GUIDANCE = IMAGE_CTR_EXPRESSION_GUIDANCE.template
 
 
 def gemini_enhance_thumbnail(

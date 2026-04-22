@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from config import strip_markdown_fences
 from integrations.claude_client import chat
+from prompts import SEO_SYSTEM
 
 logger = logging.getLogger(__name__)
 
@@ -17,21 +18,6 @@ class YouTubeSEO(BaseModel):
 
 class SEOMetadata(BaseModel):
     youtube: YouTubeSEO
-
-SYSTEM_PROMPT = """\
-You are a social media SEO expert. Generate optimized YouTube metadata for video \
-content. Tailor the metadata to match the brand's voice, identity, and style when \
-brand context is provided.
-
-Rules:
-- YouTube title: max 70 chars, include primary keyword, use power words.
-- YouTube description: 2-3 paragraphs, include timestamps using the exact values \
-  provided (do NOT invent your own), natural keyword usage, call to action.
-- YouTube tags: 30+ relevant tags, mix of broad and specific.
-- Return ONLY valid JSON — no markdown fences, no commentary.
-
-Return a JSON object with key: youtube.
-"""
 
 
 def _format_timestamp(total_seconds: float) -> str:
@@ -66,7 +52,7 @@ def generate_seo(
         user_msg += f"\n\nBrand: {brand_context}"
 
     logger.info("[%s] Generating SEO metadata for %r (%d segments)", script_id or "no-id", video_title, len(segments))
-    raw = chat(SYSTEM_PROMPT, user_msg, max_tokens=4096, script_id=script_id)
+    raw = chat(SEO_SYSTEM.template, user_msg, max_tokens=4096, script_id=script_id)
     text = strip_markdown_fences(raw)
 
     data = json.loads(text)

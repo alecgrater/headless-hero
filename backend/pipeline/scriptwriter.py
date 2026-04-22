@@ -6,19 +6,16 @@ import os
 import re
 import time
 from collections.abc import Callable
-from pathlib import Path
 
 from config import ALLOWED_SEGMENT_COUNTS, DEFAULT_ACCENT_COLOR, DEFAULT_CLAUDE_MODEL, snap_segment_count, strip_markdown_fences
 from integrations.claude_client import chat
 from models.script import Scene, ScriptContent, Segment
+from prompts import SCRIPT_OUTLINE_INSTRUCTIONS, SCRIPT_SEGMENT_SCENES_INSTRUCTIONS, SCRIPT_SYSTEM
 
 logger = logging.getLogger(__name__)
 
-_PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "script_prompt.md"
-_PROMPT_BODY = _PROMPT_PATH.read_text() if _PROMPT_PATH.exists() else ""
-
 # Base system prompt — title card instructions are injected separately.
-BASE_SYSTEM_PROMPT = _PROMPT_BODY
+BASE_SYSTEM_PROMPT = SCRIPT_SYSTEM.template
 
 # Maximum number of generation attempts (initial + retries on review failure)
 MAX_ATTEMPTS = 3
@@ -237,57 +234,9 @@ def generate_script(
 # Segmented generation (two-phase)
 # ---------------------------------------------------------------------------
 
-_OUTLINE_INSTRUCTIONS = """\
-IMPORTANT: Return ONLY the script outline — NO scenes, NO narration.
-Return valid JSON with this structure:
-{
-  "title": "Video Title",
-  "card_title": "SHORT TITLE",
-  "card_title_highlight_word": "KEYWORD",
-  "card_subtitle": "ACTION PHRASE",
-  "intro_hook": "A punchy 1-2 sentence hook.",
-  "outro_cta": "A call-to-action for the end.",
-  "segments": [
-    {
-      "name": "Segment Name",
-      "short_name": "Short Label",
-      "circle_color": "#e91e63",
-      "title_card_image_prompt": "Visual description for the segment circle image.",
-      "topic_summary": "2-3 sentences describing what this segment covers — key points, narrative arc, what the viewer learns."
-    }
-  ]
-}
-Do NOT include any scenes. Only segment metadata and topic summaries.
-"""
+_OUTLINE_INSTRUCTIONS = SCRIPT_OUTLINE_INSTRUCTIONS.template
 
-_SEGMENT_SCENES_INSTRUCTIONS = """\
-You are writing scenes for ONE segment of a larger video script.
-The full script outline is provided below for narrative context — write ONLY \
-the scenes for the specified segment.
-
-Return ONLY a valid JSON array of scene objects. Example:
-[
-  {
-    "id": "scene_001",
-    "narration": "...",
-    "visual_prompt": "[SHOT_TYPE] ...",
-    "duration_estimate_seconds": 8,
-    "is_title_card": false,
-    "visual_beat": "quick_cuts",
-    "frame_directives": [
-      {"prompt": "...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""},
-      {"prompt": "...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""}
-    ]
-  }
-]
-
-RULES:
-- The FIRST scene of EVERY segment MUST be a title card (is_title_card: true, visual_beat: "static", frame_directives: []).
-- After the title card, write one content scene per 1-2 sentences of narration. Each scene should have exactly 1-2 sentences and default to 1 frame (visual_beat: "static"). There is no fixed scene count — let the narration length determine scene count.
-- Scene IDs should start at scene_001 within this segment (they will be renumbered globally later).
-- Follow all visual storytelling arc, Visual Beat System, and shot type guidelines from the system prompt.
-- Return ONLY the JSON array — no markdown fences, no commentary.
-"""
+_SEGMENT_SCENES_INSTRUCTIONS = SCRIPT_SEGMENT_SCENES_INSTRUCTIONS.template
 
 
 def _generate_outline(

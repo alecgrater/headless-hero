@@ -7,49 +7,9 @@ from pydantic import BaseModel
 
 from config import strip_markdown_fences
 from models.script import ScriptContent
+from prompts import SCRIPT_REVIEW_RUBRIC
 
 logger = logging.getLogger(__name__)
-
-REVIEW_RUBRIC = """\
-You are a script quality reviewer for educational YouTube videos.
-Evaluate the script narration against these 5 craft skillsets.
-For each, return pass or fail with a one-sentence explanation.
-
-1. Payoff Promise: Does the opening deliver a surprising insight in the first \
-segment? Does it partially deliver value before asking for viewer commitment? \
-Or does it use a generic intro that promises without giving?
-
-2. Mosaic Structure: Are there open loops that create tension? Do threads weave \
-together across segments? Or is it a flat A→B→C progression that reads like a list?
-
-3. Steel-Manning: When claims are made, does the script acknowledge the strongest \
-counterarguments before dismantling them? Or does it bulldoze past opposing views?
-
-4. Concrete Before Abstract: Do big claims follow specific, human-scale examples? \
-Are there vivid, sensory scenarios the viewer can picture? Or are claims stated \
-abstractly first with examples tacked on?
-
-5. Callback Economy: Are there planted details that recur with new meaning later \
-in the script? Or is it a flat sequence of unconnected facts with no callbacks?
-
-IMPORTANT: Be rigorous but fair. A skillset passes if the script makes a genuine \
-attempt, even if imperfect. It fails only if the skillset is clearly absent or \
-poorly executed. A script can pass overall with 3/5 skillsets passing.
-
-Return ONLY valid JSON with this exact structure:
-{
-  "overall_pass": true,
-  "skillsets": {
-    "payoff_promise": {"pass": true, "critique": "The opening immediately delivers..."},
-    "mosaic_structure": {"pass": false, "critique": "The script follows a flat list..."},
-    "steel_manning": {"pass": true, "critique": "Claims acknowledge complexity..."},
-    "concrete_before_abstract": {"pass": true, "critique": "Each major point is grounded..."},
-    "callback_economy": {"pass": false, "critique": "No details recur later..."}
-  }
-}
-
-Set overall_pass to true if 3 or more skillsets pass. Set it to false otherwise.
-"""
 
 
 class SkillsetResult(BaseModel):
@@ -125,7 +85,7 @@ def review_script(content: ScriptContent) -> ReviewResult:
 
     try:
         raw = generate_text(
-            system_prompt=REVIEW_RUBRIC,
+            system_prompt=SCRIPT_REVIEW_RUBRIC.template,
             user_message=user_message,
         )
     except Exception:

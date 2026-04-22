@@ -11,6 +11,7 @@ from thefuzz import fuzz
 
 from config import strip_markdown_fences
 from integrations.claude_client import chat
+from prompts import FORMAT_FIT_SYSTEM
 
 logger = logging.getLogger(__name__)
 
@@ -133,21 +134,6 @@ def _deduplicate(topics: list[dict]) -> list[dict]:
 # Claude format-fit scoring
 # ---------------------------------------------------------------------------
 
-FORMAT_FIT_SYSTEM = """\
-You evaluate whether topics suit a YouTube educational listicle/explainer format.
-The channel makes narration-over-visuals videos (no talking head), similar to channels like \
-"Everything Professor", Kurzgesagt, or Wendover Productions.
-
-For each topic, rate 0-100 how well it fits this format. Consider:
-- Can it be broken into visual segments/chapters?
-- Is it inherently visual or can visuals be generated?
-- Does it work as educational content?
-- Would it attract YouTube search traffic?
-
-Return ONLY valid JSON — no markdown fences, no commentary.
-Return a JSON array of objects with keys: title, score, rationale
-"""
-
 
 def _score_format_fit(topics: list[dict]) -> dict[str, dict]:
     """Batch-evaluate format fit via Claude. Returns {title: {score, rationale}}."""
@@ -164,7 +150,7 @@ def _score_format_fit(topics: list[dict]) -> dict[str, dict]:
 
         try:
             user_message = f"Rate these {len(batch)} topics:\n{json.dumps(titles_list)}"
-            raw = chat(FORMAT_FIT_SYSTEM, user_message, max_tokens=2048)
+            raw = chat(FORMAT_FIT_SYSTEM.template, user_message, max_tokens=2048)
             text = strip_markdown_fences(raw)
             scored = json.loads(text)
             for item in scored:

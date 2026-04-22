@@ -10,21 +10,13 @@ from PIL import Image, ImageDraw, ImageFont
 from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH, VIDEO_HEIGHT, VIDEO_WIDTH
 from integrations.image_client import generate_image
 from integrations.google_image_scraper import scrape_google_image_sync
+from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VISUAL_STYLE
 
 logger = logging.getLogger(__name__)
 
-# data/ directory lives two levels above backend/pipeline/
-
-_PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
-
-_GUIDE_PATH = _PROMPTS_DIR / "image_gen_guide.md"
-_STYLE_GUIDE = _GUIDE_PATH.read_text() if _GUIDE_PATH.exists() else ""
-
-_VISUAL_STYLE_PATH = _PROMPTS_DIR / "visual_style.md"
-_VISUAL_STYLE = _VISUAL_STYLE_PATH.read_text() if _VISUAL_STYLE_PATH.exists() else ""
-
-_CHARACTER_PROMPT_PATH = _PROMPTS_DIR / "character_in_scene.md"
-_CHARACTER_PROMPT = _CHARACTER_PROMPT_PATH.read_text() if _CHARACTER_PROMPT_PATH.exists() else ""
+_STYLE_GUIDE = IMAGE_COMPOSITION_GUIDE.template
+_VISUAL_STYLE = IMAGE_VISUAL_STYLE.template
+_CHARACTER_PROMPT = IMAGE_CHARACTER_IN_SCENE.template
 
 # --- Character reference helpers ---
 

@@ -8,6 +8,7 @@ import logging
 
 from config import ALLOWED_SEGMENT_COUNTS, DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS
 from models.script import Scene, ScriptContent
+from prompts import TITLE_CARD_INSTRUCTIONS
 
 logger = logging.getLogger(__name__)
 
@@ -16,27 +17,7 @@ DEFAULT_COLORS = DEFAULT_SEGMENT_COLORS
 
 _ALLOWED_SEGMENTS_STR = " or ".join(str(n) for n in ALLOWED_SEGMENT_COUNTS)
 
-TITLE_CARD_PROMPT_INSTRUCTIONS = f"""\
-
-Composite Title Card System:
-- The video uses a composite grid title card showing ALL segments as circles on one image.
-- You MUST provide these top-level fields:
-  - "card_title": A condensed 2-4 word UPPERCASE title for the card (e.g. "TYPES OF DREAMS")
-  - "card_title_highlight_word": One word from card_title to highlight in accent color (e.g. "DREAMS")
-  - "card_subtitle": A short 2-4 word UPPERCASE action subtitle that creates urgency (e.g. "RE-WRITING HISTORY", \
-"BREAKING THE RULES", "PUSHING THE LIMITS"). This appears below the title in red to add energy and promise a narrative.
-- Each segment MUST include:
-  - "short_name": A punchy 1-3 word UPPERCASE label for the segment (used on thumbnail). Must be 3 words or fewer.
-  - "circle_color": A bold, distinct hex color for the circle background (e.g. "#e91e63"). \
-Pick thematically appropriate colors — each segment gets a unique color.
-  - "title_card_image_prompt": A vivid visual description for the AI-generated circle image. \
-Describe a single iconic subject centered on a clean background, matching the brand art style. \
-Keep it simple and readable at small sizes (it will be cropped into a circle).
-- The first scene of each segment MUST be a title card (is_title_card: true) with a short (2-3s) intro narration.
-- Title card scenes MUST have visual_prompt set to "" (empty string) — their visuals come from \
-the composite grid card, not individual AI generation.
-- Each segment MUST have at least 5 scenes (including the title card).
-- Segment count MUST be exactly {_ALLOWED_SEGMENTS_STR} for balanced grid layouts."""
+TITLE_CARD_PROMPT_INSTRUCTIONS = TITLE_CARD_INSTRUCTIONS.builder(_ALLOWED_SEGMENTS_STR)
 
 
 def prepare_title_card_scene(scene: Scene, script_id: str, brand: dict) -> Scene:

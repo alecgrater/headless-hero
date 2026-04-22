@@ -6,24 +6,9 @@ import logging
 from config import strip_markdown_fences
 from integrations.claude_client import chat
 from models.script import Scene, ScriptContent
+from prompts import REFINE_SYSTEM
 
 logger = logging.getLogger(__name__)
-
-SYSTEM_PROMPT = """\
-You are an expert YouTube scriptwriter. A human editor has revised one scene in \
-a video script. Your job is to polish the edited text so it matches the tone, \
-style, pacing, and vocabulary of the surrounding script — while preserving the \
-human's intended meaning and content changes.
-
-Rules:
-- Maintain the same conversational, engaging tone as the rest of the script.
-- Keep the narration length roughly the same (do not drastically expand or shrink).
-- Preserve any new facts, angles, or emphasis the human introduced.
-- Keep the visual_prompt and other fields unchanged unless they conflict with the \
-  edited narration (in which case, update the visual_prompt to match).
-- Return ONLY valid JSON — no markdown fences, no commentary.
-- Return a single scene object with the same keys as the input.
-"""
 
 
 def refine_scene(
@@ -63,7 +48,7 @@ def refine_scene(
         "scene_to_refine": target_scene.model_dump(),
     })
 
-    raw = chat(SYSTEM_PROMPT, user_message, max_tokens=2048)
+    raw = chat(REFINE_SYSTEM.template, user_message, max_tokens=2048)
 
     text = strip_markdown_fences(raw)
 

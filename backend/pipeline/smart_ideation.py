@@ -5,29 +5,9 @@ import logging
 
 from config import strip_markdown_fences
 from integrations.claude_client import chat
+from prompts import SMART_IDEATION_SYSTEM
 
 logger = logging.getLogger(__name__)
-
-SMART_IDEATION_SYSTEM = """\
-You are a YouTube content strategist. You have:
-1. A creator's content profile — their established style, topics, audience, and narration voice.
-2. Current trending topics from multiple sources (Hacker News, Wikipedia, Reddit, YouTube, news, etc.).
-
-Generate video ideas that blend trending topics with the creator's established style. Each idea should \
-feel natural for the creator's audience while capitalizing on trending search interest.
-
-For each idea return a JSON object with these exact fields:
-- title: compelling YouTube title (50-70 chars)
-- description: 2-3 sentence video description
-- segments_est: estimated segment count (8 or 10)
-- keywords: list of 3-5 SEO keywords
-- trending_source: which trending topic(s) inspired this idea
-- style_match_score: 0-100 how well this fits the creator's style
-- reasoning: 1-2 sentences on why this suits the creator's audience
-- angle: the unique hook or perspective
-
-Return ONLY a JSON array of objects — no markdown fences, no commentary.
-"""
 
 
 def generate_smart_ideas(
@@ -68,7 +48,7 @@ def generate_smart_ideas(
 
     logger.info("Generating %d smart ideas from %d trending topics", count, len(trending_context))
     raw = chat(
-        SMART_IDEATION_SYSTEM,
+        SMART_IDEATION_SYSTEM.template,
         f"Generate {count} video ideas:\n{user_msg}",
         max_tokens=4096,
     )

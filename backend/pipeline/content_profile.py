@@ -12,6 +12,7 @@ from database import engine
 from integrations.claude_client import chat
 from models.content_profile import ContentProfile
 from models.script import Script, ScriptContent
+from prompts import PROFILE_SYSTEM
 
 logger = logging.getLogger(__name__)
 
@@ -24,20 +25,6 @@ _STOPWORDS = frozenset(
     "into over after before between through during without again further once here there "
     "their its our your my his her we they them us you he she me him i".split()
 )
-
-PROFILE_SYSTEM_PROMPT = """\
-You are analyzing a YouTube creator's content library to build a style profile.
-You will receive titles, segment names, and narration excerpts from their existing videos.
-
-Synthesize a JSON profile with these fields:
-- common_topics: list of up to 10 recurring subject areas (e.g. "cognitive psychology", "space exploration")
-- narration_style: 1-2 sentences describing the writing voice (e.g. "conversational and curiosity-driven, uses rhetorical questions")
-- visual_approach: 1-2 sentences about their visual storytelling (e.g. "heavy use of infographics, prefers abstract imagery over photos")
-- typical_keywords: list of up to 20 characteristic words/phrases from their content
-- audience_profile: 1-2 sentences about their likely audience (e.g. "curious adults interested in science, likely 25-45")
-
-Return ONLY valid JSON — no markdown fences, no commentary.
-"""
 
 
 def _extract_features(scripts: list[ScriptContent]) -> dict:
@@ -109,7 +96,7 @@ def analyze_content_profile() -> dict:
 
     logger.info("Analyzing content profile for %d scripts via Claude", features["script_count"])
     raw = chat(
-        PROFILE_SYSTEM_PROMPT,
+        PROFILE_SYSTEM.template,
         f"Analyze this creator's content library:\n{user_msg}",
         max_tokens=1024,
     )

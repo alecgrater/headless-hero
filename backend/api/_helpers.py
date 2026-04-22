@@ -1,19 +1,10 @@
 """Shared helpers for API endpoints."""
 
 import json
-from pathlib import Path
 
 from sqlmodel import Session
 
 from models.script import Scene, Script, ScriptContent
-
-_PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
-
-
-def read_prompt(name: str) -> str:
-    """Read a prompt file from the backend/prompts/ directory. Returns '' if missing."""
-    p = _PROMPTS_DIR / name
-    return p.read_text() if p.exists() else ""
 
 
 def update_scene(

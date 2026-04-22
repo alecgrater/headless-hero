@@ -7,6 +7,7 @@ from pydantic import BaseModel, field_validator
 
 from config import ALLOWED_SEGMENT_COUNTS, DEFAULT_CLAUDE_MODEL, snap_segment_count, strip_markdown_fences
 from integrations.claude_client import chat
+from prompts import IDEATION_SYSTEM
 
 logger = logging.getLogger(__name__)
 
@@ -24,26 +25,6 @@ class VideoIdea(BaseModel):
         return snap_segment_count(v)
 
 _ALLOWED_SEGMENTS_STR = " or ".join(str(n) for n in ALLOWED_SEGMENT_COUNTS)
-
-SYSTEM_PROMPT = f"""\
-You are a YouTube content strategist specializing in educational/explainer \
-channels (like "Everything Professor"). Your job is to generate compelling \
-video topic ideas that are optimized for YouTube search and viewer engagement.
-
-Rules:
-- Every title should follow proven YouTube patterns: listicles, "Every X Explained", \
-  comparisons, "What happens when…", etc.
-- Each video should have exactly {_ALLOWED_SEGMENTS_STR} segments — no other counts.
-- Provide a brief angle/hook description (1-2 sentences).
-- Suggest 3-5 relevant YouTube search keywords per idea.
-- Avoid generic or overly broad topics — be specific and clickable.
-- The FIRST idea in the array must be the most direct, faithful interpretation \
-  of the user's input — essentially their topic turned into a polished YouTube title. \
-  The remaining ideas can be creative variations, tangential angles, and spin-offs.
-- Return ONLY valid JSON — no markdown fences, no commentary.
-
-Return a JSON array of objects with keys: title, segments_est, description, keywords.
-"""
 
 def generate_ideas(
     niche: str,
@@ -76,7 +57,7 @@ def generate_ideas(
 
     model = DEFAULT_CLAUDE_MODEL
     logger.info("Generating %s ideas for niche %r using model=%s", count, niche, model)
-    raw = chat(SYSTEM_PROMPT, user_message, model=model)
+    raw = chat(IDEATION_SYSTEM.builder(_ALLOWED_SEGMENTS_STR), user_message, model=model)
 
     # Claude may wrap JSON in markdown fences — strip them
     text = strip_markdown_fences(raw)

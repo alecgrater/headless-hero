@@ -33,12 +33,12 @@ from pipeline.render_jobs import create_job, get_job, run_in_background, update_
 from pipeline.scriptwriter import generate_script
 from pipeline.audio_split import split_scene_audio
 from pipeline.hook_scorer import score_hook
-from api._helpers import read_prompt
+from prompts import CHARACTER_SPEC_MD, IMAGE_VISUAL_STYLE
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 
-_VISUAL_STYLE = read_prompt("visual_style.md")
-_CHARACTER = read_prompt("character.md")
+_VISUAL_STYLE = IMAGE_VISUAL_STYLE.template
+_CHARACTER = CHARACTER_SPEC_MD.template
 
 logger = logging.getLogger(__name__)
 
