@@ -406,7 +406,7 @@ export const EliOverlay: React.FC<Props> = ({
   const combinedOpacity = entranceOpacity * exitOpacity;
 
   // Container size
-  const containerWidth = 380;
+  const containerWidth = 360;
   const containerHeight = 215;
 
   // --- Render helper for a blended open/closed image pair ---
@@ -484,7 +484,7 @@ export const EliOverlay: React.FC<Props> = ({
         transform: `translateY(${combinedY}px) scale(${combinedScale}) rotate(${combinedRotate}deg)`,
         borderRadius: 14,
         overflow: "hidden",
-        border: "1.5px solid rgba(0, 220, 220, 0.6)",
+        border: "2px solid rgba(0, 220, 220, 0.6)",
         boxShadow:
           "0 0 20px rgba(0, 200, 200, 0.4), 0 0 40px rgba(0, 200, 200, 0.15)",
       }}
