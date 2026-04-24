@@ -37,6 +37,14 @@ interface ColdOpenJobStatus {
   elapsed_seconds?: number;
 }
 
+interface RefineJobStatus {
+  status: string;
+  current_step: string;
+  error: string | null;
+  refine_result?: RefinedHookResult;
+  elapsed_seconds?: number;
+}
+
 export type GenerationPhase = "idle" | "cold_opens" | "selecting" | "refining" | "script";
 
 export interface ScriptGenerationState {
@@ -190,14 +198,6 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
   });
 
   // --- Refine-hook polling ---
-  interface RefineJobStatus {
-    status: string;
-    current_step: string;
-    error: string | null;
-    refine_result?: RefinedHookResult;
-    elapsed_seconds?: number;
-  }
-
   const { startPolling: startRefinePolling, stopPolling: stopRefinePolling } =
     usePollJob<RefineJobStatus>({
       pollFn: async (jobId) => {
@@ -208,9 +208,15 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
       isFailed: (s) => s.status === "failed",
       onStatus: (s) => {
         setElapsedSeconds(s.elapsed_seconds ?? null);
-        if (s.status === "completed" && s.refine_result) {
-          setRefineResult(s.refine_result);
-          setLoading(false);
+        if (s.status === "completed") {
+          if (s.refine_result) {
+            setRefineResult(s.refine_result);
+            setLoading(false);
+          } else {
+            setError("Hook refinement completed without a result.");
+            setLoading(false);
+            setPhase("idle");
+          }
         } else if (s.status === "failed") {
           setError(s.error || "Hook refinement failed");
           setLoading(false);
@@ -309,11 +315,17 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
       : 0;
 
     try {
+      if (!coldOpenJobIdRef.current) {
+        setError("Cold open job ID missing — please regenerate.");
+        setLoading(false);
+        setPhase("idle");
+        return;
+      }
       const { job_id } = await refineHook({
         topic: idea.title,
         description: idea.description,
         cold_open_index: variantIndex,
-        cold_open_job_id: coldOpenJobIdRef.current!,
+        cold_open_job_id: coldOpenJobIdRef.current,
       });
       if (cancelledRef.current) return;
       startRefinePolling(job_id);
@@ -383,6 +395,10 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
     }, 2000);
 
     return () => clearTimeout(timer);
+    // Fire-once effect: triggers only when refineResult arrives during the refining phase.
+    // Other deps (idea, brandId, selectedModel, segmented, startScriptPolling) are stable
+    // for the lifetime of this phase and intentionally excluded to prevent re-triggering.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, refineResult, selectedColdOpen]);
 
   const handleCancelGeneration = () => {
