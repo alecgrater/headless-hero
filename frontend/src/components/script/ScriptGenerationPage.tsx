@@ -5,7 +5,6 @@ import GenerationProgressBar from "../GenerationProgressBar";
 import useScriptGeneration from "./useScriptGeneration";
 import useSceneEditing from "./useSceneEditing";
 import useTitleCardGeneration from "./useTitleCardGeneration";
-import useHookScore from "./useHookScore";
 import ColdOpenSelector from "./ColdOpenSelector";
 import HookScoreCard from "./HookScoreCard";
 import HookRefinementResult from "./HookRefinementResult";
@@ -75,13 +74,6 @@ export default function ScriptGenerationPage({
     titleCardTotal,
     generateTitleCards,
   } = useTitleCardGeneration({ scriptId, script });
-
-  const {
-    hookScore,
-    hookScoreLoading,
-    hookScoreError,
-    triggerHookScore,
-  } = useHookScore({ scriptId, script });
 
   const totalScenes = script
     ? script.segments.reduce((sum, seg) => sum + seg.scenes.length, 0)
@@ -289,14 +281,6 @@ export default function ScriptGenerationPage({
               <span className="text-violet-400 ml-auto">Saving...</span>
             )}
           </div>
-
-          {/* Hook retention score */}
-          <HookScoreCard
-            hookScore={hookScore}
-            loading={hookScoreLoading}
-            error={hookScoreError}
-            onRescore={triggerHookScore}
-          />
 
           {/* Thumbnail & Title Slide generation */}
           {hasTitleCards && (
