@@ -425,14 +425,15 @@ export default function PipelineSteps({
           <div ref={eliDropdownRef} className="relative flex items-stretch flex-1">
             <button
               onClick={generatingEli ? () => { eliCancelledRef.current = true; setGeneratingEli(false); } : confirmAndGenerateEli}
-              className={`text-sm pl-2 pr-1.5 py-2.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
+              disabled={!allAudioGenerated && !generatingEli}
+              className={`text-sm pl-2 pr-1.5 py-2.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
                 generatingEli
                   ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                   : allEliGenerated
                     ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
                     : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
               }`}
-              title={generatingEli ? "Cancel Eli generation" : "Add Eli character overlay to all scenes (requires voiceover)"}
+              title={!allAudioGenerated && !generatingEli ? "Generate audio first — Eli needs voiceover for mouth animation" : generatingEli ? "Cancel Eli generation" : "Add Eli character overlay to all scenes"}
             >
               {generatingEli ? (
                 <>
@@ -448,8 +449,9 @@ export default function PipelineSteps({
             {!generatingEli ? (
               <button
                 onClick={() => setShowEliDropdown(!showEliDropdown)}
-                className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-md transition-colors flex items-center"
-                title="Eli generation options"
+                disabled={!allAudioGenerated}
+                className={`text-sm px-1 bg-neutral-800/80 border border-l-0 border-neutral-700/60 rounded-r-md transition-colors flex items-center ${!allAudioGenerated ? "text-neutral-600 cursor-not-allowed" : "text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200"}`}
+                title={!allAudioGenerated ? "Generate audio first" : "Eli generation options"}
               >
                 <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
                   <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -466,7 +468,7 @@ export default function PipelineSteps({
               <div className="absolute top-full left-0 mt-1 w-48 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 py-1">
                 <button
                   onClick={() => { setShowEliDropdown(false); generateMissingEli(); }}
-                  disabled={allEliGenerated || !hasExistingEli}
+                  disabled={allEliGenerated || !hasExistingEli || !allAudioGenerated}
                   className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Generate Missing ({missingEliCount})
