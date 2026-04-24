@@ -56,24 +56,33 @@ def score_hook(
     hook_scenes: list[Scene],
     video_title: str,
     script_id: str | None = None,
+    narration_text: str | None = None,
 ) -> HookScore:
     """Score the first ~30 seconds of a script for viewer retention."""
-    scene_texts = []
-    for i, scene in enumerate(hook_scenes, 1):
-        scene_texts.append(
-            f"Scene {i} ({scene.duration_estimate_seconds:.0f}s):\n"
-            f"  Narration: {scene.narration}\n"
-            f"  Visual: {scene.visual_prompt}"
+    if narration_text is not None:
+        opening_content = f"Opening narration:\n{narration_text}"
+    else:
+        scene_texts = []
+        for i, scene in enumerate(hook_scenes, 1):
+            scene_texts.append(
+                f"Scene {i} ({scene.duration_estimate_seconds:.0f}s):\n"
+                f"  Narration: {scene.narration}\n"
+                f"  Visual: {scene.visual_prompt}"
+            )
+        opening_content = (
+            "Opening scenes (first ~30 seconds):\n\n"
+            + "\n\n".join(scene_texts)
         )
 
     user_msg = (
         f"Video title: {video_title}\n\n"
         f"Intro hook text: \"{intro_hook}\"\n\n"
-        f"Opening scenes (first ~30 seconds):\n\n"
-        + "\n\n".join(scene_texts)
+        + opening_content
     )
 
-    logger.info("[%s] Scoring hook for %r (%d scenes)", script_id or "no-id", video_title, len(hook_scenes))
+    logger.info("[%s] Scoring hook for %r (%d scenes, narration_text=%s)",
+                script_id or "no-id", video_title, len(hook_scenes),
+                "yes" if narration_text else "no")
     raw = chat(SYSTEM_PROMPT, user_msg, max_tokens=2048, script_id=script_id)
     text = strip_markdown_fences(raw)
 
@@ -81,7 +90,8 @@ def score_hook(
         data = json.loads(text)
         result = HookScore.model_validate(data)
     except (json.JSONDecodeError, ValueError) as exc:
-        logger.error("[%s] Failed to parse hook score response: %s\nRaw: %s", script_id or "no-id", exc, text[:500])
+        logger.error("[%s] Failed to parse hook score response: %s\nRaw: %s",
+                     script_id or "no-id", exc, text[:500])
         raise RuntimeError(f"Hook scoring returned invalid JSON: {exc}") from exc
 
     logger.info("[%s] Hook score: overall=%d, promise=%d, tension=%d, payoff=%d",
