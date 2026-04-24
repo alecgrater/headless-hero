@@ -235,7 +235,7 @@ Claude generates per-scene keyframe timelines selecting which Eli pose to show a
 - `backend/pipeline/eli_animator.py` — Claude-powered animation director
 - `backend/api/eli.py` — `POST /api/eli/generate`, `POST /api/eli/regenerate`
 - Scene field: `eli_overlay: dict | None` in script_json (stores `EliOverlay` with `keyframes: list[EliKeyframe]`)
-- Mouth state is NOT in animation documents — computed deterministically in Remotion from `word_timestamps`
+- Mouth state is NOT in animation documents — derived from `phrase_timestamps` (phrase-level groups computed from `word_timestamps` during voiceover generation). `phrase_timestamps: list[dict] | None` stored in script_json blob alongside `word_timestamps`.
 
 ### Render Layer Stack
 1. Visual layer (StaticImage/MultiFrame/TitleCard/Subtitle)
