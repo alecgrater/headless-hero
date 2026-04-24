@@ -6,8 +6,6 @@ import useScriptGeneration from "./useScriptGeneration";
 import useSceneEditing from "./useSceneEditing";
 import useTitleCardGeneration from "./useTitleCardGeneration";
 import ColdOpenSelector from "./ColdOpenSelector";
-import HookScoreCard from "./HookScoreCard";
-import HookRefinementResult from "./HookRefinementResult";
 
 interface Props {
   brandId: string;
@@ -43,7 +41,6 @@ export default function ScriptGenerationPage({
     handleModelChange,
     handleColdOpenSelect,
     setSegmented,
-    refineResult,
   } = useScriptGeneration({ brandId, idea });
 
   const {
@@ -224,31 +221,11 @@ export default function ScriptGenerationPage({
 
       {/* Refining phase — scoring + rewriting hook */}
       {phase === "refining" && (
-        <div className="space-y-6">
-          {loading && !refineResult && (
-            <div className="flex flex-col items-center gap-4 py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
-              <p className="text-sm text-neutral-400">Scoring and refining your hook...</p>
-              {elapsedSeconds != null && (
-                <p className="text-xs text-neutral-600">{Math.round(elapsedSeconds)}s elapsed</p>
-              )}
-            </div>
-          )}
-
-          {refineResult && (
-            <div className="space-y-6 animate-in fade-in duration-500">
-              <HookScoreCard
-                hookScore={null}
-                loading={false}
-                error={null}
-                onRescore={() => {}}
-                score={refineResult.hook_score}
-              />
-              <HookRefinementResult result={refineResult} />
-              <p className="text-center text-xs text-neutral-600">
-                Continuing to script generation...
-              </p>
-            </div>
+        <div className="flex flex-col items-center gap-4 py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
+          <p className="text-sm text-neutral-400">Refining your hook...</p>
+          {elapsedSeconds != null && (
+            <p className="text-xs text-neutral-600">{Math.round(elapsedSeconds)}s elapsed</p>
           )}
         </div>
       )}

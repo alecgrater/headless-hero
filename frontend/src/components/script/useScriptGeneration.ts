@@ -339,62 +339,58 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
     }
   };
 
-  // Phase 3: Auto-proceed from refining → script generation after a brief delay
+  // Phase 3: Auto-proceed from refining → script generation immediately
   useEffect(() => {
     if (phase !== "refining" || !refineResult || !selectedColdOpen) return;
 
-    const timer = setTimeout(() => {
-      const refined = refineResult.refined_hook;
-      const coldOpenText = `${refined.intro_hook}\n\n${refined.opening_narration}`;
+    const refined = refineResult.refined_hook;
+    const coldOpenText = `${refined.intro_hook}\n\n${refined.opening_narration}`;
 
-      setPhase("script");
-      setLoading(true);
-      setElapsedSeconds(null);
-      setGenSegments(null);
-      setGenCompletedSegments([]);
+    setPhase("script");
+    setLoading(true);
+    setElapsedSeconds(null);
+    setGenSegments(null);
+    setGenCompletedSegments([]);
 
-      fetchGenerationEstimate("script_generation_youtube")
-        .then((est) => setEstimatedSeconds(est.average_seconds))
-        .catch(() => setEstimatedSeconds(null));
+    fetchGenerationEstimate("script_generation_youtube")
+      .then((est) => setEstimatedSeconds(est.average_seconds))
+      .catch(() => setEstimatedSeconds(null));
 
-      api
-        .post("/api/scripts/generate", {
-          topic: idea.title,
-          description: idea.description,
-          brand_id: brandId,
-          segment_count:
-            idea.segments_est > 0 ? snapSegmentCount(idea.segments_est) : undefined,
-          animated_scene_count: 5,
-          model: selectedModel !== DEFAULT_MODEL ? selectedModel : undefined,
-          segmented,
-          cold_open_text: coldOpenText,
-        })
-        .then((res) => {
-          if (cancelledRef.current) return;
-          if (!res.ok) {
-            const detail =
-              res.data && typeof res.data === "object" && "detail" in res.data
-                ? (res.data as { detail: string }).detail
-                : "Failed to start script generation";
-            setError(detail);
-            setLoading(false);
-            setPhase("idle");
-            return;
-          }
-          const { job_id } = res.data as { job_id: string };
-          startScriptPolling(job_id);
-        })
-        .catch((err) => {
-          if (!cancelledRef.current) {
-            console.error("[ScriptGeneration] Script request failed:", err);
-            setError("Could not reach the backend. Is it running?");
-            setLoading(false);
-            setPhase("idle");
-          }
-        });
-    }, 2000);
-
-    return () => clearTimeout(timer);
+    api
+      .post("/api/scripts/generate", {
+        topic: idea.title,
+        description: idea.description,
+        brand_id: brandId,
+        segment_count:
+          idea.segments_est > 0 ? snapSegmentCount(idea.segments_est) : undefined,
+        animated_scene_count: 5,
+        model: selectedModel !== DEFAULT_MODEL ? selectedModel : undefined,
+        segmented,
+        cold_open_text: coldOpenText,
+      })
+      .then((res) => {
+        if (cancelledRef.current) return;
+        if (!res.ok) {
+          const detail =
+            res.data && typeof res.data === "object" && "detail" in res.data
+              ? (res.data as { detail: string }).detail
+              : "Failed to start script generation";
+          setError(detail);
+          setLoading(false);
+          setPhase("idle");
+          return;
+        }
+        const { job_id } = res.data as { job_id: string };
+        startScriptPolling(job_id);
+      })
+      .catch((err) => {
+        if (!cancelledRef.current) {
+          console.error("[ScriptGeneration] Script request failed:", err);
+          setError("Could not reach the backend. Is it running?");
+          setLoading(false);
+          setPhase("idle");
+        }
+      });
     // Fire-once effect: triggers only when refineResult arrives during the refining phase.
     // Other deps (idea, brandId, selectedModel, segmented, startScriptPolling) are stable
     // for the lifetime of this phase and intentionally excluded to prevent re-triggering.
