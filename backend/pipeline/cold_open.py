@@ -60,10 +60,20 @@ def generate_cold_opens(
     variants: list[ColdOpenVariant] = []
     for v in data.get("variants", []):
         scores_data = v.get("scores", {})
+        tension = scores_data.get("tension")
+        specificity = scores_data.get("specificity")
+        drop_rate_risk = scores_data.get("drop_rate_risk")
+
+        if tension is None or specificity is None or drop_rate_risk is None:
+            logger.warning(
+                "Variant %s missing score fields (tension=%r, specificity=%r, drop_rate_risk=%r), raw scores: %r",
+                v.get("id", "?"), tension, specificity, drop_rate_risk, scores_data,
+            )
+
         scores = ColdOpenScores(
-            tension=scores_data.get("tension", 50),
-            specificity=scores_data.get("specificity", 50),
-            drop_rate_risk=scores_data.get("drop_rate_risk", 50),
+            tension=tension if tension is not None else 50,
+            specificity=specificity if specificity is not None else 50,
+            drop_rate_risk=drop_rate_risk if drop_rate_risk is not None else 50,
             reasoning=scores_data.get("reasoning", ""),
         )
         scores.overall = round(
