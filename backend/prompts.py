@@ -209,9 +209,9 @@ BEAT TYPE VOCABULARY:
 - "montage" — When real-world authenticity adds impact (real places, products, events). Mix of source: "ai_generated" and source: "real_photo". 4-8 frames. Each real_photo frame must include a search_query for Google Images. reference_previous: false for all frames. Transitions: mostly "cut" with occasional "crossfade".
 
 DISTRIBUTION RULES (follow strictly):
-1. Never use the same beat type 3+ times consecutively.
-2. static should be the MAJORITY of non-title-card scenes (60-80%). Visual variety comes from scene-to-scene differences, not multi-frame within a scene.
-3. quick_cuts, montage, and continuous are for deliberate emphasis — not default choices.
+1. static should be the MAJORITY of non-title-card scenes (50-65%). Visual variety comes from scene-to-scene differences, not multi-frame within a scene.
+2. After every 2 consecutive static scenes, the NEXT scene MUST use a different beat type (quick_cuts, continuous, montage, or aha_subtitle). This creates a natural rhythm: static-static-variety-static-static-variety.
+3. Non-static beat types (quick_cuts, continuous, montage, aha_subtitle) must NEVER appear 2+ times consecutively — always separate them with at least one static scene.
 4. aha_subtitle must be sandwiched between image-bearing beats.
 5. continuous is reserved for genuine motion progression — NOT the default for multi-frame.
 6. Vary transitions within quick_cuts scenes — mostly "cut" but occasional "crossfade".
@@ -362,6 +362,7 @@ RULES:
 - After the title card, write one content scene per 1-2 sentences of narration. Each scene should have exactly 1-2 sentences and default to 1 frame (visual_beat: "static"). There is no fixed scene count — let the narration length determine scene count.
 - Scene IDs should start at scene_001 within this segment (they will be renumbered globally later).
 - Follow all visual storytelling arc, Visual Beat System, and shot type guidelines from the system prompt.
+- If a CROSS-SEGMENT CONTINUITY note is provided above, respect it: do not repeat the same beat/shot pattern that ended the previous segment. The title card already breaks the visual run, but the first CONTENT scene after it should use a different beat or shot type than the previous segment's final content scene.
 - Return ONLY the JSON array — no markdown fences, no commentary.
 """,
     retention=RetentionMeta(

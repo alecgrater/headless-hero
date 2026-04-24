@@ -20,15 +20,46 @@ BASE_SYSTEM_PROMPT = SCRIPT_SYSTEM.template
 # Maximum number of generation attempts (initial + retries on review failure)
 MAX_ATTEMPTS = 3
 
+_SHOT_LABEL_RE = re.compile(r"^\[([A-Z\-]+)\]")
+
+
+def _find_runs(labels: list[str], skip: set[str], threshold: int = 3) -> list[tuple[str, int, int, int]]:
+    """Find runs of consecutive identical labels that meet or exceed *threshold*.
+
+    Returns a list of (label, run_length, start_1indexed, end_1indexed) — one
+    entry per run, emitted only once when the run ends (or at list end).
+    """
+    runs: list[tuple[str, int, int, int]] = []
+    if not labels:
+        return runs
+
+    cur = labels[0]
+    run_start = 0
+    run_len = 1
+
+    for i in range(1, len(labels)):
+        if labels[i] == cur:
+            run_len += 1
+        else:
+            if run_len >= threshold and cur not in skip:
+                runs.append((cur, run_len, run_start + 1, run_start + run_len))
+            cur = labels[i]
+            run_start = i
+            run_len = 1
+
+    if run_len >= threshold and cur not in skip:
+        runs.append((cur, run_len, run_start + 1, run_start + run_len))
+
+    return runs
+
 
 def _warn_visual_monotony(content: "ScriptContent") -> None:
-    """Log a warning if 3+ consecutive scenes share the same [SHOT_TYPE] prefix.
+    """Log a warning per monotonous run of shot types or beat types.
 
     Advisory only — does not block script generation.
     """
-    _SHOT_LABEL_RE = re.compile(r"^\[([A-Z\-]+)\]")
-
     all_scenes = content.all_scenes()
+
     shot_types: list[str] = []
     for scene in all_scenes:
         if scene.is_title_card:
@@ -37,25 +68,12 @@ def _warn_visual_monotony(content: "ScriptContent") -> None:
         m = _SHOT_LABEL_RE.match(scene.visual_prompt or "")
         shot_types.append(m.group(1) if m else "UNLABELED")
 
-    run_type = shot_types[0] if shot_types else None
-    run_len = 1
-    for i in range(1, len(shot_types)):
-        if shot_types[i] == run_type and run_type not in ("TITLE_CARD", "UNLABELED"):
-            run_len += 1
-            if run_len >= 3:
-                logger.warning(
-                    "Visual monotony detected: shot type [%s] used in %d+ consecutive "
-                    "scenes (scenes %d–%d). Consider varying the visual storytelling arc.",
-                    run_type,
-                    run_len,
-                    i - run_len + 2,
-                    i + 1,
-                )
-        else:
-            run_type = shot_types[i]
-            run_len = 1
+    for label, length, start, end in _find_runs(shot_types, {"TITLE_CARD", "UNLABELED"}):
+        logger.warning(
+            "Visual monotony: shot type [%s] repeated %d consecutive scenes (%d–%d)",
+            label, length, start, end,
+        )
 
-    # Also check visual_beat monotony (3+ consecutive same beat type)
     beat_types: list[str] = []
     for scene in all_scenes:
         if scene.is_title_card:
@@ -63,23 +81,11 @@ def _warn_visual_monotony(content: "ScriptContent") -> None:
         else:
             beat_types.append(scene.visual_beat or "static")
 
-    run_beat = beat_types[0] if beat_types else None
-    run_len = 1
-    for i in range(1, len(beat_types)):
-        if beat_types[i] == run_beat and run_beat != "TITLE_CARD":
-            run_len += 1
-            if run_len >= 3:
-                logger.warning(
-                    "Visual beat monotony detected: beat type '%s' used in %d+ consecutive "
-                    "scenes (scenes %d–%d). Consider varying visual beat types.",
-                    run_beat,
-                    run_len,
-                    i - run_len + 2,
-                    i + 1,
-                )
-        else:
-            run_beat = beat_types[i]
-            run_len = 1
+    for label, length, start, end in _find_runs(beat_types, {"TITLE_CARD"}):
+        logger.warning(
+            "Visual beat monotony: beat type '%s' repeated %d consecutive scenes (%d–%d)",
+            label, length, start, end,
+        )
 
 
 def generate_script(
@@ -268,6 +274,7 @@ def _generate_segment_scenes(
     outline: dict,
     segment_index: int,
     model: str,
+    trailing_context: str = "",
 ) -> list[Scene]:
     """Phase 2: Generate scenes for a single segment."""
     segment = outline["segments"][segment_index]
@@ -289,6 +296,7 @@ def _generate_segment_scenes(
         f"Topic summary: {segment.get('topic_summary', '')}\n"
         f"Circle color: {segment.get('circle_color', DEFAULT_ACCENT_COLOR)}\n"
         f"Title card image prompt: {segment.get('title_card_image_prompt', '')}\n\n"
+        f"{trailing_context}"
         f"{_SEGMENT_SCENES_INSTRUCTIONS}"
     )
 
@@ -331,19 +339,38 @@ def _generate_segmented(
     # Phase 2: per-segment scene generation (sequential for coherence)
     segments: list[Segment] = []
     global_scene_id = 1
+    trailing_context = ""
 
     for i, seg_outline in enumerate(outline["segments"]):
         seg_name = seg_outline.get("name", f"Segment {i + 1}")
         if progress_callback:
             progress_callback(i + 1, len(outline["segments"]), seg_name)
         try:
-            scenes = _generate_segment_scenes(system_prompt, outline, i, model)
+            scenes = _generate_segment_scenes(system_prompt, outline, i, model, trailing_context)
         except Exception as e:
             seg_name = seg_outline.get("name", f"Segment {i + 1}")
             raise RuntimeError(
                 f"Segmented script generation failed on segment {i + 1}/{len(outline['segments'])} "
                 f"(\"{seg_name}\"): {e}"
             ) from e
+
+        # Build cross-segment continuity context for the next segment
+        tail = scenes[-3:] if len(scenes) >= 3 else scenes
+        trail_parts: list[str] = []
+        for s in tail:
+            if s.is_title_card:
+                trail_parts.append("title_card")
+            else:
+                shot_m = _SHOT_LABEL_RE.match(s.visual_prompt or "")
+                shot = shot_m.group(1) if shot_m else "UNLABELED"
+                beat = s.visual_beat or "static"
+                trail_parts.append(f"{beat} / [{shot}]")
+        trailing_context = (
+            "CROSS-SEGMENT CONTINUITY — the previous segment ended with these scenes "
+            f"(most recent last): {', '.join(trail_parts)}. "
+            "Vary the opening beat and shot types of THIS segment to avoid monotony "
+            "across the segment boundary.\n\n"
+        )
 
         # Re-number scene IDs globally
         for scene in scenes:
