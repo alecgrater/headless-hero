@@ -135,7 +135,9 @@ def gemini_enhance_thumbnail(
             "this character popping out of that circle, matching how the character "
             "appears in the reference thumbnail (head extending past the circle, "
             "hands gripping the edge, emerging from a glowing blue plasma vortex). "
-            "Keep the segment label badge beneath the chosen circle readable.\n\n"
+            "Keep the segment label badge beneath the chosen circle readable.\n"
+            "Add a small, eye-catching arrow (curved or straight) pointing at the circle "
+            "where you placed the character, to draw the viewer's eye there.\n\n"
             f"{_CTR_EXPRESSION_GUIDANCE}\n"
         )
 
@@ -150,8 +152,8 @@ def gemini_enhance_thumbnail(
         f"{character_instruction}"
         "- Apply the reference thumbnail's circle border styling (glowing magical borders) "
         "to ALL circles in the image\n"
-        "- Update the title text styling to be more punchy, bold, and attention-grabbing, "
-        "matching the reference thumbnail's title treatment\n"
+        "- Make the title text SIGNIFICANTLY LARGER — it should dominate the top of the thumbnail. "
+        "Keep it punchy, bold, and attention-grabbing, matching the reference thumbnail's title treatment\n"
         f'- The video title is: "{video_title}"\n'
         "- Optimize everything for maximum YouTube CTR\n\n"
         "Keep the segment label badges readable. Keep the overall layout and grid intact. "
