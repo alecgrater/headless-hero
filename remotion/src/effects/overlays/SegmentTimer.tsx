@@ -181,7 +181,7 @@ export const SegmentTimer: React.FC<Props> = ({ segmentRanges }) => {
           textAnchor="middle"
           dominantBaseline="central"
           fill="white"
-          fontSize={28}
+          fontSize={24}
           fontFamily="monospace"
           fontWeight="bold"
           filter="url(#timer-glow)"
