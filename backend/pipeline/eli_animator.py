@@ -166,9 +166,9 @@ def generate_scene_eli(scene_data: dict, script_id: str | None = None, previous_
 
     if previous_corner and corner == previous_corner:
         # Pick a corner on the opposite side (left ↔ right), weighted toward bottom
-        left = {"TL", "BL"}
-        right = {"TR", "BR"}
-        opposite_pool = list(left if previous_corner in right else right)
+        left = ["BL", "TL"]
+        right = ["BR", "TR"]
+        opposite_pool = left if previous_corner in right else right
         weights = [0.3 if "T" in c else 0.7 for c in opposite_pool]
         corner = random.choices(opposite_pool, weights=weights, k=1)[0]
         logger.info("Overrode Claude's corner %s → %s (was same as previous)", eli_overlay.get("corner"), corner)
