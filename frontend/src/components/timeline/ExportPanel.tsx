@@ -55,18 +55,12 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "audio", label: "Audio" },
 ];
 
-function formatEstimate(seconds: number): string {
-  if (seconds < 60) return `~${Math.round(seconds)} sec`;
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.round(seconds % 60);
-  return secs > 0 ? `~${mins} min ${secs} sec` : `~${mins} min`;
-}
-
-function formatDuration(seconds: number): string {
+function formatDuration(seconds: number, approximate = false): string {
   const m = Math.floor(seconds / 60);
   const s = Math.round(seconds % 60);
-  if (m === 0) return `${s}s`;
-  return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  const prefix = approximate ? "~" : "";
+  if (m === 0) return `${prefix}${s}s`;
+  return s > 0 ? `${prefix}${m}m ${s}s` : `${prefix}${m}m`;
 }
 
 function ProgressBar({
@@ -80,8 +74,8 @@ function ProgressBar({
   estimatedSeconds?: number;
   elapsedSeconds?: number;
 }) {
-  const isRendering = progress >= 0.3 && progress < 1;
-  const remaining = estimatedSeconds && progress > 0 && progress < 1
+  const isRendering = progress > 0.4 && progress < 1;
+  const remaining = estimatedSeconds && progress > 0.4 && progress < 1
     ? Math.max(0, Math.round(estimatedSeconds * (1 - progress)))
     : null;
 
@@ -89,7 +83,7 @@ function ProgressBar({
     ? formatDuration(elapsedSeconds)
     : null;
   const etaStr = remaining != null && remaining > 0
-    ? `~${formatDuration(remaining)} remaining`
+    ? `${formatDuration(remaining, true)} remaining`
     : null;
 
   return (
@@ -345,7 +339,7 @@ export default function ExportPanel({
                     </button>
                     {estimatedSeconds != null && !youtubeUrl && (
                       <span className="text-xs text-neutral-500">
-                        Estimated render time: {formatEstimate(estimatedSeconds)}
+                        Estimated render time: {formatDuration(estimatedSeconds, true)}
                       </span>
                     )}
                   </div>
