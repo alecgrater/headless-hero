@@ -366,6 +366,71 @@ def _apply_speed(input_path: Path, output_path: Path, speed: float) -> None:
     logger.info("Speed adjustment complete: %s", output_path)
 
 
+def _check_keyframes(video_path: Path, fps: int = FPS) -> int:
+    """Check keyframe count in a video file using ffprobe.
+
+    Returns the number of keyframes found. Logs a warning if density is too low.
+    """
+    cmd = [
+        "ffprobe", "-v", "error",
+        "-select_streams", "v:0",
+        "-show_entries", "packet=flags",
+        "-of", "csv=p=0",
+        str(video_path),
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        if result.returncode != 0:
+            logger.warning("ffprobe failed (exit %d): %s", result.returncode, result.stderr[:200])
+            return -1
+        keyframe_count = result.stdout.count("K")
+        total_packets = result.stdout.count("\n")
+        duration_estimate = total_packets / fps if fps > 0 else 0
+        density = keyframe_count / duration_estimate if duration_estimate > 0 else 0
+
+        logger.info(
+            "Keyframe check: %d keyframes in ~%.0fs video (%.2f kf/s, %d total packets)",
+            keyframe_count, duration_estimate, density, total_packets,
+        )
+
+        if duration_estimate > 30 and density < 0.2:
+            logger.warning(
+                "Low keyframe density: %d keyframes in ~%.0fs (%.2f kf/s) — video may appear frozen in players",
+                keyframe_count, duration_estimate, density,
+            )
+        return keyframe_count
+    except Exception:
+        logger.warning("Keyframe check failed", exc_info=True)
+        return -1
+
+
+def _fix_keyframes(video_path: Path) -> None:
+    """Re-encode video with proper keyframe interval if density is too low."""
+    fixed_path = video_path.with_suffix(".fixed.mp4")
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", str(video_path),
+        "-c:v", "libx264",
+        "-g", "60",
+        "-crf", "18",
+        "-preset", "fast",
+        "-c:a", "copy",
+        str(fixed_path),
+    ]
+    logger.info("Re-encoding with proper keyframes: %s", " ".join(cmd))
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
+    if result.returncode != 0:
+        logger.error("Keyframe fix failed (exit %d): %s", result.returncode, result.stderr[:500])
+        try:
+            fixed_path.unlink()
+        except OSError:
+            pass
+        return
+
+    fixed_path.replace(video_path)
+    logger.info("Keyframe fix complete: %s", video_path)
+
+
 def render_full_video(
     script_id: str,
     content: ScriptContent,
@@ -460,6 +525,19 @@ def render_full_video(
             "[%s] Remotion render finished in %.1fs — output: %s",
             script_id, render_elapsed, remotion_output,
         )
+
+        keyframes = _check_keyframes(remotion_output)
+        duration_est = total_frames / FPS if total_frames > 0 else 0
+        if keyframes >= 0 and duration_est > 30:
+            density = keyframes / duration_est if duration_est > 0 else 0
+            if density < 0.2:
+                logger.warning(
+                    "[%s] Sparse keyframes detected (%.2f kf/s) — re-encoding with -g 60",
+                    script_id, density,
+                )
+                if on_progress:
+                    on_progress(0.85, "Fixing keyframe structure...")
+                _fix_keyframes(remotion_output)
 
         if needs_speed:
             if on_progress:
