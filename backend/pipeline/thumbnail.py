@@ -135,6 +135,8 @@ def gemini_enhance_thumbnail(
             "this character popping out of that circle, matching how the character "
             "appears in the reference thumbnail (head extending past the circle, "
             "hands gripping the edge, emerging from a glowing blue plasma vortex). "
+            "Make the character just slightly larger than the circle — noticeably bigger, "
+            "but only barely disproportionate (about 10-15%% overflow beyond the circle edge). "
             "Keep the segment label badge beneath the chosen circle readable.\n"
             "Add a small, eye-catching arrow (curved or straight) pointing at the circle "
             "where you placed the character, to draw the viewer's eye there.\n\n"
