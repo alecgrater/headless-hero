@@ -628,13 +628,12 @@ function TimelineEditor({
         try {
           const res = await generateFX(scriptId);
           if (yoloCancelledRef.current) return;
-          if (res.ok) {
-            const refreshed = await api.get(`/api/scripts/${scriptId}`);
-            if (refreshed.ok && !yoloCancelledRef.current) {
-              const data = refreshed.data as { script: ScriptContent };
-              state.setContent(data.script);
-            }
+          const refreshed = await api.get(`/api/scripts/${scriptId}`);
+          if (refreshed.ok && !yoloCancelledRef.current) {
+            const data = refreshed.data as { script: ScriptContent };
+            state.setContent(data.script);
           }
+          if (!res.ok) throw new Error("FX generation request failed");
         } finally {
           setGeneratingFX(false);
           setLastFXGenTimestamp(Date.now());
@@ -652,13 +651,12 @@ function TimelineEditor({
         try {
           const res = await generateEli(scriptId);
           if (yoloCancelledRef.current) return;
-          if (res.ok) {
-            const refreshed = await api.get(`/api/scripts/${scriptId}`);
-            if (refreshed.ok && !yoloCancelledRef.current) {
-              const data = refreshed.data as { script: ScriptContent };
-              state.setContent(data.script);
-            }
+          const refreshed = await api.get(`/api/scripts/${scriptId}`);
+          if (refreshed.ok && !yoloCancelledRef.current) {
+            const data = refreshed.data as { script: ScriptContent };
+            state.setContent(data.script);
           }
+          if (!res.ok) throw new Error("Eli generation request failed");
         } finally {
           setGeneratingEli(false);
           refreshCost();
