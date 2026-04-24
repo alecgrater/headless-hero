@@ -355,22 +355,23 @@ def _generate_segmented(
             ) from e
 
         # Build cross-segment continuity context for the next segment
-        tail = scenes[-3:] if len(scenes) >= 3 else scenes
-        trail_parts: list[str] = []
-        for s in tail:
-            if s.is_title_card:
-                trail_parts.append("title_card")
-            else:
-                shot_m = _SHOT_LABEL_RE.match(s.visual_prompt or "")
-                shot = shot_m.group(1) if shot_m else "UNLABELED"
-                beat = s.visual_beat or "static"
-                trail_parts.append(f"{beat} / [{shot}]")
-        trailing_context = (
-            "CROSS-SEGMENT CONTINUITY — the previous segment ended with these scenes "
-            f"(most recent last): {', '.join(trail_parts)}. "
-            "Vary the opening beat and shot types of THIS segment to avoid monotony "
-            "across the segment boundary.\n\n"
-        )
+        if i < len(outline["segments"]) - 1:
+            tail = scenes[-3:]
+            trail_parts: list[str] = []
+            for s in tail:
+                if s.is_title_card:
+                    trail_parts.append("title_card")
+                else:
+                    shot_m = _SHOT_LABEL_RE.match(s.visual_prompt or "")
+                    shot = shot_m.group(1) if shot_m else "UNLABELED"
+                    beat = s.visual_beat or "static"
+                    trail_parts.append(f"{beat} / [{shot}]")
+            trailing_context = (
+                "CROSS-SEGMENT CONTINUITY — the previous segment ended with these scenes "
+                f"(most recent last): {', '.join(trail_parts)}. "
+                "Vary the opening beat and shot types of THIS segment to avoid monotony "
+                "across the segment boundary.\n\n"
+            )
 
         # Re-number scene IDs globally
         for scene in scenes:
