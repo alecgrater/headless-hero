@@ -631,13 +631,15 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
     if not any(not sc["is_title_card"] for sc in scenes_to_process):
         raise HTTPException(status_code=400, detail="No non-title-card scenes in first segment")
 
-    scene_count = len(scenes_to_process)
+    content_scene_count = sum(1 for sc in scenes_to_process if not sc["is_title_card"])
     regen_flags = [k for k, v in {"audio": body.regen_audio, "images": body.regen_images,
                                    "eli": body.regen_eli, "fx": body.regen_fx}.items() if v]
-    logger.info("Starting export test for script %s, segment %r (%d scenes, regen: %s)",
-                body.script_id, seg_name, scene_count, ", ".join(regen_flags) or "render only")
-    job = create_job(scene_count=scene_count)
-    job.estimated_seconds = estimate_render_time(scene_count)
+    logger.info("Starting export test for script %s, segment %r (%d scenes + %d title cards, regen: %s)",
+                body.script_id, seg_name, content_scene_count,
+                len(scenes_to_process) - content_scene_count,
+                ", ".join(regen_flags) or "render only")
+    job = create_job(scene_count=content_scene_count)
+    job.estimated_seconds = estimate_render_time(content_scene_count)
 
     ctx = ExportContext(
         script_id=body.script_id,
