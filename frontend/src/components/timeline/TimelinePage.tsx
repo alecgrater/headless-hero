@@ -925,7 +925,7 @@ function TimelineEditor({
                     className={`group relative px-5 py-1.5 text-xs font-bold rounded-lg transition-all overflow-hidden ${
                       allDone
                         ? "bg-neutral-800 text-neutral-600 cursor-not-allowed"
-                        : "bg-gradient-to-r from-violet-500/60 via-fuchsia-400/50 to-amber-400/50 text-white/90 shadow-[0_0_12px_rgba(168,85,247,0.15)] hover:shadow-[0_0_18px_rgba(168,85,247,0.25)] hover:scale-[1.02]"
+                        : "bg-gradient-to-r from-violet-500/80 via-fuchsia-400/70 to-amber-400/70 text-white/95 shadow-[0_0_15px_rgba(168,85,247,0.2)] hover:shadow-[0_0_22px_rgba(168,85,247,0.35)] hover:scale-[1.02]"
                     }`}
                   >
                     {!allDone && (
