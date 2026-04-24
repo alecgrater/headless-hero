@@ -169,12 +169,13 @@ def _check_cancelled(job_id: str) -> None:
 
 
 def _phase_images(ctx: ExportContext) -> None:
-    """Phase 3: Generate images for all scenes."""
+    """Phase 3: Generate images for all scenes (skips title cards)."""
     from pipeline.image_gen import generate_scene_image
 
-    scene_count = len(ctx.scenes)
+    non_tc = [sc for sc in ctx.scenes if not sc.get("is_title_card")]
+    scene_count = len(non_tc)
     logger.info("[%s] Phase: images — generating %d scene images", ctx.script_id, scene_count)
-    for i, sc_info in enumerate(ctx.scenes):
+    for i, sc_info in enumerate(non_tc):
         _check_cancelled(ctx.job.id)
         p = _phase_progress(ctx, "images", i / scene_count)
         update_job(ctx.job.id, progress=p, current_step=f"Generating image ({i+1}/{scene_count})...")
@@ -249,16 +250,17 @@ def _phase_persist(ctx: ExportContext) -> None:
 
 
 def _phase_fx(ctx: ExportContext) -> None:
-    """Phase 5: Generate FX for all scenes, persist in a single write."""
+    """Phase 5: Generate FX for all scenes (skips title cards), persist in a single write."""
     from pipeline.fx_generator import generate_scene_fx
 
-    scene_count = len(ctx.scenes)
+    non_tc = [sc for sc in ctx.scenes if not sc.get("is_title_card")]
+    scene_count = len(non_tc)
     logger.info("[%s] Phase: fx — generating FX for %d scenes", ctx.script_id, scene_count)
 
     # Generate FX for each scene, collecting results
     content_now = _reload_content(ctx.script_id)
     fx_updates: dict[str, dict] = {}
-    for i, sc_info in enumerate(ctx.scenes):
+    for i, sc_info in enumerate(non_tc):
         _check_cancelled(ctx.job.id)
         p = _phase_progress(ctx, "fx", i / scene_count)
         update_job(ctx.job.id, progress=p, current_step=f"Generating FX ({i+1}/{scene_count})...")
@@ -305,19 +307,20 @@ def _phase_fx(ctx: ExportContext) -> None:
 
 
 def _phase_eli(ctx: ExportContext) -> None:
-    """Phase 6: Generate Eli animation for all scenes, persist in a single write."""
+    """Phase 6: Generate Eli animation for all scenes (skips title cards), persist in a single write."""
     try:
         from pipeline.eli_animator import generate_scene_eli
     except ImportError:
         logger.warning("eli_animator module not found — skipping Eli phase")
         return
 
-    scene_count = len(ctx.scenes)
+    non_tc = [sc for sc in ctx.scenes if not sc.get("is_title_card")]
+    scene_count = len(non_tc)
     logger.info("[%s] Phase: eli — generating Eli animation for %d scenes", ctx.script_id, scene_count)
 
     content_now = _reload_content(ctx.script_id)
     eli_updates: dict[str, dict] = {}
-    for i, sc_info in enumerate(ctx.scenes):
+    for i, sc_info in enumerate(non_tc):
         _check_cancelled(ctx.job.id)
         p = _phase_progress(ctx, "eli", i / scene_count)
         update_job(ctx.job.id, progress=p, current_step=f"Generating Eli ({i+1}/{scene_count})...")
@@ -610,22 +613,22 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
     title = first_seg.name if first_seg.scenes else "Untitled"
     seg_name = first_seg.name
 
-    # Collect non-title-card scenes in first segment for processing
+    # Collect all scenes in first segment for processing (including title cards)
     scenes_to_process: list[dict] = []
     global_idx = 0
     total_scenes = sum(len(seg.scenes) for seg in content.segments)
     for sci, scene in enumerate(first_seg.scenes):
-        if not scene.is_title_card:
-            scenes_to_process.append({
-                "scene_id": scene.id,
-                "narration": scene.narration or "",
-                "visual_prompt": scene.visual_prompt or "",
-                "sc_idx": sci,
-                "global_idx": global_idx,
-            })
+        scenes_to_process.append({
+            "scene_id": scene.id,
+            "narration": scene.narration or "",
+            "visual_prompt": scene.visual_prompt or "",
+            "sc_idx": sci,
+            "global_idx": global_idx,
+            "is_title_card": scene.is_title_card,
+        })
         global_idx += 1
 
-    if not scenes_to_process:
+    if not any(not sc["is_title_card"] for sc in scenes_to_process):
         raise HTTPException(status_code=400, detail="No non-title-card scenes in first segment")
 
     scene_count = len(scenes_to_process)
