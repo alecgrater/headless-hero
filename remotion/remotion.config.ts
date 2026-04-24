@@ -6,14 +6,15 @@ Config.overrideWebpackConfig((config) => {
 });
 
 // Force keyframe every 2 seconds (60 frames at 30fps).
-// Without this, long compositions produce corrupt H.264 with insufficient
-// keyframes, making the video unplayable past the first GOP.
+// Applied to BOTH pre-stitcher and stitcher steps because Remotion may skip
+// the pre-stitcher when memory is tight (common for long compositions).
+// Without this, long H.264 exports have too few keyframes and appear frozen.
 Config.overrideFfmpegCommand(({ args, type }) => {
-  if (type === "pre-stitcher") {
-    const yIdx = args.indexOf("-y");
-    if (yIdx >= 0) {
-      return [...args.slice(0, yIdx), "-g", "60", ...args.slice(yIdx)];
-    }
+  console.error(`[HH-FFmpeg] override called: type=${type}, args=${args.length}`);
+  const yIdx = args.indexOf("-y");
+  if (yIdx >= 0) {
+    console.error(`[HH-FFmpeg] injecting -g 60 for ${type} step`);
+    return [...args.slice(0, yIdx), "-g", "60", ...args.slice(yIdx)];
   }
   return args;
 });
