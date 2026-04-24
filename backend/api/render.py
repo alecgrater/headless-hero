@@ -320,11 +320,14 @@ def _phase_eli(ctx: ExportContext) -> None:
 
     content_now = _reload_content(ctx.script_id)
     eli_updates: dict[str, dict] = {}
+    previous_corner: str | None = None
     for i, sc_info in enumerate(non_tc):
         _check_cancelled(ctx.job.id)
         p = _phase_progress(ctx, "eli", i / scene_count)
         update_job(ctx.job.id, progress=p, current_step=f"Generating Eli ({i+1}/{scene_count})...")
         scene_now = find_scene_in_content(content_now, sc_info["scene_id"])
+        if scene_now.contains_person:
+            continue
         duration = scene_now.audio_duration_seconds or scene_now.duration_estimate_seconds
         eli_scene_data = {
             "id": sc_info["scene_id"],
@@ -340,8 +343,9 @@ def _phase_eli(ctx: ExportContext) -> None:
         if scene_now.word_timestamps:
             eli_scene_data["word_timestamps"] = scene_now.word_timestamps
         try:
-            eli_result = generate_scene_eli(eli_scene_data)
+            eli_result = generate_scene_eli(eli_scene_data, script_id=ctx.script_id, previous_corner=previous_corner)
             eli_updates[sc_info["scene_id"]] = eli_result["eli_overlay"]
+            previous_corner = eli_result["eli_overlay"].get("corner")
         except Exception as e:
             logger.warning("Failed Eli for scene %s: %s", sc_info["scene_id"], e)
 

@@ -48,8 +48,8 @@ export const FullVideo: React.FC<FullVideoProps> = ({
     const { scene, segmentIndex, segmentName } = allScenes[i];
     const durationFrames = Math.max(fps, secondsToFrames(scene.duration_seconds, fps));
 
-    // Insert chapter transition before first scene of each segment (except first)
-    if (segmentIndex !== prevSegmentIndex && segmentIndex > 0 && chapter_map) {
+    // Insert chapter transition before first scene of each segment
+    if (segmentIndex !== prevSegmentIndex && chapter_map) {
       // Close previous segment range
       if (prevSegmentIndex >= 0) {
         segmentRanges.push({ start_frame: segmentContentStart, end_frame: currentFrame });
@@ -89,8 +89,8 @@ export const FullVideo: React.FC<FullVideoProps> = ({
       }
     }
 
-    // Record first segment marker
-    if (segmentIndex !== prevSegmentIndex && segmentIndex === 0 && markers.length === 0) {
+    // Record first segment marker (no chapter map case)
+    if (segmentIndex !== prevSegmentIndex && segmentIndex === 0 && !chapter_map && markers.length === 0) {
       computedMarkers.push({
         segment_index: 0,
         label: segmentName,
