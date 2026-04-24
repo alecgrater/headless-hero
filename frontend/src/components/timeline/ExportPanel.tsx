@@ -179,28 +179,22 @@ function TabBadge({ active }: { active: boolean }) {
   return <span className="w-2 h-2 rounded-full bg-emerald-400 ml-1.5 inline-block" />;
 }
 
-const TAG_PREVIEW_COUNT = 15;
-
 function TagList({ tags }: { tags: string[] }) {
-  const [expanded, setExpanded] = useState(false);
-  const visible = expanded ? tags : tags.slice(0, TAG_PREVIEW_COUNT);
-  const hiddenCount = tags.length - TAG_PREVIEW_COUNT;
+  const tagString = tags.join(", ");
+  const charCount = tagString.length;
+  const overLimit = charCount > 500;
 
   return (
-    <div className="flex flex-wrap gap-1">
-      {visible.map((tag) => (
-        <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-neutral-700 rounded text-neutral-300">
-          {tag}
+    <div className="space-y-1">
+      <p className="text-xs text-neutral-400 whitespace-pre-wrap select-all cursor-text bg-neutral-900/50 rounded p-2">
+        {tagString}
+      </p>
+      <div className="flex items-center justify-between">
+        <span className={`text-[10px] ${overLimit ? "text-red-400" : "text-neutral-500"}`}>
+          {charCount}/500 characters
         </span>
-      ))}
-      {hiddenCount > 0 && (
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="text-[10px] text-neutral-500 hover:text-neutral-300 transition-colors cursor-pointer"
-        >
-          {expanded ? "show less" : `+${hiddenCount} more`}
-        </button>
-      )}
+        <CopyButton text={tagString} />
+      </div>
     </div>
   );
 }

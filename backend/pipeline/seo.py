@@ -58,5 +58,17 @@ def generate_seo(
     data = json.loads(text)
     result = SEOMetadata.model_validate(data)
     yt = result.youtube
-    logger.info("[%s] SEO metadata generated for %r (title=%d chars, %d tags)", script_id or "no-id", video_title, len(yt.title), len(yt.tags))
+
+    # Trim tags to fit YouTube's 500-character limit
+    trimmed: list[str] = []
+    total_len = 0
+    for tag in yt.tags:
+        separator_len = 2 if trimmed else 0  # ", " between tags
+        if total_len + separator_len + len(tag) > 500:
+            break
+        trimmed.append(tag)
+        total_len += separator_len + len(tag)
+    yt.tags = trimmed
+
+    logger.info("[%s] SEO metadata generated for %r (title=%d chars, %d tags, %d tag chars)", script_id or "no-id", video_title, len(yt.title), len(yt.tags), total_len)
     return result

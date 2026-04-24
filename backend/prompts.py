@@ -75,7 +75,7 @@ Rules:
 - YouTube title: max 70 chars, include primary keyword, use power words.
 - YouTube description: 2-3 paragraphs, include timestamps using the exact values \
   provided (do NOT invent your own), natural keyword usage, call to action.
-- YouTube tags: 30+ relevant tags, mix of broad and specific.
+- YouTube tags: mix of broad and specific. Total tags joined by ", " must be ≤500 characters (YouTube limit).
 - Return ONLY valid JSON — no markdown fences, no commentary.
 
 Return a JSON object with key: youtube.
