@@ -4,13 +4,16 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session
 
 from database import get_default_brand_id, get_session
 from models.brand import BrandProfile
 from models.cold_open import GenerateColdOpensRequest
+from models.script import HookScore
 from pipeline.cold_open import generate_cold_opens
+from pipeline.hook_refiner import RefinedHook, refine_hook
+from pipeline.hook_scorer import score_hook
 from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
 from prompts import CHARACTER_SPEC_MD, IMAGE_VISUAL_STYLE
 
@@ -24,6 +27,19 @@ router = APIRouter(prefix="/api/scripts", tags=["cold-opens"])
 
 class ColdOpenJobResponse(BaseModel):
     job_id: str
+
+
+class RefineHookRequest(BaseModel):
+    topic: str = Field(..., min_length=1)
+    description: str = ""
+    cold_open_index: int = Field(..., ge=0, le=2)
+    cold_open_job_id: str = Field(..., min_length=1)
+
+
+class RefineHookResultData(BaseModel):
+    hook_score: dict
+    refined_hook: dict
+    original_hook: dict
 
 
 @router.post("/cold-opens", response_model=ColdOpenJobResponse)
@@ -76,4 +92,63 @@ def cold_opens_status(job_id: str):
     # If completed, parse the ColdOpenResult from output_data
     if job.status == "completed" and job.output_data:
         result["cold_open_result"] = json.loads(job.output_data)
+    return result
+
+
+@router.post("/refine-hook")
+def refine_hook_endpoint(body: RefineHookRequest):
+    cold_open_job = get_job(body.cold_open_job_id)
+    if not cold_open_job or cold_open_job.status != "completed" or not cold_open_job.output_data:
+        raise HTTPException(status_code=404, detail="Cold open job not found or not completed")
+
+    cold_open_result = json.loads(cold_open_job.output_data)
+    variants = cold_open_result.get("variants", [])
+    if body.cold_open_index >= len(variants):
+        raise HTTPException(status_code=422, detail="Invalid cold open index")
+
+    variant = variants[body.cold_open_index]
+    intro_hook = variant["intro_hook"]
+    opening_narration = variant["opening_narration"]
+    video_title = body.topic
+
+    job = create_job()
+    job_id = job.id
+
+    def _run() -> list[str]:
+        update_job(job_id, current_step="Scoring hook...")
+        hook_score = score_hook(
+            intro_hook=intro_hook,
+            hook_scenes=[],
+            video_title=video_title,
+            narration_text=opening_narration,
+        )
+
+        update_job(job_id, current_step="Refining hook...", progress=0.5)
+        refined = refine_hook(
+            intro_hook=intro_hook,
+            opening_narration=opening_narration,
+            hook_score=hook_score,
+            video_title=video_title,
+        )
+
+        result = RefineHookResultData(
+            hook_score=hook_score.model_dump(),
+            refined_hook=refined.model_dump(),
+            original_hook={"intro_hook": intro_hook, "opening_narration": opening_narration},
+        )
+        update_job(job_id, output_data=result.model_dump_json())
+        return []
+
+    run_in_background(job_id, _run)
+    return {"job_id": job_id}
+
+
+@router.get("/refine-hook-status/{job_id}")
+def refine_hook_status(job_id: str):
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    result = job.to_dict()
+    if job.status == "completed" and job.output_data:
+        result["refine_result"] = json.loads(job.output_data)
     return result
