@@ -14,6 +14,7 @@ export interface RenderStatusResponse {
   output_urls: string[];
   error?: string;
   estimated_seconds?: number;
+  elapsed_seconds?: number;
 }
 
 export interface ExportAudioResponse {

@@ -46,6 +46,7 @@ class RenderStatusResponse(BaseModel):
     output_urls: list[str]
     error: str | None = None
     estimated_seconds: float | None = None
+    elapsed_seconds: float | None = None
 
 class ExportAudioRequest(BaseModel):
     script_id: str

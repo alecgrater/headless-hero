@@ -393,7 +393,7 @@ def render_full_video(
     brand_dict = brand or {}
     for i, scene in enumerate(scenes):
         if on_progress:
-            on_progress(i / (total + 2), f"Preparing scene {i + 1}/{total}")
+            on_progress(0.3 * (i + 1) / total, f"Preparing scene {i + 1}/{total}")
         logger.info("[%s] Preparing scene %d/%d (scene_id=%s)", script_id, i + 1, total, scene.id)
         scenes[i] = prepare_title_card_scene(scene, script_id, brand_dict)
 
