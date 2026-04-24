@@ -88,10 +88,10 @@ const EXIT_FRAMES = 10;
 
 /** Corner presets for per-scene Eli placement. */
 const CORNER_PRESETS: Record<string, { x: number; y: number }> = {
-  TL: { x: 130, y: 30 },
-  TR: { x: 1410, y: 30 },
-  BL: { x: 130, y: 835 },
-  BR: { x: 1410, y: 835 },
+  TL: { x: 140, y: 30 },
+  TR: { x: 1400, y: 30 },
+  BL: { x: 140, y: 835 },
+  BR: { x: 1400, y: 835 },
 };
 
 /** Expression → breathing rate multiplier. */
