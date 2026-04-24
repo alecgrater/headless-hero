@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import api, { fetchGenerationEstimate } from "../../api";
+import api, { fetchGenerationEstimate, refineHook } from "../../api";
 import { DEFAULT_MODEL } from "../../constants";
 import { usePollJob } from "../../hooks/usePollJob";
 import type { VideoIdea } from "../../types/idea";
-import type { ColdOpenResult, ColdOpenVariant, ScriptContent } from "../../types/script";
+import type { ColdOpenResult, ColdOpenVariant, RefinedHookResult, ScriptContent } from "../../types/script";
 
 // Mirrors backend config.ALLOWED_SEGMENT_COUNTS — keep in sync
 const ALLOWED_SEGMENT_COUNTS = [8, 10] as const;
@@ -37,7 +37,7 @@ interface ColdOpenJobStatus {
   elapsed_seconds?: number;
 }
 
-export type GenerationPhase = "idle" | "cold_opens" | "selecting" | "script";
+export type GenerationPhase = "idle" | "cold_opens" | "selecting" | "refining" | "script";
 
 export interface ScriptGenerationState {
   script: ScriptContent | null;
@@ -54,6 +54,7 @@ export interface ScriptGenerationState {
   genCompletedSegments: number[];
   phase: GenerationPhase;
   coldOpenResult: ColdOpenResult | null;
+  refineResult: RefinedHookResult | null;
   setScript: (s: ScriptContent) => void;
   handleGenerate: () => Promise<void>;
   handleCancelGeneration: () => void;
@@ -81,8 +82,10 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
   const [phase, setPhase] = useState<GenerationPhase>("idle");
   const [coldOpenResult, setColdOpenResult] = useState<ColdOpenResult | null>(null);
   const [selectedColdOpen, setSelectedColdOpen] = useState<ColdOpenVariant | null>(null);
+  const [refineResult, setRefineResult] = useState<RefinedHookResult | null>(null);
 
   const cancelledRef = useRef(false);
+  const coldOpenJobIdRef = useRef<string | null>(null);
 
   // --- Script generation polling ---
   const { startPolling: startScriptPolling, stopPolling: stopScriptPolling } = usePollJob<GenJobStatus>({
@@ -186,6 +189,42 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
     intervalMs: 1500,
   });
 
+  // --- Refine-hook polling ---
+  interface RefineJobStatus {
+    status: string;
+    current_step: string;
+    error: string | null;
+    refine_result?: RefinedHookResult;
+    elapsed_seconds?: number;
+  }
+
+  const { startPolling: startRefinePolling, stopPolling: stopRefinePolling } =
+    usePollJob<RefineJobStatus>({
+      pollFn: async (jobId) => {
+        const res = await api.get(`/api/scripts/refine-hook-status/${jobId}`);
+        return res.ok ? (res.data as RefineJobStatus) : null;
+      },
+      isComplete: (s) => s.status === "completed",
+      isFailed: (s) => s.status === "failed",
+      onStatus: (s) => {
+        setElapsedSeconds(s.elapsed_seconds ?? null);
+        if (s.status === "completed" && s.refine_result) {
+          setRefineResult(s.refine_result);
+          setLoading(false);
+        } else if (s.status === "failed") {
+          setError(s.error || "Hook refinement failed");
+          setLoading(false);
+          setPhase("idle");
+        }
+      },
+      onConnectionLost: () => {
+        setError("Lost connection to backend during hook refinement.");
+        setLoading(false);
+        setPhase("idle");
+      },
+      intervalMs: 1500,
+    });
+
   // Load default model from settings
   useEffect(() => {
     api.get("/api/settings/keys").then((res) => {
@@ -243,6 +282,7 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
       }
 
       const { job_id } = res.data as { job_id: string };
+      coldOpenJobIdRef.current = job_id;
       startColdOpenPolling(job_id);
     } catch (err) {
       if (!cancelledRef.current) {
@@ -254,51 +294,32 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
     }
   };
 
-  // Phase 2: User selected a cold open → generate full script
+  // Phase 2: User selected a cold open → refine the hook
   const handleColdOpenSelect = async (variant: ColdOpenVariant) => {
     cancelledRef.current = false;
     setSelectedColdOpen(variant);
     setLoading(true);
     setError(null);
-    setGenSegments(null);
-    setGenCompletedSegments([]);
+    setRefineResult(null);
     setElapsedSeconds(null);
-    setPhase("script");
+    setPhase("refining");
 
-    fetchGenerationEstimate("script_generation_youtube")
-      .then((est) => setEstimatedSeconds(est.average_seconds))
-      .catch(() => setEstimatedSeconds(null));
-
-    const coldOpenText = `${variant.intro_hook}\n\n${variant.opening_narration}`;
+    const variantIndex = coldOpenResult
+      ? coldOpenResult.variants.findIndex((v) => v.id === variant.id)
+      : 0;
 
     try {
-      const res = await api.post("/api/scripts/generate", {
+      const { job_id } = await refineHook({
         topic: idea.title,
         description: idea.description,
-        brand_id: brandId,
-        segment_count: idea.segments_est > 0 ? snapSegmentCount(idea.segments_est) : undefined,
-        animated_scene_count: 5,
-        model: selectedModel !== DEFAULT_MODEL ? selectedModel : undefined,
-        segmented,
-        cold_open_text: coldOpenText,
+        cold_open_index: variantIndex,
+        cold_open_job_id: coldOpenJobIdRef.current!,
       });
       if (cancelledRef.current) return;
-      if (!res.ok) {
-        const detail =
-          res.data && typeof res.data === "object" && "detail" in res.data
-            ? (res.data as { detail: string }).detail
-            : "Failed to start script generation";
-        setError(detail);
-        setLoading(false);
-        setPhase("idle");
-        return;
-      }
-
-      const { job_id } = res.data as { job_id: string };
-      startScriptPolling(job_id);
+      startRefinePolling(job_id);
     } catch (err) {
       if (!cancelledRef.current) {
-        console.error("[ScriptGeneration] Script request failed:", err);
+        console.error("[ScriptGeneration] Refine request failed:", err);
         setError("Could not reach the backend. Is it running?");
         setLoading(false);
         setPhase("idle");
@@ -306,10 +327,70 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
     }
   };
 
+  // Phase 3: Auto-proceed from refining → script generation after a brief delay
+  useEffect(() => {
+    if (phase !== "refining" || !refineResult || !selectedColdOpen) return;
+
+    const timer = setTimeout(() => {
+      const refined = refineResult.refined_hook;
+      const coldOpenText = `${refined.intro_hook}\n\n${refined.opening_narration}`;
+
+      setPhase("script");
+      setLoading(true);
+      setElapsedSeconds(null);
+      setGenSegments(null);
+      setGenCompletedSegments([]);
+
+      fetchGenerationEstimate("script_generation_youtube")
+        .then((est) => setEstimatedSeconds(est.average_seconds))
+        .catch(() => setEstimatedSeconds(null));
+
+      api
+        .post("/api/scripts/generate", {
+          topic: idea.title,
+          description: idea.description,
+          brand_id: brandId,
+          segment_count:
+            idea.segments_est > 0 ? snapSegmentCount(idea.segments_est) : undefined,
+          animated_scene_count: 5,
+          model: selectedModel !== DEFAULT_MODEL ? selectedModel : undefined,
+          segmented,
+          cold_open_text: coldOpenText,
+        })
+        .then((res) => {
+          if (cancelledRef.current) return;
+          if (!res.ok) {
+            const detail =
+              res.data && typeof res.data === "object" && "detail" in res.data
+                ? (res.data as { detail: string }).detail
+                : "Failed to start script generation";
+            setError(detail);
+            setLoading(false);
+            setPhase("idle");
+            return;
+          }
+          const { job_id } = res.data as { job_id: string };
+          startScriptPolling(job_id);
+        })
+        .catch((err) => {
+          if (!cancelledRef.current) {
+            console.error("[ScriptGeneration] Script request failed:", err);
+            setError("Could not reach the backend. Is it running?");
+            setLoading(false);
+            setPhase("idle");
+          }
+        });
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [phase, refineResult, selectedColdOpen]);
+
   const handleCancelGeneration = () => {
     cancelledRef.current = true;
     stopScriptPolling();
     stopColdOpenPolling();
+    stopRefinePolling();
+    setRefineResult(null);
     setLoading(false);
     setPhase("idle");
   };
@@ -329,6 +410,7 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
     genCompletedSegments,
     phase,
     coldOpenResult,
+    refineResult,
     setScript,
     handleGenerate,
     handleCancelGeneration,
