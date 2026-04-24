@@ -136,6 +136,12 @@ export interface HookScore {
   suggestions: string[];
 }
 
+export interface RefinedHookResult {
+  hook_score: HookScore;
+  refined_hook: { intro_hook: string; opening_narration: string };
+  original_hook: { intro_hook: string; opening_narration: string };
+}
+
 // --- Cold open A/B testing ---
 
 export interface ColdOpenScores {

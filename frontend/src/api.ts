@@ -347,6 +347,21 @@ export async function scoreHook(scriptId: string): Promise<HookScore> {
   return (res.data as { hook_score: HookScore }).hook_score;
 }
 
+/** Start a background job to refine the hook for a cold open variant. */
+export async function refineHook(body: {
+  topic: string;
+  description: string;
+  cold_open_index: number;
+  cold_open_job_id: string;
+}): Promise<{ job_id: string }> {
+  const res = await api.post("/api/scripts/refine-hook", body);
+  if (!res.ok)
+    throw new Error(
+      (res.data as { detail?: string }).detail || "Hook refinement failed",
+    );
+  return res.data as { job_id: string };
+}
+
 /** Start a background trending topic refresh job. */
 export async function refreshTrending(): Promise<{ job_id: string }> {
   const res = await api.post("/api/trending/refresh");
