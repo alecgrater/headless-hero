@@ -3,9 +3,9 @@
  * transitions, continuous mouth blending, compound breathing, variant
  * cycling, and entrance/exit animations.
  *
- * Mouth openness is derived from word_timestamps as a continuous 0-1
- * value (not binary). Both open and closed frames are rendered stacked
- * with complementary opacities for smooth blending.
+ * Mouth openness is derived from phrase_timestamps as a continuous 0-1
+ * value. Both open and closed frames are rendered stacked with
+ * complementary opacities for smooth blending.
  */
 import React from "react";
 import {
@@ -140,10 +140,6 @@ function getMouthOpenness(
 
     // Ramp close after phrase end
     if (timeMs > phrase.end_ms && timeMs <= phrase.end_ms + RAMP_CLOSE_MS) {
-      const nextPhrase = phraseTimestamps[i + 1];
-      if (nextPhrase && timeMs >= nextPhrase.start_ms - RAMP_OPEN_MS) {
-        break;
-      }
       return interpolate(
         timeMs,
         [phrase.end_ms, phrase.end_ms + RAMP_CLOSE_MS],

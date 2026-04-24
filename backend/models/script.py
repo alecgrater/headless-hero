@@ -46,11 +46,6 @@ class EliOverlay(BaseModel):
     corner: Literal["TL", "TR", "BL", "BR"] = "BR"
     keyframes: list[EliKeyframe] = []
 
-class PhraseTimestamp(BaseModel):
-    """A phrase group derived from word timestamps for smooth mouth animation."""
-    start_ms: int
-    end_ms: int
-
 class FrameDirective(BaseModel):
     """Per-frame generation directive for the Visual Beat System."""
     prompt: str
