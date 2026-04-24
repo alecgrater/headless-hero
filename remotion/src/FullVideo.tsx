@@ -9,6 +9,7 @@ import { SceneRenderer } from "./scenes/SceneRenderer";
 import { AnimatedChapterMap } from "./effects/structural/AnimatedChapterMap";
 import { ChapterIndicator } from "./effects/overlays/ChapterIndicator";
 import { SegmentTimer } from "./effects/overlays/SegmentTimer";
+import { SegmentCounter } from "./effects/overlays/SegmentCounter";
 import { secondsToFrames, CHAPTER_TRANSITION_SECONDS } from "./utils/timing";
 
 const CHAPTER_TRANSITION_FRAMES = CHAPTER_TRANSITION_SECONDS * 30;
@@ -150,6 +151,13 @@ export const FullVideo: React.FC<FullVideoProps> = ({
       {segment_timer?.enabled && segmentRanges.length > 0 && (
         <Sequence from={0} durationInFrames={totalFrames}>
           <SegmentTimer segmentRanges={segmentRanges} />
+        </Sequence>
+      )}
+
+      {/* Segment progress counter */}
+      {segment_timer?.enabled && segmentRanges.length > 0 && (
+        <Sequence from={0} durationInFrames={totalFrames}>
+          <SegmentCounter segmentRanges={segmentRanges} />
         </Sequence>
       )}
     </div>

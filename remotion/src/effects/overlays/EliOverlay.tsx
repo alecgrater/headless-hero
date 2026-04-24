@@ -88,10 +88,10 @@ const EXIT_FRAMES = 10;
 
 /** Corner presets for per-scene Eli placement. */
 const CORNER_PRESETS: Record<string, { x: number; y: number }> = {
-  TL: { x: 30, y: 30 },
+  TL: { x: 130, y: 30 },
   TR: { x: 1410, y: 30 },
-  BL: { x: 30, y: 720 },
-  BR: { x: 1410, y: 720 },
+  BL: { x: 130, y: 835 },
+  BR: { x: 1410, y: 835 },
 };
 
 /** Expression → breathing rate multiplier. */
@@ -406,8 +406,8 @@ export const EliOverlay: React.FC<Props> = ({
   const combinedOpacity = entranceOpacity * exitOpacity;
 
   // Container size
-  const containerWidth = 480;
-  const containerHeight = 270;
+  const containerWidth = 380;
+  const containerHeight = 215;
 
   // --- Render helper for a blended open/closed image pair ---
   const renderMouthBlend = (
