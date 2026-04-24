@@ -3,7 +3,7 @@
  * and a global progress bar overlay.
  */
 import React from "react";
-import { Sequence } from "remotion";
+import { Audio, Sequence } from "remotion";
 import type { FullVideoProps, SceneInput, ChapterMarker } from "./types";
 import { SceneRenderer } from "./scenes/SceneRenderer";
 import { AnimatedChapterMap } from "./effects/structural/AnimatedChapterMap";
@@ -64,26 +64,35 @@ export const FullVideo: React.FC<FullVideoProps> = ({
         });
       }
 
+      // Check if this scene is a title card we'll absorb into the chapter transition
+      const absorbTitleCard = !!(scene.is_title_card && scene.title_card_zoom_target);
+      const transitionDuration = absorbTitleCard
+        ? Math.max(CHAPTER_TRANSITION_FRAMES, durationFrames)
+        : CHAPTER_TRANSITION_FRAMES;
+
       sceneSequences.push(
         <Sequence
           key={`chapter-${segmentIndex}`}
           from={currentFrame}
-          durationInFrames={CHAPTER_TRANSITION_FRAMES}
+          durationInFrames={transitionDuration}
           name={`Chapter: ${segmentName}`}
         >
           <AnimatedChapterMap
             chapterMap={chapter_map}
             currentChapterIndex={segmentIndex}
           />
+          {absorbTitleCard && scene.audio_path && (
+            <Audio src={scene.audio_path} volume={1} />
+          )}
         </Sequence>,
       );
-      currentFrame += CHAPTER_TRANSITION_FRAMES;
+      currentFrame += transitionDuration;
 
       // New segment content starts after transition
       segmentContentStart = currentFrame;
 
       // If the current scene IS the title card, skip it — the chapter transition already shows it
-      if (scene.is_title_card && scene.title_card_zoom_target) {
+      if (absorbTitleCard) {
         prevSegmentIndex = segmentIndex;
         continue;
       }
