@@ -179,6 +179,32 @@ function TabBadge({ active }: { active: boolean }) {
   return <span className="w-2 h-2 rounded-full bg-emerald-400 ml-1.5 inline-block" />;
 }
 
+const TAG_PREVIEW_COUNT = 15;
+
+function TagList({ tags }: { tags: string[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? tags : tags.slice(0, TAG_PREVIEW_COUNT);
+  const hiddenCount = tags.length - TAG_PREVIEW_COUNT;
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {visible.map((tag) => (
+        <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-neutral-700 rounded text-neutral-300">
+          {tag}
+        </span>
+      ))}
+      {hiddenCount > 0 && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="text-[10px] text-neutral-500 hover:text-neutral-300 transition-colors cursor-pointer"
+        >
+          {expanded ? "show less" : `+${hiddenCount} more`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function ExportPanel({
   youtubeStatus,
   youtubeUrl,
@@ -412,16 +438,7 @@ export default function ExportPanel({
                     </div>
                     <p className="text-sm font-medium text-neutral-200">{seoMetadata.youtube.title}</p>
                     <p className="text-xs text-neutral-400 whitespace-pre-wrap">{seoMetadata.youtube.description}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {seoMetadata.youtube.tags.slice(0, 15).map((tag) => (
-                        <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-neutral-700 rounded text-neutral-300">
-                          {tag}
-                        </span>
-                      ))}
-                      {seoMetadata.youtube.tags.length > 15 && (
-                        <span className="text-[10px] text-neutral-500">+{seoMetadata.youtube.tags.length - 15} more</span>
-                      )}
-                    </div>
+                    <TagList tags={seoMetadata.youtube.tags} />
                   </div>
                 </div>
               )}
