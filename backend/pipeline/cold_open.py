@@ -48,8 +48,13 @@ def generate_cold_opens(
 
     try:
         data = json.loads(text)
-    except json.JSONDecodeError as e:
-        raise RuntimeError(f"Cold open generation returned invalid JSON: {e}") from e
+    except json.JSONDecodeError:
+        # Claude sometimes appends commentary after the JSON object — extract just the JSON
+        decoder = json.JSONDecoder()
+        try:
+            data, _ = decoder.raw_decode(text.lstrip())
+        except json.JSONDecodeError as e2:
+            raise RuntimeError(f"Cold open generation returned invalid JSON: {e2}") from e2
 
     # Parse variants and compute overall scores
     variants: list[ColdOpenVariant] = []
