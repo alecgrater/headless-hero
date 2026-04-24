@@ -173,6 +173,7 @@ def _scene_to_input_props(scene: Scene, script_id: str, variant_counts: dict[str
         "character_frames_base_url": f"http://localhost:{BACKEND_PORT}/static/character/frames",
         "variant_counts": variant_counts,
         "word_timestamps": scene.word_timestamps,
+        "phrase_timestamps": scene.phrase_timestamps,
         "visual_beat": scene.visual_beat,
         "frame_directives": scene.frame_directives or None,
         "frame_timings": scene.frame_timings,

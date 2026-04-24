@@ -1,6 +1,7 @@
 """Voiceover pipeline — connects narration text to ElevenLabs TTS."""
 
 import logging
+import statistics
 import struct
 
 from config import DATA_DIR, DEFAULT_TTS_MODEL
@@ -50,6 +51,39 @@ def _mp3_duration_seconds(data: bytes) -> float:
     # Fallback: assume 128kbps
     return round(len(data) / (128 * 1000 / 8), 2)
 
+def compute_phrase_timestamps(word_timestamps: list[dict]) -> list[dict]:
+    """Group word timestamps into phrase-level intervals for smooth mouth animation.
+
+    Uses an adaptive threshold: median inter-word gap × 3, clamped [200ms, 800ms].
+    """
+    if not word_timestamps:
+        return []
+    if len(word_timestamps) == 1:
+        return [{"start_ms": word_timestamps[0]["start_ms"], "end_ms": word_timestamps[0]["end_ms"]}]
+
+    gaps = []
+    for i in range(len(word_timestamps) - 1):
+        gap = word_timestamps[i + 1]["start_ms"] - word_timestamps[i]["end_ms"]
+        gaps.append(gap)
+
+    median_gap = statistics.median(gaps) if gaps else 0
+    threshold = max(200, min(800, median_gap * 3))
+
+    phrases: list[dict] = []
+    phrase_start = word_timestamps[0]["start_ms"]
+    phrase_end = word_timestamps[0]["end_ms"]
+
+    for i in range(len(word_timestamps) - 1):
+        gap = word_timestamps[i + 1]["start_ms"] - word_timestamps[i]["end_ms"]
+        if gap >= threshold:
+            phrases.append({"start_ms": phrase_start, "end_ms": phrase_end})
+            phrase_start = word_timestamps[i + 1]["start_ms"]
+        phrase_end = word_timestamps[i + 1]["end_ms"]
+
+    phrases.append({"start_ms": phrase_start, "end_ms": phrase_end})
+    return phrases
+
+
 def generate_scene_audio(
     scene_id: str,
     narration: str,
@@ -57,10 +91,10 @@ def generate_scene_audio(
     script_id: str,
     model_id: str = DEFAULT_TTS_MODEL,
     voice_settings: dict | None = None,
-) -> tuple[str, float, list[dict]]:
+) -> tuple[str, float, list[dict], list[dict]]:
     """Generate TTS audio for a single scene and save locally.
 
-    Returns (web-relative path, duration in seconds, word_timestamps).
+    Returns (web-relative path, duration in seconds, word_timestamps, phrase_timestamps).
     """
     logger.info("Generating audio for scene %s (script=%s, voice=%s, model=%s, chars=%d)", scene_id, script_id, voice_id, model_id, len(narration))
     audio_bytes, word_timestamps = generate_speech(
@@ -101,7 +135,8 @@ def generate_scene_audio(
         )
 
     web_path = f"/static/projects/{script_id}/audio/{scene_id}.mp3"
-    return web_path, duration, word_timestamps
+    phrase_timestamps = compute_phrase_timestamps(word_timestamps) if word_timestamps else []
+    return web_path, duration, word_timestamps, phrase_timestamps
 
 def generate_batch_audio(
     scenes: list[dict[str, str]],
@@ -119,7 +154,7 @@ def generate_batch_audio(
     logger.info("Starting batch audio generation for %d scenes (script=%s, voice=%s)", len(scenes), script_id, voice_id)
     for scene in scenes:
         try:
-            audio_url, duration, word_timestamps = generate_scene_audio(
+            audio_url, duration, word_timestamps, phrase_timestamps = generate_scene_audio(
                 scene_id=scene["scene_id"],
                 narration=scene["narration"],
                 voice_id=voice_id,
@@ -132,6 +167,7 @@ def generate_batch_audio(
                 "audio_url": audio_url,
                 "duration_seconds": duration,
                 "word_timestamps": word_timestamps,
+                "phrase_timestamps": phrase_timestamps,
                 "error": None,
             })
         except Exception as exc:

@@ -111,7 +111,7 @@ export const SceneRenderer: React.FC<Props> = ({ scene }) => {
       {scene.eli_overlay?.enabled && scene.eli_overlay.keyframes.length > 0 && scene.character_frames_base_url && (
         <EliOverlay
           overlay={scene.eli_overlay}
-          wordTimestamps={scene.word_timestamps}
+          phraseTimestamps={scene.phrase_timestamps}
           characterFramesBaseUrl={scene.character_frames_base_url}
           variantCounts={scene.variant_counts}
           sceneDurationInFrames={totalSceneFrames}

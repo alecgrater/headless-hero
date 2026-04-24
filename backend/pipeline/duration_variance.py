@@ -116,7 +116,7 @@ def check_and_tighten(
             continue
 
         try:
-            audio_url, duration, word_timestamps = generate_scene_audio(
+            audio_url, duration, word_timestamps, phrase_timestamps = generate_scene_audio(
                 scene_id=scene_id,
                 narration=new_narration,
                 voice_id=voice_id,
@@ -130,6 +130,8 @@ def check_and_tighten(
             scene.audio_duration_seconds = duration
             if word_timestamps is not None:
                 scene.word_timestamps = word_timestamps
+            if phrase_timestamps is not None:
+                scene.phrase_timestamps = phrase_timestamps
             tightened.append(scene_id)
             logger.info("[%s] Tightened scene %s: %.1fs -> %.1fs",
                          script_id, scene_id, old_duration, duration)

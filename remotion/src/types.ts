@@ -27,6 +27,11 @@ export interface WordTimestamp {
   end_ms: number;
 }
 
+export interface PhraseTimestamp {
+  start_ms: number;
+  end_ms: number;
+}
+
 export interface EliKeyframe {
   start_frame: number;
   end_frame: number;
@@ -104,6 +109,7 @@ export interface SceneInput {
 
   // Timing
   word_timestamps?: WordTimestamp[] | null;
+  phrase_timestamps?: PhraseTimestamp[] | null;
 
   // Micro-timeline visual timing overrides
   frame_timings?: number[] | null;

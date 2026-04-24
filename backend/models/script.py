@@ -46,6 +46,11 @@ class EliOverlay(BaseModel):
     corner: Literal["TL", "TR", "BL", "BR"] = "BR"
     keyframes: list[EliKeyframe] = []
 
+class PhraseTimestamp(BaseModel):
+    """A phrase group derived from word timestamps for smooth mouth animation."""
+    start_ms: int
+    end_ms: int
+
 class FrameDirective(BaseModel):
     """Per-frame generation directive for the Visual Beat System."""
     prompt: str
@@ -93,6 +98,7 @@ class Scene(BaseModel):
     audio_url: str = ""
     audio_duration_seconds: float = 0.0
     word_timestamps: list[dict] | None = None
+    phrase_timestamps: list[dict] | None = None
     title_card_zoom_target: dict | None = None  # {"x": int, "y": int, "radius": int} for zoompan
     frame_urls: list[str] = []        # web-relative paths to frame images
     fx: dict | None = None             # SceneFX dict — assigned by FX generator, used by Remotion

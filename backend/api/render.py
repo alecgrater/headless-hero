@@ -197,12 +197,13 @@ def _phase_audio(ctx: ExportContext) -> None:
         p = _phase_progress(ctx, "audio", i / scene_count)
         update_job(ctx.job.id, progress=p, current_step=f"Generating audio ({i+1}/{scene_count})...")
         logger.info("[%s] Generating audio for scene %s (%d/%d)", ctx.script_id, sc_info["scene_id"], i + 1, scene_count)
-        audio_url, audio_duration, word_timestamps = generate_scene_audio(
+        audio_url, audio_duration, word_timestamps, phrase_timestamps = generate_scene_audio(
             sc_info["scene_id"], sc_info["narration"], ctx.voice_id, ctx.script_id,
         )
         sc_info["_audio_url"] = audio_url
         sc_info["_audio_duration"] = audio_duration
         sc_info["_word_timestamps"] = word_timestamps
+        sc_info["_phrase_timestamps"] = phrase_timestamps
     logger.info("[%s] Phase: audio — complete (%d scenes)", ctx.script_id, scene_count)
 
 
@@ -231,6 +232,7 @@ def _phase_persist(ctx: ExportContext) -> None:
                 sc_info["_audio_url"] = sc.audio_url
                 sc_info["_audio_duration"] = sc.audio_duration_seconds
                 sc_info["_word_timestamps"] = sc.word_timestamps
+                sc_info["_phrase_timestamps"] = sc.phrase_timestamps
 
             if sc_info.get("_image_url"):
                 sc.image_url = sc_info["_image_url"]
@@ -239,6 +241,7 @@ def _phase_persist(ctx: ExportContext) -> None:
             sc.audio_url = sc_info.get("_audio_url", sc.audio_url)
             sc.audio_duration_seconds = sc_info.get("_audio_duration", sc.audio_duration_seconds)
             sc.word_timestamps = sc_info.get("_word_timestamps", sc.word_timestamps)
+            sc.phrase_timestamps = sc_info.get("_phrase_timestamps", sc.phrase_timestamps)
 
         record.script_json = content.model_dump_json()
         session.add(record)

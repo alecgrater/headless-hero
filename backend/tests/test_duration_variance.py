@@ -155,7 +155,7 @@ class TestCheckAndTighten:
         session.get.return_value = record
 
         mock_chat.return_value = json.dumps({"scene_001": "Short version."})
-        mock_audio.return_value = ("/static/projects/test/audio/scene_001.mp3", 7.5, [{"word": "Short", "start_ms": 0, "end_ms": 500}])
+        mock_audio.return_value = ("/static/projects/test/audio/scene_001.mp3", 7.5, [{"word": "Short", "start_ms": 0, "end_ms": 500}], [{"start_ms": 0, "end_ms": 500}])
 
         result = check_and_tighten(
             script_id="test-script",

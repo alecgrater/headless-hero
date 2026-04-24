@@ -19,7 +19,7 @@ import {
 import type {
   EliOverlay as EliOverlayType,
   EliKeyframe,
-  WordTimestamp,
+  PhraseTimestamp,
 } from "../../types";
 
 // ---------------------------------------------------------------------------
@@ -106,73 +106,50 @@ const BREATH_RATES: Record<string, number> = {
 // ---------------------------------------------------------------------------
 
 /**
- * Compute continuous mouth openness at a given frame.
- * Returns 0 (fully closed) to 1 (fully open) with smooth ramps.
+ * Compute continuous mouth openness at a given frame using phrase timestamps.
+ * Snap open (~40ms), hold 1.0 during phrase, fade close (~110ms).
  */
 function getMouthOpenness(
   frame: number,
   fps: number,
-  wordTimestamps: WordTimestamp[] | null | undefined,
+  phraseTimestamps: PhraseTimestamp[] | null | undefined,
 ): number {
-  if (!wordTimestamps || wordTimestamps.length === 0) return 0;
+  if (!phraseTimestamps || phraseTimestamps.length === 0) return 0;
   const timeMs = (frame / fps) * 1000;
 
-  for (let i = 0; i < wordTimestamps.length; i++) {
-    const ts = wordTimestamps[i];
-    const wordDuration = ts.end_ms - ts.start_ms;
-    const rampMs = Math.min(40, wordDuration * 0.15);
+  const RAMP_OPEN_MS = 40;
+  const RAMP_CLOSE_MS = 110;
 
-    // Ramp up: closed → partially open
-    if (timeMs >= ts.start_ms - rampMs && timeMs < ts.start_ms) {
+  for (let i = 0; i < phraseTimestamps.length; i++) {
+    const phrase = phraseTimestamps[i];
+
+    // Ramp open before phrase start
+    if (timeMs >= phrase.start_ms - RAMP_OPEN_MS && timeMs < phrase.start_ms) {
       return interpolate(
         timeMs,
-        [ts.start_ms - rampMs, ts.start_ms],
-        [0, 0.6],
+        [phrase.start_ms - RAMP_OPEN_MS, phrase.start_ms],
+        [0, 1],
         { easing: Easing.inOut(Easing.ease) },
       );
     }
 
-    // Inside word
-    if (timeMs >= ts.start_ms && timeMs <= ts.end_ms) {
-      const rampUpEnd = ts.start_ms + wordDuration * 0.15;
-      const rampDownStart = ts.end_ms - rampMs;
+    // During phrase — fully open
+    if (timeMs >= phrase.start_ms && timeMs <= phrase.end_ms) {
+      return 1.0;
+    }
 
-      if (timeMs < rampUpEnd) {
-        return interpolate(
-          timeMs,
-          [ts.start_ms, rampUpEnd],
-          [0.6, 1.0],
-          { easing: Easing.inOut(Easing.ease) },
-        );
-      }
-      if (timeMs <= rampDownStart) {
-        return 1.0;
+    // Ramp close after phrase end
+    if (timeMs > phrase.end_ms && timeMs <= phrase.end_ms + RAMP_CLOSE_MS) {
+      const nextPhrase = phraseTimestamps[i + 1];
+      if (nextPhrase && timeMs >= nextPhrase.start_ms - RAMP_OPEN_MS) {
+        break;
       }
       return interpolate(
         timeMs,
-        [rampDownStart, ts.end_ms],
-        [1.0, 0.4],
+        [phrase.end_ms, phrase.end_ms + RAMP_CLOSE_MS],
+        [1, 0],
         { easing: Easing.inOut(Easing.ease) },
       );
-    }
-
-    // Short gap to next word — hold partially open
-    const next = wordTimestamps[i + 1];
-    if (next && timeMs > ts.end_ms && timeMs < next.start_ms) {
-      if (next.start_ms - ts.end_ms < 80) {
-        return 0.3;
-      }
-      // Longer gap — ramp down from end of current word
-      if (timeMs < ts.end_ms + rampMs) {
-        return interpolate(
-          timeMs,
-          [ts.end_ms, ts.end_ms + rampMs],
-          [0.4, 0],
-          { easing: Easing.inOut(Easing.ease) },
-        );
-      }
-      // Past ramp-down, before next word ramp-up — fully closed
-      return 0;
     }
   }
 
@@ -273,7 +250,7 @@ function getCurrentKeyframe(
 
 interface Props {
   overlay: EliOverlayType;
-  wordTimestamps?: WordTimestamp[] | null;
+  phraseTimestamps?: PhraseTimestamp[] | null;
   characterFramesBaseUrl: string;
   variantCounts?: Record<string, number> | null;
   /** Total scene duration in frames (for exit animation). */
@@ -282,7 +259,7 @@ interface Props {
 
 export const EliOverlay: React.FC<Props> = ({
   overlay,
-  wordTimestamps,
+  phraseTimestamps,
   characterFramesBaseUrl,
   variantCounts,
   sceneDurationInFrames,
@@ -298,7 +275,7 @@ export const EliOverlay: React.FC<Props> = ({
   const { current, next, prev, transitionProgress } = kfState;
 
   // --- Mouth openness (continuous 0-1) ---
-  const mouthOpenness = getMouthOpenness(frame, fps, wordTimestamps);
+  const mouthOpenness = getMouthOpenness(frame, fps, phraseTimestamps);
 
   // --- Eased crossfade progress ---
   const easedTransition = interpolate(

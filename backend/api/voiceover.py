@@ -108,7 +108,7 @@ def generate_audio(body: GenerateAudioRequest, session: Session = Depends(get_se
         raise HTTPException(status_code=404, detail="Script not found")
 
     logger.info("Generating audio for scene %s in script %s", body.scene_id, body.script_id)
-    audio_url, duration, word_timestamps = generate_scene_audio(
+    audio_url, duration, word_timestamps, phrase_timestamps = generate_scene_audio(
         scene_id=body.scene_id,
         narration=body.narration,
         voice_id=body.voice_id,
@@ -123,6 +123,8 @@ def generate_audio(body: GenerateAudioRequest, session: Session = Depends(get_se
     }
     if word_timestamps is not None:
         fields["word_timestamps"] = word_timestamps
+    if phrase_timestamps is not None:
+        fields["phrase_timestamps"] = phrase_timestamps
     update_scene(session, body.script_id, body.scene_id, **fields)
 
     logger.info("Audio generated for scene %s: %.1fs duration", body.scene_id, duration)
@@ -162,6 +164,8 @@ def generate_audio_batch(
         sc.audio_duration_seconds = float(r["duration_seconds"])
         if r.get("word_timestamps") is not None:
             sc.word_timestamps = r["word_timestamps"]
+        if r.get("phrase_timestamps") is not None:
+            sc.phrase_timestamps = r["phrase_timestamps"]
     record.script_json = content.model_dump_json()
     session.add(record)
     session.commit()
