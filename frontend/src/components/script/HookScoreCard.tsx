@@ -5,6 +5,7 @@ interface Props {
   loading: boolean;
   error: string | null;
   onRescore: () => void;
+  score?: HookScore | null;
 }
 
 function ScoreBar({ label, value, color }: { label: string; value: number; color: string }) {
@@ -30,7 +31,49 @@ function overallColor(score: number): string {
   return "text-red-400";
 }
 
-export default function HookScoreCard({ hookScore, loading, error, onRescore }: Props) {
+export default function HookScoreCard({ hookScore, loading, error, onRescore, score }: Props) {
+  // Direct score display (no loading/error/re-score button)
+  if (score) {
+    return (
+      <div className="rounded-lg border border-neutral-800 bg-neutral-900 px-5 py-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-neutral-200 uppercase tracking-wider">
+            Hook Retention Score
+          </h3>
+          <span className={`text-3xl font-bold tabular-nums ${overallColor(score.overall)}`}>
+            {score.overall}
+          </span>
+        </div>
+
+        {/* Dimension bars */}
+        <div className="space-y-2">
+          <ScoreBar label="Promise" value={score.promise.score} color="bg-violet-500" />
+          <ScoreBar label="Tension" value={score.tension.score} color="bg-emerald-500" />
+          <ScoreBar label="Payoff Hint" value={score.payoff_hint.score} color="bg-sky-500" />
+        </div>
+
+        {/* Dimension reasoning */}
+        <div className="space-y-1.5 text-xs text-neutral-500">
+          <p><span className="text-violet-400 font-medium">Promise:</span> {score.promise.reasoning}</p>
+          <p><span className="text-emerald-400 font-medium">Tension:</span> {score.tension.reasoning}</p>
+          <p><span className="text-sky-400 font-medium">Payoff Hint:</span> {score.payoff_hint.reasoning}</p>
+        </div>
+
+        {/* Suggestions */}
+        {score.suggestions.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-neutral-400 mb-1">Suggestions</p>
+            <ul className="space-y-1 text-xs text-neutral-500 list-disc list-inside">
+              {score.suggestions.map((s, i) => (
+                <li key={i}>{s}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // Loading state
   if (loading) {
     return (
