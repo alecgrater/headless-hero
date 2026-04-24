@@ -484,7 +484,7 @@ export const EliOverlay: React.FC<Props> = ({
         transform: `translateY(${combinedY}px) scale(${combinedScale}) rotate(${combinedRotate}deg)`,
         borderRadius: 14,
         overflow: "hidden",
-        border: "2px solid rgba(0, 220, 220, 0.6)",
+        border: "1.5px solid rgba(0, 220, 220, 0.6)",
         boxShadow:
           "0 0 20px rgba(0, 200, 200, 0.4), 0 0 40px rgba(0, 200, 200, 0.15)",
       }}
