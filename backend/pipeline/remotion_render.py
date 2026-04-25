@@ -562,7 +562,7 @@ def render_full_video(
             _copy_to_downloads(
                 title,
                 str(output_path),
-                f"{sanitize_filename(title)} - YouTube{speed_label}.mp4",
+                f"{sanitize_filename(title)}{speed_label}.mp4",
             )
         except Exception:
             logger.warning("Failed to copy to downloads", exc_info=True)

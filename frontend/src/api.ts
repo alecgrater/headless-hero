@@ -467,3 +467,31 @@ export async function generateBrainstormRecommendations(): Promise<BrainstormRes
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to generate brainstorm recommendations");
   return res.data as BrainstormResponse;
 }
+
+// ---------------------------------------------------------------------------
+// Catalog
+// ---------------------------------------------------------------------------
+
+export interface CatalogEntry {
+  folder_name: string;
+  video_file: string | null;
+  thumbnail_file: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  seo_tags: string[];
+  exported_at: string;
+  file_size_mb: number;
+  uploaded: boolean;
+}
+
+export async function fetchCatalog(): Promise<CatalogEntry[]> {
+  const res = await api.get("/api/catalog");
+  if (!res.ok) return [];
+  return (res.data as { entries: CatalogEntry[] }).entries;
+}
+
+export async function toggleUploaded(folderName: string): Promise<{ uploaded: boolean }> {
+  const res = await api.post(`/api/catalog/${encodeURIComponent(folderName)}/toggle-uploaded`);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to toggle uploaded status");
+  return res.data as { uploaded: boolean };
+}

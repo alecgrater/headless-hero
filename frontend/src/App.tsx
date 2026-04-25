@@ -10,11 +10,12 @@ import { ShortcutHelpOverlay } from "./components/timeline/useKeyboardShortcuts"
 import DiscoverPage from "./components/trending/DiscoverPage";
 import PostItPage from "./components/postit/PostItPage";
 import BrainstormPage from "./components/brainstorm/BrainstormPage";
+import CatalogPage from "./components/catalog/CatalogPage";
 import useLongPress from "./hooks/useLongPress";
 import type { VideoIdea } from "./types/idea";
 import type { ScriptSummary } from "./types/script";
 
-type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "postits" | "brainstorm";
+type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "postits" | "brainstorm" | "catalog";
 
 function formatRelativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -270,6 +271,19 @@ function App() {
               </svg>
               Brainstorm
             </button>
+            <button
+              onClick={() => handleSetView("catalog")}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+                view === "catalog"
+                  ? "bg-violet-500/15 text-violet-300 font-semibold"
+                  : "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
+              </svg>
+              Catalog
+            </button>
             <div className="relative" ref={settingsDropdownRef}>
               <button
                 {...settingsLongPress}
@@ -367,7 +381,7 @@ function App() {
       </header>
 
       {/* Main content area */}
-      <main className={`flex-1 w-full ${view === "timeline" || view === "project-dashboard" || view === "settings" || view === "discover" || view === "postits" || view === "brainstorm" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
+      <main className={`flex-1 w-full ${view === "timeline" || view === "project-dashboard" || view === "settings" || view === "discover" || view === "postits" || view === "brainstorm" || view === "catalog" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
         {view === "settings" && (
           <SettingsPage
             onBack={() => handleSetView("project-dashboard")}
@@ -445,6 +459,8 @@ function App() {
             }}
           />
         )}
+
+        {view === "catalog" && <CatalogPage />}
       </main>
       {showShortcutHelp && (
         <ShortcutHelpOverlay onClose={() => setShowShortcutHelp(false)} />

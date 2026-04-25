@@ -1182,22 +1182,12 @@ function TimelineEditor({
           youtubeStatus={render.youtubeStatus}
           youtubeUrl={render.youtubeUrl}
           onStartYoutubeRender={render.startYoutubeRender}
-          audioUrl={render.audioUrl}
-          audioExporting={render.audioExporting}
-          onExportAudio={render.exportAudio}
           thumbnails={render.thumbnails}
           thumbnailsGenerating={render.thumbnailsGenerating}
           onRecompositeThumbnail={() => render.recompositeThumbnail()}
           seoMetadata={render.seoMetadata}
           seoGenerating={render.seoGenerating}
           onGenerateSEO={render.generateSEO}
-          youtubeConnected={publish.youtubeConnected}
-          youtubeChannelName={publish.youtubeChannelName}
-          onConnectYouTube={() => publish.connectPlatform("youtube")}
-          connecting={publish.connecting}
-          publishStatus={publish.publishStatus}
-          onStartPublish={publish.startPublish}
-          publishHistory={publish.publishHistory}
           estimatedSeconds={render.estimatedSeconds}
           exportBundleLoading={render.exportBundleLoading}
           exportBundleResult={render.exportBundleResult}

@@ -52,6 +52,9 @@ THUMBNAIL_HEIGHT = 720
 # Backend server port
 BACKEND_PORT = 8420
 
+# iCloud export directory for finished videos
+ICLOUD_VIDEOS_DIR = Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs" / "headless-hero media" / "Videos"
+
 
 def strip_markdown_fences(text: str) -> str:
     """Strip markdown code fences (```json ... ```) from an LLM response."""

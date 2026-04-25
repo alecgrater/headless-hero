@@ -8,6 +8,7 @@ from sqlmodel import Session
 
 from api.brands import router as brands_router
 from api.brainstorm import router as brainstorm_router
+from api.catalog import router as catalog_router
 from api.cold_opens import router as cold_opens_router
 from database import init_db, ensure_default_brand
 from database import engine as _db_engine
@@ -40,7 +41,7 @@ from models.trending import TrendingTopic as _TrendingTopic  # noqa: F401 — re
 from models.content_profile import ContentProfile as _ContentProfile  # noqa: F401 — register table
 from models.postit import PostIt as _PostIt  # noqa: F401 — register table
 
-from config import DATA_DIR
+from config import DATA_DIR, ICLOUD_VIDEOS_DIR
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -85,6 +86,7 @@ app.include_router(_dev_router)
 # Core routers
 app.include_router(brands_router)
 app.include_router(brainstorm_router)
+app.include_router(catalog_router)
 app.include_router(cold_opens_router)
 app.include_router(eli_router)
 app.include_router(fx_router)
@@ -114,6 +116,9 @@ app.mount("/static/projects", StaticFiles(directory=str(_projects_dir)), name="p
 _character_dir = DATA_DIR / "character"
 _character_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/static/character", StaticFiles(directory=str(_character_dir)), name="character-assets")
+
+ICLOUD_VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static/catalog", StaticFiles(directory=str(ICLOUD_VIDEOS_DIR)), name="catalog-assets")
 
 @app.get("/api/health")
 async def health():

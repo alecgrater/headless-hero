@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from config import DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH, sanitize_filename
+from config import DATA_DIR, FPS, ICLOUD_VIDEOS_DIR, VIDEO_HEIGHT, VIDEO_WIDTH, sanitize_filename
 from database import get_default_brand_id, get_session
 from api._helpers import find_scene_in_content
 from models.brand import BrandProfile
@@ -538,47 +538,71 @@ def export_audio(body: ExportAudioRequest, session: Session = Depends(get_sessio
 
 @router.post("/export-bundle", response_model=ExportBundleResponse)
 def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_session)):
-    """Bundle all available exports (video, audio, thumbnail, SEO) into a single Downloads folder."""
+    """Bundle video, thumbnail, and SEO into an iCloud folder, auto-generating missing assets."""
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
     safe_title = sanitize_filename(record.topic_title or "Untitled")
-    date_str = record.created_at.strftime("%Y-%m-%d")
-    folder_name = f"{safe_title} - {date_str}"
 
-    downloads_dir = os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads")
-    folder = Path(downloads_dir) / folder_name
+    folder = ICLOUD_VIDEOS_DIR / safe_title
     folder.mkdir(parents=True, exist_ok=True)
 
     project_dir = DATA_DIR / "projects" / body.script_id
+    renders_dir = project_dir / "renders"
     copied_files: list[str] = []
 
     # Video — find full_youtube*.mp4
-    renders_dir = project_dir / "renders"
     if renders_dir.exists():
         for mp4 in sorted(renders_dir.glob("full_youtube*.mp4")):
-            dest = folder / f"{safe_title} - YouTube.mp4"
+            dest = folder / f"{safe_title}.mp4"
             shutil.copy2(str(mp4), dest)
             copied_files.append(dest.name)
-            break  # take the first match
+            break
 
-    # Audio — full_audio.mp3
-    audio_src = renders_dir / "full_audio.mp3"
-    if audio_src.exists():
-        dest = folder / f"{safe_title} - Audio.mp3"
-        shutil.copy2(str(audio_src), dest)
-        copied_files.append(dest.name)
-
-    # Thumbnail — renders/thumbnails/0.png
+    # Thumbnail — auto-generate if missing
     thumb_src = renders_dir / "thumbnails" / "0.png"
+    if not thumb_src.exists():
+        try:
+            from pipeline.thumbnail import get_composite_thumbnail
+            get_composite_thumbnail(body.script_id)
+        except Exception:
+            logger.warning("Auto-generate thumbnail failed", exc_info=True)
     if thumb_src.exists():
-        dest = folder / f"{safe_title} - Thumbnail.png"
+        dest = folder / "thumbnail.png"
         shutil.copy2(str(thumb_src), dest)
         copied_files.append(dest.name)
 
-    # SEO metadata — write as text file
+    # SEO — auto-generate if missing
+    if not content.seo_metadata:
+        try:
+            from pipeline.seo import generate_seo, _format_timestamp
+
+            segments: list[tuple[str, str]] = []
+            elapsed = 0.0
+            for seg in content.segments:
+                segments.append((seg.name, _format_timestamp(elapsed)))
+                for scene in seg.scenes:
+                    elapsed += scene.audio_duration_seconds
+
+            brand = session.get(BrandProfile, record.brand_id)
+            brand_context = brand.name if brand else ""
+
+            metadata = generate_seo(
+                video_title=content.title,
+                segments=segments,
+                video_description=record.topic_description,
+                brand_context=brand_context,
+                script_id=body.script_id,
+            )
+            content.seo_metadata = metadata.model_dump()
+            record.script_json = content.model_dump_json()
+            session.add(record)
+            session.commit()
+        except Exception:
+            logger.warning("Auto-generate SEO failed", exc_info=True)
+
     if content.seo_metadata:
         seo = content.seo_metadata
         yt = seo.get("youtube", {})
@@ -590,7 +614,7 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
         if yt.get("tags"):
             lines.append(f"\nTags:\n{', '.join(yt['tags'])}")
         if lines:
-            dest = folder / f"{safe_title} - SEO.txt"
+            dest = folder / "seo.txt"
             dest.write_text("\n".join(lines), encoding="utf-8")
             copied_files.append(dest.name)
 

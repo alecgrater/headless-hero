@@ -1,16 +1,11 @@
 import { useState } from "react";
-import { assetUrl, openInBrowser, showInFolder } from "../../api";
-import type { PublishRecord } from "../../types/publish";
+import { assetUrl, showInFolder } from "../../api";
 import type { ExportBundleResponse, RenderStatusResponse, SEOMetadata, ThumbnailConcept } from "../../types/render";
 
 interface Props {
   youtubeStatus: RenderStatusResponse | null;
   youtubeUrl: string | null;
   onStartYoutubeRender: (speed?: number) => void;
-
-  audioUrl: string | null;
-  audioExporting: boolean;
-  onExportAudio: () => void;
 
   thumbnails: ThumbnailConcept[];
   thumbnailsGenerating: boolean;
@@ -19,20 +14,6 @@ interface Props {
   seoMetadata: SEOMetadata | null;
   seoGenerating: boolean;
   onGenerateSEO: () => void;
-
-  // Publishing
-  youtubeConnected: boolean;
-  youtubeChannelName: string;
-  onConnectYouTube: () => void;
-  connecting: boolean;
-  publishStatus: RenderStatusResponse | null;
-  onStartPublish: (
-    platform: string,
-    fileUrl: string,
-    metadata: { title: string; description: string; tags: string[] },
-    scheduleAt?: string,
-  ) => void;
-  publishHistory: PublishRecord[];
 
   // Render estimate
   estimatedSeconds: number | null;
@@ -45,14 +26,12 @@ interface Props {
   onClose: () => void;
 }
 
-type Tab = "render" | "thumbnails" | "seo" | "publish" | "audio";
+type Tab = "render" | "thumbnails" | "seo";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "render", label: "Render" },
   { key: "thumbnails", label: "Thumbnails" },
   { key: "seo", label: "SEO" },
-  { key: "publish", label: "Publish" },
-  { key: "audio", label: "Audio" },
 ];
 
 function formatDuration(seconds: number, approximate = false): string {
@@ -203,48 +182,26 @@ export default function ExportPanel({
   youtubeStatus,
   youtubeUrl,
   onStartYoutubeRender,
-  audioUrl,
-  audioExporting,
-  onExportAudio,
   thumbnails,
   thumbnailsGenerating,
   onRecompositeThumbnail,
   seoMetadata,
   seoGenerating,
   onGenerateSEO,
-  youtubeConnected,
-  youtubeChannelName,
-  onConnectYouTube,
-  connecting,
-  publishStatus,
-  onStartPublish,
-  publishHistory,
   estimatedSeconds,
   exportBundleLoading,
   exportBundleResult,
   onExportBundle,
-
   onClose,
 }: Props) {
   const youtubeRendering = youtubeStatus?.status === "running" || youtubeStatus?.status === "pending";
-  const publishing = publishStatus?.status === "running" || publishStatus?.status === "pending";
 
   const [activeTab, setActiveTab] = useState<Tab>("render");
-  const [scheduleAt, setScheduleAt] = useState("");
-  const [confirmPublish, setConfirmPublish] = useState(false);
 
-  // Latest YouTube publish from history
-  const latestYtPublish = publishHistory.find(
-    (r) => r.platform === "youtube" && (r.status === "published" || r.status === "scheduled"),
-  );
-
-  // Badge indicators
   const tabBadges: Record<Tab, boolean> = {
     render: !!youtubeUrl,
     thumbnails: thumbnails.length > 0,
     seo: !!seoMetadata,
-    publish: publishHistory.some((r) => r.status === "published" || r.status === "scheduled"),
-    audio: !!audioUrl,
   };
 
   return (
@@ -252,7 +209,7 @@ export default function ExportPanel({
       <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 shrink-0">
-          <h2 className="text-lg font-bold">Export & Publish</h2>
+          <h2 className="text-lg font-bold">Export</h2>
           <div className="flex items-center gap-3">
             {exportBundleResult && (
               <div className="flex items-center gap-2 text-xs text-emerald-400">
@@ -450,209 +407,6 @@ export default function ExportPanel({
                   "Regenerate SEO"
                 ) : (
                   "Generate SEO Metadata"
-                )}
-              </button>
-            </section>
-          )}
-
-          {/* Publish Tab */}
-          {activeTab === "publish" && (
-            <div className="space-y-6">
-              <section className="space-y-3">
-                <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
-                  YouTube Publish
-                </h3>
-                {!youtubeConnected ? (
-                  <div className="space-y-2">
-                    <p className="text-xs text-neutral-500">Connect your YouTube account to publish directly.</p>
-                    <button
-                      onClick={onConnectYouTube}
-                      disabled={connecting}
-                      className="text-sm px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-lg font-medium transition-colors flex items-center gap-2"
-                    >
-                      {connecting ? (
-                        <>
-                          <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                          Connecting...
-                        </>
-                      ) : (
-                        "Connect YouTube"
-                      )}
-                    </button>
-                  </div>
-                ) : !youtubeUrl ? (
-                  <p className="text-xs text-neutral-500">
-                    Connected as <span className="text-emerald-400">{youtubeChannelName}</span>.
-                    Render a YouTube video first to publish.
-                  </p>
-                ) : publishing ? (
-                  <ProgressBar
-                    progress={publishStatus?.progress ?? 0}
-                    label={publishStatus?.current_step ?? "Publishing..."}
-                  />
-                ) : publishStatus?.status === "failed" ? (
-                  <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                    Publish failed: {publishStatus.error ?? "Unknown error"}
-                  </div>
-                ) : latestYtPublish ? (
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex items-center gap-1.5 text-sm text-emerald-400">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                      {latestYtPublish.status === "scheduled" ? "Scheduled" : "Published"}
-                    </span>
-                    {latestYtPublish.platform_url && (
-                      <button
-                        onClick={() => openInBrowser(latestYtPublish.platform_url)}
-                        className="text-xs text-violet-400 hover:text-violet-300 underline"
-                      >
-                        View on YouTube
-                      </button>
-                    )}
-                  </div>
-                ) : null}
-
-                {youtubeConnected && youtubeUrl && !publishing && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-xs text-neutral-400">
-                      <span>Connected as <span className="text-emerald-400">{youtubeChannelName}</span></span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <label className="text-xs text-neutral-400">Schedule (optional):</label>
-                      <input
-                        type="datetime-local"
-                        value={scheduleAt}
-                        onChange={(e) => setScheduleAt(e.target.value)}
-                        className="text-xs bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-neutral-200 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                      />
-                      {scheduleAt && (
-                        <button
-                          onClick={() => setScheduleAt("")}
-                          className="text-xs text-neutral-500 hover:text-neutral-300"
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
-
-                    {confirmPublish ? (
-                      <div className="bg-neutral-800/50 rounded-lg p-4 space-y-3">
-                        <p className="text-sm text-neutral-300">
-                          {scheduleAt
-                            ? `Schedule video for ${new Date(scheduleAt).toLocaleString()}?`
-                            : "Publish video to YouTube as private?"}
-                        </p>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => {
-                              setConfirmPublish(false);
-                              const metadata = seoMetadata?.youtube ?? { title: "Untitled", description: "", tags: [] };
-                              onStartPublish(
-                                "youtube",
-                                youtubeUrl,
-                                metadata,
-                                scheduleAt ? new Date(scheduleAt).toISOString() : undefined,
-                              );
-                            }}
-                            className="text-sm px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg font-medium transition-colors"
-                          >
-                            Yes, Publish
-                          </button>
-                          <button
-                            onClick={() => setConfirmPublish(false)}
-                            className="text-sm px-4 py-2 bg-neutral-700 hover:bg-neutral-600 rounded-lg font-medium transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setConfirmPublish(true)}
-                        className="text-sm px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg font-medium transition-colors flex items-center gap-2"
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                        </svg>
-                        {scheduleAt ? "Schedule on YouTube" : "Publish to YouTube"}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </section>
-
-              {/* Publish History */}
-              {publishHistory.length > 0 && (
-                <section className="space-y-3">
-                  <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
-                    Publish History
-                  </h3>
-                  <div className="space-y-2">
-                    {publishHistory.map((r) => (
-                      <div key={r.id} className="flex items-center gap-3 bg-neutral-800/50 rounded-lg px-3 py-2 text-xs">
-                        <span className="text-neutral-500 uppercase">{r.platform}</span>
-                        <span
-                          className={
-                            r.status === "published" || r.status === "scheduled"
-                              ? "text-emerald-400"
-                              : r.status === "failed"
-                                ? "text-red-400"
-                                : "text-yellow-400"
-                          }
-                        >
-                          {r.status}
-                        </span>
-                        {r.platform_url && (
-                          <button
-                            onClick={() => openInBrowser(r.platform_url)}
-                            className="text-violet-400 hover:text-violet-300 underline"
-                          >
-                            View
-                          </button>
-                        )}
-                        <span className="ml-auto text-neutral-600">
-                          {new Date(r.created_at).toLocaleString()}
-                        </span>
-                        {r.error && (
-                          <span className="text-red-400 truncate max-w-xs" title={r.error}>
-                            {r.error}
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-            </div>
-          )}
-
-          {/* Audio Tab */}
-          {activeTab === "audio" && (
-            <section className="space-y-3">
-              <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
-                Audio Export
-              </h3>
-              {audioUrl && (
-                <div className="space-y-2">
-                  <audio src={assetUrl(audioUrl)} controls className="w-full h-10" />
-                  <DownloadButton url={audioUrl} label="Download Full Audio" />
-                </div>
-              )}
-              <button
-                onClick={onExportAudio}
-                disabled={audioExporting}
-                className="text-sm px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
-              >
-                {audioExporting ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                    Exporting...
-                  </>
-                ) : audioUrl ? (
-                  "Re-export Audio"
-                ) : (
-                  "Export Full Audio"
                 )}
               </button>
             </section>
