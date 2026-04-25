@@ -193,8 +193,8 @@ export async function pollTitleCardJob(jobId: string): Promise<void> {
     const job = res.data as { status: string; error: string | null };
     if (job.status === "completed") return;
     if (job.status === "failed") throw new Error(job.error || "Title card generation failed");
+    if (job.status === "cancelled") throw new Error("Title card generation was cancelled");
   }
-  throw new Error("Title card generation timed out");
 }
 
 /** Poll an Eli generation background job until it completes or fails. */
@@ -208,6 +208,7 @@ export async function pollEliJob(jobId: string): Promise<void> {
     const job = res.data as { status: string; error: string | null };
     if (job.status === "completed") return;
     if (job.status === "failed") throw new Error(job.error || "Eli generation failed");
+    if (job.status === "cancelled") throw new Error("Eli generation was cancelled");
   }
   throw new Error("Eli generation timed out");
 }
