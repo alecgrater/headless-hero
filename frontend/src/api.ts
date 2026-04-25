@@ -38,7 +38,7 @@ function extractErrorMessage(status: number, data: unknown): string {
 }
 
 /** Paths that should not trigger toast notifications on error. */
-const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/"];
+const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/eli/generate-status/"];
 
 function shouldSilence(path: string): boolean {
   return SILENT_PATHS.some((p) => path.startsWith(p));
@@ -195,6 +195,21 @@ export async function pollTitleCardJob(jobId: string): Promise<void> {
     if (job.status === "failed") throw new Error(job.error || "Title card generation failed");
   }
   throw new Error("Title card generation timed out");
+}
+
+/** Poll an Eli generation background job until it completes or fails. */
+export async function pollEliJob(jobId: string): Promise<void> {
+  const POLL_INTERVAL = 1500;
+  const MAX_POLLS = 800; // ~20 minutes max
+  for (let i = 0; i < MAX_POLLS; i++) {
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+    const res = await api.get(`/api/eli/generate-status/${jobId}`);
+    if (!res.ok) throw new Error("Failed to check Eli job status");
+    const job = res.data as { status: string; error: string | null };
+    if (job.status === "completed") return;
+    if (job.status === "failed") throw new Error(job.error || "Eli generation failed");
+  }
+  throw new Error("Eli generation timed out");
 }
 
 /** Open a URL in the system browser (Electron shell) or a new tab (dev). */

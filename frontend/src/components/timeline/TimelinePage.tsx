@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import api, { assetUrl, generateFX, generateEli, exportTest, fetchScriptCost } from "../../api";
+import api, { assetUrl, generateFX, generateEli, pollEliJob, exportTest, fetchScriptCost } from "../../api";
 import type { ExportTestOptions } from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
@@ -521,12 +521,14 @@ function TimelineEditor({
     try {
       const res = await generateEli(scriptId);
       if (eliCancelledRef.current) return;
-      if (res.ok) {
-        const refreshed = await api.get(`/api/scripts/${scriptId}`);
-        if (refreshed.ok && !eliCancelledRef.current) {
-          const data = refreshed.data as { script: ScriptContent };
-          state.setContent(data.script);
-        }
+      if (!res.ok) return;
+      const { job_id } = res.data as { job_id: string };
+      await pollEliJob(job_id);
+      if (eliCancelledRef.current) return;
+      const refreshed = await api.get(`/api/scripts/${scriptId}`);
+      if (refreshed.ok && !eliCancelledRef.current) {
+        const data = refreshed.data as { script: ScriptContent };
+        state.setContent(data.script);
       }
     } finally {
       setGeneratingEli(false);
@@ -548,12 +550,14 @@ function TimelineEditor({
     try {
       const res = await generateEli(scriptId, true);
       if (eliCancelledRef.current) return;
-      if (res.ok) {
-        const refreshed = await api.get(`/api/scripts/${scriptId}`);
-        if (refreshed.ok && !eliCancelledRef.current) {
-          const data = refreshed.data as { script: ScriptContent };
-          state.setContent(data.script);
-        }
+      if (!res.ok) return;
+      const { job_id } = res.data as { job_id: string };
+      await pollEliJob(job_id);
+      if (eliCancelledRef.current) return;
+      const refreshed = await api.get(`/api/scripts/${scriptId}`);
+      if (refreshed.ok && !eliCancelledRef.current) {
+        const data = refreshed.data as { script: ScriptContent };
+        state.setContent(data.script);
       }
     } finally {
       setGeneratingEli(false);
@@ -650,13 +654,16 @@ function TimelineEditor({
         setGeneratingEli(true);
         try {
           const res = await generateEli(scriptId);
+          if (!res.ok) throw new Error("Eli generation request failed");
+          if (yoloCancelledRef.current) return;
+          const { job_id } = res.data as { job_id: string };
+          await pollEliJob(job_id);
           if (yoloCancelledRef.current) return;
           const refreshed = await api.get(`/api/scripts/${scriptId}`);
           if (refreshed.ok && !yoloCancelledRef.current) {
             const data = refreshed.data as { script: ScriptContent };
             state.setContent(data.script);
           }
-          if (!res.ok) throw new Error("Eli generation request failed");
         } finally {
           setGeneratingEli(false);
           refreshCost();
