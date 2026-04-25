@@ -226,11 +226,12 @@ async def generate_smart_ideas(
         select(TrendingTopic).order_by(TrendingTopic.fetched_at.desc()).limit(1)
     ).first()
     needs_refresh = latest is None or (
-        datetime.now(timezone.utc) - latest.fetched_at > timedelta(hours=24)
+        datetime.now(timezone.utc) - latest.fetched_at.replace(tzinfo=timezone.utc) > timedelta(hours=24)
     )
     if needs_refresh:
         logger.info("Trending topics stale or missing — auto-refreshing before idea generation")
         run_refresh_sync()
+        session.commit()
 
     # Try to load profile — but don't require it
     profile = None
