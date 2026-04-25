@@ -43,9 +43,10 @@ export interface SmartIdea {
   segments_est: number;
   keywords: string[];
   trending_source: string;
-  style_match_score: number;
+  style_match_score: number | null;
   reasoning: string;
   angle: string;
+  signals: string[];
 }
 
 export interface SmartIdeasResponse {
