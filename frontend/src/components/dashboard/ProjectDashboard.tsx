@@ -34,9 +34,6 @@ type SortValue = "newest" | "oldest" | "title";
 const FILTER_OPTIONS: { value: FilterValue; label: string }[] = [
   { value: "all", label: "All" },
   { value: "exported", label: "Exported" },
-  { value: "audio", label: "Audio" },
-  { value: "images", label: "Images" },
-  { value: "script", label: "Script" },
 ];
 
 const SORT_OPTIONS: { value: SortValue; label: string }[] = [
