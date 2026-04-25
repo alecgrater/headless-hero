@@ -53,11 +53,13 @@ def _find_runs(labels: list[str], skip: set[str], threshold: int = 3) -> list[tu
     return runs
 
 
-def _warn_visual_monotony(content: "ScriptContent") -> None:
-    """Log a warning per monotonous run of shot types or beat types.
+def _check_visual_monotony(content: "ScriptContent") -> list[str]:
+    """Detect monotonous runs of shot types or beat types.
 
-    Advisory only — does not block script generation.
+    Returns a list of human-readable critique strings (empty = no issues).
+    Also logs each issue as a warning for dev dashboard visibility.
     """
+    issues: list[str] = []
     all_scenes = content.all_scenes()
 
     shot_types: list[str] = []
@@ -69,10 +71,9 @@ def _warn_visual_monotony(content: "ScriptContent") -> None:
         shot_types.append(m.group(1) if m else "UNLABELED")
 
     for label, length, start, end in _find_runs(shot_types, {"TITLE_CARD", "UNLABELED"}):
-        logger.warning(
-            "Visual monotony: shot type [%s] repeated %d consecutive scenes (%d–%d)",
-            label, length, start, end,
-        )
+        msg = f"Shot type [{label}] repeated {length} consecutive scenes ({start}–{end})"
+        logger.warning("Visual monotony: %s", msg)
+        issues.append(msg)
 
     beat_types: list[str] = []
     for scene in all_scenes:
@@ -82,10 +83,11 @@ def _warn_visual_monotony(content: "ScriptContent") -> None:
             beat_types.append(scene.visual_beat or "static")
 
     for label, length, start, end in _find_runs(beat_types, {"TITLE_CARD"}):
-        logger.warning(
-            "Visual beat monotony: beat type '%s' repeated %d consecutive scenes (%d–%d)",
-            label, length, start, end,
-        )
+        msg = f"Beat type '{label}' repeated {length} consecutive scenes ({start}–{end})"
+        logger.warning("Visual beat monotony: %s", msg)
+        issues.append(msg)
+
+    return issues
 
 
 def generate_script(
@@ -194,22 +196,38 @@ def generate_script(
         review = review_script(content)
         pass_count = review.pass_count()
 
-        if review.overall_pass:
-            logger.info("Script quality review passed (%d/5 skillsets)", pass_count)
+        # Check visual monotony independently of Gemini review
+        monotony_issues = _check_visual_monotony(content)
+
+        if review.overall_pass and not monotony_issues:
+            logger.info("Script quality review passed (%d/5 skillsets, no monotony)", pass_count)
             if progress_callback:
                 progress_callback(0, 0, "Script quality review passed")
             break
 
-        # Review failed — inject critique and retry
-        critique = review.critique_summary()
+        # Build combined critique from review failures + monotony issues
+        critique_parts: list[str] = []
+        if not review.overall_pass:
+            critique_parts.append(review.critique_summary())
+        if monotony_issues:
+            monotony_critique = (
+                "- Visual Variety: The script violates the beat distribution rules. "
+                "After every 2 consecutive static scenes, the next scene MUST use a "
+                "different beat type. Fix these runs: " + "; ".join(monotony_issues)
+            )
+            critique_parts.append(monotony_critique)
+
+        critique = "\n".join(critique_parts)
+
         logger.info(
-            "Script quality review: %d/5 skillsets passed (attempt %d/%d). Regenerating...",
-            pass_count, attempt, MAX_ATTEMPTS,
+            "Script quality review: %d/5 skillsets passed, %d monotony issues (attempt %d/%d). Regenerating...",
+            pass_count, len(monotony_issues), attempt, MAX_ATTEMPTS,
         )
         if progress_callback:
             progress_callback(
                 0, 0,
-                f"Review: {pass_count}/5 skillsets passed. Regenerating (attempt {attempt + 1}/{MAX_ATTEMPTS})...",
+                f"Review: {pass_count}/5 skillsets passed, {len(monotony_issues)} monotony issues. "
+                f"Regenerating (attempt {attempt + 1}/{MAX_ATTEMPTS})...",
             )
 
         user_message = (
@@ -221,7 +239,7 @@ def generate_script(
 
     logger.info("Script generated for topic %r: %s segments, %s total scenes",
                 topic, len(content.segments), sum(len(s.scenes) for s in content.segments))
-    _warn_visual_monotony(content)
+    _check_visual_monotony(content)
     return content
 
 
