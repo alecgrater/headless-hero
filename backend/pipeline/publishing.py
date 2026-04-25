@@ -20,7 +20,7 @@ def _resolve_local_path(file_url: str) -> str:
         return str(DATA_DIR / "projects" / relative)
     raise FileNotFoundError(f"Cannot resolve file URL: {file_url}")
 
-def _ensure_token_fresh(credential: PlatformCredential) -> bool:
+def ensure_token_fresh(credential: PlatformCredential) -> bool:
     """Refresh the access token if it's expired or about to expire.
 
     Returns True if the token was refreshed (caller should persist).
@@ -78,7 +78,7 @@ def publish_to_youtube(
     logger.info("Starting YouTube upload: %s (scheduled=%s)", metadata.get("title", "Untitled"), schedule_at)
 
     # Refresh token if needed
-    _ensure_token_fresh(credential)
+    ensure_token_fresh(credential)
 
     if on_progress:
         on_progress(0.05, "Starting YouTube upload...")

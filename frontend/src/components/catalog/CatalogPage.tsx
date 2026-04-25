@@ -538,10 +538,14 @@ export default function CatalogPage({ onNavigateToSettings }: Props) {
       const connected = status.youtube.connected;
       setYoutubeConnected(connected);
       if (connected) {
-        const { matched } = await syncCatalogYouTube();
-        if (matched > 0) load();
+        try {
+          const { matched } = await syncCatalogYouTube();
+          if (matched > 0) load();
+        } catch {
+          // sync is best-effort
+        }
       }
-    });
+    }).catch(() => {});
   }, [load]);
 
   const handleToggleUploaded = async (entry: CatalogEntry, e?: React.SyntheticEvent) => {

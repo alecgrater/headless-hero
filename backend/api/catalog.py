@@ -169,8 +169,8 @@ def sync_youtube(session: Session = Depends(get_session)):
     if not cred:
         return SyncYouTubeResponse(matched=0)
 
-    from pipeline.publishing import _ensure_token_fresh
-    _ensure_token_fresh(cred)
+    from pipeline.publishing import ensure_token_fresh
+    was_refreshed = ensure_token_fresh(cred)
 
     from integrations.youtube_client import list_channel_uploads
     try:
@@ -179,7 +179,7 @@ def sync_youtube(session: Session = Depends(get_session)):
         logger.warning("Failed to fetch YouTube uploads for sync", exc_info=True)
         return SyncYouTubeResponse(matched=0)
 
-    if cred.access_token != (session.exec(stmt).first() or cred).access_token:
+    if was_refreshed:
         session.add(cred)
         session.commit()
 
