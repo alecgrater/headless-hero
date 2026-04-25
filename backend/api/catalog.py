@@ -3,6 +3,7 @@
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -46,7 +47,7 @@ class CatalogUploadRequest(BaseModel):
     title: str | None = None
     description: str | None = None
     tags: list[str] | None = None
-    privacy_status: str = "unlisted"
+    privacy_status: Literal["private", "unlisted", "public"] = "unlisted"
 
 
 class CatalogUploadResponse(BaseModel):
