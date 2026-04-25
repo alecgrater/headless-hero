@@ -186,8 +186,10 @@ def generate_script(
 
         # --- Quality review ---
         if attempt == MAX_ATTEMPTS:
-            # Final attempt — accept regardless of review
             logger.info("Final attempt (%d/%d) — accepting script without review gate", attempt, MAX_ATTEMPTS)
+            remaining = _check_visual_monotony(content)
+            if remaining:
+                logger.warning("Accepted script still has %d monotony issue(s)", len(remaining))
             break
 
         if progress_callback:
@@ -212,8 +214,8 @@ def generate_script(
         if monotony_issues:
             monotony_critique = (
                 "- Visual Variety: The script violates the beat distribution rules. "
-                "After every 2 consecutive static scenes, the next scene MUST use a "
-                "different beat type. Fix these runs: " + "; ".join(monotony_issues)
+                "3+ consecutive scenes with the same beat type is not allowed — "
+                "break up these runs with a different beat type: " + "; ".join(monotony_issues)
             )
             critique_parts.append(monotony_critique)
 
@@ -239,7 +241,6 @@ def generate_script(
 
     logger.info("Script generated for topic %r: %s segments, %s total scenes",
                 topic, len(content.segments), sum(len(s.scenes) for s in content.segments))
-    _check_visual_monotony(content)
     return content
 
 
