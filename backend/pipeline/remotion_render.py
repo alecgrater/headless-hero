@@ -289,7 +289,7 @@ def _run_remotion(
         f"--width={width}",
         f"--height={height}",
         f"--fps={fps}",
-        "--codec=h264",
+        "--codec=h264-mkv",
         f"--log={log_level}",
         "--overwrite",
     ]
@@ -489,7 +489,7 @@ def render_full_video(
 
     # Remotion always renders to a temp file; we re-encode to the final output
     needs_speed = speed != 1.0
-    raw_output = renders / f"full_youtube{speed_suffix}_raw.mp4"
+    raw_output = renders / f"full_youtube{speed_suffix}_raw.mkv"
     reencode_output = renders / f"full_youtube{speed_suffix}_enc.mp4" if needs_speed else output_path
 
     props_path = _write_input_props(props, raw_output)
