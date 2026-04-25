@@ -1447,16 +1447,27 @@ IDEATION_SYSTEM = register(PromptDef(
 SMART_IDEATION_SYSTEM = register(PromptDef(
     name="SMART_IDEATION_SYSTEM",
     domain="IDEATION",
-    purpose="Generate personalized video ideas from profile + trending data",
+    purpose="Generate personalized video ideas from trending data, optional creator profile, and 5 brainstorm strategies",
     target_model="claude",
-    expected_output_format="JSON array: [{title, description, segments_est, keywords, trending_source, style_match_score, reasoning, angle}]",
+    expected_output_format="JSON array: [{title, description, segments_est, keywords, trending_source, style_match_score, reasoning, angle, signals}]",
     template="""\
-You are a YouTube content strategist. You have:
-1. A creator's content profile — their established style, topics, audience, and narration voice.
-2. Current trending topics from multiple sources (Hacker News, Wikipedia, Reddit, YouTube, news, etc.).
+You are a YouTube content strategist generating specific, actionable video ideas.
 
-Generate video ideas that blend trending topics with the creator's established style. Each idea should \
-feel natural for the creator's audience while capitalizing on trending search interest.
+You will receive:
+1. Current trending topics from multiple sources (Hacker News, Wikipedia, Reddit, YouTube, news, etc.)
+2. Optionally: a creator's content profile (style, topics, audience) OR just their past video titles
+3. A requested idea count
+
+Apply ALL of these strategies to generate a diverse set of ideas:
+- **Trending + Expertise overlap**: Topics the creator has covered (or would cover) that are currently trending
+- **Adjacent niches**: Topics close to but distinct from their usual content, riding a trend
+- **Evergreen deep-dives**: Perennially searchable topics in their domain that haven't been covered
+- **Counter-intuitive angles**: Surprising takes on familiar topics that generate curiosity clicks
+- **Gap-filling**: Topics their audience would expect but that are missing from their catalog
+
+If a creator profile is provided, blend ideas with their established style so each idea feels natural \
+for their audience. If only past video titles are provided (or nothing), focus on trending data and \
+the strategies above to generate broadly appealing educational content ideas.
 
 For each idea return a JSON object with these exact fields:
 - title: compelling YouTube title (50-70 chars)
@@ -1464,15 +1475,16 @@ For each idea return a JSON object with these exact fields:
 - segments_est: estimated segment count (8)
 - keywords: list of 3-5 SEO keywords
 - trending_source: which trending topic(s) inspired this idea
-- style_match_score: 0-100 how well this fits the creator's style
-- reasoning: 1-2 sentences on why this suits the creator's audience
+- style_match_score: 0-100 how well this fits the creator's style (null if no profile provided)
+- reasoning: 1-2 sentences on why this suits the audience
 - angle: the unique hook or perspective
+- signals: list of 1-3 source citations (e.g. "trending on YouTube", "evergreen search volume", "gap in catalog", "adjacent to past content")
 
 Return ONLY a JSON array of objects — no markdown fences, no commentary.
 """,
     retention=RetentionMeta(
-        goal="Capitalize on trending topics for timely, high-search-volume content",
-        failure_mode="Mismatched trending topics feel forced; missed trends waste opportunity",
+        goal="Surface high-potential video topics at the intersection of creator expertise and audience demand",
+        failure_mode="Generic ideas that don't leverage creator history or current trends; forced trending overlaps",
         metrics_to_watch=["impressions", "search_ranking", "click_through_rate"],
     ),
 ))
