@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   assetUrl,
   catalogUpload,
@@ -301,6 +301,14 @@ function UploadPanel({
   );
 }
 
+function YouTubeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className ?? "w-3 h-3"} fill="currentColor" viewBox="0 0 24 24">
+      <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
+    </svg>
+  );
+}
+
 function QuickUploadButton({
   entry,
   youtubeConnected,
@@ -315,6 +323,7 @@ function QuickUploadButton({
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const uploadingRef = useRef(false);
 
   const { startPolling, stopPolling } = usePollJob<PublishJobStatus>({
     pollFn: async (jobId) => getPublishStatus(jobId),
@@ -324,29 +333,34 @@ function QuickUploadButton({
       setProgress(status.progress ?? 0);
       if (status.status === "completed" && status.output_urls.length > 0) {
         setUploading(false);
+        uploadingRef.current = false;
         onUploadComplete(status.output_urls[0]);
       }
       if (status.status === "failed") {
         setUploading(false);
+        uploadingRef.current = false;
         setError(status.error || "Upload failed");
       }
     },
     onConnectionLost: () => {
       setUploading(false);
+      uploadingRef.current = false;
       setError("Lost connection");
     },
   });
 
   useEffect(() => () => stopPolling(), [stopPolling]);
 
-  if (!entry.video_file) return null;
+  if (!entry.video_file || entry.uploaded) return null;
 
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (uploadingRef.current) return;
     if (!youtubeConnected) {
       onNavigateToSettings();
       return;
     }
+    uploadingRef.current = true;
     setUploading(true);
     setError(null);
     try {
@@ -361,48 +375,48 @@ function QuickUploadButton({
       startPolling(job_id);
     } catch (err) {
       setUploading(false);
+      uploadingRef.current = false;
       setError(err instanceof Error ? err.message : "Upload failed");
     }
   };
 
   if (uploading) {
     return (
-      <span
+      <button
+        type="button"
         onClick={(e) => e.stopPropagation()}
-        className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-red-500/15 text-red-400 border border-red-500/30"
+        className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-violet-500/15 text-violet-400 border border-violet-500/30"
       >
-        <span className="w-3 h-3 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+        <span className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
         {Math.round(progress * 100)}%
-      </span>
+      </button>
     );
   }
 
   if (error) {
     return (
-      <span
+      <button
+        type="button"
         onClick={handleClick}
-        className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-red-500/15 text-red-400 border border-red-500/30 cursor-pointer hover:bg-red-500/25 transition-colors"
+        className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 transition-colors"
         title={error}
       >
-        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
-        </svg>
+        <YouTubeIcon />
         Retry
-      </span>
+      </button>
     );
   }
 
   return (
-    <span
+    <button
+      type="button"
       onClick={handleClick}
-      className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30 cursor-pointer transition-colors"
+      className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/30 transition-colors"
       title="Upload to YouTube (unlisted)"
     >
-      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
-      </svg>
+      <YouTubeIcon />
       Upload
-    </span>
+    </button>
   );
 }
 
