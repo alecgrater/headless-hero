@@ -1,10 +1,15 @@
-"""Google Trends fetcher using pytrends."""
+"""Google Trends fetcher using official RSS feed + pytrends related queries."""
 
 import logging
 import signal
 import time
 
+import feedparser
+import requests as req_lib
+
 logger = logging.getLogger(__name__)
+
+GOOGLE_TRENDS_RSS = "https://trends.google.com/trending/rss?geo=US"
 
 # Module-level cache (30-minute TTL)
 _cache: list[dict] | None = None
@@ -20,6 +25,37 @@ def _timeout_handler(signum, frame):
     raise _Timeout("pytrends timed out")
 
 
+def _fetch_trending_rss() -> list[dict]:
+    """Fetch trending searches via Google Trends RSS (replaces broken pytrends.trending_searches)."""
+    topics: list[dict] = []
+    try:
+        resp = req_lib.get(
+            GOOGLE_TRENDS_RSS,
+            timeout=15.0,
+            proxies={"http": None, "https": None, "http://": None, "https://": None},
+        )
+        resp.raise_for_status()
+        feed = feedparser.parse(resp.content)
+        for entry in feed.entries:
+            title = entry.get("title", "").strip()
+            if title:
+                topics.append({
+                    "title": title,
+                    "source": "google_trends",
+                    "raw_data": {
+                        "sub_source": "trending_rss",
+                        "link": entry.get("link", ""),
+                    },
+                    "search_velocity": 50.0,
+                    "competitor_view_rate": 0.0,
+                    "reddit_engagement": 0.0,
+                    "is_breakout": False,
+                })
+    except Exception:
+        logger.warning("Failed to fetch Google Trends RSS", exc_info=True)
+    return topics
+
+
 def fetch_google_trends_topics() -> list[dict]:
     """Fetch trending topics from Google Trends. Rate-limited; may return empty."""
     global _cache, _cache_ts
@@ -30,6 +66,8 @@ def fetch_google_trends_topics() -> list[dict]:
 
     logger.info("Fetching trending topics from Google Trends")
     topics: list[dict] = []
+
+    topics.extend(_fetch_trending_rss())
 
     # Set 30-second timeout — if pytrends hangs, bail immediately
     old_handler = None
@@ -46,25 +84,6 @@ def fetch_google_trends_topics() -> list[dict]:
             "proxies": {"http": None, "https": None, "http://": None, "https://": None},
         })
 
-        # Fetch trending searches (real-time trending)
-        try:
-            trending_df = pytrends.trending_searches(pn="united_states")
-            for _, row in trending_df.iterrows():
-                title = str(row.iloc[0]).strip()
-                if title:
-                    topics.append({
-                        "title": title,
-                        "source": "google_trends",
-                        "raw_data": {"sub_source": "trending_searches"},
-                        "search_velocity": 50.0,  # baseline for trending searches
-                        "competitor_view_rate": 0.0,
-                        "reddit_engagement": 0.0,
-                        "is_breakout": False,
-                    })
-        except Exception:
-            logger.warning("Failed to fetch trending searches", exc_info=True)
-
-        # Fetch related queries for education-relevant seed keywords
         seed_keywords = [
             "science explained",
             "psychology facts",
@@ -84,7 +103,6 @@ def fetch_google_trends_topics() -> list[dict]:
                             if not query:
                                 continue
                             is_breakout = value >= 5000
-                            # Normalize: cap at 100, breakout gets 100
                             velocity = min(100.0, value / 50.0) if not is_breakout else 100.0
                             topics.append({
                                 "title": query,
@@ -104,12 +122,13 @@ def fetch_google_trends_topics() -> list[dict]:
 
     except _Timeout:
         logger.warning("Google Trends fetcher timed out after 30s — returning empty")
-        return []
+        if topics:
+            _cache = list(topics)
+            _cache_ts = time.time()
+        return topics
     except Exception:
-        logger.warning("Google Trends fetcher failed entirely", exc_info=True)
-        return []
+        logger.warning("Google Trends pytrends fetcher failed", exc_info=True)
     finally:
-        # Cancel alarm and restore old handler
         try:
             signal.alarm(0)
             if old_handler is not None:

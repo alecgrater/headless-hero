@@ -18,8 +18,11 @@ COMPETITOR_CHANNELS = [
     "CGP Grey",
 ]
 
-# YouTube category IDs: 27=Education, 26=Howto & Style
+# YouTube category IDs for mostPopular chart
+# Note: category 27 (Education) is NOT supported by the mostPopular endpoint.
+# Education content is fetched via search in _fetch_exploding_recent instead.
 EDUCATION_CATEGORY = "27"
+SCIENCE_TECH_CATEGORY = "28"
 HOWTO_CATEGORY = "26"
 
 
@@ -74,7 +77,7 @@ def _resolve_channel_ids(youtube, channel_names: list[str]) -> dict[str, str]:
 def _fetch_most_popular(youtube) -> list[dict]:
     """Fetch trending education/how-to videos."""
     topics = []
-    for cat_id in [EDUCATION_CATEGORY, HOWTO_CATEGORY]:
+    for cat_id in [SCIENCE_TECH_CATEGORY, HOWTO_CATEGORY]:
         try:
             resp = youtube.videos().list(
                 chart="mostPopular",

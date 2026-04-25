@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 # RSS feeds for science/education content
 RSS_FEEDS = [
-    "https://www.scientificamerican.com/feed/",
-    "https://www.psychologytoday.com/us/blog/feed",
+    "https://www.sciencedaily.com/rss/all.xml",
+    "https://phys.org/rss-feed/",
     "https://feeds.arstechnica.com/arstechnica/science",
     "https://api.quantamagazine.org/feed/",
     "https://www.smithsonianmag.com/rss/latest_articles/",
