@@ -538,8 +538,8 @@ export default function CatalogPage({ onNavigateToSettings }: Props) {
     });
   }, [load]);
 
-  const handleToggleUploaded = async (entry: CatalogEntry, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleToggleUploaded = async (entry: CatalogEntry, e?: React.SyntheticEvent) => {
+    e?.stopPropagation();
     try {
       const result = await toggleUploaded(entry.folder_name);
       setEntries((prev) =>
@@ -762,10 +762,7 @@ export default function CatalogPage({ onNavigateToSettings }: Props) {
                             <input
                               type="checkbox"
                               checked={entry.uploaded}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                handleToggleUploaded(entry, e as unknown as React.MouseEvent);
-                              }}
+                              onChange={() => handleToggleUploaded(entry)}
                               className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-800 text-emerald-500 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-emerald-500"
                             />
                             <span className="text-neutral-500">Uploaded</span>
