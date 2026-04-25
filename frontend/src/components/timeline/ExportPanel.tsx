@@ -23,6 +23,9 @@ interface Props {
   exportBundleResult: ExportBundleResponse | null;
   onExportBundle: () => void;
 
+  // Smart export phase
+  exportPhase: "rendering" | "exporting" | null;
+
   onClose: () => void;
 }
 
@@ -192,6 +195,7 @@ export default function ExportPanel({
   exportBundleLoading,
   exportBundleResult,
   onExportBundle,
+  exportPhase,
   onClose,
 }: Props) {
   const youtubeRendering = youtubeStatus?.status === "running" || youtubeStatus?.status === "pending";
@@ -208,7 +212,8 @@ export default function ExportPanel({
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-8">
       <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 shrink-0">
+        <div className="flex flex-col border-b border-neutral-800 shrink-0">
+          <div className="flex items-center justify-between px-6 py-4">
           <h2 className="text-lg font-bold">Export</h2>
           <div className="flex items-center gap-3">
             {exportBundleResult && (
@@ -227,13 +232,18 @@ export default function ExportPanel({
             )}
             <button
               onClick={onExportBundle}
-              disabled={exportBundleLoading}
+              disabled={exportBundleLoading || exportPhase !== null}
               className="text-sm px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-lg font-medium transition-colors flex items-center gap-2"
             >
-              {exportBundleLoading ? (
+              {exportPhase === "rendering" ? (
                 <>
                   <span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                  Exporting...
+                  Rendering video...
+                </>
+              ) : exportPhase === "exporting" || exportBundleLoading ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                  Exporting to iCloud...
                 </>
               ) : (
                 <>
@@ -251,6 +261,17 @@ export default function ExportPanel({
               &times;
             </button>
           </div>
+        </div>
+          {exportPhase === "rendering" && youtubeStatus && (
+            <div className="px-6 pb-3">
+              <ProgressBar
+                progress={youtubeStatus.progress}
+                label={youtubeStatus.current_step}
+                estimatedSeconds={youtubeStatus.estimated_seconds}
+                elapsedSeconds={youtubeStatus.elapsed_seconds}
+              />
+            </div>
+          )}
         </div>
 
         {/* Tab Bar */}

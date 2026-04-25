@@ -4,6 +4,7 @@ import type { ExportTestOptions } from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
 import type { ThumbnailConcept } from "../../types/render";
+import type { ExportBundleResponse } from "../../types/render";
 import type { SaveState } from "../../App";
 import type { MicroTimelineHandle } from "./SceneMicroTimeline";
 import ExportPanel from "./ExportPanel";
@@ -717,6 +718,14 @@ function TimelineEditor({
     }
   };
 
+  const handleSmartExport = useCallback(() => {
+    render.smartExportBundle(async (_result: ExportBundleResponse) => {
+      await new Promise((r) => setTimeout(r, 1500));
+      await api.delete(`/api/scripts/${scriptId}`);
+      onBack();
+    });
+  }, [render, scriptId, onBack]);
+
   // Export test: start + poll
   const handleExportTest = async (options: ExportTestOptions) => {
     setShowExportTestModal(false);
@@ -1203,7 +1212,8 @@ function TimelineEditor({
           estimatedSeconds={render.estimatedSeconds}
           exportBundleLoading={render.exportBundleLoading}
           exportBundleResult={render.exportBundleResult}
-          onExportBundle={render.exportBundle}
+          onExportBundle={handleSmartExport}
+          exportPhase={render.exportPhase}
           onClose={() => setShowExport(false)}
         />
       )}

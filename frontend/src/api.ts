@@ -197,6 +197,21 @@ export async function pollTitleCardJob(jobId: string): Promise<void> {
   }
 }
 
+/** Poll a render job until it completes or fails. Returns the final status. */
+export async function pollRenderJob(jobId: string): Promise<void> {
+  const POLL_INTERVAL = 1500;
+  const MAX_POLLS = 600; // ~15 minutes max
+  for (let i = 0; i < MAX_POLLS; i++) {
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+    const res = await api.get(`/api/render/status/${jobId}`);
+    if (!res.ok) throw new Error("Failed to check render job status");
+    const job = res.data as { status: string; error: string | null };
+    if (job.status === "completed") return;
+    if (job.status === "failed") throw new Error(job.error || "Render failed");
+  }
+  throw new Error("Render timed out");
+}
+
 /** Poll an Eli generation background job until it completes or fails. */
 export async function pollEliJob(jobId: string): Promise<void> {
   const POLL_INTERVAL = 1500;

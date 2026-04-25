@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import api from "../../api";
+import api, { pollRenderJob } from "../../api";
 import { usePollJob } from "../../hooks/usePollJob";
 import type {
   ExportAudioResponse,
@@ -18,7 +18,7 @@ interface RenderState {
   youtubeJobId: string | null;
   youtubeStatus: RenderStatusResponse | null;
   youtubeUrl: string | null;
-  startYoutubeRender: (speed?: number) => Promise<void>;
+  startYoutubeRender: (speed?: number) => Promise<string | null>;
 
   // Audio export
   audioUrl: string | null;
@@ -43,6 +43,10 @@ interface RenderState {
   exportBundleLoading: boolean;
   exportBundleResult: ExportBundleResponse | null;
   exportBundle: () => Promise<void>;
+
+  // Smart export
+  exportPhase: "rendering" | "exporting" | null;
+  smartExportBundle: (onComplete?: (result: ExportBundleResponse) => void) => Promise<void>;
 }
 
 export function useRenderState(scriptId: string, title: string, initialSeoMetadata?: SEOMetadata | null): RenderState {
@@ -63,6 +67,8 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
 
   const [exportBundleLoading, setExportBundleLoading] = useState(false);
   const [exportBundleResult, setExportBundleResult] = useState<ExportBundleResponse | null>(null);
+
+  const [exportPhase, setExportPhase] = useState<"rendering" | "exporting" | null>(null);
 
   const { startPolling } = usePollJob<RenderStatusResponse>({
     pollFn: async (jobId) => {
@@ -107,7 +113,7 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
   }, [scriptId]);
 
   const startYoutubeRender = useCallback(
-    async (speed?: number) => {
+    async (speed?: number): Promise<string | null> => {
       setYoutubeUrl(null);
       setYoutubeStatus(null);
       const res = await api.post("/api/render/full", {
@@ -115,10 +121,11 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
         title,
         ...(speed != null && speed !== 1.0 ? { speed } : {}),
       });
-      if (!res.ok) return;
+      if (!res.ok) return null;
       const { job_id } = res.data as RenderJobResponse;
       setYoutubeJobId(job_id);
       startPolling(job_id);
+      return job_id;
     },
     [scriptId, title, startPolling],
   );
@@ -204,6 +211,45 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
     }
   }, [scriptId]);
 
+  const smartExportBundle = useCallback(
+    async (onComplete?: (result: ExportBundleResponse) => void) => {
+      try {
+        // Step 1: render video if not already rendered
+        if (!youtubeUrl) {
+          setExportPhase("rendering");
+          const jobId = await startYoutubeRender();
+          if (!jobId) {
+            setExportPhase(null);
+            return;
+          }
+          // pollRenderJob awaits completion while usePollJob updates UI in parallel
+          await pollRenderJob(jobId);
+        }
+
+        // Step 2: export bundle to iCloud
+        setExportPhase("exporting");
+        setExportBundleLoading(true);
+        setExportBundleResult(null);
+        const res = await api.post("/api/render/export-bundle", {
+          script_id: scriptId,
+        });
+        if (res.ok) {
+          const result = res.data as ExportBundleResponse;
+          setExportBundleResult(result);
+          onComplete?.(result);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Export failed";
+        setExportBundleResult(null);
+        throw new Error(msg);
+      } finally {
+        setExportBundleLoading(false);
+        setExportPhase(null);
+      }
+    },
+    [scriptId, youtubeUrl, startYoutubeRender],
+  );
+
   return {
     youtubeJobId,
     youtubeStatus,
@@ -223,5 +269,7 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
     exportBundleLoading,
     exportBundleResult,
     exportBundle,
+    exportPhase,
+    smartExportBundle,
   };
 }
