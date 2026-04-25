@@ -2,6 +2,7 @@
 
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -218,6 +219,18 @@ async def generate_smart_ideas(
     """Generate video ideas combining trending topics with optional content profile."""
     from pipeline.content_profile import get_cached_profile, analyze_content_profile
     from pipeline.smart_ideation import generate_smart_ideas as _generate
+    from pipeline.trending_scorer import run_refresh_sync
+
+    # Auto-refresh trending topics if stale (>24h) or missing
+    latest = session.exec(
+        select(TrendingTopic).order_by(TrendingTopic.fetched_at.desc()).limit(1)
+    ).first()
+    needs_refresh = latest is None or (
+        datetime.now(timezone.utc) - latest.fetched_at > timedelta(hours=24)
+    )
+    if needs_refresh:
+        logger.info("Trending topics stale or missing — auto-refreshing before idea generation")
+        run_refresh_sync()
 
     # Try to load profile — but don't require it
     profile = None

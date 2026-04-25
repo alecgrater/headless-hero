@@ -368,6 +368,15 @@ def _run_refresh(job: TrendingRefreshJob) -> None:
     logger.info("Trending refresh complete: %d topics scored and saved", len(records))
 
 
+def run_refresh_sync() -> int:
+    """Run a trending refresh synchronously. Returns topic count."""
+    job = create_refresh_job()
+    _run_refresh(job)
+    if job.status == "failed":
+        raise RuntimeError(f"Trending refresh failed: {job.error}")
+    return job.result_count
+
+
 def start_refresh() -> TrendingRefreshJob:
     """Start a background trending topic refresh job."""
     job = create_refresh_job()
