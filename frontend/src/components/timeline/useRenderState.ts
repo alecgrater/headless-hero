@@ -213,15 +213,13 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
 
   const smartExportBundle = useCallback(
     async (onComplete?: (result: ExportBundleResponse) => void) => {
+      if (exportPhase) return;
+      setExportPhase("rendering");
       try {
         // Step 1: render video if not already rendered
         if (!youtubeUrl) {
-          setExportPhase("rendering");
           const jobId = await startYoutubeRender();
-          if (!jobId) {
-            setExportPhase(null);
-            return;
-          }
+          if (!jobId) return;
           // pollRenderJob awaits completion while usePollJob updates UI in parallel
           await pollRenderJob(jobId);
         }

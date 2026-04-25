@@ -723,6 +723,8 @@ function TimelineEditor({
       await new Promise((r) => setTimeout(r, 1500));
       await api.delete(`/api/scripts/${scriptId}`);
       onBack();
+    }).catch(() => {
+      // Errors already surfaced via global toast interceptor
     });
   }, [render, scriptId, onBack]);
 
