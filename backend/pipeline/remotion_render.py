@@ -1,9 +1,4 @@
-"""Remotion rendering pipeline — orchestrates Remotion CLI to produce videos.
-
-Replaces FFmpeg-based scene rendering with Remotion React compositions.
-Keeps the same interface (render_full_video, render_scene_preview) so the
-API layer can swap to this module with minimal changes.
-"""
+"""Remotion rendering pipeline — orchestrates Remotion CLI to produce videos."""
 
 import json
 import logging
