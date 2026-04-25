@@ -153,6 +153,77 @@ def list_catalog():
     return CatalogListResponse(entries=entries)
 
 
+class SyncYouTubeResponse(BaseModel):
+    matched: int
+
+
+@router.post("/sync-youtube", response_model=SyncYouTubeResponse)
+def sync_youtube(session: Session = Depends(get_session)):
+    """Cross-reference catalog entries with YouTube uploads by title."""
+    brand_id = get_default_brand_id(session)
+    stmt = select(PlatformCredential).where(
+        PlatformCredential.brand_id == brand_id,
+        PlatformCredential.platform == "youtube",
+    )
+    cred = session.exec(stmt).first()
+    if not cred:
+        return SyncYouTubeResponse(matched=0)
+
+    from pipeline.publishing import _ensure_token_fresh
+    _ensure_token_fresh(cred)
+
+    from integrations.youtube_client import list_channel_uploads
+    try:
+        uploads = list_channel_uploads(cred.access_token)
+    except Exception:
+        logger.warning("Failed to fetch YouTube uploads for sync", exc_info=True)
+        return SyncYouTubeResponse(matched=0)
+
+    if cred.access_token != (session.exec(stmt).first() or cred).access_token:
+        session.add(cred)
+        session.commit()
+
+    title_to_url: dict[str, str] = {}
+    for vid in uploads:
+        title_to_url[vid["title"].strip().lower()] = vid["url"]
+
+    export_dir = get_export_folder()
+    if not export_dir.exists():
+        return SyncYouTubeResponse(matched=0)
+
+    matched = 0
+    for item in export_dir.iterdir():
+        if not item.is_dir():
+            continue
+        marker = item / ".youtube_url"
+        if marker.exists():
+            continue
+
+        seo_path = None
+        for f in item.iterdir():
+            lower = f.name.lower()
+            if lower == "seo.txt" or lower.endswith(" - seo.txt"):
+                seo_path = f
+                break
+
+        seo_title = None
+        if seo_path:
+            seo_title, _, _ = _parse_seo_txt(seo_path)
+
+        candidates = []
+        if seo_title:
+            candidates.append(seo_title.strip().lower())
+        candidates.append(item.name.strip().lower())
+
+        for candidate in candidates:
+            if candidate in title_to_url:
+                marker.write_text(title_to_url[candidate], encoding="utf-8")
+                matched += 1
+                break
+
+    return SyncYouTubeResponse(matched=matched)
+
+
 @router.post("/{folder_name}/toggle-uploaded", response_model=ToggleUploadedResponse)
 def toggle_uploaded(folder_name: str):
     """Toggle the .uploaded marker file in a catalog folder."""

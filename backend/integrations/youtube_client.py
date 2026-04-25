@@ -106,6 +106,43 @@ def get_channel_info(access_token: str) -> dict[str, str]:
         "channel_name": channel["snippet"]["title"],
     }
 
+
+def list_channel_uploads(access_token: str, max_results: int = 50) -> list[dict[str, str]]:
+    """Fetch recent uploads from the authenticated user's channel.
+
+    Returns list of dicts with id, title, url.
+    """
+    creds = Credentials(token=access_token)
+    youtube = build("youtube", "v3", credentials=creds)
+
+    ch_resp = youtube.channels().list(part="contentDetails", mine=True).execute()
+    ch_items = ch_resp.get("items", [])
+    if not ch_items:
+        return []
+    uploads_playlist = ch_items[0]["contentDetails"]["relatedPlaylists"]["uploads"]
+
+    videos: list[dict[str, str]] = []
+    page_token: str | None = None
+    while len(videos) < max_results:
+        resp = youtube.playlistItems().list(
+            part="snippet",
+            playlistId=uploads_playlist,
+            maxResults=min(50, max_results - len(videos)),
+            pageToken=page_token,
+        ).execute()
+        for item in resp.get("items", []):
+            vid_id = item["snippet"]["resourceId"]["videoId"]
+            videos.append({
+                "id": vid_id,
+                "title": item["snippet"]["title"],
+                "url": f"https://www.youtube.com/watch?v={vid_id}",
+            })
+        page_token = resp.get("nextPageToken")
+        if not page_token:
+            break
+
+    return videos
+
 def upload_video(
     access_token: str,
     file_path: str,

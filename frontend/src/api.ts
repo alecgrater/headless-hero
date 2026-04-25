@@ -540,6 +540,12 @@ export async function catalogUpload(options: CatalogUploadOptions): Promise<{ jo
   return res.data as { job_id: string };
 }
 
+export async function syncCatalogYouTube(): Promise<{ matched: number }> {
+  const res = await api.post("/api/catalog/sync-youtube");
+  if (!res.ok) return { matched: 0 };
+  return res.data as { matched: number };
+}
+
 export interface YouTubeOAuthStatus {
   youtube: {
     connected: boolean;

@@ -7,6 +7,7 @@ import {
   getYouTubeOAuthStatus,
   openInBrowser,
   showInFolder,
+  syncCatalogYouTube,
   toggleUploaded,
 } from "../../api";
 import type { CatalogEntry, CatalogUploadOptions, PublishJobStatus } from "../../api";
@@ -533,8 +534,13 @@ export default function CatalogPage({ onNavigateToSettings }: Props) {
 
   useEffect(() => {
     load();
-    getYouTubeOAuthStatus().then((status) => {
-      setYoutubeConnected(status.youtube.connected);
+    getYouTubeOAuthStatus().then(async (status) => {
+      const connected = status.youtube.connected;
+      setYoutubeConnected(connected);
+      if (connected) {
+        const { matched } = await syncCatalogYouTube();
+        if (matched > 0) load();
+      }
     });
   }, [load]);
 
