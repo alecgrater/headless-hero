@@ -339,6 +339,8 @@ export async function exportTest(scriptId: string, options: ExportTestOptions): 
 
 import type { TrendingTopic, TrendingRefreshStatus, ContentProfile, SmartIdeasResponse } from "./types/trending";
 import type { HookScore } from "./types/script";
+import type { PostIt } from "./types/postit";
+import type { BrainstormResponse } from "./types/brainstorm";
 
 /** Score the first ~30 seconds of a script for viewer retention via Claude. */
 export async function scoreHook(scriptId: string): Promise<HookScore> {
@@ -413,4 +415,39 @@ export async function generateSmartIdeas(count: number = 10): Promise<SmartIdeas
   const res = await api.post("/api/trending/smart-ideas", { count });
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to generate smart ideas");
   return res.data as SmartIdeasResponse;
+}
+
+// ---------------------------------------------------------------------------
+// Post-Its
+// ---------------------------------------------------------------------------
+
+export async function getPostIts(): Promise<PostIt[]> {
+  const res = await api.get("/api/postits");
+  return (res.ok ? res.data : []) as PostIt[];
+}
+
+export async function createPostIt(text: string, rank?: number): Promise<PostIt> {
+  const res = await api.post("/api/postits", { text, rank: rank ?? 50 });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to create post-it");
+  return res.data as PostIt;
+}
+
+export async function updatePostIt(id: string, updates: { text?: string; rank?: number }): Promise<PostIt> {
+  const res = await api.put(`/api/postits/${id}`, updates);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to update post-it");
+  return res.data as PostIt;
+}
+
+export async function deletePostIt(id: string): Promise<void> {
+  await api.delete(`/api/postits/${id}`);
+}
+
+// ---------------------------------------------------------------------------
+// Brainstorm
+// ---------------------------------------------------------------------------
+
+export async function generateBrainstormRecommendations(): Promise<BrainstormResponse> {
+  const res = await api.post("/api/brainstorm/generate");
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to generate brainstorm recommendations");
+  return res.data as BrainstormResponse;
 }

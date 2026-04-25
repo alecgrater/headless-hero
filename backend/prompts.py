@@ -1535,6 +1535,47 @@ Return ONLY valid JSON — no markdown fences, no commentary.
     ),
 ))
 
+BRAINSTORM_SYSTEM = register(PromptDef(
+    name="BRAINSTORM_SYSTEM",
+    domain="IDEATION",
+    purpose="Generate actionable niche prompts from past videos and trending data",
+    target_model="claude",
+    expected_output_format="JSON array: [{prompt, title, reasoning, confidence, signals}]",
+    template="""\
+You are a YouTube content strategist analyzing a creator's past video titles and current \
+trending topics to recommend highly specific, actionable niche prompts for their next video.
+
+You will receive:
+1. A list of the creator's past video titles (may be empty if new channel)
+2. A list of trending topics with relevance scores
+
+Generate 8 niche prompts that the creator can use to generate video ideas. Each prompt should \
+be 10-30 words, specific enough to generate focused video ideas, and phrased as a topic/niche \
+description (not a video title).
+
+Mix these strategies:
+- **Trending + Expertise overlap**: Topics the creator has covered that are currently trending again
+- **Adjacent niches**: Topics close to but distinct from what they've done, riding a trend
+- **Evergreen deep-dives**: Perennially searchable topics in their domain that they haven't covered
+- **Counter-intuitive angles**: Surprising takes on familiar topics that would generate curiosity
+- **Gap-filling**: Topics their audience would expect but that are missing from their catalog
+
+For each recommendation, return a JSON object with:
+- prompt: the niche prompt text (10-30 words)
+- title: short display title (5-8 words)
+- reasoning: 1-2 sentences explaining why this is a good fit
+- confidence: 0-100 score for how likely this will perform well
+- signals: list of 1-3 data source citations (e.g. "trending on YouTube", "matches past content", "evergreen search volume")
+
+Return ONLY a JSON array of objects — no markdown fences, no commentary.
+""",
+    retention=RetentionMeta(
+        goal="Surface high-potential video topics at the intersection of creator expertise and audience demand",
+        failure_mode="Generic prompts that don't leverage creator history or current trends",
+        metrics_to_watch=["click_through_rate", "impressions", "search_ranking"],
+    ),
+))
+
 
 # ===================================================================
 # Script system prompt composition helper

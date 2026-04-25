@@ -7,12 +7,14 @@ from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session
 
 from api.brands import router as brands_router
+from api.brainstorm import router as brainstorm_router
 from api.cold_opens import router as cold_opens_router
 from database import init_db, ensure_default_brand
 from database import engine as _db_engine
 from api.eli import router as eli_router
 from api.fx import router as fx_router
 from api.ideas import router as ideas_router
+from api.postits import router as postits_router
 from api.publish import router as publish_router
 from api.render import router as render_router
 from api.scripts import router as scripts_router
@@ -36,6 +38,7 @@ from models.settings import AppSetting as _AppSetting  # noqa: F401 — register
 from models.api_usage import ApiUsage as _ApiUsage  # noqa: F401 — register table
 from models.trending import TrendingTopic as _TrendingTopic  # noqa: F401 — register table
 from models.content_profile import ContentProfile as _ContentProfile  # noqa: F401 — register table
+from models.postit import PostIt as _PostIt  # noqa: F401 — register table
 
 from config import DATA_DIR
 
@@ -81,10 +84,12 @@ app.include_router(_dev_router)
 
 # Core routers
 app.include_router(brands_router)
+app.include_router(brainstorm_router)
 app.include_router(cold_opens_router)
 app.include_router(eli_router)
 app.include_router(fx_router)
 app.include_router(ideas_router)
+app.include_router(postits_router)
 app.include_router(scripts_router)
 app.include_router(visuals_router)
 app.include_router(voiceover_router)
