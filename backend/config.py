@@ -52,8 +52,16 @@ THUMBNAIL_HEIGHT = 720
 # Backend server port
 BACKEND_PORT = 8420
 
-# iCloud export directory for finished videos
-ICLOUD_VIDEOS_DIR = Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs" / "headless-hero media" / "Videos"
+# Default iCloud export directory for finished videos
+_DEFAULT_EXPORT_FOLDER = Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs" / "headless-hero media" / "Videos"
+
+
+def get_export_folder() -> Path:
+    """Return the configured export folder, falling back to the default iCloud path."""
+    custom = os.environ.get("EXPORT_FOLDER", "").strip()
+    if custom:
+        return Path(custom).expanduser()
+    return _DEFAULT_EXPORT_FOLDER
 
 
 def strip_markdown_fences(text: str) -> str:

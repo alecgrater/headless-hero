@@ -47,6 +47,7 @@ export const SCRIPT_MODELS = [
 
 export default function GeneralSection() {
   const [downloadsDir, setDownloadsDir] = useState("");
+  const [exportFolder, setExportFolder] = useState("");
   const [imageProvider, setImageProvider] = useState("google");
   const [promptUpsampling, setPromptUpsampling] = useState("true");
   const [replicateModel, setReplicateModel] = useState("black-forest-labs/flux-1.1-pro");
@@ -57,6 +58,7 @@ export default function GeneralSection() {
   const [rateLimitEnabled, setRateLimitEnabled] = useState("true");
   const [scriptModel, setScriptModel] = useState(DEFAULT_MODEL);
   const [originalDownloads, setOriginalDownloads] = useState("");
+  const [originalExportFolder, setOriginalExportFolder] = useState("");
   const [originalProvider, setOriginalProvider] = useState("google");
   const [originalUpsampling, setOriginalUpsampling] = useState("true");
   const [originalModel, setOriginalModel] = useState("black-forest-labs/flux-1.1-pro");
@@ -72,6 +74,9 @@ export default function GeneralSection() {
         const dlVal = data.DOWNLOADS_DIR?.masked ?? "";
         setDownloadsDir(dlVal);
         setOriginalDownloads(dlVal);
+        const efVal = data.EXPORT_FOLDER?.masked ?? "";
+        setExportFolder(efVal);
+        setOriginalExportFolder(efVal);
         const provVal = data.IMAGE_PROVIDER?.masked || "google";
         setImageProvider(provVal);
         setOriginalProvider(provVal);
@@ -102,6 +107,7 @@ export default function GeneralSection() {
     setSaving(true);
     const res = await api.put("/api/settings/keys", {
       DOWNLOADS_DIR: downloadsDir.trim(),
+      EXPORT_FOLDER: exportFolder.trim(),
       IMAGE_PROVIDER: imageProvider,
       REPLICATE_MODEL: replicateModel,
       REPLICATE_PROMPT_UPSAMPLING: promptUpsampling,
@@ -115,6 +121,7 @@ export default function GeneralSection() {
     if (res.ok) {
       showToast("Settings saved", "success");
       setOriginalDownloads(downloadsDir.trim());
+      setOriginalExportFolder(exportFolder.trim());
       setOriginalProvider(imageProvider);
       setOriginalModel(replicateModel);
       setOriginalUpsampling(promptUpsampling);
@@ -127,6 +134,7 @@ export default function GeneralSection() {
 
   const hasChanges =
     downloadsDir.trim() !== originalDownloads ||
+    exportFolder.trim() !== originalExportFolder ||
     imageProvider !== originalProvider ||
     replicateModel !== originalModel ||
     promptUpsampling !== originalUpsampling ||
@@ -160,6 +168,22 @@ export default function GeneralSection() {
               value={downloadsDir}
               onChange={(e) => setDownloadsDir(e.target.value)}
               placeholder="~/Downloads"
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 transition-colors font-mono"
+            />
+          </div>
+
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-2">
+            <div>
+              <h3 className="text-sm font-medium text-neutral-100">Export Folder</h3>
+              <p className="text-xs text-neutral-500">
+                Where "Export All" bundles are saved. Defaults to iCloud headless-hero media/Videos.
+              </p>
+            </div>
+            <input
+              type="text"
+              value={exportFolder}
+              onChange={(e) => setExportFolder(e.target.value)}
+              placeholder="~/Library/Mobile Documents/.../headless-hero media/Videos"
               className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 transition-colors font-mono"
             />
           </div>

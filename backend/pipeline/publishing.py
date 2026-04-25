@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Callable
 
 from config import DATA_DIR
-from integrations.youtube_client import refresh_access_token, upload_video
+from integrations.youtube_client import refresh_access_token, set_thumbnail, upload_video
 from models.credential import PlatformCredential
 
 logger = logging.getLogger(__name__)
@@ -43,10 +43,13 @@ def _ensure_token_fresh(credential: PlatformCredential) -> bool:
 
 def publish_to_youtube(
     credential: PlatformCredential,
-    file_url: str,
-    metadata: dict,
+    file_url: str = "",
+    metadata: dict | None = None,
     schedule_at: str | None = None,
     on_progress: Callable[[float, str], None] | None = None,
+    file_path: str = "",
+    thumbnail_path: str = "",
+    privacy_status: str = "private",
 ) -> dict[str, str]:
     """Upload a video to YouTube.
 
@@ -56,10 +59,19 @@ def publish_to_youtube(
         metadata: dict with title, description, tags.
         schedule_at: Optional ISO 8601 datetime for scheduled publishing.
         on_progress: Callback(progress_0_to_1, message).
+        file_path: Absolute path to video file (alternative to file_url).
+        thumbnail_path: Absolute path to thumbnail image to set after upload.
+        privacy_status: YouTube privacy status (private, unlisted, public).
 
     Returns dict with id, url.
     """
-    local_path = _resolve_local_path(file_url)
+    if metadata is None:
+        metadata = {}
+
+    if file_path:
+        local_path = file_path
+    else:
+        local_path = _resolve_local_path(file_url)
     if not os.path.exists(local_path):
         raise FileNotFoundError(f"Video file not found: {local_path}")
 
@@ -81,10 +93,15 @@ def publish_to_youtube(
         title=metadata.get("title", "Untitled"),
         description=metadata.get("description", ""),
         tags=metadata.get("tags", []),
-        privacy_status="private",
+        privacy_status=privacy_status if not schedule_at else "private",
         publish_at=schedule_at,
         on_progress=upload_progress,
     )
+
+    if thumbnail_path and os.path.exists(thumbnail_path):
+        if on_progress:
+            on_progress(0.96, "Setting thumbnail...")
+        set_thumbnail(credential.access_token, result["id"], thumbnail_path)
 
     if on_progress:
         on_progress(1.0, "Published!")

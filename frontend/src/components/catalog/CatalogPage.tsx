@@ -1,6 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
-import { assetUrl, fetchCatalog, showInFolder, toggleUploaded } from "../../api";
-import type { CatalogEntry } from "../../api";
+import {
+  assetUrl,
+  catalogUpload,
+  fetchCatalog,
+  getPublishStatus,
+  getYouTubeOAuthStatus,
+  openInBrowser,
+  showInFolder,
+  toggleUploaded,
+} from "../../api";
+import type { CatalogEntry, CatalogUploadOptions, PublishJobStatus } from "../../api";
+import { usePollJob } from "../../hooks/usePollJob";
+
+interface Props {
+  onNavigateToSettings: () => void;
+}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -96,83 +110,297 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
-function AccordionContent({ entry }: { entry: CatalogEntry }) {
-  return (
-    <div className="px-4 pb-4 pt-3 border-t border-neutral-800/60 space-y-4">
-      {/* Action buttons */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {entry.folder_path && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              showInFolder(entry.folder_path);
-            }}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-neutral-200 transition-colors"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
-            </svg>
-            Open in Finder
-          </button>
-        )}
-        {entry.seo_description && (
-          <CopyButton text={entry.seo_description} label="Copy Description" />
-        )}
-        {entry.seo_tags.length > 0 && (
-          <CopyButton text={entry.seo_tags.join(", ")} label="Copy Tags" />
-        )}
+function UploadPanel({
+  entry,
+  youtubeConnected,
+  onNavigateToSettings,
+  onUploadComplete,
+}: {
+  entry: CatalogEntry;
+  youtubeConnected: boolean;
+  onNavigateToSettings: () => void;
+  onUploadComplete: (youtubeUrl: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(entry.seo_title || entry.folder_name);
+  const [description, setDescription] = useState(entry.seo_description || "");
+  const [tags, setTags] = useState(entry.seo_tags.join(", "));
+  const [privacy, setPrivacy] = useState("unlisted");
+  const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<PublishJobStatus | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const { startPolling, stopPolling } = usePollJob<PublishJobStatus>({
+    pollFn: async (jobId) => getPublishStatus(jobId),
+    isComplete: (s) => s.status === "completed",
+    isFailed: (s) => s.status === "failed",
+    onStatus: (status) => {
+      setUploadStatus(status);
+      if (status.status === "completed" && status.output_urls.length > 0) {
+        setUploading(false);
+        onUploadComplete(status.output_urls[0]);
+      }
+      if (status.status === "failed") {
+        setUploading(false);
+        setUploadError(status.error || "Upload failed");
+      }
+    },
+    onConnectionLost: () => {
+      setUploading(false);
+      setUploadError("Lost connection to upload job");
+    },
+  });
+
+  useEffect(() => () => stopPolling(), [stopPolling]);
+
+  if (!youtubeConnected) {
+    return (
+      <div className="px-4 pb-4 pt-3 border-t border-neutral-800/60">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onNavigateToSettings();
+          }}
+          className="flex items-center gap-2 text-sm px-4 py-2 bg-red-600/20 border border-red-500/30 hover:bg-red-600/30 rounded-lg text-red-300 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m9.86-3.061a4.5 4.5 0 0 0-1.242-7.244l4.5-4.5a4.5 4.5 0 1 1 6.364 6.364l-1.757 1.757" />
+          </svg>
+          Connect YouTube in Settings
+        </button>
       </div>
+    );
+  }
 
-      {/* Full SEO Title */}
-      {entry.seo_title && (
-        <div>
-          <h4 className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider mb-1">Title</h4>
-          <p className="text-sm text-neutral-200 font-medium">{entry.seo_title}</p>
-        </div>
-      )}
+  const handleUpload = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setUploading(true);
+    setUploadError(null);
+    setUploadStatus(null);
+    try {
+      const options: CatalogUploadOptions = {
+        folder_name: entry.folder_name,
+        title,
+        description,
+        tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+        privacy_status: privacy,
+      };
+      const { job_id } = await catalogUpload(options);
+      startPolling(job_id);
+    } catch (err) {
+      setUploading(false);
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
+    }
+  };
 
-      {/* Full Description */}
-      {entry.seo_description && (
-        <div>
-          <h4 className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider mb-1">Description</h4>
-          <p className="text-sm text-neutral-400 whitespace-pre-wrap leading-relaxed">{entry.seo_description}</p>
-        </div>
-      )}
+  const progress = uploadStatus?.progress ?? 0;
 
-      {/* All Tags */}
-      {entry.seo_tags.length > 0 && (
-        <div>
-          <h4 className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider mb-1.5">
-            Tags ({entry.seo_tags.length})
-          </h4>
-          <div className="flex flex-wrap gap-1.5">
-            {entry.seo_tags.map((tag) => (
-              <span
-                key={tag}
-                className="text-xs px-2 py-0.5 bg-neutral-800 text-neutral-400 rounded-full"
-              >
-                {tag}
-              </span>
-            ))}
+  return (
+    <div className="px-4 pb-4 pt-3 border-t border-neutral-800/60 space-y-3" onClick={(e) => e.stopPropagation()}>
+      {uploading && (
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-xs text-neutral-400">
+            <span>{uploadStatus?.current_step || "Starting upload..."}</span>
+            <span>{Math.round(progress * 100)}%</span>
+          </div>
+          <div className="w-full h-2 bg-neutral-800 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full bg-red-500 transition-all duration-300"
+              style={{ width: `${Math.max(progress * 100, 1)}%` }}
+            />
           </div>
         </div>
       )}
 
-      {/* No SEO data message */}
-      {!entry.seo_title && !entry.seo_description && entry.seo_tags.length === 0 && (
-        <p className="text-sm text-neutral-600 italic">No SEO metadata found in this export folder.</p>
+      {uploadError && (
+        <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-2">
+          {uploadError}
+        </div>
+      )}
+
+      {!uploading && (
+        <>
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Upload to YouTube</h4>
+            <button
+              onClick={() => setEditing(!editing)}
+              className="text-[11px] text-violet-400 hover:text-violet-300 transition-colors"
+            >
+              {editing ? "Done Editing" : "Edit Metadata"}
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            <div>
+              <label className="text-[11px] text-neutral-500 block mb-0.5">Title</label>
+              {editing ? (
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
+                />
+              ) : (
+                <p className="text-sm text-neutral-200">{title}</p>
+              )}
+            </div>
+            <div>
+              <label className="text-[11px] text-neutral-500 block mb-0.5">Description</label>
+              {editing ? (
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors resize-none"
+                />
+              ) : (
+                <p className="text-xs text-neutral-400 line-clamp-3 whitespace-pre-wrap">{description || "No description"}</p>
+              )}
+            </div>
+            <div>
+              <label className="text-[11px] text-neutral-500 block mb-0.5">Tags</label>
+              {editing ? (
+                <input
+                  type="text"
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
+                  placeholder="tag1, tag2, tag3"
+                />
+              ) : (
+                <p className="text-xs text-neutral-400">{tags || "No tags"}</p>
+              )}
+            </div>
+            <div>
+              <label className="text-[11px] text-neutral-500 block mb-0.5">Privacy</label>
+              <select
+                value={privacy}
+                onChange={(e) => setPrivacy(e.target.value)}
+                className="bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
+              >
+                <option value="unlisted">Unlisted</option>
+                <option value="private">Private</option>
+                <option value="public">Public</option>
+              </select>
+            </div>
+          </div>
+
+          <button
+            onClick={handleUpload}
+            disabled={!entry.video_file}
+            className="flex items-center gap-2 text-sm px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-lg font-medium transition-colors text-white"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
+            </svg>
+            Upload to YouTube
+          </button>
+        </>
       )}
     </div>
   );
 }
 
-export default function CatalogPage() {
+function AccordionContent({
+  entry,
+  youtubeConnected,
+  onNavigateToSettings,
+  onUploadComplete,
+}: {
+  entry: CatalogEntry;
+  youtubeConnected: boolean;
+  onNavigateToSettings: () => void;
+  onUploadComplete: (youtubeUrl: string) => void;
+}) {
+  return (
+    <div className="space-y-0">
+      <div className="px-4 pb-4 pt-3 border-t border-neutral-800/60 space-y-4">
+        {/* Action buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {entry.folder_path && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                showInFolder(entry.folder_path);
+              }}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-neutral-200 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+              </svg>
+              Open in Finder
+            </button>
+          )}
+          {entry.seo_description && (
+            <CopyButton text={entry.seo_description} label="Copy Description" />
+          )}
+          {entry.seo_tags.length > 0 && (
+            <CopyButton text={entry.seo_tags.join(", ")} label="Copy Tags" />
+          )}
+        </div>
+
+        {/* Full SEO Title */}
+        {entry.seo_title && (
+          <div>
+            <h4 className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider mb-1">Title</h4>
+            <p className="text-sm text-neutral-200 font-medium">{entry.seo_title}</p>
+          </div>
+        )}
+
+        {/* Full Description */}
+        {entry.seo_description && (
+          <div>
+            <h4 className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider mb-1">Description</h4>
+            <p className="text-sm text-neutral-400 whitespace-pre-wrap leading-relaxed">{entry.seo_description}</p>
+          </div>
+        )}
+
+        {/* All Tags */}
+        {entry.seo_tags.length > 0 && (
+          <div>
+            <h4 className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider mb-1.5">
+              Tags ({entry.seo_tags.length})
+            </h4>
+            <div className="flex flex-wrap gap-1.5">
+              {entry.seo_tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="text-xs px-2 py-0.5 bg-neutral-800 text-neutral-400 rounded-full"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* No SEO data message */}
+        {!entry.seo_title && !entry.seo_description && entry.seo_tags.length === 0 && (
+          <p className="text-sm text-neutral-600 italic">No SEO metadata found in this export folder.</p>
+        )}
+      </div>
+
+      {/* Upload panel — only show if not already uploaded to YouTube */}
+      {!entry.youtube_url && (
+        <UploadPanel
+          entry={entry}
+          youtubeConnected={youtubeConnected}
+          onNavigateToSettings={onNavigateToSettings}
+          onUploadComplete={onUploadComplete}
+        />
+      )}
+    </div>
+  );
+}
+
+export default function CatalogPage({ onNavigateToSettings }: Props) {
   const [entries, setEntries] = useState<CatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterUploaded, setFilterUploaded] = useState<"all" | "uploaded" | "not-uploaded">("all");
   const [selectedEntry, setSelectedEntry] = useState<CatalogEntry | null>(null);
   const [expandedFolder, setExpandedFolder] = useState<string | null>(null);
+  const [youtubeConnected, setYoutubeConnected] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -186,6 +414,9 @@ export default function CatalogPage() {
 
   useEffect(() => {
     load();
+    getYouTubeOAuthStatus().then((status) => {
+      setYoutubeConnected(status.youtube.connected);
+    });
   }, [load]);
 
   const handleToggleUploaded = async (entry: CatalogEntry, e: React.MouseEvent) => {
@@ -207,6 +438,16 @@ export default function CatalogPage() {
     if (entry.video_file) {
       setSelectedEntry(entry);
     }
+  };
+
+  const handleUploadComplete = (folderName: string, youtubeUrl: string) => {
+    setEntries((prev) =>
+      prev.map((en) =>
+        en.folder_name === folderName
+          ? { ...en, uploaded: true, youtube_url: youtubeUrl }
+          : en,
+      ),
+    );
   };
 
   const toggleExpand = (folderName: string) => {
@@ -311,24 +552,48 @@ export default function CatalogPage() {
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-start justify-between gap-3">
                         <h3 className="text-base font-semibold text-neutral-100 truncate">
-                          {entry.seo_title || entry.folder_name}
+                          {entry.youtube_url ? (
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openInBrowser(entry.youtube_url!);
+                              }}
+                              className="hover:text-red-400 transition-colors cursor-pointer"
+                              title="Open on YouTube"
+                            >
+                              {entry.seo_title || entry.folder_name}
+                              <svg className="w-3.5 h-3.5 inline-block ml-1.5 -mt-0.5 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
+                              </svg>
+                            </span>
+                          ) : (
+                            entry.seo_title || entry.folder_name
+                          )}
                         </h3>
                         <div className="flex items-center gap-2 shrink-0">
-                          <span
-                            onClick={(e) => handleToggleUploaded(entry, e)}
-                            title="Click to toggle upload status"
-                            className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium cursor-pointer transition-colors border ${
-                              entry.uploaded
-                                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25"
-                                : "bg-neutral-800 text-neutral-500 border-neutral-700 hover:bg-neutral-700 hover:text-neutral-300"
-                            }`}
-                          >
-                            {/* Toggle circle indicator */}
-                            <span className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                              entry.uploaded ? "bg-emerald-400" : "bg-neutral-600"
-                            }`} />
-                            {entry.uploaded ? "Uploaded" : "Not Uploaded"}
-                          </span>
+                          {entry.youtube_url ? (
+                            <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-red-500/15 text-red-400 border border-red-500/30">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
+                              </svg>
+                              On YouTube
+                            </span>
+                          ) : (
+                            <span
+                              onClick={(e) => handleToggleUploaded(entry, e)}
+                              title="Click to toggle upload status"
+                              className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium cursor-pointer transition-colors border ${
+                                entry.uploaded
+                                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25"
+                                  : "bg-neutral-800 text-neutral-500 border-neutral-700 hover:bg-neutral-700 hover:text-neutral-300"
+                              }`}
+                            >
+                              <span className={`w-2.5 h-2.5 rounded-full transition-colors ${
+                                entry.uploaded ? "bg-emerald-400" : "bg-neutral-600"
+                              }`} />
+                              {entry.uploaded ? "Uploaded" : "Not Uploaded"}
+                            </span>
+                          )}
                           {/* Chevron */}
                           <svg
                             className={`w-4 h-4 text-neutral-500 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
@@ -372,7 +637,14 @@ export default function CatalogPage() {
                     style={{ gridTemplateRows: isExpanded ? "1fr" : "0fr" }}
                   >
                     <div className="overflow-hidden">
-                      {isExpanded && <AccordionContent entry={entry} />}
+                      {isExpanded && (
+                        <AccordionContent
+                          entry={entry}
+                          youtubeConnected={youtubeConnected}
+                          onNavigateToSettings={onNavigateToSettings}
+                          onUploadComplete={(url) => handleUploadComplete(entry.folder_name, url)}
+                        />
+                      )}
                     </div>
                   </div>
                 </div>

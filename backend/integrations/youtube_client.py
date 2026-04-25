@@ -160,3 +160,19 @@ def upload_video(
         "id": video_id,
         "url": f"https://www.youtube.com/watch?v={video_id}",
     }
+
+
+def set_thumbnail(access_token: str, video_id: str, image_path: str) -> None:
+    """Upload a custom thumbnail for a YouTube video.
+
+    Requires the channel to be verified for custom thumbnails.
+    Fails gracefully if not permitted.
+    """
+    creds = Credentials(token=access_token)
+    youtube = build("youtube", "v3", credentials=creds)
+    media = MediaFileUpload(image_path, mimetype="image/png", resumable=False)
+    try:
+        youtube.thumbnails().set(videoId=video_id, media_body=media).execute()
+        logger.info("Set custom thumbnail for video %s", video_id)
+    except Exception as exc:
+        logger.warning("Failed to set thumbnail for video %s: %s", video_id, exc)

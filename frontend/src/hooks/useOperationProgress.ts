@@ -17,9 +17,9 @@ export function useOperationProgress(operationType: string): UseOperationProgres
     (sceneCount?: number) => {
       setActive(true);
       startTime.current = Date.now();
-      fetchGenerationEstimate(operationType, sceneCount).then((est) => {
-        setEstimatedSeconds(est.average_seconds);
-      });
+      fetchGenerationEstimate(operationType, sceneCount)
+        .then((est) => setEstimatedSeconds(est.average_seconds))
+        .catch(() => {});
     },
     [operationType],
   );
@@ -29,7 +29,7 @@ export function useOperationProgress(operationType: string): UseOperationProgres
       setActive(false);
       if (startTime.current > 0) {
         const elapsed = (Date.now() - startTime.current) / 1000;
-        recordDuration(operationType, elapsed, sceneCount);
+        recordDuration(operationType, elapsed, sceneCount).catch(() => {});
         startTime.current = 0;
       }
     },

@@ -168,12 +168,14 @@ function TimelineEditor({
   title,
   onBack,
   onSaveStateChange,
+  onNavigateToSettings,
 }: {
   scriptId: string;
   initialContent: ScriptContent;
   title: string;
   onBack: () => void;
   onSaveStateChange?: (state: SaveState) => void;
+  onNavigateToSettings?: () => void;
 }) {
   const state = useTimelineState(scriptId, initialContent);
   const render = useRenderState(scriptId, title, initialContent.seo_metadata);
@@ -210,6 +212,7 @@ function TimelineEditor({
   const [lastAudioGenTimestamp, setLastAudioGenTimestamp] = useState(0);
   const [lastFXGenTimestamp, setLastFXGenTimestamp] = useState(0);
   const [yoloRunning, setYoloRunning] = useState(false);
+  const [youtubeConnected, setYoutubeConnected] = useState(false);
   const [yoloStep, setYoloStep] = useState<string | null>(null);
   const [yoloError, setYoloError] = useState<string | null>(null);
   const yoloCancelledRef = useRef(false);
@@ -222,6 +225,11 @@ function TimelineEditor({
 
   // Fetch cost on mount
   useEffect(() => { refreshCost(); }, [refreshCost]);
+
+  // Check YouTube connection on mount
+  useEffect(() => {
+    getYouTubeOAuthStatus().then((s) => setYoutubeConnected(s.youtube.connected));
+  }, []);
 
   // Refresh cost when image or audio batch generation completes
   const imgDone = state.batchImageProgress.total > 0 && (state.batchImageProgress.completed + state.batchImageProgress.failed) >= state.batchImageProgress.total;
@@ -1259,6 +1267,14 @@ function TimelineEditor({
           thumbnailProgress={render.thumbnailProgress}
           seoProgress={render.seoProgress}
           exportBundleProgress={render.exportBundleProgress}
+          youtubeConnected={youtubeConnected}
+          onNavigateToSettings={() => {
+            setShowExport(false);
+            onNavigateToSettings?.();
+          }}
+          seoTitle={title}
+          seoDescription=""
+          seoTags={[]}
           onClose={() => setShowExport(false)}
         />
       )}

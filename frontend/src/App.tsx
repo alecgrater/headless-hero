@@ -415,6 +415,7 @@ function App() {
             scriptId={timelineScriptId}
             onBack={() => handleSetView("project-dashboard")}
             onSaveStateChange={handleSaveStateChange}
+            onNavigateToSettings={() => handleSetView("settings")}
           />
         )}
 
@@ -437,7 +438,7 @@ function App() {
           />
         )}
 
-        {view === "catalog" && <CatalogPage />}
+        {view === "catalog" && <CatalogPage onNavigateToSettings={() => handleSetView("settings")} />}
       </main>
       {showShortcutHelp && (
         <ShortcutHelpOverlay onClose={() => setShowShortcutHelp(false)} />
