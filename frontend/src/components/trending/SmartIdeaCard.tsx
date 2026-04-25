@@ -71,12 +71,12 @@ export default function SmartIdeaCard({ idea, index, onUseIdea, onDismiss }: Pro
         animationDelay: `${index * 60}ms`,
       }}
     >
-      <div className="flex gap-3">
+      <div
+        className={`flex gap-3 ${hasDetails ? "cursor-pointer" : ""}`}
+        onClick={() => hasDetails && setExpanded(!expanded)}
+      >
         {/* Style match badge */}
-        <div
-          className={`shrink-0 ${hasDetails ? "cursor-pointer" : ""}`}
-          onClick={() => hasDetails && setExpanded(!expanded)}
-        >
+        <div className="shrink-0">
           <StyleMatchBadge score={idea.style_match_score} />
         </div>
 
@@ -84,10 +84,7 @@ export default function SmartIdeaCard({ idea, index, onUseIdea, onDismiss }: Pro
         <div className="flex-1 min-w-0 space-y-1">
           {/* Title row with inline actions */}
           <div className="flex items-start gap-2">
-            <h3
-              className={`flex-1 text-[15px] font-semibold text-neutral-100 leading-snug ${hasDetails ? "cursor-pointer" : ""}`}
-              onClick={() => hasDetails && setExpanded(!expanded)}
-            >
+            <h3 className="flex-1 text-[15px] font-semibold text-neutral-100 leading-snug">
               {idea.title}
               {hasDetails && (
                 <svg
@@ -106,22 +103,19 @@ export default function SmartIdeaCard({ idea, index, onUseIdea, onDismiss }: Pro
                 onClick={(e) => { e.stopPropagation(); onUseIdea(idea); }}
                 className="text-xs px-3 py-1 rounded-lg font-medium bg-violet-600 hover:bg-violet-500 text-white transition-colors"
               >
-                Use Idea &rarr;
+                Use Idea →
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onDismiss(idea); }}
                 className="text-xs px-2 py-1 rounded-lg text-neutral-500 hover:text-neutral-300 hover:bg-neutral-700/50 transition-colors"
               >
-                &times;
+                ×
               </button>
             </div>
           </div>
 
           {/* Description — truncated when collapsed */}
-          <p
-            className={`text-xs text-neutral-300 leading-relaxed ${!expanded ? "line-clamp-2" : ""} ${hasDetails ? "cursor-pointer" : ""}`}
-            onClick={() => hasDetails && setExpanded(!expanded)}
-          >
+          <p className={`text-xs text-neutral-300 leading-relaxed ${!expanded ? "line-clamp-2" : ""}`}>
             {idea.description}
           </p>
 
