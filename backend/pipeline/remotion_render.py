@@ -366,69 +366,55 @@ def _apply_speed(input_path: Path, output_path: Path, speed: float) -> None:
     logger.info("Speed adjustment complete: %s", output_path)
 
 
-def _check_keyframes(video_path: Path, fps: int = FPS) -> int:
-    """Check keyframe count in a video file using ffprobe.
-
-    Returns the number of keyframes found. Logs a warning if density is too low.
-    """
-    cmd = [
-        "ffprobe", "-v", "error",
-        "-select_streams", "v:0",
-        "-show_entries", "packet=flags",
-        "-of", "csv=p=0",
-        str(video_path),
-    ]
+def _verify_video(video_path: Path) -> bool:
+    """Spot-check video integrity by decoding 5 seconds from the middle."""
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        if result.returncode != 0:
-            logger.warning("ffprobe failed (exit %d): %s", result.returncode, result.stderr[:200])
-            return -1
-        keyframe_count = result.stdout.count("K")
-        total_packets = result.stdout.count("\n")
-        duration_estimate = total_packets / fps if fps > 0 else 0
-        density = keyframe_count / duration_estimate if duration_estimate > 0 else 0
-
-        logger.info(
-            "Keyframe check: %d keyframes in ~%.0fs video (%.2f kf/s, %d total packets)",
-            keyframe_count, duration_estimate, density, total_packets,
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "csv=p=0", str(video_path)],
+            capture_output=True, text=True, timeout=30,
         )
-
-        if duration_estimate > 30 and density < 0.2:
-            logger.warning(
-                "Low keyframe density: %d keyframes in ~%.0fs (%.2f kf/s) — video may appear frozen in players",
-                keyframe_count, duration_estimate, density,
-            )
-        return keyframe_count
+        duration = float(probe.stdout.strip()) if probe.returncode == 0 else 10.0
+        mid = max(0, duration / 2 - 2.5)
     except Exception:
-        logger.warning("Keyframe check failed", exc_info=True)
-        return -1
+        mid = 0
 
-
-def _fix_keyframes(video_path: Path) -> None:
-    """Re-encode video with proper keyframe interval if density is too low."""
-    fixed_path = video_path.with_suffix(".fixed.mp4")
     cmd = [
         "ffmpeg", "-y",
+        "-ss", f"{mid:.1f}",
         "-i", str(video_path),
+        "-t", "5",
+        "-f", "null", "/dev/null",
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    if result.returncode != 0:
+        logger.error("Video verification FAILED: %s", result.stderr[-300:])
+        return False
+    logger.info("Video verification passed: %s", video_path)
+    return True
+
+
+def _reencode_h264(input_path: Path, output_path: Path) -> bool:
+    """Re-encode to H.264 with controlled keyframe interval and pixel format."""
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", str(input_path),
         "-c:v", "libx264",
         "-g", "60",
         "-crf", "18",
         "-preset", "fast",
+        "-pix_fmt", "yuv420p",
+        "-movflags", "faststart",
         "-c:a", "copy",
-        str(fixed_path),
+        str(output_path),
     ]
     logger.info("Re-encoding with proper keyframes: %s", " ".join(cmd))
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
     if result.returncode != 0:
-        logger.error("Keyframe fix failed (exit %d): %s", result.returncode, result.stderr[:500])
-        try:
-            fixed_path.unlink()
-        except OSError:
-            pass
-        return
-
-    fixed_path.replace(video_path)
-    logger.info("Keyframe fix complete: %s", video_path)
+        logger.error("Re-encode failed (exit %d): %s", result.returncode, result.stderr[-500:])
+        return False
+    logger.info("Re-encode complete: %s", output_path)
+    return True
 
 
 def render_full_video(
@@ -501,11 +487,12 @@ def render_full_video(
     output_filename = f"full_youtube{speed_suffix}.mp4"
     output_path = renders / output_filename
 
-    # When applying speed, Remotion renders to a temp file first
+    # Remotion always renders to a temp file; we re-encode to the final output
     needs_speed = speed != 1.0
-    remotion_output = renders / f"full_youtube{speed_suffix}_raw.mp4" if needs_speed else output_path
+    raw_output = renders / f"full_youtube{speed_suffix}_raw.mp4"
+    reencode_output = renders / f"full_youtube{speed_suffix}_enc.mp4" if needs_speed else output_path
 
-    props_path = _write_input_props(props, remotion_output)
+    props_path = _write_input_props(props, raw_output)
 
     if on_progress:
         on_progress(0.4, "Rendering video with Remotion...")
@@ -515,7 +502,7 @@ def render_full_video(
         _run_remotion(
             composition_id="FullVideo",
             props_path=props_path,
-            output_path=remotion_output,
+            output_path=raw_output,
             width=width,
             height=height,
             log_level="verbose",
@@ -523,34 +510,49 @@ def render_full_video(
         render_elapsed = time.monotonic() - render_start
         logger.info(
             "[%s] Remotion render finished in %.1fs — output: %s",
-            script_id, render_elapsed, remotion_output,
+            script_id, render_elapsed, raw_output,
         )
 
-        keyframes = _check_keyframes(remotion_output)
-        duration_est = total_frames / FPS if total_frames > 0 else 0
-        if keyframes >= 0 and duration_est > 30:
-            density = keyframes / duration_est if duration_est > 0 else 0
-            if density < 0.2:
-                logger.warning(
-                    "[%s] Sparse keyframes detected (%.2f kf/s) — re-encoding with -g 60",
-                    script_id, density,
+        # Verify Remotion's output is decodable
+        if not _verify_video(raw_output):
+            logger.warning("[%s] Raw output corrupt — retrying Remotion render once", script_id)
+            if on_progress:
+                on_progress(0.5, "First render corrupt, retrying...")
+            _run_remotion(
+                composition_id="FullVideo",
+                props_path=props_path,
+                output_path=raw_output,
+                width=width,
+                height=height,
+                log_level="verbose",
+            )
+            if not _verify_video(raw_output):
+                raise RuntimeError(
+                    f"Remotion produced corrupt video on both attempts for {script_id}"
                 )
-                if on_progress:
-                    on_progress(0.85, "Fixing keyframe structure...")
-                _fix_keyframes(remotion_output)
+
+        # Re-encode with controlled H.264 settings (keyframes, pixel format, faststart)
+        if on_progress:
+            on_progress(0.8, "Re-encoding with proper keyframes...")
+        if not _reencode_h264(raw_output, reencode_output):
+            raise RuntimeError(f"H.264 re-encode failed for {script_id}")
 
         if needs_speed:
             if on_progress:
                 on_progress(0.9, f"Applying {speed}x speed...")
-            _apply_speed(remotion_output, output_path, speed)
+            _apply_speed(reencode_output, output_path, speed)
     finally:
         try:
             props_path.unlink()
         except OSError:
             pass
+        try:
+            raw_output.unlink()
+        except OSError:
+            pass
         if needs_speed:
             try:
-                remotion_output.unlink()
+                reencode_output.unlink()
             except OSError:
                 pass
 
