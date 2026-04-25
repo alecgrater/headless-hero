@@ -9,13 +9,12 @@ import TimelinePage from "./components/timeline/TimelinePage";
 import { ShortcutHelpOverlay } from "./components/timeline/useKeyboardShortcuts";
 import DiscoverPage from "./components/trending/DiscoverPage";
 import PostItPage from "./components/postit/PostItPage";
-import BrainstormPage from "./components/brainstorm/BrainstormPage";
 import CatalogPage from "./components/catalog/CatalogPage";
 import useLongPress from "./hooks/useLongPress";
 import type { VideoIdea } from "./types/idea";
 import type { ScriptSummary } from "./types/script";
 
-type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "postits" | "brainstorm" | "catalog";
+type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "postits" | "catalog";
 
 function formatRelativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -259,19 +258,6 @@ function App() {
               Post-Its
             </button>
             <button
-              onClick={() => handleSetView("brainstorm")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                view === "brainstorm"
-                  ? "bg-violet-500/15 text-violet-300 font-semibold"
-                  : "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
-              }`}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
-              </svg>
-              Brainstorm
-            </button>
-            <button
               onClick={() => handleSetView("catalog")}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
                 view === "catalog"
@@ -381,7 +367,7 @@ function App() {
       </header>
 
       {/* Main content area */}
-      <main className={`flex-1 w-full ${view === "timeline" || view === "project-dashboard" || view === "settings" || view === "discover" || view === "postits" || view === "brainstorm" || view === "catalog" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
+      <main className={`flex-1 w-full ${view === "timeline" || view === "project-dashboard" || view === "settings" || view === "discover" || view === "postits" || view === "catalog" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
         {view === "settings" && (
           <SettingsPage
             onBack={() => handleSetView("project-dashboard")}
@@ -444,15 +430,6 @@ function App() {
 
         {view === "postits" && (
           <PostItPage
-            onGenerateIdeas={(niche) => {
-              setAutoGenerateNiche(niche);
-              handleSetView("ideation");
-            }}
-          />
-        )}
-
-        {view === "brainstorm" && (
-          <BrainstormPage
             onGenerateIdeas={(niche) => {
               setAutoGenerateNiche(niche);
               handleSetView("ideation");
