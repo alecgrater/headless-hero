@@ -96,13 +96,13 @@ def list_catalog():
             if f.suffix.lower() == ".mp4":
                 video_file = f.name
                 file_size_mb = round(f.stat().st_size / (1024 * 1024), 1)
-            elif lower == "thumbnail.png" or lower.endswith("thumbnail.png"):
+            elif lower == "thumbnail.png" or lower.endswith(" - thumbnail.png"):
                 thumbnail_file = f.name
-            elif lower == "seo.txt" or lower.endswith("seo.txt"):
+            elif lower == "seo.txt" or lower.endswith(" - seo.txt"):
                 seo_path = f
 
         seo_title, seo_description, seo_tags = None, None, []
-        if seo_path and seo_path.exists():
+        if seo_path:
             seo_title, seo_description, seo_tags = _parse_seo_txt(seo_path)
 
         mtime = item.stat().st_mtime
