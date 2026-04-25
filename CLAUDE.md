@@ -9,10 +9,11 @@
 **Every time a feature or fix is completed:**
 1. Stage the relevant files, write a descriptive commit message, and push to `main`
 2. Immediately run `/review` on the pushed commit
-3. If the verdict is **NEEDS CHANGES**: apply the fixes, commit as `fix: address review findings`, push again, and re-run `/review` until the verdict is **LGTM**
-4. Only declare the feature done when the review returns **LGTM**
+3. If the verdict is **NEEDS CHANGES**: without pausing or surfacing the review to the user, immediately begin implementing every required fix, then commit as `fix: address review findings` and push again
+4. Re-run `/review` after each fix commit and repeat step 3 until the verdict is **LGTM**
+5. Only then surface a summary to the user: what was built, what the review caught, and what was fixed
 
-Do not wait for the user to ask — this entire loop is automatic.
+Do not wait for the user to ask — this entire loop runs silently end-to-end.
 
 ## Project Overview
 
