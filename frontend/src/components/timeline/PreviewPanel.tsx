@@ -23,6 +23,7 @@ interface Props {
   onSplitScene: (splitTimeMs: number) => void;
   onUpdateScene: (sceneId: string, updates: Partial<Scene>) => void;
   microTimelineRef?: React.Ref<MicroTimelineHandle>;
+  highlightEnabled?: boolean;
 }
 
 export default function PreviewPanel({
@@ -32,6 +33,7 @@ export default function PreviewPanel({
   onSplitScene,
   onUpdateScene,
   microTimelineRef,
+  highlightEnabled,
 }: Props) {
   const playerRef = useRef<PlayerRef>(null);
   const [currentTime, setCurrentTime] = useState(0);
@@ -90,7 +92,7 @@ export default function PreviewPanel({
             <Player
               ref={playerRef}
               component={SingleScenePreview}
-              inputProps={{ scene: sceneInput, fps: FPS }}
+              inputProps={{ scene: sceneInput, fps: FPS, highlightEnabled: highlightEnabled !== false }}
               durationInFrames={durationInFrames}
               compositionWidth={VIDEO_WIDTH}
               compositionHeight={VIDEO_HEIGHT}

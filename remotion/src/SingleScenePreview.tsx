@@ -10,12 +10,13 @@ import { SceneRenderer } from "./scenes/SceneRenderer";
 interface Props {
   scene: SceneInput;
   fps: number;
+  highlightEnabled?: boolean;
 }
 
-export const SingleScenePreview: React.FC<Props> = ({ scene }) => {
+export const SingleScenePreview: React.FC<Props> = ({ scene, highlightEnabled }) => {
   return (
     <div style={{ width: "100%", height: "100%", backgroundColor: "#000" }}>
-      <SceneRenderer scene={scene} />
+      <SceneRenderer scene={scene} highlightEnabled={highlightEnabled} />
     </div>
   );
 };
