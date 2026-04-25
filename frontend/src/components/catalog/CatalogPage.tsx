@@ -706,16 +706,14 @@ export default function CatalogPage({ onNavigateToSettings }: Props) {
                                 onUploadComplete={(url) => handleUploadComplete(entry.folder_name, url)}
                               />
                               <span
-                                onClick={(e) => handleToggleUploaded(entry, e)}
-                                title="Click to toggle upload status"
-                                className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium cursor-pointer transition-colors border ${
+                                className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium transition-colors border ${
                                   entry.uploaded
-                                    ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25"
-                                    : "bg-neutral-800 text-neutral-500 border-neutral-700 hover:bg-neutral-700 hover:text-neutral-300"
+                                    ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                                    : "bg-yellow-500/15 text-yellow-400 border-yellow-500/30"
                                 }`}
                               >
                                 <span className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                                  entry.uploaded ? "bg-emerald-400" : "bg-neutral-600"
+                                  entry.uploaded ? "bg-emerald-400" : "bg-yellow-400"
                                 }`} />
                                 {entry.uploaded ? "Uploaded" : "Not Uploaded"}
                               </span>
@@ -751,9 +749,28 @@ export default function CatalogPage({ onNavigateToSettings }: Props) {
                           )}
                         </div>
                       )}
-                      <div className="flex items-center gap-4 text-xs text-neutral-600">
-                        <span>{entry.file_size_mb} MB</span>
-                        <span>{formatDate(entry.exported_at)}</span>
+                      <div className="flex items-center justify-between text-xs text-neutral-600">
+                        <div className="flex items-center gap-4">
+                          <span>{entry.file_size_mb} MB</span>
+                          <span>{formatDate(entry.exported_at)}</span>
+                        </div>
+                        {!entry.youtube_url && (
+                          <label
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1.5 cursor-pointer select-none"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={entry.uploaded}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleToggleUploaded(entry, e as unknown as React.MouseEvent);
+                              }}
+                              className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-800 text-emerald-500 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-emerald-500"
+                            />
+                            <span className="text-neutral-500">Uploaded</span>
+                          </label>
+                        )}
                       </div>
                     </div>
                   </button>
