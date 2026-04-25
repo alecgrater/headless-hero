@@ -20,7 +20,7 @@ class SEOMetadata(BaseModel):
     youtube: YouTubeSEO
 
 
-def _format_timestamp(total_seconds: float) -> str:
+def format_timestamp(total_seconds: float) -> str:
     """Format seconds as M:SS (or H:MM:SS if >= 1 hour)."""
     total = int(total_seconds)
     hours, remainder = divmod(total, 3600)

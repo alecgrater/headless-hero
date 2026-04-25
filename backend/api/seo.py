@@ -10,7 +10,7 @@ from sqlmodel import Session
 from database import get_session
 from models.brand import BrandProfile
 from models.script import Script, ScriptContent
-from pipeline.seo import SEOMetadata, generate_seo, _format_timestamp
+from pipeline.seo import SEOMetadata, generate_seo, format_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ def generate_seo_metadata(body: GenerateSEORequest, session: Session = Depends(g
     segments: list[tuple[str, str]] = []
     elapsed = 0.0
     for seg in content.segments:
-        segments.append((seg.name, _format_timestamp(elapsed)))
+        segments.append((seg.name, format_timestamp(elapsed)))
         for scene in seg.scenes:
             elapsed += scene.audio_duration_seconds
 

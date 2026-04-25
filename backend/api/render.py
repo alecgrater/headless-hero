@@ -545,8 +545,10 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
     safe_title = sanitize_filename(record.topic_title or "Untitled")
+    date_str = record.created_at.strftime("%Y-%m-%d")
+    folder_name = f"{safe_title} ({date_str})"
 
-    folder = ICLOUD_VIDEOS_DIR / safe_title
+    folder = ICLOUD_VIDEOS_DIR / folder_name
     folder.mkdir(parents=True, exist_ok=True)
 
     project_dir = DATA_DIR / "projects" / body.script_id
@@ -577,12 +579,12 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
     # SEO — auto-generate if missing
     if not content.seo_metadata:
         try:
-            from pipeline.seo import generate_seo, _format_timestamp
+            from pipeline.seo import generate_seo, format_timestamp
 
             segments: list[tuple[str, str]] = []
             elapsed = 0.0
             for seg in content.segments:
-                segments.append((seg.name, _format_timestamp(elapsed)))
+                segments.append((seg.name, format_timestamp(elapsed)))
                 for scene in seg.scenes:
                     elapsed += scene.audio_duration_seconds
 

@@ -1,7 +1,6 @@
 """Endpoints for browsing exported videos in the iCloud catalog."""
 
 import logging
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -124,7 +123,9 @@ def list_catalog():
 @router.post("/{folder_name}/toggle-uploaded", response_model=ToggleUploadedResponse)
 def toggle_uploaded(folder_name: str):
     """Toggle the .uploaded marker file in a catalog folder."""
-    folder = ICLOUD_VIDEOS_DIR / folder_name
+    folder = (ICLOUD_VIDEOS_DIR / folder_name).resolve()
+    if not folder.is_relative_to(ICLOUD_VIDEOS_DIR.resolve()):
+        raise HTTPException(status_code=400, detail="Invalid folder name")
     if not folder.exists() or not folder.is_dir():
         raise HTTPException(status_code=404, detail="Folder not found")
 
