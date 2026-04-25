@@ -681,32 +681,23 @@ export default function CatalogPage({ onNavigateToSettings }: Props) {
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-start justify-between gap-3">
                         <h3 className="text-base font-semibold text-neutral-100 truncate">
+                          {entry.seo_title || entry.folder_name}
+                        </h3>
+                        <div className="flex items-center gap-2 shrink-0">
                           {entry.youtube_url ? (
-                            <span
+                            <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 openInBrowser(entry.youtube_url!);
                               }}
-                              className="hover:text-red-400 transition-colors cursor-pointer"
                               title="Open on YouTube"
+                              className="flex items-center justify-center w-8 h-8 rounded-full bg-red-600/20 hover:bg-red-600/40 transition-colors"
                             >
-                              {entry.seo_title || entry.folder_name}
-                              <svg className="w-3.5 h-3.5 inline-block ml-1.5 -mt-0.5 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4 text-red-400" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
                               </svg>
-                            </span>
-                          ) : (
-                            entry.seo_title || entry.folder_name
-                          )}
-                        </h3>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {entry.youtube_url ? (
-                            <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-red-500/15 text-red-400 border border-red-500/30">
-                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
-                              </svg>
-                              On YouTube
-                            </span>
+                            </button>
                           ) : (
                             <QuickUploadButton
                               entry={entry}
