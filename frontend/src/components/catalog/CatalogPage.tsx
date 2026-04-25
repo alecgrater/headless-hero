@@ -698,26 +698,12 @@ export default function CatalogPage({ onNavigateToSettings }: Props) {
                               On YouTube
                             </span>
                           ) : (
-                            <>
-                              <QuickUploadButton
-                                entry={entry}
-                                youtubeConnected={youtubeConnected}
-                                onNavigateToSettings={onNavigateToSettings}
-                                onUploadComplete={(url) => handleUploadComplete(entry.folder_name, url)}
-                              />
-                              <span
-                                className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium transition-colors border ${
-                                  entry.uploaded
-                                    ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                                    : "bg-yellow-500/15 text-yellow-400 border-yellow-500/30"
-                                }`}
-                              >
-                                <span className={`w-2.5 h-2.5 rounded-full transition-colors ${
-                                  entry.uploaded ? "bg-emerald-400" : "bg-yellow-400"
-                                }`} />
-                                {entry.uploaded ? "Uploaded" : "Not Uploaded"}
-                              </span>
-                            </>
+                            <QuickUploadButton
+                              entry={entry}
+                              youtubeConnected={youtubeConnected}
+                              onNavigateToSettings={onNavigateToSettings}
+                              onUploadComplete={(url) => handleUploadComplete(entry.folder_name, url)}
+                            />
                           )}
                           {/* Chevron */}
                           <svg
