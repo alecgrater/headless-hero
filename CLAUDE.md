@@ -6,14 +6,16 @@
 
 ## Auto-commit Rule
 
-**Every time a feature or fix is completed:**
-1. Stage the relevant files, write a descriptive commit message, and push to `main`
-2. Immediately run `/review` on the pushed commit
-3. If the verdict is **NEEDS CHANGES**: without pausing or surfacing the review to the user, immediately begin implementing every required fix, then commit as `fix: address review findings` and push again
-4. Re-run `/review` after each fix commit and repeat step 3 until the verdict is **LGTM**
-5. Only then surface a summary to the user: what was built, what the review caught, and what was fixed
+**Every time a feature or fix is completed, run this entire loop in a single turn — do NOT stop, pause, or wait for user input at any step:**
 
-Do not wait for the user to ask — this entire loop runs silently end-to-end.
+1. Stage the relevant files, write a descriptive commit message, and push to `main`
+2. Run `/review` on the pushed commit
+3. **Read the review verdict internally. Do NOT output the review findings to the user.** Do NOT end your turn after the review — continue immediately in the same response.
+4. If the verdict is **NEEDS CHANGES**: immediately start implementing every required fix (FAIL items first, then WARN items). Do NOT describe the review to the user. Just fix the code, commit as `fix: address review findings`, and push.
+5. Run `/review` again. Repeat step 3-4 until the verdict is **LGTM**.
+6. Only after **LGTM** — surface a single summary to the user: what was built, what the review caught (briefly), and what was fixed.
+
+**Critical**: The review output is for YOU to process, not for the user to read. After `/review` completes, your next action must be either implementing fixes (if NEEDS CHANGES) or writing the summary (if LGTM). Never stop between review and action.
 
 ## Project Overview
 
