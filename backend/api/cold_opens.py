@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -9,6 +10,7 @@ from sqlmodel import Session
 
 from database import get_default_brand_id, get_session
 from models.brand import BrandProfile
+from models.generation_duration import GenerationDuration
 from models.cold_open import GenerateColdOpensRequest
 from models.script import HookScore
 from pipeline.cold_open import generate_cold_opens
@@ -70,6 +72,7 @@ def generate_cold_opens_endpoint(
     job_id = job.id
 
     def _run() -> list[str]:
+        t0_bg = time.monotonic()
         result = generate_cold_opens(
             topic=topic,
             description=description,
@@ -77,6 +80,13 @@ def generate_cold_opens_endpoint(
             model=model,
         )
         update_job(job_id, output_data=result.model_dump_json())
+
+        from database import engine
+        from sqlmodel import Session as BgSession
+        with BgSession(engine) as s:
+            s.add(GenerationDuration(operation_type="cold_open_generation", duration_seconds=time.monotonic() - t0_bg))
+            s.commit()
+
         return []
 
     run_in_background(job_id, _run)

@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -9,6 +10,7 @@ from sqlmodel import Session
 
 from config import FPS
 from database import get_session
+from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
 from pipeline.fx_generator import generate_scene_fx
 
@@ -41,6 +43,7 @@ class RegenerateFXResponse(BaseModel):
 @router.post("/generate", response_model=GenerateFXResponse)
 def generate_all_fx(body: GenerateFXRequest, session: Session = Depends(get_session)):
     """Generate FX assignments for all scenes by calling per-scene generation."""
+    t0 = time.monotonic()
     logger.info("Generating FX for all scenes in script %s", body.script_id)
     record = session.get(Script, body.script_id)
     if not record:
@@ -111,6 +114,11 @@ def generate_all_fx(body: GenerateFXRequest, session: Session = Depends(get_sess
     session.commit()
 
     logger.info("Applied FX to %d/%d scenes for script %s", updated, total_scenes, body.script_id)
+
+    duration = time.monotonic() - t0
+    session.add(GenerationDuration(operation_type="fx_generation", duration_seconds=duration, scene_count=total_scenes))
+    session.commit()
+
     return GenerateFXResponse(script_id=body.script_id, scenes_updated=updated)
 
 

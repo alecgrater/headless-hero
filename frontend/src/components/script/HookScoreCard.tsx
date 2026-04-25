@@ -1,4 +1,5 @@
 import type { HookScore } from "../../types/script";
+import MiniProgressBar from "../MiniProgressBar";
 
 interface Props {
   hookScore: HookScore | null;
@@ -6,6 +7,7 @@ interface Props {
   error: string | null;
   onRescore: () => void;
   score?: HookScore | null;
+  progress?: { estimatedSeconds: number | null; active: boolean };
 }
 
 function ScoreBar({ label, value, color }: { label: string; value: number; color: string }) {
@@ -31,7 +33,7 @@ function overallColor(score: number): string {
   return "text-red-400";
 }
 
-export default function HookScoreCard({ hookScore, loading, error, onRescore, score }: Props) {
+export default function HookScoreCard({ hookScore, loading, error, onRescore, score, progress }: Props) {
   // Direct score display (no loading/error/re-score button)
   if (score) {
     return (
@@ -90,6 +92,7 @@ export default function HookScoreCard({ hookScore, loading, error, onRescore, sc
           <div className="h-1.5 bg-neutral-800 rounded-full w-2/3" />
           <div className="h-1.5 bg-neutral-800 rounded-full w-4/5" />
         </div>
+        {progress && <MiniProgressBar estimatedSeconds={progress.estimatedSeconds} active={progress.active} />}
       </div>
     );
   }

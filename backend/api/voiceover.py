@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 
 from config import DEFAULT_TTS_MODEL
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -16,6 +17,7 @@ from integrations.elevenlabs_client import (
     list_voices,
     search_library_voices,
 )
+from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
 from pipeline.voiceover import generate_batch_audio, generate_scene_audio
 from pipeline.duration_variance import check_and_tighten
@@ -103,6 +105,7 @@ class AddLibraryVoiceResponse(BaseModel):
 @router.post("/generate", response_model=GenerateAudioResponse)
 def generate_audio(body: GenerateAudioRequest, session: Session = Depends(get_session)):
     """Generate TTS audio for a single scene."""
+    t0 = time.monotonic()
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
@@ -128,6 +131,10 @@ def generate_audio(body: GenerateAudioRequest, session: Session = Depends(get_se
     update_scene(session, body.script_id, body.scene_id, **fields)
 
     logger.info("Audio generated for scene %s: %.1fs duration", body.scene_id, duration)
+
+    session.add(GenerationDuration(operation_type="single_audio_generation", duration_seconds=time.monotonic() - t0))
+    session.commit()
+
     return GenerateAudioResponse(audio_url=audio_url, duration_seconds=duration, word_timestamps=word_timestamps)
 
 @router.post("/generate-batch", response_model=GenerateBatchAudioResponse)
@@ -194,6 +201,7 @@ async def clone_voice_endpoint(
     files: list[UploadFile] = File(...),
 ):
     """Clone a voice by uploading audio samples to ElevenLabs."""
+    t0 = time.monotonic()
     if not files:
         raise HTTPException(status_code=400, detail="At least one audio file is required")
     if len(files) > 25:
@@ -208,6 +216,13 @@ async def clone_voice_endpoint(
 
     voice_id = clone_voice(name=name, audio_files=audio_files, description=description)
     logger.info("Voice cloned successfully: %s", voice_id)
+
+    from database import engine
+    from sqlmodel import Session as SyncSession
+    with SyncSession(engine) as s:
+        s.add(GenerationDuration(operation_type="voice_cloning", duration_seconds=time.monotonic() - t0))
+        s.commit()
+
     return CloneVoiceResponse(voice_id=voice_id)
 
 @router.get("/voices", response_model=VoiceListResponse)

@@ -284,6 +284,7 @@ def refine_scene_endpoint(
     body: RefineSceneRequest,
     session: Session = Depends(get_session),
 ):
+    t0 = time.monotonic()
     record = session.get(Script, script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
@@ -299,6 +300,10 @@ def refine_scene_endpoint(
 
     logger.info("Refining scene %s in script %s", body.scene_id, script_id)
     refined = refine_scene(script_content, body.segment_index, body.scene_id)
+
+    session.add(GenerationDuration(operation_type="scene_refinement", duration_seconds=time.monotonic() - t0))
+    session.commit()
+
     return RefineSceneResponse(scene=refined)
 
 
@@ -376,6 +381,7 @@ class HookScoreResponse(BaseModel):
 
 @router.post("/{script_id}/hook-score", response_model=HookScoreResponse)
 def hook_score_endpoint(script_id: str, session: Session = Depends(get_session)):
+    t0 = time.monotonic()
     record = session.get(Script, script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
@@ -405,6 +411,9 @@ def hook_score_endpoint(script_id: str, session: Session = Depends(get_session))
     content.hook_score = result.model_dump()
     record.script_json = content.model_dump_json()
     session.add(record)
+    session.commit()
+
+    session.add(GenerationDuration(operation_type="hook_score", duration_seconds=time.monotonic() - t0))
     session.commit()
 
     return {"hook_score": result.model_dump()}

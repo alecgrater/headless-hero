@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -9,6 +10,7 @@ from sqlmodel import Session
 
 from database import get_session
 from models.brand import BrandProfile
+from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
 from pipeline.seo import SEOMetadata, generate_seo, format_timestamp
 
@@ -25,6 +27,7 @@ class GenerateSEOResponse(BaseModel):
 @router.post("/generate", response_model=GenerateSEOResponse)
 def generate_seo_metadata(body: GenerateSEORequest, session: Session = Depends(get_session)):
     """Generate SEO metadata for all platforms."""
+    t0 = time.monotonic()
     logger.info("Generating SEO metadata for script %s", body.script_id)
     record = session.get(Script, body.script_id)
     if not record:
@@ -61,4 +64,9 @@ def generate_seo_metadata(body: GenerateSEORequest, session: Session = Depends(g
     session.commit()
 
     logger.info("SEO metadata generated for script %s", body.script_id)
+
+    duration = time.monotonic() - t0
+    session.add(GenerationDuration(operation_type="seo_generation", duration_seconds=duration))
+    session.commit()
+
     return GenerateSEOResponse(metadata=metadata)

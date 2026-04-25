@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -10,6 +11,7 @@ from sqlmodel import Session
 from config import IMAGE_HEIGHT, IMAGE_WIDTH
 from database import get_session
 from api._helpers import update_scene
+from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
 from pipeline.image_gen import generate_batch, generate_scene_frames_v2, generate_scene_image
 from pipeline.render_jobs import create_job, get_job, run_in_background
@@ -75,6 +77,7 @@ def _update_scene_with_frames(
 @router.post("/generate", response_model=GenerateVisualResponse)
 def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_session)):
     """Generate an image for a single scene."""
+    t0 = time.monotonic()
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
@@ -97,6 +100,8 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         first_image = next((u for u in frame_urls if u), "")
         if frame_urls:
             _update_scene_with_frames(session, body.script_id, body.scene_id, frame_urls=frame_urls)
+        session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
+        session.commit()
         return GenerateVisualResponse(
             image_url=first_image,
             prompt_used=frame_results[0][1] if frame_results else "",
@@ -114,6 +119,9 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
     )
 
     update_scene(session, body.script_id, body.scene_id, image_url=image_url)
+
+    session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
+    session.commit()
 
     return GenerateVisualResponse(image_url=image_url, prompt_used=prompt_used)
 
@@ -198,6 +206,8 @@ def generate_title_cards(body: GenerateTitleCardsRequest, session: Session = Dep
         from database import engine
         from sqlmodel import Session as SyncSession
 
+        t0_bg = time.monotonic()
+
         ensure_title_card_images(
             script_id=script_id,
             content=content,
@@ -213,6 +223,13 @@ def generate_title_cards(body: GenerateTitleCardsRequest, session: Session = Dep
                 rec.script_json = content.model_dump_json()
                 bg_session.add(rec)
                 bg_session.commit()
+
+            bg_session.add(GenerationDuration(
+                operation_type="title_card_generation",
+                duration_seconds=time.monotonic() - t0_bg,
+                scene_count=segment_count,
+            ))
+            bg_session.commit()
 
         return []
 

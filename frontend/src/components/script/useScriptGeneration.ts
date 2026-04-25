@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import api, { fetchGenerationEstimate, refineHook } from "../../api";
 import { DEFAULT_MODEL } from "../../constants";
+import { useOperationProgress } from "../../hooks/useOperationProgress";
 import { usePollJob } from "../../hooks/usePollJob";
 import type { VideoIdea } from "../../types/idea";
 import type { ColdOpenResult, ColdOpenVariant, RefinedHookResult, ScriptContent } from "../../types/script";
@@ -69,6 +70,7 @@ export interface ScriptGenerationState {
   handleModelChange: (value: string) => void;
   handleColdOpenSelect: (variant: ColdOpenVariant) => void;
   setSegmented: (v: boolean) => void;
+  coldOpenProgress: { estimatedSeconds: number | null; active: boolean };
 }
 
 export default function useScriptGeneration({ brandId, idea }: Params): ScriptGenerationState {
@@ -94,6 +96,7 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
 
   const cancelledRef = useRef(false);
   const coldOpenJobIdRef = useRef<string | null>(null);
+  const coldOpenProgress = useOperationProgress("cold_open_generation");
 
   // --- Script generation polling ---
   const { startPolling: startScriptPolling, stopPolling: stopScriptPolling } = usePollJob<GenJobStatus>({
@@ -178,16 +181,19 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
       }
 
       if (job.status === "completed" && job.cold_open_result) {
+        coldOpenProgress.end();
         setColdOpenResult(job.cold_open_result);
         setPhase("selecting");
         setLoading(false);
       } else if (job.status === "failed") {
+        coldOpenProgress.end();
         setError(job.error ?? "Cold open generation failed");
         setLoading(false);
         setPhase("idle");
       }
     },
     onConnectionLost: () => {
+      coldOpenProgress.end();
       setError(
         "Lost connection to the cold open job. The backend may have restarted. Please try again.",
       );
@@ -267,6 +273,7 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
     setColdOpenResult(null);
     setSelectedColdOpen(null);
     setPhase("cold_opens");
+    coldOpenProgress.start();
 
     try {
       const res = await api.post("/api/scripts/cold-opens", {
@@ -429,5 +436,6 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
     handleModelChange,
     handleColdOpenSelect,
     setSegmented,
+    coldOpenProgress: { estimatedSeconds: coldOpenProgress.estimatedSeconds, active: coldOpenProgress.active },
   };
 }

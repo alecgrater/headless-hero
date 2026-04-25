@@ -1,5 +1,6 @@
 import { useState } from "react";
 import api from "../../api";
+import { useOperationProgress } from "../../hooks/useOperationProgress";
 import type { Scene, ScriptContent } from "../../types/script";
 
 interface Params {
@@ -25,6 +26,7 @@ export interface SceneEditingState {
   startEditOutro: () => void;
   saveOutroEdit: () => Promise<void>;
   refineScene: (si: number, sceneId: string) => Promise<void>;
+  refineProgress: { estimatedSeconds: number | null; active: boolean };
 }
 
 export default function useSceneEditing({ script, scriptId, setScript }: Params): SceneEditingState {
@@ -34,6 +36,7 @@ export default function useSceneEditing({ script, scriptId, setScript }: Params)
   const [editedScenes, setEditedScenes] = useState<Set<string>>(new Set());
   const [refiningScene, setRefiningScene] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const refineProgressHook = useOperationProgress("scene_refinement");
 
   const saveScript = async (updated: ScriptContent) => {
     if (!scriptId) return;
@@ -95,6 +98,7 @@ export default function useSceneEditing({ script, scriptId, setScript }: Params)
   const refineScene = async (si: number, sceneId: string) => {
     if (!script || !scriptId) return;
     setRefiningScene(sceneId);
+    refineProgressHook.start();
     try {
       const res = await api.post(`/api/scripts/${scriptId}/refine-scene`, {
         segment_index: si,
@@ -117,6 +121,7 @@ export default function useSceneEditing({ script, scriptId, setScript }: Params)
       }
     } finally {
       setRefiningScene(null);
+      refineProgressHook.end();
     }
   };
 
@@ -137,5 +142,6 @@ export default function useSceneEditing({ script, scriptId, setScript }: Params)
     startEditOutro,
     saveOutroEdit,
     refineScene,
+    refineProgress: { estimatedSeconds: refineProgressHook.estimatedSeconds, active: refineProgressHook.active },
   };
 }

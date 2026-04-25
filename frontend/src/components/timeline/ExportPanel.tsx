@@ -1,6 +1,9 @@
 import { useState } from "react";
-import { assetUrl, showInFolder } from "../../api";
+import { assetUrl, catalogUpload, getPublishStatus, showInFolder, openInBrowser } from "../../api";
+import type { CatalogUploadOptions, PublishJobStatus } from "../../api";
 import type { ExportBundleResponse, RenderStatusResponse, SEOMetadata, ThumbnailConcept } from "../../types/render";
+import MiniProgressBar from "../MiniProgressBar";
+import { usePollJob } from "../../hooks/usePollJob";
 
 interface Props {
   youtubeStatus: RenderStatusResponse | null;
@@ -25,6 +28,18 @@ interface Props {
 
   // Smart export phase
   exportPhase: "rendering" | "exporting" | null;
+
+  // Operation progress
+  thumbnailProgress: { estimatedSeconds: number | null; active: boolean };
+  seoProgress: { estimatedSeconds: number | null; active: boolean };
+  exportBundleProgress: { estimatedSeconds: number | null; active: boolean };
+
+  // YouTube upload
+  youtubeConnected: boolean;
+  onNavigateToSettings: () => void;
+  seoTitle: string;
+  seoDescription: string;
+  seoTags: string[];
 
   onClose: () => void;
 }
@@ -196,11 +211,87 @@ export default function ExportPanel({
   exportBundleResult,
   onExportBundle,
   exportPhase,
+  thumbnailProgress,
+  seoProgress,
+  exportBundleProgress,
+  youtubeConnected,
+  onNavigateToSettings,
+  seoTitle,
+  seoDescription,
+  seoTags,
   onClose,
 }: Props) {
   const youtubeRendering = youtubeStatus?.status === "running" || youtubeStatus?.status === "pending";
 
   const [activeTab, setActiveTab] = useState<Tab>("render");
+
+  // YouTube upload state (post-export)
+  const [showUploadPanel, setShowUploadPanel] = useState(false);
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploadDesc, setUploadDesc] = useState("");
+  const [uploadTags, setUploadTags] = useState("");
+  const [uploadPrivacy, setUploadPrivacy] = useState("unlisted");
+  const [uploadEditing, setUploadEditing] = useState(false);
+  const [ytUploading, setYtUploading] = useState(false);
+  const [ytUploadStatus, setYtUploadStatus] = useState<PublishJobStatus | null>(null);
+  const [ytUploadError, setYtUploadError] = useState<string | null>(null);
+  const [ytUploadedUrl, setYtUploadedUrl] = useState<string | null>(null);
+
+  const { startPolling: startUploadPolling, stopPolling: stopUploadPolling } = usePollJob<PublishJobStatus>({
+    pollFn: async (jobId) => getPublishStatus(jobId),
+    isComplete: (s) => s.status === "completed",
+    isFailed: (s) => s.status === "failed",
+    onStatus: (status) => {
+      setYtUploadStatus(status);
+      if (status.status === "completed" && status.output_urls.length > 0) {
+        setYtUploading(false);
+        setYtUploadedUrl(status.output_urls[0]);
+      }
+      if (status.status === "failed") {
+        setYtUploading(false);
+        setYtUploadError(status.error || "Upload failed");
+      }
+    },
+    onConnectionLost: () => {
+      setYtUploading(false);
+      setYtUploadError("Lost connection to upload job");
+    },
+  });
+
+  const handleOpenUploadPanel = () => {
+    const yt = seoMetadata?.youtube;
+    setUploadTitle(yt?.title || seoTitle || "");
+    setUploadDesc(yt?.description || seoDescription || "");
+    setUploadTags((yt?.tags || seoTags || []).join(", "));
+    setUploadPrivacy("unlisted");
+    setUploadEditing(false);
+    setYtUploadError(null);
+    setYtUploadStatus(null);
+    setYtUploadedUrl(null);
+    setShowUploadPanel(true);
+  };
+
+  const handleStartUpload = async () => {
+    if (!exportBundleResult) return;
+    const folderPath = exportBundleResult.folder_path;
+    const folderName = folderPath.split("/").pop() || "";
+    setYtUploading(true);
+    setYtUploadError(null);
+    try {
+      const options: CatalogUploadOptions = {
+        folder_name: folderName,
+        title: uploadTitle,
+        description: uploadDesc,
+        tags: uploadTags.split(",").map((t) => t.trim()).filter(Boolean),
+        privacy_status: uploadPrivacy,
+      };
+      const { job_id } = await catalogUpload(options);
+      startUploadPolling(job_id);
+    } catch (err) {
+      setYtUploading(false);
+      setYtUploadError(err instanceof Error ? err.message : "Upload failed");
+    }
+  };
 
   const tabBadges: Record<Tab, boolean> = {
     render: !!youtubeUrl,
@@ -228,6 +319,36 @@ export default function ExportPanel({
                   >
                     Open in Finder
                   </button>
+                  {youtubeConnected && !ytUploadedUrl && !ytUploading && (
+                    <button
+                      onClick={handleOpenUploadPanel}
+                      className="flex items-center gap-1 text-red-400 hover:text-red-300 underline"
+                    >
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
+                      </svg>
+                      Upload to YouTube
+                    </button>
+                  )}
+                  {!youtubeConnected && (
+                    <button
+                      onClick={onNavigateToSettings}
+                      className="text-neutral-400 hover:text-neutral-300 underline"
+                    >
+                      Connect YouTube
+                    </button>
+                  )}
+                  {ytUploadedUrl && (
+                    <button
+                      onClick={() => openInBrowser(ytUploadedUrl)}
+                      className="flex items-center gap-1 text-red-400 hover:text-red-300 underline"
+                    >
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
+                      </svg>
+                      View on YouTube
+                    </button>
+                  )}
                 </div>
               )}
               <button
@@ -270,6 +391,11 @@ export default function ExportPanel({
                 estimatedSeconds={youtubeStatus.estimated_seconds}
                 elapsedSeconds={youtubeStatus.elapsed_seconds}
               />
+            </div>
+          )}
+          {(exportPhase === "exporting" || exportBundleLoading) && (
+            <div className="px-6 pb-3">
+              <MiniProgressBar estimatedSeconds={exportBundleProgress.estimatedSeconds} active={exportBundleProgress.active} />
             </div>
           )}
         </div>
@@ -390,6 +516,7 @@ export default function ExportPanel({
                   "Regenerate Thumbnail"
                 )}
               </button>
+              {thumbnailsGenerating && <MiniProgressBar estimatedSeconds={thumbnailProgress.estimatedSeconds} active={thumbnailProgress.active} />}
             </section>
           )}
 
@@ -430,9 +557,135 @@ export default function ExportPanel({
                   "Generate SEO Metadata"
                 )}
               </button>
+              {seoGenerating && <MiniProgressBar estimatedSeconds={seoProgress.estimatedSeconds} active={seoProgress.active} />}
             </section>
           )}
         </div>
+
+        {/* YouTube Upload Panel (slide-up after export) */}
+        {showUploadPanel && (
+          <div className="border-t border-neutral-800 p-6 shrink-0 space-y-4 bg-neutral-900/95">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Upload to YouTube</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setUploadEditing(!uploadEditing)}
+                  className="text-[11px] text-violet-400 hover:text-violet-300 transition-colors"
+                >
+                  {uploadEditing ? "Done Editing" : "Edit Metadata"}
+                </button>
+                <button
+                  onClick={() => { setShowUploadPanel(false); stopUploadPolling(); }}
+                  className="text-neutral-500 hover:text-neutral-300 transition-colors text-lg leading-none"
+                >
+                  &times;
+                </button>
+              </div>
+            </div>
+
+            {ytUploading && ytUploadStatus && (
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs text-neutral-400">
+                  <span>{ytUploadStatus.current_step || "Starting upload..."}</span>
+                  <span>{Math.round((ytUploadStatus.progress || 0) * 100)}%</span>
+                </div>
+                <div className="w-full h-2 bg-neutral-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-red-500 transition-all duration-300"
+                    style={{ width: `${Math.max((ytUploadStatus.progress || 0) * 100, 1)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {ytUploadError && (
+              <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-2">
+                {ytUploadError}
+              </div>
+            )}
+
+            {ytUploadedUrl && (
+              <div className="flex items-center gap-2 text-sm text-emerald-400">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+                <span>Uploaded!</span>
+                <button
+                  onClick={() => openInBrowser(ytUploadedUrl)}
+                  className="text-red-400 hover:text-red-300 underline"
+                >
+                  View on YouTube
+                </button>
+              </div>
+            )}
+
+            {!ytUploading && !ytUploadedUrl && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] text-neutral-500 block mb-0.5">Title</label>
+                    {uploadEditing ? (
+                      <input
+                        type="text"
+                        value={uploadTitle}
+                        onChange={(e) => setUploadTitle(e.target.value)}
+                        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
+                      />
+                    ) : (
+                      <p className="text-sm text-neutral-200 truncate">{uploadTitle || "Untitled"}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-neutral-500 block mb-0.5">Privacy</label>
+                    <select
+                      value={uploadPrivacy}
+                      onChange={(e) => setUploadPrivacy(e.target.value)}
+                      className="bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
+                    >
+                      <option value="unlisted">Unlisted</option>
+                      <option value="private">Private</option>
+                      <option value="public">Public</option>
+                    </select>
+                  </div>
+                </div>
+
+                {uploadEditing && (
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-[11px] text-neutral-500 block mb-0.5">Description</label>
+                      <textarea
+                        value={uploadDesc}
+                        onChange={(e) => setUploadDesc(e.target.value)}
+                        rows={2}
+                        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors resize-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-neutral-500 block mb-0.5">Tags</label>
+                      <input
+                        type="text"
+                        value={uploadTags}
+                        onChange={(e) => setUploadTags(e.target.value)}
+                        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-2.5 py-1.5 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
+                        placeholder="tag1, tag2, tag3"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleStartUpload}
+                  className="flex items-center gap-2 text-sm px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg font-medium transition-colors text-white"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
+                  </svg>
+                  Upload
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

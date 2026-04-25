@@ -13,10 +13,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from config import DATA_DIR, FPS, ICLOUD_VIDEOS_DIR, VIDEO_HEIGHT, VIDEO_WIDTH, sanitize_filename
+from config import DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH, get_export_folder, sanitize_filename
 from database import get_default_brand_id, get_session
 from api._helpers import find_scene_in_content
 from models.brand import BrandProfile
+from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
 from pipeline.render_jobs import RenderJob, create_job, estimate_render_time, get_job, is_cancelled, run_in_background, update_job
 from pipeline.remotion_render import render_full_video
@@ -529,16 +530,22 @@ def render_estimate(
 @router.post("/export-audio", response_model=ExportAudioResponse)
 def export_audio(body: ExportAudioRequest, session: Session = Depends(get_session)):
     """Concatenate all scene audio into a single MP3 (synchronous)."""
+    t0 = time.monotonic()
     content = _load_content(session, body.script_id)
     logger.info("Exporting full audio for script %s", body.script_id)
     audio_url = export_full_audio(body.script_id, content, title=body.title)
     logger.info("Audio export complete for script %s: %s", body.script_id, audio_url)
+
+    session.add(GenerationDuration(operation_type="audio_export", duration_seconds=time.monotonic() - t0))
+    session.commit()
+
     return ExportAudioResponse(audio_url=audio_url)
 
 
 @router.post("/export-bundle", response_model=ExportBundleResponse)
 def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_session)):
     """Bundle video, thumbnail, and SEO into an iCloud folder, auto-generating missing assets."""
+    t0 = time.monotonic()
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
@@ -548,7 +555,7 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
     date_str = record.created_at.strftime("%Y-%m-%d")
     folder_name = f"{safe_title} ({date_str})"
 
-    folder = ICLOUD_VIDEOS_DIR / folder_name
+    folder = get_export_folder() / folder_name
     folder.mkdir(parents=True, exist_ok=True)
 
     project_dir = DATA_DIR / "projects" / body.script_id
@@ -621,6 +628,10 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
             copied_files.append(dest.name)
 
     logger.info("Export bundle created at %s with %d files: %s", folder, len(copied_files), copied_files)
+
+    session.add(GenerationDuration(operation_type="export_bundle", duration_seconds=time.monotonic() - t0))
+    session.commit()
+
     return ExportBundleResponse(folder_path=str(folder), files=copied_files)
 
 

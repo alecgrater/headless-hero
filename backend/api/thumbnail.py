@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import shutil
+import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -11,6 +12,7 @@ from sqlmodel import Session
 
 from config import DATA_DIR, DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS
 from database import get_session
+from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
 from pipeline.thumbnail import get_composite_thumbnail, _cache_bust, gemini_enhance_thumbnail
 from pipeline.title_card_composer import compose_title_card
@@ -53,6 +55,7 @@ def get_existing_thumbnails(script_id: str, session: Session = Depends(get_sessi
 @router.post("/recomposite", response_model=GenerateThumbnailResponse)
 def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = Depends(get_session)):
     """Re-run compositing on existing circle images, then enhance with Gemini."""
+    t0 = time.monotonic()
     logger.info("Recompositing thumbnail for script %s", body.script_id)
     record = session.get(Script, body.script_id)
     if not record:
@@ -133,6 +136,10 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
     shutil.copy2(output_path, str(thumb_dest))
     url = f"/static/projects/{body.script_id}/renders/thumbnails/0.png"
     url = _cache_bust(url, str(thumb_dest))
+
+    duration = time.monotonic() - t0
+    session.add(GenerationDuration(operation_type="thumbnail_generation", duration_seconds=duration))
+    session.commit()
 
     return GenerateThumbnailResponse(
         concepts=[ThumbnailConceptResult(idx=0, title_text=card_title, visual_description="Gemini-enhanced title card", image_url=url)]

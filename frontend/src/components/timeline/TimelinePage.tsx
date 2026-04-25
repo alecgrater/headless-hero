@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import api, { assetUrl, generateFX, generateEli, pollEliJob, exportTest, fetchScriptCost } from "../../api";
+import api, { assetUrl, generateFX, generateEli, pollEliJob, exportTest, fetchScriptCost, getYouTubeOAuthStatus } from "../../api";
 import type { ExportTestOptions } from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
@@ -19,6 +19,7 @@ import VoiceSetupModal from "../brand/VoiceSetupModal";
 import { usePublishState } from "./usePublishState";
 import { useRenderState } from "./useRenderState";
 import { useTimelineState } from "./useTimelineState";
+import { useOperationProgress } from "../../hooks/useOperationProgress";
 
 import { useVoicePicker } from "./useVoicePicker";
 import { useKeyboardShortcuts, ShortcutHelpOverlay } from "./useKeyboardShortcuts";
@@ -27,9 +28,10 @@ interface Props {
   scriptId: string;
   onBack: () => void;
   onSaveStateChange?: (state: SaveState) => void;
+  onNavigateToSettings?: () => void;
 }
 
-export default function TimelinePage({ scriptId, onBack, onSaveStateChange }: Props) {
+export default function TimelinePage({ scriptId, onBack, onSaveStateChange, onNavigateToSettings }: Props) {
   const [script, setScript] = useState<ScriptRead | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +87,7 @@ export default function TimelinePage({ scriptId, onBack, onSaveStateChange }: Pr
     );
   }
 
-  return <TimelineEditor scriptId={scriptId} initialContent={script.script} title={script.topic_title} onBack={onBack} onSaveStateChange={onSaveStateChange} />;
+  return <TimelineEditor scriptId={scriptId} initialContent={script.script} title={script.topic_title} onBack={onBack} onSaveStateChange={onSaveStateChange} onNavigateToSettings={onNavigateToSettings} />;
 }
 
 interface BatchProgressProps {
@@ -95,6 +97,7 @@ interface BatchProgressProps {
     failed: number;
     currentSceneName: string | null;
     startedAt: number | null;
+    initialEstimatedSeconds?: number | null;
   };
   label: string;
 }
@@ -105,12 +108,29 @@ function BatchProgressBar({ progress, label }: BatchProgressProps) {
   const pct = done / progress.total;
   const elapsed = progress.startedAt ? (Date.now() - progress.startedAt) / 1000 : 0;
   const avgPerScene = done > 0 ? elapsed / done : 0;
-  const remaining = (progress.total - done) * avgPerScene;
-  const etaStr = done > 0 && remaining > 0
-    ? remaining < 60
-      ? `~${Math.round(remaining)}s left`
-      : `~${Math.round(remaining / 60)}m left`
-    : "";
+  const perSceneRemaining = (progress.total - done) * avgPerScene;
+
+  // Use per-scene average once scenes start completing; fall back to initial estimate
+  let etaStr = "";
+  if (done > 0 && perSceneRemaining > 0) {
+    etaStr = perSceneRemaining < 60
+      ? `~${Math.round(perSceneRemaining)}s left`
+      : `~${Math.round(perSceneRemaining / 60)}m left`;
+  } else if (done === 0 && progress.initialEstimatedSeconds && progress.initialEstimatedSeconds > 0) {
+    const initRemaining = Math.max(0, progress.initialEstimatedSeconds - elapsed);
+    if (initRemaining > 0) {
+      etaStr = initRemaining < 60
+        ? `~${Math.round(initRemaining)}s left`
+        : `~${Math.round(initRemaining / 60)}m left`;
+    }
+  }
+
+  // For progress bar: use per-scene pct when available, else time-based from initial estimate
+  let barPct = pct;
+  if (done === 0 && progress.initialEstimatedSeconds && progress.initialEstimatedSeconds > 0) {
+    barPct = Math.min(0.95, Math.pow(elapsed / progress.initialEstimatedSeconds, 2));
+  }
+
   const allDone = done >= progress.total;
 
   return (
@@ -134,7 +154,7 @@ function BatchProgressBar({ progress, label }: BatchProgressProps) {
         <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden ml-2">
           <div
             className={`h-full rounded-full transition-all duration-300 ${allDone ? "bg-emerald-500" : "bg-violet-500"}`}
-            style={{ width: `${pct * 100}%` }}
+            style={{ width: `${barPct * 100}%` }}
           />
         </div>
       </div>
@@ -158,6 +178,11 @@ function TimelineEditor({
   const state = useTimelineState(scriptId, initialContent);
   const render = useRenderState(scriptId, title, initialContent.seo_metadata);
   const publish = usePublishState(scriptId);
+
+  // Operation progress tracking
+  const fxProgress = useOperationProgress("fx_generation");
+  const eliProgress = useOperationProgress("eli_generation");
+  const titleCardProgress = useOperationProgress("title_card_generation");
 
   // Voice picker hook
   const voicePicker = useVoicePicker();
@@ -476,8 +501,10 @@ function TimelineEditor({
   };
 
   const handleGenerateFX = async () => {
+    const sceneCount = state.content.segments.reduce((n, seg) => n + seg.scenes.length, 0);
     fxCancelledRef.current = false;
     setGeneratingFX(true);
+    fxProgress.start(sceneCount);
     try {
       const res = await generateFX(scriptId);
       if (fxCancelledRef.current) return;
@@ -490,6 +517,7 @@ function TimelineEditor({
       }
     } finally {
       setGeneratingFX(false);
+      fxProgress.end(sceneCount);
       setLastFXGenTimestamp(Date.now());
       refreshCost();
     }
@@ -517,8 +545,10 @@ function TimelineEditor({
   };
 
   const handleGenerateEli = async () => {
+    const sceneCount = state.content.segments.reduce((n, seg) => n + seg.scenes.length, 0);
     eliCancelledRef.current = false;
     setGeneratingEli(true);
+    eliProgress.start(sceneCount);
     try {
       const res = await generateEli(scriptId);
       if (eliCancelledRef.current) return;
@@ -533,6 +563,7 @@ function TimelineEditor({
       }
     } finally {
       setGeneratingEli(false);
+      eliProgress.end(sceneCount);
       refreshCost();
     }
   };
@@ -683,8 +714,10 @@ function TimelineEditor({
   };
 
   const handleGenerateTitleCards = async (force = false) => {
+    const segCount = state.content.segments.length;
     titleCardCancelledRef.current = false;
     setTitleCardGenerating(true);
+    titleCardProgress.start(segCount);
     try {
       await state.generateTitleCardsStandalone(force);
       if (!titleCardCancelledRef.current) {
@@ -694,6 +727,7 @@ function TimelineEditor({
       }
     } finally {
       setTitleCardGenerating(false);
+      titleCardProgress.end(segCount);
     }
   };
 
@@ -913,6 +947,12 @@ function TimelineEditor({
             hasExistingEli={hasExistingEli}
             missingEliCount={missingEliCount}
             eliCancelledRef={eliCancelledRef}
+            fxEstimatedSeconds={fxProgress.estimatedSeconds}
+            fxProgressActive={fxProgress.active}
+            eliEstimatedSeconds={eliProgress.estimatedSeconds}
+            eliProgressActive={eliProgress.active}
+            titleCardEstimatedSeconds={titleCardProgress.estimatedSeconds}
+            titleCardProgressActive={titleCardProgress.active}
           />
 
           {/* YOLO Mode Button */}
@@ -1216,6 +1256,9 @@ function TimelineEditor({
           exportBundleResult={render.exportBundleResult}
           onExportBundle={handleSmartExport}
           exportPhase={render.exportPhase}
+          thumbnailProgress={render.thumbnailProgress}
+          seoProgress={render.seoProgress}
+          exportBundleProgress={render.exportBundleProgress}
           onClose={() => setShowExport(false)}
         />
       )}

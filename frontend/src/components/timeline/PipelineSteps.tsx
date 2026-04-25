@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { VoiceInfo } from "../../types/audio";
 import type { ScriptContent } from "../../types/script";
+import MiniProgressBar from "../MiniProgressBar";
 
 interface Props {
   // Step completion states
@@ -63,6 +64,13 @@ interface Props {
   hasExistingEli: boolean;
   missingEliCount: number;
   eliCancelledRef: RefObject<boolean>;
+  // Progress tracking
+  fxEstimatedSeconds: number | null;
+  fxProgressActive: boolean;
+  eliEstimatedSeconds: number | null;
+  eliProgressActive: boolean;
+  titleCardEstimatedSeconds: number | null;
+  titleCardProgressActive: boolean;
 }
 
 export default function PipelineSteps({
@@ -117,6 +125,12 @@ export default function PipelineSteps({
   hasExistingEli,
   missingEliCount,
   eliCancelledRef,
+  fxEstimatedSeconds,
+  fxProgressActive,
+  eliEstimatedSeconds,
+  eliProgressActive,
+  titleCardEstimatedSeconds,
+  titleCardProgressActive,
 }: Props) {
   const [showImagesDropdown, setShowImagesDropdown] = useState(false);
   const [showFXDropdown, setShowFXDropdown] = useState(false);
@@ -147,38 +161,41 @@ export default function PipelineSteps({
       <div className="grid items-center gap-1.5" style={{ gridTemplateColumns: "1fr auto 1fr auto 1fr auto 1fr auto 1fr auto 1fr" }}>
 
         {/* Step 1 — Title Cards */}
-        <div className="flex items-center gap-1.5">
-          <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
-            titleCardGenerating
-              ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
-              : titleCardGenerated || !hasTitleCards
-                ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
-                : "border-neutral-600 text-neutral-500"
-          }`}>1</span>
-          {hasTitleCards && (
-            <button
-              onClick={titleCardGenerating ? cancelTitleCards : () => handleGenerateTitleCards(titleCardGenerated)}
-              className={`text-sm px-2 py-2.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
-                titleCardGenerating
-                  ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
-                  : titleCardGenerated
-                    ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
-                    : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
-              }`}
-              title={titleCardGenerating ? "Cancel title card generation" : "Generate composite title card images for all segments"}
-            >
-              {titleCardGenerating ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
-                  Cancel
-                </>
-              ) : titleCardGenerated ? (
-                "Title Cards \u2713"
-              ) : (
-                "Title Cards"
-              )}
-            </button>
-          )}
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5">
+            <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
+              titleCardGenerating
+                ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
+                : titleCardGenerated || !hasTitleCards
+                  ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
+                  : "border-neutral-600 text-neutral-500"
+            }`}>1</span>
+            {hasTitleCards && (
+              <button
+                onClick={titleCardGenerating ? cancelTitleCards : () => handleGenerateTitleCards(titleCardGenerated)}
+                className={`text-sm px-2 py-2.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
+                  titleCardGenerating
+                    ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
+                    : titleCardGenerated
+                      ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
+                      : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
+                }`}
+                title={titleCardGenerating ? "Cancel title card generation" : "Generate composite title card images for all segments"}
+              >
+                {titleCardGenerating ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
+                    Cancel
+                  </>
+                ) : titleCardGenerated ? (
+                  "Title Cards \u2713"
+                ) : (
+                  "Title Cards"
+                )}
+              </button>
+            )}
+          </div>
+          {titleCardGenerating && <MiniProgressBar estimatedSeconds={titleCardEstimatedSeconds} active={titleCardProgressActive} />}
         </div>
 
         {/* Chevron connector */}
@@ -344,138 +361,144 @@ export default function PipelineSteps({
 
         {/* Chevron connector + Step 4 — Generate FX */}
         <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        <div className="flex items-center gap-1.5">
-          <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
-            generatingFX
-              ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
-              : allFXGenerated && fxPotentiallyStale
-                ? "border-amber-400 bg-amber-500/10 text-amber-300 shadow-[0_0_6px_rgba(245,158,11,0.3)]"
-                : allFXGenerated
-                  ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
-                  : "border-neutral-600 text-neutral-500"
-          }`}>4</span>
-          <div ref={fxDropdownRef} className="relative flex items-stretch flex-1">
-            <button
-              onClick={generatingFX ? () => { fxCancelledRef.current = true; setGeneratingFX(false); } : confirmAndGenerateFX}
-              className={`text-sm pl-2 pr-1.5 py-2.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
-                generatingFX
-                  ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
-                  : allFXGenerated && fxPotentiallyStale
-                    ? "bg-amber-500/8 border-amber-500/25 text-amber-400 hover:bg-amber-500/15"
-                    : allFXGenerated
-                      ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
-                      : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
-              }`}
-              title={generatingFX ? "Cancel FX generation" : fxPotentiallyStale && allFXGenerated ? "Audio changed since FX was last generated — regenerate to sync" : "Use AI to assign visual effects to all scenes"}
-            >
-              {generatingFX ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
-                  Cancel
-                </>
-              ) : allFXGenerated && fxPotentiallyStale ? (
-                "Generate FX \u26A0"
-              ) : allFXGenerated ? (
-                "Generate FX \u2713"
-              ) : (
-                "Generate FX"
-              )}
-            </button>
-            {!generatingFX ? (
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5">
+            <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
+              generatingFX
+                ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
+                : allFXGenerated && fxPotentiallyStale
+                  ? "border-amber-400 bg-amber-500/10 text-amber-300 shadow-[0_0_6px_rgba(245,158,11,0.3)]"
+                  : allFXGenerated
+                    ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
+                    : "border-neutral-600 text-neutral-500"
+            }`}>4</span>
+            <div ref={fxDropdownRef} className="relative flex items-stretch flex-1">
               <button
-                onClick={() => setShowFXDropdown(!showFXDropdown)}
-                className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-md transition-colors flex items-center"
-                title="FX generation options"
+                onClick={generatingFX ? () => { fxCancelledRef.current = true; setGeneratingFX(false); } : confirmAndGenerateFX}
+                className={`text-sm pl-2 pr-1.5 py-2.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
+                  generatingFX
+                    ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
+                    : allFXGenerated && fxPotentiallyStale
+                      ? "bg-amber-500/8 border-amber-500/25 text-amber-400 hover:bg-amber-500/15"
+                      : allFXGenerated
+                        ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
+                        : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
+                }`}
+                title={generatingFX ? "Cancel FX generation" : fxPotentiallyStale && allFXGenerated ? "Audio changed since FX was last generated — regenerate to sync" : "Use AI to assign visual effects to all scenes"}
               >
-                <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
-                  <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                {generatingFX ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
+                    Cancel
+                  </>
+                ) : allFXGenerated && fxPotentiallyStale ? (
+                  "Generate FX \u26A0"
+                ) : allFXGenerated ? (
+                  "Generate FX \u2713"
+                ) : (
+                  "Generate FX"
+                )}
               </button>
-            ) : (
-              <span className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-md flex items-center">
-                <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
-                  <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-            )}
-            {showFXDropdown && (
-              <div className="absolute top-full left-0 mt-1 w-48 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 py-1">
+              {!generatingFX ? (
                 <button
-                  onClick={() => { setShowFXDropdown(false); generateMissingFX(); }}
-                  disabled={allFXGenerated || !hasExistingFX}
-                  className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  onClick={() => setShowFXDropdown(!showFXDropdown)}
+                  className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-md transition-colors flex items-center"
+                  title="FX generation options"
                 >
-                  Generate Missing ({missingFXCount})
+                  <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                    <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </button>
-              </div>
-            )}
+              ) : (
+                <span className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-md flex items-center">
+                  <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
+                    <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              )}
+              {showFXDropdown && (
+                <div className="absolute top-full left-0 mt-1 w-48 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 py-1">
+                  <button
+                    onClick={() => { setShowFXDropdown(false); generateMissingFX(); }}
+                    disabled={allFXGenerated || !hasExistingFX}
+                    className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Generate Missing ({missingFXCount})
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
+          {generatingFX && <MiniProgressBar estimatedSeconds={fxEstimatedSeconds} active={fxProgressActive} />}
         </div>
 
         {/* Chevron connector + Step 5 — Add Eli */}
         <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        <div className="flex items-center gap-1.5">
-          <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
-            generatingEli
-              ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
-              : allEliGenerated
-                ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
-                : "border-neutral-600 text-neutral-500"
-          }`}>5</span>
-          <div ref={eliDropdownRef} className="relative flex items-stretch flex-1">
-            <button
-              onClick={generatingEli ? () => { eliCancelledRef.current = true; setGeneratingEli(false); } : confirmAndGenerateEli}
-              disabled={!allAudioGenerated && !generatingEli}
-              className={`text-sm pl-2 pr-1.5 py-2.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
-                generatingEli
-                  ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
-                  : allEliGenerated
-                    ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
-                    : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
-              }`}
-              title={!allAudioGenerated && !generatingEli ? "Generate audio first — Eli needs voiceover for mouth animation" : generatingEli ? "Cancel Eli generation" : "Add Eli character overlay to all scenes"}
-            >
-              {generatingEli ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
-                  Cancel
-                </>
-              ) : allEliGenerated ? (
-                "Add Eli \u2713"
-              ) : (
-                "Add Eli"
-              )}
-            </button>
-            {!generatingEli ? (
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5">
+            <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
+              generatingEli
+                ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
+                : allEliGenerated
+                  ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
+                  : "border-neutral-600 text-neutral-500"
+            }`}>5</span>
+            <div ref={eliDropdownRef} className="relative flex items-stretch flex-1">
               <button
-                onClick={() => setShowEliDropdown(!showEliDropdown)}
-                disabled={!allAudioGenerated}
-                className={`text-sm px-1 bg-neutral-800/80 border border-l-0 border-neutral-700/60 rounded-r-md transition-colors flex items-center ${!allAudioGenerated ? "text-neutral-600 cursor-not-allowed" : "text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200"}`}
-                title={!allAudioGenerated ? "Generate audio first" : "Eli generation options"}
+                onClick={generatingEli ? () => { eliCancelledRef.current = true; setGeneratingEli(false); } : confirmAndGenerateEli}
+                disabled={!allAudioGenerated && !generatingEli}
+                className={`text-sm pl-2 pr-1.5 py-2.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
+                  generatingEli
+                    ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
+                    : allEliGenerated
+                      ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
+                      : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
+                }`}
+                title={!allAudioGenerated && !generatingEli ? "Generate audio first — Eli needs voiceover for mouth animation" : generatingEli ? "Cancel Eli generation" : "Add Eli character overlay to all scenes"}
               >
-                <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
-                  <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                {generatingEli ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
+                    Cancel
+                  </>
+                ) : allEliGenerated ? (
+                  "Add Eli \u2713"
+                ) : (
+                  "Add Eli"
+                )}
               </button>
-            ) : (
-              <span className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-md flex items-center">
-                <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
-                  <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-            )}
-            {showEliDropdown && (
-              <div className="absolute top-full left-0 mt-1 w-48 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 py-1">
+              {!generatingEli ? (
                 <button
-                  onClick={() => { setShowEliDropdown(false); generateMissingEli(); }}
-                  disabled={allEliGenerated || !hasExistingEli || !allAudioGenerated}
-                  className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  onClick={() => setShowEliDropdown(!showEliDropdown)}
+                  disabled={!allAudioGenerated}
+                  className={`text-sm px-1 bg-neutral-800/80 border border-l-0 border-neutral-700/60 rounded-r-md transition-colors flex items-center ${!allAudioGenerated ? "text-neutral-600 cursor-not-allowed" : "text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200"}`}
+                  title={!allAudioGenerated ? "Generate audio first" : "Eli generation options"}
                 >
-                  Generate Missing ({missingEliCount})
+                  <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                    <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                 </button>
-              </div>
-            )}
+              ) : (
+                <span className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-md flex items-center">
+                  <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
+                    <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              )}
+              {showEliDropdown && (
+                <div className="absolute top-full left-0 mt-1 w-48 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 py-1">
+                  <button
+                    onClick={() => { setShowEliDropdown(false); generateMissingEli(); }}
+                    disabled={allEliGenerated || !hasExistingEli || !allAudioGenerated}
+                    className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Generate Missing ({missingEliCount})
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
+          {generatingEli && <MiniProgressBar estimatedSeconds={eliEstimatedSeconds} active={eliProgressActive} />}
         </div>
 
         {/* Chevron connector + Step 6 — Export (split-button with Export Test dropdown) */}

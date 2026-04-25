@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -9,6 +10,7 @@ from sqlmodel import Session
 
 from config import FPS
 from database import get_session
+from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
 from pipeline.eli_animator import generate_scene_eli
 from pipeline.render_jobs import create_job, get_job, is_cancelled, run_in_background, update_job
@@ -60,6 +62,8 @@ def generate_all_eli(body: GenerateEliRequest, session: Session = Depends(get_se
     def _run():
         from database import engine
         from sqlmodel import Session as BgSession
+
+        t0_bg = time.monotonic()
 
         with BgSession(engine) as bg_session:
             rec = bg_session.get(Script, script_id)
@@ -122,6 +126,13 @@ def generate_all_eli(body: GenerateEliRequest, session: Session = Depends(get_se
             bg_session.add(rec)
             bg_session.commit()
             logger.info("Applied Eli overlays to %d scenes for script %s", updated, script_id)
+
+            bg_session.add(GenerationDuration(
+                operation_type="eli_generation",
+                duration_seconds=time.monotonic() - t0_bg,
+                scene_count=eligible,
+            ))
+            bg_session.commit()
 
     run_in_background(job.id, _run)
     return GenerateEliJobResponse(job_id=job.id)

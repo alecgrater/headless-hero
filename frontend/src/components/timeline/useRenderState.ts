@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import api, { pollRenderJob } from "../../api";
 import { usePollJob } from "../../hooks/usePollJob";
+import { useOperationProgress } from "../../hooks/useOperationProgress";
 import type {
   ExportAudioResponse,
   ExportBundleResponse,
@@ -47,6 +48,12 @@ interface RenderState {
   // Smart export
   exportPhase: "rendering" | "exporting" | null;
   smartExportBundle: (onComplete?: (result: ExportBundleResponse) => void) => Promise<void>;
+
+  // Operation progress
+  thumbnailProgress: { estimatedSeconds: number | null; active: boolean };
+  seoProgress: { estimatedSeconds: number | null; active: boolean };
+  audioExportProgress: { estimatedSeconds: number | null; active: boolean };
+  exportBundleProgress: { estimatedSeconds: number | null; active: boolean };
 }
 
 export function useRenderState(scriptId: string, title: string, initialSeoMetadata?: SEOMetadata | null): RenderState {
@@ -69,6 +76,11 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
   const [exportBundleResult, setExportBundleResult] = useState<ExportBundleResponse | null>(null);
 
   const [exportPhase, setExportPhase] = useState<"rendering" | "exporting" | null>(null);
+
+  const thumbnailProgressHook = useOperationProgress("thumbnail_generation");
+  const seoProgressHook = useOperationProgress("seo_generation");
+  const audioExportProgressHook = useOperationProgress("audio_export");
+  const exportBundleProgressHook = useOperationProgress("export_bundle");
 
   const { startPolling } = usePollJob<RenderStatusResponse>({
     pollFn: async (jobId) => {
@@ -132,6 +144,7 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
 
   const exportAudio = useCallback(async () => {
     setAudioExporting(true);
+    audioExportProgressHook.start();
     try {
       const res = await api.post("/api/render/export-audio", {
         script_id: scriptId,
@@ -143,12 +156,14 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
       }
     } finally {
       setAudioExporting(false);
+      audioExportProgressHook.end();
     }
   }, [scriptId, title]);
 
   const recompositeThumbnail = useCallback(
     async () => {
       setThumbnailsGenerating(true);
+      thumbnailProgressHook.start();
       try {
         const res = await api.post("/api/thumbnail/recomposite", {
           script_id: scriptId,
@@ -159,6 +174,7 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
         }
       } finally {
         setThumbnailsGenerating(false);
+        thumbnailProgressHook.end();
       }
     },
     [scriptId],
@@ -166,6 +182,7 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
 
   const generateSEO = useCallback(async () => {
     setSeoGenerating(true);
+    seoProgressHook.start();
     try {
       const res = await api.post("/api/seo/generate", {
         script_id: scriptId,
@@ -176,6 +193,7 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
       }
     } finally {
       setSeoGenerating(false);
+      seoProgressHook.end();
     }
   }, [scriptId]);
 
@@ -199,6 +217,7 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
   const exportBundle = useCallback(async () => {
     setExportBundleLoading(true);
     setExportBundleResult(null);
+    exportBundleProgressHook.start();
     try {
       const res = await api.post("/api/render/export-bundle", {
         script_id: scriptId,
@@ -208,6 +227,7 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
       }
     } finally {
       setExportBundleLoading(false);
+      exportBundleProgressHook.end();
     }
   }, [scriptId]);
 
@@ -269,5 +289,9 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
     exportBundle,
     exportPhase,
     smartExportBundle,
+    thumbnailProgress: { estimatedSeconds: thumbnailProgressHook.estimatedSeconds, active: thumbnailProgressHook.active },
+    seoProgress: { estimatedSeconds: seoProgressHook.estimatedSeconds, active: seoProgressHook.active },
+    audioExportProgress: { estimatedSeconds: audioExportProgressHook.estimatedSeconds, active: audioExportProgressHook.active },
+    exportBundleProgress: { estimatedSeconds: exportBundleProgressHook.estimatedSeconds, active: exportBundleProgressHook.active },
   };
 }

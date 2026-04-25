@@ -136,13 +136,29 @@ export function assetUrl(path: string): string {
 /** Fetch generation time estimate for a given operation type. */
 export async function fetchGenerationEstimate(
   operationType: string,
+  sceneCount?: number,
 ): Promise<{ average_seconds: number | null; sample_count: number }> {
-  const res = await api.get(`/api/generation/estimate?operation_type=${operationType}`);
+  let url = `/api/generation/estimate?operation_type=${operationType}`;
+  if (sceneCount != null) url += `&scene_count=${sceneCount}`;
+  const res = await api.get(url);
   if (res.ok) {
     const data = res.data as { average_seconds: number | null; sample_count: number };
     return data;
   }
   return { average_seconds: null, sample_count: 0 };
+}
+
+/** Record a generation duration from the frontend. */
+export async function recordDuration(
+  operationType: string,
+  durationSeconds: number,
+  sceneCount?: number,
+): Promise<void> {
+  await api.post("/api/generation/record-duration", {
+    operation_type: operationType,
+    duration_seconds: durationSeconds,
+    scene_count: sceneCount ?? null,
+  });
 }
 
 /** Fetch the total estimated cost for a script. */
@@ -488,6 +504,7 @@ export interface CatalogEntry {
   exported_at: string;
   file_size_mb: number;
   uploaded: boolean;
+  youtube_url: string | null;
 }
 
 export async function fetchCatalog(): Promise<CatalogEntry[]> {
@@ -500,4 +517,47 @@ export async function toggleUploaded(folderName: string): Promise<{ uploaded: bo
   const res = await api.post(`/api/catalog/${encodeURIComponent(folderName)}/toggle-uploaded`);
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to toggle uploaded status");
   return res.data as { uploaded: boolean };
+}
+
+export interface CatalogUploadOptions {
+  folder_name: string;
+  title?: string;
+  description?: string;
+  tags?: string[];
+  privacy_status?: string;
+}
+
+export async function catalogUpload(options: CatalogUploadOptions): Promise<{ job_id: string }> {
+  const res = await api.post("/api/catalog/upload", options);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Upload failed");
+  return res.data as { job_id: string };
+}
+
+export interface YouTubeOAuthStatus {
+  youtube: {
+    connected: boolean;
+    platform_user_name: string;
+    platform_user_id: string;
+  };
+}
+
+export async function getYouTubeOAuthStatus(): Promise<YouTubeOAuthStatus> {
+  const res = await api.get("/api/publish/oauth/status");
+  if (!res.ok) return { youtube: { connected: false, platform_user_name: "", platform_user_id: "" } };
+  return res.data as YouTubeOAuthStatus;
+}
+
+export interface PublishJobStatus {
+  job_id: string;
+  status: string;
+  progress: number;
+  current_step: string;
+  output_urls: string[];
+  error: string | null;
+}
+
+export async function getPublishStatus(jobId: string): Promise<PublishJobStatus | null> {
+  const res = await api.get(`/api/publish/status/${jobId}`);
+  if (!res.ok) return null;
+  return res.data as PublishJobStatus;
 }

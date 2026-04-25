@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api";
-import { pollTitleCardJob } from "../../api";
+import { fetchGenerationEstimate, recordDuration, pollTitleCardJob } from "../../api";
 import type { Scene, ScriptContent } from "../../types/script";
 import type { GenerateVisualResponse, GenerateTitleCardsResponse } from "../../types/visual";
 import type { GenerateAudioResponse } from "../../types/audio";
@@ -15,6 +15,7 @@ interface BatchProgress {
   currentSceneName: string | null;
   startedAt: number | null;
   statuses: Map<string, BatchSceneStatus>;
+  initialEstimatedSeconds: number | null;
 }
 
 const EMPTY_BATCH: BatchProgress = {
@@ -25,6 +26,7 @@ const EMPTY_BATCH: BatchProgress = {
   currentSceneName: null,
   startedAt: null,
   statuses: new Map(),
+  initialEstimatedSeconds: null,
 };
 
 interface TimelineState {
@@ -83,6 +85,10 @@ interface TimelineState {
 
   // External content update (e.g. after FX generation refreshes from server)
   setContent: (content: ScriptContent) => void;
+
+  // Single-item generation estimates
+  singleImageEstimate: number | null;
+  singleAudioEstimate: number | null;
 }
 
 function findScene(
@@ -134,6 +140,8 @@ export function useTimelineState(
   const [batchGeneratingAudio, setBatchGeneratingAudio] = useState(false);
   const [batchImageProgress, setBatchImageProgress] = useState<BatchProgress>(EMPTY_BATCH);
   const [batchAudioProgress, setBatchAudioProgress] = useState<BatchProgress>(EMPTY_BATCH);
+  const [singleImageEstimate, setSingleImageEstimate] = useState<number | null>(null);
+  const [singleAudioEstimate, setSingleAudioEstimate] = useState<number | null>(null);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
@@ -142,6 +150,11 @@ export function useTimelineState(
   // Cancellation refs for batch operations
   const imagesCancelRef = useRef(false);
   const audioCancelRef = useRef(false);
+
+  useEffect(() => {
+    fetchGenerationEstimate("single_image_generation").then((e) => setSingleImageEstimate(e.average_seconds)).catch(() => {});
+    fetchGenerationEstimate("single_audio_generation").then((e) => setSingleAudioEstimate(e.average_seconds)).catch(() => {});
+  }, []);
 
   const pushUndo = useCallback(() => {
     setUndoStack((prev) => [...prev.slice(-49), contentRef.current]);
@@ -505,6 +518,9 @@ export function useTimelineState(
       setBatchGenerating(true);
       const statuses = new Map<string, BatchSceneStatus>();
       scenes.forEach((s) => statuses.set(s.scene_id, "pending"));
+
+      const estimate = await fetchGenerationEstimate("batch_image_generation", scenes.length);
+
       setBatchImageProgress({
         total: scenes.length,
         completed: 0,
@@ -513,7 +529,10 @@ export function useTimelineState(
         currentSceneName: null,
         startedAt: Date.now(),
         statuses: new Map(statuses),
+        initialEstimatedSeconds: estimate.average_seconds,
       });
+
+      const batchStartTime = Date.now();
 
       let completed = 0;
       let failed = 0;
@@ -608,6 +627,9 @@ export function useTimelineState(
         const scriptData = scriptRes.data as { script: ScriptContent };
         setContent(scriptData.script);
       }
+      // Record batch duration for future estimates
+      const batchDuration = (Date.now() - batchStartTime) / 1000;
+      recordDuration("batch_image_generation", batchDuration, scenes.length);
       // Keep progress visible briefly, then clear
       setTimeout(() => setBatchImageProgress(EMPTY_BATCH), 3000);
     },
@@ -701,6 +723,9 @@ export function useTimelineState(
       setBatchGeneratingAudio(true);
       const statuses = new Map<string, BatchSceneStatus>();
       scenes.forEach((s) => statuses.set(s.scene_id, "pending"));
+
+      const estimate = await fetchGenerationEstimate("batch_audio_generation", scenes.length);
+
       setBatchAudioProgress({
         total: scenes.length,
         completed: 0,
@@ -709,7 +734,10 @@ export function useTimelineState(
         currentSceneName: null,
         startedAt: Date.now(),
         statuses: new Map(statuses),
+        initialEstimatedSeconds: estimate.average_seconds,
       });
+
+      const batchStartTime = Date.now();
 
       let completed = 0;
       let failed = 0;
@@ -778,6 +806,9 @@ export function useTimelineState(
         const scriptData = scriptRes.data as { script: ScriptContent };
         setContent(scriptData.script);
       }
+      // Record batch duration for future estimates
+      const batchDuration = (Date.now() - batchStartTime) / 1000;
+      recordDuration("batch_audio_generation", batchDuration, scenes.length);
       setTimeout(() => setBatchAudioProgress(EMPTY_BATCH), 3000);
     },
     [scriptId],
@@ -822,5 +853,7 @@ export function useTimelineState(
     hasTitleCards,
     generateTitleCardsStandalone,
     setContent,
+    singleImageEstimate,
+    singleAudioEstimate,
   };
 }
