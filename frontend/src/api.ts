@@ -356,7 +356,7 @@ export async function exportTest(scriptId: string, options: ExportTestOptions): 
 import type { TrendingTopic, TrendingRefreshStatus, ContentProfile, SmartIdeasResponse } from "./types/trending";
 import type { HookScore } from "./types/script";
 import type { PostIt } from "./types/postit";
-import type { BrainstormResponse } from "./types/brainstorm";
+
 
 /** Score the first ~30 seconds of a script for viewer retention via Claude. */
 export async function scoreHook(scriptId: string): Promise<HookScore> {
@@ -456,16 +456,6 @@ export async function updatePostIt(id: string, updates: { text?: string; rank?: 
 
 export async function deletePostIt(id: string): Promise<void> {
   await api.delete(`/api/postits/${id}`);
-}
-
-// ---------------------------------------------------------------------------
-// Brainstorm
-// ---------------------------------------------------------------------------
-
-export async function generateBrainstormRecommendations(): Promise<BrainstormResponse> {
-  const res = await api.post("/api/brainstorm/generate");
-  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to generate brainstorm recommendations");
-  return res.data as BrainstormResponse;
 }
 
 // ---------------------------------------------------------------------------
