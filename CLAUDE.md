@@ -9,14 +9,23 @@
 **Every time a feature or fix is completed, run this entire loop in a single turn — do NOT stop, pause, or wait for user input at any step:**
 
 1. Stage the relevant files, write a descriptive commit message, and push to `main`
-2. Run `/review` on the pushed commit
-3. **Read the review verdict internally. Do NOT output the review findings to the user.** Do NOT end your turn after the review — continue immediately in the same response.
-4. If the verdict is **NEEDS CHANGES**: immediately start implementing every required fix (FAIL items first, then WARN items). Do NOT describe the review to the user. Just fix the code, commit as `fix: address review findings`, and push.
-5. Run `/review` again. Repeat step 3-4 until the verdict is **LGTM**.
+2. Dispatch a code review using the **Agent tool** (NOT the `/review` skill — the Skill tool produces visible output that ends the turn). Use `subagent_type: "superpowers:code-reviewer"` with this prompt template:
+   ```
+   Review the most recent commit on the main branch of this project.
+   Run `git diff HEAD~1..HEAD` to see the changes and `git show --stat HEAD` for context.
+   Read the full affected files (not just the diff) to understand surrounding code.
+   Check for: correctness bugs, error handling gaps, security issues, naive/aware datetime mismatches, unhandled promise rejections, race conditions, and style problems.
+   Return a structured verdict: either LGTM or NEEDS CHANGES.
+   If NEEDS CHANGES, provide a numbered list of findings with severity (FAIL/WARN), file:line, and a specific description of what's wrong and how to fix it.
+   ```
+   The Agent tool returns results as invisible tool output (not shown to the user). This is intentional — it lets you process the review and continue without ending your turn.
+3. **Process the review verdict internally. Do NOT output any review findings to the user.** Your next action after receiving the agent result MUST be either a tool call (Edit/Bash) to fix issues, or writing the final summary — never bare text about the review.
+4. If the verdict is **NEEDS CHANGES**: immediately implement every required fix (FAIL items first, then WARN items). Commit as `fix: address review findings` and push.
+5. Dispatch another code review agent. Repeat steps 3-4 until the verdict is **LGTM**.
 6. Only after **LGTM** — surface a single summary to the user: what was built, what the review caught (briefly), and what was fixed.
 
-**Critical**: The review output is for YOU to process, not for the user to read. After `/review` completes, your next action must be either implementing fixes (if NEEDS CHANGES) or writing the summary (if LGTM). Never stop between review and action.
-
+**Why Agent instead of /review**: The `/review` skill produces visible text output, which causes Claude to treat the review as a completed turn and stop. The Agent tool returns results as invisible tool output, allowing the loop to continue uninterrupted.
+ 
 ## Project Overview
 
 AI-powered Electron desktop app for creating faceless educational YouTube content. Full pipeline: idea → script → visuals → voice → video → publish.
