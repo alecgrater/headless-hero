@@ -116,6 +116,7 @@ export const SceneRenderer: React.FC<Props> = ({ scene, highlightEnabled }) => {
           characterFramesBaseUrl={scene.character_frames_base_url}
           variantCounts={scene.variant_counts}
           sceneDurationInFrames={totalSceneFrames}
+          isTextOnly={isAhaSubtitle}
         />
       )}
 

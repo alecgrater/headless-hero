@@ -251,6 +251,8 @@ interface Props {
   variantCounts?: Record<string, number> | null;
   /** Total scene duration in frames (for exit animation). */
   sceneDurationInFrames?: number;
+  /** Text-only scene (e.g. aha_subtitle): enlarge 180% and center above text. */
+  isTextOnly?: boolean;
 }
 
 export const EliOverlay: React.FC<Props> = ({
@@ -259,6 +261,7 @@ export const EliOverlay: React.FC<Props> = ({
   characterFramesBaseUrl,
   variantCounts,
   sceneDurationInFrames,
+  isTextOnly,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -386,8 +389,21 @@ export const EliOverlay: React.FC<Props> = ({
         })
       : 1;
 
-  // --- Position from per-scene corner (or legacy position fallback) ---
+  // Container size — 180% larger for text-only scenes
+  const TEXT_ONLY_SCALE = 1.8;
+  const baseWidth = 360;
+  const baseHeight = 215;
+  const containerWidth = isTextOnly ? baseWidth * TEXT_ONLY_SCALE : baseWidth;
+  const containerHeight = isTextOnly ? baseHeight * TEXT_ONLY_SCALE : baseHeight;
+
+  // --- Position: centered above text for text-only scenes, corner preset otherwise ---
   const resolveCornerPos = () => {
+    if (isTextOnly) {
+      return {
+        x: (1920 - containerWidth) / 2,
+        y: 120,
+      };
+    }
     if (overlay.corner && CORNER_PRESETS[overlay.corner]) {
       return CORNER_PRESETS[overlay.corner];
     }
@@ -404,10 +420,6 @@ export const EliOverlay: React.FC<Props> = ({
   const combinedY = breathY + idleY + entranceY;
   const combinedRotate = breathRotate + idleRotate;
   const combinedOpacity = entranceOpacity * exitOpacity;
-
-  // Container size
-  const containerWidth = 360;
-  const containerHeight = 215;
 
   // --- Render helper for a blended open/closed image pair ---
   const renderMouthBlend = (
