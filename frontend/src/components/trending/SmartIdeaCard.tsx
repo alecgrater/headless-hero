@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { SmartIdea } from "../../types/trending";
 
 interface Props {
@@ -59,80 +60,104 @@ function TrendingSourceChips({ source }: { source: string }) {
 }
 
 export default function SmartIdeaCard({ idea, index, onUseIdea, onDismiss }: Props) {
+  const [expanded, setExpanded] = useState(false);
+  const hasDetails = idea.keywords.length > 0 || idea.trending_source || idea.reasoning || idea.angle;
+
   return (
     <div
-      className="group relative bg-neutral-800/50 border border-neutral-700/60 rounded-xl p-5 hover:border-neutral-600/80 hover:bg-neutral-800/70 transition-all duration-200"
+      className="group relative bg-neutral-800/50 border border-neutral-700/60 rounded-xl p-3 hover:border-neutral-600/80 hover:bg-neutral-800/70 transition-all duration-200"
       style={{
         animation: "fadeSlideUp 0.35s ease-out both",
         animationDelay: `${index * 60}ms`,
       }}
     >
-      <div className="flex gap-4">
+      <div className="flex gap-3">
         {/* Style match badge */}
-        <div className="shrink-0 pt-0.5">
+        <div
+          className={`shrink-0 ${hasDetails ? "cursor-pointer" : ""}`}
+          onClick={() => hasDetails && setExpanded(!expanded)}
+        >
           <StyleMatchBadge score={idea.style_match_score} />
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-w-0 space-y-2.5">
-          {/* Title */}
-          <h3 className="text-[15px] font-semibold text-neutral-100 leading-snug">
-            {idea.title}
-          </h3>
+        <div className="flex-1 min-w-0 space-y-1">
+          {/* Title row with inline actions */}
+          <div className="flex items-start gap-2">
+            <h3
+              className={`flex-1 text-[15px] font-semibold text-neutral-100 leading-snug ${hasDetails ? "cursor-pointer" : ""}`}
+              onClick={() => hasDetails && setExpanded(!expanded)}
+            >
+              {idea.title}
+              {hasDetails && (
+                <svg
+                  className={`inline-block ml-1.5 w-3.5 h-3.5 text-neutral-500 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              )}
+            </h3>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={(e) => { e.stopPropagation(); onUseIdea(idea); }}
+                className="text-xs px-3 py-1 rounded-lg font-medium bg-violet-600 hover:bg-violet-500 text-white transition-colors"
+              >
+                Use Idea &rarr;
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onDismiss(idea); }}
+                className="text-xs px-2 py-1 rounded-lg text-neutral-500 hover:text-neutral-300 hover:bg-neutral-700/50 transition-colors"
+              >
+                &times;
+              </button>
+            </div>
+          </div>
 
-          {/* Description */}
-          <p className="text-xs text-neutral-300 leading-relaxed">
+          {/* Description — truncated when collapsed */}
+          <p
+            className={`text-xs text-neutral-300 leading-relaxed ${!expanded ? "line-clamp-2" : ""} ${hasDetails ? "cursor-pointer" : ""}`}
+            onClick={() => hasDetails && setExpanded(!expanded)}
+          >
             {idea.description}
           </p>
 
-          {/* Keywords */}
-          {idea.keywords.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {idea.keywords.map((kw) => (
-                <span
-                  key={kw}
-                  className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-700/50 text-neutral-400"
-                >
-                  {kw}
-                </span>
-              ))}
+          {/* Expanded details */}
+          {expanded && (
+            <div className="space-y-1.5 pt-1">
+              {idea.keywords.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {idea.keywords.map((kw) => (
+                    <span
+                      key={kw}
+                      className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-700/50 text-neutral-400"
+                    >
+                      {kw}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {idea.trending_source && (
+                <TrendingSourceChips source={idea.trending_source} />
+              )}
+
+              {idea.reasoning && (
+                <p className="text-xs italic text-neutral-400 leading-relaxed">
+                  {idea.reasoning}
+                </p>
+              )}
+
+              {idea.angle && (
+                <p className="text-[11px] text-neutral-500">
+                  <span className="font-medium text-neutral-400">Angle:</span> {idea.angle}
+                </p>
+              )}
             </div>
           )}
-
-          {/* Trending source chips */}
-          {idea.trending_source && (
-            <TrendingSourceChips source={idea.trending_source} />
-          )}
-
-          {/* Reasoning */}
-          {idea.reasoning && (
-            <p className="text-xs italic text-neutral-400 leading-relaxed">
-              {idea.reasoning}
-            </p>
-          )}
-
-          {/* Angle */}
-          {idea.angle && (
-            <p className="text-[11px] text-neutral-500">
-              <span className="font-medium text-neutral-400">Angle:</span> {idea.angle}
-            </p>
-          )}
-
-          {/* Actions */}
-          <div className="flex items-center gap-2 pt-1">
-            <button
-              onClick={() => onUseIdea(idea)}
-              className="text-sm px-4 py-1.5 rounded-lg font-medium bg-violet-600 hover:bg-violet-500 text-white transition-colors"
-            >
-              Use Idea &rarr;
-            </button>
-            <button
-              onClick={() => onDismiss(idea)}
-              className="text-sm px-3 py-1.5 rounded-lg text-neutral-500 hover:text-neutral-300 hover:bg-neutral-700/50 transition-colors"
-            >
-              Dismiss
-            </button>
-          </div>
         </div>
       </div>
     </div>
