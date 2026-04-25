@@ -474,6 +474,7 @@ export async function generateBrainstormRecommendations(): Promise<BrainstormRes
 
 export interface CatalogEntry {
   folder_name: string;
+  folder_path: string;
   video_file: string | null;
   thumbnail_file: string | null;
   seo_title: string | null;

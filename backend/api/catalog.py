@@ -16,6 +16,7 @@ router = APIRouter(prefix="/api/catalog", tags=["catalog"])
 
 class CatalogEntry(BaseModel):
     folder_name: str
+    folder_path: str = ""
     video_file: str | None = None
     thumbnail_file: str | None = None
     seo_title: str | None = None
@@ -87,16 +88,21 @@ def list_catalog():
         thumbnail_file = None
         file_size_mb = 0.0
 
+        seo_path = None
         for f in item.iterdir():
-            if f.suffix == ".mp4" and not f.name.startswith("."):
+            if f.name.startswith("."):
+                continue
+            lower = f.name.lower()
+            if f.suffix.lower() == ".mp4":
                 video_file = f.name
                 file_size_mb = round(f.stat().st_size / (1024 * 1024), 1)
-            elif f.name == "thumbnail.png":
+            elif lower == "thumbnail.png" or lower.endswith("thumbnail.png"):
                 thumbnail_file = f.name
+            elif lower == "seo.txt" or lower.endswith("seo.txt"):
+                seo_path = f
 
         seo_title, seo_description, seo_tags = None, None, []
-        seo_path = item / "seo.txt"
-        if seo_path.exists():
+        if seo_path and seo_path.exists():
             seo_title, seo_description, seo_tags = _parse_seo_txt(seo_path)
 
         mtime = item.stat().st_mtime
@@ -106,6 +112,7 @@ def list_catalog():
 
         entries.append(CatalogEntry(
             folder_name=folder_name,
+            folder_path=str(item),
             video_file=video_file,
             thumbnail_file=thumbnail_file,
             seo_title=seo_title,
