@@ -61,7 +61,7 @@ function TrendingSourceChips({ source }: { source: string }) {
 
 export default function SmartIdeaCard({ idea, index, onUseIdea, onDismiss }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const hasDetails = idea.keywords.length > 0 || idea.trending_source || idea.reasoning || idea.angle;
+  const hasDetails = idea.keywords.length > 0 || idea.trending_source || idea.reasoning || idea.angle || idea.signals.length > 0;
 
   return (
     <div
@@ -75,10 +75,12 @@ export default function SmartIdeaCard({ idea, index, onUseIdea, onDismiss }: Pro
         className={`flex gap-3 ${hasDetails ? "cursor-pointer" : ""}`}
         onClick={() => hasDetails && setExpanded(!expanded)}
       >
-        {/* Style match badge */}
-        <div className="shrink-0">
-          <StyleMatchBadge score={idea.style_match_score} />
-        </div>
+        {/* Style match badge — only when profile-based score exists */}
+        {idea.style_match_score != null && (
+          <div className="shrink-0">
+            <StyleMatchBadge score={idea.style_match_score} />
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex-1 min-w-0 space-y-1">
@@ -130,6 +132,20 @@ export default function SmartIdeaCard({ idea, index, onUseIdea, onDismiss }: Pro
                       className="text-[10px] px-2 py-0.5 rounded-md bg-neutral-700/50 text-neutral-400"
                     >
                       {kw}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {idea.signals.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  <span className="text-[10px] text-neutral-500">Signals:</span>
+                  {idea.signals.map((signal) => (
+                    <span
+                      key={signal}
+                      className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-violet-500/10 text-violet-300 border border-violet-500/15"
+                    >
+                      {signal}
                     </span>
                   ))}
                 </div>
