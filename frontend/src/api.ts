@@ -80,7 +80,13 @@ const rawApi: ApiClient = window.api ?? {
       options.body = JSON.stringify(body);
     }
     const response = await fetch(`http://localhost:${BACKEND_PORT}${path}`, options);
-    const data = await response.json();
+    const text = await response.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { detail: text || `HTTP ${response.status}` };
+    }
     return { ok: response.ok, status: response.status, data };
   },
   get: (path: string) => rawApi.request("GET", path),

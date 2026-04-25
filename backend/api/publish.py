@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -91,7 +92,6 @@ def oauth_connect(body: ConnectRequest, session: Session = Depends(get_session))
     if body.platform != "youtube":
         raise HTTPException(status_code=400, detail=f"Unsupported platform: {body.platform}")
 
-    import os
     client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
     client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "")
     if not client_id or not client_secret:
