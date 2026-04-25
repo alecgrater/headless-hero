@@ -91,12 +91,20 @@ def oauth_connect(body: ConnectRequest, session: Session = Depends(get_session))
     if body.platform != "youtube":
         raise HTTPException(status_code=400, detail=f"Unsupported platform: {body.platform}")
 
+    import os
+    client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
+    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+    if not client_id or not client_secret:
+        raise HTTPException(
+            status_code=400,
+            detail="YouTube OAuth requires GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET. Set them in Settings → API Keys.",
+        )
+
     from integrations.youtube_client import get_auth_url
 
     brand_id = get_default_brand_id(session)
     logger.info("Starting OAuth connect for brand %s on %s", brand_id, body.platform)
 
-    # Encode brand_id in state so we can associate the credential on callback
     auth_url = get_auth_url(state=brand_id)
     return ConnectResponse(auth_url=auth_url)
 

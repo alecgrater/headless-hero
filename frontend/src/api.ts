@@ -30,6 +30,7 @@ function extractErrorMessage(status: number, data: unknown): string {
     const d = data as Record<string, unknown>;
     if (typeof d.detail === "string") return d.detail;
     if (typeof d.message === "string") return d.message;
+    if (typeof d.error === "string") return d.error;
   }
   if (status === 404) return "Resource not found";
   if (status === 422) return "Invalid request data";

@@ -103,7 +103,13 @@ ipcMain.handle("api-request", async (_event, { method, path, body }) => {
       options.body = JSON.stringify(body);
     }
     const response = await fetch(`${BACKEND_URL}${path}`, options);
-    const data = await response.json();
+    const text = await response.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { detail: text || `HTTP ${response.status}` };
+    }
     return { ok: response.ok, status: response.status, data };
   } catch (error) {
     return { ok: false, status: 0, data: { error: `${error.name}: ${error.message}` } };
