@@ -130,6 +130,7 @@ class ScriptContent(BaseModel):
     video_fx: dict | None = None          # VideoFX dict — computed deterministically at render time
     eli_position: dict | None = None      # Per-video Eli overlay position override {x, y}
     segment_timer_enabled: bool = True    # Global toggle for segment countdown timer overlay
+    subtitle_highlight_enabled: bool = True  # Global toggle for active word highlight in subtitles
     seo_metadata: dict | None = None      # Generated SEO metadata (title, description, tags)
     hook_score: dict | None = None        # 30-second hook retention score (HookScore dict)
 

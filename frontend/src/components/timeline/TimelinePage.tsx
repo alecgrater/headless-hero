@@ -803,6 +803,16 @@ function TimelineEditor({
     api.put(`/api/scripts/${scriptId}`, { script: updated });
   };
 
+  // Handle global subtitle highlight toggle
+  const handleToggleHighlight = () => {
+    const updated = {
+      ...state.content,
+      subtitle_highlight_enabled: state.content.subtitle_highlight_enabled === false ? true : false,
+    };
+    state.setContent(updated);
+    api.put(`/api/scripts/${scriptId}`, { script: updated });
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-105px)]">
       {/* Header — Title + Pipeline + Thumbnail */}
@@ -1114,6 +1124,7 @@ function TimelineEditor({
             selectedSceneId={state.selectedSceneId}
             onSelectScene={handleSelectScene}
             onToggleTimer={handleToggleTimer}
+            onToggleHighlight={handleToggleHighlight}
             pixelsPerSecond={pixelsPerSecond}
           />
         </div>

@@ -4,12 +4,13 @@ import type { Scene } from "../../types/script";
 
 interface Props {
   scene: Scene;
-  laneType: "images" | "voiceover" | "fx" | "eli" | "timer";
+  laneType: "images" | "voiceover" | "fx" | "eli" | "timer" | "subtitle";
   pixelsPerSecond: number;
   segmentIdx: number;
   isSelected: boolean;
   onClick: () => void;
   segmentTimerEnabled?: boolean;
+  subtitleHighlightEnabled?: boolean;
 }
 
 export default function TimelineBlock({
@@ -20,6 +21,7 @@ export default function TimelineBlock({
   isSelected,
   onClick,
   segmentTimerEnabled,
+  subtitleHighlightEnabled,
 }: Props) {
   const duration = scene.audio_duration_seconds || scene.duration_estimate_seconds;
   const width = Math.max(40, duration * pixelsPerSecond);
@@ -44,6 +46,7 @@ export default function TimelineBlock({
         {laneType === "fx" && <FxContent scene={scene} />}
         {laneType === "eli" && <EliContent scene={scene} />}
         {laneType === "timer" && <TimerContent enabled={!!segmentTimerEnabled} />}
+        {laneType === "subtitle" && <SubtitleHighlightContent enabled={subtitleHighlightEnabled !== false} />}
       </div>
     </button>
   );
@@ -171,6 +174,21 @@ function TimerContent({ enabled }: { enabled: boolean }) {
       {enabled ? (
         <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 font-medium">
           timer
+        </span>
+      ) : (
+        <span className="text-[10px] text-neutral-600">--</span>
+      )}
+    </div>
+  );
+}
+
+function SubtitleHighlightContent({ enabled }: { enabled: boolean }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`w-2 h-2 rounded-full shrink-0 ${enabled ? "bg-emerald-500" : "bg-neutral-600"}`} />
+      {enabled ? (
+        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
+          highlight
         </span>
       ) : (
         <span className="text-[10px] text-neutral-600">--</span>

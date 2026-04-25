@@ -92,6 +92,7 @@ export interface ScriptContent {
   outro_cta: string;
   video_fx?: VideoFX | null;
   segment_timer_enabled?: boolean;
+  subtitle_highlight_enabled?: boolean;
   seo_metadata?: SEOMetadata | null;
   hook_score?: HookScore | null;
 }

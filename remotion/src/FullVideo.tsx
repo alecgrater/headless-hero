@@ -20,6 +20,7 @@ export const FullVideo: React.FC<FullVideoProps> = ({
   video_fx,
   chapter_map,
   segment_timer,
+  subtitle_highlight,
 }) => {
   // Flatten all scenes with segment info
   const allScenes: { scene: SceneInput; segmentIndex: number; segmentName: string }[] = [];
@@ -121,16 +122,17 @@ export const FullVideo: React.FC<FullVideoProps> = ({
         durationInFrames={durationFrames}
         name={`Scene ${i + 1}: ${scene.id}`}
       >
-        <SceneRenderer scene={{
-          ...scene,
-          // Compute transition_out from the next scene's transition_in
-          // (only within the same segment — chapter transitions handle segment boundaries)
-          transition_out: (() => {
-            const next = allScenes[i + 1];
-            if (!next || next.segmentIndex !== segmentIndex) return "cut";
-            return next.scene.transition_in ?? "cut";
-          })(),
-        }} />
+        <SceneRenderer
+          scene={{
+            ...scene,
+            transition_out: (() => {
+              const next = allScenes[i + 1];
+              if (!next || next.segmentIndex !== segmentIndex) return "cut";
+              return next.scene.transition_in ?? "cut";
+            })(),
+          }}
+          highlightEnabled={subtitle_highlight?.enabled ?? false}
+        />
       </Sequence>,
     );
 

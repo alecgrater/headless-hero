@@ -9,16 +9,18 @@ interface Props {
   selectedSceneId: string | null;
   onSelectScene: (sceneId: string) => void;
   onToggleTimer: () => void;
+  onToggleHighlight: () => void;
   pixelsPerSecond: number;
 }
 
-const LANE_TYPES = ["images", "voiceover", "fx", "eli", "timer"] as const;
+const LANE_TYPES = ["images", "voiceover", "fx", "eli", "timer", "subtitle"] as const;
 const LANE_LABELS: Record<(typeof LANE_TYPES)[number], string> = {
   images: "Images",
   voiceover: "Voiceover",
   fx: "FX",
   eli: "Eli",
   timer: "Timer",
+  subtitle: "Subtitle",
 };
 
 export default function TimelineLanes({
@@ -26,6 +28,7 @@ export default function TimelineLanes({
   selectedSceneId,
   onSelectScene,
   onToggleTimer,
+  onToggleHighlight,
   pixelsPerSecond,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -147,9 +150,10 @@ export default function TimelineLanes({
                     laneType={laneType}
                     pixelsPerSecond={pixelsPerSecond}
                     segmentIdx={segmentIdx}
-                    isSelected={laneType !== "timer" && scene.id === selectedSceneId}
-                    onClick={() => laneType === "timer" ? onToggleTimer() : onSelectScene(scene.id)}
+                    isSelected={laneType !== "timer" && laneType !== "subtitle" && scene.id === selectedSceneId}
+                    onClick={() => laneType === "timer" ? onToggleTimer() : laneType === "subtitle" ? onToggleHighlight() : onSelectScene(scene.id)}
                     segmentTimerEnabled={content.segment_timer_enabled}
+                    subtitleHighlightEnabled={content.subtitle_highlight_enabled}
                   />
                 ))}
 

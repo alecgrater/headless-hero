@@ -19,9 +19,10 @@ import { SceneTransition } from "../effects/transitions/SceneTransition";
 
 interface Props {
   scene: SceneInput;
+  highlightEnabled?: boolean;
 }
 
-export const SceneRenderer: React.FC<Props> = ({ scene }) => {
+export const SceneRenderer: React.FC<Props> = ({ scene, highlightEnabled }) => {
   const hasMultipleFrames = scene.frame_paths && scene.frame_paths.length > 1;
   const isTitleCard = scene.is_title_card && scene.title_card_zoom_target;
   const isAhaSubtitle = scene.visual_beat === "aha_subtitle";
@@ -102,7 +103,7 @@ export const SceneRenderer: React.FC<Props> = ({ scene }) => {
         <div style={{ width: "100%", height: "100%", opacity: visualOpacity }}>
           {visualLayer}
           {!scene.is_title_card && !isAhaSubtitle && (scene.word_timestamps?.length ?? 0) > 0 && (
-            <SubtitleOverlay wordTimestamps={scene.word_timestamps} />
+            <SubtitleOverlay wordTimestamps={scene.word_timestamps} highlightEnabled={highlightEnabled} />
           )}
         </div>
       </SceneTransition>

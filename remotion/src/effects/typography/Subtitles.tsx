@@ -11,6 +11,7 @@ import type { WordTimestamp } from "../../types";
 
 interface Props {
   wordTimestamps?: WordTimestamp[] | null;
+  highlightEnabled?: boolean;
 }
 
 const FADE_OUT_FRAMES = 5;
@@ -58,7 +59,7 @@ function groupIntoPhrases(timestamps: WordTimestamp[], fps: number): SubtitlePhr
 
 // ---- Main component ----
 
-export const SubtitleOverlay: React.FC<Props> = ({ wordTimestamps }) => {
+export const SubtitleOverlay: React.FC<Props> = ({ wordTimestamps, highlightEnabled }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -112,20 +113,28 @@ export const SubtitleOverlay: React.FC<Props> = ({ wordTimestamps }) => {
           backgroundColor: "rgba(0, 0, 0, 0.45)",
         }}
       >
-        {activePhrase.words.map((w, i) => (
-          <span
-            key={i}
-            style={{
-              fontSize: "32px",
-              fontWeight: 600,
-              lineHeight: 1.4,
-              color: "#fff",
-              textShadow: "0 2px 8px rgba(0, 0, 0, 0.8)",
-            }}
-          >
-            {w.word}
-          </span>
-        ))}
+        {activePhrase.words.map((w, i) => {
+          const wordStartFrame = Math.round((w.start_ms / 1000) * fps);
+          const wordEndFrame = Math.round((w.end_ms / 1000) * fps);
+          const isActive = highlightEnabled && frame >= wordStartFrame && frame <= wordEndFrame;
+
+          return (
+            <span
+              key={i}
+              style={{
+                fontSize: "32px",
+                fontWeight: 600,
+                lineHeight: 1.4,
+                color: isActive ? "#F59E0B" : "#fff",
+                textShadow: isActive
+                  ? "0 0 12px rgba(245, 158, 11, 0.4), 0 2px 8px rgba(0, 0, 0, 0.8)"
+                  : "0 2px 8px rgba(0, 0, 0, 0.8)",
+              }}
+            >
+              {w.word}
+            </span>
+          );
+        })}
       </div>
     </div>
   );

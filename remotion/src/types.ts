@@ -130,6 +130,10 @@ export interface SegmentTimerConfig {
   enabled: boolean;
 }
 
+export interface SubtitleHighlightConfig {
+  enabled: boolean;
+}
+
 export interface FullVideoProps {
   segments: SegmentInput[];
   title: string;
@@ -139,4 +143,5 @@ export interface FullVideoProps {
   video_fx?: VideoFX | null;
   chapter_map?: ChapterMapData | null;
   segment_timer?: SegmentTimerConfig | null;
+  subtitle_highlight?: SubtitleHighlightConfig | null;
 }
