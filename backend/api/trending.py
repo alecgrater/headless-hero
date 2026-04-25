@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from database import get_session, get_default_brand_id
+from models.script import Script
 from models.trending import TrendingTopic
 from pipeline.trending_scorer import start_refresh, get_refresh_job
 
@@ -60,9 +61,10 @@ class SmartIdea(BaseModel):
     segments_est: int
     keywords: list[str]
     trending_source: str
-    style_match_score: float
+    style_match_score: float | None = None
     reasoning: str
     angle: str
+    signals: list[str] = []
 
 
 class SmartIdeasResponse(BaseModel):
@@ -213,19 +215,24 @@ async def generate_smart_ideas(
     body: SmartIdeasRequest,
     session: Session = Depends(get_session),
 ):
-    """Generate personalized video ideas combining content profile + trending topics."""
+    """Generate video ideas combining trending topics with optional content profile."""
     from pipeline.content_profile import get_cached_profile, analyze_content_profile
     from pipeline.smart_ideation import generate_smart_ideas as _generate
 
-    # Auto-load or regenerate profile
-    profile = get_cached_profile()
-    if not profile or profile.get("is_stale"):
-        profile = analyze_content_profile()
-        if not profile:
-            raise HTTPException(status_code=422, detail="No scripts found — need at least 3")
+    # Try to load profile — but don't require it
+    profile = None
+    script_titles: list[str] = []
 
-    if profile["script_count"] < 3:
-        raise HTTPException(status_code=422, detail="Need at least 3 scripts for smart ideas")
+    cached = get_cached_profile()
+    if cached and cached.get("script_count", 0) >= 3:
+        if cached.get("is_stale"):
+            profile = analyze_content_profile() or None
+        else:
+            profile = cached
+    else:
+        # No profile or not enough scripts — fall back to titles
+        scripts = session.exec(select(Script)).all()
+        script_titles = [s.topic_title for s in scripts if s.topic_title]
 
     # Load top trending topics
     stmt = select(TrendingTopic).where(
@@ -244,10 +251,15 @@ async def generate_smart_ideas(
         for t in topics
     ]
 
-    ideas = _generate(profile, trending_data, count=body.count)
+    ideas = _generate(
+        trending_topics=trending_data,
+        count=body.count,
+        profile=profile,
+        script_titles=script_titles if not profile else None,
+    )
 
     return SmartIdeasResponse(
         ideas=[SmartIdea(**idea) for idea in ideas],
-        profile_used=True,
+        profile_used=profile is not None,
         trending_topics_used=len(trending_data),
     )
