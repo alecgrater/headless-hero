@@ -9,6 +9,9 @@ import {
 import type { VideoIdea } from "../../types/idea";
 import type { TrendingRefreshStatus, TrendingTopic } from "../../types/trending";
 import TopicCard from "./TopicCard";
+import { Button } from "../ui/Button";
+import { EmptyState } from "../ui/EmptyState";
+import { SkeletonCard } from "../ui/Skeleton";
 
 type SortKey = "score" | "newest" | "search_velocity" | "format_fit";
 
@@ -73,25 +76,6 @@ function SourceStatusIndicator({ sources }: { sources: Record<string, string> })
           </span>
         </div>
       ))}
-    </div>
-  );
-}
-
-function SkeletonCard() {
-  return (
-    <div className="bg-neutral-800/50 border border-neutral-700/40 rounded-xl p-5 animate-pulse">
-      <div className="flex gap-4">
-        <div className="w-12 h-12 rounded-xl bg-neutral-700/50 shrink-0" />
-        <div className="flex-1 space-y-3">
-          <div className="h-4 bg-neutral-700/50 rounded w-3/4" />
-          <div className="h-1.5 bg-neutral-700/50 rounded w-full" />
-          <div className="flex gap-1.5">
-            <div className="h-4 w-14 bg-neutral-700/50 rounded" />
-            <div className="h-4 w-12 bg-neutral-700/50 rounded" />
-          </div>
-          <div className="h-3 bg-neutral-700/50 rounded w-5/6" />
-        </div>
-      </div>
     </div>
   );
 }
@@ -232,26 +216,18 @@ export default function TrendingTab({ onGenerateIdeas }: Props) {
               : "Scan 7 sources for trending educational content"}
           </p>
         </div>
-        <button
+        <Button
+          variant="primary"
           onClick={handleRefresh}
-          disabled={loading}
-          className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg font-medium bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+          loading={loading}
+          icon={!loading ? (
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
+            </svg>
+          ) : undefined}
         >
-          <svg
-            className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182"
-            />
-          </svg>
           Refresh
-        </button>
+        </Button>
       </div>
 
       {/* Refresh progress */}
@@ -367,35 +343,16 @@ export default function TrendingTab({ onGenerateIdeas }: Props) {
 
       {/* Empty state */}
       {!loading && topics.length === 0 && !error && (
-        <div className="text-center py-20 space-y-4">
-          <div className="flex justify-center">
-            <svg
-              className="w-12 h-12 text-violet-500/40"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.2}
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"
-              />
+        <EmptyState
+          icon={
+            <svg className="w-full h-full" fill="none" stroke="currentColor" strokeWidth={1.2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
             </svg>
-          </div>
-          <p className="text-xl font-medium text-neutral-300">
-            Discover what&apos;s trending
-          </p>
-          <p className="text-sm text-neutral-500">
-            Scan YouTube, Reddit, Hacker News, Wikipedia, and more for hot topics
-          </p>
-          <button
-            onClick={handleRefresh}
-            className="mt-2 text-sm px-5 py-2.5 rounded-lg font-medium bg-violet-600 hover:bg-violet-500 text-white transition-colors"
-          >
-            Refresh Now
-          </button>
-        </div>
+          }
+          title="Discover what's trending"
+          description="Scan YouTube, Reddit, Hacker News, Wikipedia, and more for hot topics"
+          action={{ label: "Refresh Now", onClick: handleRefresh }}
+        />
       )}
 
       {/* No results after filter */}

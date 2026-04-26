@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getPostIts, createPostIt, updatePostIt, deletePostIt, getPostItCounts } from "../../api";
 import type { PostIt, PostItStatus } from "../../types/postit";
 import PostItCard from "./PostItCard";
+import { Button } from "../ui/Button";
+import { EmptyState } from "../ui/EmptyState";
 
 const STATUS_FILTERS: { key: PostItStatus | "all"; label: string }[] = [
   { key: "all", label: "All" },
@@ -130,7 +132,7 @@ export default function PostItPage({ onGenerateIdeas }: Props) {
         <button
           onClick={handleAdd}
           disabled={!newText.trim()}
-          className="text-sm px-4 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium transition-colors"
+          className="text-sm px-4 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium transition-colors active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
         >
           Add
         </button>
@@ -168,15 +170,15 @@ export default function PostItPage({ onGenerateIdeas }: Props) {
           No post-its with status &ldquo;{STATUS_FILTERS.find((f) => f.key === statusFilter)?.label}&rdquo;
         </div>
       ) : postits.length === 0 ? (
-        <div className="text-center py-20 space-y-3">
-          <div className="flex justify-center">
-            <svg className="w-12 h-12 text-violet-500/40" fill="none" viewBox="0 0 24 24" strokeWidth={1.2} stroke="currentColor">
+        <EmptyState
+          icon={
+            <svg className="w-full h-full" fill="none" viewBox="0 0 24 24" strokeWidth={1.2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
             </svg>
-          </div>
-          <p className="text-lg font-medium text-neutral-300">No post-its yet</p>
-          <p className="text-sm text-neutral-500">Add your first video idea above</p>
-        </div>
+          }
+          title="No post-its yet"
+          description="Add your first video idea above"
+        />
       ) : (
         <div className="space-y-2">
           {filteredPostits.map((postit) => (
