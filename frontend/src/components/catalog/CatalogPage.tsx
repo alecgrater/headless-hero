@@ -679,9 +679,9 @@ export default function CatalogPage({ onNavigateToSettings }: Props) {
                   className="bg-neutral-900 border border-neutral-800 hover:border-neutral-700 rounded-xl transition-colors overflow-hidden"
                 >
                   {/* Collapsed row — always visible */}
-                  <button
+                  <div
                     onClick={() => toggleExpand(entry.folder_name)}
-                    className="w-full flex items-start gap-4 p-4 text-left"
+                    className="w-full flex items-start gap-4 p-4 text-left cursor-pointer"
                   >
                     {/* Thumbnail with play overlay */}
                     <div className="relative w-48 aspect-video shrink-0 group/thumb">
@@ -774,7 +774,7 @@ export default function CatalogPage({ onNavigateToSettings }: Props) {
                         <span>{formatDate(entry.exported_at)}</span>
                       </div>
                     </div>
-                  </button>
+                  </div>
 
                   {/* Accordion content */}
                   <div
