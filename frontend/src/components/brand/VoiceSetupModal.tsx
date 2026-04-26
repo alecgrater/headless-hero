@@ -99,7 +99,7 @@ export default function VoiceSetupModal({ brandName, onVoiceSelected, onClose }:
             <button
               type="button"
               onClick={() => setTab("select")}
-              className={`px-4 py-1.5 rounded-lg text-[12px] font-medium transition-all duration-200 ${
+              className={`px-4 py-1.5 rounded-lg text-[12px] font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
                 tab === "select"
                   ? "bg-violet-500/20 text-violet-300 border border-violet-500/30"
                   : "text-white/40 hover:text-white/60 border border-transparent"
@@ -112,7 +112,7 @@ export default function VoiceSetupModal({ brandName, onVoiceSelected, onClose }:
           <button
             type="button"
             onClick={() => setTab("clone")}
-            className={`px-4 py-1.5 rounded-lg text-[12px] font-medium transition-all duration-200 ${
+            className={`px-4 py-1.5 rounded-lg text-[12px] font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
               tab === "clone"
                 ? "bg-violet-500/20 text-violet-300 border border-violet-500/30"
                 : "text-white/40 hover:text-white/60 border border-transparent"
@@ -183,7 +183,7 @@ export default function VoiceSetupModal({ brandName, onVoiceSelected, onClose }:
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-2.5 rounded-lg text-[12px] text-white/50 border border-dashed border-white/[0.15] hover:border-violet-400/40 hover:text-white/70 bg-transparent transition-all duration-200"
+                  className="px-4 py-2.5 rounded-lg text-[12px] text-white/50 border border-dashed border-white/[0.15] hover:border-violet-400/40 hover:text-white/70 bg-transparent transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
                   style={{ fontFamily: "Sora, sans-serif" }}
                 >
                   Choose Files
@@ -200,7 +200,8 @@ export default function VoiceSetupModal({ brandName, onVoiceSelected, onClose }:
                         <button
                           type="button"
                           onClick={() => removeFile(i)}
-                          className="text-white/30 hover:text-red-400 transition-colors"
+                          className="text-white/30 hover:text-red-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded-full"
+                          aria-label="Remove file"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -218,11 +219,8 @@ export default function VoiceSetupModal({ brandName, onVoiceSelected, onClose }:
                 type="button"
                 disabled={cloning || audioFiles.length === 0}
                 onClick={handleCloneClick}
-                className="w-full relative overflow-hidden px-5 py-2.5 rounded-lg text-[13px] font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 hover:scale-[1.01]"
-                style={{
-                  fontFamily: "Sora, sans-serif",
-                  background: "linear-gradient(135deg, #7c3aed, #a855f7)",
-                }}
+                className="w-full relative overflow-hidden px-5 py-2.5 rounded-lg text-[13px] font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 hover:scale-[1.01] bg-gradient-to-br from-violet-600 to-violet-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+                style={{ fontFamily: "Sora, sans-serif" }}
               >
                 <span className="relative z-10">
                   {cloning ? "Cloning..." : "Clone & Continue"}

@@ -190,7 +190,7 @@ export default function VoiceSection() {
                 {v.preview_url && (
                   <button
                     onClick={() => handlePreview(v)}
-                    className="shrink-0 px-2.5 py-1.5 rounded-md bg-neutral-700 hover:bg-neutral-600 text-xs text-neutral-300 transition-colors"
+                    className="shrink-0 px-2.5 py-1.5 rounded-md bg-neutral-700 hover:bg-neutral-600 text-xs text-neutral-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
                   >
                     {playingId === v.voice_id ? "Stop" : "Preview"}
                   </button>
@@ -198,7 +198,7 @@ export default function VoiceSection() {
                 <button
                   onClick={() => handleAddLibraryVoice(v)}
                   disabled={adding === v.voice_id}
-                  className="shrink-0 px-3 py-1.5 rounded-md bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-xs font-medium transition-colors"
+                  className="shrink-0 px-3 py-1.5 rounded-md bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
                 >
                   {adding === v.voice_id ? "Adding..." : "Add"}
                 </button>
