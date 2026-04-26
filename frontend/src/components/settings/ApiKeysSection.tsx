@@ -78,6 +78,28 @@ const SERVICES: ServiceConfig[][] = [
       placeholder: "abc123...",
     },
   ],
+  [
+    {
+      key: "TWITCH_CLIENT_ID",
+      label: "Twitch Client ID",
+      description: "Twitch API for discovering gameplay VODs.",
+      placeholder: "abc123...",
+    },
+    {
+      key: "TWITCH_CLIENT_SECRET",
+      label: "Twitch Client Secret",
+      description: "Twitch API secret for gameplay VOD access.",
+      placeholder: "abc123...",
+    },
+  ],
+  [
+    {
+      key: "PEXELS_API_KEY",
+      label: "Pexels",
+      description: "Stock photos for scenes via Pexels API.",
+      placeholder: "abc123...",
+    },
+  ],
 ];
 
 function EyeIcon({ className }: { className?: string }) {

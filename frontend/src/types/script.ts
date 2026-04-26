@@ -45,7 +45,7 @@ export interface VideoFX {
 
 export interface FrameDirective {
   prompt: string;
-  source: "ai_generated" | "real_photo" | "subtitle";
+  source: "ai_generated" | "real_photo" | "subtitle" | "gameplay_video" | "stock_photo" | "user_upload";
   search_query?: string;
   transition: "cut" | "crossfade" | "fade_black";
   reference_previous: boolean;
@@ -78,6 +78,11 @@ export interface Scene {
   frame_timings?: number[] | null;
   visual_in_seconds?: number;
   visual_out_seconds?: number;
+  // Multi-source media
+  media_source?: "ai" | "gameplay_video" | "stock_photo" | "user_upload";
+  gameplay_game_override?: string;
+  video_url?: string;
+  upload_url?: string;
 }
 
 export interface Segment {
@@ -95,6 +100,10 @@ export interface ScriptContent {
   subtitle_highlight_enabled?: boolean;
   seo_metadata?: SEOMetadata | null;
   hook_score?: HookScore | null;
+  // Multi-source media
+  gameplay_enabled?: boolean;
+  stock_photo_enabled?: boolean;
+  gameplay_game_name?: string;
 }
 
 export interface ScriptRead {

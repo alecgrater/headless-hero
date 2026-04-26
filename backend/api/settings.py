@@ -33,6 +33,9 @@ ALLOWED_KEYS = {
     "SCRIPT_MODEL",
     "YOUTUBE_API_KEY",
     "NEWS_API_KEY",
+    "TWITCH_CLIENT_ID",
+    "TWITCH_CLIENT_SECRET",
+    "PEXELS_API_KEY",
 }
 
 # Keys that should NOT be masked (non-secret settings)
