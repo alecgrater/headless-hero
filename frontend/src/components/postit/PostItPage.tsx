@@ -46,31 +46,37 @@ export default function PostItPage({ onGenerateIdeas }: Props) {
   const handleAdd = async () => {
     const trimmed = newText.trim();
     if (!trimmed) return;
-    const created = await createPostIt(trimmed, newRank);
-    setPostits((prev) => {
-      const next = [...prev, created];
-      next.sort((a, b) => b.rank - a.rank || new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      return next;
-    });
-    setNewText("");
-    setNewRank(50);
-    refreshCounts();
+    try {
+      const created = await createPostIt(trimmed, newRank);
+      setPostits((prev) => {
+        const next = [...prev, created];
+        next.sort((a, b) => b.rank - a.rank || new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        return next;
+      });
+      setNewText("");
+      setNewRank(50);
+      refreshCounts();
+    } catch { /* toast shown by interceptor */ }
   };
 
   const handleUpdate = async (id: string, updates: { text?: string; rank?: number; status?: PostItStatus }) => {
-    const updated = await updatePostIt(id, updates);
-    setPostits((prev) => {
-      const next = prev.map((p) => (p.id === id ? updated : p));
-      next.sort((a, b) => b.rank - a.rank || new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      return next;
-    });
-    if (updates.status) refreshCounts();
+    try {
+      const updated = await updatePostIt(id, updates);
+      setPostits((prev) => {
+        const next = prev.map((p) => (p.id === id ? updated : p));
+        next.sort((a, b) => b.rank - a.rank || new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        return next;
+      });
+      if (updates.status) refreshCounts();
+    } catch { /* toast shown by interceptor */ }
   };
 
   const handleDelete = async (id: string) => {
-    await deletePostIt(id);
-    setPostits((prev) => prev.filter((p) => p.id !== id));
-    refreshCounts();
+    try {
+      await deletePostIt(id);
+      setPostits((prev) => prev.filter((p) => p.id !== id));
+      refreshCounts();
+    } catch { /* toast shown by interceptor */ }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -134,7 +140,9 @@ export default function PostItPage({ onGenerateIdeas }: Props) {
       {postits.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
           {STATUS_FILTERS.map(({ key, label }) => {
-            const count = key === "all" ? postits.length : (counts[key] || 0);
+            const count = key === "all"
+              ? Object.values(counts).reduce((sum, n) => sum + n, 0)
+              : (counts[key] || 0);
             return (
               <button
                 key={key}

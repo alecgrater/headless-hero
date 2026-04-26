@@ -42,6 +42,17 @@ def list_postits(session: Session = Depends(get_session)) -> list[PostIt]:
     return list(session.exec(stmt).all())
 
 
+@router.get("/postits/counts")
+def postit_counts(session: Session = Depends(get_session)) -> dict[str, int]:
+    rows = session.exec(
+        select(PostIt.status, func.count()).group_by(PostIt.status)
+    ).all()
+    counts = {s: 0 for s in VALID_STATUSES}
+    for status, count in rows:
+        counts[status] = count
+    return counts
+
+
 @router.post("/postits", status_code=201)
 def create_postit(body: CreatePostItRequest, session: Session = Depends(get_session)) -> PostIt:
     postit = PostIt(text=body.text, rank=body.rank, source=body.source)
@@ -66,17 +77,6 @@ def update_postit(postit_id: str, body: UpdatePostItRequest, session: Session = 
     session.commit()
     session.refresh(postit)
     return postit
-
-
-@router.get("/postits/counts")
-def postit_counts(session: Session = Depends(get_session)) -> dict[str, int]:
-    rows = session.exec(
-        select(PostIt.status, func.count()).group_by(PostIt.status)
-    ).all()
-    counts = {s: 0 for s in VALID_STATUSES}
-    for status, count in rows:
-        counts[status] = count
-    return counts
 
 
 @router.delete("/postits/{postit_id}", status_code=204)

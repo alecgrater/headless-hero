@@ -85,8 +85,10 @@ function App() {
   }, [loadDefaultBrand]);
 
   const loadPostItCounts = useCallback(async () => {
-    const counts = await getPostItCounts();
-    setPostItIdeaCount(counts.idea || 0);
+    try {
+      const counts = await getPostItCounts();
+      setPostItIdeaCount(counts.idea || 0);
+    } catch { /* silent — badge degrades gracefully */ }
   }, []);
 
   useEffect(() => {
