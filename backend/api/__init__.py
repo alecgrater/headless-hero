@@ -15,6 +15,7 @@ from database import engine as _db_engine
 from api.eli import router as eli_router
 from api.fx import router as fx_router
 from api.ideas import router as ideas_router
+from api.media import router as media_router
 from api.postits import router as postits_router
 from api.publish import router as publish_router
 from api.render import router as render_router
@@ -97,6 +98,7 @@ app.include_router(cold_opens_router)
 app.include_router(eli_router)
 app.include_router(fx_router)
 app.include_router(ideas_router)
+app.include_router(media_router)
 app.include_router(postits_router)
 app.include_router(scripts_router)
 app.include_router(visuals_router)
