@@ -169,7 +169,7 @@ export default function GeneralSection() {
                 value={downloadsDir}
                 onChange={(e) => setDownloadsDir(e.target.value)}
                 placeholder="~/Downloads"
-                className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 transition-colors font-mono"
+                className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors font-mono"
               />
               {window.api?.selectFolder && (
                 <button
@@ -178,7 +178,7 @@ export default function GeneralSection() {
                     const result = await window.api.selectFolder!("Select Downloads Directory", downloadsDir || undefined);
                     if (!result.canceled && result.path) setDownloadsDir(result.path);
                   }}
-                  className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-300 hover:text-neutral-100 hover:border-neutral-600 transition-colors whitespace-nowrap"
+                  className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-300 hover:text-neutral-100 hover:border-neutral-600 transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
                 >
                   Browse…
                 </button>
@@ -199,7 +199,7 @@ export default function GeneralSection() {
                 value={exportFolder}
                 onChange={(e) => setExportFolder(e.target.value)}
                 placeholder="~/Library/Mobile Documents/.../headless-hero media/Videos"
-                className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 transition-colors font-mono"
+                className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors font-mono"
               />
               {window.api?.selectFolder && (
                 <button
@@ -208,7 +208,7 @@ export default function GeneralSection() {
                     const result = await window.api.selectFolder!("Select Export Folder", exportFolder || undefined);
                     if (!result.canceled && result.path) setExportFolder(result.path);
                   }}
-                  className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-300 hover:text-neutral-100 hover:border-neutral-600 transition-colors whitespace-nowrap"
+                  className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-300 hover:text-neutral-100 hover:border-neutral-600 transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
                 >
                   Browse…
                 </button>
@@ -227,7 +227,7 @@ export default function GeneralSection() {
               <select
                 value={scriptModel}
                 onChange={(e) => setScriptModel(e.target.value)}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
               >
                 {SCRIPT_MODELS.map((m) => (
                   <option key={m.value} value={m.value}>
@@ -247,7 +247,7 @@ export default function GeneralSection() {
               <select
                 value={imageProvider}
                 onChange={(e) => setImageProvider(e.target.value)}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
               >
                 {IMAGE_PROVIDERS.map((p) => (
                   <option key={p.value} value={p.value}>
@@ -272,7 +272,7 @@ export default function GeneralSection() {
                   onClick={() =>
                     setRateLimitEnabled(rateLimitEnabled === "true" ? "false" : "true")
                   }
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
                     rateLimitEnabled === "true" ? "bg-violet-600 shadow-sm shadow-violet-500/30" : "bg-neutral-700"
                   }`}
                 >
@@ -303,7 +303,7 @@ export default function GeneralSection() {
                 <select
                   value={replicateModel}
                   onChange={(e) => setReplicateModel(e.target.value)}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
                 >
                   {REPLICATE_MODELS.map((m) => (
                     <option key={m.value} value={m.value}>
@@ -328,7 +328,7 @@ export default function GeneralSection() {
                     onClick={() =>
                       setPromptUpsampling(promptUpsampling === "true" ? "false" : "true")
                     }
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
                       promptUpsampling === "true" ? "bg-violet-600" : "bg-neutral-700"
                     }`}
                   >
@@ -349,7 +349,7 @@ export default function GeneralSection() {
                 <select
                   value={safetyTolerance}
                   onChange={(e) => setSafetyTolerance(e.target.value)}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
                 >
                   {SAFETY_LEVELS.map((s) => (
                     <option key={s.value} value={s.value}>
@@ -367,7 +367,7 @@ export default function GeneralSection() {
                 <select
                   value={outputFormat}
                   onChange={(e) => setOutputFormat(e.target.value)}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 transition-colors"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
                 >
                   {OUTPUT_FORMATS.map((f) => (
                     <option key={f.value} value={f.value}>
@@ -389,7 +389,7 @@ export default function GeneralSection() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="btn-primary px-5 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-primary px-5 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
             >
               {saving ? "Saving..." : "Save Changes"}
             </button>

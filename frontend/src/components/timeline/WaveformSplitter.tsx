@@ -26,9 +26,9 @@ export default function WaveformSplitter({ audioUrl, wordTimestamps, onSplit }: 
 
     const ws = WaveSurfer.create({
       container: containerRef.current,
-      waveColor: "#525252",
-      progressColor: "#7c3aed",
-      cursorColor: "#a78bfa",
+      waveColor: "#525252", // neutral-600
+      progressColor: "#7c3aed", // violet-600
+      cursorColor: "#a78bfa", // violet-400
       cursorWidth: 2,
       height: "auto",
       barWidth: 2,
@@ -116,13 +116,13 @@ export default function WaveformSplitter({ audioUrl, wordTimestamps, onSplit }: 
           <div className="flex-1" />
           <button
             onClick={handleCancel}
-            className="text-xs px-2.5 py-1 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-md transition-colors"
+            className="text-xs px-2.5 py-1 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
           >
             Cancel
           </button>
           <button
             onClick={handleSplit}
-            className="text-xs px-3 py-1 bg-violet-600 hover:bg-violet-500 text-white rounded-md font-medium transition-colors"
+            className="text-xs px-3 py-1 bg-violet-600 hover:bg-violet-500 text-white rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
           >
             Split Here
           </button>

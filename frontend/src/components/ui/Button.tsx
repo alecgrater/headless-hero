@@ -1,4 +1,4 @@
-import { ButtonHTMLAttributes, ReactNode, forwardRef } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 const variantClasses = {
   primary:

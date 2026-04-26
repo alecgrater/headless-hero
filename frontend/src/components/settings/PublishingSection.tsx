@@ -84,7 +84,7 @@ export default function PublishingSection() {
             </span>
             <button
               onClick={handleDisconnectYouTube}
-              className="text-sm text-red-400 hover:text-red-300 transition-colors"
+              className="text-sm text-red-400 hover:text-red-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded-md"
             >
               Disconnect
             </button>
@@ -93,7 +93,7 @@ export default function PublishingSection() {
           <button
             onClick={handleConnectYouTube}
             disabled={connecting}
-            className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
           >
             {connecting ? (
               <>

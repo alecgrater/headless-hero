@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 
 const variantClasses = {
   default: "bg-neutral-700/50 text-neutral-300",

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getPostIts, createPostIt, updatePostIt, deletePostIt, getPostItCounts } from "../../api";
 import type { PostIt, PostItStatus } from "../../types/postit";
 import PostItCard from "./PostItCard";
-import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
 
 const STATUS_FILTERS: { key: PostItStatus | "all"; label: string }[] = [

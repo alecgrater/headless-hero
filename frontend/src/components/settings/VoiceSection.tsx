@@ -139,7 +139,7 @@ export default function VoiceSection() {
         <select
           value={selectedVoiceId}
           onChange={(e) => handleVoiceChange(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-200 text-sm focus:outline-none focus:border-violet-500/50 transition-colors"
+          className="w-full px-3 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-200 text-sm focus:outline-none focus:border-violet-500/50 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
         >
           <option value="">No voice selected</option>
           {voices.map((v) => (
@@ -163,12 +163,12 @@ export default function VoiceSection() {
             onChange={(e) => setLibrarySearch(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleLibrarySearch()}
             placeholder="Search voices..."
-            className="flex-1 px-3 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-200 text-sm placeholder-neutral-500 focus:outline-none focus:border-violet-500/50 transition-colors"
+            className="flex-1 px-3 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-200 text-sm placeholder-neutral-500 focus:outline-none focus:border-violet-500/50 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
           />
           <button
             onClick={handleLibrarySearch}
             disabled={searching || !librarySearch.trim()}
-            className="px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+            className="px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
           >
             {searching ? "Searching..." : "Search"}
           </button>

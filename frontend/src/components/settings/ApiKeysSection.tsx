@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../../api";
 import { showToast } from "../ToastContainer";
+import { Tooltip } from "../ui/Tooltip";
 
 interface KeyInfo {
   configured: boolean;
@@ -183,7 +184,7 @@ export default function ApiKeysSection() {
         <button
           onClick={handleSave}
           disabled={saving || !hasChanges}
-          className="px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
+          className="px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
         >
           {saving ? "Saving..." : "Save"}
         </button>
@@ -228,20 +229,22 @@ export default function ApiKeysSection() {
                           ? `Current: ${info.masked}`
                           : svc.placeholder
                       }
-                      className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 transition-colors font-mono"
+                      className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors font-mono"
                     />
-                    <button
-                      type="button"
-                      onClick={() => toggleVisible(svc.key)}
-                      className="p-2 text-neutral-500 hover:text-neutral-300 transition-colors"
-                      title={isVisible ? "Hide" : "Show"}
-                    >
-                      {isVisible ? (
-                        <EyeOffIcon className="w-4 h-4" />
-                      ) : (
-                        <EyeIcon className="w-4 h-4" />
-                      )}
-                    </button>
+                    <Tooltip content={isVisible ? "Hide" : "Show"}>
+                      <button
+                        type="button"
+                        onClick={() => toggleVisible(svc.key)}
+                        aria-label={isVisible ? "Hide API key" : "Show API key"}
+                        className="p-2 text-neutral-500 hover:text-neutral-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded-md"
+                      >
+                        {isVisible ? (
+                          <EyeOffIcon className="w-4 h-4" />
+                        ) : (
+                          <EyeIcon className="w-4 h-4" />
+                        )}
+                      </button>
+                    </Tooltip>
                     {info?.source === "env" && isConfigured && (
                       <span className="text-[10px] text-neutral-600 shrink-0">
                         from env

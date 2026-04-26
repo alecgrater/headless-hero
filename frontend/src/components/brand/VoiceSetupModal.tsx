@@ -55,7 +55,7 @@ export default function VoiceSetupModal({ brandName, onVoiceSelected, onClose }:
   const handleCloneClick = () => handleClone(brandName);
 
   const inputCls =
-    "w-full h-[44px] rounded-lg bg-[#1a1a24] border border-white/[0.08] px-3 text-[13px] text-white/90 placeholder:text-white/40 outline-none transition-all duration-200 focus:border-[rgba(124,58,237,0.6)] focus:shadow-[0_0_0_3px_rgba(124,58,237,0.15)]";
+    "w-full h-[44px] rounded-lg bg-neutral-900 border border-white/[0.08] px-3 text-[13px] text-white/90 placeholder:text-white/40 outline-none transition-all duration-200 focus:border-violet-600/60 focus:ring-3 focus:ring-violet-500/15";
 
   const labelCls =
     "block text-[11px] font-medium tracking-[0.08em] uppercase text-white/40 mb-1.5 font-['Sora']";
@@ -63,8 +63,7 @@ export default function VoiceSetupModal({ brandName, onVoiceSelected, onClose }:
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div
-        className="w-full max-w-[480px] rounded-xl overflow-hidden border border-white/[0.08] shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
-        style={{ background: "#111118" }}
+        className="w-full max-w-[480px] rounded-xl overflow-hidden border border-white/[0.08] shadow-[0_20px_60px_rgba(0,0,0,0.5)] bg-[#111118]"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
@@ -80,7 +79,8 @@ export default function VoiceSetupModal({ brandName, onVoiceSelected, onClose }:
           <button
             type="button"
             onClick={onClose}
-            className="text-white/30 hover:text-white/60 transition-colors"
+            className="text-white/30 hover:text-white/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded-md"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
@@ -145,11 +145,8 @@ export default function VoiceSetupModal({ brandName, onVoiceSelected, onClose }:
                 type="button"
                 onClick={handleSelectAndContinue}
                 disabled={!selectedVoiceId}
-                className="w-full px-5 py-2.5 rounded-lg text-[13px] font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 hover:scale-[1.01]"
-                style={{
-                  fontFamily: "Sora, sans-serif",
-                  background: "linear-gradient(135deg, #7c3aed, #a855f7)",
-                }}
+                className="w-full px-5 py-2.5 rounded-lg text-[13px] font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 hover:scale-[1.01] bg-gradient-to-br from-violet-600 to-violet-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+                style={{ fontFamily: "Sora, sans-serif" }}
               >
                 Use This Voice
               </button>

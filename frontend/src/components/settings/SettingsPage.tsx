@@ -74,7 +74,8 @@ export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultS
       <div className="sticky top-0 z-10 bg-neutral-950 border-b border-neutral-800 px-6 py-4 flex items-center">
         <button
           onClick={onBack}
-          className="text-neutral-400 hover:text-neutral-200 transition-colors"
+          aria-label="Back"
+          className="text-neutral-400 hover:text-neutral-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 rounded-md"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
@@ -91,7 +92,7 @@ export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultS
             <button
               key={section.id}
               onClick={() => setActiveSection(section.id)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
                 activeSection === section.id
                   ? "bg-neutral-800 text-neutral-100"
                   : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50"
