@@ -63,6 +63,7 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
       } catch {
         setRefreshing(false);
         stopPolling();
+        showToast("Refresh status check failed");
       }
     }, 3000);
   }, [stopPolling]);
