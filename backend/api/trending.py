@@ -254,7 +254,11 @@ async def generate_smart_ideas(
     cached = get_cached_profile()
     if cached and cached.get("script_count", 0) >= 3:
         if cached.get("is_stale"):
-            profile = analyze_content_profile() or None
+            try:
+                profile = analyze_content_profile() or None
+            except Exception:
+                logger.warning("Content profile refresh failed — proceeding without it")
+                profile = {k: v for k, v in cached.items() if k != "is_stale"}
         else:
             profile = cached
 
