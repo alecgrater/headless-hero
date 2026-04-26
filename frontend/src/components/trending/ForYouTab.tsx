@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   getContentProfile,
   refreshContentProfile,
@@ -16,7 +16,7 @@ interface Props {
 export default function ForYouTab({ onGenerateIdeas }: Props) {
   const [profile, setProfile] = useState<ContentProfile | null>(null);
   const [ideas, setIdeas] = useState<SmartIdea[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingIdeas, setLoadingIdeas] = useState(false);
@@ -48,7 +48,7 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
     try {
       const result = await generateSmartIdeas(40);
       setIdeas(result.ideas);
-      setCategories(result.categories);
+      setCategoryOrder(result.categories);
       setActiveCategory(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate ideas");
@@ -71,26 +71,27 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
     setIdeas((prev) => prev.filter((i) => i.title !== idea.title));
   };
 
-  const filteredIdeas = activeCategory
-    ? ideas.filter((i) => i.category === activeCategory)
-    : ideas;
-
-  const categoryCounts = categories.reduce<Record<string, number>>((acc, cat) => {
-    acc[cat] = ideas.filter((i) => i.category === cat).length;
-    return acc;
-  }, {});
-
-  const groupedIdeas: { category: string; ideas: SmartIdea[] }[] = [];
-  if (activeCategory) {
-    groupedIdeas.push({ category: activeCategory, ideas: filteredIdeas });
-  } else {
-    for (const cat of categories) {
-      const catIdeas = ideas.filter((i) => i.category === cat);
-      if (catIdeas.length > 0) {
-        groupedIdeas.push({ category: cat, ideas: catIdeas });
-      }
+  const { categories, categoryCounts, groupedIdeas } = useMemo(() => {
+    const groupedMap = new Map<string, SmartIdea[]>();
+    const counts: Record<string, number> = {};
+    for (const idea of ideas) {
+      const cat = idea.category;
+      if (!groupedMap.has(cat)) groupedMap.set(cat, []);
+      groupedMap.get(cat)!.push(idea);
+      counts[cat] = (counts[cat] || 0) + 1;
     }
-  }
+
+    const cats = categoryOrder.filter((c) => (counts[c] || 0) > 0);
+
+    let groups: { category: string; ideas: SmartIdea[] }[];
+    if (activeCategory) {
+      groups = [{ category: activeCategory, ideas: groupedMap.get(activeCategory) || [] }];
+    } else {
+      groups = cats.map((cat) => ({ category: cat, ideas: groupedMap.get(cat) || [] }));
+    }
+
+    return { categories: cats, categoryCounts: counts, groupedIdeas: groups };
+  }, [ideas, categoryOrder, activeCategory]);
 
   return (
     <div className="space-y-6">

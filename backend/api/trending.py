@@ -5,7 +5,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from database import get_session, get_default_brand_id
@@ -77,7 +77,7 @@ class SmartIdeasResponse(BaseModel):
 
 
 class SmartIdeasRequest(BaseModel):
-    count: int = 40
+    count: int = Field(default=40, ge=1, le=100)
 
 
 # ---------------------------------------------------------------------------
