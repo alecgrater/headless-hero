@@ -23,6 +23,7 @@ dependencies = [
     "feedparser>=6.0.0",
     "newsapi-python>=0.2.7",
     "thefuzz[speedup]>=0.22.0",
+    "yt-dlp>=2026.3.17",
 ]
 
 [dependency-groups]
