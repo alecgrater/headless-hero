@@ -37,6 +37,21 @@ from prompts import CHARACTER_SPEC_MD, IMAGE_VISUAL_STYLE
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 
+
+def _collect_hook_scenes(content: ScriptContent, max_scenes: int = 5, max_seconds: float = 30.0) -> list[Scene]:
+    """Collect first non-title-card scenes up to max_scenes or max_seconds."""
+    scenes: list[Scene] = []
+    total = 0.0
+    for seg in content.segments:
+        for scene in seg.scenes:
+            if scene.is_title_card:
+                continue
+            scenes.append(scene)
+            total += scene.duration_estimate_seconds
+            if len(scenes) >= max_scenes or total >= max_seconds:
+                return scenes
+    return scenes
+
 _VISUAL_STYLE = IMAGE_VISUAL_STYLE.template
 _CHARACTER = CHARACTER_SPEC_MD.template
 
@@ -212,18 +227,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
         try:
             update_job(job_id, current_step="Scoring hook...")
             t_hook = time.monotonic()
-            hook_scenes: list[Scene] = []
-            total_dur = 0.0
-            for seg in script_content.segments:
-                for scene in seg.scenes:
-                    if scene.is_title_card:
-                        continue
-                    hook_scenes.append(scene)
-                    total_dur += scene.duration_estimate_seconds
-                    if len(hook_scenes) >= 5 or total_dur >= 30:
-                        break
-                if len(hook_scenes) >= 5 or total_dur >= 30:
-                    break
+            hook_scenes = _collect_hook_scenes(script_content)
 
             if hook_scenes:
                 hook_result = score_hook(script_content.intro_hook, hook_scenes, script_content.title, script_id)
@@ -233,7 +237,6 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
                     if record2:
                         record2.script_json = script_content.model_dump_json()
                         bg_session2.add(record2)
-                        bg_session2.commit()
                     bg_session2.add(GenerationDuration(operation_type="hook_score", duration_seconds=time.monotonic() - t_hook))
                     bg_session2.commit()
                 logger.info("Hook scored for %s: overall=%d", script_id, hook_result.overall)
@@ -421,19 +424,7 @@ def hook_score_endpoint(script_id: str, session: Session = Depends(get_session))
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
 
-    # Collect first 3-5 non-title-card scenes up to ~30s total
-    hook_scenes: list[Scene] = []
-    total_duration = 0.0
-    for seg in content.segments:
-        for scene in seg.scenes:
-            if scene.is_title_card:
-                continue
-            hook_scenes.append(scene)
-            total_duration += scene.duration_estimate_seconds
-            if len(hook_scenes) >= 5 or total_duration >= 30:
-                break
-        if len(hook_scenes) >= 5 or total_duration >= 30:
-            break
+    hook_scenes = _collect_hook_scenes(content)
 
     if not hook_scenes:
         raise HTTPException(status_code=422, detail="No scorable scenes found")
