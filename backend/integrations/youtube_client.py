@@ -39,6 +39,8 @@ def _get_client_config() -> dict[str, dict]:
         }
     }
 
+_pending_code_verifiers: dict[str, str] = {}
+
 def get_auth_url(redirect_uri: str = _REDIRECT_URI_DEFAULT, state: str = "") -> str:
     """Generate the Google OAuth2 consent URL."""
     flow = Flow.from_client_config(_get_client_config(), scopes=_SCOPES)
@@ -49,16 +51,19 @@ def get_auth_url(redirect_uri: str = _REDIRECT_URI_DEFAULT, state: str = "") -> 
         prompt="consent",
         state=state,
     )
+    if flow.code_verifier and state:
+        _pending_code_verifiers[state] = flow.code_verifier
     return auth_url
 
-def exchange_code(code: str, redirect_uri: str = _REDIRECT_URI_DEFAULT) -> dict:
+def exchange_code(code: str, redirect_uri: str = _REDIRECT_URI_DEFAULT, state: str = "") -> dict:
     """Exchange authorization code for tokens.
 
     Returns dict with access_token, refresh_token, expiry.
     """
     flow = Flow.from_client_config(_get_client_config(), scopes=_SCOPES)
     flow.redirect_uri = redirect_uri
-    flow.fetch_token(code=code)
+    code_verifier = _pending_code_verifiers.pop(state, None) if state else None
+    flow.fetch_token(code=code, code_verifier=code_verifier)
     creds = flow.credentials
     return {
         "access_token": creds.token,

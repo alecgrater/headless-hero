@@ -134,7 +134,7 @@ def oauth_callback(platform: str, code: str = "", state: str = "", error: str = 
     from integrations.youtube_client import exchange_code, get_channel_info
 
     try:
-        tokens = exchange_code(code)
+        tokens = exchange_code(code, state=brand_id)
         channel = get_channel_info(tokens["access_token"])
     except Exception as exc:
         logger.exception("OAuth exchange failed")
