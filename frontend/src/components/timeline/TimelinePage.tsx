@@ -216,6 +216,7 @@ function TimelineEditor({
   const [mediaAssignments, setMediaAssignments] = useState<MediaAssignment[] | null>(null);
   const [mediaReviewDismissed, setMediaReviewDismissed] = useState(false);
   const [mediaAnalyzing, setMediaAnalyzing] = useState(false);
+  const mediaPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const yoloCancelledRef = useRef(false);
   const microTimelineRef = useRef<MicroTimelineHandle>(null);
 
@@ -235,14 +236,23 @@ function TimelineEditor({
       const status = statusRes.data as MediaAnalysisStatus;
       if (status.status === "completed" && status.assignments) {
         clearInterval(poll);
+        mediaPollRef.current = null;
         setMediaAssignments(status.assignments as MediaAssignment[]);
         setMediaAnalyzing(false);
       } else if (status.status === "failed") {
         clearInterval(poll);
+        mediaPollRef.current = null;
         setMediaAnalyzing(false);
       }
     }, 1000);
+    mediaPollRef.current = poll;
   }, [scriptId]);
+
+  useEffect(() => {
+    return () => {
+      if (mediaPollRef.current) clearInterval(mediaPollRef.current);
+    };
+  }, []);
 
   // Detect if media analysis has already been run (e.g., auto-triggered during script generation)
   useEffect(() => {

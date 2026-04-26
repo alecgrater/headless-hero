@@ -106,16 +106,17 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
             script_id=script_id,
         )
 
-        apply_assignments(content, assignments)
-
         from database import engine
         from sqlmodel import Session as SqlSession
         with SqlSession(engine) as bg_session:
             rec = bg_session.get(Script, script_id)
-            if rec:
-                rec.script_json = content.model_dump_json()
-                bg_session.add(rec)
-                bg_session.commit()
+            if not rec:
+                return [script_id]
+            fresh_content = ScriptContent.model_validate(json.loads(rec.script_json))
+            apply_assignments(fresh_content, assignments)
+            rec.script_json = fresh_content.model_dump_json()
+            bg_session.add(rec)
+            bg_session.commit()
 
         result_data = json.dumps([{
             "scene_id": a.scene_id,
