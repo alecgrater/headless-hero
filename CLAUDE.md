@@ -4,6 +4,10 @@
 
 **When a new convention, rule, or architectural decision is established during a session, update this file to reflect it before committing.** Keep the document accurate and current — it is the source of truth for how this project works.
 
+## Review Findings → Always Apply Fixes
+
+**Any time a code review produces findings — whether from the auto-commit agent loop, a manual `/review` invocation, or review output pasted by the user — immediately implement every recommended fix.** Do NOT just report findings and stop. Do NOT ask the user whether to apply them. Read the findings, edit the code, commit, and push. FAIL-severity items first, then WARN items (skip items explicitly marked "non-blocking" or "optional").
+
 ## Auto-commit Rule
 
 **Every time a feature or fix is completed, run this entire loop in a single turn — do NOT stop, pause, or wait for user input at any step:**
