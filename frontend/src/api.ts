@@ -589,3 +589,34 @@ export async function uploadSceneMedia(
 
   return response.json();
 }
+
+export interface MediaAssignment {
+  scene_id: string;
+  media_source: "ai" | "gameplay_video" | "stock_photo";
+  game_name: string | null;
+  search_query: string | null;
+  reasoning: string;
+}
+
+export interface MediaAnalysisStatus {
+  status: string;
+  progress: number;
+  error: string | null;
+  assignments?: MediaAssignment[];
+  summary?: Record<string, number>;
+}
+
+export async function analyzeMedia(scriptId: string) {
+  return api.post<{ job_id: string }>(`/api/media/analyze/${scriptId}`);
+}
+
+export async function getMediaAnalysisStatus(jobId: string) {
+  return api.get<MediaAnalysisStatus>(`/api/media/analyze/status/${jobId}`);
+}
+
+export async function applyMediaAssignments(
+  scriptId: string,
+  assignments: MediaAssignment[],
+) {
+  return api.post<{ ok: boolean }>(`/api/media/apply/${scriptId}`, { assignments });
+}
