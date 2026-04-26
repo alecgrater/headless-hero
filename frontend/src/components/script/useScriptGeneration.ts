@@ -71,6 +71,15 @@ export interface ScriptGenerationState {
   handleColdOpenSelect: (variant: ColdOpenVariant) => void;
   setSegmented: (v: boolean) => void;
   coldOpenProgress: { estimatedSeconds: number | null; active: boolean };
+  // Multi-source media
+  gameplayEnabled: boolean;
+  stockPhotoEnabled: boolean;
+  gameplayGameName: string;
+  hasTwitchKeys: boolean;
+  hasPexelsKey: boolean;
+  setGameplayEnabled: (v: boolean) => void;
+  setStockPhotoEnabled: (v: boolean) => void;
+  setGameplayGameName: (v: string) => void;
 }
 
 export default function useScriptGeneration({ brandId, idea }: Params): ScriptGenerationState {
@@ -93,6 +102,13 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
   const [coldOpenResult, setColdOpenResult] = useState<ColdOpenResult | null>(null);
   const [selectedColdOpen, setSelectedColdOpen] = useState<ColdOpenVariant | null>(null);
   const [refineResult, setRefineResult] = useState<RefinedHookResult | null>(null);
+
+  // Multi-source media
+  const [gameplayEnabled, setGameplayEnabled] = useState(false);
+  const [stockPhotoEnabled, setStockPhotoEnabled] = useState(false);
+  const [gameplayGameName, setGameplayGameName] = useState("");
+  const [hasTwitchKeys, setHasTwitchKeys] = useState(false);
+  const [hasPexelsKey, setHasPexelsKey] = useState(false);
 
   const cancelledRef = useRef(false);
   const coldOpenJobIdRef = useRef<string | null>(null);
@@ -241,7 +257,7 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
   useEffect(() => {
     api.get("/api/settings/keys").then((res) => {
       if (res.ok) {
-        const data = res.data as Record<string, { masked: string }>;
+        const data = res.data as Record<string, { configured: boolean; masked: string }>;
         const saved = data?.SCRIPT_MODEL?.masked;
         if (saved) {
           setSelectedModel(saved);
@@ -249,6 +265,8 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
             setSegmented(true);
           }
         }
+        setHasTwitchKeys(!!data?.TWITCH_CLIENT_ID?.configured && !!data?.TWITCH_CLIENT_SECRET?.configured);
+        setHasPexelsKey(!!data?.PEXELS_API_KEY?.configured);
       }
       setSettingsLoaded(true);
     }).catch(() => setSettingsLoaded(true));
@@ -374,6 +392,9 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
         model: selectedModel !== DEFAULT_MODEL ? selectedModel : undefined,
         segmented,
         cold_open_text: coldOpenText,
+        gameplay_enabled: gameplayEnabled,
+        stock_photo_enabled: stockPhotoEnabled,
+        gameplay_game_name: gameplayGameName || undefined,
       })
       .then((res) => {
         if (cancelledRef.current) return;
@@ -437,5 +458,13 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
     handleColdOpenSelect,
     setSegmented,
     coldOpenProgress: { estimatedSeconds: coldOpenProgress.estimatedSeconds, active: coldOpenProgress.active },
+    gameplayEnabled,
+    stockPhotoEnabled,
+    gameplayGameName,
+    hasTwitchKeys,
+    hasPexelsKey,
+    setGameplayEnabled,
+    setStockPhotoEnabled,
+    setGameplayGameName,
   };
 }
