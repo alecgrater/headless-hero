@@ -21,6 +21,7 @@ def init_db() -> None:
     _migrate_add_script_id_to_api_usage()
     _migrate_add_scene_count_to_generation_durations()
     _migrate_add_export_folder_to_publish_records()
+    _migrate_postits_add_status_source()
     logger.info("Database ready")
 
 def ensure_default_brand() -> None:
@@ -125,5 +126,24 @@ def _migrate_add_export_folder_to_publish_records() -> None:
             conn.execute("ALTER TABLE publish_records ADD COLUMN export_folder TEXT DEFAULT ''")
             conn.commit()
             logger.info("Migrated: added export_folder to publish_records")
+    finally:
+        conn.close()
+
+
+def _migrate_postits_add_status_source() -> None:
+    """Add status and source columns to postits if missing."""
+    import sqlite3
+
+    conn = sqlite3.connect(str(_db_path))
+    try:
+        cursor = conn.execute("PRAGMA table_info(postits)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "status" not in columns:
+            conn.execute("ALTER TABLE postits ADD COLUMN status TEXT DEFAULT 'idea'")
+            logger.info("Migrated: added status to postits")
+        if "source" not in columns:
+            conn.execute("ALTER TABLE postits ADD COLUMN source TEXT DEFAULT 'manual'")
+            logger.info("Migrated: added source to postits")
+        conn.commit()
     finally:
         conn.close()

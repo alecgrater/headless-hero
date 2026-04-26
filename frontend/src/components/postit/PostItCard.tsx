@@ -1,9 +1,21 @@
 import { useState, useRef, useEffect } from "react";
-import type { PostIt } from "../../types/postit";
+import type { PostIt, PostItStatus } from "../../types/postit";
+
+const STATUS_CONFIG: Record<PostItStatus, { label: string; color: string; next: PostItStatus | null }> = {
+  idea: { label: "Idea", color: "bg-violet-500/20 text-violet-300 border-violet-500/30", next: "in_progress" },
+  in_progress: { label: "In Progress", color: "bg-amber-500/20 text-amber-300 border-amber-500/30", next: "scripted" },
+  scripted: { label: "Scripted", color: "bg-sky-500/20 text-sky-300 border-sky-500/30", next: "published" },
+  published: { label: "Published", color: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30", next: null },
+};
+
+const SOURCE_CHIP: Record<string, { label: string; color: string }> = {
+  for_you: { label: "For You", color: "bg-violet-500/15 text-violet-400" },
+  trending: { label: "Trending", color: "bg-sky-500/15 text-sky-400" },
+};
 
 interface Props {
   postit: PostIt;
-  onUpdate: (id: string, updates: { text?: string; rank?: number }) => void;
+  onUpdate: (id: string, updates: { text?: string; rank?: number; status?: PostItStatus }) => void;
   onDelete: (id: string) => void;
   onGenerateIdeas: (niche: string) => void;
 }
@@ -36,6 +48,15 @@ export default function PostItCard({ postit, onUpdate, onDelete, onGenerateIdeas
     if (e.key === "Escape") {
       setEditText(postit.text);
       setEditing(false);
+    }
+  };
+
+  const statusCfg = STATUS_CONFIG[postit.status] || STATUS_CONFIG.idea;
+  const sourceChip = SOURCE_CHIP[postit.source];
+
+  const handleStatusClick = () => {
+    if (statusCfg.next) {
+      onUpdate(postit.id, { status: statusCfg.next });
     }
   };
 
@@ -76,6 +97,15 @@ export default function PostItCard({ postit, onUpdate, onDelete, onGenerateIdeas
           </button>
         </div>
 
+        {/* Status badge */}
+        <button
+          onClick={handleStatusClick}
+          className={`shrink-0 text-[10px] font-semibold px-2 py-1 rounded-md border transition-colors ${statusCfg.color} ${statusCfg.next ? "hover:brightness-125 cursor-pointer" : "cursor-default"}`}
+          title={statusCfg.next ? `Click to advance to "${STATUS_CONFIG[statusCfg.next].label}"` : "Published (final)"}
+        >
+          {statusCfg.label}
+        </button>
+
         {/* Text content */}
         <div className="flex-1 min-w-0">
           {editing ? (
@@ -89,12 +119,19 @@ export default function PostItCard({ postit, onUpdate, onDelete, onGenerateIdeas
               rows={2}
             />
           ) : (
-            <button
-              onClick={() => setEditing(true)}
-              className="text-left text-sm text-neutral-200 hover:text-neutral-100 transition-colors w-full"
-            >
-              {postit.text}
-            </button>
+            <div>
+              <button
+                onClick={() => setEditing(true)}
+                className="text-left text-sm text-neutral-200 hover:text-neutral-100 transition-colors w-full"
+              >
+                {postit.text}
+              </button>
+              {sourceChip && (
+                <span className={`inline-block mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md ${sourceChip.color}`}>
+                  {sourceChip.label}
+                </span>
+              )}
+            </div>
           )}
         </div>
 

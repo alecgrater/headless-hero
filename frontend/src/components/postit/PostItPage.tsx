@@ -1,7 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
-import { getPostIts, createPostIt, updatePostIt, deletePostIt } from "../../api";
-import type { PostIt } from "../../types/postit";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { getPostIts, createPostIt, updatePostIt, deletePostIt, getPostItCounts } from "../../api";
+import type { PostIt, PostItStatus } from "../../types/postit";
 import PostItCard from "./PostItCard";
+
+const STATUS_FILTERS: { key: PostItStatus | "all"; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "idea", label: "Idea" },
+  { key: "in_progress", label: "In Progress" },
+  { key: "scripted", label: "Scripted" },
+  { key: "published", label: "Published" },
+];
 
 interface Props {
   onGenerateIdeas: (niche: string) => void;
@@ -9,6 +17,8 @@ interface Props {
 
 export default function PostItPage({ onGenerateIdeas }: Props) {
   const [postits, setPostits] = useState<PostIt[]>([]);
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [statusFilter, setStatusFilter] = useState<PostItStatus | "all">("all");
   const [newText, setNewText] = useState("");
   const [newRank, setNewRank] = useState(50);
   const [loading, setLoading] = useState(true);
@@ -16,8 +26,9 @@ export default function PostItPage({ onGenerateIdeas }: Props) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getPostIts();
+      const [data, c] = await Promise.all([getPostIts(), getPostItCounts()]);
       setPostits(data);
+      setCounts(c);
     } finally {
       setLoading(false);
     }
@@ -26,6 +37,11 @@ export default function PostItPage({ onGenerateIdeas }: Props) {
   useEffect(() => {
     load();
   }, [load]);
+
+  const refreshCounts = useCallback(async () => {
+    const c = await getPostItCounts();
+    setCounts(c);
+  }, []);
 
   const handleAdd = async () => {
     const trimmed = newText.trim();
@@ -38,20 +54,23 @@ export default function PostItPage({ onGenerateIdeas }: Props) {
     });
     setNewText("");
     setNewRank(50);
+    refreshCounts();
   };
 
-  const handleUpdate = async (id: string, updates: { text?: string; rank?: number }) => {
+  const handleUpdate = async (id: string, updates: { text?: string; rank?: number; status?: PostItStatus }) => {
     const updated = await updatePostIt(id, updates);
     setPostits((prev) => {
       const next = prev.map((p) => (p.id === id ? updated : p));
       next.sort((a, b) => b.rank - a.rank || new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       return next;
     });
+    if (updates.status) refreshCounts();
   };
 
   const handleDelete = async (id: string) => {
     await deletePostIt(id);
     setPostits((prev) => prev.filter((p) => p.id !== id));
+    refreshCounts();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -60,6 +79,11 @@ export default function PostItPage({ onGenerateIdeas }: Props) {
       handleAdd();
     }
   };
+
+  const filteredPostits = useMemo(() => {
+    if (statusFilter === "all") return postits;
+    return postits.filter((p) => p.status === statusFilter);
+  }, [postits, statusFilter]);
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
@@ -106,9 +130,35 @@ export default function PostItPage({ onGenerateIdeas }: Props) {
         </button>
       </div>
 
+      {/* Status filter chips */}
+      {postits.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {STATUS_FILTERS.map(({ key, label }) => {
+            const count = key === "all" ? postits.length : (counts[key] || 0);
+            return (
+              <button
+                key={key}
+                onClick={() => setStatusFilter(key)}
+                className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                  statusFilter === key
+                    ? "bg-violet-600 text-white"
+                    : "bg-neutral-800 text-neutral-400 border border-neutral-700/60 hover:text-neutral-200 hover:border-neutral-600"
+                }`}
+              >
+                {label} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Post-It list */}
       {loading && postits.length === 0 ? (
         <div className="text-center py-12 text-neutral-500 text-sm">Loading...</div>
+      ) : filteredPostits.length === 0 && postits.length > 0 ? (
+        <div className="text-center py-12 text-neutral-500 text-sm">
+          No post-its with status &ldquo;{STATUS_FILTERS.find((f) => f.key === statusFilter)?.label}&rdquo;
+        </div>
       ) : postits.length === 0 ? (
         <div className="text-center py-20 space-y-3">
           <div className="flex justify-center">
@@ -121,7 +171,7 @@ export default function PostItPage({ onGenerateIdeas }: Props) {
         </div>
       ) : (
         <div className="space-y-2">
-          {postits.map((postit) => (
+          {filteredPostits.map((postit) => (
             <PostItCard
               key={postit.id}
               postit={postit}

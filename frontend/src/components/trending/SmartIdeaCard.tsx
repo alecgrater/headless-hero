@@ -6,6 +6,7 @@ interface Props {
   index: number;
   onUseIdea: (idea: SmartIdea) => void;
   onDismiss: (idea: SmartIdea) => void;
+  onSaveToPostIt?: (idea: SmartIdea) => void;
 }
 
 function StyleMatchBadge({ score }: { score: number }) {
@@ -70,8 +71,9 @@ function TrendingSourceChips({ source }: { source: string }) {
   );
 }
 
-export default function SmartIdeaCard({ idea, index, onUseIdea, onDismiss }: Props) {
+export default function SmartIdeaCard({ idea, index, onUseIdea, onDismiss, onSaveToPostIt }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const [saved, setSaved] = useState(false);
   const hasDetails = idea.keywords.length > 0 || idea.trending_source || idea.reasoning || idea.angle || idea.signals.length > 0;
 
   return (
@@ -117,6 +119,25 @@ export default function SmartIdeaCard({ idea, index, onUseIdea, onDismiss }: Pro
               )}
             </h3>
             <div className="flex items-center gap-1.5 shrink-0">
+              {onSaveToPostIt && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!saved) {
+                      onSaveToPostIt(idea);
+                      setSaved(true);
+                    }
+                  }}
+                  disabled={saved}
+                  className={`text-xs px-3 py-1 rounded-lg font-medium transition-colors ${
+                    saved
+                      ? "bg-emerald-600/20 text-emerald-300 cursor-default"
+                      : "bg-neutral-700 text-neutral-300 hover:bg-neutral-600 hover:text-white"
+                  }`}
+                >
+                  {saved ? "Saved" : "Save"}
+                </button>
+              )}
               <button
                 onClick={(e) => { e.stopPropagation(); onUseIdea(idea); }}
                 className="text-xs px-3 py-1 rounded-lg font-medium bg-violet-600 hover:bg-violet-500 text-white transition-colors"

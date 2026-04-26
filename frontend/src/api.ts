@@ -40,7 +40,7 @@ function extractErrorMessage(status: number, data: unknown): string {
 }
 
 /** Paths that should not trigger toast notifications on error. */
-const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/eli/generate-status/"];
+const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/eli/generate-status/", "/api/media/analyze/status/"];
 
 function shouldSilence(path: string): boolean {
   return SILENT_PATHS.some((p) => path.startsWith(p));
@@ -383,7 +383,7 @@ export async function exportTest(scriptId: string, options: ExportTestOptions): 
 
 import type { TrendingTopic, TrendingRefreshStatus, ContentProfile, SmartIdeasResponse } from "./types/trending";
 import type { HookScore } from "./types/script";
-import type { PostIt } from "./types/postit";
+import type { PostIt, PostItSource, PostItStatus } from "./types/postit";
 
 
 /** Score the first ~30 seconds of a script for viewer retention via Claude. */
@@ -470,13 +470,13 @@ export async function getPostIts(): Promise<PostIt[]> {
   return (res.ok ? res.data : []) as PostIt[];
 }
 
-export async function createPostIt(text: string, rank?: number): Promise<PostIt> {
-  const res = await api.post("/api/postits", { text, rank: rank ?? 50 });
+export async function createPostIt(text: string, rank?: number, source?: PostItSource): Promise<PostIt> {
+  const res = await api.post("/api/postits", { text, rank: rank ?? 50, source: source ?? "manual" });
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to create post-it");
   return res.data as PostIt;
 }
 
-export async function updatePostIt(id: string, updates: { text?: string; rank?: number }): Promise<PostIt> {
+export async function updatePostIt(id: string, updates: { text?: string; rank?: number; status?: PostItStatus }): Promise<PostIt> {
   const res = await api.put(`/api/postits/${id}`, updates);
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to update post-it");
   return res.data as PostIt;
@@ -484,6 +484,12 @@ export async function updatePostIt(id: string, updates: { text?: string; rank?: 
 
 export async function deletePostIt(id: string): Promise<void> {
   await api.delete(`/api/postits/${id}`);
+}
+
+export async function getPostItCounts(): Promise<Record<string, number>> {
+  const res = await api.get("/api/postits/counts");
+  if (!res.ok) return { idea: 0, in_progress: 0, scripted: 0, published: 0 };
+  return res.data as Record<string, number>;
 }
 
 // ---------------------------------------------------------------------------
@@ -607,11 +613,11 @@ export interface MediaAnalysisStatus {
 }
 
 export async function analyzeMedia(scriptId: string) {
-  return api.post<{ job_id: string }>(`/api/media/analyze/${scriptId}`);
+  return api.post(`/api/media/analyze/${scriptId}`);
 }
 
 export async function getMediaAnalysisStatus(jobId: string) {
-  return api.get<MediaAnalysisStatus>(`/api/media/analyze/status/${jobId}`);
+  return api.get(`/api/media/analyze/status/${jobId}`);
 }
 
 export async function applyMediaAssignments(

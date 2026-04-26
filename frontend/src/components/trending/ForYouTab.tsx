@@ -3,7 +3,9 @@ import {
   getContentProfile,
   refreshContentProfile,
   generateSmartIdeas,
+  createPostIt,
 } from "../../api";
+import { showToast } from "../ToastContainer";
 import type { VideoIdea } from "../../types/idea";
 import type { ContentProfile, SmartIdea } from "../../types/trending";
 import ContentProfileCard from "./ContentProfileCard";
@@ -69,6 +71,15 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
 
   const handleDismiss = (idea: SmartIdea) => {
     setIdeas((prev) => prev.filter((i) => i.title !== idea.title));
+  };
+
+  const handleSaveToPostIt = async (idea: SmartIdea) => {
+    try {
+      await createPostIt(idea.title, 70, "for_you");
+      showToast("Saved to Post-Its", "success");
+    } catch {
+      showToast("Failed to save to Post-Its");
+    }
   };
 
   const { categories, categoryCounts, groupedIdeas } = useMemo(() => {
@@ -206,6 +217,7 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
                   index={i}
                   onUseIdea={handleUseIdea}
                   onDismiss={handleDismiss}
+                  onSaveToPostIt={handleSaveToPostIt}
                 />
               ))}
             </div>
