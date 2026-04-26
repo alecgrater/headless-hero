@@ -2,6 +2,7 @@
 
 import logging
 import os
+from datetime import timezone
 from typing import Callable
 
 from google.oauth2.credentials import Credentials
@@ -65,10 +66,13 @@ def exchange_code(code: str, redirect_uri: str = _REDIRECT_URI_DEFAULT, state: s
     code_verifier = _pending_code_verifiers.pop(state, None) if state else None
     flow.fetch_token(code=code, code_verifier=code_verifier)
     creds = flow.credentials
+    expiry = creds.expiry
+    if expiry and expiry.tzinfo is None:
+        expiry = expiry.replace(tzinfo=timezone.utc)
     return {
         "access_token": creds.token,
         "refresh_token": creds.refresh_token or "",
-        "expiry": creds.expiry.isoformat() if creds.expiry else None,
+        "expiry": expiry.isoformat() if expiry else None,
     }
 
 def refresh_access_token(refresh_token: str) -> dict:
@@ -88,9 +92,12 @@ def refresh_access_token(refresh_token: str) -> dict:
         token_uri=_TOKEN_URI,
     )
     creds.refresh(google.auth.transport.requests.Request())
+    expiry = creds.expiry
+    if expiry and expiry.tzinfo is None:
+        expiry = expiry.replace(tzinfo=timezone.utc)
     return {
         "access_token": creds.token,
-        "expiry": creds.expiry.isoformat() if creds.expiry else None,
+        "expiry": expiry.isoformat() if expiry else None,
     }
 
 def get_channel_info(access_token: str) -> dict[str, str]:
