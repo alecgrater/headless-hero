@@ -179,6 +179,9 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
     model = body.model
     segmented = body.segmented
     cold_open_text = body.cold_open_text
+    gameplay_enabled = body.gameplay_enabled
+    stock_photo_enabled = body.stock_photo_enabled
+    gameplay_game_name = body.gameplay_game_name
 
     job = create_job()
     job_id = job.id
@@ -203,6 +206,9 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             segmented=segmented,
             cold_open_text=cold_open_text,
             progress_callback=_progress,
+            gameplay_enabled=gameplay_enabled,
+            stock_photo_enabled=stock_photo_enabled,
+            gameplay_game_name=gameplay_game_name,
         )
         duration = time.monotonic() - t0
 
