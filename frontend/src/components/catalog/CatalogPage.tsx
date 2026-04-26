@@ -357,10 +357,6 @@ function QuickUploadButton({
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (uploadingRef.current) return;
-    if (!youtubeConnected) {
-      onNavigateToSettings();
-      return;
-    }
     uploadingRef.current = true;
     setUploading(true);
     setError(null);
@@ -404,6 +400,25 @@ function QuickUploadButton({
       >
         <YouTubeIcon />
         Retry
+      </button>
+    );
+  }
+
+  if (!youtubeConnected) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onNavigateToSettings();
+        }}
+        className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-neutral-700/40 text-neutral-400 border border-neutral-600/30 hover:bg-neutral-700/60 transition-colors"
+        title="Connect YouTube account in Settings to upload"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m9.86-3.061a4.5 4.5 0 0 0-1.242-7.244l4.5-4.5a4.5 4.5 0 1 1 6.364 6.364l-1.757 1.757" />
+        </svg>
+        Connect YT
       </button>
     );
   }
