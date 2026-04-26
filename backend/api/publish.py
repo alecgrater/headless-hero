@@ -261,6 +261,17 @@ def start_upload(body: UploadRequest, session: Session = Depends(get_session)):
                     rec.platform_url = result["url"]
                     rec.published_at = datetime.now(timezone.utc)
                     rec.updated_at = datetime.now(timezone.utc)
+
+                    # Write file markers to export folder if it exists
+                    from models.script import Script
+                    from pipeline.catalog import find_export_folder, write_youtube_url
+                    script = s.get(Script, body.script_id)
+                    if script:
+                        export_path = find_export_folder(script.topic_title, script.created_at)
+                        if export_path:
+                            write_youtube_url(export_path, result["url"])
+                            rec.export_folder = export_path.name
+
                     s.add(rec)
                     s.commit()
 

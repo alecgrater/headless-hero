@@ -12,6 +12,14 @@ from sqlmodel import Session, select
 from config import get_export_folder
 from database import get_default_brand_id, get_session
 from models.credential import PlatformCredential
+from models.publish import PublishRecord
+from pipeline.catalog import (
+    parse_seo_txt,
+    read_script_id,
+    read_youtube_url,
+    toggle_uploaded_marker,
+    write_youtube_url,
+)
 from pipeline.publishing import publish_to_youtube
 from pipeline.render_jobs import create_job, run_in_background, update_job
 
@@ -32,6 +40,7 @@ class CatalogEntry(BaseModel):
     file_size_mb: float = 0.0
     uploaded: bool = False
     youtube_url: str | None = None
+    script_id: str | None = None
 
 
 class CatalogListResponse(BaseModel):
@@ -54,55 +63,38 @@ class CatalogUploadResponse(BaseModel):
     job_id: str
 
 
-def _parse_seo_txt(path: Path) -> tuple[str | None, str | None, list[str]]:
-    """Parse a seo.txt file into (title, description, tags)."""
-    try:
-        text = path.read_text(encoding="utf-8")
-    except Exception:
-        return None, None, []
-
-    title = None
-    description = None
-    tags: list[str] = []
-    current_section = None
-
-    for line in text.split("\n"):
-        stripped = line.strip()
-        if stripped == "Title:":
-            current_section = "title"
-            continue
-        elif stripped == "Description:":
-            current_section = "description"
-            continue
-        elif stripped == "Tags:":
-            current_section = "tags"
-            continue
-
-        if current_section == "title" and stripped:
-            title = stripped
-        elif current_section == "description" and stripped:
-            if description is None:
-                description = stripped
-            else:
-                description += "\n" + stripped
-        elif current_section == "tags" and stripped:
-            tags = [t.strip() for t in stripped.split(",") if t.strip()]
-
-    return title, description, tags
-
-
 @router.get("", response_model=CatalogListResponse)
-def list_catalog():
+def list_catalog(session: Session = Depends(get_session)):
     """Scan the export directory and return all exported video entries."""
     export_dir = get_export_folder()
     if not export_dir.exists():
         return CatalogListResponse(entries=[])
 
-    entries: list[CatalogEntry] = []
+    # First pass: scan folders and collect script_ids
+    folder_data: list[tuple[Path, str | None]] = []
+    script_ids: set[str] = set()
     for item in export_dir.iterdir():
         if not item.is_dir():
             continue
+        sid = read_script_id(item)
+        folder_data.append((item, sid))
+        if sid:
+            script_ids.add(sid)
 
+    # Batch query DB for publish records matching these script_ids
+    db_records: dict[str, PublishRecord] = {}
+    if script_ids:
+        stmt = select(PublishRecord).where(
+            PublishRecord.script_id.in_(list(script_ids)),
+            PublishRecord.platform == "youtube",
+            PublishRecord.status.in_(["published", "scheduled"]),
+        )
+        for rec in session.exec(stmt).all():
+            if rec.script_id not in db_records:
+                db_records[rec.script_id] = rec
+
+    entries: list[CatalogEntry] = []
+    for item, script_id in folder_data:
         folder_name = item.name
         video_file = None
         thumbnail_file = None
@@ -123,17 +115,23 @@ def list_catalog():
 
         seo_title, seo_description, seo_tags = None, None, []
         if seo_path:
-            seo_title, seo_description, seo_tags = _parse_seo_txt(seo_path)
+            seo_title, seo_description, seo_tags = parse_seo_txt(seo_path)
 
         mtime = item.stat().st_mtime
         exported_at = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
 
-        uploaded = (item / ".uploaded").exists()
-        youtube_url_marker = item / ".youtube_url"
+        # Prefer DB record over file markers
         youtube_url: str | None = None
-        if youtube_url_marker.exists():
-            youtube_url = youtube_url_marker.read_text(encoding="utf-8").strip() or None
+        uploaded = False
+        db_rec = db_records.get(script_id) if script_id else None
+        if db_rec and db_rec.platform_url:
+            youtube_url = db_rec.platform_url
             uploaded = True
+        else:
+            youtube_url = read_youtube_url(item)
+            uploaded = (item / ".uploaded").exists()
+            if youtube_url:
+                uploaded = True
 
         entries.append(CatalogEntry(
             folder_name=folder_name,
@@ -147,6 +145,7 @@ def list_catalog():
             file_size_mb=file_size_mb,
             uploaded=uploaded,
             youtube_url=youtube_url,
+            script_id=script_id,
         ))
 
     entries.sort(key=lambda e: e.exported_at, reverse=True)
@@ -184,8 +183,11 @@ def sync_youtube(session: Session = Depends(get_session)):
         session.commit()
 
     title_to_url: dict[str, str] = {}
+    title_to_vid: dict[str, dict] = {}
     for vid in uploads:
-        title_to_url[vid["title"].strip().lower()] = vid["url"]
+        key = vid["title"].strip().lower()
+        title_to_url[key] = vid["url"]
+        title_to_vid[key] = vid
 
     export_dir = get_export_folder()
     if not export_dir.exists():
@@ -195,8 +197,7 @@ def sync_youtube(session: Session = Depends(get_session)):
     for item in export_dir.iterdir():
         if not item.is_dir():
             continue
-        marker = item / ".youtube_url"
-        if marker.exists():
+        if read_youtube_url(item):
             continue
 
         seo_path = None
@@ -208,7 +209,7 @@ def sync_youtube(session: Session = Depends(get_session)):
 
         seo_title = None
         if seo_path:
-            seo_title, _, _ = _parse_seo_txt(seo_path)
+            seo_title, _, _ = parse_seo_txt(seo_path)
 
         candidates = []
         if seo_title:
@@ -217,16 +218,42 @@ def sync_youtube(session: Session = Depends(get_session)):
 
         for candidate in candidates:
             if candidate in title_to_url:
-                marker.write_text(title_to_url[candidate], encoding="utf-8")
+                url = title_to_url[candidate]
+                write_youtube_url(item, url)
+
+                script_id = read_script_id(item)
+                if script_id:
+                    existing = session.exec(
+                        select(PublishRecord).where(
+                            PublishRecord.script_id == script_id,
+                            PublishRecord.platform == "youtube",
+                            PublishRecord.status.in_(["published", "scheduled"]),
+                        )
+                    ).first()
+                    if not existing:
+                        vid = title_to_vid[candidate]
+                        record = PublishRecord(
+                            script_id=script_id,
+                            brand_id=brand_id,
+                            platform="youtube",
+                            status="published",
+                            platform_content_id=vid.get("id", ""),
+                            platform_url=url,
+                            export_folder=item.name,
+                            published_at=datetime.now(timezone.utc),
+                        )
+                        session.add(record)
+
                 matched += 1
                 break
 
+    session.commit()
     return SyncYouTubeResponse(matched=matched)
 
 
 @router.post("/{folder_name}/toggle-uploaded", response_model=ToggleUploadedResponse)
-def toggle_uploaded(folder_name: str):
-    """Toggle the .uploaded marker file in a catalog folder."""
+def toggle_uploaded(folder_name: str, session: Session = Depends(get_session)):
+    """Toggle the uploaded state — DB record if available, else file marker."""
     export_dir = get_export_folder()
     folder = (export_dir / folder_name).resolve()
     if not folder.is_relative_to(export_dir.resolve()):
@@ -234,13 +261,32 @@ def toggle_uploaded(folder_name: str):
     if not folder.exists() or not folder.is_dir():
         raise HTTPException(status_code=404, detail="Folder not found")
 
-    marker = folder / ".uploaded"
-    if marker.exists():
-        marker.unlink()
-        return ToggleUploadedResponse(uploaded=False)
-    else:
-        marker.touch()
-        return ToggleUploadedResponse(uploaded=True)
+    script_id = read_script_id(folder)
+    if script_id:
+        stmt = select(PublishRecord).where(
+            PublishRecord.script_id == script_id,
+            PublishRecord.platform == "youtube",
+        )
+        rec = session.exec(stmt).first()
+        if rec:
+            if rec.status in ("published", "scheduled"):
+                rec.status = "unpublished"
+                rec.updated_at = datetime.now(timezone.utc)
+                session.add(rec)
+                session.commit()
+                toggle_uploaded_marker(folder)
+                return ToggleUploadedResponse(uploaded=False)
+            else:
+                rec.status = "published"
+                rec.updated_at = datetime.now(timezone.utc)
+                session.add(rec)
+                session.commit()
+                if not (folder / ".uploaded").exists():
+                    (folder / ".uploaded").touch()
+                return ToggleUploadedResponse(uploaded=True)
+
+    new_state = toggle_uploaded_marker(folder)
+    return ToggleUploadedResponse(uploaded=new_state)
 
 
 @router.post("/upload", response_model=CatalogUploadResponse)
@@ -276,7 +322,7 @@ def catalog_upload(body: CatalogUploadRequest, session: Session = Depends(get_se
     if not title or description is None or tags is None:
         seo_title, seo_desc, seo_tags = (None, None, [])
         if seo_path:
-            seo_title, seo_desc, seo_tags = _parse_seo_txt(seo_path)
+            seo_title, seo_desc, seo_tags = parse_seo_txt(seo_path)
         if not title:
             title = seo_title or body.folder_name
         if description is None:
@@ -300,6 +346,8 @@ def catalog_upload(body: CatalogUploadRequest, session: Session = Depends(get_se
 
     job = create_job()
     folder_path_str = str(folder)
+    folder_script_id = read_script_id(folder)
+    folder_name_str = body.folder_name
     privacy = body.privacy_status
 
     logger.info("Starting catalog upload for folder %s", body.folder_name)
@@ -325,25 +373,40 @@ def catalog_upload(body: CatalogUploadRequest, session: Session = Depends(get_se
             privacy_status=privacy,
         )
 
-        youtube_url_marker = Path(folder_path_str) / ".youtube_url"
-        youtube_url_marker.write_text(result["url"], encoding="utf-8")
+        write_youtube_url(Path(folder_path_str), result["url"])
 
-        # Persist refreshed token if it changed
-        if temp_cred.access_token != cred_access:
-            from database import engine as db_engine
-            from sqlmodel import Session as SyncSession
-            with SyncSession(db_engine) as s:
-                stmt = select(PlatformCredential).where(
+        from database import engine as db_engine
+        from sqlmodel import Session as SyncSession
+
+        with SyncSession(db_engine) as s:
+            # Persist refreshed token if it changed
+            if temp_cred.access_token != cred_access:
+                cred_stmt = select(PlatformCredential).where(
                     PlatformCredential.brand_id == cred_brand,
                     PlatformCredential.platform == "youtube",
                 )
-                db_cred = s.exec(stmt).first()
+                db_cred = s.exec(cred_stmt).first()
                 if db_cred:
                     db_cred.access_token = temp_cred.access_token
                     db_cred.token_expiry = temp_cred.token_expiry
                     db_cred.updated_at = datetime.now(timezone.utc)
                     s.add(db_cred)
                     s.commit()
+
+            # Create PublishRecord
+            record = PublishRecord(
+                script_id=folder_script_id or "",
+                brand_id=cred_brand,
+                platform="youtube",
+                status="published",
+                platform_content_id=result.get("id", ""),
+                platform_url=result["url"],
+                file_path=video_path or "",
+                export_folder=folder_name_str,
+                published_at=datetime.now(timezone.utc),
+            )
+            s.add(record)
+            s.commit()
 
         return result["url"]
 

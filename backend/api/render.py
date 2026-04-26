@@ -558,6 +558,9 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
     folder = get_export_folder() / folder_name
     folder.mkdir(parents=True, exist_ok=True)
 
+    from pipeline.catalog import write_script_id
+    write_script_id(folder, body.script_id)
+
     project_dir = DATA_DIR / "projects" / body.script_id
     renders_dir = project_dir / "renders"
     copied_files: list[str] = []

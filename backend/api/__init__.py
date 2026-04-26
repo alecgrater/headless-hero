@@ -59,6 +59,12 @@ async def lifespan(app: FastAPI):
     from api.settings import load_keys_into_env
     with Session(_db_engine) as session:
         load_keys_into_env(session)
+    # Backfill .script_id markers for existing export folders
+    from pipeline.catalog import backfill_script_id_markers
+    with Session(_db_engine) as session:
+        count = backfill_script_id_markers(session)
+        if count:
+            logger.info("Backfilled %d .script_id markers", count)
     # Ensure projects directory exists for static file serving
     projects_dir = DATA_DIR / "projects"
     projects_dir.mkdir(parents=True, exist_ok=True)

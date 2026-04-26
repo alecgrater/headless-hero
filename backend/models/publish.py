@@ -23,6 +23,7 @@ class PublishRecord(SQLModel, table=True):
     schedule_at: datetime | None = Field(default=None)
     published_at: datetime | None = Field(default=None)
     error: str = Field(default="", sa_column=Column(Text))
+    export_folder: str = Field(default="")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

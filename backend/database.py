@@ -20,6 +20,7 @@ def init_db() -> None:
     _migrate_script_model_default()
     _migrate_add_script_id_to_api_usage()
     _migrate_add_scene_count_to_generation_durations()
+    _migrate_add_export_folder_to_publish_records()
     logger.info("Database ready")
 
 def ensure_default_brand() -> None:
@@ -108,5 +109,21 @@ def _migrate_add_scene_count_to_generation_durations() -> None:
             conn.execute("ALTER TABLE generation_durations ADD COLUMN scene_count INTEGER DEFAULT NULL")
             conn.commit()
             logger.info("Migrated: added scene_count to generation_durations")
+    finally:
+        conn.close()
+
+
+def _migrate_add_export_folder_to_publish_records() -> None:
+    """Add export_folder column to publish_records if missing."""
+    import sqlite3
+
+    conn = sqlite3.connect(str(_db_path))
+    try:
+        cursor = conn.execute("PRAGMA table_info(publish_records)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "export_folder" not in columns:
+            conn.execute("ALTER TABLE publish_records ADD COLUMN export_folder TEXT DEFAULT ''")
+            conn.commit()
+            logger.info("Migrated: added export_folder to publish_records")
     finally:
         conn.close()

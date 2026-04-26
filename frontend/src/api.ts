@@ -513,6 +513,7 @@ export interface CatalogEntry {
   file_size_mb: number;
   uploaded: boolean;
   youtube_url: string | null;
+  script_id: string | null;
 }
 
 export async function fetchCatalog(): Promise<CatalogEntry[]> {
