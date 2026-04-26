@@ -40,6 +40,9 @@ export default function TimelineBlock({
       {/* Color-coded left border */}
       <div className={`absolute left-0 top-0 bottom-0 w-1 ${borderColor}`} />
 
+      {/* Media source badge */}
+      {laneType === "images" && <MediaSourceBadge source={scene.media_source} />}
+
       <div className="pl-2.5 pr-1.5 w-full overflow-hidden">
         {laneType === "images" && <ImageContent scene={scene} />}
         {laneType === "voiceover" && <VoiceoverContent scene={scene} duration={duration} />}
@@ -49,6 +52,24 @@ export default function TimelineBlock({
         {laneType === "subtitle" && <SubtitleHighlightContent enabled={subtitleHighlightEnabled !== false} />}
       </div>
     </button>
+  );
+}
+
+function MediaSourceBadge({ source }: { source?: string }) {
+  if (!source || source === "ai") return null;
+
+  const config: Record<string, { icon: string; color: string }> = {
+    gameplay_video: { icon: "🎮", color: "bg-sky-500/20 text-sky-300" },
+    stock_photo: { icon: "📷", color: "bg-amber-500/20 text-amber-300" },
+    user_upload: { icon: "↑", color: "bg-emerald-500/20 text-emerald-300" },
+  };
+  const c = config[source];
+  if (!c) return null;
+
+  return (
+    <span className={`absolute top-0.5 right-0.5 text-[8px] px-1 py-px rounded-full ${c.color} font-medium leading-none z-10`}>
+      {c.icon}
+    </span>
   );
 }
 

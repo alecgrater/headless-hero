@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { assetUrl, regenerateFX } from "../../api";
+import { assetUrl, regenerateFX, uploadSceneMedia } from "../../api";
 import type { Scene, SceneFX } from "../../types/script";
 import AudioPlayer from "./AudioPlayer";
 
@@ -50,6 +50,7 @@ export default function PropertiesPanel({
 
   const [regeneratingFX, setRegeneratingFX] = useState(false);
   const [confirmOverwrite, setConfirmOverwrite] = useState<"image" | "audio" | "fx" | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const handleRegenerateFX = async () => {
     setRegeneratingFX(true);
@@ -64,13 +65,51 @@ export default function PropertiesPanel({
     }
   };
 
+  const handleUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const result = await uploadSceneMedia(scriptId, scene.id, file);
+      if (result.media_type === "video") {
+        onUpdate({ upload_url: result.url, video_url: result.url, media_source: "user_upload" });
+      } else {
+        onUpdate({ upload_url: result.url, image_url: result.url, media_source: "user_upload" });
+      }
+    } catch {
+      // uploadSceneMedia throws on error — toast handled by interceptor
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const MEDIA_SOURCE_OPTIONS: { value: string; label: string }[] = [
+    { value: "ai", label: "AI Generated" },
+    { value: "stock_photo", label: "Stock Photo" },
+    { value: "gameplay_video", label: "Gameplay" },
+    { value: "user_upload", label: "Upload" },
+  ];
+
   return (
     <div className="flex flex-col min-h-0 flex-1">
       {/* Header bar */}
-      <div className="flex items-center px-4 py-1 border-b border-neutral-800/40 bg-neutral-900/60 shrink-0">
+      <div className="flex items-center justify-between px-4 py-1 border-b border-neutral-800/40 bg-neutral-900/60 shrink-0">
         <span className="text-xs text-neutral-500 ml-3">
           {segmentName} &middot; <span className="font-mono">{scene.id}</span>
         </span>
+        <div className="flex items-center gap-1">
+          {MEDIA_SOURCE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => onUpdate({ media_source: opt.value as Scene["media_source"] })}
+              className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${
+                (scene.media_source || "ai") === opt.value
+                  ? "bg-violet-500/20 text-violet-300 font-medium"
+                  : "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 3-column layout: Text | Controls | Image */}
@@ -115,6 +154,19 @@ export default function PropertiesPanel({
                 />
                 <span className="text-[10px] font-medium text-neutral-500">TC</span>
               </label>
+
+              {scene.media_source === "gameplay_video" && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-neutral-500">Game:</span>
+                  <input
+                    type="text"
+                    value={scene.gameplay_game_override || ""}
+                    onChange={(e) => onUpdate({ gameplay_game_override: e.target.value })}
+                    placeholder="(project default)"
+                    className="w-28 text-[10px] bg-neutral-800/60 border border-neutral-700/50 rounded px-1.5 py-0.5 text-neutral-300 placeholder-neutral-600 focus:outline-none focus:border-violet-500/50"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -194,7 +246,44 @@ export default function PropertiesPanel({
 
         {/* Col 3: Image preview — fills full panel height */}
         <div className="flex-[1.5] flex flex-col gap-1 min-w-0 min-h-0">
-          {scene.image_url ? (
+          {/* User upload drop zone */}
+          {(scene.media_source === "user_upload") ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-2">
+              {(scene.upload_url || scene.image_url) ? (
+                <>
+                  <img
+                    src={assetUrl(scene.upload_url || scene.image_url || "")}
+                    alt="Uploaded"
+                    className="max-h-32 w-auto rounded-lg border border-neutral-700 object-cover"
+                  />
+                  <label className="text-[10px] text-neutral-500 hover:text-neutral-300 cursor-pointer transition-colors">
+                    Replace
+                    <input type="file" className="hidden" accept="image/*,video/*" onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleUpload(f);
+                    }} />
+                  </label>
+                </>
+              ) : (
+                <label className={`w-full flex-1 flex flex-col items-center justify-center gap-1 border-2 border-dashed border-neutral-700 rounded-lg cursor-pointer hover:border-violet-500/50 transition-colors ${uploading ? "opacity-50" : ""}`}>
+                  {uploading ? (
+                    <span className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <svg className="w-6 h-6 text-neutral-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                      </svg>
+                      <span className="text-xs text-neutral-500">Drop or click to upload</span>
+                    </>
+                  )}
+                  <input type="file" className="hidden" accept="image/*,video/*" onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleUpload(f);
+                  }} />
+                </label>
+              )}
+            </div>
+          ) : scene.image_url ? (
             <>
               <div className="flex items-center justify-between shrink-0">
                 <span className="text-xs font-medium text-neutral-400">Image</span>
