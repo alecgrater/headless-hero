@@ -78,6 +78,17 @@ ipcMain.handle("open-external", (_event, url) => shell.openExternal(url));
 // IPC: reveal a file or folder in Finder / Explorer
 ipcMain.handle("show-item-in-folder", (_event, fullPath) => shell.showItemInFolder(fullPath));
 
+// IPC: open a native folder picker and return the selected path
+ipcMain.handle("select-folder", async (_event, { title, defaultPath }) => {
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: title || "Select Folder",
+    defaultPath: defaultPath || undefined,
+    properties: ["openDirectory", "createDirectory"],
+  });
+  if (canceled || !filePaths.length) return { canceled: true };
+  return { canceled: false, path: filePaths[0] };
+});
+
 // IPC: download a file from the backend via native save dialog
 ipcMain.handle("download-file", async (_event, { url, defaultFilename }) => {
   const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {

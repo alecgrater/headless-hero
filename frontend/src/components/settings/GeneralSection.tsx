@@ -163,13 +163,27 @@ export default function GeneralSection() {
                 Rendered videos, audio, and thumbnails are copied here for easy access.
               </p>
             </div>
-            <input
-              type="text"
-              value={downloadsDir}
-              onChange={(e) => setDownloadsDir(e.target.value)}
-              placeholder="~/Downloads"
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 transition-colors font-mono"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={downloadsDir}
+                onChange={(e) => setDownloadsDir(e.target.value)}
+                placeholder="~/Downloads"
+                className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 transition-colors font-mono"
+              />
+              {window.api?.selectFolder && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const result = await window.api.selectFolder!("Select Downloads Directory", downloadsDir || undefined);
+                    if (!result.canceled && result.path) setDownloadsDir(result.path);
+                  }}
+                  className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-300 hover:text-neutral-100 hover:border-neutral-600 transition-colors whitespace-nowrap"
+                >
+                  Browse…
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-2">
@@ -179,13 +193,27 @@ export default function GeneralSection() {
                 Where "Export All" bundles are saved. Defaults to iCloud headless-hero media/Videos.
               </p>
             </div>
-            <input
-              type="text"
-              value={exportFolder}
-              onChange={(e) => setExportFolder(e.target.value)}
-              placeholder="~/Library/Mobile Documents/.../headless-hero media/Videos"
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 transition-colors font-mono"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={exportFolder}
+                onChange={(e) => setExportFolder(e.target.value)}
+                placeholder="~/Library/Mobile Documents/.../headless-hero media/Videos"
+                className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 transition-colors font-mono"
+              />
+              {window.api?.selectFolder && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const result = await window.api.selectFolder!("Select Export Folder", exportFolder || undefined);
+                    if (!result.canceled && result.path) setExportFolder(result.path);
+                  }}
+                  className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-300 hover:text-neutral-100 hover:border-neutral-600 transition-colors whitespace-nowrap"
+                >
+                  Browse…
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl divide-y divide-neutral-800">
