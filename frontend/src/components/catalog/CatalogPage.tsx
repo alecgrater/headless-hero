@@ -446,11 +446,13 @@ function AccordionContent({
   youtubeConnected,
   onNavigateToSettings,
   onUploadComplete,
+  onToggleUploaded,
 }: {
   entry: CatalogEntry;
   youtubeConnected: boolean;
   onNavigateToSettings: () => void;
   onUploadComplete: (youtubeUrl: string) => void;
+  onToggleUploaded: () => void;
 }) {
   return (
     <div className="space-y-0">
@@ -476,6 +478,17 @@ function AccordionContent({
           )}
           {entry.seo_tags.length > 0 && (
             <CopyButton text={entry.seo_tags.join(", ")} label="Copy Tags" />
+          )}
+          {!entry.youtube_url && (
+            <label className="flex items-center gap-1.5 cursor-pointer select-none text-xs px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-neutral-200 transition-colors">
+              <input
+                type="checkbox"
+                checked={entry.uploaded}
+                onChange={onToggleUploaded}
+                className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-800 text-emerald-500 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-emerald-500"
+              />
+              Uploaded
+            </label>
           )}
         </div>
 
@@ -756,25 +769,9 @@ export default function CatalogPage({ onNavigateToSettings }: Props) {
                           )}
                         </div>
                       )}
-                      <div className="flex items-center justify-between text-xs text-neutral-600">
-                        <div className="flex items-center gap-4">
-                          <span>{entry.file_size_mb} MB</span>
-                          <span>{formatDate(entry.exported_at)}</span>
-                        </div>
-                        {!entry.youtube_url && (
-                          <label
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-1.5 cursor-pointer select-none"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={entry.uploaded}
-                              onChange={() => handleToggleUploaded(entry)}
-                              className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-800 text-emerald-500 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-emerald-500"
-                            />
-                            <span className="text-neutral-500">Uploaded</span>
-                          </label>
-                        )}
+                      <div className="flex items-center gap-4 text-xs text-neutral-600">
+                        <span>{entry.file_size_mb} MB</span>
+                        <span>{formatDate(entry.exported_at)}</span>
                       </div>
                     </div>
                   </button>
@@ -791,6 +788,7 @@ export default function CatalogPage({ onNavigateToSettings }: Props) {
                           youtubeConnected={youtubeConnected}
                           onNavigateToSettings={onNavigateToSettings}
                           onUploadComplete={(url) => handleUploadComplete(entry.folder_name, url)}
+                          onToggleUploaded={() => handleToggleUploaded(entry)}
                         />
                       )}
                     </div>
