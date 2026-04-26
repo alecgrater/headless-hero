@@ -26,26 +26,6 @@ function StyleMatchBadge({ score }: { score: number }) {
   );
 }
 
-function IdeaScoreBadge({ score }: { score: number }) {
-  const color =
-    score >= 80
-      ? "from-emerald-500/20 to-emerald-500/5 text-emerald-400 border-emerald-500/30"
-      : score >= 60
-        ? "from-sky-500/20 to-sky-500/5 text-sky-400 border-sky-500/30"
-        : score >= 40
-          ? "from-amber-500/20 to-amber-500/5 text-amber-400 border-amber-500/30"
-          : "from-neutral-500/20 to-neutral-500/5 text-neutral-400 border-neutral-500/30";
-
-  return (
-    <div
-      className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-b border font-bold tabular-nums ${color}`}
-    >
-      <span className="text-lg leading-none">{Math.round(score)}</span>
-      <span className="text-[8px] font-medium opacity-60 mt-0.5">score</span>
-    </div>
-  );
-}
-
 const SOURCE_CHIP_COLORS: Record<string, string> = {
   youtube: "bg-red-500/15 text-red-400",
   reddit: "bg-orange-500/15 text-orange-400",
@@ -96,9 +76,7 @@ export default function SmartIdeaCard({ idea, index, onUseIdea, onDismiss }: Pro
 
   return (
     <div
-      className={`group relative bg-neutral-800/50 border rounded-xl p-3 hover:border-neutral-600/80 hover:bg-neutral-800/70 transition-all duration-200 ${
-        idea.recommended ? "border-violet-500/40" : "border-neutral-700/60"
-      }`}
+      className="group relative bg-neutral-800/50 border border-neutral-700/60 rounded-xl p-3 hover:border-neutral-600/80 hover:bg-neutral-800/70 transition-all duration-200"
       style={{
         animation: "fadeSlideUp 0.35s ease-out both",
         animationDelay: `${index * 60}ms`,
@@ -108,25 +86,18 @@ export default function SmartIdeaCard({ idea, index, onUseIdea, onDismiss }: Pro
         className={`flex gap-3 ${hasDetails ? "cursor-pointer" : ""}`}
         onClick={() => hasDetails && setExpanded(!expanded)}
       >
-        {/* Score badge — idea_score takes priority, fall back to style_match if present */}
-        <div className="shrink-0">
-          {idea.style_match_score != null ? (
+        {/* Style match badge — only when profile-based score exists */}
+        {idea.style_match_score != null && (
+          <div className="shrink-0">
             <StyleMatchBadge score={idea.style_match_score} />
-          ) : (
-            <IdeaScoreBadge score={idea.idea_score} />
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex-1 min-w-0 space-y-1">
           {/* Title row with inline actions */}
           <div className="flex items-start gap-2">
             <h3 className="flex-1 text-[15px] font-semibold text-neutral-100 leading-snug">
-              {idea.recommended && (
-                <span className="mr-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-md align-middle bg-violet-500/20 text-violet-300 border border-violet-500/30">
-                  Recommended
-                </span>
-              )}
               {idea.title}
               {idea.category && (
                 <span className={`ml-2 text-[10px] font-medium px-1.5 py-0.5 rounded-md align-middle ${CATEGORY_COLORS[idea.category] || "bg-neutral-500/15 text-neutral-400"}`}>
