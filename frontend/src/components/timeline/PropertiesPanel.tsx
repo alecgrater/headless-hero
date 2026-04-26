@@ -17,7 +17,6 @@ interface Props {
   isGeneratingAudio?: boolean;
   microTimelineRef?: React.Ref<MicroTimelineHandle>;
   onSplitScene?: (splitTimeMs: number) => void;
-  highlightEnabled?: boolean;
 }
 
 export default function PropertiesPanel({
@@ -32,7 +31,6 @@ export default function PropertiesPanel({
   isGeneratingAudio = false,
   microTimelineRef,
   onSplitScene,
-  highlightEnabled,
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
@@ -97,7 +95,7 @@ export default function PropertiesPanel({
   ];
 
   return (
-    <div className="flex flex-col min-h-0 flex-1">
+    <div className="flex flex-col min-h-0 flex-1 overflow-y-auto">
       {/* Header bar */}
       <div className="flex items-center justify-between px-4 py-1 border-b border-neutral-800/40 bg-neutral-900/60 shrink-0">
         <span className="text-xs text-neutral-500 ml-3">
@@ -135,17 +133,15 @@ export default function PropertiesPanel({
             />
           </div>
 
-          {(
-            <div className="flex flex-col flex-1 min-h-0">
-              <span className="text-xs font-medium text-neutral-400 mb-0.5 shrink-0">Visual Prompt</span>
-              <textarea
-                value={visualPrompt}
-                onChange={(e) => setVisualPrompt(e.target.value)}
-                onBlur={() => commitField("visual_prompt", visualPrompt)}
-                className="flex-1 min-h-0 w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2 border border-neutral-700/50 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
-              />
-            </div>
-          )}
+          <div className="flex flex-col flex-1 min-h-0">
+            <span className="text-xs font-medium text-neutral-400 mb-0.5 shrink-0">Visual Prompt</span>
+            <textarea
+              value={visualPrompt}
+              onChange={(e) => setVisualPrompt(e.target.value)}
+              onBlur={() => commitField("visual_prompt", visualPrompt)}
+              className="flex-1 min-h-0 w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2 border border-neutral-700/50 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
+            />
+          </div>
 
           {/* Settings row pinned at bottom */}
           <div className="shrink-0 space-y-1">

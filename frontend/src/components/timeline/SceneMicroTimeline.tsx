@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useMemo, forwardRef, useImperativeHandle } from "react";
 import type { Scene, EliKeyframe } from "../../types/script";
-import type { PlayerRef } from "@remotion/player";
 import WaveformSplitter from "./WaveformSplitter";
 import InOutLane from "./micro-timeline/InOutLane";
 import ImageLane from "./micro-timeline/ImageLane";
@@ -22,14 +21,13 @@ export interface MicroTimelineHandle {
 
 interface Props {
   scene: Scene;
-  playerRef?: React.RefObject<PlayerRef | null>;
   playheadSeconds?: number;
   onUpdateScene: (updates: Partial<Scene>) => void;
   onSplitScene: (splitTimeMs: number) => void;
 }
 
 const SceneMicroTimeline = forwardRef<MicroTimelineHandle, Props>(function SceneMicroTimeline(
-  { scene, playerRef, playheadSeconds = 0, onUpdateScene, onSplitScene },
+  { scene, playheadSeconds = 0, onUpdateScene, onSplitScene },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);

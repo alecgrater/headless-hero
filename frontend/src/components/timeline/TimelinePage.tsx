@@ -1201,7 +1201,6 @@ function TimelineEditor({
               isGeneratingAudio={state.generatingAudioSceneIds.has(selectedScene.scene.id)}
               microTimelineRef={microTimelineRef}
               onSplitScene={handleSplitSceneAtTime}
-              highlightEnabled={state.content.subtitle_highlight_enabled}
             />
           </div>
         ) : (
