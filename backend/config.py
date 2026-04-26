@@ -47,8 +47,8 @@ DEFAULT_ACCENT_COLOR = "#e91e63"
 DEFAULT_CLAUDE_MODEL = "anthropic.claude-opus-4-6-v1"
 
 # Faster models for structured/classification tasks
-BALANCED_CLAUDE_MODEL = "anthropic.claude-sonnet-4-6-v1"
-FAST_CLAUDE_MODEL = "anthropic.claude-haiku-4-5-20251001"
+BALANCED_CLAUDE_MODEL = DEFAULT_CLAUDE_MODEL
+FAST_CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
 # Default Gemini model for image generation
 DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image"

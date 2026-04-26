@@ -60,7 +60,7 @@ _MODEL_PRICING: dict[str, dict[str, float]] = {
         "output": 15.0 / 1_000_000,
         "cache_read": 0.3 / 1_000_000,
     },
-    "anthropic.claude-haiku-4-5-20251001": {
+    "claude-haiku-4-5-20251001": {
         "input": 0.8 / 1_000_000,
         "output": 4.0 / 1_000_000,
         "cache_read": 0.08 / 1_000_000,
