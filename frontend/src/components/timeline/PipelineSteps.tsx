@@ -165,7 +165,7 @@ export default function PipelineSteps({
           <div className="flex items-center gap-1.5">
             <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
               titleCardGenerating
-                ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
+                ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)] animate-[pulseDot_2s_ease-in-out_infinite]"
                 : titleCardGenerated || !hasTitleCards
                   ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
                   : "border-neutral-600 text-neutral-500"
@@ -205,7 +205,7 @@ export default function PipelineSteps({
         <div className="flex items-center gap-1.5">
           <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
             batchGeneratingAudio
-              ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
+              ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)] animate-[pulseDot_2s_ease-in-out_infinite]"
               : allAudioGenerated
                 ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
                 : "border-neutral-600 text-neutral-500"
@@ -300,7 +300,7 @@ export default function PipelineSteps({
         <div className="flex items-center gap-1.5">
           <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
             batchGenerating
-              ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
+              ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)] animate-[pulseDot_2s_ease-in-out_infinite]"
               : allImagesGenerated
                 ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
                 : "border-neutral-600 text-neutral-500"
@@ -365,7 +365,7 @@ export default function PipelineSteps({
           <div className="flex items-center gap-1.5">
             <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
               generatingFX
-                ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
+                ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)] animate-[pulseDot_2s_ease-in-out_infinite]"
                 : allFXGenerated && fxPotentiallyStale
                   ? "border-amber-400 bg-amber-500/10 text-amber-300 shadow-[0_0_6px_rgba(245,158,11,0.3)]"
                   : allFXGenerated
@@ -438,7 +438,7 @@ export default function PipelineSteps({
           <div className="flex items-center gap-1.5">
             <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
               generatingEli
-                ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)]"
+                ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)] animate-[pulseDot_2s_ease-in-out_infinite]"
                 : allEliGenerated
                   ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
                   : "border-neutral-600 text-neutral-500"

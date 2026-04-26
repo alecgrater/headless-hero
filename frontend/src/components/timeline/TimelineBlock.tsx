@@ -30,9 +30,9 @@ export default function TimelineBlock({
   return (
     <button
       onClick={onClick}
-      className={`relative h-full rounded-md overflow-hidden flex items-center shrink-0 transition-colors ${
+      className={`relative h-full rounded-md overflow-hidden flex items-center shrink-0 transition-all ${
         isSelected
-          ? "ring-2 ring-violet-500 shadow-lg shadow-violet-500/10"
+          ? "ring-2 ring-violet-500 bg-violet-500/5 shadow-lg shadow-violet-500/10"
           : "hover:bg-neutral-750"
       } bg-neutral-800`}
       style={{ width: `${width}px` }}
@@ -159,7 +159,7 @@ function FxContent({ scene }: { scene: Scene }) {
         badges.map((badge, i) => (
           <span
             key={i}
-            className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-300 font-medium"
+            className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium"
           >
             {badge}
           </span>
@@ -178,7 +178,7 @@ function EliContent({ scene }: { scene: Scene }) {
     <div className="flex items-center gap-1.5">
       <span className={`w-2 h-2 rounded-full shrink-0 ${hasEli ? "bg-emerald-500" : "bg-neutral-600"}`} />
       {hasEli ? (
-        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
+        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-medium">
           eli
         </span>
       ) : (
@@ -208,7 +208,7 @@ function SubtitleHighlightContent({ enabled }: { enabled: boolean }) {
     <div className="flex items-center gap-1.5">
       <span className={`w-2 h-2 rounded-full shrink-0 ${enabled ? "bg-emerald-500" : "bg-neutral-600"}`} />
       {enabled ? (
-        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
+        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-500/20 text-violet-300 font-medium">
           highlight
         </span>
       ) : (

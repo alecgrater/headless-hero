@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { Image, Mic, Sparkles, User, Timer, Subtitles } from "lucide-react";
 import TimelineRuler from "./TimelineRuler";
 import TimelineBlock from "./TimelineBlock";
 import { SEGMENT_COLORS, SEGMENT_TEXT_COLORS, SEGMENT_BG_COLORS } from "./constants";
@@ -21,6 +22,15 @@ const LANE_LABELS: Record<(typeof LANE_TYPES)[number], string> = {
   eli: "Eli",
   timer: "Timer",
   subtitle: "Subtitle",
+};
+
+const LANE_ICONS: Record<(typeof LANE_TYPES)[number], typeof Image> = {
+  images: Image,
+  voiceover: Mic,
+  fx: Sparkles,
+  eli: User,
+  timer: Timer,
+  subtitle: Subtitles,
 };
 
 export default function TimelineLanes({
@@ -95,14 +105,18 @@ export default function TimelineLanes({
           <div className="h-6 flex items-center px-3 text-[10px] text-neutral-500 font-medium border-b border-neutral-800/50">
             Segments
           </div>
-          {LANE_TYPES.map((lane) => (
-            <div
-              key={lane}
-              className="h-10 flex items-center px-3 text-[11px] text-neutral-400 font-medium border-b border-neutral-800/50"
-            >
-              {LANE_LABELS[lane]}
-            </div>
-          ))}
+          {LANE_TYPES.map((lane) => {
+            const Icon = LANE_ICONS[lane];
+            return (
+              <div
+                key={lane}
+                className="h-10 flex items-center gap-1.5 px-3 text-[11px] text-neutral-400 font-medium border-b border-neutral-800/50"
+              >
+                <Icon size={12} className="shrink-0 text-neutral-500" />
+                {LANE_LABELS[lane]}
+              </div>
+            );
+          })}
         </div>
 
         {/* Scrollable content */}

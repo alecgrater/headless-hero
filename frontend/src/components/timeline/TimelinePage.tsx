@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Zap } from "lucide-react";
 import api, { assetUrl, generateFX, generateEli, pollEliJob, exportTest, fetchScriptCost, getYouTubeOAuthStatus, analyzeMedia, getMediaAnalysisStatus } from "../../api";
 import type { ExportTestOptions, MediaAssignment, MediaAnalysisStatus } from "../../api";
 import type { ScriptContent } from "../../types/script";
@@ -1048,7 +1049,7 @@ function TimelineEditor({
                   <button
                     onClick={handleYolo}
                     disabled={allDone}
-                    className={`group relative px-5 py-1.5 text-xs font-bold rounded-lg transition-all overflow-hidden ${
+                    className={`group relative px-5 py-1.5 text-xs font-bold rounded-lg transition-all overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
                       allDone
                         ? "bg-neutral-800 text-neutral-600 cursor-not-allowed"
                         : "bg-gradient-to-r from-violet-500/80 via-fuchsia-400/70 to-amber-400/70 text-white/95 shadow-[0_0_15px_rgba(168,85,247,0.2)] hover:shadow-[0_0_22px_rgba(168,85,247,0.35)] hover:scale-[1.02]"
@@ -1057,7 +1058,10 @@ function TimelineEditor({
                     {!allDone && (
                       <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_ease-in-out_infinite]" />
                     )}
-                    <span className="relative">YOLO MODE</span>
+                    <span className="relative flex items-center gap-1.5">
+                      <Zap size={12} />
+                      YOLO MODE
+                    </span>
                   </button>
                   {!allDone && (
                     <span className="text-[11px] text-neutral-500">
