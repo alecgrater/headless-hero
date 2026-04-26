@@ -12,6 +12,7 @@ import {
 } from "../../api";
 import type { CatalogEntry, CatalogUploadOptions, PublishJobStatus } from "../../api";
 import { usePollJob } from "../../hooks/usePollJob";
+import { EmptyState } from "../ui/EmptyState";
 
 interface Props {
   onNavigateToSettings: () => void;
@@ -45,7 +46,7 @@ function VideoModal({
     : null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-8" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-8" onClick={onClose}>
       <div
         className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -54,7 +55,8 @@ function VideoModal({
           <h2 className="text-lg font-bold truncate">{entry.seo_title || entry.folder_name}</h2>
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-white transition-colors text-xl leading-none ml-4"
+            className="text-neutral-400 hover:text-white transition-colors text-xl leading-none ml-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded-md p-1"
+            aria-label="Close modal"
           >
             &times;
           </button>
@@ -634,12 +636,12 @@ export default function CatalogPage({ onNavigateToSettings }: Props) {
             placeholder="Search videos..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="text-sm bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-neutral-200 placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-violet-500 w-56"
+            className="text-sm bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-neutral-200 placeholder-neutral-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 w-56"
           />
           <select
             value={filterUploaded}
             onChange={(e) => setFilterUploaded(e.target.value as typeof filterUploaded)}
-            className="text-sm bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-neutral-200 focus:outline-none focus:ring-1 focus:ring-violet-500"
+            className="text-sm bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-neutral-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
           >
             <option value="all">All</option>
             <option value="uploaded">Uploaded</option>
@@ -655,16 +657,15 @@ export default function CatalogPage({ onNavigateToSettings }: Props) {
             Loading catalog...
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-neutral-500">
-            <svg className="w-12 h-12 mb-3 text-neutral-700" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
-            </svg>
-            <p className="text-sm">
-              {entries.length === 0
-                ? "No exported videos yet. Use Export All from the timeline to get started."
-                : "No videos match your filter."}
-            </p>
-          </div>
+          <EmptyState
+            icon={
+              <svg className="w-full h-full" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
+              </svg>
+            }
+            title={entries.length === 0 ? "No exported videos yet" : "No videos match your filter"}
+            description={entries.length === 0 ? "Use Export All from the timeline to get started." : undefined}
+          />
         ) : (
           <div className="space-y-3">
             {filtered.map((entry) => {
@@ -680,7 +681,15 @@ export default function CatalogPage({ onNavigateToSettings }: Props) {
                 >
                   {/* Collapsed row — always visible */}
                   <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => toggleExpand(entry.folder_name)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggleExpand(entry.folder_name);
+                      }
+                    }}
                     className="w-full flex items-start gap-4 p-4 text-left cursor-pointer"
                   >
                     {/* Thumbnail with play overlay */}
@@ -769,7 +778,7 @@ export default function CatalogPage({ onNavigateToSettings }: Props) {
                           )}
                         </div>
                       )}
-                      <div className="flex items-center gap-4 text-xs text-neutral-600">
+                      <div className="flex items-center gap-4 text-xs text-neutral-600 font-mono">
                         <span>{entry.file_size_mb} MB</span>
                         <span>{formatDate(entry.exported_at)}</span>
                       </div>

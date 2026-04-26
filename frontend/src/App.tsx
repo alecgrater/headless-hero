@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Keyboard } from "lucide-react";
+import { Tooltip } from "./components/ui/Tooltip";
 import api, { assetUrl } from "./api";
 import ProjectDashboard from "./components/dashboard/ProjectDashboard";
 import IdeationPage from "./components/ideation/IdeationPage";
@@ -165,7 +166,7 @@ function App() {
             <div className="relative" ref={projectsDropdownRef}>
               <button
                 {...projectsLongPress}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors select-none ${
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
                   view === "project-dashboard" || view === "ideation" || view === "script-generation" || view === "timeline"
                     ? "bg-violet-500/15 text-violet-300 font-semibold"
                     : "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
@@ -235,7 +236,7 @@ function App() {
             </div>
             <button
               onClick={() => handleSetView("discover")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
                 view === "discover"
                   ? "bg-violet-500/15 text-violet-300 font-semibold"
                   : "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
@@ -248,7 +249,7 @@ function App() {
             </button>
             <button
               onClick={() => handleSetView("postits")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
                 view === "postits"
                   ? "bg-violet-500/15 text-violet-300 font-semibold"
                   : "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
@@ -261,7 +262,7 @@ function App() {
             </button>
             <button
               onClick={() => handleSetView("catalog")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
                 view === "catalog"
                   ? "bg-violet-500/15 text-violet-300 font-semibold"
                   : "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
@@ -275,7 +276,7 @@ function App() {
             <div className="relative" ref={settingsDropdownRef}>
               <button
                 {...settingsLongPress}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors select-none ${
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
                   view === "settings"
                     ? "bg-violet-500/15 text-violet-300 font-semibold"
                     : "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
@@ -346,20 +347,22 @@ function App() {
             </div>
           )}
           {/* Keyboard shortcuts */}
-          <button
-            onClick={() => setShowShortcutHelp((prev) => !prev)}
-            className="text-neutral-500 hover:text-neutral-300 transition-colors p-1 rounded-md hover:bg-neutral-800"
-            title="Keyboard shortcuts (?)"
-          >
-            <Keyboard size={16} />
-          </button>
+          <Tooltip content="Keyboard shortcuts (?)">
+            <button
+              onClick={() => setShowShortcutHelp((prev) => !prev)}
+              className="text-neutral-500 hover:text-neutral-300 transition-colors p-1 rounded-md hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+              aria-label="Keyboard shortcuts"
+            >
+              <Keyboard size={16} />
+            </button>
+          </Tooltip>
           <div className="flex items-center gap-2 text-sm text-neutral-500">
             <span
               className={`inline-block w-2 h-2 rounded-full ${
                 backendStatus.startsWith("connected")
                   ? "bg-emerald-500"
                   : backendStatus === "connecting..."
-                    ? "bg-yellow-500"
+                    ? "bg-yellow-500 animate-pulse"
                     : "bg-red-500"
               }`}
             />
