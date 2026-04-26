@@ -177,11 +177,25 @@ def upload_video(
     creds = Credentials(token=access_token)
     youtube = build("youtube", "v3", credentials=creds)
 
+    clean_tags: list[str] = []
+    total_len = 0
+    for t in (tags or []):
+        t = t.replace("<", "").replace(">", "").lstrip("#").strip()[:100]
+        if not t:
+            continue
+        sep = 2 if clean_tags else 0
+        if total_len + sep + len(t) > 500:
+            break
+        clean_tags.append(t)
+        total_len += sep + len(t)
+    if tags and len(clean_tags) != len(tags):
+        logger.info("Trimmed tags from %d to %d (%d chars) to fit YouTube limits", len(tags), len(clean_tags), total_len)
+
     body = {
         "snippet": {
             "title": title,
             "description": description,
-            "tags": tags or [],
+            "tags": clean_tags,
             "categoryId": category_id,
         },
         "status": {
