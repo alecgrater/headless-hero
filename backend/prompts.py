@@ -1424,7 +1424,7 @@ SMART_IDEATION_SYSTEM = register(PromptDef(
     domain="IDEATION",
     purpose="Generate categorized, channel-aware video ideas across multiple niches",
     target_model="claude",
-    expected_output_format="JSON array: [{category, title, description, segments_est, keywords, trending_source, style_match_score, reasoning, angle, signals}]",
+    expected_output_format="JSON array: [{category, title, description, segments_est, keywords, trending_source, style_match_score, idea_score, recommended, reasoning, angle, signals}]",
     template="""\
 You are a YouTube content strategist for a faceless educational channel.
 
@@ -1465,6 +1465,21 @@ excellent ideas even when no trending data is provided
 - **Counter-intuitive angles**: Surprising or myth-busting takes that generate curiosity clicks
 - **Gap-filling**: Topics the audience would expect but are missing from the catalog
 
+## Scoring & Recommendations
+For each idea, assign an `idea_score` from 0-100 predicting how well this video would perform \
+in terms of CTR and engagement. Consider:
+- Title curiosity gap (does it make you NEED to click?)
+- Search volume potential (are people searching for this?)
+- Visual potential (can AI-generated images make this compelling?)
+- Shareability (would viewers send this to friends?)
+- Competition (is the niche oversaturated or underserved?)
+
+Within each category, mark exactly ONE idea as `recommended: true` — the single strongest pick \
+in that niche. All others should be `recommended: false`.
+
+Sort ideas within each category by idea_score descending (best first). Sort categories so \
+the category with the highest top-scoring idea appears first.
+
 ## Output Format
 Return a JSON array of objects, grouped by category. Each object has these exact fields:
 - category: one of the niche categories listed above
@@ -1474,6 +1489,8 @@ Return a JSON array of objects, grouped by category. Each object has these exact
 - keywords: list of 3-5 SEO keywords
 - trending_source: which trending topic(s) inspired this idea (empty string if none)
 - style_match_score: 0-100 how well this fits the creator's style (null if no profile provided)
+- idea_score: 0-100 predicted CTR and engagement performance
+- recommended: true for the single best idea in each category, false for all others
 - reasoning: 1-2 sentences on why this suits the audience
 - angle: the unique hook or perspective
 - signals: list of 1-3 source citations (e.g. "trending on YouTube", "evergreen search volume", \
@@ -1611,6 +1628,54 @@ def compose_script_system_prompt(
     if cold_open:
         parts.append(COLD_OPEN_ADDENDUM.template)
     return "".join(parts)
+
+
+# ===================================================================
+# DOMAIN: MEDIA — media source routing
+# ===================================================================
+
+MEDIA_ANALYZER_SYSTEM = register(PromptDef(
+    name="MEDIA_ANALYZER_SYSTEM",
+    domain="MEDIA",
+    purpose="Analyze script content and assign optimal media sources per scene",
+    target_model="claude",
+    expected_output_format="JSON array of MediaAssignment objects",
+    template="""\
+You are a media routing specialist for video production. You analyze video scripts and decide which visual source is best for each scene.
+
+For each scene, assign one of these media sources:
+{available_sources}
+
+Guidelines:
+- "gameplay_video": Use when a SPECIFIC, NAMED video game is being discussed, demonstrated, or referenced. Extract the most precise game title possible (e.g. "Grand Theft Auto III" not "GTA games", "Halo: Combat Evolved" not "Halo"). Only use this when you can name the exact game — general gaming discussions should use "ai".
+- "stock_photo": Use when real-world objects, events, places, people, products, or historical moments are discussed. Generate an optimized Pexels search query: specific, descriptive, landscape-oriented (e.g. "PlayStation 2 console product photo black background" not "PS2").
+- "ai": Default. Use for abstract concepts, metaphors, stylized illustrations, diagrams, or any scene that benefits from custom AI imagery. Also use for title card scenes (is_title_card=true) — these must ALWAYS be "ai".
+
+Return a JSON array with one entry per scene:
+[
+  {
+    "scene_id": "scene_1",
+    "media_source": "ai" | "gameplay_video" | "stock_photo",
+    "game_name": "Exact Game Title" or null,
+    "search_query": "optimized pexels search query" or null,
+    "reasoning": "Brief explanation of why this source was chosen"
+  }
+]
+
+Rules:
+- Every scene in the input must appear exactly once in the output
+- Title card scenes (is_title_card=true) MUST always be "ai"
+- Only assign sources from the available list above
+- game_name must be null unless media_source is "gameplay_video"
+- search_query must be null unless media_source is "stock_photo"
+- Return ONLY the JSON array, no other text""",
+    inputs=["script_content_json", "available_sources"],
+    retention=RetentionMeta(
+        goal="Optimally route each scene to the most effective visual source",
+        failure_mode="Misrouted scenes lead to visual inconsistency or incorrect media generation",
+        metrics_to_watch=["media_routing_accuracy", "visual_quality_score"],
+    ),
+))
 
 
 # ===================================================================
