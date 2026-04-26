@@ -207,6 +207,39 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             script_id = record.id
 
         logger.info("Script generated: %s (%d segments) in %.1fs", script_id, len(script_content.segments), duration)
+
+        # Auto-score the hook on the final generated script
+        try:
+            update_job(job_id, current_step="Scoring hook...")
+            t_hook = time.monotonic()
+            hook_scenes: list[Scene] = []
+            total_dur = 0.0
+            for seg in script_content.segments:
+                for scene in seg.scenes:
+                    if scene.is_title_card:
+                        continue
+                    hook_scenes.append(scene)
+                    total_dur += scene.duration_estimate_seconds
+                    if len(hook_scenes) >= 5 or total_dur >= 30:
+                        break
+                if len(hook_scenes) >= 5 or total_dur >= 30:
+                    break
+
+            if hook_scenes:
+                hook_result = score_hook(script_content.intro_hook, hook_scenes, script_content.title, script_id)
+                script_content.hook_score = hook_result.model_dump()
+                with SqlSession(engine) as bg_session2:
+                    record2 = bg_session2.get(Script, script_id)
+                    if record2:
+                        record2.script_json = script_content.model_dump_json()
+                        bg_session2.add(record2)
+                        bg_session2.commit()
+                    bg_session2.add(GenerationDuration(operation_type="hook_score", duration_seconds=time.monotonic() - t_hook))
+                    bg_session2.commit()
+                logger.info("Hook scored for %s: overall=%d", script_id, hook_result.overall)
+        except Exception:
+            logger.exception("Hook scoring failed for %s — script saved without score", script_id)
+
         return [script_id]
 
     run_in_background(job_id, _run_generation)
