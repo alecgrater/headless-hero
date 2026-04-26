@@ -83,6 +83,7 @@ export interface Scene {
   gameplay_game_override?: string;
   video_url?: string;
   upload_url?: string;
+  original_visual_prompt?: string;
 }
 
 export interface Segment {

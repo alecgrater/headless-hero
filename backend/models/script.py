@@ -112,6 +112,7 @@ class Scene(BaseModel):
     gameplay_game_override: str = ""    # per-scene game name override (falls back to script-level)
     video_url: str = ""                 # web-relative path to gameplay/uploaded video clip
     upload_url: str = ""                # web-relative path to user-uploaded media
+    original_visual_prompt: str = ""    # preserved AI-art prompt when analyzer overwrites visual_prompt
 
 class Segment(BaseModel):
     """A named segment (e.g. "Caffeine") containing multiple scenes."""
