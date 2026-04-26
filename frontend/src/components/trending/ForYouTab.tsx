@@ -3,7 +3,7 @@ import {
   getContentProfile,
   refreshContentProfile,
   generateSmartIdeas,
-  createPostIt,
+  createIdea,
   refreshTrending,
   getTrendingRefreshStatus,
 } from "../../api";
@@ -125,12 +125,12 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
     setIdeas((prev) => prev.filter((i) => i.title !== idea.title));
   };
 
-  const handleSaveToPostIt = async (idea: SmartIdea) => {
+  const handleSaveToIdea = async (idea: SmartIdea) => {
     try {
-      await createPostIt(idea.title, 70, "for_you");
-      showToast("Saved to Post-Its", "success");
+      await createIdea(idea.title, 70, "for_you", idea.description, idea.category);
+      showToast("Saved to Ideas", "success");
     } catch {
-      showToast("Failed to save to Post-Its");
+      showToast("Failed to save to Ideas");
     }
   };
 
@@ -279,7 +279,7 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
                   index={i}
                   onUseIdea={handleUseIdea}
                   onDismiss={handleDismiss}
-                  onSaveToPostIt={handleSaveToPostIt}
+                  onSaveToIdea={handleSaveToIdea}
                 />
               ))}
             </div>

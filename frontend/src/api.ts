@@ -40,7 +40,7 @@ function extractErrorMessage(status: number, data: unknown): string {
 }
 
 /** Paths that should not trigger toast notifications on error. */
-const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/eli/generate-status/", "/api/media/analyze/status/"];
+const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/eli/generate-status/", "/api/media/analyze/status/", "/api/idea-board/"];
 
 function shouldSilence(path: string): boolean {
   return SILENT_PATHS.some((p) => path.startsWith(p));
@@ -383,7 +383,7 @@ export async function exportTest(scriptId: string, options: ExportTestOptions): 
 
 import type { TrendingTopic, TrendingRefreshStatus, ContentProfile, SmartIdeasResponse } from "./types/trending";
 import type { HookScore } from "./types/script";
-import type { PostIt, PostItSource, PostItStatus } from "./types/postit";
+import type { Idea, IdeaSource, IdeaStatus } from "./types/idea";
 
 
 /** Score the first ~30 seconds of a script for viewer retention via Claude. */
@@ -462,34 +462,65 @@ export async function generateSmartIdeas(count: number = 40): Promise<SmartIdeas
 }
 
 // ---------------------------------------------------------------------------
-// Post-Its
+// Ideas (idea board)
 // ---------------------------------------------------------------------------
 
-export async function getPostIts(): Promise<PostIt[]> {
-  const res = await api.get("/api/postits");
-  return (res.ok ? res.data : []) as PostIt[];
+export async function getIdeas(sort?: string, category?: string, status?: string): Promise<Idea[]> {
+  const params = new URLSearchParams();
+  if (sort) params.set("sort", sort);
+  if (category) params.set("category", category);
+  if (status) params.set("status", status);
+  const query = params.toString();
+  const res = await api.get(`/api/idea-board${query ? `?${query}` : ""}`);
+  return (res.ok ? res.data : []) as Idea[];
 }
 
-export async function createPostIt(text: string, rank?: number, source?: PostItSource): Promise<PostIt> {
-  const res = await api.post("/api/postits", { text, rank: rank ?? 50, source: source ?? "manual" });
-  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to create post-it");
-  return res.data as PostIt;
+export async function createIdea(text: string, rank?: number, source?: IdeaSource, description?: string, category?: string): Promise<Idea> {
+  const body: Record<string, unknown> = { text, rank: rank ?? 50, source: source ?? "manual" };
+  if (description) body.description = description;
+  if (category) body.category = category;
+  const res = await api.post("/api/idea-board", body);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to create idea");
+  return res.data as Idea;
 }
 
-export async function updatePostIt(id: string, updates: { text?: string; rank?: number; status?: PostItStatus }): Promise<PostIt> {
-  const res = await api.put(`/api/postits/${id}`, updates);
-  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to update post-it");
-  return res.data as PostIt;
+export async function updateIdea(id: string, updates: { text?: string; rank?: number; status?: IdeaStatus; description?: string; category?: string }): Promise<Idea> {
+  const res = await api.put(`/api/idea-board/${id}`, updates);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to update idea");
+  return res.data as Idea;
 }
 
-export async function deletePostIt(id: string): Promise<void> {
-  await api.delete(`/api/postits/${id}`);
+export async function deleteIdea(id: string): Promise<void> {
+  await api.delete(`/api/idea-board/${id}`);
 }
 
-export async function getPostItCounts(): Promise<Record<string, number>> {
-  const res = await api.get("/api/postits/counts");
+export async function getIdeaCounts(): Promise<Record<string, number>> {
+  const res = await api.get("/api/idea-board/counts");
   if (!res.ok) return { idea: 0, in_progress: 0, scripted: 0, published: 0 };
   return res.data as Record<string, number>;
+}
+
+export async function getIdeaColdOpenStatus(id: string): Promise<Record<string, unknown>> {
+  const res = await api.get(`/api/idea-board/${id}/cold-open-status`);
+  if (!res.ok) throw new Error("Failed to check cold open status");
+  return res.data as Record<string, unknown>;
+}
+
+export async function selectIdeaColdOpen(id: string, index: number): Promise<{ job_id: string }> {
+  const res = await api.post(`/api/idea-board/${id}/select-cold-open`, { index });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to select cold open");
+  return res.data as { job_id: string };
+}
+
+export async function retryIdeaColdOpen(id: string): Promise<{ job_id: string }> {
+  const res = await api.post(`/api/idea-board/${id}/retry-cold-open`);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to retry cold open");
+  return res.data as { job_id: string };
+}
+
+export async function getIdeaCategories(): Promise<string[]> {
+  const res = await api.get("/api/idea-board/categories");
+  return (res.ok ? res.data : []) as string[];
 }
 
 // ---------------------------------------------------------------------------

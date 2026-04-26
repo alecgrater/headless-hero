@@ -22,6 +22,7 @@ def init_db() -> None:
     _migrate_add_scene_count_to_generation_durations()
     _migrate_add_export_folder_to_publish_records()
     _migrate_postits_add_status_source()
+    _migrate_postits_to_ideas()
     logger.info("Database ready")
 
 def ensure_default_brand() -> None:
@@ -136,6 +137,9 @@ def _migrate_postits_add_status_source() -> None:
 
     conn = sqlite3.connect(str(_db_path))
     try:
+        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        if "postits" not in tables:
+            return
         cursor = conn.execute("PRAGMA table_info(postits)")
         columns = {row[1] for row in cursor.fetchall()}
         if "status" not in columns:
@@ -144,6 +148,62 @@ def _migrate_postits_add_status_source() -> None:
         if "source" not in columns:
             conn.execute("ALTER TABLE postits ADD COLUMN source TEXT DEFAULT 'manual'")
             logger.info("Migrated: added source to postits")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _migrate_postits_to_ideas() -> None:
+    """Rename postits table to ideas and add hook-related columns."""
+    import sqlite3
+
+    conn = sqlite3.connect(str(_db_path))
+    try:
+        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+
+        if "ideas" in tables:
+            # Already migrated — just ensure new columns exist
+            cursor = conn.execute("PRAGMA table_info(ideas)")
+            columns = {row[1] for row in cursor.fetchall()}
+            new_cols = {
+                "description": "TEXT DEFAULT ''",
+                "category": "TEXT DEFAULT ''",
+                "cold_open_status": "TEXT DEFAULT 'pending'",
+                "cold_open_job_id": "TEXT DEFAULT ''",
+                "cold_open_variants_json": "TEXT DEFAULT ''",
+                "selected_hook_json": "TEXT DEFAULT ''",
+                "hook_score": "INTEGER",
+                "hook_score_json": "TEXT DEFAULT ''",
+            }
+            for col, typedef in new_cols.items():
+                if col not in columns:
+                    conn.execute(f"ALTER TABLE ideas ADD COLUMN {col} {typedef}")
+                    logger.info("Migrated: added %s to ideas", col)
+            conn.commit()
+            return
+
+        if "postits" not in tables:
+            return
+
+        conn.execute("ALTER TABLE postits RENAME TO ideas")
+        logger.info("Migrated: renamed postits → ideas")
+
+        cursor = conn.execute("PRAGMA table_info(ideas)")
+        columns = {row[1] for row in cursor.fetchall()}
+        new_cols = {
+            "description": "TEXT DEFAULT ''",
+            "category": "TEXT DEFAULT ''",
+            "cold_open_status": "TEXT DEFAULT 'pending'",
+            "cold_open_job_id": "TEXT DEFAULT ''",
+            "cold_open_variants_json": "TEXT DEFAULT ''",
+            "selected_hook_json": "TEXT DEFAULT ''",
+            "hook_score": "INTEGER",
+            "hook_score_json": "TEXT DEFAULT ''",
+        }
+        for col, typedef in new_cols.items():
+            if col not in columns:
+                conn.execute(f"ALTER TABLE ideas ADD COLUMN {col} {typedef}")
+                logger.info("Migrated: added %s to ideas", col)
         conn.commit()
     finally:
         conn.close()

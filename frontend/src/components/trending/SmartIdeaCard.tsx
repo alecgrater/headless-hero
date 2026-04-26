@@ -6,7 +6,7 @@ interface Props {
   index: number;
   onUseIdea: (idea: SmartIdea) => void;
   onDismiss: (idea: SmartIdea) => void;
-  onSaveToPostIt?: (idea: SmartIdea) => void;
+  onSaveToIdea?: (idea: SmartIdea) => void;
 }
 
 function StyleMatchBadge({ score }: { score: number }) {
@@ -71,7 +71,7 @@ function TrendingSourceChips({ source }: { source: string }) {
   );
 }
 
-export default function SmartIdeaCard({ idea, index, onUseIdea, onDismiss, onSaveToPostIt }: Props) {
+export default function SmartIdeaCard({ idea, index, onUseIdea, onDismiss, onSaveToIdea }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [saved, setSaved] = useState(false);
   const hasDetails = idea.keywords.length > 0 || idea.trending_source || idea.reasoning || idea.angle || idea.signals.length > 0;
@@ -119,12 +119,12 @@ export default function SmartIdeaCard({ idea, index, onUseIdea, onDismiss, onSav
               )}
             </h3>
             <div className="flex items-center gap-1.5 shrink-0">
-              {onSaveToPostIt && (
+              {onSaveToIdea && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     if (!saved) {
-                      onSaveToPostIt(idea);
+                      onSaveToIdea(idea);
                       setSaved(true);
                     }
                   }}

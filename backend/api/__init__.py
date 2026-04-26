@@ -17,7 +17,7 @@ from api.eli import router as eli_router
 from api.fx import router as fx_router
 from api.ideas import router as ideas_router
 from api.media import router as media_router
-from api.postits import router as postits_router
+from api.idea_board import router as idea_board_router
 from api.publish import router as publish_router
 from api.render import router as render_router
 from api.scripts import router as scripts_router
@@ -41,7 +41,7 @@ from models.settings import AppSetting as _AppSetting  # noqa: F401 — register
 from models.api_usage import ApiUsage as _ApiUsage  # noqa: F401 — register table
 from models.trending import TrendingTopic as _TrendingTopic  # noqa: F401 — register table
 from models.content_profile import ContentProfile as _ContentProfile  # noqa: F401 — register table
-from models.postit import PostIt as _PostIt  # noqa: F401 — register table
+from models.idea import Idea as _Idea  # noqa: F401 — register table
 
 from config import DATA_DIR, get_export_folder
 
@@ -110,7 +110,7 @@ app.include_router(eli_router)
 app.include_router(fx_router)
 app.include_router(ideas_router)
 app.include_router(media_router)
-app.include_router(postits_router)
+app.include_router(idea_board_router)
 app.include_router(scripts_router)
 app.include_router(visuals_router)
 app.include_router(voiceover_router)

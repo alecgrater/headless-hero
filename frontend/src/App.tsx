@@ -9,13 +9,13 @@ import SettingsPage, { SECTIONS, SectionIcon, type SectionId } from "./component
 import TimelinePage from "./components/timeline/TimelinePage";
 import { ShortcutHelpOverlay } from "./components/timeline/useKeyboardShortcuts";
 import DiscoverPage from "./components/trending/DiscoverPage";
-import PostItPage from "./components/postit/PostItPage";
+import IdeaPage from "./components/ideas/IdeaPage";
 import CatalogPage from "./components/catalog/CatalogPage";
 import useLongPress from "./hooks/useLongPress";
 import type { VideoIdea } from "./types/idea";
 import type { ScriptSummary } from "./types/script";
 
-type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "postits" | "catalog";
+type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "ideas" | "catalog";
 
 function formatRelativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -248,17 +248,17 @@ function App() {
               Discover
             </button>
             <button
-              onClick={() => handleSetView("postits")}
+              onClick={() => handleSetView("ideas")}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
-                view === "postits"
+                view === "ideas"
                   ? "bg-violet-500/15 text-violet-300 font-semibold"
                   : "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
               }`}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
               </svg>
-              Post-Its
+              Ideas
             </button>
             <button
               onClick={() => handleSetView("catalog")}
@@ -372,7 +372,7 @@ function App() {
       </header>
 
       {/* Main content area */}
-      <main className={`flex-1 w-full ${view === "timeline" || view === "project-dashboard" || view === "settings" || view === "discover" || view === "postits" || view === "catalog" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
+      <main className={`flex-1 w-full ${view === "timeline" || view === "project-dashboard" || view === "settings" || view === "discover" || view === "ideas" || view === "catalog" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
         {view === "settings" && (
           <SettingsPage
             onBack={() => handleSetView("project-dashboard")}
@@ -434,8 +434,8 @@ function App() {
           />
         )}
 
-        {view === "postits" && (
-          <PostItPage
+        {view === "ideas" && (
+          <IdeaPage
             onGenerateIdeas={(niche) => {
               setAutoGenerateNiche(niche);
               handleSetView("ideation");
