@@ -181,7 +181,7 @@ def upload_video(
     raw_tags: list[str] = []
     for t in (tags or []):
         for part in t.split(","):
-            cleaned = re.sub(r"[<>\"={}\\]", "", part).lstrip("#").strip()[:100]
+            cleaned = re.sub(r"[<>\"'={}\\]", "", part).lstrip("#").strip()[:100]
             if cleaned:
                 raw_tags.append(cleaned)
 
@@ -193,8 +193,8 @@ def upload_video(
             break
         clean_tags.append(t)
         total_len += sep + len(t)
-    if tags and len(clean_tags) != len(tags):
-        logger.info("Trimmed tags from %d to %d (%d chars) to fit YouTube limits", len(tags), len(clean_tags), total_len)
+    if raw_tags and len(clean_tags) != len(raw_tags):
+        logger.info("Trimmed tags from %d to %d (%d chars) to fit YouTube limits", len(raw_tags), len(clean_tags), total_len)
     logger.info("Upload tags: %s", clean_tags)
 
     body = {
