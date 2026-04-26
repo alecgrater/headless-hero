@@ -67,6 +67,11 @@ export default function IdeaPage({ onGenerateIdeas }: Props) {
   }, [load]);
 
   // Poll for ideas with active cold_open_status
+  const pollKey = useMemo(
+    () => ideas.map((i) => `${i.id}:${i.cold_open_status}`).join(","),
+    [ideas],
+  );
+
   useEffect(() => {
     const activeIds = ideas.filter((i) => ACTIVE_STATUSES.has(i.cold_open_status)).map((i) => i.id);
     if (activeIds.length === 0) {
@@ -108,7 +113,7 @@ export default function IdeaPage({ onGenerateIdeas }: Props) {
         pollRef.current = null;
       }
     };
-  }, [ideas.map((i) => `${i.id}:${i.cold_open_status}`).join(",")]);
+  }, [pollKey]);
 
   const refreshCounts = useCallback(async () => {
     const [c, cats] = await Promise.all([getIdeaCounts(), getIdeaCategories()]);
@@ -168,8 +173,6 @@ export default function IdeaPage({ onGenerateIdeas }: Props) {
       handleAdd();
     }
   };
-
-  const filteredIdeas = useMemo(() => ideas, [ideas]);
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
@@ -278,10 +281,6 @@ export default function IdeaPage({ onGenerateIdeas }: Props) {
       {/* Idea list */}
       {loading && ideas.length === 0 ? (
         <div className="text-center py-12 text-neutral-500 text-sm">Loading...</div>
-      ) : filteredIdeas.length === 0 && ideas.length > 0 ? (
-        <div className="text-center py-12 text-neutral-500 text-sm">
-          No ideas match the current filters
-        </div>
       ) : ideas.length === 0 ? (
         <EmptyState
           icon={
@@ -294,7 +293,7 @@ export default function IdeaPage({ onGenerateIdeas }: Props) {
         />
       ) : (
         <div className="space-y-2">
-          {filteredIdeas.map((idea) => (
+          {ideas.map((idea) => (
             <IdeaCard
               key={idea.id}
               idea={idea}

@@ -1,6 +1,5 @@
 """Idea board CRUD + cold-open hook generation endpoints."""
 
-import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,7 +7,7 @@ from pydantic import BaseModel, field_validator
 from sqlmodel import Session, col, func, select
 
 from database import get_session
-from models.idea import VALID_COLD_OPEN_STATUSES, VALID_SOURCES, VALID_STATUSES, Idea
+from models.idea import VALID_SOURCES, VALID_STATUSES, Idea
 from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
 
 logger = logging.getLogger(__name__)
@@ -63,6 +62,8 @@ def _start_cold_open_generation(idea_id: str) -> str:
             if not idea:
                 raise RuntimeError(f"Idea {idea_id} not found")
 
+            topic = idea.text
+            description = idea.description
             idea.cold_open_status = "generating"
             idea.cold_open_job_id = job.id
             session.add(idea)
@@ -73,8 +74,8 @@ def _start_cold_open_generation(idea_id: str) -> str:
         from pipeline.cold_open import generate_cold_opens
 
         result = generate_cold_opens(
-            topic=idea.text,
-            description=idea.description,
+            topic=topic,
+            description=description,
         )
 
         with SyncSession(engine) as session:
@@ -127,6 +128,7 @@ def _start_hook_scoring(idea_id: str, variant_index: int) -> str:
                 raise ValueError(f"Invalid variant index {variant_index}")
 
             variant = cold_open_result.variants[variant_index]
+            video_title = idea.text
 
             idea.cold_open_status = "refining"
             session.add(idea)
@@ -139,7 +141,7 @@ def _start_hook_scoring(idea_id: str, variant_index: int) -> str:
         hook_score = score_hook(
             intro_hook=variant.intro_hook,
             hook_scenes=[],
-            video_title=idea.text,
+            video_title=video_title,
             narration_text=variant.opening_narration,
         )
 
@@ -151,7 +153,7 @@ def _start_hook_scoring(idea_id: str, variant_index: int) -> str:
             intro_hook=variant.intro_hook,
             opening_narration=variant.opening_narration,
             hook_score=hook_score,
-            video_title=idea.text,
+            video_title=video_title,
         )
 
         with SyncSession(engine) as session:

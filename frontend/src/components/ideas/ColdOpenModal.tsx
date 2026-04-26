@@ -30,6 +30,14 @@ export default function ColdOpenModal({ idea, onClose, onScored }: Props) {
     };
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   const handleSelect = async (variant: ColdOpenVariant) => {
     const index = coldOpenResult?.variants.findIndex((v) => v.id === variant.id) ?? -1;
     if (index < 0) return;
