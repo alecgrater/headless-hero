@@ -87,7 +87,7 @@ def publish_to_youtube(
 
     def upload_progress(p: float) -> None:
         if on_progress:
-            on_progress(0.05 + p * 0.9, f"Uploading... {int(p * 100)}%")
+            on_progress(0.05 + p * 0.9, "Uploading...")
 
     result = upload_video(
         access_token=credential.access_token,
