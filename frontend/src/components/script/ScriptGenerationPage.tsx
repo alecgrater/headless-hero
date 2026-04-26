@@ -112,6 +112,7 @@ export default function ScriptGenerationPage({
 
       {/* Pre-generation options */}
       {!generationStarted && settingsLoaded && (
+        <>
         <div className="rounded-lg border border-neutral-800 bg-neutral-900 px-6 py-5 space-y-5">
           <h3 className="text-sm font-semibold text-neutral-200 uppercase tracking-wider">
             Generation Options
@@ -251,6 +252,7 @@ export default function ScriptGenerationPage({
             )}
           </div>
         )}
+        </>
       )}
 
       {/* Loading state */}
