@@ -5,6 +5,7 @@ import { applyMediaAssignments } from "../../api";
 interface Props {
   scriptId: string;
   assignments: MediaAssignment[];
+  fullHeight?: boolean;
   onApproved: () => void;
   onReanalyze: () => void;
 }
@@ -15,7 +16,7 @@ const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
   stock_photo: { label: "Stock Photo", color: "bg-sky-500/20 text-sky-300" },
 };
 
-export default function MediaReviewPanel({ scriptId, assignments: initial, onApproved, onReanalyze }: Props) {
+export default function MediaReviewPanel({ scriptId, assignments: initial, fullHeight, onApproved, onReanalyze }: Props) {
   const [assignments, setAssignments] = useState<MediaAssignment[]>(initial);
   const [applying, setApplying] = useState(false);
 
@@ -79,7 +80,7 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, onApp
       </div>
 
       {/* Scene list */}
-      <div className="divide-y divide-neutral-800 max-h-96 overflow-y-auto">
+      <div className={`divide-y divide-neutral-800 ${fullHeight ? "overflow-y-auto" : "max-h-96 overflow-y-auto"}`}>
         {assignments.map((a, idx) => {
           const sourceInfo = SOURCE_LABELS[a.media_source] ?? { label: a.media_source, color: "bg-neutral-700 text-neutral-300" };
           return (
