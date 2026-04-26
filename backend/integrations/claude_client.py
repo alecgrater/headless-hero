@@ -47,6 +47,18 @@ def chat(
             messages=[{"role": "user", "content": user_message}],
             timeout=timeout,
         )
+    except anthropic.BadRequestError:
+        if cache:
+            logger.warning("Cache control rejected by API — retrying without cache (model=%s)", model)
+            response = client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                system=system,
+                messages=[{"role": "user", "content": user_message}],
+                timeout=timeout,
+            )
+        else:
+            raise
     except Exception:
         elapsed = time.monotonic() - t0
         logger.error("Anthropic API call failed after %.1fs (model=%s)", elapsed, model, exc_info=True)
