@@ -176,7 +176,6 @@ class GenerateScriptRequest(BaseModel):
     cold_open_text: str | None = PydanticField(default=None, description="Pre-selected cold open text to inject into script generation")
     gameplay_enabled: bool = PydanticField(default=False, description="Enable gameplay video clips for some scenes")
     stock_photo_enabled: bool = PydanticField(default=False, description="Enable stock photos for some scenes")
-    gameplay_game_name: str = PydanticField(default="", description="Default game name for gameplay clips")
 
 class GenerateScriptResponse(BaseModel):
     id: str

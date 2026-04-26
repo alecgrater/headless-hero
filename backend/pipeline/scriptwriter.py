@@ -102,7 +102,6 @@ def generate_script(
     progress_callback: Callable[[int, int, str], None] | None = None,
     gameplay_enabled: bool = False,
     stock_photo_enabled: bool = False,
-    gameplay_game_name: str = "",
 ) -> ScriptContent:
     """Generate a segmented video script via Claude.
 
@@ -144,39 +143,6 @@ def generate_script(
             "from this opening:\n\n"
             f"{cold_open_text}"
         )
-
-    # Multi-source media instructions
-    if gameplay_enabled or stock_photo_enabled:
-        media_sources = ["ai"]
-        if gameplay_enabled:
-            media_sources.append("gameplay_video")
-        if stock_photo_enabled:
-            media_sources.append("stock_photo")
-
-        media_parts = [
-            "MULTI-SOURCE MEDIA — each scene MUST include a \"media_source\" field "
-            f"with one of these values: {', '.join(f'\"{s}\"' for s in media_sources)}."
-        ]
-        if gameplay_enabled:
-            game_ctx = f' for the game "{gameplay_game_name}"' if gameplay_game_name else ""
-            media_parts.append(
-                f"\"gameplay_video\" scenes will show gameplay footage{game_ctx}. "
-                "Use these for action-heavy moments, demonstrations, or background visuals "
-                "where specific AI imagery is not critical. Aim for 20-40% gameplay scenes."
-            )
-        if stock_photo_enabled:
-            media_parts.append(
-                "\"stock_photo\" scenes will use real stock photography from Pexels. "
-                "Use these for real-world imagery, people, places, or objects where "
-                "photorealism matters. The visual_prompt serves as the search query. "
-                "Aim for 15-30% stock photo scenes."
-            )
-        media_parts.append(
-            "\"ai\" is the default — use for stylized illustrations, diagrams, "
-            "abstract concepts, or any scene that benefits from custom AI imagery. "
-            "Title card scenes should always use media_source \"ai\"."
-        )
-        user_parts.append("\n".join(media_parts))
 
     system_prompt = BASE_SYSTEM_PROMPT
     base_user_message = "\n".join(user_parts)
@@ -278,7 +244,6 @@ def generate_script(
     # Persist multi-source media settings on the script
     content.gameplay_enabled = gameplay_enabled
     content.stock_photo_enabled = stock_photo_enabled
-    content.gameplay_game_name = gameplay_game_name
 
     logger.info("Script generated for topic %r: %s segments, %s total scenes",
                 topic, len(content.segments), sum(len(s.scenes) for s in content.segments))
