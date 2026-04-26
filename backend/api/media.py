@@ -99,22 +99,29 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
 
     def _run_analysis() -> list[str]:
         update_job(job_id, current_step="Analyzing script for media sources...")
-        assignments = analyze_media_sources(
-            content,
-            gameplay_enabled=gameplay_enabled,
-            stock_photo_enabled=stock_photo_enabled,
-            script_id=script_id,
-        )
 
         from database import engine
         from sqlmodel import Session as SqlSession
         with SqlSession(engine) as bg_session:
             rec = bg_session.get(Script, script_id)
             if not rec:
-                return [script_id]
+                raise RuntimeError(f"Script {script_id} not found during background analysis")
             fresh_content = ScriptContent.model_validate(json.loads(rec.script_json))
-            apply_assignments(fresh_content, assignments)
-            rec.script_json = fresh_content.model_dump_json()
+
+        assignments = analyze_media_sources(
+            fresh_content,
+            gameplay_enabled=gameplay_enabled,
+            stock_photo_enabled=stock_photo_enabled,
+            script_id=script_id,
+        )
+
+        with SqlSession(engine) as bg_session:
+            rec = bg_session.get(Script, script_id)
+            if not rec:
+                raise RuntimeError(f"Script {script_id} deleted during media analysis")
+            final_content = ScriptContent.model_validate(json.loads(rec.script_json))
+            apply_assignments(final_content, assignments)
+            rec.script_json = final_content.model_dump_json()
             bg_session.add(rec)
             bg_session.commit()
 
