@@ -74,7 +74,7 @@ def refine_hook(
         data = parse_json_response(raw)
         result = RefinedHook.model_validate(data)
     except (json.JSONDecodeError, ValueError) as exc:
-        logger.error("Failed to parse hook refine response: %s\nRaw: %s", exc, text[:500])
+        logger.error("Failed to parse hook refine response: %s\nRaw: %s", exc, raw[:500])
         raise RuntimeError(f"Hook refinement returned invalid JSON: {exc}") from exc
 
     logger.info("Hook refined for %r", video_title)

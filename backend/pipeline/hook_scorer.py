@@ -90,7 +90,7 @@ def score_hook(
         result = HookScore.model_validate(data)
     except (json.JSONDecodeError, ValueError) as exc:
         logger.error("[%s] Failed to parse hook score response: %s\nRaw: %s",
-                     script_id or "no-id", exc, text[:500])
+                     script_id or "no-id", exc, raw[:500])
         raise RuntimeError(f"Hook scoring returned invalid JSON: {exc}") from exc
 
     logger.info("[%s] Hook score: overall=%d, promise=%d, tension=%d, payoff=%d",
