@@ -312,8 +312,8 @@ def publish_status(job_id: str):
     job = get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    d = job.to_dict()
-    return PublishStatusResponse(**d)
+    job_dict = job.to_dict()
+    return PublishStatusResponse(**job_dict)
 
 @router.get("/history/{script_id}", response_model=list[PublishRecordRead])
 def publish_history(script_id: str, session: Session = Depends(get_session)):

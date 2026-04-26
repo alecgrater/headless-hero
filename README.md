@@ -36,17 +36,23 @@ The app is structured as four layers:
 |----------|---------|
 | `/api/brand` | Brand profile (single default) |
 | `/api/ideas` | AI topic generation |
-| `/api/scripts` | Script generation and editing |
-| `/api/visuals` | Image generation (single + batch + multi-frame) |
+| `/api/scripts` | Script generation, editing, split, cold opens, hook scoring |
+| `/api/visuals` | Image generation (single + batch + multi-frame + title cards) |
 | `/api/voice` | TTS generation, batch audio, voice cloning, voice listing |
-| `/api/render` | Video rendering (full, export test, status, export audio) |
+| `/api/render` | Video rendering (full, export test, status, audio export) |
 | `/api/fx` | AI-powered FX generation (kinetic captions, zoom punch) |
 | `/api/eli` | Eli character animation keyframe generation |
 | `/api/character` | Character frame library management |
 | `/api/thumbnail` | Thumbnail generation |
 | `/api/seo` | SEO metadata generation |
 | `/api/publish` | YouTube OAuth, upload, status, history |
+| `/api/catalog` | Exported video catalog browser + YouTube upload |
+| `/api/trending` | Trending topics, content profile, smart ideas |
+| `/api/postits` | Post-it brainstorming board CRUD |
+| `/api/brainstorm` | AI brainstorming sessions |
+| `/api/media` | Scene media file upload |
 | `/api/settings` | API key management |
+| `/api/generation` | Generation time estimates |
 | `/dev/` | Dev dashboard (log viewer, job monitor, API tester, DB inspector, usage tracker) |
 
 ### External Services
@@ -127,13 +133,15 @@ headless-hero/
 │       ├── App.tsx           # Root component with view routing
 │       ├── components/
 │       │   ├── brand/        # Voice setup modal + voice cloning
+│       │   ├── catalog/      # Exported video catalog browser
 │       │   ├── dashboard/    # Project list and management
 │       │   ├── ideation/     # Idea generation UI
+│       │   ├── postit/       # Post-it brainstorming board
 │       │   ├── script/       # Script generation + editing
 │       │   ├── settings/     # API keys, voice, character, general settings
-│       │   ├── shared/       # Shared components (EliPositionPicker)
 │       │   ├── timeline/     # Timeline editor (lanes, blocks, properties,
 │       │   │                 #   export, render/publish state hooks)
+│       │   ├── trending/     # Discover page (trending topics + smart ideas)
 │       │   ├── ErrorBoundary.tsx
 │       │   ├── GenerationProgressBar.tsx
 │       │   └── ToastContainer.tsx
@@ -163,7 +171,7 @@ headless-hero/
 │   │   ├── image_gen.py      # Image gen: prompt → Gemini → local file
 │   │   ├── voiceover.py      # TTS: ElevenLabs → MP3 + duration
 │   │   ├── remotion_render.py # Remotion CLI orchestration → full video
-│   │   ├── video_render.py   # Audio concatenation via FFmpeg
+│   │   ├── audio_export.py   # Audio concatenation via FFmpeg
 │   │   ├── ffmpeg_builder.py # FFmpeg CLI arg construction
 │   │   ├── render_jobs.py    # Background job tracking with threading
 │   │   ├── fx_generator.py   # Claude-powered FX assignment
@@ -172,9 +180,11 @@ headless-hero/
 │   │   ├── thumbnail.py      # Claude concepts + Gemini + FFmpeg composite
 │   │   ├── seo.py            # SEO metadata via Claude
 │   │   ├── publishing.py     # YouTube upload orchestration
+│   │   ├── catalog.py        # Exported video catalog management
 │   │   ├── title_card.py     # Per-segment title card generation
 │   │   ├── title_card_composer.py # Composite title card grid assembly
 │   │   ├── refine.py         # Scene refinement
+│   │   ├── trending_scorer.py # Trending topic aggregation + scoring
 │   │   └── modifiers/        # Content modifier plugin system
 │   ├── integrations/
 │   │   ├── claude_client.py       # Anthropic SDK wrapper
@@ -197,7 +207,7 @@ headless-hero/
 │   │   ├── log_handler.py    # SQLite logging handler + DevLog model
 │   │   ├── routes.py         # Dashboard API routes + WebSocket
 │   │   └── dashboard.html    # Self-contained dashboard UI
-│   ├── prompts/              # LLM system prompt guides (.md files)
+│   ├── prompts.py            # Central prompt registry (all LLM system prompts)
 │   └── pyproject.toml        # Python dependencies (uv)
 ├── remotion/
 │   └── src/

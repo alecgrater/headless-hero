@@ -206,50 +206,39 @@ export async function splitSceneAtTime(scriptId: string, sceneId: string, splitT
   });
 }
 
-/** Poll a title card background job until it completes or fails. */
-export async function pollTitleCardJob(jobId: string): Promise<void> {
-  const POLL_INTERVAL = 1500;
-  const MAX_POLLS = 200; // ~5 minutes max
-  for (let i = 0; i < MAX_POLLS; i++) {
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL));
-    const res = await api.get(`/api/visuals/title-cards-status/${jobId}`);
-    if (!res.ok) throw new Error("Failed to check title card job status");
+const POLL_INTERVAL_MS = 1500;
+
+async function pollBackgroundJob(
+  jobId: string,
+  statusEndpoint: string,
+  maxPolls: number,
+  failureMessage: string,
+): Promise<void> {
+  for (let i = 0; i < maxPolls; i++) {
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    const res = await api.get(`${statusEndpoint}${jobId}`);
+    if (!res.ok) throw new Error("Failed to check job status");
     const job = res.data as { status: string; error: string | null };
     if (job.status === "completed") return;
-    if (job.status === "failed") throw new Error(job.error || "Title card generation failed");
-    if (job.status === "cancelled") throw new Error("Title card generation was cancelled");
+    if (job.status === "failed") throw new Error(job.error || failureMessage);
+    if (job.status === "cancelled") throw new Error(`${failureMessage} (cancelled)`);
   }
+  throw new Error(`${failureMessage} (timed out)`);
 }
 
-/** Poll a render job until it completes or fails. Returns the final status. */
+/** Poll a title card background job until it completes or fails. */
+export async function pollTitleCardJob(jobId: string): Promise<void> {
+  return pollBackgroundJob(jobId, "/api/visuals/title-cards-status/", 200, "Title card generation failed");
+}
+
+/** Poll a render job until it completes or fails. */
 export async function pollRenderJob(jobId: string): Promise<void> {
-  const POLL_INTERVAL = 1500;
-  const MAX_POLLS = 600; // ~15 minutes max
-  for (let i = 0; i < MAX_POLLS; i++) {
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL));
-    const res = await api.get(`/api/render/status/${jobId}`);
-    if (!res.ok) throw new Error("Failed to check render job status");
-    const job = res.data as { status: string; error: string | null };
-    if (job.status === "completed") return;
-    if (job.status === "failed") throw new Error(job.error || "Render failed");
-  }
-  throw new Error("Render timed out");
+  return pollBackgroundJob(jobId, "/api/render/status/", 600, "Render failed");
 }
 
 /** Poll an Eli generation background job until it completes or fails. */
 export async function pollEliJob(jobId: string): Promise<void> {
-  const POLL_INTERVAL = 1500;
-  const MAX_POLLS = 800; // ~20 minutes max
-  for (let i = 0; i < MAX_POLLS; i++) {
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL));
-    const res = await api.get(`/api/eli/generate-status/${jobId}`);
-    if (!res.ok) throw new Error("Failed to check Eli job status");
-    const job = res.data as { status: string; error: string | null };
-    if (job.status === "completed") return;
-    if (job.status === "failed") throw new Error(job.error || "Eli generation failed");
-    if (job.status === "cancelled") throw new Error("Eli generation was cancelled");
-  }
-  throw new Error("Eli generation timed out");
+  return pollBackgroundJob(jobId, "/api/eli/generate-status/", 800, "Eli generation failed");
 }
 
 /** Open a URL in the system browser (Electron shell) or a new tab (dev). */

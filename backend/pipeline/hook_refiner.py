@@ -5,7 +5,7 @@ import logging
 
 from pydantic import BaseModel
 
-from config import strip_markdown_fences
+from config import parse_json_response
 from integrations.claude_client import chat
 from models.script import HookScore
 
@@ -69,10 +69,9 @@ def refine_hook(
 
     logger.info("Refining hook for %r (overall score: %d)", video_title, hook_score.overall)
     raw = chat(SYSTEM_PROMPT, user_msg, max_tokens=1024)
-    text = strip_markdown_fences(raw)
 
     try:
-        data = json.loads(text)
+        data = parse_json_response(raw)
         result = RefinedHook.model_validate(data)
     except (json.JSONDecodeError, ValueError) as exc:
         logger.error("Failed to parse hook refine response: %s\nRaw: %s", exc, text[:500])

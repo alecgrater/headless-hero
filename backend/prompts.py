@@ -397,8 +397,6 @@ lacking in these areas. Address each one:
     ),
 ))
 
-# -- Cold open addendum --
-
 COLD_OPEN_ADDENDUM = register(PromptDef(
     name="COLD_OPEN_ADDENDUM",
     domain="SCRIPT",
@@ -1379,29 +1377,6 @@ Pick the tier and specific expression that best matches the video title/topic.
 ))
 
 
-# -- Image prompt composition helper --
-
-def compose_image_prompt(
-    visual_prompt: str,
-    visual_style: str = "",
-    composition_guide: str = "",
-    character_prompt: str = "",
-) -> str:
-    """Compose a full image generation prompt from layers.
-
-    Order: visual_style → composition_guide → character_prompt → visual_prompt
-    """
-    parts: list[str] = []
-    if visual_style or IMAGE_VISUAL_STYLE.template:
-        parts.append(visual_style or IMAGE_VISUAL_STYLE.template)
-    if composition_guide or IMAGE_COMPOSITION_GUIDE.template:
-        parts.append(composition_guide or IMAGE_COMPOSITION_GUIDE.template)
-    if character_prompt:
-        parts.append(character_prompt)
-    parts.append(visual_prompt)
-    return "\n\n".join(parts)
-
-
 # ===================================================================
 # DOMAIN: IDEATION
 # ===================================================================
@@ -1617,31 +1592,6 @@ def compose_script_system_prompt(
 # ===================================================================
 # Audit & conflict detection
 # ===================================================================
-
-def audit_report() -> dict[str, list[dict]]:
-    """Return all prompts grouped by retention phase for auditing."""
-    phases: dict[str, list[str]] = {
-        "hook_0_30s": ["COLD_OPEN_ADDENDUM", "SCRIPT_SYSTEM"],
-        "engagement_30s_2min": ["SCRIPT_SYSTEM", "FX_SYSTEM"],
-        "sustained_2min_plus": ["SCRIPT_SYSTEM", "ELI_ANIMATOR_SYSTEM"],
-        "re_engagement": ["FX_SYSTEM", "TIGHTEN_SYSTEM"],
-    }
-
-    report: dict[str, list[dict]] = {}
-    for phase, names in phases.items():
-        report[phase] = []
-        for name in names:
-            prompt = PROMPTS.get(name)
-            if prompt:
-                report[phase].append({
-                    "name": prompt.name,
-                    "domain": prompt.domain,
-                    "purpose": prompt.purpose,
-                    "retention_goal": prompt.retention.goal,
-                    "retention_failure_mode": prompt.retention.failure_mode,
-                    "retention_metrics": prompt.retention.metrics_to_watch,
-                })
-    return report
 
 
 _CONTRADICTION_RULES: list[tuple[str, str, str, str]] = [

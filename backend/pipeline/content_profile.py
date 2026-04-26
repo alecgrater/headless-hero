@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from sqlmodel import Session, select
 
-from config import strip_markdown_fences
+from config import parse_json_response
 from database import engine
 from integrations.claude_client import chat
 from models.content_profile import ContentProfile
@@ -100,7 +100,7 @@ def analyze_content_profile() -> dict:
         f"Analyze this creator's content library:\n{user_msg}",
         max_tokens=1024,
     )
-    result = json.loads(strip_markdown_fences(raw))
+    result = parse_json_response(raw)
 
     # Persist: upsert pattern (delete old, insert new)
     profile_data = {

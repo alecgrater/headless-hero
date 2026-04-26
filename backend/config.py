@@ -1,5 +1,6 @@
 """Shared configuration constants and utilities for the backend."""
 
+import json
 import os
 import re
 from pathlib import Path
@@ -22,6 +23,9 @@ VIDEO_HEIGHT = 1080
 # Default image generation dimensions (landscape, optimized for AI models)
 IMAGE_WIDTH = 1344
 IMAGE_HEIGHT = 768
+
+# Square image dimension for title card icons and character frames
+SQUARE_IMAGE_SIZE = 768
 
 # Frames per second for all video rendering
 FPS = 30
@@ -78,3 +82,9 @@ def sanitize_filename(name: str) -> str:
     """Strip unsafe filesystem characters and truncate to 80 chars."""
     clean = re.sub(r'[<>:"/\\|?*]', "", name).strip()
     return clean[:80] if clean else "Untitled"
+
+
+def parse_json_response(text: str) -> dict | list:
+    """Parse JSON from an LLM response, stripping markdown fences first."""
+    cleaned = strip_markdown_fences(text)
+    return json.loads(cleaned)

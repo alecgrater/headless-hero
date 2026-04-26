@@ -11,7 +11,7 @@ import os
 import shutil
 from pathlib import Path
 
-from config import DATA_DIR, DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS
+from config import DATA_DIR, DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS, SQUARE_IMAGE_SIZE
 from models.script import ScriptContent
 from pipeline.image_gen import generate_scene_image
 from pipeline.render_jobs import update_job
@@ -111,8 +111,8 @@ def ensure_title_card_images(
                 scene_id=f"title_card_{idx}",
                 visual_prompt=prompt,
                 script_id=script_id,
-                width=768,
-                height=768,  # Square for circle cropping
+                width=SQUARE_IMAGE_SIZE,
+                height=SQUARE_IMAGE_SIZE,  # Square for circle cropping
                 force=force,
                 style_guide="",
             )
@@ -133,8 +133,8 @@ def ensure_title_card_images(
                     scene_id=f"title_card_{idx}",
                     visual_prompt=fallback_prompt,
                     script_id=script_id,
-                    width=768,
-                    height=768,
+                    width=SQUARE_IMAGE_SIZE,
+                    height=SQUARE_IMAGE_SIZE,
                     force=True,
                     style_guide=" ",  # space to skip default guide
                 )

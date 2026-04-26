@@ -9,11 +9,19 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from thefuzz import fuzz
 
-from config import strip_markdown_fences
+from config import parse_json_response
 from integrations.claude_client import chat
 from prompts import FORMAT_FIT_SYSTEM
 
 logger = logging.getLogger(__name__)
+
+FUZZY_MATCH_THRESHOLD = 85
+WEIGHT_SEARCH_VELOCITY = 0.35
+WEIGHT_COMPETITOR_RATE = 0.30
+WEIGHT_REDDIT_ENGAGEMENT = 0.20
+WEIGHT_FORMAT_FIT = 0.15
+SATURATION_PENALTY = 15
+FIRST_MOVER_BONUS = 10
 
 
 # ---------------------------------------------------------------------------
@@ -86,7 +94,7 @@ def _deduplicate(topics: list[dict]) -> list[dict]:
         for j in range(i + 1, len(topics)):
             if used[j]:
                 continue
-            if fuzz.ratio(topic_a["title"].lower(), topics[j]["title"].lower()) >= 85:
+            if fuzz.ratio(topic_a["title"].lower(), topics[j]["title"].lower()) >= FUZZY_MATCH_THRESHOLD:
                 group.append(topics[j])
                 used[j] = True
 
@@ -151,8 +159,7 @@ def _score_format_fit(topics: list[dict]) -> dict[str, dict]:
         try:
             user_message = f"Rate these {len(batch)} topics:\n{json.dumps(titles_list)}"
             raw = chat(FORMAT_FIT_SYSTEM.template, user_message, max_tokens=2048)
-            text = strip_markdown_fences(raw)
-            scored = json.loads(text)
+            scored = parse_json_response(raw)
             for item in scored:
                 title = item.get("title", "")
                 results[title] = {
@@ -225,21 +232,19 @@ def _calculate_final_score(
     re_ = topic.get("reddit_engagement", 0.0)
 
     score = (
-        sv * 0.35 +
-        cr * 0.30 +
-        re_ * 0.20 +
-        format_fit_score * 0.15
+        sv * WEIGHT_SEARCH_VELOCITY +
+        cr * WEIGHT_COMPETITOR_RATE +
+        re_ * WEIGHT_REDDIT_ENGAGEMENT +
+        format_fit_score * WEIGHT_FORMAT_FIT
     )
 
-    # Saturation penalty
     if is_saturated:
-        score -= 15
+        score -= SATURATION_PENALTY
 
-    # First mover bonus: trending on Reddit/Trends but NOT saturated on YouTube
     has_trend_signal = sv > 30 or re_ > 30
     is_first_mover = has_trend_signal and not is_saturated
     if is_first_mover:
-        score += 10
+        score += FIRST_MOVER_BONUS
 
     return max(0, min(100, score)), is_first_mover
 
@@ -311,9 +316,9 @@ def _run_refresh(job: TrendingRefreshJob) -> None:
     if youtube:
         # Only check top 20 by preliminary score
         prelim_scored = sorted(merged, key=lambda t: (
-            t.get("search_velocity", 0) * 0.35 +
-            t.get("competitor_view_rate", 0) * 0.30 +
-            t.get("reddit_engagement", 0) * 0.20
+            t.get("search_velocity", 0) * WEIGHT_SEARCH_VELOCITY +
+            t.get("competitor_view_rate", 0) * WEIGHT_COMPETITOR_RATE +
+            t.get("reddit_engagement", 0) * WEIGHT_REDDIT_ENGAGEMENT
         ), reverse=True)[:20]
         for t in prelim_scored:
             saturation_cache[t["title"]] = check_saturation(youtube, t["title"])

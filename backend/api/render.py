@@ -515,8 +515,8 @@ def render_status(job_id: str):
     job = get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    d = job.to_dict()
-    return RenderStatusResponse(**d)
+    job_dict = job.to_dict()
+    return RenderStatusResponse(**job_dict)
 
 @router.get("/estimate", response_model=RenderEstimateResponse)
 def render_estimate(

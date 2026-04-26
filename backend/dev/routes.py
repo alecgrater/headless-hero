@@ -185,11 +185,11 @@ async def get_jobs():
     jobs = []
     with render_jobs._lock:
         for job in render_jobs._jobs.values():
-            d = job.to_dict()
-            d["scene_count"] = job.scene_count
-            d["duration_seconds"] = job.duration_seconds
-            d["start_time"] = job._start_time
-            jobs.append(d)
+            job_dict = job.to_dict()
+            job_dict["scene_count"] = job.scene_count
+            job_dict["duration_seconds"] = job.duration_seconds
+            job_dict["start_time"] = job._start_time
+            jobs.append(job_dict)
     return jobs
 
 
@@ -303,7 +303,6 @@ async def db_table_rows(
     inspector_obj = inspect(engine)
     valid_tables = inspector_obj.get_table_names()
     if table_name not in valid_tables:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail=f"Table '{table_name}' not found")
 
     columns = [c["name"] for c in inspector_obj.get_columns(table_name)]

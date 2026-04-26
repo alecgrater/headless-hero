@@ -3,7 +3,7 @@
 import json
 import logging
 
-from config import strip_markdown_fences
+from config import parse_json_response
 from integrations.claude_client import chat
 from models.script import HookScore, Scene
 
@@ -84,10 +84,9 @@ def score_hook(
                 script_id or "no-id", video_title, len(hook_scenes),
                 "yes" if narration_text else "no")
     raw = chat(SYSTEM_PROMPT, user_msg, max_tokens=2048, script_id=script_id)
-    text = strip_markdown_fences(raw)
 
     try:
-        data = json.loads(text)
+        data = parse_json_response(raw)
         result = HookScore.model_validate(data)
     except (json.JSONDecodeError, ValueError) as exc:
         logger.error("[%s] Failed to parse hook score response: %s\nRaw: %s",

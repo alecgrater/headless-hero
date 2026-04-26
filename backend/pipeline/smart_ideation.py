@@ -3,7 +3,7 @@
 import json
 import logging
 
-from config import strip_markdown_fences
+from config import parse_json_response
 from integrations.claude_client import chat
 from prompts import SMART_IDEATION_SYSTEM
 
@@ -77,8 +77,8 @@ def generate_smart_ideas(
     )
 
     try:
-        ideas = json.loads(strip_markdown_fences(raw))
-    except json.JSONDecodeError:
+        ideas = parse_json_response(raw)
+    except (json.JSONDecodeError, ValueError):
         logger.error("Failed to parse smart ideas response")
         return []
 

@@ -40,10 +40,10 @@ def _character_ref_hash() -> str:
     if mtime in _char_ref_cache:
         return _char_ref_cache[mtime]
     with open(SELECTED_REFERENCE_PATH, "rb") as f:
-        h = hashlib.md5(f.read(4096)).hexdigest()[:8]
+        content_hash = hashlib.md5(f.read(4096)).hexdigest()[:8]
     _char_ref_cache.clear()
-    _char_ref_cache[mtime] = h
-    return h
+    _char_ref_cache[mtime] = content_hash
+    return content_hash
 
 
 def _create_placeholder_image(path: Path, width: int, height: int, text: str) -> None:
