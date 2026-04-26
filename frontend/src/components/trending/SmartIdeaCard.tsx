@@ -36,6 +36,17 @@ const SOURCE_CHIP_COLORS: Record<string, string> = {
   stackexchange: "bg-indigo-500/15 text-indigo-400",
 };
 
+const CATEGORY_COLORS: Record<string, string> = {
+  "Science & Nature": "bg-emerald-500/15 text-emerald-400",
+  "Psychology & Human Behavior": "bg-violet-500/15 text-violet-400",
+  "Money & Economics": "bg-amber-500/15 text-amber-400",
+  "History & Lost Civilizations": "bg-orange-500/15 text-orange-400",
+  "Culture & Society": "bg-pink-500/15 text-pink-400",
+  "Gaming & Technology": "bg-sky-500/15 text-sky-400",
+  "Self-Improvement & Productivity": "bg-lime-500/15 text-lime-400",
+  "Nostalgia & Pop Culture": "bg-fuchsia-500/15 text-fuchsia-400",
+};
+
 function TrendingSourceChips({ source }: { source: string }) {
   // source may be comma-separated or a description
   const parts = source.split(",").map((s) => s.trim()).filter(Boolean);
@@ -88,6 +99,11 @@ export default function SmartIdeaCard({ idea, index, onUseIdea, onDismiss }: Pro
           <div className="flex items-start gap-2">
             <h3 className="flex-1 text-[15px] font-semibold text-neutral-100 leading-snug">
               {idea.title}
+              {idea.category && (
+                <span className={`ml-2 text-[10px] font-medium px-1.5 py-0.5 rounded-md align-middle ${CATEGORY_COLORS[idea.category] || "bg-neutral-500/15 text-neutral-400"}`}>
+                  {idea.category}
+                </span>
+              )}
               {hasDetails && (
                 <svg
                   className={`inline-block ml-1.5 w-3.5 h-3.5 text-neutral-500 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}

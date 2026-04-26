@@ -455,7 +455,7 @@ export async function refreshContentProfile(): Promise<ContentProfile> {
 }
 
 /** Generate smart ideas combining profile + trending. */
-export async function generateSmartIdeas(count: number = 10): Promise<SmartIdeasResponse> {
+export async function generateSmartIdeas(count: number = 40): Promise<SmartIdeasResponse> {
   const res = await api.post("/api/trending/smart-ideas", { count });
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to generate smart ideas");
   return res.data as SmartIdeasResponse;

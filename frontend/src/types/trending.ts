@@ -38,6 +38,7 @@ export interface ContentProfile {
 }
 
 export interface SmartIdea {
+  category: string;
   title: string;
   description: string;
   segments_est: number;
@@ -51,6 +52,7 @@ export interface SmartIdea {
 
 export interface SmartIdeasResponse {
   ideas: SmartIdea[];
+  categories: string[];
   profile_used: boolean;
   trending_topics_used: number;
 }

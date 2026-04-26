@@ -57,6 +57,7 @@ class ContentProfileRead(BaseModel):
 
 
 class SmartIdea(BaseModel):
+    category: str = "Other"
     title: str
     description: str
     segments_est: int
@@ -70,12 +71,13 @@ class SmartIdea(BaseModel):
 
 class SmartIdeasResponse(BaseModel):
     ideas: list[SmartIdea]
+    categories: list[str] = []
     profile_used: bool
     trending_topics_used: int
 
 
 class SmartIdeasRequest(BaseModel):
-    count: int = 10
+    count: int = 40
 
 
 # ---------------------------------------------------------------------------
@@ -233,20 +235,18 @@ async def generate_smart_ideas(
         run_refresh_sync()
         session.commit()
 
+    # Always load script titles as pattern signal
+    scripts = session.exec(select(Script)).all()
+    script_titles = [s.topic_title for s in scripts if s.topic_title]
+
     # Try to load profile — but don't require it
     profile = None
-    script_titles: list[str] = []
-
     cached = get_cached_profile()
     if cached and cached.get("script_count", 0) >= 3:
         if cached.get("is_stale"):
             profile = analyze_content_profile() or None
         else:
             profile = cached
-    else:
-        # No profile or not enough scripts — fall back to titles
-        scripts = session.exec(select(Script)).all()
-        script_titles = [s.topic_title for s in scripts if s.topic_title]
 
     # Load top trending topics
     stmt = select(TrendingTopic).where(
@@ -269,11 +269,18 @@ async def generate_smart_ideas(
         trending_topics=trending_data,
         count=body.count,
         profile=profile,
-        script_titles=script_titles if not profile else None,
+        script_titles=script_titles or None,
     )
+
+    seen_categories: list[str] = []
+    for idea in ideas:
+        cat = idea.get("category", "Other")
+        if cat not in seen_categories:
+            seen_categories.append(cat)
 
     return SmartIdeasResponse(
         ideas=[SmartIdea(**idea) for idea in ideas],
+        categories=seen_categories,
         profile_used=profile is not None,
         trending_topics_used=len(trending_data),
     )

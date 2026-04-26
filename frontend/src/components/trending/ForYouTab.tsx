@@ -16,6 +16,8 @@ interface Props {
 export default function ForYouTab({ onGenerateIdeas }: Props) {
   const [profile, setProfile] = useState<ContentProfile | null>(null);
   const [ideas, setIdeas] = useState<SmartIdea[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingIdeas, setLoadingIdeas] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,8 +46,10 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
     setLoadingIdeas(true);
     setError(null);
     try {
-      const result = await generateSmartIdeas(10);
+      const result = await generateSmartIdeas(40);
       setIdeas(result.ideas);
+      setCategories(result.categories);
+      setActiveCategory(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate ideas");
     } finally {
@@ -66,6 +70,27 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
   const handleDismiss = (idea: SmartIdea) => {
     setIdeas((prev) => prev.filter((i) => i.title !== idea.title));
   };
+
+  const filteredIdeas = activeCategory
+    ? ideas.filter((i) => i.category === activeCategory)
+    : ideas;
+
+  const categoryCounts = categories.reduce<Record<string, number>>((acc, cat) => {
+    acc[cat] = ideas.filter((i) => i.category === cat).length;
+    return acc;
+  }, {});
+
+  const groupedIdeas: { category: string; ideas: SmartIdea[] }[] = [];
+  if (activeCategory) {
+    groupedIdeas.push({ category: activeCategory, ideas: filteredIdeas });
+  } else {
+    for (const cat of categories) {
+      const catIdeas = ideas.filter((i) => i.category === cat);
+      if (catIdeas.length > 0) {
+        groupedIdeas.push({ category: cat, ideas: catIdeas });
+      }
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -115,7 +140,7 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
       {/* Loading skeletons */}
       {loadingIdeas && ideas.length === 0 && (
         <div className="space-y-3">
-          {[0, 1, 2].map((i) => (
+          {[0, 1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="bg-neutral-800/50 border border-neutral-700/40 rounded-xl p-5 animate-pulse">
               <div className="flex gap-4">
                 <div className="w-12 h-12 rounded-xl bg-neutral-700/50 shrink-0" />
@@ -133,20 +158,56 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
         </div>
       )}
 
-      {/* Smart idea cards */}
-      {ideas.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-xs text-neutral-500">
-            {ideas.length} idea{ideas.length !== 1 ? "s" : ""} generated
-          </p>
-          {ideas.map((idea, i) => (
-            <SmartIdeaCard
-              key={`${idea.title}-${i}`}
-              idea={idea}
-              index={i}
-              onUseIdea={handleUseIdea}
-              onDismiss={handleDismiss}
-            />
+      {/* Category filter chips */}
+      {ideas.length > 0 && categories.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setActiveCategory(null)}
+            className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+              activeCategory === null
+                ? "bg-violet-600 text-white"
+                : "bg-neutral-800 text-neutral-400 border border-neutral-700/60 hover:text-neutral-200 hover:border-neutral-600"
+            }`}
+          >
+            All ({ideas.length})
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+              className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                activeCategory === cat
+                  ? "bg-violet-600 text-white"
+                  : "bg-neutral-800 text-neutral-400 border border-neutral-700/60 hover:text-neutral-200 hover:border-neutral-600"
+              }`}
+            >
+              {cat} ({categoryCounts[cat] || 0})
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Grouped smart idea cards */}
+      {groupedIdeas.length > 0 && (
+        <div className="space-y-6">
+          {groupedIdeas.map((group) => (
+            <div key={group.category} className="space-y-3">
+              <h3 className="text-sm font-semibold text-neutral-300 tracking-wide">
+                {group.category}
+                <span className="ml-2 text-neutral-500 font-normal">
+                  {group.ideas.length} idea{group.ideas.length !== 1 ? "s" : ""}
+                </span>
+              </h3>
+              {group.ideas.map((idea, i) => (
+                <SmartIdeaCard
+                  key={`${idea.title}-${i}`}
+                  idea={idea}
+                  index={i}
+                  onUseIdea={handleUseIdea}
+                  onDismiss={handleDismiss}
+                />
+              ))}
+            </div>
           ))}
         </div>
       )}
