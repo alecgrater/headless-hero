@@ -9,8 +9,6 @@ interface Props {
   content: ScriptContent;
   selectedSceneId: string | null;
   onSelectScene: (sceneId: string) => void;
-  onToggleTimer: () => void;
-  onToggleHighlight: () => void;
   pixelsPerSecond: number;
 }
 
@@ -37,8 +35,6 @@ export default function TimelineLanes({
   content,
   selectedSceneId,
   onSelectScene,
-  onToggleTimer,
-  onToggleHighlight,
   pixelsPerSecond,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -164,8 +160,8 @@ export default function TimelineLanes({
                     laneType={laneType}
                     pixelsPerSecond={pixelsPerSecond}
                     segmentIdx={segmentIdx}
-                    isSelected={laneType !== "timer" && laneType !== "subtitle" && scene.id === selectedSceneId}
-                    onClick={() => laneType === "timer" ? onToggleTimer() : laneType === "subtitle" ? onToggleHighlight() : onSelectScene(scene.id)}
+                    isSelected={scene.id === selectedSceneId}
+                    onClick={() => onSelectScene(scene.id)}
                     segmentTimerEnabled={content.segment_timer_enabled}
                     subtitleHighlightEnabled={content.subtitle_highlight_enabled}
                   />

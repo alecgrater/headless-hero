@@ -1259,8 +1259,6 @@ function TimelineEditor({
             content={state.content}
             selectedSceneId={state.selectedSceneId}
             onSelectScene={handleSelectScene}
-            onToggleTimer={handleToggleTimer}
-            onToggleHighlight={handleToggleHighlight}
             pixelsPerSecond={pixelsPerSecond}
           />
         </div>

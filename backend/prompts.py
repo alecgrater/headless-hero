@@ -1647,9 +1647,9 @@ For each scene, assign one of these media sources:
 {available_sources}
 
 Guidelines:
-- "gameplay_video": Use when a SPECIFIC, NAMED video game is being discussed, demonstrated, or referenced. Extract the most precise game title possible (e.g. "Grand Theft Auto III" not "GTA games", "Halo: Combat Evolved" not "Halo"). Only use this when you can name the exact game — general gaming discussions should use "ai".
-- "stock_photo": Use when real-world objects, events, places, people, products, or historical moments are discussed. Generate an optimized Pexels search query: specific, descriptive, landscape-oriented (e.g. "PlayStation 2 console product photo black background" not "PS2").
-- "ai": Default. Use for abstract concepts, metaphors, stylized illustrations, diagrams, or any scene that benefits from custom AI imagery. Also use for title card scenes (is_title_card=true) — these must ALWAYS be "ai".
+- "gameplay_video": Use when a scene discusses, references, or relates to a specific video game. Extract the most precise game title possible (e.g. "Grand Theft Auto III" not "GTA games", "Halo: Combat Evolved" not "Halo"). Infer the game from segment context — if a segment is titled "Shenmue — The Seventy Million Dollar Gamble", all non-title-card scenes in that segment are about Shenmue even if the scene text doesn't name it explicitly. For gaming-focused videos, most scenes discussing specific games should use this source.
+- "stock_photo": Use when real-world objects, events, places, people, products, or historical moments are discussed (e.g. a console launch event, a company headquarters, a real person). Generate an optimized Pexels search query: specific, descriptive, landscape-oriented (e.g. "PlayStation 2 console product photo black background" not "PS2").
+- "ai": Fallback for abstract concepts, metaphors, stylized illustrations, or scenes where no specific game or real-world subject is identifiable. Also use for title card scenes (is_title_card=true) — these must ALWAYS be "ai". Do NOT default to "ai" when a game name can be inferred from the scene or segment context.
 
 Return a JSON array with one entry per scene:
 [

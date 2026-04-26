@@ -56,20 +56,17 @@ export default function TimelineBlock({
 }
 
 function MediaSourceBadge({ source }: { source?: string }) {
-  if (!source || source === "ai") return null;
-
-  const config: Record<string, { icon: string; color: string }> = {
-    gameplay_video: { icon: "🎮", color: "bg-sky-500/20 text-sky-300" },
-    stock_photo: { icon: "📷", color: "bg-amber-500/20 text-amber-300" },
-    user_upload: { icon: "↑", color: "bg-emerald-500/20 text-emerald-300" },
+  const color: Record<string, string> = {
+    ai: "bg-violet-500/60",
+    gameplay_video: "bg-sky-500/60",
+    stock_photo: "bg-amber-500/60",
+    user_upload: "bg-emerald-500/60",
   };
-  const c = config[source];
+  const c = color[source || "ai"];
   if (!c) return null;
 
   return (
-    <span className={`absolute top-0.5 right-0.5 text-[8px] px-1 py-px rounded-full ${c.color} font-medium leading-none z-10`}>
-      {c.icon}
-    </span>
+    <div className={`absolute bottom-0 left-0 right-0 h-1 ${c} z-10`} />
   );
 }
 
