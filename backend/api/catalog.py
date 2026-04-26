@@ -87,7 +87,7 @@ def list_catalog(session: Session = Depends(get_session)):
         stmt = select(PublishRecord).where(
             PublishRecord.script_id.in_(list(script_ids)),
             PublishRecord.platform == "youtube",
-            PublishRecord.status.in_(["published", "scheduled"]),
+            PublishRecord.status.in_(["published", "scheduled", "unpublished"]),
         )
         for rec in session.exec(stmt).all():
             if rec.script_id not in db_records:
@@ -126,7 +126,7 @@ def list_catalog(session: Session = Depends(get_session)):
         db_rec = db_records.get(script_id) if script_id else None
         if db_rec and db_rec.platform_url:
             youtube_url = db_rec.platform_url
-            uploaded = True
+            uploaded = db_rec.status in ("published", "scheduled")
         else:
             youtube_url = read_youtube_url(item)
             uploaded = (item / ".uploaded").exists()
@@ -269,20 +269,22 @@ def toggle_uploaded(folder_name: str, session: Session = Depends(get_session)):
         )
         rec = session.exec(stmt).first()
         if rec:
+            marker = folder / ".uploaded"
             if rec.status in ("published", "scheduled"):
                 rec.status = "unpublished"
                 rec.updated_at = datetime.now(timezone.utc)
                 session.add(rec)
                 session.commit()
-                toggle_uploaded_marker(folder)
+                if marker.exists():
+                    marker.unlink()
                 return ToggleUploadedResponse(uploaded=False)
             else:
                 rec.status = "published"
                 rec.updated_at = datetime.now(timezone.utc)
                 session.add(rec)
                 session.commit()
-                if not (folder / ".uploaded").exists():
-                    (folder / ".uploaded").touch()
+                if not marker.exists():
+                    marker.touch()
                 return ToggleUploadedResponse(uploaded=True)
 
     new_state = toggle_uploaded_marker(folder)
@@ -393,20 +395,21 @@ def catalog_upload(body: CatalogUploadRequest, session: Session = Depends(get_se
                     s.add(db_cred)
                     s.commit()
 
-            # Create PublishRecord
-            record = PublishRecord(
-                script_id=folder_script_id or "",
-                brand_id=cred_brand,
-                platform="youtube",
-                status="published",
-                platform_content_id=result.get("id", ""),
-                platform_url=result["url"],
-                file_path=video_path or "",
-                export_folder=folder_name_str,
-                published_at=datetime.now(timezone.utc),
-            )
-            s.add(record)
-            s.commit()
+            # Create PublishRecord if script_id is known
+            if folder_script_id:
+                record = PublishRecord(
+                    script_id=folder_script_id,
+                    brand_id=cred_brand,
+                    platform="youtube",
+                    status="published",
+                    platform_content_id=result.get("id", ""),
+                    platform_url=result["url"],
+                    file_path=video_path or "",
+                    export_folder=folder_name_str,
+                    published_at=datetime.now(timezone.utc),
+                )
+                s.add(record)
+                s.commit()
 
         return result["url"]
 
