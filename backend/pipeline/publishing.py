@@ -29,8 +29,10 @@ def ensure_token_fresh(credential: PlatformCredential) -> bool:
         return False
 
     now = datetime.now(timezone.utc)
-    # Refresh if expiry is within the buffer window
-    remaining = (credential.token_expiry - now).total_seconds()
+    expiry = credential.token_expiry
+    if expiry.tzinfo is None:
+        expiry = expiry.replace(tzinfo=timezone.utc)
+    remaining = (expiry - now).total_seconds()
     if remaining > _TOKEN_REFRESH_BUFFER_SECONDS:
         return False
 
