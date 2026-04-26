@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 from datetime import timezone
 from typing import Callable
 
@@ -177,12 +178,16 @@ def upload_video(
     creds = Credentials(token=access_token)
     youtube = build("youtube", "v3", credentials=creds)
 
+    raw_tags: list[str] = []
+    for t in (tags or []):
+        for part in t.split(","):
+            cleaned = re.sub(r"[<>\"={}\\]", "", part).lstrip("#").strip()[:100]
+            if cleaned:
+                raw_tags.append(cleaned)
+
     clean_tags: list[str] = []
     total_len = 0
-    for t in (tags or []):
-        t = t.replace("<", "").replace(">", "").lstrip("#").strip()[:100]
-        if not t:
-            continue
+    for t in raw_tags:
         sep = 2 if clean_tags else 0
         if total_len + sep + len(t) > 500:
             break
@@ -190,6 +195,7 @@ def upload_video(
         total_len += sep + len(t)
     if tags and len(clean_tags) != len(tags):
         logger.info("Trimmed tags from %d to %d (%d chars) to fit YouTube limits", len(tags), len(clean_tags), total_len)
+    logger.info("Upload tags: %s", clean_tags)
 
     body = {
         "snippet": {
