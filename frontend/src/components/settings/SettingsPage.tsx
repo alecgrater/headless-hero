@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import ApiKeysSection from "./ApiKeysSection";
 import CharacterSection from "./CharacterSection";
 import GeneralSection from "./GeneralSection";
-import VoicePublishSection from "./VoicePublishSection";
+import PublishingSection from "./PublishingSection";
+import VoiceSection from "./VoiceSection";
 
 export const SECTIONS = [
   { id: "general", label: "General", icon: "folder" },
-  { id: "voice-publish", label: "Voice & Publishing", icon: "mic" },
+  { id: "voice", label: "Voice", icon: "mic" },
+  { id: "publishing", label: "Publishing", icon: "upload" },
   { id: "character", label: "Character", icon: "sparkles" },
   { id: "api-keys", label: "API Keys", icon: "key" },
 ] as const;
@@ -31,6 +33,12 @@ export function SectionIcon({ icon, className }: { icon: string; className?: str
       return (
         <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+        </svg>
+      );
+    case "upload":
+      return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
         </svg>
       );
     case "sparkles":
@@ -98,7 +106,8 @@ export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultS
         {/* Content area */}
         <div className="flex-1 overflow-y-auto">
           {activeSection === "general" && <GeneralSection />}
-          {activeSection === "voice-publish" && <VoicePublishSection />}
+          {activeSection === "voice" && <VoiceSection />}
+          {activeSection === "publishing" && <PublishingSection />}
           {activeSection === "character" && <CharacterSection />}
           {activeSection === "api-keys" && <ApiKeysSection />}
         </div>
