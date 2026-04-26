@@ -44,12 +44,10 @@ export default function ScriptGenerationPage({
     setSegmented,
     gameplayEnabled,
     stockPhotoEnabled,
-    gameplayGameName,
     hasTwitchKeys,
     hasPexelsKey,
     setGameplayEnabled,
     setStockPhotoEnabled,
-    setGameplayGameName,
   } = useScriptGeneration({ brandId, idea });
 
   const {
@@ -215,18 +213,6 @@ export default function ScriptGenerationPage({
                         </p>
                       </div>
                     </label>
-                    {gameplayEnabled && (
-                      <div className="pl-7">
-                        <label className="block text-xs text-neutral-500 mb-1">Game name</label>
-                        <input
-                          type="text"
-                          value={gameplayGameName}
-                          onChange={(e) => setGameplayGameName(e.target.value)}
-                          placeholder="e.g. Minecraft, Fortnite"
-                          className="w-64 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-neutral-200 placeholder-neutral-600 focus:outline-none focus:border-violet-500 transition-colors"
-                        />
-                      </div>
-                    )}
                   </div>
                 )}
 

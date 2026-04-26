@@ -74,12 +74,10 @@ export interface ScriptGenerationState {
   // Multi-source media
   gameplayEnabled: boolean;
   stockPhotoEnabled: boolean;
-  gameplayGameName: string;
   hasTwitchKeys: boolean;
   hasPexelsKey: boolean;
   setGameplayEnabled: (v: boolean) => void;
   setStockPhotoEnabled: (v: boolean) => void;
-  setGameplayGameName: (v: string) => void;
 }
 
 export default function useScriptGeneration({ brandId, idea }: Params): ScriptGenerationState {
@@ -106,7 +104,6 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
   // Multi-source media
   const [gameplayEnabled, setGameplayEnabled] = useState(false);
   const [stockPhotoEnabled, setStockPhotoEnabled] = useState(false);
-  const [gameplayGameName, setGameplayGameName] = useState("");
   const [hasTwitchKeys, setHasTwitchKeys] = useState(false);
   const [hasPexelsKey, setHasPexelsKey] = useState(false);
 
@@ -394,7 +391,6 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
         cold_open_text: coldOpenText,
         gameplay_enabled: gameplayEnabled,
         stock_photo_enabled: stockPhotoEnabled,
-        gameplay_game_name: gameplayGameName || undefined,
       })
       .then((res) => {
         if (cancelledRef.current) return;
@@ -460,11 +456,9 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
     coldOpenProgress: { estimatedSeconds: coldOpenProgress.estimatedSeconds, active: coldOpenProgress.active },
     gameplayEnabled,
     stockPhotoEnabled,
-    gameplayGameName,
     hasTwitchKeys,
     hasPexelsKey,
     setGameplayEnabled,
     setStockPhotoEnabled,
-    setGameplayGameName,
   };
 }
