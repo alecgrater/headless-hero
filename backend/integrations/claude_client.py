@@ -58,10 +58,12 @@ def chat(
     input_tok = usage.input_tokens if usage else 0
     output_tok = usage.output_tokens if usage else 0
     cache_read_tok = getattr(usage, "cache_read_input_tokens", 0) or 0
+    cache_create_tok = getattr(usage, "cache_creation_input_tokens", 0) or 0
 
     pricing = get_model_pricing(model)
     cost = (
-        (input_tok - cache_read_tok) * pricing["input"]
+        (input_tok - cache_read_tok - cache_create_tok) * pricing["input"]
+        + cache_create_tok * pricing["input"] * 1.25
         + cache_read_tok * pricing["cache_read"]
         + output_tok * pricing["output"]
     )

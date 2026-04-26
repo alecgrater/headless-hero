@@ -49,14 +49,19 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
     setRefreshing(true);
     stopPolling();
     pollRef.current = setInterval(async () => {
-      const status = await getTrendingRefreshStatus(jobId);
-      if (!status) return;
-      if (status.status === "completed" || status.status === "failed") {
-        setRefreshing(false);
-        if (status.status === "completed") {
-          setTrendingAgeHours(0);
-          showToast("Trending data refreshed", "success");
+      try {
+        const status = await getTrendingRefreshStatus(jobId);
+        if (!status) return;
+        if (status.status === "completed" || status.status === "failed") {
+          setRefreshing(false);
+          if (status.status === "completed") {
+            setTrendingAgeHours(0);
+            showToast("Trending data refreshed", "success");
+          }
+          stopPolling();
         }
+      } catch {
+        setRefreshing(false);
         stopPolling();
       }
     }, 3000);

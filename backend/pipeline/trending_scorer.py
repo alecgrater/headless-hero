@@ -169,8 +169,14 @@ def _score_format_fit(topics: list[dict]) -> dict[str, dict]:
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {executor.submit(_score_batch, batch): batch for batch in batches}
         for future in as_completed(futures):
-            for title, data in future.result():
-                results[title] = data
+            try:
+                for title, data in future.result():
+                    results[title] = data
+            except Exception:
+                batch = futures[future]
+                logger.warning("Format-fit batch failed", exc_info=True)
+                for t in batch:
+                    results[t["title"]] = {"score": 50.0, "rationale": "Scoring unavailable"}
 
     return results
 

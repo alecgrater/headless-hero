@@ -66,7 +66,7 @@ def fetch_stackexchange_topics() -> list[dict]:
                 })
         except Exception:
             logger.warning("Stack Exchange fetch failed for %s", site, exc_info=True)
-        time.sleep(0.05)
+        time.sleep(0.1)
 
     if not raw_questions:
         logger.info("Stack Exchange fetcher returned 0 questions")
