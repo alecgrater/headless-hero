@@ -64,6 +64,8 @@ class SmartIdea(BaseModel):
     keywords: list[str]
     trending_source: str
     style_match_score: float | None = None
+    idea_score: float = 50
+    recommended: bool = False
     reasoning: str
     angle: str
     signals: list[str] = []
