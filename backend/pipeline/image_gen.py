@@ -442,12 +442,56 @@ def generate_batch(
 
     Each scene dict must have 'scene_id' and 'visual_prompt'.
     Optionally 'frame_prompts' (list[str]) for multi-frame scenes.
-    Returns list of {scene_id, image_url, prompt_used, frame_urls?, error?}.
+    Dispatches based on scene 'media_source': ai (default), stock_photo, gameplay_video.
+    Returns list of {scene_id, image_url, prompt_used, frame_urls?, video_url?, error?}.
     """
     results: list[dict[str, str]] | None = []
     logger.info("Starting batch image generation for %s scenes (script %s)", len(scenes), script_id)
     for scene in scenes:
         try:
+            media_source = scene.get("media_source", "ai")
+
+            # --- Stock photo dispatch ---
+            if media_source == "stock_photo":
+                from pipeline.stock_photo import generate_stock_photo
+                search_query = scene.get("visual_prompt", "")
+                image_url = generate_stock_photo(script_id, scene["scene_id"], search_query)
+                results.append({
+                    "scene_id": scene["scene_id"],
+                    "image_url": image_url,
+                    "prompt_used": search_query,
+                    "error": None,
+                })
+                continue
+
+            # --- Gameplay video dispatch ---
+            if media_source == "gameplay_video":
+                from pipeline.gameplay import generate_gameplay_clip
+                game_name = scene.get("gameplay_game_name", "") or scene.get("gameplay_game_override", "")
+                duration = scene.get("audio_duration_seconds", 8.0)
+                if not game_name:
+                    raise RuntimeError("Gameplay scene missing game_name")
+                video_url = generate_gameplay_clip(script_id, scene["scene_id"], game_name, float(duration))
+                results.append({
+                    "scene_id": scene["scene_id"],
+                    "image_url": None,
+                    "video_url": video_url,
+                    "prompt_used": f"gameplay:{game_name}",
+                    "error": None,
+                })
+                continue
+
+            # --- User upload: skip generation ---
+            if media_source == "user_upload":
+                results.append({
+                    "scene_id": scene["scene_id"],
+                    "image_url": scene.get("upload_url") or scene.get("image_url"),
+                    "prompt_used": None,
+                    "error": None,
+                })
+                continue
+
+            # --- AI-generated (default) ---
             frame_directives = scene.get("frame_directives", [])
             frame_prompts = scene.get("frame_prompts", [])
             scene_contains_person = scene.get("contains_person", False)

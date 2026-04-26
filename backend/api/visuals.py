@@ -42,6 +42,11 @@ class BatchScene(BaseModel):
     visual_prompt: str
     frame_directives: list[dict] = []
     contains_person: bool = False
+    media_source: str = "ai"
+    gameplay_game_name: str = ""
+    gameplay_game_override: str = ""
+    audio_duration_seconds: float = 0.0
+    upload_url: str = ""
 
 class GenerateBatchRequest(BaseModel):
     script_id: str
@@ -53,6 +58,7 @@ class BatchResultItem(BaseModel):
     scene_id: str
     image_url: str | None = None
     frame_urls: list[str] = []
+    video_url: str | None = None
     prompt_used: str | None = None
     error: str | None = None
 
@@ -140,6 +146,11 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
             "visual_prompt": s.visual_prompt,
             "frame_directives": s.frame_directives,
             "contains_person": s.contains_person,
+            "media_source": s.media_source,
+            "gameplay_game_name": s.gameplay_game_name,
+            "gameplay_game_override": s.gameplay_game_override,
+            "audio_duration_seconds": s.audio_duration_seconds,
+            "upload_url": s.upload_url,
         }
         for s in body.scenes
     ]
@@ -159,7 +170,10 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
         if not sc:
             continue
         frame_urls = r.get("frame_urls", [])
-        if frame_urls:
+        video_url = r.get("video_url")
+        if video_url:
+            sc.video_url = video_url
+        elif frame_urls:
             sc.frame_urls = frame_urls
             first_image = next((u for u in frame_urls if u), "")
             if first_image:
