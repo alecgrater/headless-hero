@@ -9,6 +9,7 @@ from typing import Callable
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
+from googleapiclient.errors import ResumableUploadError
 from googleapiclient.http import MediaFileUpload
 
 from config import BACKEND_PORT
@@ -218,10 +219,24 @@ def upload_video(
     request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
 
     response = None
-    while response is None:
-        status, response = request.next_chunk()
-        if status and on_progress:
-            on_progress(status.progress())
+    try:
+        while response is None:
+            status, response = request.next_chunk()
+            if status and on_progress:
+                on_progress(status.progress())
+    except ResumableUploadError as e:
+        if "invalidTags" in str(e):
+            logger.warning("YouTube rejected tags %s — retrying without tags", clean_tags)
+            body["snippet"].pop("tags", None)
+            media = MediaFileUpload(file_path, chunksize=_UPLOAD_CHUNK_SIZE, resumable=True)
+            request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
+            response = None
+            while response is None:
+                status, response = request.next_chunk()
+                if status and on_progress:
+                    on_progress(status.progress())
+        else:
+            raise
 
     video_id = response["id"]
     logger.info("Uploaded video: %s", video_id)
