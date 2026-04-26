@@ -64,7 +64,7 @@ def generate_seo(
     total_len = 0
     for tag in yt.tags:
         separator_len = 2 if trimmed else 0  # ", " between tags
-        if total_len + separator_len + len(tag) > 500:
+        if total_len + separator_len + len(tag) >= 500:
             break
         trimmed.append(tag)
         total_len += separator_len + len(tag)

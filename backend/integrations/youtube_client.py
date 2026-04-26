@@ -190,7 +190,7 @@ def upload_video(
     total_len = 0
     for t in raw_tags:
         sep = 2 if clean_tags else 0
-        if total_len + sep + len(t) > 500:
+        if total_len + sep + len(t) >= 500:
             break
         clean_tags.append(t)
         total_len += sep + len(t)
