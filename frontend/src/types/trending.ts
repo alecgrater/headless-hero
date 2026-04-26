@@ -55,4 +55,7 @@ export interface SmartIdeasResponse {
   categories: string[];
   profile_used: boolean;
   trending_topics_used: number;
+  refresh_triggered: boolean;
+  refresh_job_id: string | null;
+  trending_age_hours: number | null;
 }

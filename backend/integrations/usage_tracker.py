@@ -48,10 +48,39 @@ def record_usage(
     threading.Thread(target=_write, daemon=True).start()
 
 
-# --- Pricing constants (USD) ---
-# Anthropic Claude Sonnet 4
-ANTHROPIC_INPUT_PER_TOKEN = 3.0 / 1_000_000   # $3/MTok
-ANTHROPIC_OUTPUT_PER_TOKEN = 15.0 / 1_000_000  # $15/MTok
+# --- Pricing constants (USD per token) ---
+_MODEL_PRICING: dict[str, dict[str, float]] = {
+    "anthropic.claude-opus-4-6-v1": {
+        "input": 15.0 / 1_000_000,
+        "output": 75.0 / 1_000_000,
+        "cache_read": 1.5 / 1_000_000,
+    },
+    "anthropic.claude-sonnet-4-6-v1": {
+        "input": 3.0 / 1_000_000,
+        "output": 15.0 / 1_000_000,
+        "cache_read": 0.3 / 1_000_000,
+    },
+    "anthropic.claude-haiku-4-5-20251001": {
+        "input": 0.8 / 1_000_000,
+        "output": 4.0 / 1_000_000,
+        "cache_read": 0.08 / 1_000_000,
+    },
+}
+
+_DEFAULT_PRICING = {
+    "input": 3.0 / 1_000_000,
+    "output": 15.0 / 1_000_000,
+    "cache_read": 0.3 / 1_000_000,
+}
+
+
+def get_model_pricing(model: str) -> dict[str, float]:
+    """Return per-token pricing dict for a model. Falls back to Sonnet pricing."""
+    return _MODEL_PRICING.get(model, _DEFAULT_PRICING)
+
+
+ANTHROPIC_INPUT_PER_TOKEN = _DEFAULT_PRICING["input"]
+ANTHROPIC_OUTPUT_PER_TOKEN = _DEFAULT_PRICING["output"]
 
 # Google Gemini 2.5 Flash image generation — per image
 GOOGLE_IMAGE_PER_CALL = 0.039  # $0.0390/image (Gemini 2.5 Flash image gen)

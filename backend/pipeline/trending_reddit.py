@@ -90,8 +90,7 @@ def fetch_reddit_topics() -> list[dict]:
                     "url": f"https://reddit.com{post.get('permalink', '')}",
                     "created_utc": created,
                 })
-            # Be polite to Reddit's public API
-            time.sleep(0.5)
+            time.sleep(0.1)
 
     if not raw_posts:
         logger.info("Reddit fetcher returned 0 topics")

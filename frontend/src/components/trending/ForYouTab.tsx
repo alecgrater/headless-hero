@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getContentProfile,
   refreshContentProfile,
   generateSmartIdeas,
   createPostIt,
+  refreshTrending,
+  getTrendingRefreshStatus,
 } from "../../api";
 import { showToast } from "../ToastContainer";
 import type { VideoIdea } from "../../types/idea";
@@ -25,6 +27,9 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingIdeas, setLoadingIdeas] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [trendingAgeHours, setTrendingAgeHours] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     getContentProfile()
@@ -32,6 +37,32 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
       .catch(() => {})
       .finally(() => setLoadingProfile(false));
   }, []);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+
+  const startPolling = useCallback((jobId: string) => {
+    setRefreshing(true);
+    stopPolling();
+    pollRef.current = setInterval(async () => {
+      const status = await getTrendingRefreshStatus(jobId);
+      if (!status) return;
+      if (status.status === "completed" || status.status === "failed") {
+        setRefreshing(false);
+        if (status.status === "completed") {
+          setTrendingAgeHours(0);
+          showToast("Trending data refreshed", "success");
+        }
+        stopPolling();
+      }
+    }, 3000);
+  }, [stopPolling]);
+
+  useEffect(() => () => stopPolling(), [stopPolling]);
 
   const handleRefreshProfile = async () => {
     setLoadingProfile(true);
@@ -46,6 +77,15 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
     }
   };
 
+  const handleManualRefresh = async () => {
+    try {
+      const { job_id } = await refreshTrending();
+      startPolling(job_id);
+    } catch {
+      showToast("Failed to start trending refresh");
+    }
+  };
+
   const handleGenerate = async () => {
     setLoadingIdeas(true);
     setError(null);
@@ -54,6 +94,10 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
       setIdeas(result.ideas);
       setCategoryOrder(result.categories);
       setActiveCategory(null);
+      setTrendingAgeHours(result.trending_age_hours);
+      if (result.refresh_triggered && result.refresh_job_id) {
+        startPolling(result.refresh_job_id);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate ideas");
     } finally {
@@ -112,9 +156,24 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-2xl font-bold mb-1">For You</h2>
-          <p className="text-neutral-400 text-sm">
-            AI-powered video ideas from trending data and brainstorm strategies
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-neutral-400 text-sm">
+              AI-powered video ideas from trending data and brainstorm strategies
+            </p>
+            {trendingAgeHours !== null && trendingAgeHours > 24 && !refreshing && (
+              <button
+                onClick={handleManualRefresh}
+                className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition-colors"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
+                </svg>
+                {trendingAgeHours >= 48
+                  ? `${Math.round(trendingAgeHours / 24)}d old`
+                  : `${Math.round(trendingAgeHours)}h old`}
+              </button>
+            )}
+          </div>
         </div>
         <Button
           variant="primary"
@@ -130,6 +189,17 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
           {loadingIdeas ? "Generating..." : "Generate Ideas"}
         </Button>
       </div>
+
+      {/* Background refresh banner */}
+      {refreshing && (
+        <div className="flex items-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-2.5 text-sm text-sky-300">
+          <svg className="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          Refreshing trending data in background — ideas based on cached data
+        </div>
+      )}
 
       {/* Content profile card — only when profile exists */}
       {profile && (

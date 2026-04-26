@@ -3,6 +3,7 @@
 import logging
 import math
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
@@ -266,8 +267,15 @@ def fetch_youtube_topics() -> list[dict]:
 
     logger.info("Fetching trending topics from YouTube")
     topics: list[dict] = []
-    topics.extend(_fetch_most_popular(youtube))
-    topics.extend(_fetch_exploding_recent(youtube))
-    topics.extend(_fetch_competitor_velocity(youtube))
+
+    fetchers = [_fetch_most_popular, _fetch_exploding_recent, _fetch_competitor_velocity]
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = [executor.submit(fn, youtube) for fn in fetchers]
+        for future in as_completed(futures):
+            try:
+                topics.extend(future.result())
+            except Exception:
+                logger.warning("YouTube sub-fetcher failed", exc_info=True)
+
     logger.info("YouTube fetcher returned %d raw topics", len(topics))
     return topics

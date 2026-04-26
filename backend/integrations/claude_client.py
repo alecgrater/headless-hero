@@ -7,11 +7,7 @@ import time
 import anthropic
 
 from config import DEFAULT_CLAUDE_MODEL
-from integrations.usage_tracker import (
-    record_usage,
-    ANTHROPIC_INPUT_PER_TOKEN,
-    ANTHROPIC_OUTPUT_PER_TOKEN,
-)
+from integrations.usage_tracker import record_usage, get_model_pricing
 
 logger = logging.getLogger(__name__)
 
@@ -32,16 +28,22 @@ def chat(
     max_tokens: int = 4096,
     timeout: float = 600.0,
     script_id: str | None = None,
+    cache: bool = False,
 ) -> str:
     """Send a single-turn message to Claude and return the text response."""
     client = get_client()
-    logger.info("Calling Claude API model=%s max_tokens=%d timeout=%.0fs", model, max_tokens, timeout)
+    logger.info("Calling Claude API model=%s max_tokens=%d timeout=%.0fs cache=%s", model, max_tokens, timeout, cache)
     t0 = time.monotonic()
+
+    system_param: str | list[dict] = system
+    if cache:
+        system_param = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
+
     try:
         response = client.messages.create(
             model=model,
             max_tokens=max_tokens,
-            system=system,
+            system=system_param,
             messages=[{"role": "user", "content": user_message}],
             timeout=timeout,
         )
@@ -52,11 +54,17 @@ def chat(
 
     elapsed = time.monotonic() - t0
 
-    # Record usage
     usage = response.usage
     input_tok = usage.input_tokens if usage else 0
     output_tok = usage.output_tokens if usage else 0
-    cost = input_tok * ANTHROPIC_INPUT_PER_TOKEN + output_tok * ANTHROPIC_OUTPUT_PER_TOKEN
+    cache_read_tok = getattr(usage, "cache_read_input_tokens", 0) or 0
+
+    pricing = get_model_pricing(model)
+    cost = (
+        (input_tok - cache_read_tok) * pricing["input"]
+        + cache_read_tok * pricing["cache_read"]
+        + output_tok * pricing["output"]
+    )
     record_usage(
         service="anthropic",
         operation="chat",
@@ -67,8 +75,8 @@ def chat(
         script_id=script_id,
     )
     logger.info(
-        "Claude API call complete in %.1fs — %s input / %s output tokens (model=%s)",
-        elapsed, input_tok, output_tok, model,
+        "Claude API call complete in %.1fs — %s input (%s cached) / %s output tokens (model=%s)",
+        elapsed, input_tok, cache_read_tok, output_tok, model,
     )
 
     return response.content[0].text

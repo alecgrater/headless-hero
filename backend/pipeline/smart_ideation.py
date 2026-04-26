@@ -3,7 +3,7 @@
 import json
 import logging
 
-from config import parse_json_response
+from config import parse_json_response, BALANCED_CLAUDE_MODEL
 from integrations.claude_client import chat
 from prompts import SMART_IDEATION_SYSTEM
 
@@ -64,7 +64,9 @@ def generate_smart_ideas(
     raw = chat(
         SMART_IDEATION_SYSTEM.template,
         f"Generate {count} video ideas:\n{user_msg}",
+        model=BALANCED_CLAUDE_MODEL,
         max_tokens=16384,
+        cache=True,
     )
 
     try:

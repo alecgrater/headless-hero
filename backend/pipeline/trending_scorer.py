@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from thefuzz import fuzz
 
-from config import parse_json_response
+from config import parse_json_response, FAST_CLAUDE_MODEL
 from integrations.claude_client import chat
 from prompts import FORMAT_FIT_SYSTEM
 
@@ -148,28 +148,29 @@ def _score_format_fit(topics: list[dict]) -> dict[str, dict]:
     if not topics:
         return {}
 
-    # Batch in groups of 20
     results: dict[str, dict] = {}
     batch_size = 20
+    batches = [topics[i:i + batch_size] for i in range(0, len(topics), batch_size)]
 
-    for i in range(0, len(topics), batch_size):
-        batch = topics[i:i + batch_size]
+    def _score_batch(batch: list[dict]) -> list[tuple[str, dict]]:
         titles_list = [{"title": t["title"]} for t in batch]
-
         try:
             user_message = f"Rate these {len(batch)} topics:\n{json.dumps(titles_list)}"
-            raw = chat(FORMAT_FIT_SYSTEM.template, user_message, max_tokens=2048)
+            raw = chat(FORMAT_FIT_SYSTEM.template, user_message, model=FAST_CLAUDE_MODEL, max_tokens=2048)
             scored = parse_json_response(raw)
-            for item in scored:
-                title = item.get("title", "")
-                results[title] = {
-                    "score": float(item.get("score", 50)),
-                    "rationale": item.get("rationale", ""),
-                }
+            return [
+                (item.get("title", ""), {"score": float(item.get("score", 50)), "rationale": item.get("rationale", "")})
+                for item in scored
+            ]
         except Exception:
-            logger.warning("Format-fit scoring failed for batch %d", i // batch_size, exc_info=True)
-            for t in batch:
-                results[t["title"]] = {"score": 50.0, "rationale": "Scoring unavailable"}
+            logger.warning("Format-fit scoring failed for a batch", exc_info=True)
+            return [(t["title"], {"score": 50.0, "rationale": "Scoring unavailable"}) for t in batch]
+
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {executor.submit(_score_batch, batch): batch for batch in batches}
+        for future in as_completed(futures):
+            for title, data in future.result():
+                results[title] = data
 
     return results
 
@@ -310,18 +311,24 @@ def _run_refresh(job: TrendingRefreshJob) -> None:
     # Format-fit scoring via Claude
     format_fits = _score_format_fit(merged)
 
-    # Saturation checking (sample top candidates, not all)
+    # Saturation checking (sample top candidates, not all) — parallelized
     youtube = _get_youtube_client()
     saturation_cache: dict[str, bool] = {}
     if youtube:
-        # Only check top 20 by preliminary score
         prelim_scored = sorted(merged, key=lambda t: (
             t.get("search_velocity", 0) * WEIGHT_SEARCH_VELOCITY +
             t.get("competitor_view_rate", 0) * WEIGHT_COMPETITOR_RATE +
             t.get("reddit_engagement", 0) * WEIGHT_REDDIT_ENGAGEMENT
         ), reverse=True)[:20]
-        for t in prelim_scored:
-            saturation_cache[t["title"]] = check_saturation(youtube, t["title"])
+
+        def _check_one(title: str) -> tuple[str, bool]:
+            return title, check_saturation(youtube, title)
+
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(_check_one, t["title"]) for t in prelim_scored]
+            for future in as_completed(futures):
+                title, saturated = future.result()
+                saturation_cache[title] = saturated
 
     # Calculate final scores and build DB records
     from database import engine

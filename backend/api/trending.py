@@ -2,7 +2,7 @@
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -74,6 +74,9 @@ class SmartIdeasResponse(BaseModel):
     categories: list[str] = []
     profile_used: bool
     trending_topics_used: int
+    refresh_triggered: bool = False
+    refresh_job_id: str | None = None
+    trending_age_hours: float | None = None
 
 
 class SmartIdeasRequest(BaseModel):
@@ -221,19 +224,26 @@ async def generate_smart_ideas(
     """Generate video ideas combining trending topics with optional content profile."""
     from pipeline.content_profile import get_cached_profile, analyze_content_profile
     from pipeline.smart_ideation import generate_smart_ideas as _generate
-    from pipeline.trending_scorer import run_refresh_sync
 
-    # Auto-refresh trending topics if stale (>24h) or missing
+    # Check trending topic age — trigger background refresh if stale, but don't block
     latest = session.exec(
         select(TrendingTopic).order_by(TrendingTopic.fetched_at.desc()).limit(1)
     ).first()
-    needs_refresh = latest is None or (
-        datetime.now(timezone.utc) - latest.fetched_at.replace(tzinfo=timezone.utc) > timedelta(hours=24)
-    )
+
+    refresh_triggered = False
+    refresh_job_id: str | None = None
+    trending_age_hours: float | None = None
+
+    if latest:
+        age = datetime.now(timezone.utc) - latest.fetched_at.replace(tzinfo=timezone.utc)
+        trending_age_hours = round(age.total_seconds() / 3600, 1)
+
+    needs_refresh = latest is None or (trending_age_hours is not None and trending_age_hours > 24)
     if needs_refresh:
-        logger.info("Trending topics stale or missing — auto-refreshing before idea generation")
-        run_refresh_sync()
-        session.commit()
+        logger.info("Trending topics stale or missing — starting background refresh")
+        job = start_refresh()
+        refresh_triggered = True
+        refresh_job_id = job.id
 
     # Always load script titles as pattern signal
     scripts = session.exec(select(Script)).all()
@@ -283,4 +293,7 @@ async def generate_smart_ideas(
         categories=seen_categories,
         profile_used=profile is not None,
         trending_topics_used=len(trending_data),
+        refresh_triggered=refresh_triggered,
+        refresh_job_id=refresh_job_id,
+        trending_age_hours=trending_age_hours,
     )

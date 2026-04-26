@@ -2,7 +2,6 @@
 
 import logging
 import os
-import time
 from datetime import datetime, timedelta, timezone
 
 import feedparser
@@ -106,7 +105,6 @@ def _fetch_rss() -> list[dict]:
                 })
         except Exception:
             logger.warning("RSS fetch failed for %s", feed_url, exc_info=True)
-        time.sleep(0.3)
 
     return topics
 
