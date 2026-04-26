@@ -10,6 +10,7 @@ import { StaticImageScene } from "./StaticImageScene";
 import { MultiFrameScene } from "./MultiFrameScene";
 import { TitleCardScene } from "./TitleCardScene";
 import { SubtitleScene } from "./SubtitleScene";
+import { VideoScene } from "./VideoScene";
 
 import { ZoomPunch } from "../effects/camera/ZoomPunch";
 import { CameraDrift } from "../effects/camera/CameraDrift";
@@ -26,6 +27,7 @@ export const SceneRenderer: React.FC<Props> = ({ scene, highlightEnabled }) => {
   const hasMultipleFrames = scene.frame_paths && scene.frame_paths.length > 1;
   const isTitleCard = scene.is_title_card && scene.title_card_zoom_target;
   const isAhaSubtitle = scene.visual_beat === "aha_subtitle";
+  const isVideo = scene.media_type === "video" && (scene.video_path || scene.image_path);
   const fx = scene.fx;
 
   const currentFrame = useCurrentFrame();
@@ -64,6 +66,8 @@ export const SceneRenderer: React.FC<Props> = ({ scene, highlightEnabled }) => {
     visualLayer = <TitleCardScene scene={scene} />;
   } else if (isAhaSubtitle) {
     visualLayer = <SubtitleScene scene={scene} />;
+  } else if (isVideo) {
+    visualLayer = <VideoScene scene={scene} />;
   } else if (hasMultipleFrames) {
     visualLayer = <MultiFrameScene scene={scene} />;
   } else {

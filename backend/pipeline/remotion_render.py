@@ -137,6 +137,25 @@ def _scene_to_input_props(scene: Scene, script_id: str, variant_counts: dict[str
     audio_path = _scene_audio_path(script_id, scene.id)
     frame_paths = _scene_frame_paths(script_id, scene)
 
+    # Detect video scenes (gameplay clips or uploaded videos)
+    video_path: str | None = None
+    media_type = "image"
+    if scene.media_source in ("gameplay_video", "user_upload"):
+        # Check for gameplay clip
+        clip_path = DATA_DIR / "projects" / script_id / "clips" / f"{scene.id}.mp4"
+        if clip_path.exists():
+            video_path = _to_remotion_path(str(clip_path))
+            media_type = "video"
+        # Check for uploaded video
+        if not video_path:
+            uploads_dir = DATA_DIR / "projects" / script_id / "uploads"
+            for ext in (".mp4", ".mov", ".webm"):
+                upload_path = uploads_dir / f"{scene.id}{ext}"
+                if upload_path.exists():
+                    video_path = _to_remotion_path(str(upload_path))
+                    media_type = "video"
+                    break
+
     # For title cards, use the composite image
     if scene.is_title_card and scene.title_card_zoom_target:
         tc_path = _title_card_image_path(script_id)
@@ -175,6 +194,8 @@ def _scene_to_input_props(scene: Scene, script_id: str, variant_counts: dict[str
         "visual_in_seconds": scene.visual_in_seconds,
         "visual_out_seconds": scene.visual_out_seconds,
         "transition_in": scene.transition_in if scene.transition_in != "cut" else None,
+        "media_type": media_type if media_type != "image" else None,
+        "video_path": video_path,
     }
 
 

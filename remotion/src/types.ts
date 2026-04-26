@@ -119,6 +119,10 @@ export interface SceneInput {
   // Scene-boundary transitions
   transition_in?: "cut" | "fade_black" | "flash_white" | "wipe";
   transition_out?: "cut" | "fade_black" | "flash_white" | "wipe";
+
+  // Multi-source media
+  media_type?: "image" | "video";
+  video_path?: string | null;
 }
 
 export interface SegmentInput {
