@@ -45,8 +45,6 @@ export interface SmartIdea {
   keywords: string[];
   trending_source: string;
   style_match_score: number | null;
-  idea_score: number;
-  recommended: boolean;
   reasoning: string;
   angle: string;
   signals: string[];
