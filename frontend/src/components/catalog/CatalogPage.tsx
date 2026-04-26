@@ -206,7 +206,7 @@ function UploadPanel({
           </div>
           <div className="w-full h-2 bg-neutral-800 rounded-full overflow-hidden">
             <div
-              className="h-full rounded-full bg-red-500 transition-all duration-300"
+              className="h-full rounded-full bg-gradient-to-r from-violet-600 via-violet-400 to-violet-600 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite] transition-all duration-300"
               style={{ width: `${Math.max(progress * 100, 1)}%` }}
             />
           </div>
@@ -323,6 +323,7 @@ function QuickUploadButton({
 }) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [currentStep, setCurrentStep] = useState("");
   const [error, setError] = useState<string | null>(null);
   const uploadingRef = useRef(false);
 
@@ -332,6 +333,7 @@ function QuickUploadButton({
     isFailed: (s) => s.status === "failed",
     onStatus: (status) => {
       setProgress(status.progress ?? 0);
+      setCurrentStep(status.current_step || "");
       if (status.status === "completed" && status.output_urls.length > 0) {
         setUploading(false);
         uploadingRef.current = false;
@@ -379,14 +381,17 @@ function QuickUploadButton({
 
   if (uploading) {
     return (
-      <button
-        type="button"
-        onClick={(e) => e.stopPropagation()}
-        className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium bg-violet-500/15 text-violet-400 border border-violet-500/30"
-      >
-        <span className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
-        {Math.round(progress * 100)}%
-      </button>
+      <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+        <span className="text-[11px] text-violet-400 whitespace-nowrap shrink-0">
+          {currentStep || "Uploading..."} {Math.round(progress * 100)}%
+        </span>
+        <div className="w-24 h-1.5 bg-neutral-800 rounded-full overflow-hidden shrink-0">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-violet-600 via-violet-400 to-violet-600 bg-[length:200%_100%] animate-[shimmer_2s_ease-in-out_infinite] transition-all duration-300"
+            style={{ width: `${Math.max(progress * 100, 2)}%` }}
+          />
+        </div>
+      </div>
     );
   }
 
