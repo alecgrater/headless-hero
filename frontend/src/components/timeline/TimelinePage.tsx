@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import api, { assetUrl, generateFX, generateEli, pollEliJob, exportTest, fetchScriptCost, getYouTubeOAuthStatus } from "../../api";
-import type { ExportTestOptions } from "../../api";
+import api, { assetUrl, generateFX, generateEli, pollEliJob, exportTest, fetchScriptCost, getYouTubeOAuthStatus, analyzeMedia, getMediaAnalysisStatus } from "../../api";
+import type { ExportTestOptions, MediaAssignment, MediaAnalysisStatus } from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
 import type { ThumbnailConcept } from "../../types/render";
@@ -9,6 +9,7 @@ import type { SaveState } from "../../App";
 import type { MicroTimelineHandle } from "./SceneMicroTimeline";
 import ExportPanel from "./ExportPanel";
 import ExportTestModal from "./ExportTestModal";
+import MediaReviewPanel from "./MediaReviewPanel";
 import PipelineSteps from "./PipelineSteps";
 import PropertiesPanel from "./PropertiesPanel";
 import ThumbnailModal from "./ThumbnailModal";
@@ -212,8 +213,57 @@ function TimelineEditor({
   const [youtubeConnected, setYoutubeConnected] = useState(false);
   const [yoloStep, setYoloStep] = useState<string | null>(null);
   const [yoloError, setYoloError] = useState<string | null>(null);
+  const [mediaAssignments, setMediaAssignments] = useState<MediaAssignment[] | null>(null);
+  const [mediaReviewDismissed, setMediaReviewDismissed] = useState(false);
+  const [mediaAnalyzing, setMediaAnalyzing] = useState(false);
   const yoloCancelledRef = useRef(false);
   const microTimelineRef = useRef<MicroTimelineHandle>(null);
+
+  const handleAnalyzeMedia = useCallback(async () => {
+    setMediaAnalyzing(true);
+    setMediaAssignments(null);
+    setMediaReviewDismissed(false);
+    const res = await analyzeMedia(scriptId);
+    if (!res.ok) {
+      setMediaAnalyzing(false);
+      return;
+    }
+    const jobId = (res.data as { job_id: string }).job_id;
+    const poll = setInterval(async () => {
+      const statusRes = await getMediaAnalysisStatus(jobId);
+      if (!statusRes.ok) return;
+      const status = statusRes.data as MediaAnalysisStatus;
+      if (status.status === "completed" && status.assignments) {
+        clearInterval(poll);
+        setMediaAssignments(status.assignments as MediaAssignment[]);
+        setMediaAnalyzing(false);
+      } else if (status.status === "failed") {
+        clearInterval(poll);
+        setMediaAnalyzing(false);
+      }
+    }, 1000);
+  }, [scriptId]);
+
+  // Detect if media analysis has already been run (e.g., auto-triggered during script generation)
+  useEffect(() => {
+    const content = state.content;
+    if (!content.gameplay_enabled && !content.stock_photo_enabled) return;
+
+    const allScenes = content.segments.flatMap((s) => s.scenes);
+    const hasNonAi = allScenes.some((s) => s.media_source && s.media_source !== "ai");
+
+    if (hasNonAi && !mediaReviewDismissed) {
+      const existing: MediaAssignment[] = allScenes.map((s) => ({
+        scene_id: s.id,
+        media_source: (s.media_source ?? "ai") as "ai" | "gameplay_video" | "stock_photo",
+        game_name: s.gameplay_game_override || null,
+        search_query: s.media_source === "stock_photo" ? s.visual_prompt : null,
+        reasoning: "",
+      }));
+      setMediaAssignments(existing);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const refreshCost = useCallback(async () => {
     const data = await fetchScriptCost(scriptId);
@@ -1146,6 +1196,27 @@ function TimelineEditor({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Media Review Panel */}
+      {mediaAnalyzing && (
+        <div className="px-4 py-3 bg-violet-500/10 border-b border-neutral-800 flex items-center gap-3">
+          <span className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm text-neutral-300">Analyzing media sources...</span>
+        </div>
+      )}
+      {mediaAssignments && !mediaReviewDismissed && !mediaAnalyzing && (
+        <div className="p-4">
+          <MediaReviewPanel
+            scriptId={scriptId}
+            assignments={mediaAssignments}
+            onApproved={() => {
+              setMediaReviewDismissed(true);
+              state.generateAllImages();
+            }}
+            onReanalyze={handleAnalyzeMedia}
+          />
         </div>
       )}
 
