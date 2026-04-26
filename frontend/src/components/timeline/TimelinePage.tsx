@@ -10,9 +10,7 @@ import type { MicroTimelineHandle } from "./SceneMicroTimeline";
 import ExportPanel from "./ExportPanel";
 import ExportTestModal from "./ExportTestModal";
 import PipelineSteps from "./PipelineSteps";
-import PreviewPanel from "./PreviewPanel";
 import PropertiesPanel from "./PropertiesPanel";
-import PropertiesPopup from "./PropertiesPopup";
 import ThumbnailModal from "./ThumbnailModal";
 import TimelineLanes from "./TimelineLanes";
 import VoiceSetupModal from "../brand/VoiceSetupModal";
@@ -191,7 +189,6 @@ function TimelineEditor({
 
   const [showExport, setShowExport] = useState(false);
   const [showVoiceSetup, setShowVoiceSetup] = useState(false);
-  const [showProperties, setShowProperties] = useState(false);
   const [pendingAudioAction, setPendingAudioAction] = useState<"all" | string | null>(null);
   const [generatingFX, setGeneratingFX] = useState(false);
   const [generatingEli, setGeneratingEli] = useState(false);
@@ -394,10 +391,6 @@ function TimelineEditor({
     // We don't actually delete scenes — split/merge is the pattern. No-op for safety.
   }, []);
 
-  const toggleProperties = useCallback(() => {
-    setShowProperties((prev) => !prev);
-  }, []);
-
   const { showHelp, setShowHelp } = useKeyboardShortcuts({
     selectPrevScene,
     selectNextScene,
@@ -410,7 +403,6 @@ function TimelineEditor({
     openExport: () => setShowExport(true),
     toggleAudioPreview,
     deleteScene,
-    toggleProperties,
     splitAtPlayhead: () => {
       // Split is available via waveform click in SceneMicroTimeline — no direct
       // playhead access from TimelinePage, so this remains a no-op here.
@@ -1188,18 +1180,30 @@ function TimelineEditor({
           />
         </div>
 
-        {/* Bottom panel: Preview */}
+        {/* Bottom panel: Properties */}
         {selectedScene ? (
-          <PreviewPanel
-            scene={selectedScene.scene}
-            segmentName={selectedScene.segName}
-            scriptId={scriptId}
-            onToggleProperties={toggleProperties}
-            onSplitScene={handleSplitSceneAtTime}
-            onUpdateScene={(sceneId, updates) => state.updateScene(sceneId, updates)}
-            microTimelineRef={microTimelineRef}
-            highlightEnabled={state.content.subtitle_highlight_enabled}
-          />
+          <div className="flex-1 min-h-0 border-t border-neutral-800/60">
+            <PropertiesPanel
+              scene={selectedScene.scene}
+              segmentIdx={selectedScene.segIdx}
+              segmentName={selectedScene.segName}
+              scriptId={scriptId}
+              onUpdate={(updates) =>
+                state.updateScene(selectedScene.scene.id, updates)
+              }
+              onGenerateImage={() =>
+                state.generateImage(selectedScene.scene.id)
+              }
+              isGenerating={state.generatingSceneIds.has(selectedScene.scene.id)}
+              onGenerateAudio={() =>
+                tryGenerateAudio(selectedScene.scene.id)
+              }
+              isGeneratingAudio={state.generatingAudioSceneIds.has(selectedScene.scene.id)}
+              microTimelineRef={microTimelineRef}
+              onSplitScene={handleSplitSceneAtTime}
+              highlightEnabled={state.content.subtitle_highlight_enabled}
+            />
+          </div>
         ) : (
           <div className="flex-1 border-t border-neutral-800/60 px-4 py-3 flex items-center justify-center">
             <p className="text-sm text-neutral-600">
@@ -1208,29 +1212,6 @@ function TimelineEditor({
           </div>
         )}
       </div>
-
-      {/* Properties popup (slide-over) */}
-      {showProperties && selectedScene && (
-        <PropertiesPopup onClose={() => setShowProperties(false)}>
-          <PropertiesPanel
-            scene={selectedScene.scene}
-            segmentIdx={selectedScene.segIdx}
-            segmentName={selectedScene.segName}
-            scriptId={scriptId}
-            onUpdate={(updates) =>
-              state.updateScene(selectedScene.scene.id, updates)
-            }
-            onGenerateImage={() =>
-              state.generateImage(selectedScene.scene.id)
-            }
-            isGenerating={state.generatingSceneIds.has(selectedScene.scene.id)}
-            onGenerateAudio={() =>
-              tryGenerateAudio(selectedScene.scene.id)
-            }
-            isGeneratingAudio={state.generatingAudioSceneIds.has(selectedScene.scene.id)}
-          />
-        </PropertiesPopup>
-      )}
 
       {showExportTestModal && (
         <ExportTestModal

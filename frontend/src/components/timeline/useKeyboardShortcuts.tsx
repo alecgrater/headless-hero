@@ -10,7 +10,6 @@ interface ShortcutActions {
   openExport: () => void;
   toggleAudioPreview: () => void;
   deleteScene: () => void;
-  toggleProperties: () => void;
   // Micro-timeline actions
   splitAtPlayhead: () => void;
   placeMarker: () => void;
@@ -39,7 +38,6 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { key: "ArrowUp", label: "Select previous scene", shortcutDisplay: "\u2191" },
       { key: "ArrowDown", label: "Select next scene", shortcutDisplay: "\u2193" },
       { key: "Space", label: "Play/pause audio", shortcutDisplay: "Space" },
-      { key: "p", label: "Toggle properties panel", shortcutDisplay: "P" },
     ],
   },
   {
@@ -127,13 +125,6 @@ export function useKeyboardShortcuts(actions: ShortcutActions) {
       if (e.key === " ") {
         e.preventDefault();
         actions.toggleAudioPreview();
-        return;
-      }
-
-      // P for properties toggle
-      if (e.key === "p" || e.key === "P") {
-        e.preventDefault();
-        actions.toggleProperties();
         return;
       }
 

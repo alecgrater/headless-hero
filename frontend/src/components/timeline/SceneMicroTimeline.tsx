@@ -22,14 +22,14 @@ export interface MicroTimelineHandle {
 
 interface Props {
   scene: Scene;
-  playerRef: React.RefObject<PlayerRef | null>;
-  playheadSeconds: number;
+  playerRef?: React.RefObject<PlayerRef | null>;
+  playheadSeconds?: number;
   onUpdateScene: (updates: Partial<Scene>) => void;
   onSplitScene: (splitTimeMs: number) => void;
 }
 
 const SceneMicroTimeline = forwardRef<MicroTimelineHandle, Props>(function SceneMicroTimeline(
-  { scene, playerRef, playheadSeconds, onUpdateScene, onSplitScene },
+  { scene, playerRef, playheadSeconds = 0, onUpdateScene, onSplitScene },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);

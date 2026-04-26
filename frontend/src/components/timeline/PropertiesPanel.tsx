@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { assetUrl, regenerateFX, uploadSceneMedia } from "../../api";
 import type { Scene, SceneFX } from "../../types/script";
 import AudioPlayer from "./AudioPlayer";
+import SceneMicroTimeline from "./SceneMicroTimeline";
+import type { MicroTimelineHandle } from "./SceneMicroTimeline";
 
 interface Props {
   scene: Scene;
@@ -13,6 +15,9 @@ interface Props {
   isGenerating?: boolean;
   onGenerateAudio?: () => void;
   isGeneratingAudio?: boolean;
+  microTimelineRef?: React.Ref<MicroTimelineHandle>;
+  onSplitScene?: (splitTimeMs: number) => void;
+  highlightEnabled?: boolean;
 }
 
 export default function PropertiesPanel({
@@ -25,6 +30,9 @@ export default function PropertiesPanel({
   isGenerating = false,
   onGenerateAudio,
   isGeneratingAudio = false,
+  microTimelineRef,
+  onSplitScene,
+  highlightEnabled,
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
@@ -333,6 +341,19 @@ export default function PropertiesPanel({
           ) : null}
         </div>
       </div>
+
+      {/* Micro-timeline */}
+      {scene.audio_url && (
+        <div className="shrink-0 border-t border-neutral-800/40 px-4 py-2">
+          <SceneMicroTimeline
+            ref={microTimelineRef}
+            scene={scene}
+            playheadSeconds={0}
+            onUpdateScene={(updates) => onUpdate(updates)}
+            onSplitScene={onSplitScene ?? (() => {})}
+          />
+        </div>
+      )}
 
       {confirmOverwrite && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
