@@ -1,6 +1,19 @@
 # Headless Hero — Setup Guide
 
-## Required API Keys & Services
+## Prerequisites
+
+| Dependency | Version | Install |
+|------------|---------|---------|
+| **Node.js** | 20+ | [nodejs.org](https://nodejs.org/) or `brew install node` |
+| **Python** | 3.12+ | [python.org](https://www.python.org/) or `brew install python@3.12` |
+| **uv** | latest | `curl -LsSf https://astral.sh/uv/install.sh \| sh` or `brew install uv` |
+| **FFmpeg** | 6+ | `brew install ffmpeg` / `sudo apt install ffmpeg` / `choco install ffmpeg` |
+
+---
+
+## API Keys & Services
+
+All API keys can be configured either as environment variables or through the app's **Settings → API Keys** UI. Keys entered in the UI are stored in the database and loaded into the environment at startup.
 
 ### 1. Anthropic Claude API (`ANTHROPIC_API_KEY`)
 
@@ -94,34 +107,42 @@ To switch back, change the Image Provider dropdown back to **Google Gemini**.
 
 ---
 
-## System Dependencies
+### 6. YouTube Data API Key (`YOUTUBE_API_KEY`) — Optional
 
-### 6. FFmpeg
+**Used for:** Discover dashboard — YouTube trending topics, competitor velocity checks, saturation analysis
 
-**Used for:** Audio concatenation and thumbnail compositing
+**How to get it:**
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a project (or use your existing one)
+3. Enable **YouTube Data API v3** under APIs & Services → Library
+4. Create an API key under APIs & Services → Credentials
+5. Paste it into Settings as `YOUTUBE_API_KEY`
 
-**How to install:**
+**Note:** This is a separate key from `GOOGLE_AI_KEY` (Gemini image gen) and from the OAuth2 credentials used for YouTube publishing. This is a plain API key, not an OAuth client.
 
-```bash
-# macOS (Homebrew)
-brew install ffmpeg
+**Required:** No — the Discover dashboard works without it (Reddit and RSS sources still function). YouTube-based signals will be unavailable.
 
-# Ubuntu/Debian
-sudo apt install ffmpeg
+---
 
-# Windows (Chocolatey)
-choco install ffmpeg
-```
+### 7. NewsAPI (`NEWS_API_KEY`) — Optional
 
-Verify it's installed: `ffmpeg -version`
+**Used for:** Discover dashboard — news article fetching to supplement RSS trend sources
 
-**Required:** Yes — audio export will fail without FFmpeg.
+**How to get it:**
+1. Go to [newsapi.org](https://newsapi.org/register)
+2. Sign up for a free developer account
+3. Copy your API key
+4. Paste it into Settings as `NEWS_API_KEY`
+
+**Free tier limits:** 100 requests/day, articles up to 1 month old.
+
+**Required:** No — the Discover dashboard works without it. RSS feeds provide baseline news coverage.
 
 ---
 
 ## Setting Environment Variables
 
-Create a `.env` file in the project root or export the variables in your shell:
+You can set keys via **Settings → API Keys** in the app (recommended), or export them in your shell:
 
 ```bash
 # Required for AI features
@@ -129,11 +150,15 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 export GOOGLE_AI_KEY="..."
 export ELEVENLABS_API_KEY="..."
 
-# Optional — only for YouTube publishing
+# Optional — YouTube publishing
 export GOOGLE_CLIENT_ID="...apps.googleusercontent.com"
 export GOOGLE_CLIENT_SECRET="GOCSPX-..."
 
-# Optional — only if using Replicate instead of Gemini
+# Optional — Discover dashboard enhancements
+export YOUTUBE_API_KEY="..."
+export NEWS_API_KEY="..."
+
+# Optional — alternative image provider
 export REPLICATE_API_TOKEN="r8_..."
 ```
 
@@ -144,7 +169,8 @@ If running via Electron (`npm run dev`), the backend inherits environment variab
 ## Quick Start
 
 ```bash
-# 1. Set your API keys (add to ~/.zshrc or ~/.bashrc for persistence)
+# 1. Set your API keys (add to ~/.zshrc or ~/.bashrc for persistence,
+#    or configure in app Settings → API Keys after first launch)
 export ANTHROPIC_API_KEY="your-key"
 export GOOGLE_AI_KEY="your-key"
 export ELEVENLABS_API_KEY="your-key"
@@ -153,10 +179,13 @@ export ELEVENLABS_API_KEY="your-key"
 npm install
 cd backend && uv sync && cd ..
 cd frontend && npm install && cd ..
+cd remotion && npm install && cd ..
 
 # 3. Run the app
 npm run dev
 ```
+
+The app launches three processes: FastAPI backend (port 8420), Vite dev server (port 5173), and Electron shell.
 
 ---
 
@@ -169,3 +198,6 @@ npm run dev
 | Script/idea generation fails | `ANTHROPIC_API_KEY` not set and no local proxy running |
 | YouTube publish fails | `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` not set, or OAuth redirect URI misconfigured |
 | Audio export fails | FFmpeg not installed or not on PATH |
+| Discover: "Some sources failed" | Normal if a source times out or rate-limits you. Successful sources still show results. |
+| Discover: Google Trends returns nothing | `pytrends` scrapes Google Trends and gets rate-limited easily. Wait a few minutes and retry. |
+| Discover: YouTube returns nothing | Ensure YouTube Data API v3 is enabled in your Google Cloud project and `YOUTUBE_API_KEY` is set. |
