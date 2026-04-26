@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import api, { assetUrl } from "../../api";
 import type { ScriptSummary } from "../../types/script";
+import { Button } from "../ui/Button";
+import { EmptyState } from "../ui/EmptyState";
+import { Tooltip } from "../ui/Tooltip";
 
 interface Props {
   onNewVideo: () => void;
@@ -145,15 +148,17 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject }: Props) {
             </p>
           )}
         </div>
-        <button
+        <Button
+          variant="primary"
           onClick={onNewVideo}
-          className="btn-primary px-4 py-2 rounded-lg flex items-center gap-2"
+          icon={
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+          }
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
           New Video
-        </button>
+        </Button>
       </div>
 
       {/* Loading */}
@@ -163,23 +168,16 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject }: Props) {
 
       {/* Empty state */}
       {!loading && projects.length === 0 && (
-        <div className="text-center py-20 space-y-4">
-          <div className="text-neutral-600">
-            <svg className="w-16 h-16 mx-auto" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
+        <EmptyState
+          icon={
+            <svg className="w-full h-full" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
             </svg>
-          </div>
-          <h2 className="text-xl font-semibold text-neutral-300">No videos yet</h2>
-          <p className="text-neutral-500 max-w-sm mx-auto">
-            Create your first video to get started.
-          </p>
-          <button
-            onClick={onNewVideo}
-            className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
-          >
-            Create Your First Video
-          </button>
-        </div>
+          }
+          title="No videos yet"
+          description="Create your first video to get started."
+          action={{ label: "Create Your First Video", onClick: onNewVideo }}
+        />
       )}
 
       {/* Filter bar + grid */}
@@ -222,7 +220,7 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject }: Props) {
                 placeholder="Search projects..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-48 pl-8 pr-3 py-1.5 rounded-lg bg-neutral-800 border border-neutral-700 text-sm text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus:border-violet-500/50 transition-colors"
+                className="w-48 pl-8 pr-3 py-1.5 rounded-lg bg-neutral-800 border border-neutral-700 text-sm text-neutral-200 placeholder:text-neutral-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 transition-colors"
               />
             </div>
 
@@ -230,7 +228,7 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject }: Props) {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortValue)}
-              className="px-3 py-1.5 rounded-lg bg-neutral-800 border border-neutral-700 text-sm text-neutral-300 focus:outline-none focus:border-violet-500/50 transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-neutral-800 border border-neutral-700 text-sm text-neutral-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 transition-colors"
             >
               {SORT_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -306,8 +304,8 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject }: Props) {
                           e.stopPropagation();
                           setOpenMenuId(openMenuId === project.id ? null : project.id);
                         }}
-                        className="w-7 h-7 flex items-center justify-center rounded-md text-neutral-500 hover:text-neutral-300 hover:bg-neutral-700 transition-colors"
-                        title="More options"
+                        className="w-7 h-7 flex items-center justify-center rounded-md text-neutral-500 hover:text-neutral-300 hover:bg-neutral-700 transition-all opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                        aria-label="More options"
                       >
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                           <path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z" />
@@ -351,15 +349,17 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject }: Props) {
                       <span className="flex items-center gap-2">
                         <span>{project.segment_count} segments &middot; {project.scene_count} scenes</span>
                         {project.hook_score_overall != null && (
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                            project.hook_score_overall >= 80
-                              ? "bg-emerald-500/20 text-emerald-300"
-                              : project.hook_score_overall >= 50
-                                ? "bg-amber-500/20 text-amber-300"
-                                : "bg-red-500/20 text-red-300"
-                          }`} title="Hook retention score">
-                            Hook {project.hook_score_overall}
-                          </span>
+                          <Tooltip content="Predicted engagement score based on title and hook strength">
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                              project.hook_score_overall >= 80
+                                ? "bg-emerald-500/20 text-emerald-300"
+                                : project.hook_score_overall >= 50
+                                  ? "bg-amber-500/20 text-amber-300"
+                                  : "bg-red-500/20 text-red-300"
+                            }`}>
+                              Hook {project.hook_score_overall}
+                            </span>
+                          </Tooltip>
                         )}
                       </span>
                       <span className="flex items-center gap-1.5">

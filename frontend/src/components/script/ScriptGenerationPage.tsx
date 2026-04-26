@@ -2,6 +2,7 @@ import { useState } from "react";
 import { assetUrl } from "../../api";
 import type { VideoIdea } from "../../types/idea";
 import { SCRIPT_MODELS } from "../settings/GeneralSection";
+import { Button } from "../ui/Button";
 import GenerationProgressBar from "../GenerationProgressBar";
 import useScriptGeneration from "./useScriptGeneration";
 import useSceneEditing from "./useSceneEditing";
@@ -98,7 +99,7 @@ export default function ScriptGenerationPage({
       <div className="space-y-1">
         <button
           onClick={onBack}
-          className="text-sm text-neutral-400 hover:text-neutral-200 transition-colors"
+          className="text-sm text-neutral-400 hover:text-neutral-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded-md"
         >
           &larr; Back to Ideas
         </button>
@@ -125,7 +126,7 @@ export default function ScriptGenerationPage({
               <select
                 value={selectedModel}
                 onChange={(e) => handleModelChange(e.target.value)}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus:border-violet-500 transition-colors"
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 transition-colors"
               >
                 {SCRIPT_MODELS.map((m) => (
                   <option key={m.value} value={m.value}>
@@ -156,12 +157,9 @@ export default function ScriptGenerationPage({
             </div>
           </div>
 
-          <button
-            onClick={handleGenerate}
-            className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
-          >
+          <Button variant="primary" size="lg" onClick={handleGenerate}>
             Generate Script
-          </button>
+          </Button>
         </div>
 
         {/* Media Sources */}
@@ -627,18 +625,12 @@ export default function ScriptGenerationPage({
 
           {/* Action buttons */}
           <div className="flex gap-3 pt-4 border-t border-neutral-800">
-            <button
-              onClick={() => scriptId && onContinue(scriptId)}
-              className="px-5 py-2.5 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
-            >
+            <Button variant="primary" size="lg" onClick={() => scriptId && onContinue(scriptId)}>
               Continue to Timeline &rarr;
-            </button>
-            <button
-              onClick={onBack}
-              className="px-5 py-2.5 bg-neutral-800 hover:bg-neutral-700 rounded-lg font-medium transition-colors text-neutral-300"
-            >
+            </Button>
+            <Button variant="secondary" size="lg" onClick={onBack}>
               Back to Ideas
-            </button>
+            </Button>
           </div>
         </div>
       )}
