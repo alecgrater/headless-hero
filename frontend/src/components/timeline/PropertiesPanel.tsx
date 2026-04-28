@@ -36,7 +36,6 @@ export default function PropertiesPanel({
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
-  const [isTitleCard, setIsTitleCard] = useState(scene.is_title_card);
 
   const sceneIdRef = useRef(scene.id);
 
@@ -45,7 +44,6 @@ export default function PropertiesPanel({
       sceneIdRef.current = scene.id;
       setNarration(scene.narration);
       setVisualPrompt(scene.visual_prompt);
-      setIsTitleCard(scene.is_title_card);
     }
   }, [scene]);
 
@@ -112,51 +110,18 @@ export default function PropertiesPanel({
       <div className="flex-1 min-h-0 flex gap-4 px-4 py-2">
 
         {/* Col 1: Narration */}
-        <div className="flex-[2] flex flex-col gap-1.5 min-w-0">
-          <div className="flex flex-col flex-1 min-h-0">
-            <span className="text-xs font-medium text-neutral-400 mb-0.5 shrink-0">Narration</span>
-            <textarea
-              value={narration}
-              onChange={(e) => setNarration(e.target.value)}
-              onBlur={() => commitField("narration", narration)}
-              className="flex-1 min-h-0 w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2 border border-neutral-700/50 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
-            />
-          </div>
-
-          {/* Settings row pinned at bottom */}
-          <div className="shrink-0">
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-1 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isTitleCard}
-                  onChange={(e) => {
-                    setIsTitleCard(e.target.checked);
-                    commitField("is_title_card", e.target.checked);
-                  }}
-                  className="rounded border-neutral-600 bg-neutral-800 text-violet-500 focus:ring-violet-500"
-                />
-                <span className="text-[10px] font-medium text-neutral-500">TC</span>
-              </label>
-
-              {scene.media_source === "gameplay_video" && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-neutral-500">Game:</span>
-                  <input
-                    type="text"
-                    value={scene.gameplay_game_override || ""}
-                    onChange={(e) => onUpdate({ gameplay_game_override: e.target.value })}
-                    placeholder="(project default)"
-                    className="w-28 text-[10px] bg-neutral-800/60 border border-neutral-700/50 rounded px-1.5 py-0.5 text-neutral-300 placeholder-neutral-600 focus:outline-none focus:border-violet-500/50"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
+        <div className="flex-[2] flex flex-col min-w-0 min-h-0">
+          <span className="text-xs font-medium text-neutral-400 mb-0.5 shrink-0">Narration</span>
+          <textarea
+            value={narration}
+            onChange={(e) => setNarration(e.target.value)}
+            onBlur={() => commitField("narration", narration)}
+            className="flex-1 min-h-0 w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2 border border-neutral-700/50 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
+          />
         </div>
 
         {/* Col 2: Visual Prompt + Upload zone */}
-        <div className="flex-[2] flex flex-col gap-1.5 min-w-0 min-h-0">
+        <div className="flex-[2] flex flex-col min-w-0 min-h-0">
           {(scene.media_source === "user_upload") ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-2 min-h-0">
               {(scene.upload_url || scene.image_url) ? (
