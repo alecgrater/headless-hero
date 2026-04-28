@@ -39,6 +39,29 @@ All props already exist in TimelinePage — passed through unchanged.
 
 ## Layout
 
+### Overall Layout
+
+The SegmentsTab uses a two-column layout:
+
+- **Left:** Segment sidebar (fixed-width ~220px, full height, scrollable independently)
+- **Right:** Main card grid area (flex-1, scrollable)
+
+### Segment Sidebar
+
+A narrow navigation panel on the left side with a "SEGMENTS" header label at the top.
+
+Each segment row shows:
+- Color dot (from `segment.circle_color`)
+- Segment name (truncated with ellipsis, bold white text)
+- Subtitle: `{scene count} scenes · {total duration}s`
+
+**States:**
+- **Default:** transparent background
+- **Active/selected:** subtle card treatment (`bg-neutral-800/50 rounded-lg`)
+- **Hover:** `hover:bg-neutral-800/30`
+
+**Behavior:** Clicking a segment row scrolls the main card grid to that segment section (smooth scroll). The active segment updates automatically as the user scrolls the main area (intersection observer).
+
 ### Segment Group
 
 - **Header row:** Color dot (from `segment.circle_color`, fallback to `SEGMENT_COLORS` in constants.ts) + segment name (bold, white) + scene count (muted gray) + collapse/expand chevron
@@ -75,6 +98,8 @@ Top to bottom:
 | Click card in different segment | Old panel collapses, new one expands below new segment |
 | Click already-selected card | Deselect, collapse PropertiesPanel |
 | Collapse segment with selected scene inside | Deselect scene first, collapse panel |
+| Click segment in sidebar | Smooth-scroll main grid to that segment |
+| Scroll main grid | Active segment in sidebar updates via intersection observer |
 
 No drag-and-drop reordering in this iteration.
 
