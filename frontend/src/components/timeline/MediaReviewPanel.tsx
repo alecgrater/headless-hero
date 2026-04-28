@@ -104,7 +104,7 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, fullH
                   value={a.game_name ?? ""}
                   onChange={(e) => handleFieldChange(a.scene_id, "game_name", e.target.value)}
                   placeholder="Game name"
-                  className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 placeholder-neutral-600 w-40"
+                  className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 placeholder-neutral-600 flex-1 min-w-0"
                 />
               )}
               {a.media_source === "stock_photo" && (
@@ -113,12 +113,12 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, fullH
                   value={a.search_query ?? ""}
                   onChange={(e) => handleFieldChange(a.scene_id, "search_query", e.target.value)}
                   placeholder="Search query"
-                  className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 placeholder-neutral-600 w-48"
+                  className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 placeholder-neutral-600 flex-1 min-w-0"
                 />
               )}
-              <span className="text-neutral-500 text-xs truncate flex-1" title={a.reasoning}>
-                {a.reasoning}
-              </span>
+              {a.media_source === "ai" && (
+                <span className="flex-1" />
+              )}
             </div>
           );
         })}
