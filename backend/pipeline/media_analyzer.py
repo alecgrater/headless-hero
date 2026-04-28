@@ -60,7 +60,7 @@ def analyze_media_sources(
     response = chat(
         system=system_prompt,
         user_message=user_message,
-        max_tokens=4096,
+        max_tokens=16384,
         script_id=script_id,
     )
 
