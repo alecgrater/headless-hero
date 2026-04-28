@@ -51,46 +51,42 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     }));
   }, [words, scene?.word_timestamps, timingOffsetMs]);
 
-  // Reset word refs when words change
-  useEffect(() => {
-    wordRefs.current = new Array(wordTimings.length).fill(null);
-  }, [wordTimings.length]);
-
   const setWordRef = useCallback((el: HTMLSpanElement | null, index: number) => {
     wordRefs.current[index] = el;
   }, []);
 
-  // Compute resting position (under first line, spike at far left)
-  const computeRestingPosition = useCallback((): NeedlePos | null => {
-    if (!containerRef.current || !wordRefs.current[0]) return null;
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const containerScrollTop = containerRef.current.scrollTop;
-    const firstEl = wordRefs.current[0];
-    const rect = firstEl.getBoundingClientRect();
-    return { x: 0, y: rect.bottom - containerRect.top + containerScrollTop + 4 };
-  }, []);
-
-  // Set resting position on scene change or initial render
+  // Reset needle to far-left resting position whenever scene changes
   useEffect(() => {
     if (wordTimings.length === 0) {
       setNeedle(null);
       return;
     }
+    // Set x=0 immediately; refine Y after a frame once refs are painted
+    setNeedle({ x: 0, y: 50 });
     const rafId = requestAnimationFrame(() => {
-      const pos = computeRestingPosition();
-      if (pos) setNeedle(pos);
+      if (!containerRef.current || !wordRefs.current[0]) return;
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const firstEl = wordRefs.current[0];
+      const rect = firstEl.getBoundingClientRect();
+      const y = rect.bottom - containerRect.top + containerRef.current.scrollTop + 4;
+      setNeedle({ x: 0, y });
     });
     return () => cancelAnimationFrame(rafId);
-  }, [scene?.id, wordTimings.length, computeRestingPosition]);
+  }, [scene?.id, wordTimings.length]);
 
   // Update needle position based on elapsed time during recording
   useEffect(() => {
     if (!isRecording || !containerRef.current || wordTimings.length === 0) return;
 
-    // While in countdown or at time 0, stay at resting position
+    // While in countdown or at time 0, stay at resting (far left)
     if (elapsedMs === 0) {
-      const pos = computeRestingPosition();
-      if (pos) setNeedle(pos);
+      const firstEl = wordRefs.current[0];
+      if (firstEl) {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const rect = firstEl.getBoundingClientRect();
+        const y = rect.bottom - containerRect.top + containerRef.current.scrollTop + 4;
+        setNeedle({ x: 0, y });
+      }
       return;
     }
 
@@ -158,7 +154,7 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     }
 
     setNeedle({ x, y });
-  }, [isRecording, elapsedMs, wordTimings, computeRestingPosition]);
+  }, [isRecording, elapsedMs, wordTimings]);
 
   // Auto-scroll to keep active word visible
   useEffect(() => {
