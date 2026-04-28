@@ -11,6 +11,7 @@ import type { MicroTimelineHandle } from "./SceneMicroTimeline";
 import ExportPanel from "./ExportPanel";
 import ExportTestModal from "./ExportTestModal";
 import MediaSourcesTab from "./MediaSourcesTab";
+import SegmentsTab from "./SegmentsTab";
 import PipelineSteps from "./PipelineSteps";
 import PropertiesPanel from "./PropertiesPanel";
 import ThumbnailModal from "./ThumbnailModal";
@@ -218,7 +219,7 @@ function TimelineEditor({
   const [youtubeConnected, setYoutubeConnected] = useState(false);
   const [yoloStep, setYoloStep] = useState<string | null>(null);
   const [yoloError, setYoloError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"timeline" | "media-sources">("timeline");
+  const [activeTab, setActiveTab] = useState<"timeline" | "media-sources" | "segments">("timeline");
   const yoloCancelledRef = useRef(false);
   const microTimelineRef = useRef<MicroTimelineHandle>(null);
 
@@ -1233,6 +1234,16 @@ function TimelineEditor({
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-violet-500 rounded-full" />
             )}
           </button>
+          <button
+            onClick={() => setActiveTab("segments")}
+            className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+              activeTab === "segments"
+                ? "bg-neutral-700/80 text-white shadow-sm"
+                : "text-neutral-400 hover:text-neutral-200"
+            }`}
+          >
+            Segments
+          </button>
         </div>
       </div>
 
@@ -1250,6 +1261,18 @@ function TimelineEditor({
             state.generateAllImages();
             setActiveTab("timeline");
           }}
+        />
+      ) : activeTab === "segments" ? (
+        <SegmentsTab
+          content={state.content}
+          scriptId={scriptId}
+          selectedSceneId={state.selectedSceneId}
+          onSelectScene={(id) => state.selectScene(id)}
+          onUpdateScene={(id, updates) => state.updateScene(id, updates)}
+          onGenerateImage={(id) => state.generateImage(id)}
+          onGenerateAudio={(id) => tryGenerateAudio(id)}
+          generatingSceneIds={state.generatingSceneIds}
+          generatingAudioSceneIds={state.generatingAudioSceneIds}
         />
       ) : (
       /* Vertical layout: Timeline on top (full width), Properties below */
