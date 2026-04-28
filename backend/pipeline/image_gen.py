@@ -353,6 +353,30 @@ def generate_scene_frames_v2(
             # Fallback to AI generation using search_query as prompt
             logger.info("Google scrape failed for %r, falling back to AI gen", directive.search_query)
             directive_prompt = directive.search_query
+        # --- Stock photo frames: Pexels search ---
+        elif directive.source == "stock_photo":
+            from integrations.pexels_client import search_and_download
+
+            query = directive.search_query or directive.prompt
+
+            # Cache check
+            if not force and local_path.exists() and prompt_marker.exists():
+                cached = prompt_marker.read_text(encoding="utf-8").strip()
+                if cached == query:
+                    results.append((web_path, query))
+                    prev_frame_path = local_path
+                    continue
+
+            tmp = search_and_download(query)
+            if tmp:
+                shutil.move(tmp, str(local_path))
+                prompt_marker.write_text(query, encoding="utf-8")
+                results.append((web_path, query))
+                prev_frame_path = local_path
+            else:
+                logger.warning("No stock photo for frame %d query %r, skipping", i, query)
+                results.append(("", query))
+            continue
         else:
             directive_prompt = directive.prompt
 
@@ -453,6 +477,29 @@ def generate_batch(
 
             # --- Stock photo dispatch ---
             if media_source == "stock_photo":
+                frame_directives = scene.get("frame_directives", [])
+                if frame_directives:
+                    # Multi-frame stock photo — use v2 pipeline
+                    frame_results = generate_scene_frames_v2(
+                        scene_id=scene["scene_id"],
+                        frame_directives=frame_directives,
+                        script_id=script_id,
+                        visual_prompt=scene.get("visual_prompt", ""),
+                        width=width,
+                        height=height,
+                        style_guide=style_guide,
+                        contains_person=scene.get("contains_person", False),
+                    )
+                    frame_urls = [url for url, _ in frame_results]
+                    results.append({
+                        "scene_id": scene["scene_id"],
+                        "image_url": next((u for u in frame_urls if u), None),
+                        "frame_urls": frame_urls,
+                        "prompt_used": frame_results[0][1] if frame_results else None,
+                        "error": None,
+                    })
+                    continue
+                # Single stock photo (no frame_directives)
                 from pipeline.stock_photo import generate_stock_photo
                 search_query = scene.get("visual_prompt", "")
                 image_url = generate_stock_photo(script_id, scene["scene_id"], search_query)
