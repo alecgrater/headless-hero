@@ -1,5 +1,5 @@
 import type { MediaAssignment } from "../../api";
-import type { ScriptContent } from "../../types/script";
+import type { Scene, ScriptContent } from "../../types/script";
 import MediaReviewPanel from "./MediaReviewPanel";
 
 function buildFrameCounts(content: ScriptContent): Record<string, number> {
@@ -13,6 +13,16 @@ function buildFrameCounts(content: ScriptContent): Record<string, number> {
     }
   }
   return counts;
+}
+
+function buildScenesMap(content: ScriptContent): Record<string, Scene> {
+  const map: Record<string, Scene> = {};
+  for (const seg of content.segments) {
+    for (const scene of seg.scenes) {
+      map[scene.id] = scene;
+    }
+  }
+  return map;
 }
 
 interface Props {
@@ -47,12 +57,14 @@ export default function MediaSourcesTab({
 
   if (mediaAssignments && !mediaReviewDismissed) {
     const frameCounts = buildFrameCounts(content);
+    const scenes = buildScenesMap(content);
     return (
       <div className="flex-1 overflow-auto p-4">
         <MediaReviewPanel
           scriptId={scriptId}
           assignments={mediaAssignments}
           frameCounts={frameCounts}
+          scenes={scenes}
           fullHeight
           onApproved={onApproved}
           onReanalyze={onAnalyzeMedia}

@@ -73,6 +73,10 @@ class ExportTestRequest(BaseModel):
     regen_fx: bool = False
     regen_eli: bool = False
 
+class RenderScenePreviewRequest(BaseModel):
+    script_id: str
+    scene_id: str
+
 # --- Helpers ---
 
 def _load_content(session: Session, script_id: str) -> ScriptContent:
@@ -740,3 +744,58 @@ def _reload_content(script_id: str) -> ScriptContent:
         if not record:
             raise RuntimeError(f"Script {script_id} not found")
         return ScriptContent.model_validate(json.loads(record.script_json))
+
+
+@router.post("/preview-scene", response_model=RenderJobResponse)
+def start_scene_preview(body: RenderScenePreviewRequest, session: Session = Depends(get_session)):
+    """Render a single scene as a standalone video clip."""
+    content = _load_content(session, body.script_id)
+    brand_dict = _load_brand(session, body.script_id)
+
+    try:
+        scene = find_scene_in_content(content, body.scene_id)
+    except RuntimeError:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    from models.script import Segment
+    single_scene_content = content.model_copy(update={
+        "segments": [Segment(name="preview", scenes=[scene])]
+    })
+
+    job = create_job(scene_count=1)
+    job.estimated_seconds = estimate_render_time(1)
+
+    def do_render():
+        render_start = 0.0
+        render_end = 1.0
+        estimated = estimate_render_time(1)
+        stop_timer = threading.Event()
+
+        def _timer_updater():
+            start = time.monotonic()
+            while not stop_timer.is_set():
+                elapsed = time.monotonic() - start
+                frac = min(0.95, elapsed / estimated) if estimated > 0 else 0.5
+                progress = render_start + frac * (render_end - render_start)
+                update_job(job.id, progress=progress, current_step="Rendering scene preview...")
+                stop_timer.wait(1.0)
+
+        timer = threading.Thread(target=_timer_updater, daemon=True)
+        timer.start()
+
+        try:
+            video_url = render_full_video(
+                script_id=body.script_id,
+                content=single_scene_content,
+                on_progress=None,
+                title="",
+                brand=brand_dict,
+            )
+        finally:
+            stop_timer.set()
+            timer.join(timeout=2)
+
+        return video_url
+
+    run_in_background(job.id, do_render)
+    return RenderJobResponse(job_id=job.id)

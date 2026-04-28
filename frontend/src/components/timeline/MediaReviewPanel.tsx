@@ -1,12 +1,15 @@
 import { useState } from "react";
 import type { MediaAssignment } from "../../api";
 import { applyMediaAssignments } from "../../api";
+import type { Scene } from "../../types/script";
+import ScenePreviewModal from "./ScenePreviewModal";
 
 interface Props {
   scriptId: string;
   assignments: MediaAssignment[];
   frameCounts?: Record<string, number>;
   fullHeight?: boolean;
+  scenes?: Record<string, Scene>;
   onApproved: () => void;
   onReanalyze: () => void;
 }
@@ -17,9 +20,10 @@ const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
   stock_photo: { label: "Stock Photo", color: "bg-sky-500/20 text-sky-300" },
 };
 
-export default function MediaReviewPanel({ scriptId, assignments: initial, frameCounts, fullHeight, onApproved, onReanalyze }: Props) {
+export default function MediaReviewPanel({ scriptId, assignments: initial, frameCounts, fullHeight, scenes, onApproved, onReanalyze }: Props) {
   const [assignments, setAssignments] = useState<MediaAssignment[]>(initial);
   const [applying, setApplying] = useState(false);
+  const [previewSceneId, setPreviewSceneId] = useState<string | null>(null);
 
   const summary = assignments.reduce<Record<string, number>>((acc, a) => {
     acc[a.media_source] = (acc[a.media_source] || 0) + 1;
@@ -125,10 +129,37 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
               {a.media_source === "ai" && (
                 <span className="flex-1" />
               )}
+              {scenes && scenes[a.scene_id] && (
+                <button
+                  onClick={() => setPreviewSceneId(a.scene_id)}
+                  disabled={!hasPreviewableAssets(scenes[a.scene_id])}
+                  className="w-7 h-7 flex items-center justify-center rounded-md text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
+                  title="Preview scene"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5Z" />
+                    <circle cx="8" cy="8" r="2" />
+                  </svg>
+                </button>
+              )}
             </div>
           );
         })}
       </div>
+
+      {/* Preview modal */}
+      {previewSceneId && scenes && scenes[previewSceneId] && (
+        <ScenePreviewModal
+          scene={scenes[previewSceneId]}
+          sceneIndex={assignments.findIndex((a) => a.scene_id === previewSceneId)}
+          scriptId={scriptId}
+          onClose={() => setPreviewSceneId(null)}
+        />
+      )}
     </div>
   );
+}
+
+function hasPreviewableAssets(scene: Scene): boolean {
+  return !!(scene.image_url || (scene.frame_urls && scene.frame_urls.length > 0) || scene.audio_url || scene.video_url);
 }

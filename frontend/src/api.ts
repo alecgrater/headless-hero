@@ -657,3 +657,10 @@ export async function applyMediaAssignments(
 ) {
   return api.post<{ ok: boolean }>(`/api/media/apply/${scriptId}`, { assignments });
 }
+
+/** Start a single-scene preview render via Remotion. */
+export async function renderScenePreview(scriptId: string, sceneId: string): Promise<{ job_id: string }> {
+  const res = await api.post("/api/render/preview-scene", { script_id: scriptId, scene_id: sceneId });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Scene preview render failed");
+  return res.data as { job_id: string };
+}
