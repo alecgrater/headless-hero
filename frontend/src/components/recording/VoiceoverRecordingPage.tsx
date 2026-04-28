@@ -248,17 +248,17 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Top bar */}
-      <div className="shrink-0 border-b border-neutral-800 px-4 py-2.5 flex items-center justify-between bg-neutral-950/50">
+      <div className="shrink-0 border-b border-neutral-800 px-4 py-2.5 flex items-center bg-neutral-950/50">
+        <button
+          onClick={onClose}
+          className="text-sm px-4 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700 rounded-lg font-medium transition-colors mr-6"
+        >
+          Back to Project
+        </button>
         <div className="flex items-center gap-4">
           <div className="text-xs text-neutral-400 tabular-nums">
             {recordedScenes.size}/{content.segments.reduce((acc, s) => acc + s.scenes.filter((sc) => sc.narration).length, 0)} recorded
           </div>
-          <button
-            onClick={onClose}
-            className="text-sm px-4 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700 rounded-lg font-medium transition-colors"
-          >
-            Back to Project
-          </button>
           {/* Mic selector */}
           <select
             value={audioDevices.selectedDeviceId}
@@ -300,6 +300,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
             Rehearse
           </button>
         </div>
+        <div className="flex-1" />
         <div className="flex items-center gap-3">
           {/* Timing offset */}
           <div className="flex items-center gap-1.5">
