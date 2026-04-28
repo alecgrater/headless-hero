@@ -25,9 +25,11 @@ function formatTime(ms: number): string {
 
 export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audioLevel, countdown, timingOffsetMs }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLParagraphElement>(null);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const [needle, setNeedle] = useState<NeedlePos | null>(null);
   const [lineYs, setLineYs] = useState<number[]>([]);
+  const [fontSize, setFontSize] = useState(24);
 
   const words = useMemo(() => {
     if (!scene?.narration) return [];
@@ -56,14 +58,24 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     wordRefs.current[index] = el;
   }, []);
 
-  // Detect visual lines after layout to render underlines beneath each row
+  // Reset font size when scene changes
+  useEffect(() => {
+    setFontSize(24);
+  }, [scene?.id]);
+
+  // Shrink font size until text fits, then detect visual lines
   useLayoutEffect(() => {
-    if (!containerRef.current || wordRefs.current.length === 0) {
+    if (!containerRef.current || !textRef.current || wordRefs.current.length === 0) {
       setLineYs([]);
       return;
     }
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const scrollTop = containerRef.current.scrollTop;
+    const container = containerRef.current;
+    if (textRef.current.scrollHeight > container.clientHeight && fontSize > 14) {
+      setFontSize((prev) => prev - 1);
+      return;
+    }
+    const containerRect = container.getBoundingClientRect();
+    const scrollTop = container.scrollTop;
     const seen = new Set<number>();
     const ys: number[] = [];
     for (const el of wordRefs.current) {
@@ -77,7 +89,7 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
       }
     }
     setLineYs(ys);
-  }, [words, scene?.id]);
+  }, [words, scene?.id, fontSize]);
 
   // Reset needle to far-left resting position when not recording/counting down
   useEffect(() => {
@@ -245,11 +257,11 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
       </div>
 
       {/* Teleprompter text with needle */}
-      <div ref={containerRef} className="relative flex-1 overflow-y-auto px-8 py-6">
+      <div ref={containerRef} className="relative flex-1 overflow-hidden px-8 py-6">
         {words.length === 0 ? (
           <div className="text-center text-neutral-600 text-sm py-12">Select a scene to begin</div>
         ) : (
-          <p className="text-2xl leading-[2.5] font-medium text-center">
+          <p ref={textRef} className="leading-[2.5] font-medium text-center" style={{ fontSize: `${fontSize}px` }}>
             {wordTimings.map((wt, i) => {
               const isActive = isRecording && elapsedMs >= wt.startMs && elapsedMs < wt.endMs;
               const isPast = isRecording && elapsedMs >= wt.endMs;
