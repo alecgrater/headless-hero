@@ -458,6 +458,18 @@ function TimelineEditor({
     0,
   );
 
+  // Media source counts (exclude title cards)
+  const mediaCounts = allScenes
+    .filter((sc) => !sc.is_title_card)
+    .reduce(
+      (acc, sc) => {
+        const src = sc.media_source ?? "ai";
+        acc[src] = (acc[src] ?? 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
   // Check if assets already exist for overwrite confirmation
   const hasExistingImages = allScenes.some((sc) => !sc.is_title_card && (sc.image_url || sc.frame_urls?.length));
   const hasExistingAudio = allScenes.some((sc) => sc.audio_url);
@@ -902,6 +914,31 @@ function TimelineEditor({
               <span className="text-[11px] text-emerald-400/80 border border-emerald-700/40 px-2 py-0.5 rounded-full">
                 ${totalCost.toFixed(2)}
               </span>
+              {Object.keys(mediaCounts).length > 1 && (
+                <>
+                  <span className="w-px h-3 bg-neutral-700/60 mx-0.5" />
+                  {mediaCounts.ai && (
+                    <span className="text-[11px] text-violet-400/80 border border-violet-700/40 px-2 py-0.5 rounded-full">
+                      {mediaCounts.ai} AI
+                    </span>
+                  )}
+                  {mediaCounts.gameplay_video && (
+                    <span className="text-[11px] text-sky-400/80 border border-sky-700/40 px-2 py-0.5 rounded-full">
+                      {mediaCounts.gameplay_video} gameplay
+                    </span>
+                  )}
+                  {mediaCounts.stock_photo && (
+                    <span className="text-[11px] text-amber-400/80 border border-amber-700/40 px-2 py-0.5 rounded-full">
+                      {mediaCounts.stock_photo} stock
+                    </span>
+                  )}
+                  {mediaCounts.user_upload && (
+                    <span className="text-[11px] text-emerald-400/80 border border-emerald-700/40 px-2 py-0.5 rounded-full">
+                      {mediaCounts.user_upload} upload{mediaCounts.user_upload !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
