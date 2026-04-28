@@ -251,7 +251,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
       <div className="shrink-0 border-b border-neutral-800 px-4 py-2.5 flex items-center bg-neutral-950/50">
         <button
           onClick={onClose}
-          className="text-sm px-4 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700 rounded-lg font-medium transition-colors mr-12"
+          className="text-sm px-4 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700 rounded-lg font-medium transition-colors mr-32"
         >
           Back to Project
         </button>
