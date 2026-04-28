@@ -11,6 +11,11 @@ interface Props {
   timingOffsetMs: number;
 }
 
+interface NeedlePos {
+  x: number;
+  y: number;
+}
+
 function formatTime(ms: number): string {
   const secs = Math.floor(ms / 1000);
   const m = Math.floor(secs / 60);
@@ -21,7 +26,7 @@ function formatTime(ms: number): string {
 export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audioLevel, countdown, timingOffsetMs }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
-  const [needleX, setNeedleX] = useState<number | null>(null);
+  const [needle, setNeedle] = useState<NeedlePos | null>(null);
 
   const words = useMemo(() => {
     if (!scene?.narration) return [];
@@ -55,24 +60,20 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     wordRefs.current[index] = el;
   }, []);
 
-  // Reset needle to left edge when scene changes
+  // Reset needle when scene changes
   useEffect(() => {
-    setNeedleX(isRecording ? 16 : null);
+    setNeedle(null);
   }, [scene?.id]);
 
   // Update needle position based on elapsed time
   useEffect(() => {
     if (!isRecording || !containerRef.current || wordTimings.length === 0) {
-      setNeedleX(null);
-      return;
-    }
-
-    if (elapsedMs === 0) {
-      setNeedleX(16);
+      setNeedle(null);
       return;
     }
 
     const containerRect = containerRef.current.getBoundingClientRect();
+    const containerScrollTop = containerRef.current.scrollTop;
 
     // Find active word index and interpolate position
     let activeIdx = -1;
@@ -86,9 +87,15 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
       }
     }
 
-    // Before first word — start at left edge of container
+    // Before first word — position at start of first word
     if (activeIdx === -1 && elapsedMs < wordTimings[0].startMs) {
-      setNeedleX(16);
+      const firstEl = wordRefs.current[0];
+      if (firstEl) {
+        const rect = firstEl.getBoundingClientRect();
+        const x = 16;
+        const y = rect.bottom - containerRect.top + containerScrollTop + 4;
+        setNeedle({ x, y });
+      }
       return;
     }
 
@@ -97,7 +104,9 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
       const lastEl = wordRefs.current[wordTimings.length - 1];
       if (lastEl) {
         const rect = lastEl.getBoundingClientRect();
-        setNeedleX(rect.left + rect.width - containerRect.left);
+        const x = rect.right - containerRect.left;
+        const y = rect.bottom - containerRect.top + containerScrollTop + 4;
+        setNeedle({ x, y });
       }
       return;
     }
@@ -106,25 +115,25 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     if (!currentEl) return;
 
     const currentRect = currentEl.getBoundingClientRect();
+    const y = currentRect.bottom - containerRect.top + containerScrollTop + 4;
     const nextEl = wordRefs.current[activeIdx + 1];
 
     let x: number;
     if (nextEl) {
       const nextRect = nextEl.getBoundingClientRect();
-      // If same line, interpolate smoothly between current center and next center
+      // If same line, interpolate smoothly
       if (Math.abs(nextRect.top - currentRect.top) < 10) {
-        const startX = currentRect.left + currentRect.width / 2;
-        const endX = nextRect.left + nextRect.width / 2;
+        const startX = currentRect.left + currentRect.width / 2 - containerRect.left;
+        const endX = nextRect.left + nextRect.width / 2 - containerRect.left;
         x = startX + (endX - startX) * progress;
       } else {
-        // Wrapping to next line — stay at current word center
-        x = currentRect.left + currentRect.width * progress;
+        x = currentRect.left + currentRect.width * progress - containerRect.left;
       }
     } else {
-      x = currentRect.left + currentRect.width * progress;
+      x = currentRect.left + currentRect.width * progress - containerRect.left;
     }
 
-    setNeedleX(x - containerRect.left);
+    setNeedle({ x, y });
   }, [isRecording, elapsedMs, wordTimings]);
 
   // Auto-scroll to keep active word visible
@@ -178,7 +187,7 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
         {words.length === 0 ? (
           <div className="text-center text-neutral-600 text-sm py-12">Select a scene to begin</div>
         ) : (
-          <p className="text-2xl leading-relaxed font-medium text-center pb-10">
+          <p className="text-2xl leading-[2.5] font-medium text-center">
             {wordTimings.map((wt, i) => {
               const isActive = isRecording && elapsedMs >= wt.startMs && elapsedMs < wt.endMs;
               const isPast = isRecording && elapsedMs >= wt.endMs;
@@ -207,19 +216,21 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
           </p>
         )}
 
-        {/* Timing needle — horizontal line with spike */}
-        {isRecording && needleX !== null && (
-          <div className="sticky bottom-0 left-0 right-0 h-8 pointer-events-none">
-            {/* Horizontal line */}
-            <div className="absolute bottom-3 left-4 right-4 h-[1px] bg-neutral-700" />
-            {/* Spike / needle */}
+        {/* Timing needle — line under the active text line with spike pointing up */}
+        {isRecording && needle && (
+          <div
+            className="absolute left-4 right-4 pointer-events-none transition-[top] duration-100"
+            style={{ top: `${needle.y}px` }}
+          >
+            {/* Full-width underline */}
+            <div className="absolute left-0 right-0 top-0 h-[2px] bg-neutral-700/80" />
+            {/* Spike / arrow pointing up */}
             <div
-              className="absolute bottom-1 transition-[left] duration-75"
-              style={{ left: `${needleX}px` }}
+              className="absolute transition-[left] duration-75"
+              style={{ left: `${needle.x - 16}px`, top: "-16px" }}
             >
-              {/* Triangle spike pointing up */}
-              <svg width="12" height="20" viewBox="0 0 12 20" className="relative -left-[6px]">
-                <path d="M6 0 L12 14 L8 14 L8 20 L4 20 L4 14 L0 14 Z" fill="#a78bfa" />
+              <svg width="10" height="18" viewBox="0 0 10 18">
+                <path d="M5 0 L9 10 L6 10 L6 18 L4 18 L4 10 L1 10 Z" fill="#a78bfa" />
               </svg>
             </div>
           </div>
