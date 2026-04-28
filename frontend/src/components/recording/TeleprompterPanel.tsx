@@ -33,6 +33,11 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     return scene.narration.split(/\s+/).filter(Boolean);
   }, [scene?.narration]);
 
+  const sentences = useMemo(() => {
+    if (!scene?.narration) return [];
+    return scene.narration.split(/(?<=[.!?])\s+/).filter(Boolean);
+  }, [scene?.narration]);
+
   const wordTimings = useMemo(() => {
     if (!words.length) return [];
     if (scene?.word_timestamps?.length) {
@@ -225,33 +230,48 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
         {words.length === 0 ? (
           <div className="text-center text-neutral-600 text-sm py-12">Select a scene to begin</div>
         ) : (
-          <p className="text-2xl leading-[2.5] font-medium text-center">
-            {wordTimings.map((wt, i) => {
-              const isActive = isRecording && elapsedMs >= wt.startMs && elapsedMs < wt.endMs;
-              const isPast = isRecording && elapsedMs >= wt.endMs;
-              const isUpcoming = isRecording && elapsedMs >= wt.startMs - 500 && elapsedMs < wt.startMs;
-              return (
-                <span
-                  key={i}
-                  ref={(el) => setWordRef(el, i)}
-                  data-active={isActive}
-                  className={`inline-block mr-[0.3em] transition-all duration-150 ${
-                    isActive
-                      ? "text-white scale-105 transform"
-                      : isPast
-                        ? "text-neutral-400"
-                        : isUpcoming
-                          ? "text-neutral-300"
-                          : isRecording
-                            ? "text-neutral-600 blur-[0.5px]"
-                            : "text-neutral-300"
-                  }`}
-                >
-                  {wt.word}
-                </span>
-              );
-            })}
-          </p>
+          <div className="flex flex-col items-center justify-center gap-4">
+            {(() => {
+              let wordOffset = 0;
+              return sentences.map((sentence, si) => {
+                const sentenceWords = sentence.split(/\s+/).filter(Boolean);
+                const startIdx = wordOffset;
+                wordOffset += sentenceWords.length;
+                return (
+                  <p key={si} className="text-2xl leading-relaxed font-medium text-center whitespace-nowrap">
+                    {sentenceWords.map((_, wi) => {
+                      const globalIdx = startIdx + wi;
+                      const wt = wordTimings[globalIdx];
+                      if (!wt) return null;
+                      const isActive = isRecording && elapsedMs >= wt.startMs && elapsedMs < wt.endMs;
+                      const isPast = isRecording && elapsedMs >= wt.endMs;
+                      const isUpcoming = isRecording && elapsedMs >= wt.startMs - 500 && elapsedMs < wt.startMs;
+                      return (
+                        <span
+                          key={globalIdx}
+                          ref={(el) => setWordRef(el, globalIdx)}
+                          data-active={isActive}
+                          className={`inline-block mr-[0.3em] transition-all duration-150 ${
+                            isActive
+                              ? "text-white scale-105 transform"
+                              : isPast
+                                ? "text-neutral-400"
+                                : isUpcoming
+                                  ? "text-neutral-300"
+                                  : isRecording
+                                    ? "text-neutral-600 blur-[0.5px]"
+                                    : "text-neutral-300"
+                          }`}
+                        >
+                          {wt.word}
+                        </span>
+                      );
+                    })}
+                  </p>
+                );
+              });
+            })()}
+          </div>
         )}
 
         {/* Timing needle — full-width line under the active text line with spike */}
