@@ -17,6 +17,7 @@ interface Props {
   isGeneratingAudio?: boolean;
   microTimelineRef?: React.Ref<MicroTimelineHandle>;
   onSplitScene?: (splitTimeMs: number) => void;
+  hideHeader?: boolean;
 }
 
 export default function PropertiesPanel({
@@ -31,6 +32,7 @@ export default function PropertiesPanel({
   isGeneratingAudio = false,
   microTimelineRef,
   onSplitScene,
+  hideHeader = false,
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
@@ -97,11 +99,13 @@ export default function PropertiesPanel({
   return (
     <div className="flex flex-col min-h-0 flex-1 overflow-y-auto">
       {/* Header bar */}
-      <div className="flex items-center px-4 py-1 border-b border-neutral-800/40 bg-neutral-900/60 shrink-0">
-        <span className="text-xs text-neutral-500 ml-3">
-          {segmentName} &middot; <span className="font-mono">{scene.id}</span>
-        </span>
-      </div>
+      {!hideHeader && (
+        <div className="flex items-center px-4 py-1 border-b border-neutral-800/40 bg-neutral-900/60 shrink-0">
+          <span className="text-xs text-neutral-500 ml-3">
+            {segmentName} &middot; <span className="font-mono">{scene.id}</span>
+          </span>
+        </div>
+      )}
 
       {/* 3-column layout: Text | Image Preview | Controls */}
       <div className="flex-1 min-h-0 flex gap-4 px-4 py-2">
@@ -343,7 +347,15 @@ export default function PropertiesPanel({
       )}
 
       {confirmOverwrite && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.stopPropagation();
+              setConfirmOverwrite(null);
+            }
+          }}
+        >
           <div className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold text-neutral-100 mb-2">
               Overwrite existing {confirmOverwrite === "fx" ? "FX" : confirmOverwrite}?

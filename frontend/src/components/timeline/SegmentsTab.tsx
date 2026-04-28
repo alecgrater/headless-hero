@@ -58,7 +58,10 @@ export default function SegmentsTab({
   };
 
   const scrollToSegment = (idx: number) => {
-    segmentRefs.current[idx]?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (selectedSceneId) onSelectScene(null);
+    setTimeout(() => {
+      segmentRefs.current[idx]?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
   };
 
   // Intersection observer to track active segment in sidebar
@@ -83,11 +86,7 @@ export default function SegmentsTab({
   }, [content.segments.length]);
 
   const handleCardClick = (sceneId: string) => {
-    if (selectedSceneId === sceneId) {
-      onSelectScene(null);
-    } else {
-      onSelectScene(sceneId);
-    }
+    onSelectScene(sceneId);
   };
 
   // Find selected scene's segment index for inline panel placement
@@ -153,6 +152,7 @@ export default function SegmentsTab({
             <div className="flex items-center gap-3 px-5 py-3 border-b border-neutral-800/60 shrink-0">
               <button
                 onClick={() => onSelectScene(null)}
+                aria-label="Back to scene grid"
                 className="p-1.5 rounded-md hover:bg-neutral-800 transition-colors text-neutral-400 hover:text-neutral-100"
               >
                 <ArrowLeft size={16} />
@@ -163,6 +163,7 @@ export default function SegmentsTab({
               </span>
               <button
                 onClick={() => onSelectScene(null)}
+                aria-label="Close detail view"
                 className="ml-auto p-1.5 rounded-md hover:bg-neutral-800 transition-colors text-neutral-400 hover:text-neutral-100"
               >
                 <X size={16} />
@@ -182,6 +183,7 @@ export default function SegmentsTab({
                 onGenerateAudio={() => onGenerateAudio(selectedScene.id)}
                 isGeneratingAudio={generatingAudioSceneIds.has(selectedScene.id)}
                 microTimelineRef={microTimelineRef}
+                hideHeader
               />
             </div>
           </div>
