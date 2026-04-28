@@ -4,13 +4,6 @@ import type { ScriptContent } from "../../types/script";
 import MiniProgressBar from "../MiniProgressBar";
 
 interface Props {
-  // Stats
-  sceneCount: number;
-  segmentCount: number;
-  durationStr: string;
-  totalWords: number;
-  totalCost: number;
-  mediaCounts: Record<string, number>;
   // Step completion states
   titleCardGenerating: boolean;
   titleCardGenerated: boolean;
@@ -81,12 +74,6 @@ interface Props {
 }
 
 export default function PipelineSteps({
-  sceneCount,
-  segmentCount,
-  durationStr,
-  totalWords,
-  totalCost,
-  mediaCounts,
   titleCardGenerating,
   titleCardGenerated,
   allImagesGenerated,
@@ -568,52 +555,6 @@ export default function PipelineSteps({
             )}
           </div>
         </div>
-      </div>
-
-      {/* Right-aligned stats */}
-      <div className="ml-auto flex items-center gap-1.5 shrink-0">
-        <span className="text-[11px] text-neutral-400 bg-neutral-800/60 px-2.5 py-1 rounded-md tabular-nums">
-          {sceneCount} scene{sceneCount !== 1 ? "s" : ""}
-        </span>
-        <span className="text-[11px] text-neutral-400 bg-neutral-800/60 px-2.5 py-1 rounded-md tabular-nums">
-          {segmentCount} seg{segmentCount !== 1 ? "s" : ""}
-        </span>
-        <span className="text-[11px] text-neutral-400 bg-neutral-800/60 px-2.5 py-1 rounded-md tabular-nums font-mono">
-          {durationStr}
-        </span>
-        {totalWords > 0 && (
-          <span className="text-[11px] text-neutral-400 bg-neutral-800/60 px-2.5 py-1 rounded-md tabular-nums">
-            {totalWords.toLocaleString()} words
-          </span>
-        )}
-        <span className="text-[11px] text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md tabular-nums font-medium">
-          ${totalCost.toFixed(2)}
-        </span>
-        {Object.keys(mediaCounts).length > 0 && (
-          <>
-            <span className="w-px h-4 bg-neutral-700/50" />
-            {mediaCounts.ai && (
-              <span className="text-[11px] text-violet-300 bg-violet-500/10 px-2.5 py-1 rounded-md tabular-nums">
-                {mediaCounts.ai} AI
-              </span>
-            )}
-            {mediaCounts.gameplay_video && (
-              <span className="text-[11px] text-sky-300 bg-sky-500/10 px-2.5 py-1 rounded-md tabular-nums">
-                {mediaCounts.gameplay_video} gameplay
-              </span>
-            )}
-            {mediaCounts.stock_photo && (
-              <span className="text-[11px] text-amber-300 bg-amber-500/10 px-2.5 py-1 rounded-md tabular-nums">
-                {mediaCounts.stock_photo} stock
-              </span>
-            )}
-            {mediaCounts.user_upload && (
-              <span className="text-[11px] text-emerald-300 bg-emerald-500/10 px-2.5 py-1 rounded-md tabular-nums">
-                {mediaCounts.user_upload} upload{mediaCounts.user_upload !== 1 ? "s" : ""}
-              </span>
-            )}
-          </>
-        )}
       </div>
     </div>
   );
