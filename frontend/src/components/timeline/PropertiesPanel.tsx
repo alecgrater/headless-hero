@@ -349,6 +349,8 @@ export default function PropertiesPanel({
       {confirmOverwrite && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          tabIndex={-1}
+          ref={(el) => el?.focus()}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               e.stopPropagation();
