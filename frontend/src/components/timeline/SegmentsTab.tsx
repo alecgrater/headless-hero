@@ -107,7 +107,7 @@ export default function SegmentsTab({
         </p>
         {content.segments.map((seg, idx) => {
           const totalDuration = seg.scenes.reduce(
-            (sum, sc) => sum + (sc.audio_duration_seconds || sc.duration_estimate_seconds),
+            (sum, sc) => sum + (sc.audio_duration_seconds ?? sc.duration_estimate_seconds),
             0,
           );
           const colorClass = SEGMENT_COLORS[idx % SEGMENT_COLORS.length];
@@ -171,7 +171,7 @@ export default function SegmentsTab({
               {!isCollapsed && (
                 <div className="flex flex-wrap gap-3">
                   {seg.scenes.map((scene) => {
-                    const duration = scene.audio_duration_seconds || scene.duration_estimate_seconds;
+                    const duration = scene.audio_duration_seconds ?? scene.duration_estimate_seconds;
                     const isSelected = selectedSceneId === scene.id;
                     const isGeneratingImg = generatingSceneIds.has(scene.id);
                     return (
