@@ -55,6 +55,11 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     wordRefs.current[index] = el;
   }, []);
 
+  // Reset needle to left edge when scene changes
+  useEffect(() => {
+    setNeedleX(isRecording ? 16 : null);
+  }, [scene?.id]);
+
   // Update needle position based on elapsed time
   useEffect(() => {
     if (!isRecording || !containerRef.current || wordTimings.length === 0) {
