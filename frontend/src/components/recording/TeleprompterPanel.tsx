@@ -60,15 +60,37 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     wordRefs.current[index] = el;
   }, []);
 
-  // Reset needle when scene changes
-  useEffect(() => {
-    setNeedle(null);
-  }, [scene?.id]);
+  // Compute resting position (under first line, spike at far left)
+  const computeRestingPosition = useCallback((): NeedlePos | null => {
+    if (!containerRef.current || !wordRefs.current[0]) return null;
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const containerScrollTop = containerRef.current.scrollTop;
+    const firstEl = wordRefs.current[0];
+    const rect = firstEl.getBoundingClientRect();
+    return { x: 0, y: rect.bottom - containerRect.top + containerScrollTop + 4 };
+  }, []);
 
-  // Update needle position based on elapsed time
+  // Set resting position on scene change or initial render
   useEffect(() => {
-    if (!isRecording || !containerRef.current || wordTimings.length === 0) {
+    if (wordTimings.length === 0) {
       setNeedle(null);
+      return;
+    }
+    // Wait a frame for refs to be set
+    requestAnimationFrame(() => {
+      const pos = computeRestingPosition();
+      if (pos) setNeedle(pos);
+    });
+  }, [scene?.id, wordTimings.length, computeRestingPosition]);
+
+  // Update needle position based on elapsed time during recording
+  useEffect(() => {
+    if (!isRecording || !containerRef.current || wordTimings.length === 0) return;
+
+    // While in countdown or at time 0, stay at resting position
+    if (elapsedMs === 0) {
+      const pos = computeRestingPosition();
+      if (pos) setNeedle(pos);
       return;
     }
 
@@ -87,19 +109,21 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
       }
     }
 
-    // Before first word — position at start of first word
+    // Before first word starts — interpolate from left edge to first word
     if (activeIdx === -1 && elapsedMs < wordTimings[0].startMs) {
       const firstEl = wordRefs.current[0];
       if (firstEl) {
         const rect = firstEl.getBoundingClientRect();
-        const x = 16;
         const y = rect.bottom - containerRect.top + containerScrollTop + 4;
+        const targetX = rect.left + rect.width / 2 - containerRect.left;
+        const leadProgress = elapsedMs / wordTimings[0].startMs;
+        const x = leadProgress * targetX;
         setNeedle({ x, y });
       }
       return;
     }
 
-    // After last word
+    // After last word — stay at end
     if (activeIdx === -1) {
       const lastEl = wordRefs.current[wordTimings.length - 1];
       if (lastEl) {
@@ -134,7 +158,7 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     }
 
     setNeedle({ x, y });
-  }, [isRecording, elapsedMs, wordTimings]);
+  }, [isRecording, elapsedMs, wordTimings, computeRestingPosition]);
 
   // Auto-scroll to keep active word visible
   useEffect(() => {
@@ -158,20 +182,17 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
             No image generated
           </div>
         )}
-        {/* Countdown overlay */}
         {countdown !== null && (
           <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
             <span className="text-7xl font-bold text-white animate-pulse">{countdown}</span>
           </div>
         )}
-        {/* Recording indicator */}
         {isRecording && countdown === null && (
           <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-full">
             <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
             <span className="text-xs text-white font-mono tabular-nums">{formatTime(elapsedMs)}</span>
           </div>
         )}
-        {/* Audio level bar */}
         {isRecording && (
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-neutral-900/80">
             <div
@@ -216,18 +237,16 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
           </p>
         )}
 
-        {/* Timing needle — line under the active text line with spike pointing up */}
-        {isRecording && needle && (
+        {/* Timing needle — full-width line under the active text line with spike */}
+        {needle && (
           <div
-            className="absolute left-4 right-4 pointer-events-none transition-[top] duration-100"
+            className="absolute left-0 right-0 pointer-events-none transition-[top] duration-100"
             style={{ top: `${needle.y}px` }}
           >
-            {/* Full-width underline */}
-            <div className="absolute left-0 right-0 top-0 h-[2px] bg-neutral-700/80" />
-            {/* Spike / arrow pointing up */}
+            <div className="absolute left-4 right-4 top-0 h-[2px] bg-neutral-700/80" />
             <div
               className="absolute transition-[left] duration-75"
-              style={{ left: `${needle.x - 16}px`, top: "-16px" }}
+              style={{ left: `${needle.x + 16}px`, top: "-16px" }}
             >
               <svg width="10" height="18" viewBox="0 0 10 18">
                 <path d="M5 0 L9 10 L6 10 L6 18 L4 18 L4 10 L1 10 Z" fill="#a78bfa" />
