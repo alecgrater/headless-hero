@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { assetUrl } from "../../api";
 import type { Scene, ScriptContent } from "../../types/script";
@@ -35,7 +35,9 @@ export default function SegmentsTab({
   const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
   const microTimelineRef = useRef<MicroTimelineHandle>(null);
 
-  segmentRefs.current = segmentRefs.current.slice(0, content.segments.length);
+  useEffect(() => {
+    segmentRefs.current = segmentRefs.current.slice(0, content.segments.length);
+  }, [content.segments.length]);
 
   const toggleCollapse = (idx: number) => {
     setCollapsedSegments((prev) => {
