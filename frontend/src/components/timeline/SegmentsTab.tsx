@@ -34,6 +34,7 @@ export default function SegmentsTab({
   const mainRef = useRef<HTMLDivElement>(null);
   const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
   const microTimelineRef = useRef<MicroTimelineHandle>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     segmentRefs.current = segmentRefs.current.slice(0, content.segments.length);
@@ -97,6 +98,13 @@ export default function SegmentsTab({
   const selectedScene = selectedSceneId
     ? content.segments[selectedSegmentIdx]?.scenes.find((sc) => sc.id === selectedSceneId) ?? null
     : null;
+
+  // Scroll PropertiesPanel into view when a scene is selected
+  useEffect(() => {
+    if (selectedSceneId && panelRef.current) {
+      panelRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [selectedSceneId]);
 
   return (
     <div className="flex flex-1 overflow-hidden">
@@ -240,7 +248,7 @@ export default function SegmentsTab({
 
               {/* Inline PropertiesPanel */}
               {!isCollapsed && selectedSegmentIdx === segIdx && selectedScene && (
-                <div className="mt-4 border-t border-neutral-800/60 pt-4">
+                <div ref={panelRef} className="mt-4 border-t border-neutral-800/60 pt-4">
                   <PropertiesPanel
                     scene={selectedScene}
                     segmentIdx={segIdx}
