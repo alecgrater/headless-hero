@@ -137,6 +137,52 @@ export async function cloneVoice(
   return response.json();
 }
 
+/** Upload a recording take via direct fetch (bypasses IPC for FormData). */
+export async function uploadRecordingTake(
+  scriptId: string,
+  sceneId: string,
+  takeNumber: number,
+  audioBlob: Blob,
+): Promise<{ filename: string; duration_seconds: number }> {
+  const formData = new FormData();
+  formData.append("script_id", scriptId);
+  formData.append("scene_id", sceneId);
+  formData.append("take_number", String(takeNumber));
+  formData.append("audio", audioBlob, "recording.webm");
+
+  const response = await fetch(`http://localhost:${BACKEND_PORT}/api/recording/upload-take`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: "Upload failed" }));
+    throw new Error(err.detail || "Take upload failed");
+  }
+  return response.json();
+}
+
+/** Import an external audio file as a recording take via direct fetch. */
+export async function importRecordingTake(
+  scriptId: string,
+  sceneId: string,
+  file: File,
+): Promise<{ filename: string; take_number: number; duration_seconds: number }> {
+  const formData = new FormData();
+  formData.append("script_id", scriptId);
+  formData.append("scene_id", sceneId);
+  formData.append("audio", file);
+
+  const response = await fetch(`http://localhost:${BACKEND_PORT}/api/recording/import-take`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: "Import failed" }));
+    throw new Error(err.detail || "Take import failed");
+  }
+  return response.json();
+}
+
 /** Prepend the backend origin to a static asset path (e.g. /static/projects/...). */
 export function assetUrl(path: string): string {
   return `http://localhost:${BACKEND_PORT}${path}`;

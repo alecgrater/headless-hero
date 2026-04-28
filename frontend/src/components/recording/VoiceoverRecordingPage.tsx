@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import api, { assetUrl } from "../../api";
+import api, { assetUrl, uploadRecordingTake, importRecordingTake } from "../../api";
 import type { ScriptContent, ScriptRead, Scene } from "../../types/script";
 import SceneNavigator from "./SceneNavigator";
 import TeleprompterPanel from "./TeleprompterPanel";
@@ -134,15 +134,8 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
     const currentTakes = takes.filter((t) => t.sceneId === activeSceneId);
     const nextTakeNumber = currentTakes.length > 0 ? Math.max(...currentTakes.map((t) => t.takeNumber)) + 1 : 1;
 
-    const formData = new FormData();
-    formData.append("script_id", scriptId);
-    formData.append("scene_id", activeSceneId);
-    formData.append("take_number", String(nextTakeNumber));
-    formData.append("audio", blob, "recording.webm");
-
-    const res = await api.request("POST", "/api/recording/upload-take", formData);
-    if (res.ok) {
-      const data = res.data as { filename: string; duration_seconds: number };
+    try {
+      const data = await uploadRecordingTake(scriptId, activeSceneId, nextTakeNumber, blob);
       const newTake: Take = {
         filename: data.filename,
         takeNumber: nextTakeNumber,
@@ -156,6 +149,8 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
         const updated = { ...session, selected_takes: { ...session.selected_takes, [activeSceneId]: nextTakeNumber } };
         saveSession(updated);
       }
+    } catch {
+      // Upload failed — error toast shown by interceptor
     }
   }, [recorder, activeSceneId, takes, scriptId, session, saveSession]);
 
@@ -192,14 +187,8 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
 
   const handleImport = useCallback(async (file: File) => {
     if (!activeSceneId) return;
-    const formData = new FormData();
-    formData.append("script_id", scriptId);
-    formData.append("scene_id", activeSceneId);
-    formData.append("audio", file);
-
-    const res = await api.request("POST", "/api/recording/import-take", formData);
-    if (res.ok) {
-      const data = res.data as { filename: string; take_number: number; duration_seconds: number };
+    try {
+      const data = await importRecordingTake(scriptId, activeSceneId, file);
       const newTake: Take = {
         filename: data.filename,
         takeNumber: data.take_number,
@@ -207,6 +196,8 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
         sceneId: activeSceneId,
       };
       setTakes((prev) => [...prev, newTake]);
+    } catch {
+      // Import failed
     }
   }, [activeSceneId, scriptId]);
 

@@ -2,8 +2,8 @@
 
 import json
 import logging
+import re
 import subprocess
-import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -109,9 +109,11 @@ async def put_session_data(script_id: str, data: SessionData):
 
 @router.delete("/take/{script_id}/{scene_id}/{take_number}")
 async def delete_take(script_id: str, scene_id: str, take_number: int):
-    filepath = _takes_dir(script_id) / f"{scene_id}_take{take_number}.webm"
-    if filepath.exists():
-        filepath.unlink()
+    takes_dir = _takes_dir(script_id)
+    matches = list(takes_dir.glob(f"{scene_id}_take{take_number}.*"))
+    if matches:
+        for f in matches:
+            f.unlink()
         logger.info("Deleted take %s/%s take %d", script_id, scene_id, take_number)
         return {"deleted": True}
     raise HTTPException(404, "Take not found")
@@ -126,8 +128,13 @@ async def import_take(
     takes_dir = _takes_dir(script_id)
     takes_dir.mkdir(parents=True, exist_ok=True)
 
-    existing = list(takes_dir.glob(f"{scene_id}_take*.webm")) + list(takes_dir.glob(f"{scene_id}_take*.mp3")) + list(takes_dir.glob(f"{scene_id}_take*.wav")) + list(takes_dir.glob(f"{scene_id}_take*.m4a"))
-    take_number = len(existing) + 1
+    existing = list(takes_dir.glob(f"{scene_id}_take*.*"))
+    existing_numbers = []
+    for f in existing:
+        m = re.search(r"_take(\d+)", f.stem)
+        if m:
+            existing_numbers.append(int(m.group(1)))
+    take_number = max(existing_numbers, default=0) + 1
 
     ext = Path(audio.filename or "audio.webm").suffix or ".webm"
     filename = f"{scene_id}_take{take_number}{ext}"
@@ -141,7 +148,7 @@ async def import_take(
 
 
 @router.post("/export/{script_id}", response_model=ExportResponse)
-async def export_recording(script_id: str, db: Session = Depends(get_session)):
+def export_recording(script_id: str, db: Session = Depends(get_session)):
     record = db.get(Script, script_id)
     if not record:
         raise HTTPException(404, "Script not found")

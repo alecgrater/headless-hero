@@ -20,6 +20,7 @@ export function useAudioDevices(): UseAudioDevicesResult {
   const [error, setError] = useState<string | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const ctxRef = useRef<AudioContext | null>(null);
   const animFrameRef = useRef<number>(0);
 
   const enumerate = useCallback(async () => {
@@ -51,6 +52,10 @@ export function useAudioDevices(): UseAudioDevicesResult {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
       }
+      if (ctxRef.current) {
+        ctxRef.current.close();
+        ctxRef.current = null;
+      }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: { deviceId: { exact: selectedDeviceId } },
@@ -58,6 +63,7 @@ export function useAudioDevices(): UseAudioDevicesResult {
         if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
         streamRef.current = stream;
         const ctx = new AudioContext();
+        ctxRef.current = ctx;
         const source = ctx.createMediaStreamSource(stream);
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 256;
@@ -86,6 +92,10 @@ export function useAudioDevices(): UseAudioDevicesResult {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
+      }
+      if (ctxRef.current) {
+        ctxRef.current.close();
+        ctxRef.current = null;
       }
     };
   }, [selectedDeviceId]);

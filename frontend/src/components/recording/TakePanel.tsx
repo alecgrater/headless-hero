@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import { assetUrl } from "../../api";
 
 export interface Take {
   filename: string;
