@@ -36,6 +36,9 @@ ALLOWED_KEYS = {
     "TWITCH_CLIENT_ID",
     "TWITCH_CLIENT_SECRET",
     "PEXELS_API_KEY",
+    "AUDIO_FILTER_HIGHPASS",
+    "AUDIO_FILTER_NOISE_REDUCTION",
+    "AUDIO_FILTER_COMPRESSOR",
 }
 
 # Keys that should NOT be masked (non-secret settings)
@@ -49,12 +52,18 @@ _PLAINTEXT_KEYS = {
     "REPLICATE_OUTPUT_FORMAT",
     "IMAGE_RATE_LIMIT_MS",
     "SCRIPT_MODEL",
+    "AUDIO_FILTER_HIGHPASS",
+    "AUDIO_FILTER_NOISE_REDUCTION",
+    "AUDIO_FILTER_COMPRESSOR",
 }
 
 # Default values for settings that have sensible defaults
 _DEFAULTS: dict[str, str] = {
     "IMAGE_RATE_LIMIT_MS": "10000",  # 6 req/min to stay under free-tier limits
     "SCRIPT_MODEL": DEFAULT_CLAUDE_MODEL,
+    "AUDIO_FILTER_HIGHPASS": "true",
+    "AUDIO_FILTER_NOISE_REDUCTION": "true",
+    "AUDIO_FILTER_COMPRESSOR": "true",
 }
 
 

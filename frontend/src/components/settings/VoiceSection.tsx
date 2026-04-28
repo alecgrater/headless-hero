@@ -19,11 +19,27 @@ export default function VoiceSection() {
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
 
+  const [audioFilters, setAudioFilters] = useState({
+    AUDIO_FILTER_HIGHPASS: true,
+    AUDIO_FILTER_NOISE_REDUCTION: true,
+    AUDIO_FILTER_COMPRESSOR: true,
+  });
+
   useEffect(() => {
     api.get("/api/brand").then((res) => {
       if (res.ok) {
         const b = res.data as { voice_id: string };
         setSelectedVoiceId(b.voice_id || "");
+      }
+    });
+    api.get("/api/settings/keys").then((res) => {
+      if (res.ok) {
+        const keys = res.data as Record<string, { masked: string }>;
+        setAudioFilters({
+          AUDIO_FILTER_HIGHPASS: (keys.AUDIO_FILTER_HIGHPASS?.masked || "true") === "true",
+          AUDIO_FILTER_NOISE_REDUCTION: (keys.AUDIO_FILTER_NOISE_REDUCTION?.masked || "true") === "true",
+          AUDIO_FILTER_COMPRESSOR: (keys.AUDIO_FILTER_COMPRESSOR?.masked || "true") === "true",
+        });
       }
     });
   }, []);
@@ -129,6 +145,12 @@ export default function VoiceSection() {
     setPlayingId(voice.voice_id);
   };
 
+  const handleFilterToggle = async (key: keyof typeof audioFilters) => {
+    const newValue = !audioFilters[key];
+    setAudioFilters((prev) => ({ ...prev, [key]: newValue }));
+    await api.put("/api/settings/keys", { [key]: newValue ? "true" : "false" });
+  };
+
   return (
     <div className="p-6 max-w-xl space-y-8">
       <div className="space-y-3">
@@ -206,6 +228,45 @@ export default function VoiceSection() {
             ))}
           </div>
         )}
+      </div>
+
+      <div className="space-y-3">
+        <h3 className="text-lg font-semibold text-neutral-100">Audio Processing</h3>
+        <p className="text-sm text-neutral-400">
+          Filters applied during recording export. Does not affect AI-generated voiceovers.
+        </p>
+        <div className="space-y-2">
+          {([
+            { key: "AUDIO_FILTER_HIGHPASS" as const, label: "Low-cut filter", desc: "Removes rumble below 80 Hz" },
+            { key: "AUDIO_FILTER_NOISE_REDUCTION" as const, label: "Noise reduction", desc: "Reduces steady-state background noise" },
+            { key: "AUDIO_FILTER_COMPRESSOR" as const, label: "Compressor", desc: "Evens out volume levels" },
+          ]).map(({ key, label, desc }) => (
+            <label
+              key={key}
+              className="flex items-center justify-between p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/50 cursor-pointer hover:bg-neutral-800 transition-colors"
+            >
+              <div>
+                <p className="text-sm font-medium text-neutral-200">{label}</p>
+                <p className="text-xs text-neutral-500">{desc}</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={audioFilters[key]}
+                onClick={() => handleFilterToggle(key)}
+                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
+                  audioFilters[key] ? "bg-violet-600" : "bg-neutral-700"
+                }`}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
+                    audioFilters[key] ? "translate-x-[18px]" : "translate-x-[3px]"
+                  }`}
+                />
+              </button>
+            </label>
+          ))}
+        </div>
       </div>
     </div>
   );

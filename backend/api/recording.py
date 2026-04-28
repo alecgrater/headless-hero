@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -20,6 +21,18 @@ from pipeline.voiceover import compute_phrase_timestamps
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/recording", tags=["recording"])
+
+
+def _build_audio_filters() -> str | None:
+    """Build FFmpeg audio filter chain from settings. Returns None if no filters enabled."""
+    filters = []
+    if os.environ.get("AUDIO_FILTER_HIGHPASS", "true").lower() == "true":
+        filters.append("highpass=f=80")
+    if os.environ.get("AUDIO_FILTER_NOISE_REDUCTION", "true").lower() == "true":
+        filters.append("afftdn=nf=-20:tn=1")
+    if os.environ.get("AUDIO_FILTER_COMPRESSOR", "true").lower() == "true":
+        filters.append("acompressor=threshold=-20dB:ratio=3:attack=5:release=150")
+    return ",".join(filters) if filters else None
 
 
 def _takes_dir(script_id: str) -> Path:
@@ -180,6 +193,9 @@ def export_recording(script_id: str, db: Session = Depends(get_session)):
         ffmpeg_cmd = ["ffmpeg", "-y", "-i", str(take_file)]
         if trim_end is not None and trim_end > 0:
             ffmpeg_cmd += ["-t", str(trim_end)]
+        audio_filters = _build_audio_filters()
+        if audio_filters:
+            ffmpeg_cmd += ["-af", audio_filters]
         ffmpeg_cmd += ["-c:a", "libmp3lame", "-b:a", "192k", str(output_mp3)]
 
         try:
