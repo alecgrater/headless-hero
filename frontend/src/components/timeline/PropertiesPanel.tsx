@@ -97,31 +97,16 @@ export default function PropertiesPanel({
   return (
     <div className="flex flex-col min-h-0 flex-1 overflow-y-auto">
       {/* Header bar */}
-      <div className="flex items-center justify-between px-4 py-1 border-b border-neutral-800/40 bg-neutral-900/60 shrink-0">
+      <div className="flex items-center px-4 py-1 border-b border-neutral-800/40 bg-neutral-900/60 shrink-0">
         <span className="text-xs text-neutral-500 ml-3">
           {segmentName} &middot; <span className="font-mono">{scene.id}</span>
         </span>
-        <div className="flex items-center gap-1">
-          {MEDIA_SOURCE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => onUpdate({ media_source: opt.value as Scene["media_source"] })}
-              className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${
-                (scene.media_source || "ai") === opt.value
-                  ? "bg-violet-500/20 text-violet-300 font-medium"
-                  : "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
       </div>
 
-      {/* 3-column layout: Text | Controls | Image */}
+      {/* 3-column layout: Text | Image Preview | Controls */}
       <div className="flex-1 min-h-0 flex gap-4 px-4 py-2">
 
-        {/* Col 1: Text editing — textareas flex-grow to fill */}
+        {/* Col 1: Narration + Visual Prompt stacked */}
         <div className="flex-[2] flex flex-col gap-1.5 min-w-0">
           <div className="flex flex-col flex-1 min-h-0">
             <span className="text-xs font-medium text-neutral-400 mb-0.5 shrink-0">Narration</span>
@@ -133,7 +118,7 @@ export default function PropertiesPanel({
             />
           </div>
 
-          <div className="flex flex-col flex-1 min-h-0">
+          <div className="flex flex-col flex-[0.6] min-h-0">
             <span className="text-xs font-medium text-neutral-400 mb-0.5 shrink-0">Visual Prompt</span>
             <textarea
               value={visualPrompt}
@@ -144,9 +129,9 @@ export default function PropertiesPanel({
           </div>
 
           {/* Settings row pinned at bottom */}
-          <div className="shrink-0 space-y-1">
-            <div className="flex items-end gap-3 pt-1 border-t border-neutral-800/40">
-              <label className="flex items-center gap-1 cursor-pointer pb-0.5">
+          <div className="shrink-0">
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={isTitleCard}
@@ -175,9 +160,9 @@ export default function PropertiesPanel({
           </div>
         </div>
 
-        {/* Col 2: Controls — audio, preview, FX, frame prompts */}
-        <div className="flex-[1.5] flex flex-col gap-1.5 min-w-0 min-h-0">
-          {/* Audio */}
+        {/* Col 2: Generate Audio + Image Preview */}
+        <div className="flex-[2] flex flex-col gap-1.5 min-w-0 min-h-0">
+          {/* Audio button / player */}
           {scene.audio_url ? (
             <div className="shrink-0 space-y-1">
               <div className="flex items-center justify-between">
@@ -207,6 +192,101 @@ export default function PropertiesPanel({
               ) : "Generate Audio"}
             </button>
           ) : null}
+
+          {/* Image preview */}
+          {(scene.media_source === "user_upload") ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-2 min-h-0">
+              {(scene.upload_url || scene.image_url) ? (
+                <>
+                  <img
+                    src={assetUrl(scene.upload_url || scene.image_url || "")}
+                    alt="Uploaded"
+                    className="flex-1 min-h-0 w-full object-cover rounded-lg border border-neutral-700"
+                  />
+                  <label className="text-[10px] text-neutral-500 hover:text-neutral-300 cursor-pointer transition-colors shrink-0">
+                    Replace
+                    <input type="file" className="hidden" accept="image/*,video/*" onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleUpload(f);
+                    }} />
+                  </label>
+                </>
+              ) : (
+                <label className={`w-full flex-1 flex flex-col items-center justify-center gap-1 border-2 border-dashed border-neutral-700 rounded-lg cursor-pointer hover:border-violet-500/50 transition-colors ${uploading ? "opacity-50" : ""}`}>
+                  {uploading ? (
+                    <span className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <svg className="w-6 h-6 text-neutral-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                      </svg>
+                      <span className="text-xs text-neutral-500">Drop or click to upload</span>
+                    </>
+                  )}
+                  <input type="file" className="hidden" accept="image/*,video/*" onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleUpload(f);
+                  }} />
+                </label>
+              )}
+            </div>
+          ) : scene.image_url ? (
+            <div className="flex-1 min-h-0 flex flex-col gap-1">
+              {scene.frame_urls && scene.frame_urls.length > 1 ? (
+                <div className="flex-1 min-h-0 grid grid-cols-2 gap-1 auto-rows-fr">
+                  {scene.frame_urls.map((url, i) => (
+                    <img
+                      key={i}
+                      src={assetUrl(url)}
+                      alt={`Frame ${i + 1}`}
+                      className="w-full h-full object-cover rounded border border-neutral-700 min-h-0"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <img
+                  src={assetUrl(scene.image_url)}
+                  alt="Scene visual"
+                  className="flex-1 min-h-0 w-full object-cover rounded-lg border border-neutral-700"
+                />
+              )}
+            </div>
+          ) : (
+            <div className="flex-1 min-h-0 rounded-lg border border-neutral-800 bg-neutral-900/40" />
+          )}
+        </div>
+
+        {/* Col 3: Media source selector + Generate Image + FX */}
+        <div className="flex-[1.2] flex flex-col gap-2 min-w-0 min-h-0">
+          {/* Media source selector */}
+          <div className="shrink-0 flex flex-wrap gap-1">
+            {MEDIA_SOURCE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => onUpdate({ media_source: opt.value as Scene["media_source"] })}
+                className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${
+                  (scene.media_source || "ai") === opt.value
+                    ? "bg-violet-500/20 text-violet-300 font-medium"
+                    : "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Generate Image button */}
+          {onGenerateImage && (
+            <button
+              onClick={() => scene.image_url ? setConfirmOverwrite("image") : onGenerateImage()}
+              disabled={isGenerating}
+              className="shrink-0 w-full text-sm px-3 py-1.5 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isGenerating ? (
+                <><span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" /> Generating...</>
+              ) : scene.image_url ? "Regenerate Image" : "Generate Image"}
+            </button>
+          )}
 
           {/* FX */}
           {scene.fx && (
@@ -246,95 +326,6 @@ export default function PropertiesPanel({
               </div>
             </div>
           )}
-        </div>
-
-        {/* Col 3: Image preview — fills full panel height */}
-        <div className="flex-[1.5] flex flex-col gap-1 min-w-0 min-h-0">
-          {/* User upload drop zone */}
-          {(scene.media_source === "user_upload") ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-2">
-              {(scene.upload_url || scene.image_url) ? (
-                <>
-                  <img
-                    src={assetUrl(scene.upload_url || scene.image_url || "")}
-                    alt="Uploaded"
-                    className="max-h-32 w-auto rounded-lg border border-neutral-700 object-cover"
-                  />
-                  <label className="text-[10px] text-neutral-500 hover:text-neutral-300 cursor-pointer transition-colors">
-                    Replace
-                    <input type="file" className="hidden" accept="image/*,video/*" onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) handleUpload(f);
-                    }} />
-                  </label>
-                </>
-              ) : (
-                <label className={`w-full flex-1 flex flex-col items-center justify-center gap-1 border-2 border-dashed border-neutral-700 rounded-lg cursor-pointer hover:border-violet-500/50 transition-colors ${uploading ? "opacity-50" : ""}`}>
-                  {uploading ? (
-                    <span className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <svg className="w-6 h-6 text-neutral-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                      </svg>
-                      <span className="text-xs text-neutral-500">Drop or click to upload</span>
-                    </>
-                  )}
-                  <input type="file" className="hidden" accept="image/*,video/*" onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleUpload(f);
-                  }} />
-                </label>
-              )}
-            </div>
-          ) : scene.image_url ? (
-            <>
-              <div className="flex items-center justify-between shrink-0">
-                <span className="text-xs font-medium text-neutral-400">Image</span>
-                {onGenerateImage && (
-                  <button
-                    onClick={() => setConfirmOverwrite("image")}
-                    disabled={isGenerating}
-                    className="text-[10px] text-emerald-400 hover:text-emerald-300 transition-colors disabled:opacity-40 flex items-center gap-1"
-                  >
-                    {isGenerating ? (
-                      <><span className="w-2.5 h-2.5 border border-emerald-400/50 border-t-transparent rounded-full animate-spin" /> Gen...</>
-                    ) : "Regen"}
-                  </button>
-                )}
-              </div>
-              {scene.frame_urls && scene.frame_urls.length > 1 ? (
-                <div className="flex-1 min-h-0 grid grid-cols-2 gap-1 auto-rows-fr">
-                  {scene.frame_urls.map((url, i) => (
-                    <img
-                      key={i}
-                      src={assetUrl(url)}
-                      alt={`Frame ${i + 1}`}
-                      className="w-full h-full object-cover rounded border border-neutral-700 min-h-0"
-                    />
-                  ))}
-                </div>
-              ) : (
-                <img
-                  src={assetUrl(scene.image_url)}
-                  alt="Scene visual"
-                  className="flex-1 min-h-0 w-full object-cover rounded-lg border border-neutral-700"
-                />
-              )}
-            </>
-          ) : onGenerateImage ? (
-            <div className="flex-1 flex items-center justify-center">
-              <button
-                onClick={onGenerateImage}
-                disabled={isGenerating}
-                className="text-sm px-4 py-2 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {isGenerating ? (
-                  <><span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" /> Generating...</>
-                ) : "Generate Image"}
-              </button>
-            </div>
-          ) : null}
         </div>
       </div>
 
