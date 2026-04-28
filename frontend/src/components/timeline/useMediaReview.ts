@@ -49,8 +49,6 @@ export function useMediaReview({ scriptId, content }: UseMediaReviewOptions) {
   }, []);
 
   useEffect(() => {
-    if (!content.gameplay_enabled && !content.stock_photo_enabled) return;
-
     const allScenes = content.segments.flatMap((s) => s.scenes);
     const hasNonAi = allScenes.some((s) => s.media_source && s.media_source !== "ai");
 
@@ -67,11 +65,7 @@ export function useMediaReview({ scriptId, content }: UseMediaReviewOptions) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const mediaFeaturesActive = !!(
-    content.gameplay_enabled ||
-    content.stock_photo_enabled ||
-    mediaAssignments
-  );
+  const mediaFeaturesActive = true;
 
   const hasPendingReview = !!(mediaAssignments && !mediaReviewDismissed && !mediaAnalyzing);
 

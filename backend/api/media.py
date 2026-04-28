@@ -88,11 +88,8 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
 
-    gameplay_enabled = content.gameplay_enabled
-    stock_photo_enabled = content.stock_photo_enabled
-
-    if not gameplay_enabled and not stock_photo_enabled:
-        raise HTTPException(status_code=400, detail="No media sources enabled")
+    gameplay_enabled = True
+    stock_photo_enabled = True
 
     job = create_job()
     job_id = job.id
