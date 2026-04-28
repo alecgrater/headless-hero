@@ -29,7 +29,7 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const [needle, setNeedle] = useState<NeedlePos | null>(null);
   const [lineYs, setLineYs] = useState<number[]>([]);
-  const [fontSize, setFontSize] = useState(24);
+  const [fontSize, setFontSize] = useState(18);
 
   const words = useMemo(() => {
     if (!scene?.narration) return [];
@@ -60,7 +60,7 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
 
   // Reset font size when scene changes
   useEffect(() => {
-    setFontSize(24);
+    setFontSize(18);
   }, [scene?.id]);
 
   // Shrink font size until text fits, then detect visual lines
@@ -213,15 +213,6 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     setNeedle({ x, y });
   }, [isRecording, elapsedMs, wordTimings]);
 
-  // Auto-scroll to keep active word visible
-  useEffect(() => {
-    if (!isRecording || !containerRef.current) return;
-    const activeWord = containerRef.current.querySelector("[data-active='true']");
-    if (activeWord) {
-      activeWord.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, [isRecording, elapsedMs]);
-
   const imageUrl = scene?.image_url ? assetUrl(scene.image_url) : null;
 
   return (
@@ -261,7 +252,7 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
         {words.length === 0 ? (
           <div className="text-center text-neutral-600 text-sm py-12">Select a scene to begin</div>
         ) : (
-          <p ref={textRef} className="leading-[2.5] font-medium text-center" style={{ fontSize: `${fontSize}px` }}>
+          <p ref={textRef} className="leading-[2.2] font-medium text-center" style={{ fontSize: `${fontSize}px` }}>
             {wordTimings.map((wt, i) => {
               const isActive = isRecording && elapsedMs >= wt.startMs && elapsedMs < wt.endMs;
               const isPast = isRecording && elapsedMs >= wt.endMs;
