@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api, { assetUrl, uploadRecordingTake, importRecordingTake } from "../../api";
+import { showToast } from "../ToastContainer";
 import type { ScriptContent, ScriptRead, Scene } from "../../types/script";
 import SceneNavigator from "./SceneNavigator";
 import TeleprompterPanel from "./TeleprompterPanel";
@@ -149,8 +150,8 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
         const updated = { ...session, selected_takes: { ...session.selected_takes, [activeSceneId]: nextTakeNumber } };
         saveSession(updated);
       }
-    } catch {
-      // Upload failed — error toast shown by interceptor
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Take upload failed");
     }
   }, [recorder, activeSceneId, takes, scriptId, session, saveSession]);
 
@@ -196,8 +197,8 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
         sceneId: activeSceneId,
       };
       setTakes((prev) => [...prev, newTake]);
-    } catch {
-      // Import failed
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Import failed");
     }
   }, [activeSceneId, scriptId]);
 

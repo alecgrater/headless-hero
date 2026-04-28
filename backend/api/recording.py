@@ -168,14 +168,11 @@ def export_recording(script_id: str, db: Session = Depends(get_session)):
 
     for scene_id, take_number in session_data.selected_takes.items():
         takes_dir = _takes_dir(script_id)
-        take_file = takes_dir / f"{scene_id}_take{take_number}.webm"
-        if not take_file.exists():
-            patterns = list(takes_dir.glob(f"{scene_id}_take{take_number}.*"))
-            if patterns:
-                take_file = patterns[0]
-            else:
-                logger.warning("Take file not found for %s take %d, skipping", scene_id, take_number)
-                continue
+        patterns = list(takes_dir.glob(f"{scene_id}_take{take_number}.*"))
+        if not patterns:
+            logger.warning("Take file not found for %s take %d, skipping", scene_id, take_number)
+            continue
+        take_file = patterns[0]
 
         trim_end = session_data.trim_points.get(scene_id)
         output_mp3 = audio_dir / f"{scene_id}.mp3"
