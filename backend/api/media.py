@@ -88,9 +88,6 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
 
-    gameplay_enabled = True
-    stock_photo_enabled = True
-
     job = create_job()
     job_id = job.id
 
@@ -107,8 +104,6 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
 
         assignments = analyze_media_sources(
             fresh_content,
-            gameplay_enabled=gameplay_enabled,
-            stock_photo_enabled=stock_photo_enabled,
             script_id=script_id,
         )
 

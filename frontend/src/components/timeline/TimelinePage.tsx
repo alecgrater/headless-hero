@@ -898,14 +898,8 @@ function TimelineEditor({
             <h2 className="text-base font-semibold truncate" title={title}>{title}</h2>
           </div>
 
-          {/* Row 2 — Pipeline Steps + Stats */}
+          {/* Row 2 — Pipeline Steps */}
           <PipelineSteps
-            sceneCount={sceneCount}
-            segmentCount={segmentCount}
-            durationStr={durationStr}
-            totalWords={totalWords}
-            totalCost={totalCost}
-            mediaCounts={mediaCounts}
             titleCardGenerating={titleCardGenerating}
             titleCardGenerated={titleCardGenerated || allTitleCardsGenerated}
             allImagesGenerated={allImagesGenerated}
@@ -965,7 +959,7 @@ function TimelineEditor({
             titleCardProgressActive={titleCardProgress.active}
           />
 
-          {/* YOLO Mode Button */}
+          {/* YOLO / Stats Row */}
           {(() => {
             const remaining: string[] = [];
             if (!allTitleCardsGenerated && state.hasTitleCards) remaining.push("Title Cards");
@@ -992,34 +986,73 @@ function TimelineEditor({
               );
             }
 
+            if (allDone) {
+              return (
+                <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-neutral-400 bg-neutral-800/60 px-2.5 py-1 rounded-md tabular-nums">
+                      {sceneCount} scene{sceneCount !== 1 ? "s" : ""}
+                    </span>
+                    <span className="text-[11px] text-neutral-400 bg-neutral-800/60 px-2.5 py-1 rounded-md tabular-nums">
+                      {segmentCount} seg{segmentCount !== 1 ? "s" : ""}
+                    </span>
+                    <span className="text-[11px] text-neutral-400 bg-neutral-800/60 px-2.5 py-1 rounded-md tabular-nums font-mono">
+                      {durationStr}
+                    </span>
+                    {totalWords > 0 && (
+                      <span className="text-[11px] text-neutral-400 bg-neutral-800/60 px-2.5 py-1 rounded-md tabular-nums">
+                        {totalWords.toLocaleString()} words
+                      </span>
+                    )}
+                    <span className="text-[11px] text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md tabular-nums font-medium">
+                      ${totalCost.toFixed(2)}
+                    </span>
+                    {Object.keys(mediaCounts).length > 0 && (
+                      <>
+                        <span className="w-px h-4 bg-neutral-700/50" />
+                        {mediaCounts.ai && (
+                          <span className="text-[11px] text-violet-300 bg-violet-500/10 px-2.5 py-1 rounded-md tabular-nums">
+                            {mediaCounts.ai} AI
+                          </span>
+                        )}
+                        {mediaCounts.gameplay_video && (
+                          <span className="text-[11px] text-sky-300 bg-sky-500/10 px-2.5 py-1 rounded-md tabular-nums">
+                            {mediaCounts.gameplay_video} gameplay
+                          </span>
+                        )}
+                        {mediaCounts.stock_photo && (
+                          <span className="text-[11px] text-amber-300 bg-amber-500/10 px-2.5 py-1 rounded-md tabular-nums">
+                            {mediaCounts.stock_photo} stock
+                          </span>
+                        )}
+                        {mediaCounts.user_upload && (
+                          <span className="text-[11px] text-emerald-300 bg-emerald-500/10 px-2.5 py-1 rounded-md tabular-nums">
+                            {mediaCounts.user_upload} upload{mediaCounts.user_upload !== 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={handleYolo}
-                    disabled={allDone}
-                    className={`group relative px-5 py-1.5 text-xs font-bold rounded-lg transition-all overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
-                      allDone
-                        ? "bg-neutral-800 text-neutral-600 cursor-not-allowed"
-                        : "bg-gradient-to-r from-violet-500/80 via-fuchsia-400/70 to-amber-400/70 text-white/95 shadow-[0_0_15px_rgba(168,85,247,0.2)] hover:shadow-[0_0_22px_rgba(168,85,247,0.35)] hover:scale-[1.02]"
-                    }`}
+                    className="group relative px-5 py-1.5 text-xs font-bold rounded-lg transition-all overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 bg-gradient-to-r from-violet-500/80 via-fuchsia-400/70 to-amber-400/70 text-white/95 shadow-[0_0_15px_rgba(168,85,247,0.2)] hover:shadow-[0_0_22px_rgba(168,85,247,0.35)] hover:scale-[1.02]"
                   >
-                    {!allDone && (
-                      <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_ease-in-out_infinite]" />
-                    )}
+                    <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_ease-in-out_infinite]" />
                     <span className="relative flex items-center gap-1.5">
                       <Zap size={12} />
                       YOLO MODE
                     </span>
                   </button>
-                  {!allDone && (
-                    <span className="text-[11px] text-neutral-500">
-                      {remaining.length} step{remaining.length !== 1 ? "s" : ""} remaining: {remaining.join(" → ")}
-                    </span>
-                  )}
-                  {allDone && (
-                    <span className="text-[11px] text-emerald-500">All pipeline steps complete</span>
-                  )}
+                  <span className="text-[11px] text-neutral-500">
+                    {remaining.length} step{remaining.length !== 1 ? "s" : ""} remaining: {remaining.join(" → ")}
+                  </span>
                   {yoloError && (
                     <span className="text-[11px] text-red-400">{yoloError}</span>
                   )}
@@ -1162,39 +1195,37 @@ function TimelineEditor({
         </div>
       )}
 
-      {/* Tab Bar — only when media features are active */}
-      {media.mediaFeaturesActive && (
-        <div className="px-5 py-2 border-b border-neutral-800/60 shrink-0">
-          <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
-            <button
-              onClick={() => setActiveTab("timeline")}
-              className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
-                activeTab === "timeline"
-                  ? "bg-neutral-700/80 text-white shadow-sm"
-                  : "text-neutral-400 hover:text-neutral-200"
-              }`}
-            >
-              Timeline
-            </button>
-            <button
-              onClick={() => setActiveTab("media-sources")}
-              className={`relative px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
-                activeTab === "media-sources"
-                  ? "bg-neutral-700/80 text-white shadow-sm"
-                  : "text-neutral-400 hover:text-neutral-200"
-              }`}
-            >
-              Media Sources
-              {media.hasPendingReview && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-violet-500 rounded-full" />
-              )}
-            </button>
-          </div>
+      {/* Tab Bar */}
+      <div className="px-5 py-2 border-b border-neutral-800/60 shrink-0">
+        <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
+          <button
+            onClick={() => setActiveTab("timeline")}
+            className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+              activeTab === "timeline"
+                ? "bg-neutral-700/80 text-white shadow-sm"
+                : "text-neutral-400 hover:text-neutral-200"
+            }`}
+          >
+            Timeline
+          </button>
+          <button
+            onClick={() => setActiveTab("media-sources")}
+            className={`relative px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+              activeTab === "media-sources"
+                ? "bg-neutral-700/80 text-white shadow-sm"
+                : "text-neutral-400 hover:text-neutral-200"
+            }`}
+          >
+            Media Sources
+            {media.hasPendingReview && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-violet-500 rounded-full" />
+            )}
+          </button>
         </div>
-      )}
+      </div>
 
       {/* Tab content */}
-      {activeTab === "media-sources" && media.mediaFeaturesActive ? (
+      {activeTab === "media-sources" ? (
         <MediaSourcesTab
           scriptId={scriptId}
           content={state.content}

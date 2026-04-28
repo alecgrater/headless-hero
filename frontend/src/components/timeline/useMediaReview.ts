@@ -65,8 +65,6 @@ export function useMediaReview({ scriptId, content }: UseMediaReviewOptions) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const mediaFeaturesActive = true;
-
   const hasPendingReview = !!(mediaAssignments && !mediaReviewDismissed && !mediaAnalyzing);
 
   return {
@@ -75,7 +73,6 @@ export function useMediaReview({ scriptId, content }: UseMediaReviewOptions) {
     setMediaReviewDismissed,
     mediaAnalyzing,
     handleAnalyzeMedia,
-    mediaFeaturesActive,
     hasPendingReview,
   };
 }
