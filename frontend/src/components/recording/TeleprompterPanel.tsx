@@ -238,7 +238,7 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
                 const startIdx = wordOffset;
                 wordOffset += sentenceWords.length;
                 return (
-                  <p key={si} className="text-2xl leading-relaxed font-medium text-center whitespace-nowrap">
+                  <p key={si} className="text-2xl leading-relaxed font-medium text-center">
                     {sentenceWords.map((_, wi) => {
                       const globalIdx = startIdx + wi;
                       const wt = wordTimings[globalIdx];
