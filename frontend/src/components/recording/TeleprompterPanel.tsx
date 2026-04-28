@@ -55,13 +55,13 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     wordRefs.current[index] = el;
   }, []);
 
-  // Reset needle to far-left resting position whenever scene changes
+  // Reset needle to far-left resting position when not recording/counting down
   useEffect(() => {
     if (wordTimings.length === 0) {
       setNeedle(null);
       return;
     }
-    // Set x=0 immediately; refine Y after a frame once refs are painted
+    if (isRecording || countdown !== null) return;
     setNeedle({ x: 0, y: 50 });
     const rafId = requestAnimationFrame(() => {
       if (!containerRef.current || !wordRefs.current[0]) return;
@@ -72,7 +72,7 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
       setNeedle({ x: 0, y });
     });
     return () => cancelAnimationFrame(rafId);
-  }, [scene?.id, wordTimings.length]);
+  }, [scene?.id, wordTimings.length, isRecording, countdown]);
 
   // Animate needle from left toward first word during 3-2-1 countdown
   const countdownStartRef = useRef<number | null>(null);
