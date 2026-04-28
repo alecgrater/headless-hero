@@ -59,6 +59,7 @@ export default function PropertiesPanel({
   const [regeneratingFX, setRegeneratingFX] = useState(false);
   const [confirmOverwrite, setConfirmOverwrite] = useState<"image" | "audio" | "fx" | null>(null);
   const [uploading, setUploading] = useState(false);
+  const modalFocusRef = useCallback((el: HTMLDivElement | null) => el?.focus(), []);
 
   const handleRegenerateFX = async () => {
     setRegeneratingFX(true);
@@ -350,7 +351,7 @@ export default function PropertiesPanel({
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
           tabIndex={-1}
-          ref={useCallback((el: HTMLDivElement | null) => el?.focus(), [])}
+          ref={modalFocusRef}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               e.stopPropagation();
