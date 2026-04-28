@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { assetUrl } from "../../api";
 import type { Scene } from "../../types/script";
 
@@ -20,6 +20,8 @@ function formatTime(ms: number): string {
 
 export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audioLevel, countdown, timingOffsetMs }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const [needleX, setNeedleX] = useState<number | null>(null);
 
   const words = useMemo(() => {
     if (!scene?.narration) return [];
@@ -44,6 +46,82 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     }));
   }, [words, scene?.word_timestamps, timingOffsetMs]);
 
+  // Reset word refs when words change
+  useEffect(() => {
+    wordRefs.current = new Array(wordTimings.length).fill(null);
+  }, [wordTimings.length]);
+
+  const setWordRef = useCallback((el: HTMLSpanElement | null, index: number) => {
+    wordRefs.current[index] = el;
+  }, []);
+
+  // Update needle position based on elapsed time
+  useEffect(() => {
+    if (!isRecording || !containerRef.current || wordTimings.length === 0) {
+      setNeedleX(null);
+      return;
+    }
+
+    const containerRect = containerRef.current.getBoundingClientRect();
+
+    // Find active word index and interpolate position
+    let activeIdx = -1;
+    let progress = 0;
+    for (let i = 0; i < wordTimings.length; i++) {
+      const wt = wordTimings[i];
+      if (elapsedMs >= wt.startMs && elapsedMs < wt.endMs) {
+        activeIdx = i;
+        progress = (elapsedMs - wt.startMs) / (wt.endMs - wt.startMs);
+        break;
+      }
+    }
+
+    // Before first word
+    if (activeIdx === -1 && elapsedMs < wordTimings[0].startMs) {
+      const firstEl = wordRefs.current[0];
+      if (firstEl) {
+        const rect = firstEl.getBoundingClientRect();
+        setNeedleX(rect.left + rect.width / 2 - containerRect.left);
+      }
+      return;
+    }
+
+    // After last word
+    if (activeIdx === -1) {
+      const lastEl = wordRefs.current[wordTimings.length - 1];
+      if (lastEl) {
+        const rect = lastEl.getBoundingClientRect();
+        setNeedleX(rect.left + rect.width - containerRect.left);
+      }
+      return;
+    }
+
+    const currentEl = wordRefs.current[activeIdx];
+    if (!currentEl) return;
+
+    const currentRect = currentEl.getBoundingClientRect();
+    const nextEl = wordRefs.current[activeIdx + 1];
+
+    let x: number;
+    if (nextEl) {
+      const nextRect = nextEl.getBoundingClientRect();
+      // If same line, interpolate smoothly between current center and next center
+      if (Math.abs(nextRect.top - currentRect.top) < 10) {
+        const startX = currentRect.left + currentRect.width / 2;
+        const endX = nextRect.left + nextRect.width / 2;
+        x = startX + (endX - startX) * progress;
+      } else {
+        // Wrapping to next line — stay at current word center
+        x = currentRect.left + currentRect.width * progress;
+      }
+    } else {
+      x = currentRect.left + currentRect.width * progress;
+    }
+
+    setNeedleX(x - containerRect.left);
+  }, [isRecording, elapsedMs, wordTimings]);
+
+  // Auto-scroll to keep active word visible
   useEffect(() => {
     if (!isRecording || !containerRef.current) return;
     const activeWord = containerRef.current.querySelector("[data-active='true']");
@@ -89,12 +167,12 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
         )}
       </div>
 
-      {/* Teleprompter text */}
-      <div ref={containerRef} className="flex-1 overflow-y-auto px-8 py-6">
+      {/* Teleprompter text with needle */}
+      <div ref={containerRef} className="relative flex-1 overflow-y-auto px-8 py-6">
         {words.length === 0 ? (
           <div className="text-center text-neutral-600 text-sm py-12">Select a scene to begin</div>
         ) : (
-          <p className="text-2xl leading-relaxed font-medium text-center">
+          <p className="text-2xl leading-relaxed font-medium text-center pb-10">
             {wordTimings.map((wt, i) => {
               const isActive = isRecording && elapsedMs >= wt.startMs && elapsedMs < wt.endMs;
               const isPast = isRecording && elapsedMs >= wt.endMs;
@@ -102,8 +180,9 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
               return (
                 <span
                   key={i}
+                  ref={(el) => setWordRef(el, i)}
                   data-active={isActive}
-                  className={`inline-block mr-[0.3em] transition-all duration-200 ${
+                  className={`inline-block mr-[0.3em] transition-all duration-150 ${
                     isActive
                       ? "text-white scale-105 transform"
                       : isPast
@@ -120,6 +199,24 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
               );
             })}
           </p>
+        )}
+
+        {/* Timing needle — horizontal line with spike */}
+        {isRecording && needleX !== null && (
+          <div className="sticky bottom-0 left-0 right-0 h-8 pointer-events-none">
+            {/* Horizontal line */}
+            <div className="absolute bottom-3 left-4 right-4 h-[1px] bg-neutral-700" />
+            {/* Spike / needle */}
+            <div
+              className="absolute bottom-1 transition-[left] duration-75"
+              style={{ left: `${needleX}px` }}
+            >
+              {/* Triangle spike pointing up */}
+              <svg width="12" height="20" viewBox="0 0 12 20" className="relative -left-[6px]">
+                <path d="M6 0 L12 14 L8 14 L8 20 L4 20 L4 14 L0 14 Z" fill="#a78bfa" />
+              </svg>
+            </div>
+          </div>
         )}
       </div>
     </div>
