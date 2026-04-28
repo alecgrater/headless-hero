@@ -378,13 +378,11 @@ def generate_scene_frames_v2(
                 prompt_marker.write_text(query, encoding="utf-8")
                 results.append((web_path, query))
                 prev_frame_path = local_path
-            else:
-                # Fallback to AI generation using query as prompt
-                logger.info("No stock photo for frame %d query %r, falling back to AI gen", i, query)
-                directive_prompt = query
-                # Don't continue — fall through to AI-generated path below
-            if tmp:
                 continue
+
+            # Fallback to AI generation using query as prompt
+            logger.info("No stock photo for frame %d query %r, falling back to AI gen", i, query)
+            directive_prompt = query
         else:
             directive_prompt = directive.prompt
 
