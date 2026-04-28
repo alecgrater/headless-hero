@@ -35,6 +35,8 @@ export default function SegmentsTab({
   const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
   const microTimelineRef = useRef<MicroTimelineHandle>(null);
 
+  segmentRefs.current = segmentRefs.current.slice(0, content.segments.length);
+
   const toggleCollapse = (idx: number) => {
     setCollapsedSegments((prev) => {
       const next = new Set(prev);
@@ -133,6 +135,11 @@ export default function SegmentsTab({
 
       {/* Main card grid area */}
       <div ref={mainRef} className="flex-1 overflow-y-auto p-5 space-y-8">
+        {content.segments.length === 0 && (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-sm text-neutral-600">No segments in this script</p>
+          </div>
+        )}
         {content.segments.map((seg, segIdx) => {
           const colorClass = SEGMENT_COLORS[segIdx % SEGMENT_COLORS.length];
           const isCollapsed = collapsedSegments.has(segIdx);
