@@ -89,7 +89,7 @@ export default function TimelinePage({ scriptId, onBack, onSaveStateChange, onNa
     );
   }
 
-  return <TimelineEditor scriptId={scriptId} initialContent={script.script} title={script.topic_title} onBack={onBack} onSaveStateChange={onSaveStateChange} onNavigateToSettings={onNavigateToSettings} />;
+  return <TimelineEditor scriptId={scriptId} initialContent={script.script} title={script.topic_title} onBack={onBack} onSaveStateChange={onSaveStateChange} onNavigateToSettings={onNavigateToSettings} onRecordVoiceover={onRecordVoiceover} />;
 }
 
 interface BatchProgressProps {
@@ -171,6 +171,7 @@ function TimelineEditor({
   onBack,
   onSaveStateChange,
   onNavigateToSettings,
+  onRecordVoiceover,
 }: {
   scriptId: string;
   initialContent: ScriptContent;
@@ -178,6 +179,7 @@ function TimelineEditor({
   onBack: () => void;
   onSaveStateChange?: (state: SaveState) => void;
   onNavigateToSettings?: () => void;
+  onRecordVoiceover?: () => void;
 }) {
   const state = useTimelineState(scriptId, initialContent);
   const render = useRenderState(scriptId, title, initialContent.seo_metadata);
