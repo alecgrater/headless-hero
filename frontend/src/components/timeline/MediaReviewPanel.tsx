@@ -151,7 +151,7 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
       {previewSceneId && scenes && scenes[previewSceneId] && (
         <ScenePreviewModal
           scene={scenes[previewSceneId]}
-          sceneIndex={assignments.findIndex((a) => a.scene_id === previewSceneId)}
+          sceneIndex={Math.max(0, assignments.findIndex((a) => a.scene_id === previewSceneId))}
           scriptId={scriptId}
           onClose={() => setPreviewSceneId(null)}
         />

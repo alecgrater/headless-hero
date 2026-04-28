@@ -151,7 +151,6 @@ function PlaybackTab({ scene, scriptId }: { scene: Scene; scriptId: string }) {
   const hasVideo = !!scene.video_url;
   const hasAudio = !!scene.audio_url;
 
-  const [renderJobId, setRenderJobId] = useState<string | null>(null);
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderStep, setRenderStep] = useState("");
   const [renderedUrl, setRenderedUrl] = useState<string | null>(null);
@@ -195,7 +194,6 @@ function PlaybackTab({ scene, scriptId }: { scene: Scene; scriptId: string }) {
     setRenderProgress(0);
     try {
       const { job_id } = await renderScenePreview(scriptId, scene.id);
-      setRenderJobId(job_id);
       startPolling(job_id);
     } catch (err) {
       setRenderError(err instanceof Error ? err.message : "Failed to start render");
@@ -288,6 +286,7 @@ function CrossfadePlayer({ scene }: { scene: Scene }) {
       }
       return 0;
     }
+    if (duration <= 0) return 0;
     const interval = duration / frames.length;
     return Math.min(Math.floor(currentTime / interval), frames.length - 1);
   }, [frames.length, timings, duration]);
@@ -303,7 +302,7 @@ function CrossfadePlayer({ scene }: { scene: Scene }) {
     const audio = audioRef.current;
     if (!audio) return;
     if (audio.paused) {
-      audio.play();
+      audio.play().catch(() => setPlaying(false));
       setPlaying(true);
       rafRef.current = requestAnimationFrame(tick);
     } else {
@@ -324,13 +323,16 @@ function CrossfadePlayer({ scene }: { scene: Scene }) {
     if (!audio) return;
     audio.currentTime = 0;
     setActiveFrame(0);
-    audio.play();
+    audio.play().catch(() => setPlaying(false));
     setPlaying(true);
     rafRef.current = requestAnimationFrame(tick);
   };
 
   useEffect(() => {
-    return () => cancelAnimationFrame(rafRef.current);
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      audioRef.current?.pause();
+    };
   }, []);
 
   if (frames.length === 0) {
