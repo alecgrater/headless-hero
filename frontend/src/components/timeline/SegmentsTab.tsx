@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, X } from "lucide-react";
 import { assetUrl } from "../../api";
 import type { Scene, ScriptContent } from "../../types/script";
 import { SEGMENT_COLORS } from "./constants";
@@ -34,7 +34,6 @@ export default function SegmentsTab({
   const mainRef = useRef<HTMLDivElement>(null);
   const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
   const microTimelineRef = useRef<MicroTimelineHandle>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     segmentRefs.current = segmentRefs.current.slice(0, content.segments.length);
@@ -99,12 +98,15 @@ export default function SegmentsTab({
     ? content.segments[selectedSegmentIdx]?.scenes.find((sc) => sc.id === selectedSceneId) ?? null
     : null;
 
-  // Scroll PropertiesPanel into view when a scene is selected
+  // Close detail on Escape
   useEffect(() => {
-    if (selectedSceneId && panelRef.current) {
-      panelRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
-  }, [selectedSceneId]);
+    if (!selectedSceneId) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onSelectScene(null);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedSceneId, onSelectScene]);
 
   return (
     <div className="flex flex-1 overflow-hidden">
@@ -143,129 +145,148 @@ export default function SegmentsTab({
         })}
       </div>
 
-      {/* Main card grid area */}
-      <div ref={mainRef} className="flex-1 overflow-y-auto p-5 space-y-8">
-        {content.segments.length === 0 && (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-sm text-neutral-600">No segments in this script</p>
-          </div>
-        )}
-        {content.segments.map((seg, segIdx) => {
-          const colorClass = SEGMENT_COLORS[segIdx % SEGMENT_COLORS.length];
-          const isCollapsed = collapsedSegments.has(segIdx);
-          return (
-            <div
-              key={segIdx}
-              ref={(el) => { segmentRefs.current[segIdx] = el; }}
-            >
-              {/* Segment header */}
+      {/* Main area: expanded detail or card grid */}
+      <div ref={mainRef} className="flex-1 overflow-y-auto">
+        {selectedScene && selectedSegmentIdx !== -1 ? (
+          <div className="flex flex-col h-full animate-[expandIn_200ms_ease-out]">
+            {/* Detail header */}
+            <div className="flex items-center gap-3 px-5 py-3 border-b border-neutral-800/60 shrink-0">
               <button
-                onClick={() => toggleCollapse(segIdx)}
-                className="flex items-center gap-2 mb-3 group w-full text-left"
+                onClick={() => onSelectScene(null)}
+                className="p-1.5 rounded-md hover:bg-neutral-800 transition-colors text-neutral-400 hover:text-neutral-100"
               >
-                <span className={`w-3 h-3 rounded-full ${colorClass}`} />
-                <h3 className="text-sm font-bold text-neutral-100">
-                  {segIdx + 1}. {seg.name}
-                </h3>
-                <span className="text-xs text-neutral-500">
-                  {seg.scenes.length} scenes
-                </span>
-                <span className="ml-auto text-neutral-500 group-hover:text-neutral-300 transition-colors">
-                  {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
-                </span>
+                <ArrowLeft size={16} />
               </button>
+              <span className="text-sm font-mono text-neutral-300">{selectedScene.id}</span>
+              <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-neutral-800 text-neutral-300">
+                {content.segments[selectedSegmentIdx].name}
+              </span>
+              <button
+                onClick={() => onSelectScene(null)}
+                className="ml-auto p-1.5 rounded-md hover:bg-neutral-800 transition-colors text-neutral-400 hover:text-neutral-100"
+              >
+                <X size={16} />
+              </button>
+            </div>
 
-              {/* Card grid */}
-              {!isCollapsed && (
-                <div className="flex flex-wrap gap-3">
-                  {seg.scenes.map((scene) => {
-                    const duration = scene.audio_duration_seconds ?? scene.duration_estimate_seconds;
-                    const isSelected = selectedSceneId === scene.id;
-                    const isGeneratingImg = generatingSceneIds.has(scene.id);
-                    return (
-                      <div
-                        key={scene.id}
-                        onClick={() => handleCardClick(scene.id)}
-                        className={`min-w-[280px] max-w-[400px] flex-1 rounded-lg border p-3 cursor-pointer transition-all ${
-                          isSelected
-                            ? "ring-2 ring-violet-500 shadow-lg shadow-violet-500/10 border-violet-500/50 bg-neutral-900"
-                            : "border-neutral-800 bg-neutral-900 hover:border-neutral-600"
-                        }`}
-                      >
-                        {/* Top bar */}
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-mono text-neutral-500">{scene.id}</span>
-                            {scene.is_title_card && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-medium">
-                                title
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-xs text-neutral-400">{Math.round(duration)}s</span>
-                        </div>
+            {/* PropertiesPanel fills remaining space */}
+            <div className="flex-1 overflow-y-auto p-5">
+              <PropertiesPanel
+                scene={selectedScene}
+                segmentIdx={selectedSegmentIdx}
+                segmentName={content.segments[selectedSegmentIdx].name}
+                scriptId={scriptId}
+                onUpdate={(updates) => onUpdateScene(selectedScene.id, updates)}
+                onGenerateImage={() => onGenerateImage(selectedScene.id)}
+                isGenerating={generatingSceneIds.has(selectedScene.id)}
+                onGenerateAudio={() => onGenerateAudio(selectedScene.id)}
+                isGeneratingAudio={generatingAudioSceneIds.has(selectedScene.id)}
+                microTimelineRef={microTimelineRef}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="p-5 space-y-8">
+            {content.segments.length === 0 && (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-sm text-neutral-600">No segments in this script</p>
+              </div>
+            )}
+            {content.segments.map((seg, segIdx) => {
+              const colorClass = SEGMENT_COLORS[segIdx % SEGMENT_COLORS.length];
+              const isCollapsed = collapsedSegments.has(segIdx);
+              return (
+                <div
+                  key={segIdx}
+                  ref={(el) => { segmentRefs.current[segIdx] = el; }}
+                >
+                  {/* Segment header */}
+                  <button
+                    onClick={() => toggleCollapse(segIdx)}
+                    className="flex items-center gap-2 mb-3 group w-full text-left"
+                  >
+                    <span className={`w-3 h-3 rounded-full ${colorClass}`} />
+                    <h3 className="text-sm font-bold text-neutral-100">
+                      {segIdx + 1}. {seg.name}
+                    </h3>
+                    <span className="text-xs text-neutral-500">
+                      {seg.scenes.length} scenes
+                    </span>
+                    <span className="ml-auto text-neutral-500 group-hover:text-neutral-300 transition-colors">
+                      {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                    </span>
+                  </button>
 
-                        {/* Thumbnail */}
-                        {(scene.image_url || isGeneratingImg) && (
-                          <div className="relative mb-2 rounded overflow-hidden aspect-video bg-neutral-800">
-                            {scene.image_url && (
-                              <img
-                                src={assetUrl(scene.image_url)}
-                                alt=""
-                                className="w-full h-full object-cover"
-                              />
-                            )}
-                            {isGeneratingImg && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-neutral-900/60">
-                                <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                  {/* Card grid */}
+                  {!isCollapsed && (
+                    <div className="flex flex-wrap gap-3">
+                      {seg.scenes.map((scene) => {
+                        const duration = scene.audio_duration_seconds ?? scene.duration_estimate_seconds;
+                        const isGeneratingImg = generatingSceneIds.has(scene.id);
+                        return (
+                          <div
+                            key={scene.id}
+                            onClick={() => handleCardClick(scene.id)}
+                            className="min-w-[280px] max-w-[400px] flex-1 rounded-lg border p-3 cursor-pointer transition-all border-neutral-800 bg-neutral-900 hover:border-neutral-600"
+                          >
+                            {/* Top bar */}
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-mono text-neutral-500">{scene.id}</span>
+                                {scene.is_title_card && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-medium">
+                                    title
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-xs text-neutral-400">{Math.round(duration)}s</span>
+                            </div>
+
+                            {/* Thumbnail */}
+                            {(scene.image_url || isGeneratingImg) && (
+                              <div className="relative mb-2 rounded overflow-hidden aspect-video bg-neutral-800">
+                                {scene.image_url && (
+                                  <img
+                                    src={assetUrl(scene.image_url)}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                  />
+                                )}
+                                {isGeneratingImg && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-neutral-900/60">
+                                    <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                                  </div>
+                                )}
                               </div>
                             )}
+
+                            {/* Narration preview */}
+                            <p className="text-xs text-neutral-300 line-clamp-2 mb-2">
+                              {scene.narration}
+                            </p>
+
+                            {/* Status dots */}
+                            <div className="flex items-center gap-1.5">
+                              {scene.audio_url && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Audio" />
+                              )}
+                              {scene.fx && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-violet-500" title="FX" />
+                              )}
+                              {scene.eli_overlay && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" title="Eli" />
+                              )}
+                            </div>
                           </div>
-                        )}
-
-                        {/* Narration preview */}
-                        <p className="text-xs text-neutral-300 line-clamp-2 mb-2">
-                          {scene.narration}
-                        </p>
-
-                        {/* Status dots */}
-                        <div className="flex items-center gap-1.5">
-                          {scene.audio_url && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" title="Audio" />
-                          )}
-                          {scene.fx && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-violet-500" title="FX" />
-                          )}
-                          {scene.eli_overlay && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-500" title="Eli" />
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-
-              {/* Inline PropertiesPanel */}
-              {!isCollapsed && selectedSegmentIdx === segIdx && selectedScene && (
-                <div ref={panelRef} className="mt-4 border-t border-neutral-800/60 pt-4">
-                  <PropertiesPanel
-                    scene={selectedScene}
-                    segmentIdx={segIdx}
-                    segmentName={seg.name}
-                    scriptId={scriptId}
-                    onUpdate={(updates) => onUpdateScene(selectedScene.id, updates)}
-                    onGenerateImage={() => onGenerateImage(selectedScene.id)}
-                    isGenerating={generatingSceneIds.has(selectedScene.id)}
-                    onGenerateAudio={() => onGenerateAudio(selectedScene.id)}
-                    isGeneratingAudio={generatingAudioSceneIds.has(selectedScene.id)}
-                    microTimelineRef={microTimelineRef}
-                  />
-                </div>
-              )}
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
