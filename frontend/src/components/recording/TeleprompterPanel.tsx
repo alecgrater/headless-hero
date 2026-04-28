@@ -62,6 +62,11 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
       return;
     }
 
+    if (elapsedMs === 0) {
+      setNeedleX(16);
+      return;
+    }
+
     const containerRect = containerRef.current.getBoundingClientRect();
 
     // Find active word index and interpolate position
@@ -76,13 +81,9 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
       }
     }
 
-    // Before first word
+    // Before first word — start at left edge of container
     if (activeIdx === -1 && elapsedMs < wordTimings[0].startMs) {
-      const firstEl = wordRefs.current[0];
-      if (firstEl) {
-        const rect = firstEl.getBoundingClientRect();
-        setNeedleX(rect.left + rect.width / 2 - containerRect.left);
-      }
+      setNeedleX(16);
       return;
     }
 
