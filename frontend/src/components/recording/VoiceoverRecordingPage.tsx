@@ -47,10 +47,9 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
     api.get(`/api/scripts/${scriptId}`).then((res) => {
       if (res.ok) {
         const data = res.data as ScriptRead;
-        const parsed: ScriptContent = JSON.parse(data.script_json);
-        setContent(parsed);
+        setContent(data.script);
         // Select first narrated scene
-        for (const seg of parsed.segments) {
+        for (const seg of data.script.segments) {
           for (const sc of seg.scenes) {
             if (sc.narration) {
               setActiveSceneId(sc.id);
