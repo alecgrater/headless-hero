@@ -253,6 +253,12 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
           <div className="text-xs text-neutral-400 tabular-nums">
             {recordedScenes.size}/{content.segments.reduce((acc, s) => acc + s.scenes.filter((sc) => sc.narration).length, 0)} recorded
           </div>
+          <button
+            onClick={onClose}
+            className="text-sm px-4 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700 rounded-lg font-medium transition-colors"
+          >
+            Back to Project
+          </button>
           {/* Mic selector */}
           <select
             value={audioDevices.selectedDeviceId}
@@ -316,12 +322,6 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
             className="text-xs px-3 py-1.5 bg-violet-500/10 border border-violet-500/25 text-violet-300 hover:bg-violet-500/20 rounded-lg font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Export
-          </button>
-          <button
-            onClick={onClose}
-            className="text-xs px-3 py-1.5 text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800 rounded-lg transition-colors"
-          >
-            Close
           </button>
         </div>
       </div>
