@@ -108,10 +108,10 @@ export default function PropertiesPanel({
         </div>
       )}
 
-      {/* 3-column layout: Text | Image Preview | Controls */}
+      {/* 3-column layout: Narration | Visual Prompt | Controls */}
       <div className="flex-1 min-h-0 flex gap-4 px-4 py-2">
 
-        {/* Col 1: Narration + Visual Prompt stacked */}
+        {/* Col 1: Narration */}
         <div className="flex-[2] flex flex-col gap-1.5 min-w-0">
           <div className="flex flex-col flex-1 min-h-0">
             <span className="text-xs font-medium text-neutral-400 mb-0.5 shrink-0">Narration</span>
@@ -119,16 +119,6 @@ export default function PropertiesPanel({
               value={narration}
               onChange={(e) => setNarration(e.target.value)}
               onBlur={() => commitField("narration", narration)}
-              className="flex-1 min-h-0 w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2 border border-neutral-700/50 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
-            />
-          </div>
-
-          <div className="flex flex-col flex-[0.6] min-h-0">
-            <span className="text-xs font-medium text-neutral-400 mb-0.5 shrink-0">Visual Prompt</span>
-            <textarea
-              value={visualPrompt}
-              onChange={(e) => setVisualPrompt(e.target.value)}
-              onBlur={() => commitField("visual_prompt", visualPrompt)}
               className="flex-1 min-h-0 w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2 border border-neutral-700/50 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
             />
           </div>
@@ -165,40 +155,8 @@ export default function PropertiesPanel({
           </div>
         </div>
 
-        {/* Col 2: Generate Audio + Image Preview */}
+        {/* Col 2: Visual Prompt + Upload zone */}
         <div className="flex-[2] flex flex-col gap-1.5 min-w-0 min-h-0">
-          {/* Audio button / player */}
-          {scene.audio_url ? (
-            <div className="shrink-0 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-neutral-400">Audio</span>
-                {onGenerateAudio && (
-                  <button
-                    onClick={() => setConfirmOverwrite("audio")}
-                    disabled={isGeneratingAudio}
-                    className="text-[10px] text-sky-400 hover:text-sky-300 transition-colors disabled:opacity-40 flex items-center gap-1"
-                  >
-                    {isGeneratingAudio ? (
-                      <><span className="w-2.5 h-2.5 border border-sky-400/50 border-t-transparent rounded-full animate-spin" /> Gen...</>
-                    ) : "Regen"}
-                  </button>
-                )}
-              </div>
-              <AudioPlayer src={assetUrl(scene.audio_url)} duration={scene.audio_duration_seconds} />
-            </div>
-          ) : onGenerateAudio ? (
-            <button
-              onClick={onGenerateAudio}
-              disabled={isGeneratingAudio}
-              className="shrink-0 w-full text-sm px-3 py-1.5 text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isGeneratingAudio ? (
-                <><span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" /> Generating...</>
-              ) : "Generate Audio"}
-            </button>
-          ) : null}
-
-          {/* Image preview */}
           {(scene.media_source === "user_upload") ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-2 min-h-0">
               {(scene.upload_url || scene.image_url) ? (
@@ -235,33 +193,20 @@ export default function PropertiesPanel({
                 </label>
               )}
             </div>
-          ) : scene.image_url ? (
-            <div className="flex-1 min-h-0 flex flex-col gap-1">
-              {scene.frame_urls && scene.frame_urls.length > 1 ? (
-                <div className="flex-1 min-h-0 grid grid-cols-2 gap-1 auto-rows-fr">
-                  {scene.frame_urls.map((url, i) => (
-                    <img
-                      key={i}
-                      src={assetUrl(url)}
-                      alt={`Frame ${i + 1}`}
-                      className="w-full h-full object-cover rounded border border-neutral-700 min-h-0"
-                    />
-                  ))}
-                </div>
-              ) : (
-                <img
-                  src={assetUrl(scene.image_url)}
-                  alt="Scene visual"
-                  className="flex-1 min-h-0 w-full object-cover rounded-lg border border-neutral-700"
-                />
-              )}
-            </div>
           ) : (
-            <div className="flex-1 min-h-0 rounded-lg border border-neutral-800 bg-neutral-900/40" />
+            <div className="flex flex-col flex-1 min-h-0">
+              <span className="text-xs font-medium text-neutral-400 mb-0.5 shrink-0">Visual Prompt</span>
+              <textarea
+                value={visualPrompt}
+                onChange={(e) => setVisualPrompt(e.target.value)}
+                onBlur={() => commitField("visual_prompt", visualPrompt)}
+                className="flex-1 min-h-0 w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2 border border-neutral-700/50 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
+              />
+            </div>
           )}
         </div>
 
-        {/* Col 3: Media source selector + Generate Image + FX */}
+        {/* Col 3: Media source selector + Generate Image + Generate Audio + FX */}
         <div className="flex-[1.2] flex flex-col gap-2 min-w-0 min-h-0">
           {/* Media source selector */}
           <div className="shrink-0 flex flex-wrap gap-1">
@@ -292,6 +237,37 @@ export default function PropertiesPanel({
               ) : scene.image_url ? "Regenerate Image" : "Generate Image"}
             </button>
           )}
+
+          {/* Generate Audio button / player */}
+          {scene.audio_url ? (
+            <div className="shrink-0 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-neutral-400">Audio</span>
+                {onGenerateAudio && (
+                  <button
+                    onClick={() => setConfirmOverwrite("audio")}
+                    disabled={isGeneratingAudio}
+                    className="text-[10px] text-sky-400 hover:text-sky-300 transition-colors disabled:opacity-40 flex items-center gap-1"
+                  >
+                    {isGeneratingAudio ? (
+                      <><span className="w-2.5 h-2.5 border border-sky-400/50 border-t-transparent rounded-full animate-spin" /> Gen...</>
+                    ) : "Regen"}
+                  </button>
+                )}
+              </div>
+              <AudioPlayer src={assetUrl(scene.audio_url)} duration={scene.audio_duration_seconds} />
+            </div>
+          ) : onGenerateAudio ? (
+            <button
+              onClick={onGenerateAudio}
+              disabled={isGeneratingAudio}
+              className="shrink-0 w-full text-sm px-3 py-1.5 text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isGeneratingAudio ? (
+                <><span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" /> Generating...</>
+              ) : "Generate Audio"}
+            </button>
+          ) : null}
 
           {/* FX */}
           {scene.fx && (
