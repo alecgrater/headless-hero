@@ -45,6 +45,7 @@ interface Props {
   voicePickerRef: RefObject<HTMLDivElement | null>;
   content: ScriptContent;
   setContent: (content: ScriptContent) => void;
+  onRecordVoiceover?: () => void;
   // Export
   exportTestJobId: string | null;
   setExportTestJobId: (id: string | null) => void;
@@ -109,6 +110,7 @@ export default function PipelineSteps({
   voicePickerRef,
   content,
   setContent,
+  onRecordVoiceover,
   exportTestJobId,
   setExportTestJobId,
   showExportDropdown,
@@ -288,6 +290,20 @@ export default function PipelineSteps({
                       )}
                     </button>
                   ))
+                )}
+                {onRecordVoiceover && (
+                  <>
+                    <div className="border-t border-neutral-700 my-1" />
+                    <button
+                      onClick={() => { setShowVoicePicker(false); onRecordVoiceover(); }}
+                      className="w-full text-left px-3 py-1.5 text-sm text-amber-300 hover:bg-neutral-700 transition-colors flex items-center gap-2"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+                      </svg>
+                      Record Your Own
+                    </button>
+                  </>
                 )}
               </div>
             )}

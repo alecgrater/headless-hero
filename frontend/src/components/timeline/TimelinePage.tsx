@@ -30,9 +30,10 @@ interface Props {
   onBack: () => void;
   onSaveStateChange?: (state: SaveState) => void;
   onNavigateToSettings?: () => void;
+  onRecordVoiceover?: () => void;
 }
 
-export default function TimelinePage({ scriptId, onBack, onSaveStateChange, onNavigateToSettings }: Props) {
+export default function TimelinePage({ scriptId, onBack, onSaveStateChange, onNavigateToSettings, onRecordVoiceover }: Props) {
   const [script, setScript] = useState<ScriptRead | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -935,6 +936,7 @@ function TimelineEditor({
             voicePickerRef={voicePicker.voicePickerRef}
             content={state.content}
             setContent={state.setContent}
+            onRecordVoiceover={onRecordVoiceover}
             exportTestJobId={exportTestJobId}
             setExportTestJobId={setExportTestJobId}
             showExportDropdown={showExportDropdown}
@@ -971,43 +973,43 @@ function TimelineEditor({
 
             const statsBlock = (
               <div className="ml-auto flex items-center gap-1.5 shrink-0">
-                <span className="text-[11px] text-neutral-400 bg-neutral-800/60 px-2.5 py-1 rounded-md tabular-nums">
+                <span className="text-xs text-neutral-400 bg-neutral-800/60 px-4 py-1 rounded-md tabular-nums">
                   {sceneCount} scene{sceneCount !== 1 ? "s" : ""}
                 </span>
-                <span className="text-[11px] text-neutral-400 bg-neutral-800/60 px-2.5 py-1 rounded-md tabular-nums">
+                <span className="text-xs text-neutral-400 bg-neutral-800/60 px-4 py-1 rounded-md tabular-nums">
                   {segmentCount} seg{segmentCount !== 1 ? "s" : ""}
                 </span>
-                <span className="text-[11px] text-neutral-400 bg-neutral-800/60 px-2.5 py-1 rounded-md tabular-nums font-mono">
+                <span className="text-xs text-neutral-400 bg-neutral-800/60 px-4 py-1 rounded-md tabular-nums font-mono">
                   {durationStr}
                 </span>
                 {totalWords > 0 && (
-                  <span className="text-[11px] text-neutral-400 bg-neutral-800/60 px-2.5 py-1 rounded-md tabular-nums">
+                  <span className="text-xs text-neutral-400 bg-neutral-800/60 px-4 py-1 rounded-md tabular-nums">
                     {totalWords.toLocaleString()} words
                   </span>
                 )}
-                <span className="text-[11px] text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md tabular-nums font-medium">
+                <span className="text-xs text-emerald-400 bg-emerald-500/10 px-4 py-1 rounded-md tabular-nums font-medium">
                   ${totalCost.toFixed(2)}
                 </span>
                 {Object.keys(mediaCounts).length > 0 && (
                   <>
                     <span className="w-px h-4 bg-neutral-700/50" />
                     {mediaCounts.ai && (
-                      <span className="text-[11px] text-violet-300 bg-violet-500/10 px-2.5 py-1 rounded-md tabular-nums">
+                      <span className="text-xs text-violet-300 bg-violet-500/10 px-4 py-1 rounded-md tabular-nums">
                         {mediaCounts.ai} AI
                       </span>
                     )}
                     {mediaCounts.gameplay_video && (
-                      <span className="text-[11px] text-sky-300 bg-sky-500/10 px-2.5 py-1 rounded-md tabular-nums">
+                      <span className="text-xs text-sky-300 bg-sky-500/10 px-4 py-1 rounded-md tabular-nums">
                         {mediaCounts.gameplay_video} gameplay
                       </span>
                     )}
                     {mediaCounts.stock_photo && (
-                      <span className="text-[11px] text-amber-300 bg-amber-500/10 px-2.5 py-1 rounded-md tabular-nums">
+                      <span className="text-xs text-amber-300 bg-amber-500/10 px-4 py-1 rounded-md tabular-nums">
                         {mediaCounts.stock_photo} stock
                       </span>
                     )}
                     {mediaCounts.user_upload && (
-                      <span className="text-[11px] text-emerald-300 bg-emerald-500/10 px-2.5 py-1 rounded-md tabular-nums">
+                      <span className="text-xs text-emerald-300 bg-emerald-500/10 px-4 py-1 rounded-md tabular-nums">
                         {mediaCounts.user_upload} upload{mediaCounts.user_upload !== 1 ? "s" : ""}
                       </span>
                     )}

@@ -7,6 +7,7 @@ import IdeationPage from "./components/ideation/IdeationPage";
 import ScriptGenerationPage from "./components/script/ScriptGenerationPage";
 import SettingsPage, { SECTIONS, SectionIcon, type SectionId } from "./components/settings/SettingsPage";
 import TimelinePage from "./components/timeline/TimelinePage";
+import VoiceoverRecordingPage from "./components/recording/VoiceoverRecordingPage";
 import { ShortcutHelpOverlay } from "./components/timeline/useKeyboardShortcuts";
 import DiscoverPage from "./components/trending/DiscoverPage";
 import IdeaPage from "./components/ideas/IdeaPage";
@@ -15,7 +16,7 @@ import useLongPress from "./hooks/useLongPress";
 import type { VideoIdea } from "./types/idea";
 import type { ScriptSummary } from "./types/script";
 
-type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "ideas" | "catalog";
+type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "ideas" | "catalog" | "voiceover-recording";
 
 function formatRelativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -372,7 +373,7 @@ function App() {
       </header>
 
       {/* Main content area */}
-      <main className={`flex-1 w-full ${view === "timeline" || view === "project-dashboard" || view === "settings" || view === "discover" || view === "ideas" || view === "catalog" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
+      <main className={`flex-1 w-full ${view === "timeline" || view === "project-dashboard" || view === "settings" || view === "discover" || view === "ideas" || view === "catalog" || view === "voiceover-recording" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
         {view === "settings" && (
           <SettingsPage
             onBack={() => handleSetView("project-dashboard")}
@@ -421,6 +422,14 @@ function App() {
             onBack={() => handleSetView("project-dashboard")}
             onSaveStateChange={handleSaveStateChange}
             onNavigateToSettings={() => handleSetView("settings")}
+            onRecordVoiceover={() => handleSetView("voiceover-recording")}
+          />
+        )}
+
+        {view === "voiceover-recording" && timelineScriptId && (
+          <VoiceoverRecordingPage
+            scriptId={timelineScriptId}
+            onClose={() => handleSetView("timeline")}
           />
         )}
 

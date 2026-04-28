@@ -19,6 +19,7 @@ from api.ideas import router as ideas_router
 from api.media import router as media_router
 from api.idea_board import router as idea_board_router
 from api.publish import router as publish_router
+from api.recording import router as recording_router
 from api.render import router as render_router
 from api.scripts import router as scripts_router
 from api.generation import router as generation_router
@@ -116,6 +117,7 @@ app.include_router(visuals_router)
 app.include_router(voiceover_router)
 app.include_router(render_router)
 app.include_router(publish_router)
+app.include_router(recording_router)
 app.include_router(thumbnail_router)
 app.include_router(generation_router)
 app.include_router(seo_router)

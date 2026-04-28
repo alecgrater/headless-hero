@@ -40,7 +40,7 @@ function extractErrorMessage(status: number, data: unknown): string {
 }
 
 /** Paths that should not trigger toast notifications on error. */
-const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/eli/generate-status/", "/api/media/analyze/status/", "/api/idea-board/"];
+const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/eli/generate-status/", "/api/media/analyze/status/", "/api/idea-board/", "/api/recording/session/"];
 
 function shouldSilence(path: string): boolean {
   return SILENT_PATHS.some((p) => path.startsWith(p));
@@ -72,13 +72,14 @@ function withErrorInterceptor(
 // For dev without Electron, fall back to direct fetch
 const rawApi: ApiClient = window.api ?? {
   request: async (method: string, path: string, body?: unknown) => {
+    const isFormData = body instanceof FormData;
     const options: RequestInit = {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers: isFormData ? {} : { "Content-Type": "application/json" },
       signal: AbortSignal.timeout(20 * 60 * 1000), // 20 minutes — segmented script gen can take 7+min
     };
     if (body && method !== "GET") {
-      options.body = JSON.stringify(body);
+      options.body = isFormData ? body : JSON.stringify(body);
     }
     const response = await fetch(`http://localhost:${BACKEND_PORT}${path}`, options);
     const text = await response.text();
