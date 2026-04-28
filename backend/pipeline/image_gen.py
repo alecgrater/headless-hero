@@ -367,16 +367,24 @@ def generate_scene_frames_v2(
                     prev_frame_path = local_path
                     continue
 
-            tmp = search_and_download(query)
+            try:
+                tmp = search_and_download(query)
+            except Exception:
+                logger.error("Pexels search failed for frame %d query %r", i, query, exc_info=True)
+                tmp = None
+
             if tmp:
                 shutil.move(tmp, str(local_path))
                 prompt_marker.write_text(query, encoding="utf-8")
                 results.append((web_path, query))
                 prev_frame_path = local_path
             else:
-                logger.warning("No stock photo for frame %d query %r, skipping", i, query)
-                results.append(("", query))
-            continue
+                # Fallback to AI generation using query as prompt
+                logger.info("No stock photo for frame %d query %r, falling back to AI gen", i, query)
+                directive_prompt = query
+                # Don't continue — fall through to AI-generated path below
+            if tmp:
+                continue
         else:
             directive_prompt = directive.prompt
 
@@ -469,7 +477,7 @@ def generate_batch(
     Dispatches based on scene 'media_source': ai (default), stock_photo, gameplay_video.
     Returns list of {scene_id, image_url, prompt_used, frame_urls?, video_url?, error?}.
     """
-    results: list[dict[str, str]] | None = []
+    results: list[dict[str, str | None]] = []
     logger.info("Starting batch image generation for %s scenes (script %s)", len(scenes), script_id)
     for scene in scenes:
         try:
