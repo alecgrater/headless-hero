@@ -4,6 +4,13 @@ import type { ScriptContent } from "../../types/script";
 import MiniProgressBar from "../MiniProgressBar";
 
 interface Props {
+  // Stats
+  sceneCount: number;
+  segmentCount: number;
+  durationStr: string;
+  totalWords: number;
+  totalCost: number;
+  mediaCounts: Record<string, number>;
   // Step completion states
   titleCardGenerating: boolean;
   titleCardGenerated: boolean;
@@ -74,6 +81,12 @@ interface Props {
 }
 
 export default function PipelineSteps({
+  sceneCount,
+  segmentCount,
+  durationStr,
+  totalWords,
+  totalCost,
+  mediaCounts,
   titleCardGenerating,
   titleCardGenerated,
   allImagesGenerated,
@@ -157,8 +170,9 @@ export default function PipelineSteps({
   }, [showImagesDropdown, showFXDropdown, showEliDropdown]);
 
   return (
-    <div className="flex flex-col gap-1.5 px-5 py-2 bg-gradient-to-b from-neutral-900/60 to-neutral-900/40">
-      <div className="grid items-center gap-1.5" style={{ gridTemplateColumns: "1fr auto 1fr auto 1fr auto 1fr auto 1fr auto 1fr" }}>
+    <div className="flex items-center gap-4 px-5 py-2.5">
+      {/* Pipeline steps */}
+      <div className="grid items-center gap-2" style={{ gridTemplateColumns: "1fr auto 1fr auto 1fr auto 1fr auto 1fr auto 1fr" }}>
 
         {/* Step 1 — Title Cards */}
         <div className="flex flex-col">
@@ -173,7 +187,7 @@ export default function PipelineSteps({
             {hasTitleCards && (
               <button
                 onClick={titleCardGenerating ? cancelTitleCards : () => handleGenerateTitleCards(titleCardGenerated)}
-                className={`text-sm px-2 py-2.5 border rounded-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
+                className={`text-xs px-3 py-2 border rounded-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
                   titleCardGenerating
                     ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                     : titleCardGenerated
@@ -199,7 +213,7 @@ export default function PipelineSteps({
         </div>
 
         {/* Chevron connector */}
-        <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <svg className="w-3 h-3 text-neutral-600/60 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
 
         {/* Step 2 — Generate Audio (split-button with voice picker) */}
         <div className="flex items-center gap-1.5">
@@ -214,7 +228,7 @@ export default function PipelineSteps({
             <button
               onClick={batchGeneratingAudio ? cancelAudioGeneration : confirmAndGenerateAudio}
               disabled={!batchGeneratingAudio && !selectedVoiceId && voices.length > 0}
-              className={`text-sm pl-2 pr-1.5 py-2.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
+              className={`text-xs pl-3 pr-1.5 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
                 batchGeneratingAudio
                   ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                   : allAudioGenerated
@@ -237,7 +251,7 @@ export default function PipelineSteps({
             {!batchGeneratingAudio && (
               <button
                 onClick={() => setShowVoicePicker(!showVoicePicker)}
-                className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-md transition-colors flex items-center"
+                className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center"
                 title="Select voice"
               >
                 <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
@@ -246,7 +260,7 @@ export default function PipelineSteps({
               </button>
             )}
             {batchGeneratingAudio && (
-              <span className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-md flex items-center">
+              <span className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-lg flex items-center">
                 <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
                   <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -254,7 +268,7 @@ export default function PipelineSteps({
             )}
             {/* Voice picker popover */}
             {showVoicePicker && (
-              <div className="absolute top-full left-0 mt-1 w-56 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 py-1 max-h-60 overflow-y-auto">
+              <div className="absolute top-full left-0 mt-1.5 w-56 bg-neutral-800/90 border border-neutral-700/60 rounded-xl shadow-2xl z-50 py-1.5 max-h-60 overflow-y-auto">
                 {!allAudioGenerated && hasExistingAudio && (
                   <>
                     <button
@@ -294,7 +308,7 @@ export default function PipelineSteps({
         </div>
 
         {/* Chevron connector */}
-        <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <svg className="w-3 h-3 text-neutral-600/60 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
 
         {/* Step 3 — Generate Images (split-button with generate missing) */}
         <div className="flex items-center gap-1.5">
@@ -308,7 +322,7 @@ export default function PipelineSteps({
           <div ref={imagesDropdownRef} className="relative flex items-stretch flex-1">
             <button
               onClick={batchGenerating ? cancelImageGeneration : confirmAndGenerateImages}
-              className={`text-sm pl-2 pr-1.5 py-2.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
+              className={`text-xs pl-3 pr-1.5 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
                 batchGenerating
                   ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                   : allImagesGenerated
@@ -331,7 +345,7 @@ export default function PipelineSteps({
             {!batchGenerating ? (
               <button
                 onClick={() => setShowImagesDropdown(!showImagesDropdown)}
-                className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-md transition-colors flex items-center"
+                className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center"
                 title="Image generation options"
               >
                 <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
@@ -339,14 +353,14 @@ export default function PipelineSteps({
                 </svg>
               </button>
             ) : (
-              <span className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-md flex items-center">
+              <span className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-lg flex items-center">
                 <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
                   <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </span>
             )}
             {showImagesDropdown && (
-              <div className="absolute top-full left-0 mt-1 w-48 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 py-1">
+              <div className="absolute top-full left-0 mt-1.5 w-48 bg-neutral-800/90 border border-neutral-700/60 rounded-xl shadow-2xl z-50 py-1.5">
                 <button
                   onClick={() => { setShowImagesDropdown(false); generateMissingImages(); }}
                   disabled={allImagesGenerated || !hasExistingImages}
@@ -360,7 +374,7 @@ export default function PipelineSteps({
         </div>
 
         {/* Chevron connector + Step 4 — Generate FX */}
-        <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <svg className="w-3 h-3 text-neutral-600/60 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
         <div className="flex flex-col">
           <div className="flex items-center gap-1.5">
             <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
@@ -375,7 +389,7 @@ export default function PipelineSteps({
             <div ref={fxDropdownRef} className="relative flex items-stretch flex-1">
               <button
                 onClick={generatingFX ? () => { fxCancelledRef.current = true; setGeneratingFX(false); } : confirmAndGenerateFX}
-                className={`text-sm pl-2 pr-1.5 py-2.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
+                className={`text-xs pl-3 pr-1.5 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
                   generatingFX
                     ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                     : allFXGenerated && fxPotentiallyStale
@@ -402,7 +416,7 @@ export default function PipelineSteps({
               {!generatingFX ? (
                 <button
                   onClick={() => setShowFXDropdown(!showFXDropdown)}
-                  className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-md transition-colors flex items-center"
+                  className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center"
                   title="FX generation options"
                 >
                   <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
@@ -410,14 +424,14 @@ export default function PipelineSteps({
                   </svg>
                 </button>
               ) : (
-                <span className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-md flex items-center">
+                <span className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-lg flex items-center">
                   <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
                     <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </span>
               )}
               {showFXDropdown && (
-                <div className="absolute top-full left-0 mt-1 w-48 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 py-1">
+                <div className="absolute top-full left-0 mt-1.5 w-48 bg-neutral-800/90 border border-neutral-700/60 rounded-xl shadow-2xl z-50 py-1.5">
                   <button
                     onClick={() => { setShowFXDropdown(false); generateMissingFX(); }}
                     disabled={allFXGenerated || !hasExistingFX}
@@ -433,7 +447,7 @@ export default function PipelineSteps({
         </div>
 
         {/* Chevron connector + Step 5 — Add Eli */}
-        <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <svg className="w-3 h-3 text-neutral-600/60 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
         <div className="flex flex-col">
           <div className="flex items-center gap-1.5">
             <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
@@ -447,7 +461,7 @@ export default function PipelineSteps({
               <button
                 onClick={generatingEli ? () => { eliCancelledRef.current = true; setGeneratingEli(false); } : confirmAndGenerateEli}
                 disabled={!allAudioGenerated && !generatingEli}
-                className={`text-sm pl-2 pr-1.5 py-2.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
+                className={`text-xs pl-3 pr-1.5 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
                   generatingEli
                     ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                     : allEliGenerated
@@ -471,7 +485,7 @@ export default function PipelineSteps({
                 <button
                   onClick={() => setShowEliDropdown(!showEliDropdown)}
                   disabled={!allAudioGenerated}
-                  className={`text-sm px-1 bg-neutral-800/80 border border-l-0 border-neutral-700/60 rounded-r-md transition-colors flex items-center ${!allAudioGenerated ? "text-neutral-600 cursor-not-allowed" : "text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200"}`}
+                  className={`text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 rounded-r-lg transition-all flex items-center ${!allAudioGenerated ? "text-neutral-600 cursor-not-allowed" : "text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200"}`}
                   title={!allAudioGenerated ? "Generate audio first" : "Eli generation options"}
                 >
                   <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
@@ -479,14 +493,14 @@ export default function PipelineSteps({
                   </svg>
                 </button>
               ) : (
-                <span className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-md flex items-center">
+                <span className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-lg flex items-center">
                   <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
                     <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </span>
               )}
               {showEliDropdown && (
-                <div className="absolute top-full left-0 mt-1 w-48 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 py-1">
+                <div className="absolute top-full left-0 mt-1.5 w-48 bg-neutral-800/90 border border-neutral-700/60 rounded-xl shadow-2xl z-50 py-1.5">
                   <button
                     onClick={() => { setShowEliDropdown(false); generateMissingEli(); }}
                     disabled={allEliGenerated || !hasExistingEli || !allAudioGenerated}
@@ -502,13 +516,13 @@ export default function PipelineSteps({
         </div>
 
         {/* Chevron connector + Step 6 — Export (split-button with Export Test dropdown) */}
-        <svg className="w-3 h-3 text-neutral-600 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <svg className="w-3 h-3 text-neutral-600/60 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
         <div className="flex items-center gap-1.5">
           <span className="w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums border-neutral-600 text-neutral-500">6</span>
           <div ref={exportDropdownRef} className="relative flex items-stretch flex-1">
             <button
               onClick={exportTestJobId ? () => setExportTestJobId(null) : () => setShowExport(true)}
-              className={`text-sm pl-2 pr-1.5 py-2.5 border border-r-0 rounded-l-md font-medium transition-colors flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
+              className={`text-xs pl-3 pr-1.5 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
                 exportTestJobId
                   ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
                   : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
@@ -527,7 +541,7 @@ export default function PipelineSteps({
             {!exportTestJobId ? (
               <button
                 onClick={() => setShowExportDropdown(!showExportDropdown)}
-                className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-md transition-colors flex items-center"
+                className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center"
                 title="Export options"
               >
                 <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
@@ -535,7 +549,7 @@ export default function PipelineSteps({
                 </svg>
               </button>
             ) : (
-              <span className="text-sm px-1 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-md flex items-center">
+              <span className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-lg flex items-center">
                 <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
                   <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -543,7 +557,7 @@ export default function PipelineSteps({
             )}
             {/* Export dropdown popover */}
             {showExportDropdown && (
-              <div className="absolute top-full left-0 mt-1 w-44 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 py-1">
+              <div className="absolute top-full left-0 mt-1.5 w-44 bg-neutral-800/90 border border-neutral-700/60 rounded-xl shadow-2xl z-50 py-1.5">
                 <button
                   onClick={() => { setShowExportDropdown(false); setShowExportTestModal(true); }}
                   className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors"
@@ -556,6 +570,51 @@ export default function PipelineSteps({
         </div>
       </div>
 
+      {/* Right-aligned stats */}
+      <div className="ml-auto flex items-center gap-1.5 shrink-0">
+        <span className="text-[11px] text-neutral-400 bg-neutral-800/60 px-2.5 py-1 rounded-md tabular-nums">
+          {sceneCount} scene{sceneCount !== 1 ? "s" : ""}
+        </span>
+        <span className="text-[11px] text-neutral-400 bg-neutral-800/60 px-2.5 py-1 rounded-md tabular-nums">
+          {segmentCount} seg{segmentCount !== 1 ? "s" : ""}
+        </span>
+        <span className="text-[11px] text-neutral-400 bg-neutral-800/60 px-2.5 py-1 rounded-md tabular-nums font-mono">
+          {durationStr}
+        </span>
+        {totalWords > 0 && (
+          <span className="text-[11px] text-neutral-400 bg-neutral-800/60 px-2.5 py-1 rounded-md tabular-nums">
+            {totalWords.toLocaleString()} words
+          </span>
+        )}
+        <span className="text-[11px] text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md tabular-nums font-medium">
+          ${totalCost.toFixed(2)}
+        </span>
+        {Object.keys(mediaCounts).length > 0 && (
+          <>
+            <span className="w-px h-4 bg-neutral-700/50" />
+            {mediaCounts.ai && (
+              <span className="text-[11px] text-violet-300 bg-violet-500/10 px-2.5 py-1 rounded-md tabular-nums">
+                {mediaCounts.ai} AI
+              </span>
+            )}
+            {mediaCounts.gameplay_video && (
+              <span className="text-[11px] text-sky-300 bg-sky-500/10 px-2.5 py-1 rounded-md tabular-nums">
+                {mediaCounts.gameplay_video} gameplay
+              </span>
+            )}
+            {mediaCounts.stock_photo && (
+              <span className="text-[11px] text-amber-300 bg-amber-500/10 px-2.5 py-1 rounded-md tabular-nums">
+                {mediaCounts.stock_photo} stock
+              </span>
+            )}
+            {mediaCounts.user_upload && (
+              <span className="text-[11px] text-emerald-300 bg-emerald-500/10 px-2.5 py-1 rounded-md tabular-nums">
+                {mediaCounts.user_upload} upload{mediaCounts.user_upload !== 1 ? "s" : ""}
+              </span>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

@@ -896,50 +896,16 @@ function TimelineEditor({
               &larr; Back
             </button>
             <h2 className="text-base font-semibold truncate" title={title}>{title}</h2>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-neutral-500 border border-neutral-700/40 px-2 py-0.5 rounded-full">
-                {sceneCount} scene{sceneCount !== 1 ? "s" : ""}
-              </span>
-              <span className="text-[11px] text-neutral-500 border border-neutral-700/40 px-2 py-0.5 rounded-full">
-                {segmentCount} segment{segmentCount !== 1 ? "s" : ""}
-              </span>
-              <span className="text-[11px] text-neutral-500 border border-neutral-700/40 px-2 py-0.5 rounded-full">
-                {durationStr}
-              </span>
-              {totalWords > 0 && (
-                <span className="text-[11px] text-neutral-500 border border-neutral-700/40 px-2 py-0.5 rounded-full">
-                  {totalWords.toLocaleString()} words
-                </span>
-              )}
-              <span className="text-[11px] text-emerald-400/80 border border-emerald-700/40 px-2 py-0.5 rounded-full">
-                ${totalCost.toFixed(2)}
-              </span>
-              <span className="w-px h-3 bg-neutral-700/60 mx-0.5" />
-              {mediaCounts.ai && (
-                <span className="text-[11px] text-violet-400/80 border border-violet-700/40 px-2 py-0.5 rounded-full">
-                  {mediaCounts.ai} AI
-                </span>
-              )}
-              {mediaCounts.gameplay_video && (
-                <span className="text-[11px] text-sky-400/80 border border-sky-700/40 px-2 py-0.5 rounded-full">
-                  {mediaCounts.gameplay_video} gameplay
-                </span>
-              )}
-              {mediaCounts.stock_photo && (
-                <span className="text-[11px] text-amber-400/80 border border-amber-700/40 px-2 py-0.5 rounded-full">
-                  {mediaCounts.stock_photo} stock
-                </span>
-              )}
-              {mediaCounts.user_upload && (
-                <span className="text-[11px] text-emerald-400/80 border border-emerald-700/40 px-2 py-0.5 rounded-full">
-                  {mediaCounts.user_upload} upload{mediaCounts.user_upload !== 1 ? "s" : ""}
-                </span>
-              )}
-            </div>
           </div>
 
-          {/* Row 2 — Pipeline Steps */}
+          {/* Row 2 — Pipeline Steps + Stats */}
           <PipelineSteps
+            sceneCount={sceneCount}
+            segmentCount={segmentCount}
+            durationStr={durationStr}
+            totalWords={totalWords}
+            totalCost={totalCost}
+            mediaCounts={mediaCounts}
             titleCardGenerating={titleCardGenerating}
             titleCardGenerated={titleCardGenerated || allTitleCardsGenerated}
             allImagesGenerated={allImagesGenerated}
