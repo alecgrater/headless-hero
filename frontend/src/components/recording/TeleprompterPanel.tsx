@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { assetUrl } from "../../api";
 import type { Scene } from "../../types/script";
 
@@ -27,15 +27,11 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
   const containerRef = useRef<HTMLDivElement>(null);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const [needle, setNeedle] = useState<NeedlePos | null>(null);
+  const [lineYs, setLineYs] = useState<number[]>([]);
 
   const words = useMemo(() => {
     if (!scene?.narration) return [];
     return scene.narration.split(/\s+/).filter(Boolean);
-  }, [scene?.narration]);
-
-  const sentences = useMemo(() => {
-    if (!scene?.narration) return [];
-    return scene.narration.split(/(?<=[.!?])\s+/).filter(Boolean);
   }, [scene?.narration]);
 
   const wordTimings = useMemo(() => {
@@ -59,6 +55,29 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
   const setWordRef = useCallback((el: HTMLSpanElement | null, index: number) => {
     wordRefs.current[index] = el;
   }, []);
+
+  // Detect visual lines after layout to render underlines beneath each row
+  useLayoutEffect(() => {
+    if (!containerRef.current || wordRefs.current.length === 0) {
+      setLineYs([]);
+      return;
+    }
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const scrollTop = containerRef.current.scrollTop;
+    const seen = new Set<number>();
+    const ys: number[] = [];
+    for (const el of wordRefs.current) {
+      if (!el) continue;
+      const rect = el.getBoundingClientRect();
+      const y = Math.round(rect.bottom - containerRect.top + scrollTop + 4);
+      const rounded = Math.round(y / 5) * 5;
+      if (!seen.has(rounded)) {
+        seen.add(rounded);
+        ys.push(y);
+      }
+    }
+    setLineYs(ys);
+  }, [words, scene?.id]);
 
   // Reset needle to far-left resting position when not recording/counting down
   useEffect(() => {
@@ -230,65 +249,53 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
         {words.length === 0 ? (
           <div className="text-center text-neutral-600 text-sm py-12">Select a scene to begin</div>
         ) : (
-          <div className="flex flex-col items-center justify-center gap-4">
-            {(() => {
-              let wordOffset = 0;
-              return sentences.map((sentence, si) => {
-                const sentenceWords = sentence.split(/\s+/).filter(Boolean);
-                const startIdx = wordOffset;
-                wordOffset += sentenceWords.length;
-                return (
-                  <p key={si} className="text-2xl leading-relaxed font-medium text-center">
-                    {sentenceWords.map((_, wi) => {
-                      const globalIdx = startIdx + wi;
-                      const wt = wordTimings[globalIdx];
-                      if (!wt) return null;
-                      const isActive = isRecording && elapsedMs >= wt.startMs && elapsedMs < wt.endMs;
-                      const isPast = isRecording && elapsedMs >= wt.endMs;
-                      const isUpcoming = isRecording && elapsedMs >= wt.startMs - 500 && elapsedMs < wt.startMs;
-                      return (
-                        <span
-                          key={globalIdx}
-                          ref={(el) => setWordRef(el, globalIdx)}
-                          data-active={isActive}
-                          className={`inline-block mr-[0.3em] transition-all duration-150 ${
-                            isActive
-                              ? "text-white scale-105 transform"
-                              : isPast
-                                ? "text-neutral-400"
-                                : isUpcoming
-                                  ? "text-neutral-300"
-                                  : isRecording
-                                    ? "text-neutral-600 blur-[0.5px]"
-                                    : "text-neutral-300"
-                          }`}
-                        >
-                          {wt.word}
-                        </span>
-                      );
-                    })}
-                  </p>
-                );
-              });
-            })()}
-          </div>
+          <p className="text-2xl leading-[2.5] font-medium text-center">
+            {wordTimings.map((wt, i) => {
+              const isActive = isRecording && elapsedMs >= wt.startMs && elapsedMs < wt.endMs;
+              const isPast = isRecording && elapsedMs >= wt.endMs;
+              const isUpcoming = isRecording && elapsedMs >= wt.startMs - 500 && elapsedMs < wt.startMs;
+              return (
+                <span
+                  key={i}
+                  ref={(el) => setWordRef(el, i)}
+                  data-active={isActive}
+                  className={`inline-block mr-[0.3em] transition-all duration-150 ${
+                    isActive
+                      ? "text-white scale-105 transform"
+                      : isPast
+                        ? "text-neutral-400"
+                        : isUpcoming
+                          ? "text-neutral-300"
+                          : isRecording
+                            ? "text-neutral-600 blur-[0.5px]"
+                            : "text-neutral-300"
+                  }`}
+                >
+                  {wt.word}
+                </span>
+              );
+            })}
+          </p>
         )}
 
-        {/* Timing needle — full-width line under the active text line with spike */}
+        {/* Static underlines beneath each visual row of text */}
+        {lineYs.map((y, i) => (
+          <div
+            key={i}
+            className="absolute left-8 right-8 h-[2px] bg-neutral-700/60 pointer-events-none"
+            style={{ top: `${y}px` }}
+          />
+        ))}
+
+        {/* Timing needle arrow on active line */}
         {needle && (
           <div
-            className="absolute left-0 right-0 pointer-events-none transition-[top] duration-100"
-            style={{ top: `${needle.y}px` }}
+            className="absolute pointer-events-none transition-[left,top] duration-75"
+            style={{ left: `${needle.x + 16}px`, top: `${needle.y - 16}px` }}
           >
-            <div className="absolute left-4 right-4 top-0 h-[2px] bg-neutral-700/80" />
-            <div
-              className="absolute transition-[left] duration-75"
-              style={{ left: `${needle.x + 16}px`, top: "-16px" }}
-            >
-              <svg width="10" height="18" viewBox="0 0 10 18">
-                <path d="M5 0 L9 10 L6 10 L6 18 L4 18 L4 10 L1 10 Z" fill="#a78bfa" />
-              </svg>
-            </div>
+            <svg width="10" height="18" viewBox="0 0 10 18">
+              <path d="M5 0 L9 10 L6 10 L6 18 L4 18 L4 10 L1 10 Z" fill="#a78bfa" />
+            </svg>
           </div>
         )}
       </div>
