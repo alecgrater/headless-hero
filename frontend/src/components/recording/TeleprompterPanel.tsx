@@ -76,11 +76,11 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
       setNeedle(null);
       return;
     }
-    // Wait a frame for refs to be set
-    requestAnimationFrame(() => {
+    const rafId = requestAnimationFrame(() => {
       const pos = computeRestingPosition();
       if (pos) setNeedle(pos);
     });
+    return () => cancelAnimationFrame(rafId);
   }, [scene?.id, wordTimings.length, computeRestingPosition]);
 
   // Update needle position based on elapsed time during recording
@@ -116,7 +116,7 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
         const rect = firstEl.getBoundingClientRect();
         const y = rect.bottom - containerRect.top + containerScrollTop + 4;
         const targetX = rect.left + rect.width / 2 - containerRect.left;
-        const leadProgress = elapsedMs / wordTimings[0].startMs;
+        const leadProgress = wordTimings[0].startMs > 0 ? elapsedMs / wordTimings[0].startMs : 0;
         const x = leadProgress * targetX;
         setNeedle({ x, y });
       }
