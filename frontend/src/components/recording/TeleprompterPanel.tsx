@@ -74,21 +74,42 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     return () => cancelAnimationFrame(rafId);
   }, [scene?.id, wordTimings.length]);
 
-  // Update needle position based on elapsed time during recording
+  // Animate needle from left toward first word during 3-2-1 countdown
+  const countdownStartRef = useRef<number | null>(null);
   useEffect(() => {
-    if (!isRecording || !containerRef.current || wordTimings.length === 0) return;
+    if (countdown === null || !containerRef.current || wordTimings.length === 0) {
+      countdownStartRef.current = null;
+      return;
+    }
+    if (countdownStartRef.current === null) {
+      countdownStartRef.current = performance.now();
+    }
+    const startTime = countdownStartRef.current;
+    const totalMs = 3000;
+    let rafId: number;
 
-    // While in countdown or at time 0, stay at resting (far left)
-    if (elapsedMs === 0) {
+    const animate = () => {
+      const elapsed = performance.now() - startTime;
+      const progress = Math.min(1, elapsed / totalMs);
       const firstEl = wordRefs.current[0];
-      if (firstEl) {
+      if (firstEl && containerRef.current) {
         const containerRect = containerRef.current.getBoundingClientRect();
         const rect = firstEl.getBoundingClientRect();
         const y = rect.bottom - containerRect.top + containerRef.current.scrollTop + 4;
-        setNeedle({ x: 0, y });
+        const targetX = rect.left + rect.width / 2 - containerRect.left;
+        setNeedle({ x: progress * targetX, y });
       }
-      return;
-    }
+      if (progress < 1) {
+        rafId = requestAnimationFrame(animate);
+      }
+    };
+    rafId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafId);
+  }, [countdown, wordTimings.length]);
+
+  // Update needle position based on elapsed time during recording
+  useEffect(() => {
+    if (!isRecording || !containerRef.current || wordTimings.length === 0) return;
 
     const containerRect = containerRef.current.getBoundingClientRect();
     const containerScrollTop = containerRef.current.scrollTop;
