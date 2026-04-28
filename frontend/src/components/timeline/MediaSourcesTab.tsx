@@ -2,6 +2,19 @@ import type { MediaAssignment } from "../../api";
 import type { ScriptContent } from "../../types/script";
 import MediaReviewPanel from "./MediaReviewPanel";
 
+function buildFrameCounts(content: ScriptContent): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const seg of content.segments) {
+    for (const scene of seg.scenes) {
+      const directives = scene.frame_directives ?? [];
+      if (directives.length > 1) {
+        counts[scene.id] = directives.length;
+      }
+    }
+  }
+  return counts;
+}
+
 interface Props {
   scriptId: string;
   content: ScriptContent;
@@ -33,11 +46,13 @@ export default function MediaSourcesTab({
   }
 
   if (mediaAssignments && !mediaReviewDismissed) {
+    const frameCounts = buildFrameCounts(content);
     return (
       <div className="flex-1 overflow-auto p-4">
         <MediaReviewPanel
           scriptId={scriptId}
           assignments={mediaAssignments}
+          frameCounts={frameCounts}
           fullHeight
           onApproved={onApproved}
           onReanalyze={onAnalyzeMedia}

@@ -5,6 +5,7 @@ import { applyMediaAssignments } from "../../api";
 interface Props {
   scriptId: string;
   assignments: MediaAssignment[];
+  frameCounts?: Record<string, number>;
   fullHeight?: boolean;
   onApproved: () => void;
   onReanalyze: () => void;
@@ -16,7 +17,7 @@ const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
   stock_photo: { label: "Stock Photo", color: "bg-sky-500/20 text-sky-300" },
 };
 
-export default function MediaReviewPanel({ scriptId, assignments: initial, fullHeight, onApproved, onReanalyze }: Props) {
+export default function MediaReviewPanel({ scriptId, assignments: initial, frameCounts, fullHeight, onApproved, onReanalyze }: Props) {
   const [assignments, setAssignments] = useState<MediaAssignment[]>(initial);
   const [applying, setApplying] = useState(false);
 
@@ -98,6 +99,11 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, fullH
               <span className={`px-2 py-0.5 rounded text-xs font-medium shrink-0 ${sourceInfo.color}`}>
                 {sourceInfo.label}
               </span>
+              {frameCounts && frameCounts[a.scene_id] && (
+                <span className="px-1.5 py-0.5 rounded text-xs text-neutral-400 bg-neutral-800 shrink-0">
+                  {frameCounts[a.scene_id]} photos
+                </span>
+              )}
               {a.media_source === "gameplay_video" && (
                 <input
                   type="text"
