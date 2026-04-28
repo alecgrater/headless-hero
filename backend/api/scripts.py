@@ -247,26 +247,6 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
         except Exception:
             logger.exception("Hook scoring failed for %s — script saved without score", script_id)
 
-        # Auto-trigger media analyzer
-        try:
-            update_job(job_id, current_step="Analyzing media sources...")
-            from pipeline.media_analyzer import analyze_media_sources, apply_assignments
-            assignments = analyze_media_sources(
-                script_content,
-                script_id=script_id,
-            )
-            apply_assignments(script_content, assignments)
-            with SqlSession(engine) as bg_session3:
-                record3 = bg_session3.get(Script, script_id)
-                if record3:
-                    record3.script_json = script_content.model_dump_json()
-                    bg_session3.add(record3)
-                bg_session3.commit()
-            logger.info("Media analysis complete for %s: %d assignments",
-                        script_id, len(assignments))
-        except Exception:
-            logger.exception("Media analysis failed for %s — script saved without assignments", script_id)
-
         return [script_id]
 
     run_in_background(job_id, _run_generation)
