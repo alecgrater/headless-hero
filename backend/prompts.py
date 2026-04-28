@@ -363,6 +363,7 @@ Return ONLY a valid JSON array of scene objects. Example:
     "duration_estimate_seconds": 8,
     "is_title_card": false,
     "visual_beat": "quick_cuts",
+    "contains_person": true,
     "media_source": "ai",
     "gameplay_game_override": "",
     "frame_directives": [
