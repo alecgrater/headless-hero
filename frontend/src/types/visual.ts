@@ -3,6 +3,7 @@ export interface GenerateVisualResponse {
   prompt_used: string;
   image_url_b?: string;
   frame_urls?: string[];
+  video_url?: string;
 }
 
 export interface GenerateTitleCardsResponse {

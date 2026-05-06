@@ -470,6 +470,10 @@ export function useTimelineState(
           visual_prompt: scene.visual_prompt,
           frame_directives: scene.frame_directives || [],
           contains_person: scene.contains_person || false,
+          media_source: scene.media_source || "ai",
+          gameplay_game_name: scene.gameplay_game_override || "",
+          gameplay_game_override: scene.gameplay_game_override || "",
+          audio_duration_seconds: scene.audio_duration_seconds || 0,
         });
         if (res.ok) {
           // Re-fetch from backend which already persisted the image data
@@ -493,7 +497,7 @@ export function useTimelineState(
   const generateAllImages = useCallback(
     async (missingOnly = false) => {
       // Collect AI-generated scenes
-      const scenes: { scene_id: string; visual_prompt: string; name: string; frame_directives: any[]; contains_person: boolean }[] = [];
+      const scenes: { scene_id: string; visual_prompt: string; name: string; frame_directives: any[]; contains_person: boolean; media_source: string; gameplay_game_name: string; gameplay_game_override: string; audio_duration_seconds: number }[] = [];
       // Collect title card scene IDs for progress tracking
       let hasTitleCards = false;
       for (const seg of contentRef.current.segments) {
@@ -508,6 +512,10 @@ export function useTimelineState(
               name: sc.narration.slice(0, 40) || sc.id,
               frame_directives: sc.frame_directives || [],
               contains_person: sc.contains_person || false,
+              media_source: sc.media_source || "ai",
+              gameplay_game_name: sc.gameplay_game_override || "",
+              gameplay_game_override: sc.gameplay_game_override || "",
+              audio_duration_seconds: sc.audio_duration_seconds || 0,
             });
           }
         }
@@ -577,6 +585,10 @@ export function useTimelineState(
             visual_prompt: scene.visual_prompt,
             frame_directives: scene.frame_directives,
             contains_person: scene.contains_person,
+            media_source: scene.media_source,
+            gameplay_game_name: scene.gameplay_game_name,
+            gameplay_game_override: scene.gameplay_game_override,
+            audio_duration_seconds: scene.audio_duration_seconds,
           });
           if (res.ok) {
             const data = res.data as GenerateVisualResponse;
@@ -588,7 +600,8 @@ export function useTimelineState(
                   sc.id === scene.scene_id
                     ? {
                         ...sc,
-                        image_url: data.image_url,
+                        image_url: data.image_url || sc.image_url,
+                        video_url: data.video_url || sc.video_url,
                         frame_urls: data.frame_urls || sc.frame_urls,
                       }
                     : sc,

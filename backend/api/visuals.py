@@ -31,11 +31,16 @@ class GenerateVisualRequest(BaseModel):
     height: int = IMAGE_HEIGHT
     frame_directives: list[dict] = []
     contains_person: bool = False
+    media_source: str = "ai"
+    gameplay_game_name: str = ""
+    gameplay_game_override: str = ""
+    audio_duration_seconds: float = 0.0
 
 class GenerateVisualResponse(BaseModel):
     image_url: str
     prompt_used: str
     frame_urls: list[str] = []
+    video_url: str | None = None
 
 class BatchScene(BaseModel):
     scene_id: str
@@ -82,13 +87,54 @@ def _update_scene_with_frames(
 
 @router.post("/generate", response_model=GenerateVisualResponse)
 def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_session)):
-    """Generate an image for a single scene."""
+    """Generate an image for a single scene, dispatching by media_source."""
     t0 = time.monotonic()
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
 
-    logger.info("Generating visual for scene %s in script %s", body.scene_id, body.script_id)
+    logger.info("Generating visual for scene %s in script %s (media_source=%s)", body.scene_id, body.script_id, body.media_source)
+
+    # --- Stock photo dispatch ---
+    if body.media_source == "stock_photo":
+        from pipeline.stock_photo import generate_stock_photo
+        if body.frame_directives:
+            frame_results = generate_scene_frames_v2(
+                scene_id=body.scene_id,
+                frame_directives=body.frame_directives,
+                script_id=body.script_id,
+                visual_prompt=body.visual_prompt,
+                width=body.width,
+                height=body.height,
+                contains_person=body.contains_person,
+            )
+            frame_urls = [url for url, _ in frame_results]
+            first_image = next((u for u in frame_urls if u), "")
+            if frame_urls:
+                _update_scene_with_frames(session, body.script_id, body.scene_id, frame_urls=frame_urls)
+            session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
+            session.commit()
+            return GenerateVisualResponse(image_url=first_image, prompt_used=body.visual_prompt, frame_urls=frame_urls)
+        image_url = generate_stock_photo(body.script_id, body.scene_id, body.visual_prompt)
+        update_scene(session, body.script_id, body.scene_id, image_url=image_url)
+        session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
+        session.commit()
+        return GenerateVisualResponse(image_url=image_url, prompt_used=body.visual_prompt)
+
+    # --- Gameplay video dispatch ---
+    if body.media_source == "gameplay_video":
+        from pipeline.gameplay import generate_gameplay_clip
+        game_name = body.gameplay_game_name or body.gameplay_game_override
+        if not game_name:
+            raise HTTPException(status_code=400, detail="Gameplay scene missing game name")
+        duration = body.audio_duration_seconds or 8.0
+        video_url = generate_gameplay_clip(body.script_id, body.scene_id, game_name, duration)
+        update_scene(session, body.script_id, body.scene_id, video_url=video_url)
+        session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
+        session.commit()
+        return GenerateVisualResponse(image_url="", prompt_used=f"gameplay:{game_name}", video_url=video_url)
+
+    # --- AI-generated (default) ---
 
     # Visual Beat System v2 path: per-frame directives
     if body.frame_directives:
@@ -102,7 +148,6 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             contains_person=body.contains_person,
         )
         frame_urls = [url for url, _ in frame_results]
-        # Guard: only set image_url from first non-empty frame URL
         first_image = next((u for u in frame_urls if u), "")
         if frame_urls:
             _update_scene_with_frames(session, body.script_id, body.scene_id, frame_urls=frame_urls)
