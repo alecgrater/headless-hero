@@ -2,8 +2,9 @@
 
 import json
 import logging
+import threading
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
@@ -31,7 +32,7 @@ class RegenerateEliRequest(BaseModel):
 async def generate_eli(req: GenerateEliRequest, session: Session = Depends(get_session)):
     record = session.get(Script, req.script_id)
     if not record:
-        return {"detail": "Script not found"}, 404
+        raise HTTPException(status_code=404, detail="Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
     scenes = [
@@ -42,9 +43,8 @@ async def generate_eli(req: GenerateEliRequest, session: Session = Depends(get_s
     if req.missing_only:
         scenes = [sc for sc in scenes if not sc.eli_overlay]
 
-    job = create_job(f"eli_{req.script_id}")
+    job = create_job(scene_count=len(scenes))
 
-    import threading
     t = threading.Thread(
         target=_run_eli_generation,
         args=(req.script_id, [sc.id for sc in scenes], job.id),
@@ -72,12 +72,12 @@ async def eli_status(job_id: str):
 async def regenerate_eli(req: RegenerateEliRequest, session: Session = Depends(get_session)):
     record = session.get(Script, req.script_id)
     if not record:
-        return {"detail": "Script not found"}, 404
+        raise HTTPException(status_code=404, detail="Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
     scene = find_scene_in_content(content, req.scene_id)
     if not scene:
-        return {"detail": "Scene not found"}, 404
+        raise HTTPException(status_code=404, detail="Scene not found")
 
     previous_corner = None
     all_scenes = content.all_scenes()
