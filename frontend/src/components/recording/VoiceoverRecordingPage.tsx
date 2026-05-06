@@ -174,18 +174,40 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
     }
   }, [scriptId]);
 
-  // Score all selected takes
+  // Score all selected takes (background job with polling)
   const handleScoreAll = useCallback(async () => {
     setScoring(true);
     const res = await api.post("/api/recording/score-all", { script_id: scriptId });
-    if (res.ok) {
-      const data = res.data as { scores: Record<string, SceneScore> };
-      setScores(data.scores);
-      const count = Object.keys(data.scores).length;
-      const lowCount = Object.values(data.scores).filter((s) => s.overall < 7).length;
-      showToast(`Scored ${count} scenes — ${lowCount} need attention`);
+    if (!res.ok) {
+      showToast((res.data as { detail?: string }).detail || "Scoring failed");
+      setScoring(false);
+      return;
     }
-    setScoring(false);
+    const { job_id } = res.data as { job_id: string };
+
+    // Poll for completion
+    const poll = async () => {
+      const statusRes = await api.get(`/api/recording/score-status/${job_id}`);
+      if (!statusRes.ok) {
+        showToast("Failed to check scoring status");
+        setScoring(false);
+        return;
+      }
+      const job = statusRes.data as { status: string; progress: number; scores: Record<string, SceneScore>; error: string | null };
+      if (job.status === "completed") {
+        setScores(job.scores);
+        const count = Object.keys(job.scores).length;
+        const lowCount = Object.values(job.scores).filter((s) => s.overall < 7).length;
+        showToast(`Scored ${count} scenes — ${lowCount} need attention`);
+        setScoring(false);
+      } else if (job.status === "failed") {
+        showToast(job.error || "Scoring failed");
+        setScoring(false);
+      } else {
+        setTimeout(poll, 2000);
+      }
+    };
+    setTimeout(poll, 2000);
   }, [scriptId]);
 
   const handleStartRecording = useCallback(async () => {
