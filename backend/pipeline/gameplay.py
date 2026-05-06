@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 from config import DATA_DIR
-from integrations.twitch_client import lookup_game, search_clips, search_vods
+from integrations.twitch_client import lookup_game, search_clips, filter_clips, search_vods
 from integrations.gameplay_downloader import download_clip, download_vod_segment, detect_facecam
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,7 @@ def generate_gameplay_clip(
 
     # --- Try clips first (guaranteed correct game) ---
     clips = search_clips(game["id"])
+    clips = filter_clips(clips, game_name)
     if clips:
         for attempt, clip in enumerate(clips[:MAX_FACECAM_RETRIES]):
             clip_url = clip["url"]

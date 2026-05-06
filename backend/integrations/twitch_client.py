@@ -88,7 +88,11 @@ def search_vods(game_id: str, max_results: int = 20, language: str = "en") -> li
 
 
 def search_clips(game_id: str, max_results: int = 20) -> list[dict]:
-    """Search for popular clips of a game. Clips are short highlights guaranteed to be from the tagged game."""
+    """Search for popular clips of a game. Clips are short highlights guaranteed to be from the tagged game.
+
+    Results are re-ranked to prefer clips whose title mentions the game,
+    and to deprioritize test/automation accounts.
+    """
     resp = httpx.get(
         f"{HELIX_BASE}/clips",
         headers=_helix_headers(),
@@ -102,3 +106,27 @@ def search_clips(game_id: str, max_results: int = 20) -> list[dict]:
     clips = resp.json().get("data", [])
     logger.info("Found %d clips for game_id=%s", len(clips), game_id)
     return clips
+
+
+def filter_clips(clips: list[dict], game_name: str) -> list[dict]:
+    """Re-rank clips to prefer ones that are clearly about the game.
+
+    Filters out test/automation accounts and short meaningless titles,
+    then sorts: title mentions game name first, then by view count.
+    """
+    skip_broadcasters = {"qa_vod_automation", "twitchdev", "test"}
+    name_lower = game_name.lower()
+
+    filtered = [
+        c for c in clips
+        if c.get("broadcaster_name", "").lower() not in skip_broadcasters
+        and len(c.get("title", "")) > 3
+    ]
+
+    def _sort_key(c: dict) -> tuple[int, int]:
+        title_has_game = 0 if name_lower in c.get("title", "").lower() else 1
+        views = -(c.get("view_count", 0))
+        return (title_has_game, views)
+
+    filtered.sort(key=_sort_key)
+    return filtered if filtered else clips

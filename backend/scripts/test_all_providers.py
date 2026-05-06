@@ -67,7 +67,7 @@ def test_gemini():
 def test_twitch():
     """Download a gameplay clip from Twitch."""
     print("\n[TWITCH] Looking up 'Minecraft' and downloading a clip...")
-    from integrations.twitch_client import lookup_game, search_clips, search_vods
+    from integrations.twitch_client import lookup_game, search_clips, filter_clips, search_vods
     from integrations.gameplay_downloader import download_clip, download_vod_segment
 
     game = lookup_game("Minecraft")
@@ -78,9 +78,17 @@ def test_twitch():
 
     # Prefer clips (guaranteed correct game)
     clips = search_clips(game["id"])
+    clips = filter_clips(clips, "Minecraft")
     if clips:
+        print(f"[TWITCH] Found {len(clips)} clips after filtering. First 5:")
+        for i, c in enumerate(clips[:5]):
+            print(f"         {i+1}. \"{c.get('title', '?')}\" by {c.get('broadcaster_name', '?')} — views={c.get('view_count', 0)} — {c['url']}")
+
         clip = clips[0]
-        print(f"[TWITCH] Found {len(clips)} clips, downloading: {clip['url']}")
+        print(f"\n[TWITCH] Downloading clip: \"{clip.get('title', '?')}\"")
+        print(f"         URL: {clip['url']}")
+        print(f"         Broadcaster: {clip.get('broadcaster_name', '?')}")
+        print(f"         Game ID on clip: {clip.get('game_id', '?')} (searched for: {game['id']})")
 
         tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
         tmp.close()
@@ -116,6 +124,7 @@ def test_twitch():
     shutil.move(str(output), str(dest))
     size_kb = dest.stat().st_size / 1024
     print(f"[TWITCH] SUCCESS — saved to {dest} ({size_kb:.0f} KB)")
+    print(f"         Open the clip URL above in a browser to verify it matches the downloaded video.")
     return True
 
 
