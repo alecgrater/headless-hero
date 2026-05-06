@@ -5,6 +5,8 @@ import logging
 import os
 import re
 import subprocess
+import threading
+import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -557,7 +559,7 @@ Score two dimensions (1-10 each):
 
 Also give a one-sentence "recommendation" for improvement (or "Sounds great" if scores are 8+).
 
-Return ONLY JSON: {{"emphasis": int, "emphasis_note": "...", "engagement": int, "engagement_note": "...", "recommendation": "..."}}"""}],
+Return ONLY JSON: {{"emphasis": 7, "emphasis_note": "brief reason", "engagement": 8, "engagement_note": "brief reason", "recommendation": "one sentence"}}"""}],
         )
         text = response.content[0].text.strip()
         if text.startswith("```"):
@@ -620,9 +622,53 @@ def score_take(req: ScoreTakeRequest, db: Session = Depends(get_session)):
     return _compute_take_score(word_timestamps, narration, deviation_result.match_ratio)
 
 
+# --- Score-all background job ---
+
+_score_jobs: dict[str, dict] = {}
+
+
+def _run_score_all(job_id: str, script_id: str, script_json: str, session_data: SessionData):
+    """Background worker that scores all selected takes."""
+    try:
+        content = ScriptContent.model_validate(json.loads(script_json))
+        takes_dir = _takes_dir(script_id)
+        scenes_to_score = list(session_data.selected_takes.items())
+        total = len(scenes_to_score)
+        scores: dict[str, dict] = {}
+
+        for i, (scene_id, take_number) in enumerate(scenes_to_score):
+            patterns = list(takes_dir.glob(f"{scene_id}_take{take_number}.*"))
+            if not patterns:
+                continue
+            take_file = patterns[0]
+
+            try:
+                scene = find_scene_in_content(content, scene_id)
+            except RuntimeError:
+                continue
+            narration = scene.narration or ""
+
+            word_timestamps = align_audio(take_file, narration)
+            transcribed_words = [wt["word"] for wt in word_timestamps]
+            deviation_result = compute_deviation(transcribed_words, narration)
+
+            result = _compute_take_score(word_timestamps, narration, deviation_result.match_ratio)
+            scores[scene_id] = result.model_dump()
+
+            _score_jobs[job_id]["progress"] = round((i + 1) / total * 100)
+            _score_jobs[job_id]["scores"] = scores
+
+        _score_jobs[job_id]["status"] = "completed"
+        _score_jobs[job_id]["scores"] = scores
+    except Exception as exc:
+        logger.error("Score-all job %s failed: %s", job_id, exc)
+        _score_jobs[job_id]["status"] = "failed"
+        _score_jobs[job_id]["error"] = str(exc)
+
+
 @router.post("/score-all")
 def score_all_takes(req: ScoreAllRequest, db: Session = Depends(get_session)):
-    """Score all selected takes in a session — returns scene_id -> score mapping."""
+    """Start background scoring of all selected takes."""
     record = db.get(Script, req.script_id)
     if not record:
         raise HTTPException(404, "Script not found")
@@ -632,30 +678,29 @@ def score_all_takes(req: ScoreAllRequest, db: Session = Depends(get_session)):
         raise HTTPException(400, "No recording session")
 
     session_data = SessionData(**json.loads(session_path.read_text()))
-    content = ScriptContent.model_validate(json.loads(record.script_json))
+    if not session_data.selected_takes:
+        raise HTTPException(400, "No takes selected")
 
-    scores: dict[str, dict] = {}
-    for scene_id, take_number in session_data.selected_takes.items():
-        takes_dir = _takes_dir(req.script_id)
-        patterns = list(takes_dir.glob(f"{scene_id}_take{take_number}.*"))
-        if not patterns:
-            continue
-        take_file = patterns[0]
+    job_id = str(uuid.uuid4())
+    _score_jobs[job_id] = {"status": "running", "progress": 0, "scores": {}, "error": None}
 
-        try:
-            scene = find_scene_in_content(content, scene_id)
-        except RuntimeError:
-            continue
-        narration = scene.narration or ""
+    thread = threading.Thread(
+        target=_run_score_all,
+        args=(job_id, req.script_id, record.script_json, session_data),
+        daemon=True,
+    )
+    thread.start()
 
-        word_timestamps = align_audio(take_file, narration)
-        transcribed_words = [wt["word"] for wt in word_timestamps]
-        deviation_result = compute_deviation(transcribed_words, narration)
+    return {"job_id": job_id}
 
-        result = _compute_take_score(word_timestamps, narration, deviation_result.match_ratio)
-        scores[scene_id] = result.model_dump()
 
-    return {"scores": scores}
+@router.get("/score-status/{job_id}")
+def get_score_status(job_id: str):
+    """Poll scoring job progress."""
+    job = _score_jobs.get(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    return job
 
 
 @router.post("/annotate-delivery")

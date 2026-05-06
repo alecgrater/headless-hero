@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Headless Hero — Voiceover System Documentation</title>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #141414;
+      --surface-2: #1c1c1c;
+      --border: #2a2a2a;
+      --text: #e5e5e5;
+      --text-dim: #a3a3a3;
+      --text-faint: #737373;
+      --violet: #a78bfa;
+      --violet-dim: #7c3aed;
+      --emerald: #34d399;
+      --amber: #fbbf24;
+      --red: #f87171;
+      --sky: #38bdf8;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 3rem 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, var(--violet), var(--sky));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: var(--text-dim);
+      font-size: 1.1rem;
+      margin-bottom: 3rem;
+    }
+
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--violet);
+      margin-top: 3rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+    }
+
+    h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    p, li {
+      color: var(--text-dim);
+      margin-bottom: 0.75rem;
+    }
+
+    ul, ol {
+      padding-left: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    li { margin-bottom: 0.5rem; }
+
+    code {
+      font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+      font-size: 0.85em;
+      background: var(--surface-2);
+      padding: 0.2em 0.45em;
+      border-radius: 4px;
+      color: var(--emerald);
+    }
+
+    pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem 1.5rem;
+      overflow-x: auto;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+      color: var(--text-dim);
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .card-header .badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0.2em 0.6em;
+      border-radius: 4px;
+    }
+
+    .badge-ai { background: var(--violet-dim); color: white; }
+    .badge-real { background: #065f46; color: var(--emerald); }
+    .badge-both { background: #1e3a5f; color: var(--sky); }
+    .badge-warn { background: #78350f; color: var(--amber); }
+    .badge-new { background: #7f1d1d; color: var(--red); }
+
+    .flow-diagram {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      margin: 1.5rem 0;
+      font-family: 'SF Mono', monospace;
+      font-size: 0.8rem;
+      line-height: 1.8;
+      color: var(--text-dim);
+      overflow-x: auto;
+    }
+
+    .flow-diagram .arrow { color: var(--violet); }
+    .flow-diagram .label { color: var(--emerald); }
+    .flow-diagram .dim { color: var(--text-faint); }
+    .flow-diagram .highlight { color: var(--amber); }
+
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin: 1.5rem 0;
+    }
+
+    @media (max-width: 768px) {
+      .comparison-grid { grid-template-columns: 1fr; }
+    }
+
+    .comparison-grid .card { margin: 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.5rem;
+      font-size: 0.9rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    td {
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+
+    .callout {
+      border-left: 3px solid var(--amber);
+      background: rgba(251, 191, 36, 0.05);
+      padding: 1rem 1.25rem;
+      border-radius: 0 8px 8px 0;
+      margin: 1.5rem 0;
+    }
+
+    .callout-danger {
+      border-left-color: var(--red);
+      background: rgba(248, 113, 113, 0.05);
+    }
+
+    .callout-info {
+      border-left-color: var(--sky);
+      background: rgba(56, 189, 248, 0.05);
+    }
+
+    .callout-title {
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+    }
+
+    .enhancement-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin: 1rem 0;
+      border-left: 3px solid var(--violet);
+    }
+
+    .enhancement-card h4 {
+      margin-top: 0;
+      text-transform: none;
+      letter-spacing: normal;
+      color: var(--text);
+      font-size: 1rem;
+    }
+
+    .priority-high { border-left-color: var(--red); }
+    .priority-med { border-left-color: var(--amber); }
+    .priority-low { border-left-color: var(--emerald); }
+
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem 2rem;
+      margin-bottom: 3rem;
+    }
+
+    .toc h3 {
+      margin-top: 0;
+      color: var(--text-faint);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .toc ol {
+      padding-left: 1.25rem;
+      margin-bottom: 0;
+    }
+
+    .toc li {
+      margin-bottom: 0.3rem;
+    }
+
+    .toc a {
+      color: var(--violet);
+      text-decoration: none;
+    }
+
+    .toc a:hover {
+      text-decoration: underline;
+    }
+
+    .file-ref {
+      font-family: 'SF Mono', monospace;
+      font-size: 0.8rem;
+      color: var(--text-faint);
+      margin-top: 0.5rem;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 3rem 0;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Voiceover System</h1>
+<p class="subtitle">How audio recording, word timing, and the rendering pipeline work together in Headless Hero</p>
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+    <li><a href="#recording-tool">The Recording Tool (How It Works)</a></li>
+    <li><a href="#word-timing-ai">Word Timing: AI Voiceover (ElevenLabs)</a></li>
+    <li><a href="#word-timing-real">Word Timing: Real Voiceover (Whisper)</a></li>
+    <li><a href="#data-flow">End-to-End Data Flow</a></li>
+    <li><a href="#downstream">Downstream Consumers (What Uses Timing Data)</a></li>
+    <li><a href="#considerations">Considerations for Real Voiceover</a></li>
+    <li><a href="#gaps">Things We May Be Forgetting</a></li>
+    <li><a href="#enhancements">Enhancement Ideas</a></li>
+  </ol>
+</nav>
+
+<!-- ====================================================================== -->
+
+<h2 id="recording-tool">1. The Recording Tool</h2>
+
+<p>The voiceover recording tool is a full-page three-panel interface accessed from the timeline view. It provides a teleprompter-guided recording experience with multi-take management.</p>
+
+<h3>Three-Panel Layout</h3>
+
+<div class="card">
+  <table>
+    <tr>
+      <th>Panel</th>
+      <th>Component</th>
+      <th>Purpose</th>
+    </tr>
+    <tr>
+      <td><strong>Left: Scene Navigator</strong></td>
+      <td><code>SceneNavigator.tsx</code></td>
+      <td>Lists all narrated scenes. Shows recording status (mic icon: green = recorded, gray = pending). Filterable: All / Unrecorded / Flagged.</td>
+    </tr>
+    <tr>
+      <td><strong>Center: Teleprompter</strong></td>
+      <td><code>TeleprompterPanel.tsx</code></td>
+      <td>Displays narration text with animated timing needle. Shows scene image as video preview. Live audio level meter during recording.</td>
+    </tr>
+    <tr>
+      <td><strong>Right: Take Panel</strong></td>
+      <td><code>TakePanel.tsx</code></td>
+      <td>Manages multiple takes per scene. Play/select/delete takes. Import external audio files. Trim end point adjustment.</td>
+    </tr>
+  </table>
+</div>
+
+<h3>Recording Modes</h3>
+<ul>
+  <li><strong>Single</strong> — Records one scene at a time. Stops when you stop.</li>
+  <li><strong>Continuous</strong> — After recording a scene, auto-advances to the next unrecorded scene.</li>
+  <li><strong>Free</strong> — Records without scene constraints.</li>
+  <li><strong>Rehearse</strong> — Plays back the teleprompter animation without capturing audio. Useful for practice runs.</li>
+</ul>
+
+<h3>Recording Flow</h3>
+
+<div class="flow-diagram">
+<span class="dim">1.</span> User selects microphone from device dropdown
+<span class="dim">2.</span> User presses <span class="highlight">Space</span> to begin
+<span class="dim">3.</span> <span class="label">3-2-1 countdown</span> <span class="arrow">→</span> needle glides from left edge toward first word
+<span class="dim">4.</span> <span class="label">MediaRecorder starts</span> <span class="arrow">→</span> WebM/Opus encoding at 100ms chunk intervals
+<span class="dim">5.</span> Teleprompter needle animates through words based on <code>word_timestamps</code>
+<span class="dim">6.</span> User presses <span class="highlight">Space</span> to stop
+<span class="dim">7.</span> Blob uploaded via <code>POST /api/recording/upload-take</code>
+<span class="dim">8.</span> Stored as <code>data/projects/{script_id}/recording/takes/{scene_id}_take{N}.webm</code>
+</div>
+
+<h3>Teleprompter Needle</h3>
+<p>The needle is a small purple arrow that indicates current reading position. Its position is computed by:</p>
+<ol>
+  <li>Looking up which word should be active at the current <code>elapsedMs</code></li>
+  <li>Calculating the progress within that word: <code>(elapsed - startMs) / (endMs - startMs)</code></li>
+  <li>Interpolating the x-position between the current word's center and the next word's center</li>
+  <li>If words span multiple visual lines, the needle follows the text flow</li>
+</ol>
+
+<div class="callout callout-info">
+  <div class="callout-title">Word Highlighting</div>
+  <p>During recording, words change color to indicate state: <strong>white + scaled up</strong> = currently being spoken, <strong>gray</strong> = already spoken, <strong>slightly lighter</strong> = about to be spoken (500ms lookahead), <strong>dark + blurred</strong> = far ahead.</p>
+</div>
+
+<h3>Technical Details</h3>
+<ul>
+  <li><strong>Audio capture:</strong> Web Audio API (<code>MediaRecorder</code> with <code>audio/webm;codecs=opus</code>)</li>
+  <li><strong>Audio level:</strong> Real-time FFT analysis via <code>AnalyserNode</code>, updated every animation frame (~16ms)</li>
+  <li><strong>Level meter:</strong> Normalized 0-1 from frequency bin average (appears in both toolbar and video preview area)</li>
+  <li><strong>Device enumeration:</strong> <code>navigator.mediaDevices.enumerateDevices()</code>, with live monitoring stream on selected device</li>
+  <li><strong>Session persistence:</strong> <code>session.json</code> stores selected takes, flagged scenes, trim points per scene</li>
+  <li><strong>Timing offset:</strong> User-adjustable -500ms to +500ms slider to compensate for latency between reading and speaking</li>
+</ul>
+
+<h3>Keyboard Shortcuts</h3>
+<table>
+  <tr><th>Key</th><th>Action</th></tr>
+  <tr><td><code>Space</code></td><td>Start/stop recording</td></tr>
+  <tr><td><code>F</code></td><td>Toggle flag on current scene</td></tr>
+  <tr><td><code>T</code></td><td>Toggle trim mode</td></tr>
+  <tr><td><code>Escape</code></td><td>Stop recording / close export modal</td></tr>
+</table>
+
+<p class="file-ref">Source: <code>frontend/src/components/recording/VoiceoverRecordingPage.tsx</code></p>
+
+<!-- ====================================================================== -->
+
+<h2 id="word-timing-ai">2. Word Timing: AI Voiceover (ElevenLabs)</h2>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-ai">AI Path</span>
+    <span>Character-level alignment from ElevenLabs API</span>
+  </div>
+
+  <h4>How It Works</h4>
+  <ol>
+    <li>We call ElevenLabs' <code>/v1/text-to-speech/{voice_id}/with-timestamps</code> endpoint</li>
+    <li>ElevenLabs returns base64-encoded MP3 audio <strong>plus</strong> an <code>alignment</code> object containing:
+      <ul>
+        <li><code>characters[]</code> — every character in the input text</li>
+        <li><code>character_start_times_seconds[]</code> — start time for each character</li>
+        <li><code>character_end_times_seconds[]</code> — end time for each character</li>
+      </ul>
+    </li>
+    <li>We reconstruct word-level timestamps from character-level data via <code>_reconstruct_words()</code>:
+      <ul>
+        <li>Groups non-whitespace characters between spaces</li>
+        <li>Word start = first character's start_time</li>
+        <li>Word end = last character's end_time</li>
+        <li>Converts seconds to milliseconds</li>
+      </ul>
+    </li>
+    <li>Duration is derived from the last word's <code>end_ms</code> (most accurate source)</li>
+  </ol>
+
+  <h4>Output Format</h4>
+  <pre><code>[
+  { "word": "The",      "start_ms": 0,    "end_ms": 180  },
+  { "word": "ancient",  "start_ms": 200,  "end_ms": 520  },
+  { "word": "library",  "start_ms": 540,  "end_ms": 890  },
+  ...
+]</code></pre>
+
+  <h4>Accuracy</h4>
+  <p>ElevenLabs alignment is highly accurate because the timestamps come directly from the synthesis model — they represent exactly when the model generated each phoneme. No post-hoc alignment needed.</p>
+</div>
+
+<p class="file-ref">Source: <code>backend/integrations/elevenlabs_client.py</code> — <code>_reconstruct_words()</code></p>
+
+<!-- ====================================================================== -->
+
+<h2 id="word-timing-real">3. Word Timing: Real Voiceover (Whisper)</h2>
+
+<div class="card">
+  <div class="card-header">
+    <span class="badge badge-real">Real Path</span>
+    <span>Post-hoc alignment via faster-whisper STT</span>
+  </div>
+
+  <h4>How It Works</h4>
+  <ol>
+    <li>During export, each selected take is converted from WebM to MP3 via FFmpeg with audio processing filters:
+      <ul>
+        <li><code>highpass=f=80</code> — removes low-frequency rumble</li>
+        <li><code>afftdn=nf=-20:tn=1</code> — FFT-based noise reduction</li>
+        <li><code>acompressor=threshold=-20dB:ratio=3:attack=5:release=150</code> — dynamic range compression</li>
+      </ul>
+    </li>
+    <li>The processed MP3 is fed to <code>faster-whisper</code> (OpenAI Whisper, C++ port) with:
+      <ul>
+        <li>Model: <code>small</code> (good accuracy/speed tradeoff for single-user desktop)</li>
+        <li>Device: CPU, compute type: int8 (no GPU required)</li>
+        <li><code>word_timestamps=True</code> for word-level output</li>
+        <li><code>initial_prompt=narration_text</code> — biases transcription toward the expected text</li>
+      </ul>
+    </li>
+    <li>Whisper returns segments with word-level timestamps (start/end in seconds)</li>
+    <li>We convert to the same <code>{word, start_ms, end_ms}</code> format as ElevenLabs</li>
+  </ol>
+
+  <h4>Fallback: Even Distribution</h4>
+  <p>If Whisper fails or returns no word timestamps:</p>
+  <ol>
+    <li>Get total audio duration via <code>ffprobe</code></li>
+    <li>If ffprobe fails, estimate at ~140 WPM (430ms per word)</li>
+    <li>Distribute words evenly: each word gets <code>duration_ms / word_count</code> milliseconds</li>
+  </ol>
+
+  <div class="callout">
+    <div class="callout-title">Accuracy Difference</div>
+    <p>Whisper alignment is <strong>less precise</strong> than ElevenLabs because it's doing speech recognition + alignment as a post-processing step on natural speech (variable pacing, breathing, pauses). ElevenLabs knows exactly when it synthesized each sound. Expect Whisper to be accurate to within ~50-100ms per word, whereas ElevenLabs is precise to ~10-20ms.</p>
+  </div>
+
+  <h4>The initial_prompt Trick</h4>
+  <p>By passing the narration text as <code>initial_prompt</code>, we bias Whisper to expect those specific words. This dramatically improves alignment accuracy for our use case because we know exactly what was <em>supposed</em> to be said — we just need to know <em>when</em> each word was spoken.</p>
+</div>
+
+<p class="file-ref">Source: <code>backend/pipeline/audio_alignment.py</code></p>
+
+<!-- ====================================================================== -->
+
+<h2 id="data-flow">4. End-to-End Data Flow</h2>
+
+<h3>Phrase Timestamps (Computed from Word Timestamps)</h3>
+
+<p>Both AI and real voiceover paths produce <code>word_timestamps</code>. These are then grouped into <code>phrase_timestamps</code> using an adaptive gap-based algorithm:</p>
+
+<div class="card">
+  <h4>Algorithm: <code>compute_phrase_timestamps()</code></h4>
+  <ol>
+    <li>Calculate inter-word gaps: <code>next_word.start_ms - current_word.end_ms</code></li>
+    <li>Find the median gap across all word boundaries</li>
+    <li>Set threshold: <code>max(200ms, min(800ms, median_gap × 3))</code></li>
+    <li>Walk through words — start a new phrase whenever a gap exceeds the threshold</li>
+    <li>Output: list of <code>{start_ms, end_ms}</code> for each phrase</li>
+  </ol>
+  <p>This produces natural phrase groupings that adapt to speech cadence. Fast speakers get shorter gaps (lower threshold), deliberate speakers get longer gaps.</p>
+</div>
+
+<h3>Complete Pipeline Comparison</h3>
+
+<div class="comparison-grid">
+  <div class="card">
+    <div class="card-header">
+      <span class="badge badge-ai">AI Voiceover</span>
+    </div>
+    <pre><code>Script narration text
+    ↓
+ElevenLabs TTS /with-timestamps
+    ↓
+Returns: MP3 audio + character alignment
+    ↓
+_reconstruct_words() → word_timestamps
+    ↓
+compute_phrase_timestamps() → phrase_timestamps
+    ↓
+Save audio + update scene in script_json
+    ↓
+Duration = last word's end_ms / 1000</code></pre>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="badge badge-real">Real Voiceover</span>
+    </div>
+    <pre><code>User records in browser (WebM/Opus)
+    ↓
+Upload take → stored as .webm
+    ↓
+Export: FFmpeg convert + filters → MP3
+    ↓
+faster-whisper align(MP3, narration) → word_timestamps
+    ↓
+compute_phrase_timestamps() → phrase_timestamps
+    ↓
+Save audio + update scene in script_json
+    ↓
+Duration = ffprobe(output MP3)</code></pre>
+  </div>
+</div>
+
+<h3>Unified Output</h3>
+<p>Both paths produce identical data structures stored in the scene within <code>script_json</code>:</p>
+<pre><code>{
+  "audio_url": "/static/projects/{script_id}/audio/{scene_id}.mp3",
+  "audio_duration_seconds": 4.832,
+  "word_timestamps": [
+    { "word": "The", "start_ms": 0, "end_ms": 180 },
+    { "word": "human", "start_ms": 210, "end_ms": 480 },
+    ...
+  ],
+  "phrase_timestamps": [
+    { "start_ms": 0, "end_ms": 2100 },
+    { "start_ms": 2400, "end_ms": 4832 }
+  ]
+}</code></pre>
+
+<!-- ====================================================================== -->
+
+<h2 id="downstream">5. Downstream Consumers</h2>
+
+<p>Everything downstream of the voiceover is format-agnostic — it doesn't know or care whether the audio came from ElevenLabs or a real recording. It just reads <code>word_timestamps</code> and <code>phrase_timestamps</code>.</p>
+
+<table>
+  <tr>
+    <th>Consumer</th>
+    <th>Uses</th>
+    <th>What It Does</th>
+  </tr>
+  <tr>
+    <td><strong>SubtitleOverlay</strong> (Remotion)</td>
+    <td><code>word_timestamps</code></td>
+    <td>Groups words into display phrases (max 8 words, splits at punctuation/300ms pauses). Shows active phrase at bottom with word-level highlighting.</td>
+  </tr>
+  <tr>
+    <td><strong>EliOverlay</strong> (Remotion)</td>
+    <td><code>phrase_timestamps</code></td>
+    <td>Drives mouth openness (0→1 continuous blend). Ramps open 40ms before phrase, stays open during, ramps closed 110ms after.</td>
+  </tr>
+  <tr>
+    <td><strong>Zoom Punch FX</strong></td>
+    <td><code>word_timestamps</code></td>
+    <td>Triggers zoom effect on a specific word. Looks up <code>trigger_word</code> in timestamps to find exact frame.</td>
+  </tr>
+  <tr>
+    <td><strong>Scene Micro-Timeline</strong></td>
+    <td><code>word_timestamps</code></td>
+    <td>Snaps image crossfade markers and FX triggers to word boundaries (100ms threshold).</td>
+  </tr>
+  <tr>
+    <td><strong>Teleprompter</strong> (Recording)</td>
+    <td><code>word_timestamps</code></td>
+    <td>Guides recording needle position. Falls back to 140 WPM estimate if no timestamps exist yet.</td>
+  </tr>
+  <tr>
+    <td><strong>Timeline Duration</strong></td>
+    <td><code>audio_duration_seconds</code></td>
+    <td>Determines scene length in the global timeline. Audio duration is the source of truth for timing.</td>
+  </tr>
+</table>
+
+<!-- ====================================================================== -->
+
+<h2 id="considerations">6. Considerations for Real Voiceover</h2>
+
+<h3>Things That Work Differently With Real Voice</h3>
+
+<div class="card">
+  <h4>Timing Variability</h4>
+  <p>AI voiceover has predictable, consistent pacing. Real voiceover has natural variation — pauses for emphasis, breathing gaps, speed changes, stumbles. This affects:</p>
+  <ul>
+    <li><strong>Subtitle display:</strong> Phrases may be shorter/longer than expected. The adaptive phrase grouping algorithm helps, but very long pauses (>800ms) might create awkward single-word phrases.</li>
+    <li><strong>Eli mouth animation:</strong> More gaps between phrases = more mouth-closed time = more natural looking (actually a benefit).</li>
+    <li><strong>Zoom punch timing:</strong> If you trigger on a word, natural delivery variance means the zoom might feel slightly different than with AI voice.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h4>Audio Quality Concerns</h4>
+  <ul>
+    <li><strong>Room noise:</strong> The FFmpeg filter chain (highpass + noise reduction + compression) helps, but can't fix a bad recording environment. AI voice has zero noise.</li>
+    <li><strong>Plosives/sibilance:</strong> No de-essing or pop filter processing currently applied.</li>
+    <li><strong>Volume consistency:</strong> The compressor helps, but across scenes recorded at different times, overall volume may vary.</li>
+    <li><strong>WebM→MP3 quality:</strong> The recording is WebM/Opus → converted to MP3 192kbps. This is a lossy→lossy conversion. Not ideal for audiophiles but acceptable for YouTube.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h4>Whisper Alignment Quality</h4>
+  <ul>
+    <li><strong>initial_prompt helps a lot</strong> — but if the speaker deviates from the script (ad-libs, rephrases), Whisper may produce incorrect word boundaries</li>
+    <li><strong>Mumbled or unclear words</strong> may get misaligned or dropped entirely</li>
+    <li><strong>No validation against narration text</strong> — we don't currently verify that Whisper's transcription matches the expected script</li>
+    <li><strong>Even distribution fallback</strong> is a rough approximation — if Whisper fails, subtitles will be noticeably off</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h4>Session Workflow Differences</h4>
+  <ul>
+    <li><strong>Multiple takes:</strong> You'll likely need more takes than with AI (which is always perfect on the first try)</li>
+    <li><strong>Flagging:</strong> Scenes you want to re-record later need the flag system</li>
+    <li><strong>Duration variance:</strong> Each take of the same scene will be a different length. This changes the overall video duration every time you swap takes.</li>
+    <li><strong>No word_timestamps for teleprompter guidance on first recording:</strong> If no AI voiceover was generated first, the teleprompter falls back to a ~140 WPM estimate for needle positioning</li>
+  </ul>
+</div>
+
+<!-- ====================================================================== -->
+
+<h2 id="gaps">7. Things We May Be Forgetting</h2>
+
+<div class="callout callout-danger">
+  <div class="callout-title">No Re-alignment After Take Swap</div>
+  <p>When you record multiple takes and select a different one, the <code>word_timestamps</code> in the scene only update on <strong>export</strong>. If you're previewing or checking timing in the timeline before exporting, you're still seeing timestamps from the previously exported take (or from AI generation). There's no on-the-fly alignment when selecting takes.</p>
+</div>
+
+<div class="callout callout-danger">
+  <div class="callout-title">No Script Deviation Detection</div>
+  <p>If the speaker says something different from the narration text, we don't detect it. Whisper will transcribe what was said, but we don't compare it to what was expected. This could produce word_timestamps that don't match the displayed subtitles.</p>
+</div>
+
+<div class="callout">
+  <div class="callout-title">Retake Impact on Downstream State</div>
+  <p>When you re-export after re-recording, the new audio duration may differ. This invalidates:
+    <br>- <code>frame_timings</code> set in the micro-timeline (image crossfade points become wrong)
+    <br>- <code>visual_in_seconds</code> / <code>visual_out_seconds</code> if they exceed new duration
+    <br>- Zoom punch trigger timing if it was manually fine-tuned
+    <br>- Any rendered scene previews (now stale)
+  </p>
+</div>
+
+<div class="callout">
+  <div class="callout-title">No Loudness Normalization Across Scenes</div>
+  <p>Each scene is processed independently. If you record Scene 3 in the morning and Scene 7 in the evening (different mic distance, room, energy level), they may have noticeably different loudness in the final video. There's no LUFS normalization pass.</p>
+</div>
+
+<div class="callout callout-info">
+  <div class="callout-title">Teleprompter Relies on Pre-existing Timestamps</div>
+  <p>The teleprompter needle needs <code>word_timestamps</code> to know where to point. For the very first recording of a scene (no AI voiceover generated first), it falls back to a flat 140 WPM estimate. This may not match natural speaking pace, making the needle feel "off" during recording.</p>
+</div>
+
+<div class="callout callout-info">
+  <div class="callout-title">No Monitoring / Playthrough</div>
+  <p>There's no audio monitoring (hearing yourself through headphones with processing applied in real-time). You only hear the raw mic. This means you can't judge the final processed sound until after export.</p>
+</div>
+
+<div class="callout callout-info">
+  <div class="callout-title">No Punch-In Recording</div>
+  <p>If you flub one sentence in a 30-second scene, you have to re-record the entire scene. There's no way to punch in at a specific word and only re-record a section.</p>
+</div>
+
+<!-- ====================================================================== -->
+
+<h2 id="enhancements">8. Enhancement Ideas</h2>
+
+<h3>Visual Rhythm + Tone Indicators</h3>
+
+<p>The big opportunity: make the teleprompter not just show <em>what</em> to say, but <em>how</em> to say it. Derive visual cues from the writing structure to promote controlled, rhythmic delivery.</p>
+
+<div class="enhancement-card priority-high">
+  <h4>Breath Markers</h4>
+  <p>Detect natural breath points from punctuation and phrase boundaries. Show subtle indicators (a small pause icon or a vertical line) in the teleprompter at commas, periods, and long dashes. Different sizes for different pause lengths:</p>
+  <ul>
+    <li><strong>Comma / conjunction:</strong> thin line (beat pause, ~200ms)</li>
+    <li><strong>Period / semicolon:</strong> medium line (breath pause, ~400ms)</li>
+    <li><strong>Paragraph / section break:</strong> thick line (full breath, ~800ms)</li>
+  </ul>
+  <p>This prevents rushing through text and promotes the deliberate pacing that sounds professional.</p>
+</div>
+
+<div class="enhancement-card priority-high">
+  <h4>Emphasis Indicators</h4>
+  <p>Highlight words/phrases that should be emphasized based on writing structure:</p>
+  <ul>
+    <li><strong>Key terms</strong> (proper nouns, technical terms) — subtle underline or bold</li>
+    <li><strong>Contrast words</strong> ("but", "however", "instead") — indicate a tonal shift</li>
+    <li><strong>List items</strong> — numbered indicators to maintain consistent rhythm across items</li>
+    <li><strong>Question marks</strong> — rising intonation indicator (upward arrow?)</li>
+  </ul>
+  <p>Could be AI-generated: pass the narration to Claude with a prompt asking which words carry emphasis.</p>
+</div>
+
+<div class="enhancement-card priority-high">
+  <h4>Pace Guide / WPM Target</h4>
+  <p>Show a real-time WPM counter during recording, with a target range indicator (e.g., green zone = 130-160 WPM). This helps maintain consistent pacing across scenes and recording sessions.</p>
+  <ul>
+    <li>Calculate rolling 5-second WPM from word_timestamps (after recording) or from elapsed time (during)</li>
+    <li>Color-coded: too fast = amber, too slow = blue, target = green</li>
+    <li>Optional: subtle audio click track at desired pace (like a metronome but gentler)</li>
+  </ul>
+</div>
+
+<div class="enhancement-card priority-med">
+  <h4>Sentence-Level Intonation Curves</h4>
+  <p>Display a subtle curve above each sentence indicating the expected pitch contour:</p>
+  <ul>
+    <li><strong>Statements:</strong> slight downward slope at end</li>
+    <li><strong>Questions:</strong> upward curve at end</li>
+    <li><strong>Lists:</strong> rising on items, falling on final item</li>
+    <li><strong>Dramatic reveal:</strong> dip then rise ("What they found... was extraordinary")</li>
+  </ul>
+  <p>This could be derived from punctuation + sentence structure analysis, or AI-annotated.</p>
+</div>
+
+<div class="enhancement-card priority-med">
+  <h4>Energy/Intensity Zones</h4>
+  <p>Color-code sections of the script based on intended energy level:</p>
+  <ul>
+    <li><strong>Calm/informational</strong> (blue) — steady, measured delivery</li>
+    <li><strong>Building</strong> (amber) — increasing energy, slightly faster</li>
+    <li><strong>Peak/impactful</strong> (red/purple) — maximum emphasis and presence</li>
+    <li><strong>Cool-down</strong> (green) — winding back to conversational</li>
+  </ul>
+  <p>Annotated either manually in the script editor or auto-generated based on content analysis.</p>
+</div>
+
+<div class="enhancement-card priority-med">
+  <h4>Post-Recording Rhythm Visualization</h4>
+  <p>After recording, show a waveform-style view of the take with:</p>
+  <ul>
+    <li>Word boundaries overlaid on the waveform</li>
+    <li>Gaps between words visualized (too long? too short?)</li>
+    <li>Comparison between actual timing and ideal timing (if AI voiceover exists as reference)</li>
+    <li>Highlight sections where pace deviated significantly from average</li>
+  </ul>
+  <p>This helps identify which parts of a take need re-recording without listening to the whole thing.</p>
+</div>
+
+<div class="enhancement-card priority-med">
+  <h4>Waveform Preview in Take Panel</h4>
+  <p>Show a mini waveform for each take in the take panel. Click anywhere on it to seek. Visually compare takes by shape to quickly identify the best one without playing them all.</p>
+</div>
+
+<div class="enhancement-card priority-low">
+  <h4>AI Reference Playback</h4>
+  <p>If AI voiceover was generated first, offer a "listen to reference" button that plays the AI version as a delivery guide. The speaker can hear the target pacing and emphasis before recording their own take.</p>
+</div>
+
+<div class="enhancement-card priority-low">
+  <h4>Automatic Punch-In</h4>
+  <p>Allow re-recording a portion of a scene:</p>
+  <ol>
+    <li>Mark a word range in the teleprompter as the "punch zone"</li>
+    <li>Playback existing audio up to the punch-in point</li>
+    <li>Auto-start recording at the punch point</li>
+    <li>Auto-stop after the punch-out point</li>
+    <li>Splice the new audio segment into the existing take</li>
+  </ol>
+  <p>Requires FFmpeg splice + re-alignment of the combined audio.</p>
+</div>
+
+<div class="enhancement-card priority-low">
+  <h4>Loudness Normalization</h4>
+  <p>Add a LUFS normalization pass during export that ensures all scenes hit the same perceived loudness (e.g., -16 LUFS for YouTube). This is a single FFmpeg <code>loudnorm</code> filter addition but needs a two-pass approach for accuracy.</p>
+</div>
+
+<div class="enhancement-card priority-low">
+  <h4>Script Deviation Warning</h4>
+  <p>After alignment, compare Whisper's transcription to the expected narration. Flag scenes where the speaker deviated significantly (different words, skipped sentences, ad-libs). Show a diff-like view so the speaker can decide if the deviation is acceptable or needs a retake.</p>
+</div>
+
+<div class="enhancement-card priority-low">
+  <h4>De-essing + Pop Filter (Digital)</h4>
+  <p>Add optional FFmpeg filters for sibilance reduction and plosive removal. This makes real voiceover sound more polished without requiring physical pop filters:</p>
+  <pre><code>-af "deesser=i=0.4:m=0.5,highpass=f=80"</code></pre>
+</div>
+
+<hr>
+
+<h3>Implementation Priority Recommendation</h3>
+
+<table>
+  <tr>
+    <th>Priority</th>
+    <th>Enhancement</th>
+    <th>Rationale</th>
+  </tr>
+  <tr>
+    <td style="color: var(--red);">HIGH</td>
+    <td>Breath markers + Emphasis indicators</td>
+    <td>Directly improves delivery quality with minimal implementation effort (text analysis only)</td>
+  </tr>
+  <tr>
+    <td style="color: var(--red);">HIGH</td>
+    <td>Live WPM pace guide</td>
+    <td>Simple elapsed/word-count math, huge impact on consistency</td>
+  </tr>
+  <tr>
+    <td style="color: var(--amber);">MED</td>
+    <td>Loudness normalization</td>
+    <td>One FFmpeg filter, prevents jarring volume shifts between scenes in final video</td>
+  </tr>
+  <tr>
+    <td style="color: var(--amber);">MED</td>
+    <td>Post-recording rhythm viz</td>
+    <td>Helps evaluate takes quickly; word_timestamps already available</td>
+  </tr>
+  <tr>
+    <td style="color: var(--amber);">MED</td>
+    <td>Intonation curves</td>
+    <td>Moderate complexity but significant coaching value for non-professional speakers</td>
+  </tr>
+  <tr>
+    <td style="color: var(--emerald);">LOW</td>
+    <td>Punch-in recording</td>
+    <td>Complex (splice + re-align) but saves significant time for long scenes</td>
+  </tr>
+  <tr>
+    <td style="color: var(--emerald);">LOW</td>
+    <td>Script deviation warning</td>
+    <td>Useful safety net but not critical if speaker is disciplined</td>
+  </tr>
+</table>
+
+</body>
+</html>
