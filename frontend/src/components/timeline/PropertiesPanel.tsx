@@ -288,7 +288,7 @@ export default function PropertiesPanel({
         const safeIndex = Math.min(galleryIndex, Math.max(0, availableImages.length - 1));
 
         return (
-          <div className="shrink-0 h-36 flex items-center justify-center px-4 py-2">
+          <div className="shrink-0 h-56 flex items-center justify-center px-4 py-2">
             {availableImages.length > 0 ? (
               <div
                 className="relative w-full h-full flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-violet-500/30 rounded-lg"
