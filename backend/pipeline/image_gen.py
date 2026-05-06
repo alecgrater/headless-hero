@@ -483,6 +483,7 @@ def generate_batch(
 
             # --- Stock photo dispatch ---
             if media_source == "stock_photo":
+                logger.info("[PEXELS] scene %s — query: %s", scene["scene_id"], scene.get("visual_prompt", "")[:80])
                 frame_directives = scene.get("frame_directives", [])
                 if frame_directives:
                     # Multi-frame stock photo — use v2 pipeline
@@ -524,6 +525,7 @@ def generate_batch(
                 duration = scene.get("audio_duration_seconds", 8.0)
                 if not game_name:
                     raise RuntimeError("Gameplay scene missing game_name")
+                logger.info("[TWITCH] scene %s — game: %s, duration: %.1fs", scene["scene_id"], game_name, float(duration))
                 video_url = generate_gameplay_clip(script_id, scene["scene_id"], game_name, float(duration))
                 results.append({
                     "scene_id": scene["scene_id"],
@@ -545,6 +547,7 @@ def generate_batch(
                 continue
 
             # --- AI-generated (default) ---
+            logger.info("[GEMINI] scene %s — prompt: %s", scene["scene_id"], scene.get("visual_prompt", "")[:80])
             frame_directives = scene.get("frame_directives", [])
             frame_prompts = scene.get("frame_prompts", [])
             scene_contains_person = scene.get("contains_person", False)

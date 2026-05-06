@@ -97,6 +97,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
 
     # --- Stock photo dispatch ---
     if body.media_source == "stock_photo":
+        logger.info("[PEXELS] scene %s — query: %s", body.scene_id, body.visual_prompt[:80])
         from pipeline.stock_photo import generate_stock_photo
         if body.frame_directives:
             frame_results = generate_scene_frames_v2(
@@ -127,6 +128,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         game_name = body.gameplay_game_name or body.gameplay_game_override
         if not game_name:
             raise HTTPException(status_code=400, detail="Gameplay scene missing game name")
+        logger.info("[TWITCH] scene %s — game: %s, duration: %.1fs", body.scene_id, game_name, body.audio_duration_seconds or 8.0)
         duration = body.audio_duration_seconds or 8.0
         video_url = generate_gameplay_clip(body.script_id, body.scene_id, game_name, duration)
         update_scene(session, body.script_id, body.scene_id, video_url=video_url)
@@ -135,6 +137,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         return GenerateVisualResponse(image_url="", prompt_used=f"gameplay:{game_name}", video_url=video_url)
 
     # --- AI-generated (default) ---
+    logger.info("[GEMINI] scene %s — prompt: %s", body.scene_id, body.visual_prompt[:80])
 
     # Visual Beat System v2 path: per-frame directives
     if body.frame_directives:
