@@ -147,6 +147,27 @@ class AnnotateDeliveryRequest(BaseModel):
     scene_id: str
 
 
+class ScoreTakeRequest(BaseModel):
+    script_id: str
+    scene_id: str
+    take_number: int
+
+
+class DimensionScore(BaseModel):
+    score: int  # 1-10
+    note: str
+
+
+class TakeScoreResponse(BaseModel):
+    overall: int  # 1-10
+    dimensions: dict[str, DimensionScore]
+    recommendation: str
+
+
+class ScoreAllRequest(BaseModel):
+    script_id: str
+
+
 class ExportResponse(BaseModel):
     scenes_exported: int
     total_duration_seconds: float
@@ -436,6 +457,205 @@ def get_rhythm_analysis(script_id: str, scene_id: str, take_number: int, db: Ses
         "fastest_5s_wpm": fastest_5s,
         "slowest_5s_wpm": slowest_5s,
     }
+
+
+def _compute_take_score(word_timestamps: list[dict], narration: str, deviation_ratio: float) -> TakeScoreResponse:
+    """Compute algorithmic metrics + Claude qualitative score for a take."""
+    if len(word_timestamps) < 3:
+        return TakeScoreResponse(
+            overall=5,
+            dimensions={"data": DimensionScore(score=5, note="Not enough data to score")},
+            recommendation="Record a longer take for meaningful scoring.",
+        )
+
+    # --- Algorithmic metrics ---
+    total_ms = word_timestamps[-1]["end_ms"] - word_timestamps[0]["start_ms"]
+    wpm = (len(word_timestamps) / (total_ms / 60000)) if total_ms > 0 else 0
+
+    # Pacing consistency: coefficient of variation of word durations
+    word_durations = [wt["end_ms"] - wt["start_ms"] for wt in word_timestamps]
+    mean_dur = sum(word_durations) / len(word_durations)
+    std_dur = (sum((d - mean_dur) ** 2 for d in word_durations) / len(word_durations)) ** 0.5
+    cv = std_dur / mean_dur if mean_dur > 0 else 0
+
+    # Gap analysis
+    gaps = []
+    for i in range(1, len(word_timestamps)):
+        gap_ms = word_timestamps[i]["start_ms"] - word_timestamps[i - 1]["end_ms"]
+        if gap_ms > 300:
+            gaps.append(gap_ms)
+    long_gaps = [g for g in gaps if g > 1500]
+
+    # Pacing score: target 130-160 WPM, penalize extremes
+    if 130 <= wpm <= 160:
+        pacing_score = 9
+    elif 110 <= wpm <= 180:
+        pacing_score = 7
+    elif 90 <= wpm <= 200:
+        pacing_score = 5
+    else:
+        pacing_score = 3
+
+    # Rhythm/consistency score: lower CV = more consistent (but some variation is good)
+    if 0.3 <= cv <= 0.6:
+        rhythm_score = 9
+    elif 0.2 <= cv <= 0.8:
+        rhythm_score = 7
+    elif cv < 0.2:
+        rhythm_score = 5  # too robotic
+    else:
+        rhythm_score = 4  # too erratic
+
+    # Penalize for long unnatural pauses
+    if long_gaps:
+        rhythm_score = max(3, rhythm_score - len(long_gaps))
+
+    # Script accuracy score from deviation
+    if deviation_ratio >= 0.98:
+        accuracy_score = 10
+    elif deviation_ratio >= 0.95:
+        accuracy_score = 8
+    elif deviation_ratio >= 0.85:
+        accuracy_score = 6
+    elif deviation_ratio >= 0.70:
+        accuracy_score = 4
+    else:
+        accuracy_score = 2
+
+    # --- Claude qualitative assessment ---
+    engagement_score = 7
+    emphasis_score = 7
+    claude_note = ""
+
+    try:
+        from integrations.claude_client import get_client
+
+        # Build a compact timing summary for Claude
+        timing_summary = f"WPM: {wpm:.0f}, CV: {cv:.2f}, gaps>1.5s: {len(long_gaps)}, accuracy: {deviation_ratio:.0%}"
+
+        # Sample word timings (every 5th word) to show pacing pattern
+        sample_words = []
+        for i in range(0, len(word_timestamps), max(1, len(word_timestamps) // 15)):
+            wt = word_timestamps[i]
+            sample_words.append(f"{wt['word']}({wt['end_ms'] - wt['start_ms']}ms)")
+        pacing_pattern = " ".join(sample_words[:15])
+
+        client = get_client()
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=300,
+            messages=[{"role": "user", "content": f"""Score this voiceover take's delivery quality. The narrator recorded this text:
+
+"{narration[:500]}"
+
+Timing data: {timing_summary}
+Pacing sample (word + duration): {pacing_pattern}
+
+Score two dimensions (1-10 each):
+1. "emphasis" — Are word durations varied enough to suggest natural stress patterns? (Monotone=3, natural variation=7, dramatic=9)
+2. "engagement" — Based on pacing and rhythm, does this sound like an engaged narrator or someone reading flat? (Flat=3, conversational=7, compelling=9)
+
+Also give a one-sentence "recommendation" for improvement (or "Sounds great" if scores are 8+).
+
+Return ONLY JSON: {{"emphasis": int, "emphasis_note": "...", "engagement": int, "engagement_note": "...", "recommendation": "..."}}"""}],
+        )
+        text = response.content[0].text.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        result = json.loads(text)
+        emphasis_score = max(1, min(10, result.get("emphasis", 7)))
+        engagement_score = max(1, min(10, result.get("engagement", 7)))
+        claude_note = result.get("recommendation", "")
+    except Exception as exc:
+        logger.warning("Claude scoring failed, using algorithmic fallback: %s", exc)
+        claude_note = "AI scoring unavailable — using rhythm metrics only."
+
+    # Overall: weighted average
+    overall = round(
+        pacing_score * 0.2 +
+        rhythm_score * 0.2 +
+        accuracy_score * 0.2 +
+        emphasis_score * 0.2 +
+        engagement_score * 0.2
+    )
+
+    dimensions = {
+        "pacing": DimensionScore(score=pacing_score, note=f"{wpm:.0f} WPM"),
+        "rhythm": DimensionScore(score=rhythm_score, note=f"CV={cv:.2f}, {len(long_gaps)} long pauses"),
+        "accuracy": DimensionScore(score=accuracy_score, note=f"{deviation_ratio:.0%} match"),
+        "emphasis": DimensionScore(score=emphasis_score, note="Natural word stress variation"),
+        "engagement": DimensionScore(score=engagement_score, note="Energy and delivery presence"),
+    }
+
+    recommendation = claude_note or ("Sounds great — ready to export." if overall >= 8 else "Consider re-recording for better delivery.")
+
+    return TakeScoreResponse(overall=overall, dimensions=dimensions, recommendation=recommendation)
+
+
+@router.post("/score-take", response_model=TakeScoreResponse)
+def score_take(req: ScoreTakeRequest, db: Session = Depends(get_session)):
+    """Score a single take on delivery quality dimensions."""
+    takes_dir = _takes_dir(req.script_id)
+    patterns = list(takes_dir.glob(f"{req.scene_id}_take{req.take_number}.*"))
+    if not patterns:
+        raise HTTPException(404, "Take not found")
+    take_file = patterns[0]
+
+    record = db.get(Script, req.script_id)
+    if not record:
+        raise HTTPException(404, "Script not found")
+
+    content = ScriptContent.model_validate(json.loads(record.script_json))
+    try:
+        scene = find_scene_in_content(content, req.scene_id)
+    except RuntimeError:
+        raise HTTPException(404, "Scene not found")
+    narration = scene.narration or ""
+
+    word_timestamps = align_audio(take_file, narration)
+
+    transcribed_words = [wt["word"] for wt in word_timestamps]
+    deviation_result = compute_deviation(transcribed_words, narration)
+
+    return _compute_take_score(word_timestamps, narration, deviation_result.match_ratio)
+
+
+@router.post("/score-all")
+def score_all_takes(req: ScoreAllRequest, db: Session = Depends(get_session)):
+    """Score all selected takes in a session — returns scene_id -> score mapping."""
+    record = db.get(Script, req.script_id)
+    if not record:
+        raise HTTPException(404, "Script not found")
+
+    session_path = _session_path(req.script_id)
+    if not session_path.exists():
+        raise HTTPException(400, "No recording session")
+
+    session_data = SessionData(**json.loads(session_path.read_text()))
+    content = ScriptContent.model_validate(json.loads(record.script_json))
+
+    scores: dict[str, dict] = {}
+    for scene_id, take_number in session_data.selected_takes.items():
+        takes_dir = _takes_dir(req.script_id)
+        patterns = list(takes_dir.glob(f"{scene_id}_take{take_number}.*"))
+        if not patterns:
+            continue
+        take_file = patterns[0]
+
+        try:
+            scene = find_scene_in_content(content, scene_id)
+        except RuntimeError:
+            continue
+        narration = scene.narration or ""
+
+        word_timestamps = align_audio(take_file, narration)
+        transcribed_words = [wt["word"] for wt in word_timestamps]
+        deviation_result = compute_deviation(transcribed_words, narration)
+
+        result = _compute_take_score(word_timestamps, narration, deviation_result.match_ratio)
+        scores[scene_id] = result.model_dump()
+
+    return {"scores": scores}
 
 
 @router.post("/annotate-delivery")

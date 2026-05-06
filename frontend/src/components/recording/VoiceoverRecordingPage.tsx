@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import api, { assetUrl, uploadRecordingTake, importRecordingTake } from "../../api";
 import { showToast } from "../ToastContainer";
 import type { ScriptContent, ScriptRead, Scene } from "../../types/script";
-import SceneNavigator from "./SceneNavigator";
+import SceneNavigator, { type SceneScore } from "./SceneNavigator";
 import TeleprompterPanel, { type DeliveryAnnotations } from "./TeleprompterPanel";
 import TakePanel, { type Take } from "./TakePanel";
 import ExportSection from "./ExportSection";
@@ -43,7 +43,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
   const [takes, setTakes] = useState<Take[]>([]);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [timingOffsetMs, setTimingOffsetMs] = useState(0);
-  const [filter, setFilter] = useState<"all" | "unrecorded" | "flagged">("all");
+  const [filter, setFilter] = useState<"all" | "unrecorded" | "flagged" | "low-score">("all");
   const [playingTakeNumber, setPlayingTakeNumber] = useState<number | null>(null);
   const [showTrim, setShowTrim] = useState(false);
   const [showExport, setShowExport] = useState(false);
@@ -61,6 +61,9 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
   const [referenceElapsedMs, setReferenceElapsedMs] = useState(0);
   // Phase 5A: Punch-in mode
   const [showPunchIn, setShowPunchIn] = useState(false);
+  // Voiceover scoring
+  const [scores, setScores] = useState<Record<string, SceneScore>>({});
+  const [scoring, setScoring] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const referenceAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -169,6 +172,20 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
         setDeviationData((prev) => ({ ...prev, [`${sceneId}:${takeNumber}`]: data.deviation! }));
       }
     }
+  }, [scriptId]);
+
+  // Score all selected takes
+  const handleScoreAll = useCallback(async () => {
+    setScoring(true);
+    const res = await api.post("/api/recording/score-all", { script_id: scriptId });
+    if (res.ok) {
+      const data = res.data as { scores: Record<string, SceneScore> };
+      setScores(data.scores);
+      const count = Object.keys(data.scores).length;
+      const lowCount = Object.values(data.scores).filter((s) => s.overall < 7).length;
+      showToast(`Scored ${count} scenes — ${lowCount} need attention`);
+    }
+    setScoring(false);
   }, [scriptId]);
 
   const handleStartRecording = useCallback(async () => {
@@ -448,6 +465,14 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
             />
             <span className="text-[11px] text-neutral-500 tabular-nums w-8">{timingOffsetMs > 0 ? "+" : ""}{timingOffsetMs}ms</span>
           </div>
+          {/* Score All button */}
+          <button
+            onClick={handleScoreAll}
+            disabled={recordedScenes.size === 0 || scoring}
+            className="text-xs px-3 py-1.5 text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {scoring ? "Scoring..." : "Score All"}
+          </button>
           {/* Export button */}
           <button
             onClick={() => setShowExport(true)}
@@ -469,6 +494,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
           flaggedScenes={flaggedScenes}
           filter={filter}
           onFilterChange={setFilter}
+          scores={scores}
         />
         <TeleprompterPanel
           scene={activeScene}
