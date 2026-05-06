@@ -220,7 +220,7 @@ def align_take(req: AlignTakeRequest, db: Session = Depends(get_session)):
     content = ScriptContent.model_validate(json.loads(record.script_json))
     try:
         scene = find_scene_in_content(content, req.scene_id)
-    except (RuntimeError, StopIteration):
+    except RuntimeError:
         raise HTTPException(404, "Scene not found")
     narration = scene.narration or ""
 
@@ -384,7 +384,10 @@ def get_rhythm_analysis(script_id: str, scene_id: str, take_number: int, db: Ses
         raise HTTPException(404, "Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
-    scene = find_scene_in_content(content, scene_id)
+    try:
+        scene = find_scene_in_content(content, scene_id)
+    except RuntimeError:
+        raise HTTPException(404, "Scene not found")
     narration = scene.narration or ""
 
     take_file = patterns[0]
@@ -445,7 +448,7 @@ def annotate_delivery(req: AnnotateDeliveryRequest, db: Session = Depends(get_se
     content = ScriptContent.model_validate(json.loads(record.script_json))
     try:
         scene = find_scene_in_content(content, req.scene_id)
-    except (RuntimeError, StopIteration):
+    except RuntimeError:
         raise HTTPException(404, "Scene not found")
     narration = scene.narration or ""
 
@@ -556,8 +559,11 @@ async def punch_in(
     narration = ""
     if record:
         script_content = ScriptContent.model_validate(json.loads(record.script_json))
-        scene = find_scene_in_content(script_content, scene_id)
-        narration = scene.narration or ""
+        try:
+            scene = find_scene_in_content(script_content, scene_id)
+            narration = scene.narration or ""
+        except RuntimeError:
+            pass
 
     word_timestamps = align_audio(output_file, narration)
     phrase_timestamps = compute_phrase_timestamps(word_timestamps)
