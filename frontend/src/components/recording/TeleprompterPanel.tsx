@@ -2,6 +2,24 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { assetUrl } from "../../api";
 import type { Scene } from "../../types/script";
 
+interface WordTimestamp {
+  word: string;
+  start_ms: number;
+  end_ms: number;
+}
+
+interface EnergyZone {
+  start: number;
+  end: number;
+  level: "calm" | "building" | "peak" | "reflective";
+}
+
+export interface DeliveryAnnotations {
+  emphasis_words: number[];
+  question_ranges: number[][];
+  energy_zones: EnergyZone[];
+}
+
 interface Props {
   scene: Scene | null;
   isRecording: boolean;
@@ -9,6 +27,8 @@ interface Props {
   audioLevel: number;
   countdown: number | null;
   timingOffsetMs: number;
+  previewTimestamps?: WordTimestamp[] | null;
+  annotations?: DeliveryAnnotations | null;
 }
 
 interface NeedlePos {
@@ -23,7 +43,14 @@ function formatTime(ms: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audioLevel, countdown, timingOffsetMs }: Props) {
+const ENERGY_COLORS: Record<string, string> = {
+  calm: "rgba(96, 165, 250, 0.08)",
+  building: "rgba(251, 191, 36, 0.08)",
+  peak: "rgba(167, 139, 250, 0.08)",
+  reflective: "rgba(52, 211, 153, 0.08)",
+};
+
+export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audioLevel, countdown, timingOffsetMs, previewTimestamps, annotations }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -36,10 +63,44 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     return scene.narration.split(/\s+/).filter(Boolean);
   }, [scene?.narration]);
 
+  // Detect breath/pause points from punctuation in the original narration
+  const breathMarkers = useMemo(() => {
+    if (!scene?.narration) return new Map<number, "light" | "medium" | "heavy">();
+    const markers = new Map<number, "light" | "medium" | "heavy">();
+    const rawWords = scene.narration.split(/\s+/).filter(Boolean);
+
+    for (let i = 0; i < rawWords.length - 1; i++) {
+      const w = rawWords[i];
+      const lastChar = w[w.length - 1];
+      if (lastChar === "." || lastChar === "!" || lastChar === "?") {
+        markers.set(i, "medium");
+      } else if (lastChar === "," || lastChar === ";") {
+        markers.set(i, "light");
+      }
+    }
+
+    // Detect paragraph breaks from original narration
+    const parts = scene.narration.split(/\n\n+/);
+    if (parts.length > 1) {
+      let wordIdx = 0;
+      for (let p = 0; p < parts.length - 1; p++) {
+        const partWords = parts[p].split(/\s+/).filter(Boolean);
+        wordIdx += partWords.length;
+        if (wordIdx > 0) markers.set(wordIdx - 1, "heavy");
+      }
+    }
+
+    return markers;
+  }, [scene?.narration]);
+
   const wordTimings = useMemo(() => {
     if (!words.length) return [];
-    if (scene?.word_timestamps?.length) {
-      return scene.word_timestamps.map((wt) => ({
+
+    // Use previewTimestamps if available (from align-take), otherwise scene.word_timestamps
+    const timestamps = previewTimestamps || scene?.word_timestamps;
+
+    if (timestamps?.length) {
+      return timestamps.map((wt) => ({
         word: wt.word,
         startMs: wt.start_ms + timingOffsetMs,
         endMs: wt.end_ms + timingOffsetMs,
@@ -52,7 +113,28 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
       startMs: Math.round(i * msPerWord) + timingOffsetMs,
       endMs: Math.round((i + 1) * msPerWord) + timingOffsetMs,
     }));
-  }, [words, scene?.word_timestamps, timingOffsetMs]);
+  }, [words, scene?.word_timestamps, previewTimestamps, timingOffsetMs]);
+
+  // WPM calculation during recording
+  const currentWpm = useMemo(() => {
+    if (!isRecording || !wordTimings.length || elapsedMs < 2000) return null;
+    let wordsSpoken = 0;
+    for (const wt of wordTimings) {
+      if (elapsedMs >= wt.endMs) wordsSpoken++;
+      else break;
+    }
+    if (wordsSpoken < 1) return null;
+    return Math.round((wordsSpoken / elapsedMs) * 60000);
+  }, [isRecording, elapsedMs, wordTimings]);
+
+  const wpmColor = useMemo(() => {
+    if (currentWpm === null) return "";
+    if (currentWpm < 100) return "text-sky-400";
+    if (currentWpm < 130) return "text-neutral-400";
+    if (currentWpm <= 160) return "text-emerald-400";
+    if (currentWpm <= 180) return "text-amber-400";
+    return "text-red-400";
+  }, [currentWpm]);
 
   const setWordRef = useCallback((el: HTMLSpanElement | null, index: number) => {
     wordRefs.current[index] = el;
@@ -213,6 +295,26 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     setNeedle({ x, y });
   }, [isRecording, elapsedMs, wordTimings]);
 
+  // Determine energy zone background for a word index
+  const getEnergyBg = useCallback((idx: number): string | undefined => {
+    if (!annotations?.energy_zones) return undefined;
+    for (const zone of annotations.energy_zones) {
+      if (idx >= zone.start && idx <= zone.end) {
+        return ENERGY_COLORS[zone.level];
+      }
+    }
+    return undefined;
+  }, [annotations]);
+
+  const isEmphasis = useCallback((idx: number): boolean => {
+    return annotations?.emphasis_words?.includes(idx) ?? false;
+  }, [annotations]);
+
+  const isQuestionEnd = useCallback((idx: number): boolean => {
+    if (!annotations?.question_ranges) return false;
+    return annotations.question_ranges.some(([, end]) => end === idx);
+  }, [annotations]);
+
   const imageUrl = scene?.image_url ? assetUrl(scene.image_url) : null;
 
   return (
@@ -237,6 +339,12 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
             <span className="text-xs text-white font-mono tabular-nums">{formatTime(elapsedMs)}</span>
           </div>
         )}
+        {/* WPM counter pill */}
+        {isRecording && currentWpm !== null && (
+          <div className="absolute top-3 right-3 bg-black/60 px-2.5 py-1 rounded-full">
+            <span className={`text-xs font-mono tabular-nums ${wpmColor}`}>{currentWpm} wpm</span>
+          </div>
+        )}
         {isRecording && (
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-neutral-900/80">
             <div
@@ -257,24 +365,43 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
               const isActive = isRecording && elapsedMs >= wt.startMs && elapsedMs < wt.endMs;
               const isPast = isRecording && elapsedMs >= wt.endMs;
               const isUpcoming = isRecording && elapsedMs >= wt.startMs - 500 && elapsedMs < wt.startMs;
+              const energyBg = getEnergyBg(i);
+              const emphasized = isEmphasis(i);
+              const qEnd = isQuestionEnd(i);
+              const breathAfter = breathMarkers.get(i);
+
               return (
-                <span
-                  key={i}
-                  ref={(el) => setWordRef(el, i)}
-                  data-active={isActive}
-                  className={`inline-block mr-[0.3em] transition-all duration-150 ${
-                    isActive
-                      ? "text-white scale-105 transform"
-                      : isPast
-                        ? "text-neutral-400"
-                        : isUpcoming
-                          ? "text-neutral-300"
-                          : isRecording
-                            ? "text-neutral-600 blur-[0.5px]"
-                            : "text-neutral-300"
-                  }`}
-                >
-                  {wt.word}
+                <span key={i} className="inline">
+                  <span
+                    ref={(el) => setWordRef(el, i)}
+                    data-active={isActive}
+                    className={`inline-block mr-[0.3em] transition-all duration-150 ${
+                      isActive
+                        ? "text-white scale-105 transform"
+                        : isPast
+                          ? "text-neutral-400"
+                          : isUpcoming
+                            ? "text-neutral-300"
+                            : isRecording
+                              ? "text-neutral-600 blur-[0.5px]"
+                              : "text-neutral-300"
+                    } ${emphasized && !isRecording ? "underline decoration-violet-400/50 decoration-1 underline-offset-4 font-semibold" : ""}`}
+                    style={energyBg && !isRecording ? { backgroundColor: energyBg, borderRadius: "2px", padding: "0 1px" } : undefined}
+                  >
+                    {wt.word}{qEnd && <span className="text-[10px] text-violet-400 ml-0.5">↑</span>}
+                  </span>
+                  {/* Breath marker */}
+                  {breathAfter && (
+                    <span
+                      className={`inline-block align-middle mx-[0.1em] rounded-full ${
+                        breathAfter === "heavy"
+                          ? "w-[3px] h-3 bg-violet-400/60"
+                          : breathAfter === "medium"
+                            ? "w-[2px] h-2.5 bg-neutral-500/60"
+                            : "w-[1px] h-2 bg-neutral-600/50"
+                      }`}
+                    />
+                  )}
                 </span>
               );
             })}

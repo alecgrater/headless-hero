@@ -3,7 +3,7 @@ import api, { assetUrl, uploadRecordingTake, importRecordingTake } from "../../a
 import { showToast } from "../ToastContainer";
 import type { ScriptContent, ScriptRead, Scene } from "../../types/script";
 import SceneNavigator from "./SceneNavigator";
-import TeleprompterPanel from "./TeleprompterPanel";
+import TeleprompterPanel, { type DeliveryAnnotations } from "./TeleprompterPanel";
 import TakePanel, { type Take } from "./TakePanel";
 import ExportSection from "./ExportSection";
 import { useRecorder } from "./useRecorder";
@@ -16,9 +16,20 @@ interface Props {
 
 interface SessionData {
   selected_takes: Record<string, number>;
-  flagged_scenes: string[];
+  flagged_scenes: Record<string, number> | string[];
   trim_points: Record<string, number>;
   settings: Record<string, unknown>;
+}
+
+interface WordTimestamp {
+  word: string;
+  start_ms: number;
+  end_ms: number;
+}
+
+interface DeviationData {
+  match_ratio: number;
+  deviations: Array<{ type: string; expected?: string; actual?: string; position: number }>;
 }
 
 type RecordingMode = "single" | "continuous" | "free";
@@ -38,7 +49,19 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
   const [mode, setMode] = useState<RecordingMode>("single");
   const [rehearseMode, setRehearseMode] = useState(false);
 
+  // Phase 1A: Preview timestamps from align-take
+  const [previewTimestamps, setPreviewTimestamps] = useState<WordTimestamp[] | null>(null);
+  // Phase 1B: Deviation data per scene/take
+  const [deviationData, setDeviationData] = useState<Record<string, DeviationData>>({});
+  // Phase 3C: Delivery annotations
+  const [annotations, setAnnotations] = useState<Record<string, DeliveryAnnotations>>({});
+  // Phase 4C: AI reference playback
+  const [playingReference, setPlayingReference] = useState(false);
+  const [referenceElapsedMs, setReferenceElapsedMs] = useState(0);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const referenceAudioRef = useRef<HTMLAudioElement | null>(null);
+  const referenceTimerRef = useRef<number | null>(null);
   const recorder = useRecorder();
   const audioDevices = useAudioDevices();
 
@@ -96,6 +119,16 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
     loadTakes();
   }, [content, session.selected_takes]);
 
+  // Fetch delivery annotations for active scene
+  useEffect(() => {
+    if (!activeSceneId || annotations[activeSceneId]) return;
+    api.post("/api/recording/annotate-delivery", { script_id: scriptId, scene_id: activeSceneId }).then((res) => {
+      if (res.ok) {
+        setAnnotations((prev) => ({ ...prev, [activeSceneId]: res.data as DeliveryAnnotations }));
+      }
+    });
+  }, [activeSceneId, scriptId, annotations]);
+
   const saveSession = useCallback(async (updated: SessionData) => {
     setSession(updated);
     await api.put(`/api/recording/session/${scriptId}`, updated);
@@ -113,8 +146,35 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
 
   const recordedScenes = new Set(Object.keys(session.selected_takes));
 
+  // Phase 1A: Align take on selection for instant feedback
+  const alignTake = useCallback(async (sceneId: string, takeNumber: number) => {
+    const res = await api.post("/api/recording/align-take", {
+      script_id: scriptId,
+      scene_id: sceneId,
+      take_number: takeNumber,
+    });
+    if (res.ok) {
+      const data = res.data as {
+        word_timestamps: WordTimestamp[];
+        duration_seconds: number;
+        deviation: DeviationData | null;
+      };
+      setPreviewTimestamps(data.word_timestamps);
+      if (data.deviation) {
+        setDeviationData((prev) => ({ ...prev, [`${sceneId}:${takeNumber}`]: data.deviation! }));
+      }
+    }
+  }, [scriptId]);
+
   const handleStartRecording = useCallback(async () => {
     if (rehearseMode || !activeSceneId || !audioDevices.selectedDeviceId) return;
+
+    // Stop reference playback if active
+    if (playingReference) {
+      referenceAudioRef.current?.pause();
+      setPlayingReference(false);
+      if (referenceTimerRef.current) cancelAnimationFrame(referenceTimerRef.current);
+    }
 
     setCountdown(3);
     await new Promise((r) => setTimeout(r, 1000));
@@ -125,7 +185,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
     setCountdown(null);
 
     await recorder.startRecording(audioDevices.selectedDeviceId);
-  }, [rehearseMode, activeSceneId, audioDevices.selectedDeviceId, recorder]);
+  }, [rehearseMode, activeSceneId, audioDevices.selectedDeviceId, recorder, playingReference]);
 
   const handleStopRecording = useCallback(async () => {
     const blob = await recorder.stopRecording();
@@ -149,16 +209,21 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
         const updated = { ...session, selected_takes: { ...session.selected_takes, [activeSceneId]: nextTakeNumber } };
         saveSession(updated);
       }
+
+      // Auto-align the new take for instant feedback
+      alignTake(activeSceneId, nextTakeNumber);
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Take upload failed");
     }
-  }, [recorder, activeSceneId, takes, scriptId, session, saveSession]);
+  }, [recorder, activeSceneId, takes, scriptId, session, saveSession, alignTake]);
 
   const handleSelectTake = useCallback((takeNumber: number) => {
     if (!activeSceneId) return;
     const updated = { ...session, selected_takes: { ...session.selected_takes, [activeSceneId]: takeNumber } };
     saveSession(updated);
-  }, [activeSceneId, session, saveSession]);
+    // Re-align on take swap for instant teleprompter update
+    alignTake(activeSceneId, takeNumber);
+  }, [activeSceneId, session, saveSession, alignTake]);
 
   const handleDeleteTake = useCallback(async (takeNumber: number) => {
     if (!activeSceneId) return;
@@ -167,6 +232,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
     if (session.selected_takes[activeSceneId] === takeNumber) {
       const { [activeSceneId]: _, ...rest } = session.selected_takes;
       saveSession({ ...session, selected_takes: rest });
+      setPreviewTimestamps(null);
     }
   }, [activeSceneId, scriptId, session, saveSession]);
 
@@ -184,6 +250,39 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
       audioRef.current.onended = () => setPlayingTakeNumber(null);
     }
   }, [playingTakeNumber, scriptId]);
+
+  // Phase 4C: AI reference playback
+  const handlePlayReference = useCallback(() => {
+    if (!activeScene?.audio_url) return;
+
+    if (playingReference) {
+      referenceAudioRef.current?.pause();
+      setPlayingReference(false);
+      setReferenceElapsedMs(0);
+      if (referenceTimerRef.current) cancelAnimationFrame(referenceTimerRef.current);
+      return;
+    }
+
+    const url = assetUrl(activeScene.audio_url);
+    if (!referenceAudioRef.current) return;
+
+    referenceAudioRef.current.src = url;
+    referenceAudioRef.current.play();
+    setPlayingReference(true);
+
+    const startTime = performance.now();
+    const tick = () => {
+      setReferenceElapsedMs(performance.now() - startTime);
+      referenceTimerRef.current = requestAnimationFrame(tick);
+    };
+    referenceTimerRef.current = requestAnimationFrame(tick);
+
+    referenceAudioRef.current.onended = () => {
+      setPlayingReference(false);
+      setReferenceElapsedMs(0);
+      if (referenceTimerRef.current) cancelAnimationFrame(referenceTimerRef.current);
+    };
+  }, [activeScene?.audio_url, playingReference]);
 
   const handleImport = useCallback(async (file: File) => {
     if (!activeSceneId) return;
@@ -209,11 +308,22 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
 
   const handleToggleFlag = useCallback(() => {
     if (!activeSceneId) return;
-    const flags = new Set(session.flagged_scenes);
+    const flags = new Set(Array.isArray(session.flagged_scenes) ? session.flagged_scenes : Object.keys(session.flagged_scenes));
     if (flags.has(activeSceneId)) flags.delete(activeSceneId);
     else flags.add(activeSceneId);
     saveSession({ ...session, flagged_scenes: [...flags] });
   }, [activeSceneId, session, saveSession]);
+
+  // Clear preview timestamps and stop reference when changing scenes
+  useEffect(() => {
+    setPreviewTimestamps(null);
+    if (playingReference) {
+      referenceAudioRef.current?.pause();
+      setPlayingReference(false);
+      setReferenceElapsedMs(0);
+      if (referenceTimerRef.current) cancelAnimationFrame(referenceTimerRef.current);
+    }
+  }, [activeSceneId]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -244,6 +354,11 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
       </div>
     );
   }
+
+  const flaggedScenes = new Set(Array.isArray(session.flagged_scenes) ? session.flagged_scenes : Object.keys(session.flagged_scenes));
+  const activeDeviation = activeSceneId && session.selected_takes[activeSceneId]
+    ? deviationData[`${activeSceneId}:${session.selected_takes[activeSceneId]}`]
+    : undefined;
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -302,6 +417,18 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
         </div>
         <div className="flex-1" />
         <div className="flex items-center gap-3">
+          {/* AI Reference playback button */}
+          {activeScene?.audio_url && (
+            <button
+              onClick={handlePlayReference}
+              className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${
+                playingReference ? "bg-violet-500/15 text-violet-300" : "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800"
+              }`}
+              title="Play AI reference audio with synchronized teleprompter"
+            >
+              {playingReference ? "Stop Ref" : "Reference"}
+            </button>
+          )}
           {/* Timing offset */}
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] text-neutral-500">Offset</span>
@@ -334,19 +461,22 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
           activeSceneId={activeSceneId}
           onSelectScene={setActiveSceneId}
           recordedScenes={recordedScenes}
-          flaggedScenes={new Set(session.flagged_scenes)}
+          flaggedScenes={flaggedScenes}
           filter={filter}
           onFilterChange={setFilter}
         />
         <TeleprompterPanel
           scene={activeScene}
-          isRecording={recorder.isRecording}
-          elapsedMs={recorder.elapsedMs}
-          audioLevel={recorder.audioLevel}
+          isRecording={playingReference ? true : recorder.isRecording}
+          elapsedMs={playingReference ? referenceElapsedMs : recorder.elapsedMs}
+          audioLevel={playingReference ? 0 : recorder.audioLevel}
           countdown={countdown}
           timingOffsetMs={timingOffsetMs}
+          previewTimestamps={previewTimestamps}
+          annotations={annotations[activeSceneId ?? ""]}
         />
         <TakePanel
+          scriptId={scriptId}
           sceneId={activeSceneId}
           takes={takes}
           selectedTakeNumber={activeSceneId ? session.selected_takes[activeSceneId] ?? null : null}
@@ -360,6 +490,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
           onTrimChange={handleTrimChange}
           showTrim={showTrim}
           onToggleTrim={() => setShowTrim(!showTrim)}
+          deviation={activeDeviation}
         />
       </div>
 
@@ -376,7 +507,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
         >
           {recorder.isRecording ? "Stop Recording (Space)" : rehearseMode ? "Start Rehearsal (Space)" : "Start Recording (Space)"}
         </button>
-        {activeSceneId && session.flagged_scenes.includes(activeSceneId) && (
+        {activeSceneId && flaggedScenes.has(activeSceneId) && (
           <span className="text-xs text-amber-400 flex items-center gap-1">
             <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z" /></svg>
             Flagged
@@ -394,8 +525,9 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
         />
       )}
 
-      {/* Hidden audio element for playback */}
+      {/* Hidden audio elements for playback */}
       <audio ref={audioRef} className="hidden" />
+      <audio ref={referenceAudioRef} className="hidden" />
 
       {/* Mic error */}
       {(audioDevices.error || recorder.error) && (

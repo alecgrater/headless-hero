@@ -1,4 +1,6 @@
 import { useRef, useState } from "react";
+import TakeWaveform from "./TakeWaveform";
+import { assetUrl } from "../../api";
 
 export interface Take {
   filename: string;
@@ -7,7 +9,13 @@ export interface Take {
   sceneId: string;
 }
 
+interface DeviationData {
+  match_ratio: number;
+  deviations: Array<{ type: string; expected?: string; actual?: string; position: number }>;
+}
+
 interface Props {
+  scriptId: string;
   sceneId: string | null;
   takes: Take[];
   selectedTakeNumber: number | null;
@@ -21,6 +29,7 @@ interface Props {
   onTrimChange: (seconds: number | null) => void;
   showTrim: boolean;
   onToggleTrim: () => void;
+  deviation?: DeviationData;
 }
 
 function formatDuration(sec: number): string {
@@ -29,12 +38,37 @@ function formatDuration(sec: number): string {
   return m > 0 ? `${m}:${String(s).padStart(2, "0")}` : `${s}s`;
 }
 
+function DeviationBadge({ deviation }: { deviation: DeviationData }) {
+  const ratio = deviation.match_ratio;
+  let color: string;
+  let label: string;
+  if (ratio >= 0.95) {
+    color = "bg-emerald-500";
+    label = "Match";
+  } else if (ratio >= 0.80) {
+    color = "bg-amber-500";
+    label = "Partial";
+  } else {
+    color = "bg-red-500";
+    label = "Mismatch";
+  }
+
+  return (
+    <span className="flex items-center gap-1" title={`${Math.round(ratio * 100)}% match — ${deviation.deviations.length} deviation(s)`}>
+      <span className={`w-2 h-2 rounded-full ${color}`} />
+      <span className="text-[10px] text-neutral-500">{label}</span>
+    </span>
+  );
+}
+
 export default function TakePanel({
-  sceneId, takes, selectedTakeNumber, onSelectTake, onDeleteTake, onPlayTake,
+  scriptId, sceneId, takes, selectedTakeNumber, onSelectTake, onDeleteTake, onPlayTake,
   onRecordNew, onImport, playingTakeNumber, trimEndSeconds, onTrimChange, showTrim, onToggleTrim,
+  deviation,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [showDeviationDetail, setShowDeviationDetail] = useState(false);
 
   const sceneTakes = takes.filter((t) => t.sceneId === sceneId);
 
@@ -57,9 +91,37 @@ export default function TakePanel({
 
   return (
     <div className="w-[200px] shrink-0 border-l border-neutral-800 flex flex-col h-full overflow-hidden">
-      <div className="px-3 py-2 border-b border-neutral-800">
+      <div className="px-3 py-2 border-b border-neutral-800 flex items-center justify-between">
         <div className="text-xs font-medium text-neutral-300">Takes</div>
+        {deviation && (
+          <button onClick={() => setShowDeviationDetail(!showDeviationDetail)}>
+            <DeviationBadge deviation={deviation} />
+          </button>
+        )}
       </div>
+
+      {/* Deviation diff detail */}
+      {showDeviationDetail && deviation && (
+        <div className="px-3 py-2 border-b border-neutral-800 bg-neutral-900/50 max-h-32 overflow-y-auto">
+          <div className="text-[10px] text-neutral-400 mb-1">{Math.round(deviation.match_ratio * 100)}% match</div>
+          {deviation.deviations.slice(0, 10).map((d, i) => (
+            <div key={i} className="text-[10px] leading-tight mb-0.5">
+              {d.type === "missing" && (
+                <span className="text-red-400">-&quot;{d.expected}&quot;</span>
+              )}
+              {d.type === "extra" && (
+                <span className="text-emerald-400">+&quot;{d.actual}&quot;</span>
+              )}
+              {d.type === "substitution" && (
+                <span className="text-amber-400">&quot;{d.expected}&quot; → &quot;{d.actual}&quot;</span>
+              )}
+            </div>
+          ))}
+          {deviation.deviations.length > 10 && (
+            <div className="text-[10px] text-neutral-500">+{deviation.deviations.length - 10} more</div>
+          )}
+        </div>
+      )}
 
       <div
         className={`flex-1 overflow-y-auto ${dragOver ? "bg-violet-500/5 ring-1 ring-inset ring-violet-500/30" : ""}`}
@@ -119,6 +181,13 @@ export default function TakePanel({
                     <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                   </svg>
                 </button>
+              </div>
+              {/* Waveform preview */}
+              <div className="mt-1.5">
+                <TakeWaveform
+                  audioUrl={assetUrl(`/static/projects/${scriptId}/recording/takes/${take.filename}`)}
+                  isPlaying={playingTakeNumber === take.takeNumber}
+                />
               </div>
             </div>
           ))
