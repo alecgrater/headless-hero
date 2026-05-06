@@ -47,18 +47,30 @@ def generate_gameplay_clip(
 
         tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
         tmp.close()
+        os.unlink(tmp.name)  # yt-dlp needs the path to NOT exist
 
         try:
             download_vod_segment(vod_url, duration_seconds, tmp.name)
 
-            has_facecam = detect_facecam(tmp.name)
+            # yt-dlp may add format suffix — find the actual output file
+            output = Path(tmp.name)
+            if not output.exists() or output.stat().st_size == 0:
+                parent = output.parent
+                stem = output.stem
+                candidates = [c for c in parent.glob(f"{stem}*") if c.stat().st_size > 0]
+                if candidates:
+                    output = candidates[0]
+                else:
+                    raise RuntimeError(f"yt-dlp produced no output for {vod_url}")
+
+            has_facecam = detect_facecam(str(output))
             if not has_facecam:
-                shutil.move(tmp.name, str(dest))
+                shutil.move(str(output), str(dest))
                 logger.info("Gameplay clip stored: %s (attempt %d)", dest, attempt + 1)
                 return f"/static/projects/{script_id}/clips/{scene_id}.mp4"
 
             logger.info("Facecam detected in clip from %s, retrying (%d/%d)", vod_url, attempt + 1, MAX_FACECAM_RETRIES)
-            os.unlink(tmp.name)
+            output.unlink(missing_ok=True)
         except Exception:
             if os.path.exists(tmp.name):
                 os.unlink(tmp.name)
