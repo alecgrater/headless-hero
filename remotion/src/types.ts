@@ -32,24 +32,10 @@ export interface PhraseTimestamp {
   end_ms: number;
 }
 
-export interface EliKeyframe {
-  start_frame: number;
-  end_frame: number;
-  frame_id: string;
-  transition: "cut" | "crossfade";
-  mood?: "ambient" | "reaction";
-}
-
-export interface EliPosition {
-  x: number;
-  y: number;
-}
-
 export interface EliOverlay {
   enabled: boolean;
   corner?: "TL" | "TR" | "BL" | "BR" | null;
-  keyframes: EliKeyframe[];
-  position?: EliPosition | null; // legacy — used for old scripts without corner
+  frame_id: string;
 }
 
 export interface FrameDirective {
@@ -101,7 +87,6 @@ export interface SceneInput {
   // Eli character overlay
   eli_overlay?: EliOverlay | null;
   character_frames_base_url?: string | null;
-  variant_counts?: Record<string, number> | null;
 
   // Visual Beat System
   visual_beat?: "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage";

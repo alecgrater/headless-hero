@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import ApiKeysSection from "./ApiKeysSection";
-import CharacterSection from "./CharacterSection";
 import GeneralSection from "./GeneralSection";
 import PublishingSection from "./PublishingSection";
 import VoiceSection from "./VoiceSection";
@@ -9,7 +8,6 @@ export const SECTIONS = [
   { id: "general", label: "General", icon: "folder" },
   { id: "voice", label: "Voice", icon: "mic" },
   { id: "publishing", label: "Publishing", icon: "upload" },
-  { id: "character", label: "Character", icon: "sparkles" },
   { id: "api-keys", label: "API Keys", icon: "key" },
 ] as const;
 
@@ -109,7 +107,6 @@ export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultS
           {activeSection === "general" && <GeneralSection />}
           {activeSection === "voice" && <VoiceSection />}
           {activeSection === "publishing" && <PublishingSection />}
-          {activeSection === "character" && <CharacterSection />}
           {activeSection === "api-keys" && <ApiKeysSection />}
         </div>
       </div>

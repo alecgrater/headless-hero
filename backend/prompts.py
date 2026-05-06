@@ -1085,146 +1085,49 @@ THUMBNAIL_FRAME_DEFINITIONS: list[dict[str, str]] = [
      "prompt": "teeth gritted with effort, brow sweating, strained exertion expression, mouth open showing gritted teeth, determined struggle"},
 ]
 
-# -- Eli animator system prompt --
+# -- Eli pose picker system prompt --
 
-ELI_ANIMATOR_SYSTEM = register(PromptDef(
-    name="ELI_ANIMATOR_SYSTEM",
+ELI_POSE_PICKER_SYSTEM = register(PromptDef(
+    name="ELI_POSE_PICKER_SYSTEM",
     domain="CHARACTER",
-    purpose="Generate per-scene keyframe timelines for Eli character overlay",
+    purpose="Pick one pose per scene that matches narration emotional tone",
     target_model="claude",
-    expected_output_format="JSON: {id, eli_overlay: {enabled, corner, keyframes[]}}",
-    template="""You are an animation director for "Eli," a recurring animated host character in educational YouTube videos. Eli appears as a character overlay (like a webcam box) in one of the four screen corners.
+    expected_output_format="JSON: {frame_id, corner}",
+    template="""You pick ONE character pose for a scene overlay. The character is "Eli," an animated host who appears in a corner of educational YouTube videos.
 
-Your job: for each scene, pick which corner Eli appears in and create a keyframe timeline selecting which pose/expression to show and when.
+## Input
+- Narration text for this scene
+- List of available pose names (frame IDs)
+- Previous corner (if any)
 
-## Core Philosophy
-
-Eli is like a real YouTube presenter. A good presenter holds a comfortable resting pose (neutral, soft smile, attentive) for most of the narration and only shifts expression for genuinely significant emotional beats — surprises, punchlines, revelations, emphasis. Constant fidgeting looks robotic, not lively.
-
-Think of it this way: if you watch a real person talking, they hold a baseline expression 70-80% of the time, with brief, well-timed reactions for the remaining 20-30%.
-
-## Corner Assignment
-
-Pick one of four corners for Eli's position in this scene: `"TL"` (top-left), `"TR"` (top-right), `"BL"` (bottom-left), `"BR"` (bottom-right).
-
-Rules:
-- **You MUST pick a DIFFERENT corner than `previous_corner`** (provided in the input). This is mandatory, not optional. If previous_corner is "BL", you must pick "TL", "TR", or "BR".
-- **Alternate between left and right sides** — if the previous corner was on the left (TL/BL), pick a right corner (TR/BR), and vice versa. This creates visual movement.
-- **Bottom corners** (BL, BR) should be used ~70% of the time. Use top corners (TL, TR) ~30% for variety.
-- If no `previous_corner` is provided (first scene), pick "BR".
-
-## Available Poses
-
-You will be given a list of available frame IDs with their expression, pose, and gesture tags. Select from ONLY these IDs.
-
-## Rules
-
-1. **Ambient vs reaction**: Most keyframes should be "ambient" — comfortable baseline poses (neutral, soft smile, attentive, explaining). Only mark a keyframe as "reaction" when Eli is genuinely reacting to something surprising, funny, or emotionally significant. Ambient keyframes get gentle crossfades; reaction keyframes get snappier, punchier transitions.
-
-2. **Pacing**: No more than 1 significant expression change per 3 seconds (~90 frames at 30fps). Ambient shifts (neutral → soft smile → neutral) don't count as significant. Significant = changing to a clearly different emotional register (neutral → excited, explaining → surprised).
-
-3. **Keyframe count guidelines**:
-   - Short scenes (<5s / <150 frames): 2-4 keyframes
-   - Medium scenes (5-15s / 150-450 frames): 3-6 keyframes
-   - Long, emotionally varied scenes (>15s / >450 frames): 5-8 keyframes
-   Quality over quantity — a well-timed reaction beats constant fidgeting.
-
-4. **Content-aware gestures**: Use pointing when the narration directs attention. Use explaining gestures during explanations. Use reaction poses (facepalm, jaw_drop, double_take) sparingly for genuinely surprising or funny moments.
-
-5. **Start neutral**: Begin with a neutral or attentive pose, then shift only as the emotional content warrants.
-
-6. **Transitions**: Default to "crossfade" for all transitions. Reserve "cut" only for sharp dramatic moments (surprise reactions, punchlines). Most scenes should have 0-1 cuts at most.
-
-7. **Cover full duration**: Keyframes must cover the entire scene. First keyframe starts at frame 0. Last keyframe's end_frame equals the scene's total frames.
-
-8. **Minimum keyframe duration**: Every keyframe must be at least 15 frames (~0.5s). Shorter keyframes look like glitches.
-
-## Output Format
-
-Return a JSON object with the scene "id" and an "eli_overlay" object. Include the `"corner"` field and keyframes with a "mood" field ("ambient" or "reaction"):
-
+## Output
+Return a JSON object:
 ```json
-{
-  "id": "scene_id_here",
-  "eli_overlay": {
-    "enabled": true,
-    "corner": "BR",
-    "keyframes": [
-      {
-        "start_frame": 0,
-        "end_frame": 120,
-        "frame_id": "neutral_standingneutral",
-        "transition": "cut",
-        "mood": "ambient",
-        "reason": "opening neutral stance — holding baseline"
-      },
-      {
-        "start_frame": 120,
-        "end_frame": 240,
-        "frame_id": "excited_handsup",
-        "transition": "crossfade",
-        "mood": "reaction",
-        "reason": "narration reveals surprising fact — genuine reaction beat"
-      }
-    ]
-  }
-}
+{"frame_id": "...", "corner": "..."}
 ```
 
-Return ONLY the JSON object, no explanation.""",
+## Pose Selection
+Pick the single pose that best matches the emotional tone of the narration:
+- Explanatory content → explaining poses, hand gestures
+- Surprising facts → excited, surprised
+- Questions → curious, thinking
+- Serious/concerning → serious, worried
+- Default/neutral → neutral, smiling
+
+## Corner Assignment
+Pick one of: "TL", "TR", "BL", "BR"
+- MUST be different from `previous_corner`
+- Alternate left↔right sides (if previous was left, pick right)
+- ~70% bottom, ~30% top
+- First scene (no previous): use "BR"
+
+Return ONLY the JSON object.""",
     retention=RetentionMeta(
-        goal="Keep Eli's animation natural and well-timed to sustain engagement",
-        failure_mode="Over-animation looks robotic; under-animation feels lifeless",
-        metrics_to_watch=["avg_view_duration", "re_watch_rate"],
+        goal="Natural pose selection matching narration tone",
+        failure_mode="Mismatched pose looks disconnected from content",
+        metrics_to_watch=["avg_view_duration"],
     ),
 ))
-
-
-# -- Character frame prompt builders --
-
-def build_frame_prompt(definition: dict[str, str], mouth_state: str, is_canonical: bool) -> str:
-    """Build the image generation prompt for a character frame."""
-    mouth_desc = "mouth open, speaking" if mouth_state == "open" else "mouth closed"
-
-    if is_canonical:
-        return (
-            f"Generate a chest-up character illustration on a solid bright green (#00FF00) background.\n\n"
-            f"{CHARACTER_SPEC}\n\n"
-            f"Pose: {definition['prompt']}\n"
-            f"Mouth: {mouth_desc}\n\n"
-            f"IMPORTANT: {GREEN_BG_INSTRUCTION} "
-            f"{FRAMING_INSTRUCTION} "
-            f"16:9 aspect ratio composition. Flat 2D cartoon style with bold outlines."
-        )
-    else:
-        return (
-            f"Using the reference image as the character design reference, render the EXACT same character "
-            f"in a different pose. {REFERENCE_CONSISTENCY_INSTRUCTION}\n\n"
-            f"Pose: {definition['prompt']}\n"
-            f"Mouth: {mouth_desc}\n\n"
-            f"IMPORTANT: {GREEN_BG_INSTRUCTION} "
-            f"{FRAMING_INSTRUCTION} "
-            f"16:9 aspect ratio composition. Same flat 2D cartoon style as reference."
-        )
-
-
-def build_variant_prompt(definition: dict[str, str], mouth_state: str, variant_num: int) -> str:
-    """Build the image generation prompt for a variant frame."""
-    mouth_desc = "mouth open, speaking" if mouth_state == "open" else "mouth closed"
-    variation_instruction = VARIANT_PROMPTS.get(variant_num, "")
-
-    return (
-        f"Using the reference image as the character design reference, render the EXACT same character "
-        f"in the EXACT same pose with a very subtle body micro-variation. {REFERENCE_CONSISTENCY_INSTRUCTION.rstrip('.')}, AND the same "
-        f"expression and gesture.\n\n"
-        f"Pose: {definition['prompt']}\n"
-        f"Mouth: {mouth_desc}\n"
-        f"Subtle variation: {variation_instruction}\n\n"
-        f"IMPORTANT: The variation must be VERY subtle — this is the same pose with a tiny body shift, "
-        f"not a different pose. {GREEN_BG_INSTRUCTION} "
-        f"{FRAMING_INSTRUCTION} "
-        f"16:9 aspect ratio composition. Same flat 2D cartoon style as reference."
-    )
 
 
 # ===================================================================

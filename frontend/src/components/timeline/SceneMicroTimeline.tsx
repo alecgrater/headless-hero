@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useRef, useState, useMemo, forwardRef, useImperativeHandle } from "react";
-import type { Scene, EliKeyframe } from "../../types/script";
+import type { Scene } from "../../types/script";
 import WaveformSplitter from "./WaveformSplitter";
 import InOutLane from "./micro-timeline/InOutLane";
 import ImageLane from "./micro-timeline/ImageLane";
 import FxLane from "./micro-timeline/FxLane";
-import EliLane from "./micro-timeline/EliLane";
 import { FPS, FRAME_SECONDS, secondsToPx, snapToWordBoundary, wordToSeconds, estimateWordPosition } from "./micro-timeline/shared";
 import { assetUrl } from "../../api";
 
-export type LaneId = "images" | "fx" | "eli" | "inout";
+export type LaneId = "images" | "fx" | "inout";
 
 export interface MicroTimelineHandle {
   selectedLane: LaneId | null;
@@ -35,7 +34,6 @@ const SceneMicroTimeline = forwardRef<MicroTimelineHandle, Props>(function Scene
   const [selectedLane, setSelectedLane] = useState<LaneId | null>(null);
   const [selectedImageMarker, setSelectedImageMarker] = useState<number | null>(null);
   const [selectedFxMarker, setSelectedFxMarker] = useState(false);
-  const [selectedEliMarker, setSelectedEliMarker] = useState<number | null>(null);
   const [shiftHeld, setShiftHeld] = useState(false);
 
   const durationSeconds = scene.audio_duration_seconds || scene.duration_estimate_seconds || 5;
@@ -89,7 +87,6 @@ const SceneMicroTimeline = forwardRef<MicroTimelineHandle, Props>(function Scene
   // Determine which lanes are visible
   const hasMultiFrame = (scene.frame_urls?.length ?? 0) > 1;
   const hasZoomPunch = !!scene.fx?.zoom_punch;
-  const hasEli = !!scene.eli_overlay?.enabled && (scene.eli_overlay?.keyframes?.length ?? 0) > 0;
 
   // Compute default frame_timings (even split) if not set
   const frameTimings = useMemo(() => {
@@ -135,23 +132,11 @@ const SceneMicroTimeline = forwardRef<MicroTimelineHandle, Props>(function Scene
     [scene.fx, onUpdateScene],
   );
 
-  const handleEliKeyframesChange = useCallback(
-    (keyframes: EliKeyframe[]) => {
-      const currentEli = scene.eli_overlay ?? { enabled: true, keyframes: [] };
-      onUpdateScene({
-        eli_overlay: { ...currentEli, keyframes },
-      });
-    },
-    [scene.eli_overlay, onUpdateScene],
-  );
-
   // Imperative API for keyboard shortcuts
   useImperativeHandle(ref, () => ({
     selectedLane,
     setSelectedLane,
     placeMarkerAtPlayhead: () => {
-      // No-op for now — marker placement from keyboard is lane-specific
-      // and most useful when we add "insert crossfade at playhead" later
     },
     nudge: (frames: number) => {
       const delta = frames / FPS;
@@ -166,15 +151,12 @@ const SceneMicroTimeline = forwardRef<MicroTimelineHandle, Props>(function Scene
           onUpdateScene({ frame_timings: updated });
         }
       } else if (selectedLane === "fx" && selectedFxMarker) {
-        // Jump to prev/next word instead of frame delta
         const wts = scene.word_timestamps;
         const currentWord = scene.fx?.zoom_punch?.trigger_word;
         if (wts && wts.length > 0) {
-          // Find current position in seconds
           const currentSec = currentWord
             ? (wordToSeconds(currentWord, wts) ?? estimateWordPosition(currentWord, scene.narration, durationSeconds))
             : (scene.fx?.zoom_punch?.trigger_frame ?? 0) / FPS;
-          // Find the nearest word index
           let nearestIdx = 0;
           let nearestDist = Infinity;
           for (let i = 0; i < wts.length; i++) {
@@ -190,23 +172,7 @@ const SceneMicroTimeline = forwardRef<MicroTimelineHandle, Props>(function Scene
           const newFrame = Math.max(0, Math.min(Math.round(durationSeconds * FPS), currentFrame + frames));
           handleZoomPunchChange(currentWord ?? "", newFrame);
         }
-      } else if (selectedLane === "eli" && selectedEliMarker !== null) {
-        const kfs = scene.eli_overlay?.keyframes as EliKeyframe[] | undefined;
-        if (kfs && selectedEliMarker > 0) {
-          const idx = selectedEliMarker;
-          const newFrame = kfs[idx].start_frame + frames;
-          const minFrame = (kfs[idx - 1]?.start_frame ?? 0) + 1;
-          const maxFrame = (kfs[idx]?.end_frame ?? Math.round(durationSeconds * FPS)) - 1;
-          const clamped = Math.max(minFrame, Math.min(maxFrame, newFrame));
-          const updated = kfs.map((kf, i) => {
-            if (i === idx - 1) return { ...kf, end_frame: clamped };
-            if (i === idx) return { ...kf, start_frame: clamped };
-            return kf;
-          });
-          handleEliKeyframesChange(updated);
-        }
       } else if (selectedLane === "inout") {
-        // Nudge whichever handle was last active (in by default)
         const currentIn = scene.visual_in_seconds ?? 0;
         const newIn = Math.max(0, currentIn + delta);
         onUpdateScene({ visual_in_seconds: Math.round(newIn * 1000) / 1000 });
@@ -214,26 +180,21 @@ const SceneMicroTimeline = forwardRef<MicroTimelineHandle, Props>(function Scene
     },
     deleteSelectedMarker: () => {
       if (selectedLane === "images" && selectedImageMarker !== null) {
-        // Reset to even split
         onUpdateScene({ frame_timings: null });
         setSelectedImageMarker(null);
       } else if (selectedLane === "fx" && selectedFxMarker) {
-        // Reset zoom punch trigger to 0
         handleZoomPunchChange("", 0);
         setSelectedFxMarker(false);
       } else if (selectedLane === "inout") {
-        // Reset in/out to 0
         onUpdateScene({ visual_in_seconds: 0, visual_out_seconds: 0 });
       }
-      // Eli markers can't be deleted (they're structural)
     },
     hasSelectedMarker: () => {
       if (selectedLane === "images" && selectedImageMarker !== null) return true;
       if (selectedLane === "fx" && selectedFxMarker) return true;
-      if (selectedLane === "eli" && selectedEliMarker !== null) return true;
       return false;
     },
-  }), [selectedLane, selectedImageMarker, selectedFxMarker, selectedEliMarker, frameTimings, durationSeconds, scene, onUpdateScene, handleZoomPunchChange, handleEliKeyframesChange]);
+  }), [selectedLane, selectedImageMarker, selectedFxMarker, frameTimings, durationSeconds, scene, onUpdateScene, handleZoomPunchChange]);
 
   // Playhead line position
   const playheadPx = secondsToPx(playheadSeconds, durationSeconds, containerWidth);
@@ -313,20 +274,6 @@ const SceneMicroTimeline = forwardRef<MicroTimelineHandle, Props>(function Scene
             onChange={handleZoomPunchChange}
             isMarkerSelected={selectedLane === "fx" && selectedFxMarker}
             onSelectMarker={setSelectedFxMarker}
-            shiftHeld={shiftHeld}
-          />
-        )}
-
-        {hasEli && (
-          <EliLane
-            {...laneBase}
-            isSelected={selectedLane === "eli"}
-            onSelect={() => setSelectedLane("eli")}
-            keyframes={scene.eli_overlay!.keyframes as EliKeyframe[]}
-            wordTimestamps={scene.word_timestamps}
-            onChange={handleEliKeyframesChange}
-            selectedMarker={selectedLane === "eli" ? selectedEliMarker : null}
-            onSelectMarker={setSelectedEliMarker}
             shiftHeld={shiftHeld}
           />
         )}

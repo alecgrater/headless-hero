@@ -31,20 +31,11 @@ class SceneFX(BaseModel):
     zoom_punch: ZoomPunchFX | None = None
     drift: DriftFX | None = None
 
-class EliKeyframe(BaseModel):
-    """A keyframe in the Eli animation timeline."""
-    start_frame: int
-    end_frame: int
-    frame_id: str       # matches manifest frame id (e.g., "neutral_standing")
-    transition: str = "cut"  # "cut" | "crossfade"
-    mood: str | None = None              # "ambient" | "reaction"
-    position_hint: str | None = None     # deprecated — kept for old scripts
-
 class EliOverlay(BaseModel):
-    """Eli character overlay configuration for a scene."""
+    """Eli character overlay configuration for a scene — single pose per scene."""
     enabled: bool = True
     corner: Literal["TL", "TR", "BL", "BR"] = "BR"
-    keyframes: list[EliKeyframe] = []
+    frame_id: str = ""
 
 class FrameDirective(BaseModel):
     """Per-frame generation directive for the Visual Beat System."""

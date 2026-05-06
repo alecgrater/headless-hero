@@ -24,7 +24,6 @@ from api.render import router as render_router
 from api.scripts import router as scripts_router
 from api.generation import router as generation_router
 from api.seo import router as seo_router
-from api.character import router as character_router
 from api.settings import router as settings_router
 from api.thumbnail_references import router as thumbnail_references_router
 from api.thumbnail import router as thumbnail_router
@@ -122,7 +121,6 @@ app.include_router(thumbnail_router)
 app.include_router(generation_router)
 app.include_router(seo_router)
 app.include_router(settings_router)
-app.include_router(character_router)
 app.include_router(thumbnail_references_router)
 app.include_router(trending_router)
 

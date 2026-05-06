@@ -432,7 +432,7 @@ function TimelineEditor({
       microTimelineRef.current?.nudge(large ? 10 : 1);
     },
     selectLane: (lane: number) => {
-      const lanes: Array<"images" | "fx" | "eli" | "inout"> = ["images", "fx", "eli", "inout"];
+      const lanes: Array<"images" | "fx" | "inout"> = ["images", "fx", "inout"];
       microTimelineRef.current?.setSelectedLane(lanes[lane - 1] ?? null);
     },
     deselectMicroTimeline: () => {

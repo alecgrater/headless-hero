@@ -313,7 +313,7 @@ def _phase_fx(ctx: ExportContext) -> None:
 
 
 def _phase_eli(ctx: ExportContext) -> None:
-    """Phase 6: Generate Eli animation for all scenes (skips title cards), persist in a single write."""
+    """Phase 6: Generate Eli pose selection for all scenes (skips title cards)."""
     try:
         from pipeline.eli_animator import generate_scene_eli
     except ImportError:
@@ -322,7 +322,7 @@ def _phase_eli(ctx: ExportContext) -> None:
 
     non_tc = [sc for sc in ctx.scenes if not sc.get("is_title_card")]
     scene_count = len(non_tc)
-    logger.info("[%s] Phase: eli — generating Eli animation for %d scenes", ctx.script_id, scene_count)
+    logger.info("[%s] Phase: eli — generating Eli poses for %d scenes", ctx.script_id, scene_count)
 
     content_now = _reload_content(ctx.script_id)
     eli_updates: dict[str, dict] = {}
@@ -334,24 +334,10 @@ def _phase_eli(ctx: ExportContext) -> None:
         scene_now = find_scene_in_content(content_now, sc_info["scene_id"])
         if scene_now.contains_person:
             continue
-        duration = scene_now.audio_duration_seconds or scene_now.duration_estimate_seconds
-        eli_scene_data = {
-            "id": sc_info["scene_id"],
-            "segment": ctx.seg_name,
-            "segment_index": 0,
-            "scene_index_in_segment": sc_info["sc_idx"],
-            "global_index": sc_info["global_idx"],
-            "is_title_card": False,
-            "narration": scene_now.narration,
-            "duration_seconds": duration,
-            "duration_frames": int(duration * FPS),
-        }
-        if scene_now.word_timestamps:
-            eli_scene_data["word_timestamps"] = scene_now.word_timestamps
         try:
-            eli_result = generate_scene_eli(eli_scene_data, script_id=ctx.script_id, previous_corner=previous_corner)
-            eli_updates[sc_info["scene_id"]] = eli_result["eli_overlay"]
-            previous_corner = eli_result["eli_overlay"].get("corner")
+            eli_result = generate_scene_eli(scene_now.narration, previous_corner=previous_corner)
+            eli_updates[sc_info["scene_id"]] = eli_result
+            previous_corner = eli_result.get("corner")
         except Exception as e:
             logger.warning("Failed Eli for scene %s: %s", sc_info["scene_id"], e)
 

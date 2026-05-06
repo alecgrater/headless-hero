@@ -195,14 +195,10 @@ async def get_jobs():
 
 @router.post("/api/kill-all")
 async def kill_all():
-    """Cancel all running render and character jobs."""
-    from api.character import cancel_all_character_jobs
-
+    """Cancel all running render jobs."""
     render_count = cancel_all_jobs()
-    char_count = cancel_all_character_jobs()
-    total = render_count + char_count
-    logger.info("Kill all: cancelled %d render + %d character = %d total jobs", render_count, char_count, total)
-    return {"cancelled": total, "render_jobs": render_count, "character_jobs": char_count}
+    logger.info("Kill all: cancelled %d render jobs", render_count)
+    return {"cancelled": render_count, "render_jobs": render_count}
 
 
 @router.websocket("/ws/logs")

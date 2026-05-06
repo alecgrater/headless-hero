@@ -12,7 +12,6 @@ from typing import Any, Callable
 
 from config import BACKEND_PORT, DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH, sanitize_filename
 from models.script import ChapterMarker, Scene, SceneFX, ScriptContent, VideoFX
-from pipeline.character_frames import load_variant_counts
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +129,7 @@ def _resolve_zoom_punch_frame(
     return {**fx, "zoom_punch": {**zp, "trigger_frame": frame}}
 
 
-def _scene_to_input_props(scene: Scene, script_id: str, variant_counts: dict[str, int] | None = None) -> dict[str, Any]:
+def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
     """Convert a Scene model to the input props expected by Remotion."""
     # Resolve asset paths
     image_path = _scene_image_path(script_id, scene.id, scene.image_url or None)
@@ -185,7 +184,6 @@ def _scene_to_input_props(scene: Scene, script_id: str, variant_counts: dict[str
         "fx": fx,
         "eli_overlay": eli_overlay,
         "character_frames_base_url": f"http://localhost:{BACKEND_PORT}/static/character/frames",
-        "variant_counts": variant_counts,
         "word_timestamps": scene.word_timestamps if not scene.is_title_card else None,
         "phrase_timestamps": scene.phrase_timestamps if not scene.is_title_card else None,
         "visual_beat": scene.visual_beat,
@@ -468,12 +466,11 @@ def render_full_video(
         on_progress(0.3, "Building Remotion composition...")
 
     # Build input props for the full video
-    variant_counts = load_variant_counts()
     segments_props = []
     for seg in content.segments:
         seg_scenes = []
         for sc in seg.scenes:
-            seg_scenes.append(_scene_to_input_props(sc, script_id, variant_counts))
+            seg_scenes.append(_scene_to_input_props(sc, script_id))
         segments_props.append({
             "name": seg.name,
             "scenes": seg_scenes,

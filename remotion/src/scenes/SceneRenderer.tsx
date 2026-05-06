@@ -113,14 +113,13 @@ export const SceneRenderer: React.FC<Props> = ({ scene, highlightEnabled }) => {
       </SceneTransition>
 
       {/* Eli character overlay — z:5, outside SceneTransition so it won't fade/clip during transitions */}
-      {scene.eli_overlay?.enabled && scene.eli_overlay.keyframes.length > 0 && scene.character_frames_base_url && (
+      {scene.eli_overlay?.enabled && scene.eli_overlay.frame_id && scene.character_frames_base_url && (
         <EliOverlay
           overlay={scene.eli_overlay}
           phraseTimestamps={scene.phrase_timestamps}
           characterFramesBaseUrl={scene.character_frames_base_url}
-          variantCounts={scene.variant_counts}
           sceneDurationInFrames={totalSceneFrames}
-          isTextOnly={isAhaSubtitle}
+          sceneId={scene.id}
         />
       )}
 

@@ -19,18 +19,10 @@ export interface SceneFX {
   drift?: DriftFX | null;
 }
 
-export interface EliKeyframe {
-  start_frame: number;
-  end_frame: number;
-  frame_id: string;
-  transition: "cut" | "crossfade";
-  mood?: "ambient" | "reaction";
-}
-
 export interface EliOverlay {
   enabled: boolean;
   corner?: "TL" | "TR" | "BL" | "BR" | null;
-  keyframes: EliKeyframe[];
+  frame_id: string;
 }
 
 export interface ChapterMarker {

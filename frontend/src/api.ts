@@ -235,12 +235,12 @@ export async function regenerateFX(scriptId: string, sceneId: string) {
   return api.post("/api/fx/regenerate", { script_id: scriptId, scene_id: sceneId });
 }
 
-/** Generate Eli animation overlays for all scenes in a script via Claude. */
+/** Generate Eli pose selection for all scenes in a script via Claude. */
 export async function generateEli(scriptId: string, missingOnly = false) {
   return api.post("/api/eli/generate", { script_id: scriptId, missing_only: missingOnly });
 }
 
-/** Regenerate Eli overlay for a single scene via Claude. */
+/** Regenerate Eli pose for a single scene via Claude. */
 export async function regenerateEli(scriptId: string, sceneId: string) {
   return api.post("/api/eli/regenerate", { script_id: scriptId, scene_id: sceneId });
 }
@@ -302,112 +302,6 @@ export function showInFolder(fullPath: string): void {
   if (window.api?.showItemInFolder) {
     window.api.showItemInFolder(fullPath);
   }
-}
-
-/** Generate reference candidate images for character style selection. */
-export async function generateCharacterReferences(): Promise<{ job_id: string }> {
-  const res = await api.post("/api/character/generate-references");
-  return res.data as { job_id: string };
-}
-
-/** Get list of reference candidates and which is selected. */
-export async function getCharacterReferences(): Promise<{ references: string[]; selected: string | null }> {
-  const res = await api.get("/api/character/references");
-  return res.data as { references: string[]; selected: string | null };
-}
-
-/** Select a reference candidate as the canonical reference. */
-export async function selectCharacterReference(filename: string): Promise<{ selected: string; path: string }> {
-  const res = await api.post("/api/character/select-reference", { filename });
-  return res.data as { selected: string; path: string };
-}
-
-/** Start generating the Eli character frame library. */
-export async function generateCharacterFrames(referencePath?: string): Promise<{ job_id: string }> {
-  const body = referencePath ? { reference_path: referencePath } : undefined;
-  const res = await api.post("/api/character/generate-frames", body);
-  return res.data as { job_id: string };
-}
-
-/** Get character frame manifest. */
-export async function getCharacterFrames() {
-  return api.get("/api/character/frames");
-}
-
-/** Start generating only missing Eli character frames. */
-export async function generateMissingCharacterFrames(): Promise<{ job_id: string }> {
-  const res = await api.post("/api/character/generate-missing");
-  return res.data as { job_id: string };
-}
-
-/** Delete all character frames, references, and manifest. */
-export async function clearAllCharacterFrames(): Promise<{ deleted_frames: number; deleted_references: number }> {
-  const res = await api.delete("/api/character/clear-all");
-  return res.data as { deleted_frames: number; deleted_references: number };
-}
-
-/** Poll character frame generation job status. */
-export async function getCharacterStatus(jobId: string) {
-  return api.get(`/api/character/status/${jobId}`);
-}
-
-/** Regenerate a single character frame. */
-export async function regenerateCharacterFrame(frameId: string) {
-  return api.post("/api/character/regenerate-frame", { frame_id: frameId });
-}
-
-/** Start generating body micro-variants for all character frames. */
-export async function generateCharacterVariants(): Promise<{ job_id: string }> {
-  const res = await api.post("/api/character/generate-variants");
-  return res.data as { job_id: string };
-}
-
-/** Start reprocessing character frames with green backgrounds. */
-export async function reprocessCharacterBackgrounds(): Promise<{ job_id: string }> {
-  const res = await api.post("/api/character/reprocess-backgrounds");
-  return res.data as { job_id: string };
-}
-
-/** Start generating thumbnail expression frames. */
-export async function generateThumbnailFrames(): Promise<{ job_id: string }> {
-  const res = await api.post("/api/character/generate-thumbnail-frames");
-  return res.data as { job_id: string };
-}
-
-/** Regenerate a single thumbnail expression frame. */
-export async function regenerateThumbnailFrame(frameId: string) {
-  return api.post("/api/character/regenerate-thumbnail-frame", { frame_id: frameId });
-}
-
-// Thumbnail reference management
-export async function getThumbnailReferences(): Promise<{
-  references: { filename: string; url: string }[];
-}> {
-  const res = await api.get("/api/character/thumbnail-references");
-  return res.data as { references: { filename: string; url: string }[] };
-}
-
-export async function uploadThumbnailReference(file: File): Promise<{ filename: string; url: string }> {
-  const formData = new FormData();
-  formData.append("file", file);
-
-  const baseUrl = `http://localhost:${BACKEND_PORT}`;
-  const response = await fetch(`${baseUrl}/api/character/thumbnail-references`, {
-    method: "POST",
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ detail: "Upload failed" }));
-    throw new Error(err.detail || "Thumbnail reference upload failed");
-  }
-
-  return response.json();
-}
-
-export async function deleteThumbnailReference(filename: string): Promise<{ deleted: string }> {
-  const res = await api.delete(`/api/character/thumbnail-references/${encodeURIComponent(filename)}`);
-  return res.data as { deleted: string };
 }
 
 export interface ExportTestOptions {
