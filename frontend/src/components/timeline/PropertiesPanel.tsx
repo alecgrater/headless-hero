@@ -109,7 +109,7 @@ export default function PropertiesPanel({
       )}
 
       {/* 3-column layout: Narration | Visual Prompt | Controls */}
-      <div className="shrink-0 max-h-44 flex gap-4 px-4 py-2">
+      <div className="shrink-0 h-52 flex gap-4 px-4 py-2">
 
         {/* Col 1: Narration */}
         <div className="flex-[2] flex flex-col min-w-0 min-h-0">
@@ -174,7 +174,7 @@ export default function PropertiesPanel({
         </div>
 
         {/* Col 3: Media source selector + Generate Image + Generate Audio + FX */}
-        <div className="flex-[1.2] flex flex-col gap-2 min-w-0 min-h-0">
+        <div className="flex-[1.2] flex flex-col justify-center gap-2 min-w-0 min-h-0">
           {/* Media source selector */}
           <div className="shrink-0 flex flex-wrap gap-1">
             {MEDIA_SOURCE_OPTIONS.map((opt) => (
