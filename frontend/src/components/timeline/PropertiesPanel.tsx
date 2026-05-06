@@ -109,7 +109,7 @@ export default function PropertiesPanel({
       )}
 
       {/* 3-column layout: Narration | Visual Prompt | Controls */}
-      <div className="shrink-0 h-40 flex gap-4 px-4 py-2">
+      <div className="shrink-0 h-36 flex gap-4 px-4 py-2">
 
         {/* Col 1: Narration */}
         <div className="flex-[2] flex flex-col min-w-0 min-h-0">
