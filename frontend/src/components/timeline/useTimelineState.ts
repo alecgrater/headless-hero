@@ -471,7 +471,7 @@ export function useTimelineState(
           frame_directives: scene.frame_directives || [],
           contains_person: scene.contains_person || false,
           media_source: scene.media_source || "ai",
-          gameplay_game_name: scene.gameplay_game_override || "",
+          gameplay_game_name: scene.gameplay_game_override || contentRef.current.gameplay_game_name || "",
           gameplay_game_override: scene.gameplay_game_override || "",
           audio_duration_seconds: scene.audio_duration_seconds || 0,
         });
@@ -505,7 +505,7 @@ export function useTimelineState(
           if (sc.is_title_card) {
             hasTitleCards = true;
           } else if (sc.visual_prompt && !sc.is_title_card) {
-            if (missingOnly && (sc.image_url || (sc.frame_urls && sc.frame_urls.length > 0))) continue;
+            if (missingOnly && (sc.image_url || sc.video_url || (sc.frame_urls && sc.frame_urls.length > 0))) continue;
             scenes.push({
               scene_id: sc.id,
               visual_prompt: sc.visual_prompt,
@@ -513,7 +513,7 @@ export function useTimelineState(
               frame_directives: sc.frame_directives || [],
               contains_person: sc.contains_person || false,
               media_source: sc.media_source || "ai",
-              gameplay_game_name: sc.gameplay_game_override || "",
+              gameplay_game_name: sc.gameplay_game_override || contentRef.current.gameplay_game_name || "",
               gameplay_game_override: sc.gameplay_game_override || "",
               audio_duration_seconds: sc.audio_duration_seconds || 0,
             });
