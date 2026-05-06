@@ -458,9 +458,9 @@ def annotate_delivery(req: AnnotateDeliveryRequest, db: Session = Depends(get_se
     words = narration.split()
 
     try:
-        from integrations.claude_client import get_claude_client
+        from integrations.claude_client import get_client
 
-        client = get_claude_client()
+        client = get_client()
         prompt = f"""Analyze this narration for vocal delivery coaching. The narration has {len(words)} words (0-indexed).
 
 Narration: "{narration}"

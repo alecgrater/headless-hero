@@ -85,3 +85,20 @@ def search_vods(game_id: str, max_results: int = 20, language: str = "en") -> li
     vods = resp.json().get("data", [])
     logger.info("Found %d VODs for game_id=%s", len(vods), game_id)
     return vods
+
+
+def search_clips(game_id: str, max_results: int = 20) -> list[dict]:
+    """Search for popular clips of a game. Clips are short highlights guaranteed to be from the tagged game."""
+    resp = httpx.get(
+        f"{HELIX_BASE}/clips",
+        headers=_helix_headers(),
+        params={
+            "game_id": game_id,
+            "first": max_results,
+        },
+        timeout=15.0,
+    )
+    resp.raise_for_status()
+    clips = resp.json().get("data", [])
+    logger.info("Found %d clips for game_id=%s", len(clips), game_id)
+    return clips

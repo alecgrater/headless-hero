@@ -36,20 +36,29 @@ def mock_pexels():
 @pytest.fixture
 def mock_twitch():
     with patch("pipeline.gameplay.lookup_game") as mock_lookup, \
+         patch("pipeline.gameplay.search_clips") as mock_clips, \
          patch("pipeline.gameplay.search_vods") as mock_vods, \
+         patch("pipeline.gameplay.download_clip") as mock_dl_clip, \
          patch("pipeline.gameplay.download_vod_segment") as mock_dl, \
          patch("pipeline.gameplay.detect_facecam") as mock_facecam:
         mock_lookup.return_value = {"id": "12345", "name": "Minecraft"}
+        mock_clips.return_value = [{"url": "https://clips.twitch.tv/fake", "id": "c1"}]
         mock_vods.return_value = [{"url": "https://twitch.tv/videos/fake", "id": "v1"}]
         mock_facecam.return_value = False
 
-        def _fake_download(url, duration, output_path):
+        def _fake_download_clip(url, output_path):
             Path(output_path).write_bytes(b"\x00" * 100)
 
-        mock_dl.side_effect = _fake_download
+        def _fake_download_vod(url, duration, output_path):
+            Path(output_path).write_bytes(b"\x00" * 100)
+
+        mock_dl_clip.side_effect = _fake_download_clip
+        mock_dl.side_effect = _fake_download_vod
         yield {
             "lookup_game": mock_lookup,
+            "search_clips": mock_clips,
             "search_vods": mock_vods,
+            "download_clip": mock_dl_clip,
             "download_vod_segment": mock_dl,
             "detect_facecam": mock_facecam,
         }
@@ -107,7 +116,7 @@ class TestMediaSourceDispatch:
         results = generate_batch(scenes, script_id="test-script-3")
 
         assert mock_twitch["lookup_game"].called, "gameplay source should call Twitch lookup"
-        assert mock_twitch["search_vods"].called, "gameplay source should search VODs"
+        assert mock_twitch["search_clips"].called, "gameplay source should search clips"
         assert not mock_gemini.called, "gameplay source should NOT call Gemini"
         assert not mock_pexels.called, "gameplay source should NOT call Pexels"
         assert results[0]["error"] is None

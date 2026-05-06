@@ -65,10 +65,10 @@ def test_gemini():
 
 
 def test_twitch():
-    """Download a gameplay clip from Twitch VODs."""
-    print("\n[TWITCH] Looking up 'Minecraft' and downloading a 5s clip...")
-    from integrations.twitch_client import lookup_game, search_vods
-    from integrations.gameplay_downloader import download_vod_segment
+    """Download a gameplay clip from Twitch."""
+    print("\n[TWITCH] Looking up 'Minecraft' and downloading a clip...")
+    from integrations.twitch_client import lookup_game, search_clips, search_vods
+    from integrations.gameplay_downloader import download_clip, download_vod_segment
 
     game = lookup_game("Minecraft")
     if not game:
@@ -76,21 +76,32 @@ def test_twitch():
         return False
     print(f"[TWITCH] Found game: {game['name']} (id={game['id']})")
 
-    vods = search_vods(game["id"])
-    if not vods:
-        print("[TWITCH] FAILED — no VODs found")
-        return False
-    print(f"[TWITCH] Found {len(vods)} VODs, downloading 5s from: {vods[0]['url']}")
+    # Prefer clips (guaranteed correct game)
+    clips = search_clips(game["id"])
+    if clips:
+        clip = clips[0]
+        print(f"[TWITCH] Found {len(clips)} clips, downloading: {clip['url']}")
 
-    tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
-    tmp.close()
-    os.unlink(tmp.name)  # yt-dlp needs the path to NOT exist
-    download_vod_segment(vods[0]["url"], 5.0, tmp.name)
+        tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+        tmp.close()
+        os.unlink(tmp.name)
+        download_clip(clip["url"], tmp.name)
+    else:
+        print("[TWITCH] No clips found, falling back to VODs...")
+        vods = search_vods(game["id"])
+        if not vods:
+            print("[TWITCH] FAILED — no VODs found either")
+            return False
+        print(f"[TWITCH] Found {len(vods)} VODs, downloading 5s from: {vods[0]['url']}")
+
+        tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+        tmp.close()
+        os.unlink(tmp.name)
+        download_vod_segment(vods[0]["url"], 5.0, tmp.name)
 
     # yt-dlp may add format suffix — find the actual output file
     output = Path(tmp.name)
     if not output.exists() or output.stat().st_size == 0:
-        # Check for yt-dlp's common output patterns
         parent = output.parent
         stem = output.stem
         candidates = list(parent.glob(f"{stem}*"))
@@ -98,7 +109,7 @@ def test_twitch():
         if actual:
             output = actual
         else:
-            print(f"[TWITCH] FAILED — yt-dlp produced no output (checked {parent}/{stem}*)")
+            print("[TWITCH] FAILED — yt-dlp produced no output")
             return False
 
     dest = DOWNLOADS / "gameplay_video_twitch.mp4"

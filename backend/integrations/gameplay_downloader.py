@@ -1,4 +1,4 @@
-"""yt-dlp wrapper for downloading VOD segments + facecam detection via Gemini."""
+"""yt-dlp wrapper for downloading VOD segments + clips + facecam detection via Gemini."""
 
 import logging
 import os
@@ -7,6 +7,21 @@ import subprocess
 import tempfile
 
 logger = logging.getLogger(__name__)
+
+
+def download_clip(clip_url: str, output_path: str) -> str:
+    """Download a Twitch clip using yt-dlp. Returns the output path."""
+    cmd = [
+        "yt-dlp",
+        "-f", "best[height<=1080]",
+        "--merge-output-format", "mp4",
+        "-o", output_path,
+        "--no-playlist",
+        clip_url,
+    ]
+    logger.info("Downloading clip: %s", clip_url)
+    subprocess.run(cmd, timeout=120, check=True, capture_output=True, text=True)
+    return output_path
 
 
 def download_vod_segment(
