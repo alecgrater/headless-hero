@@ -36,6 +36,7 @@ export default function PropertiesPanel({
 }: Props) {
   const [narration, setNarration] = useState(scene.narration);
   const [visualPrompt, setVisualPrompt] = useState(scene.visual_prompt);
+  const [galleryIndex, setGalleryIndex] = useState(0);
 
   const sceneIdRef = useRef(scene.id);
 
@@ -44,6 +45,7 @@ export default function PropertiesPanel({
       sceneIdRef.current = scene.id;
       setNarration(scene.narration);
       setVisualPrompt(scene.visual_prompt);
+      setGalleryIndex(0);
     }
   }, [scene]);
 
@@ -107,7 +109,7 @@ export default function PropertiesPanel({
       )}
 
       {/* 3-column layout: Narration | Visual Prompt | Controls */}
-      <div className="flex-1 min-h-0 flex gap-4 px-4 py-2">
+      <div className="shrink-0 max-h-44 flex gap-4 px-4 py-2">
 
         {/* Col 1: Narration */}
         <div className="flex-[2] flex flex-col min-w-0 min-h-0">
@@ -274,6 +276,72 @@ export default function PropertiesPanel({
           )}
         </div>
       </div>
+
+      {/* Image gallery */}
+      {(() => {
+        const expectedImageCount = scene.frame_directives?.length || 1;
+        const availableImages = scene.frame_urls?.length
+          ? scene.frame_urls
+          : scene.image_url
+            ? [scene.image_url]
+            : [];
+        const safeIndex = Math.min(galleryIndex, Math.max(0, availableImages.length - 1));
+
+        return (
+          <div className="flex-1 min-h-0 flex items-center justify-center px-4 py-2">
+            {availableImages.length > 0 ? (
+              <div
+                className="relative w-full h-full flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-violet-500/30 rounded-lg"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowLeft" && safeIndex > 0) {
+                    e.preventDefault();
+                    setGalleryIndex(safeIndex - 1);
+                  } else if (e.key === "ArrowRight" && safeIndex < availableImages.length - 1) {
+                    e.preventDefault();
+                    setGalleryIndex(safeIndex + 1);
+                  }
+                }}
+              >
+                <img
+                  src={assetUrl(availableImages[safeIndex])}
+                  alt={`Scene image ${safeIndex + 1}`}
+                  className="max-w-full max-h-full object-contain rounded-lg"
+                />
+                {availableImages.length > 1 && (
+                  <>
+                    <button
+                      onClick={() => setGalleryIndex(safeIndex - 1)}
+                      disabled={safeIndex === 0}
+                      className="absolute left-2 p-1 rounded-full bg-black/50 text-neutral-300 hover:text-white hover:bg-black/70 transition-colors disabled:opacity-0"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setGalleryIndex(safeIndex + 1)}
+                      disabled={safeIndex === availableImages.length - 1}
+                      className="absolute right-2 p-1 rounded-full bg-black/50 text-neutral-300 hover:text-white hover:bg-black/70 transition-colors disabled:opacity-0"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                      </svg>
+                    </button>
+                  </>
+                )}
+                <span className="absolute bottom-2 right-2 text-[10px] bg-black/60 text-neutral-300 px-1.5 py-0.5 rounded-full">
+                  {safeIndex + 1}/{availableImages.length} image{availableImages.length > 1 ? "s" : ""}
+                </span>
+              </div>
+            ) : (
+              <span className="text-xs text-neutral-600">
+                0/{expectedImageCount} image{expectedImageCount > 1 ? "s" : ""} expected
+              </span>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Micro-timeline */}
       {scene.audio_url && (
