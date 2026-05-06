@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import TakeWaveform from "./TakeWaveform";
+import RhythmAnalysis from "./RhythmAnalysis";
 import { assetUrl } from "../../api";
 
 export interface Take {
@@ -219,6 +220,11 @@ export default function TakePanel({
             </div>
           )}
         </div>
+      )}
+
+      {/* Rhythm analysis */}
+      {selectedTakeNumber && sceneId && (
+        <RhythmAnalysis scriptId={scriptId} sceneId={sceneId} takeNumber={selectedTakeNumber} />
       )}
 
       {/* Actions */}

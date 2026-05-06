@@ -6,6 +6,7 @@ import SceneNavigator from "./SceneNavigator";
 import TeleprompterPanel, { type DeliveryAnnotations } from "./TeleprompterPanel";
 import TakePanel, { type Take } from "./TakePanel";
 import ExportSection from "./ExportSection";
+import PunchInMode from "./PunchInMode";
 import { useRecorder } from "./useRecorder";
 import { useAudioDevices } from "./useAudioDevices";
 
@@ -58,6 +59,8 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
   // Phase 4C: AI reference playback
   const [playingReference, setPlayingReference] = useState(false);
   const [referenceElapsedMs, setReferenceElapsedMs] = useState(0);
+  // Phase 5A: Punch-in mode
+  const [showPunchIn, setShowPunchIn] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const referenceAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -120,14 +123,16 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
   }, [content, session.selected_takes]);
 
   // Fetch delivery annotations for active scene
+  const fetchedAnnotationsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (!activeSceneId || annotations[activeSceneId]) return;
+    if (!activeSceneId || fetchedAnnotationsRef.current.has(activeSceneId)) return;
+    fetchedAnnotationsRef.current.add(activeSceneId);
     api.post("/api/recording/annotate-delivery", { script_id: scriptId, scene_id: activeSceneId }).then((res) => {
       if (res.ok) {
         setAnnotations((prev) => ({ ...prev, [activeSceneId]: res.data as DeliveryAnnotations }));
       }
     });
-  }, [activeSceneId, scriptId, annotations]);
+  }, [activeSceneId, scriptId]);
 
   const saveSession = useCallback(async (updated: SessionData) => {
     setSession(updated);
@@ -507,6 +512,15 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
         >
           {recorder.isRecording ? "Stop Recording (Space)" : rehearseMode ? "Start Rehearsal (Space)" : "Start Recording (Space)"}
         </button>
+        {/* Punch-in button */}
+        {activeSceneId && previewTimestamps && previewTimestamps.length > 0 && session.selected_takes[activeSceneId] && (
+          <button
+            onClick={() => setShowPunchIn(true)}
+            className="text-xs px-3 py-1.5 text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800 rounded-lg transition-colors"
+          >
+            Punch-In
+          </button>
+        )}
         {activeSceneId && flaggedScenes.has(activeSceneId) && (
           <span className="text-xs text-amber-400 flex items-center gap-1">
             <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6h-5.6z" /></svg>
@@ -514,6 +528,30 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
           </span>
         )}
       </div>
+
+      {/* Punch-in modal */}
+      {showPunchIn && activeSceneId && activeScene && previewTimestamps && session.selected_takes[activeSceneId] && (
+        <PunchInMode
+          scriptId={scriptId}
+          sceneId={activeSceneId}
+          baseTakeNumber={session.selected_takes[activeSceneId]}
+          wordTimestamps={previewTimestamps}
+          narration={activeScene.narration || ""}
+          onPunchComplete={(newTake) => {
+            setShowPunchIn(false);
+            const take: Take = {
+              filename: newTake.filename,
+              takeNumber: newTake.take_number,
+              durationSeconds: newTake.duration_seconds,
+              sceneId: activeSceneId,
+            };
+            setTakes((prev) => [...prev, take]);
+            setPreviewTimestamps(newTake.word_timestamps);
+            showToast(`Punch-in saved as Take ${newTake.take_number}`);
+          }}
+          onCancel={() => setShowPunchIn(false)}
+        />
+      )}
 
       {/* Export modal */}
       {showExport && (

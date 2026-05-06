@@ -10,6 +10,8 @@ interface Props {
 export default function TakeWaveform({ audioUrl, isPlaying, onSeek }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WaveSurfer | null>(null);
+  const onSeekRef = useRef(onSeek);
+  onSeekRef.current = onSeek;
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -32,11 +34,9 @@ export default function TakeWaveform({ audioUrl, isPlaying, onSeek }: Props) {
 
     ws.load(audioUrl);
 
-    if (onSeek) {
-      ws.on("click", (progress) => {
-        onSeek(progress);
-      });
-    }
+    ws.on("click", (progress) => {
+      onSeekRef.current?.(progress);
+    });
 
     wsRef.current = ws;
 

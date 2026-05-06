@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import api, { assetUrl } from "../../api";
+import { assetUrl } from "../../api";
+import { BACKEND_PORT } from "../../constants";
 import { showToast } from "../ToastContainer";
 
 interface WordTimestamp {
@@ -87,7 +88,7 @@ export default function PunchInMode({
         formData.append("audio", blob, "punch.webm");
 
         try {
-          const response = await fetch(`http://localhost:8420/api/recording/punch-in`, {
+          const response = await fetch(`http://localhost:${BACKEND_PORT}/api/recording/punch-in`, {
             method: "POST",
             body: formData,
           });

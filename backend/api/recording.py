@@ -71,6 +71,9 @@ def _normalize_loudness(path: Path, target_lufs: float = -16.0) -> None:
             "-f", "null", "-",
         ]
         result = subprocess.run(measure_cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode != 0:
+            logger.warning("Loudness measurement failed (rc=%d) for %s", result.returncode, path.name)
+            return
         stderr = result.stderr
 
         # Parse measured values from the last JSON block in stderr
@@ -137,6 +140,11 @@ class AlignTakeResponse(BaseModel):
     duration_seconds: float
     transcript: str
     deviation: dict | None = None
+
+
+class AnnotateDeliveryRequest(BaseModel):
+    script_id: str
+    scene_id: str
 
 
 class ExportResponse(BaseModel):
@@ -210,7 +218,10 @@ def align_take(req: AlignTakeRequest, db: Session = Depends(get_session)):
         raise HTTPException(404, "Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
-    scene = find_scene_in_content(content, req.scene_id)
+    try:
+        scene = find_scene_in_content(content, req.scene_id)
+    except (RuntimeError, StopIteration):
+        raise HTTPException(404, "Scene not found")
     narration = scene.narration or ""
 
     duration = _audio_duration(take_file)
@@ -425,19 +436,17 @@ def get_rhythm_analysis(script_id: str, scene_id: str, take_number: int, db: Ses
 
 
 @router.post("/annotate-delivery")
-def annotate_delivery(req: dict, db: Session = Depends(get_session)):
+def annotate_delivery(req: AnnotateDeliveryRequest, db: Session = Depends(get_session)):
     """Generate delivery annotations (emphasis, energy zones) for a scene via Claude."""
-    script_id = req.get("script_id")
-    scene_id = req.get("scene_id")
-    if not script_id or not scene_id:
-        raise HTTPException(400, "script_id and scene_id required")
-
-    record = db.get(Script, script_id)
+    record = db.get(Script, req.script_id)
     if not record:
         raise HTTPException(404, "Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
-    scene = find_scene_in_content(content, scene_id)
+    try:
+        scene = find_scene_in_content(content, req.scene_id)
+    except (RuntimeError, StopIteration):
+        raise HTTPException(404, "Scene not found")
     narration = scene.narration or ""
 
     if not narration:
