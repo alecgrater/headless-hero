@@ -10,15 +10,14 @@ from collections.abc import Callable
 from config import DEFAULT_ACCENT_COLOR, DEFAULT_CLAUDE_MODEL, SEGMENT_COUNT, strip_markdown_fences
 from integrations.claude_client import chat
 from models.script import Scene, ScriptContent, Segment
-from prompts import SCRIPT_OUTLINE_INSTRUCTIONS, SCRIPT_RETRY_CRITIQUE, SCRIPT_SEGMENT_SCENES_INSTRUCTIONS, SCRIPT_SYSTEM
+from prompts import SCRIPT_OUTLINE_INSTRUCTIONS, SCRIPT_SEGMENT_SCENES_INSTRUCTIONS, SCRIPT_SYSTEM
 
 logger = logging.getLogger(__name__)
 
 # Base system prompt — title card instructions are injected separately.
 BASE_SYSTEM_PROMPT = SCRIPT_SYSTEM.template
 
-# Maximum number of generation attempts (initial + retries on review failure)
-MAX_ATTEMPTS = 3
+ALL_BEAT_TYPES = ["static", "continuous", "quick_cuts", "aha_subtitle", "montage"]
 
 _SHOT_LABEL_RE = re.compile(r"^\[([A-Z\-]+)\]")
 
@@ -53,28 +52,22 @@ def _find_runs(labels: list[str], skip: set[str], threshold: int = 3) -> list[tu
     return runs
 
 
-def _check_visual_monotony(content: "ScriptContent") -> list[str]:
-    """Detect monotonous runs of shot types or beat types.
+def _fix_visual_monotony(content: "ScriptContent") -> int:
+    """Detect and fix monotonous runs of beat types in-place.
 
-    Returns a list of human-readable critique strings (empty = no issues).
-    Also logs each issue as a warning for dev dashboard visibility.
+    Breaks up runs of 3+ consecutive identical beat types by reassigning
+    every 3rd scene in a run to an alternative beat type. This preserves
+    narration and flow while ensuring visual variety.
+
+    Returns the number of scenes that were reassigned.
     """
-    issues: list[str] = []
     all_scenes = content.all_scenes()
+    if not all_scenes:
+        return 0
 
-    shot_types: list[str] = []
-    for scene in all_scenes:
-        if scene.is_title_card:
-            shot_types.append("TITLE_CARD")
-            continue
-        m = _SHOT_LABEL_RE.match(scene.visual_prompt or "")
-        shot_types.append(m.group(1) if m else "UNLABELED")
+    fixes = 0
 
-    for label, length, start, end in _find_runs(shot_types, {"TITLE_CARD", "UNLABELED"}):
-        msg = f"Shot type [{label}] repeated {length} consecutive scenes ({start}–{end})"
-        logger.warning("Visual monotony: %s", msg)
-        issues.append(msg)
-
+    # Build beat type list (skip title cards)
     beat_types: list[str] = []
     for scene in all_scenes:
         if scene.is_title_card:
@@ -82,12 +75,29 @@ def _check_visual_monotony(content: "ScriptContent") -> list[str]:
         else:
             beat_types.append(scene.visual_beat or "static")
 
-    for label, length, start, end in _find_runs(beat_types, {"TITLE_CARD"}):
-        msg = f"Beat type '{label}' repeated {length} consecutive scenes ({start}–{end})"
-        logger.warning("Visual beat monotony: %s", msg)
-        issues.append(msg)
+    for label, length, start_1, end_1 in _find_runs(beat_types, {"TITLE_CARD"}):
+        # start_1/end_1 are 1-indexed; convert to 0-indexed
+        start = start_1 - 1
+        # Reassign every 3rd scene in the run to break it up
+        # (keeps the rhythm: original-original-variety-original-original-variety)
+        for i in range(start + 2, start + length, 3):
+            scene = all_scenes[i]
+            if scene.is_title_card:
+                continue
+            alternatives = [b for b in ALL_BEAT_TYPES if b != label]
+            # Pick based on position for determinism — cycle through alternatives
+            new_beat = alternatives[i % len(alternatives)]
+            logger.info(
+                "Monotony fix: scene %d beat '%s' → '%s' (was in run of %d)",
+                i + 1, label, new_beat, length,
+            )
+            scene.visual_beat = new_beat
+            fixes += 1
 
-    return issues
+    if fixes:
+        logger.info("Fixed %d scene(s) to break visual monotony", fixes)
+
+    return fixes
 
 
 def generate_script(
@@ -164,97 +174,56 @@ def generate_script(
     # Always apply title card instructions (title cards are always active)
     system_prompt += TITLE_CARD_PROMPT_INSTRUCTIONS
 
-    # --- Generation + review loop (up to MAX_ATTEMPTS) ---
-    content: ScriptContent | None = None
-    user_message = base_user_message
+    # --- Single generation pass (no retry loop) ---
+    if segmented:
+        logger.info("Using SEGMENTED generation for topic %r, description=%r (model=%s)", topic, description, resolved_model)
+        content = _generate_segmented(
+            system_prompt=system_prompt,
+            user_message=base_user_message,
+            topic=topic,
+            description=description,
+            brand_context=brand_context,
+            model=resolved_model,
+            progress_callback=progress_callback,
+            media_source_constraint=media_source_constraint,
+        )
+    else:
+        logger.info("Generating script for topic %r, description=%r using model=%s (segments=%d)", topic, description, resolved_model, SEGMENT_COUNT)
+        raw = chat(system_prompt, base_user_message, model=resolved_model, max_tokens=16384, timeout=900.0)
 
-    for attempt in range(1, MAX_ATTEMPTS + 1):
-        if segmented:
-            logger.info("Using SEGMENTED generation for topic %r, description=%r (model=%s, attempt %d/%d)", topic, description, resolved_model, attempt, MAX_ATTEMPTS)
-            content = _generate_segmented(
-                system_prompt=system_prompt,
-                user_message=user_message,
-                topic=topic,
-                description=description,
-                brand_context=brand_context,
-                model=resolved_model,
-                progress_callback=progress_callback,
-                media_source_constraint=media_source_constraint,
+        text = strip_markdown_fences(raw)
+
+        if not text.endswith("}"):
+            raise RuntimeError(
+                "Script generation failed: Claude response was truncated. "
+                "The generated script was too long to fit within the token limit. "
+                "Try a simpler topic or fewer segments."
             )
-        else:
-            logger.info("Generating script for topic %r, description=%r using model=%s (segments=%d, attempt %d/%d)", topic, description, resolved_model, SEGMENT_COUNT, attempt, MAX_ATTEMPTS)
-            raw = chat(system_prompt, user_message, model=resolved_model, max_tokens=16384, timeout=900.0)
 
-            # Strip markdown fences if present
-            text = strip_markdown_fences(raw)
+        data = json.loads(text)
+        content = ScriptContent.model_validate(data)
 
-            if not text.endswith("}"):
-                raise RuntimeError(
-                    "Script generation failed: Claude response was truncated. "
-                    "The generated script was too long to fit within the token limit. "
-                    "Try a simpler topic or fewer segments."
-                )
+    # Always enforce title card constraints
+    content = enforce_title_cards_and_min_scenes(content)
 
-            data = json.loads(text)
-            content = ScriptContent.model_validate(data)
+    # Fix visual monotony in-place (no regeneration needed)
+    _fix_visual_monotony(content)
 
-        # Always enforce title card constraints
-        content = enforce_title_cards_and_min_scenes(content)
-
-        # --- Quality review ---
-        if attempt == MAX_ATTEMPTS:
-            logger.info("Final attempt (%d/%d) — accepting script without review gate", attempt, MAX_ATTEMPTS)
-            remaining = _check_visual_monotony(content)
-            if remaining:
-                logger.warning("Accepted script still has %d monotony issue(s)", len(remaining))
-            break
-
-        if progress_callback:
-            progress_callback(0, 0, "Reviewing script quality...")
-
+    # Run Gemini quality review for logging/metrics only (non-blocking)
+    if progress_callback:
+        progress_callback(0, 0, "Reviewing script quality...")
+    try:
         review = review_script(content)
         pass_count = review.pass_count()
-
-        # Check visual monotony independently of Gemini review
-        monotony_issues = _check_visual_monotony(content)
-
-        if review.overall_pass and not monotony_issues:
-            logger.info("Script quality review passed (%d/5 skillsets, no monotony)", pass_count)
-            if progress_callback:
-                progress_callback(0, 0, "Script quality review passed")
-            break
-
-        # Build combined critique from review failures + monotony issues
-        critique_parts: list[str] = []
-        if not review.overall_pass:
-            critique_parts.append(review.critique_summary())
-        if monotony_issues:
-            monotony_critique = (
-                "- Visual Variety: The script violates the beat distribution rules. "
-                "3+ consecutive scenes with the same beat type is not allowed — "
-                "break up these runs with a different beat type: " + "; ".join(monotony_issues)
+        if review.overall_pass:
+            logger.info("Script quality review passed (%d/5 skillsets)", pass_count)
+        else:
+            logger.warning(
+                "Script quality review: %d/5 skillsets passed (non-blocking). Issues: %s",
+                pass_count, review.critique_summary(),
             )
-            critique_parts.append(monotony_critique)
-
-        critique = "\n".join(critique_parts)
-
-        logger.info(
-            "Script quality review: %d/5 skillsets passed, %d monotony issues (attempt %d/%d). Regenerating...",
-            pass_count, len(monotony_issues), attempt, MAX_ATTEMPTS,
-        )
-        if progress_callback:
-            progress_callback(
-                0, 0,
-                f"Review: {pass_count}/5 skillsets passed, {len(monotony_issues)} monotony issues. "
-                f"Regenerating (attempt {attempt + 1}/{MAX_ATTEMPTS})...",
-            )
-
-        user_message = (
-            SCRIPT_RETRY_CRITIQUE.build(critique)
-            + base_user_message
-        )
-
-    assert content is not None
+    except Exception:
+        logger.warning("Script quality review failed — continuing", exc_info=True)
 
     # Persist multi-source media settings on the script
     content.gameplay_enabled = gameplay_enabled
