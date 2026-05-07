@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 from database import get_session, get_default_brand_id
 from models.script import Script
 from models.trending import TrendingTopic
+from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
 from pipeline.trending_scorer import start_refresh, get_refresh_job
 
 logger = logging.getLogger(__name__)
@@ -216,14 +217,13 @@ async def refresh_content_profile():
 # Smart ideas endpoint
 # ---------------------------------------------------------------------------
 
-@router.post("/smart-ideas", response_model=SmartIdeasResponse)
+@router.post("/smart-ideas")
 async def generate_smart_ideas(
     body: SmartIdeasRequest,
     session: Session = Depends(get_session),
 ):
-    """Generate video ideas combining trending topics with optional content profile."""
-    from pipeline.content_profile import get_cached_profile, analyze_content_profile
-    from pipeline.smart_ideation import generate_smart_ideas as _generate
+    """Start background job to generate video ideas combining trending topics with optional content profile."""
+    from pipeline.content_profile import get_cached_profile
 
     # Check trending topic age — trigger background refresh if stale, but don't block
     latest = session.exec(
@@ -241,28 +241,19 @@ async def generate_smart_ideas(
     needs_refresh = latest is None or (trending_age_hours is not None and trending_age_hours > 24)
     if needs_refresh:
         logger.info("Trending topics stale or missing — starting background refresh")
-        job = start_refresh()
+        refresh_job = start_refresh()
         refresh_triggered = True
-        refresh_job_id = job.id
+        refresh_job_id = refresh_job.id
 
-    # Always load script titles as pattern signal
+    # Gather inputs synchronously (fast DB reads)
     scripts = session.exec(select(Script)).all()
     script_titles = [s.topic_title for s in scripts if s.topic_title]
 
-    # Try to load profile — but don't require it
     profile = None
     cached = get_cached_profile()
     if cached and cached.get("script_count", 0) >= 3:
-        if cached.get("is_stale"):
-            try:
-                profile = analyze_content_profile() or None
-            except Exception:
-                logger.warning("Content profile refresh failed — proceeding without it")
-                profile = {k: v for k, v in cached.items() if k != "is_stale"}
-        else:
-            profile = cached
+        profile = {k: v for k, v in cached.items() if k != "is_stale"} if cached.get("is_stale") else cached
 
-    # Load top trending topics
     stmt = select(TrendingTopic).where(
         TrendingTopic.status == "new"
     ).order_by(TrendingTopic.score.desc()).limit(20)
@@ -279,25 +270,62 @@ async def generate_smart_ideas(
         for t in topics
     ]
 
-    ideas = _generate(
-        trending_topics=trending_data,
-        count=body.count,
-        profile=profile,
-        script_titles=script_titles or None,
-    )
+    # Start background job for the slow Claude call
+    job = create_job()
+    count = body.count
 
-    seen_categories: list[str] = []
-    for idea in ideas:
-        cat = idea.get("category", "Other")
-        if cat not in seen_categories:
-            seen_categories.append(cat)
+    def _run() -> list[str]:
+        from pipeline.content_profile import analyze_content_profile
+        from pipeline.smart_ideation import generate_smart_ideas as _generate
 
-    return SmartIdeasResponse(
-        ideas=[SmartIdea(**idea) for idea in ideas],
-        categories=seen_categories,
-        profile_used=profile is not None,
-        trending_topics_used=len(trending_data),
-        refresh_triggered=refresh_triggered,
-        refresh_job_id=refresh_job_id,
-        trending_age_hours=trending_age_hours,
-    )
+        update_job(job.id, current_step="Generating ideas...")
+
+        actual_profile = profile
+        if cached and cached.get("is_stale") and cached.get("script_count", 0) >= 3:
+            try:
+                actual_profile = analyze_content_profile() or None
+            except Exception:
+                logger.warning("Content profile refresh failed — proceeding without it")
+
+        ideas = _generate(
+            trending_topics=trending_data,
+            count=count,
+            profile=actual_profile,
+            script_titles=script_titles or None,
+        )
+
+        seen_categories: list[str] = []
+        for idea in ideas:
+            cat = idea.get("category", "Other")
+            if cat not in seen_categories:
+                seen_categories.append(cat)
+
+        result = SmartIdeasResponse(
+            ideas=[SmartIdea(**idea) for idea in ideas],
+            categories=seen_categories,
+            profile_used=actual_profile is not None,
+            trending_topics_used=len(trending_data),
+            refresh_triggered=refresh_triggered,
+            refresh_job_id=refresh_job_id,
+            trending_age_hours=trending_age_hours,
+        )
+        update_job(job.id, output_data=result.model_dump_json())
+        return []
+
+    run_in_background(job.id, _run)
+
+    return {
+        "job_id": job.id,
+        "refresh_triggered": refresh_triggered,
+        "refresh_job_id": refresh_job_id,
+        "trending_age_hours": trending_age_hours,
+    }
+
+
+@router.get("/smart-ideas-status/{job_id}")
+async def smart_ideas_status(job_id: str):
+    """Get status of a smart ideas generation job."""
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job.to_dict()

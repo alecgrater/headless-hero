@@ -40,7 +40,7 @@ function extractErrorMessage(status: number, data: unknown): string {
 }
 
 /** Paths that should not trigger toast notifications on error. */
-const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/eli/generate-status/", "/api/media/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/"];
+const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/media/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/"];
 
 function shouldSilence(path: string): boolean {
   return SILENT_PATHS.some((p) => path.startsWith(p));
@@ -395,11 +395,40 @@ export async function refreshContentProfile(): Promise<ContentProfile> {
   return res.data as ContentProfile;
 }
 
-/** Generate smart ideas combining profile + trending. */
-export async function generateSmartIdeas(count: number = 40): Promise<SmartIdeasResponse> {
+/** Start smart ideas generation (background job). Returns job_id + trending metadata. */
+export async function generateSmartIdeas(count: number = 40): Promise<{
+  job_id: string;
+  refresh_triggered: boolean;
+  refresh_job_id: string | null;
+  trending_age_hours: number | null;
+}> {
   const res = await api.post("/api/trending/smart-ideas", { count });
-  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to generate smart ideas");
-  return res.data as SmartIdeasResponse;
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to start idea generation");
+  return res.data as {
+    job_id: string;
+    refresh_triggered: boolean;
+    refresh_job_id: string | null;
+    trending_age_hours: number | null;
+  };
+}
+
+/** Poll smart ideas generation job status. */
+export async function getSmartIdeasStatus(jobId: string): Promise<{
+  status: string;
+  progress: number;
+  current_step: string;
+  output_data: string | null;
+  error: string | null;
+} | null> {
+  const res = await api.get(`/api/trending/smart-ideas-status/${jobId}`);
+  if (!res.ok) return null;
+  return res.data as {
+    status: string;
+    progress: number;
+    current_step: string;
+    output_data: string | null;
+    error: string | null;
+  };
 }
 
 // ---------------------------------------------------------------------------

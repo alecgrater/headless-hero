@@ -3,13 +3,14 @@ import {
   getContentProfile,
   refreshContentProfile,
   generateSmartIdeas,
+  getSmartIdeasStatus,
   createIdea,
   refreshTrending,
   getTrendingRefreshStatus,
 } from "../../api";
 import { showToast } from "../ToastContainer";
 import type { VideoIdea } from "../../types/idea";
-import type { ContentProfile, SmartIdea } from "../../types/trending";
+import type { ContentProfile, SmartIdea, SmartIdeasResponse } from "../../types/trending";
 import ContentProfileCard from "./ContentProfileCard";
 import SmartIdeaCard from "./SmartIdeaCard";
 import { Button } from "../ui/Button";
@@ -30,6 +31,7 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
   const [trendingAgeHours, setTrendingAgeHours] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const ideaPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     getContentProfile()
@@ -70,6 +72,15 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
 
   useEffect(() => () => stopPolling(), [stopPolling]);
 
+  const stopIdeaPolling = useCallback(() => {
+    if (ideaPollRef.current) {
+      clearInterval(ideaPollRef.current);
+      ideaPollRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => stopIdeaPolling(), [stopIdeaPolling]);
+
   const handleRefreshProfile = async () => {
     setLoadingProfile(true);
     setError(null);
@@ -95,18 +106,39 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
   const handleGenerate = async () => {
     setLoadingIdeas(true);
     setError(null);
+    stopIdeaPolling();
     try {
-      const result = await generateSmartIdeas(40);
-      setIdeas(result.ideas);
-      setCategoryOrder(result.categories);
-      setActiveCategory(null);
-      setTrendingAgeHours(result.trending_age_hours);
-      if (result.refresh_triggered && result.refresh_job_id) {
-        startPolling(result.refresh_job_id);
+      const { job_id, refresh_triggered, refresh_job_id, trending_age_hours: age } = await generateSmartIdeas(40);
+      if (age !== null) setTrendingAgeHours(age);
+      if (refresh_triggered && refresh_job_id) {
+        startPolling(refresh_job_id);
       }
+
+      ideaPollRef.current = setInterval(async () => {
+        try {
+          const status = await getSmartIdeasStatus(job_id);
+          if (!status) return;
+          if (status.status === "completed" && status.output_data) {
+            stopIdeaPolling();
+            const result: SmartIdeasResponse = JSON.parse(status.output_data);
+            setIdeas(result.ideas);
+            setCategoryOrder(result.categories);
+            setActiveCategory(null);
+            if (result.trending_age_hours !== null) setTrendingAgeHours(result.trending_age_hours);
+            setLoadingIdeas(false);
+          } else if (status.status === "failed") {
+            stopIdeaPolling();
+            setError(status.error || "Idea generation failed");
+            setLoadingIdeas(false);
+          }
+        } catch {
+          stopIdeaPolling();
+          setError("Lost connection while generating ideas");
+          setLoadingIdeas(false);
+        }
+      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate ideas");
-    } finally {
       setLoadingIdeas(false);
     }
   };
