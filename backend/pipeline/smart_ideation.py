@@ -2,12 +2,37 @@
 
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import parse_json_response, BALANCED_CLAUDE_MODEL
 from integrations.claude_client import chat
 from prompts import SMART_IDEATION_SYSTEM
 
 logger = logging.getLogger(__name__)
+
+BATCH_SIZE = 10
+MAX_TOKENS_PER_BATCH = 4096
+
+
+def _generate_batch(
+    batch_index: int,
+    batch_count: int,
+    payload: dict,
+) -> list[dict]:
+    """Generate a single batch of ideas."""
+    user_msg = json.dumps(payload, indent=2)
+    raw = chat(
+        SMART_IDEATION_SYSTEM.template,
+        f"Generate {batch_count} video ideas (batch {batch_index + 1}):\n{user_msg}",
+        model=BALANCED_CLAUDE_MODEL,
+        max_tokens=MAX_TOKENS_PER_BATCH,
+        cache=True,
+    )
+    try:
+        return parse_json_response(raw)
+    except (json.JSONDecodeError, ValueError):
+        logger.error("Failed to parse smart ideas batch %d", batch_index + 1)
+        return []
 
 
 def generate_smart_ideas(
@@ -18,9 +43,7 @@ def generate_smart_ideas(
 ) -> list[dict]:
     """Generate video ideas combining trending data with optional creator context.
 
-    When profile is provided, full personalization is applied.
-    Script titles are always sent when available (additive with profile).
-    Trending data is enrichment, not a requirement.
+    Splits into parallel batches to stay within proxy timeout limits.
     """
     payload: dict = {}
 
@@ -49,35 +72,41 @@ def generate_smart_ideas(
             for t in trending_topics[:20]
         ]
 
-    payload["count"] = count
-
-    user_msg = json.dumps(payload, indent=2)
+    num_batches = max(1, (count + BATCH_SIZE - 1) // BATCH_SIZE)
+    batch_sizes = []
+    remaining = count
+    for _ in range(num_batches):
+        batch_size = min(BATCH_SIZE, remaining)
+        batch_sizes.append(batch_size)
+        remaining -= batch_size
 
     logger.info(
-        "Generating %d ideas (profile=%s, titles=%d, trending=%d)",
+        "Generating %d ideas in %d batches (profile=%s, titles=%d, trending=%d)",
         count,
+        num_batches,
         "yes" if profile else "no",
         len(script_titles or []),
         len(trending_topics),
     )
 
-    raw = chat(
-        SMART_IDEATION_SYSTEM.template,
-        f"Generate {count} video ideas:\n{user_msg}",
-        model=BALANCED_CLAUDE_MODEL,
-        max_tokens=16384,
-        cache=True,
-    )
+    all_ideas: list[dict] = []
 
-    try:
-        ideas = parse_json_response(raw)
-    except (json.JSONDecodeError, ValueError):
-        logger.error("Failed to parse smart ideas response")
-        return []
+    with ThreadPoolExecutor(max_workers=num_batches) as executor:
+        futures = []
+        for i, batch_size in enumerate(batch_sizes):
+            batch_payload = {**payload, "count": batch_size}
+            futures.append(executor.submit(_generate_batch, i, batch_size, batch_payload))
+
+        for future in as_completed(futures):
+            try:
+                batch_result = future.result()
+                all_ideas.extend(batch_result)
+            except Exception:
+                logger.error("Smart ideas batch failed", exc_info=True)
 
     has_profile = profile is not None
     validated = []
-    for idea in ideas:
+    for idea in all_ideas:
         score_raw = idea.get("style_match_score")
         style_match_score = (
             max(0, min(100, float(score_raw)))
@@ -98,5 +127,5 @@ def generate_smart_ideas(
             "signals": idea.get("signals", [])[:3],
         })
 
-    logger.info("Generated %d ideas", len(validated))
+    logger.info("Generated %d ideas across %d batches", len(validated), num_batches)
     return validated[:count]
