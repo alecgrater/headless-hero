@@ -3,6 +3,7 @@ export interface VideoIdea {
   segments_est: number;
   description: string;
   keywords: string[];
+  cold_open_text?: string;
 }
 
 export interface GenerateIdeasResponse {

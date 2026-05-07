@@ -32,9 +32,10 @@ const ACTIVE_STATUSES: Set<ColdOpenStatus> = new Set(["generating", "refining"])
 
 interface Props {
   onGenerateIdeas: (niche: string) => void;
+  onUseIdea: (idea: Idea) => void;
 }
 
-export default function IdeaPage({ onGenerateIdeas }: Props) {
+export default function IdeaPage({ onGenerateIdeas, onUseIdea }: Props) {
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [statusFilter, setStatusFilter] = useState<IdeaStatus | "all">("all");
@@ -300,6 +301,7 @@ export default function IdeaPage({ onGenerateIdeas }: Props) {
               onUpdate={handleUpdate}
               onDelete={handleDelete}
               onGenerateIdeas={onGenerateIdeas}
+              onUseIdea={onUseIdea}
               onPickHook={handlePickHook}
               onRetryHook={handleRetryHook}
             />

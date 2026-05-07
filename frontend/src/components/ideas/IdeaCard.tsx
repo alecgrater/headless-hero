@@ -45,11 +45,12 @@ interface Props {
   onUpdate: (id: string, updates: { text?: string; rank?: number; status?: IdeaStatus }) => void;
   onDelete: (id: string) => void;
   onGenerateIdeas: (niche: string) => void;
+  onUseIdea: (idea: Idea) => void;
   onPickHook: (idea: Idea) => void;
   onRetryHook: (idea: Idea) => void;
 }
 
-export default function IdeaCard({ idea, onUpdate, onDelete, onGenerateIdeas, onPickHook, onRetryHook }: Props) {
+export default function IdeaCard({ idea, onUpdate, onDelete, onGenerateIdeas, onUseIdea, onPickHook, onRetryHook }: Props) {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(idea.text);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -215,7 +216,7 @@ export default function IdeaCard({ idea, onUpdate, onDelete, onGenerateIdeas, on
             </button>
           )}
           <button
-            onClick={() => onGenerateIdeas(idea.text)}
+            onClick={() => idea.hook_score !== null ? onUseIdea(idea) : onGenerateIdeas(idea.text)}
             className="text-xs px-3 py-1.5 rounded-lg bg-neutral-700 hover:bg-neutral-600 text-neutral-300 font-medium transition-colors"
           >
             Use Idea

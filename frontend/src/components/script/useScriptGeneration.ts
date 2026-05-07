@@ -276,7 +276,7 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
     }
   };
 
-  // Phase 1: Generate cold opens
+  // Phase 1: Generate cold opens (or skip if cold_open_text already provided)
   const handleGenerate = async () => {
     cancelledRef.current = false;
     setGenerationStarted(true);
@@ -287,6 +287,53 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
     setElapsedSeconds(null);
     setColdOpenResult(null);
     setSelectedColdOpen(null);
+
+    // If idea already has a pre-selected hook, skip cold opens and go straight to script gen
+    if (idea.cold_open_text) {
+      setPhase("script");
+
+      fetchGenerationEstimate("script_generation_youtube")
+        .then((est) => setEstimatedSeconds(est.average_seconds))
+        .catch(() => setEstimatedSeconds(null));
+
+      try {
+        const res = await api.post("/api/scripts/generate", {
+          topic: idea.title,
+          description: idea.description,
+          brand_id: brandId,
+          segment_count:
+            idea.segments_est > 0 ? snapSegmentCount(idea.segments_est) : undefined,
+          animated_scene_count: 5,
+          model: selectedModel !== DEFAULT_MODEL ? selectedModel : undefined,
+          segmented,
+          cold_open_text: idea.cold_open_text,
+          gameplay_enabled: gameplayEnabled,
+          stock_photo_enabled: stockPhotoEnabled,
+        });
+        if (cancelledRef.current) return;
+        if (!res.ok) {
+          const detail =
+            res.data && typeof res.data === "object" && "detail" in res.data
+              ? (res.data as { detail: string }).detail
+              : "Failed to start script generation";
+          setError(detail);
+          setLoading(false);
+          setPhase("idle");
+          return;
+        }
+        const { job_id } = res.data as { job_id: string };
+        startScriptPolling(job_id);
+      } catch (err) {
+        if (!cancelledRef.current) {
+          console.error("[ScriptGeneration] Script request failed:", err);
+          setError("Could not reach the backend. Is it running?");
+          setLoading(false);
+          setPhase("idle");
+        }
+      }
+      return;
+    }
+
     setPhase("cold_opens");
     coldOpenProgress.start();
 

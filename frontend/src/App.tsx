@@ -13,7 +13,7 @@ import DiscoverPage from "./components/trending/DiscoverPage";
 import IdeaPage from "./components/ideas/IdeaPage";
 import CatalogPage from "./components/catalog/CatalogPage";
 import useLongPress from "./hooks/useLongPress";
-import type { VideoIdea } from "./types/idea";
+import type { Idea, VideoIdea } from "./types/idea";
 import type { ScriptSummary } from "./types/script";
 
 type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "ideas" | "catalog" | "voiceover-recording";
@@ -448,6 +448,17 @@ function App() {
             onGenerateIdeas={(niche) => {
               setAutoGenerateNiche(niche);
               handleSetView("ideation");
+            }}
+            onUseIdea={(idea: Idea) => {
+              const hook = idea.selected_hook_json ? JSON.parse(idea.selected_hook_json) as { intro_hook: string; opening_narration: string } : null;
+              setSelectedIdea({
+                title: idea.text,
+                segments_est: 8,
+                description: idea.description,
+                keywords: [],
+                cold_open_text: hook ? `${hook.intro_hook}\n\n${hook.opening_narration}` : undefined,
+              });
+              handleSetView("script-generation");
             }}
           />
         )}
