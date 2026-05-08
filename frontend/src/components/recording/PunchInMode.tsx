@@ -13,6 +13,7 @@ interface Props {
   scriptId: string;
   sceneId: string;
   baseTakeNumber: number;
+  baseTakeFilename: string;
   wordTimestamps: WordTimestamp[];
   narration: string;
   onPunchComplete: (newTake: { filename: string; take_number: number; duration_seconds: number; word_timestamps: WordTimestamp[] }) => void;
@@ -22,7 +23,7 @@ interface Props {
 type PunchState = "selecting" | "preroll" | "recording" | "processing";
 
 export default function PunchInMode({
-  scriptId, sceneId, baseTakeNumber, wordTimestamps, narration, onPunchComplete, onCancel,
+  scriptId, sceneId, baseTakeNumber, baseTakeFilename, wordTimestamps, narration, onPunchComplete, onCancel,
 }: Props) {
   const [state, setState] = useState<PunchState>("selecting");
   const [punchInIdx, setPunchInIdx] = useState<number | null>(null);
@@ -57,7 +58,7 @@ export default function PunchInMode({
 
     // Play 2s of pre-roll audio from the base take
     const prerollStart = Math.max(0, punchInMs - 2000);
-    const audioUrl = assetUrl(`/static/projects/${scriptId}/recording/takes/${sceneId}_take${baseTakeNumber}.webm`);
+    const audioUrl = assetUrl(`/static/projects/${scriptId}/recording/takes/${baseTakeFilename}`);
     const audio = new Audio(audioUrl);
     audio.currentTime = prerollStart / 1000;
 

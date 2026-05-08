@@ -109,29 +109,23 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
     });
   }, [scriptId]);
 
-  // Load existing takes from session
+  // Load existing takes from backend (initial hydration only)
+  const takesHydratedRef = useRef(false);
   useEffect(() => {
-    if (!content) return;
-    const loadTakes = async () => {
-      const allTakes: Take[] = [];
-      for (const seg of content.segments) {
-        for (const scene of seg.scenes) {
-          if (!scene.narration) continue;
-          const selectedTake = session.selected_takes[scene.id];
-          if (selectedTake) {
-            allTakes.push({
-              filename: `${scene.id}_take${selectedTake}.webm`,
-              takeNumber: selectedTake,
-              durationSeconds: 0,
-              sceneId: scene.id,
-            });
-          }
-        }
+    if (!content || takesHydratedRef.current) return;
+    takesHydratedRef.current = true;
+    api.get(`/api/recording/takes/${scriptId}`).then((res) => {
+      if (res.ok) {
+        const data = res.data as { takes: Array<{ filename: string; sceneId: string; takeNumber: number; durationSeconds: number }> };
+        setTakes(data.takes.map((t) => ({
+          filename: t.filename,
+          sceneId: t.sceneId,
+          takeNumber: t.takeNumber,
+          durationSeconds: t.durationSeconds,
+        })));
       }
-      setTakes(allTakes);
-    };
-    loadTakes();
-  }, [content, session.selected_takes]);
+    });
+  }, [content, scriptId]);
 
   // Fetch delivery annotations for active scene
   const fetchedAnnotationsRef = useRef<Set<string>>(new Set());
@@ -752,6 +746,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
           scriptId={scriptId}
           sceneId={activeSceneId}
           baseTakeNumber={session.selected_takes[activeSceneId]}
+          baseTakeFilename={takes.find((t) => t.sceneId === activeSceneId && t.takeNumber === session.selected_takes[activeSceneId])?.filename || `${activeSceneId}_take${session.selected_takes[activeSceneId]}.mp3`}
           wordTimestamps={previewTimestamps}
           narration={activeScene.narration || ""}
           onPunchComplete={(newTake) => {

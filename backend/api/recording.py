@@ -188,10 +188,24 @@ async def upload_take(
     takes_dir = _takes_dir(script_id)
     takes_dir.mkdir(parents=True, exist_ok=True)
 
-    filename = f"{scene_id}_take{take_number}.webm"
-    filepath = takes_dir / filename
+    # Save raw WebM temporarily, then convert to MP3 for reliable duration/playback
+    temp_webm = takes_dir / f"{scene_id}_take{take_number}_raw.webm"
     content = await audio.read()
-    filepath.write_bytes(content)
+    temp_webm.write_bytes(content)
+
+    filename = f"{scene_id}_take{take_number}.mp3"
+    filepath = takes_dir / filename
+
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", str(temp_webm), "-c:a", "libmp3lame", "-b:a", "192k", str(filepath)],
+            capture_output=True, timeout=30, check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        logger.error("WebM→MP3 conversion failed for %s: %s", scene_id, e.stderr[:300] if e.stderr else "")
+        raise HTTPException(422, "Recording file appears corrupt — try recording again")
+    finally:
+        temp_webm.unlink(missing_ok=True)
 
     duration = _audio_duration(filepath)
     logger.info("Saved take %s/%s take %d (%.2fs)", script_id, scene_id, take_number, duration)
@@ -225,6 +239,31 @@ async def delete_take(script_id: str, scene_id: str, take_number: int):
         logger.info("Deleted take %s/%s take %d", script_id, scene_id, take_number)
         return {"deleted": True}
     raise HTTPException(404, "Take not found")
+
+
+@router.get("/takes/{script_id}")
+def list_takes(script_id: str):
+    """List all takes for a script with filenames and durations."""
+    takes_dir = _takes_dir(script_id)
+    if not takes_dir.exists():
+        return {"takes": []}
+
+    takes: list[dict] = []
+    for f in sorted(takes_dir.iterdir()):
+        m = re.match(r"(.+)_take(\d+)\.(mp3|webm|wav|m4a|ogg)$", f.name)
+        if not m or "_raw" in f.name or "_punch_temp" in f.name:
+            continue
+        scene_id = m.group(1)
+        take_number = int(m.group(2))
+        duration = _audio_duration(f)
+        takes.append({
+            "filename": f.name,
+            "sceneId": scene_id,
+            "takeNumber": take_number,
+            "durationSeconds": duration,
+        })
+
+    return {"takes": takes}
 
 
 @router.post("/align-take", response_model=AlignTakeResponse)
@@ -294,11 +333,25 @@ async def import_take(
             existing_numbers.append(int(m.group(1)))
     take_number = max(existing_numbers, default=0) + 1
 
+    # Save original, then convert to MP3
     ext = Path(audio.filename or "audio.webm").suffix or ".webm"
-    filename = f"{scene_id}_take{take_number}{ext}"
-    filepath = takes_dir / filename
+    temp_file = takes_dir / f"{scene_id}_take{take_number}_import{ext}"
     content = await audio.read()
-    filepath.write_bytes(content)
+    temp_file.write_bytes(content)
+
+    filename = f"{scene_id}_take{take_number}.mp3"
+    filepath = takes_dir / filename
+
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", str(temp_file), "-c:a", "libmp3lame", "-b:a", "192k", str(filepath)],
+            capture_output=True, timeout=30, check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        logger.error("Import conversion failed for %s: %s", scene_id, e.stderr[:300] if e.stderr else "")
+        raise HTTPException(422, "Audio file could not be converted")
+    finally:
+        temp_file.unlink(missing_ok=True)
 
     duration = _audio_duration(filepath)
     logger.info("Imported take %s/%s take %d (%.2fs)", script_id, scene_id, take_number, duration)
@@ -773,10 +826,22 @@ async def punch_in(
         raise HTTPException(404, "Base take not found")
     base_file = base_patterns[0]
 
-    # Save punch-in audio to temp file
-    punch_audio = takes_dir / f"{scene_id}_punch_temp.webm"
+    # Save punch-in audio to temp file, convert WebM→MP3 first
+    punch_webm = takes_dir / f"{scene_id}_punch_temp.webm"
     content = await audio.read()
-    punch_audio.write_bytes(content)
+    punch_webm.write_bytes(content)
+
+    punch_audio = takes_dir / f"{scene_id}_punch_temp.mp3"
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", str(punch_webm), "-c:a", "libmp3lame", "-b:a", "192k", str(punch_audio)],
+            capture_output=True, timeout=30, check=True,
+        )
+    except subprocess.CalledProcessError:
+        punch_webm.unlink(missing_ok=True)
+        raise HTTPException(422, "Punch-in recording appears corrupt")
+    finally:
+        punch_webm.unlink(missing_ok=True)
 
     # Determine next take number
     existing = list(takes_dir.glob(f"{scene_id}_take*.*"))
@@ -787,7 +852,7 @@ async def punch_in(
             existing_numbers.append(int(m.group(1)))
     new_take_number = max(existing_numbers, default=0) + 1
 
-    output_file = takes_dir / f"{scene_id}_take{new_take_number}.webm"
+    output_file = takes_dir / f"{scene_id}_take{new_take_number}.mp3"
 
     # FFmpeg splice: [base[0:punch_in] + replacement + base[punch_out:]]
     punch_in_s = punch_in_ms / 1000.0
@@ -806,7 +871,7 @@ async def punch_in(
         "-i", str(punch_audio),
         "-filter_complex", filter_complex,
         "-map", "[out]",
-        "-c:a", "libopus", str(output_file),
+        "-c:a", "libmp3lame", "-b:a", "192k", str(output_file),
     ]
 
     try:
