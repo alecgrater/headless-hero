@@ -355,6 +355,10 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
 
   const handleDeleteTake = useCallback(async (takeNumber: number) => {
     if (!activeSceneId) return;
+    if (playingTakeNumber === takeNumber) {
+      audioRef.current?.pause();
+      setPlayingTakeNumber(null);
+    }
     await api.delete(`/api/recording/take/${scriptId}/${activeSceneId}/${takeNumber}`);
     setTakes((prev) => prev.filter((t) => !(t.sceneId === activeSceneId && t.takeNumber === takeNumber)));
     if (session.selected_takes[activeSceneId] === takeNumber) {
@@ -362,7 +366,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
       saveSession({ ...session, selected_takes: rest });
       setPreviewTimestamps(null);
     }
-  }, [activeSceneId, scriptId, session, saveSession]);
+  }, [activeSceneId, scriptId, session, saveSession, playingTakeNumber]);
 
   const handlePlayTake = useCallback((take: Take) => {
     if (playingTakeNumber === take.takeNumber) {
