@@ -187,7 +187,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
   }, [allNarratedSceneIds, recordedScenes]);
 
   const beepCtxRef = useRef<AudioContext | null>(null);
-  const playBeep = useCallback(() => {
+  const playBeep = useCallback((freq = 880) => {
     try {
       if (!beepCtxRef.current || beepCtxRef.current.state === "closed") {
         beepCtxRef.current = new AudioContext();
@@ -196,7 +196,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.value = 880;
+      osc.frequency.value = freq;
       gain.gain.value = 0.15;
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -282,17 +282,20 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
       // Single/Continuous: 3-2-1 countdown then record
       abortCountdownRef.current = false;
       setCountdown(3);
+      playBeep(660);
       await new Promise((r) => setTimeout(r, 1000));
       if (abortCountdownRef.current) { setCountdown(null); return; }
       setCountdown(2);
+      playBeep(660);
       await new Promise((r) => setTimeout(r, 1000));
       if (abortCountdownRef.current) { setCountdown(null); return; }
       setCountdown(1);
+      playBeep(660);
       await new Promise((r) => setTimeout(r, 1000));
       if (abortCountdownRef.current) { setCountdown(null); return; }
       setCountdown(null);
 
-      playBeep();
+      playBeep(1320);
       await recorder.startRecording(audioDevices.selectedDeviceId);
     }
   }, [rehearseMode, activeSceneId, audioDevices.selectedDeviceId, recorder, playingReference, mode, playBeep]);
