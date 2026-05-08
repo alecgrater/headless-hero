@@ -91,6 +91,7 @@ export function useRecorder(): UseRecorderResult {
         chunksRef.current = [];
         setIsRecording(false);
         setAudioLevel(0);
+        audioLevelRef.current = 0;
 
         if (streamRef.current) {
           streamRef.current.getTracks().forEach((t) => t.stop());
