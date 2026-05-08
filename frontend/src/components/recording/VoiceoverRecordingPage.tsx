@@ -332,10 +332,11 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
         const nextSceneId = findNextUnrecordedScene(activeSceneId);
         if (nextSceneId) {
           setAutoAdvancing(true);
+          pendingAutoAdvanceRef.current = nextSceneId;
           autoAdvanceTimerRef.current = window.setTimeout(() => {
+            autoAdvanceTimerRef.current = null;
             setActiveSceneId(nextSceneId);
             setAutoAdvancing(false);
-            pendingAutoAdvanceRef.current = nextSceneId;
           }, 1500);
         } else {
           showToast("All scenes recorded!");
@@ -677,7 +678,16 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
         <SceneNavigator
           content={content}
           activeSceneId={activeSceneId}
-          onSelectScene={setActiveSceneId}
+          onSelectScene={(sceneId) => {
+            if (recorder.isRecording || countdown !== null) return;
+            if (autoAdvanceTimerRef.current) {
+              clearTimeout(autoAdvanceTimerRef.current);
+              autoAdvanceTimerRef.current = null;
+              setAutoAdvancing(false);
+              pendingAutoAdvanceRef.current = null;
+            }
+            setActiveSceneId(sceneId);
+          }}
           recordedScenes={recordedScenes}
           flaggedScenes={flaggedScenes}
           filter={filter}
