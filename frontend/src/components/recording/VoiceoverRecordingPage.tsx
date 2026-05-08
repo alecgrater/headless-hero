@@ -471,7 +471,10 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
 
       if (e.code === "Space") {
         e.preventDefault();
-        if (recorder.isRecording) handleStopRecording();
+        if (countdown !== null) {
+          abortCountdownRef.current = true;
+          setCountdown(null);
+        } else if (recorder.isRecording) handleStopRecording();
         else handleStartRecording();
       } else if (e.key === "f" || e.key === "F") {
         handleToggleFlag();
