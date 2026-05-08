@@ -478,6 +478,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
       setReferenceElapsedMs(0);
       if (referenceTimerRef.current) cancelAnimationFrame(referenceTimerRef.current);
     }
+    pausedTakeRef.current = null;
   }, [activeSceneId]);
 
   // Keyboard shortcuts
