@@ -373,7 +373,13 @@ function App() {
       </header>
 
       {/* Main content area */}
-      <main className={`flex-1 min-h-0 w-full ${view === "timeline" || view === "project-dashboard" || view === "settings" || view === "discover" || view === "ideas" || view === "catalog" || view === "voiceover-recording" ? "overflow-hidden" : "overflow-y-auto px-6 py-8 max-w-4xl mx-auto"}`}>
+      <main className={`flex-1 min-h-0 w-full ${
+        view === "timeline" || view === "settings" || view === "catalog" || view === "voiceover-recording"
+          ? "overflow-hidden"
+          : view === "project-dashboard" || view === "discover" || view === "ideas"
+            ? "overflow-y-auto"
+            : "overflow-y-auto px-6 py-8 max-w-4xl mx-auto"
+      }`}>
         {view === "settings" && (
           <SettingsPage
             onBack={() => handleSetView("project-dashboard")}
