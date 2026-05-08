@@ -150,7 +150,7 @@ function App() {
   }, [projectsDropdownOpen, settingsDropdownOpen]);
 
   return (
-    <div className="min-h-screen bg-app text-neutral-100 flex flex-col">
+    <div className="h-screen bg-app text-neutral-100 flex flex-col overflow-hidden">
       {/* Top bar */}
       <header className="relative z-50 border-b border-neutral-800/40 px-6 py-4 flex items-center justify-between bg-neutral-950/80 backdrop-blur-sm">
         <div className="flex items-center gap-6">
@@ -373,7 +373,7 @@ function App() {
       </header>
 
       {/* Main content area */}
-      <main className={`flex-1 w-full ${view === "timeline" || view === "project-dashboard" || view === "settings" || view === "discover" || view === "ideas" || view === "catalog" || view === "voiceover-recording" ? "" : "px-6 py-8 max-w-4xl mx-auto"}`}>
+      <main className={`flex-1 min-h-0 w-full ${view === "timeline" || view === "project-dashboard" || view === "settings" || view === "discover" || view === "ideas" || view === "catalog" || view === "voiceover-recording" ? "overflow-hidden" : "overflow-y-auto px-6 py-8 max-w-4xl mx-auto"}`}>
         {view === "settings" && (
           <SettingsPage
             onBack={() => handleSetView("project-dashboard")}
