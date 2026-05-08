@@ -199,7 +199,7 @@ async def upload_take(
     try:
         subprocess.run(
             ["ffmpeg", "-y", "-i", str(temp_webm), "-c:a", "libmp3lame", "-b:a", "192k", str(filepath)],
-            capture_output=True, timeout=30, check=True,
+            capture_output=True, text=True, timeout=30, check=True,
         )
     except subprocess.CalledProcessError as e:
         logger.error("WebM→MP3 conversion failed for %s: %s", scene_id, e.stderr[:300] if e.stderr else "")
@@ -345,7 +345,7 @@ async def import_take(
     try:
         subprocess.run(
             ["ffmpeg", "-y", "-i", str(temp_file), "-c:a", "libmp3lame", "-b:a", "192k", str(filepath)],
-            capture_output=True, timeout=30, check=True,
+            capture_output=True, text=True, timeout=30, check=True,
         )
     except subprocess.CalledProcessError as e:
         logger.error("Import conversion failed for %s: %s", scene_id, e.stderr[:300] if e.stderr else "")
@@ -835,10 +835,9 @@ async def punch_in(
     try:
         subprocess.run(
             ["ffmpeg", "-y", "-i", str(punch_webm), "-c:a", "libmp3lame", "-b:a", "192k", str(punch_audio)],
-            capture_output=True, timeout=30, check=True,
+            capture_output=True, text=True, timeout=30, check=True,
         )
     except subprocess.CalledProcessError:
-        punch_webm.unlink(missing_ok=True)
         raise HTTPException(422, "Punch-in recording appears corrupt")
     finally:
         punch_webm.unlink(missing_ok=True)
