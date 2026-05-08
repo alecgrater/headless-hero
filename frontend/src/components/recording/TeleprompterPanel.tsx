@@ -29,6 +29,8 @@ interface Props {
   timingOffsetMs: number;
   previewTimestamps?: WordTimestamp[] | null;
   annotations?: DeliveryAnnotations | null;
+  freeMode?: boolean;
+  rehearseMode?: boolean;
 }
 
 interface NeedlePos {
@@ -50,7 +52,7 @@ const ENERGY_COLORS: Record<string, string> = {
   reflective: "rgba(52, 211, 153, 0.08)",
 };
 
-export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audioLevel, countdown, timingOffsetMs, previewTimestamps, annotations }: Props) {
+export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audioLevel, countdown, timingOffsetMs, previewTimestamps, annotations, freeMode, rehearseMode }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -115,9 +117,11 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     }));
   }, [words, scene?.word_timestamps, previewTimestamps, timingOffsetMs]);
 
-  // WPM calculation during recording
+  const trackingActive = !freeMode;
+
+  // WPM calculation during recording (disabled in free mode)
   const currentWpm = useMemo(() => {
-    if (!isRecording || !wordTimings.length || elapsedMs < 2000) return null;
+    if (!trackingActive || !isRecording || !wordTimings.length || elapsedMs < 2000) return null;
     let wordsSpoken = 0;
     for (const wt of wordTimings) {
       if (elapsedMs >= wt.endMs) wordsSpoken++;
@@ -125,7 +129,7 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     }
     if (wordsSpoken < 1) return null;
     return Math.round((wordsSpoken / elapsedMs) * 60000);
-  }, [isRecording, elapsedMs, wordTimings]);
+  }, [trackingActive, isRecording, elapsedMs, wordTimings]);
 
   const wpmColor = useMemo(() => {
     if (currentWpm === null) return "";
@@ -175,6 +179,10 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
 
   // Reset needle to far-left resting position when not recording/counting down
   useEffect(() => {
+    if (freeMode) {
+      setNeedle(null);
+      return;
+    }
     if (wordTimings.length === 0) {
       setNeedle(null);
       return;
@@ -190,12 +198,12 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
       setNeedle({ x: 0, y });
     });
     return () => cancelAnimationFrame(rafId);
-  }, [scene?.id, wordTimings.length, isRecording, countdown]);
+  }, [scene?.id, wordTimings.length, isRecording, countdown, freeMode]);
 
   // Animate needle from left toward first word during 3-2-1 countdown
   const countdownStartRef = useRef<number | null>(null);
   useEffect(() => {
-    if (countdown === null || !containerRef.current || wordTimings.length === 0) {
+    if (freeMode || countdown === null || !containerRef.current || wordTimings.length === 0) {
       countdownStartRef.current = null;
       return;
     }
@@ -227,7 +235,7 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
 
   // Update needle position based on elapsed time during recording
   useEffect(() => {
-    if (!isRecording || !containerRef.current || wordTimings.length === 0) return;
+    if (freeMode || !isRecording || !containerRef.current || wordTimings.length === 0) return;
 
     const containerRect = containerRef.current.getBoundingClientRect();
     const containerScrollTop = containerRef.current.scrollTop;
@@ -333,12 +341,6 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
             <span className="text-7xl font-bold text-white animate-pulse">{countdown}</span>
           </div>
         )}
-        {isRecording && countdown === null && (
-          <div className="absolute top-3 left-3 flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-full">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-xs text-white font-mono tabular-nums">{formatTime(elapsedMs)}</span>
-          </div>
-        )}
         {/* WPM counter pill */}
         {isRecording && currentWpm !== null && (
           <div className="absolute top-3 right-3 bg-black/60 px-2.5 py-1 rounded-full">
@@ -355,6 +357,21 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
         )}
       </div>
 
+      {/* Recording state indicator */}
+      {isRecording && countdown === null ? (
+        <div className="shrink-0 mx-4 mt-2 flex items-center justify-center gap-2 py-1.5 bg-red-500/10 border border-red-500/25 rounded-lg">
+          <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+          <span className="text-xs font-medium text-red-400 font-mono tabular-nums">{formatTime(elapsedMs)}</span>
+          <span className="text-xs text-red-400/60 ml-1">Recording — Space to stop</span>
+        </div>
+      ) : countdown !== null ? null : (
+        <div className="shrink-0 mx-4 mt-2 flex items-center justify-center py-1.5 bg-neutral-800/50 border border-neutral-700/50 rounded-lg">
+          <span className="text-xs text-neutral-500">
+            {rehearseMode ? "Press Space to rehearse" : freeMode ? "Press Space to record (no countdown)" : "Press Space to record"}
+          </span>
+        </div>
+      )}
+
       {/* Teleprompter text with needle */}
       <div ref={containerRef} className="relative flex-1 overflow-hidden px-8 py-6">
         {words.length === 0 ? (
@@ -362,9 +379,9 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
         ) : (
           <p ref={textRef} className="leading-[2.2] font-medium text-center" style={{ fontSize: `${fontSize}px` }}>
             {wordTimings.map((wt, i) => {
-              const isActive = isRecording && elapsedMs >= wt.startMs && elapsedMs < wt.endMs;
-              const isPast = isRecording && elapsedMs >= wt.endMs;
-              const isUpcoming = isRecording && elapsedMs >= wt.startMs - 500 && elapsedMs < wt.startMs;
+              const isActive = trackingActive && isRecording && elapsedMs >= wt.startMs && elapsedMs < wt.endMs;
+              const isPast = trackingActive && isRecording && elapsedMs >= wt.endMs;
+              const isUpcoming = trackingActive && isRecording && elapsedMs >= wt.startMs - 500 && elapsedMs < wt.startMs;
               const energyBg = getEnergyBg(i);
               const emphasized = isEmphasis(i);
               const qEnd = isQuestionEnd(i);

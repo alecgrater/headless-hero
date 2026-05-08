@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import api, { assetUrl, uploadRecordingTake, importRecordingTake } from "../../api";
 import { showToast } from "../ToastContainer";
 import type { ScriptContent, ScriptRead, Scene } from "../../types/script";
@@ -49,6 +49,12 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
   const [showExport, setShowExport] = useState(false);
   const [mode, setMode] = useState<RecordingMode>("single");
   const [rehearseMode, setRehearseMode] = useState(false);
+  const [autoAdvancing, setAutoAdvancing] = useState(false);
+  const autoAdvanceTimerRef = useRef<number | null>(null);
+  const hasSpokenRef = useRef(false);
+  const silenceStartRef = useRef<number | null>(null);
+  const silenceRafRef = useRef<number>(0);
+  const pendingAutoAdvanceRef = useRef<string | null>(null);
 
   // Phase 1A: Preview timestamps from align-take
   const [previewTimestamps, setPreviewTimestamps] = useState<WordTimestamp[] | null>(null);
@@ -154,6 +160,44 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
 
   const recordedScenes = new Set(Object.keys(session.selected_takes));
 
+  const allNarratedSceneIds = useMemo(() => {
+    if (!content) return [];
+    const ids: string[] = [];
+    for (const seg of content.segments) {
+      for (const sc of seg.scenes) {
+        if (sc.narration) ids.push(sc.id);
+      }
+    }
+    return ids;
+  }, [content]);
+
+  const findNextUnrecordedScene = useCallback((afterId: string | null): string | null => {
+    if (!afterId) return null;
+    const idx = allNarratedSceneIds.indexOf(afterId);
+    if (idx === -1) return null;
+    for (let i = idx + 1; i < allNarratedSceneIds.length; i++) {
+      if (!recordedScenes.has(allNarratedSceneIds[i])) return allNarratedSceneIds[i];
+    }
+    for (let i = 0; i < idx; i++) {
+      if (!recordedScenes.has(allNarratedSceneIds[i])) return allNarratedSceneIds[i];
+    }
+    return null;
+  }, [allNarratedSceneIds, recordedScenes]);
+
+  const playBeep = useCallback(() => {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = 880;
+    gain.gain.value = 0.15;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.12);
+    osc.onended = () => ctx.close();
+  }, []);
+
   // Phase 1A: Align take on selection for instant feedback
   const alignTake = useCallback(async (sceneId: string, takeNumber: number) => {
     const res = await api.post("/api/recording/align-take", {
@@ -220,18 +264,32 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
       if (referenceTimerRef.current) cancelAnimationFrame(referenceTimerRef.current);
     }
 
-    setCountdown(3);
-    await new Promise((r) => setTimeout(r, 1000));
-    setCountdown(2);
-    await new Promise((r) => setTimeout(r, 1000));
-    setCountdown(1);
-    await new Promise((r) => setTimeout(r, 1000));
-    setCountdown(null);
+    if (mode === "free") {
+      // Free mode: no countdown, start immediately
+      hasSpokenRef.current = false;
+      silenceStartRef.current = null;
+      await recorder.startRecording(audioDevices.selectedDeviceId);
+    } else {
+      // Single/Continuous: 3-2-1 countdown then record
+      setCountdown(3);
+      await new Promise((r) => setTimeout(r, 1000));
+      setCountdown(2);
+      await new Promise((r) => setTimeout(r, 1000));
+      setCountdown(1);
+      await new Promise((r) => setTimeout(r, 1000));
+      setCountdown(null);
 
-    await recorder.startRecording(audioDevices.selectedDeviceId);
-  }, [rehearseMode, activeSceneId, audioDevices.selectedDeviceId, recorder, playingReference]);
+      playBeep();
+      await recorder.startRecording(audioDevices.selectedDeviceId);
+    }
+  }, [rehearseMode, activeSceneId, audioDevices.selectedDeviceId, recorder, playingReference, mode, playBeep]);
 
   const handleStopRecording = useCallback(async () => {
+    // Cancel silence detection
+    cancelAnimationFrame(silenceRafRef.current);
+    silenceStartRef.current = null;
+    hasSpokenRef.current = false;
+
     const blob = await recorder.stopRecording();
     if (!blob || !activeSceneId) return;
 
@@ -256,10 +314,25 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
 
       // Auto-align the new take for instant feedback
       alignTake(activeSceneId, nextTakeNumber);
+
+      // Continuous mode: auto-advance to next unrecorded scene
+      if (mode === "continuous") {
+        const nextSceneId = findNextUnrecordedScene(activeSceneId);
+        if (nextSceneId) {
+          setAutoAdvancing(true);
+          autoAdvanceTimerRef.current = window.setTimeout(() => {
+            setActiveSceneId(nextSceneId);
+            setAutoAdvancing(false);
+            pendingAutoAdvanceRef.current = nextSceneId;
+          }, 1500);
+        } else {
+          showToast("All scenes recorded!");
+        }
+      }
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Take upload failed");
     }
-  }, [recorder, activeSceneId, takes, scriptId, session, saveSession, alignTake]);
+  }, [recorder, activeSceneId, takes, scriptId, session, saveSession, alignTake, mode, findNextUnrecordedScene]);
 
   const handleSelectTake = useCallback((takeNumber: number) => {
     if (!activeSceneId) return;
@@ -361,6 +434,17 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
   // Clear preview timestamps and stop reference when changing scenes
   useEffect(() => {
     setPreviewTimestamps(null);
+    // Cancel any pending auto-advance
+    if (autoAdvanceTimerRef.current) {
+      clearTimeout(autoAdvanceTimerRef.current);
+      autoAdvanceTimerRef.current = null;
+      setAutoAdvancing(false);
+    }
+    // Trigger recording if this scene change was from continuous auto-advance
+    if (pendingAutoAdvanceRef.current && activeSceneId === pendingAutoAdvanceRef.current) {
+      pendingAutoAdvanceRef.current = null;
+      setTimeout(() => handleStartRecording(), 300);
+    }
     if (playingReference) {
       referenceAudioRef.current?.pause();
       setPlayingReference(false);
@@ -383,13 +467,57 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
       } else if (e.key === "t" || e.key === "T") {
         setShowTrim((prev) => !prev);
       } else if (e.key === "Escape") {
-        if (recorder.isRecording) handleStopRecording();
-        else if (showExport) setShowExport(false);
+        if (autoAdvancing && autoAdvanceTimerRef.current) {
+          clearTimeout(autoAdvanceTimerRef.current);
+          autoAdvanceTimerRef.current = null;
+          setAutoAdvancing(false);
+          setMode("single");
+          showToast("Auto-advance stopped");
+        } else if (countdown !== null) {
+          setCountdown(null);
+          if (mode === "continuous") {
+            setMode("single");
+            showToast("Auto-advance stopped");
+          }
+        } else if (recorder.isRecording) {
+          handleStopRecording();
+        } else if (showExport) {
+          setShowExport(false);
+        }
       }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [recorder.isRecording, handleStartRecording, handleStopRecording, handleToggleFlag, showExport]);
+  }, [recorder.isRecording, handleStartRecording, handleStopRecording, handleToggleFlag, showExport, autoAdvancing, countdown, mode]);
+
+  // Free mode: auto-stop on silence after speech detected
+  useEffect(() => {
+    if (mode !== "free" || !recorder.isRecording) return;
+
+    const SILENCE_THRESHOLD = 0.05;
+    const SILENCE_DURATION_MS = 3000;
+
+    const checkSilence = () => {
+      const level = recorder.audioLevel;
+
+      if (level > SILENCE_THRESHOLD) {
+        hasSpokenRef.current = true;
+        silenceStartRef.current = null;
+      } else if (hasSpokenRef.current) {
+        if (silenceStartRef.current === null) {
+          silenceStartRef.current = Date.now();
+        } else if (Date.now() - silenceStartRef.current >= SILENCE_DURATION_MS) {
+          handleStopRecording();
+          return;
+        }
+      }
+
+      silenceRafRef.current = requestAnimationFrame(checkSilence);
+    };
+
+    silenceRafRef.current = requestAnimationFrame(checkSilence);
+    return () => cancelAnimationFrame(silenceRafRef.current);
+  }, [mode, recorder.isRecording, recorder.audioLevel, handleStopRecording]);
 
   if (loading || !content) {
     return (
@@ -437,21 +565,27 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
           </div>
           {/* Mode selector */}
           <div className="flex items-center gap-1">
-            {(["single", "continuous", "free"] as const).map((m) => (
+            {([
+              { key: "single" as const, tip: "Record one scene at a time with manual navigation" },
+              { key: "continuous" as const, tip: "Auto-advance and record the next scene after each take" },
+              { key: "free" as const, tip: "Record without teleprompter tracking. Auto-stops on silence" },
+            ]).map(({ key, tip }) => (
               <button
-                key={m}
-                onClick={() => setMode(m)}
+                key={key}
+                onClick={() => setMode(key)}
+                title={tip}
                 className={`text-[11px] px-2 py-1 rounded-md transition-colors capitalize ${
-                  mode === m ? "bg-neutral-700 text-neutral-200" : "text-neutral-500 hover:text-neutral-300"
+                  mode === key ? "bg-neutral-700 text-neutral-200" : "text-neutral-500 hover:text-neutral-300"
                 }`}
               >
-                {m}
+                {key}
               </button>
             ))}
           </div>
           {/* Rehearse toggle */}
           <button
             onClick={() => setRehearseMode(!rehearseMode)}
+            title="Practice without recording. Teleprompter tracks normally"
             className={`text-[11px] px-2 py-1 rounded-md transition-colors ${
               rehearseMode ? "bg-sky-500/15 text-sky-300" : "text-neutral-500 hover:text-neutral-300"
             }`}
@@ -527,6 +661,8 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
           timingOffsetMs={timingOffsetMs}
           previewTimestamps={previewTimestamps}
           annotations={annotations[activeSceneId ?? ""]}
+          freeMode={mode === "free"}
+          rehearseMode={rehearseMode}
         />
         <TakePanel
           scriptId={scriptId}
@@ -549,17 +685,33 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
 
       {/* Record/Stop button floating */}
       <div className="shrink-0 border-t border-neutral-800 px-4 py-3 flex items-center justify-center gap-4 bg-neutral-950/50">
-        <button
-          onClick={recorder.isRecording ? handleStopRecording : handleStartRecording}
-          disabled={!activeSceneId || !audioDevices.selectedDeviceId || countdown !== null}
-          className={`px-6 py-2.5 rounded-xl font-medium text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
-            recorder.isRecording
-              ? "bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/20"
-              : "bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700"
-          }`}
-        >
-          {recorder.isRecording ? "Stop Recording (Space)" : rehearseMode ? "Start Rehearsal (Space)" : "Start Recording (Space)"}
-        </button>
+        {autoAdvancing && (
+          <div className="flex items-center gap-2 text-sm text-violet-300 animate-pulse">
+            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Next scene... (Esc to stop)
+          </div>
+        )}
+        {!autoAdvancing && (
+          <button
+            onClick={recorder.isRecording ? handleStopRecording : handleStartRecording}
+            disabled={!activeSceneId || !audioDevices.selectedDeviceId || countdown !== null}
+            className={`px-6 py-2.5 rounded-xl font-medium text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+              recorder.isRecording
+                ? "bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-500/20"
+                : "bg-neutral-800 border border-neutral-700 text-neutral-200 hover:bg-neutral-700"
+            }`}
+          >
+            {recorder.isRecording
+              ? "Stop Recording (Space)"
+              : rehearseMode
+                ? "Start Rehearsal (Space)"
+                : mode === "free"
+                  ? "Start Recording (Space)"
+                  : "Start Recording (Space)"}
+          </button>
+        )}
         {/* Punch-in button */}
         {activeSceneId && previewTimestamps && previewTimestamps.length > 0 && session.selected_takes[activeSceneId] && (
           <button
