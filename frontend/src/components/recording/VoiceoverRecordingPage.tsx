@@ -45,6 +45,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
   const [timingOffsetMs, setTimingOffsetMs] = useState(0);
   const [filter, setFilter] = useState<"all" | "unrecorded" | "flagged" | "low-score">("all");
   const [playingTakeNumber, setPlayingTakeNumber] = useState<number | null>(null);
+  const pausedTakeRef = useRef<{ takeNumber: number; filename: string } | null>(null);
   const [showTrim, setShowTrim] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [mode, setMode] = useState<RecordingMode>("single");
@@ -359,6 +360,9 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
       audioRef.current?.pause();
       setPlayingTakeNumber(null);
     }
+    if (pausedTakeRef.current?.takeNumber === takeNumber) {
+      pausedTakeRef.current = null;
+    }
     await api.delete(`/api/recording/take/${scriptId}/${activeSceneId}/${takeNumber}`);
     setTakes((prev) => prev.filter((t) => !(t.sceneId === activeSceneId && t.takeNumber === takeNumber)));
     if (session.selected_takes[activeSceneId] === takeNumber) {
@@ -372,8 +376,16 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
     if (playingTakeNumber === take.takeNumber) {
       audioRef.current?.pause();
       setPlayingTakeNumber(null);
+      pausedTakeRef.current = { takeNumber: take.takeNumber, filename: take.filename };
       return;
     }
+    if (pausedTakeRef.current?.takeNumber === take.takeNumber && pausedTakeRef.current.filename === take.filename && audioRef.current && !audioRef.current.ended) {
+      audioRef.current.play();
+      setPlayingTakeNumber(take.takeNumber);
+      pausedTakeRef.current = null;
+      return;
+    }
+    pausedTakeRef.current = null;
     const url = assetUrl(`/static/projects/${scriptId}/recording/takes/${take.filename}`);
     if (audioRef.current) {
       audioRef.current.src = url;
