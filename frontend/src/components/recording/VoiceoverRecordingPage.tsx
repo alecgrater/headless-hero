@@ -55,6 +55,8 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
   const silenceStartRef = useRef<number | null>(null);
   const silenceRafRef = useRef<number>(0);
   const pendingAutoAdvanceRef = useRef<string | null>(null);
+  const handleStartRecordingRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  const abortCountdownRef = useRef(false);
 
   // Phase 1A: Preview timestamps from align-take
   const [previewTimestamps, setPreviewTimestamps] = useState<WordTimestamp[] | null>(null);
@@ -158,7 +160,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
     return null;
   })();
 
-  const recordedScenes = new Set(Object.keys(session.selected_takes));
+  const recordedScenes = useMemo(() => new Set(Object.keys(session.selected_takes)), [session.selected_takes]);
 
   const allNarratedSceneIds = useMemo(() => {
     if (!content) return [];
@@ -184,18 +186,25 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
     return null;
   }, [allNarratedSceneIds, recordedScenes]);
 
+  const beepCtxRef = useRef<AudioContext | null>(null);
   const playBeep = useCallback(() => {
-    const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = 880;
-    gain.gain.value = 0.15;
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.12);
-    osc.onended = () => ctx.close();
+    try {
+      if (!beepCtxRef.current || beepCtxRef.current.state === "closed") {
+        beepCtxRef.current = new AudioContext();
+      }
+      const ctx = beepCtxRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      gain.gain.value = 0.15;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.12);
+    } catch {
+      // AudioContext creation can fail silently
+    }
   }, []);
 
   // Phase 1A: Align take on selection for instant feedback
@@ -271,18 +280,23 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
       await recorder.startRecording(audioDevices.selectedDeviceId);
     } else {
       // Single/Continuous: 3-2-1 countdown then record
+      abortCountdownRef.current = false;
       setCountdown(3);
       await new Promise((r) => setTimeout(r, 1000));
+      if (abortCountdownRef.current) { setCountdown(null); return; }
       setCountdown(2);
       await new Promise((r) => setTimeout(r, 1000));
+      if (abortCountdownRef.current) { setCountdown(null); return; }
       setCountdown(1);
       await new Promise((r) => setTimeout(r, 1000));
+      if (abortCountdownRef.current) { setCountdown(null); return; }
       setCountdown(null);
 
       playBeep();
       await recorder.startRecording(audioDevices.selectedDeviceId);
     }
   }, [rehearseMode, activeSceneId, audioDevices.selectedDeviceId, recorder, playingReference, mode, playBeep]);
+  handleStartRecordingRef.current = handleStartRecording;
 
   const handleStopRecording = useCallback(async () => {
     // Cancel silence detection
@@ -443,7 +457,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
     // Trigger recording if this scene change was from continuous auto-advance
     if (pendingAutoAdvanceRef.current && activeSceneId === pendingAutoAdvanceRef.current) {
       pendingAutoAdvanceRef.current = null;
-      setTimeout(() => handleStartRecording(), 300);
+      setTimeout(() => handleStartRecordingRef.current(), 300);
     }
     if (playingReference) {
       referenceAudioRef.current?.pause();
@@ -474,6 +488,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
           setMode("single");
           showToast("Auto-advance stopped");
         } else if (countdown !== null) {
+          abortCountdownRef.current = true;
           setCountdown(null);
           if (mode === "continuous") {
             setMode("single");
@@ -498,7 +513,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
     const SILENCE_DURATION_MS = 3000;
 
     const checkSilence = () => {
-      const level = recorder.audioLevel;
+      const level = recorder.audioLevelRef.current;
 
       if (level > SILENCE_THRESHOLD) {
         hasSpokenRef.current = true;
@@ -517,7 +532,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
 
     silenceRafRef.current = requestAnimationFrame(checkSilence);
     return () => cancelAnimationFrame(silenceRafRef.current);
-  }, [mode, recorder.isRecording, recorder.audioLevel, handleStopRecording]);
+  }, [mode, recorder.isRecording, handleStopRecording]);
 
   if (loading || !content) {
     return (
@@ -663,6 +678,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
           annotations={annotations[activeSceneId ?? ""]}
           freeMode={mode === "free"}
           rehearseMode={rehearseMode}
+          isPlayingReference={playingReference}
         />
         <TakePanel
           scriptId={scriptId}
@@ -707,9 +723,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
               ? "Stop Recording (Space)"
               : rehearseMode
                 ? "Start Rehearsal (Space)"
-                : mode === "free"
-                  ? "Start Recording (Space)"
-                  : "Start Recording (Space)"}
+                : "Start Recording (Space)"}
           </button>
         )}
         {/* Punch-in button */}

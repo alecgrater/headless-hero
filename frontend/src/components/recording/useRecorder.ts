@@ -5,6 +5,7 @@ interface UseRecorderResult {
   startRecording: (deviceId: string) => Promise<void>;
   stopRecording: () => Promise<Blob | null>;
   audioLevel: number;
+  audioLevelRef: React.RefObject<number>;
   elapsedMs: number;
   error: string | null;
 }
@@ -12,6 +13,7 @@ interface UseRecorderResult {
 export function useRecorder(): UseRecorderResult {
   const [isRecording, setIsRecording] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
+  const audioLevelRef = useRef(0);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,6 +50,7 @@ export function useRecorder(): UseRecorderResult {
         analyserRef.current.getByteFrequencyData(dataArray);
         const sum = dataArray.reduce((a, b) => a + b, 0);
         setAudioLevel(sum / dataArray.length / 255);
+        audioLevelRef.current = sum / dataArray.length / 255;
         animFrameRef.current = requestAnimationFrame(tickLevel);
       };
       tickLevel();
@@ -104,5 +107,5 @@ export function useRecorder(): UseRecorderResult {
     });
   }, []);
 
-  return { isRecording, startRecording, stopRecording, audioLevel, elapsedMs, error };
+  return { isRecording, startRecording, stopRecording, audioLevel, audioLevelRef, elapsedMs, error };
 }

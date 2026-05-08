@@ -31,6 +31,7 @@ interface Props {
   annotations?: DeliveryAnnotations | null;
   freeMode?: boolean;
   rehearseMode?: boolean;
+  isPlayingReference?: boolean;
 }
 
 interface NeedlePos {
@@ -52,7 +53,7 @@ const ENERGY_COLORS: Record<string, string> = {
   reflective: "rgba(52, 211, 153, 0.08)",
 };
 
-export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audioLevel, countdown, timingOffsetMs, previewTimestamps, annotations, freeMode, rehearseMode }: Props) {
+export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audioLevel, countdown, timingOffsetMs, previewTimestamps, annotations, freeMode, rehearseMode, isPlayingReference }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -358,7 +359,13 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
       </div>
 
       {/* Recording state indicator */}
-      {isRecording && countdown === null ? (
+      {isPlayingReference ? (
+        <div className="shrink-0 mx-4 mt-2 flex items-center justify-center gap-2 py-1.5 bg-violet-500/10 border border-violet-500/25 rounded-lg">
+          <span className="w-2.5 h-2.5 rounded-full bg-violet-400 animate-pulse" />
+          <span className="text-xs font-medium text-violet-300 font-mono tabular-nums">{formatTime(elapsedMs)}</span>
+          <span className="text-xs text-violet-300/60 ml-1">Playing reference</span>
+        </div>
+      ) : isRecording && countdown === null ? (
         <div className="shrink-0 mx-4 mt-2 flex items-center justify-center gap-2 py-1.5 bg-red-500/10 border border-red-500/25 rounded-lg">
           <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
           <span className="text-xs font-medium text-red-400 font-mono tabular-nums">{formatTime(elapsedMs)}</span>
