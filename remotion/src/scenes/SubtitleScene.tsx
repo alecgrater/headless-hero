@@ -62,9 +62,7 @@ export const SubtitleScene: React.FC<Props> = ({ scene }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Text from first frame directive, or fallback to narration
-  const text =
-    scene.frame_directives?.[0]?.prompt || scene.narration || "";
+  const text = scene.narration || "";
   const fontSize = getFontSize(text.length);
   const timestamps = scene.word_timestamps ?? [];
 
