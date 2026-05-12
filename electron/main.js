@@ -105,9 +105,11 @@ ipcMain.handle("download-file", async (_event, { url, defaultFilename }) => {
 // IPC: save a file directly to ~/Downloads/{folderName}/{filename} (no dialog)
 ipcMain.handle("save-to-downloads", async (_event, { url, folderName, filename }) => {
   const downloadsDir = app.getPath("downloads");
-  const folder = path.join(downloadsDir, folderName);
+  const safeFolderName = folderName.replace(/[/\\?%*:|"<>]/g, "-");
+  const safeFilename = path.basename(filename);
+  const folder = path.join(downloadsDir, safeFolderName);
   fs.mkdirSync(folder, { recursive: true });
-  const destPath = path.join(folder, filename);
+  const destPath = path.join(folder, safeFilename);
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Download failed: ${response.status}`);
   const buffer = Buffer.from(await response.arrayBuffer());
