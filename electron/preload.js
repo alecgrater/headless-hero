@@ -20,6 +20,10 @@ contextBridge.exposeInMainWorld("api", {
   downloadFile: (url, defaultFilename) =>
     ipcRenderer.invoke("download-file", { url, defaultFilename }),
 
+  // Save directly to ~/Downloads/{folderName}/{filename} (no dialog)
+  saveToDownloads: (url, folderName, filename) =>
+    ipcRenderer.invoke("save-to-downloads", { url, folderName, filename }),
+
   // Native folder picker
   selectFolder: (title, defaultPath) =>
     ipcRenderer.invoke("select-folder", { title, defaultPath }),

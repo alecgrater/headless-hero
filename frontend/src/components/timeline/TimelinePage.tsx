@@ -1380,6 +1380,7 @@ function TimelineEditor({
           seoTitle={title}
           seoDescription=""
           seoTags={[]}
+          projectTitle={title}
           onClose={() => setShowExport(false)}
         />
       )}

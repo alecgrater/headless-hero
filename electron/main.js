@@ -102,6 +102,19 @@ ipcMain.handle("download-file", async (_event, { url, defaultFilename }) => {
   return { canceled: false, filePath };
 });
 
+// IPC: save a file directly to ~/Downloads/{folderName}/{filename} (no dialog)
+ipcMain.handle("save-to-downloads", async (_event, { url, folderName, filename }) => {
+  const downloadsDir = app.getPath("downloads");
+  const folder = path.join(downloadsDir, folderName);
+  fs.mkdirSync(folder, { recursive: true });
+  const destPath = path.join(folder, filename);
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Download failed: ${response.status}`);
+  const buffer = Buffer.from(await response.arrayBuffer());
+  fs.writeFileSync(destPath, buffer);
+  return { filePath: destPath };
+});
+
 // IPC: forward API calls from renderer to backend
 ipcMain.handle("api-request", async (_event, { method, path, body }) => {
   try {

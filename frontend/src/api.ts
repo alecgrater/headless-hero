@@ -15,6 +15,7 @@ interface ApiClient {
   request: (method: string, path: string, body?: unknown) => Promise<ApiResponse>;
   openExternal?: (url: string) => Promise<void>;
   downloadFile?: (url: string, defaultFilename: string) => Promise<{ canceled: boolean; filePath?: string }>;
+  saveToDownloads?: (url: string, folderName: string, filename: string) => Promise<{ filePath: string }>;
   selectFolder?: (title?: string, defaultPath?: string) => Promise<{ canceled: boolean; path?: string }>;
   showItemInFolder?: (fullPath: string) => Promise<void>;
 }

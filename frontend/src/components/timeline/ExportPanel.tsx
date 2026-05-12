@@ -40,6 +40,7 @@ interface Props {
   seoTitle: string;
   seoDescription: string;
   seoTags: string[];
+  projectTitle: string;
 
   onClose: () => void;
 }
@@ -106,18 +107,22 @@ function ProgressBar({
   );
 }
 
-function DownloadButton({ url, label }: { url: string; label: string }) {
+function DownloadButton({ url, label, projectTitle, filename }: { url: string; label: string; projectTitle?: string; filename?: string }) {
   const [downloading, setDownloading] = useState(false);
 
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const fullUrl = assetUrl(url);
-      const filename = url.split("/").pop() || "download";
+      const fullUrl = assetUrl(url.split("?")[0]);
+      const resolvedFilename = filename || url.split("/").pop()?.split("?")[0] || "download";
 
-      // Use Electron native save dialog if available
+      if (projectTitle && window.api?.saveToDownloads) {
+        await window.api.saveToDownloads(fullUrl, projectTitle, resolvedFilename);
+        return;
+      }
+
       if (window.api?.downloadFile) {
-        await window.api.downloadFile(fullUrl, filename);
+        await window.api.downloadFile(fullUrl, resolvedFilename);
         return;
       }
 
@@ -127,7 +132,7 @@ function DownloadButton({ url, label }: { url: string; label: string }) {
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = blobUrl;
-      a.download = filename;
+      a.download = resolvedFilename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -219,6 +224,7 @@ export default function ExportPanel({
   seoTitle,
   seoDescription,
   seoTags,
+  projectTitle,
   onClose,
 }: Props) {
   const youtubeRendering = youtubeStatus?.status === "running" || youtubeStatus?.status === "pending";
@@ -440,7 +446,7 @@ export default function ExportPanel({
                       controls
                       className="w-full max-h-[300px] rounded-lg border border-neutral-700"
                     />
-                    <DownloadButton url={youtubeUrl} label="Download YouTube Video" />
+                    <DownloadButton url={youtubeUrl} label="Download YouTube Video" projectTitle={projectTitle} filename={`${projectTitle}.mp4`} />
                   </div>
                 ) : youtubeStatus?.status === "failed" ? (
                   <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
@@ -490,7 +496,7 @@ export default function ExportPanel({
                             alt={t.title_text}
                             className="w-full aspect-video object-cover rounded-lg border border-neutral-700 cursor-pointer hover:border-violet-500 transition-colors"
                           />
-                          <DownloadButton url={t.image_url} label="Download" />
+                          <DownloadButton url={t.image_url} label="Download" projectTitle={projectTitle} filename="thumbnail.png" />
                         </>
                       ) : t.error ? (
                         <div className="w-full aspect-video bg-red-500/10 rounded-lg flex items-center justify-center text-xs text-red-400 p-2">
