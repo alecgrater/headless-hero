@@ -113,8 +113,9 @@ function DownloadButton({ url, label, projectTitle, filename }: { url: string; l
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const fullUrl = assetUrl(url.split("?")[0]);
-      const resolvedFilename = filename || url.split("/").pop()?.split("?")[0] || "download";
+      const cleanUrl = url.split("?")[0];
+      const fullUrl = assetUrl(cleanUrl);
+      const resolvedFilename = filename || cleanUrl.split("/").pop() || "download";
 
       if (projectTitle && window.api?.saveToDownloads) {
         await window.api.saveToDownloads(fullUrl, projectTitle, resolvedFilename);
@@ -137,6 +138,8 @@ function DownloadButton({ url, label, projectTitle, filename }: { url: string; l
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error("Download failed:", err);
     } finally {
       setDownloading(false);
     }
