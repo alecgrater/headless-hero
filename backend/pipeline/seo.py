@@ -56,6 +56,9 @@ def generate_seo(
     text = strip_markdown_fences(raw)
 
     data = json.loads(text)
+    yt_data = data.get("youtube", {})
+    if isinstance(yt_data.get("tags"), str):
+        yt_data["tags"] = [t.strip() for t in yt_data["tags"].split(",") if t.strip()]
     result = SEOMetadata.model_validate(data)
     yt = result.youtube
 
