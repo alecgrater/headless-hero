@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { assetUrl, catalogUpload, getPublishStatus, showInFolder, openInBrowser } from "../../api";
+import { showToast } from "../ToastContainer";
 import type { CatalogUploadOptions, PublishJobStatus } from "../../api";
 import type { ExportBundleResponse, RenderStatusResponse, SEOMetadata, ThumbnailConcept } from "../../types/render";
 import MiniProgressBar from "../MiniProgressBar";
@@ -119,6 +120,7 @@ function DownloadButton({ url, label, projectTitle, filename }: { url: string; l
 
       if (projectTitle && window.api?.saveToDownloads) {
         await window.api.saveToDownloads(fullUrl, projectTitle, resolvedFilename);
+        showToast(`Saved ${resolvedFilename} to Downloads`, "success");
         return;
       }
 
