@@ -3,11 +3,12 @@
 import logging
 import os
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from database import get_session
 from config import DEFAULT_CLAUDE_MODEL
+from integrations.claude_client import ALLOWED_PROVIDERS
 from models.settings import AppSetting
 
 logger = logging.getLogger(__name__)
@@ -116,6 +117,17 @@ async def save_keys(
 ):
     """Save API keys to DB and set them in os.environ."""
     logger.info("Saving settings keys: %s", list(keys.keys()))
+
+    # Validate LLM_PROVIDER before any writes.
+    if "LLM_PROVIDER" in keys:
+        provider = (keys["LLM_PROVIDER"] or "").strip().lower()
+        if provider and provider not in ALLOWED_PROVIDERS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid LLM_PROVIDER: {provider!r}. Must be one of {sorted(ALLOWED_PROVIDERS)}.",
+            )
+        keys["LLM_PROVIDER"] = provider
+
     saved_keys: list[str] = []
     skipped_keys: list[str] = []
 

@@ -18,6 +18,8 @@ _DEFAULT_QWEN_MODEL = "qwen3:14b"
 
 _THINK_BLOCK_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
 
+ALLOWED_PROVIDERS = {"anthropic", "claude-code-proxy", "ollama"}
+
 
 def _get_provider() -> str:
     """Resolve the active LLM provider. Defaults to 'anthropic' if unset."""
@@ -71,9 +73,13 @@ def chat(
     logger.info("Calling Claude API model=%s max_tokens=%d timeout=%.0fs cache=%s", model, max_tokens, timeout, cache)
     t0 = time.monotonic()
 
-    system_param: str | list[dict] = system
-    if cache:
+    system_param: str | list[dict] | anthropic.NotGiven
+    if not system:
+        system_param = anthropic.NOT_GIVEN
+    elif cache:
         system_param = [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
+    else:
+        system_param = system
 
     try:
         response = client.messages.create(
@@ -89,7 +95,7 @@ def chat(
             response = client.messages.create(
                 model=model,
                 max_tokens=max_tokens,
-                system=system,
+                system=system if system else anthropic.NOT_GIVEN,
                 messages=[{"role": "user", "content": user_message}],
                 timeout=timeout,
             )
@@ -150,12 +156,23 @@ def _chat_ollama(
 ) -> str:
     """Call a local Ollama model via its OpenAI-compatible /v1 endpoint."""
     # Lazy import so the backend still starts if openai isn't installed yet.
-    from openai import OpenAI
+    from openai import BadRequestError, OpenAI
 
     qwen_model = os.environ.get("QWEN_MODEL", _DEFAULT_QWEN_MODEL).strip() or _DEFAULT_QWEN_MODEL
 
     if cache:
         logger.debug("Ollama path ignores cache=True (KV prefix caching is automatic)")
+
+    # json_object mode requires the prompt to mention "json" or the server will
+    # reject the request. Nudge the user message if neither side mentions it.
+    effective_user_message = user_message
+    if json_mode and "json" not in (system + user_message).lower():
+        effective_user_message = user_message + "\n\nReturn ONLY valid JSON."
+
+    messages: list[dict] = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": effective_user_message})
 
     client = OpenAI(api_key="ollama", base_url=_OLLAMA_BASE_URL, timeout=timeout)
     logger.info(
@@ -166,11 +183,8 @@ def _chat_ollama(
 
     kwargs: dict = {
         "model": qwen_model,
-        "max_tokens": max_tokens,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user_message},
-        ],
+        "max_completion_tokens": max_tokens,
+        "messages": messages,
         "extra_body": {"keep_alive": "30m"},
     }
     if json_mode:
@@ -178,6 +192,18 @@ def _chat_ollama(
 
     try:
         response = client.chat.completions.create(**kwargs)
+    except BadRequestError:
+        if json_mode:
+            logger.warning(
+                "Ollama rejected response_format=json_object — retrying without it (model=%s)",
+                qwen_model,
+            )
+            kwargs.pop("response_format", None)
+            response = client.chat.completions.create(**kwargs)
+        else:
+            elapsed = time.monotonic() - t0
+            logger.error("Ollama call failed after %.1fs (model=%s)", elapsed, qwen_model, exc_info=True)
+            raise
     except Exception:
         elapsed = time.monotonic() - t0
         logger.error("Ollama call failed after %.1fs (model=%s)", elapsed, qwen_model, exc_info=True)
