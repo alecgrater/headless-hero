@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Zap } from "lucide-react";
-import api, { assetUrl, generateFX, generateEli, pollEliJob, exportTest, fetchScriptCost, getYouTubeOAuthStatus } from "../../api";
+import api, { assetUrl, generateFX, pollFXJob, generateEli, pollEliJob, exportTest, fetchScriptCost, getYouTubeOAuthStatus } from "../../api";
 import type { ExportTestOptions } from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
@@ -536,6 +536,9 @@ function TimelineEditor({
       const res = await generateFX(scriptId);
       if (fxCancelledRef.current) return;
       if (res.ok) {
+        const { job_id } = res.data as { job_id: string };
+        await pollFXJob(job_id);
+        if (fxCancelledRef.current) return;
         const refreshed = await api.get(`/api/scripts/${scriptId}`);
         if (refreshed.ok && !fxCancelledRef.current) {
           const data = refreshed.data as { script: ScriptContent };
@@ -559,6 +562,9 @@ function TimelineEditor({
       const res = await generateFX(scriptId, true);
       if (fxCancelledRef.current) return;
       if (res.ok) {
+        const { job_id } = res.data as { job_id: string };
+        await pollFXJob(job_id);
+        if (fxCancelledRef.current) return;
         const refreshed = await api.get(`/api/scripts/${scriptId}`);
         if (refreshed.ok && !fxCancelledRef.current) {
           const data = refreshed.data as { script: ScriptContent };
@@ -691,12 +697,15 @@ function TimelineEditor({
         try {
           const res = await generateFX(scriptId);
           if (yoloCancelledRef.current) return;
+          if (!res.ok) throw new Error("FX generation request failed");
+          const { job_id } = res.data as { job_id: string };
+          await pollFXJob(job_id);
+          if (yoloCancelledRef.current) return;
           const refreshed = await api.get(`/api/scripts/${scriptId}`);
           if (refreshed.ok && !yoloCancelledRef.current) {
             const data = refreshed.data as { script: ScriptContent };
             state.setContent(data.script);
           }
-          if (!res.ok) throw new Error("FX generation request failed");
         } finally {
           setGeneratingFX(false);
           setLastFXGenTimestamp(Date.now());

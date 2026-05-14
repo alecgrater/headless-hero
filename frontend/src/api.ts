@@ -41,7 +41,7 @@ function extractErrorMessage(status: number, data: unknown): string {
 }
 
 /** Paths that should not trigger toast notifications on error. */
-const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/media/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/"];
+const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/"];
 
 function shouldSilence(path: string): boolean {
   return SILENT_PATHS.some((p) => path.startsWith(p));
@@ -287,6 +287,11 @@ export async function pollRenderJob(jobId: string): Promise<void> {
 /** Poll an Eli generation background job until it completes or fails. */
 export async function pollEliJob(jobId: string): Promise<void> {
   return pollBackgroundJob(jobId, "/api/eli/generate-status/", 800, "Eli generation failed");
+}
+
+/** Poll an FX generation background job until it completes or fails. */
+export async function pollFXJob(jobId: string): Promise<void> {
+  return pollBackgroundJob(jobId, "/api/fx/generate-status/", 800, "FX generation failed");
 }
 
 /** Open a URL in the system browser (Electron shell) or a new tab (dev). */
