@@ -199,6 +199,8 @@ function TimelineEditor({
   const [pendingAudioAction, setPendingAudioAction] = useState<"all" | string | null>(null);
   const [generatingFX, setGeneratingFX] = useState(false);
   const [generatingEli, setGeneratingEli] = useState(false);
+  const [eliStep, setEliStep] = useState<string>("");
+  const [eliProgressPct, setEliProgressPct] = useState<number>(0);
   const [confirmOverwrite, setConfirmOverwrite] = useState<"images" | "audio" | "fx" | "eli" | null>(null);
   const [pixelsPerSecond, setPixelsPerSecond] = useState(20);
   const [exportTestJobId, setExportTestJobId] = useState<string | null>(null);
@@ -581,13 +583,18 @@ function TimelineEditor({
     const sceneCount = state.content.segments.reduce((n, seg) => n + seg.scenes.length, 0);
     eliCancelledRef.current = false;
     setGeneratingEli(true);
+    setEliStep("");
+    setEliProgressPct(0);
     eliProgress.start(sceneCount);
     try {
       const res = await generateEli(scriptId);
       if (eliCancelledRef.current) return;
       if (!res.ok) return;
       const { job_id } = res.data as { job_id: string };
-      await pollEliJob(job_id);
+      await pollEliJob(job_id, (status) => {
+        if (status.current_step) setEliStep(status.current_step);
+        if (typeof status.progress === "number") setEliProgressPct(status.progress);
+      });
       if (eliCancelledRef.current) return;
       const refreshed = await api.get(`/api/scripts/${scriptId}`);
       if (refreshed.ok && !eliCancelledRef.current) {
@@ -596,6 +603,8 @@ function TimelineEditor({
       }
     } finally {
       setGeneratingEli(false);
+      setEliStep("");
+      setEliProgressPct(0);
       eliProgress.end(sceneCount);
       refreshCost();
     }
@@ -612,12 +621,17 @@ function TimelineEditor({
   const generateMissingEli = async () => {
     eliCancelledRef.current = false;
     setGeneratingEli(true);
+    setEliStep("");
+    setEliProgressPct(0);
     try {
       const res = await generateEli(scriptId, true);
       if (eliCancelledRef.current) return;
       if (!res.ok) return;
       const { job_id } = res.data as { job_id: string };
-      await pollEliJob(job_id);
+      await pollEliJob(job_id, (status) => {
+        if (status.current_step) setEliStep(status.current_step);
+        if (typeof status.progress === "number") setEliProgressPct(status.progress);
+      });
       if (eliCancelledRef.current) return;
       const refreshed = await api.get(`/api/scripts/${scriptId}`);
       if (refreshed.ok && !eliCancelledRef.current) {
@@ -626,6 +640,8 @@ function TimelineEditor({
       }
     } finally {
       setGeneratingEli(false);
+      setEliStep("");
+      setEliProgressPct(0);
       refreshCost();
     }
   };
@@ -1145,8 +1161,14 @@ function TimelineEditor({
           <div className="flex items-center gap-3 text-xs">
             <span className="w-3 h-3 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
             <span className="text-neutral-300">
-              Generating Eli animation keyframes with AI...
+              Generating Eli animation keyframes with AI{eliStep ? ` · ${eliStep}` : "..."}
             </span>
+            <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden ml-2">
+              <div
+                className="h-full rounded-full bg-teal-500 transition-all"
+                style={{ width: `${Math.max(4, Math.round(eliProgressPct * 100))}%` }}
+              />
+            </div>
           </div>
         </div>
       )}

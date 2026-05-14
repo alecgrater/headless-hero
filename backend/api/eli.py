@@ -103,6 +103,7 @@ def _run_eli_generation(script_id: str, scene_ids: list[str], job_id: str) -> No
 
     try:
         total = len(scene_ids)
+        logger.info("[ELI] Starting generation for %d scenes (job=%s)", total, job_id)
         previous_corner: str | None = None
 
         with Session(engine) as session:
@@ -121,6 +122,7 @@ def _run_eli_generation(script_id: str, scene_ids: list[str], job_id: str) -> No
                     return
 
                 update_job(job_id, progress=i / total, current_step=f"Scene {i+1}/{total}")
+                logger.info("[ELI] Scene %d/%d (%s): generating pose", i + 1, total, scene_id)
 
                 sc = scene_map.get(scene_id)
                 if not sc:
@@ -130,14 +132,19 @@ def _run_eli_generation(script_id: str, scene_ids: list[str], job_id: str) -> No
                     eli_result = generate_scene_eli(sc.narration, previous_corner=previous_corner)
                     sc.eli_overlay = eli_result
                     previous_corner = eli_result.get("corner")
+                    logger.info(
+                        "[ELI] Scene %d/%d complete (frame=%s, corner=%s)",
+                        i + 1, total, eli_result.get("frame_id"), eli_result.get("corner"),
+                    )
                 except Exception as e:
-                    logger.warning("Eli failed for scene %s: %s", scene_id, e)
+                    logger.warning("[ELI] Scene %d/%d failed (%s): %s", i + 1, total, scene_id, e)
 
             record.script_json = content.model_dump_json()
             session.add(record)
             session.commit()
 
         update_job(job_id, status="completed", progress=1.0, current_step="Done")
+        logger.info("[ELI] Generation complete for %d scenes (job=%s)", total, job_id)
     except Exception as e:
-        logger.error("Eli generation failed: %s", e, exc_info=True)
+        logger.error("[ELI] Generation failed: %s", e, exc_info=True)
         update_job(job_id, status="failed", error=str(e)[:500])

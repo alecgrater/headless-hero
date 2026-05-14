@@ -261,12 +261,14 @@ async function pollBackgroundJob(
   statusEndpoint: string,
   maxPolls: number,
   failureMessage: string,
+  onProgress?: (status: { progress?: number; current_step?: string | null }) => void,
 ): Promise<void> {
   for (let i = 0; i < maxPolls; i++) {
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     const res = await api.get(`${statusEndpoint}${jobId}`);
     if (!res.ok) throw new Error("Failed to check job status");
-    const job = res.data as { status: string; error: string | null };
+    const job = res.data as { status: string; error: string | null; progress?: number; current_step?: string | null };
+    if (onProgress) onProgress({ progress: job.progress, current_step: job.current_step });
     if (job.status === "completed") return;
     if (job.status === "failed") throw new Error(job.error || failureMessage);
     if (job.status === "cancelled") throw new Error(`${failureMessage} (cancelled)`);
@@ -285,8 +287,11 @@ export async function pollRenderJob(jobId: string): Promise<void> {
 }
 
 /** Poll an Eli generation background job until it completes or fails. */
-export async function pollEliJob(jobId: string): Promise<void> {
-  return pollBackgroundJob(jobId, "/api/eli/generate-status/", 800, "Eli generation failed");
+export async function pollEliJob(
+  jobId: string,
+  onProgress?: (status: { progress?: number; current_step?: string | null }) => void,
+): Promise<void> {
+  return pollBackgroundJob(jobId, "/api/eli/generate-status/", 800, "Eli generation failed", onProgress);
 }
 
 /** Poll an FX generation background job until it completes or fails. */
