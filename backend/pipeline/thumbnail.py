@@ -63,10 +63,12 @@ def gemini_enhance_thumbnail(
     video_title: str,
     script_id: str | None = None,
 ) -> str | None:
-    """Enhance a base title card composite using Gemini with reference thumbnails.
+    """Enhance a base title card composite using Gemini with a reference thumbnail.
 
-    Sends the base image + a random reference thumbnail + a random Eli character
-    frame to Gemini, which transforms the image for higher CTR.
+    The base composite already has the character (Eli) placed deterministically
+    in the top-right corner by the Pillow composer. Gemini is only asked to
+    enhance styling (circle borders, title treatment) and must NOT reposition
+    the character or replace any segment circle.
 
     Args:
         base_image_path: Path to the base Pillow-generated composite.
@@ -74,13 +76,11 @@ def gemini_enhance_thumbnail(
         script_id: Optional script ID for usage tracking.
 
     Returns:
-        Path to the enhanced image, or None if enhancement can't be performed
-        (no references uploaded, no character frames, etc.).
+        Path to the enhanced image, or None if enhancement can't be performed.
     """
     logger.info("[%s] Starting Gemini thumbnail enhancement for %r", script_id or "no-id", video_title)
 
     from integrations.google_image_client import transform_with_references
-    from pipeline.character_frames import get_manifest, FRAMES_DIR
 
     # Check for reference thumbnails
     ref_dir = THUMBNAIL_REFERENCES_DIR
@@ -98,68 +98,36 @@ def gemini_enhance_thumbnail(
 
     logger.info("[%s] Found %d thumbnail references", script_id or "no-id", len(ref_files))
 
-    # Pick a random reference thumbnail
+    # Pick a random reference thumbnail for style guidance only
     ref_path = str(random.choice(ref_files))
     logger.info("Using thumbnail reference: %s", ref_path)
 
-    # Pick a random Eli character frame
-    eli_frame_path = None
-    try:
-        manifest = get_manifest()
-        if manifest and manifest.get("frames"):
-            # Prefer thumbnail frames with open mouth
-            thumbnail_frames = manifest.get("thumbnail_frames", [])
-            frames = thumbnail_frames if thumbnail_frames else manifest["frames"]
-            frame = random.choice(frames)
-            mouth_key = "file_open" if thumbnail_frames else "file_closed"
-            file_name = frame.get(mouth_key, "")
-            if file_name:
-                candidate = FRAMES_DIR / file_name
-                if candidate.exists():
-                    eli_frame_path = str(candidate)
-                    logger.info("[%s] Selected Eli frame for thumbnail: %s", script_id or "no-id", file_name)
-    except Exception as exc:
-        logger.debug("Could not load Eli frame for thumbnail: %s", exc)
-
-    # Build image list: base image first, then reference, then Eli frame
+    # Two images: base composite (already has Eli top-right) + style reference
     image_paths = [base_image_path, ref_path]
-    if eli_frame_path:
-        image_paths.append(eli_frame_path)
-
-    # Build prompt
-    character_instruction = ""
-    if eli_frame_path:
-        character_instruction = (
-            "The third image is a character to insert into the title card. "
-            "Choose one of the segment circles at random and replace its image with "
-            "this character BURSTING OUT of that circle like a portal. "
-            "The character should be MUCH larger than the circle — the circle acts as "
-            "a portal he is emerging from. His head and upper body should extend dramatically past the "
-            "circle boundary (about 60-75%% overflow), with the circle sitting around his waist/hips area. "
-            "His hands should grip the circle edge as if climbing out of it. "
-            "Add a glowing blue plasma vortex effect inside and around the circle to sell the portal look. "
-            "Keep the segment label badge beneath the chosen circle readable.\n"
-            "Add a small, eye-catching arrow (curved or straight) pointing at the circle "
-            "where you placed the character, to draw the viewer's eye there.\n\n"
-            f"{_CTR_EXPRESSION_GUIDANCE}\n"
-        )
 
     prompt = (
-        "You are a YouTube thumbnail optimizer. You have been given:\n"
-        "1. A base title card image with circular segment thumbnails arranged in a grid\n"
-        "2. A reference thumbnail showing the target visual style\n"
-        f"{'3. A character image to insert into the title card' if eli_frame_path else ''}\n\n"
-        "Your task:\n"
-        "- Study the reference thumbnail's visual style (circle borders, glow effects, "
-        "character positioning, title treatment)\n"
-        f"{character_instruction}"
+        "You are a YouTube thumbnail stylist. You have been given:\n"
+        "1. A base title card image — it already contains the final layout: a title, "
+        "a grid of segment circles with labels, and a character in the top-right corner.\n"
+        "2. A reference thumbnail showing the target visual style.\n\n"
+        "Your task — STYLE ENHANCEMENT ONLY:\n"
         "- Apply the reference thumbnail's circle border styling (glowing magical borders) "
-        "to ALL circles in the image\n"
+        "to ALL segment circles in the base image.\n"
         "- Make the title text SIGNIFICANTLY LARGER — it should dominate the top of the thumbnail. "
-        "Keep it punchy, bold, and attention-grabbing, matching the reference thumbnail's title treatment\n"
-        f'- The video title is: "{video_title}"\n'
-        "- Optimize everything for maximum YouTube CTR\n\n"
-        "Keep the segment label badges readable. Keep the overall layout and grid intact. "
+        "Keep it punchy, bold, and attention-grabbing, matching the reference thumbnail's title treatment.\n"
+        f'- The video title is: "{video_title}".\n'
+        "- Optimize everything for maximum YouTube CTR (saturation, contrast, drama).\n\n"
+        "STRICT RULES — violations are bugs:\n"
+        "- DO NOT move, duplicate, remove, redraw, or reposition the character. "
+        "Keep him in the exact top-right corner position he already occupies.\n"
+        "- DO NOT replace ANY segment circle with the character or any other element. "
+        "Every one of the segment circles must remain intact with its original image and label.\n"
+        "- DO NOT duplicate any circle's image or label into another cell. "
+        "Every segment label must stay unique and in its original position.\n"
+        "- DO NOT add a second copy of the character anywhere.\n"
+        "- DO NOT insert a 'portal' or 'vortex' effect inside any segment circle.\n\n"
+        "Keep the segment label badges readable. Keep the overall grid layout intact. "
+        f"{_CTR_EXPRESSION_GUIDANCE}\n\n"
         "Return the modified image."
     )
 

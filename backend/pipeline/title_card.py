@@ -176,6 +176,7 @@ def ensure_title_card_images(
         accent_color=accent_color,
         output_path=str(composite_path),
         include_title=True,
+        include_eli=True,
         card_subtitle=card_subtitle,
     )
 
@@ -189,6 +190,7 @@ def ensure_title_card_images(
         accent_color=accent_color,
         output_path=str(notitle_path),
         include_title=False,
+        include_eli=False,
         card_subtitle=card_subtitle,
     )
 
