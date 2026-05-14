@@ -265,13 +265,27 @@ async function pollBackgroundJob(
 ): Promise<void> {
   // Poll until completion. Time out only if the job's progress field stops
   // advancing for `stallPolls` consecutive polls — large scripts (e.g. 200+
-  // Eli scenes) can legitimately exceed any fixed total-time budget.
+  // Eli scenes) can legitimately exceed any fixed total-time budget. Tolerate
+  // up to MAX_TRANSIENT_ERRORS consecutive non-404 status failures (network
+  // blips, 5xx) before giving up; treat 404 as terminal "job not found".
+  const MAX_TRANSIENT_ERRORS = 3;
   let lastProgress = -1;
   let stallCount = 0;
+  let transientErrors = 0;
   for (;;) {
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     const res = await api.get(`${statusEndpoint}${jobId}`);
-    if (!res.ok) throw new Error("Failed to check job status");
+    if (!res.ok) {
+      if (res.status === 404) {
+        throw new Error(`${failureMessage} (job not found)`);
+      }
+      transientErrors += 1;
+      if (transientErrors >= MAX_TRANSIENT_ERRORS) {
+        throw new Error("Failed to check job status");
+      }
+      continue;
+    }
+    transientErrors = 0;
     const job = res.data as { status: string; error: string | null; progress?: number; current_step?: string | null };
     if (onProgress) onProgress({ progress: job.progress, current_step: job.current_step });
     if (job.status === "completed") return;

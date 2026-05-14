@@ -59,7 +59,7 @@ async def generate_eli(req: GenerateEliRequest, session: Session = Depends(get_s
 async def eli_status(job_id: str):
     job = get_job(job_id)
     if not job:
-        return {"status": "not_found", "error": "Job not found"}
+        raise HTTPException(status_code=404, detail="Job not found")
     return {
         "status": job.status,
         "progress": job.progress,
