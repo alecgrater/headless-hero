@@ -765,8 +765,10 @@ def compose_title_card(
     final = _boost_colors(canvas)
 
     final.save(output_path, "PNG")
-    # Also save as base image for Gemini enhancement
-    base_path = str(Path(output_path).parent / "composite_title_card_base.png")
+    # Also save as base image for Gemini enhancement. Name it per-output
+    # (e.g. composite_title_card_base.png, composite_title_card_notitle_base.png)
+    # so successive calls with different output paths don't clobber each other.
+    base_path = str(Path(output_path).parent / f"{Path(output_path).stem}_base.png")
     final.save(base_path, "PNG")
     file_size_kb = Path(output_path).stat().st_size // 1024
     logger.info("Composite title card saved: %s (%d segments, %dx%d grid, title=%s, %dKB)", output_path, count, cols, rows, include_title, file_size_kb)
