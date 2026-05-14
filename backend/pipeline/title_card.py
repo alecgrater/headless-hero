@@ -194,8 +194,9 @@ def ensure_title_card_images(
         card_subtitle=card_subtitle,
     )
 
-    # Step 4: Gemini enhancement — style-only pass (Eli already placed deterministically
-    # in the with-title base by _overlay_eli_frame; Gemini must not reposition him).
+    # Step 4: Gemini enhancement — chooses one segment circle at random and turns
+    # it into a portal with Eli bursting out. Strong prompt guards on alignment
+    # and anti-duplication live in gemini_enhance_thumbnail().
     from pipeline.thumbnail import gemini_enhance_thumbnail
 
     base_path = str(images_dir / "composite_title_card_base.png")

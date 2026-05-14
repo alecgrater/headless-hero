@@ -136,7 +136,7 @@ def gemini_enhance_thumbnail(
             "and turn it into a portal with this character BURSTING OUT of it. "
             "The character should be MUCH larger than the circle — the circle acts as "
             "a portal he is emerging from. His head and upper body should extend dramatically past the "
-            "circle boundary (about 60-75%% overflow), with the circle sitting around his waist/hips area. "
+            "circle boundary (about 60-75% overflow), with the circle sitting around his waist/hips area. "
             "His hands should grip the circle edge as if climbing out of it. "
             "Add a glowing blue plasma vortex effect inside and around the portal circle.\n\n"
             "PORTAL ALIGNMENT — CRITICAL:\n"
