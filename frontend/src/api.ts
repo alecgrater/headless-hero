@@ -280,7 +280,7 @@ async function pollBackgroundJob(
         throw new Error(`${failureMessage} (job not found)`);
       }
       transientErrors += 1;
-      if (transientErrors >= MAX_TRANSIENT_ERRORS) {
+      if (transientErrors > MAX_TRANSIENT_ERRORS) {
         throw new Error("Failed to check job status");
       }
       continue;
