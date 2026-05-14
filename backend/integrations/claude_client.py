@@ -160,6 +160,11 @@ def _chat_ollama(
 
     qwen_model = os.environ.get("QWEN_MODEL", _DEFAULT_QWEN_MODEL).strip() or _DEFAULT_QWEN_MODEL
 
+    try:
+        num_ctx = int(os.environ.get("QWEN_NUM_CTX", "16384"))
+    except ValueError:
+        num_ctx = 16384
+
     if cache:
         logger.debug("Ollama path ignores cache=True (KV prefix caching is automatic)")
 
@@ -176,8 +181,8 @@ def _chat_ollama(
 
     client = OpenAI(api_key="ollama", base_url=_OLLAMA_BASE_URL, timeout=timeout)
     logger.info(
-        "Calling Ollama model=%s max_tokens=%d timeout=%.0fs json_mode=%s keep_alive=30m",
-        qwen_model, max_tokens, timeout, json_mode,
+        "Calling Ollama model=%s max_tokens=%d num_ctx=%d timeout=%.0fs json_mode=%s keep_alive=30m",
+        qwen_model, max_tokens, num_ctx, timeout, json_mode,
     )
     t0 = time.monotonic()
 
@@ -185,7 +190,7 @@ def _chat_ollama(
         "model": qwen_model,
         "max_completion_tokens": max_tokens,
         "messages": messages,
-        "extra_body": {"keep_alive": "30m"},
+        "extra_body": {"keep_alive": "30m", "options": {"num_ctx": num_ctx}},
     }
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
