@@ -82,15 +82,31 @@ def _mask(value: str) -> str:
 
 
 def load_keys_into_env(session: Session) -> None:
-    """Load all saved API keys from DB into os.environ."""
+    """Load all saved API keys from DB into os.environ, plus defaults for any
+    allowed keys that don't have a DB row yet (so e.g. LLM_PROVIDER='ollama'
+    is active out of the box without the user clicking Save)."""
     settings = session.exec(select(AppSetting)).all()
-    loaded = []
-    for s in settings:
-        if s.key in ALLOWED_KEYS and s.value:
-            os.environ[s.key] = s.value
-            loaded.append(s.key)
+    saved = {s.key: s.value for s in settings if s.key in ALLOWED_KEYS}
+
+    loaded: list[str] = []
+    for key, value in saved.items():
+        if value:
+            os.environ[key] = value
+            loaded.append(key)
+
+    applied_defaults: list[str] = []
+    for key, default in _DEFAULTS.items():
+        if key in saved and saved[key]:
+            continue
+        if os.environ.get(key):
+            continue
+        os.environ[key] = default
+        applied_defaults.append(key)
+
     if loaded:
         logger.info("Loaded %d API keys from DB into env: %s", len(loaded), ", ".join(loaded))
+    if applied_defaults:
+        logger.info("Applied %d default values for unset keys: %s", len(applied_defaults), ", ".join(applied_defaults))
 
 
 @router.get("/keys")
