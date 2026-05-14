@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { assetUrl } from "../../api";
+import { useEffect, useState } from "react";
+import api, { assetUrl } from "../../api";
 import type { VideoIdea } from "../../types/idea";
 import { SCRIPT_MODELS } from "../settings/GeneralSection";
 import { Button } from "../ui/Button";
@@ -15,6 +15,12 @@ interface Props {
   onBack: () => void;
   onContinue: (scriptId: string) => void;
 }
+
+const PROVIDER_LABELS: Record<string, string> = {
+  ollama: "Ollama (local)",
+  anthropic: "Anthropic API",
+  "claude-code-proxy": "Claude Code Proxy",
+};
 
 export default function ScriptGenerationPage({
   brandId,
@@ -81,6 +87,24 @@ export default function ScriptGenerationPage({
   } = useTitleCardGeneration({ scriptId, script });
 
   const [mediaSourcesOpen, setMediaSourcesOpen] = useState(false);
+  const [llmProvider, setLlmProvider] = useState<string>("");
+  const [qwenModel, setQwenModel] = useState<string>("");
+
+  useEffect(() => {
+    api.get("/api/settings/keys").then((res) => {
+      if (res.ok) {
+        const data = res.data as Record<string, { masked?: string }>;
+        setLlmProvider(data.LLM_PROVIDER?.masked || "anthropic");
+        setQwenModel(data.QWEN_MODEL?.masked || "qwen3:14b");
+      }
+    });
+  }, []);
+
+  const activeModelLabel =
+    llmProvider === "ollama"
+      ? qwenModel || "qwen3:14b"
+      : SCRIPT_MODELS.find((m) => m.value === selectedModel)?.label ?? selectedModel;
+  const providerLabel = PROVIDER_LABELS[llmProvider] ?? llmProvider;
 
   const totalScenes = script
     ? script.segments.reduce((sum, seg) => sum + seg.scenes.length, 0)
@@ -157,9 +181,21 @@ export default function ScriptGenerationPage({
             </div>
           </div>
 
-          <Button variant="primary" size="lg" onClick={handleGenerate}>
-            Generate Script
-          </Button>
+          <div className="flex items-center gap-3 pt-1">
+            <Button variant="primary" size="lg" onClick={handleGenerate}>
+              Generate Script
+            </Button>
+            {llmProvider && (
+              <p className="text-xs text-neutral-500">
+                Using: <span className="text-neutral-300">{providerLabel}</span>
+                {" · "}
+                <span className="text-neutral-300 font-mono">{activeModelLabel}</span>
+                {llmProvider === "ollama" && (
+                  <span className="text-amber-400"> (Script Model dropdown ignored)</span>
+                )}
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Media Sources */}
