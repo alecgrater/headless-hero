@@ -119,8 +119,9 @@ function DownloadButton({ url, label, projectTitle, filename }: { url: string; l
       const resolvedFilename = filename || cleanUrl.split("/").pop() || "download";
 
       if (projectTitle && window.api?.saveToDownloads) {
-        await window.api.saveToDownloads(fullUrl, projectTitle, resolvedFilename);
-        showToast(`Saved ${resolvedFilename} to Downloads`, "success");
+        const result = await window.api.saveToDownloads(fullUrl, projectTitle, resolvedFilename);
+        const savedName = result?.filePath ? result.filePath.split("/").pop() || resolvedFilename : resolvedFilename;
+        showToast(`Saved ${savedName} to Downloads`, "success");
         return;
       }
 
