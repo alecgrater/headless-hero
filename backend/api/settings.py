@@ -39,6 +39,8 @@ ALLOWED_KEYS = {
     "AUDIO_FILTER_HIGHPASS",
     "AUDIO_FILTER_NOISE_REDUCTION",
     "AUDIO_FILTER_COMPRESSOR",
+    "LLM_PROVIDER",
+    "QWEN_MODEL",
 }
 
 # Keys that should NOT be masked (non-secret settings)
@@ -55,6 +57,8 @@ _PLAINTEXT_KEYS = {
     "AUDIO_FILTER_HIGHPASS",
     "AUDIO_FILTER_NOISE_REDUCTION",
     "AUDIO_FILTER_COMPRESSOR",
+    "LLM_PROVIDER",
+    "QWEN_MODEL",
 }
 
 # Default values for settings that have sensible defaults
@@ -64,6 +68,8 @@ _DEFAULTS: dict[str, str] = {
     "AUDIO_FILTER_HIGHPASS": "true",
     "AUDIO_FILTER_NOISE_REDUCTION": "true",
     "AUDIO_FILTER_COMPRESSOR": "true",
+    "LLM_PROVIDER": "ollama",
+    "QWEN_MODEL": "qwen3:14b",
 }
 
 

@@ -34,6 +34,7 @@ def generate_scene_fx(scene_data: dict, script_id: str | None = None) -> dict:
         user_message=user_message,
         max_tokens=2048,
         script_id=script_id,
+        json_mode=True,
     )
 
     cleaned = strip_markdown_fences(response)

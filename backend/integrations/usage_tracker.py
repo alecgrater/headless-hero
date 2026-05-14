@@ -73,10 +73,25 @@ _DEFAULT_PRICING = {
     "cache_read": 0.3 / 1_000_000,
 }
 
+_ZERO_PRICING = {
+    "input": 0.0,
+    "output": 0.0,
+    "cache_read": 0.0,
+}
+
 
 def get_model_pricing(model: str) -> dict[str, float]:
-    """Return per-token pricing dict for a model. Falls back to Sonnet pricing."""
-    return _MODEL_PRICING.get(model, _DEFAULT_PRICING)
+    """Return per-token pricing dict for a model. Falls back to Sonnet pricing.
+
+    Local models (Ollama/Qwen variants) are free — matched by prefix so any
+    qwen/llama/etc. tag returns zero cost rather than phantom Sonnet pricing.
+    """
+    if model in _MODEL_PRICING:
+        return _MODEL_PRICING[model]
+    name = model.lower()
+    if name.startswith(("qwen", "llama", "mistral", "gemma", "phi", "deepseek")):
+        return _ZERO_PRICING
+    return _DEFAULT_PRICING
 
 
 ANTHROPIC_INPUT_PER_TOKEN = _DEFAULT_PRICING["input"]

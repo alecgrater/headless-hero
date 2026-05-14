@@ -156,7 +156,7 @@ def _score_format_fit(topics: list[dict]) -> dict[str, dict]:
         titles_list = [{"title": t["title"]} for t in batch]
         try:
             user_message = f"Rate these {len(batch)} topics:\n{json.dumps(titles_list)}"
-            raw = chat(FORMAT_FIT_SYSTEM.template, user_message, model=FAST_CLAUDE_MODEL, max_tokens=2048)
+            raw = chat(FORMAT_FIT_SYSTEM.template, user_message, model=FAST_CLAUDE_MODEL, max_tokens=2048, json_mode=True)
             scored = parse_json_response(raw)
             return [
                 (item.get("title", ""), {"score": float(item.get("score", 50)), "rationale": item.get("rationale", "")})

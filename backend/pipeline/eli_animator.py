@@ -4,6 +4,7 @@ import json
 import logging
 
 from integrations.claude_client import chat
+from config import FAST_CLAUDE_MODEL
 from pipeline.character_frames import get_manifest
 from prompts import ELI_POSE_PICKER_SYSTEM
 
@@ -48,7 +49,8 @@ def generate_scene_eli(
         system=ELI_POSE_PICKER_SYSTEM.template,
         user_message=user_msg,
         max_tokens=200,
-        model="claude-haiku-4-5-20251001",
+        model=FAST_CLAUDE_MODEL,
+        json_mode=True,
     )
 
     try:

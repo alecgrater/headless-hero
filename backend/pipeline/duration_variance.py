@@ -58,6 +58,7 @@ def _rewrite_narrations(
             user_message=json.dumps(payload, indent=2),
             max_tokens=2048,
             script_id=script_id,
+            json_mode=True,
         )
         cleaned = strip_markdown_fences(response)
         result = json.loads(cleaned)

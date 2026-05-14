@@ -29,6 +29,7 @@ def generate_brainstorm_recommendations(
     response_text = chat(
         system=BRAINSTORM_SYSTEM.template,
         user_message=user_message,
+        json_mode=True,
     )
 
     text = response_text.strip()

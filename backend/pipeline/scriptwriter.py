@@ -189,7 +189,7 @@ def generate_script(
         )
     else:
         logger.info("Generating script for topic %r, description=%r using model=%s (segments=%d)", topic, description, resolved_model, SEGMENT_COUNT)
-        raw = chat(system_prompt, base_user_message, model=resolved_model, max_tokens=16384, timeout=900.0)
+        raw = chat(system_prompt, base_user_message, model=resolved_model, max_tokens=16384, timeout=900.0, json_mode=True)
 
         text = strip_markdown_fences(raw)
 
@@ -253,7 +253,7 @@ def _generate_outline(
     logger.info("SEGMENTED: Phase 1 — generating outline (model=%s)", model)
 
     outline_msg = user_message + "\n\n" + _OUTLINE_INSTRUCTIONS
-    raw = chat(system_prompt, outline_msg, model=model, max_tokens=4096, timeout=180.0)
+    raw = chat(system_prompt, outline_msg, model=model, max_tokens=4096, timeout=180.0, json_mode=True)
     text = strip_markdown_fences(raw)
 
     if not text.endswith("}"):
@@ -311,7 +311,7 @@ def _generate_segment_scenes(
         f"{_SEGMENT_SCENES_INSTRUCTIONS}"
     )
 
-    raw = chat(system_prompt, user_msg, model=model, max_tokens=8192, timeout=300.0)
+    raw = chat(system_prompt, user_msg, model=model, max_tokens=8192, timeout=300.0, json_mode=True)
     text = strip_markdown_fences(raw)
 
     if not text.rstrip().endswith("]"):

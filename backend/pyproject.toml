@@ -25,6 +25,7 @@ dependencies = [
     "thefuzz[speedup]>=0.22.0",
     "yt-dlp>=2026.3.17",
     "faster-whisper>=1.1.0",
+    "openai>=2.36.0",
 ]
 
 [dependency-groups]

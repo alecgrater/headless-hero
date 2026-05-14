@@ -1,7 +1,8 @@
-"""Thin wrapper around the Anthropic Python SDK."""
+"""Thin wrapper around LLM providers (Anthropic, local proxy, or Ollama)."""
 
 import logging
 import os
+import re
 import time
 
 import anthropic
@@ -11,14 +12,31 @@ from integrations.usage_tracker import record_usage, get_model_pricing
 
 logger = logging.getLogger(__name__)
 
+_CLAUDE_CODE_PROXY_URL = "http://localhost:11211/api/anthropic"
+_OLLAMA_BASE_URL = "http://localhost:11434/v1"
+_DEFAULT_QWEN_MODEL = "qwen3:14b"
+
+_THINK_BLOCK_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
+
+
+def _get_provider() -> str:
+    """Resolve the active LLM provider. Defaults to 'anthropic' if unset."""
+    return (os.environ.get("LLM_PROVIDER", "anthropic") or "anthropic").strip().lower()
+
+
 def get_client() -> anthropic.Anthropic:
-    """Return an Anthropic client, falling back to a local proxy if no API key is set."""
+    """Return an Anthropic client, routing per LLM_PROVIDER setting.
+
+    - 'claude-code-proxy': always hit localhost:11211 proxy (ignore real key)
+    - 'anthropic' (default): real API if key present, proxy otherwise
+    """
+    provider = _get_provider()
+    if provider == "claude-code-proxy":
+        return anthropic.Anthropic(base_url=_CLAUDE_CODE_PROXY_URL, api_key="sk-1234")
     if os.environ.get("ANTHROPIC_API_KEY"):
         return anthropic.Anthropic()
-    return anthropic.Anthropic(
-        base_url="http://localhost:11211/api/anthropic",
-        api_key="sk-1234",
-    )
+    return anthropic.Anthropic(base_url=_CLAUDE_CODE_PROXY_URL, api_key="sk-1234")
+
 
 def chat(
     system: str,
@@ -29,8 +47,26 @@ def chat(
     timeout: float = 600.0,
     script_id: str | None = None,
     cache: bool = False,
+    json_mode: bool = False,
 ) -> str:
-    """Send a single-turn message to Claude and return the text response."""
+    """Send a single-turn message to the active LLM provider and return the text response.
+
+    When LLM_PROVIDER=ollama, the `model` argument is ignored and QWEN_MODEL
+    (default qwen3:14b) is used instead. `json_mode=True` asks the provider
+    to return JSON (honored by Ollama; Anthropic ignores it but still produces
+    JSON when the prompt asks for it).
+    """
+    if _get_provider() == "ollama":
+        return _chat_ollama(
+            system=system,
+            user_message=user_message,
+            max_tokens=max_tokens,
+            timeout=timeout,
+            script_id=script_id,
+            cache=cache,
+            json_mode=json_mode,
+        )
+
     client = get_client()
     logger.info("Calling Claude API model=%s max_tokens=%d timeout=%.0fs cache=%s", model, max_tokens, timeout, cache)
     t0 = time.monotonic()
@@ -94,3 +130,80 @@ def chat(
     )
 
     return response.content[0].text
+
+
+def _strip_think_blocks(text: str) -> str:
+    """Remove <think>...</think> reasoning blocks Qwen3 emits by default."""
+    cleaned = _THINK_BLOCK_RE.sub("", text)
+    return cleaned.strip()
+
+
+def _chat_ollama(
+    *,
+    system: str,
+    user_message: str,
+    max_tokens: int,
+    timeout: float,
+    script_id: str | None,
+    cache: bool,
+    json_mode: bool,
+) -> str:
+    """Call a local Ollama model via its OpenAI-compatible /v1 endpoint."""
+    # Lazy import so the backend still starts if openai isn't installed yet.
+    from openai import OpenAI
+
+    qwen_model = os.environ.get("QWEN_MODEL", _DEFAULT_QWEN_MODEL).strip() or _DEFAULT_QWEN_MODEL
+
+    if cache:
+        logger.debug("Ollama path ignores cache=True (KV prefix caching is automatic)")
+
+    client = OpenAI(api_key="ollama", base_url=_OLLAMA_BASE_URL, timeout=timeout)
+    logger.info(
+        "Calling Ollama model=%s max_tokens=%d timeout=%.0fs json_mode=%s keep_alive=30m",
+        qwen_model, max_tokens, timeout, json_mode,
+    )
+    t0 = time.monotonic()
+
+    kwargs: dict = {
+        "model": qwen_model,
+        "max_tokens": max_tokens,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user_message},
+        ],
+        "extra_body": {"keep_alive": "30m"},
+    }
+    if json_mode:
+        kwargs["response_format"] = {"type": "json_object"}
+
+    try:
+        response = client.chat.completions.create(**kwargs)
+    except Exception:
+        elapsed = time.monotonic() - t0
+        logger.error("Ollama call failed after %.1fs (model=%s)", elapsed, qwen_model, exc_info=True)
+        raise
+
+    elapsed = time.monotonic() - t0
+
+    raw_text = (response.choices[0].message.content or "").strip()
+    text = _strip_think_blocks(raw_text)
+
+    usage = getattr(response, "usage", None)
+    input_tok = getattr(usage, "prompt_tokens", 0) if usage else 0
+    output_tok = getattr(usage, "completion_tokens", 0) if usage else 0
+
+    record_usage(
+        service="ollama",
+        operation="chat",
+        model=qwen_model,
+        input_tokens=input_tok,
+        output_tokens=output_tok,
+        cost_estimate=0.0,
+        script_id=script_id,
+    )
+    logger.info(
+        "Ollama call complete in %.1fs — %s input / %s output tokens (model=%s)",
+        elapsed, input_tok, output_tok, qwen_model,
+    )
+
+    return text

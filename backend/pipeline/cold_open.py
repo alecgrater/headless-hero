@@ -42,6 +42,7 @@ def generate_cold_opens(
         model=resolved_model,
         max_tokens=4096,
         timeout=120.0,
+        json_mode=True,
     )
 
     text = strip_markdown_fences(raw)

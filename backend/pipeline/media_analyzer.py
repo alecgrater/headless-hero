@@ -62,6 +62,7 @@ def analyze_media_sources(
         user_message=user_message,
         max_tokens=16384,
         script_id=script_id,
+        json_mode=True,
     )
 
     cleaned = strip_markdown_fences(response)

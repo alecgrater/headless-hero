@@ -27,6 +27,7 @@ def _generate_batch(
         model=BALANCED_CLAUDE_MODEL,
         max_tokens=MAX_TOKENS_PER_BATCH,
         cache=True,
+        json_mode=True,
     )
     try:
         return parse_json_response(raw)

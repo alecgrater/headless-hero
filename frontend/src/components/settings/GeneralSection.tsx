@@ -15,6 +15,12 @@ const IMAGE_PROVIDERS = [
   { value: "replicate", label: "Replicate (Flux)" },
 ] as const;
 
+const LLM_PROVIDERS = [
+  { value: "ollama", label: "Ollama (local)", description: "Local Qwen3 via Ollama" },
+  { value: "anthropic", label: "Anthropic API", description: "Real Claude API (requires ANTHROPIC_API_KEY)" },
+  { value: "claude-code-proxy", label: "Claude Code Proxy", description: "Apple Claude Code proxy on localhost:11211" },
+] as const;
+
 const OUTPUT_FORMATS = [
   { value: "png", label: "PNG" },
   { value: "webp", label: "WebP" },
@@ -57,6 +63,9 @@ export default function GeneralSection() {
   const [loading, setLoading] = useState(true);
   const [rateLimitEnabled, setRateLimitEnabled] = useState("true");
   const [scriptModel, setScriptModel] = useState(DEFAULT_MODEL);
+  const [llmProvider, setLlmProvider] = useState("ollama");
+  const [qwenModel, setQwenModel] = useState("qwen3:14b");
+  const [anthropicKeyConfigured, setAnthropicKeyConfigured] = useState(false);
   const [originalDownloads, setOriginalDownloads] = useState("");
   const [originalExportFolder, setOriginalExportFolder] = useState("");
   const [originalProvider, setOriginalProvider] = useState("google");
@@ -66,6 +75,8 @@ export default function GeneralSection() {
   const [originalFormat, setOriginalFormat] = useState("png");
   const [originalRateLimit, setOriginalRateLimit] = useState("true");
   const [originalScriptModel, setOriginalScriptModel] = useState(DEFAULT_MODEL);
+  const [originalLlmProvider, setOriginalLlmProvider] = useState("ollama");
+  const [originalQwenModel, setOriginalQwenModel] = useState("qwen3:14b");
 
   useEffect(() => {
     api.get("/api/settings/keys").then((res) => {
@@ -98,6 +109,13 @@ export default function GeneralSection() {
         const smVal = data.SCRIPT_MODEL?.masked || DEFAULT_MODEL;
         setScriptModel(smVal);
         setOriginalScriptModel(smVal);
+        const llmVal = data.LLM_PROVIDER?.masked || "ollama";
+        setLlmProvider(llmVal);
+        setOriginalLlmProvider(llmVal);
+        const qwVal = data.QWEN_MODEL?.masked || "qwen3:14b";
+        setQwenModel(qwVal);
+        setOriginalQwenModel(qwVal);
+        setAnthropicKeyConfigured(!!data.ANTHROPIC_API_KEY?.configured);
       }
       setLoading(false);
     });
@@ -115,6 +133,8 @@ export default function GeneralSection() {
       REPLICATE_OUTPUT_FORMAT: outputFormat,
       IMAGE_RATE_LIMIT_MS: rateLimitEnabled === "true" ? "10000" : "0",
       SCRIPT_MODEL: scriptModel,
+      LLM_PROVIDER: llmProvider,
+      QWEN_MODEL: qwenModel.trim() || "qwen3:14b",
     });
     setSaving(false);
 
@@ -129,6 +149,8 @@ export default function GeneralSection() {
       setOriginalFormat(outputFormat);
       setOriginalRateLimit(rateLimitEnabled);
       setOriginalScriptModel(scriptModel);
+      setOriginalLlmProvider(llmProvider);
+      setOriginalQwenModel(qwenModel.trim() || "qwen3:14b");
     }
   };
 
@@ -141,7 +163,9 @@ export default function GeneralSection() {
     safetyTolerance !== originalSafety ||
     outputFormat !== originalFormat ||
     rateLimitEnabled !== originalRateLimit ||
-    scriptModel !== originalScriptModel;
+    scriptModel !== originalScriptModel ||
+    llmProvider !== originalLlmProvider ||
+    qwenModel.trim() !== originalQwenModel;
 
   return (
     <div className="px-8 py-8 max-w-2xl space-y-6 pb-24">
@@ -219,15 +243,59 @@ export default function GeneralSection() {
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl divide-y divide-neutral-800">
             <div className="p-5 space-y-2">
               <div>
+                <h3 className="text-sm font-medium text-neutral-100">LLM Provider</h3>
+                <p className="text-xs text-neutral-500">
+                  Where script / idea / FX / SEO generation calls are routed.
+                </p>
+              </div>
+              <select
+                value={llmProvider}
+                onChange={(e) => setLlmProvider(e.target.value)}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
+              >
+                {LLM_PROVIDERS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label} — {p.description}
+                  </option>
+                ))}
+              </select>
+              {llmProvider === "anthropic" && !anthropicKeyConfigured && (
+                <p className="text-xs text-amber-400">
+                  ANTHROPIC_API_KEY is not configured — see the API Keys section.
+                </p>
+              )}
+              {llmProvider === "ollama" && (
+                <div className="pt-3 space-y-1.5">
+                  <label className="text-sm text-neutral-200">Ollama Model</label>
+                  <p className="text-xs text-neutral-500">
+                    The Ollama tag to use (e.g. <code className="text-neutral-400">qwen3:14b</code>, <code className="text-neutral-400">qwen3:8b</code>). Pull it first with <code className="text-neutral-400">ollama pull</code>.
+                  </p>
+                  <input
+                    type="text"
+                    value={qwenModel}
+                    onChange={(e) => setQwenModel(e.target.value)}
+                    placeholder="qwen3:14b"
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors font-mono"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="p-5 space-y-2">
+              <div>
                 <h3 className="text-sm font-medium text-neutral-100">Script Generation Model</h3>
                 <p className="text-xs text-neutral-500">
                   Which Claude model to use for generating video scripts.
+                  {llmProvider === "ollama" && (
+                    <span className="text-amber-400"> Ignored while LLM Provider is Ollama — the Ollama Model above is used instead.</span>
+                  )}
                 </p>
               </div>
               <select
                 value={scriptModel}
                 onChange={(e) => setScriptModel(e.target.value)}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
+                disabled={llmProvider === "ollama"}
+                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {SCRIPT_MODELS.map((m) => (
                   <option key={m.value} value={m.value}>

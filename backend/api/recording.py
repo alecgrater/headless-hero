@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from api._helpers import update_scene, find_scene_in_content
-from config import DATA_DIR
+from config import DATA_DIR, FAST_CLAUDE_MODEL
 from database import get_session
 from models.script import Script, ScriptContent
 from pipeline.audio_alignment import align_audio
@@ -583,7 +583,7 @@ def _compute_take_score(word_timestamps: list[dict], narration: str, deviation_r
     claude_note = ""
 
     try:
-        from integrations.claude_client import get_client
+        from integrations.claude_client import chat
 
         # Build a compact timing summary for Claude
         timing_summary = f"WPM: {wpm:.0f}, CV: {cv:.2f}, gaps>1.5s: {len(long_gaps)}, accuracy: {deviation_ratio:.0%}"
@@ -595,11 +595,7 @@ def _compute_take_score(word_timestamps: list[dict], narration: str, deviation_r
             sample_words.append(f"{wt['word']}({wt['end_ms'] - wt['start_ms']}ms)")
         pacing_pattern = " ".join(sample_words[:15])
 
-        client = get_client()
-        response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=300,
-            messages=[{"role": "user", "content": f"""Score this voiceover take's delivery quality. The narrator recorded this text:
+        prompt = f"""Score this voiceover take's delivery quality. The narrator recorded this text:
 
 "{narration[:500]}"
 
@@ -612,9 +608,15 @@ Score two dimensions (1-10 each):
 
 Also give a one-sentence "recommendation" for improvement (or "Sounds great" if scores are 8+).
 
-Return ONLY JSON: {{"emphasis": 7, "emphasis_note": "brief reason", "engagement": 8, "engagement_note": "brief reason", "recommendation": "one sentence"}}"""}],
-        )
-        text = response.content[0].text.strip()
+Return ONLY JSON: {{"emphasis": 7, "emphasis_note": "brief reason", "engagement": 8, "engagement_note": "brief reason", "recommendation": "one sentence"}}"""
+
+        text = chat(
+            system="",
+            user_message=prompt,
+            model=FAST_CLAUDE_MODEL,
+            max_tokens=300,
+            json_mode=True,
+        ).strip()
         if text.startswith("```"):
             text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
         result = json.loads(text)
@@ -776,9 +778,8 @@ def annotate_delivery(req: AnnotateDeliveryRequest, db: Session = Depends(get_se
     words = narration.split()
 
     try:
-        from integrations.claude_client import get_client
+        from integrations.claude_client import chat
 
-        client = get_client()
         prompt = f"""Analyze this narration for vocal delivery coaching. The narration has {len(words)} words (0-indexed).
 
 Narration: "{narration}"
@@ -790,12 +791,13 @@ Return a JSON object with:
 
 Keep emphasis_words to 3-5 key words. Energy zones should cover all words with no gaps. Return ONLY valid JSON, no markdown."""
 
-        response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+        text = chat(
+            system="",
+            user_message=prompt,
+            model=FAST_CLAUDE_MODEL,
             max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        text = response.content[0].text.strip()
+            json_mode=True,
+        ).strip()
         # Strip markdown fences if present
         if text.startswith("```"):
             text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()

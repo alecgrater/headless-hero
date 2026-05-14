@@ -52,7 +52,7 @@ def generate_seo(
         user_msg += f"\n\nBrand: {brand_context}"
 
     logger.info("[%s] Generating SEO metadata for %r (%d segments)", script_id or "no-id", video_title, len(segments))
-    raw = chat(SEO_SYSTEM.template, user_msg, max_tokens=4096, script_id=script_id)
+    raw = chat(SEO_SYSTEM.template, user_msg, max_tokens=4096, script_id=script_id, json_mode=True)
     text = strip_markdown_fences(raw)
 
     data = json.loads(text)

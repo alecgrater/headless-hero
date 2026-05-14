@@ -100,6 +100,7 @@ def analyze_content_profile() -> dict:
         f"Analyze this creator's content library:\n{user_msg}",
         model=BALANCED_CLAUDE_MODEL,
         max_tokens=1024,
+        json_mode=True,
     )
     result = parse_json_response(raw)
 

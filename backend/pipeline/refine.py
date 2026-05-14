@@ -48,7 +48,7 @@ def refine_scene(
         "scene_to_refine": target_scene.model_dump(),
     })
 
-    raw = chat(REFINE_SYSTEM.template, user_message, max_tokens=2048)
+    raw = chat(REFINE_SYSTEM.template, user_message, max_tokens=2048, json_mode=True)
 
     text = strip_markdown_fences(raw)
 
