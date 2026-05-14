@@ -259,11 +259,16 @@ const POLL_INTERVAL_MS = 1500;
 async function pollBackgroundJob(
   jobId: string,
   statusEndpoint: string,
-  maxPolls: number,
+  stallPolls: number,
   failureMessage: string,
   onProgress?: (status: { progress?: number; current_step?: string | null }) => void,
 ): Promise<void> {
-  for (let i = 0; i < maxPolls; i++) {
+  // Poll until completion. Time out only if the job's progress field stops
+  // advancing for `stallPolls` consecutive polls — large scripts (e.g. 200+
+  // Eli scenes) can legitimately exceed any fixed total-time budget.
+  let lastProgress = -1;
+  let stallCount = 0;
+  for (;;) {
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     const res = await api.get(`${statusEndpoint}${jobId}`);
     if (!res.ok) throw new Error("Failed to check job status");
@@ -272,8 +277,16 @@ async function pollBackgroundJob(
     if (job.status === "completed") return;
     if (job.status === "failed") throw new Error(job.error || failureMessage);
     if (job.status === "cancelled") throw new Error(`${failureMessage} (cancelled)`);
+
+    const currentProgress = job.progress ?? 0;
+    if (currentProgress > lastProgress) {
+      lastProgress = currentProgress;
+      stallCount = 0;
+    } else if (++stallCount >= stallPolls) {
+      const stallSeconds = Math.round((stallPolls * POLL_INTERVAL_MS) / 1000);
+      throw new Error(`${failureMessage} (no progress for ${stallSeconds}s)`);
+    }
   }
-  throw new Error(`${failureMessage} (timed out)`);
 }
 
 /** Poll a title card background job until it completes or fails. */
