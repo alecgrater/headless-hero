@@ -88,8 +88,8 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
     thumbs_dir = DATA_DIR / "projects" / body.script_id / "renders" / "thumbnails"
     thumbs_dir.mkdir(parents=True, exist_ok=True)
 
-    # Generate base composite (Eli overlaid deterministically in top-right corner —
-    # Gemini is told to preserve his position, not replace any segment circle)
+    # Generate base composite (no Eli — Gemini places Eli bursting out of one
+    # randomly-chosen segment circle as a portal effect for maximum CTR)
     output_path = str(images_dir / "composite_title_card.png")
     compose_title_card(
         circle_image_paths=circle_paths,
@@ -100,7 +100,7 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
         accent_color=DEFAULT_ACCENT_COLOR,
         output_path=output_path,
         include_title=True,
-        include_eli=True,
+        include_eli=False,
         card_subtitle=card_subtitle,
     )
 
