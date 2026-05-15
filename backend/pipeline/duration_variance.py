@@ -10,7 +10,7 @@ import logging
 from typing import Any
 
 from config import DEFAULT_TTS_MODEL, strip_markdown_fences
-from integrations.claude_client import chat
+from integrations.llm_client import chat
 from models.script import Scene, Script, ScriptContent
 from pipeline.voiceover import generate_scene_audio
 from prompts import TIGHTEN_SYSTEM

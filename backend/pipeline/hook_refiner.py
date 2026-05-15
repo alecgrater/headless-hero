@@ -6,7 +6,7 @@ import logging
 from pydantic import BaseModel
 
 from config import parse_json_response
-from integrations.claude_client import chat
+from integrations.llm_client import chat
 from models.script import HookScore
 
 logger = logging.getLogger(__name__)

@@ -583,7 +583,7 @@ def _compute_take_score(word_timestamps: list[dict], narration: str, deviation_r
     claude_note = ""
 
     try:
-        from integrations.claude_client import chat
+        from integrations.llm_client import chat
 
         # Build a compact timing summary for Claude
         timing_summary = f"WPM: {wpm:.0f}, CV: {cv:.2f}, gaps>1.5s: {len(long_gaps)}, accuracy: {deviation_ratio:.0%}"
@@ -778,7 +778,7 @@ def annotate_delivery(req: AnnotateDeliveryRequest, db: Session = Depends(get_se
     words = narration.split()
 
     try:
-        from integrations.claude_client import chat
+        from integrations.llm_client import chat
 
         prompt = f"""Analyze this narration for vocal delivery coaching. The narration has {len(words)} words (0-indexed).
 

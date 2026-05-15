@@ -4,7 +4,7 @@ import json
 import logging
 
 from config import strip_markdown_fences
-from integrations.claude_client import chat
+from integrations.llm_client import chat
 from models.script import Scene, ScriptContent
 from prompts import REFINE_SYSTEM
 

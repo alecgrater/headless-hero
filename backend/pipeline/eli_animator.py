@@ -3,7 +3,7 @@
 import json
 import logging
 
-from integrations.claude_client import chat
+from integrations.llm_client import chat
 from pipeline.character_frames import get_manifest
 from prompts import ELI_POSE_PICKER_SYSTEM
 

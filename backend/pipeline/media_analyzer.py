@@ -5,7 +5,7 @@ import logging
 from dataclasses import dataclass
 
 from config import strip_markdown_fences
-from integrations.claude_client import chat
+from integrations.llm_client import chat
 from models.script import ScriptContent
 from prompts import MEDIA_ANALYZER_SYSTEM
 

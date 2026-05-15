@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 
 from config import parse_json_response
 from database import engine
-from integrations.claude_client import chat
+from integrations.llm_client import chat
 from models.content_profile import ContentProfile
 from models.script import Script, ScriptContent
 from prompts import PROFILE_SYSTEM

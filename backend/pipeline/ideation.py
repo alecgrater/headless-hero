@@ -6,7 +6,7 @@ import logging
 from pydantic import BaseModel, field_validator
 
 from config import SEGMENT_COUNT, strip_markdown_fences
-from integrations.claude_client import chat
+from integrations.llm_client import chat
 from prompts import IDEATION_SYSTEM
 
 logger = logging.getLogger(__name__)

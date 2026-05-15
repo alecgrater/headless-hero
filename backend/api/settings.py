@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 
 from database import get_session
 from config import DEFAULT_CLAUDE_MODEL
-from integrations.claude_client import ALLOWED_PROVIDERS, LLM_TASKS
+from integrations.llm_client import ALLOWED_PROVIDERS, LLM_TASKS
 from models.settings import AppSetting
 
 logger = logging.getLogger(__name__)

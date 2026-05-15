@@ -3,7 +3,7 @@
 import json
 import logging
 from config import strip_markdown_fences
-from integrations.claude_client import chat
+from integrations.llm_client import chat
 from models.cold_open import ColdOpenResult, ColdOpenScores, ColdOpenVariant
 from prompts import compose_script_system_prompt
 

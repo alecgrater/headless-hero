@@ -3,7 +3,7 @@
 import json
 import logging
 
-from integrations.claude_client import chat
+from integrations.llm_client import chat
 from prompts import BRAINSTORM_SYSTEM
 
 logger = logging.getLogger(__name__)

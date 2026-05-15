@@ -6,7 +6,7 @@ import logging
 from pydantic import BaseModel
 
 from config import strip_markdown_fences
-from integrations.claude_client import chat
+from integrations.llm_client import chat
 from prompts import SEO_SYSTEM
 
 logger = logging.getLogger(__name__)

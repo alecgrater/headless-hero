@@ -5,7 +5,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import parse_json_response
-from integrations.claude_client import chat
+from integrations.llm_client import chat
 from prompts import SMART_IDEATION_SYSTEM
 
 logger = logging.getLogger(__name__)

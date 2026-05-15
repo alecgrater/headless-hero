@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from thefuzz import fuzz
 
 from config import parse_json_response
-from integrations.claude_client import chat
+from integrations.llm_client import chat
 from prompts import FORMAT_FIT_SYSTEM
 
 logger = logging.getLogger(__name__)

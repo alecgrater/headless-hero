@@ -102,7 +102,7 @@ def _migrate_script_model_default() -> None:
 
 def _migrate_llm_task_route_defaults() -> None:
     """Seed missing per-task LLM routing defaults without overwriting user choices."""
-    from integrations.claude_client import LLM_TASKS
+    from integrations.llm_client import LLM_TASKS
     from models.settings import AppSetting
 
     with Session(engine) as session:

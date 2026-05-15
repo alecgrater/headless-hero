@@ -7,7 +7,7 @@ import time
 from collections.abc import Callable
 
 from config import DEFAULT_ACCENT_COLOR, SEGMENT_COUNT, strip_markdown_fences
-from integrations.claude_client import chat
+from integrations.llm_client import chat
 from models.script import Scene, ScriptContent, Segment
 from prompts import SCRIPT_OUTLINE_INSTRUCTIONS, SCRIPT_SEGMENT_SCENES_INSTRUCTIONS, SCRIPT_SYSTEM
 
