@@ -342,26 +342,8 @@ export default function GeneralSection() {
     });
   };
 
-  const modelForGlobalProvider = (task: LlmTaskConfig, provider: LlmProvider) => {
-    return modelForProvider(task, provider);
-  };
-
   const handleDefaultProviderChange = (provider: LlmProvider) => {
     setLlmProvider(provider);
-    setTaskRoutes((prev) =>
-      Object.fromEntries(
-        LLM_TASKS.map((task) => {
-          const current = prev[task.id] ?? { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) };
-          const knownDefaults = new Set([task.defaultModel, task.openaiDefaultModel, task.ollamaDefaultModel, ""]);
-          return [
-            task.id,
-            current.provider === originalLlmProvider && knownDefaults.has(current.model)
-              ? { ...current, model: modelForGlobalProvider(task, provider) }
-              : current,
-          ];
-        }),
-      ),
-    );
   };
 
   const routeChanged = LLM_TASKS.some((task) => {

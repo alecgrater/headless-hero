@@ -105,6 +105,17 @@ def _migrate_llm_task_route_defaults() -> None:
     from integrations.claude_client import LLM_TASKS
     from models.settings import AppSetting
 
+    stale_provider_values = {"", "ollama", "anthropic", "claude-code-proxy"}
+    stale_model_values = {
+        "qwen3:14b",
+        "anthropic.claude-opus-4-6-v1",
+        "anthropic.claude-sonnet-4-6",
+        "anthropic.claude-haiku-4-5-20251001-v1:0",
+        "gpt-5.2",
+        "gpt-5-mini",
+        "gpt-5-nano",
+    }
+
     with Session(engine) as session:
         seeded: list[str] = []
         for task in LLM_TASKS.values():
@@ -113,11 +124,23 @@ def _migrate_llm_task_route_defaults() -> None:
             default_provider = task["default_provider"]
             default_model = "qwen3:14b" if default_provider == "ollama" else task[f"default_{default_provider}_model"]
 
-            if not session.get(AppSetting, provider_key):
+            provider_setting = session.get(AppSetting, provider_key)
+            model_setting = session.get(AppSetting, model_key)
+
+            if not provider_setting:
                 session.add(AppSetting(key=provider_key, value=default_provider))
                 seeded.append(provider_key)
-            if not session.get(AppSetting, model_key):
+            elif provider_setting.value in stale_provider_values:
+                provider_setting.value = default_provider
+                session.add(provider_setting)
+                seeded.append(provider_key)
+
+            if not model_setting:
                 session.add(AppSetting(key=model_key, value=default_model))
+                seeded.append(model_key)
+            elif model_setting.value in stale_model_values:
+                model_setting.value = default_model
+                session.add(model_setting)
                 seeded.append(model_key)
 
         if seeded:
