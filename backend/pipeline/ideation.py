@@ -56,7 +56,7 @@ def generate_ideas(
     logger.info("Generating %s ideas for niche %r", count, niche)
     raw = chat(IDEATION_SYSTEM.build(str(SEGMENT_COUNT)), user_message, json_mode=True, task="idea")
 
-    # Claude may wrap JSON in markdown fences — strip them
+    # Providers may wrap JSON in markdown fences; strip them before parsing.
     text = strip_markdown_fences(raw)
 
     ideas_data = json.loads(text)

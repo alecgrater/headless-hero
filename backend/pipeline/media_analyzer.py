@@ -29,8 +29,8 @@ def analyze_media_sources(
 ) -> list[MediaAssignment]:
     """Analyze a completed script and assign media sources per scene.
 
-    Sends the full script to Claude, which returns per-scene assignments
-    based on the narrative content.
+    Sends the full script to the routed LLM provider, which returns per-scene
+    assignments based on the narrative content.
     """
     sources = ['"ai"']
     if gameplay_enabled:

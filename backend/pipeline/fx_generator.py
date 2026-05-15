@@ -42,7 +42,7 @@ def generate_scene_fx(scene_data: dict, script_id: str | None = None) -> dict:
     fx_list = json.loads(cleaned)
 
     if not isinstance(fx_list, list) or len(fx_list) == 0:
-        raise ValueError("Expected non-empty JSON array from Claude FX generator")
+        raise ValueError("Expected non-empty JSON array from FX generator")
 
     entry = fx_list[0]
     fx_data = entry.get("fx", {})

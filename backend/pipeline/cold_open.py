@@ -16,7 +16,7 @@ def generate_cold_opens(
     brand_context: str = "",
     model: str | None = None,
 ) -> ColdOpenResult:
-    """Generate 3 cold open variants with Claude scoring.
+    """Generate 3 cold open variants with routed LLM scoring.
 
     Returns a ColdOpenResult with computed overall scores and winner_id.
     """
@@ -49,7 +49,7 @@ def generate_cold_opens(
     try:
         data = json.loads(text)
     except json.JSONDecodeError:
-        # Claude sometimes appends commentary after the JSON object — extract just the JSON
+        # Some providers append commentary after the JSON object; extract just the JSON.
         decoder = json.JSONDecoder()
         try:
             data, _ = decoder.raw_decode(text.lstrip())
