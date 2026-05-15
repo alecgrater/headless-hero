@@ -95,8 +95,13 @@ export default function ScriptGenerationPage({
     api.get("/api/settings/keys").then((res) => {
       if (res.ok) {
         const data = res.data as Record<string, { masked?: string }>;
-        setLlmProvider(data.SCRIPT_LLM_PROVIDER?.masked || data.LLM_PROVIDER?.masked || "anthropic");
-        setQwenModel(data.SCRIPT_MODEL?.masked || data.QWEN_MODEL?.masked || "qwen3:14b");
+        const provider = data.SCRIPT_LLM_PROVIDER?.masked || data.LLM_PROVIDER?.masked || "anthropic";
+        setLlmProvider(provider);
+        setQwenModel(
+          provider === "ollama"
+            ? data.QWEN_MODEL?.masked || "qwen3:14b"
+            : data.SCRIPT_MODEL?.masked || data.QWEN_MODEL?.masked || "qwen3:14b",
+        );
       }
     });
   }, []);
