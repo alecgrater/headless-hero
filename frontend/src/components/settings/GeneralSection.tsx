@@ -30,13 +30,14 @@ interface LlmTaskConfig {
   description: string;
   providerKey: string;
   modelKey: string;
+  defaultProvider: LlmProvider;
   defaultModel: string;
   openaiDefaultModel: string;
   ollamaDefaultModel: string;
 }
 
 interface TaskRoute {
-  provider: "" | LlmProvider;
+  provider: LlmProvider;
   model: string;
 }
 
@@ -47,6 +48,7 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "Full scripts, segmented generation, scene rewrites, cold-open variants, narration tightening.",
     providerKey: "SCRIPT_LLM_PROVIDER",
     modelKey: "SCRIPT_MODEL",
+    defaultProvider: "anthropic",
     defaultModel: DEFAULT_MODEL,
     openaiDefaultModel: "gpt-5.2",
     ollamaDefaultModel: "qwen3:14b",
@@ -57,6 +59,7 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "Niche ideas, smart ideas, and brainstorming recommendations.",
     providerKey: "IDEA_LLM_PROVIDER",
     modelKey: "IDEA_MODEL",
+    defaultProvider: "openai",
     defaultModel: "anthropic.claude-sonnet-4-6",
     openaiDefaultModel: "gpt-5-mini",
     ollamaDefaultModel: "qwen3:14b",
@@ -67,6 +70,7 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "Scene FX, transitions, and visual timing suggestions.",
     providerKey: "FX_LLM_PROVIDER",
     modelKey: "FX_MODEL",
+    defaultProvider: "ollama",
     defaultModel: "anthropic.claude-sonnet-4-6",
     openaiDefaultModel: "gpt-5-mini",
     ollamaDefaultModel: "qwen3:14b",
@@ -77,6 +81,7 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "YouTube titles, descriptions, tags, and chapter-aware metadata.",
     providerKey: "SEO_LLM_PROVIDER",
     modelKey: "SEO_MODEL",
+    defaultProvider: "ollama",
     defaultModel: "anthropic.claude-sonnet-4-6",
     openaiDefaultModel: "gpt-5-mini",
     ollamaDefaultModel: "qwen3:14b",
@@ -87,6 +92,7 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "Retention scoring and hook rewrite suggestions.",
     providerKey: "HOOK_LLM_PROVIDER",
     modelKey: "HOOK_MODEL",
+    defaultProvider: "ollama",
     defaultModel: "anthropic.claude-haiku-4-5-20251001-v1:0",
     openaiDefaultModel: "gpt-5-nano",
     ollamaDefaultModel: "qwen3:14b",
@@ -97,6 +103,7 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "Post-script routing between AI visuals, stock photos, and gameplay clips.",
     providerKey: "MEDIA_LLM_PROVIDER",
     modelKey: "MEDIA_MODEL",
+    defaultProvider: "ollama",
     defaultModel: "anthropic.claude-sonnet-4-6",
     openaiDefaultModel: "gpt-5-mini",
     ollamaDefaultModel: "qwen3:14b",
@@ -107,6 +114,7 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "Eli pose and placement selection for scenes.",
     providerKey: "ELI_LLM_PROVIDER",
     modelKey: "ELI_MODEL",
+    defaultProvider: "ollama",
     defaultModel: "anthropic.claude-haiku-4-5-20251001-v1:0",
     openaiDefaultModel: "gpt-5-nano",
     ollamaDefaultModel: "qwen3:14b",
@@ -117,6 +125,7 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "Trend format-fit scoring, content profiles, and recording quality analysis.",
     providerKey: "ANALYSIS_LLM_PROVIDER",
     modelKey: "ANALYSIS_MODEL",
+    defaultProvider: "ollama",
     defaultModel: "anthropic.claude-haiku-4-5-20251001-v1:0",
     openaiDefaultModel: "gpt-5-nano",
     ollamaDefaultModel: "qwen3:14b",
@@ -162,6 +171,20 @@ const MODEL_SUGGESTIONS = [
   { value: "qwen3:8b", label: "Qwen3 8B (Ollama)" },
 ] as const;
 
+const initialTaskRoutes = () =>
+  Object.fromEntries(
+    LLM_TASKS.map((task) => [
+      task.id,
+      { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) },
+    ]),
+  );
+
+function modelForProvider(task: LlmTaskConfig, provider: LlmProvider) {
+  if (provider === "openai") return task.openaiDefaultModel;
+  if (provider === "ollama") return task.ollamaDefaultModel;
+  return task.defaultModel;
+}
+
 export default function GeneralSection() {
   const [downloadsDir, setDownloadsDir] = useState("");
   const [exportFolder, setExportFolder] = useState("");
@@ -177,9 +200,7 @@ export default function GeneralSection() {
   const [qwenModel, setQwenModel] = useState("qwen3:14b");
   const [anthropicKeyConfigured, setAnthropicKeyConfigured] = useState(false);
   const [openaiKeyConfigured, setOpenaiKeyConfigured] = useState(false);
-  const [taskRoutes, setTaskRoutes] = useState<Record<string, TaskRoute>>(() =>
-    Object.fromEntries(LLM_TASKS.map((task) => [task.id, { provider: "", model: task.defaultModel }]))
-  );
+  const [taskRoutes, setTaskRoutes] = useState<Record<string, TaskRoute>>(initialTaskRoutes);
   const [originalDownloads, setOriginalDownloads] = useState("");
   const [originalExportFolder, setOriginalExportFolder] = useState("");
   const [originalProvider, setOriginalProvider] = useState("google");
@@ -190,9 +211,7 @@ export default function GeneralSection() {
   const [originalRateLimit, setOriginalRateLimit] = useState("true");
   const [originalLlmProvider, setOriginalLlmProvider] = useState<LlmProvider>("ollama");
   const [originalQwenModel, setOriginalQwenModel] = useState("qwen3:14b");
-  const [originalTaskRoutes, setOriginalTaskRoutes] = useState<Record<string, TaskRoute>>(() =>
-    Object.fromEntries(LLM_TASKS.map((task) => [task.id, { provider: "", model: task.defaultModel }]))
-  );
+  const [originalTaskRoutes, setOriginalTaskRoutes] = useState<Record<string, TaskRoute>>(initialTaskRoutes);
 
   useEffect(() => {
     api.get("/api/settings/keys").then((res) => {
@@ -234,8 +253,8 @@ export default function GeneralSection() {
           LLM_TASKS.map((task) => [
             task.id,
             {
-              provider: (data[task.providerKey]?.masked || "") as TaskRoute["provider"],
-              model: data[task.modelKey]?.masked || task.defaultModel,
+              provider: (data[task.providerKey]?.masked || task.defaultProvider) as TaskRoute["provider"],
+              model: data[task.modelKey]?.masked || modelForProvider(task, task.defaultProvider),
             },
           ]),
         );
@@ -250,10 +269,10 @@ export default function GeneralSection() {
     setSaving(true);
     const routePayload = Object.fromEntries(
       LLM_TASKS.flatMap((task) => {
-        const route = taskRoutes[task.id] ?? { provider: "", model: task.defaultModel };
+        const route = taskRoutes[task.id] ?? { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) };
         return [
           [task.providerKey, route.provider],
-          [task.modelKey, route.model.trim() || task.defaultModel],
+          [task.modelKey, route.model.trim() || modelForProvider(task, route.provider || task.defaultProvider)],
         ];
       }),
     );
@@ -287,8 +306,8 @@ export default function GeneralSection() {
       setOriginalTaskRoutes(
         Object.fromEntries(
           LLM_TASKS.map((task) => {
-            const route = taskRoutes[task.id] ?? { provider: "", model: task.defaultModel };
-            return [task.id, { provider: route.provider, model: route.model.trim() || task.defaultModel }];
+            const route = taskRoutes[task.id] ?? { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) };
+            return [task.id, { provider: route.provider, model: route.model.trim() || modelForProvider(task, route.provider || task.defaultProvider) }];
           }),
         ),
       );
@@ -299,21 +318,23 @@ export default function GeneralSection() {
     setTaskRoutes((prev) => ({
       ...prev,
       [taskId]: {
-        ...(prev[taskId] ?? { provider: "", model: LLM_TASKS.find((task) => task.id === taskId)?.defaultModel ?? DEFAULT_MODEL }),
+        ...(prev[taskId] ?? (() => {
+          const task = LLM_TASKS.find((candidate) => candidate.id === taskId);
+          return task
+            ? { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) }
+            : { provider: "anthropic" as LlmProvider, model: DEFAULT_MODEL };
+        })()),
         ...updates,
       },
     }));
   };
 
   const defaultModelForProvider = (task: LlmTaskConfig, provider: TaskRoute["provider"]) => {
-    const effectiveProvider = provider || llmProvider;
-    if (effectiveProvider === "openai") return task.openaiDefaultModel;
-    if (effectiveProvider === "ollama") return task.ollamaDefaultModel;
-    return task.defaultModel;
+    return modelForProvider(task, provider || llmProvider);
   };
 
   const handleTaskProviderChange = (task: LlmTaskConfig, provider: TaskRoute["provider"]) => {
-    const current = taskRoutes[task.id] ?? { provider: "", model: task.defaultModel };
+    const current = taskRoutes[task.id] ?? { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) };
     const knownDefaults = new Set([task.defaultModel, task.openaiDefaultModel, task.ollamaDefaultModel, ""]);
     updateTaskRoute(task.id, {
       provider,
@@ -322,9 +343,7 @@ export default function GeneralSection() {
   };
 
   const modelForGlobalProvider = (task: LlmTaskConfig, provider: LlmProvider) => {
-    if (provider === "openai") return task.openaiDefaultModel;
-    if (provider === "ollama") return task.ollamaDefaultModel;
-    return task.defaultModel;
+    return modelForProvider(task, provider);
   };
 
   const handleDefaultProviderChange = (provider: LlmProvider) => {
@@ -332,11 +351,11 @@ export default function GeneralSection() {
     setTaskRoutes((prev) =>
       Object.fromEntries(
         LLM_TASKS.map((task) => {
-          const current = prev[task.id] ?? { provider: "", model: task.defaultModel };
+          const current = prev[task.id] ?? { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) };
           const knownDefaults = new Set([task.defaultModel, task.openaiDefaultModel, task.ollamaDefaultModel, ""]);
           return [
             task.id,
-            current.provider === "" && knownDefaults.has(current.model)
+            current.provider === originalLlmProvider && knownDefaults.has(current.model)
               ? { ...current, model: modelForGlobalProvider(task, provider) }
               : current,
           ];
@@ -346,8 +365,8 @@ export default function GeneralSection() {
   };
 
   const routeChanged = LLM_TASKS.some((task) => {
-    const current = taskRoutes[task.id] ?? { provider: "", model: task.defaultModel };
-    const original = originalTaskRoutes[task.id] ?? { provider: "", model: task.defaultModel };
+    const current = taskRoutes[task.id] ?? { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) };
+    const original = originalTaskRoutes[task.id] ?? { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) };
     return current.provider !== original.provider || current.model.trim() !== original.model;
   });
 
@@ -487,7 +506,7 @@ export default function GeneralSection() {
               <div>
                 <h3 className="text-sm font-medium text-neutral-100">LLM Task Routing</h3>
                 <p className="text-xs text-neutral-500">
-                  Configure provider and model per task. Leave Provider as "Use default" to inherit the default route above.
+                  Configure provider and model per task. These defaults use API models for scripts and ideas, then local Ollama for everything else.
                 </p>
               </div>
               <datalist id="llm-model-suggestions">
@@ -499,7 +518,7 @@ export default function GeneralSection() {
               </datalist>
               <div className="space-y-3">
                 {LLM_TASKS.map((task) => {
-                  const route = taskRoutes[task.id] ?? { provider: "", model: task.defaultModel };
+                  const route = taskRoutes[task.id] ?? { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) };
                   const effectiveProvider = route.provider || llmProvider;
                   return (
                     <div key={task.id} className="rounded-lg border border-neutral-800 bg-neutral-950/40 p-3 space-y-3">
@@ -515,7 +534,6 @@ export default function GeneralSection() {
                             onChange={(e) => handleTaskProviderChange(task, e.target.value as TaskRoute["provider"])}
                             className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
                           >
-                            <option value="">Use default ({LLM_PROVIDERS.find((p) => p.value === llmProvider)?.label ?? llmProvider})</option>
                             {LLM_PROVIDERS.map((p) => (
                               <option key={p.value} value={p.value}>
                                 {p.label}

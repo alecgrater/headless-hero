@@ -83,8 +83,9 @@ _DEFAULTS: dict[str, str] = {
 }
 
 for _task_config in LLM_TASKS.values():
-    _DEFAULTS.setdefault(_task_config["provider_key"], "")
-    _DEFAULTS.setdefault(_task_config["model_key"], _task_config["default_anthropic_model"])
+    _default_provider = _task_config["default_provider"]
+    _DEFAULTS.setdefault(_task_config["provider_key"], _default_provider)
+    _DEFAULTS.setdefault(_task_config["model_key"], _task_config[f"default_{_default_provider}_model"] if _default_provider != "ollama" else "qwen3:14b")
 
 
 def _mask(value: str) -> str:

@@ -18,6 +18,7 @@ def init_db() -> None:
     SQLModel.metadata.create_all(engine)
     _migrate_add_eli_position()
     _migrate_script_model_default()
+    _migrate_llm_task_route_defaults()
     _migrate_add_script_id_to_api_usage()
     _migrate_add_scene_count_to_generation_durations()
     _migrate_add_export_folder_to_publish_records()
@@ -97,6 +98,31 @@ def _migrate_script_model_default() -> None:
             session.delete(setting)
             session.commit()
             logger.info("Migrated: cleared stale SCRIPT_MODEL default (was claude-sonnet-4)")
+
+
+def _migrate_llm_task_route_defaults() -> None:
+    """Seed missing per-task LLM routing defaults without overwriting user choices."""
+    from integrations.claude_client import LLM_TASKS
+    from models.settings import AppSetting
+
+    with Session(engine) as session:
+        seeded: list[str] = []
+        for task in LLM_TASKS.values():
+            provider_key = task["provider_key"]
+            model_key = task["model_key"]
+            default_provider = task["default_provider"]
+            default_model = "qwen3:14b" if default_provider == "ollama" else task[f"default_{default_provider}_model"]
+
+            if not session.get(AppSetting, provider_key):
+                session.add(AppSetting(key=provider_key, value=default_provider))
+                seeded.append(provider_key)
+            if not session.get(AppSetting, model_key):
+                session.add(AppSetting(key=model_key, value=default_model))
+                seeded.append(model_key)
+
+        if seeded:
+            session.commit()
+            logger.info("Migrated: seeded LLM task route defaults: %s", ", ".join(seeded))
 
 
 def _migrate_add_scene_count_to_generation_durations() -> None:
