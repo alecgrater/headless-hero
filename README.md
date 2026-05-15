@@ -187,7 +187,7 @@ headless-hero/
 │   │   ├── trending_scorer.py # Trending topic aggregation + scoring
 │   │   └── modifiers/        # Content modifier plugin system
 │   ├── integrations/
-│   │   ├── claude_client.py       # Anthropic SDK wrapper
+│   │   ├── llm_client.py          # Routed LLM provider wrapper
 │   │   ├── google_image_client.py # google-genai SDK wrapper
 │   │   ├── elevenlabs_client.py   # ElevenLabs httpx wrapper
 │   │   ├── youtube_client.py      # YouTube Data API v3 wrapper
