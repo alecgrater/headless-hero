@@ -92,37 +92,6 @@ export const AnimatedChapterMap: React.FC<Props> = ({
           />
         )}
       </div>
-
-      {/* Current chapter label overlay */}
-      {zoomProgress > 0.5 && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "12%",
-            left: 0,
-            right: 0,
-            display: "flex",
-            justifyContent: "center",
-            opacity: interpolate(zoomProgress, [0.5, 0.8], [0, 1], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-            }),
-          }}
-        >
-          <span
-            style={{
-              fontSize: "48px",
-              fontWeight: 800,
-              color: "#fff",
-              textShadow: "0 4px 16px rgba(0,0,0,0.9)",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            {target.label}
-          </span>
-        </div>
-      )}
     </div>
   );
 };
