@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 
 from database import get_session
 from config import DEFAULT_CLAUDE_MODEL
-from integrations.claude_client import ALLOWED_PROVIDERS
+from integrations.claude_client import ALLOWED_PROVIDERS, LLM_TASKS
 from models.settings import AppSetting
 
 logger = logging.getLogger(__name__)
@@ -18,6 +18,7 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 # Keys that can be managed through the settings UI
 ALLOWED_KEYS = {
     "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
     "GOOGLE_AI_KEY",
     "ELEVENLABS_API_KEY",
     "GOOGLE_CLIENT_ID",
@@ -44,6 +45,10 @@ ALLOWED_KEYS = {
     "QWEN_MODEL",
 }
 
+for _task_config in LLM_TASKS.values():
+    ALLOWED_KEYS.add(_task_config["provider_key"])
+    ALLOWED_KEYS.add(_task_config["model_key"])
+
 # Keys that should NOT be masked (non-secret settings)
 _PLAINTEXT_KEYS = {
     "DOWNLOADS_DIR",
@@ -62,6 +67,10 @@ _PLAINTEXT_KEYS = {
     "QWEN_MODEL",
 }
 
+for _task_config in LLM_TASKS.values():
+    _PLAINTEXT_KEYS.add(_task_config["provider_key"])
+    _PLAINTEXT_KEYS.add(_task_config["model_key"])
+
 # Default values for settings that have sensible defaults
 _DEFAULTS: dict[str, str] = {
     "IMAGE_RATE_LIMIT_MS": "10000",  # 6 req/min to stay under free-tier limits
@@ -72,6 +81,10 @@ _DEFAULTS: dict[str, str] = {
     "LLM_PROVIDER": "ollama",
     "QWEN_MODEL": "qwen3:14b",
 }
+
+for _task_config in LLM_TASKS.values():
+    _DEFAULTS.setdefault(_task_config["provider_key"], "")
+    _DEFAULTS.setdefault(_task_config["model_key"], _task_config["default_anthropic_model"])
 
 
 def _mask(value: str) -> str:
@@ -134,15 +147,16 @@ async def save_keys(
     """Save API keys to DB and set them in os.environ."""
     logger.info("Saving settings keys: %s", list(keys.keys()))
 
-    # Validate LLM_PROVIDER before any writes.
-    if "LLM_PROVIDER" in keys:
-        provider = (keys["LLM_PROVIDER"] or "").strip().lower()
+    # Validate provider settings before any writes.
+    provider_keys = {"LLM_PROVIDER", *(task["provider_key"] for task in LLM_TASKS.values())}
+    for provider_key in provider_keys.intersection(keys):
+        provider = (keys[provider_key] or "").strip().lower()
         if provider and provider not in ALLOWED_PROVIDERS:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid LLM_PROVIDER: {provider!r}. Must be one of {sorted(ALLOWED_PROVIDERS)}.",
+                detail=f"Invalid {provider_key}: {provider!r}. Must be one of {sorted(ALLOWED_PROVIDERS)}.",
             )
-        keys["LLM_PROVIDER"] = provider
+        keys[provider_key] = provider
 
     saved_keys: list[str] = []
     skipped_keys: list[str] = []

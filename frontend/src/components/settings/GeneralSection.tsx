@@ -18,8 +18,110 @@ const IMAGE_PROVIDERS = [
 const LLM_PROVIDERS = [
   { value: "ollama", label: "Ollama (local)", description: "Local Qwen3 via Ollama" },
   { value: "anthropic", label: "Anthropic API", description: "Real Claude API (requires ANTHROPIC_API_KEY)" },
+  { value: "openai", label: "OpenAI API", description: "OpenAI models (requires OPENAI_API_KEY)" },
   { value: "claude-code-proxy", label: "Claude Code Proxy", description: "Apple Claude Code proxy on localhost:11211" },
 ] as const;
+
+type LlmProvider = (typeof LLM_PROVIDERS)[number]["value"];
+
+interface LlmTaskConfig {
+  id: string;
+  label: string;
+  description: string;
+  providerKey: string;
+  modelKey: string;
+  defaultModel: string;
+  openaiDefaultModel: string;
+  ollamaDefaultModel: string;
+}
+
+interface TaskRoute {
+  provider: "" | LlmProvider;
+  model: string;
+}
+
+const LLM_TASKS: LlmTaskConfig[] = [
+  {
+    id: "script",
+    label: "Script & cold opens",
+    description: "Full scripts, segmented generation, scene rewrites, cold-open variants, narration tightening.",
+    providerKey: "SCRIPT_LLM_PROVIDER",
+    modelKey: "SCRIPT_MODEL",
+    defaultModel: DEFAULT_MODEL,
+    openaiDefaultModel: "gpt-5.2",
+    ollamaDefaultModel: "qwen3:14b",
+  },
+  {
+    id: "idea",
+    label: "Ideas & brainstorming",
+    description: "Niche ideas, smart ideas, and brainstorming recommendations.",
+    providerKey: "IDEA_LLM_PROVIDER",
+    modelKey: "IDEA_MODEL",
+    defaultModel: "anthropic.claude-sonnet-4-6",
+    openaiDefaultModel: "gpt-5-mini",
+    ollamaDefaultModel: "qwen3:14b",
+  },
+  {
+    id: "fx",
+    label: "FX assignment",
+    description: "Scene FX, transitions, and visual timing suggestions.",
+    providerKey: "FX_LLM_PROVIDER",
+    modelKey: "FX_MODEL",
+    defaultModel: "anthropic.claude-sonnet-4-6",
+    openaiDefaultModel: "gpt-5-mini",
+    ollamaDefaultModel: "qwen3:14b",
+  },
+  {
+    id: "seo",
+    label: "SEO metadata",
+    description: "YouTube titles, descriptions, tags, and chapter-aware metadata.",
+    providerKey: "SEO_LLM_PROVIDER",
+    modelKey: "SEO_MODEL",
+    defaultModel: "anthropic.claude-sonnet-4-6",
+    openaiDefaultModel: "gpt-5-mini",
+    ollamaDefaultModel: "qwen3:14b",
+  },
+  {
+    id: "hook",
+    label: "Hook scoring/refining",
+    description: "Retention scoring and hook rewrite suggestions.",
+    providerKey: "HOOK_LLM_PROVIDER",
+    modelKey: "HOOK_MODEL",
+    defaultModel: "anthropic.claude-haiku-4-5-20251001-v1:0",
+    openaiDefaultModel: "gpt-5-nano",
+    ollamaDefaultModel: "qwen3:14b",
+  },
+  {
+    id: "media",
+    label: "Media routing",
+    description: "Post-script routing between AI visuals, stock photos, and gameplay clips.",
+    providerKey: "MEDIA_LLM_PROVIDER",
+    modelKey: "MEDIA_MODEL",
+    defaultModel: "anthropic.claude-sonnet-4-6",
+    openaiDefaultModel: "gpt-5-mini",
+    ollamaDefaultModel: "qwen3:14b",
+  },
+  {
+    id: "eli",
+    label: "Eli animation",
+    description: "Eli pose and placement selection for scenes.",
+    providerKey: "ELI_LLM_PROVIDER",
+    modelKey: "ELI_MODEL",
+    defaultModel: "anthropic.claude-haiku-4-5-20251001-v1:0",
+    openaiDefaultModel: "gpt-5-nano",
+    ollamaDefaultModel: "qwen3:14b",
+  },
+  {
+    id: "analysis",
+    label: "Analysis & scoring",
+    description: "Trend format-fit scoring, content profiles, and recording quality analysis.",
+    providerKey: "ANALYSIS_LLM_PROVIDER",
+    modelKey: "ANALYSIS_MODEL",
+    defaultModel: "anthropic.claude-haiku-4-5-20251001-v1:0",
+    openaiDefaultModel: "gpt-5-nano",
+    ollamaDefaultModel: "qwen3:14b",
+  },
+];
 
 const OUTPUT_FORMATS = [
   { value: "png", label: "PNG" },
@@ -49,6 +151,16 @@ export const SCRIPT_MODELS = [
   { value: "anthropic.claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
   { value: "anthropic.claude-sonnet-4-5-20250929-v1:0", label: "Claude Sonnet 4.5" },
   { value: "anthropic.claude-haiku-4-5-20251001-v1:0", label: "Claude Haiku 4.5" },
+  { value: "gpt-5.2", label: "OpenAI GPT-5.2" },
+  { value: "gpt-5.2-pro", label: "OpenAI GPT-5.2 Pro" },
+  { value: "gpt-5-mini", label: "OpenAI GPT-5 Mini" },
+  { value: "gpt-5-nano", label: "OpenAI GPT-5 Nano" },
+] as const;
+
+const MODEL_SUGGESTIONS = [
+  ...SCRIPT_MODELS,
+  { value: "qwen3:14b", label: "Qwen3 14B (Ollama)" },
+  { value: "qwen3:8b", label: "Qwen3 8B (Ollama)" },
 ] as const;
 
 export default function GeneralSection() {
@@ -62,10 +174,13 @@ export default function GeneralSection() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [rateLimitEnabled, setRateLimitEnabled] = useState("true");
-  const [scriptModel, setScriptModel] = useState(DEFAULT_MODEL);
-  const [llmProvider, setLlmProvider] = useState("ollama");
+  const [llmProvider, setLlmProvider] = useState<LlmProvider>("ollama");
   const [qwenModel, setQwenModel] = useState("qwen3:14b");
   const [anthropicKeyConfigured, setAnthropicKeyConfigured] = useState(false);
+  const [openaiKeyConfigured, setOpenaiKeyConfigured] = useState(false);
+  const [taskRoutes, setTaskRoutes] = useState<Record<string, TaskRoute>>(() =>
+    Object.fromEntries(LLM_TASKS.map((task) => [task.id, { provider: "", model: task.defaultModel }]))
+  );
   const [originalDownloads, setOriginalDownloads] = useState("");
   const [originalExportFolder, setOriginalExportFolder] = useState("");
   const [originalProvider, setOriginalProvider] = useState("google");
@@ -74,9 +189,11 @@ export default function GeneralSection() {
   const [originalSafety, setOriginalSafety] = useState("2");
   const [originalFormat, setOriginalFormat] = useState("png");
   const [originalRateLimit, setOriginalRateLimit] = useState("true");
-  const [originalScriptModel, setOriginalScriptModel] = useState(DEFAULT_MODEL);
-  const [originalLlmProvider, setOriginalLlmProvider] = useState("ollama");
+  const [originalLlmProvider, setOriginalLlmProvider] = useState<LlmProvider>("ollama");
   const [originalQwenModel, setOriginalQwenModel] = useState("qwen3:14b");
+  const [originalTaskRoutes, setOriginalTaskRoutes] = useState<Record<string, TaskRoute>>(() =>
+    Object.fromEntries(LLM_TASKS.map((task) => [task.id, { provider: "", model: task.defaultModel }]))
+  );
 
   useEffect(() => {
     api.get("/api/settings/keys").then((res) => {
@@ -106,16 +223,25 @@ export default function GeneralSection() {
         const rlVal = data.IMAGE_RATE_LIMIT_MS?.masked || "true";
         setRateLimitEnabled(rlVal === "0" || rlVal === "false" ? "false" : "true");
         setOriginalRateLimit(rlVal === "0" || rlVal === "false" ? "false" : "true");
-        const smVal = data.SCRIPT_MODEL?.masked || DEFAULT_MODEL;
-        setScriptModel(smVal);
-        setOriginalScriptModel(smVal);
-        const llmVal = data.LLM_PROVIDER?.masked || "ollama";
+        const llmVal = (data.LLM_PROVIDER?.masked || "ollama") as LlmProvider;
         setLlmProvider(llmVal);
         setOriginalLlmProvider(llmVal);
         const qwVal = data.QWEN_MODEL?.masked || "qwen3:14b";
         setQwenModel(qwVal);
         setOriginalQwenModel(qwVal);
         setAnthropicKeyConfigured(!!data.ANTHROPIC_API_KEY?.configured);
+        setOpenaiKeyConfigured(!!data.OPENAI_API_KEY?.configured);
+        const routes = Object.fromEntries(
+          LLM_TASKS.map((task) => [
+            task.id,
+            {
+              provider: (data[task.providerKey]?.masked || "") as TaskRoute["provider"],
+              model: data[task.modelKey]?.masked || task.defaultModel,
+            },
+          ]),
+        );
+        setTaskRoutes(routes);
+        setOriginalTaskRoutes(routes);
       }
       setLoading(false);
     });
@@ -123,6 +249,15 @@ export default function GeneralSection() {
 
   const handleSave = async () => {
     setSaving(true);
+    const routePayload = Object.fromEntries(
+      LLM_TASKS.flatMap((task) => {
+        const route = taskRoutes[task.id] ?? { provider: "", model: task.defaultModel };
+        return [
+          [task.providerKey, route.provider],
+          [task.modelKey, route.model.trim() || task.defaultModel],
+        ];
+      }),
+    );
     const res = await api.put("/api/settings/keys", {
       DOWNLOADS_DIR: downloadsDir.trim(),
       EXPORT_FOLDER: exportFolder.trim(),
@@ -132,9 +267,9 @@ export default function GeneralSection() {
       REPLICATE_SAFETY_TOLERANCE: safetyTolerance,
       REPLICATE_OUTPUT_FORMAT: outputFormat,
       IMAGE_RATE_LIMIT_MS: rateLimitEnabled === "true" ? "10000" : "0",
-      SCRIPT_MODEL: scriptModel,
       LLM_PROVIDER: llmProvider,
       QWEN_MODEL: qwenModel.trim() || "qwen3:14b",
+      ...routePayload,
     });
     setSaving(false);
 
@@ -148,11 +283,74 @@ export default function GeneralSection() {
       setOriginalSafety(safetyTolerance);
       setOriginalFormat(outputFormat);
       setOriginalRateLimit(rateLimitEnabled);
-      setOriginalScriptModel(scriptModel);
       setOriginalLlmProvider(llmProvider);
       setOriginalQwenModel(qwenModel.trim() || "qwen3:14b");
+      setOriginalTaskRoutes(
+        Object.fromEntries(
+          LLM_TASKS.map((task) => {
+            const route = taskRoutes[task.id] ?? { provider: "", model: task.defaultModel };
+            return [task.id, { provider: route.provider, model: route.model.trim() || task.defaultModel }];
+          }),
+        ),
+      );
     }
   };
+
+  const updateTaskRoute = (taskId: string, updates: Partial<TaskRoute>) => {
+    setTaskRoutes((prev) => ({
+      ...prev,
+      [taskId]: {
+        ...(prev[taskId] ?? { provider: "", model: LLM_TASKS.find((task) => task.id === taskId)?.defaultModel ?? DEFAULT_MODEL }),
+        ...updates,
+      },
+    }));
+  };
+
+  const defaultModelForProvider = (task: LlmTaskConfig, provider: TaskRoute["provider"]) => {
+    const effectiveProvider = provider || llmProvider;
+    if (effectiveProvider === "openai") return task.openaiDefaultModel;
+    if (effectiveProvider === "ollama") return task.ollamaDefaultModel;
+    return task.defaultModel;
+  };
+
+  const handleTaskProviderChange = (task: LlmTaskConfig, provider: TaskRoute["provider"]) => {
+    const current = taskRoutes[task.id] ?? { provider: "", model: task.defaultModel };
+    const knownDefaults = new Set([task.defaultModel, task.openaiDefaultModel, task.ollamaDefaultModel, ""]);
+    updateTaskRoute(task.id, {
+      provider,
+      model: knownDefaults.has(current.model) ? defaultModelForProvider(task, provider) : current.model,
+    });
+  };
+
+  const modelForGlobalProvider = (task: LlmTaskConfig, provider: LlmProvider) => {
+    if (provider === "openai") return task.openaiDefaultModel;
+    if (provider === "ollama") return task.ollamaDefaultModel;
+    return task.defaultModel;
+  };
+
+  const handleDefaultProviderChange = (provider: LlmProvider) => {
+    setLlmProvider(provider);
+    setTaskRoutes((prev) =>
+      Object.fromEntries(
+        LLM_TASKS.map((task) => {
+          const current = prev[task.id] ?? { provider: "", model: task.defaultModel };
+          const knownDefaults = new Set([task.defaultModel, task.openaiDefaultModel, task.ollamaDefaultModel, ""]);
+          return [
+            task.id,
+            current.provider === "" && knownDefaults.has(current.model)
+              ? { ...current, model: modelForGlobalProvider(task, provider) }
+              : current,
+          ];
+        }),
+      ),
+    );
+  };
+
+  const routeChanged = LLM_TASKS.some((task) => {
+    const current = taskRoutes[task.id] ?? { provider: "", model: task.defaultModel };
+    const original = originalTaskRoutes[task.id] ?? { provider: "", model: task.defaultModel };
+    return current.provider !== original.provider || current.model.trim() !== original.model;
+  });
 
   const hasChanges =
     downloadsDir.trim() !== originalDownloads ||
@@ -163,9 +361,9 @@ export default function GeneralSection() {
     safetyTolerance !== originalSafety ||
     outputFormat !== originalFormat ||
     rateLimitEnabled !== originalRateLimit ||
-    scriptModel !== originalScriptModel ||
     llmProvider !== originalLlmProvider ||
-    qwenModel.trim() !== originalQwenModel;
+    qwenModel.trim() !== originalQwenModel ||
+    routeChanged;
 
   return (
     <div className="px-8 py-8 max-w-2xl space-y-6 pb-24">
@@ -243,14 +441,14 @@ export default function GeneralSection() {
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl divide-y divide-neutral-800">
             <div className="p-5 space-y-2">
               <div>
-                <h3 className="text-sm font-medium text-neutral-100">LLM Provider</h3>
+                <h3 className="text-sm font-medium text-neutral-100">Default LLM Provider</h3>
                 <p className="text-xs text-neutral-500">
-                  Where script / idea / FX / SEO generation calls are routed.
+                  The fallback route for any LLM task that does not override its provider below.
                 </p>
               </div>
               <select
                 value={llmProvider}
-                onChange={(e) => setLlmProvider(e.target.value)}
+                onChange={(e) => handleDefaultProviderChange(e.target.value as LlmProvider)}
                 className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
               >
                 {LLM_PROVIDERS.map((p) => (
@@ -264,11 +462,16 @@ export default function GeneralSection() {
                   ANTHROPIC_API_KEY is not configured — see the API Keys section.
                 </p>
               )}
+              {llmProvider === "openai" && !openaiKeyConfigured && (
+                <p className="text-xs text-amber-400">
+                  OPENAI_API_KEY is not configured — see the API Keys section.
+                </p>
+              )}
               {llmProvider === "ollama" && (
                 <div className="pt-3 space-y-1.5">
-                  <label className="text-sm text-neutral-200">Ollama Model</label>
+                  <label className="text-sm text-neutral-200">Default Ollama Model</label>
                   <p className="text-xs text-neutral-500">
-                    The Ollama tag to use (e.g. <code className="text-neutral-400">qwen3:14b</code>, <code className="text-neutral-400">qwen3:8b</code>). Pull it first with <code className="text-neutral-400">ollama pull</code>.
+                    The fallback Ollama tag to use when a task inherits the default provider.
                   </p>
                   <input
                     type="text"
@@ -281,28 +484,68 @@ export default function GeneralSection() {
               )}
             </div>
 
-            <div className="p-5 space-y-2">
+            <div className="p-5 space-y-4">
               <div>
-                <h3 className="text-sm font-medium text-neutral-100">Script Generation Model</h3>
+                <h3 className="text-sm font-medium text-neutral-100">LLM Task Routing</h3>
                 <p className="text-xs text-neutral-500">
-                  Which Claude model to use for generating video scripts.
-                  {llmProvider === "ollama" && (
-                    <span className="text-amber-400"> Ignored while LLM Provider is Ollama — the Ollama Model above is used instead.</span>
-                  )}
+                  Configure provider and model per task. Leave Provider as "Use default" to inherit the default route above.
                 </p>
               </div>
-              <select
-                value={scriptModel}
-                onChange={(e) => setScriptModel(e.target.value)}
-                disabled={llmProvider === "ollama"}
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {SCRIPT_MODELS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
+              <datalist id="llm-model-suggestions">
+                {MODEL_SUGGESTIONS.map((model) => (
+                  <option key={model.value} value={model.value}>
+                    {model.label}
                   </option>
                 ))}
-              </select>
+              </datalist>
+              <div className="space-y-3">
+                {LLM_TASKS.map((task) => {
+                  const route = taskRoutes[task.id] ?? { provider: "", model: task.defaultModel };
+                  const effectiveProvider = route.provider || llmProvider;
+                  return (
+                    <div key={task.id} className="rounded-lg border border-neutral-800 bg-neutral-950/40 p-3 space-y-3">
+                      <div>
+                        <div className="text-sm font-medium text-neutral-100">{task.label}</div>
+                        <p className="text-xs text-neutral-500">{task.description}</p>
+                      </div>
+                      <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs text-neutral-400">Provider</label>
+                          <select
+                            value={route.provider}
+                            onChange={(e) => handleTaskProviderChange(task, e.target.value as TaskRoute["provider"])}
+                            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
+                          >
+                            <option value="">Use default ({LLM_PROVIDERS.find((p) => p.value === llmProvider)?.label ?? llmProvider})</option>
+                            {LLM_PROVIDERS.map((p) => (
+                              <option key={p.value} value={p.value}>
+                                {p.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-neutral-400">Model</label>
+                          <input
+                            type="text"
+                            list="llm-model-suggestions"
+                            value={route.model}
+                            onChange={(e) => updateTaskRoute(task.id, { model: e.target.value })}
+                            placeholder={defaultModelForProvider(task, route.provider)}
+                            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors font-mono"
+                          />
+                        </div>
+                      </div>
+                      {effectiveProvider === "anthropic" && !anthropicKeyConfigured && (
+                        <p className="text-xs text-amber-400">Anthropic key missing for this route.</p>
+                      )}
+                      {effectiveProvider === "openai" && !openaiKeyConfigured && (
+                        <p className="text-xs text-amber-400">OpenAI key missing for this route.</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="p-5 space-y-2">

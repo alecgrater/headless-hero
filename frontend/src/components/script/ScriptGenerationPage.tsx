@@ -19,6 +19,7 @@ interface Props {
 const PROVIDER_LABELS: Record<string, string> = {
   ollama: "Ollama (local)",
   anthropic: "Anthropic API",
+  openai: "OpenAI API",
   "claude-code-proxy": "Claude Code Proxy",
 };
 
@@ -94,8 +95,8 @@ export default function ScriptGenerationPage({
     api.get("/api/settings/keys").then((res) => {
       if (res.ok) {
         const data = res.data as Record<string, { masked?: string }>;
-        setLlmProvider(data.LLM_PROVIDER?.masked || "anthropic");
-        setQwenModel(data.QWEN_MODEL?.masked || "qwen3:14b");
+        setLlmProvider(data.SCRIPT_LLM_PROVIDER?.masked || data.LLM_PROVIDER?.masked || "anthropic");
+        setQwenModel(data.SCRIPT_MODEL?.masked || data.QWEN_MODEL?.masked || "qwen3:14b");
       }
     });
   }, []);
@@ -191,7 +192,7 @@ export default function ScriptGenerationPage({
                 {" · "}
                 <span className="text-neutral-300 font-mono">{activeModelLabel}</span>
                 {llmProvider === "ollama" && (
-                  <span className="text-amber-400"> (Script Model dropdown ignored)</span>
+                  <span className="text-amber-400"> (uses configured Ollama tag)</span>
                 )}
               </p>
             )}

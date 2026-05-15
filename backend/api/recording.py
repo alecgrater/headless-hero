@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from api._helpers import update_scene, find_scene_in_content
-from config import DATA_DIR, FAST_CLAUDE_MODEL
+from config import DATA_DIR
 from database import get_session
 from models.script import Script, ScriptContent
 from pipeline.audio_alignment import align_audio
@@ -613,9 +613,9 @@ Return ONLY JSON: {{"emphasis": 7, "emphasis_note": "brief reason", "engagement"
         text = chat(
             system="",
             user_message=prompt,
-            model=FAST_CLAUDE_MODEL,
             max_tokens=300,
             json_mode=True,
+            task="analysis",
         ).strip()
         if text.startswith("```"):
             text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
@@ -794,9 +794,9 @@ Keep emphasis_words to 3-5 key words. Energy zones should cover all words with n
         text = chat(
             system="",
             user_message=prompt,
-            model=FAST_CLAUDE_MODEL,
             max_tokens=1024,
             json_mode=True,
+            task="analysis",
         ).strip()
         # Strip markdown fences if present
         if text.startswith("```"):

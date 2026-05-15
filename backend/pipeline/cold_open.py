@@ -2,9 +2,7 @@
 
 import json
 import logging
-import os
-
-from config import DEFAULT_CLAUDE_MODEL, strip_markdown_fences
+from config import strip_markdown_fences
 from integrations.claude_client import chat
 from models.cold_open import ColdOpenResult, ColdOpenScores, ColdOpenVariant
 from prompts import compose_script_system_prompt
@@ -22,7 +20,7 @@ def generate_cold_opens(
 
     Returns a ColdOpenResult with computed overall scores and winner_id.
     """
-    resolved_model = model or os.environ.get("SCRIPT_MODEL", DEFAULT_CLAUDE_MODEL)
+    resolved_model = model
 
     system_prompt = compose_script_system_prompt(cold_open=True)
 
@@ -34,7 +32,7 @@ def generate_cold_opens(
 
     user_message = "\n".join(user_parts)
 
-    logger.info("Generating cold open variants for topic=%r (model=%s)", topic, resolved_model)
+    logger.info("Generating cold open variants for topic=%r (model=%s)", topic, resolved_model or "configured")
 
     raw = chat(
         system_prompt,
@@ -43,6 +41,7 @@ def generate_cold_opens(
         max_tokens=4096,
         timeout=120.0,
         json_mode=True,
+        task="script",
     )
 
     text = strip_markdown_fences(raw)

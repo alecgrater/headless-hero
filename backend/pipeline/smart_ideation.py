@@ -4,7 +4,7 @@ import json
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from config import parse_json_response, BALANCED_CLAUDE_MODEL
+from config import parse_json_response
 from integrations.claude_client import chat
 from prompts import SMART_IDEATION_SYSTEM
 
@@ -24,10 +24,10 @@ def _generate_batch(
     raw = chat(
         SMART_IDEATION_SYSTEM.template,
         f"Generate {batch_count} video ideas (batch {batch_index + 1}):\n{user_msg}",
-        model=BALANCED_CLAUDE_MODEL,
         max_tokens=MAX_TOKENS_PER_BATCH,
         cache=True,
         json_mode=True,
+        task="idea",
     )
     try:
         return parse_json_response(raw)

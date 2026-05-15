@@ -24,6 +24,12 @@ const SERVICES: ServiceConfig[][] = [
       description: "Powers idea generation, script writing, and SEO metadata via Claude.",
       placeholder: "sk-ant-...",
     },
+    {
+      key: "OPENAI_API_KEY",
+      label: "OpenAI",
+      description: "Powers any configured LLM task routed to OpenAI models.",
+      placeholder: "sk-...",
+    },
   ],
   [
     {

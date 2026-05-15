@@ -2,12 +2,11 @@
 
 import json
 import logging
-import os
 import re
 import time
 from collections.abc import Callable
 
-from config import DEFAULT_ACCENT_COLOR, DEFAULT_CLAUDE_MODEL, SEGMENT_COUNT, strip_markdown_fences
+from config import DEFAULT_ACCENT_COLOR, SEGMENT_COUNT, strip_markdown_fences
 from integrations.claude_client import chat
 from models.script import Scene, ScriptContent, Segment
 from prompts import SCRIPT_OUTLINE_INSTRUCTIONS, SCRIPT_SEGMENT_SCENES_INSTRUCTIONS, SCRIPT_SYSTEM
@@ -130,7 +129,7 @@ def generate_script(
     from pipeline.modifiers.title_cards import TITLE_CARD_PROMPT_INSTRUCTIONS, enforce_title_cards_and_min_scenes
     from pipeline.script_reviewer import review_script
 
-    resolved_model = model or os.environ.get("SCRIPT_MODEL", DEFAULT_CLAUDE_MODEL)
+    resolved_model = model
 
     user_parts = [f'Write a full segmented video script for: "{topic}"']
     if description:
@@ -176,7 +175,7 @@ def generate_script(
 
     # --- Single generation pass (no retry loop) ---
     if segmented:
-        logger.info("Using SEGMENTED generation for topic %r, description=%r (model=%s)", topic, description, resolved_model)
+        logger.info("Using SEGMENTED generation for topic %r, description=%r (model=%s)", topic, description, resolved_model or "configured")
         content = _generate_segmented(
             system_prompt=system_prompt,
             user_message=base_user_message,
@@ -188,8 +187,16 @@ def generate_script(
             media_source_constraint=media_source_constraint,
         )
     else:
-        logger.info("Generating script for topic %r, description=%r using model=%s (segments=%d)", topic, description, resolved_model, SEGMENT_COUNT)
-        raw = chat(system_prompt, base_user_message, model=resolved_model, max_tokens=16384, timeout=900.0, json_mode=True)
+        logger.info("Generating script for topic %r, description=%r using model=%s (segments=%d)", topic, description, resolved_model or "configured", SEGMENT_COUNT)
+        raw = chat(
+            system_prompt,
+            base_user_message,
+            model=resolved_model,
+            max_tokens=16384,
+            timeout=900.0,
+            json_mode=True,
+            task="script",
+        )
 
         text = strip_markdown_fences(raw)
 
@@ -246,14 +253,14 @@ _SEGMENT_SCENES_INSTRUCTIONS = SCRIPT_SEGMENT_SCENES_INSTRUCTIONS.template
 def _generate_outline(
     system_prompt: str,
     user_message: str,
-    model: str,
+    model: str | None,
 ) -> dict:
     """Phase 1: Generate script outline (no scenes) via a single small Claude call."""
     t0 = time.monotonic()
     logger.info("SEGMENTED: Phase 1 — generating outline (model=%s)", model)
 
     outline_msg = user_message + "\n\n" + _OUTLINE_INSTRUCTIONS
-    raw = chat(system_prompt, outline_msg, model=model, max_tokens=4096, timeout=180.0, json_mode=True)
+    raw = chat(system_prompt, outline_msg, model=model, max_tokens=4096, timeout=180.0, json_mode=True, task="script")
     text = strip_markdown_fences(raw)
 
     if not text.endswith("}"):
@@ -282,7 +289,7 @@ def _generate_segment_scenes(
     system_prompt: str,
     outline: dict,
     segment_index: int,
-    model: str,
+    model: str | None,
     trailing_context: str = "",
     media_source_constraint: str = "",
 ) -> list[Scene]:
@@ -311,7 +318,7 @@ def _generate_segment_scenes(
         f"{_SEGMENT_SCENES_INSTRUCTIONS}"
     )
 
-    raw = chat(system_prompt, user_msg, model=model, max_tokens=8192, timeout=300.0, json_mode=True)
+    raw = chat(system_prompt, user_msg, model=model, max_tokens=8192, timeout=300.0, json_mode=True, task="script")
     text = strip_markdown_fences(raw)
 
     if not text.rstrip().endswith("]"):
@@ -338,7 +345,7 @@ def _generate_segmented(
     topic: str,
     description: str,
     brand_context: str,
-    model: str,
+    model: str | None,
     progress_callback: Callable[[int, int, str], None] | None = None,
     media_source_constraint: str = "",
 ) -> ScriptContent:

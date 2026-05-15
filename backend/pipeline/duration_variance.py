@@ -59,6 +59,7 @@ def _rewrite_narrations(
             max_tokens=2048,
             script_id=script_id,
             json_mode=True,
+            task="script",
         )
         cleaned = strip_markdown_fences(response)
         result = json.loads(cleaned)

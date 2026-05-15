@@ -83,7 +83,7 @@ def score_hook(
     logger.info("[%s] Scoring hook for %r (%d scenes, narration_text=%s)",
                 script_id or "no-id", video_title, len(hook_scenes),
                 "yes" if narration_text else "no")
-    raw = chat(SYSTEM_PROMPT, user_msg, max_tokens=2048, script_id=script_id, json_mode=True)
+    raw = chat(SYSTEM_PROMPT, user_msg, max_tokens=2048, script_id=script_id, json_mode=True, task="hook")
 
     try:
         data = parse_json_response(raw)

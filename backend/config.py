@@ -50,6 +50,11 @@ DEFAULT_CLAUDE_MODEL = "anthropic.claude-opus-4-6-v1"
 BALANCED_CLAUDE_MODEL = "anthropic.claude-sonnet-4-6"
 FAST_CLAUDE_MODEL = "anthropic.claude-haiku-4-5-20251001-v1:0"
 
+# Default OpenAI models for routed LLM tasks
+DEFAULT_OPENAI_MODEL = "gpt-5.2"
+BALANCED_OPENAI_MODEL = "gpt-5-mini"
+FAST_OPENAI_MODEL = "gpt-5-nano"
+
 # Default Gemini model for image generation
 DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image"
 

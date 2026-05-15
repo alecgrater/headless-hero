@@ -5,7 +5,7 @@ import logging
 
 from pydantic import BaseModel, field_validator
 
-from config import DEFAULT_CLAUDE_MODEL, SEGMENT_COUNT, strip_markdown_fences
+from config import SEGMENT_COUNT, strip_markdown_fences
 from integrations.claude_client import chat
 from prompts import IDEATION_SYSTEM
 
@@ -53,9 +53,8 @@ def generate_ideas(
         )
     user_message = "\n".join(user_parts)
 
-    model = DEFAULT_CLAUDE_MODEL
-    logger.info("Generating %s ideas for niche %r using model=%s", count, niche, model)
-    raw = chat(IDEATION_SYSTEM.build(str(SEGMENT_COUNT)), user_message, model=model, json_mode=True)
+    logger.info("Generating %s ideas for niche %r", count, niche)
+    raw = chat(IDEATION_SYSTEM.build(str(SEGMENT_COUNT)), user_message, json_mode=True, task="idea")
 
     # Claude may wrap JSON in markdown fences — strip them
     text = strip_markdown_fences(raw)

@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from sqlmodel import Session, select
 
-from config import parse_json_response, BALANCED_CLAUDE_MODEL
+from config import parse_json_response
 from database import engine
 from integrations.claude_client import chat
 from models.content_profile import ContentProfile
@@ -98,9 +98,9 @@ def analyze_content_profile() -> dict:
     raw = chat(
         PROFILE_SYSTEM.template,
         f"Analyze this creator's content library:\n{user_msg}",
-        model=BALANCED_CLAUDE_MODEL,
         max_tokens=1024,
         json_mode=True,
+        task="analysis",
     )
     result = parse_json_response(raw)
 

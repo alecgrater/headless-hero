@@ -30,6 +30,7 @@ def generate_brainstorm_recommendations(
         system=BRAINSTORM_SYSTEM.template,
         user_message=user_message,
         json_mode=True,
+        task="idea",
     )
 
     text = response_text.strip()

@@ -1,4 +1,4 @@
-"""Thin wrapper around LLM providers (Anthropic, local proxy, or Ollama)."""
+"""Thin wrapper around routed LLM providers (Anthropic, OpenAI, proxy, or Ollama)."""
 
 import logging
 import os
@@ -7,7 +7,7 @@ import time
 
 import anthropic
 
-from config import DEFAULT_CLAUDE_MODEL
+from config import BALANCED_CLAUDE_MODEL, DEFAULT_CLAUDE_MODEL, DEFAULT_OPENAI_MODEL, FAST_CLAUDE_MODEL
 from integrations.usage_tracker import record_usage, get_model_pricing
 
 logger = logging.getLogger(__name__)
@@ -15,10 +15,70 @@ logger = logging.getLogger(__name__)
 _CLAUDE_CODE_PROXY_URL = "http://localhost:11211/api/anthropic"
 _OLLAMA_BASE_URL = "http://localhost:11434/v1"
 _DEFAULT_QWEN_MODEL = "qwen3:14b"
+_DEFAULT_TASK = "script"
 
 _THINK_BLOCK_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
 
-ALLOWED_PROVIDERS = {"anthropic", "claude-code-proxy", "ollama"}
+ALLOWED_PROVIDERS = {"anthropic", "claude-code-proxy", "ollama", "openai"}
+
+LLM_TASKS: dict[str, dict[str, str]] = {
+    "script": {
+        "label": "Script & cold opens",
+        "provider_key": "SCRIPT_LLM_PROVIDER",
+        "model_key": "SCRIPT_MODEL",
+        "default_anthropic_model": DEFAULT_CLAUDE_MODEL,
+        "default_openai_model": DEFAULT_OPENAI_MODEL,
+    },
+    "idea": {
+        "label": "Ideas & brainstorming",
+        "provider_key": "IDEA_LLM_PROVIDER",
+        "model_key": "IDEA_MODEL",
+        "default_anthropic_model": BALANCED_CLAUDE_MODEL,
+        "default_openai_model": "gpt-5-mini",
+    },
+    "fx": {
+        "label": "FX assignment",
+        "provider_key": "FX_LLM_PROVIDER",
+        "model_key": "FX_MODEL",
+        "default_anthropic_model": BALANCED_CLAUDE_MODEL,
+        "default_openai_model": "gpt-5-mini",
+    },
+    "seo": {
+        "label": "SEO metadata",
+        "provider_key": "SEO_LLM_PROVIDER",
+        "model_key": "SEO_MODEL",
+        "default_anthropic_model": BALANCED_CLAUDE_MODEL,
+        "default_openai_model": "gpt-5-mini",
+    },
+    "hook": {
+        "label": "Hook scoring/refining",
+        "provider_key": "HOOK_LLM_PROVIDER",
+        "model_key": "HOOK_MODEL",
+        "default_anthropic_model": FAST_CLAUDE_MODEL,
+        "default_openai_model": "gpt-5-nano",
+    },
+    "media": {
+        "label": "Media routing",
+        "provider_key": "MEDIA_LLM_PROVIDER",
+        "model_key": "MEDIA_MODEL",
+        "default_anthropic_model": BALANCED_CLAUDE_MODEL,
+        "default_openai_model": "gpt-5-mini",
+    },
+    "eli": {
+        "label": "Eli animation",
+        "provider_key": "ELI_LLM_PROVIDER",
+        "model_key": "ELI_MODEL",
+        "default_anthropic_model": FAST_CLAUDE_MODEL,
+        "default_openai_model": "gpt-5-nano",
+    },
+    "analysis": {
+        "label": "Analysis & scoring",
+        "provider_key": "ANALYSIS_LLM_PROVIDER",
+        "model_key": "ANALYSIS_MODEL",
+        "default_anthropic_model": FAST_CLAUDE_MODEL,
+        "default_openai_model": "gpt-5-nano",
+    },
+}
 
 
 def _get_provider() -> str:
@@ -26,13 +86,49 @@ def _get_provider() -> str:
     return (os.environ.get("LLM_PROVIDER", "anthropic") or "anthropic").strip().lower()
 
 
-def get_client() -> anthropic.Anthropic:
+def _resolve_provider(task: str | None) -> str:
+    task_config = LLM_TASKS.get(task or "")
+    if task_config:
+        task_provider = os.environ.get(task_config["provider_key"], "").strip().lower()
+        if task_provider:
+            return task_provider
+    return _get_provider()
+
+
+def _default_model_for_provider(provider: str, task: str | None) -> str:
+    task_config = LLM_TASKS.get(task or "") or LLM_TASKS[_DEFAULT_TASK]
+    if provider == "ollama":
+        return os.environ.get("QWEN_MODEL", _DEFAULT_QWEN_MODEL).strip() or _DEFAULT_QWEN_MODEL
+    if provider == "openai":
+        return task_config["default_openai_model"]
+    return task_config["default_anthropic_model"]
+
+
+def _resolve_model(provider: str, task: str | None, model: str | None) -> str:
+    if model:
+        return model
+    task_config = LLM_TASKS.get(task or "")
+    if task_config:
+        configured = os.environ.get(task_config["model_key"], "").strip()
+        if configured:
+            configured_lower = configured.lower()
+            if provider == "ollama" and configured_lower.startswith(("anthropic.", "claude-", "gpt-", "o1", "o3", "o4")):
+                return _default_model_for_provider(provider, task)
+            if provider == "openai" and configured_lower.startswith(("anthropic.", "claude-")):
+                return task_config["default_openai_model"]
+            if provider in {"anthropic", "claude-code-proxy"} and configured_lower.startswith(("gpt-", "o1", "o3", "o4")):
+                return task_config["default_anthropic_model"]
+            return configured
+    return _default_model_for_provider(provider, task)
+
+
+def get_client(provider: str | None = None) -> anthropic.Anthropic:
     """Return an Anthropic client, routing per LLM_PROVIDER setting.
 
     - 'claude-code-proxy': always hit localhost:11211 proxy (ignore real key)
     - 'anthropic' (default): real API if key present, proxy otherwise
     """
-    provider = _get_provider()
+    provider = provider or _get_provider()
     if provider == "claude-code-proxy":
         return anthropic.Anthropic(base_url=_CLAUDE_CODE_PROXY_URL, api_key="sk-1234")
     if os.environ.get("ANTHROPIC_API_KEY"):
@@ -44,33 +140,53 @@ def chat(
     system: str,
     user_message: str,
     *,
-    model: str = DEFAULT_CLAUDE_MODEL,
+    model: str | None = None,
     max_tokens: int = 4096,
     timeout: float = 600.0,
     script_id: str | None = None,
     cache: bool = False,
     json_mode: bool = False,
+    task: str | None = None,
 ) -> str:
     """Send a single-turn message to the active LLM provider and return the text response.
 
-    When LLM_PROVIDER=ollama, the `model` argument is ignored and QWEN_MODEL
-    (default qwen3:14b) is used instead. `json_mode=True` asks the provider
-    to return JSON (honored by Ollama; Anthropic ignores it but still produces
-    JSON when the prompt asks for it).
+    Task-specific settings can override the global provider/model using the
+    keys declared in LLM_TASKS. `model` remains an explicit request override.
     """
-    if _get_provider() == "ollama":
+    provider = _resolve_provider(task)
+    resolved_model = _resolve_model(provider, task, model)
+
+    if provider == "ollama":
         return _chat_ollama(
             system=system,
             user_message=user_message,
+            model=resolved_model,
             max_tokens=max_tokens,
             timeout=timeout,
             script_id=script_id,
             cache=cache,
             json_mode=json_mode,
+            task=task,
         )
 
-    client = get_client()
-    logger.info("Calling Claude API model=%s max_tokens=%d timeout=%.0fs cache=%s", model, max_tokens, timeout, cache)
+    if provider == "openai":
+        return _chat_openai(
+            system=system,
+            user_message=user_message,
+            model=resolved_model,
+            max_tokens=max_tokens,
+            timeout=timeout,
+            script_id=script_id,
+            cache=cache,
+            json_mode=json_mode,
+            task=task,
+        )
+
+    client = get_client(provider)
+    logger.info(
+        "Calling Claude API provider=%s task=%s model=%s max_tokens=%d timeout=%.0fs cache=%s",
+        provider, task or "default", resolved_model, max_tokens, timeout, cache,
+    )
     t0 = time.monotonic()
 
     system_param: str | list[dict] | anthropic.NotGiven
@@ -83,7 +199,7 @@ def chat(
 
     try:
         response = client.messages.create(
-            model=model,
+            model=resolved_model,
             max_tokens=max_tokens,
             system=system_param,
             messages=[{"role": "user", "content": user_message}],
@@ -91,9 +207,9 @@ def chat(
         )
     except anthropic.BadRequestError:
         if cache:
-            logger.warning("Cache control rejected by API — retrying without cache (model=%s)", model)
+            logger.warning("Cache control rejected by API — retrying without cache (model=%s)", resolved_model)
             response = client.messages.create(
-                model=model,
+                model=resolved_model,
                 max_tokens=max_tokens,
                 system=system if system else anthropic.NOT_GIVEN,
                 messages=[{"role": "user", "content": user_message}],
@@ -103,7 +219,7 @@ def chat(
             raise
     except Exception:
         elapsed = time.monotonic() - t0
-        logger.error("Anthropic API call failed after %.1fs (model=%s)", elapsed, model, exc_info=True)
+        logger.error("Anthropic API call failed after %.1fs (model=%s)", elapsed, resolved_model, exc_info=True)
         raise
 
     elapsed = time.monotonic() - t0
@@ -114,7 +230,7 @@ def chat(
     cache_read_tok = getattr(usage, "cache_read_input_tokens", 0) or 0
     cache_create_tok = getattr(usage, "cache_creation_input_tokens", 0) or 0
 
-    pricing = get_model_pricing(model)
+    pricing = get_model_pricing(resolved_model)
     cost = (
         (input_tok - cache_read_tok - cache_create_tok) * pricing["input"]
         + cache_create_tok * pricing["input"] * 1.25
@@ -124,7 +240,7 @@ def chat(
     record_usage(
         service="anthropic",
         operation="chat",
-        model=model,
+        model=resolved_model,
         input_tokens=input_tok,
         output_tokens=output_tok,
         cost_estimate=cost,
@@ -132,7 +248,7 @@ def chat(
     )
     logger.info(
         "Claude API call complete in %.1fs — %s input (%s cached) / %s output tokens (model=%s)",
-        elapsed, input_tok, cache_read_tok, output_tok, model,
+        elapsed, input_tok, cache_read_tok, output_tok, resolved_model,
     )
 
     return response.content[0].text
@@ -148,17 +264,19 @@ def _chat_ollama(
     *,
     system: str,
     user_message: str,
+    model: str,
     max_tokens: int,
     timeout: float,
     script_id: str | None,
     cache: bool,
     json_mode: bool,
+    task: str | None,
 ) -> str:
     """Call a local Ollama model via its OpenAI-compatible /v1 endpoint."""
     # Lazy import so the backend still starts if openai isn't installed yet.
     from openai import BadRequestError, OpenAI
 
-    qwen_model = os.environ.get("QWEN_MODEL", _DEFAULT_QWEN_MODEL).strip() or _DEFAULT_QWEN_MODEL
+    qwen_model = model.strip() or _DEFAULT_QWEN_MODEL
 
     try:
         num_ctx = int(os.environ.get("QWEN_NUM_CTX", "16384"))
@@ -181,8 +299,8 @@ def _chat_ollama(
 
     client = OpenAI(api_key="ollama", base_url=_OLLAMA_BASE_URL, timeout=timeout)
     logger.info(
-        "Calling Ollama model=%s max_tokens=%d num_ctx=%d timeout=%.0fs json_mode=%s keep_alive=30m",
-        qwen_model, max_tokens, num_ctx, timeout, json_mode,
+        "Calling Ollama task=%s model=%s max_tokens=%d num_ctx=%d timeout=%.0fs json_mode=%s keep_alive=30m",
+        task or "default", qwen_model, max_tokens, num_ctx, timeout, json_mode,
     )
     t0 = time.monotonic()
 
@@ -235,6 +353,93 @@ def _chat_ollama(
     logger.info(
         "Ollama call complete in %.1fs — %s input / %s output tokens (model=%s)",
         elapsed, input_tok, output_tok, qwen_model,
+    )
+
+    return text
+
+
+def _chat_openai(
+    *,
+    system: str,
+    user_message: str,
+    model: str,
+    max_tokens: int,
+    timeout: float,
+    script_id: str | None,
+    cache: bool,
+    json_mode: bool,
+    task: str | None,
+) -> str:
+    """Call OpenAI via Chat Completions."""
+    from openai import BadRequestError, OpenAI
+
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise RuntimeError("OPENAI_API_KEY is not configured")
+    if cache:
+        logger.debug("OpenAI path ignores cache=True")
+
+    effective_user_message = user_message
+    if json_mode and "json" not in (system + user_message).lower():
+        effective_user_message = user_message + "\n\nReturn ONLY valid JSON."
+
+    messages: list[dict] = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": effective_user_message})
+
+    client = OpenAI(timeout=timeout)
+    logger.info(
+        "Calling OpenAI task=%s model=%s max_tokens=%d timeout=%.0fs json_mode=%s",
+        task or "default", model, max_tokens, timeout, json_mode,
+    )
+    t0 = time.monotonic()
+
+    kwargs: dict = {
+        "model": model,
+        "messages": messages,
+        "max_completion_tokens": max_tokens,
+    }
+    if json_mode:
+        kwargs["response_format"] = {"type": "json_object"}
+
+    try:
+        response = client.chat.completions.create(**kwargs)
+    except BadRequestError:
+        if json_mode:
+            logger.warning(
+                "OpenAI rejected response_format=json_object — retrying without it (model=%s)",
+                model,
+            )
+            kwargs.pop("response_format", None)
+            response = client.chat.completions.create(**kwargs)
+        else:
+            elapsed = time.monotonic() - t0
+            logger.error("OpenAI call failed after %.1fs (model=%s)", elapsed, model, exc_info=True)
+            raise
+    except Exception:
+        elapsed = time.monotonic() - t0
+        logger.error("OpenAI call failed after %.1fs (model=%s)", elapsed, model, exc_info=True)
+        raise
+
+    elapsed = time.monotonic() - t0
+    text = (response.choices[0].message.content or "").strip()
+
+    usage = getattr(response, "usage", None)
+    input_tok = getattr(usage, "prompt_tokens", 0) if usage else 0
+    output_tok = getattr(usage, "completion_tokens", 0) if usage else 0
+
+    record_usage(
+        service="openai",
+        operation="chat",
+        model=model,
+        input_tokens=input_tok,
+        output_tokens=output_tok,
+        cost_estimate=0.0,
+        script_id=script_id,
+    )
+    logger.info(
+        "OpenAI call complete in %.1fs — %s input / %s output tokens (model=%s)",
+        elapsed, input_tok, output_tok, model,
     )
 
     return text

@@ -68,7 +68,7 @@ def refine_hook(
     )
 
     logger.info("Refining hook for %r (overall score: %d)", video_title, hook_score.overall)
-    raw = chat(SYSTEM_PROMPT, user_msg, max_tokens=1024, json_mode=True)
+    raw = chat(SYSTEM_PROMPT, user_msg, max_tokens=1024, json_mode=True, task="hook")
 
     try:
         data = parse_json_response(raw)
