@@ -1,4 +1,4 @@
-"""Trending topic scoring, deduplication, Claude format-fit, and background job runner."""
+"""Trending topic scoring, deduplication, LLM format-fit, and background job runner."""
 
 import json
 import logging
@@ -139,7 +139,7 @@ def _deduplicate(topics: list[dict]) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Claude format-fit scoring
+# LLM format-fit scoring
 # ---------------------------------------------------------------------------
 
 

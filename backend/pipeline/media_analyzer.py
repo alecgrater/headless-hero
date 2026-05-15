@@ -1,4 +1,4 @@
-"""Post-script media analyzer — uses Claude to assign optimal media sources per scene."""
+"""Post-script media analyzer — uses the routed LLM provider to assign optimal media sources per scene."""
 
 import json
 import logging

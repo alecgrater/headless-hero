@@ -1,4 +1,4 @@
-"""Idea generation pipeline — uses Claude to brainstorm video topics."""
+"""Idea generation pipeline — uses the routed LLM provider to brainstorm video topics."""
 
 import json
 import logging

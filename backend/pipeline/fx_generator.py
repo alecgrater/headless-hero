@@ -1,4 +1,4 @@
-"""FX generator — uses Claude to assign visual effects to each scene.
+"""FX generator — uses the routed LLM provider to assign visual effects to each scene.
 
 Simplified to zoom punches only — 3-6 per video, asymmetric scale hits on key moments.
 

@@ -1,4 +1,4 @@
-"""Cold open A/B variant generation — uses Claude to produce 3 hook styles with scoring."""
+"""Cold open A/B variant generation — uses the routed LLM provider to produce 3 hook styles with scoring."""
 
 import json
 import logging

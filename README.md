@@ -28,7 +28,7 @@ The app is structured as four layers:
 | **Desktop Shell** | Electron 41 | Window management, IPC bridge, system integration |
 | **Frontend** | React 19, Vite, TypeScript, Tailwind 4 | UI views: dashboard, ideation, script editor, timeline, settings |
 | **Backend** | FastAPI, Python 3.12, uv, SQLite (SQLModel) | REST API on `:8420`, database, static file serving |
-| **Pipeline** | Claude API, Google Gemini, ElevenLabs, Remotion, FFmpeg | AI orchestration: ideation, scriptwriting, image gen, TTS, video rendering, SEO, publishing |
+| **Pipeline** | Routed LLM providers, Google Gemini, ElevenLabs, Remotion, FFmpeg | AI orchestration: ideation, scriptwriting, image gen, TTS, video rendering, SEO, publishing |
 
 ### API Routes
 
@@ -286,7 +286,7 @@ The Database tab provides a browser for the SQLite database:
 
 The Usage tab tracks API costs across all external services:
 
-- **Service cards** — Per-service cost breakdown for Anthropic, OpenAI, Google AI Studio, Replicate, and ElevenLabs with call counts and relevant metrics (tokens, characters, images)
+- **Service cards** — Per-service cost breakdown for Anthropic, Google AI Studio, Replicate, and ElevenLabs with call counts and relevant metrics (tokens, characters, images). OpenAI calls are logged, but cost estimates are not yet calculated.
 - **Daily cost chart** — Stacked bar chart showing cost per day per service
 - **Operation breakdown** — Table of costs grouped by service, operation type, and model
 - **Recent calls log** — Detailed table of recent API calls with timestamps, token counts, and per-call cost
@@ -317,8 +317,8 @@ Logs are stored in SQLite (`data/db.sqlite` in the `dev_logs` table) and persist
 ### How It Works
 
 1. **Brand Setup** — Configure voice preferences and Eli character overlay in Settings
-2. **Ideate** — Enter a niche/topic, Claude generates video ideas with keyword analysis
-3. **Script** — Select an idea, Claude writes a segmented script with narration, scene descriptions, and title cards
+2. **Ideate** — Enter a niche/topic, and the configured LLM provider generates video ideas with keyword analysis
+3. **Script** — Select an idea, and the configured LLM provider writes a segmented script with narration, scene descriptions, and title cards
 4. **Timeline** — Edit scenes in the lane-based timeline editor. Generate images (Gemini) and audio (ElevenLabs) per scene
 5. **Effects** — AI generates kinetic captions and zoom punch effects; Eli character animation keyframes
 6. **Render** — Remotion renders the full video with all effects, overlays, and transitions

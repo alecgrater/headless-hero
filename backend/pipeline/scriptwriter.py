@@ -1,4 +1,4 @@
-"""Script generation pipeline — uses Claude to write segmented video scripts."""
+"""Script generation pipeline — uses the routed LLM provider to write segmented video scripts."""
 
 import json
 import logging

@@ -1,4 +1,4 @@
-"""SEO metadata generation pipeline — Claude generates YouTube metadata."""
+"""SEO metadata generation pipeline — uses the routed LLM provider for YouTube metadata."""
 
 import json
 import logging
