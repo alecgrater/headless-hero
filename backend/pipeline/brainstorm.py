@@ -1,4 +1,4 @@
-"""Brainstorm recommendation pipeline — Claude-powered niche prompt generation."""
+"""Brainstorm recommendation pipeline — routed LLM niche prompt generation."""
 
 import json
 import logging

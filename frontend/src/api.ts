@@ -226,22 +226,22 @@ export async function fetchScriptCost(scriptId: string): Promise<{ total_cost: n
   return { total_cost: 0 };
 }
 
-/** Generate FX assignments for all scenes in a script via Claude. */
+/** Generate FX assignments for all scenes in a script via the routed LLM provider. */
 export async function generateFX(scriptId: string, missingOnly = false) {
   return api.post("/api/fx/generate", { script_id: scriptId, missing_only: missingOnly });
 }
 
-/** Regenerate FX for a single scene via Claude. */
+/** Regenerate FX for a single scene via the routed LLM provider. */
 export async function regenerateFX(scriptId: string, sceneId: string) {
   return api.post("/api/fx/regenerate", { script_id: scriptId, scene_id: sceneId });
 }
 
-/** Generate Eli pose selection for all scenes in a script via Claude. */
+/** Generate Eli pose selection for all scenes in a script via the routed LLM provider. */
 export async function generateEli(scriptId: string, missingOnly = false) {
   return api.post("/api/eli/generate", { script_id: scriptId, missing_only: missingOnly });
 }
 
-/** Regenerate Eli pose for a single scene via Claude. */
+/** Regenerate Eli pose for a single scene via the routed LLM provider. */
 export async function regenerateEli(scriptId: string, sceneId: string) {
   return api.post("/api/eli/regenerate", { script_id: scriptId, scene_id: sceneId });
 }
@@ -365,7 +365,7 @@ import type { HookScore } from "./types/script";
 import type { Idea, IdeaSource, IdeaStatus } from "./types/idea";
 
 
-/** Score the first ~30 seconds of a script for viewer retention via Claude. */
+/** Score the first ~30 seconds of a script for viewer retention via the routed LLM provider. */
 export async function scoreHook(scriptId: string): Promise<HookScore> {
   const res = await api.post(`/api/scripts/${scriptId}/hook-score`);
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Hook scoring failed");
@@ -419,14 +419,14 @@ export async function generateIdeasFromTopic(topicId: string): Promise<{ ideas: 
   return res.data as { ideas: Array<{ title: string; segments_est: number; description: string; keywords: string[] }>; niche: string };
 }
 
-/** Get cached content profile (fast, no Claude call). */
+/** Get cached content profile (fast, no LLM call). */
 export async function getContentProfile(): Promise<ContentProfile | null> {
   const res = await api.get("/api/trending/content-profile");
   if (!res.ok || !res.data) return null;
   return res.data as ContentProfile;
 }
 
-/** Force-regenerate content profile via Claude. */
+/** Force-regenerate content profile via the routed LLM provider. */
 export async function refreshContentProfile(): Promise<ContentProfile> {
   const res = await api.post("/api/trending/content-profile/refresh");
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to refresh profile");

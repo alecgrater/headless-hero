@@ -36,7 +36,7 @@ def generate_seo(
     brand_context: str = "",
     script_id: str | None = None,
 ) -> SEOMetadata:
-    """Generate SEO metadata for YouTube via Claude.
+    """Generate SEO metadata for YouTube via the routed LLM provider.
 
     segments: list of (name, timestamp) tuples, e.g. [("Intro", "0:00"), ("Caffeine", "1:23")].
     """

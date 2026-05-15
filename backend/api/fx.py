@@ -78,7 +78,7 @@ async def fx_status(job_id: str):
 
 @router.post("/regenerate", response_model=RegenerateFXResponse)
 def regenerate_scene_fx(body: RegenerateFXRequest, session: Session = Depends(get_session)):
-    """Regenerate FX for a single scene using Claude."""
+    """Regenerate FX for a single scene using the routed LLM provider."""
     logger.info("Regenerating FX for scene %s in script %s", body.scene_id, body.script_id)
     record = session.get(Script, body.script_id)
     if not record:

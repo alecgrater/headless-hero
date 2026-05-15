@@ -144,7 +144,7 @@ def _deduplicate(topics: list[dict]) -> list[dict]:
 
 
 def _score_format_fit(topics: list[dict]) -> dict[str, dict]:
-    """Batch-evaluate format fit via Claude. Returns {title: {score, rationale}}."""
+    """Batch-evaluate format fit via the routed LLM provider. Returns {title: {score, rationale}}."""
     if not topics:
         return {}
 
@@ -314,7 +314,7 @@ def _run_refresh(job: TrendingRefreshJob) -> None:
     merged = _deduplicate(all_topics)
     job.progress = (source_count + 1) / (source_count + 2)
 
-    # Format-fit scoring via Claude
+    # Format-fit scoring via the routed LLM provider
     format_fits = _score_format_fit(merged)
 
     # Saturation checking (sample top candidates, not all) — parallelized

@@ -195,7 +195,7 @@ async def generate_ideas_from_topic(
 
 @router.get("/content-profile", response_model=ContentProfileRead | None)
 async def get_content_profile():
-    """Return cached content profile with staleness flag. No Claude call."""
+    """Return cached content profile with staleness flag. No LLM call."""
     from pipeline.content_profile import get_cached_profile
     profile = get_cached_profile()
     if not profile:
@@ -205,7 +205,7 @@ async def get_content_profile():
 
 @router.post("/content-profile/refresh", response_model=ContentProfileRead)
 async def refresh_content_profile():
-    """Force-regenerate content profile via Claude. Returns updated profile."""
+    """Force-regenerate content profile via the routed LLM provider. Returns updated profile."""
     from pipeline.content_profile import analyze_content_profile
     profile = analyze_content_profile()
     if not profile:
@@ -270,7 +270,7 @@ async def generate_smart_ideas(
         for t in topics
     ]
 
-    # Start background job for the slow Claude call
+    # Start background job for the slow LLM call
     job = create_job()
     count = body.count
 

@@ -112,7 +112,7 @@ def generate_script(
     gameplay_enabled: bool = False,
     stock_photo_enabled: bool = False,
 ) -> ScriptContent:
-    """Generate a segmented video script via Claude.
+    """Generate a segmented video script via the routed LLM provider.
 
     Args:
         topic: The video title/topic.
@@ -202,7 +202,7 @@ def generate_script(
 
         if not text.endswith("}"):
             raise RuntimeError(
-                "Script generation failed: Claude response was truncated. "
+                "Script generation failed: LLM response was truncated. "
                 "The generated script was too long to fit within the token limit. "
                 "Try a simpler topic or fewer segments."
             )
@@ -255,7 +255,7 @@ def _generate_outline(
     user_message: str,
     model: str | None,
 ) -> dict:
-    """Phase 1: Generate script outline (no scenes) via a single small Claude call."""
+    """Phase 1: Generate script outline (no scenes) via a single small LLM call."""
     t0 = time.monotonic()
     logger.info("SEGMENTED: Phase 1 — generating outline (model=%s)", model)
 

@@ -59,7 +59,8 @@ The app is structured as four layers:
 
 | Service | Purpose | Env Var |
 |---------|---------|---------|
-| [Anthropic Claude](https://console.anthropic.com/) | Ideas, scripts, SEO, thumbnail concepts | `ANTHROPIC_API_KEY` |
+| [Anthropic Claude](https://console.anthropic.com/) | Optional routed LLM provider for scripts, ideas, SEO, and analysis | `ANTHROPIC_API_KEY` |
+| [OpenAI](https://platform.openai.com/) | Optional routed LLM provider for scripts, ideas, SEO, and analysis | `OPENAI_API_KEY` |
 | [Google Gemini](https://ai.google.dev/) | Image generation (gemini-2.5-flash) | `GOOGLE_AI_KEY` |
 | [Replicate](https://replicate.com/) | Alternative image generation (Flux) | `REPLICATE_API_TOKEN` (optional) |
 | [ElevenLabs](https://elevenlabs.io/) | Text-to-speech + voice cloning | `ELEVENLABS_API_KEY` |
@@ -166,19 +167,19 @@ headless-hero/
 │   │   ├── settings.py       # API key management
 │   │   └── generation.py     # Generation time estimates
 │   ├── pipeline/
-│   │   ├── ideation.py       # Idea generation via Claude
-│   │   ├── scriptwriter.py   # Script generation via Claude
+│   │   ├── ideation.py       # Routed LLM idea generation
+│   │   ├── scriptwriter.py   # Routed LLM script generation
 │   │   ├── image_gen.py      # Image gen: prompt → Gemini → local file
 │   │   ├── voiceover.py      # TTS: ElevenLabs → MP3 + duration
 │   │   ├── remotion_render.py # Remotion CLI orchestration → full video
 │   │   ├── audio_export.py   # Audio concatenation via FFmpeg
 │   │   ├── ffmpeg_builder.py # FFmpeg CLI arg construction
 │   │   ├── render_jobs.py    # Background job tracking with threading
-│   │   ├── fx_generator.py   # Claude-powered FX assignment
-│   │   ├── eli_animator.py   # Claude-powered Eli animation
+│   │   ├── fx_generator.py   # Routed LLM FX assignment
+│   │   ├── eli_animator.py   # Routed LLM Eli animation
 │   │   ├── character_frames.py # Eli frame library generation
-│   │   ├── thumbnail.py      # Claude concepts + Gemini + FFmpeg composite
-│   │   ├── seo.py            # SEO metadata via Claude
+│   │   ├── thumbnail.py      # LLM concepts + Gemini + FFmpeg composite
+│   │   ├── seo.py            # Routed LLM SEO metadata
 │   │   ├── publishing.py     # YouTube upload orchestration
 │   │   ├── catalog.py        # Exported video catalog management
 │   │   ├── title_card.py     # Per-segment title card generation
@@ -285,7 +286,7 @@ The Database tab provides a browser for the SQLite database:
 
 The Usage tab tracks API costs across all external services:
 
-- **Service cards** — Per-service cost breakdown for Anthropic, Google AI Studio, Replicate, and ElevenLabs with call counts and relevant metrics (tokens, characters, images)
+- **Service cards** — Per-service cost breakdown for Anthropic, OpenAI, Google AI Studio, Replicate, and ElevenLabs with call counts and relevant metrics (tokens, characters, images)
 - **Daily cost chart** — Stacked bar chart showing cost per day per service
 - **Operation breakdown** — Table of costs grouped by service, operation type, and model
 - **Recent calls log** — Detailed table of recent API calls with timestamps, token counts, and per-call cost

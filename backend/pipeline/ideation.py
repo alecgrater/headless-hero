@@ -30,7 +30,7 @@ def generate_ideas(
     brand_context: str | None = None,
     exclude_titles: list[str] | None = None,
 ) -> list[VideoIdea]:
-    """Generate video topic ideas for the given niche via Claude.
+    """Generate video topic ideas for the given niche via the routed LLM provider.
 
     Args:
         niche: The broad topic area (e.g. "psychology", "gaming", "history").

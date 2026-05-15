@@ -1,7 +1,7 @@
 """Duration variance — tighten overlong high-energy scenes after voiceover.
 
 After batch voiceover, checks quick_cuts and aha_subtitle scenes against a
-duration threshold. If any exceed it, rewrites narration via Claude and
+duration threshold. If any exceed it, rewrites narration via the routed LLM provider and
 re-voices in a single pass.
 """
 
@@ -64,12 +64,12 @@ def _rewrite_narrations(
         cleaned = strip_markdown_fences(response)
         result = json.loads(cleaned)
         if not isinstance(result, dict):
-            logger.warning("Claude returned non-dict for narration rewrite: %s", type(result))
+            logger.warning("LLM returned non-dict for narration rewrite: %s", type(result))
             return {}
-        logger.info("Claude rewrote %d narrations", len(result))
+        logger.info("LLM rewrote %d narrations", len(result))
         return result
     except Exception:
-        logger.exception("Failed to rewrite narrations via Claude")
+        logger.exception("Failed to rewrite narrations via the routed LLM provider")
         return {}
 
 

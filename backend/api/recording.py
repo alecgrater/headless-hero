@@ -760,7 +760,7 @@ def get_score_status(job_id: str):
 
 @router.post("/annotate-delivery")
 def annotate_delivery(req: AnnotateDeliveryRequest, db: Session = Depends(get_session)):
-    """Generate delivery annotations (emphasis, energy zones) for a scene via Claude."""
+    """Generate delivery annotations (emphasis, energy zones) for a scene via the routed LLM provider."""
     record = db.get(Script, req.script_id)
     if not record:
         raise HTTPException(404, "Script not found")

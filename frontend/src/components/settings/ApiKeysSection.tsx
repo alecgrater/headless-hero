@@ -21,7 +21,7 @@ const SERVICES: ServiceConfig[][] = [
     {
       key: "ANTHROPIC_API_KEY",
       label: "Anthropic",
-      description: "Powers idea generation, script writing, and SEO metadata via Claude.",
+      description: "Powers idea generation, script writing, and SEO metadata via the routed LLM provider.",
       placeholder: "sk-ant-...",
     },
     {

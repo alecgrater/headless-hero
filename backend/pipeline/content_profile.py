@@ -94,7 +94,7 @@ def analyze_content_profile() -> dict:
         "avg_segments_per_video": features["avg_segment_count"],
     }, indent=2)
 
-    logger.info("Analyzing content profile for %d scripts via Claude", features["script_count"])
+    logger.info("Analyzing content profile for %d scripts via the routed LLM provider", features["script_count"])
     raw = chat(
         PROFILE_SYSTEM.template,
         f"Analyze this creator's content library:\n{user_msg}",

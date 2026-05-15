@@ -1,4 +1,4 @@
-"""Eli pose picker — selects one character pose per scene via Claude."""
+"""Eli pose picker — selects one character pose per scene via the routed LLM provider."""
 
 import json
 import logging
