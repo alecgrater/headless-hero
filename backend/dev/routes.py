@@ -388,10 +388,8 @@ async def usage_summary(days: int = Query(default=30, le=365)):
         ).all()
 
         services = []
-        grand_total = 0.0
         for row in rows:
             cost = row.total_cost or 0.0
-            grand_total += cost
             input_tokens = row.total_input_tokens or 0
             output_tokens = row.total_output_tokens or 0
             services.append({
@@ -409,6 +407,19 @@ async def usage_summary(days: int = Query(default=30, le=365)):
                     4,
                 ),
             })
+
+        headline_spend_services = {"openai", "google_ai", "elevenlabs"}
+        headline_spend = sum(
+            service["total_cost"]
+            for service in services
+            if service["service"] in headline_spend_services
+        )
+        local_llm_savings = sum(
+            service["savings_estimate"]
+            for service in services
+            if service["service"] == "ollama"
+        )
+        grand_total = headline_spend - local_llm_savings
 
         # Per-day cost breakdown (for chart)
         daily_rows = session.exec(
