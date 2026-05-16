@@ -165,9 +165,12 @@ def _save_png_under_limit(image: Image.Image, output_path: Path) -> None:
     if output_path.stat().st_size <= MAX_PNG_BYTES:
         return
 
-    # Quantize only when needed. Text remains crisp and files stay portable.
-    quantized = rgb.quantize(colors=256, method=Image.Quantize.MEDIANCUT).convert("RGB")
-    quantized.save(output_path, format="PNG", optimize=True, compress_level=9, dpi=(72, 72))
+    # Quantize only when needed. Step down the palette until the PNG fits.
+    for colors in (256, 192, 128, 96, 64, 48, 32):
+        quantized = rgb.quantize(colors=colors, method=Image.Quantize.MEDIANCUT).convert("RGB")
+        quantized.save(output_path, format="PNG", optimize=True, compress_level=9, dpi=(72, 72))
+        if output_path.stat().st_size <= MAX_PNG_BYTES:
+            return
 
 
 def generate_short_thumbnail(
