@@ -101,7 +101,7 @@ export default function RenderShortsCard({
         </button>
       </header>
 
-      {busy && status && (
+      {(busy || busySegment !== null) && status && (
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-neutral-400">
             <span>{status.current_step || "Rendering..."}</span>

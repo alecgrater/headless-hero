@@ -5,14 +5,14 @@
  * Zone 1 (upper half): stripped video title (smaller, secondary weight, white).
  * Appears instantly at t=0 and holds.
  * Zone 2 (lower half): segment name (larger, primary weight, accent color).
- * Pops in at TITLE_CARD_BEAT_FRAMES with spring scale + radial glow burst.
+ * Pops in at TITLE_CARD_BEAT_SECONDS with spring scale + radial glow burst.
  */
 import React from "react";
 import { Img, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { loadFont } from "@remotion/google-fonts/Inter";
 
 const { fontFamily } = loadFont("normal", {
-  weights: ["600", "800", "900"],
+  weights: ["600", "900"],
   subsets: ["latin"],
 });
 

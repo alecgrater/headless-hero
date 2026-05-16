@@ -101,10 +101,8 @@ def start_render_all_shorts(
             project_title=project_title,
             on_progress=on_progress,
         )
-        for _web_url, downloads_path in results:
-            job.output_urls.append(downloads_path)
         update_job(job.id, progress=1.0, current_step="All shorts rendered")
-        return ""
+        return [downloads_path for _web_url, downloads_path in results]
 
     run_in_background(job.id, do_render)
     return JobResponse(job_id=job.id)
@@ -141,7 +139,6 @@ def start_render_one_short(
             project_title=project_title,
             on_progress=on_progress,
         )
-        job.output_urls.append(downloads_path)
         update_job(job.id, progress=1.0, current_step="Short rendered")
         return downloads_path
 
