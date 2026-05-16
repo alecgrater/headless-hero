@@ -49,3 +49,30 @@ class TestBuildDisplayText:
         # Edge case: segment_name should never be empty in practice but be defensive
         result = build_display_text(video_title="8 Foo", segment_name="")
         assert result == "Foo — "
+
+
+from models.script import ShortIntro
+
+
+class TestIsStale:
+    def test_stale_when_display_text_differs(self):
+        from pipeline.short_form_intros import is_stale
+
+        existing = ShortIntro(
+            segment_idx=0,
+            display_text="Old text — Old segment",
+            audio_url="/static/foo.mp3",
+            duration_seconds=4.0,
+        )
+        assert is_stale(existing, expected_display_text="New text — New segment") is True
+
+    def test_not_stale_when_display_text_matches(self):
+        from pipeline.short_form_intros import is_stale
+
+        existing = ShortIntro(
+            segment_idx=0,
+            display_text="Foo — Bar",
+            audio_url="/static/foo.mp3",
+            duration_seconds=4.0,
+        )
+        assert is_stale(existing, expected_display_text="Foo — Bar") is False
