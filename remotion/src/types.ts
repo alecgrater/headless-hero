@@ -140,20 +140,12 @@ export interface FullVideoProps {
 
 // --- Short-form types ---
 
-export interface ShortIntroProps {
-  segment_idx: number;
-  display_text: string;        // "stripped title — segment name"
-  audio_path: string;           // absolute or http URL to short_intro_{idx}.mp3
-  duration_seconds: number;
-  word_timestamps: WordTimestamp[];
-  backdrop_image_path: string;  // path to title_card_{idx}.png (square)
-}
-
 export interface ShortFormVideoProps {
-  intro: ShortIntroProps;
-  scenes: SceneInput[];         // segment scenes only (no title card scene from long-form)
+  scenes: SceneInput[];          // first scene has is_title_card=true; rest are narration
+  stripped_title: string;         // long-form video title with leading digits stripped
+  segment_name: string;           // this segment's name (rendered with pop-in flourish)
   fps: number;
-  width: number;                // 1080
-  height: number;               // 1920
+  width: number;                  // 1080
+  height: number;                 // 1920
   subtitle_highlight?: SubtitleHighlightConfig | null;
 }
