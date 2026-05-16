@@ -686,6 +686,19 @@ export async function renderShortAll(scriptId: string): Promise<{ job_id: string
   return res.data as { job_id: string };
 }
 
+/** Start background render of selected short-form clips. */
+export async function renderShortBatch(
+  scriptId: string,
+  segmentIndices: number[],
+): Promise<{ job_id: string }> {
+  const res = await api.post("/api/short-form/render/batch", {
+    script_id: scriptId,
+    segment_indices: segmentIndices,
+  });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to start render-batch");
+  return res.data as { job_id: string };
+}
+
 /** Start background render of a single short-form clip. */
 export async function renderShortOne(
   scriptId: string,

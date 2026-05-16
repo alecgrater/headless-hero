@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   getShortFormJobStatus,
   renderShortAll,
+  renderShortBatch,
   renderShortOne,
   showInFolder,
 } from "../../../api";
@@ -18,23 +19,36 @@ interface Props {
    * Show in Finder is only shown for filesystem paths (not /static/… probe values).
    */
   renderedUrls: Record<number, string | undefined>;
+  onRefreshRendered: () => Promise<Record<number, string | undefined>>;
   onRenderComplete: (segmentIdx: number, url: string) => void;
 }
+
+type CurrentOp =
+  | { type: "all" }
+  | { type: "batch"; indices: number[] }
+  | { type: "one"; index: number }
+  | null;
 
 export default function RenderShortsCard({
   scriptId,
   segments,
   renderedUrls,
+  onRefreshRendered,
   onRenderComplete,
 }: Props) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<ShortFormJobStatus | null>(null);
   const [busySegment, setBusySegment] = useState<number | null>(null);
-  const [currentOp, setCurrentOp] = useState<"all" | number | null>(null);
+  const [currentOp, setCurrentOp] = useState<CurrentOp>(null);
 
   const total = segments.length;
   const renderedCount = Object.values(renderedUrls).filter(Boolean).length;
+  const remainingIndices = segments
+    .map((_, idx) => idx)
+    .filter((idx) => !renderedUrls[idx]);
+  const remainingCount = remainingIndices.length;
   const allDone = renderedCount === total && total > 0;
+  const isBatchBusy = currentOp?.type === "all" || currentOp?.type === "batch";
 
   const { startPolling } = usePollJob<ShortFormJobStatus>({
     pollFn: (id) => getShortFormJobStatus(id),
@@ -47,11 +61,16 @@ export default function RenderShortsCard({
         setBusySegment(null);
         setCurrentOp((op) => {
           if (s.status === "completed") {
-            if (op === "all") {
+            if (op?.type === "all") {
               (s.output_urls ?? []).forEach((url, i) => onRenderComplete(i, url));
-            } else if (typeof op === "number") {
+            } else if (op?.type === "batch") {
+              (s.output_urls ?? []).forEach((url, i) => {
+                const segmentIdx = op.indices[i];
+                if (segmentIdx != null) onRenderComplete(segmentIdx, url);
+              });
+            } else if (op?.type === "one") {
               const url = s.output_urls?.[0];
-              if (url) onRenderComplete(op, url);
+              if (url) onRenderComplete(op.index, url);
             }
           }
           return null;
@@ -66,17 +85,54 @@ export default function RenderShortsCard({
   });
 
   async function handleRenderAll() {
-    setBusy(true);
-    setCurrentOp("all");
-    const { job_id } = await renderShortAll(scriptId);
-    startPolling(job_id);
+    try {
+      setBusy(true);
+      setStatus(null);
+      setCurrentOp({ type: "all" });
+      const { job_id } = await renderShortAll(scriptId);
+      startPolling(job_id);
+    } catch (err) {
+      setBusy(false);
+      setCurrentOp(null);
+      console.error(err);
+    }
+  }
+
+  async function handleRenderRemaining() {
+    try {
+      setBusy(true);
+      setStatus(null);
+      const refreshedUrls = await onRefreshRendered();
+      const urls = { ...renderedUrls, ...refreshedUrls };
+      const indices = segments
+        .map((_, idx) => idx)
+        .filter((idx) => !urls[idx]);
+      if (indices.length === 0) {
+        setBusy(false);
+        return;
+      }
+      setCurrentOp({ type: "batch", indices });
+      const { job_id } = await renderShortBatch(scriptId, indices);
+      startPolling(job_id);
+    } catch (err) {
+      setBusy(false);
+      setCurrentOp(null);
+      console.error(err);
+    }
   }
 
   async function handleRenderOne(idx: number) {
-    setBusySegment(idx);
-    setCurrentOp(idx);
-    const { job_id } = await renderShortOne(scriptId, idx);
-    startPolling(job_id);
+    try {
+      setBusySegment(idx);
+      setStatus(null);
+      setCurrentOp({ type: "one", index: idx });
+      const { job_id } = await renderShortOne(scriptId, idx);
+      startPolling(job_id);
+    } catch (err) {
+      setBusySegment(null);
+      setCurrentOp(null);
+      console.error(err);
+    }
   }
 
   return (
@@ -92,13 +148,24 @@ export default function RenderShortsCard({
             {`${renderedCount}/${total} rendered`}
           </p>
         </div>
-        <button
-          onClick={handleRenderAll}
-          disabled={busy || busySegment !== null}
-          className="text-sm px-3 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 rounded-lg font-medium transition-colors"
-        >
-          {busy ? "Rendering..." : `Render All ${total} Shorts`}
-        </button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            onClick={handleRenderRemaining}
+            disabled={busy || busySegment !== null || remainingCount === 0}
+            className="text-sm px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 rounded-lg font-medium transition-colors"
+          >
+            {isBatchBusy && currentOp?.type === "batch"
+              ? "Rendering..."
+              : `Render Remaining Shorts (${remainingCount})`}
+          </button>
+          <button
+            onClick={handleRenderAll}
+            disabled={busy || busySegment !== null}
+            className="text-sm px-3 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 rounded-lg font-medium transition-colors"
+          >
+            {isBatchBusy && currentOp?.type === "all" ? "Rendering..." : `Render All ${total} Shorts`}
+          </button>
+        </div>
       </header>
 
       {(busy || busySegment !== null) && status && (

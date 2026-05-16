@@ -53,6 +53,11 @@ class RenderShortOneRequest(BaseModel):
     segment_idx: int
 
 
+class RenderShortBatchRequest(BaseModel):
+    script_id: str
+    segment_indices: list[int]
+
+
 # --- Helpers ---
 
 
@@ -141,6 +146,71 @@ def start_render_one_short(
         )
         update_job(job.id, progress=1.0, current_step="Short rendered")
         return downloads_path
+
+    run_in_background(job.id, do_render)
+    return JobResponse(job_id=job.id)
+
+
+@router.post("/render/batch", response_model=JobResponse)
+def start_render_short_batch(
+    body: RenderShortBatchRequest, session: Session = Depends(get_session)
+):
+    """Render selected segment shorts in one background job."""
+    from pipeline.short_form_render import render_short_segment
+
+    content = _load_content(session, body.script_id)
+    total_segments = len(content.segments)
+    segment_indices = list(dict.fromkeys(body.segment_indices))
+    invalid_indices = [
+        idx for idx in segment_indices if idx < 0 or idx >= total_segments
+    ]
+    if invalid_indices:
+        raise HTTPException(status_code=400, detail="segment_indices out of range")
+    if not segment_indices:
+        raise HTTPException(status_code=400, detail="segment_indices cannot be empty")
+
+    record = session.get(Script, body.script_id)
+    project_title = record.topic_title or "Untitled"
+
+    job = create_job(scene_count=len(segment_indices))
+    logger.info(
+        "Starting render-short-batch for script %s segments %s",
+        body.script_id,
+        segment_indices,
+    )
+
+    def do_render():
+        results: list[str] = []
+        batch_total = len(segment_indices)
+        for batch_idx, segment_idx in enumerate(segment_indices):
+            batch_n = batch_idx + 1
+            segment_n = segment_idx + 1
+
+            def on_progress(
+                p: float,
+                msg: str,
+                _batch_idx: int = batch_idx,
+                _batch_n: int = batch_n,
+                _segment_n: int = segment_n,
+            ) -> None:
+                global_p = (_batch_idx + p) / batch_total
+                update_job(
+                    job.id,
+                    progress=global_p,
+                    current_step=f"Short {_batch_n}/{batch_total} (segment {_segment_n}): {msg}",
+                )
+
+            _web_url, downloads_path = render_short_segment(
+                script_id=body.script_id,
+                segment_idx=segment_idx,
+                content=content,
+                project_title=project_title,
+                on_progress=on_progress,
+            )
+            results.append(downloads_path)
+
+        update_job(job.id, progress=1.0, current_step="Selected shorts rendered")
+        return results
 
     run_in_background(job.id, do_render)
     return JobResponse(job_id=job.id)
