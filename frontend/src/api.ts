@@ -217,13 +217,35 @@ export async function recordDuration(
   });
 }
 
+export interface ScriptCostBreakdownItem {
+  task: string;
+  service: string;
+  operation: string;
+  model: string;
+  call_count: number;
+  input_tokens: number;
+  output_tokens: number;
+  characters: number;
+  images: number;
+  total_cost: number;
+}
+
+export interface ScriptCostResponse {
+  total_cost: number;
+  breakdown: ScriptCostBreakdownItem[];
+}
+
 /** Fetch the total estimated cost for a script. */
-export async function fetchScriptCost(scriptId: string): Promise<{ total_cost: number }> {
+export async function fetchScriptCost(scriptId: string): Promise<ScriptCostResponse> {
   const res = await api.get(`/api/scripts/${scriptId}/cost`);
   if (res.ok) {
-    return res.data as { total_cost: number };
+    const data = res.data as Partial<ScriptCostResponse>;
+    return {
+      total_cost: data.total_cost ?? 0,
+      breakdown: data.breakdown ?? [],
+    };
   }
-  return { total_cost: 0 };
+  return { total_cost: 0, breakdown: [] };
 }
 
 /** Generate FX assignments for all scenes in a script via the routed LLM provider. */

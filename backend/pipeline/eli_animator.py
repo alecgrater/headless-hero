@@ -27,6 +27,7 @@ def _pick_corner(previous_corner: str | None) -> str:
 def generate_scene_eli(
     narration: str,
     previous_corner: str | None = None,
+    script_id: str | None = None,
 ) -> dict:
     """Pick one pose for a scene based on narration tone.
 
@@ -48,6 +49,7 @@ def generate_scene_eli(
         system=ELI_POSE_PICKER_SYSTEM.template,
         user_message=user_msg,
         max_tokens=200,
+        script_id=script_id,
         json_mode=True,
         task="eli",
     )

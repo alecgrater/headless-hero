@@ -87,7 +87,7 @@ async def regenerate_eli(req: RegenerateEliRequest, session: Session = Depends(g
         if prev.eli_overlay and isinstance(prev.eli_overlay, dict):
             previous_corner = prev.eli_overlay.get("corner")
 
-    eli_result = generate_scene_eli(scene.narration, previous_corner=previous_corner)
+    eli_result = generate_scene_eli(scene.narration, previous_corner=previous_corner, script_id=req.script_id)
     scene.eli_overlay = eli_result
 
     record.script_json = content.model_dump_json()
@@ -129,7 +129,7 @@ def _run_eli_generation(script_id: str, scene_ids: list[str], job_id: str) -> No
                     continue
 
                 try:
-                    eli_result = generate_scene_eli(sc.narration, previous_corner=previous_corner)
+                    eli_result = generate_scene_eli(sc.narration, previous_corner=previous_corner, script_id=script_id)
                     sc.eli_overlay = eli_result
                     previous_corner = eli_result.get("corner")
                     logger.info(

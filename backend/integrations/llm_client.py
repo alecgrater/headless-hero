@@ -1,5 +1,6 @@
 """Thin wrapper around routed LLM providers (Anthropic, OpenAI, proxy, or Ollama)."""
 
+import json
 import logging
 import os
 import re
@@ -260,6 +261,7 @@ def chat(
         input_tokens=input_tok,
         output_tokens=output_tok,
         cost_estimate=cost,
+        metadata_json=json.dumps({"task": task}) if task else "",
         script_id=script_id,
     )
     logger.info(
@@ -365,6 +367,7 @@ def _chat_ollama(
         output_tokens=output_tok,
         characters=len(system) + len(effective_user_message) + len(text),
         cost_estimate=0.0,
+        metadata_json=json.dumps({"task": task}) if task else "",
         script_id=script_id,
     )
     logger.info(
@@ -460,6 +463,7 @@ def _chat_openai(
         input_tokens=input_tok,
         output_tokens=output_tok,
         cost_estimate=cost,
+        metadata_json=json.dumps({"task": task}) if task else "",
         script_id=script_id,
     )
     logger.info(

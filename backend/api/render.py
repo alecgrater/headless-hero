@@ -335,7 +335,11 @@ def _phase_eli(ctx: ExportContext) -> None:
         if scene_now.contains_person:
             continue
         try:
-            eli_result = generate_scene_eli(scene_now.narration, previous_corner=previous_corner)
+            eli_result = generate_scene_eli(
+                scene_now.narration,
+                previous_corner=previous_corner,
+                script_id=ctx.script_id,
+            )
             eli_updates[sc_info["scene_id"]] = eli_result
             previous_corner = eli_result.get("corner")
         except Exception as e:

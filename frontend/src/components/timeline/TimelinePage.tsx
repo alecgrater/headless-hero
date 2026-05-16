@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Zap } from "lucide-react";
 import api, { assetUrl, generateFX, pollFXJob, generateEli, pollEliJob, exportTest, fetchScriptCost, getYouTubeOAuthStatus } from "../../api";
 import type { ExportTestOptions } from "../../api";
+import type { ScriptCostBreakdownItem } from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
 import type { ThumbnailConcept } from "../../types/render";
@@ -166,6 +167,64 @@ function BatchProgressBar({ progress, label }: BatchProgressProps) {
   );
 }
 
+function formatCost(cost: number) {
+  if (cost === 0) return "$0.00";
+  if (cost < 0.01) return `$${cost.toFixed(4)}`;
+  return `$${cost.toFixed(2)}`;
+}
+
+function formatCostMetrics(item: ScriptCostBreakdownItem) {
+  const parts: string[] = [];
+  if (item.call_count > 0) parts.push(`${item.call_count} call${item.call_count !== 1 ? "s" : ""}`);
+  if (item.images > 0) parts.push(`${item.images} image${item.images !== 1 ? "s" : ""}`);
+  if (item.characters > 0) parts.push(`${item.characters.toLocaleString()} chars`);
+  if (item.input_tokens + item.output_tokens > 0) {
+    parts.push(`${(item.input_tokens + item.output_tokens).toLocaleString()} tok`);
+  }
+  return parts.join(" · ");
+}
+
+function CostBreakdownPopover({
+  totalCost,
+  breakdown,
+}: {
+  totalCost: number;
+  breakdown: ScriptCostBreakdownItem[];
+}) {
+  return (
+    <div className="absolute right-0 top-8 z-40 w-80 rounded-lg border border-neutral-700 bg-neutral-950 shadow-2xl shadow-black/50">
+      <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
+        <span className="text-xs font-semibold text-neutral-200">Cost breakdown</span>
+        <span className="text-xs font-mono text-emerald-300">{formatCost(totalCost)}</span>
+      </div>
+      <div className="max-h-80 overflow-y-auto py-1">
+        {breakdown.length > 0 ? (
+          breakdown.map((item) => (
+            <div key={`${item.task}-${item.service}-${item.operation}-${item.model}`} className="px-3 py-2 hover:bg-neutral-900 transition-colors">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-medium text-neutral-100">{item.task}</p>
+                  <p className="mt-0.5 truncate text-[11px] text-neutral-500">
+                    {[item.service, item.model].filter(Boolean).join(" · ")}
+                  </p>
+                  <p className="mt-1 text-[11px] text-neutral-500">{formatCostMetrics(item)}</p>
+                </div>
+                <span className="shrink-0 text-xs font-mono text-emerald-300">
+                  {formatCost(item.total_cost)}
+                </span>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="px-3 py-5 text-center text-xs text-neutral-500">
+            No tracked API usage yet.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TimelineEditor({
   scriptId,
   initialContent,
@@ -227,6 +286,8 @@ function TimelineEditor({
   const [thumbnailsInlineGenerating, setThumbnailsInlineGenerating] = useState(false);
   const [showThumbnailModal, setShowThumbnailModal] = useState(false);
   const [totalCost, setTotalCost] = useState<number>(0);
+  const [costBreakdown, setCostBreakdown] = useState<ScriptCostBreakdownItem[]>([]);
+  const [showCostBreakdown, setShowCostBreakdown] = useState(false);
   const [lastAudioGenTimestamp, setLastAudioGenTimestamp] = useState(0);
   const [lastFXGenTimestamp, setLastFXGenTimestamp] = useState(0);
   const [yoloRunning, setYoloRunning] = useState(false);
@@ -247,6 +308,7 @@ function TimelineEditor({
   const refreshCost = useCallback(async () => {
     const data = await fetchScriptCost(scriptId);
     setTotalCost(data.total_cost);
+    setCostBreakdown(data.breakdown);
   }, [scriptId]);
 
   // Fetch cost on mount
@@ -1027,9 +1089,19 @@ function TimelineEditor({
                     {totalWords.toLocaleString()} words
                   </span>
                 )}
-                <span className="text-xs text-emerald-400 bg-emerald-500/10 px-4 py-1 rounded-md tabular-nums font-medium">
-                  ${totalCost.toFixed(2)}
-                </span>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowCostBreakdown((show) => !show)}
+                    className="text-xs text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-4 py-1 rounded-md tabular-nums font-medium transition-colors"
+                    title="Show cost breakdown"
+                  >
+                    {formatCost(totalCost)}
+                  </button>
+                  {showCostBreakdown && (
+                    <CostBreakdownPopover totalCost={totalCost} breakdown={costBreakdown} />
+                  )}
+                </div>
                 {Object.keys(mediaCounts).length > 0 && (
                   <>
                     <span className="w-px h-4 bg-neutral-700/50" />

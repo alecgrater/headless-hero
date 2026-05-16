@@ -4,6 +4,7 @@ import json
 import logging
 import shutil
 import time
+from collections import defaultdict
 from pathlib import Path
 
 from datetime import datetime, timezone, timedelta
@@ -305,18 +306,87 @@ def get_script(script_id: str, session: Session = Depends(get_session)):
 class ScriptCostResponse(BaseModel):
     script_id: str
     total_cost: float
+    breakdown: list[dict]
+
+
+def _usage_task_label(service: str, operation: str, metadata_json: str) -> str:
+    """Return a human-readable task label for a usage row."""
+    task = ""
+    if metadata_json:
+        try:
+            metadata = json.loads(metadata_json)
+            task = str(metadata.get("task") or "")
+        except (TypeError, ValueError):
+            task = ""
+
+    key = task or operation
+    labels = {
+        "tts": "Generate Audio",
+        "image_gen": "Generate Images",
+        "chat": "AI Text Tasks",
+        "script": "Write Script",
+        "fx": "Generate FX",
+        "eli": "Add Eli",
+        "title_card": "Title Cards",
+        "hook": "Hook Score",
+        "seo": "SEO Metadata",
+        "media": "Media Analysis",
+        "refine": "Scene Refinement",
+        "duration": "Duration Fixes",
+        "idea": "Ideas",
+        "analysis": "Analysis",
+        "hook_detect": "Hook Detection",
+    }
+    if key in labels:
+        return labels[key]
+    if service == "elevenlabs":
+        return "Generate Audio"
+    if service in {"google_ai", "replicate"}:
+        return "Generate Images"
+    return key.replace("_", " ").title() if key else "Other"
 
 
 @router.get("/{script_id}/cost", response_model=ScriptCostResponse)
 def get_script_cost(script_id: str, session: Session = Depends(get_session)):
     """Return the total estimated cost for a script based on API usage records."""
-    from sqlmodel import func
     from models.api_usage import ApiUsage
 
-    result = session.exec(
-        select(func.coalesce(func.sum(ApiUsage.cost_estimate), 0.0)).where(ApiUsage.script_id == script_id)
-    ).one()
-    return ScriptCostResponse(script_id=script_id, total_cost=round(float(result), 4))
+    rows = session.exec(select(ApiUsage).where(ApiUsage.script_id == script_id)).all()
+    grouped = defaultdict(lambda: {
+        "task": "",
+        "service": "",
+        "operation": "",
+        "model": "",
+        "call_count": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "characters": 0,
+        "images": 0,
+        "total_cost": 0.0,
+    })
+
+    for row in rows:
+        task = _usage_task_label(row.service, row.operation, row.metadata_json)
+        key = (task, row.service, row.operation, row.model)
+        item = grouped[key]
+        item["task"] = task
+        item["service"] = row.service
+        item["operation"] = row.operation
+        item["model"] = row.model
+        item["call_count"] += 1
+        item["input_tokens"] += row.input_tokens
+        item["output_tokens"] += row.output_tokens
+        item["characters"] += row.characters
+        item["images"] += row.images
+        item["total_cost"] += row.cost_estimate
+
+    breakdown = sorted(grouped.values(), key=lambda item: item["total_cost"], reverse=True)
+    for item in breakdown:
+        item["total_cost"] = round(float(item["total_cost"]), 4)
+
+    total_cost = round(sum(item["total_cost"] for item in breakdown), 4)
+    return ScriptCostResponse(script_id=script_id, total_cost=total_cost, breakdown=breakdown)
+
 
 @router.post("/{script_id}/refine-scene", response_model=RefineSceneResponse)
 def refine_scene_endpoint(
