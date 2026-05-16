@@ -6,6 +6,7 @@ import pytest
 from pipeline.seo import (
     ShortFormSEO,
     ShortFormSEOMetadata,
+    _normalize_short_form_seo_data,
     _validate_short_indices,
     build_short_form_seo_contexts,
 )
@@ -95,3 +96,31 @@ class TestValidateShortIndices:
 
         with pytest.raises(RuntimeError, match="expected exactly"):
             _validate_short_indices(result, [{"index": 1}, {"index": 2}])
+
+
+class TestNormalizeShortFormSeoData:
+    def test_fills_missing_indices_and_splits_string_lists(self):
+        data = {
+            "shorts": [
+                {
+                    "title": "One",
+                    "description": "",
+                    "hashtags": "#Psychology #Marketing",
+                    "tags": "psychology, marketing tricks, consumer behavior",
+                },
+                {
+                    "title": "Two",
+                    "description": "",
+                    "tags": "anchoring\nsales tactics",
+                },
+            ],
+        }
+
+        normalized = _normalize_short_form_seo_data(data, [{"index": 1}, {"index": 2}])
+
+        assert normalized["shorts"][0]["index"] == 1
+        assert normalized["shorts"][0]["hashtags"] == ["#Psychology", "#Marketing"]
+        assert normalized["shorts"][0]["tags"] == ["psychology", "marketing tricks", "consumer behavior"]
+        assert normalized["shorts"][1]["index"] == 2
+        assert normalized["shorts"][1]["hashtags"] == []
+        assert normalized["shorts"][1]["tags"] == ["anchoring", "sales tactics"]

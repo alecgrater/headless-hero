@@ -73,6 +73,39 @@ def _normalize_hashtags(hashtags: list[str]) -> list[str]:
         normalized.append(tag)
     return normalized[:10]
 
+def _split_list_text(value: str) -> list[str]:
+    """Split comma/newline text into clean list items."""
+    return [
+        item.strip()
+        for item in value.replace("\n", ",").split(",")
+        if item.strip()
+    ]
+
+def _normalize_short_form_seo_data(data: dict, requested_shorts: list[dict]) -> dict:
+    """Coerce common LLM response drift before strict schema validation."""
+    raw_shorts = data.get("shorts")
+    if not isinstance(raw_shorts, list):
+        return data
+
+    for position, item in enumerate(raw_shorts):
+        if not isinstance(item, dict):
+            continue
+
+        if "index" not in item and position < len(requested_shorts):
+            item["index"] = requested_shorts[position]["index"]
+
+        if isinstance(item.get("tags"), str):
+            item["tags"] = _split_list_text(item["tags"])
+        elif item.get("tags") is None:
+            item["tags"] = []
+
+        if isinstance(item.get("hashtags"), str):
+            item["hashtags"] = _split_list_text(item["hashtags"].replace(" #", ",#"))
+        elif item.get("hashtags") is None:
+            item["hashtags"] = []
+
+    return data
+
 def _validate_short_indices(result: ShortFormSEOMetadata, shorts: list[dict]) -> None:
     """Require exactly one metadata item for each requested short."""
     expected = sorted(int(short["index"]) for short in shorts)
@@ -183,6 +216,7 @@ def generate_short_form_seo(
     )
     text = strip_markdown_fences(raw)
     data = json.loads(text)
+    data = _normalize_short_form_seo_data(data, shorts)
     result = ShortFormSEOMetadata.model_validate(data)
     _validate_short_indices(result, shorts)
 

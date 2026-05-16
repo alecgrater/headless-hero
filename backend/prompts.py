@@ -104,11 +104,11 @@ Rules:
 - Description: 1-2 short paragraphs or caption-style lines, optimized for Shorts, \
   TikTok, and Instagram. Do not include timestamps.
 - Hashtags: 5-10 relevant hashtags, each starting with #, mix broad and specific.
-- Tags: YouTube Shorts keyword tags. Total tags joined by ", " must be ≤500 characters.
+- Tags: YouTube Shorts keyword tags as an array of strings, never a comma-separated string. Total tags joined by ", " must be ≤500 characters.
 - Make each short distinct; do not reuse the same title template across all shorts.
 - Return ONLY valid JSON — no markdown fences, no commentary.
 
-Return a JSON object with key: shorts.
+Return a JSON object with key: shorts. Each shorts item must include exactly these keys: index, title, description, hashtags, tags.
 """,
     retention=RetentionMeta(
         goal="Package per-segment shorts for discovery and cross-platform upload",
