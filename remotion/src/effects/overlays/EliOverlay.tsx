@@ -46,8 +46,11 @@ function seededRandom(seed: number): () => number {
 // ---------------------------------------------------------------------------
 
 const OVERLAY_SIZE = 280;
-const OVERLAY_SIZE_VERTICAL = 620;
-const TOP_MARGIN_VERTICAL = 10; // px inset from the top edge in vertical mode
+const OVERLAY_SIZE_VERTICAL = 720;
+// Negative top so the bbox bottom (which is where the character figure ends)
+// aligns with the top-band boundary (~y=500). The transparent space above
+// Eli's head overflows above y=0 invisibly.
+const TOP_MARGIN_VERTICAL = -70;
 const CORNER_MARGIN = 24;
 const PHI = 1.618033988749895;
 const SQRT2 = 1.4142135623730951;
