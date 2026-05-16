@@ -1287,9 +1287,8 @@ function renderUsageSummary(data) {
     const savings = svc ? (svc.savings_estimate || 0) : 0;
     const calls = svc ? svc.call_count : 0;
     const amount = display.savings ? savings : cost;
-    const amountSuffix = display.savings ? ' saved' : '';
     const amountBadge = display.savings
-      ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 uppercase tracking-wide">saved</span>'
+      ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 uppercase tracking-wide leading-none">saved</span>'
       : '';
 
     let detail = '';
@@ -1304,18 +1303,20 @@ function renderUsageSummary(data) {
       : `<span class="text-[10px] px-2 py-0.5 rounded border border-neutral-700 text-neutral-600 cursor-default">Manage Account</span>`;
 
     html += `
-      <div class="flex flex-col gap-1">
-        <div class="flex justify-end">${manageBtn}</div>
-        <div class="border rounded-lg p-4 ${colorCls}">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-medium">${display.icon} ${display.label}</span>
-            <span class="flex items-center gap-2">
+      <div class="flex h-full flex-col gap-1">
+        <div class="flex h-5 items-center justify-end">${manageBtn}</div>
+        <div class="border rounded-lg p-4 h-32 flex flex-col justify-between ${colorCls}">
+          <div class="flex items-start justify-between gap-3">
+            <span class="text-xs font-medium leading-tight whitespace-nowrap">${display.icon} ${display.label}</span>
+            <span class="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+              <span class="text-lg font-semibold leading-none">$${amount.toFixed(2)}</span>
               ${amountBadge}
-              <span class="text-lg font-semibold">$${amount.toFixed(2)}${amountSuffix}</span>
             </span>
           </div>
-          <div class="text-[10px] opacity-70">${calls} calls</div>
-          <div class="text-[10px] opacity-70 mt-1">${detail || 'No usage'}</div>
+          <div class="text-[10px] opacity-70 leading-relaxed overflow-hidden">
+            <div>${calls} calls</div>
+            <div class="mt-1">${detail || 'No usage'}</div>
+          </div>
         </div>
       </div>`;
   }
