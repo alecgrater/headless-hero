@@ -10,7 +10,7 @@
 import React, { useMemo } from "react";
 import { useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { loadFont } from "@remotion/google-fonts/Inter";
-import type { SceneInput } from "../types";
+import type { SceneInput, Orientation } from "../types";
 import { findWordBoundary } from "../utils/wordMatch";
 
 const { fontFamily } = loadFont("normal", {
@@ -20,10 +20,18 @@ const { fontFamily } = loadFont("normal", {
 
 interface Props {
   scene: SceneInput;
+  orientation?: Orientation;
 }
 
-/** Adaptive font size based on character count. */
-function getFontSize(charCount: number): number {
+/** Adaptive font size based on character count and orientation. */
+function getFontSize(charCount: number, orientation: Orientation): number {
+  if (orientation === "vertical") {
+    // Vertical (1080w): bump everything up — less horizontal room to break into lines.
+    if (charCount < 40) return 110;
+    if (charCount < 80) return 92;
+    return 76;
+  }
+  // Horizontal (1920w): original ramp.
   if (charCount < 40) return 96;
   if (charCount < 80) return 72;
   return 56;
@@ -58,12 +66,12 @@ const ExpandingRing: React.FC<{
   );
 };
 
-export const SubtitleScene: React.FC<Props> = ({ scene }) => {
+export const SubtitleScene: React.FC<Props> = ({ scene, orientation = "horizontal" }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
   const text = scene.narration || "";
-  const fontSize = getFontSize(text.length);
+  const fontSize = getFontSize(text.length, orientation);
   const timestamps = scene.word_timestamps ?? [];
 
   // Split timestamps into lead-in and subtitle words
@@ -199,7 +207,7 @@ export const SubtitleScene: React.FC<Props> = ({ scene }) => {
             justifyContent: "center",
             alignItems: "center",
             gap: "0.2em",
-            maxWidth: "85%",
+            maxWidth: orientation === "vertical" ? "92%" : "85%",
             fontFamily,
             fontWeight: 800,
             fontSize,
