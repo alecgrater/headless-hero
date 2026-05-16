@@ -107,7 +107,7 @@ export const SceneRenderer: React.FC<Props> = ({
 
   // In vertical mode, wrap narration scenes in three-band layout.
   // Aha-subtitle scenes occupy the full vertical frame natively.
-  // Title cards in shorts are handled by ShortTitleCardScene (Task 10), not here.
+  // Title cards in shorts are handled by ShortTitleCardScene, not here.
   const isVertical = orientation === "vertical";
   if (isVertical && !isAhaSubtitle && !isTitleCard) {
     visualLayer = (

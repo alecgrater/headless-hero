@@ -103,6 +103,7 @@ export const SubtitleOverlay: React.FC<Props> = ({ wordTimestamps, highlightEnab
               alignItems: "center",
               justifyContent: "center",
               padding: "0 60px",
+              boxSizing: "border-box",
               opacity: phraseOpacity,
               zIndex: 10,
             }
