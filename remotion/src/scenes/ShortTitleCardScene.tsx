@@ -1,15 +1,15 @@
 /**
  * ShortTitleCardScene — full-frame square image with darken/blur, plus
- * two-zone word-by-word text reveal synced to the intro VO.
+ * static stripped long-form title (upper zone) and pop-in segment name (lower zone).
  *
- * Zone 1 (upper half): video title (smaller, secondary weight).
+ * Zone 1 (upper half): stripped video title (smaller, secondary weight, white).
+ * Appears instantly at t=0 and holds.
  * Zone 2 (lower half): segment name (larger, primary weight, accent color).
- * The em-dash in display_text marks the boundary between the two zones.
+ * Pops in at TITLE_CARD_BEAT_FRAMES with spring scale + radial glow burst.
  */
 import React from "react";
 import { Img, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { loadFont } from "@remotion/google-fonts/Inter";
-import type { ShortIntroProps } from "../types";
 
 const { fontFamily } = loadFont("normal", {
   weights: ["600", "800", "900"],
@@ -17,75 +17,52 @@ const { fontFamily } = loadFont("normal", {
 });
 
 interface Props {
-  intro: ShortIntroProps;
+  stripped_title: string;
+  segment_name: string;
+  backdrop_image_path: string;
 }
 
 const ACCENT_COLOR = "#fbbf24"; // amber accent — matches existing aha-subtitle glow palette
 const BACKDROP_FILTER = "blur(18px) brightness(0.45) saturate(0.7)";
-const EM_DASH = "—";
+
+// Beat before the segment name pops in (in seconds). Tunable visually.
+const TITLE_CARD_BEAT_SECONDS = 0.5;
+// Glow burst total duration (in seconds), from start of pop-in.
+const GLOW_BURST_SECONDS = 0.4;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-export const ShortTitleCardScene: React.FC<Props> = ({ intro }) => {
+export const ShortTitleCardScene: React.FC<Props> = ({
+  stripped_title,
+  segment_name,
+  backdrop_image_path,
+}) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Split display_text on em-dash → title words (zone 1) + segment words (zone 2)
-  const parts = intro.display_text.split(EM_DASH);
-  const titleText = (parts[0] ?? "").trim();
-  const segmentText = (parts[1] ?? "").trim();
-  const titleWords = titleText.split(/\s+/).filter(Boolean);
-  const segmentWords = segmentText.split(/\s+/).filter(Boolean);
+  const popInStartFrame = Math.round(TITLE_CARD_BEAT_SECONDS * fps);
+  const popAge = frame - popInStartFrame;
 
-  // Filter word_timestamps to non-em-dash entries (ElevenLabs may or may not emit the dash;
-  // we strip any timestamp whose word matches the em-dash exactly).
-  const wordTimestamps = (intro.word_timestamps ?? []).filter(
-    (wt) => wt.word.trim() !== EM_DASH,
-  );
+  // Segment-name spring scale: 0.6 -> 1.05 -> 1.0 (natural settle via Remotion spring)
+  const segmentScale = spring({
+    frame: Math.max(0, popAge),
+    fps,
+    config: { damping: 12, mass: 0.7, stiffness: 180, overshootClamping: false },
+    from: 0.6,
+    to: 1,
+  });
 
-  // Map timestamps to zones by index relative to titleWords.length
-  function getWordStartFrame(zone: "title" | "segment", index: number): number {
-    const globalIdx = zone === "title" ? index : titleWords.length + index;
-    const ts = wordTimestamps[globalIdx];
-    if (!ts) return 0;
-    return Math.round((ts.start_ms / 1000) * fps);
-  }
+  // Opacity 0 -> 1 over ~120ms (~3-4 frames at 30fps).
+  const opacityFrames = Math.max(1, Math.round(0.12 * fps));
+  const segmentOpacity = popAge < 0 ? 0 : clamp(popAge / opacityFrames, 0, 1);
 
-  function renderWord(
-    word: string,
-    zone: "title" | "segment",
-    index: number,
-  ): React.ReactNode {
-    const wordStartFrame = getWordStartFrame(zone, index);
-    const wordAge = frame - wordStartFrame;
-    const entryProgress = clamp(wordAge / 8, 0, 1);
-    const wordScale = spring({
-      frame: Math.max(0, wordAge),
-      fps,
-      config: { damping: 14, mass: 0.6 },
-      from: 0.7,
-      to: 1,
-    });
-    const wordY = (1 - entryProgress) * 30;
-    const wordOpacity = clamp(wordAge / 5, 0, 1);
-
-    return (
-      <span
-        key={`${zone}-${index}`}
-        style={{
-          display: "inline-block",
-          opacity: wordAge < 0 ? 0 : wordOpacity,
-          transform: `translateY(${wordAge < 0 ? 30 : wordY}px) scale(${
-            wordAge < 0 ? 0.7 : wordScale
-          })`,
-        }}
-      >
-        {word}
-      </span>
-    );
-  }
+  // Glow burst: scale 0.7 -> 1.4 + opacity 0.85 -> 0 across GLOW_BURST_SECONDS
+  const glowFrames = Math.max(1, Math.round(GLOW_BURST_SECONDS * fps));
+  const glowProgress = popAge < 0 ? 0 : clamp(popAge / glowFrames, 0, 1);
+  const glowScale = 0.7 + glowProgress * 0.7; // 0.7 -> 1.4
+  const glowOpacity = popAge < 0 ? 0 : (1 - glowProgress) * 0.85;
 
   return (
     <div
@@ -98,9 +75,9 @@ export const ShortTitleCardScene: React.FC<Props> = ({ intro }) => {
       }}
     >
       {/* Full-frame square image backdrop */}
-      {intro.backdrop_image_path && (
+      {backdrop_image_path && (
         <Img
-          src={intro.backdrop_image_path}
+          src={backdrop_image_path}
           style={{
             position: "absolute",
             inset: 0,
@@ -113,7 +90,7 @@ export const ShortTitleCardScene: React.FC<Props> = ({ intro }) => {
         />
       )}
 
-      {/* Zone 1: Title (upper half) */}
+      {/* Zone 1: Stripped title (upper half) — static, on at t=0 */}
       <div
         style={{
           position: "absolute",
@@ -138,17 +115,13 @@ export const ShortTitleCardScene: React.FC<Props> = ({ intro }) => {
             textAlign: "center",
             letterSpacing: "0.005em",
             textShadow: "0 4px 16px rgba(0,0,0,0.7)",
-            display: "flex",
-            flexWrap: "wrap",
-            justifyContent: "center",
-            gap: "0.25em",
           }}
         >
-          {titleWords.map((w, i) => renderWord(w, "title", i))}
+          {stripped_title}
         </div>
       </div>
 
-      {/* Zone 2: Segment name (lower half) */}
+      {/* Zone 2: Segment name (lower half) — pops in at TITLE_CARD_BEAT_FRAMES */}
       <div
         style={{
           position: "absolute",
@@ -163,6 +136,31 @@ export const ShortTitleCardScene: React.FC<Props> = ({ intro }) => {
           boxSizing: "border-box",
         }}
       >
+        {/* Glow burst (behind the text, pointer-events: none) */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
+            opacity: glowOpacity,
+          }}
+        >
+          <div
+            style={{
+              width: "70%",
+              height: "60%",
+              transform: `scale(${glowScale})`,
+              background:
+                "radial-gradient(ellipse at center, rgba(251,191,36,0.55) 0%, rgba(251,191,36,0.25) 40%, rgba(251,191,36,0) 70%)",
+              filter: "blur(8px)",
+            }}
+          />
+        </div>
+
+        {/* Segment name text */}
         <div
           style={{
             fontFamily,
@@ -173,13 +171,11 @@ export const ShortTitleCardScene: React.FC<Props> = ({ intro }) => {
             textAlign: "center",
             letterSpacing: "-0.005em",
             textShadow: "0 6px 24px rgba(0,0,0,0.8)",
-            display: "flex",
-            flexWrap: "wrap",
-            justifyContent: "center",
-            gap: "0.2em",
+            opacity: segmentOpacity,
+            transform: `scale(${popAge < 0 ? 0.6 : segmentScale})`,
           }}
         >
-          {segmentWords.map((w, i) => renderWord(w, "segment", i))}
+          {segment_name}
         </div>
       </div>
     </div>
