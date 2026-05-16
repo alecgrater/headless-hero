@@ -1232,21 +1232,21 @@ async function executeSqlQuery() {
 // =====================================================
 
 const SERVICE_DISPLAY = {
-  anthropic: { label: 'Anthropic (Claude)', color: 'violet', icon: '🧠', manageUrl: null },
+  openai: { label: 'OpenAI', color: 'violet', icon: '◎', manageUrl: 'https://platform.openai.com/settings/organization/usage' },
   google_ai: { label: 'Google AI Studio', color: 'sky', icon: '🎨', manageUrl: 'https://aistudio.google.com/spend?project=headless-hand' },
   replicate: { label: 'Replicate', color: 'amber', icon: '🖼️', manageUrl: 'https://replicate.com/users/alecgrater/settings/billing/manage-credit?next=/account/billing' },
   elevenlabs: { label: 'ElevenLabs', color: 'emerald', icon: '🔊', manageUrl: 'https://elevenlabs.io/app/subscription/creative' },
 };
 
 const SERVICE_COLORS = {
-  anthropic: 'bg-violet-600/30 text-violet-400 border-violet-600/30',
+  openai: 'bg-violet-600/30 text-violet-400 border-violet-600/30',
   google_ai: 'bg-sky-600/30 text-sky-400 border-sky-600/30',
   replicate: 'bg-amber-600/30 text-amber-400 border-amber-600/30',
   elevenlabs: 'bg-emerald-600/30 text-emerald-400 border-emerald-600/30',
 };
 
 const SERVICE_BAR_COLORS = {
-  anthropic: 'bg-violet-500',
+  openai: 'bg-violet-500',
   google_ai: 'bg-sky-500',
   replicate: 'bg-amber-500',
   elevenlabs: 'bg-emerald-500',
@@ -1274,7 +1274,7 @@ function renderUsageSummary(data) {
 
   // Service cards
   const cards = document.getElementById('usageServiceCards');
-  const allServices = ['anthropic', 'google_ai', 'replicate', 'elevenlabs'];
+  const allServices = ['openai', 'google_ai', 'replicate', 'elevenlabs'];
   let html = '';
   for (const svcKey of allServices) {
     const svc = data.services.find(s => s.service === svcKey);

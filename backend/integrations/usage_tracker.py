@@ -65,13 +65,50 @@ _MODEL_PRICING: dict[str, dict[str, float]] = {
         "output": 4.0 / 1_000_000,
         "cache_read": 0.08 / 1_000_000,
     },
+    "gpt-5.5": {
+        "input": 5.0 / 1_000_000,
+        "output": 30.0 / 1_000_000,
+        "cache_read": 0.5 / 1_000_000,
+    },
+    "gpt-5.4": {
+        "input": 2.5 / 1_000_000,
+        "output": 15.0 / 1_000_000,
+        "cache_read": 0.25 / 1_000_000,
+    },
+    "gpt-5.4-mini": {
+        "input": 0.75 / 1_000_000,
+        "output": 4.5 / 1_000_000,
+        "cache_read": 0.075 / 1_000_000,
+    },
+    "gpt-5.4-nano": {
+        "input": 0.2 / 1_000_000,
+        "output": 1.25 / 1_000_000,
+        "cache_read": 0.02 / 1_000_000,
+    },
+    "gpt-5.2": {
+        "input": 2.5 / 1_000_000,
+        "output": 15.0 / 1_000_000,
+        "cache_read": 0.25 / 1_000_000,
+    },
+    "gpt-5-mini": {
+        "input": 0.75 / 1_000_000,
+        "output": 4.5 / 1_000_000,
+        "cache_read": 0.075 / 1_000_000,
+    },
+    "gpt-5-nano": {
+        "input": 0.2 / 1_000_000,
+        "output": 1.25 / 1_000_000,
+        "cache_read": 0.02 / 1_000_000,
+    },
 }
 
-_DEFAULT_PRICING = {
+_DEFAULT_ANTHROPIC_PRICING = {
     "input": 3.0 / 1_000_000,
     "output": 15.0 / 1_000_000,
     "cache_read": 0.3 / 1_000_000,
 }
+
+_DEFAULT_OPENAI_PRICING = _MODEL_PRICING["gpt-5.4"]
 
 _ZERO_PRICING = {
     "input": 0.0,
@@ -81,21 +118,23 @@ _ZERO_PRICING = {
 
 
 def get_model_pricing(model: str) -> dict[str, float]:
-    """Return per-token pricing dict for a model. Falls back to Sonnet pricing.
+    """Return per-token pricing dict for a model.
 
     Local models (Ollama/Qwen variants) are free — matched by prefix so any
-    qwen/llama/etc. tag returns zero cost rather than phantom Sonnet pricing.
+    qwen/llama/etc. tag returns zero cost rather than phantom hosted pricing.
     """
     if model in _MODEL_PRICING:
         return _MODEL_PRICING[model]
     name = model.lower()
     if name.startswith(("qwen", "llama", "mistral", "gemma", "phi", "deepseek")):
         return _ZERO_PRICING
-    return _DEFAULT_PRICING
+    if name.startswith(("gpt-", "o1", "o3", "o4")):
+        return _DEFAULT_OPENAI_PRICING
+    return _DEFAULT_ANTHROPIC_PRICING
 
 
-ANTHROPIC_INPUT_PER_TOKEN = _DEFAULT_PRICING["input"]
-ANTHROPIC_OUTPUT_PER_TOKEN = _DEFAULT_PRICING["output"]
+ANTHROPIC_INPUT_PER_TOKEN = _DEFAULT_ANTHROPIC_PRICING["input"]
+ANTHROPIC_OUTPUT_PER_TOKEN = _DEFAULT_ANTHROPIC_PRICING["output"]
 
 # Google Gemini 2.5 Flash image generation — per image
 GOOGLE_IMAGE_PER_CALL = 0.039  # $0.0390/image (Gemini 2.5 Flash image gen)
