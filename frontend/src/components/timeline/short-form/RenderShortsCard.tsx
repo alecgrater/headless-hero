@@ -152,7 +152,7 @@ export default function RenderShortsCard({
         <div className="flex flex-wrap items-center justify-end gap-2">
           <button
             onClick={handleRenderRemaining}
-            disabled={busy || busySegment !== null || remainingCount === 0}
+            disabled={busy || busySegment !== null}
             className="text-sm px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 rounded-lg font-medium transition-colors"
           >
             {isBatchBusy && currentOp?.type === "batch"

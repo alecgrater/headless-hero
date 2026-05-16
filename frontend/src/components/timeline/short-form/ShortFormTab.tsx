@@ -29,10 +29,17 @@ export default function ShortFormTab({
   useEffect(() => {
     let cancelled = false;
     async function probe() {
-      const found = await probeRenderedShorts();
-      if (!cancelled) {
-        setRenderedUrls(found);
-        setDownloadsUrls(found);
+      try {
+        const found = await probeRenderedShorts();
+        if (!cancelled) {
+          setRenderedUrls(found);
+          setDownloadsUrls(found);
+        }
+      } catch {
+        if (!cancelled) {
+          setRenderedUrls({});
+          setDownloadsUrls({});
+        }
       }
     }
     probe();
