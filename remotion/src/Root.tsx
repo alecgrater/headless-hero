@@ -1,7 +1,8 @@
 import React from "react";
 import { Composition } from "remotion";
 import { FullVideo } from "./FullVideo";
-import type { FullVideoProps } from "./types";
+import { ShortFormVideo } from "./ShortFormVideo";
+import type { FullVideoProps, ShortFormVideoProps } from "./types";
 import { CHAPTER_TRANSITION_SECONDS } from "./utils/timing";
 import "./styles.css";
 
@@ -9,6 +10,8 @@ import "./styles.css";
 // We cast our typed components to satisfy the generic constraint.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const FullVideoComp = FullVideo as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const ShortFormVideoComp = ShortFormVideo as any;
 
 export const Root: React.FC = () => {
   return (
@@ -41,6 +44,39 @@ export const Root: React.FC = () => {
           const transitionSeconds = hasChapterMap ? chapterTransitions * CHAPTER_TRANSITION_SECONDS : 0;
           return {
             durationInFrames: Math.max(1, Math.ceil((totalSceneSeconds + transitionSeconds) * p.fps)),
+            fps: p.fps,
+            width: p.width,
+            height: p.height,
+          };
+        }}
+      />
+      <Composition
+        id="ShortFormVideo"
+        component={ShortFormVideoComp}
+        fps={30}
+        width={1080}
+        height={1920}
+        durationInFrames={300}
+        defaultProps={{
+          intro: {
+            segment_idx: 0,
+            display_text: "",
+            audio_path: "",
+            duration_seconds: 3,
+            word_timestamps: [],
+            backdrop_image_path: "",
+          },
+          scenes: [],
+          fps: 30,
+          width: 1080,
+          height: 1920,
+        }}
+        calculateMetadata={({ props }) => {
+          const p = props as unknown as ShortFormVideoProps;
+          const sceneSeconds = p.scenes.reduce((s, sc) => s + sc.duration_seconds, 0);
+          const totalSeconds = p.intro.duration_seconds + sceneSeconds;
+          return {
+            durationInFrames: Math.max(1, Math.ceil(totalSeconds * p.fps)),
             fps: p.fps,
             width: p.width,
             height: p.height,
