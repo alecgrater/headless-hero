@@ -182,6 +182,8 @@ export const SCRIPT_MODELS = [
   { value: "anthropic.claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
   { value: "anthropic.claude-sonnet-4-5-20250929-v1:0", label: "Claude Sonnet 4.5" },
   { value: "anthropic.claude-haiku-4-5-20251001-v1:0", label: "Claude Haiku 4.5" },
+  { value: "gpt-5.5", label: "OpenAI GPT-5.5" },
+  { value: "gpt-5.4", label: "OpenAI GPT-5.4" },
   { value: "gpt-5.2", label: "OpenAI GPT-5.2" },
   { value: "gpt-5-mini", label: "OpenAI GPT-5 Mini" },
   { value: "gpt-5-nano", label: "OpenAI GPT-5 Nano" },
