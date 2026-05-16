@@ -46,7 +46,7 @@ function seededRandom(seed: number): () => number {
 // ---------------------------------------------------------------------------
 
 const OVERLAY_SIZE = 280;
-const OVERLAY_SIZE_VERTICAL = 560;
+const OVERLAY_SIZE_VERTICAL = 620;
 const TOP_MARGIN_VERTICAL = 10; // px inset from the top edge in vertical mode
 const CORNER_MARGIN = 24;
 const PHI = 1.618033988749895;
@@ -65,7 +65,9 @@ function cornerStyle(
   corner: string | null | undefined,
   orientation: Orientation | undefined,
 ): React.CSSProperties {
-  // Vertical mode overrides corner: Eli is always top-center, larger
+  // Vertical mode overrides corner: Eli is always top-center, larger.
+  // Centering uses marginLeft (not transform: translateX) because the inner
+  // div's animation transform would overwrite it.
   if (orientation === "vertical") {
     return {
       position: "absolute",
@@ -73,7 +75,7 @@ function cornerStyle(
       height: OVERLAY_SIZE_VERTICAL,
       top: TOP_MARGIN_VERTICAL,
       left: "50%",
-      transform: "translateX(-50%)",
+      marginLeft: -OVERLAY_SIZE_VERTICAL / 2,
     };
   }
 
