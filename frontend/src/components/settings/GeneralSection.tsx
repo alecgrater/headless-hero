@@ -195,6 +195,16 @@ const MODEL_SUGGESTIONS = [
   { value: "qwen3:8b", label: "Qwen3 8B (Ollama)" },
 ] as const;
 
+const modelOptionsForProvider = (provider: LlmProvider) => {
+  if (provider === "openai") {
+    return SCRIPT_MODELS.filter((model) => model.value.startsWith("gpt-"));
+  }
+  if (provider === "anthropic" || provider === "claude-code-proxy") {
+    return SCRIPT_MODELS.filter((model) => !model.value.startsWith("gpt-"));
+  }
+  return MODEL_SUGGESTIONS;
+};
+
 const initialTaskRoutes = () =>
   Object.fromEntries(
     LLM_TASKS.map((task) => [
@@ -359,7 +369,13 @@ export default function GeneralSection() {
 
   const handleTaskProviderChange = (task: LlmTaskConfig, provider: TaskRoute["provider"]) => {
     const current = taskRoutes[task.id] ?? { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) };
-    const knownDefaults = new Set([task.defaultModel, task.openaiDefaultModel, task.ollamaDefaultModel, ""]);
+    const knownDefaults = new Set([
+      task.defaultModel,
+      task.openaiDefaultModel,
+      task.ollamaDefaultModel,
+      ...MODEL_SUGGESTIONS.map((model) => model.value),
+      "",
+    ]);
     updateTaskRoute(task.id, {
       provider,
       model: knownDefaults.has(current.model) ? defaultModelForProvider(task, provider) : current.model,
@@ -526,6 +542,8 @@ export default function GeneralSection() {
                 {LLM_TASKS.map((task) => {
                   const route = taskRoutes[task.id] ?? { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) };
                   const effectiveProvider = route.provider || llmProvider;
+                  const modelOptions = modelOptionsForProvider(effectiveProvider);
+                  const hasSelectedModelOption = modelOptions.some((model) => model.value === route.model);
                   return (
                     <div key={task.id} className="rounded-lg border border-neutral-800 bg-neutral-950/40 p-3 space-y-3">
                       <div>
@@ -549,14 +567,31 @@ export default function GeneralSection() {
                         </div>
                         <div className="space-y-1">
                           <label className="text-xs text-neutral-400">Model</label>
-                          <input
-                            type="text"
-                            list="llm-model-suggestions"
-                            value={route.model}
-                            onChange={(e) => updateTaskRoute(task.id, { model: e.target.value })}
-                            placeholder={defaultModelForProvider(task, route.provider)}
-                            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors font-mono"
-                          />
+                          {effectiveProvider === "ollama" ? (
+                            <input
+                              type="text"
+                              list="llm-model-suggestions"
+                              value={route.model}
+                              onChange={(e) => updateTaskRoute(task.id, { model: e.target.value })}
+                              placeholder={defaultModelForProvider(task, route.provider)}
+                              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors font-mono"
+                            />
+                          ) : (
+                            <select
+                              value={route.model}
+                              onChange={(e) => updateTaskRoute(task.id, { model: e.target.value })}
+                              className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors font-mono"
+                            >
+                              {!hasSelectedModelOption && route.model.trim() && (
+                                <option value={route.model}>{route.model} (custom)</option>
+                              )}
+                              {modelOptions.map((model) => (
+                                <option key={model.value} value={model.value}>
+                                  {model.label}
+                                </option>
+                              ))}
+                            </select>
+                          )}
                         </div>
                       </div>
                       {effectiveProvider === "anthropic" && !anthropicKeyConfigured && (
