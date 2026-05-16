@@ -179,3 +179,102 @@ def job_status(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return JobStatusResponse(**job.to_dict())
+
+
+# --- Render endpoints ---
+
+
+class RenderShortAllRequest(BaseModel):
+    script_id: str
+
+
+class RenderShortOneRequest(BaseModel):
+    script_id: str
+    segment_idx: int
+
+
+def _validate_intros_present(content: ScriptContent) -> None:
+    intros = content.short_intros or []
+    intro_segments = {intro.segment_idx for intro in intros}
+    missing = [i for i in range(len(content.segments)) if i not in intro_segments]
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing intros for segments: {missing}. Generate intros first.",
+        )
+
+
+@router.post("/render/all", response_model=JobResponse)
+def start_render_all_shorts(
+    body: RenderShortAllRequest, session: Session = Depends(get_session)
+):
+    """Render all per-segment shorts in the background."""
+    from pipeline.short_form_render import render_all_shorts
+
+    content = _load_content(session, body.script_id)
+    _validate_intros_present(content)
+
+    record = session.get(Script, body.script_id)
+    project_title = record.topic_title or "Untitled"
+    total = len(content.segments)
+
+    job = create_job(scene_count=total)
+    logger.info("Starting render-all-shorts for script %s (%d segments)", body.script_id, total)
+
+    def do_render():
+        def on_progress(p: float, msg: str):
+            update_job(job.id, progress=p, current_step=msg)
+
+        urls = render_all_shorts(
+            script_id=body.script_id,
+            content=content,
+            project_title=project_title,
+            on_progress=on_progress,
+        )
+        for url in urls:
+            job.output_urls.append(url)
+        update_job(job.id, progress=1.0, current_step="All shorts rendered")
+        return ""
+
+    run_in_background(job.id, do_render)
+    return JobResponse(job_id=job.id)
+
+
+@router.post("/render/one", response_model=JobResponse)
+def start_render_one_short(
+    body: RenderShortOneRequest, session: Session = Depends(get_session)
+):
+    """Render a single segment's short in the background."""
+    from pipeline.short_form_render import render_short_segment
+
+    content = _load_content(session, body.script_id)
+    if body.segment_idx < 0 or body.segment_idx >= len(content.segments):
+        raise HTTPException(status_code=400, detail="segment_idx out of range")
+    _validate_intros_present(content)
+
+    record = session.get(Script, body.script_id)
+    project_title = record.topic_title or "Untitled"
+
+    job = create_job(scene_count=1)
+    logger.info(
+        "Starting render-one-short for script %s segment %d",
+        body.script_id, body.segment_idx,
+    )
+
+    def do_render():
+        def on_progress(p: float, msg: str):
+            update_job(job.id, progress=p, current_step=msg)
+
+        url = render_short_segment(
+            script_id=body.script_id,
+            segment_idx=body.segment_idx,
+            content=content,
+            project_title=project_title,
+            on_progress=on_progress,
+        )
+        job.output_urls.append(url)
+        update_job(job.id, progress=1.0, current_step="Short rendered")
+        return url
+
+    run_in_background(job.id, do_render)
+    return JobResponse(job_id=job.id)
