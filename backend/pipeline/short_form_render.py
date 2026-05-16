@@ -3,12 +3,13 @@
 import json
 import logging
 import os
+import re
 import shutil
 from pathlib import Path
 from typing import Callable
 
 from config import BACKEND_PORT, DATA_DIR, FPS, sanitize_filename
-from models.script import ScriptContent, ShortIntro
+from models.script import Scene, ScriptContent
 from pipeline.remotion_render import (
     _reencode_h264,
     _run_remotion,
@@ -24,43 +25,34 @@ SHORT_WIDTH = 1080
 SHORT_HEIGHT = 1920
 
 
+def strip_leading_number(title: str) -> str:
+    """Strip leading digit(s) followed by whitespace from a title.
+
+    Examples:
+        "8 Unsolved Crimes ..." -> "Unsolved Crimes ..."
+        "How to Train Your Dragon" -> "How to Train Your Dragon"
+        "8Track Memories" -> "8Track Memories"  (no following whitespace)
+    """
+    return re.sub(r"^\d+\s+", "", title)
+
+
 def _shorts_dir(script_id: str) -> Path:
     d = DATA_DIR / "projects" / script_id / "renders" / "shorts"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
 
-def _intro_backdrop_path(script_id: str, segment_idx: int) -> str | None:
-    """Web-served path to the per-segment title card image (square)."""
+def _title_card_backdrop_url(script_id: str, segment_idx: int) -> str:
+    """Web-served URL for the per-segment square illustration used as title-card backdrop.
+
+    Returns "" if the file does not exist on disk; the Remotion component falls back
+    to a black background in that case.
+    """
     base = DATA_DIR / "projects" / script_id / "images"
     p = base / f"title_card_{segment_idx}.png"
     if not p.exists():
-        return None
+        return ""
     return f"http://localhost:{BACKEND_PORT}/static/projects/{script_id}/images/title_card_{segment_idx}.png"
-
-
-def _intro_audio_path(script_id: str, segment_idx: int) -> str | None:
-    p = DATA_DIR / "projects" / script_id / "audio" / f"short_intro_{segment_idx}.mp3"
-    if not p.exists():
-        return None
-    return f"http://localhost:{BACKEND_PORT}/static/projects/{script_id}/audio/short_intro_{segment_idx}.mp3"
-
-
-def _build_intro_props(intro: ShortIntro, script_id: str) -> dict:
-    backdrop_path = _intro_backdrop_path(script_id, intro.segment_idx)
-    audio_path = _intro_audio_path(script_id, intro.segment_idx)
-    if not audio_path:
-        raise RuntimeError(
-            f"Intro audio missing for segment {intro.segment_idx} — generate intros first"
-        )
-    return {
-        "segment_idx": intro.segment_idx,
-        "display_text": intro.display_text,
-        "audio_path": audio_path,
-        "duration_seconds": intro.duration_seconds,
-        "word_timestamps": intro.word_timestamps or [],
-        "backdrop_image_path": backdrop_path or "",
-    }
 
 
 def _short_filename(project_title: str, n: int, total: int) -> str:
@@ -84,13 +76,23 @@ def _copy_to_downloads(project_title: str, src_path: Path, dest_filename: str) -
     return str(dest)
 
 
-def _find_intro(content: ScriptContent, segment_idx: int) -> ShortIntro:
-    if not content.short_intros:
-        raise RuntimeError("No short_intros on content — generate intros first")
-    for intro in content.short_intros:
-        if intro.segment_idx == segment_idx:
-            return intro
-    raise RuntimeError(f"Short intro for segment {segment_idx} not generated yet")
+def _build_segment_scene_props(
+    segment_scenes: list[Scene],
+    script_id: str,
+    backdrop_url: str,
+) -> list[dict]:
+    """Convert a segment's scenes to Remotion input props.
+
+    Overrides the title card scene's image_url to the per-segment square illustration
+    (shorts use the square, not the long-form composite grid card).
+    """
+    props: list[dict] = []
+    for scene in segment_scenes:
+        scene_props = _scene_to_input_props(scene, script_id)
+        if scene.is_title_card and backdrop_url:
+            scene_props["image_path"] = backdrop_url
+        props.append(scene_props)
+    return props
 
 
 def render_short_segment(
@@ -109,27 +111,33 @@ def render_short_segment(
     if segment_idx < 0 or segment_idx >= len(content.segments):
         raise RuntimeError(f"segment_idx {segment_idx} out of range (0..{len(content.segments) - 1})")
 
-    intro = _find_intro(content, segment_idx)
     segment = content.segments[segment_idx]
+    if not segment.scenes:
+        raise RuntimeError(f"Segment {segment_idx} has no scenes")
+    if not segment.scenes[0].is_title_card:
+        raise RuntimeError(
+            f"Segment {segment_idx} first scene is not a title card — "
+            "run the long-form pipeline first"
+        )
 
-    # Build scene list (skip the long-form title-card scene if present — shorts use intro instead)
-    scenes_to_render = [sc for sc in segment.scenes if not sc.is_title_card]
+    scenes_to_render = list(segment.scenes)
 
     # For short #1 (segment 0), skip the leading "hook" scenes that tease the whole video.
-    # hook_scene_count comes from hook_detector.py; defaults to 0 (no skip).
+    # The first scene of segment 0 is still the title card, so skip starts at index 1.
     if segment_idx == 0 and content.hook_scene_count:
-        skip = min(content.hook_scene_count, max(0, len(scenes_to_render) - 1))
+        # Preserve title card at index 0, drop the next `hook_scene_count` scenes.
+        skip = min(content.hook_scene_count, max(0, len(scenes_to_render) - 2))
         if skip > 0:
-            logger.info(
-                "[%s] short #1: skipping %d hook scene(s)", script_id, skip,
-            )
-            scenes_to_render = scenes_to_render[skip:]
+            logger.info("[%s] short #1: skipping %d hook scene(s)", script_id, skip)
+            scenes_to_render = [scenes_to_render[0]] + scenes_to_render[1 + skip:]
 
-    scene_props = [_scene_to_input_props(sc, script_id) for sc in scenes_to_render]
+    backdrop_url = _title_card_backdrop_url(script_id, segment_idx)
+    scene_props = _build_segment_scene_props(scenes_to_render, script_id, backdrop_url)
 
     props = {
-        "intro": _build_intro_props(intro, script_id),
         "scenes": scene_props,
+        "stripped_title": strip_leading_number(content.title),
+        "segment_name": segment.name,
         "fps": FPS,
         "width": SHORT_WIDTH,
         "height": SHORT_HEIGHT,
