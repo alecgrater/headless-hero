@@ -196,7 +196,6 @@ function TimelineEditor({
   const voicePicker = useVoicePicker();
 
   const [showExport, setShowExport] = useState(false);
-  const [shortRenderCount, setShortRenderCount] = useState(0);
   const [exportInitialTab, setExportInitialTab] = useState<"render-long" | "render-short">("render-long");
 
   function openExportPanel() {
@@ -299,30 +298,6 @@ function TimelineEditor({
       } catch (_) { /* thumbnails are optional */ }
     })();
   }, [scriptId]);
-
-  // Probe rendered shorts on mount/segment change
-  useEffect(() => {
-    let cancelled = false;
-    async function probe() {
-      if (!state.content || !state.content.segments) return;
-      let found = 0;
-      for (let i = 0; i < state.content.segments.length; i++) {
-        try {
-          const r = await fetch(assetUrl(`/static/projects/${scriptId}/renders/shorts/${i}.mp4`), {
-            method: "HEAD",
-          });
-          if (r.ok) found++;
-        } catch {
-          /* ignore */
-        }
-      }
-      if (!cancelled) setShortRenderCount(found);
-    }
-    probe();
-    return () => {
-      cancelled = true;
-    };
-  }, [scriptId, state.content.segments.length]);
 
   // Close export dropdown on outside click
   useEffect(() => {
@@ -1082,9 +1057,8 @@ function TimelineEditor({
                 )}
                 <span className="w-px h-4 bg-neutral-700/50" />
                 <ShortFormStatusPill
-                  segments={state.content.segments.map((s) => ({ name: s.name }))}
-                  intros={state.content.short_intros}
-                  renderedCount={shortRenderCount}
+                  scriptId={scriptId}
+                  segmentCount={state.content.segments.length}
                   onClick={openExportOnShortForm}
                 />
               </div>
@@ -1458,17 +1432,7 @@ function TimelineEditor({
           projectTitle={title}
           onClose={() => setShowExport(false)}
           scriptId={scriptId}
-          videoTitle={title}
           segments={state.content.segments.map((s) => ({ name: s.name }))}
-          shortIntros={state.content.short_intros}
-          hookSceneCount={state.content.hook_scene_count}
-          onShortIntrosChanged={async () => {
-            const refreshed = await api.get(`/api/scripts/${scriptId}`);
-            if (refreshed.ok) {
-              const data = refreshed.data as { script: ScriptContent };
-              state.setContent(data.script);
-            }
-          }}
           initialTab={exportInitialTab}
         />
       )}
