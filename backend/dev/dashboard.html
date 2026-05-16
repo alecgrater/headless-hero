@@ -230,6 +230,7 @@
         <div class="flex items-center gap-3">
           <h2 class="text-sm font-medium text-neutral-100">API Usage &amp; Cost Tracker</h2>
           <select id="usageDays" onchange="fetchUsageSummary()" class="bg-surface-800 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+            <option value="0">All time</option>
             <option value="7">Last 7 days</option>
             <option value="30" selected>Last 30 days</option>
             <option value="90">Last 90 days</option>
@@ -259,8 +260,28 @@
 
       <!-- Recent calls log -->
       <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
-        <h3 class="text-xs font-medium text-neutral-400 mb-3">Recent API Calls</h3>
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div>
+            <h3 class="text-xs font-medium text-neutral-400">API Calls</h3>
+            <div id="usageRecentMeta" class="text-[10px] text-neutral-500 mt-1"></div>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <select id="usageServiceFilter" onchange="resetUsageRecent()" class="bg-surface-900 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+              <option value="all">All services</option>
+            </select>
+            <input id="usageOperationFilter" oninput="debouncedUsageRecentReset()" placeholder="Filter operation" class="w-36 bg-surface-900 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 placeholder:text-neutral-600 focus:outline-none focus:border-violet-500" />
+            <select id="usageLimit" onchange="resetUsageRecent()" class="bg-surface-900 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+              <option value="50">50 rows</option>
+              <option value="100" selected>100 rows</option>
+              <option value="250">250 rows</option>
+              <option value="500">500 rows</option>
+            </select>
+          </div>
+        </div>
         <div id="usageRecentTable" class="overflow-x-auto"></div>
+        <div class="flex justify-center pt-3">
+          <button id="usageLoadMore" onclick="loadMoreUsageRecent()" class="hidden text-xs px-3 py-1.5 rounded border border-neutral-700 text-neutral-300 hover:text-neutral-100 hover:border-neutral-500 transition-colors">Load more</button>
+        </div>
       </div>
 
     </div>
@@ -1255,17 +1276,19 @@ const SERVICE_BAR_COLORS = {
   replicate: 'bg-neutral-500',
 };
 
+let usageRecentOffset = 0;
+let usageRecentItems = [];
+let usageRecentHasMore = false;
+let usageRecentDebounce = null;
+
 async function fetchUsageSummary() {
   const days = document.getElementById('usageDays').value;
   try {
-    const [summaryRes, recentRes] = await Promise.all([
-      fetch(`/dev/api/usage/summary?days=${days}`),
-      fetch('/dev/api/usage/recent?limit=100'),
-    ]);
+    const summaryRes = await fetch(`/dev/api/usage/summary?days=${days}`);
     const summary = await summaryRes.json();
-    const recent = await recentRes.json();
     renderUsageSummary(summary);
-    renderUsageRecent(recent);
+    populateUsageServiceFilter(summary.services);
+    resetUsageRecent();
   } catch (e) {
     document.getElementById('usageServiceCards').innerHTML = `<div class="text-red-400 text-xs col-span-4">Failed to load usage data</div>`;
   }
@@ -1273,15 +1296,17 @@ async function fetchUsageSummary() {
 
 function renderUsageSummary(data) {
   // Grand total
-  document.getElementById('usageGrandTotal').innerHTML = `$${data.grand_total_cost.toFixed(2)} <span class="text-xs text-neutral-500 font-normal">estimated</span>`;
+  document.getElementById('usageGrandTotal').innerHTML = `$${data.grand_total_cost.toFixed(2)} <span class="text-xs text-neutral-500 font-normal">${data.range_label || 'estimated'}</span>`;
 
   // Service cards
   const cards = document.getElementById('usageServiceCards');
-  const allServices = ['openai', 'google_ai', 'elevenlabs', 'ollama'];
+  const knownServices = ['openai', 'google_ai', 'elevenlabs', 'ollama', 'replicate'];
+  const observedServices = data.services.map(s => s.service).filter(s => !knownServices.includes(s));
+  const allServices = [...knownServices, ...observedServices];
   let html = '';
   for (const svcKey of allServices) {
     const svc = data.services.find(s => s.service === svcKey);
-    const display = SERVICE_DISPLAY[svcKey] || { label: svcKey, color: 'neutral', icon: '📡' };
+    const display = SERVICE_DISPLAY[svcKey] || { label: svcKey, color: 'neutral', icon: '◇' };
     const colorCls = SERVICE_COLORS[svcKey] || '';
     const cost = svc ? svc.total_cost : 0;
     const savings = svc ? (svc.savings_estimate || 0) : 0;
@@ -1402,9 +1427,76 @@ function renderOpTable(operations) {
   container.innerHTML = html;
 }
 
-function renderUsageRecent(recent) {
+function populateUsageServiceFilter(services) {
+  const select = document.getElementById('usageServiceFilter');
+  const current = select.value || 'all';
+  const serviceKeys = services.map(s => s.service).sort();
+  let html = '<option value="all">All services</option>';
+  for (const svc of serviceKeys) {
+    const label = SERVICE_DISPLAY[svc]?.label || svc;
+    html += `<option value="${escapeHtml(svc)}">${escapeHtml(label)}</option>`;
+  }
+  select.innerHTML = html;
+  select.value = serviceKeys.includes(current) ? current : 'all';
+}
+
+function debouncedUsageRecentReset() {
+  clearTimeout(usageRecentDebounce);
+  usageRecentDebounce = setTimeout(resetUsageRecent, 250);
+}
+
+async function resetUsageRecent() {
+  usageRecentOffset = 0;
+  usageRecentItems = [];
+  await fetchUsageRecentPage();
+}
+
+async function loadMoreUsageRecent() {
+  if (!usageRecentHasMore) return;
+  await fetchUsageRecentPage();
+}
+
+async function fetchUsageRecentPage() {
+  const days = document.getElementById('usageDays').value;
+  const limit = Number(document.getElementById('usageLimit').value || 100);
+  const service = document.getElementById('usageServiceFilter').value || 'all';
+  const operation = document.getElementById('usageOperationFilter').value.trim();
+  const params = new URLSearchParams({
+    days,
+    limit: String(limit),
+    offset: String(usageRecentOffset),
+    service,
+  });
+  if (operation) params.set('operation', operation);
+
+  const button = document.getElementById('usageLoadMore');
+  button.disabled = true;
+  button.textContent = 'Loading...';
+  try {
+    const res = await fetch(`/dev/api/usage/recent?${params.toString()}`);
+    const data = await res.json();
+    usageRecentItems = usageRecentItems.concat(data.items || []);
+    usageRecentOffset = usageRecentItems.length;
+    usageRecentHasMore = !!data.has_more;
+    renderUsageRecent(data, usageRecentItems);
+  } catch (e) {
+    document.getElementById('usageRecentTable').innerHTML = '<span class="text-red-400 text-xs">Failed to load API calls</span>';
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Load more';
+  }
+}
+
+function renderUsageRecent(data, recent) {
   const container = document.getElementById('usageRecentTable');
-  if (!recent.length) { container.innerHTML = '<span class="text-neutral-500 text-xs">No API calls recorded yet</span>'; return; }
+  const meta = document.getElementById('usageRecentMeta');
+  const button = document.getElementById('usageLoadMore');
+  const totalCount = data.total_count || 0;
+  const totalCost = data.total_cost || 0;
+  meta.textContent = `${formatNumber(totalCount)} matching calls · $${totalCost.toFixed(2)} matching cost · showing ${formatNumber(recent.length)}`;
+  button.classList.toggle('hidden', !data.has_more);
+
+  if (!recent.length) { container.innerHTML = '<span class="text-neutral-500 text-xs">No API calls match these filters</span>'; return; }
 
   let html = '<table class="w-full text-xs"><thead><tr class="text-neutral-500 text-left border-b border-neutral-700">';
   html += '<th class="px-2 py-2">Time</th><th class="px-2 py-2">Service</th><th class="px-2 py-2">Operation</th><th class="px-2 py-2">Model</th><th class="px-2 py-2 text-right">Tokens</th><th class="px-2 py-2 text-right">Chars</th><th class="px-2 py-2 text-right">Imgs</th><th class="px-2 py-2 text-right">Cost</th>';
@@ -1417,9 +1509,9 @@ function renderUsageRecent(recent) {
     const tokens = r.input_tokens || r.output_tokens ? `${formatNumber(r.input_tokens)}/${formatNumber(r.output_tokens)}` : '-';
     html += `<tr class="border-b border-neutral-800/50 hover:bg-surface-800/50">
       <td class="px-2 py-1.5 text-neutral-500 whitespace-nowrap" title="${date} ${time}">${date} ${time}</td>
-      <td class="px-2 py-1.5 ${cls}">${r.service}</td>
-      <td class="px-2 py-1.5 text-neutral-300">${r.operation}</td>
-      <td class="px-2 py-1.5 text-neutral-400 text-[10px] max-w-[200px] truncate">${r.model || '-'}</td>
+      <td class="px-2 py-1.5 ${cls}">${escapeHtml(r.service)}</td>
+      <td class="px-2 py-1.5 text-neutral-300">${escapeHtml(r.operation || '-')}</td>
+      <td class="px-2 py-1.5 text-neutral-400 text-[10px] max-w-[200px] truncate">${escapeHtml(r.model || '-')}</td>
       <td class="px-2 py-1.5 text-neutral-300 text-right">${tokens}</td>
       <td class="px-2 py-1.5 text-neutral-300 text-right">${r.characters || '-'}</td>
       <td class="px-2 py-1.5 text-neutral-300 text-right">${r.images || '-'}</td>
@@ -1428,6 +1520,15 @@ function renderUsageRecent(recent) {
   }
   html += '</tbody></table>';
   container.innerHTML = html;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
 
 function formatNumber(n) {

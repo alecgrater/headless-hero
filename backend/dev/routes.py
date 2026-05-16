@@ -367,9 +367,10 @@ async def db_query(req: DbQueryRequest):
 # --- API Usage Tracking ---
 
 @router.get("/api/usage/summary")
-async def usage_summary(days: int = Query(default=30, le=365)):
-    """Aggregate usage stats per service over the last N days."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+async def usage_summary(days: int = Query(default=30, ge=0, le=3650)):
+    """Aggregate usage stats per service. Use days=0 for all time."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days) if days > 0 else None
+    conditions = [ApiUsage.created_at >= cutoff] if cutoff else []
 
     with Session(engine) as session:
         # Per-service totals
@@ -383,7 +384,7 @@ async def usage_summary(days: int = Query(default=30, le=365)):
                 func.sum(ApiUsage.images).label("total_images"),
                 func.sum(ApiUsage.cost_estimate).label("total_cost"),
             )
-            .where(ApiUsage.created_at >= cutoff)
+            .where(*conditions)
             .group_by(ApiUsage.service)
         ).all()
 
@@ -408,18 +409,16 @@ async def usage_summary(days: int = Query(default=30, le=365)):
                 ),
             })
 
-        headline_spend_services = {"openai", "google_ai", "elevenlabs"}
-        headline_spend = sum(
+        paid_service_spend = sum(
             service["total_cost"]
             for service in services
-            if service["service"] in headline_spend_services
+            if service["service"] != "ollama"
         )
         local_llm_savings = sum(
             service["savings_estimate"]
             for service in services
             if service["service"] == "ollama"
         )
-        grand_total = headline_spend - local_llm_savings
 
         # Per-day cost breakdown (for chart)
         daily_rows = session.exec(
@@ -429,7 +428,7 @@ async def usage_summary(days: int = Query(default=30, le=365)):
                 func.sum(ApiUsage.cost_estimate).label("cost"),
                 func.count().label("calls"),
             )
-            .where(ApiUsage.created_at >= cutoff)
+            .where(*conditions)
             .group_by(func.date(ApiUsage.created_at), ApiUsage.service)
             .order_by(func.date(ApiUsage.created_at))
         ).all()
@@ -452,7 +451,7 @@ async def usage_summary(days: int = Query(default=30, le=365)):
                 func.count().label("call_count"),
                 func.sum(ApiUsage.cost_estimate).label("total_cost"),
             )
-            .where(ApiUsage.created_at >= cutoff)
+            .where(*conditions)
             .group_by(ApiUsage.service, ApiUsage.operation, ApiUsage.model)
             .order_by(func.sum(ApiUsage.cost_estimate).desc())
         ).all()
@@ -469,7 +468,9 @@ async def usage_summary(days: int = Query(default=30, le=365)):
 
     return {
         "days": days,
-        "grand_total_cost": round(grand_total, 4),
+        "range_label": "All time" if days == 0 else f"Last {days} days",
+        "grand_total_cost": round(paid_service_spend, 4),
+        "local_savings_estimate": round(local_llm_savings, 4),
         "services": services,
         "daily": daily,
         "operations": operations,
@@ -477,30 +478,60 @@ async def usage_summary(days: int = Query(default=30, le=365)):
 
 
 @router.get("/api/usage/recent")
-async def usage_recent(limit: int = Query(default=100, le=500)):
-    """Return recent API usage events for the call log table."""
+async def usage_recent(
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    days: int = Query(default=30, ge=0, le=3650),
+    service: str = Query(default="all"),
+    operation: str = Query(default=""),
+):
+    """Return paginated API usage events for the call log table."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days) if days > 0 else None
+    conditions = []
+    if cutoff:
+        conditions.append(ApiUsage.created_at >= cutoff)
+    if service and service != "all":
+        conditions.append(ApiUsage.service == service)
+    if operation:
+        conditions.append(ApiUsage.operation.contains(operation))
+
     with Session(engine) as session:
+        total_count = session.exec(
+            select(func.count(ApiUsage.id)).where(*conditions)
+        ).one()
+        total_cost = session.exec(
+            select(func.coalesce(func.sum(ApiUsage.cost_estimate), 0.0)).where(*conditions)
+        ).one()
         rows = session.exec(
             select(ApiUsage)
+            .where(*conditions)
             .order_by(col(ApiUsage.created_at).desc())
+            .offset(offset)
             .limit(limit)
         ).all()
 
-    return [
-        {
-            "id": r.id,
-            "service": r.service,
-            "operation": r.operation,
-            "model": r.model,
-            "input_tokens": r.input_tokens,
-            "output_tokens": r.output_tokens,
-            "characters": r.characters,
-            "images": r.images,
-            "cost_estimate": round(r.cost_estimate, 6),
-            "created_at": r.created_at.isoformat() if r.created_at else None,
-        }
-        for r in rows
-    ]
+    return {
+        "limit": limit,
+        "offset": offset,
+        "total_count": total_count,
+        "total_cost": round(float(total_cost or 0.0), 6),
+        "has_more": offset + len(rows) < total_count,
+        "items": [
+            {
+                "id": r.id,
+                "service": r.service,
+                "operation": r.operation,
+                "model": r.model,
+                "input_tokens": r.input_tokens,
+                "output_tokens": r.output_tokens,
+                "characters": r.characters,
+                "images": r.images,
+                "cost_estimate": round(r.cost_estimate, 6),
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ],
+    }
 
 
 # --- File Explorer ---
