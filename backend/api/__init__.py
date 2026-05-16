@@ -31,6 +31,7 @@ from api.thumbnail_references import router as thumbnail_references_router
 from api.thumbnail import router as thumbnail_router
 from api.trending import router as trending_router
 from api.visuals import router as visuals_router
+from api.short_form import router as short_form_router
 from api.voiceover import router as voiceover_router
 from dev.log_handler import DevLog as _DevLog  # noqa: F401 — register table
 from dev.log_handler import SQLiteLogHandler, prune_old_logs
@@ -121,6 +122,7 @@ app.include_router(publish_router)
 app.include_router(recording_router)
 app.include_router(thumbnail_router)
 app.include_router(generation_router)
+app.include_router(short_form_router)
 app.include_router(seo_router)
 app.include_router(settings_router)
 app.include_router(thumbnail_references_router)
