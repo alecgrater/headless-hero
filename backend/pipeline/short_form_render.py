@@ -4,16 +4,12 @@ import json
 import logging
 import os
 import shutil
-import subprocess
-import time
 from pathlib import Path
 from typing import Callable
 
 from config import BACKEND_PORT, DATA_DIR, FPS, sanitize_filename
-from models.script import Scene, ScriptContent, ShortIntro
+from models.script import ScriptContent, ShortIntro
 from pipeline.remotion_render import (
-    REMOTION_DIR,
-    REMOTION_ENTRY,
     _reencode_h264,
     _run_remotion,
     _scene_to_input_props,
