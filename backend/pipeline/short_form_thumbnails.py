@@ -23,8 +23,11 @@ ProgressCallback = Callable[[float, str], None] | None
 
 SHORT_THUMB_WIDTH = 1080
 SHORT_THUMB_HEIGHT = 1920
-CENTER_SAFE_TOP = (SHORT_THUMB_HEIGHT - SHORT_THUMB_WIDTH) // 2
-CENTER_SAFE_BOTTOM = CENTER_SAFE_TOP + SHORT_THUMB_WIDTH
+FOCAL_SIZE = 980
+FOCAL_TOP = 200
+TEXT_BOTTOM = 1500
+TEXT_MAX_HEIGHT = 280
+TEXT_MAX_WIDTH = 920
 MAX_PNG_BYTES = 2 * 1024 * 1024
 
 _BUNDLED_TITLE_FONT = Path(__file__).resolve().parent.parent / "assets" / "fonts" / "Anton-Regular.ttf"
@@ -153,19 +156,6 @@ def _fit_text(
     return font, lines, 6, bboxes
 
 
-def _draw_safe_zone_guides(canvas: Image.Image) -> Image.Image:
-    # Subtle center-zone emphasis: visible design element, not a platform mark.
-    overlay = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-    draw.rounded_rectangle(
-        (46, CENTER_SAFE_TOP + 34, SHORT_THUMB_WIDTH - 46, CENTER_SAFE_BOTTOM - 34),
-        radius=34,
-        outline=(255, 255, 255, 42),
-        width=3,
-    )
-    return Image.alpha_composite(canvas.convert("RGBA"), overlay)
-
-
 def _save_png_under_limit(image: Image.Image, output_path: Path) -> None:
     rgb = image.convert("RGB")
     rgb.save(output_path, format="PNG", optimize=True, compress_level=9, dpi=(72, 72))
@@ -209,11 +199,11 @@ def generate_short_thumbnail(
     if on_progress:
         on_progress(0.35, "Building vertical composition...")
 
-    focal = _contain_resize(source, (720, 720))
+    focal = _contain_resize(source, (FOCAL_SIZE, FOCAL_SIZE))
     focal = ImageEnhance.Color(focal).enhance(1.18)
     focal = ImageEnhance.Contrast(focal).enhance(1.08)
     focal_x = (SHORT_THUMB_WIDTH - focal.width) // 2
-    focal_y = CENTER_SAFE_TOP + 50
+    focal_y = FOCAL_TOP
 
     shadow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     sd = ImageDraw.Draw(shadow)
@@ -229,24 +219,20 @@ def generate_short_thumbnail(
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, focal.width, focal.height), radius=38, fill=255)
     canvas.paste(focal.convert("RGBA"), (focal_x, focal_y), mask)
 
-    canvas = _draw_safe_zone_guides(canvas)
-
     if on_progress:
         on_progress(0.65, "Drawing title...")
 
     text = short_thumbnail_title(content, segment_idx)
     draw = ImageDraw.Draw(canvas)
-    max_text_w = 920
-    max_text_h = 240
-    font, lines, line_gap, line_bboxes = _fit_text(draw, text, max_text_w, max_text_h)
+    font, lines, line_gap, line_bboxes = _fit_text(draw, text, TEXT_MAX_WIDTH, TEXT_MAX_HEIGHT)
     heights = [bbox[3] - bbox[1] for bbox in line_bboxes]
     total_text_h = sum(heights) + line_gap * (len(lines) - 1)
-    text_y = CENTER_SAFE_BOTTOM - 30 - total_text_h
+    text_y = TEXT_BOTTOM - total_text_h
 
     glow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow)
     gd.rounded_rectangle(
-        (54, text_y - 32, SHORT_THUMB_WIDTH - 54, CENTER_SAFE_BOTTOM - 12),
+        (54, text_y - 32, SHORT_THUMB_WIDTH - 54, TEXT_BOTTOM + 20),
         radius=38,
         fill=(0, 0, 0, 170),
     )
