@@ -7,7 +7,7 @@
  * The em-dash in display_text marks the boundary between the two zones.
  */
 import React from "react";
-import { Img, useCurrentFrame, useVideoConfig, spring, interpolate } from "remotion";
+import { Img, useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { loadFont } from "@remotion/google-fonts/Inter";
 import type { ShortIntroProps } from "../types";
 
