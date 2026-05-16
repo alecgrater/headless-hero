@@ -435,8 +435,14 @@ def _chat_openai(
     usage = getattr(response, "usage", None)
     input_tok = getattr(usage, "prompt_tokens", 0) if usage else 0
     output_tok = getattr(usage, "completion_tokens", 0) if usage else 0
+    details = getattr(usage, "prompt_tokens_details", None) if usage else None
+    cached_tok = getattr(details, "cached_tokens", 0) or 0
     pricing = get_model_pricing(model)
-    cost = input_tok * pricing["input"] + output_tok * pricing["output"]
+    cost = (
+        max(input_tok - cached_tok, 0) * pricing["input"]
+        + cached_tok * pricing["cache_read"]
+        + output_tok * pricing["output"]
+    )
 
     record_usage(
         service="openai",

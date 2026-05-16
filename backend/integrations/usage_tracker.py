@@ -65,40 +65,20 @@ _MODEL_PRICING: dict[str, dict[str, float]] = {
         "output": 4.0 / 1_000_000,
         "cache_read": 0.08 / 1_000_000,
     },
-    "gpt-5.5": {
-        "input": 5.0 / 1_000_000,
-        "output": 30.0 / 1_000_000,
-        "cache_read": 0.5 / 1_000_000,
-    },
-    "gpt-5.4": {
-        "input": 2.5 / 1_000_000,
-        "output": 15.0 / 1_000_000,
-        "cache_read": 0.25 / 1_000_000,
-    },
-    "gpt-5.4-mini": {
-        "input": 0.75 / 1_000_000,
-        "output": 4.5 / 1_000_000,
-        "cache_read": 0.075 / 1_000_000,
-    },
-    "gpt-5.4-nano": {
-        "input": 0.2 / 1_000_000,
-        "output": 1.25 / 1_000_000,
-        "cache_read": 0.02 / 1_000_000,
-    },
     "gpt-5.2": {
-        "input": 2.5 / 1_000_000,
-        "output": 15.0 / 1_000_000,
-        "cache_read": 0.25 / 1_000_000,
+        "input": 1.75 / 1_000_000,
+        "output": 14.0 / 1_000_000,
+        "cache_read": 0.175 / 1_000_000,
     },
     "gpt-5-mini": {
-        "input": 0.75 / 1_000_000,
-        "output": 4.5 / 1_000_000,
-        "cache_read": 0.075 / 1_000_000,
+        "input": 0.25 / 1_000_000,
+        "output": 2.0 / 1_000_000,
+        "cache_read": 0.025 / 1_000_000,
     },
     "gpt-5-nano": {
-        "input": 0.2 / 1_000_000,
-        "output": 1.25 / 1_000_000,
-        "cache_read": 0.02 / 1_000_000,
+        "input": 0.05 / 1_000_000,
+        "output": 0.4 / 1_000_000,
+        "cache_read": 0.005 / 1_000_000,
     },
 }
 
@@ -108,7 +88,7 @@ _DEFAULT_ANTHROPIC_PRICING = {
     "cache_read": 0.3 / 1_000_000,
 }
 
-_DEFAULT_OPENAI_PRICING = _MODEL_PRICING["gpt-5.4"]
+_DEFAULT_OPENAI_PRICING = _MODEL_PRICING["gpt-5.2"]
 
 _ZERO_PRICING = {
     "input": 0.0,
