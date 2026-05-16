@@ -11,6 +11,7 @@ import type {
   ThumbnailConcept,
 } from "../../types/render";
 import ShortFormTab from "./short-form/ShortFormTab";
+import ShortFormThumbnailsCard from "./short-form/ShortFormThumbnailsCard";
 import MiniProgressBar from "../MiniProgressBar";
 import { usePollJob } from "../../hooks/usePollJob";
 
@@ -61,17 +62,33 @@ interface Props {
   scriptId: string;
   segments: { name: string }[];
 
-  initialTab?: Tab;
+  initialTab?: LegacyInitialTab;
 }
 
-type Tab = "render-long" | "render-short" | "thumbnails" | "seo";
+type LegacyInitialTab = "render-long" | "render-short" | "thumbnails" | "seo";
+type TopTab = "long-form" | "short-form";
+type SubTab = "render" | "thumbnails" | "seo";
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: "render-long", label: "Render - Long Form" },
-  { key: "render-short", label: "Render - Short Form" },
+const TOP_TABS: { key: TopTab; label: string }[] = [
+  { key: "long-form", label: "Long Form" },
+  { key: "short-form", label: "Short Form" },
+];
+
+const SUB_TABS: { key: SubTab; label: string }[] = [
+  { key: "render", label: "Render" },
   { key: "thumbnails", label: "Thumbnails" },
   { key: "seo", label: "SEO" },
 ];
+
+function initialTopTab(initialTab?: LegacyInitialTab): TopTab {
+  return initialTab === "render-short" ? "short-form" : "long-form";
+}
+
+function initialSubTab(initialTab?: LegacyInitialTab): SubTab {
+  if (initialTab === "thumbnails") return "thumbnails";
+  if (initialTab === "seo") return "seo";
+  return "render";
+}
 
 function formatDuration(seconds: number, approximate = false): string {
   const m = Math.floor(seconds / 60);
@@ -276,7 +293,8 @@ export default function ExportPanel({
 }: Props) {
   const youtubeRendering = youtubeStatus?.status === "running" || youtubeStatus?.status === "pending";
 
-  const [activeTab, setActiveTab] = useState<Tab>(initialTab ?? "render-long");
+  const [activeTopTab, setActiveTopTab] = useState<TopTab>(initialTopTab(initialTab));
+  const [activeSubTab, setActiveSubTab] = useState<SubTab>(initialSubTab(initialTab));
 
   // YouTube upload state (post-export)
   const [showUploadPanel, setShowUploadPanel] = useState(false);
@@ -346,18 +364,35 @@ export default function ExportPanel({
     }
   };
 
-  const tabBadges: Record<Tab, boolean> = {
-    "render-long": !!youtubeUrl,
-    "render-short": false,
-    thumbnails: thumbnails.length > 0,
-    seo: !!seoMetadata || !!shortFormSeoMetadata,
+  const topTabBadges: Record<TopTab, boolean> = {
+    "long-form": !!youtubeUrl || thumbnails.length > 0 || !!seoMetadata,
+    "short-form": !!shortFormSeoMetadata,
   };
 
-  const tabDescriptions: Record<Tab, string> = {
-    "render-long": "Renders the full long form video at 1920×1080 16:9 30FPS",
-    "render-short": `Renders ${segments.length} short form videos, one per segment. 1080×1920 9:16 30FPS.`,
-    thumbnails: "Generate and download YouTube thumbnail concepts for this video.",
-    seo: "Generate long-form YouTube metadata and per-short metadata for TikTok, YouTube Shorts, and Instagram.",
+  const subTabBadges: Record<TopTab, Record<SubTab, boolean>> = {
+    "long-form": {
+      render: !!youtubeUrl,
+      thumbnails: thumbnails.length > 0,
+      seo: !!seoMetadata,
+    },
+    "short-form": {
+      render: false,
+      thumbnails: false,
+      seo: !!shortFormSeoMetadata,
+    },
+  };
+
+  const tabDescriptions: Record<TopTab, Record<SubTab, string>> = {
+    "long-form": {
+      render: "Renders the full long form video at 1920×1080 16:9 30FPS.",
+      thumbnails: "Generate and download YouTube thumbnail concepts for this video.",
+      seo: "Generate long-form YouTube title, timestamped description, and tags.",
+    },
+    "short-form": {
+      render: `Renders ${segments.length} short form videos, one per segment. 1080×1920 9:16 30FPS.`,
+      thumbnails: "Generate TikTok-safe vertical thumbnail covers from each segment title-card image.",
+      seo: "Generate upload text for TikTok, YouTube Shorts, and Instagram.",
+    },
   };
 
   return (
@@ -461,34 +496,53 @@ export default function ExportPanel({
           )}
         </div>
 
-        {/* Tab Bar */}
+        {/* Top Tab Bar */}
         <div className="flex border-b border-neutral-800 px-6 shrink-0">
-          {TABS.map((tab) => (
+          {TOP_TABS.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => setActiveTopTab(tab.key)}
               className={`relative px-4 py-3 text-sm font-medium transition-colors flex items-center ${
-                activeTab === tab.key
+                activeTopTab === tab.key
                   ? "text-violet-400"
                   : "text-neutral-500 hover:text-neutral-300"
               }`}
             >
               {tab.label}
-              <TabBadge active={tabBadges[tab.key]} />
-              {activeTab === tab.key && (
+              <TabBadge active={topTabBadges[tab.key]} />
+              {activeTopTab === tab.key && (
                 <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-violet-500 rounded-full" />
               )}
             </button>
           ))}
         </div>
+        <div className="flex border-b border-neutral-800/70 px-6 shrink-0 bg-neutral-950/35">
+          {SUB_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveSubTab(tab.key)}
+              className={`relative px-3 py-2 text-xs font-medium transition-colors flex items-center ${
+                activeSubTab === tab.key
+                  ? "text-neutral-100"
+                  : "text-neutral-500 hover:text-neutral-300"
+              }`}
+            >
+              {tab.label}
+              <TabBadge active={subTabBadges[activeTopTab][tab.key]} />
+              {activeSubTab === tab.key && (
+                <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-neutral-200 rounded-full" />
+              )}
+            </button>
+          ))}
+        </div>
         <div className="px-6 py-2 text-xs text-neutral-500 border-b border-neutral-800/50 shrink-0">
-          {tabDescriptions[activeTab]}
+          {tabDescriptions[activeTopTab][activeSubTab]}
         </div>
 
         {/* Tab Content */}
         <div className="p-6 overflow-y-auto flex-1">
           {/* Render - Long Form Tab */}
-          {activeTab === "render-long" && (
+          {activeTopTab === "long-form" && activeSubTab === "render" && (
             <div className="space-y-8">
               {/* YouTube Export */}
               <section className="space-y-3">
@@ -537,7 +591,7 @@ export default function ExportPanel({
           )}
 
           {/* Render - Short Form Tab */}
-          {activeTab === "render-short" && (
+          {activeTopTab === "short-form" && activeSubTab === "render" && (
             <ShortFormTab
               scriptId={scriptId}
               segments={segments}
@@ -546,7 +600,7 @@ export default function ExportPanel({
           )}
 
           {/* Thumbnails Tab */}
-          {activeTab === "thumbnails" && (
+          {activeTopTab === "long-form" && activeSubTab === "thumbnails" && (
             <section className="space-y-3">
               <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
                 Thumbnails
@@ -593,8 +647,13 @@ export default function ExportPanel({
             </section>
           )}
 
+          {/* Short-Form Thumbnails Tab */}
+          {activeTopTab === "short-form" && activeSubTab === "thumbnails" && (
+            <ShortFormThumbnailsCard scriptId={scriptId} segments={segments} />
+          )}
+
           {/* SEO Tab */}
-          {activeTab === "seo" && (
+          {activeTopTab === "long-form" && activeSubTab === "seo" && (
             <section className="space-y-6">
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
@@ -637,82 +696,82 @@ export default function ExportPanel({
                 )}
                 {seoGenerating && <MiniProgressBar estimatedSeconds={seoProgress.estimatedSeconds} active={seoProgress.active} />}
               </div>
+            </section>
+          )}
 
-              <div className="h-px bg-neutral-800" />
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
-                      Short-Form Uploads
-                    </h3>
-                    <p className="text-xs text-neutral-500">
-                      One generation call creates upload text for all {segments.length} shorts across TikTok, YouTube Shorts, and Instagram.
-                    </p>
-                  </div>
-                  <button
-                    onClick={onGenerateShortFormSEO}
-                    disabled={shortFormSeoGenerating}
-                    className="text-sm px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
-                  >
-                    {shortFormSeoGenerating ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                        Generating...
-                      </>
-                    ) : shortFormSeoMetadata ? (
-                      "Regenerate Short SEO"
-                    ) : (
-                      `Generate All ${segments.length} Short SEO`
-                    )}
-                  </button>
+          {activeTopTab === "short-form" && activeSubTab === "seo" && (
+            <section className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
+                    Short-Form Uploads
+                  </h3>
+                  <p className="text-xs text-neutral-500">
+                    One generation call creates upload text for all {segments.length} shorts across TikTok, YouTube Shorts, and Instagram.
+                  </p>
                 </div>
-
-                {shortFormSeoMetadata && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 py-2">
-                      <span className="text-xs text-sky-200">
-                        {shortFormSeoMetadata.shorts.length}/{segments.length} shorts packaged
-                      </span>
-                      <CopyButton
-                        label="Copy All"
-                        text={shortFormSeoMetadata.shorts.map(formatShortFormSEO).join("\n\n---\n\n")}
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 gap-3">
-                      {shortFormSeoMetadata.shorts
-                        .slice()
-                        .sort((a, b) => a.index - b.index)
-                        .map((item) => (
-                          <div key={item.index} className="bg-neutral-800/50 rounded-lg p-4 space-y-3">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <span className="text-xs font-semibold text-neutral-400 uppercase">
-                                  Short {item.index}
-                                </span>
-                                <p className="mt-1 text-sm font-medium text-neutral-200">{item.title}</p>
-                              </div>
-                              <CopyButton text={formatShortFormSEO(item)} />
-                            </div>
-                            <p className="text-xs text-neutral-400 whitespace-pre-wrap">{item.description}</p>
-                            {item.hashtags.length > 0 && (
-                              <p className="text-xs text-sky-300 whitespace-pre-wrap select-all cursor-text bg-neutral-900/50 rounded p-2">
-                                {item.hashtags.join(" ")}
-                              </p>
-                            )}
-                            <TagList tags={item.tags} />
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-                {shortFormSeoGenerating && (
-                  <MiniProgressBar
-                    estimatedSeconds={shortFormSeoProgress.estimatedSeconds}
-                    active={shortFormSeoProgress.active}
-                  />
-                )}
+                <button
+                  onClick={onGenerateShortFormSEO}
+                  disabled={shortFormSeoGenerating}
+                  className="text-sm px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+                >
+                  {shortFormSeoGenerating ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                      Generating...
+                    </>
+                  ) : shortFormSeoMetadata ? (
+                    "Regenerate Short SEO"
+                  ) : (
+                    `Generate All ${segments.length} Short SEO`
+                  )}
+                </button>
               </div>
+
+              {shortFormSeoMetadata && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 py-2">
+                    <span className="text-xs text-sky-200">
+                      {shortFormSeoMetadata.shorts.length}/{segments.length} shorts packaged
+                    </span>
+                    <CopyButton
+                      label="Copy All"
+                      text={shortFormSeoMetadata.shorts.map(formatShortFormSEO).join("\n\n---\n\n")}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 gap-3">
+                    {shortFormSeoMetadata.shorts
+                      .slice()
+                      .sort((a, b) => a.index - b.index)
+                      .map((item) => (
+                        <div key={item.index} className="bg-neutral-800/50 rounded-lg p-4 space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <span className="text-xs font-semibold text-neutral-400 uppercase">
+                                Short {item.index}
+                              </span>
+                              <p className="mt-1 text-sm font-medium text-neutral-200">{item.title}</p>
+                            </div>
+                            <CopyButton text={formatShortFormSEO(item)} />
+                          </div>
+                          <p className="text-xs text-neutral-400 whitespace-pre-wrap">{item.description}</p>
+                          {item.hashtags.length > 0 && (
+                            <p className="text-xs text-sky-300 whitespace-pre-wrap select-all cursor-text bg-neutral-900/50 rounded p-2">
+                              {item.hashtags.join(" ")}
+                            </p>
+                          )}
+                          <TagList tags={item.tags} />
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+              {shortFormSeoGenerating && (
+                <MiniProgressBar
+                  estimatedSeconds={shortFormSeoProgress.estimatedSeconds}
+                  active={shortFormSeoProgress.active}
+                />
+              )}
             </section>
           )}
         </div>

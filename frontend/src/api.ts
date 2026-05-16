@@ -707,6 +707,17 @@ export interface RenderedShortsStatus {
   paths: Record<number, string>;
 }
 
+export interface ShortFormThumbnailsStatus {
+  generated_indices: number[];
+  paths: Record<number, string>;
+}
+
+export interface ExportShortFormThumbnailsResponse {
+  folder_path: string;
+  files: string[];
+  paths: Record<number, string>;
+}
+
 /** Check which short-form clips exist in the final Downloads destination folder. */
 export async function getRenderedShortsStatus(scriptId: string): Promise<RenderedShortsStatus> {
   const res = await api.get(`/api/short-form/rendered?script_id=${encodeURIComponent(scriptId)}`);
@@ -749,6 +760,50 @@ export async function getShortFormJobStatus(jobId: string): Promise<ShortFormJob
   const res = await api.get(`/api/short-form/jobs/${jobId}`);
   if (!res.ok) throw new Error(`Failed to fetch job status: ${res.status}`);
   return res.data as ShortFormJobStatus;
+}
+
+/** Check which short-form thumbnails already exist in the project render folder. */
+export async function getShortFormThumbnailsStatus(scriptId: string): Promise<ShortFormThumbnailsStatus> {
+  const res = await api.get(`/api/short-form/thumbnails?script_id=${encodeURIComponent(scriptId)}`);
+  if (!res.ok) throw new Error(`Failed to fetch short-form thumbnails: ${res.status}`);
+  return res.data as ShortFormThumbnailsStatus;
+}
+
+/** Start background generation of all short-form thumbnails. */
+export async function generateShortFormThumbnailsAll(scriptId: string): Promise<{ job_id: string }> {
+  const res = await api.post("/api/short-form/thumbnails/all", { script_id: scriptId });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to start thumbnail generation");
+  return res.data as { job_id: string };
+}
+
+/** Start background generation of selected short-form thumbnails. */
+export async function generateShortFormThumbnailsBatch(
+  scriptId: string,
+  segmentIndices: number[],
+): Promise<{ job_id: string }> {
+  const res = await api.post("/api/short-form/thumbnails/batch", {
+    script_id: scriptId,
+    segment_indices: segmentIndices,
+  });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to start thumbnail batch");
+  return res.data as { job_id: string };
+}
+
+/** Start background generation of one short-form thumbnail. */
+export async function generateShortFormThumbnailOne(
+  scriptId: string,
+  segmentIdx: number,
+): Promise<{ job_id: string }> {
+  const res = await api.post("/api/short-form/thumbnails/one", { script_id: scriptId, segment_idx: segmentIdx });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to start thumbnail generation");
+  return res.data as { job_id: string };
+}
+
+/** Generate missing short-form thumbnails and export all to Downloads. */
+export async function exportShortFormThumbnails(scriptId: string): Promise<ExportShortFormThumbnailsResponse> {
+  const res = await api.post("/api/short-form/thumbnails/export", { script_id: scriptId });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to export thumbnails");
+  return res.data as ExportShortFormThumbnailsResponse;
 }
 
 /** Start one-click upload for a rendered short to connected platforms. */

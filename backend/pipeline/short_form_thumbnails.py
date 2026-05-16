@@ -1,0 +1,354 @@
+"""Programmatic short-form thumbnail generation.
+
+Creates TikTok-safe 9:16 PNG covers from each segment title-card image. The
+center 1:1 crop carries the important title text so profile grids stay useful.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import shutil
+import textwrap
+from pathlib import Path
+from typing import Callable
+
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
+
+from config import DATA_DIR, sanitize_filename
+from models.script import ScriptContent
+
+logger = logging.getLogger(__name__)
+
+ProgressCallback = Callable[[float, str], None] | None
+
+SHORT_THUMB_WIDTH = 1080
+SHORT_THUMB_HEIGHT = 1920
+CENTER_SAFE_TOP = (SHORT_THUMB_HEIGHT - SHORT_THUMB_WIDTH) // 2
+CENTER_SAFE_BOTTOM = CENTER_SAFE_TOP + SHORT_THUMB_WIDTH
+MAX_PNG_BYTES = 2 * 1024 * 1024
+
+_BUNDLED_TITLE_FONT = Path(__file__).resolve().parent.parent / "assets" / "fonts" / "Anton-Regular.ttf"
+_BUNDLED_BODY_FONT = Path(__file__).resolve().parent.parent / "assets" / "fonts" / "PermanentMarker-Regular.ttf"
+
+
+def _thumbs_dir(script_id: str) -> Path:
+    d = DATA_DIR / "projects" / script_id / "renders" / "short_thumbnails"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _source_image_path(script_id: str, segment_idx: int) -> Path:
+    return DATA_DIR / "projects" / script_id / "images" / f"title_card_{segment_idx}.png"
+
+
+def _web_url(script_id: str, segment_idx: int) -> str:
+    return f"/static/projects/{script_id}/renders/short_thumbnails/{segment_idx}.png"
+
+
+def short_thumbnail_title(content: ScriptContent, segment_idx: int) -> str:
+    """Return display text for a short thumbnail: short_name, then full name."""
+    segment = content.segments[segment_idx]
+    return (segment.short_name or segment.name or f"Short {segment_idx + 1}").strip()
+
+
+def short_thumbnail_filename(segment_name: str, n: int) -> str:
+    """Build export filename for a segment thumbnail."""
+    safe_segment = sanitize_filename(segment_name)
+    return f"[shortform] thumbnail_{n} - {safe_segment}.png"
+
+
+def _load_font(size: int, *, title: bool = True) -> ImageFont.FreeTypeFont:
+    candidates = [
+        str(_BUNDLED_TITLE_FONT if title else _BUNDLED_BODY_FONT),
+        "/System/Library/Fonts/Avenir Next Condensed.ttc",
+        "/System/Library/Fonts/Supplemental/Impact.ttf",
+        "/System/Library/Fonts/HelveticaNeue.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    ]
+    for path in candidates:
+        try:
+            return ImageFont.truetype(path, size)
+        except (OSError, IOError):
+            continue
+    return ImageFont.load_default(size=size)
+
+
+def _cover_resize(image: Image.Image, size: tuple[int, int]) -> Image.Image:
+    target_w, target_h = size
+    src_w, src_h = image.size
+    scale = max(target_w / src_w, target_h / src_h)
+    resized = image.resize((int(src_w * scale), int(src_h * scale)), Image.Resampling.LANCZOS)
+    left = (resized.width - target_w) // 2
+    top = (resized.height - target_h) // 2
+    return resized.crop((left, top, left + target_w, top + target_h))
+
+
+def _contain_resize(image: Image.Image, max_size: tuple[int, int]) -> Image.Image:
+    copy = image.copy()
+    copy.thumbnail(max_size, Image.Resampling.LANCZOS)
+    return copy
+
+
+def _text_size(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont) -> tuple[int, int]:
+    bbox = draw.textbbox((0, 0), text, font=font, stroke_width=0)
+    return bbox[2] - bbox[0], bbox[3] - bbox[1]
+
+
+def _wrap_for_font(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    max_width: int,
+) -> list[str]:
+    words = text.upper().split()
+    if not words:
+        return [""]
+
+    lines: list[str] = []
+    current = words[0]
+    for word in words[1:]:
+        candidate = f"{current} {word}"
+        if _text_size(draw, candidate, font)[0] <= max_width:
+            current = candidate
+        else:
+            lines.append(current)
+            current = word
+    lines.append(current)
+
+    split_lines: list[str] = []
+    for line in lines:
+        if _text_size(draw, line, font)[0] <= max_width:
+            split_lines.append(line)
+            continue
+        # Last-resort split for unusually long single words.
+        approx_chars = max(4, int(len(line) * max_width / max(_text_size(draw, line, font)[0], 1)))
+        split_lines.extend(part.upper() for part in textwrap.wrap(line, width=approx_chars) or [line])
+    return split_lines
+
+
+def _fit_text(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    max_width: int,
+    max_height: int,
+) -> tuple[ImageFont.FreeTypeFont, list[str], int]:
+    for size in range(210, 70, -6):
+        font = _load_font(size, title=True)
+        lines = _wrap_for_font(draw, text, font, max_width)
+        line_gap = max(8, int(size * 0.08))
+        heights = [_text_size(draw, line, font)[1] for line in lines]
+        total_h = sum(heights) + line_gap * (len(lines) - 1)
+        widest = max((_text_size(draw, line, font)[0] for line in lines), default=0)
+        if total_h <= max_height and widest <= max_width:
+            return font, lines, line_gap
+    font = _load_font(70, title=True)
+    return font, _wrap_for_font(draw, text, font, max_width), 6
+
+
+def _draw_safe_zone_guides(canvas: Image.Image) -> Image.Image:
+    # Subtle center-zone emphasis: visible design element, not a platform mark.
+    overlay = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    draw.rounded_rectangle(
+        (46, CENTER_SAFE_TOP + 34, SHORT_THUMB_WIDTH - 46, CENTER_SAFE_BOTTOM - 34),
+        radius=34,
+        outline=(255, 255, 255, 42),
+        width=3,
+    )
+    return Image.alpha_composite(canvas.convert("RGBA"), overlay)
+
+
+def _save_png_under_limit(image: Image.Image, output_path: Path) -> None:
+    rgb = image.convert("RGB")
+    rgb.save(output_path, format="PNG", optimize=True, compress_level=9, dpi=(72, 72))
+    if output_path.stat().st_size <= MAX_PNG_BYTES:
+        return
+
+    # Quantize only when needed. Text remains crisp and files stay portable.
+    quantized = rgb.quantize(colors=256, method=Image.Quantize.MEDIANCUT).convert("RGB")
+    quantized.save(output_path, format="PNG", optimize=True, compress_level=9, dpi=(72, 72))
+
+
+def generate_short_thumbnail(
+    script_id: str,
+    segment_idx: int,
+    content: ScriptContent,
+    on_progress: ProgressCallback = None,
+) -> str:
+    """Generate one vertical thumbnail and return its web path."""
+    if segment_idx < 0 or segment_idx >= len(content.segments):
+        raise RuntimeError(f"segment_idx {segment_idx} out of range")
+
+    src_path = _source_image_path(script_id, segment_idx)
+    if not src_path.exists():
+        raise RuntimeError(
+            f"Title-card image missing for segment {segment_idx + 1}. Generate title card images first."
+        )
+
+    if on_progress:
+        on_progress(0.1, "Loading source image...")
+
+    source = Image.open(src_path).convert("RGB")
+    background = _cover_resize(source, (SHORT_THUMB_WIDTH, SHORT_THUMB_HEIGHT))
+    background = ImageEnhance.Color(background).enhance(0.86)
+    background = ImageEnhance.Brightness(background).enhance(0.45)
+    background = background.filter(ImageFilter.GaussianBlur(30))
+    canvas = background.convert("RGBA")
+
+    if on_progress:
+        on_progress(0.35, "Building vertical composition...")
+
+    focal = _contain_resize(source, (980, 980))
+    focal = ImageEnhance.Color(focal).enhance(1.18)
+    focal = ImageEnhance.Contrast(focal).enhance(1.08)
+    focal_x = (SHORT_THUMB_WIDTH - focal.width) // 2
+    focal_y = CENTER_SAFE_TOP + 52
+
+    shadow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shadow)
+    sd.rounded_rectangle(
+        (focal_x + 16, focal_y + 20, focal_x + focal.width + 16, focal_y + focal.height + 20),
+        radius=44,
+        fill=(0, 0, 0, 135),
+    )
+    shadow = shadow.filter(ImageFilter.GaussianBlur(18))
+    canvas = Image.alpha_composite(canvas, shadow)
+
+    mask = Image.new("L", focal.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, focal.width, focal.height), radius=38, fill=255)
+    canvas.paste(focal.convert("RGBA"), (focal_x, focal_y), mask)
+
+    canvas = _draw_safe_zone_guides(canvas)
+
+    if on_progress:
+        on_progress(0.65, "Drawing title...")
+
+    text = short_thumbnail_title(content, segment_idx)
+    draw = ImageDraw.Draw(canvas)
+    max_text_w = 960
+    max_text_h = 390
+    font, lines, line_gap = _fit_text(draw, text, max_text_w, max_text_h)
+    heights = [_text_size(draw, line, font)[1] for line in lines]
+    total_text_h = sum(heights) + line_gap * (len(lines) - 1)
+    text_y = CENTER_SAFE_BOTTOM - 76 - total_text_h
+
+    glow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    gd.rounded_rectangle(
+        (54, text_y - 42, SHORT_THUMB_WIDTH - 54, CENTER_SAFE_BOTTOM - 38),
+        radius=38,
+        fill=(0, 0, 0, 170),
+    )
+    glow = glow.filter(ImageFilter.GaussianBlur(18))
+    canvas = Image.alpha_composite(canvas, glow)
+    draw = ImageDraw.Draw(canvas)
+
+    y = text_y
+    for line, line_h in zip(lines, heights):
+        line_w = _text_size(draw, line, font)[0]
+        x = (SHORT_THUMB_WIDTH - line_w) // 2
+        draw.text(
+            (x + 7, y + 9),
+            line,
+            font=font,
+            fill=(0, 0, 0, 220),
+            stroke_width=8,
+            stroke_fill=(0, 0, 0, 220),
+        )
+        draw.text(
+            (x, y),
+            line,
+            font=font,
+            fill=(255, 236, 120, 255),
+            stroke_width=7,
+            stroke_fill=(32, 11, 0, 255),
+        )
+        y += line_h + line_gap
+
+    marker_font = _load_font(40, title=False)
+    marker = f"PART {segment_idx + 1}"
+    marker_w, marker_h = _text_size(draw, marker, marker_font)
+    mx = (SHORT_THUMB_WIDTH - marker_w) // 2
+    my = CENTER_SAFE_TOP + 82
+    draw.rounded_rectangle(
+        (mx - 24, my - 12, mx + marker_w + 24, my + marker_h + 20),
+        radius=18,
+        fill=(14, 165, 233, 210),
+        outline=(255, 255, 255, 120),
+        width=2,
+    )
+    draw.text((mx, my), marker, font=marker_font, fill=(255, 255, 255, 255), stroke_width=2, stroke_fill=(0, 0, 0, 180))
+
+    output_path = _thumbs_dir(script_id) / f"{segment_idx}.png"
+    if on_progress:
+        on_progress(0.9, "Saving PNG...")
+    _save_png_under_limit(canvas, output_path)
+
+    if output_path.stat().st_size > MAX_PNG_BYTES:
+        logger.warning("Short thumbnail exceeded 2 MB after optimization: %s", output_path)
+
+    if on_progress:
+        on_progress(1.0, "Thumbnail complete")
+    return _web_url(script_id, segment_idx)
+
+
+def generate_all_short_thumbnails(
+    script_id: str,
+    content: ScriptContent,
+    segment_indices: list[int] | None = None,
+    on_progress: ProgressCallback = None,
+) -> list[str]:
+    indices = list(range(len(content.segments))) if segment_indices is None else segment_indices
+    total = len(indices)
+    results: list[str] = []
+    for batch_idx, segment_idx in enumerate(indices):
+        def seg_progress(p: float, msg: str, _batch_idx: int = batch_idx, _segment_idx: int = segment_idx) -> None:
+            if on_progress:
+                global_p = (_batch_idx + p) / max(total, 1)
+                on_progress(global_p, f"Thumbnail {_batch_idx + 1}/{total} (segment {_segment_idx + 1}): {msg}")
+
+        results.append(generate_short_thumbnail(script_id, segment_idx, content, seg_progress))
+    return results
+
+
+def existing_short_thumbnail_paths(script_id: str, total: int) -> dict[int, str]:
+    base = _thumbs_dir(script_id)
+    paths: dict[int, str] = {}
+    for idx in range(total):
+        path = base / f"{idx}.png"
+        if path.is_file():
+            paths[idx] = _web_url(script_id, idx)
+    return paths
+
+
+def export_short_thumbnails(
+    script_id: str,
+    content: ScriptContent,
+    project_title: str,
+) -> tuple[str, list[str], dict[int, str]]:
+    """Generate missing thumbnails, copy all to Downloads, and return paths."""
+    missing = [
+        idx for idx in range(len(content.segments))
+        if not (_thumbs_dir(script_id) / f"{idx}.png").is_file()
+    ]
+    if missing:
+        generate_all_short_thumbnails(script_id, content, missing)
+
+    base = os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads")
+    folder = Path(base) / sanitize_filename(project_title)
+    folder.mkdir(parents=True, exist_ok=True)
+
+    files: list[str] = []
+    paths: dict[int, str] = {}
+    for idx, segment in enumerate(content.segments):
+        src = _thumbs_dir(script_id) / f"{idx}.png"
+        if not src.is_file():
+            raise RuntimeError(f"Thumbnail missing for segment {idx + 1}")
+        filename = short_thumbnail_filename(segment.name, idx + 1)
+        dest = folder / filename
+        shutil.copy2(src, dest)
+        files.append(dest.name)
+        paths[idx] = str(dest)
+
+    return str(folder), files, paths

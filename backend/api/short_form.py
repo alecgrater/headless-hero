@@ -66,6 +66,21 @@ class RenderShortBatchRequest(BaseModel):
     segment_indices: list[int]
 
 
+class ExportShortThumbnailsRequest(BaseModel):
+    script_id: str
+
+
+class ShortThumbnailsResponse(BaseModel):
+    generated_indices: list[int]
+    paths: dict[int, str]
+
+
+class ExportShortThumbnailsResponse(BaseModel):
+    folder_path: str
+    files: list[str]
+    paths: dict[int, str]
+
+
 # --- Helpers ---
 
 
@@ -119,6 +134,145 @@ def rendered_shorts(script_id: str, session: Session = Depends(get_session)):
         rendered_indices=sorted(paths.keys()),
         paths=paths,
     )
+
+
+@router.get("/thumbnails", response_model=ShortThumbnailsResponse)
+def short_thumbnails(script_id: str, session: Session = Depends(get_session)):
+    """Return generated short-form thumbnail paths."""
+    from pipeline.short_form_thumbnails import existing_short_thumbnail_paths
+
+    content = _load_content(session, script_id)
+    paths = existing_short_thumbnail_paths(script_id, len(content.segments))
+    return ShortThumbnailsResponse(
+        generated_indices=sorted(paths.keys()),
+        paths=paths,
+    )
+
+
+@router.post("/thumbnails/all", response_model=JobResponse)
+def start_generate_all_short_thumbnails(
+    body: RenderShortAllRequest, session: Session = Depends(get_session)
+):
+    """Generate all short-form thumbnails in the background."""
+    from pipeline.short_form_thumbnails import generate_all_short_thumbnails
+
+    content = _load_content(session, body.script_id)
+    total = len(content.segments)
+    job = create_job(scene_count=total)
+    logger.info("Starting short-thumbnail generation for script %s (%d segments)", body.script_id, total)
+
+    def do_generate():
+        def on_progress(p: float, msg: str):
+            update_job(job.id, progress=p, current_step=msg)
+
+        results = generate_all_short_thumbnails(
+            script_id=body.script_id,
+            content=content,
+            on_progress=on_progress,
+        )
+        update_job(job.id, progress=1.0, current_step="All short thumbnails generated")
+        return results
+
+    run_in_background(job.id, do_generate)
+    return JobResponse(job_id=job.id)
+
+
+@router.post("/thumbnails/one", response_model=JobResponse)
+def start_generate_one_short_thumbnail(
+    body: RenderShortOneRequest, session: Session = Depends(get_session)
+):
+    """Generate one short-form thumbnail in the background."""
+    from pipeline.short_form_thumbnails import generate_short_thumbnail
+
+    content = _load_content(session, body.script_id)
+    if body.segment_idx < 0 or body.segment_idx >= len(content.segments):
+        raise HTTPException(status_code=400, detail="segment_idx out of range")
+
+    job = create_job(scene_count=1)
+    logger.info(
+        "Starting short-thumbnail generation for script %s segment %d",
+        body.script_id,
+        body.segment_idx,
+    )
+
+    def do_generate():
+        def on_progress(p: float, msg: str):
+            update_job(job.id, progress=p, current_step=msg)
+
+        url = generate_short_thumbnail(
+            script_id=body.script_id,
+            segment_idx=body.segment_idx,
+            content=content,
+            on_progress=on_progress,
+        )
+        update_job(job.id, progress=1.0, current_step="Short thumbnail generated")
+        return url
+
+    run_in_background(job.id, do_generate)
+    return JobResponse(job_id=job.id)
+
+
+@router.post("/thumbnails/batch", response_model=JobResponse)
+def start_generate_short_thumbnail_batch(
+    body: RenderShortBatchRequest, session: Session = Depends(get_session)
+):
+    """Generate selected short-form thumbnails in one background job."""
+    from pipeline.short_form_thumbnails import generate_all_short_thumbnails
+
+    content = _load_content(session, body.script_id)
+    total_segments = len(content.segments)
+    segment_indices = list(dict.fromkeys(body.segment_indices))
+    invalid_indices = [
+        idx for idx in segment_indices if idx < 0 or idx >= total_segments
+    ]
+    if invalid_indices:
+        raise HTTPException(status_code=400, detail="segment_indices out of range")
+    if not segment_indices:
+        raise HTTPException(status_code=400, detail="segment_indices cannot be empty")
+
+    job = create_job(scene_count=len(segment_indices))
+    logger.info(
+        "Starting short-thumbnail batch for script %s segments %s",
+        body.script_id,
+        segment_indices,
+    )
+
+    def do_generate():
+        def on_progress(p: float, msg: str):
+            update_job(job.id, progress=p, current_step=msg)
+
+        results = generate_all_short_thumbnails(
+            script_id=body.script_id,
+            content=content,
+            segment_indices=segment_indices,
+            on_progress=on_progress,
+        )
+        update_job(job.id, progress=1.0, current_step="Selected short thumbnails generated")
+        return results
+
+    run_in_background(job.id, do_generate)
+    return JobResponse(job_id=job.id)
+
+
+@router.post("/thumbnails/export", response_model=ExportShortThumbnailsResponse)
+def export_short_form_thumbnails(
+    body: ExportShortThumbnailsRequest, session: Session = Depends(get_session)
+):
+    """Generate missing short-form thumbnails and copy all to Downloads."""
+    from pipeline.short_form_thumbnails import export_short_thumbnails
+
+    content = _load_content(session, body.script_id)
+    record = session.get(Script, body.script_id)
+    project_title = record.topic_title or "Untitled"
+    try:
+        folder_path, files, paths = export_short_thumbnails(
+            script_id=body.script_id,
+            content=content,
+            project_title=project_title,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return ExportShortThumbnailsResponse(folder_path=folder_path, files=files, paths=paths)
 
 
 @router.post("/render/all", response_model=JobResponse)
