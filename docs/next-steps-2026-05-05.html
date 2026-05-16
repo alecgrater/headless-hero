@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Headless Hero — Where I Left Off (May 5, 2026)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0a;
+      color: #e5e5e5;
+      line-height: 1.6;
+      padding: 2rem 3rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    h1 { color: #a78bfa; margin-bottom: 0.5rem; font-size: 1.8rem; }
+    h2 { color: #7dd3fc; margin-top: 2.5rem; margin-bottom: 0.75rem; font-size: 1.3rem; border-bottom: 1px solid #262626; padding-bottom: 0.5rem; }
+    h3 { color: #d4d4d4; margin-top: 1.5rem; margin-bottom: 0.5rem; font-size: 1.05rem; }
+    p { margin-bottom: 0.75rem; color: #a3a3a3; }
+    ul, ol { margin-left: 1.5rem; margin-bottom: 1rem; }
+    li { margin-bottom: 0.4rem; color: #d4d4d4; }
+    li em { color: #a3a3a3; font-style: normal; }
+    code { background: #1c1c1c; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.88rem; color: #a78bfa; }
+    .tag { display: inline-block; font-size: 0.7rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 0.4rem; vertical-align: middle; }
+    .tag-new { background: #065f46; color: #6ee7b7; }
+    .tag-changed { background: #713f12; color: #fbbf24; }
+    .tag-eli { background: #312e81; color: #a5b4fc; }
+    .tag-voice { background: #7f1d1d; color: #fca5a5; }
+    .tag-untested { background: #991b1b; color: #fecaca; }
+    .section-card {
+      background: #141414;
+      border: 1px solid #262626;
+      border-radius: 8px;
+      padding: 1.25rem 1.5rem;
+      margin: 1rem 0;
+    }
+    .priority-badge {
+      display: inline-block;
+      width: 24px; height: 24px;
+      line-height: 24px;
+      text-align: center;
+      border-radius: 50%;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-right: 0.5rem;
+    }
+    .p1 { background: #dc2626; color: white; }
+    .p2 { background: #d97706; color: white; }
+    .p3 { background: #2563eb; color: white; }
+    .p4 { background: #4b5563; color: white; }
+    .step-list { list-style: none; margin-left: 0; counter-reset: steps; }
+    .step-list li { counter-increment: steps; position: relative; padding-left: 2.5rem; margin-bottom: 1rem; }
+    .step-list li::before {
+      content: counter(steps);
+      position: absolute; left: 0; top: 0;
+      width: 22px; height: 22px; line-height: 22px;
+      text-align: center; border-radius: 50%;
+      background: #262626; color: #a78bfa;
+      font-size: 0.75rem; font-weight: 600;
+    }
+    .callout {
+      background: #1e1b4b;
+      border-left: 3px solid #7c3aed;
+      padding: 0.75rem 1rem;
+      margin: 1rem 0;
+      border-radius: 0 6px 6px 0;
+    }
+    .callout p { color: #c4b5fd; margin: 0; }
+    .warn-callout {
+      background: #451a03;
+      border-left: 3px solid #f59e0b;
+    }
+    .warn-callout p { color: #fde68a; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid #262626; }
+    th { color: #737373; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    td { color: #d4d4d4; font-size: 0.9rem; }
+    .muted { color: #737373; }
+    hr { border: none; border-top: 1px solid #262626; margin: 2rem 0; }
+  </style>
+</head>
+<body>
+
+<h1>Where I Left Off</h1>
+<p>Last session: <strong>May 5, 2026</strong> &mdash; Branch: <code>eli_2</code> (2 commits ahead of main)</p>
+<p>Main also has ~12 unmerged commits from earlier today covering voiceover + gameplay/Twitch changes.</p>
+
+<hr>
+
+<h2>What Changed: Two Big Feature Areas</h2>
+
+<div class="section-card">
+  <h3><span class="tag tag-voice">VOICE</span> Voiceover Enhancement Suite</h3>
+  <p>A full recording system upgrade. This is on <code>main</code> (already merged).</p>
+  <ul>
+    <li><strong>Take alignment</strong> &mdash; POST <code>/api/recording/align-take</code>: realigns word timestamps to a newly recorded take using forced alignment. Instant teleprompter feedback shows where you drifted.</li>
+    <li><strong>Script deviation detection</strong> &mdash; difflib-powered comparison between narration script and what was actually spoken. Shows colored inline diff + badge.</li>
+    <li><strong>EBU R128 loudness normalization</strong> &mdash; Two-pass FFmpeg <code>loudnorm</code> targeting -16 LUFS. Frontend toggle per-export.</li>
+    <li><strong>Breath markers</strong> &mdash; Punctuation-based pause indicators in teleprompter (commas = short, periods = long).</li>
+    <li><strong>Real-time WPM counter</strong> &mdash; Color-coded zones during live recording (green/yellow/red).</li>
+    <li><strong>Claude delivery annotations</strong> &mdash; Haiku marks emphasis words, energy zones, and question rises directly on the teleprompter.</li>
+    <li><strong>AI reference playback</strong> &mdash; Play the ElevenLabs-generated TTS with a synchronized teleprompter needle so you can match cadence.</li>
+    <li><strong>Adaptive teleprompter speed</strong> &mdash; Uses alignment data from previous takes to adjust scroll speed.</li>
+    <li><strong>Mini waveform previews</strong> &mdash; wavesurfer.js per take in the take list.</li>
+    <li><strong>De-essing + lowpass filters</strong> &mdash; Optional audio filters on export.</li>
+    <li><strong>Rhythm analysis</strong> &mdash; Post-recording stats: WPM variance, gap distribution, pace curve.</li>
+    <li><strong>Punch-in recording</strong> &mdash; Select a word range, re-record just that section, auto-spliced via FFmpeg.</li>
+  </ul>
+</div>
+
+<div class="section-card">
+  <h3><span class="tag tag-voice">VOICE</span> Voiceover Quality Scoring</h3>
+  <p>Also on <code>main</code>. Builds on the enhancement suite.</p>
+  <ul>
+    <li><strong>Per-take scoring</strong> &mdash; 5 dimensions (pacing, rhythm, accuracy, emphasis, engagement), scored 1-10 using algorithmic metrics + Claude Haiku qualitative assessment.</li>
+    <li><strong>"Score All" button</strong> &mdash; Batch-scores every selected take in the session (background job with polling).</li>
+    <li><strong>"Needs Work" filter</strong> &mdash; SceneNavigator sorts scenes by lowest score first, shows color-coded badges.</li>
+    <li><strong>Recommendations</strong> &mdash; Low-scoring scenes get specific improvement text from Claude.</li>
+  </ul>
+</div>
+
+<div class="section-card">
+  <h3><span class="tag tag-eli">ELI</span> Procedural Animation Rebuild</h3>
+  <p>On <code>eli_2</code> branch (not merged to main yet).</p>
+  <ul>
+    <li><strong>Old system removed</strong> &mdash; 150+ discrete pose images switched via AI-generated keyframe timelines. Looked choppy.</li>
+    <li><strong>New system</strong> &mdash; Claude picks ONE pose per scene (via Haiku, very fast). Remotion applies procedural idle motion to that single PNG:</li>
+    <li style="list-style: none; margin-left: 1rem;">
+      <ul>
+        <li>Breathing (~3.5s asymmetric dual-sine cycle)</li>
+        <li>Body sway (~7s, golden ratio to breathing)</li>
+        <li>Head micro-tilts (~5s, ease-into-holds)</li>
+        <li>Deterministic blinks (seeded schedule, 20% double-blink chance)</li>
+        <li>Lip sync (phrase_timestamps &rarr; open/closed mouth opacity blend)</li>
+        <li>Spring entrance + ease-out exit per scene</li>
+      </ul>
+    </li>
+    <li><strong>Character frame generation UI removed</strong> &mdash; No more Settings &gt; Character page. The PNGs on disk are still used, just not generated/managed through the app anymore.</li>
+    <li><strong>Determinism</strong> &mdash; All randomness seeded from <code>hash(sceneId + frameId)</code>. Same input = same animation every render.</li>
+  </ul>
+</div>
+
+<hr>
+
+<h2>Testing Plan: Recommended Order</h2>
+
+<div class="callout">
+  <p><strong>Start the app:</strong> <code>npm run dev</code> from the repo root. Backend on :8420, frontend on :5173.</p>
+</div>
+
+<ol class="step-list">
+  <li>
+    <strong><span class="priority-badge p1">1</span> Merge eli_2 to main</strong><br>
+    <em class="muted">Before testing anything, get on one branch.</em><br>
+    <code>git checkout main && git merge eli_2</code><br>
+    This should merge cleanly since eli_2 only touches Eli files and main only touched voiceover/gameplay after it branched.
+  </li>
+
+  <li>
+    <strong><span class="priority-badge p1">2</span> Sanity check: render a video with Eli</strong><br>
+    <em class="muted">Verifies the new procedural animation actually produces output.</em>
+    <ul>
+      <li>Open an existing project that has voiceover already generated</li>
+      <li>Click "Add Eli" in the timeline (should be fast &mdash; Haiku picks 1 pose per scene)</li>
+      <li>Do a full render (Export panel &gt; Render YouTube)</li>
+      <li>Watch the output &mdash; <strong>look for:</strong>
+        <ul>
+          <li>Breathing: subtle vertical scale oscillation</li>
+          <li>Sway: gentle lateral drift</li>
+          <li>Blinks: natural interval (3-6s), not robotic</li>
+          <li>Lip sync: mouth opens during speech, closes during silence</li>
+          <li>Entrance: springs in from below at scene start</li>
+          <li>Exit: slides down and fades at scene end</li>
+          <li>Corner changes between scenes</li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+
+  <li>
+    <strong><span class="priority-badge p2">3</span> Record a voiceover with the new mic</strong><br>
+    <em class="muted">First real test of the recording suite with good hardware.</em>
+    <ul>
+      <li>Open a project, go to Timeline &gt; Record Voiceover (mic icon)</li>
+      <li>Verify the new mic shows up in the device dropdown</li>
+      <li>Record one scene. Check:
+        <ul>
+          <li>Breath markers visible in teleprompter (small dots at commas/periods)</li>
+          <li>Real-time WPM counter updates during recording</li>
+          <li>Take waveform appears in take list after recording</li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+
+  <li>
+    <strong><span class="priority-badge p2">4</span> Test delivery annotations</strong><br>
+    <em class="muted">Claude Haiku annotates emphasis/energy.</em>
+    <ul>
+      <li>In the recording page, look for a "Get Delivery Notes" or annotation button</li>
+      <li>Should mark emphasis words (bold/underline in teleprompter), energy zones (high/low), and question rises</li>
+      <li>Play the AI reference (ElevenLabs TTS) &mdash; check that the teleprompter needle follows along in sync</li>
+    </ul>
+  </li>
+
+  <li>
+    <strong><span class="priority-badge p2">5</span> Test alignment + deviation</strong><br>
+    <em class="muted">Record a take where you deliberately change some words.</em>
+    <ul>
+      <li>Record a take but swap a few words or skip a sentence</li>
+      <li>After recording, look for the deviation badge (should show % mismatch)</li>
+      <li>Click it to see the inline diff (your words vs. script)</li>
+      <li>Re-record and check that alignment data improves teleprompter speed on the next take</li>
+    </ul>
+  </li>
+
+  <li>
+    <strong><span class="priority-badge p2">6</span> Test punch-in recording</strong><br>
+    <em class="muted">Re-record just a word range and verify the splice.</em>
+    <ul>
+      <li>Select a word range in the waveform (should enter punch-in mode)</li>
+      <li>Record the replacement</li>
+      <li>Play back &mdash; verify the splice sounds natural (no click/pop at boundaries)</li>
+    </ul>
+  </li>
+
+  <li>
+    <strong><span class="priority-badge p3">7</span> Test quality scoring</strong><br>
+    <em class="muted">Score your takes and verify recommendations are useful.</em>
+    <ul>
+      <li>Record 3-4 scenes with varying quality (one careful, one rushed, one where you stumble)</li>
+      <li>Hit "Score All" in the top bar</li>
+      <li>Wait for scoring to complete (background job, should take 10-30s per scene)</li>
+      <li>Check score badges in the scene navigator &mdash; worst takes should show red/orange</li>
+      <li>Switch to "Needs Work" filter &mdash; lowest scores should sort to top</li>
+      <li>Check that recommendations make sense ("too fast", "missed emphasis on X", etc.)</li>
+    </ul>
+  </li>
+
+  <li>
+    <strong><span class="priority-badge p3">8</span> Test loudness normalization</strong><br>
+    <em class="muted">Export with normalization ON and compare.</em>
+    <ul>
+      <li>Export voiceover with loudness normalization toggle enabled</li>
+      <li>Compare volume levels across scenes &mdash; should be consistent at -16 LUFS</li>
+      <li>Listen for any artifacts from the loudnorm filter</li>
+    </ul>
+  </li>
+
+  <li>
+    <strong><span class="priority-badge p3">9</span> Eli animation tuning</strong><br>
+    <em class="muted">If anything looks wrong in step 2, these are the knobs to turn.</em>
+    <ul>
+      <li>File: <code>remotion/src/effects/overlays/EliOverlay.tsx</code></li>
+      <li>Breathing amplitude: <code>0.004</code> primary, <code>0.0015</code> secondary (lines with <code>breathScaleY</code>)</li>
+      <li>Sway range: <code>3</code>px lateral, <code>0.8</code>&deg; rotation</li>
+      <li>Tilt range: <code>1.5</code>&deg;</li>
+      <li>Blink interval: <code>3-6</code>s (in <code>generateBlinkSchedule</code>)</li>
+      <li>Entrance spring: <code>damping: 12, stiffness: 120</code></li>
+      <li>Overlay size: <code>280</code>px (constant at top)</li>
+    </ul>
+  </li>
+
+  <li>
+    <strong><span class="priority-badge p4">10</span> Full end-to-end</strong><br>
+    <em class="muted">Once individual pieces work, do a complete video.</em>
+    <ul>
+      <li>Generate a script &rarr; images &rarr; record voiceover with new mic &rarr; score &rarr; fix low-scoring scenes &rarr; export with loudness normalization &rarr; add Eli &rarr; full render &rarr; watch</li>
+    </ul>
+  </li>
+</ol>
+
+<hr>
+
+<h2>Known Issues / Things to Watch</h2>
+
+<div class="warn-callout">
+  <p><strong>Eli animation tuning:</strong> The sine frequencies and amplitudes in the Remotion component are starting values. Expect 2-3 visual iteration rounds after first watching a rendered video. The blink-as-squash technique may not read well at 280px overlay size &mdash; could need to increase scale or switch to a different blink approach.</p>
+</div>
+
+<div class="warn-callout">
+  <p><strong>eli_2 branch:</strong> Not merged to main yet. The Character section was removed from Settings &mdash; if you ever need to regenerate character frames in the future, you'd need to restore that or do it from the command line.</p>
+</div>
+
+<table>
+  <thead>
+    <tr><th>Area</th><th>Status</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Voiceover recording</td><td><span class="tag tag-untested">UNTESTED</span></td><td>Built but never tested with real hardware. Your new mic is the first real test.</td></tr>
+    <tr><td>Punch-in splice</td><td><span class="tag tag-untested">UNTESTED</span></td><td>FFmpeg splice logic may have boundary artifacts. Listen carefully at edit points.</td></tr>
+    <tr><td>Quality scoring</td><td><span class="tag tag-untested">UNTESTED</span></td><td>Claude Haiku prompt may produce inconsistent scores. Calibration TBD.</td></tr>
+    <tr><td>Eli procedural motion</td><td><span class="tag tag-untested">UNTESTED</span></td><td>Never rendered. Animation values are theoretical starting points.</td></tr>
+    <tr><td>Loudness normalization</td><td><span class="tag tag-untested">UNTESTED</span></td><td>Two-pass loudnorm should work but may interact weirdly with de-essing filter.</td></tr>
+    <tr><td>Adaptive teleprompter</td><td><span class="tag tag-untested">UNTESTED</span></td><td>Needs at least 2 takes on same scene to have alignment data to adapt from.</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>Quick Reference: Key Files</h2>
+
+<table>
+  <thead>
+    <tr><th>Feature</th><th>Backend</th><th>Frontend</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Recording suite</td>
+      <td><code>backend/api/recording.py</code></td>
+      <td><code>frontend/src/components/recording/</code></td>
+    </tr>
+    <tr>
+      <td>Quality scoring</td>
+      <td><code>backend/api/recording.py</code> (score-take, score-all)</td>
+      <td><code>SceneNavigator.tsx</code>, <code>VoiceoverRecordingPage.tsx</code></td>
+    </tr>
+    <tr>
+      <td>Eli pose picker</td>
+      <td><code>backend/pipeline/eli_animator.py</code></td>
+      <td>Timeline "Add Eli" button (unchanged)</td>
+    </tr>
+    <tr>
+      <td>Eli procedural animation</td>
+      <td>&mdash;</td>
+      <td><code>remotion/src/effects/overlays/EliOverlay.tsx</code></td>
+    </tr>
+    <tr>
+      <td>Eli API</td>
+      <td><code>backend/api/eli.py</code></td>
+      <td><code>frontend/src/api.ts</code> (generateEli, pollEliJob)</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>Git State</h2>
+
+<table>
+  <thead><tr><th>Branch</th><th>Status</th><th>Action Needed</th></tr></thead>
+  <tbody>
+    <tr><td><code>main</code></td><td>Voiceover + gameplay changes (latest: <code>9345068</code>)</td><td>None</td></tr>
+    <tr><td><code>eli_2</code></td><td>2 commits ahead of main (Eli rebuild)</td><td>Merge to main when satisfied with render output</td></tr>
+  </tbody>
+</table>
+
+<p class="muted" style="margin-top: 2rem; font-size: 0.8rem;">Generated May 5, 2026. Open this file in a browser for best viewing.</p>
+
+</body>
+</html>

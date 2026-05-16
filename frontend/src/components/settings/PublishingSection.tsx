@@ -2,9 +2,44 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import api, { openInBrowser } from "../../api";
 import type { OAuthStatusResponse, PlatformConnection } from "../../types/publish";
 
+type PlatformKey = "youtube" | "tiktok" | "instagram";
+
+const PLATFORMS: {
+  key: PlatformKey;
+  name: string;
+  color: string;
+  description: string;
+  requirements: string;
+  warning?: string;
+}[] = [
+  {
+    key: "youtube",
+    name: "YouTube Shorts",
+    color: "bg-red-600 hover:bg-red-500",
+    description: "Uploads rendered shorts to your connected YouTube channel.",
+    requirements: "Requires Google Client ID and Google Client Secret.",
+  },
+  {
+    key: "tiktok",
+    name: "TikTok",
+    color: "bg-sky-600 hover:bg-sky-500",
+    description: "Uploads rendered shorts through TikTok Direct Post.",
+    requirements: "Requires TikTok Client Key and Client Secret.",
+    warning: "TikTok public Direct Post depends on app review. Unaudited clients may be limited by TikTok account/privacy rules.",
+  },
+  {
+    key: "instagram",
+    name: "Instagram Reels",
+    color: "bg-pink-600 hover:bg-pink-500",
+    description: "Publishes rendered shorts as Instagram Reels.",
+    requirements: "Requires Meta App ID and App Secret.",
+    warning: "Instagram publishing requires a professional Instagram account connected to a Facebook Page.",
+  },
+];
+
 export default function PublishingSection() {
   const [connections, setConnections] = useState<OAuthStatusResponse | null>(null);
-  const [connecting, setConnecting] = useState(false);
+  const [connectingPlatform, setConnectingPlatform] = useState<PlatformKey | null>(null);
   const connectionPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchConnections = useCallback(async () => {
@@ -22,12 +57,12 @@ export default function PublishingSection() {
     };
   }, []);
 
-  const handleConnectYouTube = async () => {
-    setConnecting(true);
+  const handleConnect = async (platform: PlatformKey) => {
+    setConnectingPlatform(platform);
     try {
-      const res = await api.post("/api/publish/oauth/connect", { platform: "youtube" });
+      const res = await api.post("/api/publish/oauth/connect", { platform });
       if (!res.ok) {
-        setConnecting(false);
+        setConnectingPlatform(null);
         return;
       }
       const { auth_url } = res.data as { auth_url: string };
@@ -38,14 +73,14 @@ export default function PublishingSection() {
         const statusRes = await api.get("/api/publish/oauth/status");
         if (!statusRes.ok) return;
         const data = statusRes.data as OAuthStatusResponse;
-        const conn = data.youtube as PlatformConnection;
+        const conn = data[platform] as PlatformConnection;
         if (conn?.connected) {
           if (connectionPollRef.current) {
             clearInterval(connectionPollRef.current);
             connectionPollRef.current = null;
           }
           setConnections(data);
-          setConnecting(false);
+          setConnectingPlatform(null);
         }
       }, 2000);
 
@@ -53,58 +88,90 @@ export default function PublishingSection() {
         if (connectionPollRef.current) {
           clearInterval(connectionPollRef.current);
           connectionPollRef.current = null;
-          setConnecting(false);
+          setConnectingPlatform(null);
         }
       }, 300000);
     } catch {
-      setConnecting(false);
+      setConnectingPlatform(null);
     }
   };
 
-  const handleDisconnectYouTube = async () => {
-    await api.request("DELETE", "/api/publish/oauth/disconnect", { platform: "youtube" });
+  const handleDisconnect = async (platform: PlatformKey) => {
+    await api.request("DELETE", "/api/publish/oauth/disconnect", { platform });
     await fetchConnections();
   };
 
-  const ytConn = connections?.youtube;
-
   return (
-    <div className="p-6 max-w-xl space-y-8">
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-neutral-100">YouTube</h3>
-        <p className="text-sm text-neutral-400">
-          Connect your YouTube channel for direct video publishing.
+    <div className="p-6 max-w-3xl space-y-5">
+      <div>
+        <h2 className="text-lg font-semibold text-neutral-100">Publishing</h2>
+        <p className="mt-1 text-sm text-neutral-400">
+          Connect the platforms that should receive one-click short-form uploads.
         </p>
+      </div>
 
-        {ytConn?.connected ? (
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              {ytConn.platform_user_name || "Connected"}
-            </span>
-            <button
-              onClick={handleDisconnectYouTube}
-              className="text-sm text-red-400 hover:text-red-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded-md"
+      <div className="grid gap-4">
+        {PLATFORMS.map((platform) => {
+          const conn = connections?.[platform.key];
+          const connecting = connectingPlatform === platform.key;
+          return (
+            <section
+              key={platform.key}
+              className="rounded-xl border border-neutral-800 bg-neutral-900 p-5 space-y-4"
             >
-              Disconnect
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={handleConnectYouTube}
-            disabled={connecting}
-            className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
-          >
-            {connecting ? (
-              <>
-                <span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                Connecting...
-              </>
-            ) : (
-              "Connect YouTube"
-            )}
-          </button>
-        )}
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold text-neutral-100">{platform.name}</h3>
+                  <p className="text-sm text-neutral-400">{platform.description}</p>
+                  <p className="text-xs text-neutral-500">{platform.requirements}</p>
+                </div>
+                {conn?.connected ? (
+                  <span className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-400">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                    {conn.platform_user_name || "Connected"}
+                  </span>
+                ) : (
+                  <span className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-sm text-neutral-400">
+                    <span className="h-2 w-2 rounded-full bg-neutral-500" />
+                    Not connected
+                  </span>
+                )}
+              </div>
+
+              {platform.warning && (
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                  {platform.warning}
+                </div>
+              )}
+
+              <div className="flex items-center gap-3">
+                {conn?.connected ? (
+                  <button
+                    onClick={() => handleDisconnect(platform.key)}
+                    className="text-sm text-red-400 hover:text-red-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded-md"
+                  >
+                    Disconnect
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleConnect(platform.key)}
+                    disabled={connectingPlatform !== null}
+                    className={`px-4 py-2 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${platform.color}`}
+                  >
+                    {connecting ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      `Connect ${platform.name}`
+                    )}
+                  </button>
+                )}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </div>
   );

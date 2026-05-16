@@ -112,12 +112,14 @@ ipcMain.handle("save-to-downloads", async (_event, { url, folderName, filename }
   fs.mkdirSync(folder, { recursive: true });
   const ext = path.extname(safeFilename);
   const stem = ext ? safeFilename.slice(0, -ext.length) : safeFilename;
-  let destPath = path.join(folder, safeFilename);
+  const initialDest = path.join(folder, safeFilename);
+  let destPath = initialDest;
   let counter = 2;
   while (fs.existsSync(destPath)) {
     destPath = path.join(folder, `${stem}${counter}${ext}`);
     counter += 1;
   }
+  console.log(`[save-to-downloads] requested=${safeFilename} initial=${initialDest} final=${destPath} collided=${destPath !== initialDest}`);
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Download failed: ${response.status}`);
   const buffer = Buffer.from(await response.arrayBuffer());

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { VoiceInfo } from "../../types/audio";
-import type { ScriptContent } from "../../types/script";
 import MiniProgressBar from "../MiniProgressBar";
 
 interface Props {
@@ -43,8 +42,6 @@ interface Props {
   selectedVoiceId: string;
   setSelectedVoiceId: (id: string) => void;
   voicePickerRef: RefObject<HTMLDivElement | null>;
-  content: ScriptContent;
-  setContent: (content: ScriptContent) => void;
   onRecordVoiceover?: () => void;
   // Export
   exportTestJobId: string | null;
@@ -108,8 +105,6 @@ export default function PipelineSteps({
   selectedVoiceId,
   setSelectedVoiceId,
   voicePickerRef,
-  content,
-  setContent,
   onRecordVoiceover,
   exportTestJobId,
   setExportTestJobId,

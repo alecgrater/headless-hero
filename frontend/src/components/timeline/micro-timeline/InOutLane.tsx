@@ -13,7 +13,6 @@ const MIN_VISIBLE_SECONDS = 0.5;
 
 export default function InOutLane({
   durationSeconds,
-  playheadSeconds,
   widthPx,
   isSelected,
   onSelect,

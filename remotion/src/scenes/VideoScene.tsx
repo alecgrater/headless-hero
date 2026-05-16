@@ -4,7 +4,7 @@
  * Trims/loops the video to match the scene's audio duration.
  */
 import React from "react";
-import { OffthreadVideo, useVideoConfig } from "remotion";
+import { OffthreadVideo } from "remotion";
 import type { SceneInput } from "../types";
 
 interface Props {
@@ -12,8 +12,6 @@ interface Props {
 }
 
 export const VideoScene: React.FC<Props> = ({ scene }) => {
-  const { fps } = useVideoConfig();
-  const durationInFrames = Math.round(scene.duration_seconds * fps);
   const src = scene.video_path || scene.image_path || "";
 
   if (!src) {

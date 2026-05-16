@@ -35,7 +35,7 @@ export default function useLongPress({ onClick, onLongPress, threshold = 350 }: 
     clear();
   }, [clear]);
 
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
+  const onTouchStart = useCallback(() => {
     didLongPressRef.current = false;
     timerRef.current = setTimeout(() => {
       didLongPressRef.current = true;

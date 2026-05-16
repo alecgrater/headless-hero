@@ -11,7 +11,7 @@ const ALLOWED_SEGMENT_COUNTS = [8, 10] as const;
 
 /** Snap an arbitrary segment count to the nearest allowed value (8 or 10). */
 function snapSegmentCount(n: number): 8 | 10 {
-  let best = ALLOWED_SEGMENT_COUNTS[0];
+  let best: 8 | 10 = ALLOWED_SEGMENT_COUNTS[0];
   for (const c of ALLOWED_SEGMENT_COUNTS) {
     if (Math.abs(c - n) < Math.abs(best - n)) best = c;
   }

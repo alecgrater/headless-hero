@@ -19,7 +19,6 @@ import ThumbnailModal from "./ThumbnailModal";
 import TimelineLanes from "./TimelineLanes";
 import VoiceSetupModal from "../brand/VoiceSetupModal";
 import ShortFormStatusPill from "./short-form/ShortFormStatusPill";
-import { usePublishState } from "./usePublishState";
 import { useRenderState } from "./useRenderState";
 import { useTimelineState } from "./useTimelineState";
 import { useMediaReview } from "./useMediaReview";
@@ -249,8 +248,6 @@ function TimelineEditor({
     initialContent.seo_metadata,
     initialContent.short_form_seo_metadata,
   );
-  const publish = usePublishState(scriptId);
-
   // Operation progress tracking
   const fxProgress = useOperationProgress("fx_generation");
   const eliProgress = useOperationProgress("eli_generation");
@@ -968,27 +965,6 @@ function TimelineEditor({
     }
   }, [scriptId, state]);
 
-  // Handle global timer toggle
-  const handleToggleTimer = () => {
-    const updated = {
-      ...state.content,
-      segment_timer_enabled: !state.content.segment_timer_enabled,
-    };
-    state.setContent(updated);
-    // Persist immediately since setContent doesn't trigger auto-save
-    api.put(`/api/scripts/${scriptId}`, { script: updated });
-  };
-
-  // Handle global subtitle highlight toggle
-  const handleToggleHighlight = () => {
-    const updated = {
-      ...state.content,
-      subtitle_highlight_enabled: state.content.subtitle_highlight_enabled === false ? true : false,
-    };
-    state.setContent(updated);
-    api.put(`/api/scripts/${scriptId}`, { script: updated });
-  };
-
   return (
     <div className="flex flex-col h-[calc(100vh-105px)]">
       {/* Header — Title + Pipeline + Thumbnail */}
@@ -1041,8 +1017,6 @@ function TimelineEditor({
             selectedVoiceId={voicePicker.selectedVoiceId}
             setSelectedVoiceId={voicePicker.setSelectedVoiceId}
             voicePickerRef={voicePicker.voicePickerRef}
-            content={state.content}
-            setContent={state.setContent}
             onRecordVoiceover={onRecordVoiceover}
             exportTestJobId={exportTestJobId}
             setExportTestJobId={setExportTestJobId}

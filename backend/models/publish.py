@@ -15,6 +15,9 @@ class PublishRecord(SQLModel, table=True):
     script_id: str = Field(index=True)
     brand_id: str = Field(index=True)
     platform: str = Field(default="youtube")
+    asset_kind: str = Field(default="long_form", index=True)  # long_form | short_form
+    short_index: int | None = Field(default=None, index=True)
+    upload_batch_id: str = Field(default="", index=True)
     status: str = Field(default="pending")  # pending | uploading | scheduled | published | failed
     platform_content_id: str = Field(default="")
     platform_url: str = Field(default="")
@@ -37,6 +40,10 @@ class PublishRecordRead(BaseModel):
     status: str
     platform_content_id: str
     platform_url: str
+    asset_kind: str
+    short_index: int | None
+    upload_batch_id: str
+    file_path: str
     schedule_at: datetime | None
     published_at: datetime | None
     error: str

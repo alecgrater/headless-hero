@@ -31,7 +31,6 @@ export default function ImageLane({
   isSelected,
   onSelect,
   frameTimings,
-  frameCount,
   wordTimestamps,
   onChange,
   selectedMarker,

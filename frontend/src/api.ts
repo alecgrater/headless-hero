@@ -8,11 +8,11 @@ export interface ApiResponse<T = unknown> {
 }
 
 interface ApiClient {
-  get: (path: string) => Promise<ApiResponse>;
-  post: (path: string, body?: unknown) => Promise<ApiResponse>;
-  put: (path: string, body?: unknown) => Promise<ApiResponse>;
-  delete: (path: string) => Promise<ApiResponse>;
-  request: (method: string, path: string, body?: unknown) => Promise<ApiResponse>;
+  get: <T = unknown>(path: string) => Promise<ApiResponse<T>>;
+  post: <T = unknown>(path: string, body?: unknown) => Promise<ApiResponse<T>>;
+  put: <T = unknown>(path: string, body?: unknown) => Promise<ApiResponse<T>>;
+  delete: <T = unknown>(path: string) => Promise<ApiResponse<T>>;
+  request: <T = unknown>(method: string, path: string, body?: unknown) => Promise<ApiResponse<T>>;
   openExternal?: (url: string) => Promise<void>;
   downloadFile?: (url: string, defaultFilename: string) => Promise<{ canceled: boolean; filePath?: string }>;
   saveToDownloads?: (url: string, folderName: string, filename: string) => Promise<{ filePath: string }>;
@@ -41,7 +41,7 @@ function extractErrorMessage(status: number, data: unknown): string {
 }
 
 /** Paths that should not trigger toast notifications on error. */
-const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/", "/api/short-form/jobs/", "/api/short-form/rendered"];
+const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/publish/short-form/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/", "/api/short-form/jobs/", "/api/short-form/rendered"];
 
 function shouldSilence(path: string): boolean {
   return SILENT_PATHS.some((p) => path.startsWith(p));
@@ -49,11 +49,11 @@ function shouldSilence(path: string): boolean {
 
 /** Wrap a request method to intercept non-ok responses and show toasts. */
 function withErrorInterceptor(
-  requestFn: (method: string, path: string, body?: unknown) => Promise<ApiResponse>,
-): (method: string, path: string, body?: unknown) => Promise<ApiResponse> {
-  return async (method, path, body) => {
+  requestFn: <T = unknown>(method: string, path: string, body?: unknown) => Promise<ApiResponse<T>>,
+): <T = unknown>(method: string, path: string, body?: unknown) => Promise<ApiResponse<T>> {
+  return async <T = unknown>(method: string, path: string, body?: unknown) => {
     try {
-      const res = await requestFn(method, path, body);
+      const res = await requestFn<T>(method, path, body);
       if (!res.ok && !shouldSilence(path)) {
         showToast(extractErrorMessage(res.status, res.data));
       }
@@ -64,7 +64,7 @@ function withErrorInterceptor(
           err instanceof Error ? err.message : "Network error — is the backend running?",
         );
       }
-      return { ok: false, status: 0, data: {} as unknown };
+      return { ok: false, status: 0, data: {} as T };
     }
   };
 }
@@ -382,7 +382,7 @@ export async function exportTest(scriptId: string, options: ExportTestOptions): 
 // Trending topics
 // ---------------------------------------------------------------------------
 
-import type { TrendingTopic, TrendingRefreshStatus, ContentProfile, SmartIdeasResponse } from "./types/trending";
+import type { TrendingTopic, TrendingRefreshStatus, ContentProfile } from "./types/trending";
 import type { HookScore } from "./types/script";
 import type { Idea, IdeaSource, IdeaStatus } from "./types/idea";
 
@@ -700,6 +700,7 @@ export async function renderScenePreview(scriptId: string, sceneId: string): Pro
 // ---------------------------------------------------------------------------
 
 import type { ShortFormJobStatus } from "./types/render";
+import type { ShortUploadStatus } from "./types/publish";
 
 export interface RenderedShortsStatus {
   rendered_indices: number[];
@@ -748,4 +749,21 @@ export async function getShortFormJobStatus(jobId: string): Promise<ShortFormJob
   const res = await api.get(`/api/short-form/jobs/${jobId}`);
   if (!res.ok) throw new Error(`Failed to fetch job status: ${res.status}`);
   return res.data as ShortFormJobStatus;
+}
+
+/** Start one-click upload for a rendered short to connected platforms. */
+export async function uploadShortForm(scriptId: string, segmentIdx: number): Promise<{ job_id: string }> {
+  const res = await api.post("/api/publish/short-form/upload", {
+    script_id: scriptId,
+    segment_idx: segmentIdx,
+  });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to start short upload");
+  return res.data as { job_id: string };
+}
+
+/** Fetch latest per-platform upload state for all shorts in a project. */
+export async function getShortFormUploadStatus(scriptId: string): Promise<Record<number, ShortUploadStatus>> {
+  const res = await api.get(`/api/publish/short-form/status/${scriptId}`);
+  if (!res.ok) throw new Error(`Failed to fetch short upload status: ${res.status}`);
+  return res.data as Record<number, ShortUploadStatus>;
 }

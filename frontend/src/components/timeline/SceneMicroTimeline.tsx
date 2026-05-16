@@ -4,7 +4,7 @@ import WaveformSplitter from "./WaveformSplitter";
 import InOutLane from "./micro-timeline/InOutLane";
 import ImageLane from "./micro-timeline/ImageLane";
 import FxLane from "./micro-timeline/FxLane";
-import { FPS, FRAME_SECONDS, secondsToPx, snapToWordBoundary, wordToSeconds, estimateWordPosition } from "./micro-timeline/shared";
+import { FPS, secondsToPx, wordToSeconds, estimateWordPosition } from "./micro-timeline/shared";
 import { assetUrl } from "../../api";
 
 export type LaneId = "images" | "fx" | "inout";
@@ -63,13 +63,13 @@ const SceneMicroTimeline = forwardRef<MicroTimelineHandle, Props>(function Scene
   }, []);
 
   // Track previous audio duration for stale marker detection
-  const prevAudioDuration = useRef(scene.audio_duration_seconds);
+  const prevAudioDuration = useRef(scene.audio_duration_seconds ?? 0);
   const [isStale, setIsStale] = useState(false);
 
   useEffect(() => {
     if (
       prevAudioDuration.current > 0 &&
-      scene.audio_duration_seconds > 0 &&
+      (scene.audio_duration_seconds ?? 0) > 0 &&
       prevAudioDuration.current !== scene.audio_duration_seconds
     ) {
       // Audio was regenerated with a different duration
@@ -81,7 +81,7 @@ const SceneMicroTimeline = forwardRef<MicroTimelineHandle, Props>(function Scene
         setIsStale(true);
       }
     }
-    prevAudioDuration.current = scene.audio_duration_seconds;
+    prevAudioDuration.current = scene.audio_duration_seconds ?? 0;
   }, [scene.audio_duration_seconds, scene.frame_timings, scene.visual_in_seconds, scene.visual_out_seconds]);
 
   // Determine which lanes are visible

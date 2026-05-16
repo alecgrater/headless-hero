@@ -65,14 +65,14 @@ interface TimelineState {
   generatingSceneIds: Set<string>;
   batchGenerating: boolean;
   generateImage: (sceneId: string) => Promise<void>;
-  generateAllImages: () => Promise<void>;
+  generateAllImages: (missingOnly?: boolean) => Promise<void>;
   cancelImageGeneration: () => void;
 
   // Audio generation
   generatingAudioSceneIds: Set<string>;
   batchGeneratingAudio: boolean;
   generateAudio: (sceneId: string, voiceId: string) => Promise<void>;
-  generateAllAudio: (voiceId: string) => Promise<void>;
+  generateAllAudio: (voiceId: string, missingOnly?: boolean) => Promise<void>;
   cancelAudioGeneration: () => void;
 
   // Batch progress

@@ -36,11 +36,24 @@ def ensure_token_fresh(credential: PlatformCredential) -> bool:
     if remaining > _TOKEN_REFRESH_BUFFER_SECONDS:
         return False
 
-    logger.info("Refreshing expired YouTube token for brand %s", credential.brand_id)
-    result = refresh_access_token(credential.refresh_token)
-    credential.access_token = result["access_token"]
-    if result.get("expiry"):
-        credential.token_expiry = datetime.fromisoformat(result["expiry"])
+    logger.info("Refreshing expired %s token for brand %s", credential.platform, credential.brand_id)
+    if credential.platform == "youtube":
+        result = refresh_access_token(credential.refresh_token)
+        credential.access_token = result["access_token"]
+        if result.get("expiry"):
+            credential.token_expiry = datetime.fromisoformat(result["expiry"])
+    elif credential.platform == "tiktok":
+        from integrations.tiktok_client import refresh_access_token as refresh_tiktok_access_token
+
+        result = refresh_tiktok_access_token(credential.refresh_token)
+        credential.access_token = result["access_token"]
+        credential.refresh_token = result.get("refresh_token", credential.refresh_token)
+        if result.get("expires_in"):
+            from datetime import timedelta
+
+            credential.token_expiry = datetime.now(timezone.utc) + timedelta(seconds=int(result["expires_in"]))
+    else:
+        return False
     return True
 
 def publish_to_youtube(
@@ -110,3 +123,87 @@ def publish_to_youtube(
 
     logger.info("YouTube upload complete: video_id=%s", result.get("id"))
     return result
+
+
+def publish_short_to_platform(
+    platform: str,
+    credential: PlatformCredential,
+    file_path: str,
+    metadata: dict,
+    on_progress: Callable[[float, str], None] | None = None,
+) -> dict[str, str]:
+    """Publish a short-form video to a connected platform."""
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Video file not found: {file_path}")
+
+    ensure_token_fresh(credential)
+
+    title = metadata.get("title", "Untitled")
+    description = metadata.get("description", "")
+    tags = metadata.get("tags", [])
+    hashtags = metadata.get("hashtags", [])
+
+    if platform == "youtube":
+        yt_description = description
+        if hashtags:
+            yt_description = f"{yt_description}\n\n{' '.join(hashtags)}".strip()
+        return publish_to_youtube(
+            credential=credential,
+            file_path=file_path,
+            metadata={
+                "title": title,
+                "description": yt_description,
+                "tags": tags,
+            },
+            on_progress=on_progress,
+            privacy_status=metadata.get("privacy_status", "public"),
+        )
+
+    if platform == "tiktok":
+        from integrations.tiktok_client import upload_video as upload_tiktok_video
+
+        if on_progress:
+            on_progress(0.05, "Starting TikTok upload...")
+
+        def upload_progress(p: float) -> None:
+            if on_progress:
+                on_progress(0.05 + p * 0.9, "Uploading to TikTok...")
+
+        result = upload_tiktok_video(
+            access_token=credential.access_token,
+            file_path=file_path,
+            title=title,
+            description=description,
+            hashtags=hashtags,
+            on_progress=upload_progress,
+        )
+        if on_progress:
+            on_progress(1.0, "Published to TikTok")
+        return result
+
+    if platform == "instagram":
+        from integrations.instagram_client import upload_reel
+
+        if on_progress:
+            on_progress(0.05, "Starting Instagram upload...")
+
+        caption = " ".join(
+            part for part in [title.strip(), description.strip(), " ".join(hashtags)] if part
+        )
+
+        def upload_progress(p: float) -> None:
+            if on_progress:
+                on_progress(0.05 + p * 0.9, "Publishing Instagram Reel...")
+
+        result = upload_reel(
+            access_token=credential.access_token,
+            ig_user_id=credential.platform_user_id,
+            file_path=file_path,
+            caption=caption,
+            on_progress=upload_progress,
+        )
+        if on_progress:
+            on_progress(1.0, "Published to Instagram")
+        return result
+
+    raise RuntimeError(f"Unsupported platform: {platform}")

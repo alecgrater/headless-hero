@@ -3,7 +3,9 @@
 import json
 import logging
 import os
-from datetime import datetime, timezone
+import uuid
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
@@ -13,17 +15,20 @@ from sqlmodel import Session, select
 from database import get_default_brand_id, get_session
 from models.credential import PlatformCredential, PlatformCredentialRead
 from models.publish import PublishRecord, PublishRecordRead
-from pipeline.publishing import publish_to_youtube
+from models.script import Script, ScriptContent
+from pipeline.publishing import publish_short_to_platform, publish_to_youtube
 from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/publish", tags=["publish"])
 
+SUPPORTED_PLATFORMS = ("youtube", "tiktok", "instagram")
+
 # --- Request / Response schemas ---
 
 class ConnectRequest(BaseModel):
-    platform: str  # "youtube"
+    platform: str
 
 class ConnectResponse(BaseModel):
     auth_url: str
@@ -33,6 +38,8 @@ class DisconnectRequest(BaseModel):
 
 class OAuthStatusResponse(BaseModel):
     youtube: PlatformCredentialRead
+    tiktok: PlatformCredentialRead
+    instagram: PlatformCredentialRead
 
 class UploadRequest(BaseModel):
     script_id: str
@@ -43,6 +50,21 @@ class UploadRequest(BaseModel):
 
 class UploadResponse(BaseModel):
     job_id: str
+
+class ShortFormUploadRequest(BaseModel):
+    script_id: str
+    segment_idx: int
+
+class ShortUploadPlatformStatus(BaseModel):
+    platform: str
+    status: str
+    platform_url: str = ""
+    error: str = ""
+    published_at: datetime | None = None
+
+class ShortUploadStatus(BaseModel):
+    short_index: int
+    platforms: dict[str, ShortUploadPlatformStatus]
 
 class PublishStatusResponse(BaseModel):
     job_id: str
@@ -77,35 +99,164 @@ def _make_credential_read(platform: str, cred: PlatformCredential | None) -> Pla
         connected=False,
     )
 
+def _require_supported_platform(platform: str) -> None:
+    if platform not in SUPPORTED_PLATFORMS:
+        raise HTTPException(status_code=400, detail=f"Unsupported platform: {platform}")
+
+def _credential_expiry_from_seconds(seconds: int | None) -> datetime | None:
+    if not seconds:
+        return None
+    return datetime.now(timezone.utc) + timedelta(seconds=int(seconds))
+
+def _upsert_credential(
+    session: Session,
+    brand_id: str,
+    platform: str,
+    access_token: str,
+    refresh_token: str,
+    platform_user_id: str,
+    platform_user_name: str,
+    scope: str,
+    token_expiry: datetime | None = None,
+) -> None:
+    existing = _get_credential(session, brand_id, platform)
+    if existing:
+        existing.access_token = access_token
+        existing.refresh_token = refresh_token or existing.refresh_token
+        existing.token_expiry = token_expiry
+        existing.platform_user_id = platform_user_id
+        existing.platform_user_name = platform_user_name
+        existing.scope = scope
+        existing.updated_at = datetime.now(timezone.utc)
+        session.add(existing)
+        return
+
+    session.add(
+        PlatformCredential(
+            brand_id=brand_id,
+            platform=platform,
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_expiry=token_expiry,
+            platform_user_id=platform_user_id,
+            platform_user_name=platform_user_name,
+            scope=scope,
+        )
+    )
+
+def _rendered_short_path(script_id: str, segment_idx: int, content: ScriptContent, project_title: str) -> str:
+    from pipeline.short_form_render import _short_filename
+    from config import DATA_DIR, sanitize_filename
+
+    if segment_idx < 0 or segment_idx >= len(content.segments):
+        raise HTTPException(status_code=400, detail="segment_idx out of range")
+
+    downloads_base = Path(os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads"))
+    downloads_path = downloads_base / sanitize_filename(project_title) / _short_filename(
+        project_title,
+        segment_idx + 1,
+        len(content.segments),
+    )
+    if downloads_path.is_file():
+        return str(downloads_path)
+
+    project_path = DATA_DIR / "projects" / script_id / "renders" / "shorts" / f"{segment_idx}.mp4"
+    if project_path.is_file():
+        return str(project_path)
+
+    raise HTTPException(status_code=400, detail=f"Short {segment_idx + 1} has not been rendered yet")
+
+def _short_metadata(content: ScriptContent, segment_idx: int) -> dict:
+    metadata = content.short_form_seo_metadata or {}
+    shorts = metadata.get("shorts") or []
+    uses_one_based_indices = any(int(s.get("index", -1)) == 1 for s in shorts)
+    expected_index = segment_idx + 1 if uses_one_based_indices else segment_idx
+    item = next((s for s in shorts if int(s.get("index", -1)) == expected_index), None)
+    if not item:
+        raise HTTPException(status_code=400, detail=f"Short-form SEO is missing for short {segment_idx + 1}")
+    return {
+        "title": item.get("title", content.title),
+        "description": item.get("description", ""),
+        "hashtags": item.get("hashtags", []),
+        "tags": item.get("tags", []),
+        "privacy_status": "public",
+    }
+
+def _already_published_record(
+    session: Session,
+    script_id: str,
+    brand_id: str,
+    platform: str,
+    short_index: int,
+) -> PublishRecord | None:
+    stmt = select(PublishRecord).where(
+        PublishRecord.script_id == script_id,
+        PublishRecord.brand_id == brand_id,
+        PublishRecord.platform == platform,
+        PublishRecord.asset_kind == "short_form",
+        PublishRecord.short_index == short_index,
+        PublishRecord.status.in_(["published", "scheduled"]),
+    )
+    return session.exec(stmt).first()
+
+def _persist_refreshed_credential(session: Session, credential: PlatformCredential) -> None:
+    stmt = select(PlatformCredential).where(
+        PlatformCredential.brand_id == credential.brand_id,
+        PlatformCredential.platform == credential.platform,
+    )
+    db_cred = session.exec(stmt).first()
+    if not db_cred:
+        return
+    db_cred.access_token = credential.access_token
+    db_cred.refresh_token = credential.refresh_token
+    db_cred.token_expiry = credential.token_expiry
+    db_cred.updated_at = datetime.now(timezone.utc)
+    session.add(db_cred)
+    session.commit()
+
 # --- Endpoints ---
 
 @router.get("/oauth/status", response_model=OAuthStatusResponse)
 def oauth_status(session: Session = Depends(get_session)):
     """Check OAuth connection status for all platforms."""
     brand_id = get_default_brand_id(session)
-    yt_cred = _get_credential(session, brand_id, "youtube")
-    return OAuthStatusResponse(youtube=_make_credential_read("youtube", yt_cred))
+    return OAuthStatusResponse(
+        youtube=_make_credential_read("youtube", _get_credential(session, brand_id, "youtube")),
+        tiktok=_make_credential_read("tiktok", _get_credential(session, brand_id, "tiktok")),
+        instagram=_make_credential_read("instagram", _get_credential(session, brand_id, "instagram")),
+    )
 
 @router.post("/oauth/connect", response_model=ConnectResponse)
 def oauth_connect(body: ConnectRequest, session: Session = Depends(get_session)):
     """Start OAuth flow — returns the auth URL for the frontend to open."""
-    if body.platform != "youtube":
-        raise HTTPException(status_code=400, detail=f"Unsupported platform: {body.platform}")
-
-    client_id = os.environ.get("GOOGLE_CLIENT_ID", "")
-    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "")
-    if not client_id or not client_secret:
-        raise HTTPException(
-            status_code=400,
-            detail="YouTube OAuth requires GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET. Set them in Settings → API Keys.",
-        )
-
-    from integrations.youtube_client import get_auth_url
-
+    _require_supported_platform(body.platform)
     brand_id = get_default_brand_id(session)
     logger.info("Starting OAuth connect for brand %s on %s", brand_id, body.platform)
 
-    auth_url = get_auth_url(state=brand_id)
+    if body.platform == "youtube":
+        if not os.environ.get("GOOGLE_CLIENT_ID") or not os.environ.get("GOOGLE_CLIENT_SECRET"):
+            raise HTTPException(
+                status_code=400,
+                detail="YouTube OAuth requires GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET. Set them in Settings → API Keys.",
+            )
+        from integrations.youtube_client import get_auth_url
+        auth_url = get_auth_url(state=brand_id)
+    elif body.platform == "tiktok":
+        if not os.environ.get("TIKTOK_CLIENT_KEY") or not os.environ.get("TIKTOK_CLIENT_SECRET"):
+            raise HTTPException(
+                status_code=400,
+                detail="TikTok OAuth requires TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET. Set them in Settings → API Keys.",
+            )
+        from integrations.tiktok_client import get_auth_url
+        auth_url = get_auth_url(state=brand_id)
+    else:
+        if not os.environ.get("META_APP_ID") or not os.environ.get("META_APP_SECRET"):
+            raise HTTPException(
+                status_code=400,
+                detail="Instagram OAuth requires META_APP_ID and META_APP_SECRET. Set them in Settings → API Keys.",
+            )
+        from integrations.instagram_client import get_auth_url
+        auth_url = get_auth_url(state=brand_id)
     return ConnectResponse(auth_url=auth_url)
 
 @router.get("/oauth/callback/{platform}", response_class=HTMLResponse)
@@ -117,7 +268,7 @@ def oauth_callback(platform: str, code: str = "", state: str = "", error: str = 
             status_code=400,
         )
 
-    if platform != "youtube":
+    if platform not in SUPPORTED_PLATFORMS:
         return HTMLResponse(
             content="<html><body><h2>Unsupported platform</h2></body></html>",
             status_code=400,
@@ -131,11 +282,55 @@ def oauth_callback(platform: str, code: str = "", state: str = "", error: str = 
 
     brand_id = state
 
-    from integrations.youtube_client import exchange_code, get_channel_info
-
     try:
-        tokens = exchange_code(code, state=brand_id)
-        channel = get_channel_info(tokens["access_token"])
+        if platform == "youtube":
+            from integrations.youtube_client import exchange_code, get_channel_info
+            tokens = exchange_code(code, state=brand_id)
+            channel = get_channel_info(tokens["access_token"])
+            _upsert_credential(
+                session=session,
+                brand_id=brand_id,
+                platform="youtube",
+                access_token=tokens["access_token"],
+                refresh_token=tokens.get("refresh_token", ""),
+                token_expiry=datetime.fromisoformat(tokens["expiry"]) if tokens.get("expiry") else None,
+                platform_user_id=channel["channel_id"],
+                platform_user_name=channel["channel_name"],
+                scope="youtube.upload youtube.readonly",
+            )
+            display_name = channel["channel_name"]
+        elif platform == "tiktok":
+            from integrations.tiktok_client import exchange_code, get_user_info
+            tokens = exchange_code(code)
+            user = get_user_info(tokens["access_token"])
+            _upsert_credential(
+                session=session,
+                brand_id=brand_id,
+                platform="tiktok",
+                access_token=tokens["access_token"],
+                refresh_token=tokens.get("refresh_token", ""),
+                token_expiry=_credential_expiry_from_seconds(tokens.get("expires_in")),
+                platform_user_id=user["open_id"] or tokens.get("open_id", ""),
+                platform_user_name=user["display_name"],
+                scope=tokens.get("scope", "user.info.basic,video.publish"),
+            )
+            display_name = user["display_name"]
+        else:
+            from integrations.instagram_client import exchange_code, get_instagram_account_info
+            tokens = exchange_code(code)
+            account = get_instagram_account_info(tokens["access_token"])
+            _upsert_credential(
+                session=session,
+                brand_id=brand_id,
+                platform="instagram",
+                access_token=tokens["access_token"],
+                refresh_token="",
+                token_expiry=_credential_expiry_from_seconds(tokens.get("expires_in")),
+                platform_user_id=account["ig_user_id"],
+                platform_user_name=account["username"],
+                scope="instagram_basic instagram_content_publish pages_show_list pages_read_engagement business_management",
+            )
+            display_name = account["username"]
     except Exception as exc:
         logger.exception("OAuth exchange failed")
         return HTMLResponse(
@@ -143,38 +338,14 @@ def oauth_callback(platform: str, code: str = "", state: str = "", error: str = 
             status_code=500,
         )
 
-    # Upsert credential
-    existing = _get_credential(session, brand_id, "youtube")
-    if existing:
-        existing.access_token = tokens["access_token"]
-        existing.refresh_token = tokens.get("refresh_token", existing.refresh_token)
-        if tokens.get("expiry"):
-            existing.token_expiry = datetime.fromisoformat(tokens["expiry"])
-        existing.platform_user_id = channel["channel_id"]
-        existing.platform_user_name = channel["channel_name"]
-        existing.updated_at = datetime.now(timezone.utc)
-        session.add(existing)
-    else:
-        cred = PlatformCredential(
-            brand_id=brand_id,
-            platform="youtube",
-            access_token=tokens["access_token"],
-            refresh_token=tokens.get("refresh_token", ""),
-            token_expiry=datetime.fromisoformat(tokens["expiry"]) if tokens.get("expiry") else None,
-            platform_user_id=channel["channel_id"],
-            platform_user_name=channel["channel_name"],
-            scope="youtube.upload youtube.readonly",
-        )
-        session.add(cred)
-
     session.commit()
-    logger.info("OAuth callback success: YouTube channel %s linked for brand %s", channel["channel_name"], brand_id)
+    logger.info("OAuth callback success: %s account %s linked for brand %s", platform, display_name, brand_id)
 
     return HTMLResponse(
         content=(
             "<html><body style='font-family:system-ui;text-align:center;padding:60px;background:#1a1a2e;color:#e0e0e0'>"
             "<h2 style='color:#4ade80'>Connected!</h2>"
-            f"<p>YouTube channel <strong>{channel['channel_name']}</strong> linked successfully.</p>"
+            f"<p>{platform.title()} account <strong>{display_name}</strong> linked successfully.</p>"
             "<p style='color:#888'>You can close this tab and return to the app.</p>"
             "</body></html>"
         )
@@ -183,6 +354,7 @@ def oauth_callback(platform: str, code: str = "", state: str = "", error: str = 
 @router.delete("/oauth/disconnect")
 def oauth_disconnect(body: DisconnectRequest, session: Session = Depends(get_session)):
     """Remove OAuth credential for a platform."""
+    _require_supported_platform(body.platform)
     brand_id = get_default_brand_id(session)
     cred = _get_credential(session, brand_id, body.platform)
     if cred:
@@ -207,6 +379,7 @@ def start_upload(body: UploadRequest, session: Session = Depends(get_session)):
         script_id=body.script_id,
         brand_id=brand_id,
         platform=body.platform,
+        asset_kind="long_form",
         status="uploading",
         file_path=body.file_url,
         metadata_json=json.dumps(body.metadata),
@@ -284,6 +457,7 @@ def start_upload(body: UploadRequest, session: Session = Depends(get_session)):
                     db_cred = s.exec(stmt).first()
                     if db_cred:
                         db_cred.access_token = temp_cred.access_token
+                        db_cred.refresh_token = temp_cred.refresh_token
                         db_cred.token_expiry = temp_cred.token_expiry
                         db_cred.updated_at = datetime.now(timezone.utc)
                         s.add(db_cred)
@@ -302,6 +476,143 @@ def start_upload(body: UploadRequest, session: Session = Depends(get_session)):
                     s.add(rec)
                     s.commit()
             raise
+
+    run_in_background(job.id, do_upload)
+    return UploadResponse(job_id=job.id)
+
+@router.post("/short-form/upload", response_model=UploadResponse)
+def start_short_form_upload(body: ShortFormUploadRequest, session: Session = Depends(get_session)):
+    """Upload one rendered short to every connected short-form platform."""
+    brand_id = get_default_brand_id(session)
+    script = session.get(Script, body.script_id)
+    if not script:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    content = ScriptContent.model_validate(json.loads(script.script_json))
+    file_path = _rendered_short_path(
+        script_id=body.script_id,
+        segment_idx=body.segment_idx,
+        content=content,
+        project_title=script.topic_title or "Untitled",
+    )
+    metadata = _short_metadata(content, body.segment_idx)
+
+    connected: list[PlatformCredential] = []
+    skipped_urls: list[str] = []
+    for platform in SUPPORTED_PLATFORMS:
+        cred = _get_credential(session, brand_id, platform)
+        if not cred:
+            continue
+        already = _already_published_record(session, body.script_id, brand_id, platform, body.segment_idx)
+        if already:
+            skipped_urls.append(already.platform_url)
+            continue
+        connected.append(cred)
+
+    if not connected and skipped_urls:
+        raise HTTPException(status_code=400, detail="This short has already been uploaded to every connected platform")
+    if not connected:
+        raise HTTPException(status_code=400, detail="No connected short-form platforms. Connect accounts in Settings → Publishing.")
+
+    batch_id = uuid.uuid4().hex
+    record_ids: dict[str, str] = {}
+    credential_snapshots: dict[str, dict] = {}
+    for cred in connected:
+        record = PublishRecord(
+            script_id=body.script_id,
+            brand_id=brand_id,
+            platform=cred.platform,
+            asset_kind="short_form",
+            short_index=body.segment_idx,
+            upload_batch_id=batch_id,
+            status="uploading",
+            file_path=file_path,
+            metadata_json=json.dumps(metadata),
+        )
+        session.add(record)
+        session.commit()
+        session.refresh(record)
+        record_ids[cred.platform] = record.id
+        credential_snapshots[cred.platform] = {
+            "brand_id": cred.brand_id,
+            "platform": cred.platform,
+            "access_token": cred.access_token,
+            "refresh_token": cred.refresh_token,
+            "token_expiry": cred.token_expiry,
+            "platform_user_id": cred.platform_user_id,
+        }
+
+    job = create_job(scene_count=len(connected))
+    logger.info(
+        "Starting short-form upload for script %s short %d to %s",
+        body.script_id,
+        body.segment_idx,
+        ", ".join(record_ids.keys()),
+    )
+
+    def do_upload():
+        from database import engine as db_engine
+        from sqlmodel import Session as SyncSession
+
+        output_urls: list[str] = []
+        failures: list[str] = []
+        platform_count = len(credential_snapshots)
+
+        for idx, (platform, snapshot) in enumerate(credential_snapshots.items()):
+            record_id = record_ids[platform]
+            temp_cred = PlatformCredential(
+                brand_id=snapshot["brand_id"],
+                platform=snapshot["platform"],
+                access_token=snapshot["access_token"],
+                refresh_token=snapshot["refresh_token"],
+                token_expiry=snapshot["token_expiry"],
+                platform_user_id=snapshot["platform_user_id"],
+            )
+
+            def on_progress(p: float, msg: str, _idx: int = idx, _platform: str = platform) -> None:
+                global_p = (_idx + p) / platform_count
+                update_job(
+                    job.id,
+                    progress=global_p,
+                    current_step=f"{_platform.title()}: {msg}",
+                )
+
+            try:
+                result = publish_short_to_platform(
+                    platform=platform,
+                    credential=temp_cred,
+                    file_path=file_path,
+                    metadata=metadata,
+                    on_progress=on_progress,
+                )
+                output_urls.append(result.get("url", ""))
+                with SyncSession(db_engine) as s:
+                    rec = s.get(PublishRecord, record_id)
+                    if rec:
+                        rec.status = "published"
+                        rec.platform_content_id = result.get("id", "")
+                        rec.platform_url = result.get("url", "")
+                        rec.published_at = datetime.now(timezone.utc)
+                        rec.updated_at = datetime.now(timezone.utc)
+                        s.add(rec)
+                        s.commit()
+                    _persist_refreshed_credential(s, temp_cred)
+            except Exception as exc:
+                failures.append(f"{platform}: {exc}")
+                logger.exception("Short-form upload failed for %s", platform)
+                with SyncSession(db_engine) as s:
+                    rec = s.get(PublishRecord, record_id)
+                    if rec:
+                        rec.status = "failed"
+                        rec.error = str(exc)[:1000]
+                        rec.updated_at = datetime.now(timezone.utc)
+                        s.add(rec)
+                        s.commit()
+
+        if failures:
+            raise RuntimeError("; ".join(failures))
+        update_job(job.id, progress=1.0, current_step="Short uploaded")
+        return output_urls
 
     run_in_background(job.id, do_upload)
     return UploadResponse(job_id=job.id)
@@ -331,6 +642,10 @@ def publish_history(script_id: str, session: Session = Depends(get_session)):
             status=r.status,
             platform_content_id=r.platform_content_id,
             platform_url=r.platform_url,
+            asset_kind=r.asset_kind,
+            short_index=r.short_index,
+            upload_batch_id=r.upload_batch_id,
+            file_path=r.file_path,
             schedule_at=r.schedule_at,
             published_at=r.published_at,
             error=r.error,
@@ -338,3 +653,28 @@ def publish_history(script_id: str, session: Session = Depends(get_session)):
         )
         for r in records
     ]
+
+@router.get("/short-form/status/{script_id}", response_model=dict[int, ShortUploadStatus])
+def short_form_upload_status(script_id: str, session: Session = Depends(get_session)):
+    """Return latest per-platform publish state for each short in a project."""
+    stmt = select(PublishRecord).where(
+        PublishRecord.script_id == script_id,
+        PublishRecord.asset_kind == "short_form",
+    ).order_by(PublishRecord.created_at.desc())
+    records = session.exec(stmt).all()
+    grouped: dict[int, ShortUploadStatus] = {}
+    for record in records:
+        if record.short_index is None:
+            continue
+        if record.short_index not in grouped:
+            grouped[record.short_index] = ShortUploadStatus(short_index=record.short_index, platforms={})
+        if record.platform in grouped[record.short_index].platforms:
+            continue
+        grouped[record.short_index].platforms[record.platform] = ShortUploadPlatformStatus(
+            platform=record.platform,
+            status=record.status,
+            platform_url=record.platform_url,
+            error=record.error,
+            published_at=record.published_at,
+        )
+    return grouped

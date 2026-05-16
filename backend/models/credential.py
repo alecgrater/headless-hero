@@ -13,7 +13,7 @@ class PlatformCredential(SQLModel, table=True):
 
     id: str = Field(default_factory=lambda: uuid.uuid4().hex, primary_key=True)
     brand_id: str = Field(index=True)
-    platform: str = Field(index=True)  # "youtube"
+    platform: str = Field(index=True)  # "youtube" | "tiktok" | "instagram"
     access_token: str = Field(default="", sa_column=Column(Text))
     refresh_token: str = Field(default="", sa_column=Column(Text))
     token_expiry: datetime | None = Field(default=None)

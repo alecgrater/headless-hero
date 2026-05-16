@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from config import sanitize_filename
+from config import DATA_DIR, sanitize_filename
 from database import get_session
 from models.script import Script, ScriptContent
 from pipeline.render_jobs import (
@@ -101,14 +101,20 @@ def job_status(job_id: str):
 
 @router.get("/rendered", response_model=RenderedShortsResponse)
 def rendered_shorts(script_id: str, session: Session = Depends(get_session)):
-    """Return shorts that exist in the final Downloads destination folder."""
+    """Return shorts that exist in Downloads or the project render folder."""
     content = _load_content(session, script_id)
     record = session.get(Script, script_id)
     project_title = record.topic_title or "Untitled"
     expected_paths = _short_download_paths(project_title, len(content.segments))
-    paths = {
-        idx: path for idx, path in expected_paths.items() if Path(path).is_file()
-    }
+    project_dir = DATA_DIR / "projects" / script_id / "renders" / "shorts"
+    paths: dict[int, str] = {}
+    for idx, path in expected_paths.items():
+        if Path(path).is_file():
+            paths[idx] = path
+            continue
+        project_path = project_dir / f"{idx}.mp4"
+        if project_path.is_file():
+            paths[idx] = str(project_path)
     return RenderedShortsResponse(
         rendered_indices=sorted(paths.keys()),
         paths=paths,

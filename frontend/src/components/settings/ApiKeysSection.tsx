@@ -71,6 +71,34 @@ const SERVICES: ServiceConfig[][] = [
   ],
   [
     {
+      key: "TIKTOK_CLIENT_KEY",
+      label: "TikTok Client Key",
+      description: "OAuth client key for TikTok Direct Post short uploads.",
+      placeholder: "aw...",
+    },
+    {
+      key: "TIKTOK_CLIENT_SECRET",
+      label: "TikTok Client Secret",
+      description: "OAuth client secret for TikTok Direct Post short uploads.",
+      placeholder: "abc123...",
+    },
+  ],
+  [
+    {
+      key: "META_APP_ID",
+      label: "Meta App ID",
+      description: "OAuth app ID for Instagram Reels publishing.",
+      placeholder: "1234567890",
+    },
+    {
+      key: "META_APP_SECRET",
+      label: "Meta App Secret",
+      description: "OAuth app secret for Instagram Reels publishing.",
+      placeholder: "abc123...",
+    },
+  ],
+  [
+    {
       key: "YOUTUBE_API_KEY",
       label: "YouTube Data API",
       description: "YouTube Data API key for trending topic discovery.",

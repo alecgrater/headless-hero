@@ -541,6 +541,7 @@ export default function ExportPanel({
             <ShortFormTab
               scriptId={scriptId}
               segments={segments}
+              shortFormSeoMetadata={shortFormSeoMetadata}
             />
           )}
 

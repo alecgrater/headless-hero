@@ -22,6 +22,7 @@ def init_db() -> None:
     _migrate_add_script_id_to_api_usage()
     _migrate_add_scene_count_to_generation_durations()
     _migrate_add_export_folder_to_publish_records()
+    _migrate_add_short_upload_fields_to_publish_records()
     _migrate_postits_add_status_source()
     _migrate_postits_to_ideas()
     logger.info("Database ready")
@@ -166,6 +167,34 @@ def _migrate_add_export_folder_to_publish_records() -> None:
             conn.execute("ALTER TABLE publish_records ADD COLUMN export_folder TEXT DEFAULT ''")
             conn.commit()
             logger.info("Migrated: added export_folder to publish_records")
+    finally:
+        conn.close()
+
+
+def _migrate_add_short_upload_fields_to_publish_records() -> None:
+    """Add per-asset publish tracking columns to publish_records if missing."""
+    import sqlite3
+
+    conn = sqlite3.connect(str(_db_path))
+    try:
+        cursor = conn.execute("PRAGMA table_info(publish_records)")
+        columns = {row[1] for row in cursor.fetchall()}
+        added = False
+        if "asset_kind" not in columns:
+            conn.execute("ALTER TABLE publish_records ADD COLUMN asset_kind TEXT DEFAULT 'long_form'")
+            conn.execute("CREATE INDEX IF NOT EXISTS ix_publish_records_asset_kind ON publish_records(asset_kind)")
+            added = True
+        if "short_index" not in columns:
+            conn.execute("ALTER TABLE publish_records ADD COLUMN short_index INTEGER DEFAULT NULL")
+            conn.execute("CREATE INDEX IF NOT EXISTS ix_publish_records_short_index ON publish_records(short_index)")
+            added = True
+        if "upload_batch_id" not in columns:
+            conn.execute("ALTER TABLE publish_records ADD COLUMN upload_batch_id TEXT DEFAULT ''")
+            conn.execute("CREATE INDEX IF NOT EXISTS ix_publish_records_upload_batch_id ON publish_records(upload_batch_id)")
+            added = True
+        if added:
+            conn.commit()
+            logger.info("Migrated: added short upload fields to publish_records")
     finally:
         conn.close()
 
