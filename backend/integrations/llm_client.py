@@ -182,6 +182,11 @@ def chat(
     provider = _resolve_provider(task)
     resolved_model = _resolve_model(provider, task, model)
 
+    logger.info(
+        "LLM routing: task=%s provider=%s model=%s json_mode=%s",
+        task or "default", provider, resolved_model, json_mode,
+    )
+
     if provider == "ollama":
         return _chat_ollama(
             system=system,

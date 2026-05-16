@@ -1,11 +1,10 @@
 """Idea generation pipeline — uses the routed LLM provider to brainstorm video topics."""
 
-import json
 import logging
 
 from pydantic import BaseModel, field_validator
 
-from config import SEGMENT_COUNT, strip_markdown_fences
+from config import SEGMENT_COUNT, parse_json_array_response
 from integrations.llm_client import chat
 from prompts import IDEATION_SYSTEM
 
@@ -56,10 +55,7 @@ def generate_ideas(
     logger.info("Generating %s ideas for niche %r", count, niche)
     raw = chat(IDEATION_SYSTEM.build(str(SEGMENT_COUNT)), user_message, json_mode=True, task="idea")
 
-    # Providers may wrap JSON in markdown fences; strip them before parsing.
-    text = strip_markdown_fences(raw)
-
-    ideas_data = json.loads(text)
+    ideas_data = parse_json_array_response(raw)
     ideas = [VideoIdea.model_validate(item) for item in ideas_data]
     logger.info("Generated %s ideas for niche %r", len(ideas), niche)
     return ideas

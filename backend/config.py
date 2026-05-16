@@ -97,3 +97,21 @@ def parse_json_response(text: str) -> dict | list:
     """Parse JSON from an LLM response, stripping markdown fences first."""
     cleaned = strip_markdown_fences(text)
     return json.loads(cleaned)
+
+
+def parse_json_array_response(text: str) -> list:
+    """Parse a JSON response expected to be an array, tolerating dict-wrapped variants.
+
+    OpenAI's `response_format={"type":"json_object"}` mode forbids top-level arrays,
+    so models often wrap them as `{"items":[...]}` or `{"0":{...},"1":{...}}`.
+    """
+    data = parse_json_response(text)
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        list_values = [v for v in data.values() if isinstance(v, list)]
+        if len(list_values) == 1:
+            return list_values[0]
+        if data and all(isinstance(k, str) and k.isdigit() for k in data.keys()):
+            return [data[k] for k in sorted(data.keys(), key=int)]
+    raise ValueError(f"Expected a JSON array, got {type(data).__name__}")
