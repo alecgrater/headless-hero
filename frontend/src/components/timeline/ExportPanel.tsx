@@ -2,7 +2,7 @@ import { useState } from "react";
 import { assetUrl, catalogUpload, getPublishStatus, showInFolder, openInBrowser } from "../../api";
 import { showToast } from "../ToastContainer";
 import type { CatalogUploadOptions, PublishJobStatus } from "../../api";
-import type { ExportBundleResponse, RenderStatusResponse, SEOMetadata, ThumbnailConcept, ShortIntro } from "../../types/render";
+import type { ExportBundleResponse, RenderStatusResponse, SEOMetadata, ThumbnailConcept } from "../../types/render";
 import ShortFormTab from "./short-form/ShortFormTab";
 import MiniProgressBar from "../MiniProgressBar";
 import { usePollJob } from "../../hooks/usePollJob";
@@ -48,11 +48,7 @@ interface Props {
 
   // Short-form
   scriptId: string;
-  videoTitle: string;
   segments: { name: string }[];
-  shortIntros: ShortIntro[] | null | undefined;
-  onShortIntrosChanged: () => void;
-  hookSceneCount?: number | null;
 
   initialTab?: Tab;
 }
@@ -253,11 +249,7 @@ export default function ExportPanel({
   projectTitle,
   onClose,
   scriptId,
-  videoTitle,
   segments,
-  shortIntros,
-  onShortIntrosChanged,
-  hookSceneCount,
   initialTab,
 }: Props) {
   const youtubeRendering = youtubeStatus?.status === "running" || youtubeStatus?.status === "pending";
@@ -521,11 +513,7 @@ export default function ExportPanel({
           {activeTab === "render-short" && (
             <ShortFormTab
               scriptId={scriptId}
-              videoTitle={videoTitle}
               segments={segments}
-              intros={shortIntros}
-              onIntrosChanged={onShortIntrosChanged}
-              hookSceneCount={hookSceneCount}
             />
           )}
 
