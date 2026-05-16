@@ -55,6 +55,14 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "default_anthropic_model": BALANCED_CLAUDE_MODEL,
         "default_openai_model": "gpt-5-mini",
     },
+    "short_form_seo": {
+        "label": "Short-form SEO metadata",
+        "provider_key": "SHORT_FORM_SEO_LLM_PROVIDER",
+        "model_key": "SHORT_FORM_SEO_MODEL",
+        "default_provider": "openai",
+        "default_anthropic_model": BALANCED_CLAUDE_MODEL,
+        "default_openai_model": "gpt-5-mini",
+    },
     "hook": {
         "label": "Hook scoring/refining",
         "provider_key": "HOOK_LLM_PROVIDER",
@@ -109,6 +117,7 @@ def _resolve_provider(task: str | None) -> str:
         task_provider = os.environ.get(task_config["provider_key"], "").strip().lower()
         if task_provider:
             return task_provider
+        return task_config["default_provider"]
     return _get_provider()
 
 

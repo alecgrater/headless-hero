@@ -87,6 +87,17 @@ const LLM_TASKS: LlmTaskConfig[] = [
     ollamaDefaultModel: "qwen3:14b",
   },
   {
+    id: "short_form_seo",
+    label: "Short-form SEO metadata",
+    description: "Per-short upload text for TikTok, YouTube Shorts, and Instagram Reels.",
+    providerKey: "SHORT_FORM_SEO_LLM_PROVIDER",
+    modelKey: "SHORT_FORM_SEO_MODEL",
+    defaultProvider: "openai",
+    defaultModel: "anthropic.claude-sonnet-4-6",
+    openaiDefaultModel: "gpt-5-mini",
+    ollamaDefaultModel: "qwen3:14b",
+  },
+  {
     id: "hook",
     label: "Hook scoring/refining",
     description: "Retention scoring and hook rewrite suggestions.",
