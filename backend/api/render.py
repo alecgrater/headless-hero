@@ -624,6 +624,48 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
             dest.write_text("\n".join(lines), encoding="utf-8")
             copied_files.append(dest.name)
 
+    # Short-form SEO — auto-generate all shorts in one additional call if missing
+    if not content.short_form_seo_metadata:
+        try:
+            from pipeline.seo import build_short_form_seo_contexts, generate_short_form_seo
+
+            brand = session.get(BrandProfile, record.brand_id)
+            brand_context = brand.name if brand else ""
+
+            short_metadata = generate_short_form_seo(
+                video_title=content.title,
+                shorts=build_short_form_seo_contexts(content),
+                video_description=record.topic_description,
+                brand_context=brand_context,
+                script_id=body.script_id,
+            )
+            content.short_form_seo_metadata = short_metadata.model_dump()
+            record.script_json = content.model_dump_json()
+            session.add(record)
+            session.commit()
+        except Exception:
+            logger.warning("Auto-generate short-form SEO failed", exc_info=True)
+
+    if content.short_form_seo_metadata:
+        short_seo = content.short_form_seo_metadata
+        lines = ["Short-Form SEO (TikTok / YouTube Shorts / Instagram Reels)"]
+        for item in short_seo.get("shorts", []):
+            hashtags = item.get("hashtags") or []
+            tags = item.get("tags") or []
+            lines.extend([
+                "",
+                f"Short {item.get('index', '?')}",
+                f"Title:\n{item.get('title', '')}",
+                f"Description:\n{item.get('description', '')}",
+            ])
+            if hashtags:
+                lines.append(f"Hashtags:\n{' '.join(hashtags)}")
+            if tags:
+                lines.append(f"YouTube Tags:\n{', '.join(tags)}")
+        dest = folder / "short-form-seo.txt"
+        dest.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
+        copied_files.append(dest.name)
+
     logger.info("Export bundle created at %s with %d files: %s", folder, len(copied_files), copied_files)
 
     session.add(GenerationDuration(operation_type="export_bundle", duration_seconds=time.monotonic() - t0))

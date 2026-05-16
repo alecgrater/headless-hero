@@ -47,8 +47,24 @@ export interface SEOMetadata {
   youtube: YouTubeSEO;
 }
 
+export interface ShortFormSEO {
+  index: number;
+  title: string;
+  description: string;
+  hashtags: string[];
+  tags: string[];
+}
+
+export interface ShortFormSEOMetadata {
+  shorts: ShortFormSEO[];
+}
+
 export interface GenerateSEOResponse {
   metadata: SEOMetadata;
+}
+
+export interface GenerateShortFormSEOResponse {
+  metadata: ShortFormSEOMetadata;
 }
 
 // --- Render Estimate ---

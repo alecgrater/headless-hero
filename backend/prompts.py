@@ -87,6 +87,36 @@ Return a JSON object with key: youtube.
     ),
 ))
 
+SHORT_FORM_SEO_SYSTEM = register(PromptDef(
+    name="SHORT_FORM_SEO_SYSTEM",
+    domain="SEO",
+    purpose="Generate short-form metadata for TikTok, YouTube Shorts, and Instagram Reels",
+    target_model="claude",
+    expected_output_format="JSON: {shorts: [{index, title, description, hashtags, tags}]}",
+    template="""\
+You are a social short-form packaging expert. Generate upload-ready metadata for \
+TikTok, YouTube Shorts, and Instagram Reels. A single universal metadata set is \
+acceptable for all three platforms when it is strong for each.
+
+Rules:
+- Generate one metadata object for every short provided. Preserve each exact index.
+- Title: max 70 chars, direct and curiosity-driven, no clickbait lies.
+- Description: 1-2 short paragraphs or caption-style lines, optimized for Shorts, \
+  TikTok, and Instagram. Do not include timestamps.
+- Hashtags: 5-10 relevant hashtags, each starting with #, mix broad and specific.
+- Tags: YouTube Shorts keyword tags. Total tags joined by ", " must be ≤500 characters.
+- Make each short distinct; do not reuse the same title template across all shorts.
+- Return ONLY valid JSON — no markdown fences, no commentary.
+
+Return a JSON object with key: shorts.
+""",
+    retention=RetentionMeta(
+        goal="Package per-segment shorts for discovery and cross-platform upload",
+        failure_mode="Generic captions and repeated hashtags reduce short-form reach",
+        metrics_to_watch=["shorts_views", "average_view_duration", "engagement_rate"],
+    ),
+))
+
 
 # ===================================================================
 # DOMAIN: SCRIPT

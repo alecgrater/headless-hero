@@ -129,6 +129,7 @@ class ScriptContent(BaseModel):
     segment_timer_enabled: bool = True    # Global toggle for segment countdown timer overlay
     subtitle_highlight_enabled: bool = True  # Global toggle for active word highlight in subtitles
     seo_metadata: dict | None = None      # Generated SEO metadata (title, description, tags)
+    short_form_seo_metadata: dict | None = None  # Generated per-short metadata for Shorts/TikTok/Reels
     hook_score: dict | None = None        # 30-second hook retention score (HookScore dict)
     hook_scene_count: int | None = None  # Number of leading scenes in segment 0 that are hook teasers; skipped from short #1
     # --- Multi-source media ---

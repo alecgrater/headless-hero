@@ -6,11 +6,13 @@ import type {
   ExportAudioResponse,
   ExportBundleResponse,
   GenerateSEOResponse,
+  GenerateShortFormSEOResponse,
   GenerateThumbnailResponse,
   RenderEstimateResponse,
   RenderJobResponse,
   RenderStatusResponse,
   SEOMetadata,
+  ShortFormSEOMetadata,
   ThumbnailConcept,
 } from "../../types/render";
 
@@ -35,6 +37,9 @@ interface RenderState {
   seoMetadata: SEOMetadata | null;
   seoGenerating: boolean;
   generateSEO: () => Promise<void>;
+  shortFormSeoMetadata: ShortFormSEOMetadata | null;
+  shortFormSeoGenerating: boolean;
+  generateShortFormSEO: () => Promise<void>;
 
   // Render estimate
   estimatedSeconds: number | null;
@@ -52,11 +57,17 @@ interface RenderState {
   // Operation progress
   thumbnailProgress: { estimatedSeconds: number | null; active: boolean };
   seoProgress: { estimatedSeconds: number | null; active: boolean };
+  shortFormSeoProgress: { estimatedSeconds: number | null; active: boolean };
   audioExportProgress: { estimatedSeconds: number | null; active: boolean };
   exportBundleProgress: { estimatedSeconds: number | null; active: boolean };
 }
 
-export function useRenderState(scriptId: string, title: string, initialSeoMetadata?: SEOMetadata | null): RenderState {
+export function useRenderState(
+  scriptId: string,
+  title: string,
+  initialSeoMetadata?: SEOMetadata | null,
+  initialShortFormSeoMetadata?: ShortFormSEOMetadata | null,
+): RenderState {
   const [youtubeJobId, setYoutubeJobId] = useState<string | null>(null);
   const [youtubeStatus, setYoutubeStatus] = useState<RenderStatusResponse | null>(null);
   const [youtubeUrl, setYoutubeUrl] = useState<string | null>(null);
@@ -69,6 +80,8 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
 
   const [seoMetadata, setSeoMetadata] = useState<SEOMetadata | null>(initialSeoMetadata ?? null);
   const [seoGenerating, setSeoGenerating] = useState(false);
+  const [shortFormSeoMetadata, setShortFormSeoMetadata] = useState<ShortFormSEOMetadata | null>(initialShortFormSeoMetadata ?? null);
+  const [shortFormSeoGenerating, setShortFormSeoGenerating] = useState(false);
 
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
 
@@ -79,6 +92,7 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
 
   const thumbnailProgressHook = useOperationProgress("thumbnail_generation");
   const seoProgressHook = useOperationProgress("seo_generation");
+  const shortFormSeoProgressHook = useOperationProgress("short_form_seo_generation");
   const audioExportProgressHook = useOperationProgress("audio_export");
   const exportBundleProgressHook = useOperationProgress("export_bundle");
 
@@ -197,6 +211,23 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
     }
   }, [scriptId]);
 
+  const generateShortFormSEO = useCallback(async () => {
+    setShortFormSeoGenerating(true);
+    shortFormSeoProgressHook.start();
+    try {
+      const res = await api.post("/api/seo/generate-shorts", {
+        script_id: scriptId,
+      });
+      if (res.ok) {
+        const data = res.data as GenerateShortFormSEOResponse;
+        setShortFormSeoMetadata(data.metadata);
+      }
+    } finally {
+      setShortFormSeoGenerating(false);
+      shortFormSeoProgressHook.end();
+    }
+  }, [scriptId]);
+
   const fetchEstimate = useCallback(
     async (sceneCount: number, totalAudioDuration: number) => {
       try {
@@ -282,6 +313,9 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
     seoMetadata,
     seoGenerating,
     generateSEO,
+    shortFormSeoMetadata,
+    shortFormSeoGenerating,
+    generateShortFormSEO,
     estimatedSeconds,
     fetchEstimate,
     exportBundleLoading,
@@ -291,6 +325,7 @@ export function useRenderState(scriptId: string, title: string, initialSeoMetada
     smartExportBundle,
     thumbnailProgress: { estimatedSeconds: thumbnailProgressHook.estimatedSeconds, active: thumbnailProgressHook.active },
     seoProgress: { estimatedSeconds: seoProgressHook.estimatedSeconds, active: seoProgressHook.active },
+    shortFormSeoProgress: { estimatedSeconds: shortFormSeoProgressHook.estimatedSeconds, active: shortFormSeoProgressHook.active },
     audioExportProgress: { estimatedSeconds: audioExportProgressHook.estimatedSeconds, active: audioExportProgressHook.active },
     exportBundleProgress: { estimatedSeconds: exportBundleProgressHook.estimatedSeconds, active: exportBundleProgressHook.active },
   };

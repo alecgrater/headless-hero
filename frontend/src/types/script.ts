@@ -1,4 +1,4 @@
-import { SEOMetadata } from "./render";
+import type { SEOMetadata, ShortFormSEOMetadata } from "./render";
 
 // --- FX types ---
 
@@ -92,6 +92,7 @@ export interface ScriptContent {
   segment_timer_enabled?: boolean;
   subtitle_highlight_enabled?: boolean;
   seo_metadata?: SEOMetadata | null;
+  short_form_seo_metadata?: ShortFormSEOMetadata | null;
   hook_score?: HookScore | null;
   // Multi-source media
   gameplay_enabled?: boolean;

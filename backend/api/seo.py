@@ -12,7 +12,14 @@ from database import get_session
 from models.brand import BrandProfile
 from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
-from pipeline.seo import SEOMetadata, generate_seo, format_timestamp
+from pipeline.seo import (
+    SEOMetadata,
+    ShortFormSEOMetadata,
+    build_short_form_seo_contexts,
+    format_timestamp,
+    generate_seo,
+    generate_short_form_seo,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +30,9 @@ class GenerateSEORequest(BaseModel):
 
 class GenerateSEOResponse(BaseModel):
     metadata: SEOMetadata
+
+class GenerateShortFormSEOResponse(BaseModel):
+    metadata: ShortFormSEOMetadata
 
 @router.post("/generate", response_model=GenerateSEOResponse)
 def generate_seo_metadata(body: GenerateSEORequest, session: Session = Depends(get_session)):
@@ -70,3 +80,41 @@ def generate_seo_metadata(body: GenerateSEORequest, session: Session = Depends(g
     session.commit()
 
     return GenerateSEOResponse(metadata=metadata)
+
+@router.post("/generate-shorts", response_model=GenerateShortFormSEOResponse)
+def generate_short_form_seo_metadata(body: GenerateSEORequest, session: Session = Depends(get_session)):
+    """Generate short-form SEO metadata for every per-segment short in one call."""
+    t0 = time.monotonic()
+    logger.info("Generating short-form SEO metadata for script %s", body.script_id)
+    record = session.get(Script, body.script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    content = ScriptContent.model_validate(json.loads(record.script_json))
+    shorts = build_short_form_seo_contexts(content)
+    if not shorts:
+        raise HTTPException(status_code=400, detail="Script has no segments")
+
+    brand = session.get(BrandProfile, record.brand_id)
+    brand_context = brand.name if brand else ""
+
+    metadata = generate_short_form_seo(
+        video_title=content.title,
+        shorts=shorts,
+        video_description=record.topic_description,
+        brand_context=brand_context,
+        script_id=body.script_id,
+    )
+
+    content.short_form_seo_metadata = metadata.model_dump()
+    record.script_json = content.model_dump_json()
+    session.add(record)
+    session.commit()
+
+    logger.info("Short-form SEO metadata generated for script %s", body.script_id)
+
+    duration = time.monotonic() - t0
+    session.add(GenerationDuration(operation_type="short_form_seo_generation", duration_seconds=duration))
+    session.commit()
+
+    return GenerateShortFormSEOResponse(metadata=metadata)

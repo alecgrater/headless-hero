@@ -2,7 +2,14 @@ import { useState } from "react";
 import { assetUrl, catalogUpload, getPublishStatus, showInFolder, openInBrowser } from "../../api";
 import { showToast } from "../ToastContainer";
 import type { CatalogUploadOptions, PublishJobStatus } from "../../api";
-import type { ExportBundleResponse, RenderStatusResponse, SEOMetadata, ThumbnailConcept } from "../../types/render";
+import type {
+  ExportBundleResponse,
+  RenderStatusResponse,
+  SEOMetadata,
+  ShortFormSEO,
+  ShortFormSEOMetadata,
+  ThumbnailConcept,
+} from "../../types/render";
 import ShortFormTab from "./short-form/ShortFormTab";
 import MiniProgressBar from "../MiniProgressBar";
 import { usePollJob } from "../../hooks/usePollJob";
@@ -19,6 +26,9 @@ interface Props {
   seoMetadata: SEOMetadata | null;
   seoGenerating: boolean;
   onGenerateSEO: () => void;
+  shortFormSeoMetadata: ShortFormSEOMetadata | null;
+  shortFormSeoGenerating: boolean;
+  onGenerateShortFormSEO: () => void;
 
   // Render estimate
   estimatedSeconds: number | null;
@@ -34,6 +44,7 @@ interface Props {
   // Operation progress
   thumbnailProgress: { estimatedSeconds: number | null; active: boolean };
   seoProgress: { estimatedSeconds: number | null; active: boolean };
+  shortFormSeoProgress: { estimatedSeconds: number | null; active: boolean };
   exportBundleProgress: { estimatedSeconds: number | null; active: boolean };
 
   // YouTube upload
@@ -215,6 +226,21 @@ function TagList({ tags }: { tags: string[] }) {
   );
 }
 
+function formatShortFormSEO(item: ShortFormSEO): string {
+  const sections = [
+    `Short ${item.index}`,
+    `Title:\n${item.title}`,
+    `Description:\n${item.description}`,
+  ];
+  if (item.hashtags.length > 0) {
+    sections.push(`Hashtags:\n${item.hashtags.join(" ")}`);
+  }
+  if (item.tags.length > 0) {
+    sections.push(`YouTube Tags:\n${item.tags.join(", ")}`);
+  }
+  return sections.join("\n\n");
+}
+
 export default function ExportPanel({
   youtubeStatus,
   youtubeUrl,
@@ -225,6 +251,9 @@ export default function ExportPanel({
   seoMetadata,
   seoGenerating,
   onGenerateSEO,
+  shortFormSeoMetadata,
+  shortFormSeoGenerating,
+  onGenerateShortFormSEO,
   estimatedSeconds,
   exportBundleLoading,
   exportBundleResult,
@@ -232,6 +261,7 @@ export default function ExportPanel({
   exportPhase,
   thumbnailProgress,
   seoProgress,
+  shortFormSeoProgress,
   exportBundleProgress,
   youtubeConnected,
   onNavigateToSettings,
@@ -320,14 +350,14 @@ export default function ExportPanel({
     "render-long": !!youtubeUrl,
     "render-short": false,
     thumbnails: thumbnails.length > 0,
-    seo: !!seoMetadata,
+    seo: !!seoMetadata || !!shortFormSeoMetadata,
   };
 
   const tabDescriptions: Record<Tab, string> = {
     "render-long": "Renders the full long form video at 1920×1080 16:9 30FPS",
     "render-short": `Renders ${segments.length} short form videos, one per segment. 1080×1920 9:16 30FPS.`,
     thumbnails: "Generate and download YouTube thumbnail concepts for this video.",
-    seo: "Generate YouTube title, description, and tags for this video.",
+    seo: "Generate long-form YouTube metadata and per-short metadata for TikTok, YouTube Shorts, and Instagram.",
   };
 
   return (
@@ -564,14 +594,36 @@ export default function ExportPanel({
 
           {/* SEO Tab */}
           {activeTab === "seo" && (
-            <section className="space-y-3">
-              <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
-                SEO Metadata
-              </h3>
+            <section className="space-y-6">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
+                      Long-Form YouTube
+                    </h3>
+                    <p className="text-xs text-neutral-500">
+                      Title, timestamped description, and tags for the full video.
+                    </p>
+                  </div>
+                  <button
+                    onClick={onGenerateSEO}
+                    disabled={seoGenerating}
+                    className="text-sm px-4 py-2 bg-teal-600 hover:bg-teal-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+                  >
+                    {seoGenerating ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                        Generating...
+                      </>
+                    ) : seoMetadata ? (
+                      "Regenerate Long SEO"
+                    ) : (
+                      "Generate Long SEO"
+                    )}
+                  </button>
+                </div>
 
-              {seoMetadata && (
-                <div className="space-y-4">
-                  {/* YouTube */}
+                {seoMetadata && (
                   <div className="bg-neutral-800/50 rounded-lg p-4 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-neutral-400 uppercase">YouTube</span>
@@ -581,25 +633,85 @@ export default function ExportPanel({
                     <p className="text-xs text-neutral-400 whitespace-pre-wrap">{seoMetadata.youtube.description}</p>
                     <TagList tags={seoMetadata.youtube.tags} />
                   </div>
-                </div>
-              )}
-              <button
-                onClick={onGenerateSEO}
-                disabled={seoGenerating}
-                className="text-sm px-4 py-2 bg-teal-600 hover:bg-teal-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
-              >
-                {seoGenerating ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                    Generating...
-                  </>
-                ) : seoMetadata ? (
-                  "Regenerate SEO"
-                ) : (
-                  "Generate SEO Metadata"
                 )}
-              </button>
-              {seoGenerating && <MiniProgressBar estimatedSeconds={seoProgress.estimatedSeconds} active={seoProgress.active} />}
+                {seoGenerating && <MiniProgressBar estimatedSeconds={seoProgress.estimatedSeconds} active={seoProgress.active} />}
+              </div>
+
+              <div className="h-px bg-neutral-800" />
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">
+                      Short-Form Uploads
+                    </h3>
+                    <p className="text-xs text-neutral-500">
+                      One generation call creates upload text for all {segments.length} shorts across TikTok, YouTube Shorts, and Instagram.
+                    </p>
+                  </div>
+                  <button
+                    onClick={onGenerateShortFormSEO}
+                    disabled={shortFormSeoGenerating}
+                    className="text-sm px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+                  >
+                    {shortFormSeoGenerating ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                        Generating...
+                      </>
+                    ) : shortFormSeoMetadata ? (
+                      "Regenerate Short SEO"
+                    ) : (
+                      `Generate All ${segments.length} Short SEO`
+                    )}
+                  </button>
+                </div>
+
+                {shortFormSeoMetadata && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 py-2">
+                      <span className="text-xs text-sky-200">
+                        {shortFormSeoMetadata.shorts.length}/{segments.length} shorts packaged
+                      </span>
+                      <CopyButton
+                        label="Copy All"
+                        text={shortFormSeoMetadata.shorts.map(formatShortFormSEO).join("\n\n---\n\n")}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 gap-3">
+                      {shortFormSeoMetadata.shorts
+                        .slice()
+                        .sort((a, b) => a.index - b.index)
+                        .map((item) => (
+                          <div key={item.index} className="bg-neutral-800/50 rounded-lg p-4 space-y-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <span className="text-xs font-semibold text-neutral-400 uppercase">
+                                  Short {item.index}
+                                </span>
+                                <p className="mt-1 text-sm font-medium text-neutral-200">{item.title}</p>
+                              </div>
+                              <CopyButton text={formatShortFormSEO(item)} />
+                            </div>
+                            <p className="text-xs text-neutral-400 whitespace-pre-wrap">{item.description}</p>
+                            {item.hashtags.length > 0 && (
+                              <p className="text-xs text-sky-300 whitespace-pre-wrap select-all cursor-text bg-neutral-900/50 rounded p-2">
+                                {item.hashtags.join(" ")}
+                              </p>
+                            )}
+                            <TagList tags={item.tags} />
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+                {shortFormSeoGenerating && (
+                  <MiniProgressBar
+                    estimatedSeconds={shortFormSeoProgress.estimatedSeconds}
+                    active={shortFormSeoProgress.active}
+                  />
+                )}
+              </div>
             </section>
           )}
         </div>

@@ -243,7 +243,12 @@ function TimelineEditor({
   onRecordVoiceover?: () => void;
 }) {
   const state = useTimelineState(scriptId, initialContent);
-  const render = useRenderState(scriptId, title, initialContent.seo_metadata);
+  const render = useRenderState(
+    scriptId,
+    title,
+    initialContent.seo_metadata,
+    initialContent.short_form_seo_metadata,
+  );
   const publish = usePublishState(scriptId);
 
   // Operation progress tracking
@@ -1485,6 +1490,9 @@ function TimelineEditor({
           seoMetadata={render.seoMetadata}
           seoGenerating={render.seoGenerating}
           onGenerateSEO={render.generateSEO}
+          shortFormSeoMetadata={render.shortFormSeoMetadata}
+          shortFormSeoGenerating={render.shortFormSeoGenerating}
+          onGenerateShortFormSEO={render.generateShortFormSEO}
           estimatedSeconds={render.estimatedSeconds}
           exportBundleLoading={render.exportBundleLoading}
           exportBundleResult={render.exportBundleResult}
@@ -1492,6 +1500,7 @@ function TimelineEditor({
           exportPhase={render.exportPhase}
           thumbnailProgress={render.thumbnailProgress}
           seoProgress={render.seoProgress}
+          shortFormSeoProgress={render.shortFormSeoProgress}
           exportBundleProgress={render.exportBundleProgress}
           youtubeConnected={youtubeConnected}
           onNavigateToSettings={() => {
