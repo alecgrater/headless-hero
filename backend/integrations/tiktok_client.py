@@ -3,6 +3,7 @@
 import logging
 import math
 import os
+import time
 from pathlib import Path
 from typing import Callable
 from urllib.parse import urlencode
@@ -21,6 +22,10 @@ _INIT_UPLOAD_URL = "https://open.tiktokapis.com/v2/post/publish/video/init/"
 _STATUS_URL = "https://open.tiktokapis.com/v2/post/publish/status/fetch/"
 _REDIRECT_URI_DEFAULT = f"http://localhost:{BACKEND_PORT}/api/publish/oauth/callback/tiktok"
 _CHUNK_SIZE = 10 * 1024 * 1024
+_PUBLISH_POLL_INTERVAL_SECONDS = 5
+_PUBLISH_POLL_TIMEOUT_SECONDS = 180
+_SUCCESS_STATUS_PARTS = ("COMPLETE", "PUBLISHED", "SEND", "SENT")
+_FAILURE_STATUS_PARTS = ("FAIL", "ERROR", "REJECT")
 
 
 def _client_key() -> str:
@@ -204,11 +209,16 @@ def upload_video(
             )
             upload_response.raise_for_status()
             if on_progress:
-                on_progress((chunk_idx + 1) / total_chunk_count)
+                on_progress(((chunk_idx + 1) / total_chunk_count) * 0.75)
+
+    if on_progress:
+        on_progress(0.8)
+
+    status = wait_for_publish_complete(access_token, publish_id, on_progress=on_progress)
 
     return {
-        "id": publish_id,
-        "url": "https://www.tiktok.com/",
+        "id": status.get("publicaly_available_post_id", "") or publish_id,
+        "url": status.get("share_url", "") or "https://www.tiktok.com/",
     }
 
 
@@ -220,4 +230,37 @@ def fetch_publish_status(access_token: str, publish_id: str) -> dict:
         timeout=30,
     )
     response.raise_for_status()
-    return response.json().get("data", {})
+    payload = response.json()
+    if payload.get("error", {}).get("code") not in (None, "ok"):
+        raise RuntimeError(payload["error"].get("message") or payload["error"].get("code"))
+    return payload.get("data", {})
+
+
+def _status_text(status: dict) -> str:
+    return str(status.get("status") or status.get("publish_status") or "").upper()
+
+
+def wait_for_publish_complete(
+    access_token: str,
+    publish_id: str,
+    on_progress: Callable[[float], None] | None = None,
+) -> dict:
+    """Poll TikTok until processing reaches a terminal success or failure."""
+    deadline = time.monotonic() + _PUBLISH_POLL_TIMEOUT_SECONDS
+    last_status: dict = {}
+    while time.monotonic() < deadline:
+        last_status = fetch_publish_status(access_token, publish_id)
+        status_text = _status_text(last_status)
+        if any(part in status_text for part in _SUCCESS_STATUS_PARTS):
+            if on_progress:
+                on_progress(1.0)
+            return last_status
+        if any(part in status_text for part in _FAILURE_STATUS_PARTS):
+            error_message = last_status.get("fail_reason") or last_status.get("message") or status_text
+            raise RuntimeError(f"TikTok publish failed: {error_message}")
+        if on_progress:
+            on_progress(0.85)
+        time.sleep(_PUBLISH_POLL_INTERVAL_SECONDS)
+
+    status_text = _status_text(last_status) or "unknown"
+    raise RuntimeError(f"TikTok publish did not complete before timeout (last status: {status_text})")

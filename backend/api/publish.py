@@ -151,6 +151,10 @@ def _rendered_short_path(script_id: str, segment_idx: int, content: ScriptConten
     if segment_idx < 0 or segment_idx >= len(content.segments):
         raise HTTPException(status_code=400, detail="segment_idx out of range")
 
+    project_path = DATA_DIR / "projects" / script_id / "renders" / "shorts" / f"{segment_idx}.mp4"
+    if project_path.is_file():
+        return str(project_path)
+
     downloads_base = Path(os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads"))
     downloads_path = downloads_base / sanitize_filename(project_title) / _short_filename(
         project_title,
@@ -159,10 +163,6 @@ def _rendered_short_path(script_id: str, segment_idx: int, content: ScriptConten
     )
     if downloads_path.is_file():
         return str(downloads_path)
-
-    project_path = DATA_DIR / "projects" / script_id / "renders" / "shorts" / f"{segment_idx}.mp4"
-    if project_path.is_file():
-        return str(project_path)
 
     raise HTTPException(status_code=400, detail=f"Short {segment_idx + 1} has not been rendered yet")
 
@@ -195,7 +195,7 @@ def _already_published_record(
         PublishRecord.platform == platform,
         PublishRecord.asset_kind == "short_form",
         PublishRecord.short_index == short_index,
-        PublishRecord.status.in_(["published", "scheduled"]),
+        PublishRecord.status.in_(["pending", "uploading", "published", "scheduled"]),
     )
     return session.exec(stmt).first()
 
@@ -510,7 +510,7 @@ def start_short_form_upload(body: ShortFormUploadRequest, session: Session = Dep
         connected.append(cred)
 
     if not connected and skipped_urls:
-        raise HTTPException(status_code=400, detail="This short has already been uploaded to every connected platform")
+        raise HTTPException(status_code=400, detail="This short is already uploaded or uploading to every connected platform")
     if not connected:
         raise HTTPException(status_code=400, detail="No connected short-form platforms. Connect accounts in Settings → Publishing.")
 
