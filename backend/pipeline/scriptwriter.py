@@ -318,7 +318,7 @@ def _generate_segment_scenes(
         f"{_SEGMENT_SCENES_INSTRUCTIONS}"
     )
 
-    raw = chat(system_prompt, user_msg, model=model, max_tokens=8192, timeout=300.0, json_mode=True, task="script")
+    raw = chat(system_prompt, user_msg, model=model, max_tokens=16384, timeout=300.0, json_mode=True, task="script")
     text = strip_markdown_fences(raw)
 
     if not text.rstrip().endswith("]"):

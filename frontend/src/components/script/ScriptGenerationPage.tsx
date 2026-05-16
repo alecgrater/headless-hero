@@ -121,7 +121,7 @@ export default function ScriptGenerationPage({
   const loadingText =
     phase === "cold_opens"
       ? "Generating cold open variants..."
-      : "Generating script with Claude...";
+      : "Generating script...";
 
   return (
     <div className="space-y-6">
