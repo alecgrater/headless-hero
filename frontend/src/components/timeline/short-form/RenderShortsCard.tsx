@@ -103,10 +103,9 @@ export default function RenderShortsCard({
       setBusy(true);
       setStatus(null);
       const refreshedUrls = await onRefreshRendered();
-      const urls = { ...renderedUrls, ...refreshedUrls };
       const indices = segments
         .map((_, idx) => idx)
-        .filter((idx) => !urls[idx]);
+        .filter((idx) => !refreshedUrls[idx]);
       if (indices.length === 0) {
         setBusy(false);
         return;

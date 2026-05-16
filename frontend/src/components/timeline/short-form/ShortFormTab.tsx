@@ -33,7 +33,7 @@ export default function ShortFormTab({
 
   const refreshRenderedShorts = useCallback(async () => {
     const found = await probeRenderedShorts();
-    setRenderedUrls((prev) => ({ ...prev, ...found }));
+    setRenderedUrls(found);
     return found;
   }, [probeRenderedShorts]);
 
@@ -41,7 +41,7 @@ export default function ShortFormTab({
     let cancelled = false;
     async function probe() {
       const found = await probeRenderedShorts();
-      if (!cancelled) setRenderedUrls((prev) => ({ ...prev, ...found }));
+      if (!cancelled) setRenderedUrls(found);
     }
     probe();
     return () => {
