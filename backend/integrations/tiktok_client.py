@@ -23,8 +23,8 @@ _STATUS_URL = "https://open.tiktokapis.com/v2/post/publish/status/fetch/"
 _REDIRECT_URI_DEFAULT = f"http://localhost:{BACKEND_PORT}/api/publish/oauth/callback/tiktok"
 _CHUNK_SIZE = 10 * 1024 * 1024
 _PUBLISH_POLL_INTERVAL_SECONDS = 5
-_PUBLISH_POLL_TIMEOUT_SECONDS = 180
-_SUCCESS_STATUS_PARTS = ("COMPLETE", "PUBLISHED", "SEND", "SENT")
+_PUBLISH_POLL_TIMEOUT_SECONDS = 900
+_SUCCESS_STATUSES = {"PUBLISH_COMPLETE"}
 _FAILURE_STATUS_PARTS = ("FAIL", "ERROR", "REJECT")
 
 
@@ -215,10 +215,13 @@ def upload_video(
         on_progress(0.8)
 
     status = wait_for_publish_complete(access_token, publish_id, on_progress=on_progress)
+    public_post_id = _first_public_post_id(status)
+    is_complete = _status_text(status) in _SUCCESS_STATUSES
 
     return {
-        "id": status.get("publicaly_available_post_id", "") or publish_id,
+        "id": public_post_id or publish_id,
         "url": status.get("share_url", "") or "https://www.tiktok.com/",
+        "status": "published" if is_complete else "pending",
     }
 
 
@@ -240,6 +243,15 @@ def _status_text(status: dict) -> str:
     return str(status.get("status") or status.get("publish_status") or "").upper()
 
 
+def _first_public_post_id(status: dict) -> str:
+    value = status.get("publicaly_available_post_id")
+    if isinstance(value, list) and value:
+        return str(value[0])
+    if value:
+        return str(value)
+    return ""
+
+
 def wait_for_publish_complete(
     access_token: str,
     publish_id: str,
@@ -251,7 +263,7 @@ def wait_for_publish_complete(
     while time.monotonic() < deadline:
         last_status = fetch_publish_status(access_token, publish_id)
         status_text = _status_text(last_status)
-        if any(part in status_text for part in _SUCCESS_STATUS_PARTS):
+        if status_text in _SUCCESS_STATUSES:
             if on_progress:
                 on_progress(1.0)
             return last_status
@@ -262,5 +274,4 @@ def wait_for_publish_complete(
             on_progress(0.85)
         time.sleep(_PUBLISH_POLL_INTERVAL_SECONDS)
 
-    status_text = _status_text(last_status) or "unknown"
-    raise RuntimeError(f"TikTok publish did not complete before timeout (last status: {status_text})")
+    return last_status or {"status": "PROCESSING"}

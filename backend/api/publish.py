@@ -589,10 +589,12 @@ def start_short_form_upload(body: ShortFormUploadRequest, session: Session = Dep
                 with SyncSession(db_engine) as s:
                     rec = s.get(PublishRecord, record_id)
                     if rec:
-                        rec.status = "published"
+                        result_status = result.get("status", "published")
+                        rec.status = result_status
                         rec.platform_content_id = result.get("id", "")
                         rec.platform_url = result.get("url", "")
-                        rec.published_at = datetime.now(timezone.utc)
+                        if result_status in ("published", "scheduled"):
+                            rec.published_at = datetime.now(timezone.utc)
                         rec.updated_at = datetime.now(timezone.utc)
                         s.add(rec)
                         s.commit()

@@ -197,6 +197,7 @@ export default function RenderShortsCard({
     const status = uploadStatuses[idx]?.platforms?.[platform]?.status;
     if (status === "published" || status === "scheduled") return "Uploaded";
     if (status === "failed") return "Failed";
+    if (status === "pending") return "Processing";
     if (status === "uploading") return "Uploading";
     return "Ready";
   }
@@ -208,6 +209,11 @@ export default function RenderShortsCard({
       const status = uploadStatuses[idx]?.platforms?.[p]?.status;
       return status === "published" || status === "scheduled";
     });
+    const processing = connected.some((p) => {
+      const status = uploadStatuses[idx]?.platforms?.[p]?.status;
+      return status === "pending" || status === "uploading";
+    });
+    if (processing) return "Processing";
     if (connected.length > 0 && uploaded.length === connected.length) return "Uploaded";
     if (uploaded.length > 0) return "Upload remaining";
     return "Upload";
@@ -222,7 +228,7 @@ export default function RenderShortsCard({
     if (connected.length === 0) return false;
     return connected.some((p) => {
       const status = uploadStatuses[idx]?.platforms?.[p]?.status;
-      return status !== "published" && status !== "scheduled";
+      return status !== "pending" && status !== "uploading" && status !== "published" && status !== "scheduled";
     });
   }
 
@@ -310,7 +316,7 @@ export default function RenderShortsCard({
                         ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
                         : state === "Failed"
                           ? "border-red-500/30 bg-red-500/10 text-red-300"
-                          : state === "Uploading"
+                          : state === "Uploading" || state === "Processing"
                             ? "border-sky-500/30 bg-sky-500/10 text-sky-300"
                             : state === "Ready"
                               ? "border-violet-500/30 bg-violet-500/10 text-violet-300"
