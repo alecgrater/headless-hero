@@ -130,8 +130,9 @@ export const SceneRenderer: React.FC<Props> = ({
         </div>
       </SceneTransition>
 
-      {/* Eli character overlay — z:5, outside SceneTransition so it won't fade/clip during transitions */}
-      {scene.eli_overlay?.enabled && scene.eli_overlay.frame_id && scene.character_frames_base_url && (
+      {/* Eli character overlay — z:5, outside SceneTransition so it won't fade/clip during transitions.
+          Suppressed for aha-subtitle scenes, which take the full frame with their own typography. */}
+      {!isAhaSubtitle && scene.eli_overlay?.enabled && scene.eli_overlay.frame_id && scene.character_frames_base_url && (
         <EliOverlay
           overlay={scene.eli_overlay}
           phraseTimestamps={scene.phrase_timestamps}

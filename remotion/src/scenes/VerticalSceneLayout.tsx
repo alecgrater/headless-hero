@@ -1,9 +1,9 @@
 /**
  * VerticalSceneLayout — three-band layout for 9:16 narration scenes.
  *
- * - Top band (y=0..656): blurred-dim copy of the focal image (Eli sits inside).
- * - Middle band (y=656..1264): clean focal image, full-width.
- * - Bottom band (y=1264..1920): blurred-dim copy of the focal image (subtitles overlay).
+ * - Top band (y=0..560): dimmed blurred copy of the focal image (Eli sits inside).
+ * - Middle band (y=560..1360): focal image, slightly enlarged vertically (cover-cropped + subtle stretch).
+ * - Bottom band (y=1360..1920): dimmed blurred copy (subtitles overlay).
  *
  * Eli is positioned top-center inside the top band by EliOverlay (handled separately).
  * Subtitles are positioned by SubtitleOverlay using its `orientation` prop.
@@ -16,12 +16,19 @@ interface Props {
   children: React.ReactNode; // the focal-image element rendered by StaticImageScene/MultiFrameScene/etc.
 }
 
-// Layout constants — derived from spec (656 + 608 + 656 = 1920)
-const TOP_BAND_HEIGHT = 656;
-const MIDDLE_BAND_HEIGHT = 608;
-const BOTTOM_BAND_HEIGHT = 656;
+// Layout constants — 560 + 800 + 560 = 1920
+const TOP_BAND_HEIGHT = 560;
+const MIDDLE_BAND_HEIGHT = 800;
+const BOTTOM_BAND_HEIGHT = 560;
 
-const BLUR_FILTER = "blur(40px) brightness(0.4) saturate(0.6)";
+// Children are wrapped with a small non-uniform scale to push the image a bit
+// taller without an obvious stretch. Cover-cropping handles the horizontal
+// overflow that results.
+const FOCAL_STRETCH = "scale(1.0, 1.04)";
+
+// Tuned for visibility: image is still readable through the blur, but dim
+// enough that white text overlays remain high-contrast.
+const BLUR_FILTER = "blur(28px) brightness(0.6) saturate(0.85)";
 
 export const VerticalSceneLayout: React.FC<Props> = ({ imagePath, children }) => {
   return (
@@ -62,7 +69,16 @@ export const VerticalSceneLayout: React.FC<Props> = ({ imagePath, children }) =>
           overflow: "hidden",
         }}
       >
-        {children}
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            transform: FOCAL_STRETCH,
+            transformOrigin: "center center",
+          }}
+        >
+          {children}
+        </div>
       </div>
 
       {/* Bottom blurred-dim band */}

@@ -8,6 +8,7 @@
 import React, { useMemo } from "react";
 import { useCurrentFrame, useVideoConfig, interpolate } from "remotion";
 import type { WordTimestamp, Orientation } from "../../types";
+import { VERTICAL_LAYOUT } from "../../scenes/VerticalSceneLayout";
 
 interface Props {
   wordTimestamps?: WordTimestamp[] | null;
@@ -95,14 +96,14 @@ export const SubtitleOverlay: React.FC<Props> = ({ wordTimestamps, highlightEnab
         orientation === "vertical"
           ? {
               position: "absolute",
-              top: 1264,        // start of bottom band
+              top: VERTICAL_LAYOUT.TOP_BAND_HEIGHT + VERTICAL_LAYOUT.MIDDLE_BAND_HEIGHT,
               left: 0,
               width: "100%",
-              height: 656,      // bottom band height
+              height: VERTICAL_LAYOUT.BOTTOM_BAND_HEIGHT,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              padding: "0 60px",
+              padding: "0 40px",
               boxSizing: "border-box",
               opacity: phraseOpacity,
               zIndex: 10,
@@ -124,10 +125,10 @@ export const SubtitleOverlay: React.FC<Props> = ({ wordTimestamps, highlightEnab
           display: "flex",
           flexWrap: "wrap",
           justifyContent: "center",
-          gap: "0 8px",
-          maxWidth: "80%",
-          padding: "8px 16px",
-          borderRadius: "6px",
+          gap: orientation === "vertical" ? "0 14px" : "0 8px",
+          maxWidth: orientation === "vertical" ? "96%" : "80%",
+          padding: orientation === "vertical" ? "16px 28px" : "8px 16px",
+          borderRadius: orientation === "vertical" ? "10px" : "6px",
           backgroundColor: "rgba(0, 0, 0, 0.45)",
         }}
       >
@@ -140,13 +141,13 @@ export const SubtitleOverlay: React.FC<Props> = ({ wordTimestamps, highlightEnab
             <span
               key={i}
               style={{
-                fontSize: "32px",
-                fontWeight: 600,
-                lineHeight: 1.4,
+                fontSize: orientation === "vertical" ? "70px" : "32px",
+                fontWeight: orientation === "vertical" ? 700 : 600,
+                lineHeight: 1.25,
                 color: isActive ? "#F59E0B" : "#fff",
                 textShadow: isActive
-                  ? "0 0 12px rgba(245, 158, 11, 0.4), 0 2px 8px rgba(0, 0, 0, 0.8)"
-                  : "0 2px 8px rgba(0, 0, 0, 0.8)",
+                  ? "0 0 14px rgba(245, 158, 11, 0.45), 0 2px 10px rgba(0, 0, 0, 0.85)"
+                  : "0 2px 10px rgba(0, 0, 0, 0.85)",
               }}
             >
               {w.word}

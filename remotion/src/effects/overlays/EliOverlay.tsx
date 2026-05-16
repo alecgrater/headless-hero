@@ -46,8 +46,8 @@ function seededRandom(seed: number): () => number {
 // ---------------------------------------------------------------------------
 
 const OVERLAY_SIZE = 280;
-const OVERLAY_SIZE_VERTICAL = 380;
-const TOP_MARGIN_VERTICAL = 80; // px inset from the top edge in vertical mode
+const OVERLAY_SIZE_VERTICAL = 560;
+const TOP_MARGIN_VERTICAL = 10; // px inset from the top edge in vertical mode
 const CORNER_MARGIN = 24;
 const PHI = 1.618033988749895;
 const SQRT2 = 1.4142135623730951;
