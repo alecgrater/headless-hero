@@ -10,7 +10,6 @@ import type { ShortFormJobStatus } from "../../../types/render";
 
 interface Props {
   scriptId: string;
-  introsReady: boolean;
   segments: { name: string }[];
   /**
    * Map of segment_idx -> path string.
@@ -20,24 +19,17 @@ interface Props {
    */
   renderedUrls: Record<number, string | undefined>;
   onRenderComplete: (segmentIdx: number, url: string) => void;
-  onRequestGenerateIntros: () => void;
 }
 
 export default function RenderShortsCard({
   scriptId,
-  introsReady,
   segments,
   renderedUrls,
   onRenderComplete,
-  onRequestGenerateIntros,
 }: Props) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<ShortFormJobStatus | null>(null);
   const [busySegment, setBusySegment] = useState<number | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState<null | { action: () => void }>(null);
-  // Tracks which operation is in flight: "all" for render-all, a number for a
-  // specific segment index. onStatus uses this to fire the right side-effects
-  // when the job reaches completed/failed.
   const [currentOp, setCurrentOp] = useState<"all" | number | null>(null);
 
   const total = segments.length;
@@ -56,7 +48,6 @@ export default function RenderShortsCard({
         setCurrentOp((op) => {
           if (s.status === "completed") {
             if (op === "all") {
-              // Notify caller about each rendered segment URL
               (s.output_urls ?? []).forEach((url, i) => onRenderComplete(i, url));
             } else if (typeof op === "number") {
               const url = s.output_urls?.[0];
@@ -74,14 +65,6 @@ export default function RenderShortsCard({
     },
   });
 
-  function gate(action: () => void) {
-    if (!introsReady) {
-      setConfirmOpen({ action });
-      return;
-    }
-    action();
-  }
-
   async function handleRenderAll() {
     setBusy(true);
     setCurrentOp("all");
@@ -96,29 +79,21 @@ export default function RenderShortsCard({
     startPolling(job_id);
   }
 
-  const disabled = !introsReady;
-
   return (
-    <section
-      className={`bg-neutral-900 border rounded-xl p-4 space-y-3 ${
-        disabled ? "border-amber-900/50 opacity-70" : "border-neutral-800"
-      }`}
-    >
+    <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 space-y-3">
       <header className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-neutral-200">Render Shorts</h3>
           <p
             className={`text-xs ${
-              disabled ? "text-amber-400" : allDone ? "text-emerald-400" : "text-neutral-500"
+              allDone ? "text-emerald-400" : "text-neutral-500"
             }`}
           >
-            {disabled
-              ? "Generate short-form intro voiceovers first."
-              : `${renderedCount}/${total} rendered`}
+            {`${renderedCount}/${total} rendered`}
           </p>
         </div>
         <button
-          onClick={() => gate(handleRenderAll)}
+          onClick={handleRenderAll}
           disabled={busy || busySegment !== null}
           className="text-sm px-3 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 rounded-lg font-medium transition-colors"
         >
@@ -151,7 +126,6 @@ export default function RenderShortsCard({
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-neutral-200 truncate">{seg.name}</p>
               </div>
-              {/* Show in Finder: only for filesystem paths set after a render (not probe /static/ paths) */}
               {url && !url.startsWith("/static/") && (
                 <button
                   onClick={() => showInFolder(url)}
@@ -161,7 +135,7 @@ export default function RenderShortsCard({
                 </button>
               )}
               <button
-                onClick={() => gate(() => handleRenderOne(idx))}
+                onClick={() => handleRenderOne(idx)}
                 disabled={busy || busySegment !== null}
                 className="text-xs px-2.5 py-1 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 rounded text-white transition-colors"
               >
@@ -171,35 +145,6 @@ export default function RenderShortsCard({
           );
         })}
       </ul>
-
-      {confirmOpen && (
-        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-8">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl max-w-md w-full p-5 space-y-4">
-            <h4 className="text-sm font-semibold text-neutral-100">Generate intros first?</h4>
-            <p className="text-sm text-neutral-400">
-              You haven't generated short-form intro voiceovers yet. They're required for the title
-              cards. Generate now and then render?
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setConfirmOpen(null)}
-                className="text-sm px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded text-neutral-300 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setConfirmOpen(null);
-                  onRequestGenerateIntros();
-                }}
-                className="text-sm px-3 py-1.5 bg-violet-600 hover:bg-violet-500 rounded text-white transition-colors"
-              >
-                Generate Intros
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }
