@@ -5,12 +5,13 @@
  */
 import React from "react";
 import { Audio, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
-import type { SceneInput } from "../types";
+import type { SceneInput, Orientation } from "../types";
 import { StaticImageScene } from "./StaticImageScene";
 import { MultiFrameScene } from "./MultiFrameScene";
 import { TitleCardScene } from "./TitleCardScene";
 import { SubtitleScene } from "./SubtitleScene";
 import { VideoScene } from "./VideoScene";
+import { VerticalSceneLayout } from "./VerticalSceneLayout";
 
 import { ZoomPunch } from "../effects/camera/ZoomPunch";
 import { CameraDrift } from "../effects/camera/CameraDrift";
@@ -21,9 +22,14 @@ import { SceneTransition } from "../effects/transitions/SceneTransition";
 interface Props {
   scene: SceneInput;
   highlightEnabled?: boolean;
+  orientation?: Orientation;
 }
 
-export const SceneRenderer: React.FC<Props> = ({ scene, highlightEnabled }) => {
+export const SceneRenderer: React.FC<Props> = ({
+  scene,
+  highlightEnabled,
+  orientation = "horizontal",
+}) => {
   const hasMultipleFrames = scene.frame_paths && scene.frame_paths.length > 1;
   const isTitleCard = scene.is_title_card && scene.title_card_zoom_target;
   const isAhaSubtitle = scene.visual_beat === "aha_subtitle";
@@ -65,7 +71,7 @@ export const SceneRenderer: React.FC<Props> = ({ scene, highlightEnabled }) => {
   if (isTitleCard) {
     visualLayer = <TitleCardScene scene={scene} />;
   } else if (isAhaSubtitle) {
-    visualLayer = <SubtitleScene scene={scene} />;
+    visualLayer = <SubtitleScene scene={scene} orientation={orientation} />;
   } else if (isVideo) {
     visualLayer = <VideoScene scene={scene} />;
   } else if (hasMultipleFrames) {
@@ -99,6 +105,18 @@ export const SceneRenderer: React.FC<Props> = ({ scene, highlightEnabled }) => {
     );
   }
 
+  // In vertical mode, wrap narration scenes in three-band layout.
+  // Aha-subtitle scenes occupy the full vertical frame natively.
+  // Title cards in shorts are handled by ShortTitleCardScene (Task 10), not here.
+  const isVertical = orientation === "vertical";
+  if (isVertical && !isAhaSubtitle && !isTitleCard) {
+    visualLayer = (
+      <VerticalSceneLayout imagePath={scene.image_path}>
+        {visualLayer}
+      </VerticalSceneLayout>
+    );
+  }
+
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
       {/* Scene transition wraps visual + subtitle; audio and Eli stay outside */}
@@ -107,7 +125,7 @@ export const SceneRenderer: React.FC<Props> = ({ scene, highlightEnabled }) => {
         <div style={{ width: "100%", height: "100%", opacity: visualOpacity }}>
           {visualLayer}
           {!scene.is_title_card && !isAhaSubtitle && (scene.word_timestamps?.length ?? 0) > 0 && (
-            <SubtitleOverlay wordTimestamps={scene.word_timestamps} highlightEnabled={highlightEnabled} />
+            <SubtitleOverlay wordTimestamps={scene.word_timestamps} highlightEnabled={highlightEnabled} orientation={orientation} />
           )}
         </div>
       </SceneTransition>
@@ -120,6 +138,7 @@ export const SceneRenderer: React.FC<Props> = ({ scene, highlightEnabled }) => {
           characterFramesBaseUrl={scene.character_frames_base_url}
           sceneDurationInFrames={totalSceneFrames}
           sceneId={scene.id}
+          orientation={orientation}
         />
       )}
 

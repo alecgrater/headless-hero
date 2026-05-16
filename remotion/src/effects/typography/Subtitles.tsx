@@ -7,11 +7,12 @@
  */
 import React, { useMemo } from "react";
 import { useCurrentFrame, useVideoConfig, interpolate } from "remotion";
-import type { WordTimestamp } from "../../types";
+import type { WordTimestamp, Orientation } from "../../types";
 
 interface Props {
   wordTimestamps?: WordTimestamp[] | null;
   highlightEnabled?: boolean;
+  orientation?: Orientation;
 }
 
 const FADE_OUT_FRAMES = 5;
@@ -59,7 +60,7 @@ function groupIntoPhrases(timestamps: WordTimestamp[], fps: number): SubtitlePhr
 
 // ---- Main component ----
 
-export const SubtitleOverlay: React.FC<Props> = ({ wordTimestamps, highlightEnabled }) => {
+export const SubtitleOverlay: React.FC<Props> = ({ wordTimestamps, highlightEnabled, orientation = "horizontal" }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -90,16 +91,32 @@ export const SubtitleOverlay: React.FC<Props> = ({ wordTimestamps, highlightEnab
 
   return (
     <div
-      style={{
-        position: "absolute",
-        bottom: "8%",
-        left: 0,
-        right: 0,
-        display: "flex",
-        justifyContent: "center",
-        opacity: phraseOpacity,
-        zIndex: 10,
-      }}
+      style={
+        orientation === "vertical"
+          ? {
+              position: "absolute",
+              top: 1264,        // start of bottom band
+              left: 0,
+              width: "100%",
+              height: 656,      // bottom band height
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "0 60px",
+              opacity: phraseOpacity,
+              zIndex: 10,
+            }
+          : {
+              position: "absolute",
+              bottom: "8%",
+              left: 0,
+              right: 0,
+              display: "flex",
+              justifyContent: "center",
+              opacity: phraseOpacity,
+              zIndex: 10,
+            }
+      }
     >
       <div
         style={{
