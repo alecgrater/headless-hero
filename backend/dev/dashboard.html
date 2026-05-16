@@ -1331,12 +1331,15 @@ function renderUsageSummary(data) {
       <div class="flex h-full flex-col gap-1">
         <div class="flex h-5 items-center justify-end">${manageBtn}</div>
         <div class="border rounded-lg p-3 h-28 flex flex-col justify-between ${colorCls}">
-          <div class="flex items-start justify-between gap-2">
-            <span class="text-[11px] font-medium leading-tight whitespace-nowrap">${display.icon} ${display.label}</span>
-            <span class="flex shrink-0 flex-col items-end gap-1 whitespace-nowrap">
+          <div class="min-w-0 space-y-1">
+            <div class="flex min-w-0 items-center gap-1.5 text-[11px] font-medium leading-tight">
+              <span class="shrink-0">${display.icon}</span>
+              <span class="min-w-0 truncate" title="${escapeHtml(display.label)}">${escapeHtml(display.label)}</span>
+            </div>
+            <div class="flex items-center justify-end gap-2 whitespace-nowrap">
               <span class="text-base font-semibold leading-none">$${amount.toFixed(2)}</span>
               ${amountBadge}
-            </span>
+            </div>
           </div>
           <div class="text-[10px] opacity-70 leading-relaxed overflow-hidden">
             <div>${calls} calls</div>
