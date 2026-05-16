@@ -1,9 +1,9 @@
 /**
  * VerticalSceneLayout — three-band layout for 9:16 narration scenes.
  *
- * - Top band (y=0..560): dimmed blurred copy of the focal image (Eli sits inside).
- * - Middle band (y=560..1360): focal image, slightly enlarged vertically (cover-cropped + subtle stretch).
- * - Bottom band (y=1360..1920): dimmed blurred copy (subtitles overlay).
+ * - Top band (y=0..500): dimmed blurred copy of the focal image (Eli sits inside).
+ * - Middle band (y=500..1420): focal image, enlarged vertically (cover-cropped + subtle stretch).
+ * - Bottom band (y=1420..1920): dimmed blurred copy (subtitles overlay).
  *
  * Eli is positioned top-center inside the top band by EliOverlay (handled separately).
  * Subtitles are positioned by SubtitleOverlay using its `orientation` prop.
@@ -16,10 +16,10 @@ interface Props {
   children: React.ReactNode; // the focal-image element rendered by StaticImageScene/MultiFrameScene/etc.
 }
 
-// Layout constants — 560 + 800 + 560 = 1920
-const TOP_BAND_HEIGHT = 560;
-const MIDDLE_BAND_HEIGHT = 800;
-const BOTTOM_BAND_HEIGHT = 560;
+// Layout constants — 500 + 920 + 500 = 1920
+const TOP_BAND_HEIGHT = 500;
+const MIDDLE_BAND_HEIGHT = 920;
+const BOTTOM_BAND_HEIGHT = 500;
 
 // Children are wrapped with a small non-uniform scale to push the image a bit
 // taller without an obvious stretch. Cover-cropping handles the horizontal
