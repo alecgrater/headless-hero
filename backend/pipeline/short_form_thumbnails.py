@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 import os
 import shutil
-import textwrap
 from pathlib import Path
 from typing import Callable
 
@@ -90,8 +89,22 @@ def _contain_resize(image: Image.Image, max_size: tuple[int, int]) -> Image.Imag
     return copy
 
 
-def _text_size(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont) -> tuple[int, int]:
-    bbox = draw.textbbox((0, 0), text, font=font, stroke_width=0)
+def _text_bbox(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    stroke_width: int = 0,
+) -> tuple[int, int, int, int]:
+    return draw.textbbox((0, 0), text, font=font, stroke_width=stroke_width)
+
+
+def _text_size(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    stroke_width: int = 0,
+) -> tuple[int, int]:
+    bbox = _text_bbox(draw, text, font, stroke_width)
     return bbox[2] - bbox[0], bbox[3] - bbox[1]
 
 
@@ -109,22 +122,13 @@ def _wrap_for_font(
     current = words[0]
     for word in words[1:]:
         candidate = f"{current} {word}"
-        if _text_size(draw, candidate, font)[0] <= max_width:
+        if _text_size(draw, candidate, font, stroke_width=8)[0] <= max_width:
             current = candidate
         else:
             lines.append(current)
             current = word
     lines.append(current)
-
-    split_lines: list[str] = []
-    for line in lines:
-        if _text_size(draw, line, font)[0] <= max_width:
-            split_lines.append(line)
-            continue
-        # Last-resort split for unusually long single words.
-        approx_chars = max(4, int(len(line) * max_width / max(_text_size(draw, line, font)[0], 1)))
-        split_lines.extend(part.upper() for part in textwrap.wrap(line, width=approx_chars) or [line])
-    return split_lines
+    return lines
 
 
 def _fit_text(
@@ -132,18 +136,21 @@ def _fit_text(
     text: str,
     max_width: int,
     max_height: int,
-) -> tuple[ImageFont.FreeTypeFont, list[str], int]:
-    for size in range(210, 70, -6):
+) -> tuple[ImageFont.FreeTypeFont, list[str], int, list[tuple[int, int, int, int]]]:
+    for size in range(210, 24, -6):
         font = _load_font(size, title=True)
         lines = _wrap_for_font(draw, text, font, max_width)
         line_gap = max(8, int(size * 0.08))
-        heights = [_text_size(draw, line, font)[1] for line in lines]
+        bboxes = [_text_bbox(draw, line, font, stroke_width=8) for line in lines]
+        heights = [bbox[3] - bbox[1] for bbox in bboxes]
         total_h = sum(heights) + line_gap * (len(lines) - 1)
-        widest = max((_text_size(draw, line, font)[0] for line in lines), default=0)
+        widest = max((bbox[2] - bbox[0] for bbox in bboxes), default=0)
         if total_h <= max_height and widest <= max_width:
-            return font, lines, line_gap
-    font = _load_font(70, title=True)
-    return font, _wrap_for_font(draw, text, font, max_width), 6
+            return font, lines, line_gap, bboxes
+    font = _load_font(24, title=True)
+    lines = _wrap_for_font(draw, text, font, max_width)
+    bboxes = [_text_bbox(draw, line, font, stroke_width=8) for line in lines]
+    return font, lines, 6, bboxes
 
 
 def _draw_safe_zone_guides(canvas: Image.Image) -> Image.Image:
@@ -206,7 +213,7 @@ def generate_short_thumbnail(
     focal = ImageEnhance.Color(focal).enhance(1.18)
     focal = ImageEnhance.Contrast(focal).enhance(1.08)
     focal_x = (SHORT_THUMB_WIDTH - focal.width) // 2
-    focal_y = CENTER_SAFE_TOP + 52
+    focal_y = CENTER_SAFE_TOP + 16
 
     shadow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     sd = ImageDraw.Draw(shadow)
@@ -231,8 +238,8 @@ def generate_short_thumbnail(
     draw = ImageDraw.Draw(canvas)
     max_text_w = 960
     max_text_h = 390
-    font, lines, line_gap = _fit_text(draw, text, max_text_w, max_text_h)
-    heights = [_text_size(draw, line, font)[1] for line in lines]
+    font, lines, line_gap, line_bboxes = _fit_text(draw, text, max_text_w, max_text_h)
+    heights = [bbox[3] - bbox[1] for bbox in line_bboxes]
     total_text_h = sum(heights) + line_gap * (len(lines) - 1)
     text_y = CENTER_SAFE_BOTTOM - 76 - total_text_h
 
@@ -248,11 +255,11 @@ def generate_short_thumbnail(
     draw = ImageDraw.Draw(canvas)
 
     y = text_y
-    for line, line_h in zip(lines, heights):
-        line_w = _text_size(draw, line, font)[0]
+    for line, line_h, bbox in zip(lines, heights, line_bboxes):
+        line_w = bbox[2] - bbox[0]
         x = (SHORT_THUMB_WIDTH - line_w) // 2
         draw.text(
-            (x + 7, y + 9),
+            (x - bbox[0] + 7, y - bbox[1] + 9),
             line,
             font=font,
             fill=(0, 0, 0, 220),
@@ -260,7 +267,7 @@ def generate_short_thumbnail(
             stroke_fill=(0, 0, 0, 220),
         )
         draw.text(
-            (x, y),
+            (x - bbox[0], y - bbox[1]),
             line,
             font=font,
             fill=(255, 236, 120, 255),
@@ -268,20 +275,6 @@ def generate_short_thumbnail(
             stroke_fill=(32, 11, 0, 255),
         )
         y += line_h + line_gap
-
-    marker_font = _load_font(40, title=False)
-    marker = f"PART {segment_idx + 1}"
-    marker_w, marker_h = _text_size(draw, marker, marker_font)
-    mx = (SHORT_THUMB_WIDTH - marker_w) // 2
-    my = CENTER_SAFE_TOP + 82
-    draw.rounded_rectangle(
-        (mx - 24, my - 12, mx + marker_w + 24, my + marker_h + 20),
-        radius=18,
-        fill=(14, 165, 233, 210),
-        outline=(255, 255, 255, 120),
-        width=2,
-    )
-    draw.text((mx, my), marker, font=marker_font, fill=(255, 255, 255, 255), stroke_width=2, stroke_fill=(0, 0, 0, 180))
 
     output_path = _thumbs_dir(script_id) / f"{segment_idx}.png"
     if on_progress:

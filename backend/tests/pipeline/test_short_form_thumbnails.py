@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from models.script import Scene, ScriptContent, Segment
 from pipeline import short_form_thumbnails as thumbs
@@ -38,6 +38,16 @@ def test_short_thumbnail_filename_sanitizes_segment_name():
     result = thumbs.short_thumbnail_filename('Bad/Name: "Test"', 3)
     assert result == "[shortform] thumbnail_3 - BadName Test.png"
     assert "/" not in result
+
+
+def test_fit_text_shrinks_instead_of_splitting_single_word():
+    canvas = Image.new("RGB", (1080, 1920), (0, 0, 0))
+    draw = ImageDraw.Draw(canvas)
+
+    _font, lines, _gap, bboxes = thumbs._fit_text(draw, "RECIPROCITY", 960, 390)
+
+    assert lines == ["RECIPROCITY"]
+    assert bboxes[0][2] - bboxes[0][0] <= 960
 
 
 def test_generate_short_thumbnail_dimensions_and_dpi(tmp_path, monkeypatch):
