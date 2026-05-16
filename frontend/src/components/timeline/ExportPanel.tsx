@@ -55,17 +55,9 @@ interface Props {
 
 type Tab = "render-long" | "render-short" | "thumbnails" | "seo";
 
-const TABS: { key: Tab; label: string; description?: string }[] = [
-  {
-    key: "render-long",
-    label: "Render - Long Form",
-    description: "Renders the full long form video at 1920×1080 16:9 30FPS",
-  },
-  {
-    key: "render-short",
-    label: "Render - Short Form",
-    description: "Renders 8 short form videos, corresponding to the 8 segments. 1080x1920 9:16 30FPS",
-  },
+const TABS: { key: Tab; label: string }[] = [
+  { key: "render-long", label: "Render - Long Form" },
+  { key: "render-short", label: "Render - Short Form" },
   { key: "thumbnails", label: "Thumbnails" },
   { key: "seo", label: "SEO" },
 ];
@@ -331,6 +323,13 @@ export default function ExportPanel({
     seo: !!seoMetadata,
   };
 
+  const tabDescriptions: Record<Tab, string> = {
+    "render-long": "Renders the full long form video at 1920×1080 16:9 30FPS",
+    "render-short": `Renders ${segments.length} short form videos, one per segment. 1080×1920 9:16 30FPS.`,
+    thumbnails: "Generate and download YouTube thumbnail concepts for this video.",
+    seo: "Generate YouTube title, description, and tags for this video.",
+  };
+
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-8">
       <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
@@ -452,11 +451,9 @@ export default function ExportPanel({
             </button>
           ))}
         </div>
-        {TABS.find((t) => t.key === activeTab)?.description && (
-          <div className="px-6 py-2 text-xs text-neutral-500 border-b border-neutral-800/50 shrink-0">
-            {TABS.find((t) => t.key === activeTab)!.description}
-          </div>
-        )}
+        <div className="px-6 py-2 text-xs text-neutral-500 border-b border-neutral-800/50 shrink-0">
+          {tabDescriptions[activeTab]}
+        </div>
 
         {/* Tab Content */}
         <div className="p-6 overflow-y-auto flex-1">

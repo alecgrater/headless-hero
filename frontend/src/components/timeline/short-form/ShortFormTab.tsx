@@ -40,10 +40,6 @@ export default function ShortFormTab({
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-neutral-500">
-        Renders {segments.length} short form videos, one per segment. 1080×1920 9:16 30FPS.
-      </p>
-
       <RenderShortsCard
         scriptId={scriptId}
         segments={segments}
