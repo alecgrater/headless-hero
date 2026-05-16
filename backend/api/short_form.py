@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from config import DEFAULT_TTS_MODEL
 from database import get_session
 from models.brand import BrandProfile
 from models.script import Script, ScriptContent
@@ -21,7 +20,6 @@ from pipeline.short_form_intros import (
     build_display_text,
     generate_short_intro,
     generate_short_intros,
-    is_stale,
 )
 
 logger = logging.getLogger(__name__)
