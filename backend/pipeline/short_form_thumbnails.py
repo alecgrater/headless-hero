@@ -24,7 +24,8 @@ ProgressCallback = Callable[[float, str], None] | None
 SHORT_THUMB_WIDTH = 1080
 SHORT_THUMB_HEIGHT = 1920
 FOCAL_SIZE = 980
-IMAGE_TEXT_GAP = 16
+IMAGE_TEXT_GAP = 40
+COMPOSITION_TOP_BIAS = 30
 TEXT_MAX_HEIGHT = 280
 TEXT_MAX_WIDTH = 920
 MAX_PNG_BYTES = 2 * 1024 * 1024
@@ -210,7 +211,7 @@ def generate_short_thumbnail(
 
     comp_h = focal.height + IMAGE_TEXT_GAP + total_text_h
     focal_x = (SHORT_THUMB_WIDTH - focal.width) // 2
-    focal_y = (SHORT_THUMB_HEIGHT - comp_h) // 2
+    focal_y = (SHORT_THUMB_HEIGHT - comp_h) // 2 - COMPOSITION_TOP_BIAS
     text_y = focal_y + focal.height + IMAGE_TEXT_GAP
 
     shadow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
