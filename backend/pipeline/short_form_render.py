@@ -66,7 +66,8 @@ def _build_intro_props(intro: ShortIntro, script_id: str) -> dict:
 def _short_filename(project_title: str, n: int, total: int) -> str:
     """Build the destination filename per spec: '[short form N/M] {project name}.mp4'."""
     safe = sanitize_filename(project_title)
-    return f"[short form {n}/{total}] {safe}.mp4"
+    # U+2215 division slash (∕) — visually like "/" but filesystem-safe (POSIX reserves U+002F).
+    return f"[short form {n}∕{total}] {safe}.mp4"
 
 
 def _copy_to_downloads(project_title: str, src_path: Path, dest_filename: str) -> str:
