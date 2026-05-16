@@ -18,6 +18,7 @@ import {
 import type {
   EliOverlay as EliOverlayType,
   PhraseTimestamp,
+  Orientation,
 } from "../../types";
 
 // ---------------------------------------------------------------------------
@@ -45,6 +46,8 @@ function seededRandom(seed: number): () => number {
 // ---------------------------------------------------------------------------
 
 const OVERLAY_SIZE = 280;
+const OVERLAY_SIZE_VERTICAL = 380;
+const TOP_MARGIN_VERTICAL = 80; // px inset from the top edge in vertical mode
 const CORNER_MARGIN = 24;
 const PHI = 1.618033988749895;
 const SQRT2 = 1.4142135623730951;
@@ -58,7 +61,22 @@ const ENTRANCE_OFFSET = 60;
 // Corner positioning
 // ---------------------------------------------------------------------------
 
-function cornerStyle(corner: string | null | undefined): React.CSSProperties {
+function cornerStyle(
+  corner: string | null | undefined,
+  orientation: Orientation | undefined,
+): React.CSSProperties {
+  // Vertical mode overrides corner: Eli is always top-center, larger
+  if (orientation === "vertical") {
+    return {
+      position: "absolute",
+      width: OVERLAY_SIZE_VERTICAL,
+      height: OVERLAY_SIZE_VERTICAL,
+      top: TOP_MARGIN_VERTICAL,
+      left: "50%",
+      transform: "translateX(-50%)",
+    };
+  }
+
   const c = corner ?? "BR";
   const base: React.CSSProperties = {
     position: "absolute",
@@ -170,6 +188,7 @@ interface Props {
   characterFramesBaseUrl: string;
   sceneDurationInFrames: number;
   sceneId: string;
+  orientation?: Orientation;
 }
 
 export const EliOverlay: React.FC<Props> = ({
@@ -178,6 +197,7 @@ export const EliOverlay: React.FC<Props> = ({
   characterFramesBaseUrl,
   sceneDurationInFrames,
   sceneId,
+  orientation,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -266,10 +286,13 @@ export const EliOverlay: React.FC<Props> = ({
   const closedUrl = `${characterFramesBaseUrl}/${frameId}_closed.png`;
   const openUrl = `${characterFramesBaseUrl}/${frameId}_open.png`;
 
+  // Size used for any sub-element style calculations that depend on the outer overlay size
+  const overlaySize = orientation === "vertical" ? OVERLAY_SIZE_VERTICAL : OVERLAY_SIZE;
+
   return (
     <div
       style={{
-        ...cornerStyle(overlay.corner),
+        ...cornerStyle(overlay.corner, orientation),
         zIndex: 5,
         transform: `translate(${totalTranslateX}px, ${totalTranslateY}px) rotate(${totalRotate}deg) scaleY(${totalScaleY})`,
         opacity: totalOpacity,
