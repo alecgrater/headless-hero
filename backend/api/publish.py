@@ -639,11 +639,11 @@ def start_short_form_upload(body: ShortFormUploadRequest, session: Session = Dep
                         rec.platform_url = result.get("url", "")
                         if result.get("publish_id"):
                             try:
-                                metadata = json.loads(rec.metadata_json or "{}")
+                                record_metadata = json.loads(rec.metadata_json or "{}")
                             except json.JSONDecodeError:
-                                metadata = {}
-                            metadata["publish_id"] = result["publish_id"]
-                            rec.metadata_json = json.dumps(metadata)
+                                record_metadata = {}
+                            record_metadata["publish_id"] = result["publish_id"]
+                            rec.metadata_json = json.dumps(record_metadata)
                         if result_status in ("published", "scheduled"):
                             rec.published_at = datetime.now(timezone.utc)
                         rec.updated_at = datetime.now(timezone.utc)
