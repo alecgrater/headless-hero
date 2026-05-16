@@ -23,6 +23,7 @@ _STATUS_URL = "https://open.tiktokapis.com/v2/post/publish/status/fetch/"
 _REDIRECT_URI_DEFAULT = f"http://localhost:{BACKEND_PORT}/api/publish/oauth/callback/tiktok"
 _CHUNK_SIZE = 10 * 1024 * 1024
 _PUBLISH_POLL_INTERVAL_SECONDS = 5
+_PUBLISH_POLL_TIMEOUT_SECONDS = 900
 _SUCCESS_STATUSES = {"PUBLISH_COMPLETE"}
 _FAILURE_STATUS_PARTS = ("FAIL", "ERROR", "REJECT")
 _NON_DIRECT_POST_STATUSES = {"SEND_TO_USER_INBOX"}
@@ -257,8 +258,11 @@ def wait_for_publish_complete(
     on_progress: Callable[[float], None] | None = None,
 ) -> dict:
     """Poll TikTok until processing reaches a terminal success or failure."""
-    while True:
+    deadline = time.monotonic() + _PUBLISH_POLL_TIMEOUT_SECONDS
+    last_status: dict = {}
+    while time.monotonic() < deadline:
         status = fetch_publish_status(access_token, publish_id)
+        last_status = status
         status_text = _status_text(status)
         if status_text in _NON_DIRECT_POST_STATUSES:
             raise RuntimeError("TikTok sent the post to the creator inbox instead of publishing directly")
@@ -272,3 +276,5 @@ def wait_for_publish_complete(
         if on_progress:
             on_progress(0.85)
         time.sleep(_PUBLISH_POLL_INTERVAL_SECONDS)
+
+    return last_status or {"status": "PROCESSING"}

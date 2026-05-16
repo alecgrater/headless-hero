@@ -214,6 +214,48 @@ def _persist_refreshed_credential(session: Session, credential: PlatformCredenti
     session.add(db_cred)
     session.commit()
 
+def _refresh_pending_tiktok_record(session: Session, record: PublishRecord) -> None:
+    if record.platform != "tiktok" or record.status not in ("pending", "uploading"):
+        return
+    credential = _get_credential(session, record.brand_id, "tiktok")
+    if not credential or not record.platform_content_id:
+        return
+
+    from integrations.tiktok_client import (
+        _first_public_post_id,
+        _status_text,
+        fetch_publish_status,
+    )
+    from pipeline.publishing import ensure_token_fresh
+
+    if ensure_token_fresh(credential):
+        session.add(credential)
+        session.commit()
+
+    status = fetch_publish_status(credential.access_token, record.platform_content_id)
+    status_text = _status_text(status)
+    now = datetime.now(timezone.utc)
+    if status_text == "PUBLISH_COMPLETE":
+        public_post_id = _first_public_post_id(status)
+        if public_post_id:
+            record.platform_content_id = public_post_id
+        if status.get("share_url"):
+            record.platform_url = status["share_url"]
+        record.status = "published"
+        record.published_at = now
+        record.error = ""
+    elif status_text == "SEND_TO_USER_INBOX":
+        record.status = "failed"
+        record.error = "TikTok sent the post to the creator inbox instead of publishing directly"
+    elif any(part in status_text for part in ("FAIL", "ERROR", "REJECT")):
+        record.status = "failed"
+        record.error = str(status.get("fail_reason") or status.get("message") or status_text)[:1000]
+    else:
+        record.status = "pending"
+    record.updated_at = now
+    session.add(record)
+    session.commit()
+
 # --- Endpoints ---
 
 @router.get("/oauth/status", response_model=OAuthStatusResponse)
@@ -666,6 +708,10 @@ def short_form_upload_status(script_id: str, session: Session = Depends(get_sess
     records = session.exec(stmt).all()
     grouped: dict[int, ShortUploadStatus] = {}
     for record in records:
+        try:
+            _refresh_pending_tiktok_record(session, record)
+        except Exception:
+            logger.exception("Failed to refresh pending TikTok publish status")
         if record.short_index is None:
             continue
         if record.short_index not in grouped:
