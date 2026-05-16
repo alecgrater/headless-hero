@@ -52,6 +52,8 @@ interface Props {
   segments: { name: string }[];
   shortIntros: ShortIntro[] | null | undefined;
   onShortIntrosChanged: () => void;
+
+  initialTab?: Tab;
 }
 
 type Tab = "render-long" | "render-short" | "thumbnails" | "seo";
@@ -254,10 +256,11 @@ export default function ExportPanel({
   segments,
   shortIntros,
   onShortIntrosChanged,
+  initialTab,
 }: Props) {
   const youtubeRendering = youtubeStatus?.status === "running" || youtubeStatus?.status === "pending";
 
-  const [activeTab, setActiveTab] = useState<Tab>("render-long");
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab ?? "render-long");
 
   // YouTube upload state (post-export)
   const [showUploadPanel, setShowUploadPanel] = useState(false);

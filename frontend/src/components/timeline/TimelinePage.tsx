@@ -17,6 +17,7 @@ import PropertiesPanel from "./PropertiesPanel";
 import ThumbnailModal from "./ThumbnailModal";
 import TimelineLanes from "./TimelineLanes";
 import VoiceSetupModal from "../brand/VoiceSetupModal";
+import ShortFormStatusPill from "./short-form/ShortFormStatusPill";
 import { usePublishState } from "./usePublishState";
 import { useRenderState } from "./useRenderState";
 import { useTimelineState } from "./useTimelineState";
@@ -195,6 +196,18 @@ function TimelineEditor({
   const voicePicker = useVoicePicker();
 
   const [showExport, setShowExport] = useState(false);
+  const [shortRenderCount, setShortRenderCount] = useState(0);
+  const [exportInitialTab, setExportInitialTab] = useState<"render-long" | "render-short">("render-long");
+
+  function openExportPanel() {
+    setExportInitialTab("render-long");
+    setShowExport(true);
+  }
+
+  function openExportOnShortForm() {
+    setExportInitialTab("render-short");
+    setShowExport(true);
+  }
   const [showVoiceSetup, setShowVoiceSetup] = useState(false);
   const [pendingAudioAction, setPendingAudioAction] = useState<"all" | string | null>(null);
   const [generatingFX, setGeneratingFX] = useState(false);
@@ -286,6 +299,30 @@ function TimelineEditor({
       } catch (_) { /* thumbnails are optional */ }
     })();
   }, [scriptId]);
+
+  // Probe rendered shorts on mount/segment change
+  useEffect(() => {
+    let cancelled = false;
+    async function probe() {
+      if (!state.content || !state.content.segments) return;
+      let found = 0;
+      for (let i = 0; i < state.content.segments.length; i++) {
+        try {
+          const r = await fetch(assetUrl(`/static/projects/${scriptId}/renders/shorts/${i}.mp4`), {
+            method: "HEAD",
+          });
+          if (r.ok) found++;
+        } catch {
+          /* ignore */
+        }
+      }
+      if (!cancelled) setShortRenderCount(found);
+    }
+    probe();
+    return () => {
+      cancelled = true;
+    };
+  }, [scriptId, state.content.segments.length]);
 
   // Close export dropdown on outside click
   useEffect(() => {
@@ -417,7 +454,7 @@ function TimelineEditor({
       if (state.selectedSceneId) state.generateImage(state.selectedSceneId);
     },
     generateAllImages: () => state.generateAllImages(),
-    openExport: () => setShowExport(true),
+    openExport: () => openExportPanel(),
     toggleAudioPreview,
     deleteScene,
     splitAtPlayhead: () => {
@@ -970,7 +1007,7 @@ function TimelineEditor({
             showExportDropdown={showExportDropdown}
             setShowExportDropdown={setShowExportDropdown}
             exportDropdownRef={exportDropdownRef}
-            setShowExport={setShowExport}
+            setShowExport={openExportPanel}
             setShowExportTestModal={setShowExportTestModal}
             fxPotentiallyStale={lastAudioGenTimestamp > 0 && lastAudioGenTimestamp > lastFXGenTimestamp}
             allEliGenerated={allEliGenerated}
@@ -1043,6 +1080,13 @@ function TimelineEditor({
                     )}
                   </>
                 )}
+                <span className="w-px h-4 bg-neutral-700/50" />
+                <ShortFormStatusPill
+                  segments={state.content.segments.map((s) => ({ name: s.name }))}
+                  intros={state.content.short_intros}
+                  renderedCount={shortRenderCount}
+                  onClick={openExportOnShortForm}
+                />
               </div>
             );
 
@@ -1424,6 +1468,7 @@ function TimelineEditor({
               state.setContent(data.script);
             }
           }}
+          initialTab={exportInitialTab}
         />
       )}
 

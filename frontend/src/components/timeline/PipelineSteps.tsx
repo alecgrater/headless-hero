@@ -52,7 +52,7 @@ interface Props {
   showExportDropdown: boolean;
   setShowExportDropdown: (show: boolean) => void;
   exportDropdownRef: RefObject<HTMLDivElement | null>;
-  setShowExport: (show: boolean) => void;
+  setShowExport: () => void;
   setShowExportTestModal: (show: boolean) => void;
   // Staleness
   fxPotentiallyStale: boolean;
@@ -524,7 +524,7 @@ export default function PipelineSteps({
           <span className="w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums border-neutral-600 text-neutral-500">6</span>
           <div ref={exportDropdownRef} className="relative flex items-stretch flex-1">
             <button
-              onClick={exportTestJobId ? () => setExportTestJobId(null) : () => setShowExport(true)}
+              onClick={exportTestJobId ? () => setExportTestJobId(null) : () => setShowExport()}
               className={`text-xs pl-3 pr-1.5 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
                 exportTestJobId
                   ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
