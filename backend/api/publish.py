@@ -217,8 +217,10 @@ def _persist_refreshed_credential(session: Session, credential: PlatformCredenti
 def _refresh_pending_tiktok_record(session: Session, record: PublishRecord) -> None:
     if record.platform != "tiktok" or record.status not in ("pending", "uploading"):
         return
+    metadata = json.loads(record.metadata_json or "{}")
+    publish_id = metadata.get("publish_id") or record.platform_content_id
     credential = _get_credential(session, record.brand_id, "tiktok")
-    if not credential or not record.platform_content_id:
+    if not credential or not publish_id:
         return
 
     from integrations.tiktok_client import (
@@ -232,7 +234,7 @@ def _refresh_pending_tiktok_record(session: Session, record: PublishRecord) -> N
         session.add(credential)
         session.commit()
 
-    status = fetch_publish_status(credential.access_token, record.platform_content_id)
+    status = fetch_publish_status(credential.access_token, publish_id)
     status_text = _status_text(status)
     now = datetime.now(timezone.utc)
     if status_text == "PUBLISH_COMPLETE":
@@ -635,6 +637,13 @@ def start_short_form_upload(body: ShortFormUploadRequest, session: Session = Dep
                         rec.status = result_status
                         rec.platform_content_id = result.get("id", "")
                         rec.platform_url = result.get("url", "")
+                        if result.get("publish_id"):
+                            try:
+                                metadata = json.loads(rec.metadata_json or "{}")
+                            except json.JSONDecodeError:
+                                metadata = {}
+                            metadata["publish_id"] = result["publish_id"]
+                            rec.metadata_json = json.dumps(metadata)
                         if result_status in ("published", "scheduled"):
                             rec.published_at = datetime.now(timezone.utc)
                         rec.updated_at = datetime.now(timezone.utc)

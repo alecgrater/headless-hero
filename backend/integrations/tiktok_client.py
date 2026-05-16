@@ -216,12 +216,14 @@ def upload_video(
         on_progress(0.8)
 
     status = wait_for_publish_complete(access_token, publish_id, on_progress=on_progress)
+    is_complete = _status_text(status) in _SUCCESS_STATUSES
     public_post_id = _first_public_post_id(status)
 
     return {
-        "id": public_post_id or publish_id,
-        "url": status.get("share_url", "") or "https://www.tiktok.com/",
-        "status": "published",
+        "id": public_post_id if is_complete and public_post_id else publish_id,
+        "publish_id": publish_id,
+        "url": status.get("share_url", "") if is_complete else "",
+        "status": "published" if is_complete else "pending",
     }
 
 
