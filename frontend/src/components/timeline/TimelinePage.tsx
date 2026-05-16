@@ -1413,6 +1413,17 @@ function TimelineEditor({
           seoTags={[]}
           projectTitle={title}
           onClose={() => setShowExport(false)}
+          scriptId={scriptId}
+          videoTitle={title}
+          segments={state.content.segments.map((s) => ({ name: s.name }))}
+          shortIntros={state.content.short_intros}
+          onShortIntrosChanged={async () => {
+            const refreshed = await api.get(`/api/scripts/${scriptId}`);
+            if (refreshed.ok) {
+              const data = refreshed.data as { script: ScriptContent };
+              state.setContent(data.script);
+            }
+          }}
         />
       )}
 

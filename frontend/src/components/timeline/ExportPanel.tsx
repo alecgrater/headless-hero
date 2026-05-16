@@ -2,7 +2,8 @@ import { useState } from "react";
 import { assetUrl, catalogUpload, getPublishStatus, showInFolder, openInBrowser } from "../../api";
 import { showToast } from "../ToastContainer";
 import type { CatalogUploadOptions, PublishJobStatus } from "../../api";
-import type { ExportBundleResponse, RenderStatusResponse, SEOMetadata, ThumbnailConcept } from "../../types/render";
+import type { ExportBundleResponse, RenderStatusResponse, SEOMetadata, ThumbnailConcept, ShortIntro } from "../../types/render";
+import ShortFormTab from "./short-form/ShortFormTab";
 import MiniProgressBar from "../MiniProgressBar";
 import { usePollJob } from "../../hooks/usePollJob";
 
@@ -44,12 +45,28 @@ interface Props {
   projectTitle: string;
 
   onClose: () => void;
+
+  // Short-form
+  scriptId: string;
+  videoTitle: string;
+  segments: { name: string }[];
+  shortIntros: ShortIntro[] | null | undefined;
+  onShortIntrosChanged: () => void;
 }
 
-type Tab = "render" | "thumbnails" | "seo";
+type Tab = "render-long" | "render-short" | "thumbnails" | "seo";
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: "render", label: "Render" },
+const TABS: { key: Tab; label: string; description?: string }[] = [
+  {
+    key: "render-long",
+    label: "Render - Long Form",
+    description: "Renders the full long form video at 1920×1080 16:9 30FPS",
+  },
+  {
+    key: "render-short",
+    label: "Render - Short Form",
+    description: "Renders 8 short form videos, corresponding to the 8 segments. 1080x1920 9:16 30FPS",
+  },
   { key: "thumbnails", label: "Thumbnails" },
   { key: "seo", label: "SEO" },
 ];
@@ -232,10 +249,15 @@ export default function ExportPanel({
   seoTags,
   projectTitle,
   onClose,
+  scriptId,
+  videoTitle,
+  segments,
+  shortIntros,
+  onShortIntrosChanged,
 }: Props) {
   const youtubeRendering = youtubeStatus?.status === "running" || youtubeStatus?.status === "pending";
 
-  const [activeTab, setActiveTab] = useState<Tab>("render");
+  const [activeTab, setActiveTab] = useState<Tab>("render-long");
 
   // YouTube upload state (post-export)
   const [showUploadPanel, setShowUploadPanel] = useState(false);
@@ -306,7 +328,8 @@ export default function ExportPanel({
   };
 
   const tabBadges: Record<Tab, boolean> = {
-    render: !!youtubeUrl,
+    "render-long": !!youtubeUrl,
+    "render-short": false,
     thumbnails: thumbnails.length > 0,
     seo: !!seoMetadata,
   };
@@ -432,11 +455,16 @@ export default function ExportPanel({
             </button>
           ))}
         </div>
+        {TABS.find((t) => t.key === activeTab)?.description && (
+          <div className="px-6 py-2 text-xs text-neutral-500 border-b border-neutral-800/50 shrink-0">
+            {TABS.find((t) => t.key === activeTab)!.description}
+          </div>
+        )}
 
         {/* Tab Content */}
         <div className="p-6 overflow-y-auto flex-1">
-          {/* Render Tab */}
-          {activeTab === "render" && (
+          {/* Render - Long Form Tab */}
+          {activeTab === "render-long" && (
             <div className="space-y-8">
               {/* YouTube Export */}
               <section className="space-y-3">
@@ -482,6 +510,17 @@ export default function ExportPanel({
                 )}
               </section>
             </div>
+          )}
+
+          {/* Render - Short Form Tab */}
+          {activeTab === "render-short" && (
+            <ShortFormTab
+              scriptId={scriptId}
+              videoTitle={videoTitle}
+              segments={segments}
+              intros={shortIntros}
+              onIntrosChanged={onShortIntrosChanged}
+            />
           )}
 
           {/* Thumbnails Tab */}
