@@ -318,10 +318,14 @@ def _generate_segment_scenes(
         f"{_SEGMENT_SCENES_INSTRUCTIONS}"
     )
 
-    raw = chat(system_prompt, user_msg, model=model, max_tokens=16384, timeout=300.0, json_mode=True, task="script")
+    raw = chat(system_prompt, user_msg, model=model, max_tokens=32768, timeout=300.0, json_mode=True, task="script")
     text = strip_markdown_fences(raw)
 
     if not text.rstrip().endswith("]"):
+        logger.error(
+            "SEGMENTED: Segment %d/%d (%r) response was truncated — got %d chars, last 120: %r",
+            segment_index + 1, total, seg_name, len(text), text[-120:],
+        )
         raise RuntimeError(
             f"SEGMENTED: Segment {segment_index + 1}/{total} (\"{seg_name}\") "
             f"response was truncated. The segment may have too many scenes."
@@ -368,6 +372,10 @@ def _generate_segmented(
             scenes = _generate_segment_scenes(system_prompt, outline, i, model, trailing_context, media_source_constraint)
         except Exception as e:
             seg_name = seg_outline.get("name", f"Segment {i + 1}")
+            logger.exception(
+                "Segmented script generation failed on segment %d/%d (%r)",
+                i + 1, len(outline["segments"]), seg_name,
+            )
             raise RuntimeError(
                 f"Segmented script generation failed on segment {i + 1}/{len(outline['segments'])} "
                 f"(\"{seg_name}\"): {e}"
