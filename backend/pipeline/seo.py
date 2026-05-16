@@ -73,6 +73,16 @@ def _normalize_hashtags(hashtags: list[str]) -> list[str]:
         normalized.append(tag)
     return normalized[:10]
 
+def _validate_short_indices(result: ShortFormSEOMetadata, shorts: list[dict]) -> None:
+    """Require exactly one metadata item for each requested short."""
+    expected = sorted(int(short["index"]) for short in shorts)
+    returned = sorted(short.index for short in result.shorts)
+    if expected != returned:
+        raise RuntimeError(
+            "Short-form SEO generation returned indices "
+            f"{returned}; expected exactly {expected}"
+        )
+
 def build_short_form_seo_contexts(content: ScriptContent) -> list[dict]:
     """Build one transcript summary per rendered short."""
     shorts: list[dict] = []
@@ -174,21 +184,13 @@ def generate_short_form_seo(
     text = strip_markdown_fences(raw)
     data = json.loads(text)
     result = ShortFormSEOMetadata.model_validate(data)
-
-    expected = {int(short["index"]) for short in shorts}
-    found = {short.index for short in result.shorts}
-    if expected != found:
-        logger.warning(
-            "[%s] Short-form SEO returned indices %s, expected %s",
-            script_id or "no-id",
-            sorted(found),
-            sorted(expected),
-        )
+    _validate_short_indices(result, shorts)
 
     for short in result.shorts:
         short.title = short.title[:70].strip()
         short.tags = _trim_tags(short.tags)
         short.hashtags = _normalize_hashtags(short.hashtags)
+    result.shorts.sort(key=lambda short: short.index)
 
     logger.info(
         "[%s] Short-form SEO metadata generated for %d shorts",

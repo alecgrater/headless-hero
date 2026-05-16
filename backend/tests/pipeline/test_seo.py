@@ -1,7 +1,14 @@
 """Tests for SEO helper behavior."""
 
 from models.script import Scene, ScriptContent, Segment
-from pipeline.seo import build_short_form_seo_contexts
+import pytest
+
+from pipeline.seo import (
+    ShortFormSEO,
+    ShortFormSEOMetadata,
+    _validate_short_indices,
+    build_short_form_seo_contexts,
+)
 
 
 def _scene(scene_id: str, narration: str, duration: float, is_title_card: bool = False) -> Scene:
@@ -65,3 +72,26 @@ class TestBuildShortFormSeoContexts:
 
         assert shorts[0]["transcript"] == "Body scene."
         assert shorts[0]["duration_seconds"] == 6.0
+
+
+class TestValidateShortIndices:
+    def test_accepts_exact_indices(self):
+        result = ShortFormSEOMetadata(
+            shorts=[
+                ShortFormSEO(index=2, title="Two", description="", hashtags=[], tags=[]),
+                ShortFormSEO(index=1, title="One", description="", hashtags=[], tags=[]),
+            ],
+        )
+
+        _validate_short_indices(result, [{"index": 1}, {"index": 2}])
+
+    def test_rejects_missing_or_duplicate_indices(self):
+        result = ShortFormSEOMetadata(
+            shorts=[
+                ShortFormSEO(index=1, title="One", description="", hashtags=[], tags=[]),
+                ShortFormSEO(index=1, title="Duplicate", description="", hashtags=[], tags=[]),
+            ],
+        )
+
+        with pytest.raises(RuntimeError, match="expected exactly"):
+            _validate_short_indices(result, [{"index": 1}, {"index": 2}])
