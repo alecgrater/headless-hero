@@ -679,26 +679,6 @@ export async function renderScenePreview(scriptId: string, sceneId: string): Pro
 
 import type { ShortFormJobStatus } from "./types/render";
 
-/** Start background generation of intro voiceovers for all segments. */
-export async function generateShortIntrosAll(
-  scriptId: string,
-  force = false,
-): Promise<{ job_id: string }> {
-  const res = await api.post("/api/short-form/intros/generate-all", { script_id: scriptId, force });
-  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to start intro generation");
-  return res.data as { job_id: string };
-}
-
-/** Start background re-generation of a single segment intro voiceover. */
-export async function generateShortIntroOne(
-  scriptId: string,
-  segmentIdx: number,
-): Promise<{ job_id: string }> {
-  const res = await api.post("/api/short-form/intros/generate-one", { script_id: scriptId, segment_idx: segmentIdx });
-  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to start intro regen");
-  return res.data as { job_id: string };
-}
-
 /** Start background render of all short-form clips. */
 export async function renderShortAll(scriptId: string): Promise<{ job_id: string }> {
   const res = await api.post("/api/short-form/render/all", { script_id: scriptId });
