@@ -52,6 +52,7 @@ interface Props {
   segments: { name: string }[];
   shortIntros: ShortIntro[] | null | undefined;
   onShortIntrosChanged: () => void;
+  hookSceneCount?: number | null;
 
   initialTab?: Tab;
 }
@@ -256,6 +257,7 @@ export default function ExportPanel({
   segments,
   shortIntros,
   onShortIntrosChanged,
+  hookSceneCount,
   initialTab,
 }: Props) {
   const youtubeRendering = youtubeStatus?.status === "running" || youtubeStatus?.status === "pending";
@@ -523,6 +525,7 @@ export default function ExportPanel({
               segments={segments}
               intros={shortIntros}
               onIntrosChanged={onShortIntrosChanged}
+              hookSceneCount={hookSceneCount}
             />
           )}
 

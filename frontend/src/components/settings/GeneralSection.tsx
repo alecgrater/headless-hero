@@ -130,6 +130,17 @@ const LLM_TASKS: LlmTaskConfig[] = [
     openaiDefaultModel: "gpt-5-nano",
     ollamaDefaultModel: "qwen3:14b",
   },
+  {
+    id: "hook_detect",
+    label: "Hook detection (short-form)",
+    description: "Identifies the opening hook scenes in segment 1 so short #1 starts at the real content.",
+    providerKey: "HOOK_DETECT_LLM_PROVIDER",
+    modelKey: "HOOK_DETECT_MODEL",
+    defaultProvider: "ollama",
+    defaultModel: "anthropic.claude-haiku-4-5-20251001-v1:0",
+    openaiDefaultModel: "gpt-5-nano",
+    ollamaDefaultModel: "qwen3:14b",
+  },
 ];
 
 const OUTPUT_FORMATS = [

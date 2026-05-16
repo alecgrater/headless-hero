@@ -14,6 +14,7 @@ interface Props {
   segments: { name: string }[];
   intros: ShortIntro[] | null | undefined;
   onIntrosChanged: () => void; // refetch script after generation completes
+  hookSceneCount?: number | null;
 }
 
 function buildDisplayPreview(videoTitle: string, segmentName: string): string {
@@ -27,6 +28,7 @@ export default function ShortIntrosCard({
   segments,
   intros,
   onIntrosChanged,
+  hookSceneCount,
 }: Props) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<ShortFormJobStatus | null>(null);
@@ -87,10 +89,14 @@ export default function ShortIntrosCard({
       ? "text-amber-400"
       : "text-emerald-400"
     : "text-amber-400";
+  const hookSuffix =
+    allDone && hookSceneCount != null && hookSceneCount > 0
+      ? ` · skipping ${hookSceneCount} hook scene${hookSceneCount === 1 ? "" : "s"} from short #1`
+      : "";
   const statusLabel = allDone
     ? staleIndexes.length > 0
-      ? `${generatedCount}/${total} generated · ${staleIndexes.length} stale`
-      : `${total}/${total} generated`
+      ? `${generatedCount}/${total} generated · ${staleIndexes.length} stale${hookSuffix}`
+      : `${total}/${total} generated${hookSuffix}`
     : `${generatedCount}/${total} generated — required before render`;
 
   return (

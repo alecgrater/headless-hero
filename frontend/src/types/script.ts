@@ -99,6 +99,7 @@ export interface ScriptContent {
   gameplay_game_name?: string;
   // Short-form export
   short_intros?: import("./render").ShortIntro[] | null;
+  hook_scene_count?: number | null;  // Leading scenes in segment 0 that are hook teasers; skipped from short #1
 }
 
 export interface ScriptRead {

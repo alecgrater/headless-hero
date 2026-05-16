@@ -86,6 +86,14 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "default_anthropic_model": FAST_CLAUDE_MODEL,
         "default_openai_model": "gpt-5-nano",
     },
+    "hook_detect": {
+        "label": "Hook detection (short-form)",
+        "provider_key": "HOOK_DETECT_LLM_PROVIDER",
+        "model_key": "HOOK_DETECT_MODEL",
+        "default_provider": "ollama",
+        "default_anthropic_model": FAST_CLAUDE_MODEL,
+        "default_openai_model": "gpt-5-nano",
+    },
 }
 
 

@@ -112,12 +112,20 @@ def render_short_segment(
     intro = _find_intro(content, segment_idx)
     segment = content.segments[segment_idx]
 
-    # Build scene props (skip the long-form title-card scene if present — shorts use intro instead)
-    scene_props = []
-    for sc in segment.scenes:
-        if sc.is_title_card:
-            continue
-        scene_props.append(_scene_to_input_props(sc, script_id))
+    # Build scene list (skip the long-form title-card scene if present — shorts use intro instead)
+    scenes_to_render = [sc for sc in segment.scenes if not sc.is_title_card]
+
+    # For short #1 (segment 0), skip the leading "hook" scenes that tease the whole video.
+    # hook_scene_count comes from hook_detector.py; defaults to 0 (no skip).
+    if segment_idx == 0 and content.hook_scene_count:
+        skip = min(content.hook_scene_count, max(0, len(scenes_to_render) - 1))
+        if skip > 0:
+            logger.info(
+                "[%s] short #1: skipping %d hook scene(s)", script_id, skip,
+            )
+            scenes_to_render = scenes_to_render[skip:]
+
+    scene_props = [_scene_to_input_props(sc, script_id) for sc in scenes_to_render]
 
     props = {
         "intro": _build_intro_props(intro, script_id),

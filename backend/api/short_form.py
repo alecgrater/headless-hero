@@ -77,8 +77,11 @@ def _resolve_voice_id(session: Session, script_id: str) -> str:
     return brand.voice_id
 
 
-def _persist_intros(script_id: str, intros: list) -> None:
-    """Write a list of ShortIntros into the script's short_intros field."""
+def _persist_intros(script_id: str, intros: list, hook_scene_count: int | None = None) -> None:
+    """Write a list of ShortIntros into the script's short_intros field.
+
+    Optionally also update hook_scene_count.
+    """
     from database import engine
 
     with Session(engine) as session:
@@ -91,6 +94,9 @@ def _persist_intros(script_id: str, intros: list) -> None:
         for intro in intros:
             existing_map[intro.segment_idx] = intro
         content.short_intros = [existing_map[k] for k in sorted(existing_map.keys())]
+
+        if hook_scene_count is not None:
+            content.hook_scene_count = hook_scene_count
 
         record.script_json = content.model_dump_json()
         session.add(record)
@@ -119,7 +125,7 @@ def start_generate_all_intros(
         def on_progress(idx, n, display_text):
             update_job(
                 job.id,
-                progress=idx / max(1, n),
+                progress=(idx / max(1, n)) * 0.9,  # leave 10% for hook detection
                 current_step=f"Generating intro {idx + 1}/{n}...",
             )
 
@@ -130,7 +136,13 @@ def start_generate_all_intros(
             force=body.force,
             on_progress=on_progress,
         )
-        _persist_intros(body.script_id, intros)
+
+        # Detect hook scene count after intros so the persist call writes both
+        update_job(job.id, progress=0.92, current_step="Detecting hook scenes...")
+        from pipeline.hook_detector import detect_hook_scene_count
+        hook_count = detect_hook_scene_count(content, script_id=body.script_id)
+
+        _persist_intros(body.script_id, intros, hook_scene_count=hook_count)
         update_job(job.id, progress=1.0, current_step="Complete")
         return ""
 

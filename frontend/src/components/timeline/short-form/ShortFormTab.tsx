@@ -11,6 +11,7 @@ interface Props {
   intros: ShortIntro[] | null | undefined;
   onIntrosChanged: () => void;
   initialRenderedUrls?: Record<number, string | undefined>;
+  hookSceneCount?: number | null;
 }
 
 export default function ShortFormTab({
@@ -20,6 +21,7 @@ export default function ShortFormTab({
   intros,
   onIntrosChanged,
   initialRenderedUrls,
+  hookSceneCount,
 }: Props) {
   const introsRef = useRef<HTMLDivElement>(null);
   const [renderedUrls, setRenderedUrls] = useState<Record<number, string | undefined>>(
@@ -66,6 +68,7 @@ export default function ShortFormTab({
           segments={segments}
           intros={intros}
           onIntrosChanged={onIntrosChanged}
+          hookSceneCount={hookSceneCount}
         />
       </div>
 
