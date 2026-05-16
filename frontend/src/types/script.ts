@@ -97,6 +97,8 @@ export interface ScriptContent {
   gameplay_enabled?: boolean;
   stock_photo_enabled?: boolean;
   gameplay_game_name?: string;
+  // Short-form export
+  short_intros?: import("./render").ShortIntro[] | null;
 }
 
 export interface ScriptRead {

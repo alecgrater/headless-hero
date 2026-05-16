@@ -41,7 +41,7 @@ function extractErrorMessage(status: number, data: unknown): string {
 }
 
 /** Paths that should not trigger toast notifications on error. */
-const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/"];
+const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/", "/api/short-form/jobs/"];
 
 function shouldSilence(path: string): boolean {
   return SILENT_PATHS.some((p) => path.startsWith(p));
@@ -671,4 +671,54 @@ export async function renderScenePreview(scriptId: string, sceneId: string): Pro
   const res = await api.post("/api/render/preview-scene", { script_id: scriptId, scene_id: sceneId });
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Scene preview render failed");
   return res.data as { job_id: string };
+}
+
+// ---------------------------------------------------------------------------
+// Short-form export
+// ---------------------------------------------------------------------------
+
+import type { ShortFormJobStatus } from "./types/render";
+
+/** Start background generation of intro voiceovers for all segments. */
+export async function generateShortIntrosAll(
+  scriptId: string,
+  force = false,
+): Promise<{ job_id: string }> {
+  const res = await api.post("/api/short-form/intros/generate-all", { script_id: scriptId, force });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to start intro generation");
+  return res.data as { job_id: string };
+}
+
+/** Start background re-generation of a single segment intro voiceover. */
+export async function generateShortIntroOne(
+  scriptId: string,
+  segmentIdx: number,
+): Promise<{ job_id: string }> {
+  const res = await api.post("/api/short-form/intros/generate-one", { script_id: scriptId, segment_idx: segmentIdx });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to start intro regen");
+  return res.data as { job_id: string };
+}
+
+/** Start background render of all short-form clips. */
+export async function renderShortAll(scriptId: string): Promise<{ job_id: string }> {
+  const res = await api.post("/api/short-form/render/all", { script_id: scriptId });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to start render-all");
+  return res.data as { job_id: string };
+}
+
+/** Start background render of a single short-form clip. */
+export async function renderShortOne(
+  scriptId: string,
+  segmentIdx: number,
+): Promise<{ job_id: string }> {
+  const res = await api.post("/api/short-form/render/one", { script_id: scriptId, segment_idx: segmentIdx });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to start render-one");
+  return res.data as { job_id: string };
+}
+
+/** Poll a short-form background job for its current status. */
+export async function getShortFormJobStatus(jobId: string): Promise<ShortFormJobStatus> {
+  const res = await api.get(`/api/short-form/jobs/${jobId}`);
+  if (!res.ok) throw new Error(`Failed to fetch job status: ${res.status}`);
+  return res.data as ShortFormJobStatus;
 }
