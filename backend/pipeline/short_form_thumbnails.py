@@ -24,8 +24,7 @@ ProgressCallback = Callable[[float, str], None] | None
 SHORT_THUMB_WIDTH = 1080
 SHORT_THUMB_HEIGHT = 1920
 FOCAL_SIZE = 980
-FOCAL_TOP = 200
-TEXT_BOTTOM = 1500
+IMAGE_TEXT_GAP = 16
 TEXT_MAX_HEIGHT = 280
 TEXT_MAX_WIDTH = 920
 MAX_PNG_BYTES = 2 * 1024 * 1024
@@ -202,8 +201,17 @@ def generate_short_thumbnail(
     focal = _contain_resize(source, (FOCAL_SIZE, FOCAL_SIZE))
     focal = ImageEnhance.Color(focal).enhance(1.18)
     focal = ImageEnhance.Contrast(focal).enhance(1.08)
+
+    text = short_thumbnail_title(content, segment_idx)
+    measure_draw = ImageDraw.Draw(canvas)
+    font, lines, line_gap, line_bboxes = _fit_text(measure_draw, text, TEXT_MAX_WIDTH, TEXT_MAX_HEIGHT)
+    heights = [bbox[3] - bbox[1] for bbox in line_bboxes]
+    total_text_h = sum(heights) + line_gap * (len(lines) - 1)
+
+    comp_h = focal.height + IMAGE_TEXT_GAP + total_text_h
     focal_x = (SHORT_THUMB_WIDTH - focal.width) // 2
-    focal_y = FOCAL_TOP
+    focal_y = (SHORT_THUMB_HEIGHT - comp_h) // 2
+    text_y = focal_y + focal.height + IMAGE_TEXT_GAP
 
     shadow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     sd = ImageDraw.Draw(shadow)
@@ -222,17 +230,12 @@ def generate_short_thumbnail(
     if on_progress:
         on_progress(0.65, "Drawing title...")
 
-    text = short_thumbnail_title(content, segment_idx)
     draw = ImageDraw.Draw(canvas)
-    font, lines, line_gap, line_bboxes = _fit_text(draw, text, TEXT_MAX_WIDTH, TEXT_MAX_HEIGHT)
-    heights = [bbox[3] - bbox[1] for bbox in line_bboxes]
-    total_text_h = sum(heights) + line_gap * (len(lines) - 1)
-    text_y = TEXT_BOTTOM - total_text_h
 
     glow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow)
     gd.rounded_rectangle(
-        (54, text_y - 32, SHORT_THUMB_WIDTH - 54, TEXT_BOTTOM + 20),
+        (54, text_y - 12, SHORT_THUMB_WIDTH - 54, text_y + total_text_h + 12),
         radius=38,
         fill=(0, 0, 0, 170),
     )
