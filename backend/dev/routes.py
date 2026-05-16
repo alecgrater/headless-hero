@@ -17,6 +17,7 @@ from sqlmodel import Session, func, select, col
 
 from database import engine
 from dev.log_handler import DevLog, get_broadcast_queue
+from integrations.usage_tracker import estimate_local_llm_savings
 from models.api_usage import ApiUsage
 from pipeline import render_jobs
 from pipeline.render_jobs import cancel_all_jobs
@@ -391,14 +392,22 @@ async def usage_summary(days: int = Query(default=30, le=365)):
         for row in rows:
             cost = row.total_cost or 0.0
             grand_total += cost
+            input_tokens = row.total_input_tokens or 0
+            output_tokens = row.total_output_tokens or 0
             services.append({
                 "service": row.service,
                 "call_count": row.call_count,
-                "total_input_tokens": row.total_input_tokens or 0,
-                "total_output_tokens": row.total_output_tokens or 0,
+                "total_input_tokens": input_tokens,
+                "total_output_tokens": output_tokens,
                 "total_characters": row.total_characters or 0,
                 "total_images": row.total_images or 0,
                 "total_cost": round(cost, 4),
+                "savings_estimate": round(
+                    estimate_local_llm_savings(input_tokens, output_tokens)
+                    if row.service == "ollama"
+                    else 0.0,
+                    4,
+                ),
             })
 
         # Per-day cost breakdown (for chart)

@@ -116,6 +116,16 @@ def get_model_pricing(model: str) -> dict[str, float]:
 ANTHROPIC_INPUT_PER_TOKEN = _DEFAULT_ANTHROPIC_PRICING["input"]
 ANTHROPIC_OUTPUT_PER_TOKEN = _DEFAULT_ANTHROPIC_PRICING["output"]
 
+LOCAL_LLM_SAVINGS_PRICING = _MODEL_PRICING["gpt-5-mini"]
+
+
+def estimate_local_llm_savings(input_tokens: int, output_tokens: int) -> float:
+    """Estimate avoided hosted LLM cost using GPT-5 mini as the comparison model."""
+    return (
+        max(input_tokens, 0) * LOCAL_LLM_SAVINGS_PRICING["input"]
+        + max(output_tokens, 0) * LOCAL_LLM_SAVINGS_PRICING["output"]
+    )
+
 # Google Gemini 2.5 Flash image generation — per image
 GOOGLE_IMAGE_PER_CALL = 0.039  # $0.0390/image (Gemini 2.5 Flash image gen)
 

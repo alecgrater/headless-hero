@@ -1234,22 +1234,25 @@ async function executeSqlQuery() {
 const SERVICE_DISPLAY = {
   openai: { label: 'OpenAI', color: 'violet', icon: '◎', manageUrl: 'https://platform.openai.com/settings/organization/usage' },
   google_ai: { label: 'Google AI Studio', color: 'sky', icon: '🎨', manageUrl: 'https://aistudio.google.com/spend?project=headless-hand' },
-  replicate: { label: 'Replicate', color: 'amber', icon: '🖼️', manageUrl: 'https://replicate.com/users/alecgrater/settings/billing/manage-credit?next=/account/billing' },
-  elevenlabs: { label: 'ElevenLabs', color: 'emerald', icon: '🔊', manageUrl: 'https://elevenlabs.io/app/subscription/creative' },
+  elevenlabs: { label: 'ElevenLabs', color: 'amber', icon: '🔊', manageUrl: 'https://elevenlabs.io/app/subscription/creative' },
+  ollama: { label: 'Local LLM', color: 'emerald', icon: '▣', manageUrl: null, savings: true },
+  replicate: { label: 'Replicate', color: 'neutral', icon: '🖼️', manageUrl: 'https://replicate.com/users/alecgrater/settings/billing/manage-credit?next=/account/billing' },
 };
 
 const SERVICE_COLORS = {
   openai: 'bg-violet-600/30 text-violet-400 border-violet-600/30',
   google_ai: 'bg-sky-600/30 text-sky-400 border-sky-600/30',
-  replicate: 'bg-amber-600/30 text-amber-400 border-amber-600/30',
-  elevenlabs: 'bg-emerald-600/30 text-emerald-400 border-emerald-600/30',
+  elevenlabs: 'bg-amber-600/30 text-amber-400 border-amber-600/30',
+  ollama: 'bg-emerald-600/30 text-emerald-400 border-emerald-600/30',
+  replicate: 'bg-neutral-600/30 text-neutral-400 border-neutral-600/30',
 };
 
 const SERVICE_BAR_COLORS = {
   openai: 'bg-violet-500',
   google_ai: 'bg-sky-500',
-  replicate: 'bg-amber-500',
-  elevenlabs: 'bg-emerald-500',
+  elevenlabs: 'bg-amber-500',
+  ollama: 'bg-emerald-500',
+  replicate: 'bg-neutral-500',
 };
 
 async function fetchUsageSummary() {
@@ -1274,14 +1277,20 @@ function renderUsageSummary(data) {
 
   // Service cards
   const cards = document.getElementById('usageServiceCards');
-  const allServices = ['openai', 'google_ai', 'replicate', 'elevenlabs'];
+  const allServices = ['openai', 'google_ai', 'elevenlabs', 'ollama'];
   let html = '';
   for (const svcKey of allServices) {
     const svc = data.services.find(s => s.service === svcKey);
     const display = SERVICE_DISPLAY[svcKey] || { label: svcKey, color: 'neutral', icon: '📡' };
     const colorCls = SERVICE_COLORS[svcKey] || '';
     const cost = svc ? svc.total_cost : 0;
+    const savings = svc ? (svc.savings_estimate || 0) : 0;
     const calls = svc ? svc.call_count : 0;
+    const amount = display.savings ? savings : cost;
+    const amountSuffix = display.savings ? ' saved' : '';
+    const amountBadge = display.savings
+      ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 uppercase tracking-wide">saved</span>'
+      : '';
 
     let detail = '';
     if (svc) {
@@ -1300,7 +1309,10 @@ function renderUsageSummary(data) {
         <div class="border rounded-lg p-4 ${colorCls}">
           <div class="flex items-center justify-between mb-2">
             <span class="text-xs font-medium">${display.icon} ${display.label}</span>
-            <span class="text-lg font-semibold">$${cost.toFixed(2)}</span>
+            <span class="flex items-center gap-2">
+              ${amountBadge}
+              <span class="text-lg font-semibold">$${amount.toFixed(2)}${amountSuffix}</span>
+            </span>
           </div>
           <div class="text-[10px] opacity-70">${calls} calls</div>
           <div class="text-[10px] opacity-70 mt-1">${detail || 'No usage'}</div>

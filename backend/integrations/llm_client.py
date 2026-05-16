@@ -355,6 +355,7 @@ def _chat_ollama(
         model=qwen_model,
         input_tokens=input_tok,
         output_tokens=output_tok,
+        characters=len(system) + len(effective_user_message) + len(text),
         cost_estimate=0.0,
         script_id=script_id,
     )
