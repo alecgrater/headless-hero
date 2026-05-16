@@ -70,9 +70,12 @@ export interface ChapterMapData {
 
 // --- Scene / Composition types ---
 
+export type Orientation = "horizontal" | "vertical";
+
 export interface SceneInput {
   id: string;
   narration: string;
+  orientation?: Orientation;    // defaults to "horizontal" for backward compat with FullVideo
   duration_seconds: number;
   is_title_card: boolean;
   // Asset paths (absolute filesystem paths)
@@ -132,5 +135,25 @@ export interface FullVideoProps {
   video_fx?: VideoFX | null;
   chapter_map?: ChapterMapData | null;
   segment_timer?: SegmentTimerConfig | null;
+  subtitle_highlight?: SubtitleHighlightConfig | null;
+}
+
+// --- Short-form types ---
+
+export interface ShortIntroProps {
+  segment_idx: number;
+  display_text: string;        // "stripped title — segment name"
+  audio_path: string;           // absolute or http URL to short_intro_{idx}.mp3
+  duration_seconds: number;
+  word_timestamps: WordTimestamp[];
+  backdrop_image_path: string;  // path to title_card_{idx}.png (square)
+}
+
+export interface ShortFormVideoProps {
+  intro: ShortIntroProps;
+  scenes: SceneInput[];         // segment scenes only (no title card scene from long-form)
+  fps: number;
+  width: number;                // 1080
+  height: number;               // 1920
   subtitle_highlight?: SubtitleHighlightConfig | null;
 }
