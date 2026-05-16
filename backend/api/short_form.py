@@ -225,14 +225,14 @@ def start_render_all_shorts(
         def on_progress(p: float, msg: str):
             update_job(job.id, progress=p, current_step=msg)
 
-        urls = render_all_shorts(
+        results = render_all_shorts(
             script_id=body.script_id,
             content=content,
             project_title=project_title,
             on_progress=on_progress,
         )
-        for url in urls:
-            job.output_urls.append(url)
+        for _web_url, downloads_path in results:
+            job.output_urls.append(downloads_path)
         update_job(job.id, progress=1.0, current_step="All shorts rendered")
         return ""
 
@@ -250,7 +250,15 @@ def start_render_one_short(
     content = _load_content(session, body.script_id)
     if body.segment_idx < 0 or body.segment_idx >= len(content.segments):
         raise HTTPException(status_code=400, detail="segment_idx out of range")
-    _validate_intros_present(content)
+
+    # Only validate that THIS segment has an intro (not all segments)
+    intros = content.short_intros or []
+    intro_segments = {intro.segment_idx for intro in intros}
+    if body.segment_idx not in intro_segments:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing intro for segment {body.segment_idx}. Generate it first.",
+        )
 
     record = session.get(Script, body.script_id)
     project_title = record.topic_title or "Untitled"
@@ -265,16 +273,16 @@ def start_render_one_short(
         def on_progress(p: float, msg: str):
             update_job(job.id, progress=p, current_step=msg)
 
-        url = render_short_segment(
+        _web_url, downloads_path = render_short_segment(
             script_id=body.script_id,
             segment_idx=body.segment_idx,
             content=content,
             project_title=project_title,
             on_progress=on_progress,
         )
-        job.output_urls.append(url)
+        job.output_urls.append(downloads_path)
         update_job(job.id, progress=1.0, current_step="Short rendered")
-        return url
+        return downloads_path
 
     run_in_background(job.id, do_render)
     return JobResponse(job_id=job.id)

@@ -98,8 +98,13 @@ def render_short_segment(
     content: ScriptContent,
     project_title: str,
     on_progress: ProgressCallback = None,
-) -> str:
-    """Render a single short for one segment. Returns the web-relative path to the MP4."""
+) -> tuple[str, str]:
+    """Render a single short for one segment.
+
+    Returns a tuple of (web_url, downloads_path):
+    - web_url: web-relative path served via static mount (e.g. /static/projects/…)
+    - downloads_path: absolute filesystem path in ~/Downloads/{project name}/
+    """
     if segment_idx < 0 or segment_idx >= len(content.segments):
         raise RuntimeError(f"segment_idx {segment_idx} out of range (0..{len(content.segments) - 1})")
 
@@ -168,7 +173,7 @@ def render_short_segment(
         if on_progress:
             on_progress(0.95, "Copying to Downloads...")
         dest_name = _short_filename(project_title, n, total)
-        _copy_to_downloads(project_title, output_path, dest_name)
+        downloads_path = _copy_to_downloads(project_title, output_path, dest_name)
     finally:
         try:
             props_path.unlink()
@@ -182,7 +187,8 @@ def render_short_segment(
     if on_progress:
         on_progress(1.0, f"Short {n}/{total} complete")
 
-    return f"/static/projects/{script_id}/renders/shorts/{output_filename}"
+    web_url = f"/static/projects/{script_id}/renders/shorts/{output_filename}"
+    return web_url, downloads_path
 
 
 def render_all_shorts(
@@ -190,10 +196,13 @@ def render_all_shorts(
     content: ScriptContent,
     project_title: str,
     on_progress: ProgressCallback = None,
-) -> list[str]:
-    """Render every segment as a short, sequentially. Returns list of web-relative MP4 paths."""
+) -> list[tuple[str, str]]:
+    """Render every segment as a short, sequentially.
+
+    Returns list of (web_url, downloads_path) tuples, one per segment.
+    """
     total = len(content.segments)
-    results: list[str] = []
+    results: list[tuple[str, str]] = []
     for i in range(total):
         n = i + 1
 
@@ -203,13 +212,13 @@ def render_all_shorts(
                 global_p = ((_n - 1) + p) / total
                 on_progress(global_p, f"Short {_n}/{total}: {msg}")
 
-        url = render_short_segment(
+        web_url, downloads_path = render_short_segment(
             script_id=script_id,
             segment_idx=i,
             content=content,
             project_title=project_title,
             on_progress=seg_progress,
         )
-        results.append(url)
+        results.append((web_url, downloads_path))
 
     return results

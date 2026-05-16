@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  assetUrl,
   getShortFormJobStatus,
   renderShortAll,
   renderShortOne,
@@ -13,7 +12,12 @@ interface Props {
   scriptId: string;
   introsReady: boolean;
   segments: { name: string }[];
-  /** Map of segment_idx -> rendered short URL (web-relative path). */
+  /**
+   * Map of segment_idx -> path string.
+   * Values set by the disk probe are web-relative paths (/static/…).
+   * Values set after a render are absolute filesystem paths to the Downloads copy.
+   * Show in Finder is only shown for filesystem paths (not /static/… probe values).
+   */
   renderedUrls: Record<number, string | undefined>;
   onRenderComplete: (segmentIdx: number, url: string) => void;
   onRequestGenerateIntros: () => void;
@@ -147,9 +151,10 @@ export default function RenderShortsCard({
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-neutral-200 truncate">{seg.name}</p>
               </div>
-              {url && (
+              {/* Show in Finder: only for filesystem paths set after a render (not probe /static/ paths) */}
+              {url && !url.startsWith("/static/") && (
                 <button
-                  onClick={() => showInFolder(assetUrl(url))}
+                  onClick={() => showInFolder(url)}
                   className="text-xs px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 rounded text-neutral-300 transition-colors"
                 >
                   Show in Finder
