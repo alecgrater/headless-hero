@@ -286,9 +286,6 @@ export const EliOverlay: React.FC<Props> = ({
   const closedUrl = `${characterFramesBaseUrl}/${frameId}_closed.png`;
   const openUrl = `${characterFramesBaseUrl}/${frameId}_open.png`;
 
-  // Size used for any sub-element style calculations that depend on the outer overlay size
-  const overlaySize = orientation === "vertical" ? OVERLAY_SIZE_VERTICAL : OVERLAY_SIZE;
-
   return (
     <div
       style={{
