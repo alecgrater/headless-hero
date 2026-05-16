@@ -66,14 +66,6 @@ export interface ExportBundleResponse {
 
 // --- Short-form export ---
 
-export interface ShortIntro {
-  segment_idx: number;
-  display_text: string;
-  audio_url: string;
-  duration_seconds: number;
-  word_timestamps: { word: string; start_ms: number; end_ms: number }[];
-}
-
 export interface ShortFormJobStatus {
   job_id: string;
   status: "pending" | "running" | "completed" | "failed";
