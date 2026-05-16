@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { assetUrl } from "../../../api";
+import { getRenderedShortsStatus } from "../../../api";
 
 interface Props {
   scriptId: string;
@@ -17,17 +17,12 @@ export default function ShortFormStatusPill({
   useEffect(() => {
     let cancelled = false;
     async function probe() {
-      let count = 0;
-      for (let i = 0; i < segmentCount; i++) {
-        const path = `/static/projects/${scriptId}/renders/shorts/${i}.mp4`;
-        try {
-          const r = await fetch(assetUrl(path), { method: "HEAD" });
-          if (r.ok) count++;
-        } catch {
-          /* ignore */
-        }
+      try {
+        const status = await getRenderedShortsStatus(scriptId);
+        if (!cancelled) setRenderedCount(status.rendered_indices.length);
+      } catch {
+        if (!cancelled) setRenderedCount(0);
       }
-      if (!cancelled) setRenderedCount(count);
     }
     probe();
     return () => {

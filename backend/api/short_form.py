@@ -7,11 +7,14 @@ segment). See docs/superpowers/specs/2026-05-15-short-form-export-design.md.
 
 import json
 import logging
+import os
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
+from config import sanitize_filename
 from database import get_session
 from models.script import Script, ScriptContent
 from pipeline.render_jobs import (
@@ -44,6 +47,11 @@ class JobStatusResponse(BaseModel):
     elapsed_seconds: float | None = None
 
 
+class RenderedShortsResponse(BaseModel):
+    rendered_indices: list[int]
+    paths: dict[int, str]
+
+
 class RenderShortAllRequest(BaseModel):
     script_id: str
 
@@ -68,6 +76,17 @@ def _load_content(session: Session, script_id: str) -> ScriptContent:
     return ScriptContent.model_validate(json.loads(record.script_json))
 
 
+def _short_download_paths(project_title: str, total: int) -> dict[int, str]:
+    from pipeline.short_form_render import _short_filename
+
+    base = os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads")
+    folder = Path(base) / sanitize_filename(project_title)
+    return {
+        idx: str(folder / _short_filename(project_title, idx + 1, total))
+        for idx in range(total)
+    }
+
+
 # --- Endpoints ---
 
 
@@ -78,6 +97,22 @@ def job_status(job_id: str):
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return JobStatusResponse(**job.to_dict())
+
+
+@router.get("/rendered", response_model=RenderedShortsResponse)
+def rendered_shorts(script_id: str, session: Session = Depends(get_session)):
+    """Return shorts that exist in the final Downloads destination folder."""
+    content = _load_content(session, script_id)
+    record = session.get(Script, script_id)
+    project_title = record.topic_title or "Untitled"
+    expected_paths = _short_download_paths(project_title, len(content.segments))
+    paths = {
+        idx: path for idx, path in expected_paths.items() if Path(path).is_file()
+    }
+    return RenderedShortsResponse(
+        rendered_indices=sorted(paths.keys()),
+        paths=paths,
+    )
 
 
 @router.post("/render/all", response_model=JobResponse)

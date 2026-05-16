@@ -19,6 +19,7 @@ interface Props {
    * Show in Finder is only shown for filesystem paths (not /static/… probe values).
    */
   renderedUrls: Record<number, string | undefined>;
+  downloadsUrls: Record<number, string | undefined>;
   onRefreshRendered: () => Promise<Record<number, string | undefined>>;
   onRenderComplete: (segmentIdx: number, url: string) => void;
 }
@@ -33,6 +34,7 @@ export default function RenderShortsCard({
   scriptId,
   segments,
   renderedUrls,
+  downloadsUrls,
   onRefreshRendered,
   onRenderComplete,
 }: Props) {
@@ -185,6 +187,7 @@ export default function RenderShortsCard({
       <ul className="divide-y divide-neutral-800">
         {segments.map((seg, idx) => {
           const url = renderedUrls[idx];
+          const downloadsUrl = downloadsUrls[idx];
           const segBusy = busySegment === idx;
           return (
             <li key={idx} className="py-2 flex items-center gap-3">
@@ -192,9 +195,9 @@ export default function RenderShortsCard({
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-neutral-200 truncate">{seg.name}</p>
               </div>
-              {url && !url.startsWith("/static/") && (
+              {downloadsUrl && (
                 <button
-                  onClick={() => showInFolder(url)}
+                  onClick={() => showInFolder(downloadsUrl)}
                   className="text-xs px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 rounded text-neutral-300 transition-colors"
                 >
                   Show in Finder

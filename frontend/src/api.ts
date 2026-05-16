@@ -41,7 +41,7 @@ function extractErrorMessage(status: number, data: unknown): string {
 }
 
 /** Paths that should not trigger toast notifications on error. */
-const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/", "/api/short-form/jobs/"];
+const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/", "/api/short-form/jobs/", "/api/short-form/rendered"];
 
 function shouldSilence(path: string): boolean {
   return SILENT_PATHS.some((p) => path.startsWith(p));
@@ -678,6 +678,18 @@ export async function renderScenePreview(scriptId: string, sceneId: string): Pro
 // ---------------------------------------------------------------------------
 
 import type { ShortFormJobStatus } from "./types/render";
+
+export interface RenderedShortsStatus {
+  rendered_indices: number[];
+  paths: Record<number, string>;
+}
+
+/** Check which short-form clips exist in the final Downloads destination folder. */
+export async function getRenderedShortsStatus(scriptId: string): Promise<RenderedShortsStatus> {
+  const res = await api.get(`/api/short-form/rendered?script_id=${encodeURIComponent(scriptId)}`);
+  if (!res.ok) throw new Error(`Failed to fetch rendered shorts: ${res.status}`);
+  return res.data as RenderedShortsStatus;
+}
 
 /** Start background render of all short-form clips. */
 export async function renderShortAll(scriptId: string): Promise<{ job_id: string }> {
