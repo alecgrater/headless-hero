@@ -58,23 +58,19 @@ export const Root: React.FC = () => {
         height={1920}
         durationInFrames={300}
         defaultProps={{
-          intro: {
-            segment_idx: 0,
-            display_text: "",
-            audio_path: "",
-            duration_seconds: 3,
-            word_timestamps: [],
-            backdrop_image_path: "",
-          },
           scenes: [],
+          stripped_title: "",
+          segment_name: "",
           fps: 30,
           width: 1080,
           height: 1920,
         }}
         calculateMetadata={({ props }) => {
           const p = props as unknown as ShortFormVideoProps;
-          const sceneSeconds = p.scenes.reduce((s, sc) => s + sc.duration_seconds, 0);
-          const totalSeconds = p.intro.duration_seconds + sceneSeconds;
+          const totalSeconds = p.scenes.reduce(
+            (acc, s) => acc + (s.duration_seconds ?? 0),
+            0,
+          );
           return {
             durationInFrames: Math.max(1, Math.ceil(totalSeconds * p.fps)),
             fps: p.fps,
