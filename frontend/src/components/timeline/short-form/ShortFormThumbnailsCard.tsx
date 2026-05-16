@@ -29,6 +29,7 @@ function segmentLabel(segment: { name: string }, idx: number): string {
 
 export default function ShortFormThumbnailsCard({ scriptId, segments }: Props) {
   const [thumbnailUrls, setThumbnailUrls] = useState<Record<number, string | undefined>>({});
+  const [thumbnailVersions, setThumbnailVersions] = useState<Record<number, number>>({});
   const [exportedPaths, setExportedPaths] = useState<Record<number, string | undefined>>({});
   const [busy, setBusy] = useState(false);
   const [busySegment, setBusySegment] = useState<number | null>(null);
@@ -77,20 +78,26 @@ export default function ShortFormThumbnailsCard({ scriptId, segments }: Props) {
         setBusySegment(null);
         setCurrentOp((op) => {
           if (s.status === "completed") {
+            const ts = Date.now();
             if (op?.type === "all") {
               (s.output_urls ?? []).forEach((url, i) => {
                 setThumbnailUrls((prev) => ({ ...prev, [i]: url }));
+                setThumbnailVersions((prev) => ({ ...prev, [i]: ts }));
               });
             } else if (op?.type === "batch") {
               (s.output_urls ?? []).forEach((url, i) => {
                 const segmentIdx = op.indices[i];
                 if (segmentIdx != null) {
                   setThumbnailUrls((prev) => ({ ...prev, [segmentIdx]: url }));
+                  setThumbnailVersions((prev) => ({ ...prev, [segmentIdx]: ts }));
                 }
               });
             } else if (op?.type === "one") {
               const url = s.output_urls?.[0];
-              if (url) setThumbnailUrls((prev) => ({ ...prev, [op.index]: url }));
+              if (url) {
+                setThumbnailUrls((prev) => ({ ...prev, [op.index]: url }));
+                setThumbnailVersions((prev) => ({ ...prev, [op.index]: ts }));
+              }
             }
           }
           return null;
@@ -231,6 +238,8 @@ export default function ShortFormThumbnailsCard({ scriptId, segments }: Props) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {segments.map((segment, idx) => {
           const url = thumbnailUrls[idx];
+          const version = thumbnailVersions[idx];
+          const imgSrc = url ? (version ? `${assetUrl(url)}?v=${version}` : assetUrl(url)) : null;
           const exportedPath = exportedPaths[idx];
           const segBusy = busySegment === idx;
           return (
@@ -241,7 +250,7 @@ export default function ShortFormThumbnailsCard({ scriptId, segments }: Props) {
               <div className="aspect-[9/16] bg-neutral-900">
                 {url ? (
                   <img
-                    src={assetUrl(url)}
+                    src={imgSrc!}
                     alt={segmentLabel(segment, idx)}
                     className="w-full h-full object-cover"
                   />
