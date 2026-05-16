@@ -18,9 +18,9 @@ class VideoIdea(BaseModel):
     description: str
     keywords: list[str]
 
-    @field_validator("segments_est")
+    @field_validator("segments_est", mode="before")
     @classmethod
-    def cap_segments(cls, v: int) -> int:
+    def coerce_segments(cls, v: object) -> int:
         return SEGMENT_COUNT
 
 def generate_ideas(
