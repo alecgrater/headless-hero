@@ -51,7 +51,7 @@ BALANCED_CLAUDE_MODEL = "anthropic.claude-sonnet-4-6"
 FAST_CLAUDE_MODEL = "anthropic.claude-haiku-4-5-20251001-v1:0"
 
 # Default OpenAI models for routed LLM tasks
-DEFAULT_OPENAI_MODEL = "gpt-5.2"
+DEFAULT_OPENAI_MODEL = "gpt-5.5"
 BALANCED_OPENAI_MODEL = "gpt-5-mini"
 FAST_OPENAI_MODEL = "gpt-5-nano"
 

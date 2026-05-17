@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from database import get_session
-from config import DEFAULT_CLAUDE_MODEL
+from config import DEFAULT_OPENAI_MODEL
 from integrations.llm_client import ALLOWED_PROVIDERS, LLM_TASKS
 from models.settings import AppSetting
 
@@ -78,7 +78,7 @@ for _task_config in LLM_TASKS.values():
 # Default values for settings that have sensible defaults
 _DEFAULTS: dict[str, str] = {
     "IMAGE_RATE_LIMIT_MS": "10000",  # 6 req/min to stay under free-tier limits
-    "SCRIPT_MODEL": DEFAULT_CLAUDE_MODEL,
+    "SCRIPT_MODEL": DEFAULT_OPENAI_MODEL,
     "AUDIO_FILTER_HIGHPASS": "true",
     "AUDIO_FILTER_NOISE_REDUCTION": "true",
     "AUDIO_FILTER_COMPRESSOR": "true",

@@ -65,6 +65,13 @@ _MODEL_PRICING: dict[str, dict[str, float]] = {
         "output": 4.0 / 1_000_000,
         "cache_read": 0.08 / 1_000_000,
     },
+    "gpt-5.5": {
+        # NOTE: Provisional pricing — mirrors gpt-5.2 until OpenAI's published
+        # gpt-5.5 rate card is confirmed. Update with real per-token rates.
+        "input": 1.75 / 1_000_000,
+        "output": 14.0 / 1_000_000,
+        "cache_read": 0.175 / 1_000_000,
+    },
     "gpt-5.2": {
         "input": 1.75 / 1_000_000,
         "output": 14.0 / 1_000_000,

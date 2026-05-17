@@ -48,9 +48,9 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "Full scripts, segmented generation, scene rewrites, cold-open variants, narration tightening.",
     providerKey: "SCRIPT_LLM_PROVIDER",
     modelKey: "SCRIPT_MODEL",
-    defaultProvider: "anthropic",
+    defaultProvider: "openai",
     defaultModel: DEFAULT_MODEL,
-    openaiDefaultModel: "gpt-5.2",
+    openaiDefaultModel: "gpt-5.5",
     ollamaDefaultModel: "qwen3:14b",
   },
   {
@@ -103,9 +103,9 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "Retention scoring and hook rewrite suggestions.",
     providerKey: "HOOK_LLM_PROVIDER",
     modelKey: "HOOK_MODEL",
-    defaultProvider: "ollama",
+    defaultProvider: "openai",
     defaultModel: "anthropic.claude-haiku-4-5-20251001-v1:0",
-    openaiDefaultModel: "gpt-5-nano",
+    openaiDefaultModel: "gpt-5.5",
     ollamaDefaultModel: "qwen3:14b",
   },
   {
