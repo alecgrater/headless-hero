@@ -740,6 +740,12 @@ export interface RenderedShortsStatus {
   paths: Record<number, string>;
 }
 
+export interface RenderedLongformStatus {
+  rendered: boolean;
+  path?: string | null;
+  url?: string | null;
+}
+
 export interface ShortFormThumbnailsStatus {
   generated_indices: number[];
   paths: Record<number, string>;
@@ -756,6 +762,13 @@ export async function getRenderedShortsStatus(scriptId: string): Promise<Rendere
   const res = await api.get(`/api/short-form/rendered?script_id=${encodeURIComponent(scriptId)}`);
   if (!res.ok) throw new Error(`Failed to fetch rendered shorts: ${res.status}`);
   return res.data as RenderedShortsStatus;
+}
+
+/** Check whether a long-form YouTube render exists in the project cache or export folder. */
+export async function getRenderedLongformStatus(scriptId: string): Promise<RenderedLongformStatus> {
+  const res = await api.get(`/api/render/rendered-longform?script_id=${encodeURIComponent(scriptId)}`);
+  if (!res.ok) throw new Error(`Failed to fetch rendered long-form video: ${res.status}`);
+  return res.data as RenderedLongformStatus;
 }
 
 /** Start background render of all short-form clips. */

@@ -70,6 +70,11 @@ class ExportBundleResponse(BaseModel):
     folder_path: str
     files: list[str]
 
+class RenderedLongformResponse(BaseModel):
+    rendered: bool
+    path: str | None = None
+    url: str | None = None
+
 class ExportTestRequest(BaseModel):
     script_id: str
     regen_images: bool = False
@@ -148,6 +153,26 @@ def _format_shortform_seo_markdown(item: dict) -> str:
     if tags:
         lines.extend(["", "## YouTube Tags", "", ", ".join(tags)])
     return "\n".join(lines).strip() + "\n"
+
+
+def _find_rendered_longform(script_id: str, project_title: str) -> tuple[str | None, str | None]:
+    """Return an existing long-form render path and optional web URL."""
+    renders_dir = DATA_DIR / "projects" / script_id / "renders"
+    if renders_dir.exists():
+        candidates = sorted(
+            renders_dir.glob("full_youtube*.mp4"),
+            key=lambda path: (path.name != "full_youtube.mp4", path.name),
+        )
+        for mp4 in candidates:
+            if mp4.is_file():
+                return str(mp4), f"/static/projects/{script_id}/renders/{mp4.name}"
+
+    folder = project_downloads_folder(project_title, create=False)
+    exported = folder / longform_filename("Video", project_title, ".mp4")
+    if exported.is_file():
+        return str(exported), None
+
+    return None, None
 
 # --- ExportContext dataclass ---
 
@@ -557,6 +582,23 @@ def render_estimate(
     estimated = estimate_render_time(scene_count, total_audio_duration)
     return RenderEstimateResponse(estimated_seconds=estimated)
 
+
+@router.get("/rendered-longform", response_model=RenderedLongformResponse)
+def rendered_longform(script_id: str, session: Session = Depends(get_session)):
+    """Return whether a long-form video already exists in cache or export folder."""
+    record = session.get(Script, script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    project_title = record.topic_title or "Untitled"
+    path, url = _find_rendered_longform(script_id, project_title)
+    return RenderedLongformResponse(
+        rendered=path is not None,
+        path=path,
+        url=url,
+    )
+
+
 @router.post("/export-audio", response_model=ExportAudioResponse)
 def export_audio(body: ExportAudioRequest, session: Session = Depends(get_session)):
     """Concatenate all scene audio into a single MP3 (synchronous)."""
@@ -587,17 +629,16 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
     from pipeline.catalog import write_script_id
     write_script_id(folder, body.script_id)
 
-    project_dir = DATA_DIR / "projects" / body.script_id
-    renders_dir = project_dir / "renders"
+    renders_dir = DATA_DIR / "projects" / body.script_id / "renders"
     copied_files: list[str] = []
 
-    # Video — find full_youtube*.mp4
-    if renders_dir.exists():
-        for mp4 in sorted(renders_dir.glob("full_youtube*.mp4")):
-            dest = folder / longform_filename("Video", project_title, ".mp4")
-            shutil.copy2(str(mp4), dest)
-            copied_files.append(dest.name)
-            break
+    # Video — copy cached render, or acknowledge an already exported file.
+    longform_path, _url = _find_rendered_longform(body.script_id, project_title)
+    if longform_path:
+        dest = folder / longform_filename("Video", project_title, ".mp4")
+        if str(dest) != longform_path:
+            shutil.copy2(longform_path, dest)
+        copied_files.append(dest.name)
 
     # Audio — export full narration as MP3 when source scene audio exists
     try:

@@ -78,6 +78,12 @@ export interface RenderEstimateResponse {
   estimated_seconds: number;
 }
 
+export interface RenderedLongformResponse {
+  rendered: boolean;
+  path?: string | null;
+  url?: string | null;
+}
+
 // --- Export Bundle ---
 
 export interface ExportBundleResponse {

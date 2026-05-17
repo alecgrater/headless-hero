@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import api, {
   exportShortFormThumbnails,
+  getRenderedLongformStatus,
   getRenderedShortsStatus,
   pollRenderJob,
   pollShortFormJob,
@@ -278,19 +279,33 @@ export function useRenderState(
     }
   }, [scriptId, startExportBundleProgress, endExportBundleProgress]);
 
+  const ensureLongformRendered = useCallback(
+    async (renderingLabel: string): Promise<boolean> => {
+      if (youtubeUrl) return true;
+
+      const rendered = await getRenderedLongformStatus(scriptId);
+      if (rendered.rendered) {
+        if (rendered.url) setYoutubeUrl(rendered.url);
+        return true;
+      }
+
+      setExportStatus({ label: renderingLabel, progress: 0 });
+      const jobId = await startYoutubeRender();
+      if (!jobId) return false;
+      await pollRenderJob(jobId);
+      return true;
+    },
+    [scriptId, youtubeUrl, startYoutubeRender],
+  );
+
   const smartExportBundle = useCallback(
     async (onComplete?: (result: ExportBundleResponse) => void) => {
       if (exportPhase) return;
       setExportPhase("rendering");
-      setExportStatus({ label: youtubeUrl ? "Preparing export bundle..." : "Rendering long-form YouTube video...", progress: 0 });
+      setExportStatus({ label: "Checking long-form video export...", progress: 0 });
       try {
-        // Step 1: render video if not already rendered
-        if (!youtubeUrl) {
-          const jobId = await startYoutubeRender();
-          if (!jobId) return;
-          // pollRenderJob awaits completion while usePollJob updates UI in parallel
-          await pollRenderJob(jobId);
-        }
+        const longformReady = await ensureLongformRendered("Rendering long-form YouTube video...");
+        if (!longformReady) return;
 
         // Step 2: export bundle to the configured export folder
         setExportPhase("exporting");
@@ -317,7 +332,7 @@ export function useRenderState(
         setExportStatus(null);
       }
     },
-    [scriptId, youtubeUrl, startYoutubeRender, exportPhase, startExportBundleProgress, endExportBundleProgress],
+    [scriptId, ensureLongformRendered, exportPhase, startExportBundleProgress, endExportBundleProgress],
   );
 
   const yoloRender = useCallback(
@@ -327,12 +342,9 @@ export function useRenderState(
       setExportStatus(null);
       try {
         setExportPhase("rendering");
-        setExportStatus({ label: youtubeUrl ? "Long-form video already rendered; checking short-form deliverables..." : "Rendering long-form YouTube video...", progress: 0 });
-        if (!youtubeUrl) {
-          const jobId = await startYoutubeRender();
-          if (!jobId) return;
-          await pollRenderJob(jobId);
-        }
+        setExportStatus({ label: "Checking long-form video export...", progress: 0 });
+        const longformReady = await ensureLongformRendered("Rendering long-form YouTube video...");
+        if (!longformReady) return;
 
         setExportPhase("exporting");
         setExportBundleLoading(true);
@@ -390,7 +402,7 @@ export function useRenderState(
         setExportStatus(null);
       }
     },
-    [scriptId, youtubeUrl, startYoutubeRender, exportPhase, startExportBundleProgress, endExportBundleProgress],
+    [scriptId, ensureLongformRendered, exportPhase, startExportBundleProgress, endExportBundleProgress],
   );
 
   return {
