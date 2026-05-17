@@ -316,8 +316,7 @@ interface GeneralSectionProps {
 }
 
 export default function GeneralSection({ panel }: GeneralSectionProps) {
-  const [downloadsDir, setDownloadsDir] = useState("");
-  const [exportFolder, setExportFolder] = useState("");
+  const [exportsDir, setExportsDir] = useState("");
   const [imageProvider, setImageProvider] = useState("google");
   const [promptUpsampling, setPromptUpsampling] = useState("true");
   const [replicateModel, setReplicateModel] = useState("black-forest-labs/flux-1.1-pro");
@@ -330,8 +329,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
   const [anthropicKeyConfigured, setAnthropicKeyConfigured] = useState(false);
   const [openaiKeyConfigured, setOpenaiKeyConfigured] = useState(false);
   const [taskRoutes, setTaskRoutes] = useState<Record<string, TaskRoute>>(initialTaskRoutes);
-  const [originalDownloads, setOriginalDownloads] = useState("");
-  const [originalExportFolder, setOriginalExportFolder] = useState("");
+  const [originalExportsDir, setOriginalExportsDir] = useState("");
   const [originalProvider, setOriginalProvider] = useState("google");
   const [originalUpsampling, setOriginalUpsampling] = useState("true");
   const [originalModel, setOriginalModel] = useState("black-forest-labs/flux-1.1-pro");
@@ -345,12 +343,9 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
     api.get("/api/settings/keys").then((res) => {
       if (res.ok) {
         const data = res.data as Record<string, KeyInfo>;
-        const dlVal = data.DOWNLOADS_DIR?.masked ?? "";
-        setDownloadsDir(dlVal);
-        setOriginalDownloads(dlVal);
-        const efVal = data.EXPORT_FOLDER?.masked ?? "";
-        setExportFolder(efVal);
-        setOriginalExportFolder(efVal);
+        const exportVal = data.DOWNLOADS_DIR?.masked ?? "~/Headless Hero Videos";
+        setExportsDir(exportVal);
+        setOriginalExportsDir(exportVal);
         const provVal = data.IMAGE_PROVIDER?.masked || "google";
         setImageProvider(provVal);
         setOriginalProvider(provVal);
@@ -408,8 +403,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
       }),
     );
     const res = await api.put("/api/settings/keys", {
-      DOWNLOADS_DIR: downloadsDir.trim(),
-      EXPORT_FOLDER: exportFolder.trim(),
+      DOWNLOADS_DIR: exportsDir.trim(),
       IMAGE_PROVIDER: imageProvider,
       REPLICATE_MODEL: replicateModel,
       REPLICATE_PROMPT_UPSAMPLING: promptUpsampling,
@@ -423,8 +417,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
 
     if (res.ok) {
       showToast("Settings saved", "success");
-      setOriginalDownloads(downloadsDir.trim());
-      setOriginalExportFolder(exportFolder.trim());
+      setOriginalExportsDir(exportsDir.trim());
       setOriginalProvider(imageProvider);
       setOriginalModel(replicateModel);
       setOriginalUpsampling(promptUpsampling);
@@ -519,8 +512,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
   });
 
   const hasChanges =
-    downloadsDir.trim() !== originalDownloads ||
-    exportFolder.trim() !== originalExportFolder ||
+    exportsDir.trim() !== originalExportsDir ||
     imageProvider !== originalProvider ||
     replicateModel !== originalModel ||
     promptUpsampling !== originalUpsampling ||
@@ -547,57 +539,25 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
           {panel === "storage" && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-2">
             <div>
-              <h3 className="text-sm font-medium text-neutral-100">Downloads Directory</h3>
+              <h3 className="text-sm font-medium text-neutral-100">Exports</h3>
               <p className="text-xs text-neutral-500">
-                Rendered videos, audio, and thumbnails are copied here for easy access.
+                Final project folders, upload-suite checks, rendered videos, thumbnails, and SEO files live here.
               </p>
             </div>
             <div className="flex gap-2">
               <input
                 type="text"
-                value={downloadsDir}
-                onChange={(e) => setDownloadsDir(e.target.value)}
-                placeholder="~/Downloads"
+                value={exportsDir}
+                onChange={(e) => setExportsDir(e.target.value)}
+                placeholder="~/Headless Hero Videos"
                 className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors font-mono"
               />
               {window.api?.selectFolder && (
                 <button
                   type="button"
                   onClick={async () => {
-                    const result = await window.api.selectFolder!("Select Downloads Directory", downloadsDir || undefined);
-                    if (!result.canceled && result.path) setDownloadsDir(result.path);
-                  }}
-                  className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-300 hover:text-neutral-100 hover:border-neutral-600 transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
-                >
-                  Browse…
-                </button>
-              )}
-            </div>
-          </div>
-          )}
-
-          {panel === "storage" && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-2">
-            <div>
-              <h3 className="text-sm font-medium text-neutral-100">Export Folder</h3>
-              <p className="text-xs text-neutral-500">
-                Where YOLO Export and YOLO Render batch folders are saved. Defaults to iCloud headless-hero media/Videos.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={exportFolder}
-                onChange={(e) => setExportFolder(e.target.value)}
-                placeholder="~/Library/Mobile Documents/.../headless-hero media/Videos"
-                className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors font-mono"
-              />
-              {window.api?.selectFolder && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const result = await window.api.selectFolder!("Select Export Folder", exportFolder || undefined);
-                    if (!result.canceled && result.path) setExportFolder(result.path);
+                    const result = await window.api.selectFolder!("Select Exports Directory", exportsDir || undefined);
+                    if (!result.canceled && result.path) setExportsDir(result.path);
                   }}
                   className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-300 hover:text-neutral-100 hover:border-neutral-600 transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
                 >

@@ -207,7 +207,7 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, onStatusCh
               onClick={() => showInFolder(exportFolder)}
               className="text-sm px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-lg font-medium text-neutral-300 transition-colors"
             >
-              Show Export Folder
+              Show Exports
             </button>
           )}
           <button

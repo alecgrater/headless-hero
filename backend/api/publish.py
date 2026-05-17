@@ -17,7 +17,7 @@ from config import DATA_DIR
 from models.credential import PlatformCredential, PlatformCredentialRead
 from models.publish import PublishRecord, PublishRecordRead
 from models.script import Script, ScriptContent
-from pipeline.export_paths import longform_filename, project_downloads_folder
+from pipeline.export_paths import has_export_label, longform_filename, project_downloads_folder
 from pipeline.publishing import YOUTUBE_RECONNECT_MESSAGE, is_reauth_required_error, publish_short_to_platform, publish_to_youtube
 from pipeline.render_jobs import UserFacingJobError, create_job, get_job, run_in_background, update_job
 
@@ -185,9 +185,21 @@ def _rendered_longform_path(script_id: str, project_title: str) -> Path:
     if canonical_render.is_file():
         return canonical_render
 
-    exported_path = project_downloads_folder(project_title, create=False) / longform_filename("Video", project_title, ".mp4")
+    export_folder = project_downloads_folder(project_title, create=False)
+    exported_path = export_folder / longform_filename("Video", project_title, ".mp4")
     if exported_path.is_file():
         return exported_path
+    if export_folder.is_dir():
+        exported_videos = sorted(
+            (
+                path
+                for path in export_folder.glob("*.mp4")
+                if path.is_file() and has_export_label(path.name, "Longform", "Video")
+            ),
+            key=lambda path: path.name,
+        )
+        if exported_videos:
+            return exported_videos[0]
 
     raise HTTPException(status_code=400, detail="Render YouTube Video first before uploading to YouTube")
 

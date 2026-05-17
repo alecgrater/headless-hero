@@ -54,22 +54,19 @@ def test_seo_markdown_filename_formats():
     )
 
 
-def test_project_downloads_folder_uses_configured_base(tmp_path, monkeypatch):
-    monkeypatch.setenv("EXPORT_FOLDER", str(tmp_path))
-    monkeypatch.delenv("DOWNLOADS_DIR", raising=False)
+def test_project_downloads_folder_uses_configured_exports_base(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path))
     folder = project_downloads_folder("Project Name")
 
     assert folder == Path(tmp_path / "[project] Project Name")
     assert folder.is_dir()
 
 
-def test_project_downloads_folder_prefers_downloads_dir(tmp_path, monkeypatch):
-    downloads_dir = tmp_path / "Downloads"
-    export_dir = tmp_path / "Exports"
-    monkeypatch.setenv("DOWNLOADS_DIR", str(downloads_dir))
-    monkeypatch.setenv("EXPORT_FOLDER", str(export_dir))
+def test_project_downloads_folder_uses_exports_setting(tmp_path, monkeypatch):
+    exports_dir = tmp_path / "Exports"
+    monkeypatch.setenv("DOWNLOADS_DIR", str(exports_dir))
 
     folder = project_downloads_folder("Project Name")
 
-    assert folder == Path(downloads_dir / "[project] Project Name")
+    assert folder == Path(exports_dir / "[project] Project Name")
     assert folder.is_dir()

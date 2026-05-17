@@ -6,7 +6,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 def test_find_rendered_longform_prefers_project_cache(tmp_path, monkeypatch):
     monkeypatch.setattr(render_api, "DATA_DIR", tmp_path)
-    monkeypatch.setenv("EXPORT_FOLDER", str(tmp_path / "Exports"))
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
 
     script_id = "script-123"
     cache = tmp_path / "projects" / script_id / "renders" / "full_youtube.mp4"
@@ -21,7 +21,7 @@ def test_find_rendered_longform_prefers_project_cache(tmp_path, monkeypatch):
 
 def test_find_rendered_longform_detects_export_folder_video(tmp_path, monkeypatch):
     monkeypatch.setattr(render_api, "DATA_DIR", tmp_path)
-    monkeypatch.setenv("EXPORT_FOLDER", str(tmp_path / "Exports"))
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
 
     folder = project_downloads_folder("Project Name")
     exported = folder / longform_filename("Video", "Project Name", ".mp4")
@@ -35,7 +35,7 @@ def test_find_rendered_longform_detects_export_folder_video(tmp_path, monkeypatc
 
 def test_find_rendered_longform_returns_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(render_api, "DATA_DIR", tmp_path)
-    monkeypatch.setenv("EXPORT_FOLDER", str(tmp_path / "Exports"))
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
 
     path, url = render_api._find_rendered_longform("script-123", "Project Name")
 
@@ -82,7 +82,7 @@ def test_format_shortform_seo_markdown_includes_platform_sections():
 
 def test_export_bundle_does_not_include_standalone_audio_file(tmp_path, monkeypatch):
     monkeypatch.setattr(render_api, "DATA_DIR", tmp_path)
-    monkeypatch.setenv("EXPORT_FOLDER", str(tmp_path / "Exports"))
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
 
     engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
     SQLModel.metadata.create_all(engine)

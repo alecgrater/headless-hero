@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from database import get_session
-from config import DEFAULT_CLAUDE_MODEL
+from config import DEFAULT_CLAUDE_MODEL, DEFAULT_EXPORTS_DIR
 from integrations.llm_client import ALLOWED_PROVIDERS, LLM_TASKS, VALID_OPENAI_REASONING_EFFORTS
 from models.settings import AppSetting
 
@@ -24,7 +24,6 @@ ALLOWED_KEYS = {
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
     "DOWNLOADS_DIR",
-    "EXPORT_FOLDER",
     "REPLICATE_API_TOKEN",
     "IMAGE_PROVIDER",
     "IMAGE_SCRAPER_FALLBACK_ENABLED",
@@ -60,7 +59,6 @@ for _task_id, _task_config in LLM_TASKS.items():
 # Keys that should NOT be masked (non-secret settings)
 _PLAINTEXT_KEYS = {
     "DOWNLOADS_DIR",
-    "EXPORT_FOLDER",
     "IMAGE_PROVIDER",
     "IMAGE_SCRAPER_FALLBACK_ENABLED",
     "REPLICATE_MODEL",
@@ -85,6 +83,7 @@ for _task_id, _task_config in LLM_TASKS.items():
 
 # Default values for settings that have sensible defaults
 _DEFAULTS: dict[str, str] = {
+    "DOWNLOADS_DIR": str(DEFAULT_EXPORTS_DIR),
     "IMAGE_RATE_LIMIT_MS": "10000",  # 6 req/min to stay under free-tier limits
     "IMAGE_SCRAPER_FALLBACK_ENABLED": "false",
     "SCRIPT_MODEL": DEFAULT_CLAUDE_MODEL,
