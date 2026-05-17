@@ -334,11 +334,8 @@ async function pollBackgroundJob(
 }
 
 /** Poll a title card background job until it completes or fails. */
-export async function pollTitleCardJob(
-  jobId: string,
-  onProgress?: (status: BackgroundJobProgress) => void,
-): Promise<void> {
-  return pollBackgroundJob(jobId, "/api/visuals/title-cards-status/", 200, "Title card generation failed", onProgress);
+export async function pollTitleCardJob(jobId: string): Promise<void> {
+  return pollBackgroundJob(jobId, "/api/visuals/title-cards-status/", 200, "Title card generation failed");
 }
 
 /** Poll a render job until it completes or fails. */
