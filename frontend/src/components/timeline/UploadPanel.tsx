@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { ChevronLeft, ChevronRight, Copy, ExternalLink, Film, Smartphone, X } from "lucide-react";
-import { assetUrl, openUploadShortsWindows, openYouTubeUploadWindow, type UploadSuiteStatus } from "../../api";
+import { ChevronLeft, ChevronRight, Copy, ExternalLink, Film, FolderOpen, Smartphone, X } from "lucide-react";
+import { assetUrl, openUploadShortsWindows, openYouTubeUploadWindow, showInFolder, type UploadSuiteStatus } from "../../api";
 import { showToast } from "../ToastContainer";
 
 type UploadTab = "long-form" | "short-form";
@@ -111,6 +111,41 @@ function CopyButton({ label, text, icon }: { label: string; text: string; icon?:
   );
 }
 
+function PrimaryActionStack({
+  onOpenFolder,
+  onOpenDestination,
+  destinationLabel,
+  destinationIcon,
+  accentClass,
+}: {
+  onOpenFolder: () => void;
+  onOpenDestination: () => void;
+  destinationLabel: string;
+  destinationIcon: ReactNode;
+  accentClass: string;
+}) {
+  return (
+    <div className="mx-auto flex w-full max-w-sm flex-col items-stretch gap-2">
+      <button
+        type="button"
+        onClick={onOpenFolder}
+        className="flex h-12 items-center justify-center gap-2.5 rounded-lg border border-sky-400/50 bg-sky-500/15 px-4 text-sm font-semibold text-sky-100 transition-colors hover:border-sky-300 hover:bg-sky-500/25"
+      >
+        <FolderOpen className="h-4.5 w-4.5" />
+        Open In Finder
+      </button>
+      <button
+        type="button"
+        onClick={onOpenDestination}
+        className={`flex h-12 items-center justify-center gap-2.5 rounded-lg border px-4 text-sm font-semibold transition-colors ${accentClass}`}
+      >
+        {destinationIcon}
+        {destinationLabel}
+      </button>
+    </div>
+  );
+}
+
 function MarkdownPreview({ markdown }: { markdown: string }) {
   const blocks = useMemo(() => {
     const lines = markdown.trim().split(/\r?\n/);
@@ -218,14 +253,13 @@ export default function UploadPanel({ suite, onClose }: Props) {
         <div className="min-h-0 flex-1 overflow-y-auto p-6">
           {activeTab === "long-form" ? (
             <div className="space-y-5">
-              <button
-                type="button"
-                onClick={openYouTubeUploadWindow}
-                className="flex min-h-20 w-full items-center justify-center gap-3 rounded-lg bg-red-600 px-5 text-lg font-semibold text-white transition-colors hover:bg-red-500"
-              >
-                <ExternalLink className="h-5 w-5" />
-                Open Youtube
-              </button>
+              <PrimaryActionStack
+                onOpenFolder={() => showInFolder(suite.folder_path)}
+                onOpenDestination={openYouTubeUploadWindow}
+                destinationLabel="Open YouTube"
+                destinationIcon={<ExternalLink className="h-4.5 w-4.5" />}
+                accentClass="border-red-400/50 bg-red-500/15 text-red-100 hover:border-red-300 hover:bg-red-500/25"
+              />
               <div className="flex flex-wrap gap-2">
                 <CopyButton label="Copy Title" text={seoTitle(suite.longform_seo_markdown)} icon={<YouTubeIcon />} />
                 <CopyButton label="Copy Description" text={seoDescriptionAndRest(suite.longform_seo_markdown)} icon={<YouTubeIcon />} />
@@ -234,14 +268,13 @@ export default function UploadPanel({ suite, onClose }: Props) {
             </div>
           ) : (
             <div className="space-y-5">
-              <button
-                type="button"
-                onClick={openUploadShortsWindows}
-                className="flex min-h-20 w-full items-center justify-center gap-3 rounded-lg bg-violet-600 px-5 text-lg font-semibold text-white transition-colors hover:bg-violet-500"
-              >
-                <ExternalLink className="h-5 w-5" />
-                Open Short Form Apps
-              </button>
+              <PrimaryActionStack
+                onOpenFolder={() => showInFolder(suite.folder_path)}
+                onOpenDestination={openUploadShortsWindows}
+                destinationLabel="Open Short Form Apps"
+                destinationIcon={<ExternalLink className="h-4.5 w-4.5" />}
+                accentClass="border-violet-400/50 bg-violet-500/15 text-violet-100 hover:border-violet-300 hover:bg-violet-500/25"
+              />
 
               <div className="flex items-center justify-between gap-3">
                 <button
