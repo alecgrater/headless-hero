@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import { Info, Zap } from "lucide-react";
+import {
+  Film,
+  ImageIcon,
+  Info,
+  Layers,
+  ListVideo,
+  PanelsTopLeft,
+  Search,
+  Smartphone,
+  Video,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import api, {
   assetUrl,
   exportTest,
@@ -254,6 +266,23 @@ function sceneProgressCounter(step: string, progress: number, total: number): st
 
 type ViewerFormat = "long-form" | "short-form";
 type ViewerAsset = "render" | "thumbnails" | "seo";
+
+const FORMAT_OPTIONS: { key: ViewerFormat; label: string; Icon: LucideIcon }[] = [
+  { key: "long-form", label: "Long Form", Icon: Film },
+  { key: "short-form", label: "Short Form", Icon: Smartphone },
+];
+
+const ASSET_OPTIONS: { key: ViewerAsset; label: string; Icon: LucideIcon }[] = [
+  { key: "render", label: "Render", Icon: Video },
+  { key: "thumbnails", label: "Thumbnails", Icon: ImageIcon },
+  { key: "seo", label: "SEO", Icon: Search },
+];
+
+const VIEWER_TAB_OPTIONS: { key: "timeline" | "media-sources" | "segments"; label: string; Icon: LucideIcon }[] = [
+  { key: "timeline", label: "Timeline", Icon: ListVideo },
+  { key: "media-sources", label: "Media Sources", Icon: PanelsTopLeft },
+  { key: "segments", label: "Segments", Icon: Layers },
+];
 type ProductionTask = "lf-seo" | "sf-thumbnails" | "sf-seo" | "sf-renders";
 
 function getCreationStatus(content: ScriptContent) {
@@ -657,34 +686,29 @@ function ViewerSwitchRow({
     <div className="px-5 py-2 border-t border-b border-neutral-800/60 shrink-0">
       <div className="flex items-center gap-3">
         <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
-          {([
-            ["long-form", "Long Form"],
-            ["short-form", "Short Form"],
-          ] as const).map(([key, label]) => (
+          {FORMAT_OPTIONS.map(({ key, label, Icon }) => (
             <button
               key={key}
               onClick={() => onFormatChange(key)}
-              className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+              className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
                 format === key ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
               }`}
             >
+              <Icon className="w-3.5 h-3.5 shrink-0" />
               {label}
             </button>
           ))}
         </div>
         <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
-          {([
-            ["render", "Render"],
-            ["thumbnails", "Thumbnails"],
-            ["seo", "SEO"],
-          ] as const).map(([key, label]) => (
+          {ASSET_OPTIONS.map(({ key, label, Icon }) => (
             <button
               key={key}
               onClick={() => onAssetChange(key)}
-              className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+              className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
                 asset === key ? "bg-neutral-700/80 text-white shadow-sm" : "text-neutral-400 hover:text-neutral-200"
               }`}
             >
+              <Icon className="w-3.5 h-3.5 shrink-0" />
               {label}
             </button>
           ))}
@@ -693,18 +717,15 @@ function ViewerSwitchRow({
           <>
             <div className="h-6 w-px bg-neutral-800" />
             <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
-              {([
-                ["timeline", "Timeline"],
-                ["media-sources", "Media Sources"],
-                ["segments", "Segments"],
-              ] as const).map(([key, label]) => (
+              {VIEWER_TAB_OPTIONS.map(({ key, label, Icon }) => (
                 <button
                   key={key}
                   onClick={() => onTabChange(key)}
-                  className={`relative px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                  className={`relative flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
                     activeTab === key ? "bg-neutral-700/80 text-white shadow-sm" : "text-neutral-400 hover:text-neutral-200"
                   }`}
                 >
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
                   {label}
                   {key === "media-sources" && hasPendingReview && (
                     <span className="absolute -top-1 -right-1 w-2 h-2 bg-violet-500 rounded-full" />
