@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
+from api.short_form_hooks import ensure_short_form_hook_scene_count
 from database import get_session
 from models.brand import BrandProfile
 from models.generation_duration import GenerationDuration
@@ -96,6 +97,7 @@ def generate_short_form_seo_metadata(body: GenerateSEORequest, session: Session 
         raise HTTPException(status_code=404, detail="Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
+    content = ensure_short_form_hook_scene_count(session, body.script_id, content, record)
     shorts = build_short_form_seo_contexts(content)
     if not shorts:
         raise HTTPException(status_code=400, detail="Script has no segments")
@@ -167,6 +169,7 @@ def export_short_form_seo(body: GenerateSEORequest, session: Session = Depends(g
         raise HTTPException(status_code=404, detail="Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
+    content = ensure_short_form_hook_scene_count(session, body.script_id, content, record)
     if not content.short_form_seo_metadata:
         raise HTTPException(status_code=400, detail="Short-form SEO has not been generated yet")
 

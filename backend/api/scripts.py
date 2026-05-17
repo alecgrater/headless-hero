@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
+from api.short_form_hooks import ensure_short_form_hook_scene_count
 from database import get_default_brand_id, get_session, engine
 from models.brand import BrandProfile
 from models.generation_duration import GenerationDuration
@@ -383,6 +384,20 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
                 logger.info("Hook scored for %s: overall=%d", script_id, hook_result.overall)
         except Exception:
             logger.exception("Hook scoring failed for %s — script saved without score", script_id)
+
+        try:
+            update_job(job_id, current_step="Detecting short-form hook...")
+            with SqlSession(engine) as hook_session:
+                record_hook = hook_session.get(Script, script_id)
+                if record_hook:
+                    script_content = ensure_short_form_hook_scene_count(
+                        hook_session,
+                        script_id,
+                        script_content,
+                        record_hook,
+                    )
+        except Exception:
+            logger.exception("Hook scene detection failed for %s — short-form render will retry later", script_id)
 
         return [script_id]
 

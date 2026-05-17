@@ -135,6 +135,7 @@ Stored in DB via AppSettings, loaded into env at startup. Never commit `.env` fi
 - **IPC fallback**: Frontend works with or without Electron (direct HTTP to backend in dev)
 - **Static file serving**: FastAPI mounts `/static/projects` → `data/projects/`
 - **No auth**: Single-user desktop app
+- **Short-form hook detection before render/export**: Before short-form render, rendered-status, export, or short-form SEO work, populate `ScriptContent.hook_scene_count` via `api.short_form_hooks.ensure_short_form_hook_scene_count`. If short #1 skips hook scenes, cache validity depends on the sidecar metadata in `data/projects/{script_id}/renders/shorts/0.json`; older unmarked short #1 renders must be treated as stale and re-rendered.
 - **External links open in Chrome**: Electron main-process URL opening must route through the Chrome opener so app links ignore the operating system default browser.
 - **OpenAI reasoning by task**: Structured JSON/classification tasks (`fx`, `seo`, `short_form_seo`, `media`, `eli`, `analysis`, `hook_detect`) default to `openai_reasoning_effort="minimal"` to preserve visible output budget; narrative/planning tasks (`script`, `idea`, `hook`) default to `low`. These are user-configurable in Settings → AI Models via `OPENAI_REASONING_EFFORT_<TASK>` keys.
 - **ElevenLabs duration as timing source of truth**: Scene duration in the Remotion timeline is derived from the ElevenLabs-generated audio duration, not estimated or manually set

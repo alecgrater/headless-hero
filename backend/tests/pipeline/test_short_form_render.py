@@ -1,6 +1,18 @@
 """Tests for short_form_render helpers."""
 
-from pipeline.short_form_render import _short_filename, strip_leading_number
+from models.script import Scene, ScriptContent, Segment
+from pipeline import short_form_render
+from pipeline.hook_detector import detect_hook_scene_count
+from pipeline.short_form_render import _short_filename, is_short_render_current, strip_leading_number
+
+
+def _scene(scene_id: str, narration: str, is_title_card: bool = False) -> Scene:
+    return Scene(
+        id=scene_id,
+        narration=narration,
+        visual_prompt="",
+        is_title_card=is_title_card,
+    )
 
 
 class TestShortFilename:
@@ -41,3 +53,56 @@ class TestStripLeadingNumber:
 
     def test_empty_string(self):
         assert strip_leading_number("") == ""
+
+
+class TestHookDetectionFallback:
+    def test_detects_verbatim_intro_hook_when_llm_fails(self, monkeypatch):
+        def fail_chat(*args, **kwargs):
+            raise RuntimeError("offline")
+
+        monkeypatch.setattr("pipeline.hook_detector.chat", fail_chat)
+        content = ScriptContent(
+            title="Test",
+            intro_hook="This is the full-video hook.",
+            segments=[
+                Segment(
+                    name="First",
+                    scenes=[
+                        _scene("title", "First.", True),
+                        _scene("hook", "This is the full-video hook."),
+                        _scene("body", "This is actual first-segment content."),
+                    ],
+                ),
+            ],
+        )
+
+        assert detect_hook_scene_count(content) == 1
+
+
+class TestShortRenderCurrent:
+    def test_requires_matching_metadata_when_first_short_skips_hooks(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(short_form_render, "DATA_DIR", tmp_path)
+        content = ScriptContent(
+            title="Test",
+            hook_scene_count=1,
+            segments=[Segment(name="First", scenes=[_scene("title", "First.", True), _scene("body", "Body.")])],
+        )
+
+        assert is_short_render_current("script-1", 0, content) is False
+
+        metadata_path = tmp_path / "projects" / "script-1" / "renders" / "shorts" / "0.json"
+        metadata_path.write_text('{"segment_idx": 0, "hook_scene_count": 1}', encoding="utf-8")
+
+        assert is_short_render_current("script-1", 0, content) is True
+
+    def test_unchanged_for_other_shorts_and_no_hook_skip(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(short_form_render, "DATA_DIR", tmp_path)
+        content = ScriptContent(
+            title="Test",
+            hook_scene_count=0,
+            segments=[Segment(name="First", scenes=[_scene("title", "First.", True), _scene("body", "Body.")])],
+        )
+
+        assert is_short_render_current("script-1", 0, content) is True
+        content.hook_scene_count = 2
+        assert is_short_render_current("script-1", 1, content) is True

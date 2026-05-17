@@ -59,6 +59,33 @@ def _short_filename(segment_name: str, n: int, total: int) -> str:
     return shortform_video_filename(segment_name, n, total)
 
 
+def _short_metadata_path(script_id: str, segment_idx: int) -> Path:
+    return _shorts_dir(script_id) / f"{segment_idx}.json"
+
+
+def _write_short_render_metadata(script_id: str, segment_idx: int, content: ScriptContent) -> None:
+    metadata = {
+        "segment_idx": segment_idx,
+        "hook_scene_count": content.hook_scene_count or 0,
+    }
+    _short_metadata_path(script_id, segment_idx).write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+
+
+def is_short_render_current(script_id: str, segment_idx: int, content: ScriptContent) -> bool:
+    """Return whether a cached short render matches content-sensitive render options."""
+    if segment_idx != 0 or not content.hook_scene_count:
+        return True
+
+    metadata_path = _short_metadata_path(script_id, segment_idx)
+    if not metadata_path.is_file():
+        return False
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return int(metadata.get("hook_scene_count") or 0) == int(content.hook_scene_count or 0)
+
+
 def _copy_to_downloads(project_title: str, src_path: Path, dest_filename: str) -> str:
     """Copy a rendered short into the standard project Downloads folder."""
     dest = copy_to_project_downloads(project_title, src_path, dest_filename)
@@ -193,6 +220,7 @@ def render_short_segment(
         logger.info("[%s] Copying short %d/%d to Downloads", script_id, n, total)
         dest_name = _short_filename(segment.name, n, total)
         downloads_path = _copy_to_downloads(project_title, output_path, dest_name)
+        _write_short_render_metadata(script_id, segment_idx, content)
     finally:
         try:
             props_path.unlink()

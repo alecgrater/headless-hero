@@ -6,6 +6,7 @@ segment content). Used to skip those scenes when rendering short #1.
 
 import json
 import logging
+import re
 
 from config import strip_markdown_fences
 from integrations.llm_client import chat
@@ -62,6 +63,33 @@ def _build_user_message(content: ScriptContent) -> str:
     return "\n".join(lines)
 
 
+def _normalize_text(value: str) -> str:
+    """Normalize narration for conservative exact-ish hook matching."""
+    return re.sub(r"\s+", " ", value).strip().lower()
+
+
+def _fallback_hook_scene_count(content: ScriptContent) -> int:
+    """Detect an obvious first hook scene without an LLM.
+
+    This catches the common cold-open path where scene 1 is the outline's
+    intro_hook verbatim. The LLM can still identify longer teaser runs.
+    """
+    if not content.intro_hook or not content.segments:
+        return 0
+
+    scenes = [sc for sc in content.segments[0].scenes if not sc.is_title_card]
+    if len(scenes) <= 1:
+        return 0
+
+    intro = _normalize_text(content.intro_hook)
+    first = _normalize_text(scenes[0].narration or "")
+    if not intro or not first:
+        return 0
+    if first.startswith(intro) or intro.startswith(first):
+        return 1
+    return 0
+
+
 def detect_hook_scene_count(content: ScriptContent, script_id: str | None = None) -> int:
     """Detect how many leading scenes of segment 0 are hook teasers.
 
@@ -76,6 +104,7 @@ def detect_hook_scene_count(content: ScriptContent, script_id: str | None = None
     if non_title_scene_count == 0:
         return 0
 
+    fallback_count = _fallback_hook_scene_count(content)
     user_message = _build_user_message(content)
 
     try:
@@ -88,8 +117,8 @@ def detect_hook_scene_count(content: ScriptContent, script_id: str | None = None
             script_id=script_id,
         )
     except Exception:
-        logger.exception("Hook detection LLM call failed — defaulting to 0")
-        return 0
+        logger.exception("Hook detection LLM call failed — defaulting to fallback count %d", fallback_count)
+        return fallback_count
 
     try:
         cleaned = strip_markdown_fences(response)
@@ -97,13 +126,18 @@ def detect_hook_scene_count(content: ScriptContent, script_id: str | None = None
         raw_count = data.get("hook_scene_count", 0)
         count = int(raw_count)
     except (ValueError, TypeError, json.JSONDecodeError):
-        logger.warning("Hook detector returned non-JSON or non-int: %r — defaulting to 0", response)
-        return 0
+        logger.warning(
+            "Hook detector returned non-JSON or non-int: %r — defaulting to fallback count %d",
+            response,
+            fallback_count,
+        )
+        return fallback_count
 
     # Clamp to a sane range and cap at the number of available scenes minus 1
     # so short #1 always has at least one content scene to render.
     count = max(0, min(count, 5))
     count = min(count, max(0, non_title_scene_count - 1))
+    count = max(count, fallback_count)
 
     reasoning = data.get("reasoning", "")
     logger.info(

@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from config import DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH
+from api.short_form_hooks import ensure_short_form_hook_scene_count
 from database import get_default_brand_id, get_session
 from api._helpers import find_scene_in_content
 from models.brand import BrandProfile
@@ -633,6 +634,7 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
         raise HTTPException(status_code=404, detail="Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
+    content = ensure_short_form_hook_scene_count(session, body.script_id, content, record)
     project_title = record.topic_title or "Untitled"
     folder = project_downloads_folder(project_title)
 

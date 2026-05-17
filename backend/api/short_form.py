@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from config import DATA_DIR
+from api.short_form_hooks import ensure_short_form_hook_scene_count
 from database import get_session
 from models.script import Script, ScriptContent
 from pipeline.render_jobs import (
@@ -128,11 +129,16 @@ def rendered_shorts(script_id: str, session: Session = Depends(get_session)):
     """Return shorts that exist in Downloads or the project render folder."""
     content = _load_content(session, script_id)
     record = session.get(Script, script_id)
+    content = ensure_short_form_hook_scene_count(session, script_id, content, record)
     project_title = record.topic_title or "Untitled"
     expected_paths = _short_download_paths_for_content(project_title, content)
     project_dir = DATA_DIR / "projects" / script_id / "renders" / "shorts"
+    from pipeline.short_form_render import is_short_render_current
+
     paths: dict[int, str] = {}
     for idx, path in expected_paths.items():
+        if not is_short_render_current(script_id, idx, content):
+            continue
         if Path(path).is_file():
             paths[idx] = path
             continue
@@ -295,10 +301,11 @@ def export_short_form_videos(
     import shutil
 
     from pipeline.export_paths import project_downloads_folder
-    from pipeline.short_form_render import _short_filename
+    from pipeline.short_form_render import _short_filename, is_short_render_current
 
     content = _load_content(session, body.script_id)
     record = session.get(Script, body.script_id)
+    content = ensure_short_form_hook_scene_count(session, body.script_id, content, record)
     project_title = record.topic_title or "Untitled"
 
     total = len(content.segments)
@@ -311,6 +318,9 @@ def export_short_form_videos(
     sources: dict[int, Path] = {}
     missing: list[int] = []
     for idx, segment in enumerate(content.segments):
+        if not is_short_render_current(body.script_id, idx, content):
+            missing.append(idx + 1)
+            continue
         downloads_path = folder / _short_filename(segment.name, idx + 1, total)
         if downloads_path.is_file():
             sources[idx] = downloads_path
@@ -350,6 +360,7 @@ def start_render_all_shorts(
     content = _load_content(session, body.script_id)
 
     record = session.get(Script, body.script_id)
+    content = ensure_short_form_hook_scene_count(session, body.script_id, content, record)
     project_title = record.topic_title or "Untitled"
     total = len(content.segments)
 
@@ -387,10 +398,11 @@ def start_render_one_short(
     from pipeline.short_form_render import render_short_segment
 
     content = _load_content(session, body.script_id)
+    record = session.get(Script, body.script_id)
+    content = ensure_short_form_hook_scene_count(session, body.script_id, content, record)
     if body.segment_idx < 0 or body.segment_idx >= len(content.segments):
         raise HTTPException(status_code=400, detail="segment_idx out of range")
 
-    record = session.get(Script, body.script_id)
     project_title = record.topic_title or "Untitled"
 
     job = create_job(scene_count=1)
@@ -425,6 +437,8 @@ def start_render_short_batch(
     from pipeline.short_form_render import render_short_segment
 
     content = _load_content(session, body.script_id)
+    record = session.get(Script, body.script_id)
+    content = ensure_short_form_hook_scene_count(session, body.script_id, content, record)
     total_segments = len(content.segments)
     segment_indices = list(dict.fromkeys(body.segment_indices))
     invalid_indices = [
@@ -435,7 +449,6 @@ def start_render_short_batch(
     if not segment_indices:
         raise HTTPException(status_code=400, detail="segment_indices cannot be empty")
 
-    record = session.get(Script, body.script_id)
     project_title = record.topic_title or "Untitled"
 
     job = create_job(scene_count=len(segment_indices))
