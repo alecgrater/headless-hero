@@ -599,6 +599,11 @@ function compactProgressText(progress: number | null) {
   return `${Math.round(progress * 100)}%`;
 }
 
+function batchProgressValue(progress: { total: number; completed: number; failed: number }) {
+  if (progress.total <= 0) return null;
+  return Math.min(1, (progress.completed + progress.failed) / progress.total);
+}
+
 function ProductionTaskButton({
   stepNumber,
   label,
@@ -1268,12 +1273,11 @@ function TimelineEditor({
   const [trackingUpdating, setTrackingUpdating] = useState<Partial<Record<keyof UploadTracking, boolean>>>({});
   const [lastAudioGenTimestamp, setLastAudioGenTimestamp] = useState(0);
   const [lastFXGenTimestamp, setLastFXGenTimestamp] = useState(0);
-  const [yoloRunning, setYoloRunning] = useState(false);
   const [youtubeConnected, setYoutubeConnected] = useState(false);
   const [yoloStep, setYoloStep] = useState<string | null>(null);
-  const [yoloError, setYoloError] = useState<string | null>(null);
   const [yoloRenderRunning, setYoloRenderRunning] = useState(false);
   const [yoloRenderError, setYoloRenderError] = useState<string | null>(null);
+  const [titleCardProgressPct, setTitleCardProgressPct] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"timeline" | "media-sources" | "segments">("timeline");
   const [viewerFormat, setViewerFormat] = useState<ViewerFormat>("long-form");
   const [viewerAsset, setViewerAsset] = useState<ViewerAsset>("render");
@@ -2054,10 +2058,14 @@ function TimelineEditor({
       setYoloStep("Title Cards");
       titleCardCancelledRef.current = false;
       setTitleCardGenerating(true);
+      setTitleCardProgressPct(0);
       titleCardProgress.start(latest.segments.length);
       try {
-        await state.generateTitleCardsStandalone(false);
+        await state.generateTitleCardsStandalone(false, (status) => {
+          if (typeof status.progress === "number") setTitleCardProgressPct(status.progress);
+        });
         if (yoloCancelledRef.current) return false;
+        setTitleCardProgressPct(1);
         setTitleCardGenerated(true);
         setTitleCardTimestamp(Date.now());
         thumbnailsCancelledRef.current = false;
@@ -2075,6 +2083,7 @@ function TimelineEditor({
         }
       } finally {
         setTitleCardGenerating(false);
+        setTitleCardProgressPct(null);
         titleCardProgress.end(latest.segments.length);
       }
       latest = await refreshScriptContent();
@@ -2136,58 +2145,25 @@ function TimelineEditor({
     titleCardProgress,
   ]);
 
-  const cancelYolo = () => {
-    yoloCancelledRef.current = true;
-    titleCardCancelledRef.current = true;
-    thumbnailsCancelledRef.current = true;
-    fxCancelledRef.current = true;
-    eliCancelledRef.current = true;
-    state.cancelImageGeneration();
-    state.cancelAudioGeneration();
-    setYoloRunning(false);
-    setYoloStep(null);
-  };
-
-  const handleYolo = async () => {
-    if (!voicePicker.selectedVoiceId) {
-      setYoloError("Select a voice in settings before running YOLO");
-      return;
-    }
-
-    setYoloError(null);
-    setYoloRunning(true);
-    yoloCancelledRef.current = false;
-    let currentStep = "";
-
-    try {
-      currentStep = "YOLO Mode";
-      await runYoloCreationPipeline(voicePicker.selectedVoiceId);
-    } catch (err) {
-      if (!yoloCancelledRef.current) {
-        setYoloError(`Failed during ${currentStep}: ${err instanceof Error ? err.message : "Unknown error"}`);
-      }
-    } finally {
-      if (!yoloCancelledRef.current) {
-        setYoloRunning(false);
-        setYoloStep(null);
-      }
-    }
-  };
-
   const handleGenerateTitleCards = async (force = false) => {
     const segCount = state.content.segments.length;
     titleCardCancelledRef.current = false;
     setTitleCardGenerating(true);
+    setTitleCardProgressPct(0);
     titleCardProgress.start(segCount);
     try {
-      await state.generateTitleCardsStandalone(force);
+      await state.generateTitleCardsStandalone(force, (status) => {
+        if (typeof status.progress === "number") setTitleCardProgressPct(status.progress);
+      });
       if (!titleCardCancelledRef.current) {
+        setTitleCardProgressPct(1);
         setTitleCardGenerated(true);
         setTitleCardTimestamp(Date.now());
         await handleRecompositeThumbnailInline();
       }
     } finally {
       setTitleCardGenerating(false);
+      setTitleCardProgressPct(null);
       titleCardProgress.end(segCount);
     }
   };
@@ -2401,17 +2377,11 @@ function TimelineEditor({
     if (!sfThumbnailsDone) renderRemaining.push("SF Thumbnails");
     if (!sfRendersDone) renderRemaining.push("SF Videos");
     if (!sfSeoDone) renderRemaining.push("SF SEO");
-    const creationDone = creationRemaining.length === 0;
-    const buttonRunsRender = creationDone;
-    const buttonDescription = buttonRunsRender
-      ? `Runs the render and export pipeline from the next unfinished task. Long-form render, short-form assets, and the final bundle are completed automatically. Currently pending: ${renderRemaining.join(", ") || "final export only"}.`
-      : `Runs every unfinished creation step in order. Missing title cards, narration audio, scene images, FX, and Eli animation are generated automatically, then the timeline refreshes with the new assets. Currently pending: ${creationRemaining.join(", ") || "none"}.`;
+    const buttonDescription = `Runs the full YOLO pipeline from the next unfinished task. Missing creation assets, long-form render, short-form assets, and the final bundle are completed automatically. Currently pending: ${renderRemaining.join(", ") || "final export only"}.`;
     const yoloButtonBaseClass = "group relative flex h-7 w-[9.5rem] shrink-0 items-center justify-center overflow-hidden rounded-lg px-4 text-center text-xs font-bold leading-tight text-white/95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100";
     const yoloButtonContentClass = "relative flex min-w-0 items-center justify-center gap-1.5 text-center";
     const yoloInfoClass = "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-neutral-700/60 bg-neutral-900 text-neutral-500 transition-colors hover:border-neutral-500 hover:text-neutral-200";
-    const yoloButtonColorClass = buttonRunsRender
-      ? "bg-gradient-to-r from-sky-500/80 via-emerald-400/70 to-amber-400/70 shadow-[0_0_15px_rgba(14,165,233,0.2)] hover:shadow-[0_0_22px_rgba(14,165,233,0.35)] focus-visible:ring-sky-500"
-      : "bg-gradient-to-r from-violet-500/80 via-fuchsia-400/70 to-amber-400/70 shadow-[0_0_15px_rgba(168,85,247,0.2)] hover:shadow-[0_0_22px_rgba(168,85,247,0.35)] focus-visible:ring-violet-500";
+    const yoloButtonColorClass = "bg-gradient-to-r from-sky-500/80 via-emerald-400/70 to-amber-400/70 shadow-[0_0_15px_rgba(14,165,233,0.2)] hover:shadow-[0_0_22px_rgba(14,165,233,0.35)] focus-visible:ring-sky-500";
 
     const yoloInfo = (content: string, label: string) => (
       <Tooltip content={content} side="bottom">
@@ -2423,13 +2393,13 @@ function TimelineEditor({
 
     const yoloButton = (
       <button
-        onClick={buttonRunsRender ? handleYoloRender : handleYolo}
-        disabled={yoloRenderRunning || yoloRunning}
+        onClick={handleYoloRender}
+        disabled={yoloRenderRunning}
         className={`${yoloButtonBaseClass} ${yoloButtonColorClass}`}
       >
         <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_ease-in-out_infinite]" />
         <span className={yoloButtonContentClass}>
-          {yoloRenderRunning || yoloRunning ? (
+          {yoloRenderRunning ? (
             <span className="w-3 h-3 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
           ) : (
             <Zap size={14} />
@@ -2439,26 +2409,8 @@ function TimelineEditor({
       </button>
     );
 
-    if (yoloRunning) {
-      return (
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-fuchsia-300/70 font-medium truncate max-w-[14rem]">{yoloStep}</span>
-          <span className="w-3 h-3 border-2 border-fuchsia-400/60 border-t-transparent rounded-full animate-spin" />
-          <button
-            onClick={cancelYolo}
-            className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-red-500/70 hover:bg-red-500/90 text-white transition-colors"
-          >
-            Cancel YOLO
-          </button>
-        </div>
-      );
-    }
-
     return (
       <div className="flex items-center gap-2 shrink-0">
-        {yoloError && (
-          <span className="text-[11px] text-red-400 truncate max-w-[14rem]">{yoloError}</span>
-        )}
         {yoloRenderError && (
           <span className="text-[11px] text-red-400 truncate max-w-[14rem]">{yoloRenderError}</span>
         )}
@@ -2466,7 +2418,7 @@ function TimelineEditor({
           <span className="text-xs text-sky-300/75 font-medium truncate max-w-[14rem]">{yoloStep}</span>
         )}
         {yoloButton}
-        {yoloInfo(buttonDescription, buttonRunsRender ? "YOLO render details" : "YOLO mode details")}
+        {yoloInfo(buttonDescription, "YOLO mode details")}
       </div>
     );
   })();
@@ -2586,7 +2538,7 @@ function TimelineEditor({
 
             return (
               <>
-                <div className={`px-4 py-2 border-t border-neutral-800/60 shrink-0 ${yoloRenderRunning || yoloRunning ? "bg-sky-500/5" : ""}`}>
+                <div className={`px-4 py-2 border-t border-neutral-800/60 shrink-0 ${yoloRenderRunning ? "bg-sky-500/5" : ""}`}>
                   <div className="flex flex-nowrap items-center gap-1 min-w-0 overflow-visible">
                     {interleavedStats}
                   </div>
@@ -2662,6 +2614,12 @@ function TimelineEditor({
             eliProgressActive={eliProgress.active}
             titleCardEstimatedSeconds={titleCardProgress.estimatedSeconds}
             titleCardProgressActive={titleCardProgress.active}
+            yoloModeActive={yoloRenderRunning}
+            titleCardProgress={titleCardProgressPct}
+            audioProgress={batchProgressValue(state.batchAudioProgress)}
+            imageProgress={batchProgressValue(state.batchImageProgress)}
+            fxProgress={fxProgressPct}
+            eliProgress={eliProgressPct}
           />
 
           <ProductionWorkflowRow
