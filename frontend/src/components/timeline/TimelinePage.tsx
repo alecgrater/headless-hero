@@ -513,6 +513,24 @@ const VIEWER_TAB_OPTIONS: { key: "timeline" | "media-sources" | "segments"; labe
 ];
 type ProductionTask = "lf-seo" | "sf-thumbnails" | "sf-seo" | "sf-renders";
 
+const YOLO_PROGRESS_STEPS = [
+  "Title Cards",
+  "Generate Audio",
+  "Generate Images",
+  "Generate FX",
+  "Add Eli",
+  "Generate LF SEO",
+  "Generate SF Thumbnails",
+  "Generate SF SEO",
+  "Render SF Videos",
+  "Export Bundle",
+] as const;
+
+function clampProgress(value: number | null | undefined) {
+  if (typeof value !== "number" || Number.isNaN(value)) return 0;
+  return Math.min(1, Math.max(0, value));
+}
+
 function getCreationStatus(content: ScriptContent) {
   const allScenes = content.segments.flatMap((seg) => seg.scenes);
   const nonTitleScenes = allScenes.filter((sc) => !sc.is_title_card);
@@ -827,6 +845,48 @@ function ProductionWorkflowRow({
           <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <div aria-hidden="true" />
+      </div>
+    </div>
+  );
+}
+
+function YoloProgressStrip({
+  step,
+  subProgress,
+  detail,
+}: {
+  step: string | null;
+  subProgress: number | null;
+  detail?: string | null;
+}) {
+  const rawStepIndex = YOLO_PROGRESS_STEPS.findIndex((item) => item === step);
+  const stepIndex = rawStepIndex >= 0 ? rawStepIndex : 0;
+  const stepNumber = stepIndex + 1;
+  const stepCount = YOLO_PROGRESS_STEPS.length;
+  const currentStep = step ?? "Starting";
+  const boundedSubProgress = clampProgress(subProgress);
+  const totalProgress = rawStepIndex >= 0 ? (stepIndex + boundedSubProgress) / stepCount : 0.03;
+  const percent = Math.round(clampProgress(totalProgress) * 100);
+  const visibleBarPercent = Math.max(3, percent);
+
+  return (
+    <div className="px-5 py-2 border-t border-b border-sky-500/15 shrink-0 bg-sky-500/10">
+      <div className="flex items-center gap-3 text-xs">
+        <span className="w-3 h-3 shrink-0 rounded-full border-2 border-sky-300 border-t-transparent animate-spin" />
+        <span className="shrink-0 font-semibold text-sky-200 tabular-nums">
+          YOLO Step {stepNumber}/{stepCount}
+        </span>
+        <span className="min-w-0 truncate text-neutral-200">
+          {currentStep}
+          {detail && <span className="text-neutral-400"> · {detail}</span>}
+        </span>
+        <div className="h-1.5 min-w-[10rem] flex-1 overflow-hidden rounded-full bg-neutral-800">
+          <div
+            className="h-full rounded-full bg-sky-400 transition-all duration-500"
+            style={{ width: `${visibleBarPercent}%` }}
+          />
+        </div>
+        <span className="shrink-0 text-neutral-400 tabular-nums">{percent}%</span>
       </div>
     </div>
   );
@@ -2349,6 +2409,28 @@ function TimelineEditor({
     }
   }, [scriptId, state]);
 
+  const yoloSubProgress = (() => {
+    if (!yoloRenderRunning || !yoloStep) return null;
+    if (yoloStep === "Title Cards") return titleCardProgressPct;
+    if (yoloStep === "Generate Audio") return batchProgressValue(state.batchAudioProgress);
+    if (yoloStep === "Generate Images") return batchProgressValue(state.batchImageProgress);
+    if (yoloStep === "Generate FX") return fxProgressPct;
+    if (yoloStep === "Add Eli") return eliProgressPct;
+    if (yoloStep === "Generate SF Thumbnails" || yoloStep === "Render SF Videos") return productionProgress;
+    if (yoloStep === "Export Bundle") return render.exportStatus?.progress ?? null;
+    return null;
+  })();
+
+  const yoloProgressDetail = (() => {
+    if (!yoloRenderRunning || !yoloStep) return null;
+    if (yoloStep === "Generate Audio") return state.batchAudioProgress.currentSceneName;
+    if (yoloStep === "Generate Images") return state.batchImageProgress.currentSceneName;
+    if (yoloStep === "Generate FX") return fxStep || null;
+    if (yoloStep === "Add Eli") return sceneProgressCounter(eliStep, eliProgressPct, eliProgressTotal) || null;
+    if (yoloStep === "Export Bundle") return render.exportStatus?.label ?? null;
+    return null;
+  })();
+
   const yoloArea = (() => {
     const creationStatus = getCreationStatus(state.content);
     const creationRemaining: string[] = [];
@@ -2667,6 +2749,13 @@ function TimelineEditor({
             onRenderSfVideos={handleRenderSfVideos}
             onRenderMissingSfVideos={handleRenderMissingSfVideos}
           />
+          {yoloRenderRunning && (
+            <YoloProgressStrip
+              step={yoloStep}
+              subProgress={yoloSubProgress}
+              detail={yoloProgressDetail}
+            />
+          )}
           {productionError && (
             <div className="px-5 pb-2 text-[11px] text-red-400">{productionError}</div>
           )}
