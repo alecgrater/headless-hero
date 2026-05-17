@@ -345,12 +345,9 @@ function TagList({ tags }: { tags: string[] }) {
       <p className="text-xs text-neutral-400 whitespace-pre-wrap select-all cursor-text bg-neutral-900/50 rounded p-2">
         {tagString}
       </p>
-      <div className="flex items-center justify-between">
-        <span className={`text-[10px] ${tagString.length > 500 ? "text-red-400" : "text-neutral-500"}`}>
-          {tagString.length}/500 characters
-        </span>
-        <CopyButton text={tagString} />
-      </div>
+      <span className={`text-[10px] ${tagString.length > 500 ? "text-red-400" : "text-neutral-500"}`}>
+        {tagString.length}/500 characters
+      </span>
     </div>
   );
 }
@@ -896,7 +893,7 @@ function ShortFormSeoPanel({
               <span className="text-xs text-sky-200">{shorts.length}/{segmentCount} shorts packaged</span>
               <CopyButton label="Copy All" text={shorts.map(formatShortFormSEO).join("\n\n---\n\n")} />
             </div>
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               {shorts.slice().sort((a, b) => a.index - b.index).map((item) => (
                 <article key={item.index} className="bg-neutral-900/80 border border-neutral-800 rounded-lg p-4 space-y-3">
                   <div className="flex items-start justify-between gap-3">
