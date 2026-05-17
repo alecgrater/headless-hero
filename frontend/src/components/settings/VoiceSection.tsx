@@ -30,12 +30,17 @@ export default function VoiceSection({ panel }: VoiceSectionProps) {
   });
 
   useEffect(() => {
+    if (panel !== "voice") return;
     api.get("/api/brand").then((res) => {
       if (res.ok) {
         const b = res.data as { voice_id: string };
         setSelectedVoiceId(b.voice_id || "");
       }
     });
+  }, [panel]);
+
+  useEffect(() => {
+    if (panel !== "audio") return;
     api.get("/api/settings/keys").then((res) => {
       if (res.ok) {
         const keys = res.data as Record<string, { masked: string }>;
@@ -46,9 +51,10 @@ export default function VoiceSection({ panel }: VoiceSectionProps) {
         });
       }
     });
-  }, []);
+  }, [panel]);
 
   useEffect(() => {
+    if (panel !== "voice") return;
     api.get("/api/voice/voices").then((res) => {
       if (res.ok) {
         const data = res.data as VoiceListResponse;
@@ -74,7 +80,7 @@ export default function VoiceSection({ panel }: VoiceSectionProps) {
         }
       }
     });
-  }, [selectedVoiceId]);
+  }, [panel, selectedVoiceId]);
 
   const handleVoiceChange = async (voiceId: string) => {
     setSelectedVoiceId(voiceId);
