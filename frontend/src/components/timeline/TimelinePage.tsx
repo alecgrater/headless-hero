@@ -468,7 +468,7 @@ function ProductionWorkflowRow({
 
   return (
     <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
-      <div className="grid w-full items-center gap-2 min-w-0" style={{ gridTemplateColumns: "minmax(0, 15rem) auto minmax(0, 15rem) auto minmax(0, 15rem) auto minmax(0, 15rem)" }}>
+      <div className="grid w-full items-center gap-2 min-w-0" style={{ gridTemplateColumns: "minmax(0, 15rem) auto minmax(0, 15rem) auto minmax(0, 15rem) auto minmax(0, 15rem) auto minmax(0, 15rem)" }}>
         <ProductionTaskButton
           stepNumber={6}
           label="Generate LF SEO"
@@ -533,6 +533,7 @@ function ProductionWorkflowRow({
         <svg className="w-3 h-3 invisible shrink-0" viewBox="0 0 12 12" fill="none" aria-hidden="true">
           <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
+        <div aria-hidden="true" />
       </div>
     </div>
   );
