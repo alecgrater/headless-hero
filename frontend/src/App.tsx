@@ -448,24 +448,20 @@ function App() {
               <Keyboard size={16} />
             </button>
           </Tooltip>
-          <div className="flex flex-col items-end gap-0.5 text-[11px] text-neutral-500 leading-tight">
-            <div className="flex items-center gap-1.5">
-              <span className="uppercase tracking-wider">Backend:</span>
-              <span
-                className={`inline-block w-2 h-2 rounded-full ${
-                  backendStatus.startsWith("connected")
-                    ? "bg-emerald-500"
-                    : backendStatus === "connecting..."
-                      ? "bg-yellow-500 animate-pulse"
-                      : "bg-red-500"
-                }`}
-                title={backendStatus}
-              />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="uppercase tracking-wider">Connected:</span>
-              <PlatformConnectionIcons connections={connections} />
-            </div>
+          <div className="grid grid-cols-[auto_auto] items-center gap-x-1.5 gap-y-0.5 text-[11px] text-neutral-500 leading-tight">
+            <span className="uppercase tracking-wider text-right justify-self-end">Backend:</span>
+            <span
+              className={`inline-block w-2 h-2 rounded-full justify-self-start ${
+                backendStatus.startsWith("connected")
+                  ? "bg-emerald-500"
+                  : backendStatus === "connecting..."
+                    ? "bg-yellow-500 animate-pulse"
+                    : "bg-red-500"
+              }`}
+              title={backendStatus}
+            />
+            <span className="uppercase tracking-wider text-right justify-self-end">Connected:</span>
+            <PlatformConnectionIcons connections={connections} />
           </div>
         </div>
       </header>
