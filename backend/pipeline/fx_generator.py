@@ -8,7 +8,7 @@ Chapter markers are computed deterministically in remotion_render.py — no AI n
 import json
 import logging
 
-from config import strip_markdown_fences
+from config import parse_json_array_response, strip_markdown_fences
 from integrations.llm_client import chat
 from models.script import SceneFX
 from prompts import FX_SYSTEM
@@ -39,9 +39,9 @@ def generate_scene_fx(scene_data: dict, script_id: str | None = None) -> dict:
     )
 
     cleaned = strip_markdown_fences(response)
-    fx_list = json.loads(cleaned)
+    fx_list = parse_json_array_response(cleaned)
 
-    if not isinstance(fx_list, list) or len(fx_list) == 0:
+    if len(fx_list) == 0:
         raise ValueError("Expected non-empty JSON array from FX generator")
 
     entry = fx_list[0]

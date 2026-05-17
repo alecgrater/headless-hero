@@ -1,8 +1,8 @@
 """Brainstorm recommendation pipeline — routed LLM niche prompt generation."""
 
-import json
 import logging
 
+from config import parse_json_array_response
 from integrations.llm_client import chat
 from prompts import BRAINSTORM_SYSTEM
 
@@ -33,14 +33,5 @@ def generate_brainstorm_recommendations(
         task="idea",
     )
 
-    text = response_text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-
-    recommendations = json.loads(text)
-    if not isinstance(recommendations, list):
-        raise ValueError("Expected JSON array from Claude")
-
+    recommendations = parse_json_array_response(response_text)
     return recommendations[:count]

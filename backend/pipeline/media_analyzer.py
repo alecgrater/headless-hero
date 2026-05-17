@@ -4,7 +4,7 @@ import json
 import logging
 from dataclasses import dataclass
 
-from config import strip_markdown_fences
+from config import parse_json_array_response, strip_markdown_fences
 from integrations.llm_client import chat
 from models.script import ScriptContent
 from prompts import MEDIA_ANALYZER_SYSTEM
@@ -67,10 +67,7 @@ def analyze_media_sources(
     )
 
     cleaned = strip_markdown_fences(response)
-    raw_assignments = json.loads(cleaned)
-
-    if not isinstance(raw_assignments, list):
-        raise ValueError("Expected JSON array from media analyzer")
+    raw_assignments = parse_json_array_response(cleaned)
 
     valid_sources = {"ai", "gameplay_video", "stock_photo"}
     assignments = []

@@ -6,7 +6,7 @@ import re
 import time
 from collections.abc import Callable
 
-from config import DEFAULT_ACCENT_COLOR, SEGMENT_COUNT, strip_markdown_fences
+from config import DEFAULT_ACCENT_COLOR, SEGMENT_COUNT, parse_json_array_response, strip_markdown_fences
 from integrations.llm_client import chat
 from models.script import Scene, ScriptContent, Segment
 from prompts import SCRIPT_OUTLINE_INSTRUCTIONS, SCRIPT_SEGMENT_SCENES_INSTRUCTIONS, SCRIPT_SYSTEM
@@ -321,17 +321,18 @@ def _generate_segment_scenes(
     raw = chat(system_prompt, user_msg, model=model, max_tokens=32768, timeout=300.0, json_mode=True, task="script")
     text = strip_markdown_fences(raw)
 
-    if not text.rstrip().endswith("]"):
+    try:
+        scenes_data = parse_json_array_response(text)
+    except (json.JSONDecodeError, ValueError) as e:
         logger.error(
-            "SEGMENTED: Segment %d/%d (%r) response was truncated — got %d chars, last 120: %r",
-            segment_index + 1, total, seg_name, len(text), text[-120:],
+            "SEGMENTED: Segment %d/%d (%r) response failed to parse — got %d chars, last 200: %r",
+            segment_index + 1, total, seg_name, len(text), text[-200:],
         )
         raise RuntimeError(
             f"SEGMENTED: Segment {segment_index + 1}/{total} (\"{seg_name}\") "
-            f"response was truncated. The segment may have too many scenes."
-        )
+            f"response could not be parsed (likely truncated or malformed): {e}"
+        ) from e
 
-    scenes_data = json.loads(text)
     scenes = [Scene.model_validate(s) for s in scenes_data]
 
     elapsed = time.monotonic() - t0
