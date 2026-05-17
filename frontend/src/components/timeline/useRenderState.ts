@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import api, { pollRenderJob } from "../../api";
+import api, {
+  exportShortFormThumbnails,
+  getRenderedShortsStatus,
+  pollRenderJob,
+  pollShortFormJob,
+  renderShortAll,
+} from "../../api";
 import { usePollJob } from "../../hooks/usePollJob";
 import { useOperationProgress } from "../../hooks/useOperationProgress";
 import type {
@@ -53,6 +59,7 @@ interface RenderState {
   // Smart export
   exportPhase: "rendering" | "exporting" | null;
   smartExportBundle: (onComplete?: (result: ExportBundleResponse) => void) => Promise<void>;
+  yoloRender: (onComplete?: (result: ExportBundleResponse) => void) => Promise<void>;
 
   // Operation progress
   thumbnailProgress: { estimatedSeconds: number | null; active: boolean };
@@ -299,6 +306,53 @@ export function useRenderState(
     [scriptId, youtubeUrl, startYoutubeRender],
   );
 
+  const yoloRender = useCallback(
+    async (onComplete?: (result: ExportBundleResponse) => void) => {
+      if (exportPhase) return;
+      setExportBundleResult(null);
+      try {
+        setExportPhase("rendering");
+        if (!youtubeUrl) {
+          const jobId = await startYoutubeRender();
+          if (!jobId) return;
+          await pollRenderJob(jobId);
+        }
+
+        setExportPhase("exporting");
+        const scriptRes = await api.get(`/api/scripts/${scriptId}`);
+        const content = scriptRes.ok
+          ? (scriptRes.data as { script?: { segments?: unknown[] } }).script
+          : null;
+        const segmentCount = content?.segments?.length ?? 0;
+        const rendered = await getRenderedShortsStatus(scriptId);
+        if (segmentCount > 0 && rendered.rendered_indices.length < segmentCount) {
+          const { job_id } = await renderShortAll(scriptId);
+          await pollShortFormJob(job_id);
+        }
+
+        await exportShortFormThumbnails(scriptId);
+
+        setExportBundleLoading(true);
+        const res = await api.post("/api/render/export-bundle", {
+          script_id: scriptId,
+        });
+        if (res.ok) {
+          const result = res.data as ExportBundleResponse;
+          setExportBundleResult(result);
+          onComplete?.(result);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "YOLO render failed";
+        setExportBundleResult(null);
+        throw new Error(msg);
+      } finally {
+        setExportBundleLoading(false);
+        setExportPhase(null);
+      }
+    },
+    [scriptId, youtubeUrl, startYoutubeRender, exportPhase],
+  );
+
   return {
     youtubeJobId,
     youtubeStatus,
@@ -323,6 +377,7 @@ export function useRenderState(
     exportBundle,
     exportPhase,
     smartExportBundle,
+    yoloRender,
     thumbnailProgress: { estimatedSeconds: thumbnailProgressHook.estimatedSeconds, active: thumbnailProgressHook.active },
     seoProgress: { estimatedSeconds: seoProgressHook.estimatedSeconds, active: seoProgressHook.active },
     shortFormSeoProgress: { estimatedSeconds: shortFormSeoProgressHook.estimatedSeconds, active: shortFormSeoProgressHook.active },

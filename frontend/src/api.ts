@@ -335,6 +335,11 @@ export async function pollRenderJob(jobId: string): Promise<void> {
   return pollBackgroundJob(jobId, "/api/render/status/", 600, "Render failed");
 }
 
+/** Poll a short-form background job until it completes or fails. */
+export async function pollShortFormJob(jobId: string): Promise<void> {
+  return pollBackgroundJob(jobId, "/api/short-form/jobs/", 1200, "Short-form job failed");
+}
+
 /** Poll an Eli generation background job until it completes or fails. */
 export async function pollEliJob(
   jobId: string,

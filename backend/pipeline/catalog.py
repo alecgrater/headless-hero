@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def parse_seo_txt(path: Path) -> tuple[str | None, str | None, list[str]]:
-    """Parse a seo.txt file into (title, description, tags)."""
+    """Parse an exported SEO text/markdown file into (title, description, tags)."""
     try:
         text = path.read_text(encoding="utf-8")
     except Exception:
@@ -24,13 +24,14 @@ def parse_seo_txt(path: Path) -> tuple[str | None, str | None, list[str]]:
 
     for line in text.split("\n"):
         stripped = line.strip()
-        if stripped == "Title:":
+        heading = stripped.lstrip("#").strip()
+        if stripped == "Title:" or heading == "Title":
             current_section = "title"
             continue
-        elif stripped == "Description:":
+        elif stripped == "Description:" or heading == "Description":
             current_section = "description"
             continue
-        elif stripped == "Tags:":
+        elif stripped == "Tags:" or heading in {"Tags", "YouTube Tags"}:
             current_section = "tags"
             continue
 

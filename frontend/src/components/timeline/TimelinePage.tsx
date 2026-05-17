@@ -296,6 +296,8 @@ function TimelineEditor({
   const [youtubeConnected, setYoutubeConnected] = useState(false);
   const [yoloStep, setYoloStep] = useState<string | null>(null);
   const [yoloError, setYoloError] = useState<string | null>(null);
+  const [yoloRenderRunning, setYoloRenderRunning] = useState(false);
+  const [yoloRenderError, setYoloRenderError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"timeline" | "media-sources" | "segments">("timeline");
   const yoloCancelledRef = useRef(false);
   const microTimelineRef = useRef<MicroTimelineHandle>(null);
@@ -890,6 +892,22 @@ function TimelineEditor({
     });
   }, [render, scriptId, onBack]);
 
+  const handleYoloRender = useCallback(async () => {
+    if (yoloRenderRunning) return;
+    setYoloRenderRunning(true);
+    setYoloRenderError(null);
+    try {
+      await render.yoloRender((_result: ExportBundleResponse) => {
+        setShowExport(true);
+        setExportInitialTab("render-long");
+      });
+    } catch (err) {
+      setYoloRenderError(err instanceof Error ? err.message : "YOLO render failed");
+    } finally {
+      setYoloRenderRunning(false);
+    }
+  }, [render, yoloRenderRunning]);
+
   // Export test: start + poll
   const handleExportTest = async (options: ExportTestOptions) => {
     setShowExportTestModal(false);
@@ -1115,6 +1133,24 @@ function TimelineEditor({
               </div>
             );
 
+            const yoloRenderButton = (
+              <button
+                onClick={handleYoloRender}
+                disabled={yoloRenderRunning || yoloRunning}
+                className="group relative px-5 py-1.5 text-xs font-bold rounded-lg transition-all overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 bg-gradient-to-r from-sky-500/80 via-emerald-400/70 to-amber-400/70 text-white/95 shadow-[0_0_15px_rgba(14,165,233,0.2)] hover:shadow-[0_0_22px_rgba(14,165,233,0.35)] hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
+              >
+                <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_ease-in-out_infinite]" />
+                <span className="relative flex items-center gap-1.5">
+                  {yoloRenderRunning ? (
+                    <span className="w-3 h-3 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Zap size={12} />
+                  )}
+                  YOLO RENDER
+                </span>
+              </button>
+            );
+
             if (yoloRunning) {
               return (
                 <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0 bg-fuchsia-500/5">
@@ -1136,7 +1172,18 @@ function TimelineEditor({
             if (allDone) {
               return (
                 <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
+                    {yoloRenderButton}
+                    <span className="text-[11px] text-neutral-500">
+                      {yoloRenderRunning
+                        ? render.exportPhase === "rendering"
+                          ? "Rendering long-form video..."
+                          : "Exporting every deliverable..."
+                        : "Render and export the complete project folder"}
+                    </span>
+                    {yoloRenderError && (
+                      <span className="text-[11px] text-red-400">{yoloRenderError}</span>
+                    )}
                     {statsBlock}
                   </div>
                 </div>
@@ -1161,6 +1208,18 @@ function TimelineEditor({
                   </span>
                   {yoloError && (
                     <span className="text-[11px] text-red-400">{yoloError}</span>
+                  )}
+                  <span className="w-px h-4 bg-neutral-700/50" />
+                  {yoloRenderButton}
+                  <span className="text-[11px] text-neutral-500">
+                    {yoloRenderRunning
+                      ? render.exportPhase === "rendering"
+                        ? "Rendering long-form video..."
+                        : "Exporting every deliverable..."
+                      : "Full folder export"}
+                  </span>
+                  {yoloRenderError && (
+                    <span className="text-[11px] text-red-400">{yoloRenderError}</span>
                   )}
                   {statsBlock}
                 </div>

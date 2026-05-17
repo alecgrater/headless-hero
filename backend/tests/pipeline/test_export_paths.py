@@ -26,6 +26,15 @@ def test_shortform_filename_format():
     )
 
 
+def test_seo_markdown_filename_formats():
+    assert longform_filename("SEO", "Mystery Project", ".md") == (
+        "[Longform] [SEO] - Mystery Project.md"
+    )
+    assert shortform_filename("SEO", "Opening Hook", ".md") == (
+        "[Shortform] [SEO] - Opening Hook.md"
+    )
+
+
 def test_project_downloads_folder_uses_configured_base(tmp_path, monkeypatch):
     monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path))
     folder = project_downloads_folder("Project Name")

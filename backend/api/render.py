@@ -116,6 +116,39 @@ def _load_brand(session: Session, script_id: str) -> dict:
         "name": brand.name,
     }
 
+
+def _format_longform_seo_markdown(seo: dict) -> str:
+    yt = seo.get("youtube", {})
+    lines: list[str] = []
+    if yt.get("title"):
+        lines.extend(["# Title", "", yt["title"], ""])
+    if yt.get("description"):
+        lines.extend(["# Description", "", yt["description"], ""])
+    if yt.get("tags"):
+        lines.extend(["# Tags", "", ", ".join(yt["tags"]), ""])
+    return "\n".join(lines).strip() + "\n"
+
+
+def _format_shortform_seo_markdown(item: dict) -> str:
+    hashtags = item.get("hashtags") or []
+    tags = item.get("tags") or []
+    lines = [
+        f"# Short {item.get('index', '?')}",
+        "",
+        "## Title",
+        "",
+        item.get("title", ""),
+        "",
+        "## Description",
+        "",
+        item.get("description", ""),
+    ]
+    if hashtags:
+        lines.extend(["", "## Hashtags", "", " ".join(hashtags)])
+    if tags:
+        lines.extend(["", "## YouTube Tags", "", ", ".join(tags)])
+    return "\n".join(lines).strip() + "\n"
+
 # --- ExportContext dataclass ---
 
 @dataclass
@@ -609,18 +642,11 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
             logger.warning("Auto-generate SEO failed", exc_info=True)
 
     if content.seo_metadata:
-        seo = content.seo_metadata
-        yt = seo.get("youtube", {})
-        lines = []
-        if yt.get("title"):
-            lines.append(f"Title:\n{yt['title']}")
-        if yt.get("description"):
-            lines.append(f"\nDescription:\n{yt['description']}")
-        if yt.get("tags"):
-            lines.append(f"\nTags:\n{', '.join(yt['tags'])}")
-        if lines:
-            dest = folder / longform_filename("SEO", project_title, ".txt")
-            dest.write_text("\n".join(lines), encoding="utf-8")
+        seo_markdown = _format_longform_seo_markdown(content.seo_metadata)
+        if seo_markdown.strip():
+            (folder / longform_filename("SEO", project_title, ".txt")).unlink(missing_ok=True)
+            dest = folder / longform_filename("SEO", project_title, ".md")
+            dest.write_text(seo_markdown, encoding="utf-8")
             copied_files.append(dest.name)
 
     # Short-form SEO — auto-generate all shorts in one additional call if missing
@@ -668,19 +694,9 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
                 if 0 <= segment_idx < len(content.segments)
                 else f"Short {raw_index}"
             )
-            hashtags = item.get("hashtags") or []
-            tags = item.get("tags") or []
-            lines = [
-                f"Short {raw_index}",
-                f"Title:\n{item.get('title', '')}",
-                f"Description:\n{item.get('description', '')}",
-            ]
-            if hashtags:
-                lines.append(f"Hashtags:\n{' '.join(hashtags)}")
-            if tags:
-                lines.append(f"YouTube Tags:\n{', '.join(tags)}")
-            dest = folder / shortform_filename("SEO", segment_name, ".txt")
-            dest.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
+            (folder / shortform_filename("SEO", segment_name, ".txt")).unlink(missing_ok=True)
+            dest = folder / shortform_filename("SEO", segment_name, ".md")
+            dest.write_text(_format_shortform_seo_markdown(item), encoding="utf-8")
             copied_files.append(dest.name)
 
     logger.info("Export bundle created at %s with %d files: %s", folder, len(copied_files), copied_files)
