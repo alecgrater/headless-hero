@@ -32,6 +32,7 @@ interface Props {
   mediaAnalyzing: boolean;
   mediaReviewDismissed: boolean;
   onAnalyzeMedia: () => void;
+  onBeforeAssignmentsApply: () => Promise<void> | void;
   onAssignmentsSaved: (assignments: MediaAssignment[]) => Promise<void> | void;
   onApproved: () => void;
 }
@@ -62,6 +63,7 @@ export default function MediaSourcesTab({
   mediaAnalyzing,
   mediaReviewDismissed,
   onAnalyzeMedia,
+  onBeforeAssignmentsApply,
   onAssignmentsSaved,
   onApproved,
 }: Props) {
@@ -90,6 +92,7 @@ export default function MediaSourcesTab({
           frameCounts={frameCounts}
           scenes={scenes}
           fullHeight
+          onBeforeApply={onBeforeAssignmentsApply}
           onSaved={onAssignmentsSaved}
           onApproved={onApproved}
           onReanalyze={onAnalyzeMedia}

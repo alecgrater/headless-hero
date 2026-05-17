@@ -10,6 +10,7 @@ interface Props {
   frameCounts?: Record<string, number>;
   fullHeight?: boolean;
   scenes?: Record<string, Scene>;
+  onBeforeApply?: () => Promise<void> | void;
   onSaved?: (assignments: MediaAssignment[]) => Promise<void> | void;
   onApproved: () => void;
   onReanalyze: () => void;
@@ -21,7 +22,7 @@ const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
   stock_photo: { label: "Stock Photo", color: "bg-sky-500/20 text-sky-300" },
 };
 
-export default function MediaReviewPanel({ scriptId, assignments: initial, frameCounts, fullHeight, scenes, onSaved, onApproved, onReanalyze }: Props) {
+export default function MediaReviewPanel({ scriptId, assignments: initial, frameCounts, fullHeight, scenes, onBeforeApply, onSaved, onApproved, onReanalyze }: Props) {
   const [assignments, setAssignments] = useState<MediaAssignment[]>(initial);
   const [saving, setSaving] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -49,12 +50,13 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
   const handleFieldChange = (sceneId: string, field: "game_name" | "search_query", value: string) => {
     setSaveState("idle");
     setAssignments((prev) =>
-      prev.map((a) => (a.scene_id === sceneId ? { ...a, [field]: value || null } : a)),
+      prev.map((a) => (a.scene_id === sceneId ? { ...a, [field]: field === "search_query" ? value : value || null } : a)),
     );
   };
 
   const applyAssignments = async () => {
     try {
+      await onBeforeApply?.();
       const res = await applyMediaAssignments(scriptId, assignments);
       if (res.ok) {
         await onSaved?.(assignments);

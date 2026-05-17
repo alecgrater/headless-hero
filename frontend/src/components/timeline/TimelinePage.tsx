@@ -2611,6 +2611,7 @@ function TimelineEditor({
           mediaAnalyzing={media.mediaAnalyzing}
           mediaReviewDismissed={media.mediaReviewDismissed}
           onAnalyzeMedia={media.handleAnalyzeMedia}
+          onBeforeAssignmentsApply={() => state.save()}
           onAssignmentsSaved={async (assignments: MediaAssignment[]) => {
             media.setMediaAssignments(assignments);
             const refreshed = await api.get(`/api/scripts/${scriptId}`);
