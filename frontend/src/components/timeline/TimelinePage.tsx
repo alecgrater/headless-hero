@@ -2122,7 +2122,7 @@ function TimelineEditor({
                   ) : (
                     <Zap size={14} />
                   )}
-                  YOLO RENDER
+                  YOLO MODE
                 </span>
               </button>
             );
