@@ -7,25 +7,27 @@ import shutil
 from pathlib import Path
 from typing import Literal
 
-from config import get_export_folder, sanitize_filename
+from config import sanitize_filename
 
 ExportKind = Literal["Longform", "Shortform"]
 ExportAsset = Literal["Thumbnail", "SEO", "Video", "Audio"]
 
 
 def downloads_base() -> Path:
-    """Return the configured Downloads directory."""
-    return Path(os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads"))
+    """Return the configured Downloads directory for direct asset exports."""
+    configured = os.environ.get("DOWNLOADS_DIR", "").strip()
+    legacy_export_root = os.environ.get("EXPORT_FOLDER", "").strip()
+    return Path(configured or legacy_export_root or str(Path.home() / "Downloads")).expanduser()
 
 
 def project_folder_name(project_title: str) -> str:
     """Return the standard Downloads folder name for a project."""
-    return f"[project] {sanitize_filename(project_title or 'Untitled')}"
+    return sanitize_filename(project_title or "Untitled")
 
 
 def project_downloads_folder(project_title: str, *, create: bool = True) -> Path:
     """Return the configured export project folder, creating it by default."""
-    folder = get_export_folder() / project_folder_name(project_title)
+    folder = downloads_base() / project_folder_name(project_title)
     if create:
         folder.mkdir(parents=True, exist_ok=True)
     return folder

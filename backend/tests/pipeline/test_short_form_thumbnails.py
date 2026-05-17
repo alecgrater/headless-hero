@@ -105,7 +105,7 @@ def test_export_generates_missing_and_copies_files(tmp_path, monkeypatch):
 
     folder, files, paths = thumbs.export_short_thumbnails(script_id, _content(), "Project/Name")
 
-    assert folder == str(Path(tmp_path / "Downloads" / "[project] ProjectName"))
+    assert folder == str(Path(tmp_path / "Downloads" / "ProjectName"))
     assert files == [
         "[Shortform] [Thumbnail] - The Bizarre Case of the Missing Lighthouse Keepers.png",
         "[Shortform] [Thumbnail] - The Vanishing Train.png",
