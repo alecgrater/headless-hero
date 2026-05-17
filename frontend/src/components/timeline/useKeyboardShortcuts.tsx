@@ -7,7 +7,7 @@ interface ShortcutActions {
   save: () => void;
   generateImage: () => void;
   generateAllImages: () => void;
-  openExport: () => void;
+  openUpload: () => void;
   toggleAudioPreview: () => void;
   deleteScene: () => void;
   // Micro-timeline actions
@@ -66,7 +66,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     label: "Global",
     shortcuts: [
-      { key: "e", label: "Open export panel", shortcutDisplay: "\u2318E" },
+      { key: "e", label: "Open upload suite", shortcutDisplay: "\u2318E" },
       { key: "?", label: "Toggle keyboard shortcuts", shortcutDisplay: "? / \u2318/" },
     ],
   },
@@ -182,7 +182,7 @@ export function useKeyboardShortcuts(actions: ShortcutActions) {
         }
         if (e.key === "e") {
           e.preventDefault();
-          actions.openExport();
+          actions.openUpload();
           return;
         }
         // Note: Cmd+Z and Cmd+S already handled in useTimelineState

@@ -15,6 +15,7 @@ const UPLOAD_SHORTS_URLS = [
   "https://www.tiktok.com/tiktokstudio",
   "https://studio.youtube.com/channel/UCBLhENZIlxFAQ59owrMSauw/videos/upload?d=ud&filter=%5B%5D&sort=%7B%22columnType%22%3A%22date%22%2C%22sortOrder%22%3A%22DESCENDING%22%7D",
 ];
+const YOUTUBE_LONGFORM_UPLOAD_URL = "https://studio.youtube.com/channel/UCBLhENZIlxFAQ59owrMSauw/videos/upload?d=ud&filter=%5B%5D&sort=%7B%22columnType%22%3A%22date%22%2C%22sortOrder%22%3A%22DESCENDING%22%7D";
 const UPLOAD_SHORTS_WINDOW_SIZE = { width: 684, height: 1203 };
 
 function isAppUrl(url) {
@@ -135,6 +136,26 @@ function openUploadShortsWindows() {
   }, Promise.resolve());
 }
 
+function openUploadWindow(url) {
+  if (process.platform !== "darwin") {
+    return shell.openExternal(url);
+  }
+
+  const [bounds] = getUploadShortsWindowBounds();
+  const { x, y, width, height } = bounds;
+  return runProcess("osascript", [
+    "-e",
+    [
+      `tell application ${appleScriptString(CHROME_APP_NAME)}`,
+      "activate",
+      "set uploadWindow to make new window",
+      `set URL of active tab of uploadWindow to ${appleScriptString(url)}`,
+      `set bounds of uploadWindow to {${x}, ${y}, ${x + width}, ${y + height}}`,
+      "end tell",
+    ].join("\n"),
+  ]);
+}
+
 function startBackend() {
   const backendDir = isDev
     ? path.join(__dirname, "..", "backend")
@@ -202,6 +223,9 @@ ipcMain.handle("open-external", (_event, url) => openExternalUrl(url));
 
 // IPC: open the short-form upload destinations in positioned Chrome windows.
 ipcMain.handle("open-upload-shorts-windows", () => openUploadShortsWindows());
+
+// IPC: open the long-form upload destination in a positioned Chrome window.
+ipcMain.handle("open-youtube-upload-window", () => openUploadWindow(YOUTUBE_LONGFORM_UPLOAD_URL));
 
 // IPC: reveal a file or folder in Finder / Explorer
 ipcMain.handle("show-item-in-folder", (_event, fullPath) => shell.showItemInFolder(fullPath));

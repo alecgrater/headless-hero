@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Check,
   Film,
@@ -29,8 +29,8 @@ import api, {
   generateShortFormThumbnailsBatch,
   getRenderedShortsStatus,
   getShortFormThumbnailsStatus,
+  getUploadSuiteStatus,
   getUploadTracking,
-  getYouTubeOAuthStatus,
   openUploadShortsWindows,
   pollEliJob,
   pollFXJob,
@@ -46,10 +46,11 @@ import { showToast } from "../ToastContainer";
 import type { ScriptContent, UploadTracking } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
 import type { SEOMetadata, ShortFormSEO, ShortFormSEOMetadata, ThumbnailConcept } from "../../types/render";
+import type { UploadSuiteStatus } from "../../api";
 import type { SaveState } from "../../App";
 import type { MicroTimelineHandle } from "./SceneMicroTimeline";
-import ExportPanel from "./ExportPanel";
 import ExportTestModal from "./ExportTestModal";
+import UploadPanel from "./UploadPanel";
 import MediaSourcesTab from "./MediaSourcesTab";
 import SegmentsTab from "./SegmentsTab";
 import PipelineSteps from "./PipelineSteps";
@@ -247,11 +248,10 @@ interface Props {
   isActive?: boolean;
   onBack: () => void;
   onSaveStateChange?: (state: SaveState) => void;
-  onNavigateToSettings?: () => void;
   onRecordVoiceover?: () => void;
 }
 
-export default function TimelinePage({ scriptId, isActive = true, onBack, onSaveStateChange, onNavigateToSettings, onRecordVoiceover }: Props) {
+export default function TimelinePage({ scriptId, isActive = true, onBack, onSaveStateChange, onRecordVoiceover }: Props) {
   const [script, setScript] = useState<ScriptRead | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -307,7 +307,7 @@ export default function TimelinePage({ scriptId, isActive = true, onBack, onSave
     );
   }
 
-  return <TimelineEditor scriptId={scriptId} isActive={isActive} initialContent={script.script} title={script.topic_title} onTitleUpdated={setScript} onBack={onBack} onSaveStateChange={onSaveStateChange} onNavigateToSettings={onNavigateToSettings} onRecordVoiceover={onRecordVoiceover} />;
+  return <TimelineEditor scriptId={scriptId} isActive={isActive} initialContent={script.script} title={script.topic_title} onTitleUpdated={setScript} onBack={onBack} onSaveStateChange={onSaveStateChange} onRecordVoiceover={onRecordVoiceover} />;
 }
 
 interface BatchProgressProps {
@@ -832,70 +832,25 @@ function ProductionWorkflowRow({
   );
 }
 
-function ExportSplitButton({
-  exportTestJobId,
-  showExportDropdown,
-  exportDropdownRef,
-  onOpenExport,
-  onCancelExportTest,
-  onToggleExportDropdown,
-  onOpenExportTest,
+function UploadButton({
+  checking,
+  onOpenUpload,
 }: {
-  exportTestJobId: string | null;
-  showExportDropdown: boolean;
-  exportDropdownRef: RefObject<HTMLDivElement | null>;
-  onOpenExport: () => void;
-  onCancelExportTest: () => void;
-  onToggleExportDropdown: () => void;
-  onOpenExportTest: () => void;
+  checking: boolean;
+  onOpenUpload: () => void;
 }) {
   return (
-    <div ref={exportDropdownRef} className="relative flex items-stretch shrink-0">
+    <div className="relative flex items-stretch shrink-0">
       <button
-        onClick={exportTestJobId ? onCancelExportTest : onOpenExport}
-        className={`text-xs pl-3 pr-2 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-[7rem] whitespace-nowrap ${
-          exportTestJobId
-            ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
-            : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
-        }`}
-        title={exportTestJobId ? "Cancel export test" : "Export & Render (Cmd+E)"}
+        type="button"
+        onClick={onOpenUpload}
+        disabled={checking}
+        className="flex min-w-[7rem] items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-neutral-700/60 bg-neutral-800/80 px-3 py-2 text-xs font-medium text-neutral-300 transition-all hover:border-neutral-600 hover:bg-neutral-700/80 disabled:cursor-wait disabled:opacity-60"
+        title="Open upload suite (Cmd+E)"
       >
-        {exportTestJobId ? (
-          <>
-            <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
-            Cancel
-          </>
-        ) : (
-          "Export"
-        )}
+        {checking ? <span className="h-3.5 w-3.5 rounded-full border-2 border-violet-400/60 border-t-transparent animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+        Upload
       </button>
-      {!exportTestJobId ? (
-        <button
-          onClick={onToggleExportDropdown}
-          className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center"
-          title="Export options"
-        >
-          <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
-            <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-      ) : (
-        <span className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-lg flex items-center">
-          <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
-            <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </span>
-      )}
-      {showExportDropdown && (
-        <div className="absolute top-full right-0 mt-1.5 w-44 bg-neutral-800/90 border border-neutral-700/60 rounded-xl shadow-2xl z-50 py-1.5">
-          <button
-            onClick={onOpenExportTest}
-            className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors"
-          >
-            Export Test
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -1210,7 +1165,6 @@ function TimelineEditor({
   onTitleUpdated,
   onBack,
   onSaveStateChange,
-  onNavigateToSettings,
   onRecordVoiceover,
 }: {
   scriptId: string;
@@ -1220,7 +1174,6 @@ function TimelineEditor({
   onTitleUpdated?: (script: ScriptRead) => void;
   onBack: () => void;
   onSaveStateChange?: (state: SaveState) => void;
-  onNavigateToSettings?: () => void;
   onRecordVoiceover?: () => void;
 }) {
   const state = useTimelineState(scriptId, initialContent);
@@ -1242,18 +1195,29 @@ function TimelineEditor({
   // Voice picker hook
   const voicePicker = useVoicePicker();
 
-  const [showExport, setShowExport] = useState(false);
-  const [exportInitialTab, setExportInitialTab] = useState<"render-long" | "render-short">("render-long");
+  const [showUpload, setShowUpload] = useState(false);
+  const [uploadSuite, setUploadSuite] = useState<UploadSuiteStatus | null>(null);
+  const [uploadSuiteChecking, setUploadSuiteChecking] = useState(false);
 
-  function openExportPanel() {
-    setExportInitialTab("render-long");
-    setShowExport(true);
-  }
-
-  function openExportOnShortForm() {
-    setExportInitialTab("render-short");
-    setShowExport(true);
-  }
+  const openUploadPanel = useCallback(async () => {
+    if (uploadSuiteChecking) return;
+    setUploadSuiteChecking(true);
+    try {
+      const suite = await getUploadSuiteStatus(scriptId);
+      if (!suite.ready) {
+        const details = suite.missing.slice(0, 4).join(", ");
+        const suffix = suite.missing.length > 4 ? `, +${suite.missing.length - 4} more` : "";
+        showToast(`Upload suite is not ready. Missing: ${details}${suffix}`);
+        return;
+      }
+      setUploadSuite(suite);
+      setShowUpload(true);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to check upload suite");
+    } finally {
+      setUploadSuiteChecking(false);
+    }
+  }, [scriptId, uploadSuiteChecking]);
   const [showVoiceSetup, setShowVoiceSetup] = useState(false);
   const [pendingAudioAction, setPendingAudioAction] = useState<"all" | string | null>(null);
   const [generatingFX, setGeneratingFX] = useState(false);
@@ -1285,7 +1249,6 @@ function TimelineEditor({
   const [trackingUpdating, setTrackingUpdating] = useState<Partial<Record<keyof UploadTracking, boolean>>>({});
   const [lastAudioGenTimestamp, setLastAudioGenTimestamp] = useState(0);
   const [lastFXGenTimestamp, setLastFXGenTimestamp] = useState(0);
-  const [youtubeConnected, setYoutubeConnected] = useState(false);
   const [yoloStep, setYoloStep] = useState<string | null>(null);
   const [yoloRenderRunning, setYoloRenderRunning] = useState(false);
   const [yoloRenderError, setYoloRenderError] = useState<string | null>(null);
@@ -1425,11 +1388,6 @@ function TimelineEditor({
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [showMediaBreakdown]);
 
-  // Check YouTube connection on mount
-  useEffect(() => {
-    getYouTubeOAuthStatus().then((s) => setYoutubeConnected(s.youtube.connected));
-  }, []);
-
   // Refresh cost when image or audio batch generation completes
   const imgDone = state.batchImageProgress.total > 0 && (state.batchImageProgress.completed + state.batchImageProgress.failed) >= state.batchImageProgress.total;
   const audioDone = state.batchAudioProgress.total > 0 && (state.batchAudioProgress.completed + state.batchAudioProgress.failed) >= state.batchAudioProgress.total;
@@ -1455,10 +1413,6 @@ function TimelineEditor({
     prevSingleAudioCount.current = count;
   }, [state.generatingAudioSceneIds]);
 
-  // Export split-button dropdown state
-  const [showExportDropdown, setShowExportDropdown] = useState(false);
-  const exportDropdownRef = useRef<HTMLDivElement>(null);
-
   // Auto-load thumbnails from disk on mount
   useEffect(() => {
     (async () => {
@@ -1472,38 +1426,11 @@ function TimelineEditor({
     })();
   }, [scriptId]);
 
-  // Close export dropdown on outside click
-  useEffect(() => {
-    if (!showExportDropdown) return;
-    const handler = (e: MouseEvent) => {
-      if (exportDropdownRef.current && !exportDropdownRef.current.contains(e.target as Node)) {
-        setShowExportDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showExportDropdown]);
-
   // Cancel refs for single async operations
   const fxCancelledRef = useRef(false);
   const eliCancelledRef = useRef(false);
   const titleCardCancelledRef = useRef(false);
   const thumbnailsCancelledRef = useRef(false);
-
-  // Fetch render estimate when export panel opens
-  useEffect(() => {
-    if (!showExport) return;
-    const scenes = state.content.segments.flatMap((seg) => seg.scenes);
-    const sceneCount = scenes.length;
-    const totalAudioDuration = scenes.reduce(
-      (sum, sc) => sum + (sc.audio_duration_seconds ?? 0),
-      0,
-    );
-    if (sceneCount > 0) {
-      render.fetchEstimate(sceneCount, totalAudioDuration);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showExport]);
 
   // Surface save state to App top bar
   useEffect(() => {
@@ -1602,7 +1529,9 @@ function TimelineEditor({
       if (state.selectedSceneId) state.generateImage(state.selectedSceneId);
     },
     generateAllImages: () => state.generateAllImages(),
-    openExport: () => openExportPanel(),
+    openUpload: () => {
+      void openUploadPanel();
+    },
     toggleAudioPreview,
     deleteScene,
     splitAtPlayhead: () => {
@@ -2319,8 +2248,7 @@ function TimelineEditor({
       setProductionProgress(null);
       setYoloStep("Export Bundle");
       await render.yoloRender(() => {
-        setShowExport(true);
-        setExportInitialTab("render-long");
+        void openUploadPanel();
       });
       await refreshScriptContent();
       await refreshShortFormThumbnailStatus();
@@ -2542,17 +2470,9 @@ function TimelineEditor({
               )}
             </div>
             {yoloArea}
-            <ExportSplitButton
-              exportTestJobId={exportTestJobId}
-              showExportDropdown={showExportDropdown}
-              exportDropdownRef={exportDropdownRef}
-              onOpenExport={openExportPanel}
-              onCancelExportTest={() => setExportTestJobId(null)}
-              onToggleExportDropdown={() => setShowExportDropdown((show) => !show)}
-              onOpenExportTest={() => {
-                setShowExportDropdown(false);
-                setShowExportTestModal(true);
-              }}
+            <UploadButton
+              checking={uploadSuiteChecking}
+              onOpenUpload={() => void openUploadPanel()}
             />
           </div>
 
@@ -2622,7 +2542,7 @@ function TimelineEditor({
                 key="short-form"
                 scriptId={scriptId}
                 segmentCount={state.content.segments.length}
-                onClick={openExportOnShortForm}
+                onClick={() => void openUploadPanel()}
               />
             );
             statItems.push(
@@ -3053,48 +2973,10 @@ function TimelineEditor({
         />
       )}
 
-      {showExport && (
-        <ExportPanel
-          youtubeStatus={render.youtubeStatus}
-          youtubeUrl={render.youtubeUrl}
-          onStartYoutubeRender={render.startYoutubeRender}
-          thumbnails={render.thumbnails}
-          thumbnailsGenerating={render.thumbnailsGenerating}
-          onRecompositeThumbnail={() => render.recompositeThumbnail()}
-          seoMetadata={render.seoMetadata}
-          seoGenerating={render.seoGenerating}
-          onGenerateSEO={render.generateSEO}
-          shortFormSeoMetadata={render.shortFormSeoMetadata}
-          shortFormSeoGenerating={render.shortFormSeoGenerating}
-          onGenerateShortFormSEO={render.generateShortFormSEO}
-          estimatedSeconds={render.estimatedSeconds}
-          exportBundleLoading={render.exportBundleLoading}
-          exportBundleResult={render.exportBundleResult}
-          onYoloExport={render.yoloRender}
-          exportPhase={render.exportPhase}
-          exportStatus={render.exportStatus}
-          thumbnailProgress={render.thumbnailProgress}
-          seoProgress={render.seoProgress}
-          shortFormSeoProgress={render.shortFormSeoProgress}
-          exportBundleProgress={render.exportBundleProgress}
-          youtubeConnected={youtubeConnected}
-          onYoutubeConnectionChange={setYoutubeConnected}
-          onNavigateToSettings={() => {
-            setShowExport(false);
-            onNavigateToSettings?.();
-          }}
-          seoTitle={editableTitle}
-          seoDescription=""
-          seoTags={[]}
-          projectTitle={editableTitle}
-          onClose={() => setShowExport(false)}
-          scriptId={scriptId}
-          segments={state.content.segments.map((s) => ({ name: s.name }))}
-          uploadTracking={uploadTracking}
-          trackingUpdating={trackingUpdating}
-          onToggleUploadTracking={handleToggleUploadTracking}
-          onRefreshUploadTracking={refreshUploadTracking}
-          initialTab={exportInitialTab}
+      {showUpload && uploadSuite && (
+        <UploadPanel
+          suite={uploadSuite}
+          onClose={() => setShowUpload(false)}
         />
       )}
 

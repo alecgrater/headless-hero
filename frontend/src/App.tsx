@@ -12,19 +12,18 @@ import VoiceoverRecordingPage from "./components/recording/VoiceoverRecordingPag
 import { ShortcutHelpOverlay } from "./components/timeline/useKeyboardShortcuts";
 import DiscoverPage from "./components/trending/DiscoverPage";
 import IdeaPage from "./components/ideas/IdeaPage";
-import CatalogPage from "./components/catalog/CatalogPage";
 import useLongPress from "./hooks/useLongPress";
 import type { VideoIdea } from "./types/idea";
 import type { ScriptSummary } from "./types/script";
 import type { OAuthStatusResponse } from "./types/publish";
 
-type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "ideas" | "catalog" | "voiceover-recording" | "dev-dashboard";
+type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "ideas" | "voiceover-recording" | "dev-dashboard";
 
 function viewPanelClass(panel: View, current: View): string {
   const visibility = panel === current ? "block" : "hidden";
   const base = `${visibility} h-full min-h-0 w-full`;
 
-  if (panel === "timeline" || panel === "settings" || panel === "catalog" || panel === "voiceover-recording" || panel === "dev-dashboard") {
+  if (panel === "timeline" || panel === "settings" || panel === "voiceover-recording" || panel === "dev-dashboard") {
     return `${base} overflow-hidden`;
   }
   if (panel === "project-dashboard" || panel === "discover" || panel === "ideas") {
@@ -342,19 +341,6 @@ function App() {
               Ideas
             </button>
             <button
-              onClick={() => handleSetView("catalog")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
-                view === "catalog"
-                  ? "bg-violet-500/15 text-violet-300 font-semibold"
-                  : "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
-              }`}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
-              </svg>
-              Catalog
-            </button>
-            <button
               onClick={() => handleSetView("dev-dashboard")}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
                 view === "dev-dashboard"
@@ -529,7 +515,6 @@ function App() {
               isActive={view === "timeline"}
               onBack={() => handleSetView("project-dashboard")}
               onSaveStateChange={handleSaveStateChange}
-              onNavigateToSettings={() => handleSetView("settings")}
               onRecordVoiceover={() => handleSetView("voiceover-recording")}
             />
           )}
@@ -570,10 +555,6 @@ function App() {
               }}
             />
           )}
-        </div>
-
-        <div className={viewPanelClass("catalog", view)}>
-          {visitedViews.has("catalog") && <CatalogPage onNavigateToSettings={() => handleSetView("settings")} />}
         </div>
 
         <div className={viewPanelClass("dev-dashboard", view)}>

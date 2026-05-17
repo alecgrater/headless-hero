@@ -16,6 +16,7 @@ interface ApiClient {
   request: <T = unknown>(method: string, path: string, body?: unknown) => Promise<ApiResponse<T>>;
   openExternal?: (url: string) => Promise<void>;
   openUploadShortsWindows?: () => Promise<void>;
+  openYouTubeUploadWindow?: () => Promise<void>;
   downloadFile?: (url: string, defaultFilename: string) => Promise<{ canceled: boolean; filePath?: string }>;
   saveToDownloads?: (url: string, folderName: string, filename: string) => Promise<{ filePath: string }>;
   selectFolder?: (title?: string, defaultPath?: string) => Promise<{ canceled: boolean; path?: string }>;
@@ -110,6 +111,7 @@ const api: ApiClient = {
   delete: (path: string) => interceptedRequest("DELETE", path),
   openExternal: rawApi.openExternal,
   openUploadShortsWindows: rawApi.openUploadShortsWindows,
+  openYouTubeUploadWindow: rawApi.openYouTubeUploadWindow,
 };
 
 export default api;
@@ -381,10 +383,15 @@ export function openInBrowser(url: string): void {
   }
 }
 
+export const YOUTUBE_STUDIO_URL = "https://studio.youtube.com/";
+export const YOUTUBE_STUDIO_UPLOAD_URL = "https://studio.youtube.com/channel/UCBLhENZIlxFAQ59owrMSauw/videos/upload?d=ud&filter=%5B%5D&sort=%7B%22columnType%22%3A%22date%22%2C%22sortOrder%22%3A%22DESCENDING%22%7D";
+export const TIKTOK_STUDIO_UPLOAD_URL = "https://www.tiktok.com/tiktokstudio/upload?from=webapp&lang=en&tab=video";
+export const INSTAGRAM_URL = "https://www.instagram.com/";
+
 const UPLOAD_SHORTS_URLS = [
   "https://www.instagram.com/watchunranked/",
   "https://www.tiktok.com/tiktokstudio",
-  "https://studio.youtube.com/channel/UCBLhENZIlxFAQ59owrMSauw/videos/upload?d=ud&filter=%5B%5D&sort=%7B%22columnType%22%3A%22date%22%2C%22sortOrder%22%3A%22DESCENDING%22%7D",
+  YOUTUBE_STUDIO_UPLOAD_URL,
 ];
 
 /** Open short-form upload destinations in Chrome windows when Electron is available. */
@@ -401,9 +408,17 @@ export function openUploadShortsWindows(): void {
   }
 }
 
-export const YOUTUBE_STUDIO_URL = "https://studio.youtube.com/";
-export const TIKTOK_STUDIO_UPLOAD_URL = "https://www.tiktok.com/tiktokstudio/upload?from=webapp&lang=en&tab=video";
-export const INSTAGRAM_URL = "https://www.instagram.com/";
+/** Open the long-form YouTube Studio upload page in a positioned Chrome window. */
+export function openYouTubeUploadWindow(): void {
+  if (window.api?.openYouTubeUploadWindow) {
+    window.api.openYouTubeUploadWindow().catch((err) => {
+      showToast(err instanceof Error ? err.message : "Failed to open YouTube Studio in Chrome");
+    });
+    return;
+  }
+
+  window.open(YOUTUBE_STUDIO_UPLOAD_URL, "_blank", "noopener,noreferrer,width=684,height=1203");
+}
 
 /** Reveal a file or folder in Finder/Explorer (Electron only, no-op in browser). */
 export function showInFolder(fullPath: string): void {
@@ -914,6 +929,31 @@ export interface ExportShortFormVideosResponse {
   folder_path: string;
   files: string[];
   paths: Record<number, string>;
+}
+
+export interface UploadSuiteShort {
+  index: number;
+  segment_name: string;
+  video_path: string | null;
+  seo_markdown: string;
+  thumbnail_url: string | null;
+}
+
+export interface UploadSuiteStatus {
+  ready: boolean;
+  project_title: string;
+  folder_path: string;
+  missing: string[];
+  longform_video_path: string | null;
+  longform_seo_markdown: string;
+  shorts: UploadSuiteShort[];
+}
+
+/** Fetch the exported upload suite metadata used by the manual upload modal. */
+export async function getUploadSuiteStatus(scriptId: string): Promise<UploadSuiteStatus> {
+  const res = await api.get(`/api/upload-suite/status?script_id=${encodeURIComponent(scriptId)}`);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to check upload suite");
+  return res.data as UploadSuiteStatus;
 }
 
 /** Copy all rendered short-form videos into the project's Downloads folder. */

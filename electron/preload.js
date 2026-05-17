@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld("api", {
   // Shell integration
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
   openUploadShortsWindows: () => ipcRenderer.invoke("open-upload-shorts-windows"),
+  openYouTubeUploadWindow: () => ipcRenderer.invoke("open-youtube-upload-window"),
 
   // Reveal a file/folder in Finder/Explorer
   showItemInFolder: (fullPath) => ipcRenderer.invoke("show-item-in-folder", fullPath),
