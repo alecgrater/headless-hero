@@ -871,6 +871,31 @@ export async function exportShortFormSEO(scriptId: string): Promise<ExportSEORes
   return res.data as ExportSEOResponse;
 }
 
+export interface ExportLongFormThumbnailResponse {
+  folder_path: string;
+  file: string;
+}
+
+/** Copy the composite long-form thumbnail PNG into the project's Downloads folder. */
+export async function exportLongFormThumbnail(scriptId: string): Promise<ExportLongFormThumbnailResponse> {
+  const res = await api.post("/api/render/export-thumbnail", { script_id: scriptId });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to export thumbnail");
+  return res.data as ExportLongFormThumbnailResponse;
+}
+
+export interface ExportShortFormVideosResponse {
+  folder_path: string;
+  files: string[];
+  paths: Record<number, string>;
+}
+
+/** Copy all rendered short-form videos into the project's Downloads folder. */
+export async function exportShortFormVideos(scriptId: string): Promise<ExportShortFormVideosResponse> {
+  const res = await api.post("/api/short-form/render/export", { script_id: scriptId });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to export short-form videos");
+  return res.data as ExportShortFormVideosResponse;
+}
+
 /** Start one-click upload for a rendered short to connected platforms. */
 export async function uploadShortForm(scriptId: string, segmentIdx: number): Promise<{ job_id: string }> {
   const res = await api.post("/api/publish/short-form/upload", {

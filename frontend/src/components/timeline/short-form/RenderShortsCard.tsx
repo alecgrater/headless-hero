@@ -3,6 +3,7 @@ import api, {
   INSTAGRAM_URL,
   TIKTOK_STUDIO_UPLOAD_URL,
   YOUTUBE_STUDIO_URL,
+  exportShortFormVideos,
   getShortFormJobStatus,
   openInBrowser,
   renderShortAll,
@@ -12,6 +13,7 @@ import api, {
   uploadShortForm,
 } from "../../../api";
 import { usePollJob } from "../../../hooks/usePollJob";
+import { showToast } from "../../ToastContainer";
 import type { OAuthStatusResponse, ShortUploadStatus } from "../../../types/publish";
 import type { ShortFormJobStatus, ShortFormSEOMetadata } from "../../../types/render";
 
@@ -63,6 +65,7 @@ export default function RenderShortsCard({
   const [uploadingSegment, setUploadingSegment] = useState<number | null>(null);
   const [uploadStatus, setUploadStatus] = useState<ShortFormJobStatus | null>(null);
   const [currentOp, setCurrentOp] = useState<CurrentOp>(null);
+  const [exporting, setExporting] = useState(false);
 
   const total = segments.length;
   const renderedCount = Object.values(renderedUrls).filter(Boolean).length;
@@ -139,6 +142,22 @@ export default function RenderShortsCard({
       setBusy(false);
       setCurrentOp(null);
       console.error(err);
+    }
+  }
+
+  async function handleExportVideos() {
+    if (!allDone) {
+      showToast("Render every short before exporting.", "info");
+      return;
+    }
+    setExporting(true);
+    try {
+      const result = await exportShortFormVideos(scriptId);
+      showToast(`Saved ${result.files.length} short videos to ${result.folder_path}`, "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to export short-form videos");
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -241,7 +260,7 @@ export default function RenderShortsCard({
 
   return (
     <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 space-y-3">
-      <header className="flex items-center justify-between">
+      <header className="flex items-center justify-between gap-3 pb-4 border-b border-neutral-800">
         <div className="flex flex-wrap items-center gap-3">
           <div>
             <h3 className="text-sm font-semibold text-neutral-200">Render Shorts</h3>
@@ -270,6 +289,14 @@ export default function RenderShortsCard({
             {isBatchBusy && currentOp?.type === "all" ? "Rendering..." : `Render All ${total} Shorts`}
           </button>
         </div>
+        <button
+          onClick={handleExportVideos}
+          disabled={exporting || busy || busySegment !== null}
+          className="text-sm px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+        >
+          {exporting && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
+          {exporting ? "Exporting..." : "Export"}
+        </button>
       </header>
 
       {(busy || busySegment !== null) && status && (

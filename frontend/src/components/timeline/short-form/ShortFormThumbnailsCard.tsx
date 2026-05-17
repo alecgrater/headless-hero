@@ -179,7 +179,7 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, embedded =
 
   return (
     <section className={embedded ? "space-y-4" : "bg-neutral-900 border border-neutral-800 rounded-xl p-4 space-y-4"}>
-      <header className="flex items-center justify-between gap-4">
+      <header className="flex items-center justify-between gap-4 pb-4 border-b border-neutral-800">
         <div className="flex flex-wrap items-center gap-3">
           <div>
             <h3 className="text-sm font-semibold text-neutral-200">Short-Form Thumbnails</h3>

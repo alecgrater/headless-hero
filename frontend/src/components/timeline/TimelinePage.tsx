@@ -15,7 +15,9 @@ import {
 import api, {
   assetUrl,
   exportLongFormSEO,
+  exportLongFormThumbnail,
   exportShortFormSEO,
+  exportShortFormVideos,
   exportTest,
   fetchScriptCost,
   generateEli,
@@ -745,17 +747,21 @@ function LongFormThumbnailsPanel({
   thumbnails,
   generating,
   onGenerate,
+  onExport,
+  exporting,
   progress,
 }: {
   thumbnails: ThumbnailConcept[];
   generating: boolean;
   onGenerate: () => void;
+  onExport: () => void;
+  exporting: boolean;
   progress: { estimatedSeconds: number | null; active: boolean };
 }) {
   return (
     <div className="flex-1 overflow-y-auto p-5">
       <section className="space-y-4">
-        <header className="flex items-center justify-between gap-3">
+        <header className="flex items-center justify-between gap-3 pb-4 border-b border-neutral-800">
           <div className="flex items-center gap-3">
             <div>
               <h3 className="text-sm font-semibold text-neutral-200">Long-Form Thumbnails</h3>
@@ -770,6 +776,14 @@ function LongFormThumbnailsPanel({
               {generating ? "Regenerating..." : thumbnails.length > 0 ? "Regenerate Thumbnail" : "Generate Thumbnail"}
             </button>
           </div>
+          <button
+            onClick={onExport}
+            disabled={exporting || generating}
+            className="text-sm px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            {exporting && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
+            {exporting ? "Exporting..." : "Export"}
+          </button>
         </header>
         {generating && <MiniProgressBar estimatedSeconds={progress.estimatedSeconds} active={progress.active} />}
         {thumbnails.length > 0 ? (
@@ -830,7 +844,7 @@ function LongFormSeoPanel({
   return (
     <div className="flex-1 overflow-y-auto p-5">
       <section className="space-y-4">
-        <header className="flex items-center justify-between gap-3">
+        <header className="flex items-center justify-between gap-3 pb-4 border-b border-neutral-800">
           <div className="flex items-center gap-3">
             <div>
               <h3 className="text-sm font-semibold text-neutral-200">Long-Form SEO</h3>
@@ -896,7 +910,7 @@ function ShortFormSeoPanel({
   return (
     <div className="flex-1 overflow-y-auto p-5">
       <section className="space-y-4">
-        <header className="flex items-center justify-between gap-3">
+        <header className="flex items-center justify-between gap-3 pb-4 border-b border-neutral-800">
           <div className="flex items-center gap-3">
             <div>
               <h3 className="text-sm font-semibold text-neutral-200">Short-Form SEO</h3>
@@ -1320,6 +1334,8 @@ function TimelineEditor({
 
   const [longFormSeoExporting, setLongFormSeoExporting] = useState(false);
   const [shortFormSeoExporting, setShortFormSeoExporting] = useState(false);
+  const [longFormThumbnailExporting, setLongFormThumbnailExporting] = useState(false);
+  const [shortFormVideosExporting, setShortFormVideosExporting] = useState(false);
 
   const handleExportLongFormSEO = useCallback(async () => {
     if (!render.seoMetadata) {
@@ -1353,6 +1369,35 @@ function TimelineEditor({
       setShortFormSeoExporting(false);
     }
   }, [render.shortFormSeoMetadata, scriptId]);
+
+  const handleExportLongFormThumbnail = useCallback(async () => {
+    const hasThumbnail = render.thumbnails.some((t) => Boolean(t.image_url));
+    if (!hasThumbnail) {
+      showToast("Generate a thumbnail before exporting.", "info");
+      return;
+    }
+    setLongFormThumbnailExporting(true);
+    try {
+      const result = await exportLongFormThumbnail(scriptId);
+      showToast(`Saved ${result.file} to ${result.folder_path}`, "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to export thumbnail");
+    } finally {
+      setLongFormThumbnailExporting(false);
+    }
+  }, [render.thumbnails, scriptId]);
+
+  const handleExportShortFormVideos = useCallback(async () => {
+    setShortFormVideosExporting(true);
+    try {
+      const result = await exportShortFormVideos(scriptId);
+      showToast(`Saved ${result.files.length} short videos to ${result.folder_path}`, "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to export short-form videos");
+    } finally {
+      setShortFormVideosExporting(false);
+    }
+  }, [scriptId]);
   const totalDurationSec = allScenes.reduce(
     (sum, sc) => sum + (sc.duration_estimate_seconds ?? 0),
     0,
@@ -2535,6 +2580,8 @@ function TimelineEditor({
           thumbnails={render.thumbnails}
           generating={render.thumbnailsGenerating}
           onGenerate={() => void render.recompositeThumbnail()}
+          onExport={() => void handleExportLongFormThumbnail()}
+          exporting={longFormThumbnailExporting}
           progress={render.thumbnailProgress}
         />
       ) : viewerFormat === "long-form" && viewerAsset === "seo" ? (

@@ -591,6 +591,37 @@ def rendered_longform(script_id: str, session: Session = Depends(get_session)):
     )
 
 
+class ExportThumbnailRequest(BaseModel):
+    script_id: str
+
+
+class ExportThumbnailResponse(BaseModel):
+    folder_path: str
+    file: str
+
+
+@router.post("/export-thumbnail", response_model=ExportThumbnailResponse)
+def export_thumbnail(body: ExportThumbnailRequest, session: Session = Depends(get_session)):
+    """Copy the composite long-form thumbnail PNG into the project Downloads folder."""
+    record = session.get(Script, body.script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    project_title = record.topic_title or "Untitled"
+    thumb_src = DATA_DIR / "projects" / body.script_id / "renders" / "thumbnails" / "0.png"
+    if not thumb_src.is_file():
+        raise HTTPException(
+            status_code=400,
+            detail="Long-form thumbnail has not been generated yet",
+        )
+
+    folder = project_downloads_folder(project_title)
+    dest = folder / longform_filename("Thumbnail", project_title, ".png")
+    shutil.copy2(str(thumb_src), str(dest))
+    logger.info("Exported long-form thumbnail for script %s to %s", body.script_id, dest)
+    return ExportThumbnailResponse(folder_path=str(folder), file=dest.name)
+
+
 @router.post("/export-bundle", response_model=ExportBundleResponse)
 def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_session)):
     """Bundle video, thumbnail, and SEO into the project Downloads folder."""

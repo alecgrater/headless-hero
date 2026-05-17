@@ -79,6 +79,16 @@ class ExportShortThumbnailsResponse(BaseModel):
     paths: dict[int, str]
 
 
+class ExportShortVideosRequest(BaseModel):
+    script_id: str
+
+
+class ExportShortVideosResponse(BaseModel):
+    folder_path: str
+    files: list[str]
+    paths: dict[int, str]
+
+
 # --- Helpers ---
 
 
@@ -283,6 +293,64 @@ def export_short_form_thumbnails(
     except RuntimeError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return ExportShortThumbnailsResponse(folder_path=folder_path, files=files, paths=paths)
+
+
+@router.post("/render/export", response_model=ExportShortVideosResponse)
+def export_short_form_videos(
+    body: ExportShortVideosRequest, session: Session = Depends(get_session)
+):
+    """Copy all rendered short-form videos to the project Downloads folder.
+
+    Fails with 400 if any segment has no rendered video yet.
+    """
+    import shutil
+
+    from pipeline.export_paths import project_downloads_folder
+    from pipeline.short_form_render import _short_filename
+
+    content = _load_content(session, body.script_id)
+    record = session.get(Script, body.script_id)
+    project_title = record.topic_title or "Untitled"
+
+    total = len(content.segments)
+    if total == 0:
+        raise HTTPException(status_code=400, detail="Script has no segments")
+
+    project_dir = DATA_DIR / "projects" / body.script_id / "renders" / "shorts"
+    folder = project_downloads_folder(project_title)
+
+    sources: dict[int, Path] = {}
+    missing: list[int] = []
+    for idx, segment in enumerate(content.segments):
+        seg_name = segment.name or f"Segment {idx + 1}"
+        downloads_path = folder / _short_filename(seg_name)
+        if downloads_path.is_file():
+            sources[idx] = downloads_path
+            continue
+        project_path = project_dir / f"{idx}.mp4"
+        if project_path.is_file():
+            sources[idx] = project_path
+            continue
+        missing.append(idx + 1)
+
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Render shorts {', '.join(map(str, missing))} before exporting",
+        )
+
+    files: list[str] = []
+    paths: dict[int, str] = {}
+    for idx, src in sources.items():
+        seg_name = content.segments[idx].name or f"Segment {idx + 1}"
+        dest = folder / _short_filename(seg_name)
+        if src.resolve() != dest.resolve():
+            shutil.copy2(str(src), str(dest))
+        files.append(dest.name)
+        paths[idx] = str(dest)
+
+    logger.info("Exported %d short-form videos for script %s to %s", len(files), body.script_id, folder)
+    return ExportShortVideosResponse(folder_path=str(folder), files=files, paths=paths)
 
 
 @router.post("/render/all", response_model=JobResponse)
