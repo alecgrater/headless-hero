@@ -1,6 +1,7 @@
 """Regression tests for scene transition defaults."""
 
-from models.script import Scene
+from api.fx import _count_fx_generation_targets
+from models.script import Scene, ScriptContent
 from pipeline import fx_generator
 
 
@@ -56,3 +57,38 @@ def test_fx_generator_defaults_null_transition_to_cut(monkeypatch):
     )
 
     assert result["transition_in"] == "cut"
+
+
+def test_missing_fx_targets_only_missing_non_title_scenes():
+    content = ScriptContent.model_validate(
+        {
+            "title": "Test",
+            "segments": [
+                {
+                    "name": "Segment",
+                    "scenes": [
+                        {
+                            "id": "title_001",
+                            "narration": "Title",
+                            "visual_prompt": "",
+                            "is_title_card": True,
+                        },
+                        {
+                            "id": "scene_001",
+                            "narration": "Already has FX.",
+                            "visual_prompt": "Image",
+                            "fx": {"drift": None, "zoom_punch": None},
+                        },
+                        {
+                            "id": "scene_002",
+                            "narration": "Needs FX.",
+                            "visual_prompt": "Image",
+                        },
+                    ],
+                }
+            ],
+        }
+    )
+
+    assert _count_fx_generation_targets(content, missing_only=True) == 1
+    assert _count_fx_generation_targets(content, missing_only=False) == 3

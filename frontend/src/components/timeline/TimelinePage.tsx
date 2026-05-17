@@ -805,13 +805,14 @@ function TimelineEditor({
       if (!allFXGenerated) {
         currentStep = "FX";
         setYoloStep(currentStep);
+        const sceneCount = missingFXCount;
         fxCancelledRef.current = false;
         setGeneratingFX(true);
         setFxStep("");
         setFxProgressPct(0);
-        fxProgress.start(allScenes.length);
+        fxProgress.start(sceneCount);
         try {
-          const res = await generateFX(scriptId);
+          const res = await generateFX(scriptId, true);
           if (yoloCancelledRef.current) return;
           if (!res.ok) throw new Error("FX generation request failed");
           const { job_id } = res.data as { job_id: string };
@@ -829,7 +830,7 @@ function TimelineEditor({
           setGeneratingFX(false);
           setFxStep("");
           setFxProgressPct(0);
-          fxProgress.end(allScenes.length);
+          fxProgress.end(sceneCount);
           setLastFXGenTimestamp(Date.now());
           refreshCost();
         }

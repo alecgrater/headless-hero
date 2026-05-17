@@ -49,9 +49,9 @@ def generate_all_fx(body: GenerateFXRequest, session: Session = Depends(get_sess
         raise HTTPException(status_code=404, detail="Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
-    total_scenes = sum(len(seg.scenes) for seg in content.segments)
+    target_scenes = _count_fx_generation_targets(content, body.missing_only)
 
-    job = create_job(scene_count=total_scenes)
+    job = create_job(scene_count=target_scenes)
 
     t = threading.Thread(
         target=_run_fx_generation,
@@ -154,8 +154,27 @@ def regenerate_scene_fx(body: RegenerateFXRequest, session: Session = Depends(ge
     return RegenerateFXResponse(scene_id=body.scene_id, fx=result["fx"], transition_in=target_scene.transition_in)
 
 
+def _scene_has_fx(scene) -> bool:
+    return bool(scene.fx)
+
+
+def _should_generate_fx(scene, missing_only: bool) -> bool:
+    if not missing_only:
+        return True
+    return not scene.is_title_card and not _scene_has_fx(scene)
+
+
+def _count_fx_generation_targets(content: ScriptContent, missing_only: bool) -> int:
+    return sum(
+        1
+        for seg in content.segments
+        for scene in seg.scenes
+        if _should_generate_fx(scene, missing_only)
+    )
+
+
 def _run_fx_generation(script_id: str, missing_only: bool, job_id: str) -> None:
-    """Background thread: generate FX for all scenes in a script."""
+    """Background thread: generate FX for all scenes, or only missing non-title scenes."""
     t0 = time.monotonic()
     try:
         with Session(engine) as session:
@@ -166,9 +185,18 @@ def _run_fx_generation(script_id: str, missing_only: bool, job_id: str) -> None:
 
             content = ScriptContent.model_validate(json.loads(record.script_json))
             total_scenes = sum(len(seg.scenes) for seg in content.segments)
-            logger.info("Generating FX for all scenes in script %s", script_id)
+            target_scenes = _count_fx_generation_targets(content, missing_only)
+            mode = "missing scenes" if missing_only else "all scenes"
+            logger.info(
+                "Generating FX for %s in script %s (%d target scenes, %d total scenes)",
+                mode,
+                script_id,
+                target_scenes,
+                total_scenes,
+            )
 
             updated = 0
+            processed = 0
             global_idx = 0
             previous_drift = None
             previous_transition = None
@@ -178,7 +206,7 @@ def _run_fx_generation(script_id: str, missing_only: bool, job_id: str) -> None:
                     if job and job.status == "cancelled":
                         return
 
-                    if missing_only and scene.fx:
+                    if not _should_generate_fx(scene, missing_only):
                         fx_data = scene.fx if isinstance(scene.fx, dict) else {}
                         if fx_data.get("drift"):
                             previous_drift = fx_data["drift"]
@@ -188,8 +216,8 @@ def _run_fx_generation(script_id: str, missing_only: bool, job_id: str) -> None:
 
                     update_job(
                         job_id,
-                        progress=global_idx / total_scenes if total_scenes else 0.0,
-                        current_step=f"Scene {global_idx + 1}/{total_scenes}",
+                        progress=processed / target_scenes if target_scenes else 1.0,
+                        current_step=f"Scene {processed + 1}/{target_scenes} ({scene.id})" if target_scenes else "Done",
                     )
 
                     duration = scene.audio_duration_seconds or scene.duration_estimate_seconds
@@ -225,23 +253,24 @@ def _run_fx_generation(script_id: str, missing_only: bool, job_id: str) -> None:
                             previous_drift = fx_result["drift"]
                         previous_transition = scene.transition_in if scene.transition_in != "cut" else None
                         updated += 1
-                        logger.info("Generated FX for scene %d/%d (%s)", global_idx + 1, total_scenes, scene.id)
+                        logger.info("Generated FX for scene %d/%d (%s)", processed + 1, target_scenes, scene.id)
                     except Exception as e:
                         logger.warning("Failed FX for scene %s: %s", scene.id, e)
 
+                    processed += 1
                     global_idx += 1
 
             record.script_json = content.model_dump_json()
             session.add(record)
             session.commit()
 
-            logger.info("Applied FX to %d/%d scenes for script %s", updated, total_scenes, script_id)
+            logger.info("Applied FX to %d/%d target scenes for script %s", updated, target_scenes, script_id)
 
             duration_seconds = time.monotonic() - t0
             session.add(GenerationDuration(
                 operation_type="fx_generation",
                 duration_seconds=duration_seconds,
-                scene_count=total_scenes,
+                scene_count=target_scenes,
             ))
             session.commit()
 
