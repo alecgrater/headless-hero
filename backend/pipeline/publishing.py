@@ -12,6 +12,7 @@ from models.credential import PlatformCredential
 logger = logging.getLogger(__name__)
 
 _TOKEN_REFRESH_BUFFER_SECONDS = 300  # Refresh if expiry within 5 minutes
+_YOUTUBE_DESCRIPTION_LIMIT = 5000
 
 def _resolve_local_path(file_url: str) -> str:
     """Convert a web-relative /static/projects/... URL to a local filesystem path."""
@@ -87,7 +88,12 @@ def _build_youtube_description(description: str, tags: list[str]) -> str:
     base = description.strip()
     if tags:
         tags_line = "Tags: " + ", ".join(tags)
-        return f"{base}\n\n{tags_line}".strip() if base else tags_line
+        if not base:
+            return tags_line[:_YOUTUBE_DESCRIPTION_LIMIT]
+        tagged = f"{base}\n\n{tags_line}"
+        if len(tagged) <= _YOUTUBE_DESCRIPTION_LIMIT:
+            return tagged
+        return base[:_YOUTUBE_DESCRIPTION_LIMIT]
     return base
 
 

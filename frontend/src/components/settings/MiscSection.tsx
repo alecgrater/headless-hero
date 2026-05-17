@@ -3,7 +3,7 @@ import api from "../../api";
 import { showToast } from "../ToastContainer";
 
 function settingEnabled(val: string): boolean {
-  return val !== "false" && val !== "0" && val !== "";
+  return !new Set(["0", "false", "no", "off"]).has(val.trim().toLowerCase());
 }
 
 export default function MiscSection() {

@@ -187,7 +187,10 @@ def sync_youtube(session: Session = Depends(get_session)):
         return SyncYouTubeResponse(matched=0)
 
     from pipeline.publishing import ensure_token_fresh
-    was_refreshed = ensure_token_fresh(cred)
+    try:
+        was_refreshed = ensure_token_fresh(cred)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
 
     from integrations.youtube_client import list_channel_uploads
     try:

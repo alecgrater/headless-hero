@@ -42,3 +42,11 @@ def test_build_youtube_description_empty_description():
 
     result = _build_youtube_description("", ["one", "two"])
     assert result == "Tags: one, two"
+
+
+def test_build_youtube_description_omits_tags_when_limit_exceeded():
+    from pipeline.publishing import _build_youtube_description
+
+    description = "x" * 4995
+    result = _build_youtube_description(description, ["one", "two"])
+    assert result == description
