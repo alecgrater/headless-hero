@@ -200,7 +200,7 @@ function DistributionTrackingModal({
               Upload Shorts
             </button>
             <p className="text-xs leading-5 text-neutral-400">
-              Opens Instagram, TikTok Studio, and YouTube Studio upload pages in three positioned Chrome windows.
+              Opens Instagram, TikTok Studio, and YouTube Studio upload pages in Chrome.
             </p>
           </div>
           {DISTRIBUTION_TARGETS.map(({ key, label }) => {

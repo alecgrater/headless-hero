@@ -523,7 +523,7 @@ export default function ExportPanel({
                   Upload Shorts
                 </button>
                 <p className="text-xs leading-5 text-neutral-500">
-                  Opens Instagram, TikTok Studio, and YouTube Studio upload pages in three positioned Chrome windows.
+                  Opens Instagram, TikTok Studio, and YouTube Studio upload pages in Chrome.
                 </p>
               </div>
               {exportBundleResult && (
