@@ -242,17 +242,17 @@ export default function RenderShortsCard({
   return (
     <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 space-y-3">
       <header className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-neutral-200">Render Shorts</h3>
-          <p
-            className={`text-xs ${
-              allDone ? "text-emerald-400" : "text-neutral-500"
-            }`}
-          >
-            {`${renderedCount}/${total} rendered`}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-200">Render Shorts</h3>
+            <p
+              className={`text-xs ${
+                allDone ? "text-emerald-400" : "text-neutral-500"
+              }`}
+            >
+              {`${renderedCount}/${total} rendered`}
+            </p>
+          </div>
           <button
             onClick={handleRenderRemaining}
             disabled={busy || busySegment !== null}

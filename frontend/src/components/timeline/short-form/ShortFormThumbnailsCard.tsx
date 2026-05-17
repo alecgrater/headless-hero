@@ -179,12 +179,30 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, embedded =
 
   return (
     <section className={embedded ? "space-y-4" : "bg-neutral-900 border border-neutral-800 rounded-xl p-4 space-y-4"}>
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="text-sm font-semibold text-neutral-200">Short-Form Thumbnails</h3>
-          <p className={`text-xs ${allDone ? "text-emerald-400" : "text-neutral-500"}`}>
-            {generatedCount}/{total} generated
-          </p>
+      <header className="flex items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-200">Short-Form Thumbnails</h3>
+            <p className={`text-xs ${allDone ? "text-emerald-400" : "text-neutral-500"}`}>
+              {generatedCount}/{total} generated
+            </p>
+          </div>
+          <button
+            onClick={handleGenerateMissing}
+            disabled={busy || busySegment !== null || missingCount === 0}
+            className="text-sm px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 rounded-lg font-medium transition-colors"
+          >
+            {isBatchBusy && currentOp?.type === "batch"
+              ? "Generating..."
+              : `Generate missing (${missingCount})`}
+          </button>
+          <button
+            onClick={handleGenerateAll}
+            disabled={busy || busySegment !== null || total === 0}
+            className="text-sm px-3 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 rounded-lg font-medium transition-colors"
+          >
+            {isBatchBusy && currentOp?.type === "all" ? "Generating..." : "Generate all"}
+          </button>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           {exportFolder && (
@@ -201,22 +219,6 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, embedded =
             className="text-sm px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 rounded-lg font-medium transition-colors"
           >
             {exporting ? "Exporting..." : "Export thumbnails"}
-          </button>
-          <button
-            onClick={handleGenerateMissing}
-            disabled={busy || busySegment !== null || missingCount === 0}
-            className="text-sm px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 rounded-lg font-medium transition-colors"
-          >
-            {isBatchBusy && currentOp?.type === "batch"
-              ? "Generating..."
-              : `Generate missing (${missingCount})`}
-          </button>
-          <button
-            onClick={handleGenerateAll}
-            disabled={busy || busySegment !== null || total === 0}
-            className="text-sm px-3 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 rounded-lg font-medium transition-colors"
-          >
-            {isBatchBusy && currentOp?.type === "all" ? "Generating..." : "Generate all"}
           </button>
         </div>
       </header>
