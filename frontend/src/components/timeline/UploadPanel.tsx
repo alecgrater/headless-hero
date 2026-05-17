@@ -251,6 +251,62 @@ function MarkdownPreview({
   );
 }
 
+function ShortCarouselControls({
+  activeShort,
+  shortCount,
+  onMove,
+  onSelect,
+}: {
+  activeShort: number;
+  shortCount: number;
+  onMove: (delta: number) => void;
+  onSelect: (idx: number) => void;
+}) {
+  if (shortCount === 0) return null;
+
+  return (
+    <div className="hidden items-center gap-4 lg:flex">
+      <div className="min-w-[5rem] text-right">
+        <div className="text-4xl font-semibold leading-none text-neutral-100">
+          {activeShort + 1}
+          <span className="text-xl text-neutral-500">/{shortCount}</span>
+        </div>
+      </div>
+      <div className="flex w-[28rem] items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-900/65 px-3 py-3 shadow-lg shadow-black/20">
+        <button
+          type="button"
+          onClick={() => onMove(-1)}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-neutral-700 bg-neutral-950 text-neutral-300 transition-colors hover:bg-neutral-800 hover:text-neutral-100"
+          aria-label="Previous short"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <div className="flex flex-1 items-center gap-1.5">
+          {Array.from({ length: shortCount }, (_, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => onSelect(idx)}
+              className={`h-2 flex-1 rounded-full transition-colors ${
+                idx === activeShort ? "bg-sky-300" : "bg-neutral-700 hover:bg-neutral-500"
+              }`}
+              aria-label={`Show short ${idx + 1}`}
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => onMove(1)}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-neutral-700 bg-neutral-950 text-neutral-300 transition-colors hover:bg-neutral-800 hover:text-neutral-100"
+          aria-label="Next short"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function UploadPanel({ suite, onClose }: Props) {
   const [activeTab, setActiveTab] = useState<UploadTab>("long-form");
   const [activeShort, setActiveShort] = useState(0);
@@ -265,7 +321,7 @@ export default function UploadPanel({ suite, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-6">
       <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-neutral-700/80 bg-neutral-950 shadow-2xl shadow-black/70">
-        <div className="shrink-0 border-b border-neutral-800 bg-neutral-950/95 px-6 py-5">
+        <div className="relative shrink-0 border-b border-neutral-800 bg-neutral-950/95 px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase text-neutral-500">Upload Suite</p>
@@ -322,6 +378,16 @@ export default function UploadPanel({ suite, onClose }: Props) {
               />
             )}
           </div>
+          {activeTab === "short-form" && (
+            <div className="absolute bottom-6 right-6">
+              <ShortCarouselControls
+                activeShort={activeShort}
+                shortCount={shortCount}
+                onMove={moveShort}
+                onSelect={setActiveShort}
+              />
+            </div>
+          )}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
@@ -361,45 +427,12 @@ export default function UploadPanel({ suite, onClose }: Props) {
                     </div>
                   }
                   sideAccessory={
-                    <div className="relative w-36">
+                    <div className="w-36">
                       <ThumbnailPreview
                         src={activeShortItem.thumbnail_url ?? null}
                         alt={activeShortItem.segment_name}
                         orientation="short-form"
                       />
-                      <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-1.5">
-                        <button
-                          type="button"
-                          onClick={() => moveShort(-1)}
-                          disabled={shortCount === 0}
-                          className="pointer-events-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-neutral-950/70 text-neutral-200 shadow-lg shadow-black/40 backdrop-blur transition-colors hover:bg-neutral-800/90 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
-                          aria-label="Previous short"
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => moveShort(1)}
-                          disabled={shortCount === 0}
-                          className="pointer-events-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-neutral-950/70 text-neutral-200 shadow-lg shadow-black/40 backdrop-blur transition-colors hover:bg-neutral-800/90 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
-                          aria-label="Next short"
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/10 bg-neutral-950/75 px-2 py-1 shadow-lg shadow-black/40 backdrop-blur">
-                        {suite.shorts.map((item, idx) => (
-                          <button
-                            key={item.index}
-                            type="button"
-                            onClick={() => setActiveShort(idx)}
-                            className={`h-1.5 rounded-full transition-all ${
-                              idx === activeShort ? "w-5 bg-sky-300" : "w-1.5 bg-neutral-600 hover:bg-neutral-400"
-                            }`}
-                            aria-label={`Show short ${idx + 1}`}
-                          />
-                        ))}
-                      </div>
                     </div>
                   }
                 />
