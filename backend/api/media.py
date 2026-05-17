@@ -79,6 +79,14 @@ class ApplyResponse(BaseModel):
     ok: bool
 
 
+def media_analysis_source_flags(script_json: dict) -> tuple[bool, bool]:
+    """Return enabled media sources, defaulting old scripts to manual analysis sources."""
+    return (
+        script_json.get("gameplay_enabled", True),
+        script_json.get("stock_photo_enabled", True),
+    )
+
+
 @router.post("/analyze/{script_id}", response_model=AnalyzeResponse)
 def analyze_media(script_id: str, session: Session = Depends(get_session)):
     """Trigger media source analysis for a script. Runs as a background job."""
@@ -100,14 +108,29 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
             rec = bg_session.get(Script, script_id)
             if not rec:
                 raise RuntimeError(f"Script {script_id} not found during background analysis")
-            fresh_content = ScriptContent.model_validate(json.loads(rec.script_json))
+            fresh_raw = json.loads(rec.script_json)
+            fresh_content = ScriptContent.model_validate(fresh_raw)
 
-        assignments = analyze_media_sources(
-            fresh_content,
-            gameplay_enabled=fresh_content.gameplay_enabled,
-            stock_photo_enabled=fresh_content.stock_photo_enabled,
-            script_id=script_id,
-        )
+        gameplay_enabled, stock_photo_enabled = media_analysis_source_flags(fresh_raw)
+
+        if gameplay_enabled or stock_photo_enabled:
+            assignments = analyze_media_sources(
+                fresh_content,
+                gameplay_enabled=gameplay_enabled,
+                stock_photo_enabled=stock_photo_enabled,
+                script_id=script_id,
+            )
+        else:
+            assignments = [
+                MediaAssignment(
+                    scene_id=scene.id,
+                    media_source="ai",
+                    game_name=None,
+                    search_query=None,
+                    reasoning="Gameplay and stock photo routing are disabled for this script.",
+                )
+                for scene in fresh_content.all_scenes()
+            ]
 
         with SqlSession(engine) as bg_session:
             rec = bg_session.get(Script, script_id)

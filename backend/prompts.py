@@ -264,7 +264,7 @@ contains_person tagging rules:
 For ai_generated frames, the "prompt" is a BRIEF DELTA if reference_previous is true (describing only what changes from the visual_prompt anchor), or a FULL independent description if reference_previous is false.
 
 - Title card scenes (is_title_card: true) should have visual_beat: "static" and empty frame_directives — they use the programmatic title card system.
-- Do NOT assign scene-level media routing fields such as "media_source" or "gameplay_game_override". A separate post-script media analyzer chooses AI art, gameplay clips, stock photos, or user uploads after the script is complete.
+- Do NOT assign scene-level media routing fields such as "media_source" or "gameplay_game_override". A separate post-script media analyzer chooses AI art, gameplay clips, or stock photos after the script is complete.
 
 ---
 
