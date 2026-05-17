@@ -118,6 +118,17 @@ export const ShortTitleCardScene: React.FC<Props> = ({
           gap: 20,
         }}
       >
+        {/* Amber accent bar (top) */}
+        <div
+          style={{
+            width: "100%",
+            height: 5,
+            borderRadius: 3,
+            background: ACCENT_COLOR,
+            boxShadow: `0 0 16px rgba(251,191,36,0.7)`,
+          }}
+        />
+
         {/* Title text */}
         <div
           style={{
@@ -135,10 +146,10 @@ export const ShortTitleCardScene: React.FC<Props> = ({
           {titleText}
         </div>
 
-        {/* Amber accent bar — the one tasteful flourish */}
+        {/* Amber accent bar (bottom) */}
         <div
           style={{
-            width: "calc(100% + 96px)",
+            width: "100%",
             height: 5,
             borderRadius: 3,
             background: ACCENT_COLOR,
