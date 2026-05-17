@@ -355,7 +355,7 @@ export default function UploadPanel({ suite, onClose }: Props) {
                     src={activeShortItem?.thumbnail_url ?? null}
                     alt={activeShortItem?.segment_name ?? "Short form thumbnail"}
                     orientation="short-form"
-                    eyebrow={`Short ${activeShort + 1} of ${shortCount}`}
+                    eyebrow={activeShortItem ? `Short ${activeShort + 1} of ${shortCount}` : undefined}
                     title={activeShortItem?.segment_name}
                   />
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-2">
