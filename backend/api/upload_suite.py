@@ -39,6 +39,7 @@ class UploadSuiteStatusResponse(BaseModel):
     folder_path: str
     missing: list[str]
     longform_video_path: str | None = None
+    longform_thumbnail_url: str | None = None
     longform_seo_markdown: str
     shorts: list[ShortUploadSuiteItem]
 
@@ -113,6 +114,16 @@ def _exported_longform_path(script_id: str, project_title: str, folder: Path) ->
     return str(candidates[0]) if candidates else None
 
 
+def _longform_thumbnail_path(script_id: str) -> Path | None:
+    rendered = DATA_DIR / "projects" / script_id / "renders" / "thumbnails" / "0.png"
+    if rendered.is_file():
+        return rendered
+    composite = DATA_DIR / "projects" / script_id / "images" / "composite_title_card.png"
+    if composite.is_file():
+        return composite
+    return None
+
+
 @router.get("/status", response_model=UploadSuiteStatusResponse)
 def upload_suite_status(script_id: str, session: Session = Depends(get_session)):
     """Return the manual upload suite if exported videos are ready."""
@@ -128,6 +139,11 @@ def upload_suite_status(script_id: str, session: Session = Depends(get_session))
     longform_video_path = _exported_longform_path(script_id, project_title, folder)
     if not longform_video_path:
         missing.append("Long-form video")
+    longform_thumbnail_url = (
+        f"/api/upload-suite/longform-thumbnail?script_id={script_id}"
+        if _longform_thumbnail_path(script_id)
+        else None
+    )
 
     longform_seo_path = folder / longform_filename("SEO", project_title, ".md")
     longform_seo_markdown = _read_text(longform_seo_path)
@@ -168,9 +184,20 @@ def upload_suite_status(script_id: str, session: Session = Depends(get_session))
         folder_path=str(folder),
         missing=missing,
         longform_video_path=longform_video_path,
+        longform_thumbnail_url=longform_thumbnail_url,
         longform_seo_markdown=longform_seo_markdown,
         shorts=shorts,
     )
+
+
+@router.get("/longform-thumbnail")
+def upload_suite_longform_thumbnail(script_id: str, session: Session = Depends(get_session)):
+    """Serve the long-form thumbnail used by the manual upload panel."""
+    _record, _content = _load_script(session, script_id)
+    thumb = _longform_thumbnail_path(script_id)
+    if not thumb:
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
+    return FileResponse(str(thumb))
 
 
 @router.get("/thumbnail")

@@ -905,6 +905,7 @@ export interface UploadSuiteStatus {
   folder_path: string;
   missing: string[];
   longform_video_path: string | null;
+  longform_thumbnail_url: string | null;
   longform_seo_markdown: string;
   shorts: UploadSuiteShort[];
 }
