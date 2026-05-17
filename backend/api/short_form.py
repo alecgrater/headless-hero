@@ -7,6 +7,7 @@ segment). See docs/superpowers/specs/2026-05-15-short-form-export-design.md.
 
 import json
 import logging
+from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session

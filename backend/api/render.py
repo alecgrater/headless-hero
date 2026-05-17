@@ -599,6 +599,17 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
             copied_files.append(dest.name)
             break
 
+    # Audio — export full narration as MP3 when source scene audio exists
+    try:
+        export_full_audio(body.script_id, content, title=project_title)
+        audio_dest = folder / longform_filename("Audio", project_title, ".mp3")
+        if audio_dest.exists():
+            copied_files.append(audio_dest.name)
+    except FileNotFoundError:
+        logger.info("Skipping audio export for script %s: no audio files found", body.script_id)
+    except Exception:
+        logger.warning("Auto-export audio failed", exc_info=True)
+
     # Thumbnail — auto-generate if missing
     thumb_src = renders_dir / "thumbnails" / "0.png"
     if not thumb_src.exists():
