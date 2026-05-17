@@ -530,6 +530,9 @@ function ProductionWorkflowRow({
           missingLabel="Render Missing"
           allTitle={`Render all ${segmentCount} short-form videos`}
         />
+        <svg className="w-3 h-3 invisible shrink-0" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </div>
     </div>
   );
