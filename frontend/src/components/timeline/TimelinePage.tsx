@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { Info, Zap } from "lucide-react";
 import api, {
   assetUrl,
@@ -316,6 +316,7 @@ function compactProgressText(progress: number | null) {
 }
 
 function ProductionTaskButton({
+  stepNumber,
   label,
   done,
   busy,
@@ -327,6 +328,7 @@ function ProductionTaskButton({
   missingLabel,
   allTitle,
 }: {
+  stepNumber: number;
   label: string;
   done: boolean;
   busy: boolean;
@@ -355,40 +357,50 @@ function ProductionTaskButton({
     : done
       ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
       : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600";
+  const stepClass = busy
+    ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)] animate-[pulseDot_2s_ease-in-out_infinite]"
+    : done
+      ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
+      : "border-neutral-600 text-neutral-500";
 
   return (
-    <div ref={ref} className="relative flex items-stretch min-w-[11rem]">
-      <button
-        type="button"
-        onClick={onRunAll}
-        disabled={busy || disabled}
-        className={`text-xs pl-3 pr-2 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 flex-1 whitespace-nowrap disabled:opacity-50 ${buttonStateClass}`}
-        title={allTitle}
-      >
-        {busy ? (
-          <>
-            <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
-            {compactProgressText(progress) || "Running"}
-          </>
-        ) : done ? (
-          `${label} ✓`
-        ) : (
-          label
-        )}
-      </button>
-      <button
-        type="button"
-        onClick={() => setOpen((show) => !show)}
-        disabled={busy || disabled}
-        className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center disabled:opacity-50"
-        title={`${label} options`}
-      >
-        <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
-          <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
+    <div ref={ref} className="relative flex items-center gap-1.5 min-w-0">
+      <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${stepClass}`}>
+        {stepNumber}
+      </span>
+      <div className="flex items-stretch flex-1 min-w-0">
+        <button
+          type="button"
+          onClick={onRunAll}
+          disabled={busy || disabled}
+          className={`text-xs pl-3 pr-2 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 flex-1 whitespace-nowrap disabled:opacity-50 ${buttonStateClass}`}
+          title={allTitle}
+        >
+          {busy ? (
+            <>
+              <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
+              {compactProgressText(progress) || "Running"}
+            </>
+          ) : done ? (
+            `${label} ✓`
+          ) : (
+            label
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen((show) => !show)}
+          disabled={busy || disabled}
+          className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center disabled:opacity-50"
+          title={`${label} options`}
+        >
+          <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+            <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </div>
       {open && (
-        <div className="absolute top-full left-0 mt-1.5 w-56 bg-neutral-800/90 border border-neutral-700/60 rounded-xl shadow-2xl z-50 py-1.5">
+        <div className="absolute top-full left-7 mt-1.5 w-56 bg-neutral-800/90 border border-neutral-700/60 rounded-xl shadow-2xl z-50 py-1.5">
           <button
             onClick={() => {
               setOpen(false);
@@ -456,11 +468,9 @@ function ProductionWorkflowRow({
 
   return (
     <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 shrink-0">
-          Production
-        </span>
+      <div className="grid items-center gap-2 min-w-0" style={{ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" }}>
         <ProductionTaskButton
+          stepNumber={6}
           label="Generate LF SEO"
           done={lfSeoDone}
           busy={lfSeoBusy}
@@ -473,6 +483,7 @@ function ProductionWorkflowRow({
           allTitle="Generate long-form YouTube title, description, and tags"
         />
         <ProductionTaskButton
+          stepNumber={7}
           label="Generate SF Thumbnails"
           done={sfThumbnailsDone}
           busy={sfThumbnailsBusy}
@@ -485,6 +496,7 @@ function ProductionWorkflowRow({
           allTitle={`Generate vertical thumbnails for all ${segmentCount} short-form videos`}
         />
         <ProductionTaskButton
+          stepNumber={8}
           label="Generate SF SEO"
           done={sfSeoDone}
           busy={sfSeoBusy}
@@ -497,6 +509,7 @@ function ProductionWorkflowRow({
           allTitle={`Generate upload SEO for all ${segmentCount} short-form videos`}
         />
         <ProductionTaskButton
+          stepNumber={9}
           label="Render SF Videos"
           done={sfRendersDone}
           busy={sfRendersBusy}
@@ -518,17 +531,31 @@ function ViewerSwitchRow({
   asset,
   activeTab,
   hasPendingReview,
+  exportTestJobId,
+  showExportDropdown,
+  exportDropdownRef,
   onFormatChange,
   onAssetChange,
   onTabChange,
+  onOpenExport,
+  onCancelExportTest,
+  onToggleExportDropdown,
+  onOpenExportTest,
 }: {
   format: ViewerFormat;
   asset: ViewerAsset;
   activeTab: "timeline" | "media-sources" | "segments";
   hasPendingReview: boolean;
+  exportTestJobId: string | null;
+  showExportDropdown: boolean;
+  exportDropdownRef: RefObject<HTMLDivElement | null>;
   onFormatChange: (format: ViewerFormat) => void;
   onAssetChange: (asset: ViewerAsset) => void;
   onTabChange: (tab: "timeline" | "media-sources" | "segments") => void;
+  onOpenExport: () => void;
+  onCancelExportTest: () => void;
+  onToggleExportDropdown: () => void;
+  onOpenExportTest: () => void;
 }) {
   const renderTabSelector = format === "long-form" && asset === "render";
 
@@ -593,6 +620,53 @@ function ViewerSwitchRow({
             </div>
           </>
         )}
+        <div ref={exportDropdownRef} className="relative ml-auto flex items-stretch">
+          <button
+            onClick={exportTestJobId ? onCancelExportTest : onOpenExport}
+            className={`text-xs pl-3 pr-2 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-[7rem] whitespace-nowrap ${
+              exportTestJobId
+                ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
+                : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
+            }`}
+            title={exportTestJobId ? "Cancel export test" : "Export & Render (Cmd+E)"}
+          >
+            {exportTestJobId ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
+                Cancel
+              </>
+            ) : (
+              "Export"
+            )}
+          </button>
+          {!exportTestJobId ? (
+            <button
+              onClick={onToggleExportDropdown}
+              className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center"
+              title="Export options"
+            >
+              <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          ) : (
+            <span className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-lg flex items-center">
+              <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
+                <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+          )}
+          {showExportDropdown && (
+            <div className="absolute top-full right-0 mt-1.5 w-44 bg-neutral-800/90 border border-neutral-700/60 rounded-xl shadow-2xl z-50 py-1.5">
+              <button
+                onClick={onOpenExportTest}
+                className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors"
+              >
+                Export Test
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1718,92 +1792,6 @@ function TimelineEditor({
             <h2 className="text-base font-semibold truncate" title={title}>{title}</h2>
           </div>
 
-          {/* Row 2 — Pipeline Steps */}
-          <PipelineSteps
-            titleCardGenerating={titleCardGenerating}
-            titleCardGenerated={titleCardGenerated || allTitleCardsGenerated}
-            allImagesGenerated={allImagesGenerated}
-            allAudioGenerated={allAudioGenerated}
-            allFXGenerated={allFXGenerated}
-            batchGenerating={state.batchGenerating}
-            batchGeneratingAudio={state.batchGeneratingAudio}
-            hasTitleCards={state.hasTitleCards}
-            generatingFX={generatingFX}
-            setGeneratingFX={setGeneratingFX}
-            handleGenerateTitleCards={handleGenerateTitleCards}
-            cancelTitleCards={cancelTitleCards}
-            confirmAndGenerateImages={confirmAndGenerateImages}
-            confirmAndGenerateAudio={confirmAndGenerateAudio}
-            confirmAndGenerateFX={confirmAndGenerateFX}
-            generateMissingImages={generateMissingImages}
-            generateMissingAudio={generateMissingAudio}
-            generateMissingFX={generateMissingFX}
-            hasExistingImages={hasExistingImages}
-            hasExistingAudio={hasExistingAudio}
-            hasExistingFX={hasExistingFX}
-            missingImageCount={missingImageCount}
-            missingAudioCount={missingAudioCount}
-            missingFXCount={missingFXCount}
-            cancelImageGeneration={state.cancelImageGeneration}
-            cancelAudioGeneration={state.cancelAudioGeneration}
-            fxCancelledRef={fxCancelledRef}
-            showVoicePicker={voicePicker.showVoicePicker}
-            setShowVoicePicker={voicePicker.setShowVoicePicker}
-            voices={voicePicker.voices}
-            selectedVoiceId={voicePicker.selectedVoiceId}
-            setSelectedVoiceId={voicePicker.setSelectedVoiceId}
-            voicePickerRef={voicePicker.voicePickerRef}
-            onRecordVoiceover={onRecordVoiceover}
-            exportTestJobId={exportTestJobId}
-            setExportTestJobId={setExportTestJobId}
-            showExportDropdown={showExportDropdown}
-            setShowExportDropdown={setShowExportDropdown}
-            exportDropdownRef={exportDropdownRef}
-            setShowExport={openExportPanel}
-            setShowExportTestModal={setShowExportTestModal}
-            fxPotentiallyStale={lastAudioGenTimestamp > 0 && lastAudioGenTimestamp > lastFXGenTimestamp}
-            allEliGenerated={allEliGenerated}
-            generatingEli={generatingEli}
-            setGeneratingEli={setGeneratingEli}
-            confirmAndGenerateEli={confirmAndGenerateEli}
-            generateMissingEli={generateMissingEli}
-            hasExistingEli={hasExistingEli}
-            missingEliCount={missingEliCount}
-            eliCancelledRef={eliCancelledRef}
-            fxEstimatedSeconds={fxProgress.estimatedSeconds}
-            fxProgressActive={fxProgress.active}
-            eliEstimatedSeconds={eliProgress.estimatedSeconds}
-            eliProgressActive={eliProgress.active}
-            titleCardEstimatedSeconds={titleCardProgress.estimatedSeconds}
-            titleCardProgressActive={titleCardProgress.active}
-          />
-
-          <ProductionWorkflowRow
-            segmentCount={segmentCount}
-            lfSeoDone={lfSeoDone}
-            sfSeoDone={sfSeoDone}
-            sfSeoMissingCount={sfSeoMissingCount}
-            sfThumbnailsDone={sfThumbnailsDone}
-            sfThumbnailsMissingCount={sfThumbnailMissingCount}
-            sfRendersDone={sfRendersDone}
-            sfRendersMissingCount={sfRenderMissingCount}
-            busyTask={productionBusyTask}
-            progress={productionProgress}
-            seoGenerating={render.seoGenerating}
-            shortFormSeoGenerating={render.shortFormSeoGenerating}
-            onGenerateLfSeo={handleGenerateLfSeo}
-            onGenerateMissingLfSeo={handleGenerateMissingLfSeo}
-            onGenerateSfThumbnails={handleGenerateSfThumbnails}
-            onGenerateMissingSfThumbnails={handleGenerateMissingSfThumbnails}
-            onGenerateSfSeo={handleGenerateSfSeo}
-            onGenerateMissingSfSeo={handleGenerateMissingSfSeo}
-            onRenderSfVideos={handleRenderSfVideos}
-            onRenderMissingSfVideos={handleRenderMissingSfVideos}
-          />
-          {productionError && (
-            <div className="px-5 pb-2 text-[11px] text-red-400">{productionError}</div>
-          )}
-
           {/* YOLO / Stats Row */}
           {(() => {
             const remaining: string[] = [];
@@ -1976,6 +1964,104 @@ function TimelineEditor({
               </div>
             );
           })()}
+
+          <ViewerSwitchRow
+            format={viewerFormat}
+            asset={viewerAsset}
+            activeTab={activeTab}
+            hasPendingReview={media.hasPendingReview}
+            exportTestJobId={exportTestJobId}
+            showExportDropdown={showExportDropdown}
+            exportDropdownRef={exportDropdownRef}
+            onFormatChange={setViewerFormat}
+            onAssetChange={setViewerAsset}
+            onTabChange={setActiveTab}
+            onOpenExport={openExportPanel}
+            onCancelExportTest={() => setExportTestJobId(null)}
+            onToggleExportDropdown={() => setShowExportDropdown((show) => !show)}
+            onOpenExportTest={() => {
+              setShowExportDropdown(false);
+              setShowExportTestModal(true);
+            }}
+          />
+
+          <PipelineSteps
+            titleCardGenerating={titleCardGenerating}
+            titleCardGenerated={titleCardGenerated || allTitleCardsGenerated}
+            allImagesGenerated={allImagesGenerated}
+            allAudioGenerated={allAudioGenerated}
+            allFXGenerated={allFXGenerated}
+            batchGenerating={state.batchGenerating}
+            batchGeneratingAudio={state.batchGeneratingAudio}
+            hasTitleCards={state.hasTitleCards}
+            generatingFX={generatingFX}
+            setGeneratingFX={setGeneratingFX}
+            handleGenerateTitleCards={handleGenerateTitleCards}
+            cancelTitleCards={cancelTitleCards}
+            confirmAndGenerateImages={confirmAndGenerateImages}
+            confirmAndGenerateAudio={confirmAndGenerateAudio}
+            confirmAndGenerateFX={confirmAndGenerateFX}
+            generateMissingImages={generateMissingImages}
+            generateMissingAudio={generateMissingAudio}
+            generateMissingFX={generateMissingFX}
+            hasExistingImages={hasExistingImages}
+            hasExistingAudio={hasExistingAudio}
+            hasExistingFX={hasExistingFX}
+            missingImageCount={missingImageCount}
+            missingAudioCount={missingAudioCount}
+            missingFXCount={missingFXCount}
+            cancelImageGeneration={state.cancelImageGeneration}
+            cancelAudioGeneration={state.cancelAudioGeneration}
+            fxCancelledRef={fxCancelledRef}
+            showVoicePicker={voicePicker.showVoicePicker}
+            setShowVoicePicker={voicePicker.setShowVoicePicker}
+            voices={voicePicker.voices}
+            selectedVoiceId={voicePicker.selectedVoiceId}
+            setSelectedVoiceId={voicePicker.setSelectedVoiceId}
+            voicePickerRef={voicePicker.voicePickerRef}
+            onRecordVoiceover={onRecordVoiceover}
+            fxPotentiallyStale={lastAudioGenTimestamp > 0 && lastAudioGenTimestamp > lastFXGenTimestamp}
+            allEliGenerated={allEliGenerated}
+            generatingEli={generatingEli}
+            setGeneratingEli={setGeneratingEli}
+            confirmAndGenerateEli={confirmAndGenerateEli}
+            generateMissingEli={generateMissingEli}
+            hasExistingEli={hasExistingEli}
+            missingEliCount={missingEliCount}
+            eliCancelledRef={eliCancelledRef}
+            fxEstimatedSeconds={fxProgress.estimatedSeconds}
+            fxProgressActive={fxProgress.active}
+            eliEstimatedSeconds={eliProgress.estimatedSeconds}
+            eliProgressActive={eliProgress.active}
+            titleCardEstimatedSeconds={titleCardProgress.estimatedSeconds}
+            titleCardProgressActive={titleCardProgress.active}
+          />
+
+          <ProductionWorkflowRow
+            segmentCount={segmentCount}
+            lfSeoDone={lfSeoDone}
+            sfSeoDone={sfSeoDone}
+            sfSeoMissingCount={sfSeoMissingCount}
+            sfThumbnailsDone={sfThumbnailsDone}
+            sfThumbnailsMissingCount={sfThumbnailMissingCount}
+            sfRendersDone={sfRendersDone}
+            sfRendersMissingCount={sfRenderMissingCount}
+            busyTask={productionBusyTask}
+            progress={productionProgress}
+            seoGenerating={render.seoGenerating}
+            shortFormSeoGenerating={render.shortFormSeoGenerating}
+            onGenerateLfSeo={handleGenerateLfSeo}
+            onGenerateMissingLfSeo={handleGenerateMissingLfSeo}
+            onGenerateSfThumbnails={handleGenerateSfThumbnails}
+            onGenerateMissingSfThumbnails={handleGenerateMissingSfThumbnails}
+            onGenerateSfSeo={handleGenerateSfSeo}
+            onGenerateMissingSfSeo={handleGenerateMissingSfSeo}
+            onRenderSfVideos={handleRenderSfVideos}
+            onRenderMissingSfVideos={handleRenderMissingSfVideos}
+          />
+          {productionError && (
+            <div className="px-5 pb-2 text-[11px] text-red-400">{productionError}</div>
+          )}
         </div>
 
         {/* Right — Thumbnail Preview */}
@@ -2119,16 +2205,6 @@ function TimelineEditor({
           </div>
         </div>
       )}
-
-      <ViewerSwitchRow
-        format={viewerFormat}
-        asset={viewerAsset}
-        activeTab={activeTab}
-        hasPendingReview={media.hasPendingReview}
-        onFormatChange={setViewerFormat}
-        onAssetChange={setViewerAsset}
-        onTabChange={setActiveTab}
-      />
 
       {viewerFormat === "long-form" && viewerAsset === "thumbnails" ? (
         <LongFormThumbnailsPanel
