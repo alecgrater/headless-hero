@@ -645,7 +645,7 @@ function TimelineEditor({
   const generateMissingImages = () => state.generateAllImages(true);
   const generateMissingAudio = () => tryGenerateAudio("missing");
   const generateMissingFX = async () => {
-    const sceneCount = state.content.segments.reduce((n, seg) => n + seg.scenes.length, 0);
+    const sceneCount = missingFXCount;
     fxCancelledRef.current = false;
     setGeneratingFX(true);
     setFxStep("");
