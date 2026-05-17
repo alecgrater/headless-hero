@@ -384,7 +384,11 @@ export default function ExportPanel({
       if (status.status === "failed") {
         setYtUploading(false);
         setYtUploadError(status.error || "Upload failed");
-        void getYouTubeOAuthStatus().then((s) => onYoutubeConnectionChange(s.youtube.connected));
+        void getYouTubeOAuthStatus()
+          .then((s) => onYoutubeConnectionChange(s.youtube.connected))
+          .catch(() => {
+            // Non-critical; the upload failure itself remains visible to the user.
+          });
       }
     },
     onConnectionLost: () => {
