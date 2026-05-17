@@ -1130,7 +1130,7 @@ function TimelineEditor({
             const yoloRenderDescription = "Builds the finished export package. It renders the long-form video when needed, renders all short-form segments, writes metadata and thumbnail assets, then saves the complete project folder for upload or archive.";
 
             const yoloInfo = (content: string, label: string) => (
-              <Tooltip content={content} side="top">
+              <Tooltip content={content} side="bottom">
                 <span className={yoloInfoClass} aria-label={label}>
                   <Info size={14} />
                 </span>
