@@ -61,17 +61,6 @@ interface Props {
   eliProgressActive: boolean;
   titleCardEstimatedSeconds: number | null;
   titleCardProgressActive: boolean;
-  yoloModeActive: boolean;
-  titleCardProgress: number | null;
-  audioProgress: number | null;
-  imageProgress: number | null;
-  fxProgress: number | null;
-  eliProgress: number | null;
-}
-
-function compactProgressText(progress: number | null) {
-  if (progress == null) return "Running";
-  return `${Math.round(progress * 100)}%`;
 }
 
 export default function PipelineSteps({
@@ -124,12 +113,6 @@ export default function PipelineSteps({
   eliProgressActive,
   titleCardEstimatedSeconds,
   titleCardProgressActive,
-  yoloModeActive,
-  titleCardProgress,
-  audioProgress,
-  imageProgress,
-  fxProgress,
-  eliProgress,
 }: Props) {
   const [showImagesDropdown, setShowImagesDropdown] = useState(false);
   const [showFXDropdown, setShowFXDropdown] = useState(false);
@@ -185,7 +168,7 @@ export default function PipelineSteps({
                 {titleCardGenerating ? (
                   <>
                     <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
-                    {yoloModeActive ? compactProgressText(titleCardProgress) : "Cancel"}
+                    Cancel
                   </>
                 ) : titleCardGenerated ? (
                   "Title Cards \u2713"
@@ -226,7 +209,7 @@ export default function PipelineSteps({
               {batchGeneratingAudio ? (
                 <span className="flex items-center gap-2">
                   <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
-                  {yoloModeActive ? compactProgressText(audioProgress) : "Cancel"}
+                  Cancel
                 </span>
               ) : allAudioGenerated ? (
                 "Generate Audio \u2713"
@@ -334,7 +317,7 @@ export default function PipelineSteps({
               {batchGenerating ? (
                 <>
                   <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
-                  {yoloModeActive ? compactProgressText(imageProgress) : "Cancel"}
+                  Cancel
                 </>
               ) : allImagesGenerated ? (
                 "Generate Images \u2713"
@@ -403,7 +386,7 @@ export default function PipelineSteps({
                 {generatingFX ? (
                   <>
                     <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
-                    {yoloModeActive ? compactProgressText(fxProgress) : "Cancel"}
+                    Cancel
                   </>
                 ) : allFXGenerated && fxPotentiallyStale ? (
                   "Generate FX \u26A0"
@@ -473,7 +456,7 @@ export default function PipelineSteps({
                 {generatingEli ? (
                   <>
                     <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
-                    {yoloModeActive ? compactProgressText(eliProgress) : "Cancel"}
+                    Cancel
                   </>
                 ) : allEliGenerated ? (
                   "Add Eli \u2713"
