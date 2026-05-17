@@ -24,6 +24,7 @@ from pipeline.export_paths import (
     longform_filename,
     project_downloads_folder,
     shortform_filename,
+    shortform_video_filename,
 )
 
 logger = logging.getLogger(__name__)
@@ -179,6 +180,7 @@ class ExportContext:
     brand_dict: dict
     project_title: str
     title: str
+    total_segments: int
     regen_images: bool
     regen_audio: bool
     regen_fx: bool
@@ -476,7 +478,7 @@ def _phase_copy_to_downloads(ctx: ExportContext) -> None:
     else:
         src_path = ctx.video_url
 
-    dest_name = shortform_filename("Video", ctx.title, ".mp4")
+    dest_name = shortform_video_filename(ctx.project_title, 1, ctx.total_segments)
     dest_path = copy_to_project_downloads(ctx.project_title, src_path, dest_name)
     logger.info("Export test copied to: %s", dest_path)
 
@@ -731,6 +733,7 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
             except (TypeError, ValueError):
                 parsed_indices.append(-1)
         uses_one_based_indices = 1 in parsed_indices
+        total_segments = len(content.segments)
         for item_idx, item in enumerate(short_items):
             raw_index = item.get("index", "?")
             parsed_index = parsed_indices[item_idx]
@@ -744,8 +747,9 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
                 if 0 <= segment_idx < len(content.segments)
                 else f"Short {raw_index}"
             )
-            (folder / shortform_filename("SEO", segment_name, ".txt")).unlink(missing_ok=True)
-            dest = folder / shortform_filename("SEO", segment_name, ".md")
+            n = (segment_idx + 1) if 0 <= segment_idx < total_segments else (item_idx + 1)
+            (folder / shortform_filename("SEO", segment_name, ".txt", index=n, total=total_segments)).unlink(missing_ok=True)
+            dest = folder / shortform_filename("SEO", segment_name, ".md", index=n, total=total_segments)
             dest.write_text(_format_shortform_seo_markdown(item), encoding="utf-8")
             copied_files.append(dest.name)
 
@@ -817,6 +821,7 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
         brand_dict=brand_dict,
         project_title=project_title,
         title=title,
+        total_segments=len(content.segments),
         regen_images=body.regen_images,
         regen_audio=body.regen_audio,
         regen_fx=body.regen_fx,

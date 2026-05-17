@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 from pathlib import Path
 from typing import Literal
@@ -11,6 +12,9 @@ from config import sanitize_filename
 
 ExportKind = Literal["Longform", "Shortform"]
 ExportAsset = Literal["Thumbnail", "SEO", "Video", "Audio"]
+
+# U+2215 division slash — visually like "/" but filesystem-safe (POSIX reserves U+002F).
+SHORTFORM_SLASH = "∕"
 
 
 def downloads_base() -> Path:
@@ -49,8 +53,24 @@ def longform_filename(asset: ExportAsset, project_title: str, extension: str) ->
     return export_filename("Longform", asset, project_title, extension)
 
 
-def shortform_filename(asset: ExportAsset, segment_name: str, extension: str) -> str:
-    return export_filename("Shortform", asset, segment_name, extension)
+def shortform_filename(
+    asset: ExportAsset,
+    segment_name: str,
+    extension: str,
+    *,
+    index: int,
+    total: int,
+) -> str:
+    """Build a short-form thumbnail/SEO filename like '[Shortform 1∕8] [Thumbnail] - Segment.png'."""
+    clean_ext = extension if extension.startswith(".") else f".{extension}"
+    safe_name = sanitize_filename(segment_name or "Untitled")
+    return f"[Shortform {index}{SHORTFORM_SLASH}{total}] [{asset}] - {safe_name}{clean_ext}"
+
+
+def shortform_video_filename(project_title: str, index: int, total: int) -> str:
+    """Build the short-form video filename: '[Shortform N∕M] {project_title}.mp4'."""
+    safe_name = sanitize_filename(project_title or "Untitled")
+    return f"[Shortform {index}{SHORTFORM_SLASH}{total}] {safe_name}.mp4"
 
 
 def copy_to_project_downloads(
@@ -70,5 +90,8 @@ def has_asset_label(filename: str, asset: ExportAsset) -> bool:
 
 
 def has_export_label(filename: str, kind: ExportKind, asset: ExportAsset) -> bool:
+    """Match export labels including the new [Shortform N∕M] form."""
     lower = filename.lower()
-    return f"[{kind.lower()}]" in lower and f"[{asset.lower()}]" in lower
+    kind_lower = kind.lower()
+    kind_pattern = rf"\[{re.escape(kind_lower)}(?:\s+\d+[/{SHORTFORM_SLASH}]\d+)?\]"
+    return re.search(kind_pattern, lower) is not None and f"[{asset.lower()}]" in lower

@@ -35,8 +35,8 @@ def test_short_thumbnail_title_falls_back_to_segment_name():
 
 
 def test_short_thumbnail_filename_sanitizes_segment_name():
-    result = thumbs.short_thumbnail_filename('Bad/Name: "Test"', 3)
-    assert result == "[Shortform] [Thumbnail] - BadName Test.png"
+    result = thumbs.short_thumbnail_filename('Bad/Name: "Test"', 3, 8)
+    assert result == "[Shortform 3∕8] [Thumbnail] - BadName Test.png"
     assert "/" not in result
 
 
@@ -107,8 +107,8 @@ def test_export_generates_missing_and_copies_files(tmp_path, monkeypatch):
 
     assert folder == str(Path(tmp_path / "Downloads" / "ProjectName"))
     assert files == [
-        "[Shortform] [Thumbnail] - The Bizarre Case of the Missing Lighthouse Keepers.png",
-        "[Shortform] [Thumbnail] - The Vanishing Train.png",
+        "[Shortform 1∕2] [Thumbnail] - The Bizarre Case of the Missing Lighthouse Keepers.png",
+        "[Shortform 2∕2] [Thumbnail] - The Vanishing Train.png",
     ]
     assert Path(paths[0]).is_file()
     assert Path(paths[1]).is_file()

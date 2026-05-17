@@ -7,6 +7,7 @@ from pipeline.export_paths import (
     project_downloads_folder,
     project_folder_name,
     shortform_filename,
+    shortform_video_filename,
 )
 
 
@@ -21,17 +22,35 @@ def test_longform_filename_format():
 
 
 def test_shortform_filename_format():
-    assert shortform_filename("SEO", "Opening Hook", "txt") == (
-        "[Shortform] [SEO] - Opening Hook.txt"
+    assert shortform_filename("SEO", "Opening Hook", "txt", index=1, total=8) == (
+        "[Shortform 1∕8] [SEO] - Opening Hook.txt"
     )
+
+
+def test_shortform_filename_thumbnail_with_index_total():
+    assert shortform_filename("Thumbnail", "Design the Default", ".png", index=1, total=8) == (
+        "[Shortform 1∕8] [Thumbnail] - Design the Default.png"
+    )
+
+
+def test_shortform_video_filename_uses_project_title_with_index_total():
+    assert shortform_video_filename("8 Self-Improvement Steps", 8, 8) == (
+        "[Shortform 8∕8] 8 Self-Improvement Steps.mp4"
+    )
+
+
+def test_shortform_video_filename_uses_unicode_division_slash():
+    result = shortform_video_filename("Foo", 3, 8)
+    assert "/" not in result, f"Filename must not contain POSIX path separator: {result!r}"
+    assert "∕" in result
 
 
 def test_seo_markdown_filename_formats():
     assert longform_filename("SEO", "Mystery Project", ".md") == (
         "[Longform] [SEO] - Mystery Project.md"
     )
-    assert shortform_filename("SEO", "Opening Hook", ".md") == (
-        "[Shortform] [SEO] - Opening Hook.md"
+    assert shortform_filename("SEO", "Opening Hook", ".md", index=1, total=8) == (
+        "[Shortform 1∕8] [SEO] - Opening Hook.md"
     )
 
 

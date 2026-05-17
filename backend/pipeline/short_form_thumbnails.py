@@ -54,9 +54,9 @@ def short_thumbnail_title(content: ScriptContent, segment_idx: int) -> str:
     return (segment.short_name or segment.name or f"Short {segment_idx + 1}").strip()
 
 
-def short_thumbnail_filename(segment_name: str, n: int | None = None) -> str:
+def short_thumbnail_filename(segment_name: str, n: int, total: int) -> str:
     """Build export filename for a segment thumbnail."""
-    return shortform_filename("Thumbnail", segment_name, ".png")
+    return shortform_filename("Thumbnail", segment_name, ".png", index=n, total=total)
 
 
 def _load_font(size: int, *, title: bool = True) -> ImageFont.FreeTypeFont:
@@ -324,11 +324,12 @@ def export_short_thumbnails(
 
     files: list[str] = []
     paths: dict[int, str] = {}
+    total = len(content.segments)
     for idx, segment in enumerate(content.segments):
         src = _thumbs_dir(script_id) / f"{idx}.png"
         if not src.is_file():
             raise RuntimeError(f"Thumbnail missing for segment {idx + 1}")
-        filename = short_thumbnail_filename(segment.name, idx + 1)
+        filename = short_thumbnail_filename(segment.name, idx + 1, total)
         dest = folder / filename
         shutil.copy2(src, dest)
         files.append(dest.name)

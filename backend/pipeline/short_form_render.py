@@ -8,7 +8,7 @@ from typing import Callable
 
 from config import BACKEND_PORT, DATA_DIR, FPS
 from models.script import Scene, ScriptContent
-from pipeline.export_paths import copy_to_project_downloads, shortform_filename
+from pipeline.export_paths import copy_to_project_downloads, shortform_video_filename
 from pipeline.remotion_render import (
     _reencode_h264,
     _run_remotion,
@@ -54,9 +54,9 @@ def _title_card_backdrop_url(script_id: str, segment_idx: int) -> str:
     return f"http://localhost:{BACKEND_PORT}/static/projects/{script_id}/images/title_card_{segment_idx}.png"
 
 
-def _short_filename(segment_name: str) -> str:
+def _short_filename(project_title: str, n: int, total: int) -> str:
     """Build the destination filename for a rendered short."""
-    return shortform_filename("Video", segment_name, ".mp4")
+    return shortform_video_filename(project_title, n, total)
 
 
 def _copy_to_downloads(project_title: str, src_path: Path, dest_filename: str) -> str:
@@ -191,7 +191,7 @@ def render_short_segment(
         if on_progress:
             on_progress(0.95, "Copying to Downloads...")
         logger.info("[%s] Copying short %d/%d to Downloads", script_id, n, total)
-        dest_name = _short_filename(segment.name)
+        dest_name = _short_filename(project_title, n, total)
         downloads_path = _copy_to_downloads(project_title, output_path, dest_name)
     finally:
         try:

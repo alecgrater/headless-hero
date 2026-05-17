@@ -106,7 +106,7 @@ def _short_download_paths(project_title: str, total: int) -> dict[int, str]:
 
     folder = project_downloads_folder(project_title, create=False)
     return {
-        idx: str(folder / _short_filename(f"Segment {idx + 1}"))
+        idx: str(folder / _short_filename(project_title, idx + 1, total))
         for idx in range(total)
     }
 
@@ -116,9 +116,10 @@ def _short_download_paths_for_content(project_title: str, content: ScriptContent
     from pipeline.short_form_render import _short_filename
 
     folder = project_downloads_folder(project_title, create=False)
+    total = len(content.segments)
     return {
-        idx: str(folder / _short_filename(segment.name or f"Segment {idx + 1}"))
-        for idx, segment in enumerate(content.segments)
+        idx: str(folder / _short_filename(project_title, idx + 1, total))
+        for idx in range(total)
     }
 
 
@@ -322,8 +323,7 @@ def export_short_form_videos(
     sources: dict[int, Path] = {}
     missing: list[int] = []
     for idx, segment in enumerate(content.segments):
-        seg_name = segment.name or f"Segment {idx + 1}"
-        downloads_path = folder / _short_filename(seg_name)
+        downloads_path = folder / _short_filename(project_title, idx + 1, total)
         if downloads_path.is_file():
             sources[idx] = downloads_path
             continue
@@ -342,8 +342,7 @@ def export_short_form_videos(
     files: list[str] = []
     paths: dict[int, str] = {}
     for idx, src in sources.items():
-        seg_name = content.segments[idx].name or f"Segment {idx + 1}"
-        dest = folder / _short_filename(seg_name)
+        dest = folder / _short_filename(project_title, idx + 1, total)
         if src.resolve() != dest.resolve():
             shutil.copy2(str(src), str(dest))
         files.append(dest.name)

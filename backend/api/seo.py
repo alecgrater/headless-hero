@@ -185,6 +185,7 @@ def export_short_form_seo(body: GenerateSEORequest, session: Session = Depends(g
             parsed_indices.append(-1)
     uses_one_based_indices = 1 in parsed_indices
 
+    total_segments = len(content.segments)
     written: list[str] = []
     for item_idx, item in enumerate(short_items):
         raw_index = item.get("index", "?")
@@ -199,8 +200,9 @@ def export_short_form_seo(body: GenerateSEORequest, session: Session = Depends(g
             if 0 <= segment_idx < len(content.segments)
             else f"Short {raw_index}"
         )
-        (folder / shortform_filename("SEO", segment_name, ".txt")).unlink(missing_ok=True)
-        dest = folder / shortform_filename("SEO", segment_name, ".md")
+        n = (segment_idx + 1) if 0 <= segment_idx < total_segments else (item_idx + 1)
+        (folder / shortform_filename("SEO", segment_name, ".txt", index=n, total=total_segments)).unlink(missing_ok=True)
+        dest = folder / shortform_filename("SEO", segment_name, ".md", index=n, total=total_segments)
         dest.write_text(_format_shortform_seo_markdown(item), encoding="utf-8")
         written.append(dest.name)
 

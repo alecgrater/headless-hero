@@ -169,7 +169,7 @@ def _rendered_short_path(script_id: str, segment_idx: int, content: ScriptConten
 
     segment = content.segments[segment_idx]
     downloads_path = project_downloads_folder(project_title, create=False) / _short_filename(
-        segment.name or f"Segment {segment_idx + 1}"
+        project_title, segment_idx + 1, len(content.segments)
     )
     if downloads_path.is_file():
         return str(downloads_path)
