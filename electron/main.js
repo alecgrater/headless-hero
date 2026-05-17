@@ -56,6 +56,26 @@ function appleScriptString(value) {
   return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
+function runProcess(command, args) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (fn) => {
+      if (settled) return;
+      settled = true;
+      fn();
+    };
+    const child = spawn(command, args, { stdio: "ignore" });
+    child.once("error", (error) => settle(() => reject(error)));
+    child.once("exit", (code) => {
+      settle(
+        code === 0
+          ? resolve
+          : () => reject(new Error(`${command} exited with code ${code}`)),
+      );
+    });
+  });
+}
+
 function getUploadShortsWindowBounds() {
   const displays = screen.getAllDisplays().sort((a, b) => {
     if (a.bounds.x !== b.bounds.x) return a.bounds.x - b.bounds.x;
@@ -96,37 +116,23 @@ function openUploadShortsWindows() {
   }
 
   const bounds = getUploadShortsWindowBounds();
-  const scriptLines = [
-    `tell application ${appleScriptString(CHROME_APP_NAME)}`,
-    "activate",
-    ...UPLOAD_SHORTS_URLS.flatMap((url, index) => {
-      const { x, y, width, height } = bounds[index];
-      return [
-        "set uploadWindow to make new window",
-        `set URL of active tab of uploadWindow to ${appleScriptString(url)}`,
-        `set bounds of uploadWindow to {${x}, ${y}, ${x + width}, ${y + height}}`,
-      ];
-    }),
-    "end tell",
-  ];
 
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const settle = (fn) => {
-      if (settled) return;
-      settled = true;
-      fn();
-    };
-    const child = spawn("osascript", ["-e", scriptLines.join("\n")], { stdio: "ignore" });
-    child.once("error", (error) => settle(() => reject(error)));
-    child.once("exit", (code) => {
-      settle(
-        code === 0
-          ? resolve
-          : () => reject(new Error(`Failed to open upload windows in ${CHROME_APP_NAME}`)),
-      );
+  return UPLOAD_SHORTS_URLS.reduce((chain, url, index) => {
+    return chain.then(async () => {
+      const { x, y, width, height } = bounds[index];
+      await runProcess("osascript", [
+        "-e",
+        [
+          `tell application ${appleScriptString(CHROME_APP_NAME)}`,
+          "activate",
+          `set uploadWindow to make new window with properties {URL:${appleScriptString(url)}}`,
+          `set bounds of uploadWindow to {${x}, ${y}, ${x + width}, ${y + height}}`,
+          "delay 0.2",
+          "end tell",
+        ].join("\n"),
+      ]);
     });
-  });
+  }, Promise.resolve());
 }
 
 function startBackend() {
