@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Copy, ExternalLink, Film, Smartphone, X } from "lucide-react";
 import { assetUrl, openUploadShortsWindows, openYouTubeUploadWindow, type UploadSuiteStatus } from "../../api";
+import { showToast } from "../ToastContainer";
 
 type UploadTab = "long-form" | "short-form";
 
@@ -31,6 +32,11 @@ function seoDescriptionAndRest(markdown: string): string {
   return sectionBody(markdown, "# Description", true) || sectionBody(markdown, "## Description", true) || markdown.trim();
 }
 
+function shortSeoDescription(markdown: string): string {
+  const youtube = sectionBody(markdown, "# Youtube");
+  return sectionBody(youtube, "## Description", true) || seoDescriptionAndRest(markdown);
+}
+
 function tiktokInstaSummary(markdown: string): string {
   return sectionBody(markdown, "# Tiktok / Insta", true);
 }
@@ -40,10 +46,14 @@ function CopyButton({ label, text }: { label: string; text: string }) {
   return (
     <button
       type="button"
-      onClick={() => {
-        void navigator.clipboard.writeText(text);
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1400);
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1400);
+        } catch (err) {
+          showToast(err instanceof Error ? err.message : "Could not copy to clipboard");
+        }
       }}
       disabled={!text.trim()}
       className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-neutral-700/70 bg-neutral-900 px-3 text-xs font-semibold text-neutral-200 transition-colors hover:border-neutral-600 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-40"
@@ -243,7 +253,7 @@ export default function UploadPanel({ suite, onClose }: Props) {
                     <div className="min-w-0 space-y-4 p-5">
                       <div className="flex flex-wrap gap-2">
                         <CopyButton label="Copy Title" text={seoTitle(activeShortItem.seo_markdown)} />
-                        <CopyButton label="Copy Description" text={seoDescriptionAndRest(activeShortItem.seo_markdown)} />
+                        <CopyButton label="Copy Description" text={shortSeoDescription(activeShortItem.seo_markdown)} />
                         <CopyButton label="Copy Summary" text={tiktokInstaSummary(activeShortItem.seo_markdown)} />
                       </div>
                       <MarkdownPreview markdown={activeShortItem.seo_markdown} />
