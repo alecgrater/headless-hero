@@ -130,7 +130,7 @@ Stored in DB via AppSettings, loaded into env at startup. Never commit `.env` fi
 ## Key Patterns
 
 - **JSON blobs over migrations**: Script content stored as JSON TEXT in SQLite — no migration burden
-- **Export project folders use the plain sanitized title**: User-facing exported assets live under `{configured export root}/{Project Title}`; do not add a `[project]` prefix to project folders.
+- **Export project folders use a project prefix**: User-facing exported assets live under `{configured export root}/[project] {Project Title}` with the project title sanitized for filesystem safety.
 - **Async rendering with polling**: Long renders run in background threads, frontend polls `/api/render/status/{job_id}`
 - **IPC fallback**: Frontend works with or without Electron (direct HTTP to backend in dev)
 - **Static file serving**: FastAPI mounts `/static/projects` → `data/projects/`

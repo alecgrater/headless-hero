@@ -26,7 +26,8 @@ def downloads_base() -> Path:
 
 def project_folder_name(project_title: str) -> str:
     """Return the standard Downloads folder name for a project."""
-    return sanitize_filename(project_title or "Untitled")
+    safe_title = sanitize_filename(project_title or "Untitled")
+    return f"[project] {safe_title}"
 
 
 def project_downloads_folder(project_title: str, *, create: bool = True) -> Path:

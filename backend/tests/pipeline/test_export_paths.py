@@ -11,8 +11,8 @@ from pipeline.export_paths import (
 )
 
 
-def test_project_folder_name_uses_plain_project_title_and_sanitizes():
-    assert project_folder_name('Bad/Project: "Test"') == "BadProject Test"
+def test_project_folder_name_prefixes_project_title_and_sanitizes():
+    assert project_folder_name('Bad/Project: "Test"') == "[project] BadProject Test"
 
 
 def test_longform_filename_format():
@@ -59,7 +59,7 @@ def test_project_downloads_folder_uses_configured_base(tmp_path, monkeypatch):
     monkeypatch.delenv("DOWNLOADS_DIR", raising=False)
     folder = project_downloads_folder("Project Name")
 
-    assert folder == Path(tmp_path / "Project Name")
+    assert folder == Path(tmp_path / "[project] Project Name")
     assert folder.is_dir()
 
 
@@ -71,5 +71,5 @@ def test_project_downloads_folder_prefers_downloads_dir(tmp_path, monkeypatch):
 
     folder = project_downloads_folder("Project Name")
 
-    assert folder == Path(downloads_dir / "Project Name")
+    assert folder == Path(downloads_dir / "[project] Project Name")
     assert folder.is_dir()
