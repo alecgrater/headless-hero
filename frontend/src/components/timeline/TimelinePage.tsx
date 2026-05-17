@@ -2095,7 +2095,7 @@ function TimelineEditor({
               </div>
             );
 
-            const yoloButtonBaseClass = "group relative flex h-9 w-[9.5rem] shrink-0 items-center justify-center overflow-hidden rounded-lg px-4 text-center text-xs font-bold leading-tight text-white/95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100";
+            const yoloButtonBaseClass = "group relative flex h-7 w-[9.5rem] shrink-0 items-center justify-center overflow-hidden rounded-lg px-4 text-center text-xs font-bold leading-tight text-white/95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100";
             const yoloButtonContentClass = "relative flex min-w-0 items-center justify-center gap-1.5 text-center";
             const yoloInfoClass = "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-neutral-700/60 bg-neutral-900 text-neutral-500 transition-colors hover:border-neutral-500 hover:text-neutral-200";
             const yoloModeDescription = `Runs every unfinished creation step in order. Missing title cards, narration audio, scene images, FX, and Eli animation are generated automatically, then the timeline refreshes with the new assets. Currently pending: ${creationRemaining.join(", ") || "none"}.`;
