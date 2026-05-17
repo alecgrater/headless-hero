@@ -226,7 +226,31 @@ function settingEnabled(value: string) {
   return !new Set(["0", "false", "no", "off"]).has(value.trim().toLowerCase());
 }
 
-export default function GeneralSection() {
+type GeneralPanel = "storage" | "ai-models" | "visuals";
+
+const PANEL_META: Record<GeneralPanel, { title: string; description: string; maxWidth: string }> = {
+  storage: {
+    title: "Storage",
+    description: "Choose where finished files and export bundles are saved.",
+    maxWidth: "max-w-2xl",
+  },
+  "ai-models": {
+    title: "AI Models",
+    description: "Route scriptwriting, ideation, metadata, scoring, and animation tasks.",
+    maxWidth: "max-w-3xl",
+  },
+  visuals: {
+    title: "Visuals",
+    description: "Configure image generation providers and visual asset defaults.",
+    maxWidth: "max-w-2xl",
+  },
+};
+
+interface GeneralSectionProps {
+  panel: GeneralPanel;
+}
+
+export default function GeneralSection({ panel }: GeneralSectionProps) {
   const [downloadsDir, setDownloadsDir] = useState("");
   const [exportFolder, setExportFolder] = useState("");
   const [imageProvider, setImageProvider] = useState("google");
@@ -419,13 +443,14 @@ export default function GeneralSection() {
     llmProvider !== originalLlmProvider ||
     qwenModel.trim() !== originalQwenModel ||
     routeChanged;
+  const meta = PANEL_META[panel];
 
   return (
-    <div className="px-8 py-8 max-w-2xl space-y-6 pb-24">
+    <div className={`px-8 py-8 ${meta.maxWidth} space-y-6 pb-24`}>
       <div>
-        <h2 className="text-lg font-semibold tracking-tight">General</h2>
+        <h2 className="text-lg font-semibold tracking-tight">{meta.title}</h2>
         <p className="text-neutral-400 text-sm mt-1">
-          App-wide preferences.
+          {meta.description}
         </p>
       </div>
 
@@ -433,6 +458,7 @@ export default function GeneralSection() {
         <div className="text-neutral-500 text-sm">Loading...</div>
       ) : (
         <div className="space-y-6">
+          {panel === "storage" && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-2">
             <div>
               <h3 className="text-sm font-medium text-neutral-100">Downloads Directory</h3>
@@ -462,7 +488,9 @@ export default function GeneralSection() {
               )}
             </div>
           </div>
+          )}
 
+          {panel === "storage" && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-2">
             <div>
               <h3 className="text-sm font-medium text-neutral-100">Export Folder</h3>
@@ -492,7 +520,9 @@ export default function GeneralSection() {
               )}
             </div>
           </div>
+          )}
 
+          {panel === "ai-models" && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl divide-y divide-neutral-800">
             <div className="p-5 space-y-2">
               <div>
@@ -627,6 +657,38 @@ export default function GeneralSection() {
               </div>
             </div>
 
+            <div className="p-5">
+              <div className="flex items-center justify-between gap-5">
+                <div>
+                  <h3 className="text-sm font-medium text-neutral-100">Hook Refinement</h3>
+                  <p className="text-xs text-neutral-500">
+                    After you pick from the three scored cold opens, rewrite the selected hook before using it.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={hookRefinementEnabled === "true"}
+                  onClick={() =>
+                    setHookRefinementEnabled(hookRefinementEnabled === "true" ? "false" : "true")
+                  }
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
+                    hookRefinementEnabled === "true" ? "bg-violet-600 shadow-sm shadow-violet-500/30" : "bg-neutral-700"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                      hookRefinementEnabled === "true" ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+          )}
+
+          {panel === "visuals" && (
+          <div className="bg-neutral-900 border border-neutral-800 rounded-xl divide-y divide-neutral-800">
             <div className="p-5 space-y-2">
               <div>
                 <h3 className="text-sm font-medium text-neutral-100">Image Provider</h3>
@@ -674,37 +736,10 @@ export default function GeneralSection() {
                 </button>
               </div>
             </div>
-
-            <div className="p-5">
-              <div className="flex items-center justify-between gap-5">
-                <div>
-                  <h3 className="text-sm font-medium text-neutral-100">Hook Refinement</h3>
-                  <p className="text-xs text-neutral-500">
-                    After you pick from the three scored cold opens, rewrite the selected hook before using it.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={hookRefinementEnabled === "true"}
-                  onClick={() =>
-                    setHookRefinementEnabled(hookRefinementEnabled === "true" ? "false" : "true")
-                  }
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
-                    hookRefinementEnabled === "true" ? "bg-violet-600 shadow-sm shadow-violet-500/30" : "bg-neutral-700"
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                      hookRefinementEnabled === "true" ? "translate-x-5" : "translate-x-0"
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
           </div>
+          )}
 
-          {imageProvider === "replicate" && (
+          {panel === "visuals" && imageProvider === "replicate" && (
             <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-5">
               <div>
                 <h3 className="text-sm font-medium text-neutral-100">Replicate Settings</h3>

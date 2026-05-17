@@ -7,7 +7,11 @@ import type {
   VoiceListResponse,
 } from "../../types/audio";
 
-export default function VoiceSection() {
+interface VoiceSectionProps {
+  panel: "voice" | "audio";
+}
+
+export default function VoiceSection({ panel }: VoiceSectionProps) {
   const [voices, setVoices] = useState<VoiceInfo[]>([]);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>("");
   const [saving, setSaving] = useState(false);
@@ -70,7 +74,6 @@ export default function VoiceSection() {
         }
       }
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVoiceId]);
 
   const handleVoiceChange = async (voiceId: string) => {
@@ -152,7 +155,20 @@ export default function VoiceSection() {
   };
 
   return (
-    <div className="p-6 max-w-xl space-y-8">
+    <div className="px-8 py-8 max-w-2xl space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">
+          {panel === "voice" ? "Voices" : "Audio"}
+        </h2>
+        <p className="text-neutral-400 text-sm mt-1">
+          {panel === "voice"
+            ? "Choose the narration voice and add voices from the ElevenLabs library."
+            : "Tune recording export filters for manually recorded voiceover."}
+        </p>
+      </div>
+
+      {panel === "voice" && (
+      <div className="space-y-8">
       <div className="space-y-3">
         <h3 className="text-lg font-semibold text-neutral-100">Default Voice</h3>
         <p className="text-sm text-neutral-400">
@@ -229,7 +245,10 @@ export default function VoiceSection() {
           </div>
         )}
       </div>
+      </div>
+      )}
 
+      {panel === "audio" && (
       <div className="space-y-3">
         <h3 className="text-lg font-semibold text-neutral-100">Audio Processing</h3>
         <p className="text-sm text-neutral-400">
@@ -268,6 +287,7 @@ export default function VoiceSection() {
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 }

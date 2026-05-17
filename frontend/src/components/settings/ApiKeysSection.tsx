@@ -16,8 +16,17 @@ interface ServiceConfig {
   placeholder: string;
 }
 
-const SERVICES: ServiceConfig[][] = [
-  [
+interface ServiceGroup {
+  title: string;
+  description: string;
+  services: ServiceConfig[];
+}
+
+const SERVICE_GROUPS: ServiceGroup[] = [
+  {
+    title: "AI Text",
+    description: "Language models for ideation, scripting, metadata, and scoring.",
+    services: [
     {
       key: "ANTHROPIC_API_KEY",
       label: "Anthropic",
@@ -31,23 +40,35 @@ const SERVICES: ServiceConfig[][] = [
       placeholder: "sk-...",
     },
   ],
-  [
+  },
+  {
+    title: "Image Generation",
+    description: "AI image and stock visual providers.",
+    services: [
     {
       key: "GOOGLE_AI_KEY",
       label: "Google AI Studio",
       description: "Generates images for scenes and thumbnails via Gemini.",
       placeholder: "AIza...",
     },
-  ],
-  [
     {
       key: "REPLICATE_API_TOKEN",
       label: "Replicate",
       description: "Generates images via Flux models (alternative to Google Gemini).",
       placeholder: "r8_...",
     },
+    {
+      key: "PEXELS_API_KEY",
+      label: "Pexels",
+      description: "Stock photos for scenes via Pexels API.",
+      placeholder: "abc123...",
+    },
   ],
-  [
+  },
+  {
+    title: "Voice",
+    description: "Voiceover synthesis and cloning.",
+    services: [
     {
       key: "ELEVENLABS_API_KEY",
       label: "ElevenLabs",
@@ -55,7 +76,11 @@ const SERVICES: ServiceConfig[][] = [
       placeholder: "xi-...",
     },
   ],
-  [
+  },
+  {
+    title: "Publishing",
+    description: "OAuth clients for uploading finished shorts.",
+    services: [
     {
       key: "GOOGLE_CLIENT_ID",
       label: "Google Client ID",
@@ -68,8 +93,6 @@ const SERVICES: ServiceConfig[][] = [
       description: "OAuth client secret for YouTube uploads.",
       placeholder: "GOCSPX-...",
     },
-  ],
-  [
     {
       key: "TIKTOK_CLIENT_KEY",
       label: "TikTok Client Key",
@@ -82,8 +105,6 @@ const SERVICES: ServiceConfig[][] = [
       description: "OAuth client secret for TikTok Direct Post short uploads.",
       placeholder: "abc123...",
     },
-  ],
-  [
     {
       key: "META_APP_ID",
       label: "Meta App ID",
@@ -97,23 +118,23 @@ const SERVICES: ServiceConfig[][] = [
       placeholder: "abc123...",
     },
   ],
-  [
+  },
+  {
+    title: "Discovery",
+    description: "Trend research and source discovery integrations.",
+    services: [
     {
       key: "YOUTUBE_API_KEY",
       label: "YouTube Data API",
       description: "YouTube Data API key for trending topic discovery.",
       placeholder: "AIza...",
     },
-  ],
-  [
     {
       key: "NEWS_API_KEY",
       label: "NewsAPI",
       description: "News headlines for trending topic discovery.",
       placeholder: "abc123...",
     },
-  ],
-  [
     {
       key: "TWITCH_CLIENT_ID",
       label: "Twitch Client ID",
@@ -127,14 +148,7 @@ const SERVICES: ServiceConfig[][] = [
       placeholder: "abc123...",
     },
   ],
-  [
-    {
-      key: "PEXELS_API_KEY",
-      label: "Pexels",
-      description: "Stock photos for scenes via Pexels API.",
-      placeholder: "abc123...",
-    },
-  ],
+  },
 ];
 
 function EyeIcon({ className }: { className?: string }) {
@@ -207,7 +221,7 @@ export default function ApiKeysSection() {
   const hasChanges = Object.values(values).some((v) => v.trim());
 
   return (
-    <div className="px-8 py-8 max-w-2xl space-y-6">
+    <div className="px-8 py-8 max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">API Keys</h2>
@@ -227,9 +241,14 @@ export default function ApiKeysSection() {
       {loading ? (
         <div className="text-neutral-500 text-sm">Loading...</div>
       ) : (
-        SERVICES.map((group, gi) => (
-          <div key={gi} className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-4">
-            {group.map((svc) => {
+        SERVICE_GROUPS.map((group) => (
+          <section key={group.title} className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-neutral-100">{group.title}</h3>
+              <p className="text-xs text-neutral-500">{group.description}</p>
+            </div>
+            <div className="space-y-4">
+            {group.services.map((svc) => {
               const info = keyStatus[svc.key];
               const isConfigured = info?.configured;
               const isVisible = visible[svc.key] ?? false;
@@ -288,7 +307,8 @@ export default function ApiKeysSection() {
                 </div>
               );
             })}
-          </div>
+            </div>
+          </section>
         ))
       )}
     </div>

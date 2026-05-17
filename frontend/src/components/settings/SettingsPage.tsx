@@ -5,8 +5,11 @@ import PublishingSection from "./PublishingSection";
 import VoiceSection from "./VoiceSection";
 
 export const SECTIONS = [
-  { id: "general", label: "General", icon: "folder" },
-  { id: "voice", label: "Voice", icon: "mic" },
+  { id: "storage", label: "Storage", icon: "folder" },
+  { id: "ai-models", label: "AI Models", icon: "brain" },
+  { id: "visuals", label: "Visuals", icon: "image" },
+  { id: "voice", label: "Voices", icon: "mic" },
+  { id: "audio", label: "Audio", icon: "sliders" },
   { id: "publishing", label: "Publishing", icon: "upload" },
   { id: "api-keys", label: "API Keys", icon: "key" },
 ] as const;
@@ -39,6 +42,24 @@ export function SectionIcon({ icon, className }: { icon: string; className?: str
           <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
         </svg>
       );
+    case "brain":
+      return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 3.75A3.75 3.75 0 005.75 7.5v.32A3.75 3.75 0 004.5 14.9v.35A3.75 3.75 0 008.25 19H9.5m0-15.25A3.75 3.75 0 0113.25 7.5v12.75M9.5 3.75v16.5m4-16.5A3.75 3.75 0 0117.25 7.5v.32A3.75 3.75 0 0118.5 14.9v.35A3.75 3.75 0 0114.75 19h-1.25" />
+        </svg>
+      );
+    case "image":
+      return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3h16.5A1.5 1.5 0 0021.75 17.25V6.75A1.5 1.5 0 0020.25 5.25H3.75A1.5 1.5 0 002.25 6.75v10.5A1.5 1.5 0 003.75 18.75zm10.5-9.75h.008v.008h-.008V9z" />
+        </svg>
+      );
+    case "sliders":
+      return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9m-9 0a2.25 2.25 0 11-4.5 0m4.5 0a2.25 2.25 0 10-4.5 0M3.75 6H6m4.5 12h9m-9 0a2.25 2.25 0 11-4.5 0m4.5 0a2.25 2.25 0 10-4.5 0m-2.25 0H6m9-6h4.5m-4.5 0a2.25 2.25 0 11-4.5 0m4.5 0a2.25 2.25 0 10-4.5 0m-6.75 0h6.75" />
+        </svg>
+      );
     case "sparkles":
       return (
         <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -57,7 +78,7 @@ interface Props {
 }
 
 export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultSection }: Props) {
-  const [activeSection, setActiveSection] = useState<SectionId>(defaultSection ?? "general");
+  const [activeSection, setActiveSection] = useState<SectionId>(defaultSection ?? "storage");
 
   useEffect(() => {
     if (defaultSection) {
@@ -104,8 +125,11 @@ export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultS
 
         {/* Content area */}
         <div className="flex-1 overflow-y-auto">
-          {activeSection === "general" && <GeneralSection />}
-          {activeSection === "voice" && <VoiceSection />}
+          {activeSection === "storage" && <GeneralSection panel="storage" />}
+          {activeSection === "ai-models" && <GeneralSection panel="ai-models" />}
+          {activeSection === "visuals" && <GeneralSection panel="visuals" />}
+          {activeSection === "voice" && <VoiceSection panel="voice" />}
+          {activeSection === "audio" && <VoiceSection panel="audio" />}
           {activeSection === "publishing" && <PublishingSection />}
           {activeSection === "api-keys" && <ApiKeysSection />}
         </div>
