@@ -54,6 +54,7 @@ export interface SaveState {
 function App() {
   const [backendStatus, setBackendStatus] = useState<string>("connecting...");
   const [view, setView] = useState<View>("project-dashboard");
+  const [visitedViews, setVisitedViews] = useState<Set<View>>(() => new Set(["project-dashboard"]));
   const [selectedIdea, setSelectedIdea] = useState<VideoIdea | null>(null);
   const [timelineScriptId, setTimelineScriptId] = useState<string | null>(null);
   const [defaultBrandId, setDefaultBrandId] = useState<string | null>(null);
@@ -102,6 +103,12 @@ function App() {
 
 
   const handleSetView = useCallback((v: View) => {
+    setVisitedViews((prev) => {
+      if (prev.has(v)) return prev;
+      const next = new Set(prev);
+      next.add(v);
+      return next;
+    });
     setView(v);
   }, []);
 
@@ -382,39 +389,45 @@ function App() {
       {/* Main content area */}
       <main className="flex-1 min-h-0 w-full overflow-hidden">
         <div className={viewPanelClass("settings", view)}>
-          <SettingsPage
-            onBack={() => handleSetView("project-dashboard")}
-            defaultSection={settingsDefaultSection}
-            onConsumeDefaultSection={() => setSettingsDefaultSection(null)}
-          />
+          {visitedViews.has("settings") && (
+            <SettingsPage
+              onBack={() => handleSetView("project-dashboard")}
+              defaultSection={settingsDefaultSection}
+              onConsumeDefaultSection={() => setSettingsDefaultSection(null)}
+            />
+          )}
         </div>
 
         <div className={viewPanelClass("discover", view)}>
-          <DiscoverPage
-            onGenerateIdeas={(ideas, niche) => {
-              setTrendingIdeas(ideas);
-              setTrendingNiche(niche);
-              setAutoGenerateNiche(null);
-              handleSetView("ideation");
-            }}
-          />
+          {visitedViews.has("discover") && (
+            <DiscoverPage
+              onGenerateIdeas={(ideas, niche) => {
+                setTrendingIdeas(ideas);
+                setTrendingNiche(niche);
+                setAutoGenerateNiche(null);
+                handleSetView("ideation");
+              }}
+            />
+          )}
         </div>
 
         <div className={viewPanelClass("ideation", view)}>
-          <IdeationPage
-            initialIdeas={trendingIdeas}
-            initialNiche={trendingNiche}
-            autoGenerateNiche={autoGenerateNiche}
-            autoGenerateRequestId={autoGenerateRequestId}
-            onUseIdea={(idea) => {
-              setSelectedIdea(idea);
-              handleSetView("script-generation");
-            }}
-          />
+          {visitedViews.has("ideation") && (
+            <IdeationPage
+              initialIdeas={trendingIdeas}
+              initialNiche={trendingNiche}
+              autoGenerateNiche={autoGenerateNiche}
+              autoGenerateRequestId={autoGenerateRequestId}
+              onUseIdea={(idea) => {
+                setSelectedIdea(idea);
+                handleSetView("script-generation");
+              }}
+            />
+          )}
         </div>
 
         <div className={viewPanelClass("script-generation", view)}>
-          {selectedIdea && defaultBrandId && (
+          {visitedViews.has("script-generation") && selectedIdea && defaultBrandId && (
             <ScriptGenerationPage
               key={`${selectedIdea.title}:${selectedIdea.cold_open_text ?? ""}`}
               brandId={defaultBrandId}
@@ -429,7 +442,7 @@ function App() {
         </div>
 
         <div className={viewPanelClass("timeline", view)}>
-          {timelineScriptId && (
+          {visitedViews.has("timeline") && timelineScriptId && (
             <TimelinePage
               key={timelineScriptId}
               scriptId={timelineScriptId}
@@ -442,7 +455,7 @@ function App() {
         </div>
 
         <div className={viewPanelClass("voiceover-recording", view)}>
-          {timelineScriptId && (
+          {visitedViews.has("voiceover-recording") && timelineScriptId && (
             <VoiceoverRecordingPage
               key={timelineScriptId}
               scriptId={timelineScriptId}
@@ -452,40 +465,44 @@ function App() {
         </div>
 
         <div className={viewPanelClass("project-dashboard", view)}>
-          <ProjectDashboard
-            onNewVideo={() => handleSetView("ideation")}
-            onOpenProject={(scriptId) => {
-              setTimelineScriptId(scriptId);
-              handleSetView("timeline");
-            }}
-          />
+          {visitedViews.has("project-dashboard") && (
+            <ProjectDashboard
+              onNewVideo={() => handleSetView("ideation")}
+              onOpenProject={(scriptId) => {
+                setTimelineScriptId(scriptId);
+                handleSetView("timeline");
+              }}
+            />
+          )}
         </div>
 
         <div className={viewPanelClass("ideas", view)}>
-          <IdeaPage
-            onGenerateIdeas={(niche) => {
-              setAutoGenerateNiche(niche);
-              setTrendingIdeas(null);
-              setTrendingNiche(null);
-              setAutoGenerateRequestId((id) => id + 1);
-              handleSetView("ideation");
-            }}
-            onUseIdea={(idea: Idea) => {
-              const hook = idea.selected_hook_json ? JSON.parse(idea.selected_hook_json) as { intro_hook: string; opening_narration: string } : null;
-              setSelectedIdea({
-                title: idea.text,
-                segments_est: 8,
-                description: idea.description,
-                keywords: [],
-                cold_open_text: hook ? `${hook.intro_hook}\n\n${hook.opening_narration}` : undefined,
-              });
-              handleSetView("script-generation");
-            }}
-          />
+          {visitedViews.has("ideas") && (
+            <IdeaPage
+              onGenerateIdeas={(niche) => {
+                setAutoGenerateNiche(niche);
+                setTrendingIdeas(null);
+                setTrendingNiche(null);
+                setAutoGenerateRequestId((id) => id + 1);
+                handleSetView("ideation");
+              }}
+              onUseIdea={(idea: Idea) => {
+                const hook = idea.selected_hook_json ? JSON.parse(idea.selected_hook_json) as { intro_hook: string; opening_narration: string } : null;
+                setSelectedIdea({
+                  title: idea.text,
+                  segments_est: 8,
+                  description: idea.description,
+                  keywords: [],
+                  cold_open_text: hook ? `${hook.intro_hook}\n\n${hook.opening_narration}` : undefined,
+                });
+                handleSetView("script-generation");
+              }}
+            />
+          )}
         </div>
 
         <div className={viewPanelClass("catalog", view)}>
-          <CatalogPage onNavigateToSettings={() => handleSetView("settings")} />
+          {visitedViews.has("catalog") && <CatalogPage onNavigateToSettings={() => handleSetView("settings")} />}
         </div>
       </main>
       {showShortcutHelp && (
