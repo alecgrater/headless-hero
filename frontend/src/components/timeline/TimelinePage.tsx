@@ -2442,8 +2442,8 @@ function TimelineEditor({
     const renderRemaining = [...creationRemaining];
     if (!lfSeoDone) renderRemaining.push("LF SEO");
     if (!sfThumbnailsDone) renderRemaining.push("SF Thumbnails");
-    if (!sfRendersDone) renderRemaining.push("SF Videos");
     if (!sfSeoDone) renderRemaining.push("SF SEO");
+    if (!sfRendersDone) renderRemaining.push("SF Videos");
     const buttonDescription = `Runs the full YOLO pipeline from the next unfinished task. Missing creation assets, long-form render, short-form assets, and the final bundle are completed automatically. Currently pending: ${renderRemaining.join(", ") || "final export only"}.`;
     const yoloButtonBaseClass = "group relative flex h-7 w-[9.5rem] shrink-0 items-center justify-center overflow-hidden rounded-lg px-4 text-center text-xs font-bold leading-tight text-white/95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100";
     const yoloButtonContentClass = "relative flex min-w-0 items-center justify-center gap-1.5 text-center";
