@@ -468,7 +468,7 @@ function ProductionWorkflowRow({
 
   return (
     <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0 overflow-x-auto">
-      <div className="grid items-center gap-2 min-w-0" style={{ gridTemplateColumns: "15rem auto 15rem auto 15rem auto 15rem" }}>
+      <div className="inline-grid items-center gap-2 min-w-0" style={{ gridTemplateColumns: "15rem auto 15rem auto 15rem auto 15rem" }}>
         <ProductionTaskButton
           stepNumber={6}
           label="Generate LF SEO"
