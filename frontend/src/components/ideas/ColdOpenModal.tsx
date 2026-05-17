@@ -127,7 +127,7 @@ export default function ColdOpenModal({ idea, onClose, onScored }: Props) {
           <div className="space-y-4">
             <div className="flex items-center gap-3 py-8 justify-center">
               <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm text-neutral-400">Scoring & refining hook...</span>
+              <span className="text-sm text-neutral-400">Scoring selected hook...</span>
             </div>
           </div>
         )}
@@ -138,7 +138,7 @@ export default function ColdOpenModal({ idea, onClose, onScored }: Props) {
             {refinedHook && (
               <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-4 space-y-3">
                 <h4 className="text-xs font-medium uppercase tracking-wider text-violet-400">
-                  Refined Hook
+                  Selected Hook
                 </h4>
                 <p className="text-sm text-neutral-100 italic leading-relaxed">
                   &ldquo;{refinedHook.intro_hook}&rdquo;

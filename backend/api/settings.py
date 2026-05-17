@@ -47,6 +47,7 @@ ALLOWED_KEYS = {
     "AUDIO_FILTER_COMPRESSOR",
     "LLM_PROVIDER",
     "QWEN_MODEL",
+    "HOOK_REFINEMENT_ENABLED",
 }
 
 for _task_config in LLM_TASKS.values():
@@ -69,6 +70,7 @@ _PLAINTEXT_KEYS = {
     "AUDIO_FILTER_COMPRESSOR",
     "LLM_PROVIDER",
     "QWEN_MODEL",
+    "HOOK_REFINEMENT_ENABLED",
 }
 
 for _task_config in LLM_TASKS.values():
@@ -84,6 +86,7 @@ _DEFAULTS: dict[str, str] = {
     "AUDIO_FILTER_COMPRESSOR": "true",
     "LLM_PROVIDER": "ollama",
     "QWEN_MODEL": "qwen3:14b",
+    "HOOK_REFINEMENT_ENABLED": "true",
 }
 
 for _task_config in LLM_TASKS.values():

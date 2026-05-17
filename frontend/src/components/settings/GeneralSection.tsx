@@ -233,6 +233,7 @@ export default function GeneralSection() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [rateLimitEnabled, setRateLimitEnabled] = useState("true");
+  const [hookRefinementEnabled, setHookRefinementEnabled] = useState("true");
   const [llmProvider, setLlmProvider] = useState<LlmProvider>("ollama");
   const [qwenModel, setQwenModel] = useState("qwen3:14b");
   const [anthropicKeyConfigured, setAnthropicKeyConfigured] = useState(false);
@@ -246,6 +247,7 @@ export default function GeneralSection() {
   const [originalSafety, setOriginalSafety] = useState("2");
   const [originalFormat, setOriginalFormat] = useState("png");
   const [originalRateLimit, setOriginalRateLimit] = useState("true");
+  const [originalHookRefinement, setOriginalHookRefinement] = useState("true");
   const [originalLlmProvider, setOriginalLlmProvider] = useState<LlmProvider>("ollama");
   const [originalQwenModel, setOriginalQwenModel] = useState("qwen3:14b");
   const [originalTaskRoutes, setOriginalTaskRoutes] = useState<Record<string, TaskRoute>>(initialTaskRoutes);
@@ -278,6 +280,9 @@ export default function GeneralSection() {
         const rlVal = data.IMAGE_RATE_LIMIT_MS?.masked || "true";
         setRateLimitEnabled(rlVal === "0" || rlVal === "false" ? "false" : "true");
         setOriginalRateLimit(rlVal === "0" || rlVal === "false" ? "false" : "true");
+        const hrVal = data.HOOK_REFINEMENT_ENABLED?.masked || "true";
+        setHookRefinementEnabled(hrVal === "0" || hrVal === "false" ? "false" : "true");
+        setOriginalHookRefinement(hrVal === "0" || hrVal === "false" ? "false" : "true");
         const llmVal = (data.LLM_PROVIDER?.masked || "ollama") as LlmProvider;
         setLlmProvider(llmVal);
         setOriginalLlmProvider(llmVal);
@@ -322,6 +327,7 @@ export default function GeneralSection() {
       REPLICATE_SAFETY_TOLERANCE: safetyTolerance,
       REPLICATE_OUTPUT_FORMAT: outputFormat,
       IMAGE_RATE_LIMIT_MS: rateLimitEnabled === "true" ? "10000" : "0",
+      HOOK_REFINEMENT_ENABLED: hookRefinementEnabled,
       LLM_PROVIDER: llmProvider,
       QWEN_MODEL: qwenModel.trim() || "qwen3:14b",
       ...routePayload,
@@ -338,6 +344,7 @@ export default function GeneralSection() {
       setOriginalSafety(safetyTolerance);
       setOriginalFormat(outputFormat);
       setOriginalRateLimit(rateLimitEnabled);
+      setOriginalHookRefinement(hookRefinementEnabled);
       setOriginalLlmProvider(llmProvider);
       setOriginalQwenModel(qwenModel.trim() || "qwen3:14b");
       setOriginalTaskRoutes(
@@ -404,6 +411,7 @@ export default function GeneralSection() {
     safetyTolerance !== originalSafety ||
     outputFormat !== originalFormat ||
     rateLimitEnabled !== originalRateLimit ||
+    hookRefinementEnabled !== originalHookRefinement ||
     llmProvider !== originalLlmProvider ||
     qwenModel.trim() !== originalQwenModel ||
     routeChanged;
@@ -657,6 +665,34 @@ export default function GeneralSection() {
                   <span
                     className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
                       rateLimitEnabled === "true" ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-5">
+              <div className="flex items-center justify-between gap-5">
+                <div>
+                  <h3 className="text-sm font-medium text-neutral-100">Hook Refinement</h3>
+                  <p className="text-xs text-neutral-500">
+                    After you pick from the three scored cold opens, rewrite the selected hook before using it.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={hookRefinementEnabled === "true"}
+                  onClick={() =>
+                    setHookRefinementEnabled(hookRefinementEnabled === "true" ? "false" : "true")
+                  }
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
+                    hookRefinementEnabled === "true" ? "bg-violet-600 shadow-sm shadow-violet-500/30" : "bg-neutral-700"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                      hookRefinementEnabled === "true" ? "translate-x-5" : "translate-x-0"
                     }`}
                   />
                 </button>

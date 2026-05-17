@@ -1,6 +1,7 @@
 """Idea board CRUD + cold-open hook generation endpoints."""
 
 import logging
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, field_validator
@@ -13,6 +14,10 @@ from pipeline.render_jobs import create_job, get_job, run_in_background, update_
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["ideas"])
+
+
+def _hook_refinement_enabled() -> bool:
+    return os.environ.get("HOOK_REFINEMENT_ENABLED", "true").strip().lower() not in {"0", "false", "no", "off"}
 
 
 class CreateIdeaRequest(BaseModel):
@@ -109,7 +114,7 @@ def _start_cold_open_generation(idea_id: str) -> str:
 
 
 def _start_hook_scoring(idea_id: str, variant_index: int) -> str:
-    """Start a background job to score and refine a selected cold open."""
+    """Start a background job to score and optionally refine a selected cold open."""
     job = create_job()
 
     def _run() -> list[str]:
@@ -145,22 +150,27 @@ def _start_hook_scoring(idea_id: str, variant_index: int) -> str:
             narration_text=variant.opening_narration,
         )
 
-        update_job(job.id, current_step="Refining hook...")
-
-        from pipeline.hook_refiner import refine_hook
-
-        refined = refine_hook(
-            intro_hook=variant.intro_hook,
-            opening_narration=variant.opening_narration,
-            hook_score=hook_score,
-            video_title=video_title,
+        selected_hook_json = variant.model_dump_json(
+            include={"intro_hook", "opening_narration"},
         )
+        if _hook_refinement_enabled():
+            update_job(job.id, current_step="Refining hook...")
+
+            from pipeline.hook_refiner import refine_hook
+
+            refined = refine_hook(
+                intro_hook=variant.intro_hook,
+                opening_narration=variant.opening_narration,
+                hook_score=hook_score,
+                video_title=video_title,
+            )
+            selected_hook_json = refined.model_dump_json()
 
         with SyncSession(engine) as session:
             idea = session.get(Idea, idea_id)
             if not idea:
                 raise RuntimeError(f"Idea {idea_id} not found after scoring")
-            idea.selected_hook_json = refined.model_dump_json()
+            idea.selected_hook_json = selected_hook_json
             idea.hook_score = hook_score.overall
             idea.hook_score_json = hook_score.model_dump_json()
             idea.cold_open_status = "scored"
