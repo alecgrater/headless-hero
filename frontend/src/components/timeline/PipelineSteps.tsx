@@ -139,9 +139,9 @@ export default function PipelineSteps({
   }, [showImagesDropdown, showFXDropdown, showEliDropdown]);
 
   return (
-    <div className="flex items-center gap-4 px-5 py-2.5 overflow-x-auto">
+    <div className="flex items-center gap-4 px-5 py-2.5">
       {/* Pipeline steps */}
-      <div className="grid items-center gap-2" style={{ gridTemplateColumns: "15rem auto 15rem auto 15rem auto 15rem auto 15rem" }}>
+      <div className="grid w-full items-center gap-2" style={{ gridTemplateColumns: "minmax(0, 15rem) auto minmax(0, 15rem) auto minmax(0, 15rem) auto minmax(0, 15rem) auto minmax(0, 15rem)" }}>
 
         {/* Step 1 — Title Cards */}
         <div className="flex flex-col">
