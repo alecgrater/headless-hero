@@ -608,6 +608,7 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
 
     renders_dir = DATA_DIR / "projects" / body.script_id / "renders"
     copied_files: list[str] = []
+    (folder / longform_filename("Audio", project_title, ".mp3")).unlink(missing_ok=True)
 
     # Video — copy cached render, or acknowledge an already exported file.
     longform_path, _url = _find_rendered_longform(body.script_id, project_title)

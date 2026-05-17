@@ -101,5 +101,6 @@ def test_export_bundle_does_not_include_standalone_audio_file(tmp_path, monkeypa
         result = render_api.export_bundle(render_api.ExportBundleRequest(script_id=script_id), session=session)
 
     assert longform_filename("Audio", project_title, ".mp3") not in result.files
+    assert not stale_audio.exists()
     assert not (renders / "full_audio.mp3").exists()
     assert (folder / longform_filename("Video", project_title, ".mp4")).exists()
