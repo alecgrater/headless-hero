@@ -29,6 +29,7 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastNiche, setLastNiche] = useState(initialNiche ?? "");
+  const [lastGuide, setLastGuide] = useState("");
   const [estimatedSeconds, setEstimatedSeconds] = useState<number | null>(null);
   const [bookmarked, setBookmarked] = useState<Set<string>>(() => {
     try {
@@ -51,6 +52,7 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
     setAnimateFromIndex(0);
     setIdeas(initialIdeas);
     setLastNiche(initialNiche ?? "");
+    setLastGuide("");
     if (initialNiche) inputRef.current?.setNiche(initialNiche);
   }, [initialIdeas, initialNiche]);
 
@@ -95,6 +97,7 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
           setIdeas(data.ideas);
         }
         setLastNiche(niche);
+        setLastGuide(guide ?? "");
       } else {
         const err = res.data as { detail?: string };
         setError(err.detail ?? "Failed to generate ideas");
@@ -114,11 +117,11 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
   };
 
   const handleMoreLikeThis = (idea: VideoIdea) => {
-    generate(`${lastNiche} — more ideas similar to "${idea.title}"`);
+    generate(`${lastNiche} — more ideas similar to "${idea.title}"`, lastGuide || undefined);
   };
 
   const handleLoadMore = () => {
-    generate(lastNiche, undefined, {
+    generate(lastNiche, lastGuide || undefined, {
       append: true,
       excludeTitles: ideas.map((i) => i.title),
     });
