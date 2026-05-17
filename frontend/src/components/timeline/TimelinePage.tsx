@@ -271,6 +271,8 @@ function TimelineEditor({
   const [showVoiceSetup, setShowVoiceSetup] = useState(false);
   const [pendingAudioAction, setPendingAudioAction] = useState<"all" | string | null>(null);
   const [generatingFX, setGeneratingFX] = useState(false);
+  const [fxStep, setFxStep] = useState<string>("");
+  const [fxProgressPct, setFxProgressPct] = useState<number>(0);
   const [generatingEli, setGeneratingEli] = useState(false);
   const [eliStep, setEliStep] = useState<string>("");
   const [eliProgressPct, setEliProgressPct] = useState<number>(0);
@@ -611,13 +613,18 @@ function TimelineEditor({
     const sceneCount = state.content.segments.reduce((n, seg) => n + seg.scenes.length, 0);
     fxCancelledRef.current = false;
     setGeneratingFX(true);
+    setFxStep("");
+    setFxProgressPct(0);
     fxProgress.start(sceneCount);
     try {
       const res = await generateFX(scriptId);
       if (fxCancelledRef.current) return;
       if (res.ok) {
         const { job_id } = res.data as { job_id: string };
-        await pollFXJob(job_id);
+        await pollFXJob(job_id, (status) => {
+          if (status.current_step) setFxStep(status.current_step);
+          if (typeof status.progress === "number") setFxProgressPct(status.progress);
+        });
         if (fxCancelledRef.current) return;
         const refreshed = await api.get(`/api/scripts/${scriptId}`);
         if (refreshed.ok && !fxCancelledRef.current) {
@@ -627,6 +634,8 @@ function TimelineEditor({
       }
     } finally {
       setGeneratingFX(false);
+      setFxStep("");
+      setFxProgressPct(0);
       fxProgress.end(sceneCount);
       setLastFXGenTimestamp(Date.now());
       refreshCost();
@@ -636,14 +645,21 @@ function TimelineEditor({
   const generateMissingImages = () => state.generateAllImages(true);
   const generateMissingAudio = () => tryGenerateAudio("missing");
   const generateMissingFX = async () => {
+    const sceneCount = state.content.segments.reduce((n, seg) => n + seg.scenes.length, 0);
     fxCancelledRef.current = false;
     setGeneratingFX(true);
+    setFxStep("");
+    setFxProgressPct(0);
+    fxProgress.start(sceneCount);
     try {
       const res = await generateFX(scriptId, true);
       if (fxCancelledRef.current) return;
       if (res.ok) {
         const { job_id } = res.data as { job_id: string };
-        await pollFXJob(job_id);
+        await pollFXJob(job_id, (status) => {
+          if (status.current_step) setFxStep(status.current_step);
+          if (typeof status.progress === "number") setFxProgressPct(status.progress);
+        });
         if (fxCancelledRef.current) return;
         const refreshed = await api.get(`/api/scripts/${scriptId}`);
         if (refreshed.ok && !fxCancelledRef.current) {
@@ -653,6 +669,9 @@ function TimelineEditor({
       }
     } finally {
       setGeneratingFX(false);
+      setFxStep("");
+      setFxProgressPct(0);
+      fxProgress.end(sceneCount);
       setLastFXGenTimestamp(Date.now());
     }
   };
@@ -788,12 +807,18 @@ function TimelineEditor({
         setYoloStep(currentStep);
         fxCancelledRef.current = false;
         setGeneratingFX(true);
+        setFxStep("");
+        setFxProgressPct(0);
+        fxProgress.start(allScenes.length);
         try {
           const res = await generateFX(scriptId);
           if (yoloCancelledRef.current) return;
           if (!res.ok) throw new Error("FX generation request failed");
           const { job_id } = res.data as { job_id: string };
-          await pollFXJob(job_id);
+          await pollFXJob(job_id, (status) => {
+            if (status.current_step) setFxStep(status.current_step);
+            if (typeof status.progress === "number") setFxProgressPct(status.progress);
+          });
           if (yoloCancelledRef.current) return;
           const refreshed = await api.get(`/api/scripts/${scriptId}`);
           if (refreshed.ok && !yoloCancelledRef.current) {
@@ -802,6 +827,9 @@ function TimelineEditor({
           }
         } finally {
           setGeneratingFX(false);
+          setFxStep("");
+          setFxProgressPct(0);
+          fxProgress.end(allScenes.length);
           setLastFXGenTimestamp(Date.now());
           refreshCost();
         }
@@ -1272,10 +1300,13 @@ function TimelineEditor({
           <div className="flex items-center gap-3 text-xs">
             <span className="w-3 h-3 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
             <span className="text-neutral-300">
-              Generating FX assignments with AI...
+              Generating FX assignments with AI{fxStep ? ` · ${fxStep}` : "..."}
             </span>
             <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden ml-2">
-              <div className="h-full rounded-full bg-amber-500 animate-pulse" style={{ width: "60%" }} />
+              <div
+                className="h-full rounded-full bg-amber-500 transition-all"
+                style={{ width: `${Math.max(4, Math.round(fxProgressPct * 100))}%` }}
+              />
             </div>
           </div>
         </div>

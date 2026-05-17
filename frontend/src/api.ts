@@ -278,12 +278,17 @@ export async function splitSceneAtTime(scriptId: string, sceneId: string, splitT
 
 const POLL_INTERVAL_MS = 1500;
 
+type BackgroundJobProgress = {
+  progress?: number;
+  current_step?: string | null;
+};
+
 async function pollBackgroundJob(
   jobId: string,
   statusEndpoint: string,
   stallPolls: number,
   failureMessage: string,
-  onProgress?: (status: { progress?: number; current_step?: string | null }) => void,
+  onProgress?: (status: BackgroundJobProgress) => void,
 ): Promise<void> {
   // Poll until completion. Time out only if the job's progress field stops
   // advancing for `stallPolls` consecutive polls — large scripts (e.g. 200+
@@ -343,14 +348,17 @@ export async function pollShortFormJob(jobId: string): Promise<void> {
 /** Poll an Eli generation background job until it completes or fails. */
 export async function pollEliJob(
   jobId: string,
-  onProgress?: (status: { progress?: number; current_step?: string | null }) => void,
+  onProgress?: (status: BackgroundJobProgress) => void,
 ): Promise<void> {
   return pollBackgroundJob(jobId, "/api/eli/generate-status/", 800, "Eli generation failed", onProgress);
 }
 
 /** Poll an FX generation background job until it completes or fails. */
-export async function pollFXJob(jobId: string): Promise<void> {
-  return pollBackgroundJob(jobId, "/api/fx/generate-status/", 800, "FX generation failed");
+export async function pollFXJob(
+  jobId: string,
+  onProgress?: (status: BackgroundJobProgress) => void,
+): Promise<void> {
+  return pollBackgroundJob(jobId, "/api/fx/generate-status/", 800, "FX generation failed", onProgress);
 }
 
 /** Open a URL in the system browser (Electron shell) or a new tab (dev). */
