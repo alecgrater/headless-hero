@@ -363,6 +363,7 @@ Return valid JSON with this structure:
   ]
 }
 Do NOT include any scenes. Only segment metadata and topic summaries.
+Do NOT include countdown/ranking numbers in segment names or short_name values. Avoid prefixes like "Number eight", "#8", "8.", "No. 8", "Part 8", or "Segment 8" unless the number is intrinsic to the topic.
 """,
     retention=RetentionMeta(
         goal="Structure video narrative for maximum sustained engagement",
@@ -407,6 +408,7 @@ Return a JSON object with a single key "scenes" whose value is an array of scene
 
 RULES:
 - The FIRST scene of EVERY segment MUST be a title card (is_title_card: true, visual_beat: "static", frame_directives: []).
+- Title card narration must introduce the segment by idea, not by countdown/ranking number. Do NOT start with phrases like "Number eight", "#8", "8.", "No. 8", "Part 8", or "Segment 8" unless the number is intrinsic to the topic.
 - After the title card, write one content scene per 1-2 sentences of narration. Each scene should have exactly 1-2 sentences and default to 1 frame (visual_beat: "static"). There is no fixed scene count — let the narration length determine scene count.
 - Scene IDs should start at scene_001 within this segment (they will be renumbered globally later).
 - Follow all visual storytelling arc, Visual Beat System, and shot type guidelines from the system prompt.
@@ -553,6 +555,8 @@ Pick thematically appropriate colors — each segment gets a unique color.
 Describe a single iconic subject centered on a clean background, matching the brand art style. \
 Keep it simple and readable at small sizes (it will be cropped into a circle).
 - The first scene of each segment MUST be a title card (is_title_card: true) with a short (2-3s) intro narration.
+- Title card intro narration MUST NOT use countdown or ranking labels such as "Number eight", "#8", "8.", \
+"No. 8", "Part 8", or "Segment 8"; introduce the concept directly instead.
 - Title card scenes MUST have visual_prompt set to "" (empty string) — their visuals come from \
 the composite grid card, not individual AI generation.
 - Each segment MUST have at least 5 scenes (including the title card).

@@ -5,6 +5,7 @@ and pre-render image generation as standalone functions (always active).
 """
 
 import logging
+import re
 
 from config import DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS, SEGMENT_COUNT
 from models.script import Scene, ScriptContent
@@ -16,6 +17,21 @@ logger = logging.getLogger(__name__)
 DEFAULT_COLORS = DEFAULT_SEGMENT_COLORS
 
 TITLE_CARD_PROMPT_INSTRUCTIONS = TITLE_CARD_INSTRUCTIONS.build(str(SEGMENT_COUNT))
+
+_LEADING_RANKING_RE = re.compile(
+    r"^\s*(?:"
+    r"number\s+(?:one|two|three|four|five|six|seven|eight|nine|ten|\d+)"
+    r"|#\s*\d+"
+    r"|no\.?\s*\d+"
+    r"|(?:part|segment)\s+\d+"
+    r"|\d+"
+    r")\s*[\).\:-]\s*",
+    re.IGNORECASE,
+)
+
+
+def _strip_leading_ranking_label(text: str) -> str:
+    return _LEADING_RANKING_RE.sub("", text).strip()
 
 
 def prepare_title_card_scene(scene: Scene, script_id: str, brand: dict) -> Scene:
@@ -128,6 +144,13 @@ def enforce_title_cards_and_min_scenes(content: ScriptContent) -> ScriptContent:
         for sc in seg.scenes:
             if sc.is_title_card:
                 sc.visual_prompt = ""
+                cleaned_narration = _strip_leading_ranking_label(sc.narration)
+                if cleaned_narration != sc.narration:
+                    logger.info(
+                        "Removed leading ranking label from title card narration for segment %r",
+                        seg.name,
+                    )
+                    sc.narration = cleaned_narration
 
         if len(seg.scenes) < 5:
             logger.warning(
