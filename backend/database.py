@@ -108,12 +108,19 @@ def _migrate_script_model_default() -> None:
         provider_setting = session.get(AppSetting, "SCRIPT_LLM_PROVIDER")
         model_setting = session.get(AppSetting, "SCRIPT_MODEL")
 
-        if provider_setting and provider_setting.value in {"", "openai"}:
+        model_value = model_setting.value if model_setting else ""
+        has_stale_script_model = model_value in stale_script_models
+
+        if provider_setting and provider_setting.value == "":
+            provider_setting.value = "anthropic"
+            session.add(provider_setting)
+            changed.append("SCRIPT_LLM_PROVIDER")
+        elif provider_setting and provider_setting.value == "openai" and has_stale_script_model:
             provider_setting.value = "anthropic"
             session.add(provider_setting)
             changed.append("SCRIPT_LLM_PROVIDER")
 
-        if model_setting and model_setting.value in stale_script_models:
+        if model_setting and has_stale_script_model:
             model_setting.value = DEFAULT_CLAUDE_MODEL
             session.add(model_setting)
             changed.append("SCRIPT_MODEL")

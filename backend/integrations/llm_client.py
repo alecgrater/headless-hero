@@ -170,23 +170,28 @@ def _default_model_for_provider(provider: str, task: str | None) -> str:
     return task_config["default_anthropic_model"]
 
 
+def _normalize_model_for_provider(provider: str, task: str | None, model: str) -> str:
+    configured = _ANTHROPIC_MODEL_ALIASES.get(model, model) if provider == "anthropic" else model
+    configured_lower = configured.lower()
+    if provider == "ollama" and configured_lower.startswith(("anthropic.", "claude-", "gpt-", "o1", "o3", "o4")):
+        return _default_model_for_provider(provider, task)
+    if provider == "openai" and configured_lower.startswith(("anthropic.", "claude-")):
+        task_config = LLM_TASKS.get(task or "") or LLM_TASKS[_DEFAULT_TASK]
+        return task_config["default_openai_model"]
+    if provider == "anthropic" and configured_lower.startswith(("gpt-", "o1", "o3", "o4")):
+        task_config = LLM_TASKS.get(task or "") or LLM_TASKS[_DEFAULT_TASK]
+        return task_config["default_anthropic_model"]
+    return configured
+
+
 def _resolve_model(provider: str, task: str | None, model: str | None) -> str:
     if model:
-        return _ANTHROPIC_MODEL_ALIASES.get(model, model) if provider == "anthropic" else model
+        return _normalize_model_for_provider(provider, task, model)
     task_config = LLM_TASKS.get(task or "")
     if task_config:
         configured = os.environ.get(task_config["model_key"], "").strip()
         if configured:
-            if provider == "anthropic":
-                configured = _ANTHROPIC_MODEL_ALIASES.get(configured, configured)
-            configured_lower = configured.lower()
-            if provider == "ollama" and configured_lower.startswith(("anthropic.", "claude-", "gpt-", "o1", "o3", "o4")):
-                return _default_model_for_provider(provider, task)
-            if provider == "openai" and configured_lower.startswith(("anthropic.", "claude-")):
-                return task_config["default_openai_model"]
-            if provider == "anthropic" and configured_lower.startswith(("gpt-", "o1", "o3", "o4")):
-                return task_config["default_anthropic_model"]
-            return configured
+            return _normalize_model_for_provider(provider, task, configured)
     return _default_model_for_provider(provider, task)
 
 

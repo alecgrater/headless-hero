@@ -6,6 +6,7 @@ from integrations.llm_client import (
     _resolve_openai_reasoning_effort,
     _resolve_provider,
 )
+from integrations.usage_tracker import get_model_pricing
 from api.settings import ALLOWED_KEYS, _DEFAULTS, _PLAINTEXT_KEYS
 
 
@@ -40,6 +41,17 @@ def test_anthropic_bedrock_style_defaults_are_normalized(monkeypatch):
     monkeypatch.setenv("SCRIPT_MODEL", "anthropic.claude-opus-4-6-v1")
 
     assert _resolve_model("anthropic", "script", None) == "claude-opus-4-1-20250805"
+
+
+def test_explicit_incompatible_model_override_falls_back_to_provider_default():
+    assert _resolve_model("anthropic", "script", "gpt-5.5") == "claude-opus-4-1-20250805"
+    assert _resolve_model("openai", "script", "claude-opus-4-1-20250805") == "gpt-5.5"
+    assert _resolve_model("ollama", "script", "claude-opus-4-1-20250805") == "qwen3:14b"
+
+
+def test_claude_pricing_uses_direct_anthropic_api_model_ids():
+    assert get_model_pricing("claude-opus-4-1-20250805")["input"] == 15.0 / 1_000_000
+    assert get_model_pricing("claude-sonnet-4-20250514")["output"] == 15.0 / 1_000_000
 
 
 def test_structured_openai_tasks_use_minimal_reasoning_by_default(monkeypatch):

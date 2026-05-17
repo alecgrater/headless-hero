@@ -1254,6 +1254,7 @@ async function executeSqlQuery() {
 
 const SERVICE_DISPLAY = {
   openai: { label: 'OpenAI', color: 'violet', icon: '◎', manageUrl: 'https://platform.openai.com/settings/organization/usage' },
+  anthropic: { label: 'Anthropic', color: 'orange', icon: '✶', manageUrl: 'https://platform.claude.com/settings/limits' },
   google_ai: { label: 'Google AI Studio', color: 'sky', icon: '🎨', manageUrl: 'https://aistudio.google.com/spend?project=headless-hand' },
   elevenlabs: { label: 'ElevenLabs', color: 'amber', icon: '🔊', manageUrl: 'https://elevenlabs.io/app/subscription/creative' },
   ollama: { label: 'Local LLM', color: 'emerald', icon: '▣', manageUrl: null, savings: true },
@@ -1262,6 +1263,7 @@ const SERVICE_DISPLAY = {
 
 const SERVICE_COLORS = {
   openai: 'bg-violet-600/30 text-violet-400 border-violet-600/30',
+  anthropic: 'bg-orange-600/30 text-orange-400 border-orange-600/30',
   google_ai: 'bg-sky-600/30 text-sky-400 border-sky-600/30',
   elevenlabs: 'bg-amber-600/30 text-amber-400 border-amber-600/30',
   ollama: 'bg-emerald-600/30 text-emerald-400 border-emerald-600/30',
@@ -1270,6 +1272,7 @@ const SERVICE_COLORS = {
 
 const SERVICE_BAR_COLORS = {
   openai: 'bg-violet-500',
+  anthropic: 'bg-orange-500',
   google_ai: 'bg-sky-500',
   elevenlabs: 'bg-amber-500',
   ollama: 'bg-emerald-500',
@@ -1300,7 +1303,7 @@ function renderUsageSummary(data) {
 
   // Service cards
   const cards = document.getElementById('usageServiceCards');
-  const knownServices = ['openai', 'google_ai', 'elevenlabs', 'ollama', 'replicate'];
+  const knownServices = ['openai', 'anthropic', 'google_ai', 'elevenlabs', 'ollama', 'replicate'];
   const observedServices = data.services.map(s => s.service).filter(s => !knownServices.includes(s));
   const allServices = [...knownServices, ...observedServices];
   let html = '';
