@@ -1,17 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   getIdeas,
   createIdea,
   updateIdea,
   deleteIdea,
   getIdeaCounts,
-  getIdeaColdOpenStatus,
   getIdeaCategories,
-  retryIdeaColdOpen,
 } from "../../api";
-import type { Idea, IdeaStatus, ColdOpenStatus } from "../../types/idea";
+import type { Idea, IdeaStatus } from "../../types/idea";
 import IdeaCard from "./IdeaCard";
-import ColdOpenModal from "./ColdOpenModal";
 import { EmptyState } from "../ui/EmptyState";
 
 const STATUS_FILTERS: { key: IdeaStatus | "all"; label: string }[] = [
@@ -28,14 +25,11 @@ const SORT_OPTIONS: { key: string; label: string }[] = [
   { key: "newest", label: "Newest" },
 ];
 
-const ACTIVE_STATUSES: Set<ColdOpenStatus> = new Set(["generating", "refining"]);
-
 interface Props {
   onGenerateIdeas: (niche: string) => void;
-  onUseIdea: (idea: Idea) => void;
 }
 
-export default function IdeaPage({ onGenerateIdeas, onUseIdea }: Props) {
+export default function IdeaPage({ onGenerateIdeas }: Props) {
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [statusFilter, setStatusFilter] = useState<IdeaStatus | "all">("all");
@@ -44,8 +38,6 @@ export default function IdeaPage({ onGenerateIdeas, onUseIdea }: Props) {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [newText, setNewText] = useState("");
   const [loading, setLoading] = useState(true);
-  const [modalIdea, setModalIdea] = useState<Idea | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -66,55 +58,6 @@ export default function IdeaPage({ onGenerateIdeas, onUseIdea }: Props) {
   useEffect(() => {
     load();
   }, [load]);
-
-  // Poll for ideas with active cold_open_status
-  const pollKey = useMemo(
-    () => ideas.map((i) => `${i.id}:${i.cold_open_status}`).join(","),
-    [ideas],
-  );
-
-  useEffect(() => {
-    const activeIds = ideas.filter((i) => ACTIVE_STATUSES.has(i.cold_open_status)).map((i) => i.id);
-    if (activeIds.length === 0) {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-      return;
-    }
-
-    pollRef.current = setInterval(async () => {
-      for (const id of activeIds) {
-        try {
-          const status = await getIdeaColdOpenStatus(id);
-          const coldStatus = status.cold_open_status as ColdOpenStatus;
-          if (!ACTIVE_STATUSES.has(coldStatus)) {
-            setIdeas((prev) =>
-              prev.map((i) =>
-                i.id === id
-                  ? {
-                      ...i,
-                      cold_open_status: coldStatus,
-                      cold_open_variants_json: (status.cold_open_variants_json as string) ?? i.cold_open_variants_json,
-                      hook_score: (status.hook_score as number | null) ?? i.hook_score,
-                      hook_score_json: (status.hook_score_json as string) ?? i.hook_score_json,
-                      selected_hook_json: (status.selected_hook_json as string) ?? i.selected_hook_json,
-                    }
-                  : i,
-              ),
-            );
-          }
-        } catch { /* silent */ }
-      }
-    }, 3000);
-
-    return () => {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-    };
-  }, [pollKey]);
 
   const refreshCounts = useCallback(async () => {
     const [c, cats] = await Promise.all([getIdeaCounts(), getIdeaCategories()]);
@@ -147,25 +90,6 @@ export default function IdeaPage({ onGenerateIdeas, onUseIdea }: Props) {
       setIdeas((prev) => prev.filter((i) => i.id !== id));
       refreshCounts();
     } catch { /* toast shown by interceptor */ }
-  };
-
-  const handlePickHook = (idea: Idea) => {
-    setModalIdea(idea);
-  };
-
-  const handleRetryHook = async (idea: Idea) => {
-    try {
-      await retryIdeaColdOpen(idea.id);
-      setIdeas((prev) =>
-        prev.map((i) =>
-          i.id === idea.id ? { ...i, cold_open_status: "generating" as ColdOpenStatus } : i,
-        ),
-      );
-    } catch { /* toast shown by interceptor */ }
-  };
-
-  const handleScored = (updatedIdea: Idea) => {
-    setIdeas((prev) => prev.map((i) => (i.id === updatedIdea.id ? updatedIdea : i)));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -301,21 +225,9 @@ export default function IdeaPage({ onGenerateIdeas, onUseIdea }: Props) {
               onUpdate={handleUpdate}
               onDelete={handleDelete}
               onGenerateIdeas={onGenerateIdeas}
-              onUseIdea={onUseIdea}
-              onPickHook={handlePickHook}
-              onRetryHook={handleRetryHook}
             />
           ))}
         </div>
-      )}
-
-      {/* Cold open selection modal */}
-      {modalIdea && (
-        <ColdOpenModal
-          idea={modalIdea}
-          onClose={() => setModalIdea(null)}
-          onScored={handleScored}
-        />
       )}
     </div>
   );

@@ -14,7 +14,7 @@ import DiscoverPage from "./components/trending/DiscoverPage";
 import IdeaPage from "./components/ideas/IdeaPage";
 import CatalogPage from "./components/catalog/CatalogPage";
 import useLongPress from "./hooks/useLongPress";
-import type { Idea, VideoIdea } from "./types/idea";
+import type { VideoIdea } from "./types/idea";
 import type { ScriptSummary } from "./types/script";
 import type { OAuthStatusResponse } from "./types/publish";
 
@@ -567,17 +567,6 @@ function App() {
                 setTrendingNiche(null);
                 setAutoGenerateRequestId((id) => id + 1);
                 handleSetView("ideation");
-              }}
-              onUseIdea={(idea: Idea) => {
-                const hook = idea.selected_hook_json ? JSON.parse(idea.selected_hook_json) as { intro_hook: string; opening_narration: string } : null;
-                setSelectedIdea({
-                  title: idea.text,
-                  segments_est: 8,
-                  description: idea.description,
-                  keywords: [],
-                  cold_open_text: hook ? `${hook.intro_hook}\n\n${hook.opening_narration}` : undefined,
-                });
-                handleSetView("script-generation");
               }}
             />
           )}

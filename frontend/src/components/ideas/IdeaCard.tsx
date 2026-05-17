@@ -45,12 +45,9 @@ interface Props {
   onUpdate: (id: string, updates: { text?: string; rank?: number; status?: IdeaStatus }) => void;
   onDelete: (id: string) => void;
   onGenerateIdeas: (niche: string) => void;
-  onUseIdea: (idea: Idea) => void;
-  onPickHook: (idea: Idea) => void;
-  onRetryHook: (idea: Idea) => void;
 }
 
-export default function IdeaCard({ idea, onUpdate, onDelete, onGenerateIdeas, onUseIdea, onPickHook, onRetryHook }: Props) {
+export default function IdeaCard({ idea, onUpdate, onDelete, onGenerateIdeas }: Props) {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(idea.text);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -185,41 +182,13 @@ export default function IdeaCard({ idea, onUpdate, onDelete, onGenerateIdeas, on
           )}
         </div>
 
-        {/* Cold open status + actions */}
+        {/* Actions */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {idea.cold_open_status === "generating" && (
-            <span className="flex items-center gap-1.5 text-xs text-neutral-400">
-              <div className="w-3.5 h-3.5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-              Generating hooks...
-            </span>
-          )}
-          {idea.cold_open_status === "ready" && (
-            <button
-              onClick={() => onPickHook(idea)}
-              className="text-xs px-3 py-1.5 rounded-lg font-medium bg-violet-600 hover:bg-violet-500 text-white transition-colors animate-pulse"
-            >
-              Pick a hook
-            </button>
-          )}
-          {idea.cold_open_status === "refining" && (
-            <span className="flex items-center gap-1.5 text-xs text-neutral-400">
-              <div className="w-3.5 h-3.5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-              Scoring...
-            </span>
-          )}
-          {idea.cold_open_status === "failed" && (
-            <button
-              onClick={() => onRetryHook(idea)}
-              className="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-600/20 text-red-300 border border-red-500/30 hover:bg-red-600/30 transition-colors"
-            >
-              Retry
-            </button>
-          )}
           <button
-            onClick={() => idea.hook_score !== null ? onUseIdea(idea) : onGenerateIdeas(idea.text)}
-            className="text-xs px-3 py-1.5 rounded-lg bg-neutral-700 hover:bg-neutral-600 text-neutral-300 font-medium transition-colors"
+            onClick={() => onGenerateIdeas(idea.text)}
+            className="text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors"
           >
-            Use Idea
+            Generate Ideas
           </button>
           <Tooltip content="Delete">
             <button
