@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Grid2X2, List } from "lucide-react";
-import api, { assetUrl } from "../../api";
-import type { ScriptSummary } from "../../types/script";
+import api, { assetUrl, setUploadTracking } from "../../api";
+import type { ScriptSummary, UploadTracking } from "../../types/script";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
 import { Tooltip } from "../ui/Tooltip";
@@ -67,11 +67,32 @@ function ProjectThumbnail({ project, compact = false }: { project: ScriptSummary
   );
 }
 
-function UploadIndicators({ project }: { project: ScriptSummary }) {
+function UploadIndicators({
+  project,
+  onToggle,
+  pendingKey,
+}: {
+  project: ScriptSummary;
+  onToggle: (project: ScriptSummary, key: keyof UploadTracking) => void;
+  pendingKey: keyof UploadTracking | null;
+}) {
+  const handleClick = (e: React.MouseEvent, key: keyof UploadTracking) => {
+    e.stopPropagation();
+    if (pendingKey) return;
+    onToggle(project, key);
+  };
+  const baseBtn = "transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded-sm disabled:cursor-wait";
   return (
     <div className="flex items-center gap-2">
-      <Tooltip content={project.upload_tracking?.longform_youtube ? "Uploaded to YouTube" : "Not yet on YouTube"}>
-        <span onClick={(e) => e.stopPropagation()}>
+      <Tooltip content={project.upload_tracking?.longform_youtube ? "Uploaded to YouTube — click to mark unpublished" : "Not yet on YouTube — click to mark published"}>
+        <button
+          type="button"
+          onClick={(e) => handleClick(e, "longform_youtube")}
+          disabled={pendingKey === "longform_youtube"}
+          aria-label="Toggle YouTube long-form publish state"
+          aria-pressed={!!project.upload_tracking?.longform_youtube}
+          className={baseBtn}
+        >
           <svg
             className={`w-4 h-4 ${project.upload_tracking?.longform_youtube ? "text-red-500" : "text-neutral-600"}`}
             viewBox="0 0 24 24"
@@ -81,10 +102,17 @@ function UploadIndicators({ project }: { project: ScriptSummary }) {
           >
             <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
           </svg>
-        </span>
+        </button>
       </Tooltip>
-      <Tooltip content={project.upload_tracking?.shortform_youtube ? "Shorts uploaded to YouTube" : "Shorts not yet on YouTube"}>
-        <span onClick={(e) => e.stopPropagation()}>
+      <Tooltip content={project.upload_tracking?.shortform_youtube ? "Shorts uploaded to YouTube — click to mark unpublished" : "Shorts not yet on YouTube — click to mark published"}>
+        <button
+          type="button"
+          onClick={(e) => handleClick(e, "shortform_youtube")}
+          disabled={pendingKey === "shortform_youtube"}
+          aria-label="Toggle YouTube Shorts publish state"
+          aria-pressed={!!project.upload_tracking?.shortform_youtube}
+          className={baseBtn}
+        >
           <svg
             className={`w-4 h-4 ${project.upload_tracking?.shortform_youtube ? "text-red-400" : "text-neutral-600"}`}
             viewBox="0 0 24 24"
@@ -94,10 +122,17 @@ function UploadIndicators({ project }: { project: ScriptSummary }) {
           >
             <path d="M14.4 12c0 1.33-.53 2.53-1.4 3.4-.87.87-2.07 1.4-3.4 1.4a4.8 4.8 0 1 1 4.8-4.8zM10.8 7.2a7.2 7.2 0 1 0 0 14.4 7.2 7.2 0 0 0 0-14.4zM21 2l-4 4h3v7h-3l4 4V2z" />
           </svg>
-        </span>
+        </button>
       </Tooltip>
-      <Tooltip content={project.upload_tracking?.shortform_instagram ? "Uploaded to Instagram" : "Not yet on Instagram"}>
-        <span onClick={(e) => e.stopPropagation()}>
+      <Tooltip content={project.upload_tracking?.shortform_instagram ? "Uploaded to Instagram — click to mark unpublished" : "Not yet on Instagram — click to mark published"}>
+        <button
+          type="button"
+          onClick={(e) => handleClick(e, "shortform_instagram")}
+          disabled={pendingKey === "shortform_instagram"}
+          aria-label="Toggle Instagram publish state"
+          aria-pressed={!!project.upload_tracking?.shortform_instagram}
+          className={baseBtn}
+        >
           <svg
             className={`w-4 h-4 ${project.upload_tracking?.shortform_instagram ? "text-pink-500" : "text-neutral-600"}`}
             viewBox="0 0 24 24"
@@ -107,10 +142,17 @@ function UploadIndicators({ project }: { project: ScriptSummary }) {
           >
             <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
           </svg>
-        </span>
+        </button>
       </Tooltip>
-      <Tooltip content={project.upload_tracking?.shortform_tiktok ? "Uploaded to TikTok" : "Not yet on TikTok"}>
-        <span onClick={(e) => e.stopPropagation()}>
+      <Tooltip content={project.upload_tracking?.shortform_tiktok ? "Uploaded to TikTok — click to mark unpublished" : "Not yet on TikTok — click to mark published"}>
+        <button
+          type="button"
+          onClick={(e) => handleClick(e, "shortform_tiktok")}
+          disabled={pendingKey === "shortform_tiktok"}
+          aria-label="Toggle TikTok publish state"
+          aria-pressed={!!project.upload_tracking?.shortform_tiktok}
+          className={baseBtn}
+        >
           <svg
             className={`w-4 h-4 ${project.upload_tracking?.shortform_tiktok ? "text-neutral-100" : "text-neutral-600"}`}
             viewBox="0 0 24 24"
@@ -120,7 +162,7 @@ function UploadIndicators({ project }: { project: ScriptSummary }) {
           >
             <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.95a8.19 8.19 0 004.79 1.53V7.03a4.85 4.85 0 01-1.02-.34z" />
           </svg>
-        </span>
+        </button>
       </Tooltip>
     </div>
   );
@@ -135,6 +177,39 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject }: Props) {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [pendingToggle, setPendingToggle] = useState<{ scriptId: string; key: keyof UploadTracking } | null>(null);
+
+  const handleToggleUpload = useCallback(async (project: ScriptSummary, key: keyof UploadTracking) => {
+    if (pendingToggle) return;
+    const current = !!project.upload_tracking?.[key];
+    const next = !current;
+    setPendingToggle({ scriptId: project.id, key });
+    // Optimistic update
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === project.id
+          ? { ...p, upload_tracking: { ...p.upload_tracking, [key]: next } }
+          : p,
+      ),
+    );
+    try {
+      const updated = await setUploadTracking(project.id, { [key]: next });
+      setProjects((prev) =>
+        prev.map((p) => (p.id === project.id ? { ...p, upload_tracking: updated } : p)),
+      );
+    } catch {
+      // Revert on failure
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === project.id
+            ? { ...p, upload_tracking: { ...p.upload_tracking, [key]: current } }
+            : p,
+        ),
+      );
+    } finally {
+      setPendingToggle(null);
+    }
+  }, [pendingToggle]);
 
   const fetchProjects = useCallback(async () => {
     setLoading(true);
@@ -472,7 +547,11 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject }: Props) {
                     </div>
                     {/* Platform upload indicators */}
                     <div className="pt-1.5">
-                      <UploadIndicators project={project} />
+                      <UploadIndicators
+                        project={project}
+                        onToggle={handleToggleUpload}
+                        pendingKey={pendingToggle?.scriptId === project.id ? pendingToggle.key : null}
+                      />
                     </div>
 
                   </div>
@@ -534,7 +613,11 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject }: Props) {
                       <div>{project.segment_count} segments</div>
                       <div className="text-xs text-neutral-600">{project.scene_count} scenes</div>
                     </div>
-                    <UploadIndicators project={project} />
+                    <UploadIndicators
+                      project={project}
+                      onToggle={handleToggleUpload}
+                      pendingKey={pendingToggle?.scriptId === project.id ? pendingToggle.key : null}
+                    />
                     <div className="flex items-center gap-1.5 text-xs text-neutral-500">
                       <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT_COLORS[project.status]}`} />
                       {formatDate(project.created_at)}
