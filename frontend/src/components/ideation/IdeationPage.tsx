@@ -68,6 +68,7 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
 
   const generate = async (
     niche: string,
+    guide?: string,
     opts?: { append?: boolean; excludeTitles?: string[] },
   ) => {
     cancelledRef.current = false;
@@ -79,6 +80,7 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
     try {
       const res = await api.post("/api/ideas/generate", {
         niche,
+        guide,
         count: BATCH_SIZE,
         exclude_titles: opts?.excludeTitles ?? [],
       });
@@ -116,7 +118,7 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
   };
 
   const handleLoadMore = () => {
-    generate(lastNiche, {
+    generate(lastNiche, undefined, {
       append: true,
       excludeTitles: ideas.map((i) => i.title),
     });

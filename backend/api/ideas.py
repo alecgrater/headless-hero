@@ -18,6 +18,7 @@ router = APIRouter(prefix="/api/ideas", tags=["ideas"])
 
 class GenerateIdeasRequest(BaseModel):
     niche: str = Field(..., min_length=1, description="Topic area to brainstorm")
+    guide: str | None = Field(default=None, description="Optional creator guidance for the idea angle")
     count: int = Field(default=10, ge=1, le=20)
     exclude_titles: list[str] = Field(default=[], description="Titles to exclude for dedup on Load More")
 
@@ -35,6 +36,7 @@ def generate(body: GenerateIdeasRequest, session: Session = Depends(get_session)
     t0 = time.monotonic()
     ideas = generate_ideas(
         niche=body.niche,
+        guide=body.guide,
         count=body.count,
         brand_context=brand_context,
         exclude_titles=body.exclude_titles,
