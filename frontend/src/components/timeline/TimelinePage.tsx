@@ -669,7 +669,6 @@ function ViewerSwitchRow({
   format,
   asset,
   activeTab,
-  hasPendingReview,
   onFormatChange,
   onAssetChange,
   onTabChange,
@@ -677,7 +676,6 @@ function ViewerSwitchRow({
   format: ViewerFormat;
   asset: ViewerAsset;
   activeTab: "timeline" | "media-sources" | "segments";
-  hasPendingReview: boolean;
   onFormatChange: (format: ViewerFormat) => void;
   onAssetChange: (asset: ViewerAsset) => void;
   onTabChange: (tab: "timeline" | "media-sources" | "segments") => void;
@@ -730,9 +728,6 @@ function ViewerSwitchRow({
                 >
                   <Icon className="w-3.5 h-3.5 shrink-0" />
                   {label}
-                  {key === "media-sources" && hasPendingReview && (
-                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-violet-500 rounded-full" />
-                  )}
                 </button>
               ))}
             </div>
@@ -2348,7 +2343,6 @@ function TimelineEditor({
                   format={viewerFormat}
                   asset={viewerAsset}
                   activeTab={activeTab}
-                  hasPendingReview={media.hasPendingReview}
                   onFormatChange={setViewerFormat}
                   onAssetChange={setViewerAsset}
                   onTabChange={setActiveTab}
