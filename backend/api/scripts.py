@@ -4,6 +4,7 @@ import json
 import logging
 import shutil
 import time
+import uuid
 from collections import defaultdict
 from pathlib import Path
 
@@ -304,6 +305,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
 
     job = create_job()
     job_id = job.id
+    script_id = uuid.uuid4().hex
 
     def _run_generation() -> list[str]:
         def _progress(segment: int, total: int, name: str) -> None:
@@ -327,6 +329,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             progress_callback=_progress,
             gameplay_enabled=gameplay_enabled,
             stock_photo_enabled=stock_photo_enabled,
+            script_id=script_id,
         )
         duration = time.monotonic() - t0
 
@@ -335,6 +338,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
         with SqlSession(engine) as bg_session:
             bg_session.add(GenerationDuration(operation_type="script_generation_youtube", duration_seconds=duration))
             record = Script(
+                id=script_id,
                 brand_id=brand_id,
                 topic_title=topic,
                 topic_description=description,
@@ -343,7 +347,6 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             bg_session.add(record)
             bg_session.commit()
             bg_session.refresh(record)
-            script_id = record.id
 
         logger.info("Script generated: %s (%d segments) in %.1fs", script_id, len(script_content.segments), duration)
 

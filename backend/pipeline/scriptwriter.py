@@ -111,6 +111,7 @@ def generate_script(
     progress_callback: Callable[[int, int, str], None] | None = None,
     gameplay_enabled: bool = False,
     stock_photo_enabled: bool = False,
+    script_id: str | None = None,
 ) -> ScriptContent:
     """Generate a segmented video script via the routed LLM provider.
 
@@ -169,6 +170,7 @@ def generate_script(
             brand_context=brand_context,
             model=resolved_model,
             progress_callback=progress_callback,
+            script_id=script_id,
         )
     else:
         logger.info("Generating script for topic %r, description=%r using model=%s (segments=%d)", topic, description, resolved_model or "configured", SEGMENT_COUNT)
@@ -180,6 +182,7 @@ def generate_script(
             timeout=900.0,
             json_mode=True,
             task="script",
+            script_id=script_id,
         )
 
         text = strip_markdown_fences(raw)
@@ -222,13 +225,23 @@ def _generate_outline(
     system_prompt: str,
     user_message: str,
     model: str | None,
+    script_id: str | None,
 ) -> dict:
     """Phase 1: Generate script outline (no scenes) via a single small LLM call."""
     t0 = time.monotonic()
     logger.info("SEGMENTED: Phase 1 — generating outline (model=%s)", model)
 
     outline_msg = user_message + "\n\n" + _OUTLINE_INSTRUCTIONS
-    raw = chat(system_prompt, outline_msg, model=model, max_tokens=4096, timeout=180.0, json_mode=True, task="script")
+    raw = chat(
+        system_prompt,
+        outline_msg,
+        model=model,
+        max_tokens=4096,
+        timeout=180.0,
+        json_mode=True,
+        task="script",
+        script_id=script_id,
+    )
     text = strip_markdown_fences(raw)
 
     if not text.endswith("}"):
@@ -259,6 +272,7 @@ def _generate_segment_scenes(
     segment_index: int,
     model: str | None,
     trailing_context: str = "",
+    script_id: str | None = None,
 ) -> list[Scene]:
     """Phase 2: Generate scenes for a single segment."""
     segment = outline["segments"][segment_index]
@@ -284,7 +298,16 @@ def _generate_segment_scenes(
         f"{_SEGMENT_SCENES_INSTRUCTIONS}"
     )
 
-    raw = chat(system_prompt, user_msg, model=model, max_tokens=32768, timeout=300.0, json_mode=True, task="script")
+    raw = chat(
+        system_prompt,
+        user_msg,
+        model=model,
+        max_tokens=32768,
+        timeout=300.0,
+        json_mode=True,
+        task="script",
+        script_id=script_id,
+    )
     text = strip_markdown_fences(raw)
 
     try:
@@ -349,12 +372,13 @@ def _generate_segmented(
     brand_context: str,
     model: str | None,
     progress_callback: Callable[[int, int, str], None] | None = None,
+    script_id: str | None = None,
 ) -> ScriptContent:
     """Orchestrate two-phase segmented script generation."""
     total_t0 = time.monotonic()
 
     # Phase 1: outline
-    outline = _generate_outline(system_prompt, user_message, model)
+    outline = _generate_outline(system_prompt, user_message, model, script_id)
 
     # Phase 2: per-segment scene generation (sequential for coherence)
     segments: list[Segment] = []
@@ -366,7 +390,14 @@ def _generate_segmented(
         if progress_callback:
             progress_callback(i + 1, len(outline["segments"]), seg_name)
         try:
-            scenes = _generate_segment_scenes(system_prompt, outline, i, model, trailing_context)
+            scenes = _generate_segment_scenes(
+                system_prompt,
+                outline,
+                i,
+                model,
+                trailing_context,
+                script_id=script_id,
+            )
         except Exception as e:
             seg_name = seg_outline.get("name", f"Segment {i + 1}")
             logger.exception(
