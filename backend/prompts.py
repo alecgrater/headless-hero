@@ -410,6 +410,7 @@ RULES:
 - Follow all visual storytelling arc, Visual Beat System, and shot type guidelines from the system prompt.
 - If a CROSS-SEGMENT CONTINUITY note is provided above, respect it: do not repeat the same beat/shot pattern that ended the previous segment. The title card already breaks the visual run, but the first CONTENT scene after it should use a different beat or shot type than the previous segment's final content scene.
 - Return ONLY the JSON array — no markdown fences, no commentary.
+- DO NOT wrap the scenes inside a segment object. The output must be a flat array of scene dicts. Never return shapes like {"name": "...", "scenes": [...]} or {"segments": [...]} — only the scenes array itself.
 """,
     retention=RetentionMeta(
         goal="Generate visually varied, engaging scenes within each segment",

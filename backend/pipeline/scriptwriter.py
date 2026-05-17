@@ -345,6 +345,25 @@ def _generate_segment_scenes(
             f"response could not be parsed (likely truncated or malformed): {e}"
         ) from e
 
+    # Some models return segment-shaped wrappers ({"name": "...", "scenes": [...]})
+    # instead of a flat scene array, despite explicit prompting. Flatten by extracting
+    # the inner `scenes` lists when items lack scene-required fields.
+    if scenes_data and all(
+        isinstance(s, dict)
+        and isinstance(s.get("scenes"), list)
+        and "narration" not in s
+        and "visual_prompt" not in s
+        for s in scenes_data
+    ):
+        flat: list = []
+        for seg in scenes_data:
+            flat.extend(seg["scenes"])
+        logger.warning(
+            "SEGMENTED: Segment %d/%d (%r) returned segment-shaped wrapper — flattened %d nested scenes from %d wrapper(s)",
+            segment_index + 1, total, seg_name, len(flat), len(scenes_data),
+        )
+        scenes_data = flat
+
     scenes = [Scene.model_validate(s) for s in scenes_data]
 
     elapsed = time.monotonic() - t0
