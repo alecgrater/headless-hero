@@ -81,9 +81,10 @@ def is_short_render_current(script_id: str, segment_idx: int, content: ScriptCon
         return False
     try:
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        cached_hook_scene_count = int(metadata.get("hook_scene_count") or 0)
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
         return False
-    return int(metadata.get("hook_scene_count") or 0) == int(content.hook_scene_count or 0)
+    return cached_hook_scene_count == int(content.hook_scene_count or 0)
 
 
 def _copy_to_downloads(project_title: str, src_path: Path, dest_filename: str) -> str:

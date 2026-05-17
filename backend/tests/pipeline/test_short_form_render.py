@@ -95,6 +95,19 @@ class TestShortRenderCurrent:
 
         assert is_short_render_current("script-1", 0, content) is True
 
+    def test_malformed_metadata_marks_first_short_stale(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(short_form_render, "DATA_DIR", tmp_path)
+        content = ScriptContent(
+            title="Test",
+            hook_scene_count=1,
+            segments=[Segment(name="First", scenes=[_scene("title", "First.", True), _scene("body", "Body.")])],
+        )
+        metadata_path = tmp_path / "projects" / "script-1" / "renders" / "shorts" / "0.json"
+        metadata_path.parent.mkdir(parents=True)
+        metadata_path.write_text('{"segment_idx": 0, "hook_scene_count": "bad"}', encoding="utf-8")
+
+        assert is_short_render_current("script-1", 0, content) is False
+
     def test_unchanged_for_other_shorts_and_no_hook_skip(self, tmp_path, monkeypatch):
         monkeypatch.setattr(short_form_render, "DATA_DIR", tmp_path)
         content = ScriptContent(
