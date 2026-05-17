@@ -13,6 +13,10 @@ logger = logging.getLogger(__name__)
 
 _TOKEN_REFRESH_BUFFER_SECONDS = 300  # Refresh if expiry within 5 minutes
 _YOUTUBE_DESCRIPTION_LIMIT = 5000
+YOUTUBE_RECONNECT_MESSAGE = (
+    "Your youtube connection has expired or been revoked. "
+    "Please reconnect your account in Settings → Publishing."
+)
 
 
 def is_reauth_required_error(exc: Exception) -> bool:
@@ -85,6 +89,8 @@ def ensure_token_fresh(credential: PlatformCredential) -> bool:
 def _handle_refresh_error(exc: Exception, platform: str) -> None:
     """Convert OAuth refresh errors into clear, actionable RuntimeErrors."""
     if is_reauth_required_error(exc):
+        if platform == "youtube":
+            raise RuntimeError(YOUTUBE_RECONNECT_MESSAGE) from exc
         raise RuntimeError(
             f"Your {platform} connection has expired or been revoked. "
             "Please reconnect your account in Settings → Publishing."

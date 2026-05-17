@@ -18,6 +18,20 @@ import ShortFormThumbnailsCard from "./short-form/ShortFormThumbnailsCard";
 import MiniProgressBar from "../MiniProgressBar";
 import { usePollJob } from "../../hooks/usePollJob";
 
+const YOUTUBE_RECONNECT_MESSAGE = "Your youtube connection has expired or been revoked. Please reconnect your account in Settings → Publishing.";
+
+function simplifyYouTubeUploadError(error: string | null | undefined): string {
+  if (!error) return "Upload failed";
+  if (
+    error.includes("invalid_grant")
+    || error.includes("Token has been expired or revoked")
+    || error.includes("connection has expired or been revoked")
+  ) {
+    return YOUTUBE_RECONNECT_MESSAGE;
+  }
+  return error;
+}
+
 interface Props {
   youtubeStatus: RenderStatusResponse | null;
   youtubeUrl: string | null;
@@ -383,7 +397,7 @@ export default function ExportPanel({
       }
       if (status.status === "failed") {
         setYtUploading(false);
-        setYtUploadError(status.error || "Upload failed");
+        setYtUploadError(simplifyYouTubeUploadError(status.error));
         void getYouTubeOAuthStatus()
           .then((s) => onYoutubeConnectionChange(s.youtube.connected))
           .catch(() => {

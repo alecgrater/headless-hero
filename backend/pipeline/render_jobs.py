@@ -13,6 +13,11 @@ from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
+
+class UserFacingJobError(RuntimeError):
+    """Error whose message is safe to show directly in job status UI."""
+
+
 class RenderJob:
     """Tracks the state of a background render task."""
 
@@ -184,6 +189,12 @@ def run_in_background(
                             "duration_seconds": job.duration_seconds,
                         })
                         _persist_render_duration(job.scene_count, job.duration_seconds)
+        except UserFacingJobError as exc:
+            if is_cancelled(job_id):
+                logger.info("Job %s cancelled (exception during teardown)", job_id)
+                return
+            logger.warning("Render job %s failed with user-facing error: %s", job_id, exc)
+            update_job(job_id, status="failed", error=str(exc))
         except Exception:
             if is_cancelled(job_id):
                 logger.info("Job %s cancelled (exception during teardown)", job_id)
