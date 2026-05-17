@@ -55,7 +55,7 @@ def generate_ideas(
     logger.info("Generating %s ideas for niche %r", count, niche)
     raw = chat(IDEATION_SYSTEM.build(str(SEGMENT_COUNT)), user_message, json_mode=True, task="idea")
 
-    ideas_data = parse_json_array_response(raw)
+    ideas_data = parse_json_array_response(raw, key="ideas")
     ideas = [VideoIdea.model_validate(item) for item in ideas_data]
     logger.info("Generated %s ideas for niche %r", len(ideas), niche)
     return ideas

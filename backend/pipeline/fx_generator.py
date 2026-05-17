@@ -39,7 +39,7 @@ def generate_scene_fx(scene_data: dict, script_id: str | None = None) -> dict:
     )
 
     cleaned = strip_markdown_fences(response)
-    fx_list = parse_json_array_response(cleaned)
+    fx_list = parse_json_array_response(cleaned, key="scenes")
 
     if len(fx_list) == 0:
         raise ValueError("Expected non-empty JSON array from FX generator")

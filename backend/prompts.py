@@ -378,30 +378,32 @@ SCRIPT_SEGMENT_SCENES_INSTRUCTIONS = register(PromptDef(
     domain="SCRIPT",
     purpose="Phase 2 of segmented generation — scenes for one segment",
     target_model="claude",
-    expected_output_format="JSON array of scene objects",
+    expected_output_format='JSON: {"scenes": [{"id": "...", "narration": "...", "visual_prompt": "...", ...}]}',
     template="""\
 You are writing scenes for ONE segment of a larger video script.
 The full script outline is provided below for narrative context — write ONLY \
 the scenes for the specified segment.
 
-Return ONLY a valid JSON array of scene objects. Example:
-[
-  {
-    "id": "scene_001",
-    "narration": "...",
-    "visual_prompt": "[SHOT_TYPE] ...",
-    "duration_estimate_seconds": 8,
-    "is_title_card": false,
-    "visual_beat": "quick_cuts",
-    "contains_person": true,
-    "media_source": "ai",
-    "gameplay_game_override": "",
-    "frame_directives": [
-      {"prompt": "...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""},
-      {"prompt": "...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""}
-    ]
-  }
-]
+Return a JSON object with a single key "scenes" whose value is an array of scene objects. Example:
+{
+  "scenes": [
+    {
+      "id": "scene_001",
+      "narration": "...",
+      "visual_prompt": "[SHOT_TYPE] ...",
+      "duration_estimate_seconds": 8,
+      "is_title_card": false,
+      "visual_beat": "quick_cuts",
+      "contains_person": true,
+      "media_source": "ai",
+      "gameplay_game_override": "",
+      "frame_directives": [
+        {"prompt": "...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""},
+        {"prompt": "...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""}
+      ]
+    }
+  ]
+}
 
 RULES:
 - The FIRST scene of EVERY segment MUST be a title card (is_title_card: true, visual_beat: "static", frame_directives: []).
@@ -409,8 +411,8 @@ RULES:
 - Scene IDs should start at scene_001 within this segment (they will be renumbered globally later).
 - Follow all visual storytelling arc, Visual Beat System, and shot type guidelines from the system prompt.
 - If a CROSS-SEGMENT CONTINUITY note is provided above, respect it: do not repeat the same beat/shot pattern that ended the previous segment. The title card already breaks the visual run, but the first CONTENT scene after it should use a different beat or shot type than the previous segment's final content scene.
-- Return ONLY the JSON array — no markdown fences, no commentary.
-- DO NOT wrap the scenes inside a segment object. The output must be a flat array of scene dicts. Never return shapes like {"name": "...", "scenes": [...]} or {"segments": [...]} — only the scenes array itself.
+- Return ONLY the JSON object with the "scenes" key — no markdown fences, no commentary, no other top-level keys.
+- The "scenes" array must be a FLAT list of scene dicts. Never wrap them under segment objects (no {"name": ..., "scenes": [...]} entries) and never add extra top-level keys like "segments" or "frame_directives".
 """,
     retention=RetentionMeta(
         goal="Generate visually varied, engaging scenes within each segment",
@@ -690,7 +692,7 @@ FX_SYSTEM = register(PromptDef(
     domain="FX",
     purpose="Assign camera drift, zoom punches, and scene-boundary transitions",
     target_model="claude",
-    expected_output_format="JSON array: [{id, fx: {drift, zoom_punch}, transition_in}]",
+    expected_output_format='JSON: {"scenes": [{id, fx: {drift, zoom_punch}, transition_in}]}',
     template="""You are a visual effects director for educational YouTube videos. You assign camera drift, zoom punches, and scene-boundary transitions to each scene.
 
 ## Camera Drift (drift)
@@ -757,38 +759,40 @@ Each scene includes a "visual_beat" field indicating its presentation type:
 
 ## Output Format
 
-Return a JSON array with one object per scene (same order as input). Each object has the scene "id", an "fx" object, and a "transition_in" field:
+Return a JSON object with a single key "scenes" whose value is an array with one object per scene (same order as input). Each object has the scene "id", an "fx" object, and a "transition_in" field:
 
 ```json
-[
-  {
-    "id": "scene_id_here",
-    "fx": {
-      "drift": { "motion": "pan_left", "intensity": 0.06, "anchor": "center" },
-      "zoom_punch": null
+{
+  "scenes": [
+    {
+      "id": "scene_id_here",
+      "fx": {
+        "drift": { "motion": "pan_left", "intensity": 0.06, "anchor": "center" },
+        "zoom_punch": null
+      },
+      "transition_in": "cut"
     },
-    "transition_in": "cut"
-  },
-  {
-    "id": "scene_with_transition",
-    "fx": {
-      "drift": { "motion": "zoom_in", "intensity": 0.07, "anchor": "center-right" },
-      "zoom_punch": { "trigger_word": "devastating", "scale": 1.06 }
+    {
+      "id": "scene_with_transition",
+      "fx": {
+        "drift": { "motion": "zoom_in", "intensity": 0.07, "anchor": "center-right" },
+        "zoom_punch": { "trigger_word": "devastating", "scale": 1.06 }
+      },
+      "transition_in": "fade_black"
     },
-    "transition_in": "fade_black"
-  },
-  {
-    "id": "aha_subtitle_scene",
-    "fx": {
-      "drift": null,
-      "zoom_punch": null
-    },
-    "transition_in": "cut"
-  }
-]
+    {
+      "id": "aha_subtitle_scene",
+      "fx": {
+        "drift": null,
+        "zoom_punch": null
+      },
+      "transition_in": "cut"
+    }
+  ]
+}
 ```
 
-Return ONLY the JSON array, no explanation.""",
+Return ONLY the JSON object with the "scenes" key, no explanation.""",
     retention=RetentionMeta(
         goal="Add visual dynamism to prevent static-frame fatigue",
         failure_mode="Overuse of effects feels gimmicky; underuse feels static",
@@ -1349,7 +1353,7 @@ Rules:
   The remaining ideas can be creative variations, tangential angles, and spin-offs.
 - Return ONLY valid JSON — no markdown fences, no commentary.
 
-Return a JSON array of objects with keys: title, segments_est, description, keywords.
+Return a JSON object with a single key "ideas" whose value is an array of objects with keys: title, segments_est, description, keywords.
 """
 
 
@@ -1358,7 +1362,7 @@ IDEATION_SYSTEM = register(PromptDef(
     domain="IDEATION",
     purpose="Generate video topic ideas for a given niche",
     target_model="claude",
-    expected_output_format="JSON array: [{title, segments_est, description, keywords}]",
+    expected_output_format='JSON: {"ideas": [{title, segments_est, description, keywords}]}',
     template="",  # Dynamic — use builder
     builder=_build_ideation_system,
     inputs=["allowed_segments_str"],
@@ -1431,7 +1435,7 @@ Sort ideas within each category by idea_score descending (best first). Sort cate
 the category with the highest top-scoring idea appears first.
 
 ## Output Format
-Return a JSON array of objects, grouped by category. Each object has these exact fields:
+Return a JSON object with a single key "ideas" whose value is an array of objects, grouped by category. Each object has these exact fields:
 - category: one of the niche categories listed above
 - title: compelling YouTube title following "8 X That Y" pattern (50-70 chars)
 - description: 2-3 sentence video description
@@ -1446,7 +1450,7 @@ Return a JSON array of objects, grouped by category. Each object has these exact
 - signals: list of 1-3 source citations (e.g. "trending on YouTube", "evergreen search volume", \
 "gap in catalog", "adjacent to past content")
 
-Return ONLY a JSON array — no markdown fences, no commentary. Group ideas by category in the array.
+Return ONLY the JSON object with the "ideas" key — no markdown fences, no commentary. Group ideas by category within the array.
 """,
     retention=RetentionMeta(
         goal="Surface high-potential video topics at the intersection of creator expertise and audience demand",
@@ -1460,7 +1464,7 @@ FORMAT_FIT_SYSTEM = register(PromptDef(
     domain="IDEATION",
     purpose="Rate how well topics suit narration-over-visuals educational format",
     target_model="claude",
-    expected_output_format="JSON array: [{title, score, rationale}]",
+    expected_output_format='JSON: {"scores": [{title, score, rationale}]}',
     template="""\
 You evaluate whether topics suit a YouTube educational listicle/explainer format.
 The channel makes narration-over-visuals videos (no talking head), similar to channels like \
@@ -1473,7 +1477,7 @@ For each topic, rate 0-100 how well it fits this format. Consider:
 - Would it attract YouTube search traffic?
 
 Return ONLY valid JSON — no markdown fences, no commentary.
-Return a JSON array of objects with keys: title, score, rationale
+Return a JSON object with a single key "scores" whose value is an array of objects with keys: title, score, rationale
 """,
     retention=RetentionMeta(
         goal="Filter topics to those that work best in the channel's format",
@@ -1518,7 +1522,7 @@ BRAINSTORM_SYSTEM = register(PromptDef(
     domain="IDEATION",
     purpose="Generate actionable niche prompts from past videos and trending data",
     target_model="claude",
-    expected_output_format="JSON array: [{prompt, title, reasoning, confidence, signals}]",
+    expected_output_format='JSON: {"recommendations": [{prompt, title, reasoning, confidence, signals}]}',
     template="""\
 You are a YouTube content strategist analyzing a creator's past video titles and current \
 trending topics to recommend highly specific, actionable niche prompts for their next video.
@@ -1545,7 +1549,7 @@ For each recommendation, return a JSON object with:
 - confidence: 0-100 score for how likely this will perform well
 - signals: list of 1-3 data source citations (e.g. "trending on YouTube", "matches past content", "evergreen search volume")
 
-Return ONLY a JSON array of objects — no markdown fences, no commentary.
+Return a JSON object with a single key "recommendations" whose value is an array of objects — no markdown fences, no commentary.
 """,
     retention=RetentionMeta(
         goal="Surface high-potential video topics at the intersection of creator expertise and audience demand",
@@ -1589,7 +1593,7 @@ MEDIA_ANALYZER_SYSTEM = register(PromptDef(
     domain="MEDIA",
     purpose="Analyze script content and assign optimal media sources per scene",
     target_model="claude",
-    expected_output_format="JSON array of MediaAssignment objects",
+    expected_output_format='JSON: {"assignments": [MediaAssignment, ...]}',
     template="""\
 You are a media routing specialist for video production. You analyze video scripts and decide which visual source is best for each scene.
 
@@ -1601,16 +1605,18 @@ Guidelines:
 - "stock_photo": Use when real-world objects, events, places, people, products, or historical moments are discussed (e.g. a console launch event, a company headquarters, a real person). Generate an optimized Pexels search query: specific, descriptive, landscape-oriented (e.g. "PlayStation 2 console product photo black background" not "PS2").
 - "ai": Fallback for abstract concepts, metaphors, stylized illustrations, or scenes where no specific game or real-world subject is identifiable. Also use for title card scenes (is_title_card=true) — these must ALWAYS be "ai". Do NOT default to "ai" when a game name can be inferred from the scene or segment context.
 
-Return a JSON array with one entry per scene:
-[
-  {
-    "scene_id": "scene_1",
-    "media_source": "ai" | "gameplay_video" | "stock_photo",
-    "game_name": "Exact Game Title" or null,
-    "search_query": "optimized pexels search query" or null,
-    "reasoning": "Brief explanation of why this source was chosen"
-  }
-]
+Return a JSON object with a single key "assignments" whose value is an array with one entry per scene:
+{
+  "assignments": [
+    {
+      "scene_id": "scene_1",
+      "media_source": "ai" | "gameplay_video" | "stock_photo",
+      "game_name": "Exact Game Title" or null,
+      "search_query": "optimized pexels search query" or null,
+      "reasoning": "Brief explanation of why this source was chosen"
+    }
+  ]
+}
 
 Rules:
 - Every scene in the input must appear exactly once in the output
@@ -1618,7 +1624,7 @@ Rules:
 - Only assign sources from the available list above
 - game_name must be null unless media_source is "gameplay_video"
 - search_query must be null unless media_source is "stock_photo"
-- Return ONLY the JSON array, no other text""",
+- Return ONLY the JSON object with the "assignments" key, no other text""",
     inputs=["script_content_json", "available_sources"],
     retention=RetentionMeta(
         goal="Optimally route each scene to the most effective visual source",

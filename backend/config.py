@@ -99,24 +99,49 @@ def parse_json_response(text: str) -> dict | list:
     return json.loads(cleaned)
 
 
-def parse_json_array_response(text: str) -> list:
+def parse_json_array_response(text: str, *, key: str | None = None) -> list:
     """Parse a JSON response expected to be an array, tolerating dict-wrapped variants.
 
     OpenAI's `response_format={"type":"json_object"}` mode forbids top-level arrays,
-    so models often wrap them as `{"items":[...]}` or `{"0":{...},"1":{...}}`.
+    so models must wrap them under a key. Pass `key=` to make extraction explicit
+    (preferred — matches the wrapper key your prompt asked for). Without `key`,
+    falls back to heuristics that handle common shapes like `{"items":[...]}`,
+    `{"0":{...},"1":{...}}`, and dict-of-dicts.
     """
     data = parse_json_response(text)
     if isinstance(data, list):
         return data
-    if isinstance(data, dict):
-        list_values = [v for v in data.values() if isinstance(v, list)]
-        if len(list_values) == 1:
-            return list_values[0]
-        if data and all(isinstance(k, str) and k.isdigit() for k in data.keys()):
-            return [data[k] for k in sorted(data.keys(), key=int)]
-        # Dict-of-dicts shape: {"scene_001": {...}, "scene_002": {...}}.
-        # Some models emit this when forced into json_object mode and asked for a
-        # list of objects. Preserve insertion order so caller-side renumbering works.
-        if data and all(isinstance(v, dict) for v in data.values()):
-            return list(data.values())
-    raise ValueError(f"Expected a JSON array, got {type(data).__name__}")
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected a JSON array, got {type(data).__name__}")
+
+    # Preferred path: caller specified the wrapper key it asked the model to use.
+    if key and isinstance(data.get(key), list):
+        return data[key]
+
+    # Common wrapper keys models gravitate to when forced into json_object mode.
+    for common in ("items", "results", "data", "list"):
+        if isinstance(data.get(common), list):
+            return data[common]
+
+    list_values = [v for v in data.values() if isinstance(v, list)]
+    if len(list_values) == 1:
+        return list_values[0]
+    if len(list_values) > 1:
+        list_keys = [k for k, v in data.items() if isinstance(v, list)]
+        hint = f" (pass key= to disambiguate; expected one of: {list_keys})" if not key else ""
+        raise ValueError(
+            f"Expected a JSON array, got dict with multiple list values: {list_keys}{hint}"
+        )
+
+    if data and all(isinstance(k, str) and k.isdigit() for k in data.keys()):
+        return [data[k] for k in sorted(data.keys(), key=int)]
+
+    # Dict-of-dicts shape: {"scene_001": {...}, "scene_002": {...}}.
+    if data and all(isinstance(v, dict) for v in data.values()):
+        return list(data.values())
+
+    value_types = {k: type(v).__name__ for k, v in list(data.items())[:20]}
+    raise ValueError(
+        f"Expected a JSON array, got dict with no extractable list "
+        f"(keys/types={value_types})"
+    )

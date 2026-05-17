@@ -322,7 +322,7 @@ def _generate_segment_scenes(
     text = strip_markdown_fences(raw)
 
     try:
-        scenes_data = parse_json_array_response(text)
+        scenes_data = parse_json_array_response(text, key="scenes")
     except (json.JSONDecodeError, ValueError) as e:
         # Best-effort shape sniff so the dev dashboard log shows the actual JSON
         # structure the model returned (helps diagnose new dict-wrapping variants).

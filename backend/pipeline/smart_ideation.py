@@ -4,7 +4,7 @@ import json
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from config import parse_json_response
+from config import parse_json_array_response
 from integrations.llm_client import chat
 from prompts import SMART_IDEATION_SYSTEM
 
@@ -30,9 +30,9 @@ def _generate_batch(
         task="idea",
     )
     try:
-        return parse_json_response(raw)
+        return parse_json_array_response(raw, key="ideas")
     except (json.JSONDecodeError, ValueError):
-        logger.error("Failed to parse smart ideas batch %d", batch_index + 1)
+        logger.error("Failed to parse smart ideas batch %d", batch_index + 1, exc_info=True)
         return []
 
 

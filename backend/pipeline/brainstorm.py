@@ -33,5 +33,5 @@ def generate_brainstorm_recommendations(
         task="idea",
     )
 
-    recommendations = parse_json_array_response(response_text)
+    recommendations = parse_json_array_response(response_text, key="recommendations")
     return recommendations[:count]

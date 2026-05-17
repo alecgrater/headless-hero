@@ -67,7 +67,7 @@ def analyze_media_sources(
     )
 
     cleaned = strip_markdown_fences(response)
-    raw_assignments = parse_json_array_response(cleaned)
+    raw_assignments = parse_json_array_response(cleaned, key="assignments")
 
     valid_sources = {"ai", "gameplay_video", "stock_photo"}
     assignments = []
