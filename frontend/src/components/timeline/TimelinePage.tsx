@@ -260,6 +260,48 @@ function CostBreakdownPopover({
   );
 }
 
+function formatScenePercent(count: number, total: number) {
+  if (total === 0) return "0%";
+  return `${Math.round((count / total) * 100)}%`;
+}
+
+function MediaBreakdownPopover({
+  mediaCounts,
+  totalScenes,
+}: {
+  mediaCounts: Record<string, number>;
+  totalScenes: number;
+}) {
+  const rows = [
+    { key: "ai", label: "AI", color: "text-violet-300", count: mediaCounts.ai ?? 0 },
+    { key: "gameplay_video", label: "Gameplay", color: "text-sky-300", count: mediaCounts.gameplay_video ?? 0 },
+    { key: "stock_photo", label: "Stock Photo", color: "text-amber-300", count: mediaCounts.stock_photo ?? 0 },
+  ];
+
+  return (
+    <div className="absolute right-0 top-8 z-40 w-72 rounded-lg border border-neutral-700 bg-neutral-950 shadow-2xl shadow-black/50">
+      <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
+        <span className="text-xs font-semibold text-neutral-200">Media source mix</span>
+        <span className="text-xs font-mono text-neutral-400">
+          {totalScenes} scene{totalScenes !== 1 ? "s" : ""}
+        </span>
+      </div>
+      <div className="py-1">
+        {rows.map((row) => (
+          <div key={row.key} className="px-3 py-2">
+            <div className="flex items-center justify-between gap-3">
+              <span className={`text-xs font-medium ${row.color}`}>{row.label}</span>
+              <span className="text-xs font-mono text-neutral-200">
+                {row.count}/{totalScenes} = {formatScenePercent(row.count, totalScenes)}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function sceneProgressCounter(step: string, progress: number, total: number): string {
   const match = step.match(/(\d+)\s*\/\s*(\d+)/);
   if (match) return `${match[1]}/${match[2]}`;
@@ -1036,6 +1078,7 @@ function TimelineEditor({
   const [totalCost, setTotalCost] = useState<number>(0);
   const [costBreakdown, setCostBreakdown] = useState<ScriptCostBreakdownItem[]>([]);
   const [showCostBreakdown, setShowCostBreakdown] = useState(false);
+  const [showMediaBreakdown, setShowMediaBreakdown] = useState(false);
   const [lastAudioGenTimestamp, setLastAudioGenTimestamp] = useState(0);
   const [lastFXGenTimestamp, setLastFXGenTimestamp] = useState(0);
   const [yoloRunning, setYoloRunning] = useState(false);
@@ -1056,6 +1099,7 @@ function TimelineEditor({
   const productionBusyRef = useRef(false);
   const microTimelineRef = useRef<MicroTimelineHandle>(null);
   const costBreakdownRef = useRef<HTMLDivElement>(null);
+  const mediaBreakdownRef = useRef<HTMLDivElement>(null);
 
   const media = useMediaReview({ scriptId, content: state.content });
 
@@ -1113,6 +1157,20 @@ function TimelineEditor({
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [showCostBreakdown]);
+
+  useEffect(() => {
+    if (!showMediaBreakdown) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (mediaBreakdownRef.current?.contains(target)) return;
+      setShowMediaBreakdown(false);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [showMediaBreakdown]);
 
   // Check YouTube connection on mount
   useEffect(() => {
@@ -1404,6 +1462,8 @@ function TimelineEditor({
       },
       {} as Record<string, number>,
     );
+  const mediaSceneTotal = allScenes.filter((sc) => !sc.is_title_card).length;
+  const aiScenePercent = formatScenePercent(mediaCounts.ai ?? 0, mediaSceneTotal);
 
   // Check if assets already exist for overwrite confirmation
   const hasExistingImages = allScenes.some((sc) => !sc.is_title_card && (sc.image_url || sc.frame_urls?.length));
@@ -2278,32 +2338,21 @@ function TimelineEditor({
                 )}
               </div>
             );
-            if (mediaCounts.ai) {
+            if (mediaSceneTotal > 0) {
               statItems.push(
-                <span key="ai" className="text-xs text-violet-300 bg-violet-500/10 px-4 py-1 rounded-md tabular-nums">
-                  {mediaCounts.ai} AI
-                </span>
-              );
-            }
-            if (mediaCounts.gameplay_video) {
-              statItems.push(
-                <span key="gameplay" className="text-xs text-sky-300 bg-sky-500/10 px-4 py-1 rounded-md tabular-nums">
-                  {mediaCounts.gameplay_video} gameplay
-                </span>
-              );
-            }
-            if (mediaCounts.stock_photo) {
-              statItems.push(
-                <span key="stock" className="text-xs text-amber-300 bg-amber-500/10 px-4 py-1 rounded-md tabular-nums">
-                  {mediaCounts.stock_photo} stock
-                </span>
-              );
-            }
-            if (mediaCounts.user_upload) {
-              statItems.push(
-                <span key="upload" className="text-xs text-emerald-300 bg-emerald-500/10 px-4 py-1 rounded-md tabular-nums">
-                  {mediaCounts.user_upload} upload{mediaCounts.user_upload !== 1 ? "s" : ""}
-                </span>
+                <div key="media" ref={mediaBreakdownRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowMediaBreakdown((show) => !show)}
+                    className="text-xs text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 px-4 py-1 rounded-md tabular-nums font-medium transition-colors"
+                    title="Show media source breakdown"
+                  >
+                    {aiScenePercent} AI
+                  </button>
+                  {showMediaBreakdown && (
+                    <MediaBreakdownPopover mediaCounts={mediaCounts} totalScenes={mediaSceneTotal} />
+                  )}
+                </div>
               );
             }
             statItems.push(
