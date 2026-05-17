@@ -1288,12 +1288,12 @@ function TimelineEditor({
   const imageScenes = nonTitleScenes.filter((sc) => sc.visual_prompt);
   // Title cards complete when all title card scenes have an image
   const allTitleCardsGenerated = titleScenes.length > 0 && titleScenes.every((sc) => sc.image_url);
-  const allImagesGenerated = imageScenes.length > 0 && imageScenes.every((sc) => sc.image_url || sc.frame_urls?.length);
+  const allImagesGenerated = imageScenes.length > 0 && imageScenes.every((sc) => sc.image_url || sc.frame_urls?.length || sc.video_url);
   const allAudioGenerated = narratedScenes.length > 0 && narratedScenes.every((sc) => sc.audio_url);
   const allFXGenerated = nonTitleScenes.length > 0 && nonTitleScenes.every((sc) => sc.fx);
 
   // Missing counts for "Generate Missing (N)" labels
-  const missingImageCount = imageScenes.filter((sc) => !sc.image_url && !sc.frame_urls?.length).length;
+  const missingImageCount = imageScenes.filter((sc) => !sc.image_url && !sc.frame_urls?.length && !sc.video_url).length;
   const missingAudioCount = narratedScenes.filter((sc) => !sc.audio_url).length;
   const missingFXCount = nonTitleScenes.filter((sc) => !sc.fx).length;
 
@@ -1667,6 +1667,9 @@ function TimelineEditor({
       await state.generateAllAudio(voiceId, true);
       latest = await refreshScriptContent();
       status = getCreationStatus(latest);
+      if (!status.audioDone) {
+        throw new Error("Audio generation did not complete for every narrated scene");
+      }
       if (yoloCancelledRef.current) return false;
     }
 
@@ -1675,6 +1678,9 @@ function TimelineEditor({
       await state.generateAllImages(true);
       latest = await refreshScriptContent();
       status = getCreationStatus(latest);
+      if (!status.imagesDone) {
+        throw new Error("Image generation did not complete for every visual scene");
+      }
       if (yoloCancelledRef.current) return false;
     }
 
@@ -1683,13 +1689,20 @@ function TimelineEditor({
       await runMissingFXForYolo(status.missingFXCount);
       latest = await refreshScriptContent();
       status = getCreationStatus(latest);
+      if (!status.fxDone) {
+        throw new Error("FX generation did not complete for every scene");
+      }
       if (yoloCancelledRef.current) return false;
     }
 
     if (!status.eliDone) {
       setYoloStep("Add Eli");
       await runMissingEliForYolo(status.missingEliCount || status.eliSceneCount);
-      await refreshScriptContent();
+      latest = await refreshScriptContent();
+      status = getCreationStatus(latest);
+      if (!status.eliDone) {
+        throw new Error("Eli generation did not complete for every eligible scene");
+      }
       if (yoloCancelledRef.current) return false;
     }
 
