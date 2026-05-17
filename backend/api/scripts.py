@@ -27,8 +27,10 @@ from models.script import (
     ScriptContent,
     ScriptRead,
     ScriptSummary,
+    UploadTracking,
     UpdateScriptRequest,
 )
+from models.publish import PublishRecord
 from pipeline.refine import refine_scene
 from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
 from pipeline.scriptwriter import generate_script
@@ -62,7 +64,28 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/scripts", tags=["scripts"])
 
 
-def _build_summary(record: Script) -> ScriptSummary:
+def _build_upload_tracking(session: Session, script_id: str) -> UploadTracking:
+    """Derive upload tracking from PublishRecord rows for this script."""
+    stmt = select(PublishRecord).where(
+        PublishRecord.script_id == script_id,
+        PublishRecord.status.in_(["published", "scheduled"]),  # type: ignore[attr-defined]
+    )
+    records = session.exec(stmt).all()
+    tracking = UploadTracking()
+    for r in records:
+        if r.asset_kind == "long_form" and r.platform == "youtube":
+            tracking.longform_youtube = True
+        elif r.asset_kind == "short_form":
+            if r.platform == "youtube":
+                tracking.shortform_youtube = True
+            elif r.platform == "instagram":
+                tracking.shortform_instagram = True
+            elif r.platform == "tiktok":
+                tracking.shortform_tiktok = True
+    return tracking
+
+
+def _build_summary(record: Script, session: Session | None = None) -> ScriptSummary:
     """Build a ScriptSummary from a Script record."""
     content = ScriptContent.model_validate(json.loads(record.script_json))
     scenes = content.all_scenes()
@@ -93,6 +116,7 @@ def _build_summary(record: Script) -> ScriptSummary:
     else:
         status = "script"
 
+    upload_tracking = _build_upload_tracking(session, record.id) if session else UploadTracking()
     return ScriptSummary(
         id=record.id,
         brand_id=record.brand_id,
@@ -107,6 +131,7 @@ def _build_summary(record: Script) -> ScriptSummary:
         thumbnail_url=thumbnail_url,
         status=status,
         hook_score_overall=content.hook_score.get("overall") if isinstance(content.hook_score, dict) else None,
+        upload_tracking=upload_tracking,
     )
 
 
@@ -114,7 +139,97 @@ def _build_summary(record: Script) -> ScriptSummary:
 def list_scripts(session: Session = Depends(get_session)):
     statement = select(Script).order_by(Script.created_at.desc())  # type: ignore[arg-type]
     records = session.exec(statement).all()
-    return [_build_summary(r) for r in records]
+    return [_build_summary(r, session) for r in records]
+
+
+class SetUploadTrackingRequest(BaseModel):
+    longform_youtube: bool | None = None
+    shortform_youtube: bool | None = None
+    shortform_instagram: bool | None = None
+    shortform_tiktok: bool | None = None
+
+
+@router.get("/{script_id}/upload-tracking", response_model=UploadTracking)
+def get_upload_tracking(script_id: str, session: Session = Depends(get_session)):
+    """Return derived upload tracking for a script (from PublishRecord + manual overrides)."""
+    record = session.get(Script, script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+    return _build_upload_tracking(session, script_id)
+
+
+@router.post("/{script_id}/upload-tracking", response_model=UploadTracking)
+def set_upload_tracking(
+    script_id: str,
+    body: SetUploadTrackingRequest,
+    session: Session = Depends(get_session),
+):
+    """Manually set upload tracking flags by inserting synthetic PublishRecord rows."""
+    record = session.get(Script, script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    from database import get_default_brand_id
+
+    brand_id = get_default_brand_id(session)
+    now = datetime.now(timezone.utc)
+
+    def _set_flag(asset_kind: str, platform: str, value: bool):
+        """Toggle: add a synthetic published record or delete existing ones."""
+        stmt = select(PublishRecord).where(
+            PublishRecord.script_id == script_id,
+            PublishRecord.asset_kind == asset_kind,
+            PublishRecord.platform == platform,
+            PublishRecord.upload_batch_id == "manual",
+        )
+        existing = session.exec(stmt).all()
+        # Also check non-manual records for "get" state
+        all_stmt = select(PublishRecord).where(
+            PublishRecord.script_id == script_id,
+            PublishRecord.asset_kind == asset_kind,
+            PublishRecord.platform == platform,
+            PublishRecord.status.in_(["published", "scheduled"]),  # type: ignore[attr-defined]
+        )
+        all_records = session.exec(all_stmt).all()
+        has_real_upload = any(r.upload_batch_id != "manual" for r in all_records)
+
+        if value:
+            if not all_records:
+                # Create synthetic record
+                syn = PublishRecord(
+                    script_id=script_id,
+                    brand_id=brand_id,
+                    platform=platform,
+                    asset_kind=asset_kind,
+                    status="published",
+                    upload_batch_id="manual",
+                    published_at=now,
+                    updated_at=now,
+                )
+                session.add(syn)
+        else:
+            # Delete manual synthetic records (can't undo real uploads)
+            for r in existing:
+                session.delete(r)
+            # Also mark any real records as "reverted" by deleting them (they can re-upload)
+            # Only delete manual ones — preserve real upload history
+            if not has_real_upload:
+                for r in all_records:
+                    session.delete(r)
+
+    field_map = {
+        "longform_youtube": ("long_form", "youtube"),
+        "shortform_youtube": ("short_form", "youtube"),
+        "shortform_instagram": ("short_form", "instagram"),
+        "shortform_tiktok": ("short_form", "tiktok"),
+    }
+    for field, (asset_kind, platform) in field_map.items():
+        val = getattr(body, field)
+        if val is not None:
+            _set_flag(asset_kind, platform, val)
+
+    session.commit()
+    return _build_upload_tracking(session, script_id)
 
 
 @router.delete("/{script_id}")

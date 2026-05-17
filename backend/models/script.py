@@ -194,6 +194,14 @@ class ScriptRead(BaseModel):
     created_at: datetime
 
 
+class UploadTracking(BaseModel):
+    """Per-project upload status across platforms."""
+    longform_youtube: bool = False
+    shortform_youtube: bool = False
+    shortform_instagram: bool = False
+    shortform_tiktok: bool = False
+
+
 class ScriptSummary(BaseModel):
     """Lightweight summary for the project dashboard list view."""
 
@@ -210,3 +218,4 @@ class ScriptSummary(BaseModel):
     thumbnail_url: str
     status: str  # "script" | "images" | "audio" | "exported"
     hook_score_overall: int | None = None
+    upload_tracking: UploadTracking = PydanticField(default_factory=UploadTracking)

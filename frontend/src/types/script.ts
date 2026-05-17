@@ -120,6 +120,13 @@ export interface ScriptRead {
   created_at: string;
 }
 
+export interface UploadTracking {
+  longform_youtube: boolean;
+  shortform_youtube: boolean;
+  shortform_instagram: boolean;
+  shortform_tiktok: boolean;
+}
+
 export interface ScriptSummary {
   id: string;
   brand_id: string;
@@ -134,6 +141,7 @@ export interface ScriptSummary {
   thumbnail_url: string;
   status: "script" | "images" | "audio" | "exported";
   hook_score_overall?: number | null;
+  upload_tracking: UploadTracking;
 }
 
 // --- Hook score types ---
