@@ -96,6 +96,7 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "default_provider": "ollama",
         "default_anthropic_model": FAST_CLAUDE_MODEL,
         "default_openai_model": "gpt-5-nano",
+        "openai_reasoning_effort": "minimal",
     },
     "analysis": {
         "label": "Analysis & scoring",

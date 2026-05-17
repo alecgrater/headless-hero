@@ -1,6 +1,11 @@
 """Tests for routed LLM provider/model settings."""
 
-from integrations.llm_client import LLM_TASKS, _resolve_model, _resolve_provider
+from integrations.llm_client import (
+    LLM_TASKS,
+    _resolve_model,
+    _resolve_openai_reasoning_effort,
+    _resolve_provider,
+)
 
 
 def test_short_form_seo_has_dedicated_openai_default(monkeypatch):
@@ -19,3 +24,9 @@ def test_short_form_seo_settings_override_defaults(monkeypatch):
 
     assert _resolve_provider("short_form_seo") == "anthropic"
     assert _resolve_model("anthropic", "short_form_seo", None) == "anthropic.claude-sonnet-4-6"
+
+
+def test_eli_openai_uses_minimal_reasoning_by_default(monkeypatch):
+    monkeypatch.delenv("OPENAI_REASONING_EFFORT_ELI", raising=False)
+
+    assert _resolve_openai_reasoning_effort("eli") == "minimal"
