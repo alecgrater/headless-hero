@@ -35,6 +35,7 @@ interface Props {
   onRefreshRendered: () => Promise<Record<number, string | undefined>>;
   onRefreshUploads: () => Promise<Record<number, ShortUploadStatus>>;
   onRenderComplete: (segmentIdx: number, url: string) => void;
+  onRenderedStatusChange?: () => void;
 }
 
 type CurrentOp =
@@ -54,6 +55,7 @@ export default function RenderShortsCard({
   onRefreshRendered,
   onRefreshUploads,
   onRenderComplete,
+  onRenderedStatusChange,
 }: Props) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<ShortFormJobStatus | null>(null);
@@ -93,6 +95,7 @@ export default function RenderShortsCard({
               const url = s.output_urls?.[0];
               if (url) onRenderComplete(op.index, url);
             }
+            onRenderedStatusChange?.();
           }
           return null;
         });

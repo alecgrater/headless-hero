@@ -16,6 +16,7 @@ interface Props {
   scriptId: string;
   segments: { name: string }[];
   embedded?: boolean;
+  onStatusChange?: () => void;
 }
 
 type CurrentOp =
@@ -28,7 +29,7 @@ function segmentLabel(segment: { name: string }, idx: number): string {
   return segment.name || `Segment ${idx + 1}`;
 }
 
-export default function ShortFormThumbnailsCard({ scriptId, segments, embedded = false }: Props) {
+export default function ShortFormThumbnailsCard({ scriptId, segments, embedded = false, onStatusChange }: Props) {
   const [thumbnailUrls, setThumbnailUrls] = useState<Record<number, string | undefined>>({});
   const [thumbnailVersions, setThumbnailVersions] = useState<Record<number, number>>({});
   const [exportedPaths, setExportedPaths] = useState<Record<number, string | undefined>>({});
@@ -100,6 +101,7 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, embedded =
                 setThumbnailVersions((prev) => ({ ...prev, [op.index]: ts }));
               }
             }
+            onStatusChange?.();
           }
           return null;
         });
@@ -167,6 +169,7 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, embedded =
       setExportFolder(result.folder_path);
       setExportedPaths(result.paths);
       await refreshThumbnails();
+      onStatusChange?.();
     } catch (err) {
       console.error(err);
     } finally {

@@ -10,6 +10,7 @@ interface Props {
   segments: { name: string }[];
   shortFormSeoMetadata: ShortFormSEOMetadata | null;
   onUploadComplete?: () => void;
+  onRenderedStatusChange?: () => void;
 }
 
 export default function ShortFormTab({
@@ -17,6 +18,7 @@ export default function ShortFormTab({
   segments,
   shortFormSeoMetadata,
   onUploadComplete,
+  onRenderedStatusChange,
 }: Props) {
   const [renderedUrls, setRenderedUrls] = useState<Record<number, string | undefined>>({});
   const [downloadsUrls, setDownloadsUrls] = useState<Record<number, string | undefined>>({});
@@ -100,6 +102,7 @@ export default function ShortFormTab({
           setRenderedUrls((prev) => ({ ...prev, [idx]: url }));
           setDownloadsUrls((prev) => ({ ...prev, [idx]: url }));
         }}
+        onRenderedStatusChange={onRenderedStatusChange}
       />
     </div>
   );

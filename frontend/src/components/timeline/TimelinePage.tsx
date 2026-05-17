@@ -258,18 +258,26 @@ type ProductionTask = "lf-seo" | "sf-thumbnails" | "sf-seo" | "sf-renders";
 
 function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
+  const [failed, setFailed] = useState(false);
   return (
     <button
-      onClick={() => {
-        navigator.clipboard.writeText(text);
+      onClick={async () => {
+        setFailed(false);
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {
+          setFailed(true);
+          setTimeout(() => setFailed(false), 1800);
+          return;
+        }
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
       className={`text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-all duration-150 ${
-        copied ? "text-emerald-400 scale-105" : "text-neutral-400 scale-100"
+        failed ? "text-red-400 scale-105" : copied ? "text-emerald-400 scale-105" : "text-neutral-400 scale-100"
       }`}
     >
-      {copied ? "Copied!" : label}
+      {failed ? "Copy failed" : copied ? "Copied!" : label}
     </button>
   );
 }
@@ -313,6 +321,7 @@ function ProductionTaskButton({
   busy,
   missingCount,
   progress,
+  disabled,
   onRunAll,
   onRunMissing,
   missingLabel,
@@ -323,6 +332,7 @@ function ProductionTaskButton({
   busy: boolean;
   missingCount: number;
   progress: number | null;
+  disabled: boolean;
   onRunAll: () => void;
   onRunMissing: () => void;
   missingLabel: string;
@@ -351,7 +361,7 @@ function ProductionTaskButton({
       <button
         type="button"
         onClick={onRunAll}
-        disabled={busy}
+        disabled={busy || disabled}
         className={`text-xs pl-3 pr-2 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 flex-1 whitespace-nowrap disabled:opacity-50 ${buttonStateClass}`}
         title={allTitle}
       >
@@ -369,7 +379,7 @@ function ProductionTaskButton({
       <button
         type="button"
         onClick={() => setOpen((show) => !show)}
-        disabled={busy}
+        disabled={busy || disabled}
         className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center disabled:opacity-50"
         title={`${label} options`}
       >
@@ -438,6 +448,12 @@ function ProductionWorkflowRow({
   onRenderSfVideos: () => void;
   onRenderMissingSfVideos: () => void;
 }) {
+  const anyBusy = busyTask !== null || seoGenerating || shortFormSeoGenerating;
+  const lfSeoBusy = seoGenerating || busyTask === "lf-seo";
+  const sfSeoBusy = shortFormSeoGenerating || busyTask === "sf-seo";
+  const sfThumbnailsBusy = busyTask === "sf-thumbnails";
+  const sfRendersBusy = busyTask === "sf-renders";
+
   return (
     <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
       <div className="flex items-center gap-2 min-w-0">
@@ -447,7 +463,8 @@ function ProductionWorkflowRow({
         <ProductionTaskButton
           label="Generate LF SEO"
           done={lfSeoDone}
-          busy={seoGenerating || busyTask === "lf-seo"}
+          busy={lfSeoBusy}
+          disabled={anyBusy && !lfSeoBusy}
           missingCount={lfSeoDone ? 0 : 1}
           progress={busyTask === "lf-seo" ? progress : null}
           onRunAll={onGenerateLfSeo}
@@ -458,7 +475,8 @@ function ProductionWorkflowRow({
         <ProductionTaskButton
           label="Generate SF Thumbnails"
           done={sfThumbnailsDone}
-          busy={busyTask === "sf-thumbnails"}
+          busy={sfThumbnailsBusy}
+          disabled={anyBusy && !sfThumbnailsBusy}
           missingCount={sfThumbnailsMissingCount}
           progress={busyTask === "sf-thumbnails" ? progress : null}
           onRunAll={onGenerateSfThumbnails}
@@ -469,7 +487,8 @@ function ProductionWorkflowRow({
         <ProductionTaskButton
           label="Generate SF SEO"
           done={sfSeoDone}
-          busy={shortFormSeoGenerating || busyTask === "sf-seo"}
+          busy={sfSeoBusy}
+          disabled={anyBusy && !sfSeoBusy}
           missingCount={sfSeoMissingCount}
           progress={busyTask === "sf-seo" ? progress : null}
           onRunAll={onGenerateSfSeo}
@@ -480,7 +499,8 @@ function ProductionWorkflowRow({
         <ProductionTaskButton
           label="Render SF Videos"
           done={sfRendersDone}
-          busy={busyTask === "sf-renders"}
+          busy={sfRendersBusy}
+          disabled={anyBusy && !sfRendersBusy}
           missingCount={sfRendersMissingCount}
           progress={busyTask === "sf-renders" ? progress : null}
           onRunAll={onRenderSfVideos}
@@ -851,6 +871,7 @@ function TimelineEditor({
   const [productionProgress, setProductionProgress] = useState<number | null>(null);
   const [productionError, setProductionError] = useState<string | null>(null);
   const yoloCancelledRef = useRef(false);
+  const productionBusyRef = useRef(false);
   const microTimelineRef = useRef<MicroTimelineHandle>(null);
 
   const media = useMediaReview({ scriptId, content: state.content });
@@ -1337,7 +1358,8 @@ function TimelineEditor({
   };
 
   const runProductionTask = async (task: ProductionTask, action: () => Promise<void>) => {
-    if (productionBusyTask) return;
+    if (productionBusyRef.current) return;
+    productionBusyRef.current = true;
     setProductionBusyTask(task);
     setProductionProgress(null);
     setProductionError(null);
@@ -1346,6 +1368,7 @@ function TimelineEditor({
     } catch (err) {
       setProductionError(err instanceof Error ? err.message : "Production task failed");
     } finally {
+      productionBusyRef.current = false;
       setProductionBusyTask(null);
       setProductionProgress(null);
     }
@@ -2128,6 +2151,7 @@ function TimelineEditor({
             segments={state.content.segments.map((s) => ({ name: s.name }))}
             shortFormSeoMetadata={render.shortFormSeoMetadata}
             onUploadComplete={() => undefined}
+            onRenderedStatusChange={() => void refreshShortFormRenderStatus()}
           />
         </div>
       ) : viewerFormat === "short-form" && viewerAsset === "thumbnails" ? (
@@ -2135,6 +2159,7 @@ function TimelineEditor({
           <ShortFormThumbnailsCard
             scriptId={scriptId}
             segments={state.content.segments.map((s) => ({ name: s.name }))}
+            onStatusChange={() => void refreshShortFormThumbnailStatus()}
           />
         </div>
       ) : viewerFormat === "short-form" && viewerAsset === "seo" ? (
