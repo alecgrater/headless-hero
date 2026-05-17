@@ -499,14 +499,19 @@ export default function ExportPanel({
               <p className="mt-0.5 text-xs text-neutral-500">Package final video assets, thumbnails, and upload metadata.</p>
             </div>
             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={openUploadShortsWindows}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-semibold text-white hover:bg-violet-500 transition-colors"
-              >
-                <Upload className="h-4 w-4" />
-                Upload Shorts
-              </button>
+              <div className="flex max-w-sm items-center gap-3">
+                <button
+                  type="button"
+                  onClick={openUploadShortsWindows}
+                  className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-semibold text-white hover:bg-violet-500 transition-colors"
+                >
+                  <Upload className="h-4 w-4" />
+                  Upload Shorts
+                </button>
+                <p className="text-xs leading-5 text-neutral-500">
+                  Opens Instagram, TikTok Studio, and YouTube Studio upload pages in three positioned Chrome windows.
+                </p>
+              </div>
               {exportBundleResult && (
                 <div className="flex items-center gap-2 text-xs text-emerald-400">
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -838,17 +843,7 @@ export default function ExportPanel({
               <section className="space-y-3 border-t border-neutral-800 pt-5">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Distribution Tracking</h3>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={openUploadShortsWindows}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-200 hover:bg-violet-500/20 transition-colors"
-                    >
-                      <Upload className="h-3.5 w-3.5" />
-                      Upload Shorts
-                    </button>
-                    <span className="text-xs text-neutral-600">Click to toggle</span>
-                  </div>
+                  <span className="text-xs text-neutral-600">Click to toggle</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {([
