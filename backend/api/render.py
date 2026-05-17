@@ -22,6 +22,7 @@ from pipeline.render_jobs import RenderJob, create_job, estimate_render_time, ge
 from pipeline.remotion_render import render_full_video
 from pipeline.export_paths import (
     copy_to_project_downloads,
+    has_export_label,
     longform_filename,
     project_downloads_folder,
     shortform_filename,
@@ -185,6 +186,17 @@ def _find_rendered_longform(script_id: str, project_title: str) -> tuple[str | N
     exported = folder / longform_filename("Video", project_title, ".mp4")
     if exported.is_file():
         return str(exported), None
+    if folder.is_dir():
+        exported_videos = sorted(
+            (
+                path
+                for path in folder.glob("*.mp4")
+                if path.is_file() and has_export_label(path.name, "Longform", "Video")
+            ),
+            key=lambda path: path.name,
+        )
+        if exported_videos:
+            return str(exported_videos[0]), None
 
     return None, None
 

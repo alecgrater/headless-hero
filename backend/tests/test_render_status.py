@@ -33,6 +33,20 @@ def test_find_rendered_longform_detects_export_folder_video(tmp_path, monkeypatc
     assert url is None
 
 
+def test_find_rendered_longform_detects_labelled_export_after_title_edit(tmp_path, monkeypatch):
+    monkeypatch.setattr(render_api, "DATA_DIR", tmp_path)
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
+
+    folder = project_downloads_folder("Project Name")
+    exported = folder / longform_filename("Video", "Old Project Name", ".mp4")
+    exported.write_bytes(b"video")
+
+    path, url = render_api._find_rendered_longform("script-123", "Project Name")
+
+    assert path == str(exported)
+    assert url is None
+
+
 def test_find_rendered_longform_returns_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(render_api, "DATA_DIR", tmp_path)
     monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
