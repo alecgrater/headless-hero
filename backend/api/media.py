@@ -100,6 +100,31 @@ def preserve_media_analysis_source_flags(
         content.stock_photo_enabled = stock_photo_enabled
 
 
+def normalize_media_assignments_for_sources(
+    assignments: list[MediaAssignment],
+    gameplay_enabled: bool,
+    stock_photo_enabled: bool,
+) -> list[MediaAssignment]:
+    """Coerce assignments to AI when their source is disabled in the latest script."""
+    normalized: list[MediaAssignment] = []
+    for assignment in assignments:
+        if (
+            assignment.media_source == "gameplay_video" and not gameplay_enabled
+        ) or (
+            assignment.media_source == "stock_photo" and not stock_photo_enabled
+        ):
+            normalized.append(MediaAssignment(
+                scene_id=assignment.scene_id,
+                media_source="ai",
+                game_name=None,
+                search_query=None,
+                reasoning="Media source disabled before analysis completed.",
+            ))
+        else:
+            normalized.append(assignment)
+    return normalized
+
+
 @router.post("/analyze/{script_id}", response_model=AnalyzeResponse)
 def analyze_media(script_id: str, session: Session = Depends(get_session)):
     """Trigger media source analysis for a script. Runs as a background job."""
@@ -151,7 +176,13 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
                 raise RuntimeError(f"Script {script_id} deleted during media analysis")
             final_raw = json.loads(rec.script_json)
             final_content = ScriptContent.model_validate(final_raw)
-            apply_assignments(final_content, assignments)
+            final_gameplay_enabled, final_stock_photo_enabled = media_analysis_source_flags(final_raw)
+            final_assignments = normalize_media_assignments_for_sources(
+                assignments,
+                gameplay_enabled=final_gameplay_enabled,
+                stock_photo_enabled=final_stock_photo_enabled,
+            )
+            apply_assignments(final_content, final_assignments)
             preserve_media_analysis_source_flags(
                 final_content,
                 script_json=final_raw,
@@ -168,7 +199,7 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
             "game_name": a.game_name,
             "search_query": a.search_query,
             "reasoning": a.reasoning,
-        } for a in assignments])
+        } for a in final_assignments])
 
         update_job(job_id, output_data=result_data)
         return [script_id]

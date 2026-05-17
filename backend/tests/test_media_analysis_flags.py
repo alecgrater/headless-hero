@@ -5,8 +5,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from api.media import media_analysis_source_flags, preserve_media_analysis_source_flags
+from api.media import (
+    media_analysis_source_flags,
+    normalize_media_assignments_for_sources,
+    preserve_media_analysis_source_flags,
+)
 from models.script import ScriptContent
+from pipeline.media_analyzer import MediaAssignment
 
 
 def test_media_analysis_flags_default_old_scripts_to_manual_sources():
@@ -58,3 +63,22 @@ def test_preserve_media_analysis_flags_does_not_overwrite_explicit_final_setting
     dumped = content.model_dump()
     assert dumped["gameplay_enabled"] is False
     assert dumped["stock_photo_enabled"] is False
+
+
+def test_normalize_media_assignments_coerces_disabled_sources_to_ai():
+    assignments = [
+        MediaAssignment("s1", "gameplay_video", "Minecraft", None, "gameplay fits"),
+        MediaAssignment("s2", "stock_photo", None, "city skyline", "stock fits"),
+        MediaAssignment("s3", "ai", None, None, "ai fits"),
+    ]
+
+    normalized = normalize_media_assignments_for_sources(
+        assignments,
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+    )
+
+    assert [a.media_source for a in normalized] == ["ai", "ai", "ai"]
+    assert normalized[0].game_name is None
+    assert normalized[1].search_query is None
+    assert normalized[2].reasoning == "ai fits"
