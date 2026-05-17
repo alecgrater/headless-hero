@@ -33,13 +33,16 @@ const STATUS_DOT_COLORS: Record<ScriptSummary["status"], string> = {
   exported: "bg-emerald-400",
 };
 
-type FilterValue = "all" | ScriptSummary["status"];
+type ProjectStateFilter = "unfinished" | "finished" | "uploaded";
+type FilterValue = "all" | ProjectStateFilter;
 type SortValue = "newest" | "oldest" | "title";
 type ViewMode = "grid" | "rows";
 
 const FILTER_OPTIONS: { value: FilterValue; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "exported", label: "Exported" },
+  { value: "unfinished", label: "Unfinished" },
+  { value: "finished", label: "Finished" },
+  { value: "uploaded", label: "Uploaded" },
 ];
 
 const SORT_OPTIONS: { value: SortValue; label: string }[] = [
@@ -47,6 +50,20 @@ const SORT_OPTIONS: { value: SortValue; label: string }[] = [
   { value: "oldest", label: "Oldest First" },
   { value: "title", label: "Title A-Z" },
 ];
+
+function isFullyUploaded(project: ScriptSummary) {
+  return (
+    !!project.upload_tracking?.longform_youtube &&
+    !!project.upload_tracking?.shortform_youtube &&
+    !!project.upload_tracking?.shortform_instagram &&
+    !!project.upload_tracking?.shortform_tiktok
+  );
+}
+
+function getProjectState(project: ScriptSummary): ProjectStateFilter {
+  if (project.status !== "exported") return "unfinished";
+  return isFullyUploaded(project) ? "uploaded" : "finished";
+}
 
 function ProjectThumbnail({ project, compact = false }: { project: ScriptSummary; compact?: boolean }) {
   return (
@@ -273,7 +290,7 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject, isActive =
 
     // Status filter
     if (activeFilter !== "all") {
-      result = result.filter((p) => p.status === activeFilter);
+      result = result.filter((p) => getProjectState(p) === activeFilter);
     }
 
     // Sort
@@ -289,8 +306,9 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject, isActive =
   }, [projects, search, activeFilter, sortBy]);
 
   // Stats for header
-  const exportedCount = projects.filter((p) => p.status === "exported").length;
-  const draftCount = projects.length - exportedCount;
+  const unfinishedCount = projects.filter((p) => getProjectState(p) === "unfinished").length;
+  const finishedCount = projects.filter((p) => getProjectState(p) === "finished").length;
+  const uploadedCount = projects.filter((p) => getProjectState(p) === "uploaded").length;
 
   return (
     <div className="px-6 py-8 max-w-6xl mx-auto space-y-6">
@@ -301,8 +319,9 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject, isActive =
           {!loading && projects.length > 0 && (
             <p className="text-sm text-neutral-500 mt-0.5">
               {projects.length} {projects.length === 1 ? "project" : "projects"}
-              {" · "}{exportedCount} exported
-              {" · "}{draftCount} draft
+              {" · "}{unfinishedCount} unfinished
+              {" · "}{finishedCount} finished
+              {" · "}{uploadedCount} uploaded
             </p>
           )}
         </div>
