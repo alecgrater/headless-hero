@@ -1722,7 +1722,6 @@ function TimelineEditor({
   const hasExistingImages = allScenes.some((sc) => !sc.is_title_card && (sc.image_url || sc.frame_urls?.length));
   const hasExistingAudio = allScenes.some((sc) => sc.audio_url);
   const hasExistingFX = allScenes.some((sc) => sc.fx);
-  const hasTitleSensitiveAssets = hasExistingImages || hasExistingAudio || Boolean(state.content.seo_metadata || state.content.short_form_seo_metadata);
 
   const startTitleEdit = () => {
     setTitleDraft(editableTitle);
@@ -1740,23 +1739,6 @@ function TimelineEditor({
       cancelTitleEdit();
       return;
     }
-
-    const message = hasTitleSensitiveAssets
-      ? [
-          "Change this video title?",
-          "",
-          "Repercussions:",
-          "- Future renders, exports, generated SEO, upload titles, and project folder names will use the new title.",
-          "- Existing title cards, thumbnails, SEO metadata, rendered videos, and exported files may still contain the old title until you regenerate or export them again.",
-          "- Narration and voiceover timing will not change.",
-        ].join("\n")
-      : [
-          "Change this video title?",
-          "",
-          "Future renders, exports, SEO, upload titles, and project folder names will use the new title. Narration and timing will not change.",
-        ].join("\n");
-
-    if (!confirm(message)) return;
 
     setTitleSaving(true);
     try {
