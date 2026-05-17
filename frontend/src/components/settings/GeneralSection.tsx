@@ -222,6 +222,10 @@ function modelForProvider(task: LlmTaskConfig, provider: LlmProvider) {
   return task.defaultModel;
 }
 
+function settingEnabled(value: string) {
+  return !new Set(["0", "false", "no", "off"]).has(value.trim().toLowerCase());
+}
+
 export default function GeneralSection() {
   const [downloadsDir, setDownloadsDir] = useState("");
   const [exportFolder, setExportFolder] = useState("");
@@ -278,11 +282,11 @@ export default function GeneralSection() {
         setOutputFormat(fmtVal);
         setOriginalFormat(fmtVal);
         const rlVal = data.IMAGE_RATE_LIMIT_MS?.masked || "true";
-        setRateLimitEnabled(rlVal === "0" || rlVal === "false" ? "false" : "true");
-        setOriginalRateLimit(rlVal === "0" || rlVal === "false" ? "false" : "true");
+        setRateLimitEnabled(settingEnabled(rlVal) ? "true" : "false");
+        setOriginalRateLimit(settingEnabled(rlVal) ? "true" : "false");
         const hrVal = data.HOOK_REFINEMENT_ENABLED?.masked || "true";
-        setHookRefinementEnabled(hrVal === "0" || hrVal === "false" ? "false" : "true");
-        setOriginalHookRefinement(hrVal === "0" || hrVal === "false" ? "false" : "true");
+        setHookRefinementEnabled(settingEnabled(hrVal) ? "true" : "false");
+        setOriginalHookRefinement(settingEnabled(hrVal) ? "true" : "false");
         const llmVal = (data.LLM_PROVIDER?.masked || "ollama") as LlmProvider;
         setLlmProvider(llmVal);
         setOriginalLlmProvider(llmVal);
