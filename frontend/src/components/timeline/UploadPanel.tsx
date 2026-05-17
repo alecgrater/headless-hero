@@ -215,14 +215,6 @@ function MarkdownPreview({
     return parsed;
   }, [markdown]);
 
-  if (!markdown.trim()) {
-    return (
-      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
-        SEO markdown is not available yet.
-      </div>
-    );
-  }
-
   return (
     <div className="flow-root rounded-lg border border-neutral-800 bg-neutral-950/60 p-4">
       {sideAccessory && (
@@ -235,20 +227,26 @@ function MarkdownPreview({
           {topAccessory}
         </div>
       )}
-      <div className="space-y-3">
-        {blocks.map((block, idx) => {
-          if (skipFirstHeading && idx === 0 && block.type === "h1") {
-            return null;
-          }
-          if (block.type === "h1") {
-            return <h3 key={idx} className="border-b border-neutral-800 pb-2 text-sm font-semibold uppercase text-sky-300">{block.text}</h3>;
-          }
-          if (block.type === "h2") {
-            return <h4 key={idx} className="text-xs font-semibold uppercase text-violet-300">{block.text}</h4>;
-          }
-          return <p key={idx} className="whitespace-pre-wrap text-sm leading-6 text-neutral-300">{block.text}</p>;
-        })}
-      </div>
+      {!markdown.trim() ? (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+          SEO markdown is not available yet.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {blocks.map((block, idx) => {
+            if (skipFirstHeading && idx === 0 && block.type === "h1") {
+              return null;
+            }
+            if (block.type === "h1") {
+              return <h3 key={idx} className="border-b border-neutral-800 pb-2 text-sm font-semibold uppercase text-sky-300">{block.text}</h3>;
+            }
+            if (block.type === "h2") {
+              return <h4 key={idx} className="text-xs font-semibold uppercase text-violet-300">{block.text}</h4>;
+            }
+            return <p key={idx} className="whitespace-pre-wrap text-sm leading-6 text-neutral-300">{block.text}</p>;
+          })}
+        </div>
+      )}
     </div>
   );
 }
