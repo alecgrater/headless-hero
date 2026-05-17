@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import api from "../../api";
 import { showToast } from "../ToastContainer";
 
+const DISABLED_SETTING_VALUES = new Set(["", "0", "false", "no", "off"]);
+
 function settingEnabled(val: string): boolean {
-  return !new Set(["0", "false", "no", "off"]).has(val.trim().toLowerCase());
+  return !DISABLED_SETTING_VALUES.has(val.trim().toLowerCase());
 }
 
 export default function MiscSection() {

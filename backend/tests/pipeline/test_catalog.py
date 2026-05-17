@@ -50,3 +50,10 @@ def test_build_youtube_description_omits_tags_when_limit_exceeded():
     description = "x" * 4995
     result = _build_youtube_description(description, ["one", "two"])
     assert result == description
+
+
+def test_build_youtube_description_truncates_long_description_without_tags():
+    from pipeline.publishing import _build_youtube_description
+
+    result = _build_youtube_description("x" * 5001, [])
+    assert result == "x" * 5000

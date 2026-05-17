@@ -94,7 +94,7 @@ def _build_youtube_description(description: str, tags: list[str]) -> str:
         if len(tagged) <= _YOUTUBE_DESCRIPTION_LIMIT:
             return tagged
         return base[:_YOUTUBE_DESCRIPTION_LIMIT]
-    return base
+    return base[:_YOUTUBE_DESCRIPTION_LIMIT]
 
 
 def publish_to_youtube(
