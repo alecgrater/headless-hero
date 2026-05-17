@@ -637,6 +637,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                   const effectiveProvider = route.provider || llmProvider;
                   const modelOptions = modelOptionsForProvider(effectiveProvider);
                   const hasSelectedModelOption = modelOptions.some((model) => model.value === route.model);
+                  const openaiReasoningEnabled = effectiveProvider === "openai";
                   const reasoningDescription =
                     OPENAI_REASONING_OPTIONS.find((option) => option.value === route.openaiReasoningEffort)
                       ?.description ?? OPENAI_REASONING_OPTIONS[0].description;
@@ -700,12 +701,13 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                           <label className="text-xs text-neutral-400">OpenAI reasoning</label>
                           <select
                             value={route.openaiReasoningEffort}
+                            disabled={!openaiReasoningEnabled}
                             onChange={(e) =>
                               updateTaskRoute(task.id, {
                                 openaiReasoningEffort: e.target.value as OpenAIReasoningEffort,
                               })
                             }
-                            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
+                            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors disabled:cursor-not-allowed disabled:border-neutral-800 disabled:bg-neutral-900 disabled:text-neutral-500 disabled:opacity-70"
                           >
                             {OPENAI_REASONING_OPTIONS.map((option) => (
                               <option key={option.value} value={option.value}>
