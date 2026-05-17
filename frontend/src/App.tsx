@@ -16,6 +16,7 @@ import CatalogPage from "./components/catalog/CatalogPage";
 import useLongPress from "./hooks/useLongPress";
 import type { Idea, VideoIdea } from "./types/idea";
 import type { ScriptSummary } from "./types/script";
+import type { OAuthStatusResponse } from "./types/publish";
 
 type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "ideas" | "catalog" | "voiceover-recording" | "dev-dashboard";
 
@@ -42,6 +43,48 @@ function DevDashboardPanel() {
   );
 }
 
+const PLATFORM_ICONS = [
+  {
+    key: "youtube" as const,
+    label: "YouTube",
+    color: "text-red-500",
+    path: "M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z",
+  },
+  {
+    key: "tiktok" as const,
+    label: "TikTok",
+    color: "text-neutral-100",
+    path: "M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.95a8.19 8.19 0 004.79 1.53V7.03a4.85 4.85 0 01-1.02-.34z",
+  },
+  {
+    key: "instagram" as const,
+    label: "Instagram",
+    color: "text-pink-500",
+    path: "M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z",
+  },
+];
+
+function PlatformConnectionIcons({ connections }: { connections: OAuthStatusResponse | null }) {
+  return (
+    <div className="flex items-center gap-1">
+      {PLATFORM_ICONS.map((p) => {
+        const connected = connections?.[p.key]?.connected ?? false;
+        return (
+          <svg
+            key={p.key}
+            title={`${p.label}: ${connected ? "Connected" : "Not connected"}`}
+            className={`w-3.5 h-3.5 ${connected ? p.color : "text-neutral-600"}`}
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+            <path d={p.path} />
+          </svg>
+        );
+      })}
+    </div>
+  );
+}
+
 function formatRelativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -64,6 +107,7 @@ export interface SaveState {
 
 function App() {
   const [backendStatus, setBackendStatus] = useState<string>("connecting...");
+  const [connections, setConnections] = useState<OAuthStatusResponse | null>(null);
   const [view, setView] = useState<View>("project-dashboard");
   const [visitedViews, setVisitedViews] = useState<Set<View>>(() => new Set(["project-dashboard"]));
   const [selectedIdea, setSelectedIdea] = useState<VideoIdea | null>(null);
@@ -97,6 +141,17 @@ function App() {
       .catch(() => {
         setBackendStatus("offline");
       });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.get("/api/publish/oauth/status").then((res) => {
+      if (cancelled || !res.ok) return;
+      setConnections(res.data as OAuthStatusResponse);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Fetch the default brand ID on startup
@@ -393,17 +448,24 @@ function App() {
               <Keyboard size={16} />
             </button>
           </Tooltip>
-          <div className="flex items-center gap-2 text-sm text-neutral-500">
-            <span
-              className={`inline-block w-2 h-2 rounded-full ${
-                backendStatus.startsWith("connected")
-                  ? "bg-emerald-500"
-                  : backendStatus === "connecting..."
-                    ? "bg-yellow-500 animate-pulse"
-                    : "bg-red-500"
-              }`}
-            />
-            Backend: {backendStatus}
+          <div className="flex flex-col items-end gap-0.5 text-[11px] text-neutral-500 leading-tight">
+            <div className="flex items-center gap-1.5">
+              <span className="uppercase tracking-wider">Backend:</span>
+              <span
+                className={`inline-block w-2 h-2 rounded-full ${
+                  backendStatus.startsWith("connected")
+                    ? "bg-emerald-500"
+                    : backendStatus === "connecting..."
+                      ? "bg-yellow-500 animate-pulse"
+                      : "bg-red-500"
+                }`}
+                title={backendStatus}
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="uppercase tracking-wider">Connected:</span>
+              <PlatformConnectionIcons connections={connections} />
+            </div>
           </div>
         </div>
       </header>
