@@ -356,7 +356,7 @@ def _draw_subtitle_text(
     subtitle: str,
     y: int,
 ) -> Image.Image:
-    """Render an aggressive red subtitle below the main title."""
+    """Deprecated: title-card thumbnails should not render secondary text."""
     if not subtitle:
         return canvas
 
@@ -638,7 +638,7 @@ def compose_title_card(
         output_path: Where to save the composite PNG.
         include_title: If True, render title text at top. If False, skip title
             and use the extra space for larger circles.
-        card_subtitle: Optional action subtitle below title (e.g. "RE-WRITING HISTORY").
+        card_subtitle: Deprecated compatibility field; ignored to avoid extra thumbnail text.
 
     Returns:
         (output_path, zoom_targets) where zoom_targets maps
@@ -746,16 +746,10 @@ def compose_title_card(
 
         zoom_targets[i] = (cx, cy, max_radius)
 
-    # --- Layer 7: Title text + subtitle ---
+    # --- Layer 7: Title text ---
     if include_title:
         title_text = card_title.upper()
         canvas = _draw_3d_title_text(canvas, title_text, highlight_word, accent_color, y=10)
-        if card_subtitle:
-            # Position subtitle below title — measure title height to place it
-            title_font = _load_title_font(_TITLE_FONT_SIZE)
-            title_bbox = title_font.getbbox(title_text)
-            subtitle_y = 10 + title_bbox[3] + 5
-            canvas = _draw_subtitle_text(canvas, card_subtitle, y=subtitle_y)
 
     # --- Layer 8: Eli character overlay (top-right corner) ---
     if include_eli:

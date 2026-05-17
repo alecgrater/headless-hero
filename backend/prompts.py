@@ -339,7 +339,7 @@ Return valid JSON with this structure:
   "title": "Video Title",
   "card_title": "SHORT TITLE",
   "card_title_highlight_word": "KEYWORD",
-  "card_subtitle": "ACTION PHRASE",
+  "card_subtitle": "",
   "intro_hook": "A punchy 1-2 sentence hook.",
   "outro_cta": "A call-to-action for the end.",
   "segments": [
@@ -354,6 +354,7 @@ Return valid JSON with this structure:
 }
 Do NOT include any scenes. Only segment metadata and topic summaries.
 Do NOT include countdown/ranking numbers in segment names or short_name values. Avoid prefixes like "Number eight", "#8", "8.", "No. 8", "Part 8", or "Segment 8" unless the number is intrinsic to the topic.
+Set card_subtitle to an empty string. Do NOT create title-card subtitles, kickers, taglines, or secondary phrases.
 """,
     retention=RetentionMeta(
         goal="Structure video narrative for maximum sustained engagement",
@@ -534,8 +535,7 @@ Composite Title Card System:
 - You MUST provide these top-level fields:
   - "card_title": A condensed 2-4 word UPPERCASE title for the card (e.g. "TYPES OF DREAMS")
   - "card_title_highlight_word": One word from card_title to highlight in accent color (e.g. "DREAMS")
-  - "card_subtitle": A short 2-4 word UPPERCASE action subtitle that creates urgency (e.g. "RE-WRITING HISTORY", \
-"BREAKING THE RULES", "PUSHING THE LIMITS"). This appears below the title in red to add energy and promise a narrative.
+  - "card_subtitle": MUST be an empty string. Do NOT create a title-card subtitle, kicker, tagline, secondary promise, or red text phrase.
 - Each segment MUST include:
   - "short_name": A punchy 1-3 word UPPERCASE label for the segment (used on thumbnail). Must be 3 words or fewer.
   - "circle_color": A bold, distinct hex color for the circle background (e.g. "#e91e63"). \

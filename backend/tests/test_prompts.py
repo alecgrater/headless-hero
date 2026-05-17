@@ -47,3 +47,11 @@ class TestPromptRegistry:
             builder=lambda x: f"built: {x}",
         )
         assert p.build("arg") == "built: arg"
+
+    def test_title_card_prompts_forbid_subtitles(self):
+        outline_prompt = PROMPTS["SCRIPT_OUTLINE_INSTRUCTIONS"].template
+        title_card_prompt = PROMPTS["TITLE_CARD_INSTRUCTIONS"].build("8")
+
+        assert '"card_subtitle": ""' in outline_prompt
+        assert "Set card_subtitle to an empty string" in outline_prompt
+        assert '"card_subtitle": MUST be an empty string' in title_card_prompt

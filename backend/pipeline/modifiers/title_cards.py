@@ -98,6 +98,10 @@ def enforce_title_cards_and_min_scenes(content: ScriptContent) -> ScriptContent:
         content.card_title_highlight_word = words[-1] if words else ""
         logger.info("Derived highlight word: %s", content.card_title_highlight_word)
 
+    if content.card_subtitle:
+        logger.info("Cleared title-card subtitle to prevent extra thumbnail text: %r", content.card_subtitle)
+        content.card_subtitle = ""
+
     # Enforce even segment count (warn if odd)
     seg_count = len(content.segments)
     if seg_count % 2 != 0:
