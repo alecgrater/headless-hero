@@ -2381,19 +2381,16 @@ function TimelineEditor({
                 <img
                   src={assetUrl(thumbnailsInline[0].image_url)}
                   alt="Thumbnail preview"
-                  className="h-44 aspect-video object-cover rounded-lg border border-neutral-700 group-hover:border-violet-500 transition-colors"
+                  className="h-56 aspect-video object-cover rounded-lg border border-neutral-700 group-hover:border-violet-500 transition-colors"
                 />
                 {thumbnailsInlineGenerating && (
                   <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
                     <span className="w-5 h-5 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
                   </div>
                 )}
-                <span className="absolute bottom-1 right-1 text-[10px] bg-black/70 text-neutral-300 px-1.5 py-0.5 rounded">
-                  {thumbnailsInline.length} thumbnail{thumbnailsInline.length !== 1 ? "s" : ""}
-                </span>
               </div>
             ) : (
-              <div className={`h-44 aspect-video rounded-lg border border-dashed flex items-center justify-center transition-colors ${
+              <div className={`h-56 aspect-video rounded-lg border border-dashed flex items-center justify-center transition-colors ${
                 thumbnailsInlineGenerating
                   ? "border-violet-500/50 bg-violet-500/5"
                   : "border-neutral-700 bg-neutral-900/40 group-hover:border-violet-500/50"
