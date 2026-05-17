@@ -34,7 +34,7 @@ export default function ShortFormStatusPill({
     <button
       onClick={onClick}
       title="Open short-form export"
-      className="inline-flex h-7 shrink-0 items-center whitespace-nowrap text-xs px-3 bg-neutral-800 hover:bg-neutral-700 rounded-md text-neutral-300 transition-colors"
+      className="inline-flex h-7 shrink-0 items-center whitespace-nowrap text-xs px-2.5 bg-neutral-800 hover:bg-neutral-700 rounded-md text-neutral-300 transition-colors"
     >
       Short Form: {renderedCount}/{segmentCount} rendered
     </button>
