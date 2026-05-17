@@ -127,7 +127,6 @@ def generate_script(
         A validated ScriptContent object.
     """
     from pipeline.modifiers.title_cards import TITLE_CARD_PROMPT_INSTRUCTIONS, enforce_title_cards_and_min_scenes
-    from pipeline.script_reviewer import review_script
 
     resolved_model = model
 
@@ -200,22 +199,6 @@ def generate_script(
 
     # Fix visual monotony in-place (no regeneration needed)
     _fix_visual_monotony(content)
-
-    # Run Gemini quality review for logging/metrics only (non-blocking)
-    if progress_callback:
-        progress_callback(0, 0, "Reviewing script quality...")
-    try:
-        review = review_script(content)
-        pass_count = review.pass_count()
-        if review.overall_pass:
-            logger.info("Script quality review passed (%d/5 skillsets)", pass_count)
-        else:
-            logger.warning(
-                "Script quality review: %d/5 skillsets passed (non-blocking). Issues: %s",
-                pass_count, review.critique_summary(),
-            )
-    except Exception:
-        logger.warning("Script quality review failed — continuing", exc_info=True)
 
     # Persist multi-source media settings on the script
     content.gameplay_enabled = gameplay_enabled
