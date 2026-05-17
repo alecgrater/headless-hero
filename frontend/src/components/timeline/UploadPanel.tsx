@@ -131,7 +131,7 @@ function PrimaryActionStack({
         onClick={onOpenFolder}
         className="flex h-12 items-center justify-center gap-2.5 rounded-lg border border-sky-400/50 bg-sky-500/15 px-4 text-sm font-semibold text-sky-100 transition-colors hover:border-sky-300 hover:bg-sky-500/25"
       >
-        <FolderOpen className="h-4.5 w-4.5" />
+        <FolderOpen className="h-4 w-4" />
         Open In Finder
       </button>
       <button
@@ -257,7 +257,7 @@ export default function UploadPanel({ suite, onClose }: Props) {
                 onOpenFolder={() => showInFolder(suite.folder_path)}
                 onOpenDestination={openYouTubeUploadWindow}
                 destinationLabel="Open YouTube"
-                destinationIcon={<ExternalLink className="h-4.5 w-4.5" />}
+                destinationIcon={<ExternalLink className="h-4 w-4" />}
                 accentClass="border-red-400/50 bg-red-500/15 text-red-100 hover:border-red-300 hover:bg-red-500/25"
               />
               <div className="flex flex-wrap gap-2">
@@ -272,7 +272,7 @@ export default function UploadPanel({ suite, onClose }: Props) {
                 onOpenFolder={() => showInFolder(suite.folder_path)}
                 onOpenDestination={openUploadShortsWindows}
                 destinationLabel="Open Short Form Apps"
-                destinationIcon={<ExternalLink className="h-4.5 w-4.5" />}
+                destinationIcon={<ExternalLink className="h-4 w-4" />}
                 accentClass="border-violet-400/50 bg-violet-500/15 text-violet-100 hover:border-violet-300 hover:bg-violet-500/25"
               />
 
