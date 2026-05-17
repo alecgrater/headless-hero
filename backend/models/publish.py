@@ -18,7 +18,7 @@ class PublishRecord(SQLModel, table=True):
     asset_kind: str = Field(default="long_form", index=True)  # long_form | short_form
     short_index: int | None = Field(default=None, index=True)
     upload_batch_id: str = Field(default="", index=True)
-    status: str = Field(default="pending")  # pending | uploading | scheduled | published | failed
+    status: str = Field(default="pending")  # pending | uploading | scheduled | published | failed | not_uploaded
     platform_content_id: str = Field(default="")
     platform_url: str = Field(default="")
     file_path: str = Field(default="", sa_column=Column(Text))

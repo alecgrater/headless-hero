@@ -2854,7 +2854,7 @@ function TimelineEditor({
             scriptId={scriptId}
             segments={state.content.segments.map((s) => ({ name: s.name }))}
             shortFormSeoMetadata={render.shortFormSeoMetadata}
-            onUploadComplete={() => undefined}
+            onUploadComplete={refreshUploadTracking}
             onRenderedStatusChange={() => void refreshShortFormRenderStatus()}
           />
         </div>
@@ -3029,6 +3029,10 @@ function TimelineEditor({
           onClose={() => setShowExport(false)}
           scriptId={scriptId}
           segments={state.content.segments.map((s) => ({ name: s.name }))}
+          uploadTracking={uploadTracking}
+          trackingUpdating={trackingUpdating}
+          onToggleUploadTracking={handleToggleUploadTracking}
+          onRefreshUploadTracking={refreshUploadTracking}
           initialTab={exportInitialTab}
         />
       )}

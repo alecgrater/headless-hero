@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Film, ImageIcon, Search, Smartphone, Upload, Video, X, Zap } from "lucide-react";
-import api, { assetUrl, catalogUpload, getPublishStatus, getYouTubeOAuthStatus, showInFolder, openInBrowser, openUploadShortsWindows, uploadLongformYouTube, getUploadTracking, setUploadTracking as apiSetUploadTracking, YOUTUBE_STUDIO_URL } from "../../api";
+import api, { assetUrl, catalogUpload, getPublishStatus, getYouTubeOAuthStatus, showInFolder, openInBrowser, openUploadShortsWindows, uploadLongformYouTube, YOUTUBE_STUDIO_URL } from "../../api";
 import { showToast } from "../ToastContainer";
 import type { CatalogUploadOptions, PublishJobStatus } from "../../api";
 import type { UploadTracking } from "../../types/script";
@@ -94,6 +94,10 @@ interface Props {
   // Short-form
   scriptId: string;
   segments: { name: string }[];
+  uploadTracking: UploadTracking;
+  trackingUpdating: Partial<Record<keyof UploadTracking, boolean>>;
+  onToggleUploadTracking: (key: keyof UploadTracking) => void;
+  onRefreshUploadTracking: () => void;
 
   initialTab?: LegacyInitialTab;
 }
@@ -334,6 +338,10 @@ export default function ExportPanel({
   onClose,
   scriptId,
   segments,
+  uploadTracking,
+  trackingUpdating,
+  onToggleUploadTracking,
+  onRefreshUploadTracking,
   initialTab,
 }: Props) {
   const youtubeRendering = youtubeStatus?.status === "running" || youtubeStatus?.status === "pending";
@@ -354,36 +362,6 @@ export default function ExportPanel({
   const [ytUploadedUrl, setYtUploadedUrl] = useState<string | null>(null);
   const [yoloExportError, setYoloExportError] = useState<string | null>(null);
   const [showSpeedRenderButton, setShowSpeedRenderButton] = useState(true);
-  const [uploadTracking, setUploadTracking] = useState<UploadTracking>({
-    longform_youtube: false,
-    shortform_youtube: false,
-    shortform_instagram: false,
-    shortform_tiktok: false,
-  });
-  const [trackingUpdating, setTrackingUpdating] = useState<Partial<Record<keyof UploadTracking, boolean>>>({});
-
-  const refreshUploadTracking = async () => {
-    try {
-      const tracking = await getUploadTracking(scriptId);
-      setUploadTracking(tracking);
-    } catch {
-      // non-critical
-    }
-  };
-
-  const handleToggleTracking = async (key: keyof UploadTracking) => {
-    const newVal = !uploadTracking[key];
-    setTrackingUpdating((prev) => ({ ...prev, [key]: true }));
-    try {
-      const updated = await apiSetUploadTracking(scriptId, { [key]: newVal });
-      setUploadTracking(updated);
-    } catch {
-      // revert is handled by not updating local state on failure
-    } finally {
-      setTrackingUpdating((prev) => ({ ...prev, [key]: false }));
-    }
-  };
-
   useEffect(() => {
     let cancelled = false;
     api.get("/api/settings/keys").then((res) => {
@@ -397,10 +375,6 @@ export default function ExportPanel({
     };
   }, []);
 
-  useEffect(() => {
-    refreshUploadTracking();
-  }, [scriptId]);
-
   const { startPolling: startUploadPolling, stopPolling: stopUploadPolling } = usePollJob<PublishJobStatus>({
     pollFn: async (jobId) => getPublishStatus(jobId),
     isComplete: (s) => s.status === "completed",
@@ -410,7 +384,7 @@ export default function ExportPanel({
       if (status.status === "completed" && status.output_urls.length > 0) {
         setYtUploading(false);
         setYtUploadedUrl(status.output_urls[0]);
-        refreshUploadTracking();
+        onRefreshUploadTracking();
       }
       if (status.status === "failed") {
         setYtUploading(false);
@@ -815,7 +789,7 @@ export default function ExportPanel({
                     return (
                       <button
                         key={key}
-                        onClick={() => handleToggleTracking(key)}
+                        onClick={() => onToggleUploadTracking(key)}
                         disabled={isUpdating}
                         title={isUploaded ? `Mark as not uploaded to ${label}` : `Mark as uploaded to ${label}`}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
@@ -848,7 +822,7 @@ export default function ExportPanel({
                 scriptId={scriptId}
                 segments={segments}
                 shortFormSeoMetadata={shortFormSeoMetadata}
-                onUploadComplete={refreshUploadTracking}
+                onUploadComplete={onRefreshUploadTracking}
               />
               {/* Distribution Tracking — Short-Form */}
               <section className="space-y-3 border-t border-neutral-800 pt-5">
@@ -877,7 +851,7 @@ export default function ExportPanel({
                     return (
                       <button
                         key={key}
-                        onClick={() => handleToggleTracking(key)}
+                        onClick={() => onToggleUploadTracking(key)}
                         disabled={isUpdating}
                         title={isUploaded ? `Mark as not uploaded to ${label}` : `Mark as uploaded to ${label}`}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${

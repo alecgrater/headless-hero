@@ -547,6 +547,7 @@ function App() {
         <div className={viewPanelClass("project-dashboard", view)}>
           {visitedViews.has("project-dashboard") && (
             <ProjectDashboard
+              isActive={view === "project-dashboard"}
               onNewVideo={() => handleSetView("ideation")}
               onOpenProject={(scriptId) => {
                 setTimelineScriptId(scriptId);

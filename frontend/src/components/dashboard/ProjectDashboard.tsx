@@ -9,6 +9,7 @@ import { Tooltip } from "../ui/Tooltip";
 interface Props {
   onNewVideo: () => void;
   onOpenProject: (scriptId: string) => void;
+  isActive?: boolean;
 }
 
 const STATUS_LABELS: Record<ScriptSummary["status"], string> = {
@@ -168,7 +169,7 @@ function UploadIndicators({
   );
 }
 
-export default function ProjectDashboard({ onNewVideo, onOpenProject }: Props) {
+export default function ProjectDashboard({ onNewVideo, onOpenProject, isActive = true }: Props) {
   const [projects, setProjects] = useState<ScriptSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<FilterValue>("all");
@@ -219,8 +220,8 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject }: Props) {
   }, []);
 
   useEffect(() => {
-    fetchProjects();
-  }, [fetchProjects]);
+    if (isActive) fetchProjects();
+  }, [fetchProjects, isActive]);
 
   // Close overflow menu on outside click or Escape
   useEffect(() => {

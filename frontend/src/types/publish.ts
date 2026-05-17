@@ -22,7 +22,7 @@ export interface PublishRecord {
   script_id: string;
   brand_id: string;
   platform: string;
-  status: "pending" | "uploading" | "scheduled" | "published" | "failed";
+  status: "pending" | "uploading" | "scheduled" | "published" | "failed" | "not_uploaded";
   platform_content_id: string;
   platform_url: string;
   asset_kind: "long_form" | "short_form";
@@ -37,7 +37,7 @@ export interface PublishRecord {
 
 export interface ShortUploadPlatformStatus {
   platform: string;
-  status: "pending" | "uploading" | "scheduled" | "published" | "failed";
+  status: "pending" | "uploading" | "scheduled" | "published" | "failed" | "not_uploaded";
   platform_url: string;
   error: string;
   published_at?: string | null;

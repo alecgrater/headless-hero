@@ -66,23 +66,42 @@ router = APIRouter(prefix="/api/scripts", tags=["scripts"])
 
 
 def _build_upload_tracking(session: Session, script_id: str) -> UploadTracking:
-    """Derive upload tracking from PublishRecord rows for this script."""
+    """Derive aggregate upload tracking from publish history and manual toggles."""
     stmt = select(PublishRecord).where(
         PublishRecord.script_id == script_id,
-        PublishRecord.status.in_(["published", "scheduled"]),  # type: ignore[attr-defined]
     )
     records = session.exec(stmt).all()
-    tracking = UploadTracking()
+
+    field_map = {
+        ("long_form", "youtube"): "longform_youtube",
+        ("short_form", "youtube"): "shortform_youtube",
+        ("short_form", "instagram"): "shortform_instagram",
+        ("short_form", "tiktok"): "shortform_tiktok",
+    }
+    latest: dict[str, tuple[datetime, bool]] = {}
+
     for r in records:
-        if r.asset_kind == "long_form" and r.platform == "youtube":
-            tracking.longform_youtube = True
-        elif r.asset_kind == "short_form":
-            if r.platform == "youtube":
-                tracking.shortform_youtube = True
-            elif r.platform == "instagram":
-                tracking.shortform_instagram = True
-            elif r.platform == "tiktok":
-                tracking.shortform_tiktok = True
+        field = field_map.get((r.asset_kind, r.platform))
+        if not field:
+            continue
+
+        value: bool | None = None
+        if r.upload_batch_id == "manual" and r.status == "not_uploaded":
+            value = False
+        elif r.status in ("published", "scheduled"):
+            value = True
+
+        if value is None:
+            continue
+
+        changed_at = r.updated_at or r.created_at
+        current = latest.get(field)
+        if current is None or changed_at >= current[0]:
+            latest[field] = (changed_at, value)
+
+    tracking = UploadTracking()
+    for field, (_, value) in latest.items():
+        setattr(tracking, field, value)
     return tracking
 
 
@@ -176,7 +195,7 @@ def set_upload_tracking(
     now = datetime.now(timezone.utc)
 
     def _set_flag(asset_kind: str, platform: str, value: bool):
-        """Toggle: add a synthetic published record or delete existing ones."""
+        """Toggle aggregate tracking without deleting real upload history."""
         stmt = select(PublishRecord).where(
             PublishRecord.script_id == script_id,
             PublishRecord.asset_kind == asset_kind,
@@ -184,39 +203,21 @@ def set_upload_tracking(
             PublishRecord.upload_batch_id == "manual",
         )
         existing = session.exec(stmt).all()
-        # Also check non-manual records for "get" state
-        all_stmt = select(PublishRecord).where(
-            PublishRecord.script_id == script_id,
-            PublishRecord.asset_kind == asset_kind,
-            PublishRecord.platform == platform,
-            PublishRecord.status.in_(["published", "scheduled"]),  # type: ignore[attr-defined]
-        )
-        all_records = session.exec(all_stmt).all()
-        has_real_upload = any(r.upload_batch_id != "manual" for r in all_records)
+        for r in existing:
+            session.delete(r)
 
-        if value:
-            if not all_records:
-                # Create synthetic record
-                syn = PublishRecord(
-                    script_id=script_id,
-                    brand_id=brand_id,
-                    platform=platform,
-                    asset_kind=asset_kind,
-                    status="published",
-                    upload_batch_id="manual",
-                    published_at=now,
-                    updated_at=now,
-                )
-                session.add(syn)
-        else:
-            # Delete manual synthetic records (can't undo real uploads)
-            for r in existing:
-                session.delete(r)
-            # Also mark any real records as "reverted" by deleting them (they can re-upload)
-            # Only delete manual ones — preserve real upload history
-            if not has_real_upload:
-                for r in all_records:
-                    session.delete(r)
+        session.add(
+            PublishRecord(
+                script_id=script_id,
+                brand_id=brand_id,
+                platform=platform,
+                asset_kind=asset_kind,
+                status="published" if value else "not_uploaded",
+                upload_batch_id="manual",
+                published_at=now if value else None,
+                updated_at=now,
+            )
+        )
 
     field_map = {
         "longform_youtube": ("long_form", "youtube"),
