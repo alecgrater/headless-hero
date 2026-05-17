@@ -264,17 +264,7 @@ contains_person tagging rules:
 For ai_generated frames, the "prompt" is a BRIEF DELTA if reference_previous is true (describing only what changes from the visual_prompt anchor), or a FULL independent description if reference_previous is false.
 
 - Title card scenes (is_title_card: true) should have visual_beat: "static" and empty frame_directives — they use the programmatic title card system.
-
-### Media Source Assignment
-For each scene, assign "media_source" to route it to the best visual source:
-- "ai" — Default. Use for abstract concepts, metaphors, stylized illustrations, or any scene where no specific real-world subject is identifiable. Title card scenes MUST always be "ai".
-- "gameplay_video" — Use when a scene discusses or relates to a specific video game. Set "gameplay_game_override" to the precise game title (e.g. "Grand Theft Auto III" not "GTA games"). Infer from segment context if not named explicitly.
-- "stock_photo" — Use when real-world objects, events, places, people, products, or historical moments are discussed.
-
-Rules:
-- Title cards (is_title_card: true) → always "ai"
-- If a segment is about a specific game, default all non-title scenes in that segment to "gameplay_video"
-- Only use "ai" when no real-world or game subject can be identified
+- Do NOT assign scene-level media routing fields such as "media_source" or "gameplay_game_override". A separate post-script media analyzer chooses AI art, gameplay clips, stock photos, or user uploads after the script is complete.
 
 ---
 
@@ -305,8 +295,6 @@ Output rules:
           "is_title_card": false,
           "visual_beat": "quick_cuts",
           "contains_person": true,
-          "media_source": "ai",
-          "gameplay_game_override": "",
           "frame_directives": [
             {"prompt": "[CLOSE-UP] Subject detail shot...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": "", "contains_person": false},
             {"prompt": "[REACTION] Human response...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": "", "contains_person": true},
@@ -396,8 +384,6 @@ Return a JSON object with a single key "scenes" whose value is an array of scene
       "is_title_card": false,
       "visual_beat": "quick_cuts",
       "contains_person": true,
-      "media_source": "ai",
-      "gameplay_game_override": "",
       "frame_directives": [
         {"prompt": "...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""},
         {"prompt": "...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""}

@@ -104,6 +104,8 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
 
         assignments = analyze_media_sources(
             fresh_content,
+            gameplay_enabled=fresh_content.gameplay_enabled,
+            stock_photo_enabled=fresh_content.stock_photo_enabled,
             script_id=script_id,
         )
 

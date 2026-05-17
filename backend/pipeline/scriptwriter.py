@@ -156,20 +156,6 @@ def generate_script(
     system_prompt = BASE_SYSTEM_PROMPT
     base_user_message = "\n".join(user_parts)
 
-    # Constrain media_source options based on enabled flags
-    media_source_constraint = ""
-    allowed_sources = ["ai"]
-    if gameplay_enabled:
-        allowed_sources.append("gameplay_video")
-    if stock_photo_enabled:
-        allowed_sources.append("stock_photo")
-    if len(allowed_sources) < 3:
-        media_source_constraint = (
-            f"MEDIA SOURCE CONSTRAINT: Only use these media_source values: "
-            f"{', '.join(allowed_sources)}. Set all scenes to one of these options.\n\n"
-        )
-        base_user_message += f"\n\n{media_source_constraint.strip()}"
-
     # Always apply title card instructions (title cards are always active)
     system_prompt += TITLE_CARD_PROMPT_INSTRUCTIONS
 
@@ -184,7 +170,6 @@ def generate_script(
             brand_context=brand_context,
             model=resolved_model,
             progress_callback=progress_callback,
-            media_source_constraint=media_source_constraint,
         )
     else:
         logger.info("Generating script for topic %r, description=%r using model=%s (segments=%d)", topic, description, resolved_model or "configured", SEGMENT_COUNT)
@@ -291,7 +276,6 @@ def _generate_segment_scenes(
     segment_index: int,
     model: str | None,
     trailing_context: str = "",
-    media_source_constraint: str = "",
 ) -> list[Scene]:
     """Phase 2: Generate scenes for a single segment."""
     segment = outline["segments"][segment_index]
@@ -314,7 +298,6 @@ def _generate_segment_scenes(
         f"Circle color: {segment.get('circle_color', DEFAULT_ACCENT_COLOR)}\n"
         f"Title card image prompt: {segment.get('title_card_image_prompt', '')}\n\n"
         f"{trailing_context}"
-        f"{media_source_constraint}"
         f"{_SEGMENT_SCENES_INSTRUCTIONS}"
     )
 
@@ -383,7 +366,6 @@ def _generate_segmented(
     brand_context: str,
     model: str | None,
     progress_callback: Callable[[int, int, str], None] | None = None,
-    media_source_constraint: str = "",
 ) -> ScriptContent:
     """Orchestrate two-phase segmented script generation."""
     total_t0 = time.monotonic()
@@ -401,7 +383,7 @@ def _generate_segmented(
         if progress_callback:
             progress_callback(i + 1, len(outline["segments"]), seg_name)
         try:
-            scenes = _generate_segment_scenes(system_prompt, outline, i, model, trailing_context, media_source_constraint)
+            scenes = _generate_segment_scenes(system_prompt, outline, i, model, trailing_context)
         except Exception as e:
             seg_name = seg_outline.get("name", f"Segment {i + 1}")
             logger.exception(

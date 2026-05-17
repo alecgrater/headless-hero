@@ -34,6 +34,7 @@ from pipeline.render_jobs import create_job, get_job, run_in_background, update_
 from pipeline.scriptwriter import generate_script
 from pipeline.audio_split import split_scene_audio
 from pipeline.hook_scorer import score_hook
+from pipeline.media_analyzer import analyze_media_sources, apply_assignments
 from prompts import CHARACTER_SPEC_MD, IMAGE_VISUAL_STYLE
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
@@ -227,6 +228,26 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             script_id = record.id
 
         logger.info("Script generated: %s (%d segments) in %.1fs", script_id, len(script_content.segments), duration)
+
+        if gameplay_enabled or stock_photo_enabled:
+            try:
+                update_job(job_id, current_step="Analyzing media sources...")
+                assignments = analyze_media_sources(
+                    script_content,
+                    gameplay_enabled=gameplay_enabled,
+                    stock_photo_enabled=stock_photo_enabled,
+                    script_id=script_id,
+                )
+                apply_assignments(script_content, assignments)
+                with SqlSession(engine) as media_session:
+                    record_media = media_session.get(Script, script_id)
+                    if record_media:
+                        record_media.script_json = script_content.model_dump_json()
+                        media_session.add(record_media)
+                        media_session.commit()
+                logger.info("Media sources assigned for %s", script_id)
+            except Exception:
+                logger.exception("Media source analysis failed for %s — keeping default AI routing", script_id)
 
         # Auto-score the hook on the final generated script
         try:
