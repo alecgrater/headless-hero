@@ -104,6 +104,7 @@ class Scene(BaseModel):
     video_url: str = ""                 # web-relative path to gameplay/uploaded video clip
     upload_url: str = ""                # web-relative path to user-uploaded media
     original_visual_prompt: str = ""    # preserved AI-art prompt when analyzer overwrites visual_prompt
+    visual_source_metadata: dict | None = None  # provider/source details for generated or fallback visuals
 
 class Segment(BaseModel):
     """A named segment (e.g. "Caffeine") containing multiple scenes."""

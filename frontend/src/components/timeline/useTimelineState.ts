@@ -603,6 +603,7 @@ export function useTimelineState(
                         image_url: data.image_url || sc.image_url,
                         video_url: data.video_url || sc.video_url,
                         frame_urls: data.frame_urls || sc.frame_urls,
+                        visual_source_metadata: data.visual_source_metadata ?? sc.visual_source_metadata,
                       }
                     : sc,
                 ),

@@ -13,7 +13,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from pipeline.image_gen import generate_batch
+from pipeline.image_gen import generate_batch, generate_scene_image
 
 
 @pytest.fixture(autouse=True)
@@ -191,3 +191,47 @@ class TestMediaSourceDispatch:
         assert results[0]["error"] is not None
         assert "game_name" in results[0]["error"].lower() or "game" in results[0]["error"].lower()
         assert not mock_gemini.called, "Should NOT silently fall back to AI when gameplay requested"
+
+
+class TestImageFallbackBehavior:
+    """Verify scraped web-image fallback is opt-in."""
+
+    def test_ai_failure_uses_placeholder_when_scraper_fallback_disabled(self, monkeypatch, tmp_data_dir):
+        monkeypatch.setenv("IMAGE_SCRAPER_FALLBACK_ENABLED", "false")
+
+        with patch("pipeline.image_gen.generate_image", side_effect=RuntimeError("Gemini blocked")) as mock_generate, \
+             patch("integrations.google_image_scraper.scrape_google_image_sync") as mock_scrape:
+            image_url, _prompt, metadata = generate_scene_image(
+                scene_id="scene_placeholder_1",
+                visual_prompt="A clean educational diagram",
+                script_id="test-script-placeholder",
+            )
+
+        assert mock_generate.called
+        assert not mock_scrape.called
+        assert image_url.endswith("/scene_placeholder_1.png")
+        assert metadata is not None
+        assert metadata["source_type"] == "placeholder"
+        assert metadata["fallback"] is True
+        assert (tmp_data_dir / "projects" / "test-script-placeholder" / "images" / "scene_placeholder_1.png").exists()
+
+    def test_ai_failure_uses_scraper_only_when_enabled(self, monkeypatch, tmp_data_dir):
+        monkeypatch.setenv("IMAGE_SCRAPER_FALLBACK_ENABLED", "true")
+
+        def _fake_scrape(query, output_path, width, height):
+            Path(output_path).write_bytes(b"\x89PNG" + b"\x00" * 100)
+            return output_path
+
+        with patch("pipeline.image_gen.generate_image", side_effect=RuntimeError("Gemini blocked")), \
+             patch("integrations.google_image_scraper.scrape_google_image_sync", side_effect=_fake_scrape) as mock_scrape:
+            _image_url, _prompt, metadata = generate_scene_image(
+                scene_id="scene_scraped_1",
+                visual_prompt="A real photo of an old computer lab",
+                script_id="test-script-scraped",
+            )
+
+        assert mock_scrape.called
+        assert metadata is not None
+        assert metadata["source_type"] == "scraped_web_image"
+        assert metadata["provider"] == "google_images_scraper"
+        assert metadata["fallback"] is True

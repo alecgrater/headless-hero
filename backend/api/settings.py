@@ -27,6 +27,7 @@ ALLOWED_KEYS = {
     "EXPORT_FOLDER",
     "REPLICATE_API_TOKEN",
     "IMAGE_PROVIDER",
+    "IMAGE_SCRAPER_FALLBACK_ENABLED",
     "REPLICATE_MODEL",
     "REPLICATE_PROMPT_UPSAMPLING",
     "REPLICATE_SAFETY_TOLERANCE",
@@ -48,6 +49,7 @@ ALLOWED_KEYS = {
     "LLM_PROVIDER",
     "QWEN_MODEL",
     "HOOK_REFINEMENT_ENABLED",
+    "SHOW_SPEED_RENDER_BUTTON",
 }
 
 for _task_config in LLM_TASKS.values():
@@ -59,6 +61,7 @@ _PLAINTEXT_KEYS = {
     "DOWNLOADS_DIR",
     "EXPORT_FOLDER",
     "IMAGE_PROVIDER",
+    "IMAGE_SCRAPER_FALLBACK_ENABLED",
     "REPLICATE_MODEL",
     "REPLICATE_PROMPT_UPSAMPLING",
     "REPLICATE_SAFETY_TOLERANCE",
@@ -71,6 +74,7 @@ _PLAINTEXT_KEYS = {
     "LLM_PROVIDER",
     "QWEN_MODEL",
     "HOOK_REFINEMENT_ENABLED",
+    "SHOW_SPEED_RENDER_BUTTON",
 }
 
 for _task_config in LLM_TASKS.values():
@@ -80,6 +84,7 @@ for _task_config in LLM_TASKS.values():
 # Default values for settings that have sensible defaults
 _DEFAULTS: dict[str, str] = {
     "IMAGE_RATE_LIMIT_MS": "10000",  # 6 req/min to stay under free-tier limits
+    "IMAGE_SCRAPER_FALLBACK_ENABLED": "false",
     "SCRIPT_MODEL": DEFAULT_OPENAI_MODEL,
     "AUDIO_FILTER_HIGHPASS": "true",
     "AUDIO_FILTER_NOISE_REDUCTION": "true",
@@ -87,6 +92,7 @@ _DEFAULTS: dict[str, str] = {
     "LLM_PROVIDER": "ollama",
     "QWEN_MODEL": "qwen3:14b",
     "HOOK_REFINEMENT_ENABLED": "true",
+    "SHOW_SPEED_RENDER_BUTTON": "true",
 }
 
 for _task_config in LLM_TASKS.values():

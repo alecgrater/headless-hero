@@ -1,7 +1,9 @@
 """Image generation pipeline — connects visual prompts to Google Gemini."""
 
 import hashlib
+import json
 import logging
+import os
 import shutil
 from pathlib import Path
 
@@ -9,7 +11,6 @@ from PIL import Image, ImageDraw, ImageFont
 
 from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH, VIDEO_HEIGHT, VIDEO_WIDTH
 from integrations.image_client import generate_image
-from integrations.google_image_scraper import scrape_google_image_sync
 from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VISUAL_STYLE
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,39 @@ def _create_placeholder_image(path: Path, width: int, height: int, text: str) ->
     img.save(str(path))
 
 
+def _setting_enabled(value: str | None) -> bool:
+    return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _source_metadata_path(image_path: Path) -> Path:
+    return image_path.with_suffix(".source.json")
+
+
+def _write_source_metadata(image_path: Path, metadata: dict[str, object]) -> None:
+    _source_metadata_path(image_path).write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+
+
+def _read_source_metadata(image_path: Path) -> dict[str, object] | None:
+    path = _source_metadata_path(image_path)
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        logger.warning("Invalid image source metadata at %s", path)
+        return None
+
+
+def _move_generated_image(tmp_path: str, local_path: Path, metadata: dict[str, object]) -> dict[str, object]:
+    tmp_source_path = _source_metadata_path(Path(tmp_path))
+    shutil.move(tmp_path, str(local_path))
+    if tmp_source_path.exists():
+        shutil.move(str(tmp_source_path), str(_source_metadata_path(local_path)))
+    elif not _source_metadata_path(local_path).exists():
+        _write_source_metadata(local_path, metadata)
+    return _read_source_metadata(local_path) or metadata
+
+
 def generate_scene_image(
     scene_id: str,
     visual_prompt: str,
@@ -69,13 +103,13 @@ def generate_scene_image(
     force: bool = False,
     style_guide: str = "",
     contains_person: bool = False,
-) -> tuple[str, str]:
+) -> tuple[str, str, dict[str, object] | None]:
     """Generate a single scene image and save it locally.
 
     If the image already exists and force=False, skips regeneration.
     style_guide overrides the default _STYLE_GUIDE if provided.
     When contains_person is True, injects Eli character reference + prompt.
-    Returns (web-relative path, composed prompt used).
+    Returns (web-relative path, composed prompt used, source metadata).
     """
     guide = style_guide if style_guide else _STYLE_GUIDE
 
@@ -113,7 +147,7 @@ def generate_scene_image(
         cached_prompt = prompt_marker.read_text(encoding="utf-8").strip()
         if cached_prompt == prompt:
             logger.info("Image cache hit for scene %s", scene_id)
-            return web_path, prompt
+            return web_path, prompt, _read_source_metadata(local_path)
 
     logger.info("Generating image for scene %s (contains_person=%s)", scene_id, contains_person)
     try:
@@ -124,30 +158,58 @@ def generate_scene_image(
             script_id=script_id,
         )
     except Exception:
-        logger.error("All image generation failed for scene %s, trying direct scraper fallback", scene_id)
-        scraped = scrape_google_image_sync(
-            query=visual_prompt[:120],
-            output_path=str(local_path),
-            width=width,
-            height=height,
-        )
-        if scraped:
-            logger.warning("Using scraped web image for scene %s", scene_id)
-            prompt_marker.write_text(prompt, encoding="utf-8")
-            return web_path, prompt
+        scraper_fallback_enabled = _setting_enabled(os.environ.get("IMAGE_SCRAPER_FALLBACK_ENABLED"))
+        if scraper_fallback_enabled:
+            from integrations.google_image_scraper import scrape_google_image_sync
 
-        logger.error("Scraper also failed for scene %s, creating placeholder", scene_id)
+            logger.error("Image generation failed for scene %s, using opt-in scraper fallback", scene_id)
+            search_query = visual_prompt[:120]
+            scraped = scrape_google_image_sync(
+                query=search_query,
+                output_path=str(local_path),
+                width=width,
+                height=height,
+            )
+            if scraped:
+                logger.warning("Using scraped web image for scene %s", scene_id)
+                metadata = {
+                    "source_type": "scraped_web_image",
+                    "provider": "google_images_scraper",
+                    "query": search_query,
+                    "reason": "AI image generation failed after retries",
+                    "license_note": "Scraped web image; verify usage rights before publishing.",
+                    "opt_in_setting": "IMAGE_SCRAPER_FALLBACK_ENABLED",
+                    "fallback": True,
+                }
+                _write_source_metadata(local_path, metadata)
+                prompt_marker.write_text(prompt, encoding="utf-8")
+                return web_path, prompt, metadata
+
+            logger.error("Opt-in scraper fallback also failed for scene %s, creating placeholder", scene_id)
+        else:
+            logger.error("Image generation failed for scene %s; scraper fallback is disabled", scene_id)
+
         _create_placeholder_image(local_path, width, height, f"Image generation failed:\n{visual_prompt[:80]}")
+        metadata = {
+            "source_type": "placeholder",
+            "provider": "local_placeholder",
+            "reason": "AI image generation failed and scraped web-image fallback is disabled or unavailable",
+            "fallback": True,
+        }
+        _write_source_metadata(local_path, metadata)
         prompt_marker.write_text(prompt, encoding="utf-8")
-        return web_path, prompt
+        return web_path, prompt, metadata
 
-    # Move generated image to local storage
-    shutil.move(tmp_path, str(local_path))
+    metadata = _move_generated_image(tmp_path, local_path, {
+        "source_type": "ai_generated",
+        "provider": os.environ.get("IMAGE_PROVIDER", "google"),
+        "fallback": False,
+    })
 
     # Write prompt marker for cache validation
     prompt_marker.write_text(prompt, encoding="utf-8")
 
-    return web_path, prompt
+    return web_path, prompt, metadata
 
 
 def generate_scene_frames(
@@ -160,12 +222,12 @@ def generate_scene_frames(
     force: bool = False,
     style_guide: str = "",
     contains_person: bool = False,
-) -> list[tuple[str, str]]:
+) -> list[tuple[str, str, dict[str, object] | None]]:
     """Generate multiple frames for a scene and save them locally.
 
     Each frame is saved as {scene_id}_f{i}.png with a cache file {scene_id}_f{i}.prompt.
     visual_prompt is the scene's anchor description used to enforce cross-frame consistency.
-    Returns list of (web_path, composed_prompt) tuples.
+    Returns list of (web_path, composed_prompt, source metadata) tuples.
     """
     guide = style_guide if style_guide else _STYLE_GUIDE
     images_dir = DATA_DIR / "projects" / script_id / "images"
@@ -173,7 +235,7 @@ def generate_scene_frames(
 
     total_frames = len(frame_prompts)
     logger.info("Generating %s frames for scene %s", total_frames, scene_id)
-    results: list[tuple[str, str]] = []
+    results: list[tuple[str, str, dict[str, object] | None]] = []
     prev_frame_path: Path | None = None
 
     for i, frame_prompt in enumerate(frame_prompts):
@@ -251,7 +313,7 @@ def generate_scene_frames(
         if not force and local_path.exists() and prompt_marker.exists():
             cached_prompt = prompt_marker.read_text(encoding="utf-8").strip()
             if cached_prompt == prompt:
-                results.append((web_path, prompt))
+                results.append((web_path, prompt, _read_source_metadata(local_path)))
                 prev_frame_path = local_path
                 continue
 
@@ -271,9 +333,13 @@ def generate_scene_frames(
             original_prompt=full_frame_description,
             script_id=script_id,
         )
-        shutil.move(tmp_path, str(local_path))
+        metadata = _move_generated_image(tmp_path, local_path, {
+            "source_type": "ai_generated",
+            "provider": os.environ.get("IMAGE_PROVIDER", "google"),
+            "fallback": False,
+        })
         prompt_marker.write_text(prompt, encoding="utf-8")
-        results.append((web_path, prompt))
+        results.append((web_path, prompt, metadata))
         prev_frame_path = local_path
 
     return results
@@ -289,7 +355,7 @@ def generate_scene_frames_v2(
     force: bool = False,
     style_guide: str = "",
     contains_person: bool = False,
-) -> list[tuple[str, str]]:
+) -> list[tuple[str, str, dict[str, object] | None]]:
     """Generate frames using the Visual Beat System's per-frame directives.
 
     Dispatches per-directive based on source and reference_previous:
@@ -298,7 +364,7 @@ def generate_scene_frames_v2(
       - source == "ai_generated" + reference_previous → Gemini image-to-image
       - source == "ai_generated" + !reference_previous → Gemini text-to-image (independent)
 
-    Returns list of (web_path, prompt) tuples. Empty string web_path for subtitle frames.
+    Returns list of (web_path, prompt, source metadata) tuples. Empty string web_path for subtitle frames.
     """
     from models.script import FrameDirective as FrameDirectiveModel
 
@@ -308,7 +374,7 @@ def generate_scene_frames_v2(
 
     total_frames = len(frame_directives)
     logger.info("Generating %d frames (v2) for scene %s", total_frames, scene_id)
-    results: list[tuple[str, str]] = []
+    results: list[tuple[str, str, dict[str, object] | None]] = []
     prev_frame_path: Path | None = None
 
     for i, raw_directive in enumerate(frame_directives):
@@ -322,7 +388,7 @@ def generate_scene_frames_v2(
 
         # --- Subtitle frames: no image generation ---
         if directive.source == "subtitle":
-            results.append(("", directive.prompt))
+            results.append(("", directive.prompt, None))
             # Don't update prev_frame_path — subtitles can't be references
             continue
 
@@ -334,7 +400,7 @@ def generate_scene_frames_v2(
             if not force and local_path.exists() and prompt_marker.exists():
                 cached = prompt_marker.read_text(encoding="utf-8").strip()
                 if cached == directive.search_query:
-                    results.append((web_path, directive.search_query))
+                    results.append((web_path, directive.search_query, _read_source_metadata(local_path)))
                     prev_frame_path = local_path
                     continue
 
@@ -345,8 +411,17 @@ def generate_scene_frames_v2(
                 height=VIDEO_HEIGHT,
             )
             if scraped:
+                metadata = {
+                    "source_type": "scraped_web_image",
+                    "provider": "google_images_scraper",
+                    "query": directive.search_query,
+                    "reason": "Frame directive requested a real photo",
+                    "license_note": "Scraped web image; verify usage rights before publishing.",
+                    "fallback": False,
+                }
+                _write_source_metadata(local_path, metadata)
                 prompt_marker.write_text(directive.search_query, encoding="utf-8")
-                results.append((web_path, directive.search_query))
+                results.append((web_path, directive.search_query, metadata))
                 prev_frame_path = local_path
                 continue
 
@@ -363,7 +438,7 @@ def generate_scene_frames_v2(
             if not force and local_path.exists() and prompt_marker.exists():
                 cached = prompt_marker.read_text(encoding="utf-8").strip()
                 if cached == query:
-                    results.append((web_path, query))
+                    results.append((web_path, query, _read_source_metadata(local_path)))
                     prev_frame_path = local_path
                     continue
 
@@ -375,8 +450,15 @@ def generate_scene_frames_v2(
 
             if tmp:
                 shutil.move(tmp, str(local_path))
+                metadata = {
+                    "source_type": "stock_photo",
+                    "provider": "pexels",
+                    "query": query,
+                    "fallback": False,
+                }
+                _write_source_metadata(local_path, metadata)
                 prompt_marker.write_text(query, encoding="utf-8")
-                results.append((web_path, query))
+                results.append((web_path, query, metadata))
                 prev_frame_path = local_path
                 continue
 
@@ -433,7 +515,7 @@ def generate_scene_frames_v2(
         if not force and local_path.exists() and prompt_marker.exists():
             cached_prompt = prompt_marker.read_text(encoding="utf-8").strip()
             if cached_prompt == prompt:
-                results.append((web_path, prompt))
+                results.append((web_path, prompt, _read_source_metadata(local_path)))
                 prev_frame_path = local_path
                 continue
 
@@ -453,9 +535,13 @@ def generate_scene_frames_v2(
             original_prompt=directive_prompt,
             script_id=script_id,
         )
-        shutil.move(tmp_path, str(local_path))
+        metadata = _move_generated_image(tmp_path, local_path, {
+            "source_type": "ai_generated",
+            "provider": os.environ.get("IMAGE_PROVIDER", "google"),
+            "fallback": False,
+        })
         prompt_marker.write_text(prompt, encoding="utf-8")
-        results.append((web_path, prompt))
+        results.append((web_path, prompt, metadata))
         prev_frame_path = local_path
 
     return results
@@ -497,12 +583,14 @@ def generate_batch(
                         style_guide=style_guide,
                         contains_person=scene.get("contains_person", False),
                     )
-                    frame_urls = [url for url, _ in frame_results]
+                    frame_urls = [url for url, _, _ in frame_results]
+                    source_metadata = next((metadata for url, _, metadata in frame_results if url and metadata), None)
                     results.append({
                         "scene_id": scene["scene_id"],
                         "image_url": next((u for u in frame_urls if u), None),
                         "frame_urls": frame_urls,
                         "prompt_used": frame_results[0][1] if frame_results else None,
+                        "visual_source_metadata": source_metadata,
                         "error": None,
                     })
                     continue
@@ -564,12 +652,14 @@ def generate_batch(
                     style_guide=style_guide,
                     contains_person=scene_contains_person,
                 )
-                frame_urls = [url for url, _ in frame_results]
+                frame_urls = [url for url, _, _ in frame_results]
+                source_metadata = next((metadata for url, _, metadata in frame_results if url and metadata), None)
                 results.append({
                     "scene_id": scene["scene_id"],
                     "image_url": next((u for u in frame_urls if u), None),
                     "frame_urls": frame_urls,
                     "prompt_used": frame_results[0][1] if frame_results else None,
+                    "visual_source_metadata": source_metadata,
                     "error": None,
                 })
                 continue
@@ -586,18 +676,20 @@ def generate_batch(
                     style_guide=style_guide,
                     contains_person=scene_contains_person,
                 )
-                frame_urls = [url for url, _ in frame_results]
+                frame_urls = [url for url, _, _ in frame_results]
+                source_metadata = next((metadata for url, _, metadata in frame_results if url and metadata), None)
                 results.append({
                     "scene_id": scene["scene_id"],
                     "image_url": frame_urls[0] if frame_urls else None,
                     "frame_urls": frame_urls,
                     "prompt_used": frame_results[0][1] if frame_results else None,
+                    "visual_source_metadata": source_metadata,
                     "error": None,
                 })
                 continue
 
             # Single-image path
-            image_url, prompt_used = generate_scene_image(
+            image_url, prompt_used, source_metadata = generate_scene_image(
                 scene_id=scene["scene_id"],
                 visual_prompt=scene["visual_prompt"],
                 script_id=script_id,
@@ -610,6 +702,7 @@ def generate_batch(
                 "scene_id": scene["scene_id"],
                 "image_url": image_url,
                 "prompt_used": prompt_used,
+                "visual_source_metadata": source_metadata,
                 "error": None,
             })
         except Exception as exc:

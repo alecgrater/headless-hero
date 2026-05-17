@@ -107,7 +107,7 @@ def ensure_title_card_images(
         prompt = seg.title_card_image_prompt or f"A vivid, colorful illustration representing the concept of {seg.name}. Simple, iconic, centered subject on a clean background."
 
         try:
-            web_url, _ = generate_scene_image(
+            web_url, _, _ = generate_scene_image(
                 scene_id=f"title_card_{idx}",
                 visual_prompt=prompt,
                 script_id=script_id,
@@ -129,7 +129,7 @@ def ensure_title_card_images(
                     f"A simple, colorful illustration: {prompt}. "
                     "Cartoon style, bright colors, clean background, no text, no people."
                 )
-                web_url, _ = generate_scene_image(
+                web_url, _, _ = generate_scene_image(
                     scene_id=f"title_card_{idx}",
                     visual_prompt=fallback_prompt,
                     script_id=script_id,

@@ -76,6 +76,15 @@ export interface Scene {
   video_url?: string;
   upload_url?: string;
   original_visual_prompt?: string;
+  visual_source_metadata?: {
+    source_type?: string;
+    provider?: string;
+    query?: string;
+    reason?: string;
+    license_note?: string;
+    opt_in_setting?: string;
+    fallback?: boolean;
+  } | null;
 }
 
 export interface Segment {

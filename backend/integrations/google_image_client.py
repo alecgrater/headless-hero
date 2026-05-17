@@ -2,18 +2,30 @@
 
 import logging
 import os
+import json
 import tempfile
 import time
+from pathlib import Path
 
 from google import genai
 from google.genai import types
 
 from config import DEFAULT_IMAGE_MODEL, IMAGE_HEIGHT, IMAGE_WIDTH
 from integrations.google_client_base import get_google_client
-from integrations.google_image_scraper import scrape_google_image_sync
 from integrations.usage_tracker import record_usage, GOOGLE_IMAGE_PER_CALL
 
 logger = logging.getLogger(__name__)
+
+
+def _setting_enabled(value: str | None) -> bool:
+    return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _write_source_metadata(image_path: str, metadata: dict[str, str | bool]) -> None:
+    Path(image_path).with_suffix(".source.json").write_text(
+        json.dumps(metadata, indent=2),
+        encoding="utf-8",
+    )
 
 
 def _closest_aspect_ratio(width: int, height: int) -> str:
@@ -112,7 +124,8 @@ def generate_image(
     original_prompt is the raw visual description before style guide was prepended.
     Used for retry when Gemini blocks the full prompt.
 
-    Falls back to Google Image scraper if both Gemini attempts fail.
+    Falls back to Google Image scraper only when IMAGE_SCRAPER_FALLBACK_ENABLED
+    is explicitly enabled.
     """
     client = get_google_client()
     aspect = _closest_aspect_ratio(width, height)
@@ -161,12 +174,22 @@ def generate_image(
         if result:
             return result
     except Exception:
-        logger.warning("Second Gemini attempt also raised, falling back to scraper")
+        logger.warning("Second Gemini attempt also raised")
+
+    scraper_fallback_enabled = _setting_enabled(os.environ.get("IMAGE_SCRAPER_FALLBACK_ENABLED"))
+    if not scraper_fallback_enabled:
+        raise RuntimeError(
+            f"Gemini returned empty response on both attempts. Scraped web-image fallback "
+            f"is disabled; use stock-photo routing or enable IMAGE_SCRAPER_FALLBACK_ENABLED "
+            f"if web scraping is acceptable for this project. Prompt: {prompt[:200]}"
+        )
 
     # Last resort: Google Image scraper
+    from integrations.google_image_scraper import scrape_google_image_sync
+
     search_query = (original_prompt or prompt)[:120]
     logger.warning(
-        "Gemini failed on both attempts, falling back to Google Image scraper: %s",
+        "Gemini failed on both attempts, using opt-in Google Image scraper fallback: %s",
         search_query,
     )
     fd, tmp_path = tempfile.mkstemp(suffix=".png")
@@ -179,6 +202,15 @@ def generate_image(
     )
     if scraped:
         logger.warning("Using scraped web image as fallback for: %s", search_query)
+        _write_source_metadata(scraped, {
+            "source_type": "scraped_web_image",
+            "provider": "google_images_scraper",
+            "query": search_query,
+            "reason": "Gemini image generation failed after retries",
+            "license_note": "Scraped web image; verify usage rights before publishing.",
+            "opt_in_setting": "IMAGE_SCRAPER_FALLBACK_ENABLED",
+            "fallback": True,
+        })
         return scraped
 
     # Clean up temp file if scraper didn't use it

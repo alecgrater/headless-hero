@@ -41,6 +41,7 @@ class GenerateVisualResponse(BaseModel):
     prompt_used: str
     frame_urls: list[str] = []
     video_url: str | None = None
+    visual_source_metadata: dict | None = None
 
 class BatchScene(BaseModel):
     scene_id: str
@@ -65,6 +66,7 @@ class BatchResultItem(BaseModel):
     frame_urls: list[str] = []
     video_url: str | None = None
     prompt_used: str | None = None
+    visual_source_metadata: dict | None = None
     error: str | None = None
 
 class GenerateBatchResponse(BaseModel):
@@ -109,13 +111,25 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
                 height=body.height,
                 contains_person=body.contains_person,
             )
-            frame_urls = [url for url, _ in frame_results]
+            frame_urls = [url for url, _, _ in frame_results]
+            source_metadata = next((metadata for url, _, metadata in frame_results if url and metadata), None)
             first_image = next((u for u in frame_urls if u), "")
             if frame_urls:
-                _update_scene_with_frames(session, body.script_id, body.scene_id, frame_urls=frame_urls)
+                _update_scene_with_frames(
+                    session,
+                    body.script_id,
+                    body.scene_id,
+                    frame_urls=frame_urls,
+                    visual_source_metadata=source_metadata,
+                )
             session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
             session.commit()
-            return GenerateVisualResponse(image_url=first_image, prompt_used=body.visual_prompt, frame_urls=frame_urls)
+            return GenerateVisualResponse(
+                image_url=first_image,
+                prompt_used=body.visual_prompt,
+                frame_urls=frame_urls,
+                visual_source_metadata=source_metadata,
+            )
         image_url = generate_stock_photo(body.script_id, body.scene_id, body.visual_prompt)
         update_scene(session, body.script_id, body.scene_id, image_url=image_url)
         session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
@@ -150,20 +164,28 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             height=body.height,
             contains_person=body.contains_person,
         )
-        frame_urls = [url for url, _ in frame_results]
+        frame_urls = [url for url, _, _ in frame_results]
+        source_metadata = next((metadata for url, _, metadata in frame_results if url and metadata), None)
         first_image = next((u for u in frame_urls if u), "")
         if frame_urls:
-            _update_scene_with_frames(session, body.script_id, body.scene_id, frame_urls=frame_urls)
+            _update_scene_with_frames(
+                session,
+                body.script_id,
+                body.scene_id,
+                frame_urls=frame_urls,
+                visual_source_metadata=source_metadata,
+            )
         session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
         session.commit()
         return GenerateVisualResponse(
             image_url=first_image,
             prompt_used=frame_results[0][1] if frame_results else "",
             frame_urls=frame_urls,
+            visual_source_metadata=source_metadata,
         )
 
     # Single-image path
-    image_url, prompt_used = generate_scene_image(
+    image_url, prompt_used, source_metadata = generate_scene_image(
         scene_id=body.scene_id,
         visual_prompt=body.visual_prompt,
         script_id=body.script_id,
@@ -172,12 +194,12 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         contains_person=body.contains_person,
     )
 
-    update_scene(session, body.script_id, body.scene_id, image_url=image_url)
+    update_scene(session, body.script_id, body.scene_id, image_url=image_url, visual_source_metadata=source_metadata)
 
     session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
     session.commit()
 
-    return GenerateVisualResponse(image_url=image_url, prompt_used=prompt_used)
+    return GenerateVisualResponse(image_url=image_url, prompt_used=prompt_used, visual_source_metadata=source_metadata)
 
 @router.post("/generate-batch", response_model=GenerateBatchResponse)
 def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends(get_session)):
@@ -228,6 +250,8 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
                 sc.image_url = first_image
         elif r.get("image_url"):
             sc.image_url = r["image_url"]
+        if r.get("visual_source_metadata") is not None:
+            sc.visual_source_metadata = r["visual_source_metadata"]
     record.script_json = content.model_dump_json()
     session.add(record)
     session.commit()

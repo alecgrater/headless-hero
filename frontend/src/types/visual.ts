@@ -4,6 +4,15 @@ export interface GenerateVisualResponse {
   image_url_b?: string;
   frame_urls?: string[];
   video_url?: string;
+  visual_source_metadata?: {
+    source_type?: string;
+    provider?: string;
+    query?: string;
+    reason?: string;
+    license_note?: string;
+    opt_in_setting?: string;
+    fallback?: boolean;
+  } | null;
 }
 
 export interface GenerateTitleCardsResponse {

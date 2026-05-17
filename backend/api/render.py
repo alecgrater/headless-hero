@@ -225,7 +225,7 @@ def _phase_images(ctx: ExportContext) -> None:
         update_job(ctx.job.id, progress=p, current_step=f"Generating image ({i+1}/{scene_count})...")
         sid = sc_info["scene_id"]
         logger.info("[%s] Generating image for scene %s (%d/%d)", ctx.script_id, sid, i + 1, scene_count)
-        image_url, _ = generate_scene_image(sid, sc_info["visual_prompt"], ctx.script_id, force=True)
+        image_url, _, _ = generate_scene_image(sid, sc_info["visual_prompt"], ctx.script_id, force=True)
         sc_info["_image_url"] = image_url
         sc_info["_frame_urls"] = None
     logger.info("[%s] Phase: images — complete (%d scenes)", ctx.script_id, scene_count)

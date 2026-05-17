@@ -97,6 +97,17 @@ export default function PropertiesPanel({
     { value: "user_upload", label: "Upload" },
   ];
 
+  const sourceMeta = scene.visual_source_metadata;
+  const sourceLabel = sourceMeta?.source_type
+    ? sourceMeta.source_type.replace(/_/g, " ")
+    : scene.media_source === "stock_photo"
+      ? "stock photo"
+      : scene.media_source === "user_upload"
+        ? "user upload"
+        : scene.media_source === "gameplay_video"
+          ? "gameplay"
+          : null;
+
   return (
     <div className="flex flex-col min-h-0 flex-1 overflow-y-auto">
       {/* Header bar */}
@@ -333,6 +344,16 @@ export default function PropertiesPanel({
                 <span className="absolute bottom-2 right-2 text-[10px] bg-black/60 text-neutral-300 px-1.5 py-0.5 rounded-full">
                   {safeIndex + 1}/{availableImages.length} image{availableImages.length > 1 ? "s" : ""}
                 </span>
+                {sourceLabel && (
+                  <div className="absolute left-2 bottom-2 max-w-[70%] rounded-md bg-black/70 px-2 py-1 text-[10px] text-neutral-200 shadow">
+                    <div className="flex items-center gap-1.5">
+                      {sourceMeta?.fallback && (
+                        <span className="rounded bg-amber-500/25 px-1 text-amber-200">fallback</span>
+                      )}
+                      <span className="capitalize">{sourceLabel}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <span className="text-xs text-neutral-600">
@@ -342,6 +363,27 @@ export default function PropertiesPanel({
           </div>
         );
       })()}
+
+      {sourceMeta && (
+        <div className="shrink-0 px-4 pb-2">
+          <div className={`rounded-lg border px-3 py-2 text-xs ${
+            sourceMeta.source_type === "scraped_web_image"
+              ? "border-amber-500/30 bg-amber-500/10 text-amber-100"
+              : "border-neutral-800 bg-neutral-900/70 text-neutral-300"
+          }`}>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium capitalize">{(sourceMeta.source_type || "visual source").replace(/_/g, " ")}</span>
+              {sourceMeta.provider && <span className="text-neutral-400">via {sourceMeta.provider.replace(/_/g, " ")}</span>}
+              {sourceMeta.fallback && <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-200">fallback</span>}
+            </div>
+            {sourceMeta.query && (
+              <p className="mt-1 text-neutral-400">Query: <span className="text-neutral-200">{sourceMeta.query}</span></p>
+            )}
+            {sourceMeta.reason && <p className="mt-1 text-neutral-400">{sourceMeta.reason}</p>}
+            {sourceMeta.license_note && <p className="mt-1 text-amber-200">{sourceMeta.license_note}</p>}
+          </div>
+        </div>
+      )}
 
       {/* Micro-timeline */}
       {scene.audio_url && (
