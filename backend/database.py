@@ -2,7 +2,7 @@ import logging
 
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from config import DATA_DIR, DEFAULT_CLAUDE_MODEL
+from config import BALANCED_CLAUDE_MODEL, DATA_DIR, DEFAULT_CLAUDE_MODEL, FAST_CLAUDE_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -94,15 +94,7 @@ def _migrate_script_model_default() -> None:
     from models.settings import AppSetting
 
     stale_script_models = {
-        "claude-opus-4-1-20250805",
-        "claude-opus-4-20250514",
-        "claude-sonnet-4-20250514",
-        "claude-3-7-sonnet-20250219",
-        "claude-3-5-haiku-20241022",
-        "anthropic.claude-opus-4-6-v1",
-        "anthropic.claude-sonnet-4-6",
-        "anthropic.claude-sonnet-4-5-20250929-v1:0",
-        "anthropic.claude-haiku-4-5-20251001-v1:0",
+        *_stale_anthropic_model_upgrades().keys(),
         "gpt-5.5",
     }
 
@@ -139,8 +131,11 @@ def _migrate_llm_task_route_defaults() -> None:
     from integrations.llm_client import LLM_TASKS
     from models.settings import AppSetting
 
+    stale_anthropic_models = _stale_anthropic_model_upgrades()
+
     with Session(engine) as session:
         seeded: list[str] = []
+        refreshed: list[str] = []
         for task in LLM_TASKS.values():
             provider_key = task["provider_key"]
             model_key = task["model_key"]
@@ -166,10 +161,40 @@ def _migrate_llm_task_route_defaults() -> None:
                 model_setting.value = default_model
                 session.add(model_setting)
                 seeded.append(model_key)
+            elif model_setting.value in stale_anthropic_models:
+                model_setting.value = stale_anthropic_models[model_setting.value]
+                session.add(model_setting)
+                refreshed.append(model_key)
 
-        if seeded:
+        if seeded or refreshed:
             session.commit()
-            logger.info("Migrated: seeded LLM task route defaults: %s", ", ".join(seeded))
+            details = []
+            if seeded:
+                details.append(f"seeded: {', '.join(seeded)}")
+            if refreshed:
+                details.append(f"refreshed stale Claude models: {', '.join(refreshed)}")
+            logger.info("Migrated: LLM task route defaults: %s", "; ".join(details))
+
+
+def _stale_anthropic_model_upgrades() -> dict[str, str]:
+    """Map retired Claude IDs to the current tier-equivalent API model IDs."""
+    return {
+        "claude-opus-4-1-20250805": DEFAULT_CLAUDE_MODEL,
+        "claude-opus-4-20250514": DEFAULT_CLAUDE_MODEL,
+        "claude-sonnet-4-20250514": BALANCED_CLAUDE_MODEL,
+        "claude-3-7-sonnet-20250219": BALANCED_CLAUDE_MODEL,
+        "claude-3-5-haiku-20241022": FAST_CLAUDE_MODEL,
+        "claude-haiku-4-5": FAST_CLAUDE_MODEL,
+        "anthropic.claude-opus-4-6-v1": DEFAULT_CLAUDE_MODEL,
+        "anthropic.claude-opus-4-1-20250805-v1:0": DEFAULT_CLAUDE_MODEL,
+        "anthropic.claude-opus-4-20250514-v1:0": DEFAULT_CLAUDE_MODEL,
+        "anthropic.claude-sonnet-4-6": BALANCED_CLAUDE_MODEL,
+        "anthropic.claude-sonnet-4-5-20250929-v1:0": BALANCED_CLAUDE_MODEL,
+        "anthropic.claude-sonnet-4-20250514-v1:0": BALANCED_CLAUDE_MODEL,
+        "anthropic.claude-3-7-sonnet-20250219-v1:0": BALANCED_CLAUDE_MODEL,
+        "anthropic.claude-haiku-4-5-20251001-v1:0": FAST_CLAUDE_MODEL,
+        "anthropic.claude-3-5-haiku-20241022-v1:0": FAST_CLAUDE_MODEL,
+    }
 
 
 def _migrate_add_scene_count_to_generation_durations() -> None:
