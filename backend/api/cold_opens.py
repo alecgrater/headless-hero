@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import time
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,6 +19,10 @@ from pipeline.hook_refiner import RefinedHook, refine_hook
 from pipeline.hook_scorer import score_hook
 from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
 from prompts import CHARACTER_SPEC_MD, IMAGE_VISUAL_STYLE
+
+
+def _hook_refinement_enabled() -> bool:
+    return os.environ.get("HOOK_REFINEMENT_ENABLED", "true").strip().lower() not in {"0", "false", "no", "off"}
 
 _VISUAL_STYLE = IMAGE_VISUAL_STYLE.template
 _CHARACTER = CHARACTER_SPEC_MD.template
@@ -125,6 +130,22 @@ def refine_hook_endpoint(body: RefineHookRequest):
     job_id = job.id
 
     def _run() -> list[str]:
+        if not _hook_refinement_enabled():
+            logger.info("Hook refinement disabled — passing through original hook")
+            result = RefineHookResultData(
+                hook_score={
+                    "promise": 0,
+                    "tension": 0,
+                    "payoff_hint": 0,
+                    "overall": 0,
+                    "rationale": "Hook refinement disabled in settings.",
+                },
+                refined_hook={"intro_hook": intro_hook, "opening_narration": opening_narration},
+                original_hook={"intro_hook": intro_hook, "opening_narration": opening_narration},
+            )
+            update_job(job_id, output_data=result.model_dump_json())
+            return []
+
         update_job(job_id, current_step="Scoring hook...")
         hook_score = score_hook(
             intro_hook=intro_hook,
