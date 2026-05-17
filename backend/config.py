@@ -114,4 +114,9 @@ def parse_json_array_response(text: str) -> list:
             return list_values[0]
         if data and all(isinstance(k, str) and k.isdigit() for k in data.keys()):
             return [data[k] for k in sorted(data.keys(), key=int)]
+        # Dict-of-dicts shape: {"scene_001": {...}, "scene_002": {...}}.
+        # Some models emit this when forced into json_object mode and asked for a
+        # list of objects. Preserve insertion order so caller-side renumbering works.
+        if data and all(isinstance(v, dict) for v in data.values()):
+            return list(data.values())
     raise ValueError(f"Expected a JSON array, got {type(data).__name__}")

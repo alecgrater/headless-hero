@@ -68,7 +68,7 @@ class SQLiteLogHandler(logging.Handler):
     def _persist(self, record: logging.LogRecord) -> None:
         traceback_str = None
         if record.exc_info and record.exc_info[1] is not None:
-            traceback_str = "".join(tb_module.format_exception(*record.exc_info))[-2000:]
+            traceback_str = "".join(tb_module.format_exception(*record.exc_info))
 
         entry = DevLog(
             timestamp=datetime.fromtimestamp(record.created, tz=timezone.utc),

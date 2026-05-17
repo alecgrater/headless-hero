@@ -324,9 +324,21 @@ def _generate_segment_scenes(
     try:
         scenes_data = parse_json_array_response(text)
     except (json.JSONDecodeError, ValueError) as e:
+        # Best-effort shape sniff so the dev dashboard log shows the actual JSON
+        # structure the model returned (helps diagnose new dict-wrapping variants).
+        shape_hint = "unparseable"
+        try:
+            preview = json.loads(strip_markdown_fences(text))
+            if isinstance(preview, dict):
+                shape_hint = f"dict keys={list(preview.keys())[:20]}"
+            else:
+                shape_hint = f"{type(preview).__name__}"
+        except Exception:
+            pass
         logger.error(
-            "SEGMENTED: Segment %d/%d (%r) response failed to parse — got %d chars, last 200: %r",
-            segment_index + 1, total, seg_name, len(text), text[-200:],
+            "SEGMENTED: Segment %d/%d (%r) response failed to parse — %d chars, shape=%s\n"
+            "FULL RESPONSE:\n%s",
+            segment_index + 1, total, seg_name, len(text), shape_hint, text,
         )
         raise RuntimeError(
             f"SEGMENTED: Segment {segment_index + 1}/{total} (\"{seg_name}\") "
