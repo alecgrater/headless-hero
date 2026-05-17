@@ -468,7 +468,7 @@ function ProductionWorkflowRow({
 
   return (
     <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
-      <div className="grid items-center gap-2 min-w-0" style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}>
+      <div className="grid items-center gap-2 min-w-0" style={{ gridTemplateColumns: "repeat(4, 15rem)" }}>
         <ProductionTaskButton
           stepNumber={6}
           label="Generate LF SEO"
@@ -526,41 +526,95 @@ function ProductionWorkflowRow({
   );
 }
 
-function ViewerSwitchRow({
-  format,
-  asset,
-  activeTab,
-  hasPendingReview,
+function ExportSplitButton({
   exportTestJobId,
   showExportDropdown,
   exportDropdownRef,
-  onFormatChange,
-  onAssetChange,
-  onTabChange,
   onOpenExport,
   onCancelExportTest,
   onToggleExportDropdown,
   onOpenExportTest,
 }: {
-  format: ViewerFormat;
-  asset: ViewerAsset;
-  activeTab: "timeline" | "media-sources" | "segments";
-  hasPendingReview: boolean;
   exportTestJobId: string | null;
   showExportDropdown: boolean;
   exportDropdownRef: RefObject<HTMLDivElement | null>;
-  onFormatChange: (format: ViewerFormat) => void;
-  onAssetChange: (asset: ViewerAsset) => void;
-  onTabChange: (tab: "timeline" | "media-sources" | "segments") => void;
   onOpenExport: () => void;
   onCancelExportTest: () => void;
   onToggleExportDropdown: () => void;
   onOpenExportTest: () => void;
 }) {
+  return (
+    <div ref={exportDropdownRef} className="relative flex items-stretch shrink-0">
+      <button
+        onClick={exportTestJobId ? onCancelExportTest : onOpenExport}
+        className={`text-xs pl-3 pr-2 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-[7rem] whitespace-nowrap ${
+          exportTestJobId
+            ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
+            : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
+        }`}
+        title={exportTestJobId ? "Cancel export test" : "Export & Render (Cmd+E)"}
+      >
+        {exportTestJobId ? (
+          <>
+            <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
+            Cancel
+          </>
+        ) : (
+          "Export"
+        )}
+      </button>
+      {!exportTestJobId ? (
+        <button
+          onClick={onToggleExportDropdown}
+          className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center"
+          title="Export options"
+        >
+          <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+            <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      ) : (
+        <span className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-lg flex items-center">
+          <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
+            <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      )}
+      {showExportDropdown && (
+        <div className="absolute top-full right-0 mt-1.5 w-44 bg-neutral-800/90 border border-neutral-700/60 rounded-xl shadow-2xl z-50 py-1.5">
+          <button
+            onClick={onOpenExportTest}
+            className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors"
+          >
+            Export Test
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ViewerSwitchRow({
+  format,
+  asset,
+  activeTab,
+  hasPendingReview,
+  onFormatChange,
+  onAssetChange,
+  onTabChange,
+}: {
+  format: ViewerFormat;
+  asset: ViewerAsset;
+  activeTab: "timeline" | "media-sources" | "segments";
+  hasPendingReview: boolean;
+  onFormatChange: (format: ViewerFormat) => void;
+  onAssetChange: (asset: ViewerAsset) => void;
+  onTabChange: (tab: "timeline" | "media-sources" | "segments") => void;
+}) {
   const renderTabSelector = format === "long-form" && asset === "render";
 
   return (
-    <div className="px-5 py-2 border-b border-neutral-800/60 shrink-0">
+    <div className="px-5 py-2 border-t border-b border-neutral-800/60 shrink-0">
       <div className="flex items-center gap-3">
         <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
           {([
@@ -620,53 +674,6 @@ function ViewerSwitchRow({
             </div>
           </>
         )}
-        <div ref={exportDropdownRef} className="relative ml-auto flex items-stretch">
-          <button
-            onClick={exportTestJobId ? onCancelExportTest : onOpenExport}
-            className={`text-xs pl-3 pr-2 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-[7rem] whitespace-nowrap ${
-              exportTestJobId
-                ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] hover:border-red-500/50 hover:text-red-400"
-                : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
-            }`}
-            title={exportTestJobId ? "Cancel export test" : "Export & Render (Cmd+E)"}
-          >
-            {exportTestJobId ? (
-              <>
-                <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
-                Cancel
-              </>
-            ) : (
-              "Export"
-            )}
-          </button>
-          {!exportTestJobId ? (
-            <button
-              onClick={onToggleExportDropdown}
-              className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center"
-              title="Export options"
-            >
-              <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
-                <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          ) : (
-            <span className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-lg flex items-center">
-              <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
-                <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-          )}
-          {showExportDropdown && (
-            <div className="absolute top-full right-0 mt-1.5 w-44 bg-neutral-800/90 border border-neutral-700/60 rounded-xl shadow-2xl z-50 py-1.5">
-              <button
-                onClick={onOpenExportTest}
-                className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors"
-              >
-                Export Test
-              </button>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
@@ -1789,7 +1796,19 @@ function TimelineEditor({
             >
               &larr; Back
             </button>
-            <h2 className="text-base font-semibold truncate" title={title}>{title}</h2>
+            <h2 className="text-base font-semibold truncate flex-1 min-w-0" title={title}>{title}</h2>
+            <ExportSplitButton
+              exportTestJobId={exportTestJobId}
+              showExportDropdown={showExportDropdown}
+              exportDropdownRef={exportDropdownRef}
+              onOpenExport={openExportPanel}
+              onCancelExportTest={() => setExportTestJobId(null)}
+              onToggleExportDropdown={() => setShowExportDropdown((show) => !show)}
+              onOpenExportTest={() => {
+                setShowExportDropdown(false);
+                setShowExportTestModal(true);
+              }}
+            />
           </div>
 
           {/* YOLO / Stats Row */}
@@ -1970,19 +1989,9 @@ function TimelineEditor({
             asset={viewerAsset}
             activeTab={activeTab}
             hasPendingReview={media.hasPendingReview}
-            exportTestJobId={exportTestJobId}
-            showExportDropdown={showExportDropdown}
-            exportDropdownRef={exportDropdownRef}
             onFormatChange={setViewerFormat}
             onAssetChange={setViewerAsset}
             onTabChange={setActiveTab}
-            onOpenExport={openExportPanel}
-            onCancelExportTest={() => setExportTestJobId(null)}
-            onToggleExportDropdown={() => setShowExportDropdown((show) => !show)}
-            onOpenExportTest={() => {
-              setShowExportDropdown(false);
-              setShowExportTestModal(true);
-            }}
           />
 
           <PipelineSteps

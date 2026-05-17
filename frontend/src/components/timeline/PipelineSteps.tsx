@@ -141,7 +141,7 @@ export default function PipelineSteps({
   return (
     <div className="flex items-center gap-4 px-5 py-2.5">
       {/* Pipeline steps */}
-      <div className="grid items-center gap-2" style={{ gridTemplateColumns: "1fr auto 1fr auto 1fr auto 1fr auto 1fr" }}>
+      <div className="grid items-center gap-2" style={{ gridTemplateColumns: "15rem auto 15rem auto 15rem auto 15rem auto 15rem" }}>
 
         {/* Step 1 — Title Cards */}
         <div className="flex flex-col">
