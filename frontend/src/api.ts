@@ -617,66 +617,26 @@ export async function getIdeaCategories(): Promise<string[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Catalog
-// ---------------------------------------------------------------------------
-
-export interface CatalogEntry {
-  folder_name: string;
-  folder_path: string;
-  video_file: string | null;
-  thumbnail_file: string | null;
-  seo_title: string | null;
-  seo_description: string | null;
-  seo_tags: string[];
-  exported_at: string;
-  file_size_mb: number;
-  uploaded: boolean;
-  youtube_url: string | null;
-  script_id: string | null;
-}
-
-export async function fetchCatalog(): Promise<CatalogEntry[]> {
-  const res = await api.get("/api/catalog");
-  if (!res.ok) return [];
-  return (res.data as { entries: CatalogEntry[] }).entries;
-}
-
-export async function toggleUploaded(folderName: string): Promise<{ uploaded: boolean }> {
-  const res = await api.post(`/api/catalog/${encodeURIComponent(folderName)}/toggle-uploaded`);
-  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to toggle uploaded status");
-  return res.data as { uploaded: boolean };
-}
-
-export interface CatalogUploadOptions {
-  folder_name: string;
+export interface LongformUploadOptions {
+  script_id: string;
   title?: string;
   description?: string;
   tags?: string[];
   privacy_status?: string;
 }
 
-export async function catalogUpload(options: CatalogUploadOptions): Promise<{ job_id: string }> {
-  const res = await api.post("/api/catalog/upload", options);
-  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Upload failed");
-  return res.data as { job_id: string };
-}
-
 export async function uploadLongformYouTube(
   scriptId: string,
   privacyStatus: "private" | "unlisted" | "public" = "unlisted",
+  overrides: Omit<LongformUploadOptions, "script_id" | "privacy_status"> = {},
 ): Promise<{ job_id: string }> {
   const res = await api.post("/api/publish/youtube-longform/upload", {
     script_id: scriptId,
     privacy_status: privacyStatus,
+    ...overrides,
   });
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Upload failed");
   return res.data as { job_id: string };
-}
-
-export async function syncCatalogYouTube(): Promise<{ matched: number }> {
-  const res = await api.post("/api/catalog/sync-youtube");
-  if (!res.ok) return { matched: 0 };
-  return res.data as { matched: number };
 }
 
 export interface YouTubeOAuthStatus {

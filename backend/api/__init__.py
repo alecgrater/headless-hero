@@ -11,7 +11,6 @@ from sqlmodel import Session
 
 from api.brands import router as brands_router
 from api.brainstorm import router as brainstorm_router
-from api.catalog import router as catalog_router
 from api.cold_opens import router as cold_opens_router
 from database import init_db, ensure_default_brand
 from database import engine as _db_engine
@@ -47,7 +46,7 @@ from models.trending import TrendingTopic as _TrendingTopic  # noqa: F401 — re
 from models.content_profile import ContentProfile as _ContentProfile  # noqa: F401 — register table
 from models.idea import Idea as _Idea  # noqa: F401 — register table
 
-from config import DATA_DIR, get_export_folder
+from config import DATA_DIR
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -65,12 +64,6 @@ async def lifespan(app: FastAPI):
     from api.settings import load_keys_into_env
     with Session(_db_engine) as session:
         load_keys_into_env(session)
-    # Backfill .script_id markers for existing export folders
-    from pipeline.catalog import backfill_script_id_markers
-    with Session(_db_engine) as session:
-        count = backfill_script_id_markers(session)
-        if count:
-            logger.info("Backfilled %d .script_id markers", count)
     # Ensure projects directory exists for static file serving
     projects_dir = DATA_DIR / "projects"
     projects_dir.mkdir(parents=True, exist_ok=True)
@@ -108,7 +101,6 @@ app.include_router(_dev_router)
 # Core routers
 app.include_router(brands_router)
 app.include_router(brainstorm_router)
-app.include_router(catalog_router)
 app.include_router(cold_opens_router)
 app.include_router(eli_router)
 app.include_router(fx_router)
@@ -141,10 +133,6 @@ app.mount("/static/projects", StaticFiles(directory=str(_projects_dir)), name="p
 _character_dir = DATA_DIR / "character"
 _character_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/static/character", StaticFiles(directory=str(_character_dir)), name="character-assets")
-
-_export_dir = get_export_folder()
-_export_dir.mkdir(parents=True, exist_ok=True)
-app.mount("/static/catalog", StaticFiles(directory=str(_export_dir)), name="catalog-assets")
 
 @app.get("/api/health")
 async def health():

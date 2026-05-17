@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Film, ImageIcon, Search, Smartphone, Upload, Video, X, Zap } from "lucide-react";
-import api, { assetUrl, catalogUpload, getPublishStatus, getYouTubeOAuthStatus, showInFolder, openInBrowser, openUploadShortsWindows, uploadLongformYouTube, YOUTUBE_STUDIO_URL } from "../../api";
+import api, { assetUrl, getPublishStatus, getYouTubeOAuthStatus, showInFolder, openInBrowser, openUploadShortsWindows, uploadLongformYouTube, YOUTUBE_STUDIO_URL } from "../../api";
 import { showToast } from "../ToastContainer";
-import type { CatalogUploadOptions, PublishJobStatus } from "../../api";
+import type { PublishJobStatus } from "../../api";
 import type { UploadTracking } from "../../types/script";
 import type {
   ExportBundleResponse,
@@ -417,19 +417,14 @@ export default function ExportPanel({
 
   const handleStartUpload = async () => {
     if (!exportBundleResult) return;
-    const folderPath = exportBundleResult.folder_path;
-    const folderName = folderPath.split("/").pop() || "";
     setYtUploading(true);
     setYtUploadError(null);
     try {
-      const options: CatalogUploadOptions = {
-        folder_name: folderName,
+      const { job_id } = await uploadLongformYouTube(scriptId, uploadPrivacy as "private" | "unlisted" | "public", {
         title: uploadTitle,
         description: uploadDesc,
         tags: uploadTags.split(",").map((t) => t.trim()).filter(Boolean),
-        privacy_status: uploadPrivacy,
-      };
-      const { job_id } = await catalogUpload(options);
+      });
       startUploadPolling(job_id);
     } catch (err) {
       setYtUploading(false);

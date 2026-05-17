@@ -658,9 +658,6 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
     project_title = record.topic_title or "Untitled"
     folder = project_downloads_folder(project_title)
 
-    from pipeline.catalog import write_script_id
-    write_script_id(folder, body.script_id)
-
     renders_dir = DATA_DIR / "projects" / body.script_id / "renders"
     copied_files: list[str] = []
     (folder / longform_filename("Audio", project_title, ".mp3")).unlink(missing_ok=True)

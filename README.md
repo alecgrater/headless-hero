@@ -46,7 +46,6 @@ The app is structured as four layers:
 | `/api/thumbnail` | Thumbnail generation |
 | `/api/seo` | SEO metadata generation |
 | `/api/publish` | YouTube OAuth, upload, status, history |
-| `/api/catalog` | Exported video catalog browser + YouTube upload |
 | `/api/trending` | Trending topics, content profile, smart ideas |
 | `/api/postits` | Post-it brainstorming board CRUD |
 | `/api/brainstorm` | AI brainstorming sessions |
@@ -134,7 +133,6 @@ headless-hero/
 │       ├── App.tsx           # Root component with view routing
 │       ├── components/
 │       │   ├── brand/        # Voice setup modal + voice cloning
-│       │   ├── catalog/      # Exported video catalog browser
 │       │   ├── dashboard/    # Project list and management
 │       │   ├── ideation/     # Idea generation UI
 │       │   ├── postit/       # Post-it brainstorming board
@@ -180,7 +178,6 @@ headless-hero/
 │   │   ├── thumbnail.py      # LLM concepts + Gemini + FFmpeg composite
 │   │   ├── seo.py            # Routed LLM SEO metadata
 │   │   ├── publishing.py     # YouTube upload orchestration
-│   │   ├── catalog.py        # Exported video catalog management
 │   │   ├── title_card.py     # Per-segment title card generation
 │   │   ├── title_card_composer.py # Composite title card grid assembly
 │   │   ├── refine.py         # Scene refinement

@@ -65,6 +65,9 @@ class ShortFormUploadRequest(BaseModel):
 class LongFormUploadRequest(BaseModel):
     script_id: str
     privacy_status: str = "unlisted"
+    title: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
 
 class ShortUploadPlatformStatus(BaseModel):
     platform: str
@@ -531,16 +534,6 @@ def start_upload(body: UploadRequest, session: Session = Depends(get_session)):
                     rec.published_at = datetime.now(timezone.utc)
                     rec.updated_at = datetime.now(timezone.utc)
 
-                    # Write file markers to export folder if it exists
-                    from models.script import Script
-                    from pipeline.catalog import find_export_folder, write_youtube_url
-                    script = s.get(Script, body.script_id)
-                    if script:
-                        export_path = find_export_folder(script.topic_title, script.created_at)
-                        if export_path:
-                            write_youtube_url(export_path, result["url"])
-                            rec.export_folder = export_path.name
-
                     s.add(rec)
                     s.commit()
 
@@ -599,6 +592,12 @@ def start_longform_youtube_upload(body: LongFormUploadRequest, session: Session 
     video_path = _rendered_longform_path(body.script_id)
     thumbnail_path = _longform_thumbnail_path(body.script_id)
     metadata = _longform_metadata(content)
+    if body.title:
+        metadata["title"] = body.title
+    if body.description is not None:
+        metadata["description"] = body.description
+    if body.tags is not None:
+        metadata["tags"] = body.tags
 
     record = PublishRecord(
         script_id=body.script_id,
@@ -618,8 +617,6 @@ def start_longform_youtube_upload(body: LongFormUploadRequest, session: Session 
     cred_refresh = cred.refresh_token
     cred_access = cred.access_token
     cred_expiry = cred.token_expiry
-    script_title = script.topic_title
-    script_created = script.created_at
     privacy = body.privacy_status
 
     job = create_job()
@@ -658,12 +655,6 @@ def start_longform_youtube_upload(body: LongFormUploadRequest, session: Session 
                     rec.platform_url = result["url"]
                     rec.published_at = datetime.now(timezone.utc)
                     rec.updated_at = datetime.now(timezone.utc)
-
-                    from pipeline.catalog import find_export_folder, write_youtube_url
-                    export_path = find_export_folder(script_title, script_created)
-                    if export_path:
-                        write_youtube_url(export_path, result["url"])
-                        rec.export_folder = export_path.name
 
                     s.add(rec)
                     s.commit()
