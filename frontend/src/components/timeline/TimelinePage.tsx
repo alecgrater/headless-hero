@@ -1,11 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Info, Zap } from "lucide-react";
-import api, { assetUrl, generateFX, pollFXJob, generateEli, pollEliJob, exportTest, fetchScriptCost, getYouTubeOAuthStatus } from "../../api";
+import api, {
+  assetUrl,
+  exportTest,
+  fetchScriptCost,
+  generateEli,
+  generateFX,
+  generateShortFormThumbnailsAll,
+  generateShortFormThumbnailsBatch,
+  getRenderedShortsStatus,
+  getShortFormThumbnailsStatus,
+  getYouTubeOAuthStatus,
+  pollEliJob,
+  pollFXJob,
+  pollShortFormJob,
+  renderShortAll,
+  renderShortBatch,
+} from "../../api";
 import type { ExportTestOptions } from "../../api";
 import type { ScriptCostBreakdownItem } from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
-import type { ThumbnailConcept } from "../../types/render";
+import type { SEOMetadata, ShortFormSEO, ShortFormSEOMetadata, ThumbnailConcept } from "../../types/render";
 import type { SaveState } from "../../App";
 import type { MicroTimelineHandle } from "./SceneMicroTimeline";
 import ExportPanel from "./ExportPanel";
@@ -17,7 +33,10 @@ import PropertiesPanel from "./PropertiesPanel";
 import ThumbnailModal from "./ThumbnailModal";
 import TimelineLanes from "./TimelineLanes";
 import VoiceSetupModal from "../brand/VoiceSetupModal";
+import MiniProgressBar from "../MiniProgressBar";
 import ShortFormStatusPill from "./short-form/ShortFormStatusPill";
+import ShortFormTab from "./short-form/ShortFormTab";
+import ShortFormThumbnailsCard from "./short-form/ShortFormThumbnailsCard";
 import { Tooltip } from "../ui/Tooltip";
 import { useRenderState } from "./useRenderState";
 import { useTimelineState } from "./useTimelineState";
@@ -233,6 +252,519 @@ function sceneProgressCounter(step: string, progress: number, total: number): st
   return `${current}/${total}`;
 }
 
+type ViewerFormat = "long-form" | "short-form";
+type ViewerAsset = "render" | "thumbnails" | "seo";
+type ProductionTask = "lf-seo" | "sf-thumbnails" | "sf-seo" | "sf-renders";
+
+function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      className={`text-xs px-2 py-1 bg-neutral-800 hover:bg-neutral-700 rounded transition-all duration-150 ${
+        copied ? "text-emerald-400 scale-105" : "text-neutral-400 scale-100"
+      }`}
+    >
+      {copied ? "Copied!" : label}
+    </button>
+  );
+}
+
+function TagList({ tags }: { tags: string[] }) {
+  const tagString = tags.join(", ");
+  return (
+    <div className="space-y-1">
+      <p className="text-xs text-neutral-400 whitespace-pre-wrap select-all cursor-text bg-neutral-900/50 rounded p-2">
+        {tagString}
+      </p>
+      <div className="flex items-center justify-between">
+        <span className={`text-[10px] ${tagString.length > 500 ? "text-red-400" : "text-neutral-500"}`}>
+          {tagString.length}/500 characters
+        </span>
+        <CopyButton text={tagString} />
+      </div>
+    </div>
+  );
+}
+
+function formatShortFormSEO(item: ShortFormSEO): string {
+  const sections = [
+    `Short ${item.index}`,
+    `Title:\n${item.title}`,
+    `Description:\n${item.description}`,
+  ];
+  if (item.hashtags.length > 0) sections.push(`Hashtags:\n${item.hashtags.join(" ")}`);
+  if (item.tags.length > 0) sections.push(`YouTube Tags:\n${item.tags.join(", ")}`);
+  return sections.join("\n\n");
+}
+
+function compactProgressText(progress: number | null) {
+  if (progress == null) return "";
+  return `${Math.round(progress * 100)}%`;
+}
+
+function ProductionTaskButton({
+  label,
+  done,
+  busy,
+  missingCount,
+  progress,
+  onRunAll,
+  onRunMissing,
+  missingLabel,
+  allTitle,
+}: {
+  label: string;
+  done: boolean;
+  busy: boolean;
+  missingCount: number;
+  progress: number | null;
+  onRunAll: () => void;
+  onRunMissing: () => void;
+  missingLabel: string;
+  allTitle: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const buttonStateClass = busy
+    ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)]"
+    : done
+      ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
+      : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600";
+
+  return (
+    <div ref={ref} className="relative flex items-stretch min-w-[11rem]">
+      <button
+        type="button"
+        onClick={onRunAll}
+        disabled={busy}
+        className={`text-xs pl-3 pr-2 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 flex-1 whitespace-nowrap disabled:opacity-50 ${buttonStateClass}`}
+        title={allTitle}
+      >
+        {busy ? (
+          <>
+            <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
+            {compactProgressText(progress) || "Running"}
+          </>
+        ) : done ? (
+          `${label} ✓`
+        ) : (
+          label
+        )}
+      </button>
+      <button
+        type="button"
+        onClick={() => setOpen((show) => !show)}
+        disabled={busy}
+        className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center disabled:opacity-50"
+        title={`${label} options`}
+      >
+        <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+          <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1.5 w-56 bg-neutral-800/90 border border-neutral-700/60 rounded-xl shadow-2xl z-50 py-1.5">
+          <button
+            onClick={() => {
+              setOpen(false);
+              onRunMissing();
+            }}
+            disabled={missingCount === 0}
+            className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {missingLabel} ({missingCount})
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProductionWorkflowRow({
+  segmentCount,
+  lfSeoDone,
+  sfSeoDone,
+  sfSeoMissingCount,
+  sfThumbnailsDone,
+  sfThumbnailsMissingCount,
+  sfRendersDone,
+  sfRendersMissingCount,
+  busyTask,
+  progress,
+  seoGenerating,
+  shortFormSeoGenerating,
+  onGenerateLfSeo,
+  onGenerateMissingLfSeo,
+  onGenerateSfThumbnails,
+  onGenerateMissingSfThumbnails,
+  onGenerateSfSeo,
+  onGenerateMissingSfSeo,
+  onRenderSfVideos,
+  onRenderMissingSfVideos,
+}: {
+  segmentCount: number;
+  lfSeoDone: boolean;
+  sfSeoDone: boolean;
+  sfSeoMissingCount: number;
+  sfThumbnailsDone: boolean;
+  sfThumbnailsMissingCount: number;
+  sfRendersDone: boolean;
+  sfRendersMissingCount: number;
+  busyTask: ProductionTask | null;
+  progress: number | null;
+  seoGenerating: boolean;
+  shortFormSeoGenerating: boolean;
+  onGenerateLfSeo: () => void;
+  onGenerateMissingLfSeo: () => void;
+  onGenerateSfThumbnails: () => void;
+  onGenerateMissingSfThumbnails: () => void;
+  onGenerateSfSeo: () => void;
+  onGenerateMissingSfSeo: () => void;
+  onRenderSfVideos: () => void;
+  onRenderMissingSfVideos: () => void;
+}) {
+  return (
+    <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 shrink-0">
+          Production
+        </span>
+        <ProductionTaskButton
+          label="Generate LF SEO"
+          done={lfSeoDone}
+          busy={seoGenerating || busyTask === "lf-seo"}
+          missingCount={lfSeoDone ? 0 : 1}
+          progress={busyTask === "lf-seo" ? progress : null}
+          onRunAll={onGenerateLfSeo}
+          onRunMissing={onGenerateMissingLfSeo}
+          missingLabel="Generate Missing"
+          allTitle="Generate long-form YouTube title, description, and tags"
+        />
+        <ProductionTaskButton
+          label="Generate SF Thumbnails"
+          done={sfThumbnailsDone}
+          busy={busyTask === "sf-thumbnails"}
+          missingCount={sfThumbnailsMissingCount}
+          progress={busyTask === "sf-thumbnails" ? progress : null}
+          onRunAll={onGenerateSfThumbnails}
+          onRunMissing={onGenerateMissingSfThumbnails}
+          missingLabel="Generate Missing"
+          allTitle={`Generate vertical thumbnails for all ${segmentCount} short-form videos`}
+        />
+        <ProductionTaskButton
+          label="Generate SF SEO"
+          done={sfSeoDone}
+          busy={shortFormSeoGenerating || busyTask === "sf-seo"}
+          missingCount={sfSeoMissingCount}
+          progress={busyTask === "sf-seo" ? progress : null}
+          onRunAll={onGenerateSfSeo}
+          onRunMissing={onGenerateMissingSfSeo}
+          missingLabel="Generate Missing"
+          allTitle={`Generate upload SEO for all ${segmentCount} short-form videos`}
+        />
+        <ProductionTaskButton
+          label="Render SF Videos"
+          done={sfRendersDone}
+          busy={busyTask === "sf-renders"}
+          missingCount={sfRendersMissingCount}
+          progress={busyTask === "sf-renders" ? progress : null}
+          onRunAll={onRenderSfVideos}
+          onRunMissing={onRenderMissingSfVideos}
+          missingLabel="Render Missing"
+          allTitle={`Render all ${segmentCount} short-form videos`}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ViewerSwitchRow({
+  format,
+  asset,
+  activeTab,
+  hasPendingReview,
+  onFormatChange,
+  onAssetChange,
+  onTabChange,
+}: {
+  format: ViewerFormat;
+  asset: ViewerAsset;
+  activeTab: "timeline" | "media-sources" | "segments";
+  hasPendingReview: boolean;
+  onFormatChange: (format: ViewerFormat) => void;
+  onAssetChange: (asset: ViewerAsset) => void;
+  onTabChange: (tab: "timeline" | "media-sources" | "segments") => void;
+}) {
+  const renderTabSelector = format === "long-form" && asset === "render";
+
+  return (
+    <div className="px-5 py-2 border-b border-neutral-800/60 shrink-0">
+      <div className="flex items-center gap-3">
+        <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
+          {([
+            ["long-form", "Long Form"],
+            ["short-form", "Short Form"],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => onFormatChange(key)}
+              className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                format === key ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
+          {([
+            ["render", "Render"],
+            ["thumbnails", "Thumbnails"],
+            ["seo", "SEO"],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => onAssetChange(key)}
+              className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                asset === key ? "bg-neutral-700/80 text-white shadow-sm" : "text-neutral-400 hover:text-neutral-200"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {renderTabSelector && (
+          <>
+            <div className="h-6 w-px bg-neutral-800" />
+            <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
+              {([
+                ["timeline", "Timeline"],
+                ["media-sources", "Media Sources"],
+                ["segments", "Segments"],
+              ] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => onTabChange(key)}
+                  className={`relative px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                    activeTab === key ? "bg-neutral-700/80 text-white shadow-sm" : "text-neutral-400 hover:text-neutral-200"
+                  }`}
+                >
+                  {label}
+                  {key === "media-sources" && hasPendingReview && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-violet-500 rounded-full" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LongFormThumbnailsPanel({
+  thumbnails,
+  generating,
+  onGenerate,
+  progress,
+}: {
+  thumbnails: ThumbnailConcept[];
+  generating: boolean;
+  onGenerate: () => void;
+  progress: { estimatedSeconds: number | null; active: boolean };
+}) {
+  return (
+    <div className="flex-1 overflow-y-auto p-5">
+      <section className="space-y-4">
+        <header className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-200">Long-Form Thumbnails</h3>
+            <p className="text-xs text-neutral-500">{thumbnails.length} concept{thumbnails.length !== 1 ? "s" : ""} available</p>
+          </div>
+          <button
+            onClick={onGenerate}
+            disabled={generating}
+            className="text-sm px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            {generating && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
+            {generating ? "Regenerating..." : thumbnails.length > 0 ? "Regenerate Thumbnail" : "Generate Thumbnail"}
+          </button>
+        </header>
+        {generating && <MiniProgressBar estimatedSeconds={progress.estimatedSeconds} active={progress.active} />}
+        {thumbnails.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {thumbnails.map((thumbnail) => (
+              <article key={thumbnail.idx} className="rounded-lg border border-neutral-800 bg-neutral-900/70 overflow-hidden">
+                {thumbnail.image_url ? (
+                  <img
+                    src={assetUrl(thumbnail.image_url)}
+                    alt={thumbnail.title_text}
+                    className="w-full aspect-video object-cover"
+                  />
+                ) : (
+                  <div className="w-full aspect-video bg-red-500/10 flex items-center justify-center text-xs text-red-400 p-3">
+                    {thumbnail.error ?? "No image generated"}
+                  </div>
+                )}
+                <div className="p-3 flex items-center justify-between gap-3">
+                  <p className="text-sm text-neutral-200 truncate">{thumbnail.title_text}</p>
+                  {thumbnail.image_url && (
+                    <a
+                      href={assetUrl(thumbnail.image_url)}
+                      download
+                      className="text-xs px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 rounded text-neutral-300 transition-colors"
+                    >
+                      Download
+                    </a>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-neutral-800 bg-neutral-900/40 p-10 text-center">
+            <p className="text-sm text-neutral-500">No long-form thumbnail concepts yet.</p>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function LongFormSeoPanel({
+  metadata,
+  generating,
+  onGenerate,
+  progress,
+}: {
+  metadata: SEOMetadata | null;
+  generating: boolean;
+  onGenerate: () => void;
+  progress: { estimatedSeconds: number | null; active: boolean };
+}) {
+  return (
+    <div className="flex-1 overflow-y-auto p-5">
+      <section className="space-y-4">
+        <header className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-200">Long-Form SEO</h3>
+            <p className="text-xs text-neutral-500">YouTube title, timestamped description, and tags.</p>
+          </div>
+          <button
+            onClick={onGenerate}
+            disabled={generating}
+            className="text-sm px-4 py-2 bg-teal-600 hover:bg-teal-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            {generating && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
+            {generating ? "Generating..." : metadata ? "Regenerate Long SEO" : "Generate Long SEO"}
+          </button>
+        </header>
+        {generating && <MiniProgressBar estimatedSeconds={progress.estimatedSeconds} active={progress.active} />}
+        {metadata ? (
+          <div className="bg-neutral-900/80 border border-neutral-800 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-neutral-400 uppercase">YouTube</span>
+              <CopyButton text={`Title:\n${metadata.youtube.title}\n\nDescription:\n${metadata.youtube.description}\n\nTags:\n${metadata.youtube.tags.join(", ")}`} />
+            </div>
+            <p className="text-sm font-medium text-neutral-200">{metadata.youtube.title}</p>
+            <p className="text-xs text-neutral-400 whitespace-pre-wrap">{metadata.youtube.description}</p>
+            <TagList tags={metadata.youtube.tags} />
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-neutral-800 bg-neutral-900/40 p-10 text-center">
+            <p className="text-sm text-neutral-500">No long-form SEO generated yet.</p>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function ShortFormSeoPanel({
+  metadata,
+  segmentCount,
+  generating,
+  onGenerate,
+  progress,
+}: {
+  metadata: ShortFormSEOMetadata | null;
+  segmentCount: number;
+  generating: boolean;
+  onGenerate: () => void;
+  progress: { estimatedSeconds: number | null; active: boolean };
+}) {
+  const shorts = metadata?.shorts ?? [];
+  return (
+    <div className="flex-1 overflow-y-auto p-5">
+      <section className="space-y-4">
+        <header className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-200">Short-Form SEO</h3>
+            <p className="text-xs text-neutral-500">{shorts.length}/{segmentCount} shorts packaged for upload.</p>
+          </div>
+          <button
+            onClick={onGenerate}
+            disabled={generating}
+            className="text-sm px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            {generating && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
+            {generating ? "Generating..." : metadata ? "Regenerate Short SEO" : `Generate All ${segmentCount} Short SEO`}
+          </button>
+        </header>
+        {generating && <MiniProgressBar estimatedSeconds={progress.estimatedSeconds} active={progress.active} />}
+        {shorts.length > 0 ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 py-2">
+              <span className="text-xs text-sky-200">{shorts.length}/{segmentCount} shorts packaged</span>
+              <CopyButton label="Copy All" text={shorts.map(formatShortFormSEO).join("\n\n---\n\n")} />
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              {shorts.slice().sort((a, b) => a.index - b.index).map((item) => (
+                <article key={item.index} className="bg-neutral-900/80 border border-neutral-800 rounded-lg p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="text-xs font-semibold text-neutral-400 uppercase">Short {item.index}</span>
+                      <p className="mt-1 text-sm font-medium text-neutral-200">{item.title}</p>
+                    </div>
+                    <CopyButton text={formatShortFormSEO(item)} />
+                  </div>
+                  <p className="text-xs text-neutral-400 whitespace-pre-wrap">{item.description}</p>
+                  {item.hashtags.length > 0 && (
+                    <p className="text-xs text-sky-300 whitespace-pre-wrap select-all cursor-text bg-neutral-950/70 rounded p-2">
+                      {item.hashtags.join(" ")}
+                    </p>
+                  )}
+                  <TagList tags={item.tags} />
+                </article>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-neutral-800 bg-neutral-900/40 p-10 text-center">
+            <p className="text-sm text-neutral-500">No short-form SEO generated yet.</p>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function TimelineEditor({
   scriptId,
   initialContent,
@@ -311,6 +843,13 @@ function TimelineEditor({
   const [yoloRenderRunning, setYoloRenderRunning] = useState(false);
   const [yoloRenderError, setYoloRenderError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"timeline" | "media-sources" | "segments">("timeline");
+  const [viewerFormat, setViewerFormat] = useState<ViewerFormat>("long-form");
+  const [viewerAsset, setViewerAsset] = useState<ViewerAsset>("render");
+  const [sfThumbnailPaths, setSfThumbnailPaths] = useState<Record<number, string | undefined>>({});
+  const [sfRenderPaths, setSfRenderPaths] = useState<Record<number, string | undefined>>({});
+  const [productionBusyTask, setProductionBusyTask] = useState<ProductionTask | null>(null);
+  const [productionProgress, setProductionProgress] = useState<number | null>(null);
+  const [productionError, setProductionError] = useState<string | null>(null);
   const yoloCancelledRef = useRef(false);
   const microTimelineRef = useRef<MicroTimelineHandle>(null);
 
@@ -320,6 +859,33 @@ function TimelineEditor({
   useEffect(() => {
     if (media.hasPendingReview) setActiveTab("media-sources");
   }, [media.hasPendingReview]);
+
+  const refreshShortFormThumbnailStatus = useCallback(async () => {
+    try {
+      const status = await getShortFormThumbnailsStatus(scriptId);
+      setSfThumbnailPaths(status.paths);
+      return status.paths;
+    } catch {
+      setSfThumbnailPaths({});
+      return {};
+    }
+  }, [scriptId]);
+
+  const refreshShortFormRenderStatus = useCallback(async () => {
+    try {
+      const status = await getRenderedShortsStatus(scriptId);
+      setSfRenderPaths(status.paths);
+      return status.paths;
+    } catch {
+      setSfRenderPaths({});
+      return {};
+    }
+  }, [scriptId]);
+
+  useEffect(() => {
+    void refreshShortFormThumbnailStatus();
+    void refreshShortFormRenderStatus();
+  }, [refreshShortFormThumbnailStatus, refreshShortFormRenderStatus]);
 
   const refreshCost = useCallback(async () => {
     const data = await fetchScriptCost(scriptId);
@@ -594,6 +1160,16 @@ function TimelineEditor({
   const allEliGenerated = eliScenes.length > 0 && eliScenes.every((sc) => sc.eli_overlay);
   const hasExistingEli = allScenes.some((sc) => sc.eli_overlay);
   const missingEliCount = eliScenes.filter((sc) => !sc.eli_overlay).length;
+  const sfThumbnailCount = Object.values(sfThumbnailPaths).filter(Boolean).length;
+  const sfRenderCount = Object.values(sfRenderPaths).filter(Boolean).length;
+  const shortFormSeoCount = render.shortFormSeoMetadata?.shorts.length ?? 0;
+  const lfSeoDone = render.seoMetadata != null;
+  const sfSeoDone = segmentCount > 0 && shortFormSeoCount >= segmentCount;
+  const sfThumbnailsDone = segmentCount > 0 && sfThumbnailCount >= segmentCount;
+  const sfRendersDone = segmentCount > 0 && sfRenderCount >= segmentCount;
+  const sfSeoMissingCount = Math.max(0, segmentCount - shortFormSeoCount);
+  const sfThumbnailMissingCount = Math.max(0, segmentCount - sfThumbnailCount);
+  const sfRenderMissingCount = Math.max(0, segmentCount - sfRenderCount);
 
   const confirmAndGenerateImages = () => {
     if (hasExistingImages) {
@@ -758,6 +1334,89 @@ function TimelineEditor({
       eliProgress.end(sceneCount);
       refreshCost();
     }
+  };
+
+  const runProductionTask = async (task: ProductionTask, action: () => Promise<void>) => {
+    if (productionBusyTask) return;
+    setProductionBusyTask(task);
+    setProductionProgress(null);
+    setProductionError(null);
+    try {
+      await action();
+    } catch (err) {
+      setProductionError(err instanceof Error ? err.message : "Production task failed");
+    } finally {
+      setProductionBusyTask(null);
+      setProductionProgress(null);
+    }
+  };
+
+  const handleGenerateLfSeo = () => {
+    void runProductionTask("lf-seo", async () => {
+      await render.generateSEO();
+    });
+  };
+
+  const handleGenerateMissingLfSeo = () => {
+    if (lfSeoDone) return;
+    handleGenerateLfSeo();
+  };
+
+  const handleGenerateSfSeo = () => {
+    void runProductionTask("sf-seo", async () => {
+      await render.generateShortFormSEO();
+    });
+  };
+
+  const handleGenerateMissingSfSeo = () => {
+    if (sfSeoDone) return;
+    handleGenerateSfSeo();
+  };
+
+  const handleGenerateSfThumbnails = () => {
+    void runProductionTask("sf-thumbnails", async () => {
+      const { job_id } = await generateShortFormThumbnailsAll(scriptId);
+      await pollShortFormJob(job_id, (status) => {
+        if (typeof status.progress === "number") setProductionProgress(status.progress);
+      });
+      await refreshShortFormThumbnailStatus();
+    });
+  };
+
+  const handleGenerateMissingSfThumbnails = () => {
+    void runProductionTask("sf-thumbnails", async () => {
+      const refreshed = await refreshShortFormThumbnailStatus();
+      const indices = state.content.segments.map((_, idx) => idx).filter((idx) => !refreshed[idx]);
+      if (indices.length === 0) return;
+      const { job_id } = await generateShortFormThumbnailsBatch(scriptId, indices);
+      await pollShortFormJob(job_id, (status) => {
+        if (typeof status.progress === "number") setProductionProgress(status.progress);
+      });
+      await refreshShortFormThumbnailStatus();
+    });
+  };
+
+  const handleRenderSfVideos = () => {
+    void runProductionTask("sf-renders", async () => {
+      const { job_id } = await renderShortAll(scriptId);
+      await pollShortFormJob(job_id, (status) => {
+        if (typeof status.progress === "number") setProductionProgress(status.progress);
+      });
+      await refreshShortFormRenderStatus();
+    });
+  };
+
+  const handleRenderMissingSfVideos = () => {
+    void runProductionTask("sf-renders", async () => {
+      const refreshed = await refreshShortFormRenderStatus();
+      const indices = state.content.segments.map((_, idx) => idx).filter((idx) => !refreshed[idx]);
+      if (indices.length === 0) return;
+      const { job_id } = await renderShortBatch(scriptId, indices);
+      await pollShortFormJob(job_id, (status) => {
+        if (typeof status.progress === "number") setProductionProgress(status.progress);
+      });
+      await refreshShortFormRenderStatus();
+    });
   };
 
   const cancelYolo = () => {
@@ -1096,6 +1755,32 @@ function TimelineEditor({
             titleCardProgressActive={titleCardProgress.active}
           />
 
+          <ProductionWorkflowRow
+            segmentCount={segmentCount}
+            lfSeoDone={lfSeoDone}
+            sfSeoDone={sfSeoDone}
+            sfSeoMissingCount={sfSeoMissingCount}
+            sfThumbnailsDone={sfThumbnailsDone}
+            sfThumbnailsMissingCount={sfThumbnailMissingCount}
+            sfRendersDone={sfRendersDone}
+            sfRendersMissingCount={sfRenderMissingCount}
+            busyTask={productionBusyTask}
+            progress={productionProgress}
+            seoGenerating={render.seoGenerating}
+            shortFormSeoGenerating={render.shortFormSeoGenerating}
+            onGenerateLfSeo={handleGenerateLfSeo}
+            onGenerateMissingLfSeo={handleGenerateMissingLfSeo}
+            onGenerateSfThumbnails={handleGenerateSfThumbnails}
+            onGenerateMissingSfThumbnails={handleGenerateMissingSfThumbnails}
+            onGenerateSfSeo={handleGenerateSfSeo}
+            onGenerateMissingSfSeo={handleGenerateMissingSfSeo}
+            onRenderSfVideos={handleRenderSfVideos}
+            onRenderMissingSfVideos={handleRenderMissingSfVideos}
+          />
+          {productionError && (
+            <div className="px-5 pb-2 text-[11px] text-red-400">{productionError}</div>
+          )}
+
           {/* YOLO / Stats Row */}
           {(() => {
             const remaining: string[] = [];
@@ -1412,47 +2097,55 @@ function TimelineEditor({
         </div>
       )}
 
-      {/* Tab Bar */}
-      <div className="px-5 py-2 border-b border-neutral-800/60 shrink-0">
-        <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
-          <button
-            onClick={() => setActiveTab("timeline")}
-            className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
-              activeTab === "timeline"
-                ? "bg-neutral-700/80 text-white shadow-sm"
-                : "text-neutral-400 hover:text-neutral-200"
-            }`}
-          >
-            Timeline
-          </button>
-          <button
-            onClick={() => setActiveTab("media-sources")}
-            className={`relative px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
-              activeTab === "media-sources"
-                ? "bg-neutral-700/80 text-white shadow-sm"
-                : "text-neutral-400 hover:text-neutral-200"
-            }`}
-          >
-            Media Sources
-            {media.hasPendingReview && (
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-violet-500 rounded-full" />
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab("segments")}
-            className={`px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
-              activeTab === "segments"
-                ? "bg-neutral-700/80 text-white shadow-sm"
-                : "text-neutral-400 hover:text-neutral-200"
-            }`}
-          >
-            Segments
-          </button>
-        </div>
-      </div>
+      <ViewerSwitchRow
+        format={viewerFormat}
+        asset={viewerAsset}
+        activeTab={activeTab}
+        hasPendingReview={media.hasPendingReview}
+        onFormatChange={setViewerFormat}
+        onAssetChange={setViewerAsset}
+        onTabChange={setActiveTab}
+      />
 
-      {/* Tab content */}
-      {activeTab === "media-sources" ? (
+      {viewerFormat === "long-form" && viewerAsset === "thumbnails" ? (
+        <LongFormThumbnailsPanel
+          thumbnails={render.thumbnails}
+          generating={render.thumbnailsGenerating}
+          onGenerate={() => void render.recompositeThumbnail()}
+          progress={render.thumbnailProgress}
+        />
+      ) : viewerFormat === "long-form" && viewerAsset === "seo" ? (
+        <LongFormSeoPanel
+          metadata={render.seoMetadata}
+          generating={render.seoGenerating}
+          onGenerate={() => void render.generateSEO()}
+          progress={render.seoProgress}
+        />
+      ) : viewerFormat === "short-form" && viewerAsset === "render" ? (
+        <div className="flex-1 overflow-y-auto p-5">
+          <ShortFormTab
+            scriptId={scriptId}
+            segments={state.content.segments.map((s) => ({ name: s.name }))}
+            shortFormSeoMetadata={render.shortFormSeoMetadata}
+            onUploadComplete={() => undefined}
+          />
+        </div>
+      ) : viewerFormat === "short-form" && viewerAsset === "thumbnails" ? (
+        <div className="flex-1 overflow-y-auto p-5">
+          <ShortFormThumbnailsCard
+            scriptId={scriptId}
+            segments={state.content.segments.map((s) => ({ name: s.name }))}
+          />
+        </div>
+      ) : viewerFormat === "short-form" && viewerAsset === "seo" ? (
+        <ShortFormSeoPanel
+          metadata={render.shortFormSeoMetadata}
+          segmentCount={segmentCount}
+          generating={render.shortFormSeoGenerating}
+          onGenerate={() => void render.generateShortFormSEO()}
+          progress={render.shortFormSeoProgress}
+        />
+      ) : activeTab === "media-sources" ? (
         <MediaSourcesTab
           scriptId={scriptId}
           content={state.content}
