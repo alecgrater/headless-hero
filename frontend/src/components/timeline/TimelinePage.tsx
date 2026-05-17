@@ -2472,7 +2472,7 @@ function TimelineEditor({
             );
             statItems.push(
               <span key="segs" className="inline-flex h-7 shrink-0 items-center whitespace-nowrap text-xs text-neutral-400 bg-neutral-800/60 px-2.5 rounded-md tabular-nums">
-                {segmentCount} seg{segmentCount !== 1 ? "s" : ""}
+                {segmentCount} segment{segmentCount !== 1 ? "s" : ""}
               </span>
             );
             statItems.push(
