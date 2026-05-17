@@ -17,6 +17,7 @@ from config import DATA_DIR
 from models.credential import PlatformCredential, PlatformCredentialRead
 from models.publish import PublishRecord, PublishRecordRead
 from models.script import Script, ScriptContent
+from pipeline.export_paths import longform_filename, project_downloads_folder
 from pipeline.publishing import YOUTUBE_RECONNECT_MESSAGE, is_reauth_required_error, publish_short_to_platform, publish_to_youtube
 from pipeline.render_jobs import UserFacingJobError, create_job, get_job, run_in_background, update_job
 
@@ -179,11 +180,22 @@ def _rendered_short_path(script_id: str, segment_idx: int, content: ScriptConten
 
     raise HTTPException(status_code=400, detail=f"Short {segment_idx + 1} has not been rendered yet")
 
-def _rendered_longform_path(script_id: str) -> Path:
-    path = DATA_DIR / "projects" / script_id / "renders" / "full_youtube.mp4"
-    if not path.is_file():
-        raise HTTPException(status_code=400, detail="Render YouTube Video first before uploading to YouTube")
-    return path
+def _rendered_longform_path(script_id: str, project_title: str) -> Path:
+    renders_dir = DATA_DIR / "projects" / script_id / "renders"
+    if renders_dir.exists():
+        candidates = sorted(
+            renders_dir.glob("full_youtube*.mp4"),
+            key=lambda path: (path.name != "full_youtube.mp4", path.name),
+        )
+        for path in candidates:
+            if path.is_file():
+                return path
+
+    exported_path = project_downloads_folder(project_title, create=False) / longform_filename("Video", project_title, ".mp4")
+    if exported_path.is_file():
+        return exported_path
+
+    raise HTTPException(status_code=400, detail="Render YouTube Video first before uploading to YouTube")
 
 def _longform_thumbnail_path(script_id: str) -> Path:
     path = DATA_DIR / "projects" / script_id / "renders" / "thumbnails" / "0.png"
@@ -589,7 +601,8 @@ def start_longform_youtube_upload(body: LongFormUploadRequest, session: Session 
         raise HTTPException(status_code=400, detail="YouTube not connected. Connect YouTube in Settings → Publishing first")
 
     content = ScriptContent.model_validate(json.loads(script.script_json))
-    video_path = _rendered_longform_path(body.script_id)
+    project_title = script.topic_title or "Untitled"
+    video_path = _rendered_longform_path(body.script_id, project_title)
     thumbnail_path = _longform_thumbnail_path(body.script_id)
     metadata = _longform_metadata(content)
     if body.title:
