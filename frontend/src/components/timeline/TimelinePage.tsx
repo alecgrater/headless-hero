@@ -699,6 +699,7 @@ function ViewerSwitchRow({
             </button>
           ))}
         </div>
+        <div className="h-6 w-px bg-neutral-800" />
         <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
           {ASSET_OPTIONS.map(({ key, label, Icon }) => (
             <button
