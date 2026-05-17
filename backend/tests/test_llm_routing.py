@@ -26,7 +26,15 @@ def test_short_form_seo_settings_override_defaults(monkeypatch):
     assert _resolve_model("anthropic", "short_form_seo", None) == "anthropic.claude-sonnet-4-6"
 
 
-def test_eli_openai_uses_minimal_reasoning_by_default(monkeypatch):
+def test_structured_openai_tasks_use_minimal_reasoning_by_default(monkeypatch):
     monkeypatch.delenv("OPENAI_REASONING_EFFORT_ELI", raising=False)
 
-    assert _resolve_openai_reasoning_effort("eli") == "minimal"
+    for task in ["fx", "seo", "short_form_seo", "media", "eli", "analysis", "hook_detect"]:
+        monkeypatch.delenv(f"OPENAI_REASONING_EFFORT_{task.upper()}", raising=False)
+        assert _resolve_openai_reasoning_effort(task) == "minimal"
+
+
+def test_generation_openai_tasks_keep_low_reasoning_by_default(monkeypatch):
+    for task in ["script", "idea", "hook"]:
+        monkeypatch.delenv(f"OPENAI_REASONING_EFFORT_{task.upper()}", raising=False)
+        assert _resolve_openai_reasoning_effort(task) == "low"

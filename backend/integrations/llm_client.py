@@ -53,6 +53,7 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "default_provider": "ollama",
         "default_anthropic_model": BALANCED_CLAUDE_MODEL,
         "default_openai_model": "gpt-5-mini",
+        "openai_reasoning_effort": "minimal",
     },
     "seo": {
         "label": "SEO metadata",
@@ -61,7 +62,7 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "default_provider": "ollama",
         "default_anthropic_model": BALANCED_CLAUDE_MODEL,
         "default_openai_model": "gpt-5-mini",
-        "openai_reasoning_effort": "low",
+        "openai_reasoning_effort": "minimal",
     },
     "short_form_seo": {
         "label": "Short-form SEO metadata",
@@ -70,7 +71,7 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "default_provider": "openai",
         "default_anthropic_model": BALANCED_CLAUDE_MODEL,
         "default_openai_model": "gpt-5-mini",
-        "openai_reasoning_effort": "low",
+        "openai_reasoning_effort": "minimal",
     },
     "hook": {
         "label": "Hook scoring/refining",
@@ -88,6 +89,7 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "default_provider": "ollama",
         "default_anthropic_model": BALANCED_CLAUDE_MODEL,
         "default_openai_model": "gpt-5-mini",
+        "openai_reasoning_effort": "minimal",
     },
     "eli": {
         "label": "Eli animation",
@@ -105,6 +107,7 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "default_provider": "ollama",
         "default_anthropic_model": FAST_CLAUDE_MODEL,
         "default_openai_model": "gpt-5-nano",
+        "openai_reasoning_effort": "minimal",
     },
     "hook_detect": {
         "label": "Hook detection (short-form)",
@@ -113,6 +116,7 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "default_provider": "ollama",
         "default_anthropic_model": FAST_CLAUDE_MODEL,
         "default_openai_model": "gpt-5-nano",
+        "openai_reasoning_effort": "minimal",
     },
 }
 
