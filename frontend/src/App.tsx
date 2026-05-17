@@ -388,39 +388,15 @@ function App() {
           </nav>
         </div>
         <div className="flex items-center gap-4">
-          {/* Save controls — only visible on timeline view */}
-          {view === "timeline" && saveState && (
+          {/* Timeline undo — save state stays internal because timeline edits autosave. */}
+          {view === "timeline" && saveState?.canUndo && (
             <div className="flex items-center gap-2">
-              <span className={`w-1.5 h-1.5 rounded-full ${
-                saveState.saveStatus === "saved"
-                  ? "bg-emerald-400"
-                  : saveState.saveStatus === "saving"
-                    ? "bg-yellow-400"
-                    : "bg-red-400 animate-pulse"
-              }`} />
-              <span className="text-[11px] text-neutral-500">
-                {saveState.saveStatus === "saved" ? "Saved" : saveState.saveStatus === "saving" ? "Saving..." : "Unsaved"}
-              </span>
-              {saveState.canUndo && (
-                <button
-                  onClick={saveState.undo}
-                  className="text-[11px] px-2 py-1 text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800 rounded-md transition-colors"
-                  title="Undo (Cmd+Z)"
-                >
-                  Undo
-                </button>
-              )}
               <button
-                onClick={saveState.save}
-                disabled={!saveState.isDirty}
-                className={`text-sm px-3 py-1 rounded-lg font-medium transition-colors ${
-                  saveState.isDirty
-                    ? "bg-neutral-200 text-neutral-900 hover:bg-white"
-                    : "bg-neutral-800 text-neutral-500 cursor-default"
-                }`}
-                title="Cmd+S"
+                onClick={saveState.undo}
+                className="text-[11px] px-2 py-1 text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800 rounded-md transition-colors"
+                title="Undo (Cmd+Z)"
               >
-                Save
+                Undo
               </button>
             </div>
           )}
