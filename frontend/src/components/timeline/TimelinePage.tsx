@@ -130,7 +130,7 @@ function DistributionTrackingButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-2 text-xs text-neutral-400 bg-neutral-800/60 hover:bg-neutral-700/70 px-3 py-1 rounded-md tabular-nums transition-colors"
+      className="inline-flex h-7 shrink-0 items-center gap-2 whitespace-nowrap text-xs text-neutral-400 bg-neutral-800/60 hover:bg-neutral-700/70 px-4 rounded-md tabular-nums transition-colors"
       title="Open distribution tracking"
     >
       <span className="flex items-center gap-1.5">
@@ -2476,28 +2476,28 @@ function TimelineEditor({
           {/* Stats Row + Viewer Switch */}
           {(() => {
             const sep = (key: string) => (
-              <span key={key} className="w-px h-4 bg-neutral-700/50" />
+              <span key={key} className="w-px h-4 shrink-0 bg-neutral-700/50" />
             );
 
             const statItems: React.ReactNode[] = [];
             statItems.push(
-              <span key="scenes" className="text-xs text-neutral-400 bg-neutral-800/60 px-4 py-1 rounded-md tabular-nums">
+              <span key="scenes" className="inline-flex h-7 shrink-0 items-center whitespace-nowrap text-xs text-neutral-400 bg-neutral-800/60 px-4 rounded-md tabular-nums">
                 {sceneCount} scene{sceneCount !== 1 ? "s" : ""}
               </span>
             );
             statItems.push(
-              <span key="segs" className="text-xs text-neutral-400 bg-neutral-800/60 px-4 py-1 rounded-md tabular-nums">
+              <span key="segs" className="inline-flex h-7 shrink-0 items-center whitespace-nowrap text-xs text-neutral-400 bg-neutral-800/60 px-4 rounded-md tabular-nums">
                 {segmentCount} seg{segmentCount !== 1 ? "s" : ""}
               </span>
             );
             statItems.push(
-              <span key="duration" className="text-xs text-neutral-400 bg-neutral-800/60 px-4 py-1 rounded-md tabular-nums font-mono">
+              <span key="duration" className="inline-flex h-7 shrink-0 items-center whitespace-nowrap text-xs text-neutral-400 bg-neutral-800/60 px-4 rounded-md tabular-nums font-mono">
                 {durationStr}
               </span>
             );
             if (totalWords > 0) {
               statItems.push(
-                <span key="words" className="text-xs text-neutral-400 bg-neutral-800/60 px-4 py-1 rounded-md tabular-nums">
+                <span key="words" className="inline-flex h-7 shrink-0 items-center whitespace-nowrap text-xs text-neutral-400 bg-neutral-800/60 px-4 rounded-md tabular-nums">
                   {totalWords.toLocaleString()} words
                 </span>
               );
@@ -2507,7 +2507,7 @@ function TimelineEditor({
                 <button
                   type="button"
                   onClick={() => setShowCostBreakdown((show) => !show)}
-                  className="text-xs text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-4 py-1 rounded-md tabular-nums font-medium transition-colors"
+                  className="inline-flex h-7 shrink-0 items-center whitespace-nowrap text-xs text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-4 rounded-md tabular-nums font-medium transition-colors"
                   title="Show cost breakdown"
                 >
                   {formatCost(totalCost)}
@@ -2523,7 +2523,7 @@ function TimelineEditor({
                   <button
                     type="button"
                     onClick={() => setShowMediaBreakdown((show) => !show)}
-                    className="text-xs text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 px-4 py-1 rounded-md tabular-nums font-medium transition-colors"
+                    className="inline-flex h-7 shrink-0 items-center whitespace-nowrap text-xs text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 px-4 rounded-md tabular-nums font-medium transition-colors"
                     title="Show media source breakdown"
                   >
                     {aiScenePercent} AI
@@ -2559,7 +2559,7 @@ function TimelineEditor({
             return (
               <>
                 <div className={`px-5 py-2 border-t border-neutral-800/60 shrink-0 ${yoloRenderRunning || yoloRunning ? "bg-sky-500/5" : ""}`}>
-                  <div className="flex items-center gap-1.5 min-w-0">
+                  <div className="flex flex-nowrap items-center gap-1.5 min-w-0 overflow-x-auto">
                     {interleavedStats}
                   </div>
                 </div>
