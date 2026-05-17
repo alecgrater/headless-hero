@@ -1,5 +1,6 @@
 import { showToast } from "./components/ToastContainer";
 import { BACKEND_PORT } from "./constants";
+import type { UploadTracking } from "./types/script";
 
 export interface ApiResponse<T = unknown> {
   ok: boolean;
@@ -369,6 +370,10 @@ export function openInBrowser(url: string): void {
     window.open(url, "_blank");
   }
 }
+
+export const YOUTUBE_STUDIO_URL = "https://studio.youtube.com/";
+export const TIKTOK_STUDIO_UPLOAD_URL = "https://www.tiktok.com/tiktokstudio/upload?from=webapp&lang=en&tab=video";
+export const INSTAGRAM_URL = "https://www.instagram.com/";
 
 /** Reveal a file or folder in Finder/Explorer (Electron only, no-op in browser). */
 export function showInFolder(fullPath: string): void {
@@ -846,4 +851,21 @@ export async function getShortFormUploadStatus(scriptId: string): Promise<Record
   const res = await api.get(`/api/publish/short-form/status/${scriptId}`);
   if (!res.ok) throw new Error(`Failed to fetch short upload status: ${res.status}`);
   return res.data as Record<number, ShortUploadStatus>;
+}
+
+/** Fetch derived upload tracking for a script (auto-detected + manual overrides). */
+export async function getUploadTracking(scriptId: string): Promise<UploadTracking> {
+  const res = await api.get(`/api/scripts/${encodeURIComponent(scriptId)}/upload-tracking`);
+  if (!res.ok) throw new Error(`Failed to fetch upload tracking: ${res.status}`);
+  return res.data as UploadTracking;
+}
+
+/** Manually set one or more upload tracking flags for a script. */
+export async function setUploadTracking(
+  scriptId: string,
+  patch: Partial<UploadTracking>,
+): Promise<UploadTracking> {
+  const res = await api.post(`/api/scripts/${encodeURIComponent(scriptId)}/upload-tracking`, patch);
+  if (!res.ok) throw new Error(`Failed to set upload tracking: ${res.status}`);
+  return res.data as UploadTracking;
 }

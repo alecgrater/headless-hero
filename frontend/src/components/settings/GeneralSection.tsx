@@ -222,10 +222,6 @@ function modelForProvider(task: LlmTaskConfig, provider: LlmProvider) {
   return task.defaultModel;
 }
 
-function settingEnabled(value: string) {
-  return !new Set(["0", "false", "no", "off"]).has(value.trim().toLowerCase());
-}
-
 type GeneralPanel = "storage" | "ai-models" | "visuals";
 
 const PANEL_META: Record<GeneralPanel, { title: string; description: string; maxWidth: string }> = {
@@ -260,10 +256,6 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
   const [outputFormat, setOutputFormat] = useState("png");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [rateLimitEnabled, setRateLimitEnabled] = useState("true");
-  const [scraperFallbackEnabled, setScraperFallbackEnabled] = useState("false");
-  const [hookRefinementEnabled, setHookRefinementEnabled] = useState("true");
-  const [showSpeedRenderButton, setShowSpeedRenderButton] = useState("true");
   const [llmProvider, setLlmProvider] = useState<LlmProvider>("ollama");
   const [qwenModel, setQwenModel] = useState("qwen3:14b");
   const [anthropicKeyConfigured, setAnthropicKeyConfigured] = useState(false);
@@ -276,10 +268,6 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
   const [originalModel, setOriginalModel] = useState("black-forest-labs/flux-1.1-pro");
   const [originalSafety, setOriginalSafety] = useState("2");
   const [originalFormat, setOriginalFormat] = useState("png");
-  const [originalRateLimit, setOriginalRateLimit] = useState("true");
-  const [originalScraperFallback, setOriginalScraperFallback] = useState("false");
-  const [originalHookRefinement, setOriginalHookRefinement] = useState("true");
-  const [originalShowSpeedRenderButton, setOriginalShowSpeedRenderButton] = useState("true");
   const [originalLlmProvider, setOriginalLlmProvider] = useState<LlmProvider>("ollama");
   const [originalQwenModel, setOriginalQwenModel] = useState("qwen3:14b");
   const [originalTaskRoutes, setOriginalTaskRoutes] = useState<Record<string, TaskRoute>>(initialTaskRoutes);
@@ -309,18 +297,6 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
         const fmtVal = data.REPLICATE_OUTPUT_FORMAT?.masked || "png";
         setOutputFormat(fmtVal);
         setOriginalFormat(fmtVal);
-        const rlVal = data.IMAGE_RATE_LIMIT_MS?.masked || "true";
-        setRateLimitEnabled(settingEnabled(rlVal) ? "true" : "false");
-        setOriginalRateLimit(settingEnabled(rlVal) ? "true" : "false");
-        const sfVal = data.IMAGE_SCRAPER_FALLBACK_ENABLED?.masked || "false";
-        setScraperFallbackEnabled(settingEnabled(sfVal) ? "true" : "false");
-        setOriginalScraperFallback(settingEnabled(sfVal) ? "true" : "false");
-        const hrVal = data.HOOK_REFINEMENT_ENABLED?.masked || "true";
-        setHookRefinementEnabled(settingEnabled(hrVal) ? "true" : "false");
-        setOriginalHookRefinement(settingEnabled(hrVal) ? "true" : "false");
-        const srVal = data.SHOW_SPEED_RENDER_BUTTON?.masked || "true";
-        setShowSpeedRenderButton(settingEnabled(srVal) ? "true" : "false");
-        setOriginalShowSpeedRenderButton(settingEnabled(srVal) ? "true" : "false");
         const llmVal = (data.LLM_PROVIDER?.masked || "ollama") as LlmProvider;
         setLlmProvider(llmVal);
         setOriginalLlmProvider(llmVal);
@@ -364,10 +340,6 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
       REPLICATE_PROMPT_UPSAMPLING: promptUpsampling,
       REPLICATE_SAFETY_TOLERANCE: safetyTolerance,
       REPLICATE_OUTPUT_FORMAT: outputFormat,
-      IMAGE_RATE_LIMIT_MS: rateLimitEnabled === "true" ? "10000" : "0",
-      IMAGE_SCRAPER_FALLBACK_ENABLED: scraperFallbackEnabled,
-      HOOK_REFINEMENT_ENABLED: hookRefinementEnabled,
-      SHOW_SPEED_RENDER_BUTTON: showSpeedRenderButton,
       LLM_PROVIDER: llmProvider,
       QWEN_MODEL: qwenModel.trim() || "qwen3:14b",
       ...routePayload,
@@ -383,10 +355,6 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
       setOriginalUpsampling(promptUpsampling);
       setOriginalSafety(safetyTolerance);
       setOriginalFormat(outputFormat);
-      setOriginalRateLimit(rateLimitEnabled);
-      setOriginalScraperFallback(scraperFallbackEnabled);
-      setOriginalHookRefinement(hookRefinementEnabled);
-      setOriginalShowSpeedRenderButton(showSpeedRenderButton);
       setOriginalLlmProvider(llmProvider);
       setOriginalQwenModel(qwenModel.trim() || "qwen3:14b");
       setOriginalTaskRoutes(
@@ -452,10 +420,6 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
     promptUpsampling !== originalUpsampling ||
     safetyTolerance !== originalSafety ||
     outputFormat !== originalFormat ||
-    rateLimitEnabled !== originalRateLimit ||
-    scraperFallbackEnabled !== originalScraperFallback ||
-    hookRefinementEnabled !== originalHookRefinement ||
-    showSpeedRenderButton !== originalShowSpeedRenderButton ||
     llmProvider !== originalLlmProvider ||
     qwenModel.trim() !== originalQwenModel ||
     routeChanged;
@@ -534,36 +498,6 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                   Browse…
                 </button>
               )}
-            </div>
-          </div>
-          )}
-
-          {panel === "storage" && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
-            <div className="flex items-center justify-between gap-5">
-              <div>
-                <h3 className="text-sm font-medium text-neutral-100">1.25x Render Button</h3>
-                <p className="text-xs text-neutral-500">
-                  Shows or hides the “Render YouTube Video (1.25x Speed)” button in the Export window. The regular “Render YouTube Video” button always stays visible.
-                </p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={showSpeedRenderButton === "true"}
-                onClick={() =>
-                  setShowSpeedRenderButton(showSpeedRenderButton === "true" ? "false" : "true")
-                }
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
-                  showSpeedRenderButton === "true" ? "bg-violet-600 shadow-sm shadow-violet-500/30" : "bg-neutral-700"
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                    showSpeedRenderButton === "true" ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
-              </button>
             </div>
           </div>
           )}
@@ -703,33 +637,6 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
               </div>
             </div>
 
-            <div className="p-5">
-              <div className="flex items-center justify-between gap-5">
-                <div>
-                  <h3 className="text-sm font-medium text-neutral-100">Hook Refinement</h3>
-                  <p className="text-xs text-neutral-500">
-                    After you pick from the three scored cold opens, rewrite the selected hook before using it.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={hookRefinementEnabled === "true"}
-                  onClick={() =>
-                    setHookRefinementEnabled(hookRefinementEnabled === "true" ? "false" : "true")
-                  }
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
-                    hookRefinementEnabled === "true" ? "bg-violet-600 shadow-sm shadow-violet-500/30" : "bg-neutral-700"
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                      hookRefinementEnabled === "true" ? "translate-x-5" : "translate-x-0"
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
           </div>
           )}
 
@@ -755,66 +662,6 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
               </select>
             </div>
 
-            <div className="p-5">
-              <div className="flex items-center justify-between gap-5">
-                <div>
-                  <h3 className="text-sm font-medium text-neutral-100">Image Rate Limit</h3>
-                  <p className="text-xs text-neutral-500">
-                    Throttle batch image generation to ~6 requests/min to stay under free-tier API limits.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={rateLimitEnabled === "true"}
-                  onClick={() =>
-                    setRateLimitEnabled(rateLimitEnabled === "true" ? "false" : "true")
-                  }
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
-                    rateLimitEnabled === "true" ? "bg-violet-600 shadow-sm shadow-violet-500/30" : "bg-neutral-700"
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                      rateLimitEnabled === "true" ? "translate-x-5" : "translate-x-0"
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-5">
-              <div className="flex items-start justify-between gap-5">
-                <div className="space-y-1">
-                  <h3 className="text-sm font-medium text-neutral-100">Scraped Web Image Fallback</h3>
-                  <p className="text-xs text-neutral-400 leading-relaxed">
-                    Off by default. When Gemini fails after its normal retries, Headless Hero will create a placeholder image so the scene stays visibly marked for regeneration. Turning this on allows the app to scrape Google Images as a last-resort fallback, which can break the project&apos;s AI visual style and may pull images with unclear rights or attribution expectations. Use stock-photo routing for publishable real-world visuals when possible; enable this only for rough drafts or when you plan to manually verify every fallback image before export.
-                  </p>
-                  {scraperFallbackEnabled === "true" && (
-                    <p className="text-xs text-amber-300 leading-relaxed">
-                      Scraped fallback images are labeled in the scene properties with their provider, query, reason, and a rights-verification note.
-                    </p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={scraperFallbackEnabled === "true"}
-                  onClick={() =>
-                    setScraperFallbackEnabled(scraperFallbackEnabled === "true" ? "false" : "true")
-                  }
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
-                    scraperFallbackEnabled === "true" ? "bg-amber-500 shadow-sm shadow-amber-500/30" : "bg-neutral-700"
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                      scraperFallbackEnabled === "true" ? "translate-x-5" : "translate-x-0"
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
           </div>
           )}
 

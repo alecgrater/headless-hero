@@ -21,3 +21,24 @@ def test_parse_seo_markdown(tmp_path):
     assert title == "A Useful Upload Title"
     assert description == "First line.\nSecond line."
     assert tags == ["alpha", "beta", "gamma"]
+
+
+def test_build_youtube_description_appends_tags():
+    from pipeline.publishing import _build_youtube_description
+
+    result = _build_youtube_description("Great video about cats.", ["cats", "cute animals", "pets"])
+    assert result == "Great video about cats.\n\nTags: cats, cute animals, pets"
+
+
+def test_build_youtube_description_no_tags():
+    from pipeline.publishing import _build_youtube_description
+
+    result = _build_youtube_description("Just a description.", [])
+    assert result == "Just a description."
+
+
+def test_build_youtube_description_empty_description():
+    from pipeline.publishing import _build_youtube_description
+
+    result = _build_youtube_description("", ["one", "two"])
+    assert result == "Tags: one, two"

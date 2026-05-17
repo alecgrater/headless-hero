@@ -121,8 +121,9 @@ def list_catalog(session: Session = Depends(get_session)):
             ):
                 thumbnail_file = f.name
             elif (
-                lower == "seo.txt"
+                lower in ("seo.txt", "seo.md")
                 or lower.endswith(" - seo.txt")
+                or lower.endswith(" - seo.md")
                 or (
                     has_asset_label(f.name, "SEO")
                     and (seo_path is None or has_export_label(f.name, "Longform", "SEO"))
@@ -221,8 +222,9 @@ def sync_youtube(session: Session = Depends(get_session)):
         for f in item.iterdir():
             lower = f.name.lower()
             if (
-                lower == "seo.txt"
+                lower in ("seo.txt", "seo.md")
                 or lower.endswith(" - seo.txt")
+                or lower.endswith(" - seo.md")
                 or has_export_label(f.name, "Longform", "SEO")
             ):
                 seo_path = f
@@ -349,8 +351,9 @@ def catalog_upload(body: CatalogUploadRequest, session: Session = Depends(get_se
         ):
             thumbnail_path = str(f)
         elif (
-            lower == "seo.txt"
+            lower in ("seo.txt", "seo.md")
             or lower.endswith(" - seo.txt")
+            or lower.endswith(" - seo.md")
             or (
                 has_asset_label(f.name, "SEO")
                 and (seo_path is None or has_export_label(f.name, "Longform", "SEO"))

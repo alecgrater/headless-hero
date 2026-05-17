@@ -81,7 +81,9 @@ def refresh_access_token(refresh_token: str) -> dict:
     """Refresh an expired access token.
 
     Returns dict with access_token, expiry.
+    Raises RuntimeError with a clear re-auth message on invalid_grant.
     """
+    import google.auth.exceptions
     import google.auth.transport.requests
 
     config = _get_client_config()["web"]
@@ -93,7 +95,16 @@ def refresh_access_token(refresh_token: str) -> dict:
         client_secret=config["client_secret"],
         token_uri=_TOKEN_URI,
     )
-    creds.refresh(google.auth.transport.requests.Request())
+    try:
+        creds.refresh(google.auth.transport.requests.Request())
+    except google.auth.exceptions.RefreshError as exc:
+        msg = str(exc)
+        if "invalid_grant" in msg or "Token has been expired or revoked" in msg:
+            raise RuntimeError(
+                "Your YouTube connection has expired or been revoked. "
+                "Please reconnect your account in Settings → Publishing."
+            ) from exc
+        raise
     expiry = creds.expiry
     if expiry and expiry.tzinfo is None:
         expiry = expiry.replace(tzinfo=timezone.utc)

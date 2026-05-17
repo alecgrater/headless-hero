@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import ApiKeysSection from "./ApiKeysSection";
 import GeneralSection from "./GeneralSection";
+import MiscSection from "./MiscSection";
 import PublishingSection from "./PublishingSection";
 import VoiceSection from "./VoiceSection";
 
@@ -12,6 +13,7 @@ export const SECTIONS = [
   { id: "audio", label: "Audio", icon: "sliders" },
   { id: "publishing", label: "Publishing", icon: "upload" },
   { id: "api-keys", label: "API Keys", icon: "key" },
+  { id: "misc", label: "Miscellaneous", icon: "sparkles" },
 ] as const;
 
 export type SectionId = (typeof SECTIONS)[number]["id"];
@@ -132,6 +134,7 @@ export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultS
           {activeSection === "audio" && <VoiceSection panel="audio" />}
           {activeSection === "publishing" && <PublishingSection />}
           {activeSection === "api-keys" && <ApiKeysSection />}
+          {activeSection === "misc" && <MiscSection />}
         </div>
       </div>
     </div>

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Film, ImageIcon, Search, Smartphone, Upload, Video, X, Zap } from "lucide-react";
-import api, { assetUrl, catalogUpload, getPublishStatus, showInFolder, openInBrowser, uploadLongformYouTube } from "../../api";
+import api, { assetUrl, catalogUpload, getPublishStatus, showInFolder, openInBrowser, uploadLongformYouTube, getUploadTracking, setUploadTracking as apiSetUploadTracking, YOUTUBE_STUDIO_URL } from "../../api";
 import { showToast } from "../ToastContainer";
 import type { CatalogUploadOptions, PublishJobStatus } from "../../api";
+import type { UploadTracking } from "../../types/script";
 import type {
   ExportBundleResponse,
   RenderStatusResponse,
@@ -317,6 +318,35 @@ export default function ExportPanel({
   const [ytUploadedUrl, setYtUploadedUrl] = useState<string | null>(null);
   const [yoloExportError, setYoloExportError] = useState<string | null>(null);
   const [showSpeedRenderButton, setShowSpeedRenderButton] = useState(true);
+  const [uploadTracking, setUploadTracking] = useState<UploadTracking>({
+    longform_youtube: false,
+    shortform_youtube: false,
+    shortform_instagram: false,
+    shortform_tiktok: false,
+  });
+  const [trackingUpdating, setTrackingUpdating] = useState<Partial<Record<keyof UploadTracking, boolean>>>({});
+
+  const refreshUploadTracking = async () => {
+    try {
+      const tracking = await getUploadTracking(scriptId);
+      setUploadTracking(tracking);
+    } catch {
+      // non-critical
+    }
+  };
+
+  const handleToggleTracking = async (key: keyof UploadTracking) => {
+    const newVal = !uploadTracking[key];
+    setTrackingUpdating((prev) => ({ ...prev, [key]: true }));
+    try {
+      const updated = await apiSetUploadTracking(scriptId, { [key]: newVal });
+      setUploadTracking(updated);
+    } catch {
+      // revert is handled by not updating local state on failure
+    } finally {
+      setTrackingUpdating((prev) => ({ ...prev, [key]: false }));
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -331,6 +361,10 @@ export default function ExportPanel({
     };
   }, []);
 
+  useEffect(() => {
+    refreshUploadTracking();
+  }, [scriptId]);
+
   const { startPolling: startUploadPolling, stopPolling: stopUploadPolling } = usePollJob<PublishJobStatus>({
     pollFn: async (jobId) => getPublishStatus(jobId),
     isComplete: (s) => s.status === "completed",
@@ -340,6 +374,7 @@ export default function ExportPanel({
       if (status.status === "completed" && status.output_urls.length > 0) {
         setYtUploading(false);
         setYtUploadedUrl(status.output_urls[0]);
+        refreshUploadTracking();
       }
       if (status.status === "failed") {
         setYtUploading(false);
@@ -637,6 +672,15 @@ export default function ExportPanel({
                         </>
                       )}
                     </button>
+                    <button
+                      onClick={() => openInBrowser(YOUTUBE_STUDIO_URL)}
+                      className="text-sm px-4 py-2 bg-neutral-700 hover:bg-neutral-600 rounded-lg font-medium transition-colors inline-flex items-center gap-2 text-neutral-200"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
+                      </svg>
+                      Open YouTube Studio
+                    </button>
                     {showSpeedRenderButton && (
                       <button
                         onClick={() => onStartYoutubeRender(1.25)}
@@ -675,16 +719,129 @@ export default function ExportPanel({
                   </div>
                 )}
               </section>
+
+
+              {/* Distribution Tracking */}
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Distribution Tracking</h3>
+                <p className="text-xs text-neutral-500">Track where this video has been published. Auto-updates after in-app uploads — click to toggle manually.</p>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { key: "longform_youtube" as const, label: "YouTube (Long)", icon: (filled: boolean) => (
+                      <svg className={`w-3.5 h-3.5 ${filled ? "text-red-400" : "text-neutral-500"}`} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke={filled ? "none" : "currentColor"} strokeWidth={1.5}>
+                        <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
+                      </svg>
+                    )},
+                    { key: "shortform_youtube" as const, label: "YouTube (Short)", icon: (filled: boolean) => (
+                      <svg className={`w-3.5 h-3.5 ${filled ? "text-red-400" : "text-neutral-500"}`} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke={filled ? "none" : "currentColor"} strokeWidth={1.5}>
+                        <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
+                        <path d="M3 19h18" strokeLinecap="round" />
+                      </svg>
+                    )},
+                    { key: "shortform_instagram" as const, label: "Instagram", icon: (filled: boolean) => (
+                      <svg className={`w-3.5 h-3.5 ${filled ? "text-pink-400" : "text-neutral-500"}`} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke={filled ? "none" : "currentColor"} strokeWidth={1.5}>
+                        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
+                      </svg>
+                    )},
+                    { key: "shortform_tiktok" as const, label: "TikTok", icon: (filled: boolean) => (
+                      <svg className={`w-3.5 h-3.5 ${filled ? "text-neutral-100" : "text-neutral-500"}`} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke={filled ? "none" : "currentColor"} strokeWidth={1.5}>
+                        <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.95a8.19 8.19 0 004.79 1.53V7.03a4.85 4.85 0 01-1.02-.34z" />
+                      </svg>
+                    )},
+                  ] as const).map(({ key, label, icon }) => {
+                    const isUploaded = uploadTracking[key];
+                    const isUpdating = trackingUpdating[key];
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => handleToggleTracking(key)}
+                        disabled={isUpdating}
+                        title={isUploaded ? `Mark as not uploaded to ${label}` : `Mark as uploaded to ${label}`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                          isUploaded
+                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                            : "border-neutral-700 bg-neutral-800/60 text-neutral-500 hover:text-neutral-300 hover:border-neutral-600"
+                        } disabled:opacity-50`}
+                      >
+                        {isUpdating ? (
+                          <span className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
+                        ) : icon(isUploaded)}
+                        {label}
+                        {isUploaded && (
+                          <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                          </svg>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
             </div>
           )}
 
           {/* Render - Short Form Tab */}
           {activeTopTab === "short-form" && activeSubTab === "render" && (
-            <ShortFormTab
-              scriptId={scriptId}
-              segments={segments}
-              shortFormSeoMetadata={shortFormSeoMetadata}
-            />
+            <div className="space-y-6">
+              <ShortFormTab
+                scriptId={scriptId}
+                segments={segments}
+                shortFormSeoMetadata={shortFormSeoMetadata}
+                onUploadComplete={refreshUploadTracking}
+              />
+              {/* Distribution Tracking — Short-Form */}
+              <section className="space-y-3 border-t border-neutral-800 pt-5">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Distribution Tracking</h3>
+                  <span className="text-xs text-neutral-600">Click to toggle</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { key: "shortform_youtube" as const, label: "YouTube Shorts", icon: (filled: boolean) => (
+                      <svg className={`w-3.5 h-3.5 ${filled ? "text-red-400" : "text-neutral-500"}`} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke={filled ? "none" : "currentColor"} strokeWidth={1.5}>
+                        <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
+                      </svg>
+                    )},
+                    { key: "shortform_instagram" as const, label: "Instagram Reels", icon: (filled: boolean) => (
+                      <svg className={`w-3.5 h-3.5 ${filled ? "text-pink-400" : "text-neutral-500"}`} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke={filled ? "none" : "currentColor"} strokeWidth={1.5}>
+                        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
+                      </svg>
+                    )},
+                    { key: "shortform_tiktok" as const, label: "TikTok", icon: (filled: boolean) => (
+                      <svg className={`w-3.5 h-3.5 ${filled ? "text-neutral-100" : "text-neutral-500"}`} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke={filled ? "none" : "currentColor"} strokeWidth={1.5}>
+                        <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.95a8.19 8.19 0 004.79 1.53V7.03a4.85 4.85 0 01-1.02-.34z" />
+                      </svg>
+                    )},
+                  ] as const).map(({ key, label, icon }) => {
+                    const isUploaded = uploadTracking[key];
+                    const isUpdating = trackingUpdating[key];
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => handleToggleTracking(key)}
+                        disabled={isUpdating}
+                        title={isUploaded ? `Mark as not uploaded to ${label}` : `Mark as uploaded to ${label}`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                          isUploaded
+                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                            : "border-neutral-700 bg-neutral-800/60 text-neutral-500 hover:text-neutral-300 hover:border-neutral-600"
+                        } disabled:opacity-50`}
+                      >
+                        {isUpdating ? (
+                          <span className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
+                        ) : icon(isUploaded)}
+                        {label}
+                        {isUploaded && (
+                          <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                          </svg>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            </div>
           )}
 
           {/* Thumbnails Tab */}
@@ -975,15 +1132,26 @@ export default function ExportPanel({
                   </div>
                 )}
 
-                <button
-                  onClick={handleStartUpload}
-                  className="flex items-center gap-2 text-sm px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg font-medium transition-colors text-white"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
-                  </svg>
-                  Upload
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleStartUpload}
+                    className="flex items-center gap-2 text-sm px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg font-medium transition-colors text-white"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
+                    </svg>
+                    Upload
+                  </button>
+                  <button
+                    onClick={() => openInBrowser(YOUTUBE_STUDIO_URL)}
+                    className="flex items-center gap-2 text-sm px-4 py-2 bg-neutral-700 hover:bg-neutral-600 rounded-lg font-medium transition-colors text-neutral-200"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
+                    </svg>
+                    Open YouTube Studio
+                  </button>
+                </div>
               </>
             )}
           </div>

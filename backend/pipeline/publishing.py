@@ -24,28 +24,42 @@ def ensure_token_fresh(credential: PlatformCredential) -> bool:
     """Refresh the access token if it's expired or about to expire.
 
     Returns True if the token was refreshed (caller should persist).
+    Raises RuntimeError with a clear re-auth message on invalid_grant.
     """
+    needs_refresh: bool
     if not credential.token_expiry:
-        return False
+        # No expiry stored — we can't know if the access token is still valid.
+        # Attempt a proactive refresh so we don't hit a silent 401 mid-upload.
+        needs_refresh = True
+    else:
+        now = datetime.now(timezone.utc)
+        expiry = credential.token_expiry
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        remaining = (expiry - now).total_seconds()
+        needs_refresh = remaining <= _TOKEN_REFRESH_BUFFER_SECONDS
 
-    now = datetime.now(timezone.utc)
-    expiry = credential.token_expiry
-    if expiry.tzinfo is None:
-        expiry = expiry.replace(tzinfo=timezone.utc)
-    remaining = (expiry - now).total_seconds()
-    if remaining > _TOKEN_REFRESH_BUFFER_SECONDS:
+    if not needs_refresh:
         return False
 
     logger.info("Refreshing expired %s token for brand %s", credential.platform, credential.brand_id)
     if credential.platform == "youtube":
-        result = refresh_access_token(credential.refresh_token)
+        try:
+            result = refresh_access_token(credential.refresh_token)
+        except Exception as exc:
+            _handle_refresh_error(exc, "youtube")
+            raise  # _handle_refresh_error always raises; this line is unreachable but satisfies type checkers
         credential.access_token = result["access_token"]
         if result.get("expiry"):
             credential.token_expiry = datetime.fromisoformat(result["expiry"])
     elif credential.platform == "tiktok":
         from integrations.tiktok_client import refresh_access_token as refresh_tiktok_access_token
 
-        result = refresh_tiktok_access_token(credential.refresh_token)
+        try:
+            result = refresh_tiktok_access_token(credential.refresh_token)
+        except Exception as exc:
+            _handle_refresh_error(exc, "tiktok")
+            raise  # _handle_refresh_error always raises; this line is unreachable but satisfies type checkers
         credential.access_token = result["access_token"]
         credential.refresh_token = result.get("refresh_token", credential.refresh_token)
         if result.get("expires_in"):
@@ -55,6 +69,27 @@ def ensure_token_fresh(credential: PlatformCredential) -> bool:
     else:
         return False
     return True
+
+
+def _handle_refresh_error(exc: Exception, platform: str) -> None:
+    """Convert OAuth refresh errors into clear, actionable RuntimeErrors."""
+    msg = str(exc)
+    if "invalid_grant" in msg or "Token has been expired or revoked" in msg:
+        raise RuntimeError(
+            f"Your {platform} connection has expired or been revoked. "
+            "Please reconnect your account in Settings → Publishing."
+        ) from exc
+    # Re-raise anything else unchanged so it still surfaces with its original detail.
+    raise exc
+
+def _build_youtube_description(description: str, tags: list[str]) -> str:
+    """Append tags to the description as 'Tags: tag1, tag2, ...' at the bottom."""
+    base = description.strip()
+    if tags:
+        tags_line = "Tags: " + ", ".join(tags)
+        return f"{base}\n\n{tags_line}".strip() if base else tags_line
+    return base
+
 
 def publish_to_youtube(
     credential: PlatformCredential,
@@ -102,12 +137,14 @@ def publish_to_youtube(
         if on_progress:
             on_progress(0.05 + p * 0.9, "Uploading...")
 
+    tags = metadata.get("tags", [])
+    description = _build_youtube_description(metadata.get("description", ""), tags)
     result = upload_video(
         access_token=credential.access_token,
         file_path=local_path,
         title=metadata.get("title", "Untitled"),
-        description=metadata.get("description", ""),
-        tags=metadata.get("tags", []),
+        description=description,
+        tags=tags,
         privacy_status=privacy_status if not schedule_at else "private",
         publish_at=schedule_at,
         on_progress=upload_progress,

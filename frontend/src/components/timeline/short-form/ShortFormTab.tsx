@@ -9,12 +9,14 @@ interface Props {
   scriptId: string;
   segments: { name: string }[];
   shortFormSeoMetadata: ShortFormSEOMetadata | null;
+  onUploadComplete?: () => void;
 }
 
 export default function ShortFormTab({
   scriptId,
   segments,
   shortFormSeoMetadata,
+  onUploadComplete,
 }: Props) {
   const [renderedUrls, setRenderedUrls] = useState<Record<number, string | undefined>>({});
   const [downloadsUrls, setDownloadsUrls] = useState<Record<number, string | undefined>>({});
@@ -89,7 +91,11 @@ export default function ShortFormTab({
         uploadStatuses={uploadStatuses}
         shortFormSeoMetadata={shortFormSeoMetadata}
         onRefreshRendered={refreshRenderedShorts}
-        onRefreshUploads={refreshUploadStatuses}
+        onRefreshUploads={async () => {
+          const result = await refreshUploadStatuses();
+          onUploadComplete?.();
+          return result;
+        }}
         onRenderComplete={(idx, url) => {
           setRenderedUrls((prev) => ({ ...prev, [idx]: url }));
           setDownloadsUrls((prev) => ({ ...prev, [idx]: url }));
