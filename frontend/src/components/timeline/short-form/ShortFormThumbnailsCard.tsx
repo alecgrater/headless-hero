@@ -15,6 +15,7 @@ import type { ShortFormJobStatus } from "../../../types/render";
 interface Props {
   scriptId: string;
   segments: { name: string }[];
+  embedded?: boolean;
 }
 
 type CurrentOp =
@@ -27,7 +28,7 @@ function segmentLabel(segment: { name: string }, idx: number): string {
   return segment.name || `Segment ${idx + 1}`;
 }
 
-export default function ShortFormThumbnailsCard({ scriptId, segments }: Props) {
+export default function ShortFormThumbnailsCard({ scriptId, segments, embedded = false }: Props) {
   const [thumbnailUrls, setThumbnailUrls] = useState<Record<number, string | undefined>>({});
   const [thumbnailVersions, setThumbnailVersions] = useState<Record<number, number>>({});
   const [exportedPaths, setExportedPaths] = useState<Record<number, string | undefined>>({});
@@ -174,7 +175,7 @@ export default function ShortFormThumbnailsCard({ scriptId, segments }: Props) {
   }
 
   return (
-    <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 space-y-4">
+    <section className={embedded ? "space-y-4" : "bg-neutral-900 border border-neutral-800 rounded-xl p-4 space-y-4"}>
       <header className="flex items-start justify-between gap-4">
         <div>
           <h3 className="text-sm font-semibold text-neutral-200">Short-Form Thumbnails</h3>

@@ -1505,6 +1505,8 @@ function TimelineEditor({
           generating={thumbnailsInlineGenerating}
           onGenerate={handleRecompositeThumbnailInline}
           onClose={() => setShowThumbnailModal(false)}
+          scriptId={scriptId}
+          segments={state.content.segments.map((s) => ({ name: s.name }))}
         />
       )}
 
