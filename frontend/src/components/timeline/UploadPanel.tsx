@@ -125,19 +125,19 @@ function PrimaryActionStack({
   accentClass: string;
 }) {
   return (
-    <div className="flex w-full max-w-md flex-col items-stretch gap-2">
+    <div className="flex w-full max-w-[18rem] flex-col items-stretch gap-2">
       <button
         type="button"
         onClick={onOpenFolder}
-        className="flex h-12 items-center justify-center gap-2.5 rounded-lg border border-sky-400/50 bg-sky-500/15 px-4 text-sm font-semibold text-sky-100 transition-colors hover:border-sky-300 hover:bg-sky-500/25"
+        className="flex h-9 items-center justify-center gap-2 rounded-md border border-sky-400/50 bg-sky-500/15 px-3 text-xs font-semibold text-sky-100 transition-colors hover:border-sky-300 hover:bg-sky-500/25"
       >
-        <FolderOpen className="h-4 w-4" />
+        <FolderOpen className="h-3.5 w-3.5" />
         Open In Finder
       </button>
       <button
         type="button"
         onClick={onOpenDestination}
-        className={`flex h-12 items-center justify-center gap-2.5 rounded-lg border px-4 text-sm font-semibold transition-colors ${accentClass}`}
+        className={`flex h-9 items-center justify-center gap-2 rounded-md border px-3 text-xs font-semibold transition-colors ${accentClass}`}
       >
         {destinationIcon}
         {destinationLabel}
@@ -156,14 +156,17 @@ function ThumbnailPreview({
   orientation: "long-form" | "short-form";
 }) {
   const frameClass = orientation === "short-form" ? "aspect-[9/16] max-h-[320px]" : "aspect-video";
+  const imageClass = orientation === "short-form"
+    ? "absolute left-1/2 top-[-21.43%] h-[142.86%] w-[142.86%] max-w-none -translate-x-1/2 object-cover"
+    : "h-full w-full object-cover";
   return (
     <div className="w-full">
-      <div className={`mx-auto overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900 ${frameClass}`}>
+      <div className={`relative mx-auto overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900 ${frameClass}`}>
         {src ? (
           <img
             src={assetUrl(src)}
             alt={alt}
-            className="h-full w-full object-cover"
+            className={imageClass}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center px-6 text-center text-sm text-neutral-500">
@@ -211,7 +214,7 @@ function MarkdownPreview({ markdown }: { markdown: string }) {
   }
 
   return (
-    <div className="space-y-4 rounded-lg border border-neutral-800 bg-neutral-950/60 p-5">
+    <div className="space-y-3 rounded-lg border border-neutral-800 bg-neutral-950/60 p-4">
       {blocks.map((block, idx) => {
         if (block.type === "h1") {
           return <h3 key={idx} className="border-b border-neutral-800 pb-2 text-sm font-semibold uppercase text-sky-300">{block.text}</h3>;
@@ -279,15 +282,15 @@ export default function UploadPanel({ suite, onClose }: Props) {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {activeTab === "long-form" ? (
-            <div className="space-y-5">
-              <div className="grid items-start gap-5 lg:grid-cols-[minmax(280px,420px)_minmax(260px,360px)] lg:justify-between">
+            <div className="space-y-4">
+              <div className="grid items-start gap-5 lg:grid-cols-[minmax(180px,300px)_minmax(260px,360px)] lg:justify-between">
                 <PrimaryActionStack
                   onOpenFolder={() => showInFolder(suite.folder_path)}
                   onOpenDestination={openYouTubeUploadWindow}
                   destinationLabel="Open YouTube"
-                  destinationIcon={<ExternalLink className="h-4 w-4" />}
+                  destinationIcon={<ExternalLink className="h-3.5 w-3.5" />}
                   accentClass="border-red-400/50 bg-red-500/15 text-red-100 hover:border-red-300 hover:bg-red-500/25"
                 />
                 <ThumbnailPreview
@@ -303,61 +306,61 @@ export default function UploadPanel({ suite, onClose }: Props) {
               <MarkdownPreview markdown={suite.longform_seo_markdown} />
             </div>
           ) : (
-            <div className="space-y-5">
-              <div className="grid items-start gap-5 lg:grid-cols-[minmax(280px,420px)_minmax(220px,300px)] lg:justify-between">
+            <div className="space-y-4">
+              <div className="grid items-start gap-5 lg:grid-cols-[minmax(180px,300px)_minmax(220px,280px)] lg:justify-between">
                 <PrimaryActionStack
                   onOpenFolder={() => showInFolder(suite.folder_path)}
                   onOpenDestination={openUploadShortsWindows}
                   destinationLabel="Open Short Form Apps"
-                  destinationIcon={<ExternalLink className="h-4 w-4" />}
+                  destinationIcon={<ExternalLink className="h-3.5 w-3.5" />}
                   accentClass="border-violet-400/50 bg-violet-500/15 text-violet-100 hover:border-violet-300 hover:bg-violet-500/25"
                 />
 
-                <div className="space-y-3">
+                <div className="relative">
                   <ThumbnailPreview
                     src={activeShortItem?.thumbnail_url ?? null}
                     alt={activeShortItem?.segment_name ?? "Short form thumbnail"}
                     orientation="short-form"
                   />
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-2">
                     <button
                       type="button"
                       onClick={() => moveShort(-1)}
                       disabled={shortCount === 0}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-neutral-700 bg-neutral-900 text-neutral-300 transition-colors hover:bg-neutral-800 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="pointer-events-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-neutral-950/70 text-neutral-200 shadow-lg shadow-black/40 backdrop-blur transition-colors hover:bg-neutral-800/90 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
                       aria-label="Previous short"
                     >
-                      <ChevronLeft className="h-5 w-5" />
+                      <ChevronLeft className="h-4 w-4" />
                     </button>
-                    <div className="flex flex-wrap justify-center gap-2">
-                      {suite.shorts.map((item, idx) => (
-                        <button
-                          key={item.index}
-                          type="button"
-                          onClick={() => setActiveShort(idx)}
-                          className={`h-2.5 rounded-full transition-all ${
-                            idx === activeShort ? "w-9 bg-sky-300" : "w-2.5 bg-neutral-700 hover:bg-neutral-500"
-                          }`}
-                          aria-label={`Show short ${idx + 1}`}
-                        />
-                      ))}
-                    </div>
                     <button
                       type="button"
                       onClick={() => moveShort(1)}
                       disabled={shortCount === 0}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-neutral-700 bg-neutral-900 text-neutral-300 transition-colors hover:bg-neutral-800 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="pointer-events-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-neutral-950/70 text-neutral-200 shadow-lg shadow-black/40 backdrop-blur transition-colors hover:bg-neutral-800/90 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
                       aria-label="Next short"
                     >
-                      <ChevronRight className="h-5 w-5" />
+                      <ChevronRight className="h-4 w-4" />
                     </button>
+                  </div>
+                  <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/10 bg-neutral-950/75 px-2.5 py-1.5 shadow-lg shadow-black/40 backdrop-blur">
+                    {suite.shorts.map((item, idx) => (
+                      <button
+                        key={item.index}
+                        type="button"
+                        onClick={() => setActiveShort(idx)}
+                        className={`h-1.5 rounded-full transition-all ${
+                          idx === activeShort ? "w-6 bg-sky-300" : "w-1.5 bg-neutral-600 hover:bg-neutral-400"
+                        }`}
+                        aria-label={`Show short ${idx + 1}`}
+                      />
+                    ))}
                   </div>
                 </div>
               </div>
 
               {activeShortItem && (
                 <article className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900/80">
-                  <div className="min-w-0 space-y-4 p-5">
+                  <div className="min-w-0 space-y-3 p-4">
                     <div>
                       <p className="text-xs font-semibold uppercase text-neutral-500">Short {activeShort + 1} of {shortCount}</p>
                       <h3 className="mt-1 text-lg font-semibold text-neutral-100">{activeShortItem.segment_name}</h3>
