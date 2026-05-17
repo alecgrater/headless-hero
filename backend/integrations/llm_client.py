@@ -30,6 +30,7 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "default_provider": "anthropic",
         "default_anthropic_model": DEFAULT_CLAUDE_MODEL,
         "default_openai_model": DEFAULT_OPENAI_MODEL,
+        "openai_reasoning_effort": "low",
     },
     "idea": {
         "label": "Ideas & brainstorming",
@@ -38,6 +39,7 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "default_provider": "openai",
         "default_anthropic_model": BALANCED_CLAUDE_MODEL,
         "default_openai_model": "gpt-5-mini",
+        "openai_reasoning_effort": "low",
     },
     "fx": {
         "label": "FX assignment",
@@ -54,6 +56,7 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "default_provider": "ollama",
         "default_anthropic_model": BALANCED_CLAUDE_MODEL,
         "default_openai_model": "gpt-5-mini",
+        "openai_reasoning_effort": "low",
     },
     "short_form_seo": {
         "label": "Short-form SEO metadata",
@@ -62,6 +65,7 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "default_provider": "openai",
         "default_anthropic_model": BALANCED_CLAUDE_MODEL,
         "default_openai_model": "gpt-5-mini",
+        "openai_reasoning_effort": "low",
     },
     "hook": {
         "label": "Hook scoring/refining",
@@ -148,6 +152,22 @@ def _resolve_model(provider: str, task: str | None, model: str | None) -> str:
     return _default_model_for_provider(provider, task)
 
 
+def _resolve_openai_reasoning_effort(task: str | None) -> str | None:
+    """Per-task override via OPENAI_REASONING_EFFORT_<TASK>; otherwise the LLM_TASKS default.
+
+    Returns None when no preference is set, leaving the OpenAI default ("medium" for GPT-5).
+    """
+    task_config = LLM_TASKS.get(task or "")
+    env_key = f"OPENAI_REASONING_EFFORT_{(task or '').upper()}" if task else ""
+    if env_key:
+        env_value = os.environ.get(env_key, "").strip().lower()
+        if env_value:
+            return env_value
+    if task_config:
+        return task_config.get("openai_reasoning_effort")
+    return None
+
+
 def get_client(provider: str | None = None) -> anthropic.Anthropic:
     """Return an Anthropic client, routing per LLM_PROVIDER setting.
 
@@ -201,6 +221,7 @@ def chat(
         )
 
     if provider == "openai":
+        reasoning_effort = _resolve_openai_reasoning_effort(task)
         return _chat_openai(
             system=system,
             user_message=user_message,
@@ -211,6 +232,7 @@ def chat(
             cache=cache,
             json_mode=json_mode,
             task=task,
+            reasoning_effort=reasoning_effort,
         )
 
     client = get_client(provider)
@@ -403,6 +425,7 @@ def _chat_openai(
     cache: bool,
     json_mode: bool,
     task: str | None,
+    reasoning_effort: str | None = None,
 ) -> str:
     """Call OpenAI via Chat Completions."""
     from openai import BadRequestError, OpenAI
@@ -423,8 +446,8 @@ def _chat_openai(
 
     client = OpenAI(timeout=timeout)
     logger.info(
-        "Calling OpenAI task=%s model=%s max_tokens=%d timeout=%.0fs json_mode=%s",
-        task or "default", model, max_tokens, timeout, json_mode,
+        "Calling OpenAI task=%s model=%s max_tokens=%d timeout=%.0fs json_mode=%s reasoning_effort=%s",
+        task or "default", model, max_tokens, timeout, json_mode, reasoning_effort or "default",
     )
     t0 = time.monotonic()
 
@@ -435,21 +458,35 @@ def _chat_openai(
     }
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
+    if reasoning_effort:
+        kwargs["reasoning_effort"] = reasoning_effort
 
     try:
         response = client.chat.completions.create(**kwargs)
-    except BadRequestError:
-        if json_mode:
+    except BadRequestError as e:
+        # Some non-reasoning models reject reasoning_effort; some older models reject json_object.
+        # Strip the offending optional params and retry once.
+        retried = False
+        err_text = str(e).lower()
+        if reasoning_effort and ("reasoning" in err_text or "unsupported" in err_text or "unknown_parameter" in err_text):
+            logger.warning(
+                "OpenAI rejected reasoning_effort=%r — retrying without it (model=%s)",
+                reasoning_effort, model,
+            )
+            kwargs.pop("reasoning_effort", None)
+            retried = True
+        if json_mode and "response_format" in err_text:
             logger.warning(
                 "OpenAI rejected response_format=json_object — retrying without it (model=%s)",
                 model,
             )
             kwargs.pop("response_format", None)
-            response = client.chat.completions.create(**kwargs)
-        else:
+            retried = True
+        if not retried:
             elapsed = time.monotonic() - t0
             logger.error("OpenAI call failed after %.1fs (model=%s)", elapsed, model, exc_info=True)
             raise
+        response = client.chat.completions.create(**kwargs)
     except Exception:
         elapsed = time.monotonic() - t0
         logger.error("OpenAI call failed after %.1fs (model=%s)", elapsed, model, exc_info=True)
