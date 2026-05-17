@@ -139,7 +139,7 @@ export default function PipelineSteps({
   }, [showImagesDropdown, showFXDropdown, showEliDropdown]);
 
   return (
-    <div className="flex items-center gap-4 px-5 py-2.5">
+    <div className="flex items-center gap-4 px-5 py-2.5 overflow-x-auto">
       {/* Pipeline steps */}
       <div className="grid items-center gap-2" style={{ gridTemplateColumns: "15rem auto 15rem auto 15rem auto 15rem auto 15rem" }}>
 
