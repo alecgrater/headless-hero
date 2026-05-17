@@ -22,10 +22,6 @@ export interface ExportProgressStatus {
   progress: number;
 }
 
-export interface ExportAudioResponse {
-  audio_url: string;
-}
-
 // --- Thumbnail ---
 
 export interface ThumbnailConcept {

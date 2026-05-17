@@ -34,7 +34,7 @@
 
 AI-powered Electron desktop app for creating faceless educational YouTube content. Full pipeline: idea → script → visuals → voice → video → publish.
 
-**Stack:** Electron 41 + React 19/Vite/TypeScript/Tailwind 4 frontend + Python 3.12/FastAPI backend + Remotion 4 (video rendering) + FFmpeg (audio export) + SQLite
+**Stack:** Electron 41 + React 19/Vite/TypeScript/Tailwind 4 frontend + Python 3.12/FastAPI backend + Remotion 4 (video rendering) + FFmpeg + SQLite
 
 ## Dev Commands
 
@@ -140,7 +140,9 @@ Stored in DB via AppSettings, loaded into env at startup. Never commit `.env` fi
 
 ## Video Rendering (Remotion)
 
-Remotion 4 (React-based frame-by-frame renderer) instead of FFmpeg filter graphs. FFmpeg still used for audio concat export only. Python writes scene data + FX config to JSON → invokes `npx remotion render` via subprocess → picks up output MP4. Renders entire video as a single `FullVideo` composition (enables native transitions and global timeline).
+Remotion 4 (React-based frame-by-frame renderer) instead of FFmpeg filter graphs. Python writes scene data + FX config to JSON → invokes `npx remotion render` via subprocess → picks up output MP4. Renders entire video as a single `FullVideo` composition (enables native transitions and global timeline).
+
+Export bundles must not generate or include standalone long-form audio MP3 files. Scene audio remains internal pipeline media for timing and video rendering only.
 
 **FX**: AI-generated via Codex (not manually edited). Each scene has an optional `fx: SceneFX` field. Active effect: `zoom_punch`. FX timing adjustable via scene micro-timeline.
 

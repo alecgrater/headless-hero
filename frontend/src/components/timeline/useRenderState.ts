@@ -11,7 +11,6 @@ import api, {
 import { usePollJob } from "../../hooks/usePollJob";
 import { useOperationProgress } from "../../hooks/useOperationProgress";
 import type {
-  ExportAudioResponse,
   ExportBundleResponse,
   ExportProgressStatus,
   GenerateSEOResponse,
@@ -31,11 +30,6 @@ interface RenderState {
   youtubeStatus: RenderStatusResponse | null;
   youtubeUrl: string | null;
   startYoutubeRender: (speed?: number) => Promise<string | null>;
-
-  // Audio export
-  audioUrl: string | null;
-  audioExporting: boolean;
-  exportAudio: () => Promise<void>;
 
   // Thumbnails
   thumbnails: ThumbnailConcept[];
@@ -69,7 +63,6 @@ interface RenderState {
   thumbnailProgress: { estimatedSeconds: number | null; active: boolean };
   seoProgress: { estimatedSeconds: number | null; active: boolean };
   shortFormSeoProgress: { estimatedSeconds: number | null; active: boolean };
-  audioExportProgress: { estimatedSeconds: number | null; active: boolean };
   exportBundleProgress: { estimatedSeconds: number | null; active: boolean };
 }
 
@@ -82,9 +75,6 @@ export function useRenderState(
   const [youtubeJobId, setYoutubeJobId] = useState<string | null>(null);
   const [youtubeStatus, setYoutubeStatus] = useState<RenderStatusResponse | null>(null);
   const [youtubeUrl, setYoutubeUrl] = useState<string | null>(null);
-
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [audioExporting, setAudioExporting] = useState(false);
 
   const [thumbnails, setThumbnails] = useState<ThumbnailConcept[]>([]);
   const [thumbnailsGenerating, setThumbnailsGenerating] = useState(false);
@@ -105,7 +95,6 @@ export function useRenderState(
   const thumbnailProgressHook = useOperationProgress("thumbnail_generation");
   const seoProgressHook = useOperationProgress("seo_generation");
   const shortFormSeoProgressHook = useOperationProgress("short_form_seo_generation");
-  const audioExportProgressHook = useOperationProgress("audio_export");
   const {
     estimatedSeconds: exportBundleEstimatedSeconds,
     active: exportBundleActive,
@@ -172,24 +161,6 @@ export function useRenderState(
     },
     [scriptId, title, startPolling],
   );
-
-  const exportAudio = useCallback(async () => {
-    setAudioExporting(true);
-    audioExportProgressHook.start();
-    try {
-      const res = await api.post("/api/render/export-audio", {
-        script_id: scriptId,
-        title,
-      });
-      if (res.ok) {
-        const data = res.data as ExportAudioResponse;
-        setAudioUrl(data.audio_url);
-      }
-    } finally {
-      setAudioExporting(false);
-      audioExportProgressHook.end();
-    }
-  }, [scriptId, title]);
 
   const recompositeThumbnail = useCallback(
     async () => {
@@ -309,7 +280,7 @@ export function useRenderState(
 
         // Step 2: export bundle to the configured export folder
         setExportPhase("exporting");
-        setExportStatus({ label: "Copying long-form video, audio, thumbnail, and SEO files...", progress: 0.55 });
+        setExportStatus({ label: "Copying long-form video, thumbnail, and SEO files...", progress: 0.55 });
         setExportBundleLoading(true);
         setExportBundleResult(null);
         startExportBundleProgress();
@@ -410,9 +381,6 @@ export function useRenderState(
     youtubeStatus,
     youtubeUrl,
     startYoutubeRender,
-    audioUrl,
-    audioExporting,
-    exportAudio,
     thumbnails,
     thumbnailsGenerating,
     recompositeThumbnail,
@@ -434,7 +402,6 @@ export function useRenderState(
     thumbnailProgress: { estimatedSeconds: thumbnailProgressHook.estimatedSeconds, active: thumbnailProgressHook.active },
     seoProgress: { estimatedSeconds: seoProgressHook.estimatedSeconds, active: seoProgressHook.active },
     shortFormSeoProgress: { estimatedSeconds: shortFormSeoProgressHook.estimatedSeconds, active: shortFormSeoProgressHook.active },
-    audioExportProgress: { estimatedSeconds: audioExportProgressHook.estimatedSeconds, active: audioExportProgressHook.active },
     exportBundleProgress: { estimatedSeconds: exportBundleEstimatedSeconds, active: exportBundleActive },
   };
 }

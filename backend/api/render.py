@@ -19,7 +19,6 @@ from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
 from pipeline.render_jobs import RenderJob, create_job, estimate_render_time, get_job, is_cancelled, run_in_background, update_job
 from pipeline.remotion_render import render_full_video
-from pipeline.audio_export import export_full_audio
 from pipeline.export_paths import (
     copy_to_project_downloads,
     longform_filename,
@@ -52,13 +51,6 @@ class RenderStatusResponse(BaseModel):
     error: str | None = None
     estimated_seconds: float | None = None
     elapsed_seconds: float | None = None
-
-class ExportAudioRequest(BaseModel):
-    script_id: str
-    title: str = ""
-
-class ExportAudioResponse(BaseModel):
-    audio_url: str
 
 class RenderEstimateResponse(BaseModel):
     estimated_seconds: float
@@ -599,21 +591,6 @@ def rendered_longform(script_id: str, session: Session = Depends(get_session)):
     )
 
 
-@router.post("/export-audio", response_model=ExportAudioResponse)
-def export_audio(body: ExportAudioRequest, session: Session = Depends(get_session)):
-    """Concatenate all scene audio into a single MP3 (synchronous)."""
-    t0 = time.monotonic()
-    content = _load_content(session, body.script_id)
-    logger.info("Exporting full audio for script %s", body.script_id)
-    audio_url = export_full_audio(body.script_id, content, title=body.title)
-    logger.info("Audio export complete for script %s: %s", body.script_id, audio_url)
-
-    session.add(GenerationDuration(operation_type="audio_export", duration_seconds=time.monotonic() - t0))
-    session.commit()
-
-    return ExportAudioResponse(audio_url=audio_url)
-
-
 @router.post("/export-bundle", response_model=ExportBundleResponse)
 def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_session)):
     """Bundle video, thumbnail, and SEO into the project Downloads folder."""
@@ -639,17 +616,6 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
         if str(dest) != longform_path:
             shutil.copy2(longform_path, dest)
         copied_files.append(dest.name)
-
-    # Audio — export full narration as MP3 when source scene audio exists
-    try:
-        export_full_audio(body.script_id, content, title=project_title)
-        audio_dest = folder / longform_filename("Audio", project_title, ".mp3")
-        if audio_dest.exists():
-            copied_files.append(audio_dest.name)
-    except FileNotFoundError:
-        logger.info("Skipping audio export for script %s: no audio files found", body.script_id)
-    except Exception:
-        logger.warning("Auto-export audio failed", exc_info=True)
 
     # Thumbnail — auto-generate if missing
     thumb_src = renders_dir / "thumbnails" / "0.png"

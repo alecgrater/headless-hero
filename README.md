@@ -39,7 +39,7 @@ The app is structured as four layers:
 | `/api/scripts` | Script generation, editing, split, cold opens, hook scoring |
 | `/api/visuals` | Image generation (single + batch + multi-frame + title cards) |
 | `/api/voice` | TTS generation, batch audio, voice cloning, voice listing |
-| `/api/render` | Video rendering (full, export test, status, audio export) |
+| `/api/render` | Video rendering, export test/status, and export bundle packaging |
 | `/api/fx` | AI-powered FX generation (kinetic captions, zoom punch) |
 | `/api/eli` | Eli character animation keyframe generation |
 | `/api/character` | Character frame library management |
@@ -65,7 +65,7 @@ The app is structured as four layers:
 | [Replicate](https://replicate.com/) | Alternative image generation (Flux) | `REPLICATE_API_TOKEN` (optional) |
 | [ElevenLabs](https://elevenlabs.io/) | Text-to-speech + voice cloning | `ELEVENLABS_API_KEY` |
 | [YouTube Data API v3](https://console.cloud.google.com/) | Video upload | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
-| FFmpeg 8.1 | Audio concatenation | System install |
+| FFmpeg 8.1 | Thumbnail compositing utilities | System install |
 
 ## Prerequisites
 
@@ -172,7 +172,6 @@ headless-hero/
 │   │   ├── image_gen.py      # Image gen: prompt → Gemini → local file
 │   │   ├── voiceover.py      # TTS: ElevenLabs → MP3 + duration
 │   │   ├── remotion_render.py # Remotion CLI orchestration → full video
-│   │   ├── audio_export.py   # Audio concatenation via FFmpeg
 │   │   ├── ffmpeg_builder.py # FFmpeg CLI arg construction
 │   │   ├── render_jobs.py    # Background job tracking with threading
 │   │   ├── fx_generator.py   # Routed LLM FX assignment
@@ -322,7 +321,7 @@ Logs are stored in SQLite (`data/db.sqlite` in the `dev_logs` table) and persist
 4. **Timeline** — Edit scenes in the lane-based timeline editor. Generate images (Gemini) and audio (ElevenLabs) per scene
 5. **Effects** — AI generates kinetic captions and zoom punch effects; Eli character animation keyframes
 6. **Render** — Remotion renders the full video with all effects, overlays, and transitions
-7. **Export** — Download YouTube 16:9 video, audio-only, and thumbnails
+7. **Export** — Download YouTube 16:9 video, thumbnails, SEO, and short-form assets
 8. **Publish** — Upload directly to YouTube with metadata
 
 ### Caching
