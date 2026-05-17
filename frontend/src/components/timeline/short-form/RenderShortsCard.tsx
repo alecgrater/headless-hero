@@ -259,19 +259,19 @@ export default function RenderShortsCard({
   }
 
   return (
-    <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 space-y-3">
-      <header className="flex items-center justify-between gap-3 pb-4 border-b border-neutral-800">
-        <div className="flex flex-wrap items-center gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-neutral-200">Render Shorts</h3>
-            <p
-              className={`text-xs ${
-                allDone ? "text-emerald-400" : "text-neutral-500"
-              }`}
-            >
-              {`${renderedCount}/${total} rendered`}
-            </p>
-          </div>
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Render Shorts</h3>
+          <p
+            className={`text-xs ${
+              allDone ? "text-emerald-400" : "text-neutral-500"
+            }`}
+          >
+            {`${renderedCount}/${total} rendered`}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <button
             onClick={handleRenderRemaining}
             disabled={busy || busySegment !== null}
@@ -288,16 +288,16 @@ export default function RenderShortsCard({
           >
             {isBatchBusy && currentOp?.type === "all" ? "Rendering..." : `Render All ${total} Shorts`}
           </button>
+          <button
+            onClick={handleExportVideos}
+            disabled={exporting || busy || busySegment !== null}
+            className="text-sm px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            {exporting && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
+            {exporting ? "Exporting..." : "Export"}
+          </button>
         </div>
-        <button
-          onClick={handleExportVideos}
-          disabled={exporting || busy || busySegment !== null}
-          className="text-sm px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
-        >
-          {exporting && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
-          {exporting ? "Exporting..." : "Export"}
-        </button>
-      </header>
+      </div>
 
       {(busy || busySegment !== null) && status && (
         <div className="space-y-1">

@@ -15,7 +15,6 @@ import type { ShortFormJobStatus } from "../../../types/render";
 interface Props {
   scriptId: string;
   segments: { name: string }[];
-  embedded?: boolean;
   onStatusChange?: () => void;
 }
 
@@ -29,7 +28,7 @@ function segmentLabel(segment: { name: string }, idx: number): string {
   return segment.name || `Segment ${idx + 1}`;
 }
 
-export default function ShortFormThumbnailsCard({ scriptId, segments, embedded = false, onStatusChange }: Props) {
+export default function ShortFormThumbnailsCard({ scriptId, segments, onStatusChange }: Props) {
   const [thumbnailUrls, setThumbnailUrls] = useState<Record<number, string | undefined>>({});
   const [thumbnailVersions, setThumbnailVersions] = useState<Record<number, number>>({});
   const [exportedPaths, setExportedPaths] = useState<Record<number, string | undefined>>({});
@@ -178,15 +177,15 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, embedded =
   }
 
   return (
-    <section className={embedded ? "space-y-4" : "bg-neutral-900 border border-neutral-800 rounded-xl p-4 space-y-4"}>
-      <header className="flex items-center justify-between gap-4 pb-4 border-b border-neutral-800">
-        <div className="flex flex-wrap items-center gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-neutral-200">Short-Form Thumbnails</h3>
-            <p className={`text-xs ${allDone ? "text-emerald-400" : "text-neutral-500"}`}>
-              {generatedCount}/{total} generated
-            </p>
-          </div>
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Short-Form Thumbnails</h3>
+          <p className={`text-xs ${allDone ? "text-emerald-400" : "text-neutral-500"}`}>
+            {generatedCount}/{total} generated
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <button
             onClick={handleGenerateMissing}
             disabled={busy || busySegment !== null || missingCount === 0}
@@ -203,8 +202,6 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, embedded =
           >
             {isBatchBusy && currentOp?.type === "all" ? "Generating..." : "Generate all"}
           </button>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
           {exportFolder && (
             <button
               onClick={() => showInFolder(exportFolder)}
@@ -221,7 +218,7 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, embedded =
             {exporting ? "Exporting..." : "Export thumbnails"}
           </button>
         </div>
-      </header>
+      </div>
 
       {(busy || busySegment !== null) && status && (
         <div className="space-y-1 rounded-lg border border-violet-500/20 bg-violet-500/10 p-3">

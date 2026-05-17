@@ -136,7 +136,7 @@ export default function ThumbnailModal({
               )}
             </>
           ) : (
-            <ShortFormThumbnailsCard scriptId={scriptId} segments={segments} embedded />
+            <ShortFormThumbnailsCard scriptId={scriptId} segments={segments} />
           )}
         </div>
 

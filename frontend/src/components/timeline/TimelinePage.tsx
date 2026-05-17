@@ -761,12 +761,12 @@ function LongFormThumbnailsPanel({
   return (
     <div className="flex-1 overflow-y-auto p-5">
       <section className="space-y-4">
-        <header className="flex items-center justify-between gap-3 pb-4 border-b border-neutral-800">
-          <div className="flex items-center gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-neutral-200">Long-Form Thumbnails</h3>
-              <p className="text-xs text-neutral-500">{thumbnails.length} concept{thumbnails.length !== 1 ? "s" : ""} available</p>
-            </div>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Long-Form Thumbnails</h3>
+            <p className="text-xs text-neutral-500">{thumbnails.length} concept{thumbnails.length !== 1 ? "s" : ""} available</p>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <button
               onClick={onGenerate}
               disabled={generating}
@@ -775,16 +775,16 @@ function LongFormThumbnailsPanel({
               {generating && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
               {generating ? "Regenerating..." : thumbnails.length > 0 ? "Regenerate Thumbnail" : "Generate Thumbnail"}
             </button>
+            <button
+              onClick={onExport}
+              disabled={exporting || generating}
+              className="text-sm px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              {exporting && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
+              {exporting ? "Exporting..." : "Export"}
+            </button>
           </div>
-          <button
-            onClick={onExport}
-            disabled={exporting || generating}
-            className="text-sm px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
-          >
-            {exporting && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
-            {exporting ? "Exporting..." : "Export"}
-          </button>
-        </header>
+        </div>
         {generating && <MiniProgressBar estimatedSeconds={progress.estimatedSeconds} active={progress.active} />}
         {thumbnails.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -844,12 +844,12 @@ function LongFormSeoPanel({
   return (
     <div className="flex-1 overflow-y-auto p-5">
       <section className="space-y-4">
-        <header className="flex items-center justify-between gap-3 pb-4 border-b border-neutral-800">
-          <div className="flex items-center gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-neutral-200">Long-Form SEO</h3>
-              <p className="text-xs text-neutral-500">YouTube title, timestamped description, and tags.</p>
-            </div>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Long-Form SEO</h3>
+            <p className="text-xs text-neutral-500">YouTube title, timestamped description, and tags.</p>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <button
               onClick={onGenerate}
               disabled={generating}
@@ -858,16 +858,16 @@ function LongFormSeoPanel({
               {generating && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
               {generating ? "Generating..." : metadata ? "Regenerate Long SEO" : "Generate Long SEO"}
             </button>
+            <button
+              onClick={onExport}
+              disabled={exporting || generating}
+              className="text-sm px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              {exporting && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
+              {exporting ? "Exporting..." : "Export"}
+            </button>
           </div>
-          <button
-            onClick={onExport}
-            disabled={exporting || generating}
-            className="text-sm px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
-          >
-            {exporting && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
-            {exporting ? "Exporting..." : "Export"}
-          </button>
-        </header>
+        </div>
         {generating && <MiniProgressBar estimatedSeconds={progress.estimatedSeconds} active={progress.active} />}
         {metadata ? (
           <div className="bg-neutral-900/80 border border-neutral-800 rounded-lg p-4 space-y-3">
@@ -910,12 +910,12 @@ function ShortFormSeoPanel({
   return (
     <div className="flex-1 overflow-y-auto p-5">
       <section className="space-y-4">
-        <header className="flex items-center justify-between gap-3 pb-4 border-b border-neutral-800">
-          <div className="flex items-center gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-neutral-200">Short-Form SEO</h3>
-              <p className="text-xs text-neutral-500">{shorts.length}/{segmentCount} shorts packaged for upload.</p>
-            </div>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Short-Form SEO</h3>
+            <p className="text-xs text-neutral-500">{shorts.length}/{segmentCount} shorts packaged for upload.</p>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <button
               onClick={onGenerate}
               disabled={generating}
@@ -924,16 +924,16 @@ function ShortFormSeoPanel({
               {generating && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
               {generating ? "Generating..." : metadata ? "Regenerate Short SEO" : `Generate All ${segmentCount} Short SEO`}
             </button>
+            <button
+              onClick={onExport}
+              disabled={exporting || generating}
+              className="text-sm px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              {exporting && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
+              {exporting ? "Exporting..." : "Export"}
+            </button>
           </div>
-          <button
-            onClick={onExport}
-            disabled={exporting || generating}
-            className="text-sm px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
-          >
-            {exporting && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
-            {exporting ? "Exporting..." : "Export"}
-          </button>
-        </header>
+        </div>
         {generating && <MiniProgressBar estimatedSeconds={progress.estimatedSeconds} active={progress.active} />}
         {shorts.length > 0 ? (
           <div className="space-y-3">
