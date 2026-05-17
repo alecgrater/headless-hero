@@ -55,7 +55,7 @@ interface TimelineState {
   removeSegment: (segmentIndex: number) => void;
 
   // Save
-  save: () => Promise<void>;
+  save: () => Promise<boolean>;
 
   // Undo
   undo: () => void;
@@ -186,7 +186,7 @@ export function useTimelineState(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDirty, content]);
 
-  const doSave = async (toSave: ScriptContent) => {
+  const doSave = async (toSave: ScriptContent): Promise<boolean> => {
     setSaveStatus("saving");
     try {
       const res = await api.put(`/api/scripts/${scriptId}`, {
@@ -195,17 +195,20 @@ export function useTimelineState(
       if (res.ok) {
         setIsDirty(false);
         setSaveStatus("saved");
+        return true;
       } else {
         setSaveStatus("unsaved");
+        return false;
       }
     } catch {
       setSaveStatus("unsaved");
+      return false;
     }
   };
 
   const save = useCallback(async () => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    await doSave(contentRef.current);
+    return doSave(contentRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scriptId]);
 

@@ -2087,7 +2087,8 @@ function TimelineEditor({
   const handleSplitSceneAtTime = useCallback(async (splitTimeMs: number) => {
     if (!state.selectedSceneId) return;
     // Clear debounce to prevent auto-save race condition
-    state.save();
+    const saved = await state.save();
+    if (!saved) return;
     const res = await api.post(`/api/scripts/${scriptId}/split-scene`, {
       scene_id: state.selectedSceneId,
       split_time_ms: splitTimeMs,

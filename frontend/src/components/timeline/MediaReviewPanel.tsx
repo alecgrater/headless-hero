@@ -10,7 +10,7 @@ interface Props {
   frameCounts?: Record<string, number>;
   fullHeight?: boolean;
   scenes?: Record<string, Scene>;
-  onBeforeApply?: () => Promise<void> | void;
+  onBeforeApply?: () => Promise<boolean | void> | boolean | void;
   onSaved?: (assignments: MediaAssignment[]) => Promise<void> | void;
   onApproved: () => void;
   onReanalyze: () => void;
@@ -56,7 +56,8 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
 
   const applyAssignments = async () => {
     try {
-      await onBeforeApply?.();
+      const readyToApply = await onBeforeApply?.();
+      if (readyToApply === false) return false;
       const res = await applyMediaAssignments(scriptId, assignments);
       if (res.ok) {
         await onSaved?.(assignments);

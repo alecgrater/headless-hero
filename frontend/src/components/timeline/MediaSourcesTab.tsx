@@ -32,7 +32,7 @@ interface Props {
   mediaAnalyzing: boolean;
   mediaReviewDismissed: boolean;
   onAnalyzeMedia: () => void;
-  onBeforeAssignmentsApply: () => Promise<void> | void;
+  onBeforeAssignmentsApply: () => Promise<boolean | void> | boolean | void;
   onAssignmentsSaved: (assignments: MediaAssignment[]) => Promise<void> | void;
   onApproved: () => void;
 }
