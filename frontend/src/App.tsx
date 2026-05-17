@@ -72,11 +72,11 @@ function PlatformConnectionIcons({ connections }: { connections: OAuthStatusResp
         return (
           <svg
             key={p.key}
-            title={`${p.label}: ${connected ? "Connected" : "Not connected"}`}
             className={`w-3.5 h-3.5 ${connected ? p.color : "text-neutral-600"}`}
             viewBox="0 0 24 24"
             fill="currentColor"
           >
+            <title>{`${p.label}: ${connected ? "Connected" : "Not connected"}`}</title>
             <path d={p.path} />
           </svg>
         );

@@ -17,7 +17,6 @@ import api, {
   exportLongFormSEO,
   exportLongFormThumbnail,
   exportShortFormSEO,
-  exportShortFormVideos,
   exportTest,
   fetchScriptCost,
   generateEli,
@@ -1330,7 +1329,6 @@ function TimelineEditor({
   const [longFormSeoExporting, setLongFormSeoExporting] = useState(false);
   const [shortFormSeoExporting, setShortFormSeoExporting] = useState(false);
   const [longFormThumbnailExporting, setLongFormThumbnailExporting] = useState(false);
-  const [shortFormVideosExporting, setShortFormVideosExporting] = useState(false);
 
   const handleExportLongFormSEO = useCallback(async () => {
     if (!render.seoMetadata) {
@@ -1382,17 +1380,6 @@ function TimelineEditor({
     }
   }, [render.thumbnails, scriptId]);
 
-  const handleExportShortFormVideos = useCallback(async () => {
-    setShortFormVideosExporting(true);
-    try {
-      const result = await exportShortFormVideos(scriptId);
-      showToast(`Saved ${result.files.length} short videos to ${result.folder_path}`, "success");
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Failed to export short-form videos");
-    } finally {
-      setShortFormVideosExporting(false);
-    }
-  }, [scriptId]);
   const totalDurationSec = allScenes.reduce(
     (sum, sc) => sum + (sc.duration_estimate_seconds ?? 0),
     0,

@@ -9,6 +9,42 @@ let backendProcess;
 const isDev = !app.isPackaged;
 const BACKEND_PORT = 8420;
 const BACKEND_URL = `http://localhost:${BACKEND_PORT}`;
+const CHROME_APP_NAME = "Google Chrome";
+
+function isAppUrl(url) {
+  const appOrigins = ["http://localhost:5173", "http://localhost:8420"];
+  return appOrigins.some((origin) => url.startsWith(origin + "/"));
+}
+
+function openExternalUrl(url) {
+  if (process.platform !== "darwin") {
+    return shell.openExternal(url);
+  }
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (fn) => {
+      if (settled) return;
+      settled = true;
+      fn();
+    };
+    const child = spawn("open", ["-a", CHROME_APP_NAME, url], { stdio: "ignore" });
+    child.once("error", (error) => settle(() => reject(error)));
+    child.once("exit", (code) => {
+      settle(
+        code === 0
+          ? resolve
+          : () => reject(new Error(`Failed to open ${url} in ${CHROME_APP_NAME}`)),
+      );
+    });
+  });
+}
+
+function openExternalUrlFromEvent(url) {
+  openExternalUrl(url).catch((error) => {
+    console.error(`[main] Failed to open external URL in ${CHROME_APP_NAME}:`, error);
+  });
+}
 
 function startBackend() {
   const backendDir = isDev
@@ -72,8 +108,8 @@ function createWindow() {
   }
 }
 
-// IPC: open external URLs in the default browser
-ipcMain.handle("open-external", (_event, url) => shell.openExternal(url));
+// IPC: open external URLs in Chrome, regardless of the system default browser.
+ipcMain.handle("open-external", (_event, url) => openExternalUrl(url));
 
 // IPC: reveal a file or folder in Finder / Explorer
 ipcMain.handle("show-item-in-folder", (_event, fullPath) => shell.showItemInFolder(fullPath));
@@ -178,10 +214,17 @@ app.whenReady().then(async () => {
 
   // Prevent the main window from navigating away from the app (e.g. cross-origin download links)
   mainWindow.webContents.on("will-navigate", (event, url) => {
-    const appOrigins = ["http://localhost:5173", "http://localhost:8420"];
-    if (!appOrigins.some((origin) => url.startsWith(origin + "/"))) {
+    if (!isAppUrl(url)) {
       event.preventDefault();
+      openExternalUrlFromEvent(url);
     }
+  });
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (!isAppUrl(url)) {
+      openExternalUrlFromEvent(url);
+    }
+    return { action: "deny" };
   });
 });
 

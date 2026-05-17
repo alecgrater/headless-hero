@@ -365,7 +365,7 @@ export async function pollFXJob(
   return pollBackgroundJob(jobId, "/api/fx/generate-status/", 800, "FX generation failed", onProgress);
 }
 
-/** Open a URL in the system browser (Electron shell) or a new tab (dev). */
+/** Open a URL in Chrome via Electron, or a new tab in browser-only dev mode. */
 export function openInBrowser(url: string): void {
   if (window.api?.openExternal) {
     window.api.openExternal(url);
