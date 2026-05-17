@@ -105,8 +105,9 @@ def generate_short_form_seo_metadata(body: GenerateSEORequest, session: Session 
     brand = session.get(BrandProfile, record.brand_id)
     brand_context = brand.name if brand else ""
 
+    project_title = record.topic_title or content.title or "Untitled"
     metadata = generate_short_form_seo(
-        video_title=content.title,
+        video_title=project_title,
         shorts=shorts,
         video_description=record.topic_description,
         brand_context=brand_context,

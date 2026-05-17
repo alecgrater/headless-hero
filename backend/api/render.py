@@ -712,7 +712,7 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
             brand_context = brand.name if brand else ""
 
             short_metadata = generate_short_form_seo(
-                video_title=content.title,
+                video_title=project_title,
                 shorts=build_short_form_seo_contexts(content),
                 video_description=record.topic_description,
                 brand_context=brand_context,

@@ -7,8 +7,10 @@ from pipeline.seo import (
     ShortFormSEO,
     ShortFormSEOMetadata,
     _normalize_short_form_seo_data,
+    _short_form_title,
     _validate_short_indices,
     build_short_form_seo_contexts,
+    generate_short_form_seo,
 )
 
 
@@ -96,6 +98,49 @@ class TestValidateShortIndices:
 
         with pytest.raises(RuntimeError, match="expected exactly"):
             _validate_short_indices(result, [{"index": 1}, {"index": 2}])
+
+
+class TestShortFormTitles:
+    def test_builds_project_title_segment_title(self):
+        assert _short_form_title("Project", "Segment") == "Project: Segment"
+
+    def test_generated_short_titles_are_deterministic(self, monkeypatch):
+        def fake_chat(*args, **kwargs):
+            return """
+            {
+              "shorts": [
+                {
+                  "index": 1,
+                  "title": "Model Made This",
+                  "description": "First short.",
+                  "hashtags": ["#First"],
+                  "tags": ["first"]
+                },
+                {
+                  "index": 2,
+                  "title": "Model Made That",
+                  "description": "Second short.",
+                  "hashtags": ["#Second"],
+                  "tags": ["second"]
+                }
+              ]
+            }
+            """
+
+        monkeypatch.setattr("pipeline.seo.chat", fake_chat)
+
+        result = generate_short_form_seo(
+            video_title="Project Title",
+            shorts=[
+                {"index": 1, "segment_name": "Segment One", "transcript": ""},
+                {"index": 2, "segment_name": "Segment Two", "transcript": ""},
+            ],
+        )
+
+        assert [short.title for short in result.shorts] == [
+            "Project Title: Segment One",
+            "Project Title: Segment Two",
+        ]
 
 
 class TestNormalizeShortFormSeoData:

@@ -116,6 +116,12 @@ def _validate_short_indices(result: ShortFormSEOMetadata, shorts: list[dict]) ->
             f"{returned}; expected exactly {expected}"
         )
 
+def _short_form_title(project_title: str, segment_title: str) -> str:
+    """Build the deterministic upload title for a short-form segment."""
+    clean_project_title = project_title.strip() or "Untitled"
+    clean_segment_title = segment_title.strip() or "Untitled"
+    return f"{clean_project_title}: {clean_segment_title}"
+
 def build_short_form_seo_contexts(content: ScriptContent) -> list[dict]:
     """Build one transcript summary per rendered short."""
     shorts: list[dict] = []
@@ -193,6 +199,8 @@ def generate_short_form_seo(
     user_msg = (
         f"Generate short-form metadata for every short from this long-form video.\n\n"
         f"Long-form title: {video_title}\n"
+        f"Use each provided segment_name only for context. The final title field will be set by the app as "
+        f"\"{{project title}}: {{segment title}}\".\n"
         f"Shorts JSON:\n{json.dumps(shorts, ensure_ascii=False, indent=2)}"
     )
     if video_description:
@@ -220,8 +228,15 @@ def generate_short_form_seo(
     result = ShortFormSEOMetadata.model_validate(data)
     _validate_short_indices(result, shorts)
 
+    segment_titles_by_index = {
+        int(short["index"]): str(short.get("segment_name") or "").strip()
+        for short in shorts
+    }
     for short in result.shorts:
-        short.title = short.title[:70].strip()
+        short.title = _short_form_title(
+            video_title,
+            segment_titles_by_index.get(short.index, short.title),
+        )
         short.tags = _trim_tags(short.tags)
         short.hashtags = _normalize_hashtags(short.hashtags)
     result.shorts.sort(key=lambda short: short.index)
