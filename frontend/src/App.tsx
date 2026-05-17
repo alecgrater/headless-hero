@@ -526,6 +526,7 @@ function App() {
             <TimelinePage
               key={timelineScriptId}
               scriptId={timelineScriptId}
+              isActive={view === "timeline"}
               onBack={() => handleSetView("project-dashboard")}
               onSaveStateChange={handleSaveStateChange}
               onNavigateToSettings={() => handleSetView("settings")}

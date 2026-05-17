@@ -241,13 +241,14 @@ function DistributionTrackingModal({
 
 interface Props {
   scriptId: string;
+  isActive?: boolean;
   onBack: () => void;
   onSaveStateChange?: (state: SaveState) => void;
   onNavigateToSettings?: () => void;
   onRecordVoiceover?: () => void;
 }
 
-export default function TimelinePage({ scriptId, onBack, onSaveStateChange, onNavigateToSettings, onRecordVoiceover }: Props) {
+export default function TimelinePage({ scriptId, isActive = true, onBack, onSaveStateChange, onNavigateToSettings, onRecordVoiceover }: Props) {
   const [script, setScript] = useState<ScriptRead | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -303,7 +304,7 @@ export default function TimelinePage({ scriptId, onBack, onSaveStateChange, onNa
     );
   }
 
-  return <TimelineEditor scriptId={scriptId} initialContent={script.script} title={script.topic_title} onBack={onBack} onSaveStateChange={onSaveStateChange} onNavigateToSettings={onNavigateToSettings} onRecordVoiceover={onRecordVoiceover} />;
+  return <TimelineEditor scriptId={scriptId} isActive={isActive} initialContent={script.script} title={script.topic_title} onBack={onBack} onSaveStateChange={onSaveStateChange} onNavigateToSettings={onNavigateToSettings} onRecordVoiceover={onRecordVoiceover} />;
 }
 
 interface BatchProgressProps {
@@ -1200,6 +1201,7 @@ function ShortFormSeoPanel({
 
 function TimelineEditor({
   scriptId,
+  isActive = true,
   initialContent,
   title,
   onBack,
@@ -1208,6 +1210,7 @@ function TimelineEditor({
   onRecordVoiceover,
 }: {
   scriptId: string;
+  isActive?: boolean;
   initialContent: ScriptContent;
   title: string;
   onBack: () => void;
@@ -1344,7 +1347,9 @@ function TimelineEditor({
   // Fetch cost on mount
   useEffect(() => { refreshCost(); }, [refreshCost]);
 
-  useEffect(() => { void refreshUploadTracking(); }, [refreshUploadTracking]);
+  useEffect(() => {
+    if (isActive) void refreshUploadTracking();
+  }, [isActive, refreshUploadTracking]);
 
   useEffect(() => {
     if (!showDistributionTracking) return;
