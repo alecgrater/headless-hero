@@ -8,12 +8,13 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from api.render import _format_longform_seo_markdown, _format_shortform_seo_markdown
+from api.render import _find_rendered_longform, _format_longform_seo_markdown, _format_shortform_seo_markdown
 from api.short_form_hooks import ensure_short_form_hook_scene_count
 from config import DATA_DIR
 from database import get_session
 from models.script import Script, ScriptContent
 from pipeline.export_paths import (
+    has_export_label,
     longform_filename,
     project_downloads_folder,
     shortform_filename,
@@ -94,6 +95,24 @@ def _short_thumbnail_path(script_id: str, folder: Path, segment_name: str, index
     return None
 
 
+def _exported_longform_path(script_id: str, project_title: str, folder: Path) -> str | None:
+    path, _url = _find_rendered_longform(script_id, project_title)
+    if path:
+        return path
+
+    if not folder.is_dir():
+        return None
+    candidates = sorted(
+        (
+            file
+            for file in folder.glob("*.mp4")
+            if file.is_file() and has_export_label(file.name, "Longform", "Video")
+        ),
+        key=lambda file: file.name,
+    )
+    return str(candidates[0]) if candidates else None
+
+
 @router.get("/status", response_model=UploadSuiteStatusResponse)
 def upload_suite_status(script_id: str, session: Session = Depends(get_session)):
     """Return the manual upload suite if exported videos are ready."""
@@ -106,8 +125,7 @@ def upload_suite_status(script_id: str, session: Session = Depends(get_session))
     if not folder.is_dir():
         missing.append(f"Project folder: {folder}")
 
-    longform_video = folder / longform_filename("Video", project_title, ".mp4")
-    longform_video_path = str(longform_video) if longform_video.is_file() else None
+    longform_video_path = _exported_longform_path(script_id, project_title, folder)
     if not longform_video_path:
         missing.append("Long-form video")
 
