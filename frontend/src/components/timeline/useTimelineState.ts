@@ -209,6 +209,11 @@ export function useTimelineState(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scriptId]);
 
+  const replaceContent = useCallback((next: ScriptContent) => {
+    contentRef.current = next;
+    setContent(next);
+  }, []);
+
   // Beforeunload guard
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -865,7 +870,7 @@ export function useTimelineState(
     batchAudioProgress,
     hasTitleCards,
     generateTitleCardsStandalone,
-    setContent,
+    setContent: replaceContent,
     singleImageEstimate,
     singleAudioEstimate,
   };

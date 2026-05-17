@@ -110,11 +110,19 @@ def apply_assignments(
             if not assignment:
                 continue
 
+            previous_source = scene.media_source
             scene.media_source = assignment.media_source
 
-            if assignment.media_source == "gameplay_video" and assignment.game_name:
-                scene.gameplay_game_override = assignment.game_name
+            if assignment.media_source == "gameplay_video":
+                scene.gameplay_game_override = assignment.game_name or ""
+            else:
+                scene.gameplay_game_override = ""
 
-            if assignment.media_source == "stock_photo" and assignment.search_query:
-                scene.original_visual_prompt = scene.visual_prompt
-                scene.visual_prompt = assignment.search_query
+            if assignment.media_source == "stock_photo":
+                if previous_source != "stock_photo" and not scene.original_visual_prompt:
+                    scene.original_visual_prompt = scene.visual_prompt
+                if assignment.search_query is not None:
+                    scene.visual_prompt = assignment.search_query
+            elif previous_source == "stock_photo" and scene.original_visual_prompt:
+                scene.visual_prompt = scene.original_visual_prompt
+                scene.original_visual_prompt = ""

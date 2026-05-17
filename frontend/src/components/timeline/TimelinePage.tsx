@@ -33,6 +33,7 @@ import api, {
   renderShortBatch,
 } from "../../api";
 import type { ExportTestOptions } from "../../api";
+import type { MediaAssignment } from "../../api";
 import type { ScriptCostBreakdownItem } from "../../api";
 import { showToast } from "../ToastContainer";
 import type { ScriptContent } from "../../types/script";
@@ -2610,6 +2611,14 @@ function TimelineEditor({
           mediaAnalyzing={media.mediaAnalyzing}
           mediaReviewDismissed={media.mediaReviewDismissed}
           onAnalyzeMedia={media.handleAnalyzeMedia}
+          onAssignmentsSaved={async (assignments: MediaAssignment[]) => {
+            media.setMediaAssignments(assignments);
+            const refreshed = await api.get(`/api/scripts/${scriptId}`);
+            if (refreshed.ok) {
+              const data = refreshed.data as { script: ScriptContent };
+              state.setContent(data.script);
+            }
+          }}
           onApproved={() => {
             media.setMediaReviewDismissed(true);
             state.generateAllImages();

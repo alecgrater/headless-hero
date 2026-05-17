@@ -69,6 +69,7 @@ export function useMediaReview({ scriptId, content }: UseMediaReviewOptions) {
 
   return {
     mediaAssignments,
+    setMediaAssignments,
     mediaReviewDismissed,
     setMediaReviewDismissed,
     mediaAnalyzing,

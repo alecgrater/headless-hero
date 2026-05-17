@@ -10,6 +10,7 @@ interface Props {
   frameCounts?: Record<string, number>;
   fullHeight?: boolean;
   scenes?: Record<string, Scene>;
+  onSaved?: (assignments: MediaAssignment[]) => Promise<void> | void;
   onApproved: () => void;
   onReanalyze: () => void;
 }
@@ -20,9 +21,11 @@ const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
   stock_photo: { label: "Stock Photo", color: "bg-sky-500/20 text-sky-300" },
 };
 
-export default function MediaReviewPanel({ scriptId, assignments: initial, frameCounts, fullHeight, scenes, onApproved, onReanalyze }: Props) {
+export default function MediaReviewPanel({ scriptId, assignments: initial, frameCounts, fullHeight, scenes, onSaved, onApproved, onReanalyze }: Props) {
   const [assignments, setAssignments] = useState<MediaAssignment[]>(initial);
+  const [saving, setSaving] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
   const [previewSceneId, setPreviewSceneId] = useState<string | null>(null);
 
   const summary = assignments.reduce<Record<string, number>>((acc, a) => {
@@ -33,6 +36,7 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
   const totalScenes = assignments.length;
 
   const handleSourceChange = (sceneId: string, newSource: "ai" | "gameplay_video" | "stock_photo") => {
+    setSaveState("idle");
     setAssignments((prev) =>
       prev.map((a) =>
         a.scene_id === sceneId
@@ -43,18 +47,38 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
   };
 
   const handleFieldChange = (sceneId: string, field: "game_name" | "search_query", value: string) => {
+    setSaveState("idle");
     setAssignments((prev) =>
       prev.map((a) => (a.scene_id === sceneId ? { ...a, [field]: value || null } : a)),
     );
   };
 
+  const applyAssignments = async () => {
+    try {
+      const res = await applyMediaAssignments(scriptId, assignments);
+      if (res.ok) {
+        await onSaved?.(assignments);
+      }
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveState("idle");
+    const ok = await applyAssignments();
+    setSaving(false);
+    setSaveState(ok ? "saved" : "error");
+  };
+
   const handleApprove = async () => {
     setApplying(true);
-    const res = await applyMediaAssignments(scriptId, assignments);
+    setSaveState("idle");
+    const ok = await applyAssignments();
     setApplying(false);
-    if (res.ok) {
-      onApproved();
-    }
+    if (ok) onApproved();
   };
 
   return (
@@ -75,14 +99,26 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
             Re-analyze
           </button>
           <button
+            onClick={handleSave}
+            disabled={saving || applying}
+            className="px-3 py-1.5 text-xs bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 rounded-lg transition-colors text-neutral-200"
+          >
+            {saving ? "Saving..." : "Save Changes"}
+          </button>
+          <button
             onClick={handleApprove}
-            disabled={applying}
+            disabled={applying || saving}
             className="px-3 py-1.5 text-xs bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-lg transition-colors text-white font-medium"
           >
             {applying ? "Applying..." : "Approve & Generate Images"}
           </button>
         </div>
       </div>
+      {saveState !== "idle" && (
+        <div className={`px-4 py-2 text-xs border-b border-neutral-800 ${saveState === "saved" ? "text-emerald-300 bg-emerald-500/10" : "text-red-300 bg-red-500/10"}`}>
+          {saveState === "saved" ? "Media source edits saved." : "Could not save media source edits."}
+        </div>
+      )}
 
       {/* Scene list */}
       <div className={`divide-y divide-neutral-800 ${fullHeight ? "overflow-y-auto" : "max-h-96 overflow-y-auto"}`}>
