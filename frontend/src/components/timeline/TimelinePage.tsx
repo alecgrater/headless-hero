@@ -224,6 +224,15 @@ function CostBreakdownPopover({
   );
 }
 
+function sceneProgressCounter(step: string, progress: number, total: number): string {
+  const match = step.match(/(\d+)\s*\/\s*(\d+)/);
+  if (match) return `${match[1]}/${match[2]}`;
+  if (total <= 0) return "";
+
+  const current = Math.min(total, Math.max(1, Math.floor(progress * total) + 1));
+  return `${current}/${total}`;
+}
+
 function TimelineEditor({
   scriptId,
   initialContent,
@@ -276,6 +285,7 @@ function TimelineEditor({
   const [generatingEli, setGeneratingEli] = useState(false);
   const [eliStep, setEliStep] = useState<string>("");
   const [eliProgressPct, setEliProgressPct] = useState<number>(0);
+  const [eliProgressTotal, setEliProgressTotal] = useState<number>(0);
   const [confirmOverwrite, setConfirmOverwrite] = useState<"images" | "audio" | "fx" | "eli" | null>(null);
   const [pixelsPerSecond, setPixelsPerSecond] = useState(20);
   const [exportTestJobId, setExportTestJobId] = useState<string | null>(null);
@@ -677,11 +687,12 @@ function TimelineEditor({
   };
 
   const handleGenerateEli = async () => {
-    const sceneCount = state.content.segments.reduce((n, seg) => n + seg.scenes.length, 0);
+    const sceneCount = eliScenes.length;
     eliCancelledRef.current = false;
     setGeneratingEli(true);
     setEliStep("");
     setEliProgressPct(0);
+    setEliProgressTotal(sceneCount);
     eliProgress.start(sceneCount);
     try {
       const res = await generateEli(scriptId);
@@ -702,6 +713,7 @@ function TimelineEditor({
       setGeneratingEli(false);
       setEliStep("");
       setEliProgressPct(0);
+      setEliProgressTotal(0);
       eliProgress.end(sceneCount);
       refreshCost();
     }
@@ -716,10 +728,13 @@ function TimelineEditor({
   };
 
   const generateMissingEli = async () => {
+    const sceneCount = missingEliCount;
     eliCancelledRef.current = false;
     setGeneratingEli(true);
     setEliStep("");
     setEliProgressPct(0);
+    setEliProgressTotal(sceneCount);
+    eliProgress.start(sceneCount);
     try {
       const res = await generateEli(scriptId, true);
       if (eliCancelledRef.current) return;
@@ -739,6 +754,8 @@ function TimelineEditor({
       setGeneratingEli(false);
       setEliStep("");
       setEliProgressPct(0);
+      setEliProgressTotal(0);
+      eliProgress.end(sceneCount);
       refreshCost();
     }
   };
@@ -1317,7 +1334,7 @@ function TimelineEditor({
           <div className="flex items-center gap-3 text-xs">
             <span className="w-3 h-3 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
             <span className="text-neutral-300">
-              Generating Eli animation keyframes with AI{eliStep ? ` · ${eliStep}` : "..."}
+              Generating Eli animation keyframes with AI · {sceneProgressCounter(eliStep, eliProgressPct, eliProgressTotal)}
             </span>
             <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden ml-2">
               <div
