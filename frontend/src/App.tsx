@@ -308,7 +308,7 @@ function App() {
               }`}
             >
               <Wrench className="w-4 h-4" />
-              Dev Dashboard
+              Developer
             </button>
             <div className="relative" ref={settingsDropdownRef}>
               <button
