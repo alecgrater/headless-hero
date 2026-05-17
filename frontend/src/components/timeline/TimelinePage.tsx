@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Zap } from "lucide-react";
+import { Info, Zap } from "lucide-react";
 import api, { assetUrl, generateFX, pollFXJob, generateEli, pollEliJob, exportTest, fetchScriptCost, getYouTubeOAuthStatus } from "../../api";
 import type { ExportTestOptions } from "../../api";
 import type { ScriptCostBreakdownItem } from "../../api";
@@ -19,6 +19,7 @@ import ThumbnailModal from "./ThumbnailModal";
 import TimelineLanes from "./TimelineLanes";
 import VoiceSetupModal from "../brand/VoiceSetupModal";
 import ShortFormStatusPill from "./short-form/ShortFormStatusPill";
+import { Tooltip } from "../ui/Tooltip";
 import { useRenderState } from "./useRenderState";
 import { useTimelineState } from "./useTimelineState";
 import { useMediaReview } from "./useMediaReview";
@@ -1133,9 +1134,19 @@ function TimelineEditor({
               </div>
             );
 
-            const yoloButtonBaseClass = "group relative flex h-10 w-[9.5rem] items-center justify-center overflow-hidden rounded-lg px-4 text-center text-xs font-bold leading-tight text-white/95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100";
-            const yoloButtonContentClass = "relative flex min-w-0 items-center justify-center gap-1.5 text-center";
-            const yoloDescriptionClass = "flex h-10 w-[13rem] items-center text-xs leading-5 text-neutral-500";
+            const yoloButtonBaseClass = "group relative flex h-16 min-w-[13rem] flex-1 basis-0 items-center justify-center overflow-hidden rounded-lg px-6 text-center text-sm font-bold leading-tight text-white/95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 hover:scale-[1.01] disabled:opacity-50 disabled:hover:scale-100";
+            const yoloButtonContentClass = "relative flex min-w-0 items-center justify-center gap-2 text-center";
+            const yoloInfoClass = "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-neutral-700/60 bg-neutral-900 text-neutral-500 transition-colors hover:border-neutral-500 hover:text-neutral-200";
+            const yoloModeDescription = `Runs every unfinished creation step in order. Missing title cards, narration audio, scene images, FX, and Eli animation are generated automatically, then the timeline refreshes with the new assets. Currently pending: ${remaining.join(", ")}.`;
+            const yoloRenderDescription = "Builds the finished export package. It renders the long-form video when needed, renders all short-form segments, writes metadata and thumbnail assets, then saves the complete project folder for upload or archive.";
+
+            const yoloInfo = (content: string, label: string) => (
+              <Tooltip content={content} side="top">
+                <span className={yoloInfoClass} aria-label={label}>
+                  <Info size={14} />
+                </span>
+              </Tooltip>
+            );
 
             const yoloRenderButton = (
               <button
@@ -1148,7 +1159,7 @@ function TimelineEditor({
                   {yoloRenderRunning ? (
                     <span className="w-3 h-3 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <Zap size={12} />
+                    <Zap size={14} />
                   )}
                   YOLO RENDER
                 </span>
@@ -1176,15 +1187,11 @@ function TimelineEditor({
             if (allDone) {
               return (
                 <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
-                  <div className="flex items-center gap-3">
-                    {yoloRenderButton}
-                    <span className={yoloDescriptionClass}>
-                      {yoloRenderRunning
-                        ? render.exportPhase === "rendering"
-                          ? "Rendering long-form video..."
-                          : "Exporting every deliverable..."
-                        : "Render and export the complete project folder"}
-                    </span>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex flex-1 items-center gap-2 min-w-0">
+                      {yoloRenderButton}
+                      {yoloInfo(yoloRenderDescription, "YOLO render details")}
+                    </div>
                     {yoloRenderError && (
                       <span className="text-[11px] text-red-400">{yoloRenderError}</span>
                     )}
@@ -1196,32 +1203,28 @@ function TimelineEditor({
 
             return (
               <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={handleYolo}
-                    className={`${yoloButtonBaseClass} bg-gradient-to-r from-violet-500/80 via-fuchsia-400/70 to-amber-400/70 shadow-[0_0_15px_rgba(168,85,247,0.2)] hover:shadow-[0_0_22px_rgba(168,85,247,0.35)] focus-visible:ring-violet-500`}
-                  >
-                    <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_ease-in-out_infinite]" />
-                    <span className={yoloButtonContentClass}>
-                      <Zap size={12} />
-                      YOLO MODE
-                    </span>
-                  </button>
-                  <span className={yoloDescriptionClass}>
-                    {remaining.length} step{remaining.length !== 1 ? "s" : ""} remaining: {remaining.join(" → ")}
-                  </span>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex flex-1 items-center gap-2 min-w-0">
+                    <button
+                      onClick={handleYolo}
+                      className={`${yoloButtonBaseClass} bg-gradient-to-r from-violet-500/80 via-fuchsia-400/70 to-amber-400/70 shadow-[0_0_15px_rgba(168,85,247,0.2)] hover:shadow-[0_0_22px_rgba(168,85,247,0.35)] focus-visible:ring-violet-500`}
+                    >
+                      <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_ease-in-out_infinite]" />
+                      <span className={yoloButtonContentClass}>
+                        <Zap size={14} />
+                        YOLO MODE
+                      </span>
+                    </button>
+                    {yoloInfo(yoloModeDescription, "YOLO mode details")}
+                  </div>
                   {yoloError && (
                     <span className="text-[11px] text-red-400">{yoloError}</span>
                   )}
                   <span className="w-px h-4 bg-neutral-700/50" />
-                  {yoloRenderButton}
-                  <span className={yoloDescriptionClass}>
-                    {yoloRenderRunning
-                      ? render.exportPhase === "rendering"
-                        ? "Rendering long-form video..."
-                        : "Exporting every deliverable..."
-                      : "Full folder export"}
-                  </span>
+                  <div className="flex flex-1 items-center gap-2 min-w-0">
+                    {yoloRenderButton}
+                    {yoloInfo(yoloRenderDescription, "YOLO render details")}
+                  </div>
                   {yoloRenderError && (
                     <span className="text-[11px] text-red-400">{yoloRenderError}</span>
                   )}
