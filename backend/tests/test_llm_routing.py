@@ -21,10 +21,25 @@ def test_short_form_seo_has_dedicated_openai_default(monkeypatch):
 
 def test_short_form_seo_settings_override_defaults(monkeypatch):
     monkeypatch.setenv("SHORT_FORM_SEO_LLM_PROVIDER", "anthropic")
-    monkeypatch.setenv("SHORT_FORM_SEO_MODEL", "anthropic.claude-sonnet-4-6")
+    monkeypatch.setenv("SHORT_FORM_SEO_MODEL", "claude-sonnet-4-20250514")
 
     assert _resolve_provider("short_form_seo") == "anthropic"
-    assert _resolve_model("anthropic", "short_form_seo", None) == "anthropic.claude-sonnet-4-6"
+    assert _resolve_model("anthropic", "short_form_seo", None) == "claude-sonnet-4-20250514"
+
+
+def test_script_generation_defaults_to_anthropic_claude(monkeypatch):
+    monkeypatch.delenv("SCRIPT_LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("SCRIPT_MODEL", raising=False)
+
+    assert _resolve_provider("script") == "anthropic"
+    assert _resolve_model("anthropic", "script", None) == "claude-opus-4-1-20250805"
+
+
+def test_anthropic_bedrock_style_defaults_are_normalized(monkeypatch):
+    monkeypatch.setenv("SCRIPT_LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("SCRIPT_MODEL", "anthropic.claude-opus-4-6-v1")
+
+    assert _resolve_model("anthropic", "script", None) == "claude-opus-4-1-20250805"
 
 
 def test_structured_openai_tasks_use_minimal_reasoning_by_default(monkeypatch):

@@ -99,11 +99,11 @@ export default function ScriptGenerationPage({
         setQwenModel(
           provider === "ollama"
             ? data.QWEN_MODEL?.masked || "qwen3:14b"
-            : data.SCRIPT_MODEL?.masked || data.QWEN_MODEL?.masked || "qwen3:14b",
+            : data.SCRIPT_MODEL?.masked || selectedModel,
         );
       }
     });
-  }, []);
+  }, [selectedModel]);
 
   const activeModelLabel =
     llmProvider === "ollama"

@@ -43,12 +43,13 @@ DEFAULT_SEGMENT_COLORS = [
 # Default accent color for title highlights and UI elements
 DEFAULT_ACCENT_COLOR = "#e91e63"
 
-# Default Claude model for script generation and LLM tasks
-DEFAULT_CLAUDE_MODEL = "anthropic.claude-opus-4-6-v1"
+# Default Claude model for script generation and LLM tasks.
+# Anthropic API model ids are used here, not AWS Bedrock ids.
+DEFAULT_CLAUDE_MODEL = "claude-opus-4-1-20250805"
 
 # Faster models for structured/classification tasks
-BALANCED_CLAUDE_MODEL = "anthropic.claude-sonnet-4-6"
-FAST_CLAUDE_MODEL = "anthropic.claude-haiku-4-5-20251001-v1:0"
+BALANCED_CLAUDE_MODEL = "claude-sonnet-4-20250514"
+FAST_CLAUDE_MODEL = "claude-3-5-haiku-20241022"
 
 # Default OpenAI models for routed LLM tasks
 DEFAULT_OPENAI_MODEL = "gpt-5.5"

@@ -21,6 +21,20 @@ _THINK_BLOCK_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
 
 ALLOWED_PROVIDERS = {"anthropic", "ollama", "openai"}
 
+_ANTHROPIC_MODEL_ALIASES = {
+    # Legacy Headless Hero defaults that used Bedrock-style or provisional ids.
+    "anthropic.claude-opus-4-6-v1": DEFAULT_CLAUDE_MODEL,
+    "anthropic.claude-sonnet-4-6": BALANCED_CLAUDE_MODEL,
+    "anthropic.claude-sonnet-4-5-20250929-v1:0": BALANCED_CLAUDE_MODEL,
+    "anthropic.claude-haiku-4-5-20251001-v1:0": FAST_CLAUDE_MODEL,
+    # Common AWS Bedrock ids for currently supported Claude snapshots.
+    "anthropic.claude-opus-4-1-20250805-v1:0": DEFAULT_CLAUDE_MODEL,
+    "anthropic.claude-opus-4-20250514-v1:0": "claude-opus-4-20250514",
+    "anthropic.claude-sonnet-4-20250514-v1:0": BALANCED_CLAUDE_MODEL,
+    "anthropic.claude-3-7-sonnet-20250219-v1:0": "claude-3-7-sonnet-20250219",
+    "anthropic.claude-3-5-haiku-20241022-v1:0": FAST_CLAUDE_MODEL,
+}
+
 # Valid OpenAI reasoning_effort values for GPT-5 / o-series reasoning models.
 # Used in LLM_TASKS["<task>"]["openai_reasoning_effort"] and the
 # OPENAI_REASONING_EFFORT_<TASK> env-var override.
@@ -31,7 +45,7 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "label": "Script & cold opens",
         "provider_key": "SCRIPT_LLM_PROVIDER",
         "model_key": "SCRIPT_MODEL",
-        "default_provider": "openai",
+        "default_provider": "anthropic",
         "default_anthropic_model": DEFAULT_CLAUDE_MODEL,
         "default_openai_model": DEFAULT_OPENAI_MODEL,
         "openai_reasoning_effort": "low",
@@ -158,11 +172,13 @@ def _default_model_for_provider(provider: str, task: str | None) -> str:
 
 def _resolve_model(provider: str, task: str | None, model: str | None) -> str:
     if model:
-        return model
+        return _ANTHROPIC_MODEL_ALIASES.get(model, model) if provider == "anthropic" else model
     task_config = LLM_TASKS.get(task or "")
     if task_config:
         configured = os.environ.get(task_config["model_key"], "").strip()
         if configured:
+            if provider == "anthropic":
+                configured = _ANTHROPIC_MODEL_ALIASES.get(configured, configured)
             configured_lower = configured.lower()
             if provider == "ollama" and configured_lower.startswith(("anthropic.", "claude-", "gpt-", "o1", "o3", "o4")):
                 return _default_model_for_provider(provider, task)

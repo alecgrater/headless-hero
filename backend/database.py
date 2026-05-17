@@ -2,7 +2,7 @@ import logging
 
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from config import DATA_DIR
+from config import DATA_DIR, DEFAULT_CLAUDE_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -90,15 +90,37 @@ def _migrate_add_script_id_to_api_usage() -> None:
 
 
 def _migrate_script_model_default() -> None:
-    """Clear stale SCRIPT_MODEL if it's the old Sonnet default so the new Opus default takes effect."""
+    """Clear stale script LLM defaults so the current Claude route takes effect."""
     from models.settings import AppSetting
 
+    stale_script_models = {
+        "claude-sonnet-4-20250514",
+        "anthropic.claude-opus-4-6-v1",
+        "anthropic.claude-sonnet-4-6",
+        "anthropic.claude-sonnet-4-5-20250929-v1:0",
+        "anthropic.claude-haiku-4-5-20251001-v1:0",
+        "gpt-5.5",
+    }
+
     with Session(engine) as session:
-        setting = session.get(AppSetting, "SCRIPT_MODEL")
-        if setting and setting.value == "claude-sonnet-4-20250514":
-            session.delete(setting)
+        changed: list[str] = []
+
+        provider_setting = session.get(AppSetting, "SCRIPT_LLM_PROVIDER")
+        model_setting = session.get(AppSetting, "SCRIPT_MODEL")
+
+        if provider_setting and provider_setting.value in {"", "openai"}:
+            provider_setting.value = "anthropic"
+            session.add(provider_setting)
+            changed.append("SCRIPT_LLM_PROVIDER")
+
+        if model_setting and model_setting.value in stale_script_models:
+            model_setting.value = DEFAULT_CLAUDE_MODEL
+            session.add(model_setting)
+            changed.append("SCRIPT_MODEL")
+
+        if changed:
             session.commit()
-            logger.info("Migrated: cleared stale SCRIPT_MODEL default (was claude-sonnet-4)")
+            logger.info("Migrated: refreshed stale script LLM defaults: %s", ", ".join(changed))
 
 
 def _migrate_llm_task_route_defaults() -> None:

@@ -50,17 +50,22 @@ def record_usage(
 
 # --- Pricing constants (USD per token) ---
 _MODEL_PRICING: dict[str, dict[str, float]] = {
-    "anthropic.claude-opus-4-6-v1": {
+    "claude-opus-4-1-20250805": {
         "input": 15.0 / 1_000_000,
         "output": 75.0 / 1_000_000,
         "cache_read": 1.5 / 1_000_000,
     },
-    "anthropic.claude-sonnet-4-6": {
+    "claude-opus-4-20250514": {
+        "input": 15.0 / 1_000_000,
+        "output": 75.0 / 1_000_000,
+        "cache_read": 1.5 / 1_000_000,
+    },
+    "claude-sonnet-4-20250514": {
         "input": 3.0 / 1_000_000,
         "output": 15.0 / 1_000_000,
         "cache_read": 0.3 / 1_000_000,
     },
-    "anthropic.claude-haiku-4-5-20251001-v1:0": {
+    "claude-3-5-haiku-20241022": {
         "input": 0.8 / 1_000_000,
         "output": 4.0 / 1_000_000,
         "cache_read": 0.08 / 1_000_000,

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from database import get_session
-from config import DEFAULT_OPENAI_MODEL
+from config import DEFAULT_CLAUDE_MODEL
 from integrations.llm_client import ALLOWED_PROVIDERS, LLM_TASKS, VALID_OPENAI_REASONING_EFFORTS
 from models.settings import AppSetting
 
@@ -87,7 +87,7 @@ for _task_id, _task_config in LLM_TASKS.items():
 _DEFAULTS: dict[str, str] = {
     "IMAGE_RATE_LIMIT_MS": "10000",  # 6 req/min to stay under free-tier limits
     "IMAGE_SCRAPER_FALLBACK_ENABLED": "false",
-    "SCRIPT_MODEL": DEFAULT_OPENAI_MODEL,
+    "SCRIPT_MODEL": DEFAULT_CLAUDE_MODEL,
     "AUDIO_FILTER_HIGHPASS": "true",
     "AUDIO_FILTER_NOISE_REDUCTION": "true",
     "AUDIO_FILTER_COMPRESSOR": "true",
