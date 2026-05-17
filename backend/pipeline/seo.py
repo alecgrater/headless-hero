@@ -120,7 +120,7 @@ def _short_form_title(project_title: str, segment_title: str) -> str:
     """Build the deterministic upload title for a short-form segment."""
     clean_project_title = project_title.strip() or "Untitled"
     clean_segment_title = segment_title.strip() or "Untitled"
-    return f"{clean_project_title}: {clean_segment_title}"
+    return f"{clean_project_title} - {clean_segment_title}"
 
 def build_short_form_seo_contexts(content: ScriptContent) -> list[dict]:
     """Build one transcript summary per rendered short."""
@@ -200,7 +200,7 @@ def generate_short_form_seo(
         f"Generate short-form metadata for every short from this long-form video.\n\n"
         f"Long-form title: {video_title}\n"
         f"Use each provided segment_name only for context. The final title field will be set by the app as "
-        f"\"{{project title}}: {{segment title}}\".\n"
+        f"\"{{project title}} - {{segment title}}\".\n"
         f"Shorts JSON:\n{json.dumps(shorts, ensure_ascii=False, indent=2)}"
     )
     if video_description:

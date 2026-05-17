@@ -31,7 +31,7 @@ def parse_seo_txt(path: Path) -> tuple[str | None, str | None, list[str]]:
         elif stripped == "Description:" or heading == "Description":
             current_section = "description"
             continue
-        elif stripped == "Tags:" or heading in {"Tags", "YouTube Tags"}:
+        elif stripped == "Tags:" or heading in {"Tags", "YouTube Tags", "SEO Tags"}:
             current_section = "tags"
             continue
 

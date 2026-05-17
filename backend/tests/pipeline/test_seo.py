@@ -102,7 +102,7 @@ class TestValidateShortIndices:
 
 class TestShortFormTitles:
     def test_builds_project_title_segment_title(self):
-        assert _short_form_title("Project", "Segment") == "Project: Segment"
+        assert _short_form_title("Project", "Segment") == "Project - Segment"
 
     def test_generated_short_titles_are_deterministic(self, monkeypatch):
         def fake_chat(*args, **kwargs):
@@ -138,8 +138,8 @@ class TestShortFormTitles:
         )
 
         assert [short.title for short in result.shorts] == [
-            "Project Title: Segment One",
-            "Project Title: Segment Two",
+            "Project Title - Segment One",
+            "Project Title - Segment Two",
         ]
 
 

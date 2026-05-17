@@ -50,6 +50,36 @@ def test_render_router_has_no_audio_only_export_endpoint():
     assert "/api/render/export-audio" not in paths
 
 
+def test_format_shortform_seo_markdown_includes_platform_sections():
+    markdown = render_api._format_shortform_seo_markdown(
+        {
+            "index": 2,
+            "title": "Project - Segment",
+            "description": "Caption line one.\nCaption line two.",
+            "hashtags": ["#TinyHabits", "#StartSmall"],
+            "tags": ["tiny habits", "self improvement"],
+        }
+    )
+
+    assert markdown == (
+        "# Short 2\n\n"
+        "# Youtube\n\n"
+        "## Title\n\n"
+        "Project - Segment\n\n"
+        "## Description\n\n"
+        "Caption line one.\nCaption line two.\n\n"
+        "## Hashtags\n\n"
+        "#TinyHabits #StartSmall\n\n"
+        "## SEO Tags\n\n"
+        "tiny habits, self improvement\n\n"
+        "# Tiktok / Insta\n\n"
+        "Project - Segment\n\n"
+        "Caption line one.\nCaption line two.\n\n"
+        "#TinyHabits #StartSmall\n\n"
+        "tiny habits, self improvement\n"
+    )
+
+
 def test_export_bundle_does_not_include_standalone_audio_file(tmp_path, monkeypatch):
     monkeypatch.setattr(render_api, "DATA_DIR", tmp_path)
     monkeypatch.setenv("EXPORT_FOLDER", str(tmp_path / "Exports"))

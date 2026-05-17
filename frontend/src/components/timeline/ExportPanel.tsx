@@ -270,18 +270,21 @@ function TagList({ tags }: { tags: string[] }) {
 }
 
 function formatShortFormSEO(item: ShortFormSEO): string {
-  const sections = [
-    `Short ${item.index}`,
-    `Title:\n${item.title}`,
-    `Description:\n${item.description}`,
-  ];
-  if (item.hashtags.length > 0) {
-    sections.push(`Hashtags:\n${item.hashtags.join(" ")}`);
-  }
-  if (item.tags.length > 0) {
-    sections.push(`YouTube Tags:\n${item.tags.join(", ")}`);
-  }
-  return sections.join("\n\n");
+  const hashtags = item.hashtags.join(" ");
+  const tags = item.tags.join(", ");
+  return [
+    `# Short ${item.index}`,
+    "# Youtube",
+    `## Title\n\n${item.title}`,
+    `## Description\n\n${item.description}`,
+    `## Hashtags\n\n${hashtags}`,
+    `## SEO Tags\n\n${tags}`,
+    "# Tiktok / Insta",
+    item.title,
+    item.description,
+    hashtags,
+    tags,
+  ].join("\n\n");
 }
 
 export default function ExportPanel({

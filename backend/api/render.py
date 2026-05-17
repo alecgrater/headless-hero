@@ -131,21 +131,41 @@ def _format_longform_seo_markdown(seo: dict) -> str:
 def _format_shortform_seo_markdown(item: dict) -> str:
     hashtags = item.get("hashtags") or []
     tags = item.get("tags") or []
+    title = item.get("title", "")
+    description = item.get("description", "")
+    hashtags_line = " ".join(hashtags)
+    tags_line = ", ".join(tags)
     lines = [
         f"# Short {item.get('index', '?')}",
         "",
+        "# Youtube",
+        "",
         "## Title",
         "",
-        item.get("title", ""),
+        title,
         "",
         "## Description",
         "",
-        item.get("description", ""),
+        description,
+        "",
+        "## Hashtags",
+        "",
+        hashtags_line,
+        "",
+        "## SEO Tags",
+        "",
+        tags_line,
+        "",
+        "# Tiktok / Insta",
+        "",
+        title,
+        "",
+        description,
     ]
     if hashtags:
-        lines.extend(["", "## Hashtags", "", " ".join(hashtags)])
+        lines.extend(["", hashtags_line])
     if tags:
-        lines.extend(["", "## YouTube Tags", "", ", ".join(tags)])
+        lines.extend(["", tags_line])
     return "\n".join(lines).strip() + "\n"
 
 
