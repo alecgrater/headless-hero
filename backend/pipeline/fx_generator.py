@@ -10,10 +10,23 @@ import logging
 
 from config import parse_json_array_response, strip_markdown_fences
 from integrations.llm_client import chat
-from models.script import SceneFX
+from models.script import ALLOWED_TRANSITIONS, SceneFX
 from prompts import FX_SYSTEM
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_transition_in(value: object, scene_id: str, script_id: str | None = None) -> str:
+    if isinstance(value, str) and value in ALLOWED_TRANSITIONS:
+        return value
+
+    logger.warning(
+        "[%s] FX generator returned invalid transition_in for scene %s: %r; using cut",
+        script_id or "no-id",
+        scene_id,
+        value,
+    )
+    return "cut"
 
 
 def generate_scene_fx(scene_data: dict, script_id: str | None = None) -> dict:
@@ -46,7 +59,7 @@ def generate_scene_fx(scene_data: dict, script_id: str | None = None) -> dict:
 
     entry = fx_list[0]
     fx_data = entry.get("fx", {})
-    transition_in = entry.get("transition_in", "cut")
+    transition_in = _normalize_transition_in(entry.get("transition_in", "cut"), scene_id, script_id)
 
     SceneFX.model_validate(fx_data)
 

@@ -4,10 +4,12 @@ import uuid
 from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, Field as PydanticField
+from pydantic import BaseModel, Field as PydanticField, field_validator
 from sqlmodel import Column, Field, SQLModel, Text
 
 # --- Pydantic models for the script JSON structure ---
+
+ALLOWED_TRANSITIONS = {"cut", "fade_black", "flash_white", "wipe"}
 
 # --- FX models (used by Remotion renderer) ---
 
@@ -105,6 +107,14 @@ class Scene(BaseModel):
     upload_url: str = ""                # web-relative path to user-uploaded media
     original_visual_prompt: str = ""    # preserved AI-art prompt when analyzer overwrites visual_prompt
     visual_source_metadata: dict | None = None  # provider/source details for generated or fallback visuals
+
+    @field_validator("transition_in", mode="before")
+    @classmethod
+    def normalize_transition_in(cls, value: object) -> str:
+        """Treat missing, null, or unknown transitions as the default cut."""
+        if isinstance(value, str) and value in ALLOWED_TRANSITIONS:
+            return value
+        return "cut"
 
 class Segment(BaseModel):
     """A named segment (e.g. "Caffeine") containing multiple scenes."""
