@@ -26,6 +26,7 @@ def test_preserve_media_analysis_flags_writes_inferred_legacy_defaults():
 
     preserve_media_analysis_source_flags(
         content,
+        script_json={"segments": []},
         gameplay_enabled=True,
         stock_photo_enabled=True,
     )
@@ -33,3 +34,27 @@ def test_preserve_media_analysis_flags_writes_inferred_legacy_defaults():
     dumped = content.model_dump()
     assert dumped["gameplay_enabled"] is True
     assert dumped["stock_photo_enabled"] is True
+
+
+def test_preserve_media_analysis_flags_does_not_overwrite_explicit_final_settings():
+    content = ScriptContent(
+        title="Updated script",
+        segments=[],
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+    )
+
+    preserve_media_analysis_source_flags(
+        content,
+        script_json={
+            "segments": [],
+            "gameplay_enabled": False,
+            "stock_photo_enabled": False,
+        },
+        gameplay_enabled=True,
+        stock_photo_enabled=True,
+    )
+
+    dumped = content.model_dump()
+    assert dumped["gameplay_enabled"] is False
+    assert dumped["stock_photo_enabled"] is False

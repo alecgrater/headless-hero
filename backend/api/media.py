@@ -89,12 +89,15 @@ def media_analysis_source_flags(script_json: dict) -> tuple[bool, bool]:
 
 def preserve_media_analysis_source_flags(
     content: ScriptContent,
+    script_json: dict,
     gameplay_enabled: bool,
     stock_photo_enabled: bool,
 ) -> None:
-    """Persist the source flags used for analysis so legacy fallbacks survive saves."""
-    content.gameplay_enabled = gameplay_enabled
-    content.stock_photo_enabled = stock_photo_enabled
+    """Persist inferred legacy source flags without overwriting explicit final settings."""
+    if "gameplay_enabled" not in script_json:
+        content.gameplay_enabled = gameplay_enabled
+    if "stock_photo_enabled" not in script_json:
+        content.stock_photo_enabled = stock_photo_enabled
 
 
 @router.post("/analyze/{script_id}", response_model=AnalyzeResponse)
@@ -146,10 +149,12 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
             rec = bg_session.get(Script, script_id)
             if not rec:
                 raise RuntimeError(f"Script {script_id} deleted during media analysis")
-            final_content = ScriptContent.model_validate(json.loads(rec.script_json))
+            final_raw = json.loads(rec.script_json)
+            final_content = ScriptContent.model_validate(final_raw)
             apply_assignments(final_content, assignments)
             preserve_media_analysis_source_flags(
                 final_content,
+                script_json=final_raw,
                 gameplay_enabled=gameplay_enabled,
                 stock_photo_enabled=stock_photo_enabled,
             )
