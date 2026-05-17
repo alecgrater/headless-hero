@@ -139,7 +139,7 @@ function DistributionTrackingButton({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap text-xs text-neutral-400 bg-neutral-800/60 hover:bg-neutral-700/70 px-2.5 rounded-md tabular-nums transition-colors"
+      className="inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap text-xs px-2.5 bg-neutral-800 hover:bg-neutral-700 rounded-md text-neutral-300 tabular-nums transition-colors"
       title="Open distribution tracking"
     >
       <span className="flex items-center gap-1.5">
