@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import {
+  Check,
   Film,
   ImageIcon,
   Info,
   Layers,
   ListVideo,
   PanelsTopLeft,
+  Pencil,
   Search,
   Smartphone,
   Upload,
   Video,
+  X,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -304,7 +307,7 @@ export default function TimelinePage({ scriptId, isActive = true, onBack, onSave
     );
   }
 
-  return <TimelineEditor scriptId={scriptId} isActive={isActive} initialContent={script.script} title={script.topic_title} onBack={onBack} onSaveStateChange={onSaveStateChange} onNavigateToSettings={onNavigateToSettings} onRecordVoiceover={onRecordVoiceover} />;
+  return <TimelineEditor scriptId={scriptId} isActive={isActive} initialContent={script.script} title={script.topic_title} onTitleUpdated={setScript} onBack={onBack} onSaveStateChange={onSaveStateChange} onNavigateToSettings={onNavigateToSettings} onRecordVoiceover={onRecordVoiceover} />;
 }
 
 interface BatchProgressProps {
@@ -1204,6 +1207,7 @@ function TimelineEditor({
   isActive = true,
   initialContent,
   title,
+  onTitleUpdated,
   onBack,
   onSaveStateChange,
   onNavigateToSettings,
@@ -1213,15 +1217,20 @@ function TimelineEditor({
   isActive?: boolean;
   initialContent: ScriptContent;
   title: string;
+  onTitleUpdated?: (script: ScriptRead) => void;
   onBack: () => void;
   onSaveStateChange?: (state: SaveState) => void;
   onNavigateToSettings?: () => void;
   onRecordVoiceover?: () => void;
 }) {
   const state = useTimelineState(scriptId, initialContent);
+  const [editableTitle, setEditableTitle] = useState(title);
+  const [titleDraft, setTitleDraft] = useState(title);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleSaving, setTitleSaving] = useState(false);
   const render = useRenderState(
     scriptId,
-    title,
+    editableTitle,
     initialContent.seo_metadata,
     initialContent.short_form_seo_metadata,
   );
@@ -1296,6 +1305,12 @@ function TimelineEditor({
   const mediaBreakdownRef = useRef<HTMLDivElement>(null);
 
   const media = useMediaReview({ scriptId, content: state.content });
+
+  useEffect(() => {
+    setEditableTitle(title);
+    setTitleDraft(title);
+    setEditingTitle(false);
+  }, [scriptId, title]);
 
   // Auto-switch to Media Sources tab when new assignments arrive
   useEffect(() => {
@@ -1707,6 +1722,61 @@ function TimelineEditor({
   const hasExistingImages = allScenes.some((sc) => !sc.is_title_card && (sc.image_url || sc.frame_urls?.length));
   const hasExistingAudio = allScenes.some((sc) => sc.audio_url);
   const hasExistingFX = allScenes.some((sc) => sc.fx);
+  const hasTitleSensitiveAssets = hasExistingImages || hasExistingAudio || Boolean(state.content.seo_metadata || state.content.short_form_seo_metadata);
+
+  const startTitleEdit = () => {
+    setTitleDraft(editableTitle);
+    setEditingTitle(true);
+  };
+
+  const cancelTitleEdit = () => {
+    setTitleDraft(editableTitle);
+    setEditingTitle(false);
+  };
+
+  const saveTitleEdit = async () => {
+    const nextTitle = titleDraft.trim();
+    if (!nextTitle || nextTitle === editableTitle || titleSaving) {
+      cancelTitleEdit();
+      return;
+    }
+
+    const message = hasTitleSensitiveAssets
+      ? [
+          "Change this video title?",
+          "",
+          "Repercussions:",
+          "- Future renders, exports, generated SEO, upload titles, and project folder names will use the new title.",
+          "- Existing title cards, thumbnails, SEO metadata, rendered videos, and exported files may still contain the old title until you regenerate or export them again.",
+          "- Narration and voiceover timing will not change.",
+        ].join("\n")
+      : [
+          "Change this video title?",
+          "",
+          "Future renders, exports, SEO, upload titles, and project folder names will use the new title. Narration and timing will not change.",
+        ].join("\n");
+
+    if (!confirm(message)) return;
+
+    setTitleSaving(true);
+    try {
+      if (state.isDirty) {
+        const saved = await state.save();
+        if (!saved) return;
+      }
+      const res = await api.put(`/api/scripts/${scriptId}/title`, { title: nextTitle });
+      if (!res.ok) return;
+      const updated = res.data as ScriptRead;
+      setEditableTitle(updated.topic_title);
+      setTitleDraft(updated.topic_title);
+      state.setContent(updated.script);
+      onTitleUpdated?.(updated);
+      setEditingTitle(false);
+      showToast("Title updated.", "success");
+    } finally {
+      setTitleSaving(false);
+    }
+  };
 
   // Check if ALL scenes are complete for each step (for completion checkmarks)
   const nonTitleScenes = allScenes.filter((sc) => !sc.is_title_card);
@@ -2442,7 +2512,53 @@ function TimelineEditor({
             >
               &larr; Back
             </button>
-            <h2 className="text-base font-semibold truncate flex-1 min-w-0" title={title}>{title}</h2>
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              {editingTitle ? (
+                <>
+                  <input
+                    value={titleDraft}
+                    onChange={(event) => setTitleDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") void saveTitleEdit();
+                      if (event.key === "Escape") cancelTitleEdit();
+                    }}
+                    autoFocus
+                    disabled={titleSaving}
+                    className="h-8 min-w-0 flex-1 rounded-md border border-violet-500/40 bg-neutral-900 px-2.5 text-sm font-semibold text-neutral-100 outline-none transition-colors placeholder:text-neutral-500 focus:border-violet-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void saveTitleEdit()}
+                    disabled={titleSaving}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-emerald-500/15 text-emerald-300 transition-colors hover:bg-emerald-500/25 disabled:opacity-50"
+                    title="Save title"
+                  >
+                    <Check size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelTitleEdit}
+                    disabled={titleSaving}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-neutral-800 text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-200 disabled:opacity-50"
+                    title="Cancel title edit"
+                  >
+                    <X size={15} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h2 className="min-w-0 truncate text-base font-semibold" title={editableTitle}>{editableTitle}</h2>
+                  <button
+                    type="button"
+                    onClick={startTitleEdit}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-200"
+                    title="Edit video title"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                </>
+              )}
+            </div>
             {yoloArea}
             <ExportSplitButton
               exportTestJobId={exportTestJobId}
@@ -2985,10 +3101,10 @@ function TimelineEditor({
             setShowExport(false);
             onNavigateToSettings?.();
           }}
-          seoTitle={title}
+          seoTitle={editableTitle}
           seoDescription=""
           seoTags={[]}
-          projectTitle={title}
+          projectTitle={editableTitle}
           onClose={() => setShowExport(false)}
           scriptId={scriptId}
           segments={state.content.segments.map((s) => ({ name: s.name }))}

@@ -188,6 +188,9 @@ class GenerateScriptResponse(BaseModel):
 class UpdateScriptRequest(BaseModel):
     script: ScriptContent
 
+class UpdateScriptTitleRequest(BaseModel):
+    title: str = PydanticField(..., min_length=1, max_length=200, description="Video/project title")
+
 class RefineSceneRequest(BaseModel):
     segment_index: int
     scene_id: str

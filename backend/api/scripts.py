@@ -30,6 +30,7 @@ from models.script import (
     ScriptSummary,
     UploadTracking,
     UpdateScriptRequest,
+    UpdateScriptTitleRequest,
 )
 from models.publish import PublishRecord
 from pipeline.refine import refine_scene
@@ -436,6 +437,38 @@ def update_script(script_id: str, body: UpdateScriptRequest, session: Session = 
         topic_title=record.topic_title,
         topic_description=record.topic_description,
         script=body.script,
+        created_at=record.created_at,
+    )
+
+@router.put("/{script_id}/title", response_model=ScriptRead)
+def update_script_title(
+    script_id: str,
+    body: UpdateScriptTitleRequest,
+    session: Session = Depends(get_session),
+):
+    record = session.get(Script, script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    title = body.title.strip()
+    if not title:
+        raise HTTPException(status_code=422, detail="Title cannot be blank")
+
+    content = ScriptContent.model_validate(json.loads(record.script_json))
+    content.title = title
+    record.topic_title = title
+    record.script_json = content.model_dump_json()
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+
+    logger.info("Updated script title %s", script_id)
+    return ScriptRead(
+        id=record.id,
+        brand_id=record.brand_id,
+        topic_title=record.topic_title,
+        topic_description=record.topic_description,
+        script=content,
         created_at=record.created_at,
     )
 
