@@ -33,9 +33,9 @@ def test_shortform_filename_thumbnail_with_index_total():
     )
 
 
-def test_shortform_video_filename_uses_project_title_with_index_total():
-    assert shortform_video_filename("8 Self-Improvement Steps", 8, 8) == (
-        "[Shortform 8∕8] 8 Self-Improvement Steps.mp4"
+def test_shortform_video_filename_uses_segment_name_with_index_total():
+    assert shortform_video_filename("Design the Default", 1, 8) == (
+        "[Shortform 1∕8] [Video] - Design the Default.mp4"
     )
 
 

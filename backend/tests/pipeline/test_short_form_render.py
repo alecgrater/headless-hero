@@ -4,15 +4,15 @@ from pipeline.short_form_render import _short_filename, strip_leading_number
 
 
 class TestShortFilename:
-    def test_basic_format_uses_project_title_and_index_total(self):
-        assert _short_filename("8 Self-Improvement Steps", 8, 8) == (
-            "[Shortform 8∕8] 8 Self-Improvement Steps.mp4"
+    def test_basic_format_uses_segment_name_and_index_total(self):
+        assert _short_filename("Design the Default", 1, 8) == (
+            "[Shortform 1∕8] [Video] - Design the Default.mp4"
         )
 
-    def test_handles_special_chars_in_project_title(self):
+    def test_handles_special_chars_in_segment_name(self):
         # sanitize_filename strips < > : " / \ | ? *
-        result = _short_filename('Bad/Project: "Test"', 1, 8)
-        assert result == "[Shortform 1∕8] BadProject Test.mp4"
+        result = _short_filename('Bad/Segment: "Test"', 1, 8)
+        assert result == "[Shortform 1∕8] [Video] - BadSegment Test.mp4"
         assert "/" not in result, f"Filename must not contain POSIX path separator: {result!r}"
 
     def test_uses_unicode_division_slash(self):

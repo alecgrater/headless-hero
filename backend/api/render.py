@@ -478,7 +478,7 @@ def _phase_copy_to_downloads(ctx: ExportContext) -> None:
     else:
         src_path = ctx.video_url
 
-    dest_name = shortform_video_filename(ctx.project_title, 1, ctx.total_segments)
+    dest_name = shortform_video_filename(ctx.seg_name, 1, ctx.total_segments)
     dest_path = copy_to_project_downloads(ctx.project_title, src_path, dest_name)
     logger.info("Export test copied to: %s", dest_path)
 

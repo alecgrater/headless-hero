@@ -99,18 +99,6 @@ def _load_content(session: Session, script_id: str) -> ScriptContent:
     return ScriptContent.model_validate(json.loads(record.script_json))
 
 
-def _short_download_paths(project_title: str, total: int) -> dict[int, str]:
-    # Deprecated shape retained for callers that only have a segment count.
-    from pipeline.export_paths import project_downloads_folder
-    from pipeline.short_form_render import _short_filename
-
-    folder = project_downloads_folder(project_title, create=False)
-    return {
-        idx: str(folder / _short_filename(project_title, idx + 1, total))
-        for idx in range(total)
-    }
-
-
 def _short_download_paths_for_content(project_title: str, content: ScriptContent) -> dict[int, str]:
     from pipeline.export_paths import project_downloads_folder
     from pipeline.short_form_render import _short_filename
@@ -118,8 +106,8 @@ def _short_download_paths_for_content(project_title: str, content: ScriptContent
     folder = project_downloads_folder(project_title, create=False)
     total = len(content.segments)
     return {
-        idx: str(folder / _short_filename(project_title, idx + 1, total))
-        for idx in range(total)
+        idx: str(folder / _short_filename(segment.name, idx + 1, total))
+        for idx, segment in enumerate(content.segments)
     }
 
 
@@ -323,7 +311,7 @@ def export_short_form_videos(
     sources: dict[int, Path] = {}
     missing: list[int] = []
     for idx, segment in enumerate(content.segments):
-        downloads_path = folder / _short_filename(project_title, idx + 1, total)
+        downloads_path = folder / _short_filename(segment.name, idx + 1, total)
         if downloads_path.is_file():
             sources[idx] = downloads_path
             continue
@@ -342,7 +330,7 @@ def export_short_form_videos(
     files: list[str] = []
     paths: dict[int, str] = {}
     for idx, src in sources.items():
-        dest = folder / _short_filename(project_title, idx + 1, total)
+        dest = folder / _short_filename(content.segments[idx].name, idx + 1, total)
         if src.resolve() != dest.resolve():
             shutil.copy2(str(src), str(dest))
         files.append(dest.name)

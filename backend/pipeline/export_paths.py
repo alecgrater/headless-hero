@@ -67,10 +67,9 @@ def shortform_filename(
     return f"[Shortform {index}{SHORTFORM_SLASH}{total}] [{asset}] - {safe_name}{clean_ext}"
 
 
-def shortform_video_filename(project_title: str, index: int, total: int) -> str:
-    """Build the short-form video filename: '[Shortform N∕M] {project_title}.mp4'."""
-    safe_name = sanitize_filename(project_title or "Untitled")
-    return f"[Shortform {index}{SHORTFORM_SLASH}{total}] {safe_name}.mp4"
+def shortform_video_filename(segment_name: str, index: int, total: int) -> str:
+    """Build the short-form video filename: '[Shortform N∕M] [Video] - {segment_name}.mp4'."""
+    return shortform_filename("Video", segment_name, ".mp4", index=index, total=total)
 
 
 def copy_to_project_downloads(
