@@ -25,7 +25,7 @@ All API keys can be configured either as environment variables or through the ap
 3. Navigate to **API Keys** in the dashboard
 4. Click **Create Key**, copy the value
 
-**Fallback:** If not set, the app falls back to a local proxy at `http://localhost:11211/api/anthropic`. You only need this key if you're not running a local proxy.
+Required when Anthropic is selected as an AI provider.
 
 ---
 

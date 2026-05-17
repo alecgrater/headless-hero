@@ -20,7 +20,6 @@ const LLM_PROVIDERS = [
   { value: "ollama", label: "Ollama (local)", description: "Local Qwen3 via Ollama" },
   { value: "anthropic", label: "Anthropic API", description: "Real Claude API (requires ANTHROPIC_API_KEY)" },
   { value: "openai", label: "OpenAI API", description: "OpenAI models (requires OPENAI_API_KEY)" },
-  { value: "claude-code-proxy", label: "Claude Code Proxy", description: "Apple Claude Code proxy on localhost:11211" },
 ] as const;
 
 type LlmProvider = (typeof LLM_PROVIDERS)[number]["value"];
@@ -253,11 +252,16 @@ const modelOptionsForProvider = (provider: LlmProvider) => {
   if (provider === "openai") {
     return SCRIPT_MODELS.filter((model) => model.value.startsWith("gpt-"));
   }
-  if (provider === "anthropic" || provider === "claude-code-proxy") {
+  if (provider === "anthropic") {
     return SCRIPT_MODELS.filter((model) => !model.value.startsWith("gpt-"));
   }
   return MODEL_SUGGESTIONS;
 };
+
+const normalizeLlmProvider = (provider: string, fallback: LlmProvider): LlmProvider =>
+  LLM_PROVIDERS.some((candidate) => candidate.value === provider)
+    ? (provider as LlmProvider)
+    : fallback;
 
 const initialTaskRoutes = () =>
   Object.fromEntries(
@@ -352,7 +356,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
         const fmtVal = data.REPLICATE_OUTPUT_FORMAT?.masked || "png";
         setOutputFormat(fmtVal);
         setOriginalFormat(fmtVal);
-        const llmVal = (data.LLM_PROVIDER?.masked || "ollama") as LlmProvider;
+        const llmVal = normalizeLlmProvider(data.LLM_PROVIDER?.masked || "", "ollama");
         setLlmProvider(llmVal);
         setOriginalLlmProvider(llmVal);
         const qwVal = data.QWEN_MODEL?.masked || "qwen3:14b";
@@ -364,7 +368,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
           LLM_TASKS.map((task) => [
             task.id,
             {
-              provider: (data[task.providerKey]?.masked || task.defaultProvider) as TaskRoute["provider"],
+              provider: normalizeLlmProvider(data[task.providerKey]?.masked || "", task.defaultProvider),
               model: data[task.modelKey]?.masked || modelForProvider(task, task.defaultProvider),
               openaiReasoningEffort: (data[task.reasoningKey]?.masked || task.defaultReasoning) as OpenAIReasoningEffort,
             },
@@ -749,7 +753,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                             {reasoningDescription}
                           </p>
                           <p className="text-xs text-neutral-500 leading-relaxed">
-                            Applies only when this task uses OpenAI. Anthropic, Claude Code Proxy, and Ollama ignore this setting.
+                            Applies only when this task uses OpenAI. Anthropic and Ollama ignore this setting.
                           </p>
                         </div>
                       </div>

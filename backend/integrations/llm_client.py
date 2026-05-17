@@ -1,4 +1,4 @@
-"""Thin wrapper around routed LLM providers (Anthropic, OpenAI, proxy, or Ollama)."""
+"""Thin wrapper around routed LLM providers (Anthropic, OpenAI, or Ollama)."""
 
 import json
 import logging
@@ -13,14 +13,13 @@ from integrations.usage_tracker import record_usage, get_model_pricing
 
 logger = logging.getLogger(__name__)
 
-_CLAUDE_CODE_PROXY_URL = "http://localhost:11211/api/anthropic"
 _OLLAMA_BASE_URL = "http://localhost:11434/v1"
 _DEFAULT_QWEN_MODEL = "qwen3:14b"
 _DEFAULT_TASK = "script"
 
 _THINK_BLOCK_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
 
-ALLOWED_PROVIDERS = {"anthropic", "claude-code-proxy", "ollama", "openai"}
+ALLOWED_PROVIDERS = {"anthropic", "ollama", "openai"}
 
 # Valid OpenAI reasoning_effort values for GPT-5 / o-series reasoning models.
 # Used in LLM_TASKS["<task>"]["openai_reasoning_effort"] and the
@@ -123,7 +122,11 @@ LLM_TASKS: dict[str, dict[str, str]] = {
 
 def _get_provider() -> str:
     """Resolve the active LLM provider. Defaults to 'anthropic' if unset."""
-    return (os.environ.get("LLM_PROVIDER", "anthropic") or "anthropic").strip().lower()
+    provider = (os.environ.get("LLM_PROVIDER", "anthropic") or "anthropic").strip().lower()
+    if provider not in ALLOWED_PROVIDERS:
+        logger.warning("Ignoring unsupported LLM_PROVIDER=%r; using anthropic", provider)
+        return "anthropic"
+    return provider
 
 
 def _resolve_provider(task: str | None) -> str:
@@ -131,6 +134,14 @@ def _resolve_provider(task: str | None) -> str:
     if task_config:
         task_provider = os.environ.get(task_config["provider_key"], "").strip().lower()
         if task_provider:
+            if task_provider not in ALLOWED_PROVIDERS:
+                logger.warning(
+                    "Ignoring unsupported %s=%r; using %s",
+                    task_config["provider_key"],
+                    task_provider,
+                    task_config["default_provider"],
+                )
+                return task_config["default_provider"]
             return task_provider
         return task_config["default_provider"]
     return _get_provider()
@@ -157,7 +168,7 @@ def _resolve_model(provider: str, task: str | None, model: str | None) -> str:
                 return _default_model_for_provider(provider, task)
             if provider == "openai" and configured_lower.startswith(("anthropic.", "claude-")):
                 return task_config["default_openai_model"]
-            if provider in {"anthropic", "claude-code-proxy"} and configured_lower.startswith(("gpt-", "o1", "o3", "o4")):
+            if provider == "anthropic" and configured_lower.startswith(("gpt-", "o1", "o3", "o4")):
                 return task_config["default_anthropic_model"]
             return configured
     return _default_model_for_provider(provider, task)
@@ -186,17 +197,13 @@ def _resolve_openai_reasoning_effort(task: str | None) -> str | None:
 
 
 def get_client(provider: str | None = None) -> anthropic.Anthropic:
-    """Return an Anthropic client, routing per LLM_PROVIDER setting.
-
-    - 'claude-code-proxy': always hit localhost:11211 proxy (ignore real key)
-    - 'anthropic' (default): real API if key present, proxy otherwise
-    """
+    """Return an Anthropic client using ANTHROPIC_API_KEY."""
     provider = provider or _get_provider()
-    if provider == "claude-code-proxy":
-        return anthropic.Anthropic(base_url=_CLAUDE_CODE_PROXY_URL, api_key="sk-1234")
+    if provider != "anthropic":
+        raise ValueError(f"Anthropic client requested for unsupported provider: {provider}")
     if os.environ.get("ANTHROPIC_API_KEY"):
         return anthropic.Anthropic()
-    return anthropic.Anthropic(base_url=_CLAUDE_CODE_PROXY_URL, api_key="sk-1234")
+    raise RuntimeError("ANTHROPIC_API_KEY is required when using the Anthropic provider.")
 
 
 def chat(

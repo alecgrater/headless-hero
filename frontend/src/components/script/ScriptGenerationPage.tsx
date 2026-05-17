@@ -20,7 +20,6 @@ const PROVIDER_LABELS: Record<string, string> = {
   ollama: "Ollama (local)",
   anthropic: "Anthropic API",
   openai: "OpenAI API",
-  "claude-code-proxy": "Claude Code Proxy",
 };
 
 export default function ScriptGenerationPage({
