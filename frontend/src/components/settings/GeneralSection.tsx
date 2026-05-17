@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Info } from "lucide-react";
 import api from "../../api";
 import { DEFAULT_MODEL } from "../../constants";
 import { showToast } from "../ToastContainer";
@@ -34,6 +35,7 @@ interface LlmTaskConfig {
   defaultModel: string;
   openaiDefaultModel: string;
   ollamaDefaultModel: string;
+  note?: string;
 }
 
 interface TaskRoute {
@@ -107,6 +109,7 @@ const LLM_TASKS: LlmTaskConfig[] = [
     defaultModel: "anthropic.claude-haiku-4-5-20251001-v1:0",
     openaiDefaultModel: "gpt-5.5",
     ollamaDefaultModel: "qwen3:14b",
+    note: "Shared task — this single model drives both hook scoring (rates how well the opening will retain viewers) and hook refinement (rewrites weak hooks). Set it once here.",
   },
   {
     id: "media",
@@ -550,6 +553,12 @@ export default function GeneralSection() {
                         <div className="text-sm font-medium text-neutral-100">{task.label}</div>
                         <p className="text-xs text-neutral-500">{task.description}</p>
                       </div>
+                      {task.note && (
+                        <div className="flex items-start gap-2 rounded-md border border-violet-500/20 bg-violet-500/5 px-2.5 py-2">
+                          <Info className="h-3.5 w-3.5 shrink-0 text-violet-400 mt-[1px]" aria-hidden />
+                          <p className="text-xs text-neutral-300 leading-relaxed">{task.note}</p>
+                        </div>
+                      )}
                       <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-3">
                         <div className="space-y-1">
                           <label className="text-xs text-neutral-400">Provider</label>
