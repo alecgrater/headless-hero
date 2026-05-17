@@ -198,6 +198,14 @@ function DownloadButton({ url, label, projectTitle, filename }: { url: string; l
   );
 }
 
+function sanitizeExportName(name: string): string {
+  return (name || "Untitled").replace(/[/\\?%*:|"<>]/g, "").trim() || "Untitled";
+}
+
+function longformExportFilename(asset: "Thumbnail" | "SEO" | "Video", projectTitle: string, extension: string): string {
+  return `[Longform] [${asset}] - ${sanitizeExportName(projectTitle)}${extension}`;
+}
+
 function CopyButton({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -558,7 +566,7 @@ export default function ExportPanel({
                       controls
                       className="w-full max-h-[300px] rounded-lg border border-neutral-700"
                     />
-                    <DownloadButton url={youtubeUrl} label="Download YouTube Video" projectTitle={projectTitle} filename={`${projectTitle.replace(/[/\\?%*:|"<>]/g, "-")}.mp4`} />
+                    <DownloadButton url={youtubeUrl} label="Download YouTube Video" projectTitle={projectTitle} filename={longformExportFilename("Video", projectTitle, ".mp4")} />
                   </div>
                 ) : youtubeStatus?.status === "failed" ? (
                   <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
@@ -617,7 +625,7 @@ export default function ExportPanel({
                             alt={t.title_text}
                             className="w-full aspect-video object-cover rounded-lg border border-neutral-700 cursor-pointer hover:border-violet-500 transition-colors"
                           />
-                          <DownloadButton url={t.image_url} label="Download" projectTitle={projectTitle} filename={thumbnails.length > 1 ? `thumbnail-${t.idx + 1}.png` : "thumbnail.png"} />
+                          <DownloadButton url={t.image_url} label="Download" projectTitle={projectTitle} filename={longformExportFilename("Thumbnail", projectTitle, ".png")} />
                         </>
                       ) : t.error ? (
                         <div className="w-full aspect-video bg-red-500/10 rounded-lg flex items-center justify-center text-xs text-red-400 p-2">

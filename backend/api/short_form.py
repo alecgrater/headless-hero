@@ -7,14 +7,11 @@ segment). See docs/superpowers/specs/2026-05-15-short-form-export-design.md.
 
 import json
 import logging
-import os
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from config import DATA_DIR, sanitize_filename
+from config import DATA_DIR
 from database import get_session
 from models.script import Script, ScriptContent
 from pipeline.render_jobs import (
@@ -92,13 +89,25 @@ def _load_content(session: Session, script_id: str) -> ScriptContent:
 
 
 def _short_download_paths(project_title: str, total: int) -> dict[int, str]:
+    # Deprecated shape retained for callers that only have a segment count.
+    from pipeline.export_paths import project_downloads_folder
     from pipeline.short_form_render import _short_filename
 
-    base = os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads")
-    folder = Path(base) / sanitize_filename(project_title)
+    folder = project_downloads_folder(project_title, create=False)
     return {
-        idx: str(folder / _short_filename(project_title, idx + 1, total))
+        idx: str(folder / _short_filename(f"Segment {idx + 1}"))
         for idx in range(total)
+    }
+
+
+def _short_download_paths_for_content(project_title: str, content: ScriptContent) -> dict[int, str]:
+    from pipeline.export_paths import project_downloads_folder
+    from pipeline.short_form_render import _short_filename
+
+    folder = project_downloads_folder(project_title, create=False)
+    return {
+        idx: str(folder / _short_filename(segment.name or f"Segment {idx + 1}"))
+        for idx, segment in enumerate(content.segments)
     }
 
 
@@ -120,7 +129,7 @@ def rendered_shorts(script_id: str, session: Session = Depends(get_session)):
     content = _load_content(session, script_id)
     record = session.get(Script, script_id)
     project_title = record.topic_title or "Untitled"
-    expected_paths = _short_download_paths(project_title, len(content.segments))
+    expected_paths = _short_download_paths_for_content(project_title, content)
     project_dir = DATA_DIR / "projects" / script_id / "renders" / "shorts"
     paths: dict[int, str] = {}
     for idx, path in expected_paths.items():

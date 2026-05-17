@@ -20,6 +20,7 @@ from pipeline.catalog import (
     toggle_uploaded_marker,
     write_youtube_url,
 )
+from pipeline.export_paths import downloads_base, has_asset_label, has_export_label
 from pipeline.publishing import publish_to_youtube
 from pipeline.render_jobs import create_job, run_in_background, update_job
 
@@ -105,12 +106,28 @@ def list_catalog(session: Session = Depends(get_session)):
             if f.name.startswith("."):
                 continue
             lower = f.name.lower()
-            if f.suffix.lower() == ".mp4":
+            if f.suffix.lower() == ".mp4" and (
+                video_file is None or has_export_label(f.name, "Longform", "Video")
+            ):
                 video_file = f.name
                 file_size_mb = round(f.stat().st_size / (1024 * 1024), 1)
-            elif lower == "thumbnail.png" or lower.endswith(" - thumbnail.png"):
+            elif (
+                lower == "thumbnail.png"
+                or lower.endswith(" - thumbnail.png")
+                or (
+                    has_asset_label(f.name, "Thumbnail")
+                    and (thumbnail_file is None or has_export_label(f.name, "Longform", "Thumbnail"))
+                )
+            ):
                 thumbnail_file = f.name
-            elif lower == "seo.txt" or lower.endswith(" - seo.txt"):
+            elif (
+                lower == "seo.txt"
+                or lower.endswith(" - seo.txt")
+                or (
+                    has_asset_label(f.name, "SEO")
+                    and (seo_path is None or has_export_label(f.name, "Longform", "SEO"))
+                )
+            ):
                 seo_path = f
 
         seo_title, seo_description, seo_tags = None, None, []
@@ -203,7 +220,11 @@ def sync_youtube(session: Session = Depends(get_session)):
         seo_path = None
         for f in item.iterdir():
             lower = f.name.lower()
-            if lower == "seo.txt" or lower.endswith(" - seo.txt"):
+            if (
+                lower == "seo.txt"
+                or lower.endswith(" - seo.txt")
+                or has_export_label(f.name, "Longform", "SEO")
+            ):
                 seo_path = f
                 break
 
@@ -296,8 +317,14 @@ def catalog_upload(body: CatalogUploadRequest, session: Session = Depends(get_se
     """Upload a catalog video to YouTube in the background."""
     export_dir = get_export_folder()
     folder = (export_dir / body.folder_name).resolve()
-    if not folder.is_relative_to(export_dir.resolve()):
+    export_root = export_dir.resolve()
+    downloads_root = downloads_base().resolve()
+    if not folder.is_relative_to(export_root):
         raise HTTPException(status_code=400, detail="Invalid folder name")
+    if not folder.exists() or not folder.is_dir():
+        downloads_folder = (downloads_root / body.folder_name).resolve()
+        if downloads_folder.is_relative_to(downloads_root):
+            folder = downloads_folder
     if not folder.exists() or not folder.is_dir():
         raise HTTPException(status_code=404, detail="Folder not found")
 
@@ -308,11 +335,27 @@ def catalog_upload(body: CatalogUploadRequest, session: Session = Depends(get_se
         if f.name.startswith("."):
             continue
         lower = f.name.lower()
-        if f.suffix.lower() == ".mp4" and video_path is None:
+        if f.suffix.lower() == ".mp4" and (
+            video_path is None or has_export_label(f.name, "Longform", "Video")
+        ):
             video_path = str(f)
-        elif lower == "thumbnail.png" or lower.endswith(" - thumbnail.png"):
+        elif (
+            lower == "thumbnail.png"
+            or lower.endswith(" - thumbnail.png")
+            or (
+                has_asset_label(f.name, "Thumbnail")
+                and (thumbnail_path is None or has_export_label(f.name, "Longform", "Thumbnail"))
+            )
+        ):
             thumbnail_path = str(f)
-        elif lower == "seo.txt" or lower.endswith(" - seo.txt"):
+        elif (
+            lower == "seo.txt"
+            or lower.endswith(" - seo.txt")
+            or (
+                has_asset_label(f.name, "SEO")
+                and (seo_path is None or has_export_label(f.name, "Longform", "SEO"))
+            )
+        ):
             seo_path = f
 
     if not video_path:

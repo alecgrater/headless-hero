@@ -102,11 +102,12 @@ ipcMain.handle("download-file", async (_event, { url, defaultFilename }) => {
   return { canceled: false, filePath };
 });
 
-// IPC: save a file directly to ~/Downloads/{folderName}/{filename} (no dialog)
+// IPC: save a file directly to ~/Downloads/[project] {folderName}/{filename} (no dialog)
 // If filename already exists, append an incrementing number: thumbnail.png → thumbnail2.png → thumbnail3.png
 ipcMain.handle("save-to-downloads", async (_event, { url, folderName, filename }) => {
   const downloadsDir = app.getPath("downloads");
-  const safeFolderName = folderName.replace(/[/\\?%*:|"<>]/g, "-");
+  const safeProjectName = folderName.replace(/[/\\?%*:|"<>]/g, "").trim() || "Untitled";
+  const safeFolderName = `[project] ${safeProjectName}`;
   const safeFilename = path.basename(filename);
   const folder = path.join(downloadsDir, safeFolderName);
   fs.mkdirSync(folder, { recursive: true });

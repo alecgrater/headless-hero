@@ -4,14 +4,14 @@ import json
 import logging
 import os
 import re
-import shutil
 import subprocess
 import time
 from pathlib import Path
 from typing import Any, Callable
 
-from config import BACKEND_PORT, DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH, sanitize_filename
+from config import BACKEND_PORT, DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH
 from models.script import ChapterMarker, Scene, SceneFX, ScriptContent, VideoFX
+from pipeline.export_paths import copy_to_project_downloads, longform_filename
 
 logger = logging.getLogger(__name__)
 
@@ -581,7 +581,7 @@ def render_full_video(
             _copy_to_downloads(
                 title,
                 str(output_path),
-                f"{sanitize_filename(title)}{speed_label}.mp4",
+                longform_filename("Video", f"{title}{speed_label}", ".mp4"),
             )
         except Exception:
             logger.warning("Failed to copy to downloads", exc_info=True)
@@ -590,11 +590,7 @@ def render_full_video(
 
 
 def _copy_to_downloads(title: str, src_path: str, dest_name: str) -> str:
-    """Copy a rendered file to the downloads directory."""
-    base = os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads")
-    folder = Path(base) / sanitize_filename(title)
-    folder.mkdir(parents=True, exist_ok=True)
-    dest = folder / dest_name
-    shutil.copy2(src_path, dest)
+    """Copy a rendered file to the standard project Downloads folder."""
+    dest = copy_to_project_downloads(title, src_path, dest_name)
     logger.info("Copied to downloads: %s", dest)
-    return str(dest)
+    return dest

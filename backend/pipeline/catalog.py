@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from config import get_export_folder, sanitize_filename
+from pipeline.export_paths import project_folder_name
 
 logger = logging.getLogger(__name__)
 
@@ -83,9 +84,7 @@ def toggle_uploaded_marker(folder: Path) -> bool:
 
 def resolve_export_folder(topic_title: str, created_at: datetime) -> str:
     """Compute the export folder name for a script."""
-    safe_title = sanitize_filename(topic_title or "Untitled")
-    date_str = created_at.strftime("%Y-%m-%d")
-    return f"{safe_title} ({date_str})"
+    return project_folder_name(topic_title or "Untitled")
 
 
 def find_export_folder(topic_title: str, created_at: datetime) -> Path | None:
@@ -98,6 +97,7 @@ def find_export_folder(topic_title: str, created_at: datetime) -> Path | None:
     date_str = created_at.strftime("%Y-%m-%d")
 
     candidates = [
+        project_folder_name(topic_title or "Untitled"),
         f"{safe_title} ({date_str})",
         f"{safe_title} - {date_str}",
     ]

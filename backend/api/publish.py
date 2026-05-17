@@ -146,7 +146,8 @@ def _upsert_credential(
 
 def _rendered_short_path(script_id: str, segment_idx: int, content: ScriptContent, project_title: str) -> str:
     from pipeline.short_form_render import _short_filename
-    from config import DATA_DIR, sanitize_filename
+    from config import DATA_DIR
+    from pipeline.export_paths import project_downloads_folder
 
     if segment_idx < 0 or segment_idx >= len(content.segments):
         raise HTTPException(status_code=400, detail="segment_idx out of range")
@@ -155,11 +156,9 @@ def _rendered_short_path(script_id: str, segment_idx: int, content: ScriptConten
     if project_path.is_file():
         return str(project_path)
 
-    downloads_base = Path(os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads"))
-    downloads_path = downloads_base / sanitize_filename(project_title) / _short_filename(
-        project_title,
-        segment_idx + 1,
-        len(content.segments),
+    segment = content.segments[segment_idx]
+    downloads_path = project_downloads_folder(project_title, create=False) / _short_filename(
+        segment.name or f"Segment {segment_idx + 1}"
     )
     if downloads_path.is_file():
         return str(downloads_path)

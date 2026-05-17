@@ -2,14 +2,13 @@
 
 import json
 import logging
-import os
 import re
-import shutil
 from pathlib import Path
 from typing import Callable
 
-from config import BACKEND_PORT, DATA_DIR, FPS, sanitize_filename
+from config import BACKEND_PORT, DATA_DIR, FPS
 from models.script import Scene, ScriptContent
+from pipeline.export_paths import copy_to_project_downloads, shortform_filename
 from pipeline.remotion_render import (
     _reencode_h264,
     _run_remotion,
@@ -55,25 +54,16 @@ def _title_card_backdrop_url(script_id: str, segment_idx: int) -> str:
     return f"http://localhost:{BACKEND_PORT}/static/projects/{script_id}/images/title_card_{segment_idx}.png"
 
 
-def _short_filename(project_title: str, n: int, total: int) -> str:
-    """Build the destination filename per spec: '[short form N/M] {project name}.mp4'."""
-    safe = sanitize_filename(project_title)
-    # U+2215 division slash (∕) — visually like "/" but filesystem-safe (POSIX reserves U+002F).
-    return f"[short form {n}∕{total}] {safe}.mp4"
+def _short_filename(segment_name: str) -> str:
+    """Build the destination filename for a rendered short."""
+    return shortform_filename("Video", segment_name, ".mp4")
 
 
 def _copy_to_downloads(project_title: str, src_path: Path, dest_filename: str) -> str:
-    """Copy a rendered short into ~/Downloads/{project name}/{dest_filename}.
-
-    Always overwrites the destination.
-    """
-    base = os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads")
-    folder = Path(base) / sanitize_filename(project_title)
-    folder.mkdir(parents=True, exist_ok=True)
-    dest = folder / dest_filename
-    shutil.copy2(str(src_path), str(dest))
+    """Copy a rendered short into the standard project Downloads folder."""
+    dest = copy_to_project_downloads(project_title, src_path, dest_filename)
     logger.info("Copied short to downloads: %s", dest)
-    return str(dest)
+    return dest
 
 
 def _build_segment_scene_props(
@@ -106,7 +96,7 @@ def render_short_segment(
 
     Returns a tuple of (web_url, downloads_path):
     - web_url: web-relative path served via static mount (e.g. /static/projects/…)
-    - downloads_path: absolute filesystem path in ~/Downloads/{project name}/
+    - downloads_path: absolute filesystem path in the standard project Downloads folder
     """
     if segment_idx < 0 or segment_idx >= len(content.segments):
         raise RuntimeError(f"segment_idx {segment_idx} out of range (0..{len(content.segments) - 1})")
@@ -189,7 +179,7 @@ def render_short_segment(
         # Copy to downloads (always overwrites per spec)
         if on_progress:
             on_progress(0.95, "Copying to Downloads...")
-        dest_name = _short_filename(project_title, n, total)
+        dest_name = _short_filename(segment.name)
         downloads_path = _copy_to_downloads(project_title, output_path, dest_name)
     finally:
         try:

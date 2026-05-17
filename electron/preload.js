@@ -20,7 +20,7 @@ contextBridge.exposeInMainWorld("api", {
   downloadFile: (url, defaultFilename) =>
     ipcRenderer.invoke("download-file", { url, defaultFilename }),
 
-  // Save directly to ~/Downloads/{folderName}/{filename} (no dialog)
+  // Save directly to ~/Downloads/[project] {folderName}/{filename} (no dialog)
   saveToDownloads: (url, folderName, filename) =>
     ipcRenderer.invoke("save-to-downloads", { url, folderName, filename }),
 

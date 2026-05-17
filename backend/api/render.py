@@ -2,18 +2,16 @@
 
 import json
 import logging
-import os
 import shutil
 import threading
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from config import DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH, get_export_folder, sanitize_filename
+from config import DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH
 from database import get_default_brand_id, get_session
 from api._helpers import find_scene_in_content
 from models.brand import BrandProfile
@@ -22,6 +20,12 @@ from models.script import Script, ScriptContent
 from pipeline.render_jobs import RenderJob, create_job, estimate_render_time, get_job, is_cancelled, run_in_background, update_job
 from pipeline.remotion_render import render_full_video
 from pipeline.audio_export import export_full_audio
+from pipeline.export_paths import (
+    copy_to_project_downloads,
+    longform_filename,
+    project_downloads_folder,
+    shortform_filename,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +127,7 @@ class ExportContext:
     total_scenes: int
     voice_id: str
     brand_dict: dict
+    project_title: str
     title: str
     regen_images: bool
     regen_audio: bool
@@ -421,10 +426,8 @@ def _phase_copy_to_downloads(ctx: ExportContext) -> None:
     else:
         src_path = ctx.video_url
 
-    downloads_dir = os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads")
-    safe_title = sanitize_filename(ctx.title)
-    dest_path = Path(downloads_dir) / f"TEST_{safe_title}.mp4"
-    shutil.copy2(src_path, dest_path)
+    dest_name = shortform_filename("Video", ctx.title, ".mp4")
+    dest_path = copy_to_project_downloads(ctx.project_title, src_path, dest_name)
     logger.info("Export test copied to: %s", dest_path)
 
 
@@ -538,19 +541,15 @@ def export_audio(body: ExportAudioRequest, session: Session = Depends(get_sessio
 
 @router.post("/export-bundle", response_model=ExportBundleResponse)
 def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_session)):
-    """Bundle video, thumbnail, and SEO into an iCloud folder, auto-generating missing assets."""
+    """Bundle video, thumbnail, and SEO into the project Downloads folder."""
     t0 = time.monotonic()
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
-    safe_title = sanitize_filename(record.topic_title or "Untitled")
-    date_str = record.created_at.strftime("%Y-%m-%d")
-    folder_name = f"{safe_title} ({date_str})"
-
-    folder = get_export_folder() / folder_name
-    folder.mkdir(parents=True, exist_ok=True)
+    project_title = record.topic_title or "Untitled"
+    folder = project_downloads_folder(project_title)
 
     from pipeline.catalog import write_script_id
     write_script_id(folder, body.script_id)
@@ -562,7 +561,7 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
     # Video — find full_youtube*.mp4
     if renders_dir.exists():
         for mp4 in sorted(renders_dir.glob("full_youtube*.mp4")):
-            dest = folder / f"{safe_title}.mp4"
+            dest = folder / longform_filename("Video", project_title, ".mp4")
             shutil.copy2(str(mp4), dest)
             copied_files.append(dest.name)
             break
@@ -576,7 +575,7 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
         except Exception:
             logger.warning("Auto-generate thumbnail failed", exc_info=True)
     if thumb_src.exists():
-        dest = folder / "thumbnail.png"
+        dest = folder / longform_filename("Thumbnail", project_title, ".png")
         shutil.copy2(str(thumb_src), dest)
         copied_files.append(dest.name)
 
@@ -620,7 +619,7 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
         if yt.get("tags"):
             lines.append(f"\nTags:\n{', '.join(yt['tags'])}")
         if lines:
-            dest = folder / "seo.txt"
+            dest = folder / longform_filename("SEO", project_title, ".txt")
             dest.write_text("\n".join(lines), encoding="utf-8")
             copied_files.append(dest.name)
 
@@ -648,23 +647,41 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
 
     if content.short_form_seo_metadata:
         short_seo = content.short_form_seo_metadata
-        lines = ["Short-Form SEO (TikTok / YouTube Shorts / Instagram Reels)"]
-        for item in short_seo.get("shorts", []):
+        short_items = short_seo.get("shorts", [])
+        parsed_indices: list[int] = []
+        for item in short_items:
+            try:
+                parsed_indices.append(int(item.get("index", -1)))
+            except (TypeError, ValueError):
+                parsed_indices.append(-1)
+        uses_one_based_indices = 1 in parsed_indices
+        for item_idx, item in enumerate(short_items):
+            raw_index = item.get("index", "?")
+            parsed_index = parsed_indices[item_idx]
+            segment_idx = (
+                parsed_index - 1 if uses_one_based_indices and parsed_index >= 0
+                else parsed_index if parsed_index >= 0
+                else item_idx
+            )
+            segment_name = (
+                content.segments[segment_idx].name
+                if 0 <= segment_idx < len(content.segments)
+                else f"Short {raw_index}"
+            )
             hashtags = item.get("hashtags") or []
             tags = item.get("tags") or []
-            lines.extend([
-                "",
-                f"Short {item.get('index', '?')}",
+            lines = [
+                f"Short {raw_index}",
                 f"Title:\n{item.get('title', '')}",
                 f"Description:\n{item.get('description', '')}",
-            ])
+            ]
             if hashtags:
                 lines.append(f"Hashtags:\n{' '.join(hashtags)}")
             if tags:
                 lines.append(f"YouTube Tags:\n{', '.join(tags)}")
-        dest = folder / "short-form-seo.txt"
-        dest.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
-        copied_files.append(dest.name)
+            dest = folder / shortform_filename("SEO", segment_name, ".txt")
+            dest.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
+            copied_files.append(dest.name)
 
     logger.info("Export bundle created at %s with %d files: %s", folder, len(copied_files), copied_files)
 
@@ -679,6 +696,8 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
     """Run the full pipeline (audio → image → FX → Eli → render) for the first segment."""
     content = _load_content(session, body.script_id)
     brand_dict = _load_brand(session, body.script_id)
+    record = session.get(Script, body.script_id)
+    project_title = record.topic_title if record and record.topic_title else content.title or "Untitled"
 
     # Resolve voice_id from the default brand
     brand_id = get_default_brand_id(session)
@@ -730,6 +749,7 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
         total_scenes=total_scenes,
         voice_id=voice_id,
         brand_dict=brand_dict,
+        project_title=project_title,
         title=title,
         regen_images=body.regen_images,
         regen_audio=body.regen_audio,

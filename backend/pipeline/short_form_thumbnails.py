@@ -7,15 +7,15 @@ center 1:1 crop carries the important title text so profile grids stay useful.
 from __future__ import annotations
 
 import logging
-import os
 import shutil
 from pathlib import Path
 from typing import Callable
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
-from config import DATA_DIR, sanitize_filename
+from config import DATA_DIR
 from models.script import ScriptContent
+from pipeline.export_paths import project_downloads_folder, shortform_filename
 
 logger = logging.getLogger(__name__)
 
@@ -54,10 +54,9 @@ def short_thumbnail_title(content: ScriptContent, segment_idx: int) -> str:
     return (segment.short_name or segment.name or f"Short {segment_idx + 1}").strip()
 
 
-def short_thumbnail_filename(segment_name: str, n: int) -> str:
+def short_thumbnail_filename(segment_name: str, n: int | None = None) -> str:
     """Build export filename for a segment thumbnail."""
-    safe_segment = sanitize_filename(segment_name)
-    return f"[shortform] thumbnail_{n} - {safe_segment}.png"
+    return shortform_filename("Thumbnail", segment_name, ".png")
 
 
 def _load_font(size: int, *, title: bool = True) -> ImageFont.FreeTypeFont:
@@ -321,9 +320,7 @@ def export_short_thumbnails(
     if missing:
         generate_all_short_thumbnails(script_id, content, missing)
 
-    base = os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads")
-    folder = Path(base) / sanitize_filename(project_title)
-    folder.mkdir(parents=True, exist_ok=True)
+    folder = project_downloads_folder(project_title)
 
     files: list[str] = []
     paths: dict[int, str] = {}

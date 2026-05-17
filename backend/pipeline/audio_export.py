@@ -2,13 +2,13 @@
 
 import logging
 import os
-import shutil
 import subprocess
 from pathlib import Path
 from typing import Callable
 
-from config import DATA_DIR, sanitize_filename
+from config import DATA_DIR
 from models.script import ScriptContent
+from pipeline.export_paths import copy_to_project_downloads, longform_filename
 from pipeline.ffmpeg_builder import build_audio_concat_cmd
 
 logger = logging.getLogger(__name__)
@@ -24,17 +24,10 @@ def _run_ffmpeg(cmd: list[str]) -> None:
         raise RuntimeError(f"FFmpeg failed (exit {result.returncode}): {result.stderr[-500:]}")
 
 def copy_to_downloads(title: str, src_path: str, dest_name: str) -> str:
-    """Copy a rendered file to the downloads directory.
-
-    Returns the destination path.
-    """
-    base = os.environ.get("DOWNLOADS_DIR", "") or str(Path.home() / "Downloads")
-    folder = Path(base) / sanitize_filename(title)
-    folder.mkdir(parents=True, exist_ok=True)
-    dest = folder / dest_name
-    shutil.copy2(src_path, dest)
+    """Copy a rendered file to the standard project Downloads folder."""
+    dest = copy_to_project_downloads(title, src_path, dest_name)
     logger.info("Copied to downloads: %s", dest)
-    return str(dest)
+    return dest
 
 def _scene_audio_path(script_id: str, scene_id: str) -> str:
     """Resolve local filesystem path for a scene audio file."""
@@ -81,7 +74,7 @@ def export_full_audio(
 
     if title:
         try:
-            copy_to_downloads(title, output_path, f"{sanitize_filename(title)} - Audio.mp3")
+            copy_to_downloads(title, output_path, longform_filename("Audio", title, ".mp3"))
         except Exception:
             logger.warning("Failed to copy audio to downloads", exc_info=True)
 
