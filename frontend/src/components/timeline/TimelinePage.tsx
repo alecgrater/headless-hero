@@ -468,7 +468,7 @@ function ProductionWorkflowRow({
 
   return (
     <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
-      <div className="grid items-center gap-2 min-w-0" style={{ gridTemplateColumns: "repeat(4, 15rem)" }}>
+      <div className="grid items-center gap-2 min-w-0" style={{ gridTemplateColumns: "15rem auto 15rem auto 15rem auto 15rem" }}>
         <ProductionTaskButton
           stepNumber={6}
           label="Generate LF SEO"
@@ -482,6 +482,9 @@ function ProductionWorkflowRow({
           missingLabel="Generate Missing"
           allTitle="Generate long-form YouTube title, description, and tags"
         />
+        <svg className="w-3 h-3 text-neutral-600/60 shrink-0" viewBox="0 0 12 12" fill="none">
+          <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
         <ProductionTaskButton
           stepNumber={7}
           label="Generate SF Thumbnails"
@@ -495,6 +498,9 @@ function ProductionWorkflowRow({
           missingLabel="Generate Missing"
           allTitle={`Generate vertical thumbnails for all ${segmentCount} short-form videos`}
         />
+        <svg className="w-3 h-3 text-neutral-600/60 shrink-0" viewBox="0 0 12 12" fill="none">
+          <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
         <ProductionTaskButton
           stepNumber={8}
           label="Generate SF SEO"
@@ -508,6 +514,9 @@ function ProductionWorkflowRow({
           missingLabel="Generate Missing"
           allTitle={`Generate upload SEO for all ${segmentCount} short-form videos`}
         />
+        <svg className="w-3 h-3 text-neutral-600/60 shrink-0" viewBox="0 0 12 12" fill="none">
+          <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
         <ProductionTaskButton
           stepNumber={9}
           label="Render SF Videos"
