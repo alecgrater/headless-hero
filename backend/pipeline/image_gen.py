@@ -89,7 +89,7 @@ def _move_generated_image(tmp_path: str, local_path: Path, metadata: dict[str, o
     shutil.move(tmp_path, str(local_path))
     if tmp_source_path.exists():
         shutil.move(str(tmp_source_path), str(_source_metadata_path(local_path)))
-    elif not _source_metadata_path(local_path).exists():
+    else:
         _write_source_metadata(local_path, metadata)
     return _read_source_metadata(local_path) or metadata
 
