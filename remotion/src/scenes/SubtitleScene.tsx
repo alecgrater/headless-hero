@@ -11,6 +11,7 @@ import React, { useMemo } from "react";
 import { useCurrentFrame, useVideoConfig, spring } from "remotion";
 import { loadFont } from "@remotion/google-fonts/Inter";
 import type { SceneInput, Orientation } from "../types";
+import { formatSubtitleText } from "../utils/subtitleText";
 import { findWordBoundary } from "../utils/wordMatch";
 
 const { fontFamily } = loadFont("normal", {
@@ -71,7 +72,8 @@ export const SubtitleScene: React.FC<Props> = ({ scene, orientation = "horizonta
   const { fps } = useVideoConfig();
 
   const text = scene.narration || "";
-  const fontSize = getFontSize(text.length, orientation);
+  const displayText = formatSubtitleText(text);
+  const fontSize = getFontSize(displayText.length, orientation);
   const timestamps = scene.word_timestamps ?? [];
 
   // Split timestamps into lead-in and subtitle words
@@ -101,7 +103,7 @@ export const SubtitleScene: React.FC<Props> = ({ scene, orientation = "horizonta
             textShadow: glowShadow(1),
           }}
         >
-          {text}
+          {displayText}
         </div>
       </div>
     );
@@ -141,7 +143,7 @@ export const SubtitleScene: React.FC<Props> = ({ scene, orientation = "horizonta
     : 1;
 
   // Tokenize subtitle text into words for rendering
-  const displayWords = text.split(/\s+/).filter((w) => w.length > 0);
+  const displayWords = text.split(/\s+/).map(formatSubtitleText);
 
   return (
     <div style={backgroundStyle}>
@@ -236,6 +238,8 @@ export const SubtitleScene: React.FC<Props> = ({ scene, orientation = "horizonta
             });
             const wordY = (1 - entryProgress) * 30;
             const wordOpacity = clamp(wordAge / 5, 0, 1);
+
+            if (!word) return null;
 
             return (
               <span

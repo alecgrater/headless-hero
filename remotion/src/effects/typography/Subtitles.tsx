@@ -9,6 +9,7 @@ import React, { useMemo } from "react";
 import { useCurrentFrame, useVideoConfig, interpolate } from "remotion";
 import type { WordTimestamp, Orientation } from "../../types";
 import { VERTICAL_LAYOUT } from "../../scenes/VerticalSceneLayout";
+import { formatSubtitleText } from "../../utils/subtitleText";
 
 interface Props {
   wordTimestamps?: WordTimestamp[] | null;
@@ -133,9 +134,12 @@ export const SubtitleOverlay: React.FC<Props> = ({ wordTimestamps, highlightEnab
         }}
       >
         {activePhrase.words.map((w, i) => {
+          const displayWord = formatSubtitleText(w.word);
           const wordStartFrame = Math.round((w.start_ms / 1000) * fps);
           const wordEndFrame = Math.round((w.end_ms / 1000) * fps);
           const isActive = highlightEnabled && frame >= wordStartFrame && frame <= wordEndFrame;
+
+          if (!displayWord) return null;
 
           return (
             <span
@@ -150,7 +154,7 @@ export const SubtitleOverlay: React.FC<Props> = ({ wordTimestamps, highlightEnab
                   : "0 2px 10px rgba(0, 0, 0, 0.85)",
               }}
             >
-              {w.word}
+              {displayWord}
             </span>
           );
         })}

@@ -9,6 +9,7 @@
 import React from "react";
 import { Img, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
 import type { SceneInput } from "../types";
+import { formatSubtitleText } from "../utils/subtitleText";
 
 interface Props {
   scene: SceneInput;
@@ -26,7 +27,8 @@ const SubtitleFrame: React.FC<{ text: string; opacity: number }> = ({
   text,
   opacity,
 }) => {
-  const charCount = text.length;
+  const displayText = formatSubtitleText(text);
+  const charCount = displayText.length;
   const fontSize = charCount < 60 ? 72 : charCount < 120 ? 56 : 44;
 
   return (
@@ -55,7 +57,7 @@ const SubtitleFrame: React.FC<{ text: string; opacity: number }> = ({
           maxWidth: "85%",
         }}
       >
-        {text}
+        {displayText}
       </div>
     </div>
   );
