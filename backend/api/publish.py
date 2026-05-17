@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from database import get_default_brand_id, get_session
+from config import DATA_DIR
 from models.credential import PlatformCredential, PlatformCredentialRead
 from models.publish import PublishRecord, PublishRecordRead
 from models.script import Script, ScriptContent
@@ -54,6 +55,10 @@ class UploadResponse(BaseModel):
 class ShortFormUploadRequest(BaseModel):
     script_id: str
     segment_idx: int
+
+class LongFormUploadRequest(BaseModel):
+    script_id: str
+    privacy_status: str = "unlisted"
 
 class ShortUploadPlatformStatus(BaseModel):
     platform: str
@@ -164,6 +169,32 @@ def _rendered_short_path(script_id: str, segment_idx: int, content: ScriptConten
         return str(downloads_path)
 
     raise HTTPException(status_code=400, detail=f"Short {segment_idx + 1} has not been rendered yet")
+
+def _rendered_longform_path(script_id: str) -> Path:
+    path = DATA_DIR / "projects" / script_id / "renders" / "full_youtube.mp4"
+    if not path.is_file():
+        raise HTTPException(status_code=400, detail="Render YouTube Video first before uploading to YouTube")
+    return path
+
+def _longform_thumbnail_path(script_id: str) -> Path:
+    path = DATA_DIR / "projects" / script_id / "renders" / "thumbnails" / "0.png"
+    if not path.is_file():
+        raise HTTPException(status_code=400, detail="Generate the YouTube thumbnail first before uploading to YouTube")
+    return path
+
+def _longform_metadata(content: ScriptContent) -> dict:
+    metadata = content.seo_metadata or {}
+    youtube = metadata.get("youtube") or {}
+    title = (youtube.get("title") or "").strip()
+    description = youtube.get("description")
+    tags = youtube.get("tags")
+    if not title or description is None or not isinstance(tags, list):
+        raise HTTPException(status_code=400, detail="Generate long-form YouTube SEO first before uploading to YouTube")
+    return {
+        "title": title,
+        "description": description,
+        "tags": tags,
+    }
 
 def _short_metadata(content: ScriptContent, segment_idx: int) -> dict:
     metadata = content.short_form_seo_metadata or {}
@@ -510,6 +541,123 @@ def start_upload(body: UploadRequest, session: Session = Depends(get_session)):
 
         except Exception as exc:
             # Update publish record with error
+            with SyncSession(db_engine) as s:
+                rec = s.get(PublishRecord, record_id)
+                if rec:
+                    rec.status = "failed"
+                    rec.error = str(exc)[:1000]
+                    rec.updated_at = datetime.now(timezone.utc)
+                    s.add(rec)
+                    s.commit()
+            raise
+
+    run_in_background(job.id, do_upload)
+    return UploadResponse(job_id=job.id)
+
+@router.post("/youtube-longform/upload", response_model=UploadResponse)
+def start_longform_youtube_upload(body: LongFormUploadRequest, session: Session = Depends(get_session)):
+    """Upload the rendered long-form YouTube video with generated SEO and thumbnail."""
+    if body.privacy_status not in {"private", "unlisted", "public"}:
+        raise HTTPException(status_code=400, detail="Invalid privacy status")
+
+    brand_id = get_default_brand_id(session)
+    script = session.get(Script, body.script_id)
+    if not script:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    cred = _get_credential(session, brand_id, "youtube")
+    if not cred:
+        raise HTTPException(status_code=400, detail="YouTube not connected. Connect YouTube in Settings → Publishing first")
+
+    content = ScriptContent.model_validate(json.loads(script.script_json))
+    video_path = _rendered_longform_path(body.script_id)
+    thumbnail_path = _longform_thumbnail_path(body.script_id)
+    metadata = _longform_metadata(content)
+
+    record = PublishRecord(
+        script_id=body.script_id,
+        brand_id=brand_id,
+        platform="youtube",
+        asset_kind="long_form",
+        status="uploading",
+        file_path=str(video_path),
+        metadata_json=json.dumps(metadata),
+    )
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+
+    record_id = record.id
+    cred_brand = cred.brand_id
+    cred_refresh = cred.refresh_token
+    cred_access = cred.access_token
+    cred_expiry = cred.token_expiry
+    script_title = script.topic_title
+    script_created = script.created_at
+    privacy = body.privacy_status
+
+    job = create_job()
+    logger.info("Starting long-form YouTube upload for script %s", body.script_id)
+
+    def do_upload():
+        from database import engine as db_engine
+        from sqlmodel import Session as SyncSession
+
+        temp_cred = PlatformCredential(
+            brand_id=cred_brand,
+            platform="youtube",
+            access_token=cred_access,
+            refresh_token=cred_refresh,
+            token_expiry=cred_expiry,
+        )
+
+        def on_progress(p: float, msg: str):
+            update_job(job.id, progress=p, current_step=msg)
+
+        try:
+            result = publish_to_youtube(
+                credential=temp_cred,
+                file_path=str(video_path),
+                metadata=metadata,
+                on_progress=on_progress,
+                thumbnail_path=str(thumbnail_path),
+                privacy_status=privacy,
+            )
+
+            with SyncSession(db_engine) as s:
+                rec = s.get(PublishRecord, record_id)
+                if rec:
+                    rec.status = "published"
+                    rec.platform_content_id = result["id"]
+                    rec.platform_url = result["url"]
+                    rec.published_at = datetime.now(timezone.utc)
+                    rec.updated_at = datetime.now(timezone.utc)
+
+                    from pipeline.catalog import find_export_folder, write_youtube_url
+                    export_path = find_export_folder(script_title, script_created)
+                    if export_path:
+                        write_youtube_url(export_path, result["url"])
+                        rec.export_folder = export_path.name
+
+                    s.add(rec)
+                    s.commit()
+
+                if temp_cred.access_token != cred_access:
+                    stmt = select(PlatformCredential).where(
+                        PlatformCredential.brand_id == cred_brand,
+                        PlatformCredential.platform == "youtube",
+                    )
+                    db_cred = s.exec(stmt).first()
+                    if db_cred:
+                        db_cred.access_token = temp_cred.access_token
+                        db_cred.refresh_token = temp_cred.refresh_token
+                        db_cred.token_expiry = temp_cred.token_expiry
+                        db_cred.updated_at = datetime.now(timezone.utc)
+                        s.add(db_cred)
+                        s.commit()
+
+            return result["url"]
+        except Exception as exc:
             with SyncSession(db_engine) as s:
                 rec = s.get(PublishRecord, record_id)
                 if rec:

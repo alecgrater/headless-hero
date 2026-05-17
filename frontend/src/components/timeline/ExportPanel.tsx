@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { Film, ImageIcon, Search, Smartphone, Video, X, Zap } from "lucide-react";
-import { assetUrl, catalogUpload, getPublishStatus, showInFolder, openInBrowser } from "../../api";
+import { useEffect, useState } from "react";
+import { Film, ImageIcon, Search, Smartphone, Upload, Video, X, Zap } from "lucide-react";
+import api, { assetUrl, catalogUpload, getPublishStatus, showInFolder, openInBrowser, uploadLongformYouTube } from "../../api";
 import { showToast } from "../ToastContainer";
 import type { CatalogUploadOptions, PublishJobStatus } from "../../api";
 import type {
@@ -207,6 +207,10 @@ function longformExportFilename(asset: "Thumbnail" | "SEO" | "Video", projectTit
   return `[Longform] [${asset}] - ${sanitizeExportName(projectTitle)}${extension}`;
 }
 
+function settingEnabled(value: string) {
+  return !new Set(["0", "false", "no", "off"]).has(value.trim().toLowerCase());
+}
+
 function CopyButton({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -312,6 +316,20 @@ export default function ExportPanel({
   const [ytUploadError, setYtUploadError] = useState<string | null>(null);
   const [ytUploadedUrl, setYtUploadedUrl] = useState<string | null>(null);
   const [yoloExportError, setYoloExportError] = useState<string | null>(null);
+  const [showSpeedRenderButton, setShowSpeedRenderButton] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.get("/api/settings/keys").then((res) => {
+      if (!res.ok || cancelled) return;
+      const data = res.data as Record<string, { masked?: string }>;
+      const value = data.SHOW_SPEED_RENDER_BUTTON?.masked ?? "true";
+      setShowSpeedRenderButton(settingEnabled(value));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const { startPolling: startUploadPolling, stopPolling: stopUploadPolling } = usePollJob<PublishJobStatus>({
     pollFn: async (jobId) => getPublishStatus(jobId),
@@ -376,6 +394,22 @@ export default function ExportPanel({
       await onYoloExport();
     } catch (err) {
       setYoloExportError(err instanceof Error ? err.message : "YOLO export failed");
+    }
+  };
+
+  const handleUploadLongform = async () => {
+    if (ytUploading) return;
+    setYtUploadError(null);
+    setYtUploadedUrl(null);
+    setYtUploadStatus(null);
+    setShowUploadPanel(false);
+    setYtUploading(true);
+    try {
+      const { job_id } = await uploadLongformYouTube(scriptId);
+      startUploadPolling(job_id);
+    } catch (err) {
+      setYtUploading(false);
+      setYtUploadError(err instanceof Error ? err.message : "Upload failed");
     }
   };
 
@@ -579,7 +613,7 @@ export default function ExportPanel({
                   </div>
                 ) : null}
                 {!youtubeRendering && (
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <button
                       onClick={() => onStartYoutubeRender()}
                       className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
@@ -587,16 +621,57 @@ export default function ExportPanel({
                       {youtubeUrl ? "Re-render" : "Render YouTube Video"}
                     </button>
                     <button
-                      onClick={() => onStartYoutubeRender(1.25)}
-                      className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
+                      onClick={youtubeConnected ? handleUploadLongform : onNavigateToSettings}
+                      disabled={ytUploading}
+                      className="text-sm px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-50 rounded-lg font-medium transition-colors inline-flex items-center gap-2"
                     >
-                      {youtubeUrl ? "Re-render (1.25x)" : "Render YouTube Video (1.25x Speed)"}
+                      {ytUploading ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                          Uploading
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4" />
+                          Upload YouTube Video
+                        </>
+                      )}
                     </button>
+                    {showSpeedRenderButton && (
+                      <button
+                        onClick={() => onStartYoutubeRender(1.25)}
+                        className="text-sm px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg font-medium transition-colors"
+                      >
+                        {youtubeUrl ? "Re-render (1.25x)" : "Render YouTube Video (1.25x Speed)"}
+                      </button>
+                    )}
                     {estimatedSeconds != null && !youtubeUrl && (
                       <span className="text-xs text-neutral-500">
                         Estimated render time: {formatDuration(estimatedSeconds, true)}
                       </span>
                     )}
+                  </div>
+                )}
+                {ytUploading && ytUploadStatus && (
+                  <ProgressBar
+                    progress={ytUploadStatus.progress || 0}
+                    label={ytUploadStatus.current_step || "Uploading to YouTube..."}
+                  />
+                )}
+                {ytUploadError && (
+                  <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                    {ytUploadError}
+                  </div>
+                )}
+                {ytUploadedUrl && (
+                  <div className="text-sm text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 flex items-center gap-2">
+                    <span>Uploaded to YouTube.</span>
+                    <button
+                      onClick={() => openInBrowser(ytUploadedUrl)}
+                      className="text-red-300 hover:text-red-200 underline transition-colors"
+                    >
+                      View on YouTube
+                    </button>
                   </div>
                 )}
               </section>

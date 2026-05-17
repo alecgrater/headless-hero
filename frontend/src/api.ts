@@ -603,6 +603,18 @@ export async function catalogUpload(options: CatalogUploadOptions): Promise<{ jo
   return res.data as { job_id: string };
 }
 
+export async function uploadLongformYouTube(
+  scriptId: string,
+  privacyStatus: "private" | "unlisted" | "public" = "unlisted",
+): Promise<{ job_id: string }> {
+  const res = await api.post("/api/publish/youtube-longform/upload", {
+    script_id: scriptId,
+    privacy_status: privacyStatus,
+  });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Upload failed");
+  return res.data as { job_id: string };
+}
+
 export async function syncCatalogYouTube(): Promise<{ matched: number }> {
   const res = await api.post("/api/catalog/sync-youtube");
   if (!res.ok) return { matched: 0 };
