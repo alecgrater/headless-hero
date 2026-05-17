@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 
 from database import get_session
 from config import DEFAULT_OPENAI_MODEL
-from integrations.llm_client import ALLOWED_PROVIDERS, LLM_TASKS
+from integrations.llm_client import ALLOWED_PROVIDERS, LLM_TASKS, VALID_OPENAI_REASONING_EFFORTS
 from models.settings import AppSetting
 
 logger = logging.getLogger(__name__)
@@ -52,9 +52,10 @@ ALLOWED_KEYS = {
     "SHOW_SPEED_RENDER_BUTTON",
 }
 
-for _task_config in LLM_TASKS.values():
+for _task_id, _task_config in LLM_TASKS.items():
     ALLOWED_KEYS.add(_task_config["provider_key"])
     ALLOWED_KEYS.add(_task_config["model_key"])
+    ALLOWED_KEYS.add(f"OPENAI_REASONING_EFFORT_{_task_id.upper()}")
 
 # Keys that should NOT be masked (non-secret settings)
 _PLAINTEXT_KEYS = {
@@ -77,9 +78,10 @@ _PLAINTEXT_KEYS = {
     "SHOW_SPEED_RENDER_BUTTON",
 }
 
-for _task_config in LLM_TASKS.values():
+for _task_id, _task_config in LLM_TASKS.items():
     _PLAINTEXT_KEYS.add(_task_config["provider_key"])
     _PLAINTEXT_KEYS.add(_task_config["model_key"])
+    _PLAINTEXT_KEYS.add(f"OPENAI_REASONING_EFFORT_{_task_id.upper()}")
 
 # Default values for settings that have sensible defaults
 _DEFAULTS: dict[str, str] = {
@@ -95,10 +97,15 @@ _DEFAULTS: dict[str, str] = {
     "SHOW_SPEED_RENDER_BUTTON": "true",
 }
 
-for _task_config in LLM_TASKS.values():
+for _task_id, _task_config in LLM_TASKS.items():
     _default_provider = _task_config["default_provider"]
     _DEFAULTS.setdefault(_task_config["provider_key"], _default_provider)
     _DEFAULTS.setdefault(_task_config["model_key"], _task_config[f"default_{_default_provider}_model"] if _default_provider != "ollama" else "qwen3:14b")
+    if _task_config.get("openai_reasoning_effort"):
+        _DEFAULTS.setdefault(
+            f"OPENAI_REASONING_EFFORT_{_task_id.upper()}",
+            _task_config["openai_reasoning_effort"],
+        )
 
 
 def _mask(value: str) -> str:
@@ -163,6 +170,7 @@ async def save_keys(
 
     # Validate provider settings before any writes.
     provider_keys = {"LLM_PROVIDER", *(task["provider_key"] for task in LLM_TASKS.values())}
+    reasoning_keys = {f"OPENAI_REASONING_EFFORT_{task_id.upper()}" for task_id in LLM_TASKS}
     for provider_key in provider_keys.intersection(keys):
         provider = (keys[provider_key] or "").strip().lower()
         if provider and provider not in ALLOWED_PROVIDERS:
@@ -171,6 +179,14 @@ async def save_keys(
                 detail=f"Invalid {provider_key}: {provider!r}. Must be one of {sorted(ALLOWED_PROVIDERS)}.",
             )
         keys[provider_key] = provider
+    for reasoning_key in reasoning_keys.intersection(keys):
+        effort = (keys[reasoning_key] or "").strip().lower()
+        if effort and effort not in VALID_OPENAI_REASONING_EFFORTS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid {reasoning_key}: {effort!r}. Must be one of {sorted(VALID_OPENAI_REASONING_EFFORTS)}.",
+            )
+        keys[reasoning_key] = effort
 
     saved_keys: list[str] = []
     skipped_keys: list[str] = []

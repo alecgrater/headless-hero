@@ -6,6 +6,7 @@ from integrations.llm_client import (
     _resolve_openai_reasoning_effort,
     _resolve_provider,
 )
+from api.settings import ALLOWED_KEYS, _DEFAULTS, _PLAINTEXT_KEYS
 
 
 def test_short_form_seo_has_dedicated_openai_default(monkeypatch):
@@ -38,3 +39,13 @@ def test_generation_openai_tasks_keep_low_reasoning_by_default(monkeypatch):
     for task in ["script", "idea", "hook"]:
         monkeypatch.delenv(f"OPENAI_REASONING_EFFORT_{task.upper()}", raising=False)
         assert _resolve_openai_reasoning_effort(task) == "low"
+
+
+def test_openai_reasoning_efforts_are_exposed_as_settings():
+    for task, config in LLM_TASKS.items():
+        key = f"OPENAI_REASONING_EFFORT_{task.upper()}"
+
+        assert key in ALLOWED_KEYS
+        assert key in _PLAINTEXT_KEYS
+        if config.get("openai_reasoning_effort"):
+            assert _DEFAULTS[key] == config["openai_reasoning_effort"]

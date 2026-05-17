@@ -24,6 +24,34 @@ const LLM_PROVIDERS = [
 ] as const;
 
 type LlmProvider = (typeof LLM_PROVIDERS)[number]["value"];
+type OpenAIReasoningEffort = "minimal" | "low" | "medium" | "high";
+
+const OPENAI_REASONING_OPTIONS: {
+  value: OpenAIReasoningEffort;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "minimal",
+    label: "Minimal",
+    description: "Uses the smallest reasoning budget. Fastest and cheapest; best for JSON, classification, routing, and short structured outputs because it preserves output tokens. Tradeoff: weaker planning on ambiguous creative tasks.",
+  },
+  {
+    value: "low",
+    label: "Low",
+    description: "Allows a little planning before answering. Good default for scripts, ideas, and hook work where quality benefits from light structure. Tradeoff: slower and more expensive than minimal, with less visible output room on small token budgets.",
+  },
+  {
+    value: "medium",
+    label: "Medium",
+    description: "Spends more tokens thinking through complex choices. Useful when a task is failing because it needs deeper synthesis. Tradeoff: noticeably slower and can crowd out the final answer if max tokens are tight.",
+  },
+  {
+    value: "high",
+    label: "High",
+    description: "Maximizes reasoning effort for difficult, high-stakes planning. Tradeoff: slowest and most expensive, and risky for strict JSON or tiny output budgets because reasoning tokens can leave little room for message content.",
+  },
+];
 
 interface LlmTaskConfig {
   id: string;
@@ -31,16 +59,19 @@ interface LlmTaskConfig {
   description: string;
   providerKey: string;
   modelKey: string;
+  reasoningKey: string;
   defaultProvider: LlmProvider;
   defaultModel: string;
   openaiDefaultModel: string;
   ollamaDefaultModel: string;
+  defaultReasoning: OpenAIReasoningEffort;
   note?: string;
 }
 
 interface TaskRoute {
   provider: LlmProvider;
   model: string;
+  openaiReasoningEffort: OpenAIReasoningEffort;
 }
 
 const LLM_TASKS: LlmTaskConfig[] = [
@@ -50,10 +81,12 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "Full scripts, segmented generation, scene rewrites, cold-open variants, narration tightening.",
     providerKey: "SCRIPT_LLM_PROVIDER",
     modelKey: "SCRIPT_MODEL",
+    reasoningKey: "OPENAI_REASONING_EFFORT_SCRIPT",
     defaultProvider: "openai",
     defaultModel: DEFAULT_MODEL,
     openaiDefaultModel: "gpt-5.5",
     ollamaDefaultModel: "qwen3:14b",
+    defaultReasoning: "low",
   },
   {
     id: "idea",
@@ -61,10 +94,12 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "Niche ideas, smart ideas, and brainstorming recommendations.",
     providerKey: "IDEA_LLM_PROVIDER",
     modelKey: "IDEA_MODEL",
+    reasoningKey: "OPENAI_REASONING_EFFORT_IDEA",
     defaultProvider: "openai",
     defaultModel: "anthropic.claude-sonnet-4-6",
     openaiDefaultModel: "gpt-5-mini",
     ollamaDefaultModel: "qwen3:14b",
+    defaultReasoning: "low",
   },
   {
     id: "fx",
@@ -72,10 +107,12 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "Scene FX, transitions, and visual timing suggestions.",
     providerKey: "FX_LLM_PROVIDER",
     modelKey: "FX_MODEL",
+    reasoningKey: "OPENAI_REASONING_EFFORT_FX",
     defaultProvider: "ollama",
     defaultModel: "anthropic.claude-sonnet-4-6",
     openaiDefaultModel: "gpt-5-mini",
     ollamaDefaultModel: "qwen3:14b",
+    defaultReasoning: "minimal",
   },
   {
     id: "seo",
@@ -83,10 +120,12 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "YouTube titles, descriptions, tags, and chapter-aware metadata.",
     providerKey: "SEO_LLM_PROVIDER",
     modelKey: "SEO_MODEL",
+    reasoningKey: "OPENAI_REASONING_EFFORT_SEO",
     defaultProvider: "ollama",
     defaultModel: "anthropic.claude-sonnet-4-6",
     openaiDefaultModel: "gpt-5-mini",
     ollamaDefaultModel: "qwen3:14b",
+    defaultReasoning: "minimal",
   },
   {
     id: "short_form_seo",
@@ -94,10 +133,12 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "Per-short upload text for TikTok, YouTube Shorts, and Instagram Reels.",
     providerKey: "SHORT_FORM_SEO_LLM_PROVIDER",
     modelKey: "SHORT_FORM_SEO_MODEL",
+    reasoningKey: "OPENAI_REASONING_EFFORT_SHORT_FORM_SEO",
     defaultProvider: "openai",
     defaultModel: "anthropic.claude-sonnet-4-6",
     openaiDefaultModel: "gpt-5-mini",
     ollamaDefaultModel: "qwen3:14b",
+    defaultReasoning: "minimal",
   },
   {
     id: "hook",
@@ -105,10 +146,12 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "Retention scoring and hook rewrite suggestions.",
     providerKey: "HOOK_LLM_PROVIDER",
     modelKey: "HOOK_MODEL",
+    reasoningKey: "OPENAI_REASONING_EFFORT_HOOK",
     defaultProvider: "openai",
     defaultModel: "anthropic.claude-haiku-4-5-20251001-v1:0",
     openaiDefaultModel: "gpt-5.5",
     ollamaDefaultModel: "qwen3:14b",
+    defaultReasoning: "low",
     note: "Shared task — this single model drives both hook scoring (rates how well the opening will retain viewers) and hook refinement (rewrites weak hooks). Set it once here.",
   },
   {
@@ -117,10 +160,12 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "Post-script routing between AI visuals, stock photos, and gameplay clips.",
     providerKey: "MEDIA_LLM_PROVIDER",
     modelKey: "MEDIA_MODEL",
+    reasoningKey: "OPENAI_REASONING_EFFORT_MEDIA",
     defaultProvider: "ollama",
     defaultModel: "anthropic.claude-sonnet-4-6",
     openaiDefaultModel: "gpt-5-mini",
     ollamaDefaultModel: "qwen3:14b",
+    defaultReasoning: "minimal",
   },
   {
     id: "eli",
@@ -128,10 +173,12 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "Eli pose and placement selection for scenes.",
     providerKey: "ELI_LLM_PROVIDER",
     modelKey: "ELI_MODEL",
+    reasoningKey: "OPENAI_REASONING_EFFORT_ELI",
     defaultProvider: "ollama",
     defaultModel: "anthropic.claude-haiku-4-5-20251001-v1:0",
     openaiDefaultModel: "gpt-5-nano",
     ollamaDefaultModel: "qwen3:14b",
+    defaultReasoning: "minimal",
   },
   {
     id: "analysis",
@@ -139,10 +186,12 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "Trend format-fit scoring, content profiles, and recording quality analysis.",
     providerKey: "ANALYSIS_LLM_PROVIDER",
     modelKey: "ANALYSIS_MODEL",
+    reasoningKey: "OPENAI_REASONING_EFFORT_ANALYSIS",
     defaultProvider: "ollama",
     defaultModel: "anthropic.claude-haiku-4-5-20251001-v1:0",
     openaiDefaultModel: "gpt-5-nano",
     ollamaDefaultModel: "qwen3:14b",
+    defaultReasoning: "minimal",
   },
   {
     id: "hook_detect",
@@ -150,10 +199,12 @@ const LLM_TASKS: LlmTaskConfig[] = [
     description: "Identifies the opening hook scenes in segment 1 so short #1 starts at the real content.",
     providerKey: "HOOK_DETECT_LLM_PROVIDER",
     modelKey: "HOOK_DETECT_MODEL",
+    reasoningKey: "OPENAI_REASONING_EFFORT_HOOK_DETECT",
     defaultProvider: "ollama",
     defaultModel: "anthropic.claude-haiku-4-5-20251001-v1:0",
     openaiDefaultModel: "gpt-5-nano",
     ollamaDefaultModel: "qwen3:14b",
+    defaultReasoning: "minimal",
   },
 ];
 
@@ -212,7 +263,11 @@ const initialTaskRoutes = () =>
   Object.fromEntries(
     LLM_TASKS.map((task) => [
       task.id,
-      { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) },
+      {
+        provider: task.defaultProvider,
+        model: modelForProvider(task, task.defaultProvider),
+        openaiReasoningEffort: task.defaultReasoning,
+      },
     ]),
   );
 
@@ -311,6 +366,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
             {
               provider: (data[task.providerKey]?.masked || task.defaultProvider) as TaskRoute["provider"],
               model: data[task.modelKey]?.masked || modelForProvider(task, task.defaultProvider),
+              openaiReasoningEffort: (data[task.reasoningKey]?.masked || task.defaultReasoning) as OpenAIReasoningEffort,
             },
           ]),
         );
@@ -325,10 +381,15 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
     setSaving(true);
     const routePayload = Object.fromEntries(
       LLM_TASKS.flatMap((task) => {
-        const route = taskRoutes[task.id] ?? { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) };
+        const route = taskRoutes[task.id] ?? {
+          provider: task.defaultProvider,
+          model: modelForProvider(task, task.defaultProvider),
+          openaiReasoningEffort: task.defaultReasoning,
+        };
         return [
           [task.providerKey, route.provider],
           [task.modelKey, route.model.trim() || modelForProvider(task, route.provider || task.defaultProvider)],
+          [task.reasoningKey, route.openaiReasoningEffort || task.defaultReasoning],
         ];
       }),
     );
@@ -360,8 +421,19 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
       setOriginalTaskRoutes(
         Object.fromEntries(
           LLM_TASKS.map((task) => {
-            const route = taskRoutes[task.id] ?? { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) };
-            return [task.id, { provider: route.provider, model: route.model.trim() || modelForProvider(task, route.provider || task.defaultProvider) }];
+            const route = taskRoutes[task.id] ?? {
+              provider: task.defaultProvider,
+              model: modelForProvider(task, task.defaultProvider),
+              openaiReasoningEffort: task.defaultReasoning,
+            };
+            return [
+              task.id,
+              {
+                provider: route.provider,
+                model: route.model.trim() || modelForProvider(task, route.provider || task.defaultProvider),
+                openaiReasoningEffort: route.openaiReasoningEffort || task.defaultReasoning,
+              },
+            ];
           }),
         ),
       );
@@ -375,8 +447,12 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
         ...(prev[taskId] ?? (() => {
           const task = LLM_TASKS.find((candidate) => candidate.id === taskId);
           return task
-            ? { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) }
-            : { provider: "anthropic" as LlmProvider, model: DEFAULT_MODEL };
+            ? {
+                provider: task.defaultProvider,
+                model: modelForProvider(task, task.defaultProvider),
+                openaiReasoningEffort: task.defaultReasoning,
+              }
+            : { provider: "anthropic" as LlmProvider, model: DEFAULT_MODEL, openaiReasoningEffort: "low" };
         })()),
         ...updates,
       },
@@ -388,7 +464,11 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
   };
 
   const handleTaskProviderChange = (task: LlmTaskConfig, provider: TaskRoute["provider"]) => {
-    const current = taskRoutes[task.id] ?? { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) };
+    const current = taskRoutes[task.id] ?? {
+      provider: task.defaultProvider,
+      model: modelForProvider(task, task.defaultProvider),
+      openaiReasoningEffort: task.defaultReasoning,
+    };
     const knownDefaults = new Set([
       task.defaultModel,
       task.openaiDefaultModel,
@@ -407,9 +487,21 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
   };
 
   const routeChanged = LLM_TASKS.some((task) => {
-    const current = taskRoutes[task.id] ?? { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) };
-    const original = originalTaskRoutes[task.id] ?? { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) };
-    return current.provider !== original.provider || current.model.trim() !== original.model;
+    const current = taskRoutes[task.id] ?? {
+      provider: task.defaultProvider,
+      model: modelForProvider(task, task.defaultProvider),
+      openaiReasoningEffort: task.defaultReasoning,
+    };
+    const original = originalTaskRoutes[task.id] ?? {
+      provider: task.defaultProvider,
+      model: modelForProvider(task, task.defaultProvider),
+      openaiReasoningEffort: task.defaultReasoning,
+    };
+    return (
+      current.provider !== original.provider ||
+      current.model.trim() !== original.model ||
+      current.openaiReasoningEffort !== original.openaiReasoningEffort
+    );
   });
 
   const hasChanges =
@@ -565,10 +657,17 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
               </datalist>
               <div className="space-y-3">
                 {LLM_TASKS.map((task) => {
-                  const route = taskRoutes[task.id] ?? { provider: task.defaultProvider, model: modelForProvider(task, task.defaultProvider) };
+                  const route = taskRoutes[task.id] ?? {
+                    provider: task.defaultProvider,
+                    model: modelForProvider(task, task.defaultProvider),
+                    openaiReasoningEffort: task.defaultReasoning,
+                  };
                   const effectiveProvider = route.provider || llmProvider;
                   const modelOptions = modelOptionsForProvider(effectiveProvider);
                   const hasSelectedModelOption = modelOptions.some((model) => model.value === route.model);
+                  const reasoningDescription =
+                    OPENAI_REASONING_OPTIONS.find((option) => option.value === route.openaiReasoningEffort)
+                      ?.description ?? OPENAI_REASONING_OPTIONS[0].description;
                   return (
                     <div key={task.id} className="rounded-lg border border-neutral-800 bg-neutral-950/40 p-3 space-y-3">
                       <div>
@@ -581,7 +680,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                           <p className="text-xs text-neutral-300 leading-relaxed">{task.note}</p>
                         </div>
                       )}
-                      <div className="grid grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-3">
+                      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,0.9fr)]">
                         <div className="space-y-1">
                           <label className="text-xs text-neutral-400">Provider</label>
                           <select
@@ -623,6 +722,35 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                               ))}
                             </select>
                           )}
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-neutral-400">OpenAI reasoning</label>
+                          <select
+                            value={route.openaiReasoningEffort}
+                            onChange={(e) =>
+                              updateTaskRoute(task.id, {
+                                openaiReasoningEffort: e.target.value as OpenAIReasoningEffort,
+                              })
+                            }
+                            className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
+                          >
+                            {OPENAI_REASONING_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2 rounded-md border border-sky-500/20 bg-sky-500/5 px-2.5 py-2">
+                        <Info className="h-3.5 w-3.5 shrink-0 text-sky-400 mt-[1px]" aria-hidden />
+                        <div className="space-y-1">
+                          <p className="text-xs text-neutral-300 leading-relaxed">
+                            {reasoningDescription}
+                          </p>
+                          <p className="text-xs text-neutral-500 leading-relaxed">
+                            Applies only when this task uses OpenAI. Anthropic, Claude Code Proxy, and Ollama ignore this setting.
+                          </p>
                         </div>
                       </div>
                       {effectiveProvider === "anthropic" && !anthropicKeyConfigured && (
