@@ -6,7 +6,6 @@ import type { ScriptCostBreakdownItem } from "../../api";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
 import type { ThumbnailConcept } from "../../types/render";
-import type { ExportBundleResponse } from "../../types/render";
 import type { SaveState } from "../../App";
 import type { MicroTimelineHandle } from "./SceneMicroTimeline";
 import ExportPanel from "./ExportPanel";
@@ -883,22 +882,12 @@ function TimelineEditor({
     }
   };
 
-  const handleSmartExport = useCallback(() => {
-    render.smartExportBundle(async (_result: ExportBundleResponse) => {
-      await new Promise((r) => setTimeout(r, 1500));
-      await api.delete(`/api/scripts/${scriptId}`);
-      onBack();
-    }).catch(() => {
-      // Errors already surfaced via global toast interceptor
-    });
-  }, [render, scriptId, onBack]);
-
   const handleYoloRender = useCallback(async () => {
     if (yoloRenderRunning) return;
     setYoloRenderRunning(true);
     setYoloRenderError(null);
     try {
-      await render.yoloRender((_result: ExportBundleResponse) => {
+      await render.yoloRender(() => {
         setShowExport(true);
         setExportInitialTab("render-long");
       });
@@ -1134,8 +1123,8 @@ function TimelineEditor({
               </div>
             );
 
-            const yoloButtonBaseClass = "group relative flex h-16 min-w-[13rem] flex-1 basis-0 items-center justify-center overflow-hidden rounded-lg px-6 text-center text-sm font-bold leading-tight text-white/95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 hover:scale-[1.01] disabled:opacity-50 disabled:hover:scale-100";
-            const yoloButtonContentClass = "relative flex min-w-0 items-center justify-center gap-2 text-center";
+            const yoloButtonBaseClass = "group relative flex h-10 w-[9.5rem] shrink-0 items-center justify-center overflow-hidden rounded-lg px-4 text-center text-xs font-bold leading-tight text-white/95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100";
+            const yoloButtonContentClass = "relative flex min-w-0 items-center justify-center gap-1.5 text-center";
             const yoloInfoClass = "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-neutral-700/60 bg-neutral-900 text-neutral-500 transition-colors hover:border-neutral-500 hover:text-neutral-200";
             const yoloModeDescription = `Runs every unfinished creation step in order. Missing title cards, narration audio, scene images, FX, and Eli animation are generated automatically, then the timeline refreshes with the new assets. Currently pending: ${remaining.join(", ")}.`;
             const yoloRenderDescription = "Builds the finished export package. It renders the long-form video when needed, renders all short-form segments, writes metadata and thumbnail assets, then saves the complete project folder for upload or archive.";
@@ -1188,7 +1177,7 @@ function TimelineEditor({
               return (
                 <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex flex-1 items-center gap-2 min-w-0">
+                    <div className="flex shrink-0 items-center gap-2">
                       {yoloRenderButton}
                       {yoloInfo(yoloRenderDescription, "YOLO render details")}
                     </div>
@@ -1204,7 +1193,7 @@ function TimelineEditor({
             return (
               <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex flex-1 items-center gap-2 min-w-0">
+                  <div className="flex shrink-0 items-center gap-2">
                     <button
                       onClick={handleYolo}
                       className={`${yoloButtonBaseClass} bg-gradient-to-r from-violet-500/80 via-fuchsia-400/70 to-amber-400/70 shadow-[0_0_15px_rgba(168,85,247,0.2)] hover:shadow-[0_0_22px_rgba(168,85,247,0.35)] focus-visible:ring-violet-500`}
@@ -1221,7 +1210,7 @@ function TimelineEditor({
                     <span className="text-[11px] text-red-400">{yoloError}</span>
                   )}
                   <span className="w-px h-4 bg-neutral-700/50" />
-                  <div className="flex flex-1 items-center gap-2 min-w-0">
+                  <div className="flex shrink-0 items-center gap-2">
                     {yoloRenderButton}
                     {yoloInfo(yoloRenderDescription, "YOLO render details")}
                   </div>
@@ -1536,7 +1525,7 @@ function TimelineEditor({
           estimatedSeconds={render.estimatedSeconds}
           exportBundleLoading={render.exportBundleLoading}
           exportBundleResult={render.exportBundleResult}
-          onExportBundle={handleSmartExport}
+          onYoloExport={render.yoloRender}
           exportPhase={render.exportPhase}
           thumbnailProgress={render.thumbnailProgress}
           seoProgress={render.seoProgress}

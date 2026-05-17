@@ -36,7 +36,7 @@ def test_seo_markdown_filename_formats():
 
 
 def test_project_downloads_folder_uses_configured_base(tmp_path, monkeypatch):
-    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path))
+    monkeypatch.setenv("EXPORT_FOLDER", str(tmp_path))
     folder = project_downloads_folder("Project Name")
 
     assert folder == Path(tmp_path / "[project] Project Name")

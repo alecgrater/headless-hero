@@ -495,7 +495,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
             <div>
               <h3 className="text-sm font-medium text-neutral-100">Export Folder</h3>
               <p className="text-xs text-neutral-500">
-                Where "Export All" bundles are saved. Defaults to iCloud headless-hero media/Videos.
+                Where YOLO Export and YOLO Render batch folders are saved. Defaults to iCloud headless-hero media/Videos.
               </p>
             </div>
             <div className="flex gap-2">

@@ -143,7 +143,7 @@ export function useRenderState(
         // ignore — thumbnails are optional
       }
     })();
-  }, [scriptId]);
+  }, [scriptId, exportBundleProgressHook]);
 
   const startYoutubeRender = useCallback(
     async (speed?: number): Promise<string | null> => {
@@ -282,10 +282,11 @@ export function useRenderState(
           await pollRenderJob(jobId);
         }
 
-        // Step 2: export bundle to iCloud
+        // Step 2: export bundle to the configured export folder
         setExportPhase("exporting");
         setExportBundleLoading(true);
         setExportBundleResult(null);
+        exportBundleProgressHook.start();
         const res = await api.post("/api/render/export-bundle", {
           script_id: scriptId,
         });
@@ -300,10 +301,11 @@ export function useRenderState(
         throw new Error(msg);
       } finally {
         setExportBundleLoading(false);
+        exportBundleProgressHook.end();
         setExportPhase(null);
       }
     },
-    [scriptId, youtubeUrl, startYoutubeRender],
+    [scriptId, youtubeUrl, startYoutubeRender, exportPhase, exportBundleProgressHook],
   );
 
   const yoloRender = useCallback(
@@ -319,6 +321,8 @@ export function useRenderState(
         }
 
         setExportPhase("exporting");
+        setExportBundleLoading(true);
+        exportBundleProgressHook.start();
         const scriptRes = await api.get(`/api/scripts/${scriptId}`);
         const content = scriptRes.ok
           ? (scriptRes.data as { script?: { segments?: unknown[] } }).script
@@ -332,7 +336,6 @@ export function useRenderState(
 
         await exportShortFormThumbnails(scriptId);
 
-        setExportBundleLoading(true);
         const res = await api.post("/api/render/export-bundle", {
           script_id: scriptId,
         });
@@ -347,10 +350,11 @@ export function useRenderState(
         throw new Error(msg);
       } finally {
         setExportBundleLoading(false);
+        exportBundleProgressHook.end();
         setExportPhase(null);
       }
     },
-    [scriptId, youtubeUrl, startYoutubeRender, exportPhase],
+    [scriptId, youtubeUrl, startYoutubeRender, exportPhase, exportBundleProgressHook],
   );
 
   return {

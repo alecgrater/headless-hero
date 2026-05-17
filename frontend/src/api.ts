@@ -804,7 +804,7 @@ export async function generateShortFormThumbnailOne(
   return res.data as { job_id: string };
 }
 
-/** Generate missing short-form thumbnails and export all to Downloads. */
+/** Generate missing short-form thumbnails and export them to the configured export folder. */
 export async function exportShortFormThumbnails(scriptId: string): Promise<ExportShortFormThumbnailsResponse> {
   const res = await api.post("/api/short-form/thumbnails/export", { script_id: scriptId });
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to export thumbnails");

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, Film, ImageIcon, Search, Smartphone, Video, X } from "lucide-react";
+import { Film, ImageIcon, Search, Smartphone, Video, X, Zap } from "lucide-react";
 import { assetUrl, catalogUpload, getPublishStatus, showInFolder, openInBrowser } from "../../api";
 import { showToast } from "../ToastContainer";
 import type { CatalogUploadOptions, PublishJobStatus } from "../../api";
@@ -38,7 +38,7 @@ interface Props {
   // Export bundle
   exportBundleLoading: boolean;
   exportBundleResult: ExportBundleResponse | null;
-  onExportBundle: () => void;
+  onYoloExport: () => Promise<void>;
 
   // Smart export phase
   exportPhase: "rendering" | "exporting" | null;
@@ -278,7 +278,7 @@ export default function ExportPanel({
   estimatedSeconds,
   exportBundleLoading,
   exportBundleResult,
-  onExportBundle,
+  onYoloExport,
   exportPhase,
   thumbnailProgress,
   seoProgress,
@@ -311,6 +311,7 @@ export default function ExportPanel({
   const [ytUploadStatus, setYtUploadStatus] = useState<PublishJobStatus | null>(null);
   const [ytUploadError, setYtUploadError] = useState<string | null>(null);
   const [ytUploadedUrl, setYtUploadedUrl] = useState<string | null>(null);
+  const [yoloExportError, setYoloExportError] = useState<string | null>(null);
 
   const { startPolling: startUploadPolling, stopPolling: stopUploadPolling } = usePollJob<PublishJobStatus>({
     pollFn: async (jobId) => getPublishStatus(jobId),
@@ -365,6 +366,16 @@ export default function ExportPanel({
     } catch (err) {
       setYtUploading(false);
       setYtUploadError(err instanceof Error ? err.message : "Upload failed");
+    }
+  };
+
+  const handleYoloExport = async () => {
+    if (exportBundleLoading || exportPhase !== null) return;
+    setYoloExportError(null);
+    try {
+      await onYoloExport();
+    } catch (err) {
+      setYoloExportError(err instanceof Error ? err.message : "YOLO export failed");
     }
   };
 
@@ -437,25 +448,26 @@ export default function ExportPanel({
                 </div>
               )}
               <button
-                onClick={onExportBundle}
+                onClick={handleYoloExport}
                 disabled={exportBundleLoading || exportPhase !== null}
-                className="text-sm px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm shadow-emerald-950/40"
+                className="group relative flex h-10 w-[9.5rem] items-center justify-center overflow-hidden rounded-lg px-4 text-center text-xs font-bold leading-tight text-white/95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 bg-gradient-to-r from-sky-500/80 via-emerald-400/70 to-amber-400/70 shadow-[0_0_15px_rgba(14,165,233,0.2)] hover:shadow-[0_0_22px_rgba(14,165,233,0.35)]"
               >
+                <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_ease-in-out_infinite]" />
                 {exportPhase === "rendering" ? (
-                  <>
-                    <span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                    Rendering video...
-                  </>
+                  <span className="relative flex min-w-0 items-center justify-center gap-1.5 text-center">
+                    <span className="w-3 h-3 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
+                    Rendering
+                  </span>
                 ) : exportPhase === "exporting" || exportBundleLoading ? (
-                  <>
-                    <span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                    Exporting to iCloud...
-                  </>
+                  <span className="relative flex min-w-0 items-center justify-center gap-1.5 text-center">
+                    <span className="w-3 h-3 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
+                    Exporting
+                  </span>
                 ) : (
-                  <>
-                    <Download className="w-4 h-4" />
-                    Export All
-                  </>
+                  <span className="relative flex min-w-0 items-center justify-center gap-1.5 text-center">
+                    <Zap size={12} />
+                    YOLO EXPORT
+                  </span>
                 )}
               </button>
               <button
@@ -479,7 +491,15 @@ export default function ExportPanel({
           )}
           {(exportPhase === "exporting" || exportBundleLoading) && (
             <div className="px-6 pb-3">
+              <div className="mb-1 flex justify-between text-xs text-neutral-400">
+                <span>Generating missing assets and exporting deliverables...</span>
+              </div>
               <MiniProgressBar estimatedSeconds={exportBundleProgress.estimatedSeconds} active={exportBundleProgress.active} />
+            </div>
+          )}
+          {yoloExportError && (
+            <div className="px-6 pb-3 text-xs text-red-400">
+              {yoloExportError}
             </div>
           )}
         </div>

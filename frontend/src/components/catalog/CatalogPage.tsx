@@ -664,7 +664,7 @@ export default function CatalogPage({ onNavigateToSettings }: Props) {
               </svg>
             }
             title={entries.length === 0 ? "No exported videos yet" : "No videos match your filter"}
-            description={entries.length === 0 ? "Use Export All from the timeline to get started." : undefined}
+            description={entries.length === 0 ? "Use YOLO Export from the timeline to get started." : undefined}
           />
         ) : (
           <div className="space-y-3">

@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 from typing import Literal
 
-from config import sanitize_filename
+from config import get_export_folder, sanitize_filename
 
 ExportKind = Literal["Longform", "Shortform"]
 ExportAsset = Literal["Thumbnail", "SEO", "Video", "Audio"]
@@ -24,8 +24,8 @@ def project_folder_name(project_title: str) -> str:
 
 
 def project_downloads_folder(project_title: str, *, create: bool = True) -> Path:
-    """Return ~/Downloads/[project] {project_title}, creating it by default."""
-    folder = downloads_base() / project_folder_name(project_title)
+    """Return the configured export project folder, creating it by default."""
+    folder = get_export_folder() / project_folder_name(project_title)
     if create:
         folder.mkdir(parents=True, exist_ok=True)
     return folder
@@ -56,7 +56,7 @@ def copy_to_project_downloads(
     src_path: str | Path,
     filename: str,
 ) -> str:
-    """Copy a file into the standard project Downloads folder."""
+    """Copy a file into the configured project export folder."""
     dest = project_downloads_folder(project_title) / filename
     shutil.copy2(str(src_path), str(dest))
     return str(dest)
