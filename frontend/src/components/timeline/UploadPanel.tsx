@@ -339,7 +339,7 @@ export default function UploadPanel({ suite, onClose }: Props) {
             </button>
           </div>
 
-          <div className="mt-5 grid w-full max-w-md grid-cols-2 rounded-lg border border-neutral-800 bg-neutral-900 p-1">
+          <div className="mt-5 grid w-full max-w-[18rem] grid-cols-2 rounded-lg border border-neutral-800 bg-neutral-900 p-1">
             {([
               ["long-form", Film, "Long Form"],
               ["short-form", Smartphone, "Short Form"],
