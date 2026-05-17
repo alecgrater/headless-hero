@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Download, Film, ImageIcon, Search, Smartphone, Video, X } from "lucide-react";
 import { assetUrl, catalogUpload, getPublishStatus, showInFolder, openInBrowser } from "../../api";
 import { showToast } from "../ToastContainer";
 import type { CatalogUploadOptions, PublishJobStatus } from "../../api";
@@ -69,15 +70,15 @@ type LegacyInitialTab = "render-long" | "render-short" | "thumbnails" | "seo";
 type TopTab = "long-form" | "short-form";
 type SubTab = "render" | "thumbnails" | "seo";
 
-const TOP_TABS: { key: TopTab; label: string }[] = [
-  { key: "long-form", label: "Long Form" },
-  { key: "short-form", label: "Short Form" },
+const TOP_TABS: { key: TopTab; label: string; Icon: typeof Film }[] = [
+  { key: "long-form", label: "Long Form", Icon: Film },
+  { key: "short-form", label: "Short Form", Icon: Smartphone },
 ];
 
-const SUB_TABS: { key: SubTab; label: string }[] = [
-  { key: "render", label: "Render" },
-  { key: "thumbnails", label: "Thumbnails" },
-  { key: "seo", label: "SEO" },
+const SUB_TABS: { key: SubTab; label: string; Icon: typeof Video }[] = [
+  { key: "render", label: "Render", Icon: Video },
+  { key: "thumbnails", label: "Thumbnails", Icon: ImageIcon },
+  { key: "seo", label: "SEO", Icon: Search },
 ];
 
 function initialTopTab(initialTab?: LegacyInitialTab): TopTab {
@@ -226,11 +227,6 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
   );
 }
 
-function TabBadge({ active }: { active: boolean }) {
-  if (!active) return null;
-  return <span className="w-2 h-2 rounded-full bg-emerald-400 ml-1.5 inline-block" />;
-}
-
 function TagList({ tags }: { tags: string[] }) {
   const tagString = tags.join(", ");
   const charCount = tagString.length;
@@ -372,24 +368,6 @@ export default function ExportPanel({
     }
   };
 
-  const topTabBadges: Record<TopTab, boolean> = {
-    "long-form": !!youtubeUrl || thumbnails.length > 0 || !!seoMetadata,
-    "short-form": !!shortFormSeoMetadata,
-  };
-
-  const subTabBadges: Record<TopTab, Record<SubTab, boolean>> = {
-    "long-form": {
-      render: !!youtubeUrl,
-      thumbnails: thumbnails.length > 0,
-      seo: !!seoMetadata,
-    },
-    "short-form": {
-      render: false,
-      thumbnails: false,
-      seo: !!shortFormSeoMetadata,
-    },
-  };
-
   const tabDescriptions: Record<TopTab, Record<SubTab, string>> = {
     "long-form": {
       render: "Renders the full long form video at 1920×1080 16:9 30FPS.",
@@ -404,12 +382,15 @@ export default function ExportPanel({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-8">
-      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-8">
+      <div className="bg-neutral-900 border border-neutral-700/80 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl shadow-black/70 overflow-hidden">
         {/* Header */}
-        <div className="flex flex-col border-b border-neutral-800 shrink-0">
+        <div className="flex flex-col border-b border-neutral-800 shrink-0 bg-neutral-900/95">
           <div className="flex items-center justify-between px-6 py-4">
-            <h2 className="text-lg font-bold">Export</h2>
+            <div>
+              <h2 className="text-lg font-semibold text-neutral-100">Export</h2>
+              <p className="mt-0.5 text-xs text-neutral-500">Package final video assets, thumbnails, and upload metadata.</p>
+            </div>
             <div className="flex items-center gap-3">
               {exportBundleResult && (
                 <div className="flex items-center gap-2 text-xs text-emerald-400">
@@ -458,7 +439,7 @@ export default function ExportPanel({
               <button
                 onClick={onExportBundle}
                 disabled={exportBundleLoading || exportPhase !== null}
-                className="text-sm px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-lg font-medium transition-colors flex items-center gap-2"
+                className="text-sm px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm shadow-emerald-950/40"
               >
                 {exportPhase === "rendering" ? (
                   <>
@@ -472,18 +453,17 @@ export default function ExportPanel({
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
+                    <Download className="w-4 h-4" />
                     Export All
                   </>
                 )}
               </button>
               <button
                 onClick={onClose}
-                className="text-neutral-400 hover:text-white transition-colors text-xl leading-none"
+                className="w-8 h-8 rounded-lg text-neutral-500 hover:text-neutral-100 hover:bg-neutral-800 transition-colors flex items-center justify-center"
+                aria-label="Close export window"
               >
-                &times;
+                <X className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -505,45 +485,50 @@ export default function ExportPanel({
         </div>
 
         {/* Top Tab Bar */}
-        <div className="flex border-b border-neutral-800 px-6 shrink-0">
-          {TOP_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTopTab(tab.key)}
-              className={`relative px-4 py-3 text-sm font-medium transition-colors flex items-center ${
-                activeTopTab === tab.key
-                  ? "text-violet-400"
-                  : "text-neutral-500 hover:text-neutral-300"
-              }`}
-            >
-              {tab.label}
-              <TabBadge active={topTabBadges[tab.key]} />
-              {activeTopTab === tab.key && (
-                <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-violet-500 rounded-full" />
-              )}
-            </button>
-          ))}
+        <div className="px-6 py-4 shrink-0 border-b border-neutral-800 bg-neutral-950/25">
+          <div className="flex items-center gap-4">
+            <div className="inline-flex rounded-xl border border-neutral-800 bg-neutral-950/70 p-1">
+              {TOP_TABS.map((tab) => {
+                const Icon = tab.Icon;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTopTab(tab.key)}
+                    className={`h-9 min-w-32 px-4 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                      activeTopTab === tab.key
+                        ? "bg-violet-500/15 text-violet-200 border border-violet-400/30"
+                        : "text-neutral-500 border border-transparent hover:text-neutral-300 hover:bg-neutral-800/70"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="h-8 w-px bg-neutral-800" />
+            <div className="inline-flex rounded-xl border border-neutral-800 bg-neutral-950/70 p-1">
+              {SUB_TABS.map((tab) => {
+                const Icon = tab.Icon;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveSubTab(tab.key)}
+                    className={`h-8 px-3 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${
+                      activeSubTab === tab.key
+                        ? "bg-neutral-100 text-neutral-950"
+                        : "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800/70"
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
-        <div className="flex border-b border-neutral-800/70 px-6 shrink-0 bg-neutral-950/35">
-          {SUB_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveSubTab(tab.key)}
-              className={`relative px-3 py-2 text-xs font-medium transition-colors flex items-center ${
-                activeSubTab === tab.key
-                  ? "text-neutral-100"
-                  : "text-neutral-500 hover:text-neutral-300"
-              }`}
-            >
-              {tab.label}
-              <TabBadge active={subTabBadges[activeTopTab][tab.key]} />
-              {activeSubTab === tab.key && (
-                <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-neutral-200 rounded-full" />
-              )}
-            </button>
-          ))}
-        </div>
-        <div className="px-6 py-2 text-xs text-neutral-500 border-b border-neutral-800/50 shrink-0">
+        <div className="px-6 py-3 text-xs text-neutral-400 border-b border-neutral-800/50 shrink-0 bg-neutral-900">
           {tabDescriptions[activeTopTab][activeSubTab]}
         </div>
 
