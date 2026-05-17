@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard } from "lucide-react";
+import { Keyboard, Wrench } from "lucide-react";
 import { Tooltip } from "./components/ui/Tooltip";
 import api, { assetUrl } from "./api";
+import { BACKEND_PORT } from "./constants";
 import ProjectDashboard from "./components/dashboard/ProjectDashboard";
 import IdeationPage from "./components/ideation/IdeationPage";
 import ScriptGenerationPage from "./components/script/ScriptGenerationPage";
@@ -16,19 +17,29 @@ import useLongPress from "./hooks/useLongPress";
 import type { Idea, VideoIdea } from "./types/idea";
 import type { ScriptSummary } from "./types/script";
 
-type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "ideas" | "catalog" | "voiceover-recording";
+type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "ideas" | "catalog" | "voiceover-recording" | "dev-dashboard";
 
 function viewPanelClass(panel: View, current: View): string {
   const visibility = panel === current ? "block" : "hidden";
   const base = `${visibility} h-full min-h-0 w-full`;
 
-  if (panel === "timeline" || panel === "settings" || panel === "catalog" || panel === "voiceover-recording") {
+  if (panel === "timeline" || panel === "settings" || panel === "catalog" || panel === "voiceover-recording" || panel === "dev-dashboard") {
     return `${base} overflow-hidden`;
   }
   if (panel === "project-dashboard" || panel === "discover" || panel === "ideas") {
     return `${base} overflow-y-auto`;
   }
   return `${base} overflow-y-auto px-6 py-8 max-w-4xl mx-auto`;
+}
+
+function DevDashboardPanel() {
+  return (
+    <iframe
+      title="Dev Dashboard"
+      src={`http://localhost:${BACKEND_PORT}/dev/`}
+      className="h-full w-full border-0 bg-neutral-950"
+    />
+  );
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -288,6 +299,17 @@ function App() {
               </svg>
               Catalog
             </button>
+            <button
+              onClick={() => handleSetView("dev-dashboard")}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
+                view === "dev-dashboard"
+                  ? "bg-violet-500/15 text-violet-300 font-semibold"
+                  : "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
+              }`}
+            >
+              <Wrench className="w-4 h-4" />
+              Dev Dashboard
+            </button>
             <div className="relative" ref={settingsDropdownRef}>
               <button
                 {...settingsLongPress}
@@ -503,6 +525,10 @@ function App() {
 
         <div className={viewPanelClass("catalog", view)}>
           {visitedViews.has("catalog") && <CatalogPage onNavigateToSettings={() => handleSetView("settings")} />}
+        </div>
+
+        <div className={viewPanelClass("dev-dashboard", view)}>
+          {visitedViews.has("dev-dashboard") && <DevDashboardPanel />}
         </div>
       </main>
       {showShortcutHelp && (
