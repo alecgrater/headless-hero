@@ -150,22 +150,15 @@ function ThumbnailPreview({
   src,
   alt,
   orientation,
-  eyebrow,
-  title,
 }: {
   src: string | null;
   alt: string;
   orientation: "long-form" | "short-form";
-  eyebrow?: string;
-  title?: string;
 }) {
-  const frameClass = orientation === "short-form" ? "aspect-[9/16] max-h-[320px]" : "aspect-video";
+  const frameClass = orientation === "short-form" ? "aspect-[9/16]" : "aspect-video";
   const imageClass = orientation === "short-form"
     ? "absolute left-1/2 top-[-21.43%] h-[142.86%] w-[142.86%] max-w-none -translate-x-1/2 object-cover"
     : "h-full w-full object-cover";
-  const labelClass = orientation === "short-form"
-    ? "absolute inset-x-0 top-0 border-b border-white/10 bg-neutral-950/78 px-3 py-2 backdrop-blur"
-    : "absolute inset-x-0 top-0 border-b border-white/10 bg-neutral-950/72 px-4 py-2.5 backdrop-blur";
   return (
     <div className="w-full">
       <div className={`relative mx-auto overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900 ${frameClass}`}>
@@ -180,26 +173,22 @@ function ThumbnailPreview({
             No thumbnail exported
           </div>
         )}
-        {(eyebrow || title) && (
-          <div className={labelClass}>
-            {eyebrow && (
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-300">
-                {eyebrow}
-              </p>
-            )}
-            {title && (
-              <p className="mt-0.5 truncate text-xs font-semibold text-neutral-100" title={title}>
-                {title}
-              </p>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
-function MarkdownPreview({ markdown }: { markdown: string }) {
+function MarkdownPreview({
+  markdown,
+  topAccessory,
+  sideAccessory,
+  skipFirstHeading = false,
+}: {
+  markdown: string;
+  topAccessory?: ReactNode;
+  sideAccessory?: ReactNode;
+  skipFirstHeading?: boolean;
+}) {
   const blocks = useMemo(() => {
     const lines = markdown.trim().split(/\r?\n/);
     const parsed: Array<{ type: "h1" | "h2" | "p"; text: string }> = [];
@@ -235,16 +224,31 @@ function MarkdownPreview({ markdown }: { markdown: string }) {
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-neutral-800 bg-neutral-950/60 p-4">
-      {blocks.map((block, idx) => {
-        if (block.type === "h1") {
-          return <h3 key={idx} className="border-b border-neutral-800 pb-2 text-sm font-semibold uppercase text-sky-300">{block.text}</h3>;
-        }
-        if (block.type === "h2") {
-          return <h4 key={idx} className="text-xs font-semibold uppercase text-violet-300">{block.text}</h4>;
-        }
-        return <p key={idx} className="whitespace-pre-wrap text-sm leading-6 text-neutral-300">{block.text}</p>;
-      })}
+    <div className="flow-root rounded-lg border border-neutral-800 bg-neutral-950/60 p-4">
+      {sideAccessory && (
+        <div className="float-right ml-4 mb-3 hidden sm:block">
+          {sideAccessory}
+        </div>
+      )}
+      {topAccessory && (
+        <div className="mb-4 border-b border-neutral-800 pb-3">
+          {topAccessory}
+        </div>
+      )}
+      <div className="space-y-3">
+        {blocks.map((block, idx) => {
+          if (skipFirstHeading && idx === 0 && block.type === "h1") {
+            return null;
+          }
+          if (block.type === "h1") {
+            return <h3 key={idx} className="border-b border-neutral-800 pb-2 text-sm font-semibold uppercase text-sky-300">{block.text}</h3>;
+          }
+          if (block.type === "h2") {
+            return <h4 key={idx} className="text-xs font-semibold uppercase text-violet-300">{block.text}</h4>;
+          }
+          return <p key={idx} className="whitespace-pre-wrap text-sm leading-6 text-neutral-300">{block.text}</p>;
+        })}
+      </div>
     </div>
   );
 }
@@ -283,7 +287,7 @@ export default function UploadPanel({ suite, onClose }: Props) {
 
           <div className="mt-5 grid w-full max-w-md grid-cols-2 rounded-lg border border-neutral-800 bg-neutral-900 p-1">
             {([
-              ["long-form", Film, "Longform"],
+              ["long-form", Film, "Long Form"],
               ["short-form", Smartphone, "Short Form"],
             ] as const).map(([tab, Icon, label]) => (
               <button
@@ -301,105 +305,111 @@ export default function UploadPanel({ suite, onClose }: Props) {
               </button>
             ))}
           </div>
+          <div className="mt-3">
+            {activeTab === "long-form" ? (
+              <PrimaryActionStack
+                onOpenFolder={() => showInFolder(suite.folder_path)}
+                onOpenDestination={openYouTubeUploadWindow}
+                destinationLabel="Open YouTube"
+                destinationIcon={<ExternalLink className="h-3.5 w-3.5" />}
+                accentClass="border-red-400/50 bg-red-500/15 text-red-100 hover:border-red-300 hover:bg-red-500/25"
+              />
+            ) : (
+              <PrimaryActionStack
+                onOpenFolder={() => showInFolder(suite.folder_path)}
+                onOpenDestination={openUploadShortsWindows}
+                destinationLabel="Open Short Form Apps"
+                destinationIcon={<ExternalLink className="h-3.5 w-3.5" />}
+                accentClass="border-violet-400/50 bg-violet-500/15 text-violet-100 hover:border-violet-300 hover:bg-violet-500/25"
+              />
+            )}
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {activeTab === "long-form" ? (
-            <div className="space-y-4">
-              <div className="grid items-start gap-5 lg:grid-cols-[minmax(180px,300px)_minmax(260px,360px)] lg:justify-between">
-                <div className="space-y-3">
-                  <PrimaryActionStack
-                    onOpenFolder={() => showInFolder(suite.folder_path)}
-                    onOpenDestination={openYouTubeUploadWindow}
-                    destinationLabel="Open YouTube"
-                    destinationIcon={<ExternalLink className="h-3.5 w-3.5" />}
-                    accentClass="border-red-400/50 bg-red-500/15 text-red-100 hover:border-red-300 hover:bg-red-500/25"
-                  />
-                  <div className="flex max-w-[18rem] flex-wrap gap-2">
+            <div>
+              <MarkdownPreview
+                markdown={suite.longform_seo_markdown}
+                skipFirstHeading
+                topAccessory={
+                  <div className="flex flex-wrap items-center gap-2">
                     <CopyButton label="Copy Title" text={seoTitle(suite.longform_seo_markdown)} icon={<YouTubeIcon />} />
                     <CopyButton label="Copy Description" text={seoDescriptionAndRest(suite.longform_seo_markdown)} icon={<YouTubeIcon />} />
                   </div>
-                </div>
-                <ThumbnailPreview
-                  src={suite.longform_thumbnail_url}
-                  alt={`${suite.project_title} thumbnail`}
-                  orientation="long-form"
-                  eyebrow="Longform"
-                  title={suite.project_title}
-                />
-              </div>
-              <MarkdownPreview markdown={suite.longform_seo_markdown} />
+                }
+                sideAccessory={
+                  <div className="w-72">
+                    <ThumbnailPreview
+                      src={suite.longform_thumbnail_url}
+                      alt={`${suite.project_title} thumbnail`}
+                      orientation="long-form"
+                    />
+                  </div>
+                }
+              />
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="grid items-start gap-5 lg:grid-cols-[minmax(180px,300px)_minmax(220px,280px)] lg:justify-between">
-                <div className="space-y-3">
-                  <PrimaryActionStack
-                    onOpenFolder={() => showInFolder(suite.folder_path)}
-                    onOpenDestination={openUploadShortsWindows}
-                    destinationLabel="Open Short Form Apps"
-                    destinationIcon={<ExternalLink className="h-3.5 w-3.5" />}
-                    accentClass="border-violet-400/50 bg-violet-500/15 text-violet-100 hover:border-violet-300 hover:bg-violet-500/25"
-                  />
-                  {activeShortItem && (
-                    <div className="flex max-w-[18rem] flex-wrap gap-2 rounded-lg border border-neutral-800 bg-neutral-900/55 p-2.5">
+            <div>
+              {activeShortItem && (
+                <MarkdownPreview
+                  markdown={activeShortItem.seo_markdown}
+                  skipFirstHeading
+                  topAccessory={
+                    <div className="flex flex-wrap items-center gap-2">
                       <CopyButton label="Copy Title" text={seoTitle(activeShortItem.seo_markdown)} icon={<YouTubeShortsIcon />} />
                       <CopyButton label="Copy Description" text={shortSeoDescription(activeShortItem.seo_markdown)} icon={<YouTubeShortsIcon />} />
                       <CopyButton label="Copy Summary" text={tiktokInstaSummary(activeShortItem.seo_markdown)} icon={<ShortSummaryIcons />} />
                     </div>
-                  )}
-                </div>
-
-                <div className="relative">
-                  <ThumbnailPreview
-                    src={activeShortItem?.thumbnail_url ?? null}
-                    alt={activeShortItem?.segment_name ?? "Short form thumbnail"}
-                    orientation="short-form"
-                    eyebrow={activeShortItem ? `Short ${activeShort + 1} of ${shortCount}` : undefined}
-                    title={activeShortItem?.segment_name}
-                  />
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-2">
-                    <button
-                      type="button"
-                      onClick={() => moveShort(-1)}
-                      disabled={shortCount === 0}
-                      className="pointer-events-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-neutral-950/70 text-neutral-200 shadow-lg shadow-black/40 backdrop-blur transition-colors hover:bg-neutral-800/90 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
-                      aria-label="Previous short"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveShort(1)}
-                      disabled={shortCount === 0}
-                      className="pointer-events-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-neutral-950/70 text-neutral-200 shadow-lg shadow-black/40 backdrop-blur transition-colors hover:bg-neutral-800/90 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
-                      aria-label="Next short"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/10 bg-neutral-950/75 px-2.5 py-1.5 shadow-lg shadow-black/40 backdrop-blur">
-                    {suite.shorts.map((item, idx) => (
-                      <button
-                        key={item.index}
-                        type="button"
-                        onClick={() => setActiveShort(idx)}
-                        className={`h-1.5 rounded-full transition-all ${
-                          idx === activeShort ? "w-6 bg-sky-300" : "w-1.5 bg-neutral-600 hover:bg-neutral-400"
-                        }`}
-                        aria-label={`Show short ${idx + 1}`}
+                  }
+                  sideAccessory={
+                    <div className="relative w-36">
+                      <ThumbnailPreview
+                        src={activeShortItem.thumbnail_url ?? null}
+                        alt={activeShortItem.segment_name}
+                        orientation="short-form"
                       />
-                    ))}
-                  </div>
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-1.5">
+                        <button
+                          type="button"
+                          onClick={() => moveShort(-1)}
+                          disabled={shortCount === 0}
+                          className="pointer-events-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-neutral-950/70 text-neutral-200 shadow-lg shadow-black/40 backdrop-blur transition-colors hover:bg-neutral-800/90 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
+                          aria-label="Previous short"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveShort(1)}
+                          disabled={shortCount === 0}
+                          className="pointer-events-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-neutral-950/70 text-neutral-200 shadow-lg shadow-black/40 backdrop-blur transition-colors hover:bg-neutral-800/90 hover:text-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
+                          aria-label="Next short"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/10 bg-neutral-950/75 px-2 py-1 shadow-lg shadow-black/40 backdrop-blur">
+                        {suite.shorts.map((item, idx) => (
+                          <button
+                            key={item.index}
+                            type="button"
+                            onClick={() => setActiveShort(idx)}
+                            className={`h-1.5 rounded-full transition-all ${
+                              idx === activeShort ? "w-5 bg-sky-300" : "w-1.5 bg-neutral-600 hover:bg-neutral-400"
+                            }`}
+                            aria-label={`Show short ${idx + 1}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  }
+                />
+              )}
+              {!activeShortItem && (
+                <div className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-4 text-sm text-neutral-500">
+                  No short-form upload details are available yet.
                 </div>
-              </div>
-
-              {activeShortItem && (
-                <article className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900/70">
-                  <div className="min-w-0 p-3">
-                    <MarkdownPreview markdown={activeShortItem.seo_markdown} />
-                  </div>
-                </article>
               )}
             </div>
           )}
