@@ -526,7 +526,7 @@ function ProductionWorkflowRow({
 
   return (
     <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
-      <div className="grid w-full items-center gap-2 min-w-0" style={{ gridTemplateColumns: "minmax(0, 15rem) auto minmax(0, 15rem) auto minmax(0, 15rem) auto minmax(0, 15rem) auto minmax(0, 15rem)" }}>
+      <div className="grid w-full items-center gap-2 min-w-0" style={{ gridTemplateColumns: "16rem auto 16rem auto 16rem auto 16rem auto 16rem" }}>
         <ProductionTaskButton
           stepNumber={6}
           label="Generate LF SEO"
@@ -692,7 +692,7 @@ function ViewerSwitchRow({
             <button
               key={key}
               onClick={() => onFormatChange(key)}
-              className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+              className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
                 format === key ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
               }`}
             >
@@ -707,8 +707,8 @@ function ViewerSwitchRow({
             <button
               key={key}
               onClick={() => onAssetChange(key)}
-              className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
-                asset === key ? "bg-neutral-700/80 text-white shadow-sm" : "text-neutral-400 hover:text-neutral-200"
+              className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
+                asset === key ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
               }`}
             >
               <Icon className="w-3.5 h-3.5 shrink-0" />
@@ -724,8 +724,8 @@ function ViewerSwitchRow({
                 <button
                   key={key}
                   onClick={() => onTabChange(key)}
-                  className={`relative flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
-                    activeTab === key ? "bg-neutral-700/80 text-white shadow-sm" : "text-neutral-400 hover:text-neutral-200"
+                  className={`relative flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
+                    activeTab === key ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5 shrink-0" />
