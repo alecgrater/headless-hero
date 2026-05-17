@@ -22,6 +22,11 @@ _THINK_BLOCK_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
 
 ALLOWED_PROVIDERS = {"anthropic", "claude-code-proxy", "ollama", "openai"}
 
+# Valid OpenAI reasoning_effort values for GPT-5 / o-series reasoning models.
+# Used in LLM_TASKS["<task>"]["openai_reasoning_effort"] and the
+# OPENAI_REASONING_EFFORT_<TASK> env-var override.
+VALID_OPENAI_REASONING_EFFORTS = {"minimal", "low", "medium", "high"}
+
 LLM_TASKS: dict[str, dict[str, str]] = {
     "script": {
         "label": "Script & cold opens",
@@ -156,13 +161,19 @@ def _resolve_openai_reasoning_effort(task: str | None) -> str | None:
     """Per-task override via OPENAI_REASONING_EFFORT_<TASK>; otherwise the LLM_TASKS default.
 
     Returns None when no preference is set, leaving the OpenAI default ("medium" for GPT-5).
+    Invalid env-var values are logged and ignored (falls back to the LLM_TASKS default).
     """
     task_config = LLM_TASKS.get(task or "")
-    env_key = f"OPENAI_REASONING_EFFORT_{(task or '').upper()}" if task else ""
-    if env_key:
+    if task:
+        env_key = f"OPENAI_REASONING_EFFORT_{task.upper()}"
         env_value = os.environ.get(env_key, "").strip().lower()
         if env_value:
-            return env_value
+            if env_value in VALID_OPENAI_REASONING_EFFORTS:
+                return env_value
+            logger.warning(
+                "%s=%r is not a valid reasoning_effort — ignoring (valid: %s)",
+                env_key, env_value, sorted(VALID_OPENAI_REASONING_EFFORTS),
+            )
     if task_config:
         return task_config.get("openai_reasoning_effort")
     return None
@@ -464,28 +475,25 @@ def _chat_openai(
     try:
         response = client.chat.completions.create(**kwargs)
     except BadRequestError as e:
-        # Some non-reasoning models reject reasoning_effort; some older models reject json_object.
-        # Strip the offending optional params and retry once.
-        retried = False
         err_text = str(e).lower()
-        if reasoning_effort and ("reasoning" in err_text or "unsupported" in err_text or "unknown_parameter" in err_text):
-            logger.warning(
-                "OpenAI rejected reasoning_effort=%r — retrying without it (model=%s)",
-                reasoning_effort, model,
-            )
+        stripped: list[str] = []
+        # Narrow match for reasoning_effort: only strip when the error explicitly references reasoning.
+        if reasoning_effort and "reasoning" in err_text and "reasoning_effort" in kwargs:
             kwargs.pop("reasoning_effort", None)
-            retried = True
-        if json_mode and "response_format" in err_text:
-            logger.warning(
-                "OpenAI rejected response_format=json_object — retrying without it (model=%s)",
-                model,
-            )
+            stripped.append("reasoning_effort")
+        # Broad fallback for json_mode: any BadRequestError while json_mode is set strips response_format.
+        # Some models / OpenAI-compatible providers don't put "response_format" in the error text verbatim.
+        elif json_mode and "response_format" in kwargs:
             kwargs.pop("response_format", None)
-            retried = True
-        if not retried:
+            stripped.append("response_format")
+        if not stripped:
             elapsed = time.monotonic() - t0
             logger.error("OpenAI call failed after %.1fs (model=%s)", elapsed, model, exc_info=True)
             raise
+        logger.warning(
+            "OpenAI rejected %s — retrying without it (model=%s, error=%s)",
+            stripped, model, err_text[:200],
+        )
         response = client.chat.completions.create(**kwargs)
     except Exception:
         elapsed = time.monotonic() - t0
