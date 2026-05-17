@@ -154,6 +154,8 @@ function DistributionTrackingModal({
   onToggle: (key: keyof UploadTracking) => void;
   onClose: () => void;
 }) {
+  const anyUpdating = Object.values(updating).some(Boolean);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={onClose}>
       <div
@@ -185,7 +187,7 @@ function DistributionTrackingModal({
                 key={key}
                 type="button"
                 onClick={() => onToggle(key)}
-                disabled={isUpdating}
+                disabled={anyUpdating}
                 aria-pressed={isUploaded}
                 className={`w-full flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
                   isUploaded
@@ -1329,6 +1331,7 @@ function TimelineEditor({
   }, [refreshUploadTracking, showDistributionTracking]);
 
   const handleToggleUploadTracking = useCallback(async (key: keyof UploadTracking) => {
+    if (Object.values(trackingUpdating).some(Boolean)) return;
     const next = !uploadTracking[key];
     setUploadTracking((prev) => ({ ...prev, [key]: next }));
     setTrackingUpdating((prev) => ({ ...prev, [key]: true }));
@@ -1340,7 +1343,7 @@ function TimelineEditor({
     } finally {
       setTrackingUpdating((prev) => ({ ...prev, [key]: false }));
     }
-  }, [scriptId, uploadTracking]);
+  }, [scriptId, trackingUpdating, uploadTracking]);
 
   useEffect(() => {
     if (!showCostBreakdown) return;
