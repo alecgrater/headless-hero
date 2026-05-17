@@ -31,7 +31,6 @@ import api, {
   getShortFormThumbnailsStatus,
   getUploadSuiteStatus,
   getUploadTracking,
-  openUploadShortsWindows,
   pollEliJob,
   pollFXJob,
   pollShortFormJob,
@@ -160,13 +159,13 @@ function DistributionTrackingModal({
   tracking,
   updating,
   onToggle,
-  onOpenUploadShorts,
+  onOpenUploadSuite,
   onClose,
 }: {
   tracking: UploadTracking;
   updating: Partial<Record<keyof UploadTracking, boolean>>;
   onToggle: (key: keyof UploadTracking) => void;
-  onOpenUploadShorts: () => void;
+  onOpenUploadSuite: () => void;
   onClose: () => void;
 }) {
   const anyUpdating = Object.values(updating).some(Boolean);
@@ -197,14 +196,14 @@ function DistributionTrackingModal({
           <div className="mb-2 flex items-center gap-3 rounded-lg border border-neutral-800 bg-neutral-950/40 p-2">
             <button
               type="button"
-              onClick={onOpenUploadShorts}
+              onClick={onOpenUploadSuite}
               className="flex shrink-0 items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-violet-500 transition-colors"
             >
               <Upload className="h-4 w-4" />
-              Upload Shorts
+              Upload
             </button>
             <p className="text-xs leading-5 text-neutral-400">
-              Opens Instagram, TikTok Studio, and YouTube Studio upload pages in Chrome.
+              Opens the upload suite for exported videos and upload metadata.
             </p>
           </div>
           {DISTRIBUTION_TARGETS.map(({ key, label }) => {
@@ -1416,9 +1415,10 @@ function TimelineEditor({
     }
   }, [scriptId, trackingUpdating, uploadTracking]);
 
-  const handleOpenUploadShorts = useCallback(() => {
-    openUploadShortsWindows();
-  }, []);
+  const handleOpenDistributionUpload = useCallback(() => {
+    setShowDistributionTracking(false);
+    void openUploadPanel();
+  }, [openUploadPanel]);
 
   useEffect(() => {
     if (!showCostBreakdown) return;
@@ -2661,7 +2661,7 @@ function TimelineEditor({
                     tracking={uploadTracking}
                     updating={trackingUpdating}
                     onToggle={handleToggleUploadTracking}
-                    onOpenUploadShorts={handleOpenUploadShorts}
+                    onOpenUploadSuite={handleOpenDistributionUpload}
                     onClose={() => setShowDistributionTracking(false)}
                   />
                 )}
