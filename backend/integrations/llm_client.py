@@ -27,11 +27,17 @@ _ANTHROPIC_MODEL_ALIASES = {
     "anthropic.claude-sonnet-4-6": BALANCED_CLAUDE_MODEL,
     "anthropic.claude-sonnet-4-5-20250929-v1:0": BALANCED_CLAUDE_MODEL,
     "anthropic.claude-haiku-4-5-20251001-v1:0": FAST_CLAUDE_MODEL,
+    "claude-opus-4-1-20250805": DEFAULT_CLAUDE_MODEL,
+    "claude-opus-4-20250514": DEFAULT_CLAUDE_MODEL,
+    "claude-sonnet-4-20250514": BALANCED_CLAUDE_MODEL,
+    "claude-3-7-sonnet-20250219": BALANCED_CLAUDE_MODEL,
+    "claude-3-5-haiku-20241022": FAST_CLAUDE_MODEL,
+    "claude-haiku-4-5": FAST_CLAUDE_MODEL,
     # Common AWS Bedrock ids for currently supported Claude snapshots.
     "anthropic.claude-opus-4-1-20250805-v1:0": DEFAULT_CLAUDE_MODEL,
-    "anthropic.claude-opus-4-20250514-v1:0": "claude-opus-4-20250514",
+    "anthropic.claude-opus-4-20250514-v1:0": DEFAULT_CLAUDE_MODEL,
     "anthropic.claude-sonnet-4-20250514-v1:0": BALANCED_CLAUDE_MODEL,
-    "anthropic.claude-3-7-sonnet-20250219-v1:0": "claude-3-7-sonnet-20250219",
+    "anthropic.claude-3-7-sonnet-20250219-v1:0": BALANCED_CLAUDE_MODEL,
     "anthropic.claude-3-5-haiku-20241022-v1:0": FAST_CLAUDE_MODEL,
 }
 

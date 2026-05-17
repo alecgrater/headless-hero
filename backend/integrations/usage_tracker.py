@@ -50,25 +50,20 @@ def record_usage(
 
 # --- Pricing constants (USD per token) ---
 _MODEL_PRICING: dict[str, dict[str, float]] = {
-    "claude-opus-4-1-20250805": {
-        "input": 15.0 / 1_000_000,
-        "output": 75.0 / 1_000_000,
-        "cache_read": 1.5 / 1_000_000,
+    "claude-opus-4-7": {
+        "input": 5.0 / 1_000_000,
+        "output": 25.0 / 1_000_000,
+        "cache_read": 0.5 / 1_000_000,
     },
-    "claude-opus-4-20250514": {
-        "input": 15.0 / 1_000_000,
-        "output": 75.0 / 1_000_000,
-        "cache_read": 1.5 / 1_000_000,
-    },
-    "claude-sonnet-4-20250514": {
+    "claude-sonnet-4-6": {
         "input": 3.0 / 1_000_000,
         "output": 15.0 / 1_000_000,
         "cache_read": 0.3 / 1_000_000,
     },
-    "claude-3-5-haiku-20241022": {
-        "input": 0.8 / 1_000_000,
-        "output": 4.0 / 1_000_000,
-        "cache_read": 0.08 / 1_000_000,
+    "claude-haiku-4-5-20251001": {
+        "input": 1.0 / 1_000_000,
+        "output": 5.0 / 1_000_000,
+        "cache_read": 0.1 / 1_000_000,
     },
     "gpt-5.5": {
         # NOTE: Provisional pricing — mirrors gpt-5.2 until OpenAI's published

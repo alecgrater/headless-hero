@@ -94,7 +94,11 @@ def _migrate_script_model_default() -> None:
     from models.settings import AppSetting
 
     stale_script_models = {
+        "claude-opus-4-1-20250805",
+        "claude-opus-4-20250514",
         "claude-sonnet-4-20250514",
+        "claude-3-7-sonnet-20250219",
+        "claude-3-5-haiku-20241022",
         "anthropic.claude-opus-4-6-v1",
         "anthropic.claude-sonnet-4-6",
         "anthropic.claude-sonnet-4-5-20250929-v1:0",

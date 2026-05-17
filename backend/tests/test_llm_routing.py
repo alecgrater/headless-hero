@@ -22,10 +22,10 @@ def test_short_form_seo_has_dedicated_openai_default(monkeypatch):
 
 def test_short_form_seo_settings_override_defaults(monkeypatch):
     monkeypatch.setenv("SHORT_FORM_SEO_LLM_PROVIDER", "anthropic")
-    monkeypatch.setenv("SHORT_FORM_SEO_MODEL", "claude-sonnet-4-20250514")
+    monkeypatch.setenv("SHORT_FORM_SEO_MODEL", "claude-sonnet-4-6")
 
     assert _resolve_provider("short_form_seo") == "anthropic"
-    assert _resolve_model("anthropic", "short_form_seo", None) == "claude-sonnet-4-20250514"
+    assert _resolve_model("anthropic", "short_form_seo", None) == "claude-sonnet-4-6"
 
 
 def test_script_generation_defaults_to_anthropic_claude(monkeypatch):
@@ -33,25 +33,25 @@ def test_script_generation_defaults_to_anthropic_claude(monkeypatch):
     monkeypatch.delenv("SCRIPT_MODEL", raising=False)
 
     assert _resolve_provider("script") == "anthropic"
-    assert _resolve_model("anthropic", "script", None) == "claude-opus-4-1-20250805"
+    assert _resolve_model("anthropic", "script", None) == "claude-opus-4-7"
 
 
 def test_anthropic_bedrock_style_defaults_are_normalized(monkeypatch):
     monkeypatch.setenv("SCRIPT_LLM_PROVIDER", "anthropic")
     monkeypatch.setenv("SCRIPT_MODEL", "anthropic.claude-opus-4-6-v1")
 
-    assert _resolve_model("anthropic", "script", None) == "claude-opus-4-1-20250805"
+    assert _resolve_model("anthropic", "script", None) == "claude-opus-4-7"
 
 
 def test_explicit_incompatible_model_override_falls_back_to_provider_default():
-    assert _resolve_model("anthropic", "script", "gpt-5.5") == "claude-opus-4-1-20250805"
-    assert _resolve_model("openai", "script", "claude-opus-4-1-20250805") == "gpt-5.5"
-    assert _resolve_model("ollama", "script", "claude-opus-4-1-20250805") == "qwen3:14b"
+    assert _resolve_model("anthropic", "script", "gpt-5.5") == "claude-opus-4-7"
+    assert _resolve_model("openai", "script", "claude-opus-4-7") == "gpt-5.5"
+    assert _resolve_model("ollama", "script", "claude-opus-4-7") == "qwen3:14b"
 
 
 def test_claude_pricing_uses_direct_anthropic_api_model_ids():
-    assert get_model_pricing("claude-opus-4-1-20250805")["input"] == 15.0 / 1_000_000
-    assert get_model_pricing("claude-sonnet-4-20250514")["output"] == 15.0 / 1_000_000
+    assert get_model_pricing("claude-opus-4-7")["input"] == 5.0 / 1_000_000
+    assert get_model_pricing("claude-sonnet-4-6")["output"] == 15.0 / 1_000_000
 
 
 def test_structured_openai_tasks_use_minimal_reasoning_by_default(monkeypatch):
