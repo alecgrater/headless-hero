@@ -150,15 +150,22 @@ function ThumbnailPreview({
   src,
   alt,
   orientation,
+  eyebrow,
+  title,
 }: {
   src: string | null;
   alt: string;
   orientation: "long-form" | "short-form";
+  eyebrow?: string;
+  title?: string;
 }) {
   const frameClass = orientation === "short-form" ? "aspect-[9/16] max-h-[320px]" : "aspect-video";
   const imageClass = orientation === "short-form"
     ? "absolute left-1/2 top-[-21.43%] h-[142.86%] w-[142.86%] max-w-none -translate-x-1/2 object-cover"
     : "h-full w-full object-cover";
+  const labelClass = orientation === "short-form"
+    ? "absolute inset-x-0 top-0 border-b border-white/10 bg-neutral-950/78 px-3 py-2 backdrop-blur"
+    : "absolute inset-x-0 top-0 border-b border-white/10 bg-neutral-950/72 px-4 py-2.5 backdrop-blur";
   return (
     <div className="w-full">
       <div className={`relative mx-auto overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900 ${frameClass}`}>
@@ -171,6 +178,20 @@ function ThumbnailPreview({
         ) : (
           <div className="flex h-full w-full items-center justify-center px-6 text-center text-sm text-neutral-500">
             No thumbnail exported
+          </div>
+        )}
+        {(eyebrow || title) && (
+          <div className={labelClass}>
+            {eyebrow && (
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-300">
+                {eyebrow}
+              </p>
+            )}
+            {title && (
+              <p className="mt-0.5 truncate text-xs font-semibold text-neutral-100" title={title}>
+                {title}
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -286,41 +307,56 @@ export default function UploadPanel({ suite, onClose }: Props) {
           {activeTab === "long-form" ? (
             <div className="space-y-4">
               <div className="grid items-start gap-5 lg:grid-cols-[minmax(180px,300px)_minmax(260px,360px)] lg:justify-between">
-                <PrimaryActionStack
-                  onOpenFolder={() => showInFolder(suite.folder_path)}
-                  onOpenDestination={openYouTubeUploadWindow}
-                  destinationLabel="Open YouTube"
-                  destinationIcon={<ExternalLink className="h-3.5 w-3.5" />}
-                  accentClass="border-red-400/50 bg-red-500/15 text-red-100 hover:border-red-300 hover:bg-red-500/25"
-                />
+                <div className="space-y-3">
+                  <PrimaryActionStack
+                    onOpenFolder={() => showInFolder(suite.folder_path)}
+                    onOpenDestination={openYouTubeUploadWindow}
+                    destinationLabel="Open YouTube"
+                    destinationIcon={<ExternalLink className="h-3.5 w-3.5" />}
+                    accentClass="border-red-400/50 bg-red-500/15 text-red-100 hover:border-red-300 hover:bg-red-500/25"
+                  />
+                  <div className="flex max-w-[18rem] flex-wrap gap-2">
+                    <CopyButton label="Copy Title" text={seoTitle(suite.longform_seo_markdown)} icon={<YouTubeIcon />} />
+                    <CopyButton label="Copy Description" text={seoDescriptionAndRest(suite.longform_seo_markdown)} icon={<YouTubeIcon />} />
+                  </div>
+                </div>
                 <ThumbnailPreview
                   src={suite.longform_thumbnail_url}
                   alt={`${suite.project_title} thumbnail`}
                   orientation="long-form"
+                  eyebrow="Longform"
+                  title={suite.project_title}
                 />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <CopyButton label="Copy Title" text={seoTitle(suite.longform_seo_markdown)} icon={<YouTubeIcon />} />
-                <CopyButton label="Copy Description" text={seoDescriptionAndRest(suite.longform_seo_markdown)} icon={<YouTubeIcon />} />
               </div>
               <MarkdownPreview markdown={suite.longform_seo_markdown} />
             </div>
           ) : (
             <div className="space-y-4">
               <div className="grid items-start gap-5 lg:grid-cols-[minmax(180px,300px)_minmax(220px,280px)] lg:justify-between">
-                <PrimaryActionStack
-                  onOpenFolder={() => showInFolder(suite.folder_path)}
-                  onOpenDestination={openUploadShortsWindows}
-                  destinationLabel="Open Short Form Apps"
-                  destinationIcon={<ExternalLink className="h-3.5 w-3.5" />}
-                  accentClass="border-violet-400/50 bg-violet-500/15 text-violet-100 hover:border-violet-300 hover:bg-violet-500/25"
-                />
+                <div className="space-y-3">
+                  <PrimaryActionStack
+                    onOpenFolder={() => showInFolder(suite.folder_path)}
+                    onOpenDestination={openUploadShortsWindows}
+                    destinationLabel="Open Short Form Apps"
+                    destinationIcon={<ExternalLink className="h-3.5 w-3.5" />}
+                    accentClass="border-violet-400/50 bg-violet-500/15 text-violet-100 hover:border-violet-300 hover:bg-violet-500/25"
+                  />
+                  {activeShortItem && (
+                    <div className="flex max-w-[18rem] flex-wrap gap-2 rounded-lg border border-neutral-800 bg-neutral-900/55 p-2.5">
+                      <CopyButton label="Copy Title" text={seoTitle(activeShortItem.seo_markdown)} icon={<YouTubeShortsIcon />} />
+                      <CopyButton label="Copy Description" text={shortSeoDescription(activeShortItem.seo_markdown)} icon={<YouTubeShortsIcon />} />
+                      <CopyButton label="Copy Summary" text={tiktokInstaSummary(activeShortItem.seo_markdown)} icon={<ShortSummaryIcons />} />
+                    </div>
+                  )}
+                </div>
 
                 <div className="relative">
                   <ThumbnailPreview
                     src={activeShortItem?.thumbnail_url ?? null}
                     alt={activeShortItem?.segment_name ?? "Short form thumbnail"}
                     orientation="short-form"
+                    eyebrow={`Short ${activeShort + 1} of ${shortCount}`}
+                    title={activeShortItem?.segment_name}
                   />
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-2">
                     <button
@@ -359,17 +395,8 @@ export default function UploadPanel({ suite, onClose }: Props) {
               </div>
 
               {activeShortItem && (
-                <article className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900/80">
-                  <div className="min-w-0 space-y-3 p-4">
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-neutral-500">Short {activeShort + 1} of {shortCount}</p>
-                      <h3 className="mt-1 text-lg font-semibold text-neutral-100">{activeShortItem.segment_name}</h3>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <CopyButton label="Copy Title" text={seoTitle(activeShortItem.seo_markdown)} icon={<YouTubeShortsIcon />} />
-                      <CopyButton label="Copy Description" text={shortSeoDescription(activeShortItem.seo_markdown)} icon={<YouTubeShortsIcon />} />
-                      <CopyButton label="Copy Summary" text={tiktokInstaSummary(activeShortItem.seo_markdown)} icon={<ShortSummaryIcons />} />
-                    </div>
+                <article className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900/70">
+                  <div className="min-w-0 p-3">
                     <MarkdownPreview markdown={activeShortItem.seo_markdown} />
                   </div>
                 </article>
