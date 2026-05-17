@@ -5,6 +5,7 @@ import api, {
   pollRenderJob,
   pollShortFormJob,
   renderShortAll,
+  renderShortBatch,
 } from "../../api";
 import { usePollJob } from "../../hooks/usePollJob";
 import { useOperationProgress } from "../../hooks/useOperationProgress";
@@ -344,12 +345,18 @@ export function useRenderState(
         const segmentCount = content?.segments?.length ?? 0;
         const rendered = await getRenderedShortsStatus(scriptId);
         if (segmentCount > 0 && rendered.rendered_indices.length < segmentCount) {
-          const missingCount = segmentCount - rendered.rendered_indices.length;
+          const renderedSet = new Set(rendered.rendered_indices);
+          const missingIndices = Array.from({ length: segmentCount }, (_, idx) => idx).filter(
+            (idx) => !renderedSet.has(idx),
+          );
+          const missingCount = missingIndices.length;
           setExportStatus({
             label: `Rendering ${missingCount} missing short-form video${missingCount === 1 ? "" : "s"}...`,
             progress: 0.05,
           });
-          const { job_id } = await renderShortAll(scriptId);
+          const { job_id } = missingCount === segmentCount
+            ? await renderShortAll(scriptId)
+            : await renderShortBatch(scriptId, missingIndices);
           await pollShortFormJob(job_id, (status) => {
             setExportStatus({
               label: status.current_step || "Rendering short-form videos...",
