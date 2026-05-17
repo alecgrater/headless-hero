@@ -276,6 +276,7 @@ function MediaBreakdownPopover({
     { key: "ai", label: "AI", color: "text-violet-300", count: mediaCounts.ai ?? 0 },
     { key: "gameplay_video", label: "Gameplay", color: "text-sky-300", count: mediaCounts.gameplay_video ?? 0 },
     { key: "stock_photo", label: "Stock Photo", color: "text-amber-300", count: mediaCounts.stock_photo ?? 0 },
+    { key: "user_upload", label: "Upload", color: "text-emerald-300", count: mediaCounts.user_upload ?? 0 },
   ];
 
   return (
