@@ -1015,6 +1015,7 @@ function TimelineEditor({
   const yoloCancelledRef = useRef(false);
   const productionBusyRef = useRef(false);
   const microTimelineRef = useRef<MicroTimelineHandle>(null);
+  const costBreakdownRef = useRef<HTMLDivElement>(null);
 
   const media = useMediaReview({ scriptId, content: state.content });
 
@@ -1058,6 +1059,20 @@ function TimelineEditor({
 
   // Fetch cost on mount
   useEffect(() => { refreshCost(); }, [refreshCost]);
+
+  useEffect(() => {
+    if (!showCostBreakdown) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (costBreakdownRef.current?.contains(target)) return;
+      setShowCostBreakdown(false);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [showCostBreakdown]);
 
   // Check YouTube connection on mount
   useEffect(() => {
@@ -2048,7 +2063,7 @@ function TimelineEditor({
                     {totalWords.toLocaleString()} words
                   </span>
                 )}
-                <div className="relative">
+                <div ref={costBreakdownRef} className="relative">
                   <button
                     type="button"
                     onClick={() => setShowCostBreakdown((show) => !show)}
