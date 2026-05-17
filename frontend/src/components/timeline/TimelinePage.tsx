@@ -2161,12 +2161,13 @@ function TimelineEditor({
   }, [scriptId, state]);
 
   const yoloArea = (() => {
+    const creationStatus = getCreationStatus(state.content);
     const creationRemaining: string[] = [];
-    if (!allTitleCardsGenerated && state.hasTitleCards) creationRemaining.push("Title Cards");
-    if (!allAudioGenerated) creationRemaining.push("Audio");
-    if (!allImagesGenerated) creationRemaining.push("Images");
-    if (!allFXGenerated) creationRemaining.push("FX");
-    if (!allEliGenerated) creationRemaining.push("Eli");
+    if (!creationStatus.titleCardsDone && creationStatus.hasTitleCards) creationRemaining.push("Title Cards");
+    if (!creationStatus.audioDone) creationRemaining.push("Audio");
+    if (!creationStatus.imagesDone) creationRemaining.push("Images");
+    if (!creationStatus.fxDone) creationRemaining.push("FX");
+    if (!creationStatus.eliDone) creationRemaining.push("Eli");
     const renderRemaining = [...creationRemaining];
     if (!lfSeoDone) renderRemaining.push("LF SEO");
     if (!sfThumbnailsDone) renderRemaining.push("SF Thumbnails");
