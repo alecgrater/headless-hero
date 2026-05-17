@@ -852,6 +852,25 @@ export async function exportShortFormThumbnails(scriptId: string): Promise<Expor
   return res.data as ExportShortFormThumbnailsResponse;
 }
 
+export interface ExportSEOResponse {
+  folder_path: string;
+  files: string[];
+}
+
+/** Write the long-form SEO markdown file into the project's Downloads folder. */
+export async function exportLongFormSEO(scriptId: string): Promise<ExportSEOResponse> {
+  const res = await api.post("/api/seo/export-longform", { script_id: scriptId });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to export long-form SEO");
+  return res.data as ExportSEOResponse;
+}
+
+/** Write all short-form SEO markdown files into the project's Downloads folder. */
+export async function exportShortFormSEO(scriptId: string): Promise<ExportSEOResponse> {
+  const res = await api.post("/api/seo/export-shorts", { script_id: scriptId });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to export short-form SEO");
+  return res.data as ExportSEOResponse;
+}
+
 /** Start one-click upload for a rendered short to connected platforms. */
 export async function uploadShortForm(scriptId: string, segmentIdx: number): Promise<{ job_id: string }> {
   const res = await api.post("/api/publish/short-form/upload", {

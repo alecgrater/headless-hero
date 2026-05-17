@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import api, {
   assetUrl,
+  exportLongFormSEO,
+  exportShortFormSEO,
   exportTest,
   fetchScriptCost,
   generateEli,
@@ -31,6 +33,7 @@ import api, {
 } from "../../api";
 import type { ExportTestOptions } from "../../api";
 import type { ScriptCostBreakdownItem } from "../../api";
+import { showToast } from "../ToastContainer";
 import type { ScriptContent } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
 import type { SEOMetadata, ShortFormSEO, ShortFormSEOMetadata, ThumbnailConcept } from "../../types/render";
@@ -810,11 +813,15 @@ function LongFormSeoPanel({
   metadata,
   generating,
   onGenerate,
+  onExport,
+  exporting,
   progress,
 }: {
   metadata: SEOMetadata | null;
   generating: boolean;
   onGenerate: () => void;
+  onExport: () => void;
+  exporting: boolean;
   progress: { estimatedSeconds: number | null; active: boolean };
 }) {
   return (
@@ -825,14 +832,24 @@ function LongFormSeoPanel({
             <h3 className="text-sm font-semibold text-neutral-200">Long-Form SEO</h3>
             <p className="text-xs text-neutral-500">YouTube title, timestamped description, and tags.</p>
           </div>
-          <button
-            onClick={onGenerate}
-            disabled={generating}
-            className="text-sm px-4 py-2 bg-teal-600 hover:bg-teal-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
-          >
-            {generating && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
-            {generating ? "Generating..." : metadata ? "Regenerate Long SEO" : "Generate Long SEO"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onExport}
+              disabled={exporting || generating}
+              className="text-sm px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              {exporting && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
+              {exporting ? "Exporting..." : "Export"}
+            </button>
+            <button
+              onClick={onGenerate}
+              disabled={generating}
+              className="text-sm px-4 py-2 bg-teal-600 hover:bg-teal-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              {generating && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
+              {generating ? "Generating..." : metadata ? "Regenerate Long SEO" : "Generate Long SEO"}
+            </button>
+          </div>
         </header>
         {generating && <MiniProgressBar estimatedSeconds={progress.estimatedSeconds} active={progress.active} />}
         {metadata ? (
@@ -860,12 +877,16 @@ function ShortFormSeoPanel({
   segmentCount,
   generating,
   onGenerate,
+  onExport,
+  exporting,
   progress,
 }: {
   metadata: ShortFormSEOMetadata | null;
   segmentCount: number;
   generating: boolean;
   onGenerate: () => void;
+  onExport: () => void;
+  exporting: boolean;
   progress: { estimatedSeconds: number | null; active: boolean };
 }) {
   const shorts = metadata?.shorts ?? [];
@@ -877,14 +898,24 @@ function ShortFormSeoPanel({
             <h3 className="text-sm font-semibold text-neutral-200">Short-Form SEO</h3>
             <p className="text-xs text-neutral-500">{shorts.length}/{segmentCount} shorts packaged for upload.</p>
           </div>
-          <button
-            onClick={onGenerate}
-            disabled={generating}
-            className="text-sm px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
-          >
-            {generating && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
-            {generating ? "Generating..." : metadata ? "Regenerate Short SEO" : `Generate All ${segmentCount} Short SEO`}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onExport}
+              disabled={exporting || generating}
+              className="text-sm px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              {exporting && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
+              {exporting ? "Exporting..." : "Export"}
+            </button>
+            <button
+              onClick={onGenerate}
+              disabled={generating}
+              className="text-sm px-4 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              {generating && <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />}
+              {generating ? "Generating..." : metadata ? "Regenerate Short SEO" : `Generate All ${segmentCount} Short SEO`}
+            </button>
+          </div>
         </header>
         {generating && <MiniProgressBar estimatedSeconds={progress.estimatedSeconds} active={progress.active} />}
         {shorts.length > 0 ? (
@@ -1283,6 +1314,42 @@ function TimelineEditor({
   const allScenes = state.content.segments.flatMap((seg) => seg.scenes);
   const sceneCount = allScenes.length;
   const segmentCount = state.content.segments.length;
+
+  const [longFormSeoExporting, setLongFormSeoExporting] = useState(false);
+  const [shortFormSeoExporting, setShortFormSeoExporting] = useState(false);
+
+  const handleExportLongFormSEO = useCallback(async () => {
+    if (!render.seoMetadata) {
+      showToast("Generate Long SEO before exporting.", "info");
+      return;
+    }
+    setLongFormSeoExporting(true);
+    try {
+      const result = await exportLongFormSEO(scriptId);
+      const fileLabel = result.files[0] ?? "SEO file";
+      showToast(`Saved ${fileLabel} to ${result.folder_path}`, "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to export long-form SEO");
+    } finally {
+      setLongFormSeoExporting(false);
+    }
+  }, [render.seoMetadata, scriptId]);
+
+  const handleExportShortFormSEO = useCallback(async () => {
+    if (!render.shortFormSeoMetadata) {
+      showToast("Generate Short SEO before exporting.", "info");
+      return;
+    }
+    setShortFormSeoExporting(true);
+    try {
+      const result = await exportShortFormSEO(scriptId);
+      showToast(`Saved ${result.files.length} short SEO files to ${result.folder_path}`, "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to export short-form SEO");
+    } finally {
+      setShortFormSeoExporting(false);
+    }
+  }, [render.shortFormSeoMetadata, scriptId]);
   const totalDurationSec = allScenes.reduce(
     (sum, sc) => sum + (sc.duration_estimate_seconds ?? 0),
     0,
@@ -2456,6 +2523,8 @@ function TimelineEditor({
           metadata={render.seoMetadata}
           generating={render.seoGenerating}
           onGenerate={() => void render.generateSEO()}
+          onExport={() => void handleExportLongFormSEO()}
+          exporting={longFormSeoExporting}
           progress={render.seoProgress}
         />
       ) : viewerFormat === "short-form" && viewerAsset === "render" ? (
@@ -2482,6 +2551,8 @@ function TimelineEditor({
           segmentCount={segmentCount}
           generating={render.shortFormSeoGenerating}
           onGenerate={() => void render.generateShortFormSEO()}
+          onExport={() => void handleExportShortFormSEO()}
+          exporting={shortFormSeoExporting}
           progress={render.shortFormSeoProgress}
         />
       ) : activeTab === "media-sources" ? (

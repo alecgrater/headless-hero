@@ -12,6 +12,11 @@ from database import get_session
 from models.brand import BrandProfile
 from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
+from pipeline.export_paths import (
+    longform_filename,
+    project_downloads_folder,
+    shortform_filename,
+)
 from pipeline.seo import (
     SEOMetadata,
     ShortFormSEOMetadata,
@@ -118,3 +123,86 @@ def generate_short_form_seo_metadata(body: GenerateSEORequest, session: Session 
     session.commit()
 
     return GenerateShortFormSEOResponse(metadata=metadata)
+
+
+class ExportSEOResponse(BaseModel):
+    folder_path: str
+    files: list[str]
+
+
+@router.post("/export-longform", response_model=ExportSEOResponse)
+def export_longform_seo(body: GenerateSEORequest, session: Session = Depends(get_session)):
+    """Write the long-form SEO markdown file into the project Downloads folder."""
+    from api.render import _format_longform_seo_markdown
+
+    record = session.get(Script, body.script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    content = ScriptContent.model_validate(json.loads(record.script_json))
+    if not content.seo_metadata:
+        raise HTTPException(status_code=400, detail="Long-form SEO has not been generated yet")
+
+    seo_markdown = _format_longform_seo_markdown(content.seo_metadata)
+    if not seo_markdown.strip():
+        raise HTTPException(status_code=400, detail="Long-form SEO metadata is empty")
+
+    project_title = record.topic_title or content.title or "Untitled"
+    folder = project_downloads_folder(project_title)
+    (folder / longform_filename("SEO", project_title, ".txt")).unlink(missing_ok=True)
+    dest = folder / longform_filename("SEO", project_title, ".md")
+    dest.write_text(seo_markdown, encoding="utf-8")
+
+    logger.info("Exported long-form SEO for script %s to %s", body.script_id, dest)
+    return ExportSEOResponse(folder_path=str(folder), files=[dest.name])
+
+
+@router.post("/export-shorts", response_model=ExportSEOResponse)
+def export_short_form_seo(body: GenerateSEORequest, session: Session = Depends(get_session)):
+    """Write all short-form SEO markdown files into the project Downloads folder."""
+    from api.render import _format_shortform_seo_markdown
+
+    record = session.get(Script, body.script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    content = ScriptContent.model_validate(json.loads(record.script_json))
+    if not content.short_form_seo_metadata:
+        raise HTTPException(status_code=400, detail="Short-form SEO has not been generated yet")
+
+    short_items = (content.short_form_seo_metadata or {}).get("shorts", [])
+    if not short_items:
+        raise HTTPException(status_code=400, detail="Short-form SEO metadata is empty")
+
+    project_title = record.topic_title or content.title or "Untitled"
+    folder = project_downloads_folder(project_title)
+
+    parsed_indices: list[int] = []
+    for item in short_items:
+        try:
+            parsed_indices.append(int(item.get("index", -1)))
+        except (TypeError, ValueError):
+            parsed_indices.append(-1)
+    uses_one_based_indices = 1 in parsed_indices
+
+    written: list[str] = []
+    for item_idx, item in enumerate(short_items):
+        raw_index = item.get("index", "?")
+        parsed_index = parsed_indices[item_idx]
+        segment_idx = (
+            parsed_index - 1 if uses_one_based_indices and parsed_index >= 0
+            else parsed_index if parsed_index >= 0
+            else item_idx
+        )
+        segment_name = (
+            content.segments[segment_idx].name
+            if 0 <= segment_idx < len(content.segments)
+            else f"Short {raw_index}"
+        )
+        (folder / shortform_filename("SEO", segment_name, ".txt")).unlink(missing_ok=True)
+        dest = folder / shortform_filename("SEO", segment_name, ".md")
+        dest.write_text(_format_shortform_seo_markdown(item), encoding="utf-8")
+        written.append(dest.name)
+
+    logger.info("Exported %d short-form SEO files for script %s to %s", len(written), body.script_id, folder)
+    return ExportSEOResponse(folder_path=str(folder), files=written)
