@@ -101,7 +101,12 @@ export function useRenderState(
   const seoProgressHook = useOperationProgress("seo_generation");
   const shortFormSeoProgressHook = useOperationProgress("short_form_seo_generation");
   const audioExportProgressHook = useOperationProgress("audio_export");
-  const exportBundleProgressHook = useOperationProgress("export_bundle");
+  const {
+    estimatedSeconds: exportBundleEstimatedSeconds,
+    active: exportBundleActive,
+    start: startExportBundleProgress,
+    end: endExportBundleProgress,
+  } = useOperationProgress("export_bundle");
 
   const { startPolling } = usePollJob<RenderStatusResponse>({
     pollFn: async (jobId) => {
@@ -143,7 +148,7 @@ export function useRenderState(
         // ignore — thumbnails are optional
       }
     })();
-  }, [scriptId, exportBundleProgressHook]);
+  }, [scriptId]);
 
   const startYoutubeRender = useCallback(
     async (speed?: number): Promise<string | null> => {
@@ -255,7 +260,7 @@ export function useRenderState(
   const exportBundle = useCallback(async () => {
     setExportBundleLoading(true);
     setExportBundleResult(null);
-    exportBundleProgressHook.start();
+    startExportBundleProgress();
     try {
       const res = await api.post("/api/render/export-bundle", {
         script_id: scriptId,
@@ -265,9 +270,9 @@ export function useRenderState(
       }
     } finally {
       setExportBundleLoading(false);
-      exportBundleProgressHook.end();
+      endExportBundleProgress();
     }
-  }, [scriptId]);
+  }, [scriptId, startExportBundleProgress, endExportBundleProgress]);
 
   const smartExportBundle = useCallback(
     async (onComplete?: (result: ExportBundleResponse) => void) => {
@@ -286,7 +291,7 @@ export function useRenderState(
         setExportPhase("exporting");
         setExportBundleLoading(true);
         setExportBundleResult(null);
-        exportBundleProgressHook.start();
+        startExportBundleProgress();
         const res = await api.post("/api/render/export-bundle", {
           script_id: scriptId,
         });
@@ -301,11 +306,11 @@ export function useRenderState(
         throw new Error(msg);
       } finally {
         setExportBundleLoading(false);
-        exportBundleProgressHook.end();
+        endExportBundleProgress();
         setExportPhase(null);
       }
     },
-    [scriptId, youtubeUrl, startYoutubeRender, exportPhase, exportBundleProgressHook],
+    [scriptId, youtubeUrl, startYoutubeRender, exportPhase, startExportBundleProgress, endExportBundleProgress],
   );
 
   const yoloRender = useCallback(
@@ -322,7 +327,7 @@ export function useRenderState(
 
         setExportPhase("exporting");
         setExportBundleLoading(true);
-        exportBundleProgressHook.start();
+        startExportBundleProgress();
         const scriptRes = await api.get(`/api/scripts/${scriptId}`);
         const content = scriptRes.ok
           ? (scriptRes.data as { script?: { segments?: unknown[] } }).script
@@ -350,11 +355,11 @@ export function useRenderState(
         throw new Error(msg);
       } finally {
         setExportBundleLoading(false);
-        exportBundleProgressHook.end();
+        endExportBundleProgress();
         setExportPhase(null);
       }
     },
-    [scriptId, youtubeUrl, startYoutubeRender, exportPhase, exportBundleProgressHook],
+    [scriptId, youtubeUrl, startYoutubeRender, exportPhase, startExportBundleProgress, endExportBundleProgress],
   );
 
   return {
@@ -386,6 +391,6 @@ export function useRenderState(
     seoProgress: { estimatedSeconds: seoProgressHook.estimatedSeconds, active: seoProgressHook.active },
     shortFormSeoProgress: { estimatedSeconds: shortFormSeoProgressHook.estimatedSeconds, active: shortFormSeoProgressHook.active },
     audioExportProgress: { estimatedSeconds: audioExportProgressHook.estimatedSeconds, active: audioExportProgressHook.active },
-    exportBundleProgress: { estimatedSeconds: exportBundleProgressHook.estimatedSeconds, active: exportBundleProgressHook.active },
+    exportBundleProgress: { estimatedSeconds: exportBundleEstimatedSeconds, active: exportBundleActive },
   };
 }
