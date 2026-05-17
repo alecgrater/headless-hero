@@ -1578,6 +1578,7 @@ function TimelineEditor({
           exportBundleResult={render.exportBundleResult}
           onYoloExport={render.yoloRender}
           exportPhase={render.exportPhase}
+          exportStatus={render.exportStatus}
           thumbnailProgress={render.thumbnailProgress}
           seoProgress={render.seoProgress}
           shortFormSeoProgress={render.shortFormSeoProgress}

@@ -6,6 +6,7 @@ import type { CatalogUploadOptions, PublishJobStatus } from "../../api";
 import type { UploadTracking } from "../../types/script";
 import type {
   ExportBundleResponse,
+  ExportProgressStatus,
   RenderStatusResponse,
   SEOMetadata,
   ShortFormSEO,
@@ -43,6 +44,7 @@ interface Props {
 
   // Smart export phase
   exportPhase: "rendering" | "exporting" | null;
+  exportStatus: ExportProgressStatus | null;
 
   // Operation progress
   thumbnailProgress: { estimatedSeconds: number | null; active: boolean };
@@ -285,6 +287,7 @@ export default function ExportPanel({
   exportBundleResult,
   onYoloExport,
   exportPhase,
+  exportStatus,
   thumbnailProgress,
   seoProgress,
   shortFormSeoProgress,
@@ -548,22 +551,32 @@ export default function ExportPanel({
               </button>
             </div>
           </div>
-          {exportPhase === "rendering" && youtubeStatus && (
+          {exportPhase === "rendering" && (youtubeRendering && youtubeStatus ? youtubeStatus : exportStatus) && (
             <div className="px-6 pb-3">
               <ProgressBar
-                progress={youtubeStatus.progress}
-                label={youtubeStatus.current_step}
-                estimatedSeconds={youtubeStatus.estimated_seconds}
-                elapsedSeconds={youtubeStatus.elapsed_seconds}
+                progress={youtubeRendering && youtubeStatus ? youtubeStatus.progress : exportStatus?.progress ?? 0}
+                label={youtubeRendering && youtubeStatus ? youtubeStatus.current_step : exportStatus?.label ?? "Preparing export..."}
+                estimatedSeconds={youtubeRendering && youtubeStatus ? youtubeStatus.estimated_seconds : exportBundleProgress.estimatedSeconds ?? undefined}
+                elapsedSeconds={youtubeRendering && youtubeStatus ? youtubeStatus.elapsed_seconds : undefined}
               />
             </div>
           )}
           {(exportPhase === "exporting" || exportBundleLoading) && (
             <div className="px-6 pb-3">
-              <div className="mb-1 flex justify-between text-xs text-neutral-400">
-                <span>Generating missing assets and exporting deliverables...</span>
-              </div>
-              <MiniProgressBar estimatedSeconds={exportBundleProgress.estimatedSeconds} active={exportBundleProgress.active} />
+              {exportStatus ? (
+                <ProgressBar
+                  progress={exportStatus.progress}
+                  label={exportStatus.label}
+                  estimatedSeconds={exportBundleProgress.estimatedSeconds ?? undefined}
+                />
+              ) : (
+                <>
+                  <div className="mb-1 flex justify-between text-xs text-neutral-400">
+                    <span>Preparing export deliverables...</span>
+                  </div>
+                  <MiniProgressBar estimatedSeconds={exportBundleProgress.estimatedSeconds} active={exportBundleProgress.active} />
+                </>
+              )}
             </div>
           )}
           {yoloExportError && (

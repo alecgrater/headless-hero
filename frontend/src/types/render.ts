@@ -17,6 +17,11 @@ export interface RenderStatusResponse {
   elapsed_seconds?: number;
 }
 
+export interface ExportProgressStatus {
+  label: string;
+  progress: number;
+}
+
 export interface ExportAudioResponse {
   audio_url: string;
 }

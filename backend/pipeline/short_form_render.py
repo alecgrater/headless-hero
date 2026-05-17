@@ -146,6 +146,16 @@ def render_short_segment(
     props_path = shorts_dir / f"{segment_idx}_props.json"
     props_path.write_text(json.dumps(props, indent=2, default=str))
 
+    logger.info(
+        "[%s] Rendering short %d/%d (%s, %d scenes) to %s",
+        script_id,
+        n,
+        total,
+        segment.name,
+        len(scenes_to_render),
+        output_path,
+    )
+
     if on_progress:
         on_progress(0.1, f"Rendering short {n}/{total} with Remotion...")
 
@@ -173,12 +183,14 @@ def render_short_segment(
 
         if on_progress:
             on_progress(0.85, "Re-encoding to H.264...")
+        logger.info("[%s] Re-encoding short %d/%d to H.264", script_id, n, total)
         if not _reencode_h264(raw_output, output_path):
             raise RuntimeError(f"H.264 re-encode failed for segment {segment_idx}")
 
         # Copy to downloads (always overwrites per spec)
         if on_progress:
             on_progress(0.95, "Copying to Downloads...")
+        logger.info("[%s] Copying short %d/%d to Downloads", script_id, n, total)
         dest_name = _short_filename(segment.name)
         downloads_path = _copy_to_downloads(project_title, output_path, dest_name)
     finally:
@@ -193,6 +205,8 @@ def render_short_segment(
 
     if on_progress:
         on_progress(1.0, f"Short {n}/{total} complete")
+
+    logger.info("[%s] Short %d/%d complete: %s", script_id, n, total, output_path)
 
     web_url = f"/static/projects/{script_id}/renders/shorts/{output_filename}"
     return web_url, downloads_path

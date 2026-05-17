@@ -302,6 +302,12 @@ def start_render_all_shorts(
     logger.info("Starting render-all-shorts for script %s (%d segments)", body.script_id, total)
 
     def do_render():
+        update_job(
+            job.id,
+            progress=0.0,
+            current_step=f"Preparing to render {total} short-form video{'s' if total != 1 else ''}...",
+        )
+
         def on_progress(p: float, msg: str):
             update_job(job.id, progress=p, current_step=msg)
 

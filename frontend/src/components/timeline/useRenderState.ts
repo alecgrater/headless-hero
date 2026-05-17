@@ -11,6 +11,7 @@ import { useOperationProgress } from "../../hooks/useOperationProgress";
 import type {
   ExportAudioResponse,
   ExportBundleResponse,
+  ExportProgressStatus,
   GenerateSEOResponse,
   GenerateShortFormSEOResponse,
   GenerateThumbnailResponse,
@@ -58,6 +59,7 @@ interface RenderState {
 
   // Smart export
   exportPhase: "rendering" | "exporting" | null;
+  exportStatus: ExportProgressStatus | null;
   smartExportBundle: (onComplete?: (result: ExportBundleResponse) => void) => Promise<void>;
   yoloRender: (onComplete?: (result: ExportBundleResponse) => void) => Promise<void>;
 
@@ -96,6 +98,7 @@ export function useRenderState(
   const [exportBundleResult, setExportBundleResult] = useState<ExportBundleResponse | null>(null);
 
   const [exportPhase, setExportPhase] = useState<"rendering" | "exporting" | null>(null);
+  const [exportStatus, setExportStatus] = useState<ExportProgressStatus | null>(null);
 
   const thumbnailProgressHook = useOperationProgress("thumbnail_generation");
   const seoProgressHook = useOperationProgress("seo_generation");
@@ -278,6 +281,7 @@ export function useRenderState(
     async (onComplete?: (result: ExportBundleResponse) => void) => {
       if (exportPhase) return;
       setExportPhase("rendering");
+      setExportStatus({ label: youtubeUrl ? "Preparing export bundle..." : "Rendering long-form YouTube video...", progress: 0 });
       try {
         // Step 1: render video if not already rendered
         if (!youtubeUrl) {
@@ -289,6 +293,7 @@ export function useRenderState(
 
         // Step 2: export bundle to the configured export folder
         setExportPhase("exporting");
+        setExportStatus({ label: "Copying long-form video, audio, thumbnail, and SEO files...", progress: 0.55 });
         setExportBundleLoading(true);
         setExportBundleResult(null);
         startExportBundleProgress();
@@ -308,6 +313,7 @@ export function useRenderState(
         setExportBundleLoading(false);
         endExportBundleProgress();
         setExportPhase(null);
+        setExportStatus(null);
       }
     },
     [scriptId, youtubeUrl, startYoutubeRender, exportPhase, startExportBundleProgress, endExportBundleProgress],
@@ -317,8 +323,10 @@ export function useRenderState(
     async (onComplete?: (result: ExportBundleResponse) => void) => {
       if (exportPhase) return;
       setExportBundleResult(null);
+      setExportStatus(null);
       try {
         setExportPhase("rendering");
+        setExportStatus({ label: youtubeUrl ? "Long-form video already rendered; checking short-form deliverables..." : "Rendering long-form YouTube video...", progress: 0 });
         if (!youtubeUrl) {
           const jobId = await startYoutubeRender();
           if (!jobId) return;
@@ -328,6 +336,7 @@ export function useRenderState(
         setExportPhase("exporting");
         setExportBundleLoading(true);
         startExportBundleProgress();
+        setExportStatus({ label: "Checking which short-form videos already exist...", progress: 0.02 });
         const scriptRes = await api.get(`/api/scripts/${scriptId}`);
         const content = scriptRes.ok
           ? (scriptRes.data as { script?: { segments?: unknown[] } }).script
@@ -335,12 +344,26 @@ export function useRenderState(
         const segmentCount = content?.segments?.length ?? 0;
         const rendered = await getRenderedShortsStatus(scriptId);
         if (segmentCount > 0 && rendered.rendered_indices.length < segmentCount) {
+          const missingCount = segmentCount - rendered.rendered_indices.length;
+          setExportStatus({
+            label: `Rendering ${missingCount} missing short-form video${missingCount === 1 ? "" : "s"}...`,
+            progress: 0.05,
+          });
           const { job_id } = await renderShortAll(scriptId);
-          await pollShortFormJob(job_id);
+          await pollShortFormJob(job_id, (status) => {
+            setExportStatus({
+              label: status.current_step || "Rendering short-form videos...",
+              progress: 0.05 + (status.progress ?? 0) * 0.65,
+            });
+          });
+        } else if (segmentCount > 0) {
+          setExportStatus({ label: `All ${segmentCount} short-form videos already rendered.`, progress: 0.7 });
         }
 
+        setExportStatus({ label: "Generating and exporting short-form thumbnails...", progress: 0.75 });
         await exportShortFormThumbnails(scriptId);
 
+        setExportStatus({ label: "Building final export bundle with video, thumbnails, and SEO...", progress: 0.88 });
         const res = await api.post("/api/render/export-bundle", {
           script_id: scriptId,
         });
@@ -357,6 +380,7 @@ export function useRenderState(
         setExportBundleLoading(false);
         endExportBundleProgress();
         setExportPhase(null);
+        setExportStatus(null);
       }
     },
     [scriptId, youtubeUrl, startYoutubeRender, exportPhase, startExportBundleProgress, endExportBundleProgress],
@@ -385,6 +409,7 @@ export function useRenderState(
     exportBundleResult,
     exportBundle,
     exportPhase,
+    exportStatus,
     smartExportBundle,
     yoloRender,
     thumbnailProgress: { estimatedSeconds: thumbnailProgressHook.estimatedSeconds, active: thumbnailProgressHook.active },
