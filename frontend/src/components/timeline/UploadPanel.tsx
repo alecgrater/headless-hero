@@ -12,11 +12,17 @@ interface Props {
 
 function sectionBody(markdown: string, heading: string, includeRest = false): string {
   const lines = markdown.split(/\r?\n/);
-  const start = lines.findIndex((line) => line.trim().toLowerCase() === heading.toLowerCase());
+  const normalizedHeading = heading.toLowerCase();
+  const headingLevel = heading.match(/^#+/)?.[0].length ?? 1;
+  const start = lines.findIndex((line) => line.trim().toLowerCase() === normalizedHeading);
   if (start === -1) return "";
   const bodyStart = start + 1;
   if (includeRest) return lines.slice(bodyStart).join("\n").trim();
-  const end = lines.findIndex((line, idx) => idx > start && line.trim().startsWith("#"));
+  const end = lines.findIndex((line, idx) => {
+    if (idx <= start) return false;
+    const match = line.trim().match(/^(#+)\s/);
+    return Boolean(match && match[1].length <= headingLevel);
+  });
   return lines.slice(bodyStart, end === -1 ? undefined : end).join("\n").trim();
 }
 
