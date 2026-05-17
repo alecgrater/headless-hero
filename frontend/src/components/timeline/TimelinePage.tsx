@@ -671,6 +671,7 @@ function ViewerSwitchRow({
   onFormatChange,
   onAssetChange,
   onTabChange,
+  rightContent,
 }: {
   format: ViewerFormat;
   asset: ViewerAsset;
@@ -679,6 +680,7 @@ function ViewerSwitchRow({
   onFormatChange: (format: ViewerFormat) => void;
   onAssetChange: (asset: ViewerAsset) => void;
   onTabChange: (tab: "timeline" | "media-sources" | "segments") => void;
+  rightContent?: React.ReactNode;
 }) {
   const renderTabSelector = format === "long-form" && asset === "render";
 
@@ -734,6 +736,9 @@ function ViewerSwitchRow({
               ))}
             </div>
           </>
+        )}
+        {rightContent && (
+          <div className="ml-auto flex items-center gap-2 shrink-0">{rightContent}</div>
         )}
       </div>
     </div>
@@ -2098,7 +2103,7 @@ function TimelineEditor({
             />
           </div>
 
-          {/* YOLO / Stats Row */}
+          {/* Stats Row + Viewer Switch (with YOLO) */}
           {(() => {
             const creationRemaining: string[] = [];
             if (!allTitleCardsGenerated && state.hasTitleCards) creationRemaining.push("Title Cards");
@@ -2109,72 +2114,94 @@ function TimelineEditor({
             const renderRemaining = [...creationRemaining];
             if (!lfSeoDone) renderRemaining.push("LF SEO");
             if (!sfThumbnailsDone) renderRemaining.push("SF Thumbnails");
-            if (!sfSeoDone) renderRemaining.push("SF SEO");
             if (!sfRendersDone) renderRemaining.push("SF Videos");
+            if (!sfSeoDone) renderRemaining.push("SF SEO");
             const allDone = creationRemaining.length === 0;
 
-            const statsBlock = (
-              <div className="ml-auto flex items-center gap-1.5 shrink-0">
-                <span className="text-xs text-neutral-400 bg-neutral-800/60 px-4 py-1 rounded-md tabular-nums">
-                  {sceneCount} scene{sceneCount !== 1 ? "s" : ""}
+            const sep = (key: string) => (
+              <span key={key} className="w-px h-4 bg-neutral-700/50" />
+            );
+
+            const statItems: React.ReactNode[] = [];
+            statItems.push(
+              <span key="scenes" className="text-xs text-neutral-400 bg-neutral-800/60 px-4 py-1 rounded-md tabular-nums">
+                {sceneCount} scene{sceneCount !== 1 ? "s" : ""}
+              </span>
+            );
+            statItems.push(
+              <span key="segs" className="text-xs text-neutral-400 bg-neutral-800/60 px-4 py-1 rounded-md tabular-nums">
+                {segmentCount} seg{segmentCount !== 1 ? "s" : ""}
+              </span>
+            );
+            statItems.push(
+              <span key="duration" className="text-xs text-neutral-400 bg-neutral-800/60 px-4 py-1 rounded-md tabular-nums font-mono">
+                {durationStr}
+              </span>
+            );
+            if (totalWords > 0) {
+              statItems.push(
+                <span key="words" className="text-xs text-neutral-400 bg-neutral-800/60 px-4 py-1 rounded-md tabular-nums">
+                  {totalWords.toLocaleString()} words
                 </span>
-                <span className="text-xs text-neutral-400 bg-neutral-800/60 px-4 py-1 rounded-md tabular-nums">
-                  {segmentCount} seg{segmentCount !== 1 ? "s" : ""}
-                </span>
-                <span className="text-xs text-neutral-400 bg-neutral-800/60 px-4 py-1 rounded-md tabular-nums font-mono">
-                  {durationStr}
-                </span>
-                {totalWords > 0 && (
-                  <span className="text-xs text-neutral-400 bg-neutral-800/60 px-4 py-1 rounded-md tabular-nums">
-                    {totalWords.toLocaleString()} words
-                  </span>
+              );
+            }
+            statItems.push(
+              <div key="cost" ref={costBreakdownRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowCostBreakdown((show) => !show)}
+                  className="text-xs text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-4 py-1 rounded-md tabular-nums font-medium transition-colors"
+                  title="Show cost breakdown"
+                >
+                  {formatCost(totalCost)}
+                </button>
+                {showCostBreakdown && (
+                  <CostBreakdownPopover totalCost={totalCost} breakdown={costBreakdown} />
                 )}
-                <div ref={costBreakdownRef} className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowCostBreakdown((show) => !show)}
-                    className="text-xs text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-4 py-1 rounded-md tabular-nums font-medium transition-colors"
-                    title="Show cost breakdown"
-                  >
-                    {formatCost(totalCost)}
-                  </button>
-                  {showCostBreakdown && (
-                    <CostBreakdownPopover totalCost={totalCost} breakdown={costBreakdown} />
-                  )}
-                </div>
-                {Object.keys(mediaCounts).length > 0 && (
-                  <>
-                    <span className="w-px h-4 bg-neutral-700/50" />
-                    {mediaCounts.ai && (
-                      <span className="text-xs text-violet-300 bg-violet-500/10 px-4 py-1 rounded-md tabular-nums">
-                        {mediaCounts.ai} AI
-                      </span>
-                    )}
-                    {mediaCounts.gameplay_video && (
-                      <span className="text-xs text-sky-300 bg-sky-500/10 px-4 py-1 rounded-md tabular-nums">
-                        {mediaCounts.gameplay_video} gameplay
-                      </span>
-                    )}
-                    {mediaCounts.stock_photo && (
-                      <span className="text-xs text-amber-300 bg-amber-500/10 px-4 py-1 rounded-md tabular-nums">
-                        {mediaCounts.stock_photo} stock
-                      </span>
-                    )}
-                    {mediaCounts.user_upload && (
-                      <span className="text-xs text-emerald-300 bg-emerald-500/10 px-4 py-1 rounded-md tabular-nums">
-                        {mediaCounts.user_upload} upload{mediaCounts.user_upload !== 1 ? "s" : ""}
-                      </span>
-                    )}
-                  </>
-                )}
-                <span className="w-px h-4 bg-neutral-700/50" />
-                <ShortFormStatusPill
-                  scriptId={scriptId}
-                  segmentCount={state.content.segments.length}
-                  onClick={openExportOnShortForm}
-                />
               </div>
             );
+            if (mediaCounts.ai) {
+              statItems.push(
+                <span key="ai" className="text-xs text-violet-300 bg-violet-500/10 px-4 py-1 rounded-md tabular-nums">
+                  {mediaCounts.ai} AI
+                </span>
+              );
+            }
+            if (mediaCounts.gameplay_video) {
+              statItems.push(
+                <span key="gameplay" className="text-xs text-sky-300 bg-sky-500/10 px-4 py-1 rounded-md tabular-nums">
+                  {mediaCounts.gameplay_video} gameplay
+                </span>
+              );
+            }
+            if (mediaCounts.stock_photo) {
+              statItems.push(
+                <span key="stock" className="text-xs text-amber-300 bg-amber-500/10 px-4 py-1 rounded-md tabular-nums">
+                  {mediaCounts.stock_photo} stock
+                </span>
+              );
+            }
+            if (mediaCounts.user_upload) {
+              statItems.push(
+                <span key="upload" className="text-xs text-emerald-300 bg-emerald-500/10 px-4 py-1 rounded-md tabular-nums">
+                  {mediaCounts.user_upload} upload{mediaCounts.user_upload !== 1 ? "s" : ""}
+                </span>
+              );
+            }
+            statItems.push(
+              <ShortFormStatusPill
+                key="short-form"
+                scriptId={scriptId}
+                segmentCount={state.content.segments.length}
+                onClick={openExportOnShortForm}
+              />
+            );
+
+            const interleavedStats: React.ReactNode[] = [];
+            statItems.forEach((item, i) => {
+              if (i > 0) interleavedStats.push(sep(`sep-${i}`));
+              interleavedStats.push(item);
+            });
 
             const yoloButtonBaseClass = "group relative flex h-7 w-[9.5rem] shrink-0 items-center justify-center overflow-hidden rounded-lg px-4 text-center text-xs font-bold leading-tight text-white/95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100";
             const yoloButtonContentClass = "relative flex min-w-0 items-center justify-center gap-1.5 text-center";
@@ -2208,89 +2235,83 @@ function TimelineEditor({
               </button>
             );
 
+            let yoloArea: React.ReactNode;
             if (yoloRunning) {
-              return (
-                <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0 bg-fuchsia-500/5">
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={cancelYolo}
-                      className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-red-500/70 hover:bg-red-500/90 text-white transition-colors"
-                    >
-                      Cancel YOLO
-                    </button>
-                    <span className="w-3 h-3 border-2 border-fuchsia-400/60 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-xs text-fuchsia-300/70 font-medium">{yoloStep}</span>
-                    {statsBlock}
-                  </div>
-                </div>
+              yoloArea = (
+                <>
+                  <span className="text-xs text-fuchsia-300/70 font-medium">{yoloStep}</span>
+                  <span className="w-3 h-3 border-2 border-fuchsia-400/60 border-t-transparent rounded-full animate-spin" />
+                  <button
+                    onClick={cancelYolo}
+                    className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-red-500/70 hover:bg-red-500/90 text-white transition-colors"
+                  >
+                    Cancel YOLO
+                  </button>
+                </>
               );
-            }
-
-            if (allDone) {
-              return (
-                <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex shrink-0 items-center gap-2">
-                      {yoloRenderButton}
-                      {yoloInfo(yoloRenderDescription, "YOLO render details")}
-                    </div>
-                    {yoloRenderError && (
-                      <span className="text-[11px] text-red-400">{yoloRenderError}</span>
-                    )}
-                    {yoloRenderRunning && yoloStep && (
-                      <span className="text-xs text-sky-300/75 font-medium">{yoloStep}</span>
-                    )}
-                    {statsBlock}
-                  </div>
-                </div>
-              );
-            }
-
-            return (
-              <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex shrink-0 items-center gap-2">
-                    <button
-                      onClick={handleYolo}
-                      className={`${yoloButtonBaseClass} bg-gradient-to-r from-violet-500/80 via-fuchsia-400/70 to-amber-400/70 shadow-[0_0_15px_rgba(168,85,247,0.2)] hover:shadow-[0_0_22px_rgba(168,85,247,0.35)] focus-visible:ring-violet-500`}
-                    >
-                      <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_ease-in-out_infinite]" />
-                      <span className={yoloButtonContentClass}>
-                        <Zap size={14} />
-                        YOLO MODE
-                      </span>
-                    </button>
-                    {yoloInfo(yoloModeDescription, "YOLO mode details")}
-                  </div>
-                  {yoloError && (
-                    <span className="text-[11px] text-red-400">{yoloError}</span>
-                  )}
-                  <span className="w-px h-4 bg-neutral-700/50" />
-                  <div className="flex shrink-0 items-center gap-2">
-                    {yoloRenderButton}
-                    {yoloInfo(yoloRenderDescription, "YOLO render details")}
-                  </div>
+            } else if (allDone) {
+              yoloArea = (
+                <>
                   {yoloRenderError && (
                     <span className="text-[11px] text-red-400">{yoloRenderError}</span>
                   )}
                   {yoloRenderRunning && yoloStep && (
                     <span className="text-xs text-sky-300/75 font-medium">{yoloStep}</span>
                   )}
-                  {statsBlock}
+                  {yoloRenderButton}
+                  {yoloInfo(yoloRenderDescription, "YOLO render details")}
+                </>
+              );
+            } else {
+              yoloArea = (
+                <>
+                  {yoloError && (
+                    <span className="text-[11px] text-red-400">{yoloError}</span>
+                  )}
+                  {yoloRenderError && (
+                    <span className="text-[11px] text-red-400">{yoloRenderError}</span>
+                  )}
+                  {yoloRenderRunning && yoloStep && (
+                    <span className="text-xs text-sky-300/75 font-medium">{yoloStep}</span>
+                  )}
+                  <button
+                    onClick={handleYolo}
+                    className={`${yoloButtonBaseClass} bg-gradient-to-r from-violet-500/80 via-fuchsia-400/70 to-amber-400/70 shadow-[0_0_15px_rgba(168,85,247,0.2)] hover:shadow-[0_0_22px_rgba(168,85,247,0.35)] focus-visible:ring-violet-500`}
+                  >
+                    <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_ease-in-out_infinite]" />
+                    <span className={yoloButtonContentClass}>
+                      <Zap size={14} />
+                      YOLO MODE
+                    </span>
+                  </button>
+                  {yoloInfo(yoloModeDescription, "YOLO mode details")}
+                  <span className="w-px h-4 bg-neutral-700/50" />
+                  {yoloRenderButton}
+                  {yoloInfo(yoloRenderDescription, "YOLO render details")}
+                </>
+              );
+            }
+
+            return (
+              <>
+                <div className={`px-5 py-2 border-t border-neutral-800/60 shrink-0 ${yoloRunning ? "bg-fuchsia-500/5" : ""}`}>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {interleavedStats}
+                  </div>
                 </div>
-              </div>
+                <ViewerSwitchRow
+                  format={viewerFormat}
+                  asset={viewerAsset}
+                  activeTab={activeTab}
+                  hasPendingReview={media.hasPendingReview}
+                  onFormatChange={setViewerFormat}
+                  onAssetChange={setViewerAsset}
+                  onTabChange={setActiveTab}
+                  rightContent={yoloArea}
+                />
+              </>
             );
           })()}
-
-          <ViewerSwitchRow
-            format={viewerFormat}
-            asset={viewerAsset}
-            activeTab={activeTab}
-            hasPendingReview={media.hasPendingReview}
-            onFormatChange={setViewerFormat}
-            onAssetChange={setViewerAsset}
-            onTabChange={setActiveTab}
-          />
 
           <PipelineSteps
             titleCardGenerating={titleCardGenerating}
