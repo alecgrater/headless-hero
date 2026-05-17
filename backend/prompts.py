@@ -310,6 +310,8 @@ Writing guidelines:
 - Each non-title scene should be exactly 1-2 sentences of narration — no more. Shorter scenes create better visual variety.
 - Write narration in a conversational, engaging tone — not dry or academic.
 - Use hooks, cliffhangers between segments, and smooth transitions.
+- Each segment may be exported as a standalone short-form video. Therefore every segment, including the final segment, must end cleanly on its own topic. Do NOT include whole-video recap language, channel CTAs, subscribe requests, "come back next week", "before you go", "as we have seen", "all eight", or references to having watched previous segments inside any scene narration.
+- The "outro_cta" field is metadata/editor copy only. Do NOT fold outro_cta language into scene narration.
 - Visual prompts should be detailed enough for an AI image generator: describe the subject, composition, and mood. The art style is flat 2D cartoon illustration (defined separately) — focus visual_prompt on WHAT to show, not HOW to render it.
 - Visual prompts must NEVER ask for text, letters, words, labels, or written characters to appear in the image. If a scene involves signage, books, or screens, describe them without readable text (e.g., "a blank chalkboard" or "a book with abstract scribble marks").
 - Text overlays should be short key phrases (1-6 words) that reinforce the narration.
@@ -396,6 +398,7 @@ RULES:
 - The FIRST scene of EVERY segment MUST be a title card (is_title_card: true, visual_beat: "static", frame_directives: []).
 - Title card narration must introduce the segment by idea, not by countdown/ranking number. Do NOT start with phrases like "Number eight", "#8", "8.", "No. 8", "Part 8", or "Segment 8" unless the number is intrinsic to the topic.
 - After the title card, write one content scene per 1-2 sentences of narration. Each scene should have exactly 1-2 sentences and default to 1 frame (visual_beat: "static"). There is no fixed scene count — let the narration length determine scene count.
+- End this segment as if it may be watched alone as a Short. Resolve only this segment's idea. Do NOT use whole-video summary phrases, channel CTAs, subscribe requests, "come back next week", "before you go", "as we have seen", "all eight", or references to previous/future segments in scene narration.
 - Scene IDs should start at scene_001 within this segment (they will be renumbered globally later).
 - Follow all visual storytelling arc, Visual Beat System, and shot type guidelines from the system prompt.
 - If a CROSS-SEGMENT CONTINUITY note is provided above, respect it: do not repeat the same beat/shot pattern that ended the previous segment. The title card already breaks the visual run, but the first CONTENT scene after it should use a different beat or shot type than the previous segment's final content scene.
