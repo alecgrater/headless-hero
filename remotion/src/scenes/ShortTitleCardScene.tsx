@@ -39,10 +39,10 @@ function clamp(value: number, min: number, max: number): number {
 
 function fitTitleFontSize(title: string): number {
   const length = title.trim().length;
-  if (length > 64) return 52;
-  if (length > 48) return 60;
-  if (length > 34) return 68;
-  return 78;
+  if (length > 64) return 74;
+  if (length > 48) return 82;
+  if (length > 34) return 92;
+  return 104;
 }
 
 export const ShortTitleCardScene: React.FC<Props> = ({
@@ -138,7 +138,7 @@ export const ShortTitleCardScene: React.FC<Props> = ({
         {/* Amber accent bar — the one tasteful flourish */}
         <div
           style={{
-            width: 80,
+            width: "calc(100% + 96px)",
             height: 5,
             borderRadius: 3,
             background: ACCENT_COLOR,
