@@ -76,10 +76,6 @@ function runProcess(command, args) {
   });
 }
 
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 function getUploadShortsWindowBounds() {
   const displays = screen.getAllDisplays().sort((a, b) => {
     if (a.bounds.x !== b.bounds.x) return a.bounds.x - b.bounds.x;
@@ -124,14 +120,14 @@ function openUploadShortsWindows() {
   return UPLOAD_SHORTS_URLS.reduce((chain, url, index) => {
     return chain.then(async () => {
       const { x, y, width, height } = bounds[index];
-      await runProcess("open", ["-na", CHROME_APP_NAME, "--args", "--new-window", url]);
-      await delay(700);
       await runProcess("osascript", [
         "-e",
         [
           `tell application ${appleScriptString(CHROME_APP_NAME)}`,
           "activate",
-          `set bounds of front window to {${x}, ${y}, ${x + width}, ${y + height}}`,
+          "set uploadWindow to make new window",
+          `set URL of active tab of uploadWindow to ${appleScriptString(url)}`,
+          `set bounds of uploadWindow to {${x}, ${y}, ${x + width}, ${y + height}}`,
           "end tell",
         ].join("\n"),
       ]);
