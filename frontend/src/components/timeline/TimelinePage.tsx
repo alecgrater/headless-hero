@@ -1584,6 +1584,7 @@ function TimelineEditor({
           shortFormSeoProgress={render.shortFormSeoProgress}
           exportBundleProgress={render.exportBundleProgress}
           youtubeConnected={youtubeConnected}
+          onYoutubeConnectionChange={setYoutubeConnected}
           onNavigateToSettings={() => {
             setShowExport(false);
             onNavigateToSettings?.();

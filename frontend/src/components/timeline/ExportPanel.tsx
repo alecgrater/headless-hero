@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Film, ImageIcon, Search, Smartphone, Upload, Video, X, Zap } from "lucide-react";
-import api, { assetUrl, catalogUpload, getPublishStatus, showInFolder, openInBrowser, uploadLongformYouTube, getUploadTracking, setUploadTracking as apiSetUploadTracking, YOUTUBE_STUDIO_URL } from "../../api";
+import api, { assetUrl, catalogUpload, getPublishStatus, getYouTubeOAuthStatus, showInFolder, openInBrowser, uploadLongformYouTube, getUploadTracking, setUploadTracking as apiSetUploadTracking, YOUTUBE_STUDIO_URL } from "../../api";
 import { showToast } from "../ToastContainer";
 import type { CatalogUploadOptions, PublishJobStatus } from "../../api";
 import type { UploadTracking } from "../../types/script";
@@ -54,6 +54,7 @@ interface Props {
 
   // YouTube upload
   youtubeConnected: boolean;
+  onYoutubeConnectionChange: (connected: boolean) => void;
   onNavigateToSettings: () => void;
   seoTitle: string;
   seoDescription: string;
@@ -293,6 +294,7 @@ export default function ExportPanel({
   shortFormSeoProgress,
   exportBundleProgress,
   youtubeConnected,
+  onYoutubeConnectionChange,
   onNavigateToSettings,
   seoTitle,
   seoDescription,
@@ -382,6 +384,7 @@ export default function ExportPanel({
       if (status.status === "failed") {
         setYtUploading(false);
         setYtUploadError(status.error || "Upload failed");
+        void getYouTubeOAuthStatus().then((s) => onYoutubeConnectionChange(s.youtube.connected));
       }
     },
     onConnectionLost: () => {

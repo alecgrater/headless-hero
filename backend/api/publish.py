@@ -17,7 +17,7 @@ from config import DATA_DIR
 from models.credential import PlatformCredential, PlatformCredentialRead
 from models.publish import PublishRecord, PublishRecordRead
 from models.script import Script, ScriptContent
-from pipeline.publishing import publish_short_to_platform, publish_to_youtube
+from pipeline.publishing import is_reauth_required_error, publish_short_to_platform, publish_to_youtube
 from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
 
 logger = logging.getLogger(__name__)
@@ -243,6 +243,22 @@ def _persist_refreshed_credential(session: Session, credential: PlatformCredenti
     db_cred.updated_at = datetime.now(timezone.utc)
     session.add(db_cred)
     session.commit()
+
+def _disconnect_credential_on_auth_failure(
+    session: Session,
+    brand_id: str,
+    platform: str,
+    exc: Exception,
+) -> None:
+    """Remove credentials that Google/TikTok/Meta report as revoked or expired."""
+    if not is_reauth_required_error(exc):
+        return
+    cred = _get_credential(session, brand_id, platform)
+    if not cred:
+        return
+    session.delete(cred)
+    session.commit()
+    logger.info("Disconnected stale %s credential for brand %s after auth failure", platform, brand_id)
 
 def _refresh_pending_tiktok_record(session: Session, record: PublishRecord) -> None:
     if record.platform != "tiktok" or record.status not in ("pending", "uploading"):
@@ -542,6 +558,7 @@ def start_upload(body: UploadRequest, session: Session = Depends(get_session)):
         except Exception as exc:
             # Update publish record with error
             with SyncSession(db_engine) as s:
+                _disconnect_credential_on_auth_failure(s, cred_brand, "youtube", exc)
                 rec = s.get(PublishRecord, record_id)
                 if rec:
                     rec.status = "failed"
@@ -659,6 +676,7 @@ def start_longform_youtube_upload(body: LongFormUploadRequest, session: Session 
             return result["url"]
         except Exception as exc:
             with SyncSession(db_engine) as s:
+                _disconnect_credential_on_auth_failure(s, cred_brand, "youtube", exc)
                 rec = s.get(PublishRecord, record_id)
                 if rec:
                     rec.status = "failed"
@@ -801,6 +819,7 @@ def start_short_form_upload(body: ShortFormUploadRequest, session: Session = Dep
                 failures.append(f"{platform}: {exc}")
                 logger.exception("Short-form upload failed for %s", platform)
                 with SyncSession(db_engine) as s:
+                    _disconnect_credential_on_auth_failure(s, snapshot["brand_id"], platform, exc)
                     rec = s.get(PublishRecord, record_id)
                     if rec:
                         rec.status = "failed"

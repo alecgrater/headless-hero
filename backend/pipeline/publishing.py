@@ -14,6 +14,16 @@ logger = logging.getLogger(__name__)
 _TOKEN_REFRESH_BUFFER_SECONDS = 300  # Refresh if expiry within 5 minutes
 _YOUTUBE_DESCRIPTION_LIMIT = 5000
 
+
+def is_reauth_required_error(exc: Exception) -> bool:
+    """Return True when an OAuth error requires the user to reconnect."""
+    msg = str(exc)
+    return (
+        "invalid_grant" in msg
+        or "Token has been expired or revoked" in msg
+        or "connection has expired or been revoked" in msg
+    )
+
 def _resolve_local_path(file_url: str) -> str:
     """Convert a web-relative /static/projects/... URL to a local filesystem path."""
     if file_url.startswith("/static/projects/"):
@@ -74,8 +84,7 @@ def ensure_token_fresh(credential: PlatformCredential) -> bool:
 
 def _handle_refresh_error(exc: Exception, platform: str) -> None:
     """Convert OAuth refresh errors into clear, actionable RuntimeErrors."""
-    msg = str(exc)
-    if "invalid_grant" in msg or "Token has been expired or revoked" in msg:
+    if is_reauth_required_error(exc):
         raise RuntimeError(
             f"Your {platform} connection has expired or been revoked. "
             "Please reconnect your account in Settings → Publishing."

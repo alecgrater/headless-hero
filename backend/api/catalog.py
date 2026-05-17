@@ -21,7 +21,7 @@ from pipeline.catalog import (
     write_youtube_url,
 )
 from pipeline.export_paths import downloads_base, has_asset_label, has_export_label
-from pipeline.publishing import publish_to_youtube
+from pipeline.publishing import is_reauth_required_error, publish_to_youtube
 from pipeline.render_jobs import create_job, run_in_background, update_job
 
 logger = logging.getLogger(__name__)
@@ -415,14 +415,31 @@ def catalog_upload(body: CatalogUploadRequest, session: Session = Depends(get_se
         def on_progress(p: float, msg: str):
             update_job(job.id, progress=p, current_step=msg)
 
-        result = publish_to_youtube(
-            credential=temp_cred,
-            file_path=video_path,
-            metadata={"title": title, "description": description, "tags": tags},
-            on_progress=on_progress,
-            thumbnail_path=thumbnail_path or "",
-            privacy_status=privacy,
-        )
+        try:
+            result = publish_to_youtube(
+                credential=temp_cred,
+                file_path=video_path,
+                metadata={"title": title, "description": description, "tags": tags},
+                on_progress=on_progress,
+                thumbnail_path=thumbnail_path or "",
+                privacy_status=privacy,
+            )
+        except Exception as exc:
+            if is_reauth_required_error(exc):
+                from database import engine as db_engine
+                from sqlmodel import Session as SyncSession
+
+                with SyncSession(db_engine) as s:
+                    stmt = select(PlatformCredential).where(
+                        PlatformCredential.brand_id == cred_brand,
+                        PlatformCredential.platform == "youtube",
+                    )
+                    stale_cred = s.exec(stmt).first()
+                    if stale_cred:
+                        s.delete(stale_cred)
+                        s.commit()
+                        logger.info("Disconnected stale youtube credential for brand %s after auth failure", cred_brand)
+            raise
 
         write_youtube_url(Path(folder_path_str), result["url"])
 
