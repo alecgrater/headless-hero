@@ -256,6 +256,33 @@ type ViewerFormat = "long-form" | "short-form";
 type ViewerAsset = "render" | "thumbnails" | "seo";
 type ProductionTask = "lf-seo" | "sf-thumbnails" | "sf-seo" | "sf-renders";
 
+function getCreationStatus(content: ScriptContent) {
+  const allScenes = content.segments.flatMap((seg) => seg.scenes);
+  const nonTitleScenes = allScenes.filter((sc) => !sc.is_title_card);
+  const titleScenes = allScenes.filter((sc) => sc.is_title_card);
+  const narratedScenes = allScenes.filter((sc) => sc.narration);
+  const imageScenes = nonTitleScenes.filter((sc) => sc.visual_prompt);
+  const eliScenes = nonTitleScenes.filter((sc) => sc.narration && !sc.contains_person);
+
+  const titleCardsDone = titleScenes.length === 0 || titleScenes.every((sc) => sc.image_url);
+  const audioDone = narratedScenes.length === 0 || narratedScenes.every((sc) => sc.audio_url);
+  const imagesDone = imageScenes.length === 0 || imageScenes.every((sc) => sc.image_url || sc.frame_urls?.length || sc.video_url);
+  const fxDone = nonTitleScenes.length === 0 || nonTitleScenes.every((sc) => sc.fx);
+  const eliDone = eliScenes.length === 0 || eliScenes.every((sc) => sc.eli_overlay);
+
+  return {
+    titleCardsDone,
+    audioDone,
+    imagesDone,
+    fxDone,
+    eliDone,
+    missingFXCount: nonTitleScenes.filter((sc) => !sc.fx).length,
+    missingEliCount: eliScenes.filter((sc) => !sc.eli_overlay).length,
+    eliSceneCount: eliScenes.length,
+    hasTitleCards: titleScenes.length > 0,
+  };
+}
+
 function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -1536,6 +1563,146 @@ function TimelineEditor({
     });
   };
 
+  const refreshScriptContent = useCallback(async () => {
+    const refreshed = await api.get(`/api/scripts/${scriptId}`);
+    if (!refreshed.ok) {
+      throw new Error("Could not refresh project status");
+    }
+    const data = refreshed.data as { script: ScriptContent };
+    state.setContent(data.script);
+    return data.script;
+  }, [scriptId, state]);
+
+  const runMissingFXForYolo = useCallback(async (sceneCount: number) => {
+    fxCancelledRef.current = false;
+    setGeneratingFX(true);
+    setFxStep("");
+    setFxProgressPct(0);
+    fxProgress.start(sceneCount);
+    try {
+      const res = await generateFX(scriptId, true);
+      if (yoloCancelledRef.current) return;
+      if (!res.ok) throw new Error("FX generation request failed");
+      const { job_id } = res.data as { job_id: string };
+      await pollFXJob(job_id, (status) => {
+        if (status.current_step) setFxStep(status.current_step);
+        if (typeof status.progress === "number") setFxProgressPct(status.progress);
+      });
+      if (!yoloCancelledRef.current) await refreshScriptContent();
+    } finally {
+      setGeneratingFX(false);
+      setFxStep("");
+      setFxProgressPct(0);
+      fxProgress.end(sceneCount);
+      setLastFXGenTimestamp(Date.now());
+      refreshCost();
+    }
+  }, [fxProgress, refreshCost, refreshScriptContent, scriptId]);
+
+  const runMissingEliForYolo = useCallback(async (sceneCount: number) => {
+    eliCancelledRef.current = false;
+    setGeneratingEli(true);
+    setEliStep("");
+    setEliProgressPct(0);
+    setEliProgressTotal(sceneCount);
+    eliProgress.start(sceneCount);
+    try {
+      const res = await generateEli(scriptId, true);
+      if (yoloCancelledRef.current) return;
+      if (!res.ok) throw new Error("Eli generation request failed");
+      const { job_id } = res.data as { job_id: string };
+      await pollEliJob(job_id, (status) => {
+        if (status.current_step) setEliStep(status.current_step);
+        if (typeof status.progress === "number") setEliProgressPct(status.progress);
+      });
+      if (!yoloCancelledRef.current) await refreshScriptContent();
+    } finally {
+      setGeneratingEli(false);
+      setEliStep("");
+      setEliProgressPct(0);
+      setEliProgressTotal(0);
+      eliProgress.end(sceneCount);
+      refreshCost();
+    }
+  }, [eliProgress, refreshCost, refreshScriptContent, scriptId]);
+
+  const runYoloCreationPipeline = useCallback(async (voiceId: string) => {
+    let latest = await refreshScriptContent();
+    let status = getCreationStatus(latest);
+
+    if (!status.titleCardsDone && status.hasTitleCards) {
+      setYoloStep("Title Cards");
+      titleCardCancelledRef.current = false;
+      setTitleCardGenerating(true);
+      titleCardProgress.start(latest.segments.length);
+      try {
+        await state.generateTitleCardsStandalone(false);
+        if (yoloCancelledRef.current) return false;
+        setTitleCardGenerated(true);
+        setTitleCardTimestamp(Date.now());
+        thumbnailsCancelledRef.current = false;
+        setThumbnailsInlineGenerating(true);
+        try {
+          const res = await api.post("/api/thumbnail/recomposite", {
+            script_id: scriptId,
+          });
+          if (res.ok && !thumbnailsCancelledRef.current) {
+            const data = res.data as { concepts: ThumbnailConcept[] };
+            setThumbnailsInline(data.concepts);
+          }
+        } finally {
+          setThumbnailsInlineGenerating(false);
+        }
+      } finally {
+        setTitleCardGenerating(false);
+        titleCardProgress.end(latest.segments.length);
+      }
+      latest = await refreshScriptContent();
+      status = getCreationStatus(latest);
+      if (yoloCancelledRef.current) return false;
+    }
+
+    if (!status.audioDone) {
+      setYoloStep("Generate Audio");
+      await state.generateAllAudio(voiceId, true);
+      latest = await refreshScriptContent();
+      status = getCreationStatus(latest);
+      if (yoloCancelledRef.current) return false;
+    }
+
+    if (!status.imagesDone) {
+      setYoloStep("Generate Images");
+      await state.generateAllImages(true);
+      latest = await refreshScriptContent();
+      status = getCreationStatus(latest);
+      if (yoloCancelledRef.current) return false;
+    }
+
+    if (!status.fxDone) {
+      setYoloStep("Generate FX");
+      await runMissingFXForYolo(status.missingFXCount);
+      latest = await refreshScriptContent();
+      status = getCreationStatus(latest);
+      if (yoloCancelledRef.current) return false;
+    }
+
+    if (!status.eliDone) {
+      setYoloStep("Add Eli");
+      await runMissingEliForYolo(status.missingEliCount || status.eliSceneCount);
+      await refreshScriptContent();
+      if (yoloCancelledRef.current) return false;
+    }
+
+    return true;
+  }, [
+    refreshScriptContent,
+    runMissingEliForYolo,
+    runMissingFXForYolo,
+    scriptId,
+    state,
+    titleCardProgress,
+  ]);
+
   const cancelYolo = () => {
     yoloCancelledRef.current = true;
     titleCardCancelledRef.current = true;
@@ -1549,7 +1716,7 @@ function TimelineEditor({
   };
 
   const handleYolo = async () => {
-    if (!voicePicker.selectedVoiceId && voicePicker.voices.length === 0) {
+    if (!voicePicker.selectedVoiceId) {
       setYoloError("Select a voice in settings before running YOLO");
       return;
     }
@@ -1560,99 +1727,8 @@ function TimelineEditor({
     let currentStep = "";
 
     try {
-      // 1. Title Cards (+thumbnail)
-      if (!allTitleCardsGenerated && state.hasTitleCards) {
-        currentStep = "Title Cards";
-        setYoloStep(currentStep);
-        titleCardCancelledRef.current = false;
-        setTitleCardGenerating(true);
-        try {
-          await state.generateTitleCardsStandalone();
-          if (yoloCancelledRef.current) return;
-          setTitleCardGenerated(true);
-          setTitleCardTimestamp(Date.now());
-          await handleRecompositeThumbnailInline();
-        } finally {
-          setTitleCardGenerating(false);
-        }
-        if (yoloCancelledRef.current) return;
-      }
-
-      // 2. Audio
-      if (!allAudioGenerated) {
-        currentStep = "Audio";
-        setYoloStep(currentStep);
-        await state.generateAllAudio(voicePicker.selectedVoiceId);
-        if (yoloCancelledRef.current) return;
-      }
-
-      // 3. Images
-      if (!allImagesGenerated) {
-        currentStep = "Images";
-        setYoloStep(currentStep);
-        await state.generateAllImages();
-        if (yoloCancelledRef.current) return;
-      }
-
-      // 4. FX
-      if (!allFXGenerated) {
-        currentStep = "FX";
-        setYoloStep(currentStep);
-        const sceneCount = missingFXCount;
-        fxCancelledRef.current = false;
-        setGeneratingFX(true);
-        setFxStep("");
-        setFxProgressPct(0);
-        fxProgress.start(sceneCount);
-        try {
-          const res = await generateFX(scriptId, true);
-          if (yoloCancelledRef.current) return;
-          if (!res.ok) throw new Error("FX generation request failed");
-          const { job_id } = res.data as { job_id: string };
-          await pollFXJob(job_id, (status) => {
-            if (status.current_step) setFxStep(status.current_step);
-            if (typeof status.progress === "number") setFxProgressPct(status.progress);
-          });
-          if (yoloCancelledRef.current) return;
-          const refreshed = await api.get(`/api/scripts/${scriptId}`);
-          if (refreshed.ok && !yoloCancelledRef.current) {
-            const data = refreshed.data as { script: ScriptContent };
-            state.setContent(data.script);
-          }
-        } finally {
-          setGeneratingFX(false);
-          setFxStep("");
-          setFxProgressPct(0);
-          fxProgress.end(sceneCount);
-          setLastFXGenTimestamp(Date.now());
-          refreshCost();
-        }
-        if (yoloCancelledRef.current) return;
-      }
-
-      // 5. Eli
-      if (!allEliGenerated) {
-        currentStep = "Eli";
-        setYoloStep(currentStep);
-        eliCancelledRef.current = false;
-        setGeneratingEli(true);
-        try {
-          const res = await generateEli(scriptId);
-          if (!res.ok) throw new Error("Eli generation request failed");
-          if (yoloCancelledRef.current) return;
-          const { job_id } = res.data as { job_id: string };
-          await pollEliJob(job_id);
-          if (yoloCancelledRef.current) return;
-          const refreshed = await api.get(`/api/scripts/${scriptId}`);
-          if (refreshed.ok && !yoloCancelledRef.current) {
-            const data = refreshed.data as { script: ScriptContent };
-            state.setContent(data.script);
-          }
-        } finally {
-          setGeneratingEli(false);
-          refreshCost();
-        }
-      }
+      currentStep = "YOLO Mode";
+      await runYoloCreationPipeline(voicePicker.selectedVoiceId);
     } catch (err) {
       if (!yoloCancelledRef.current) {
         setYoloError(`Failed during ${currentStep}: ${err instanceof Error ? err.message : "Unknown error"}`);
@@ -1706,19 +1782,102 @@ function TimelineEditor({
 
   const handleYoloRender = useCallback(async () => {
     if (yoloRenderRunning) return;
+    if (!voicePicker.selectedVoiceId) {
+      setYoloRenderError("Select a voice in settings before running YOLO render");
+      return;
+    }
+
     setYoloRenderRunning(true);
     setYoloRenderError(null);
+    setYoloStep(null);
+    yoloCancelledRef.current = false;
+    productionBusyRef.current = true;
+    setProductionError(null);
     try {
+      const creationComplete = await runYoloCreationPipeline(voicePicker.selectedVoiceId);
+      if (!creationComplete || yoloCancelledRef.current) return;
+
+      let latest = await refreshScriptContent();
+      const segmentTotal = latest.segments.length;
+
+      if (!render.seoMetadata) {
+        setYoloStep("Generate LF SEO");
+        setProductionBusyTask("lf-seo");
+        setProductionProgress(null);
+        await render.generateSEO();
+      }
+
+      const thumbnailPaths = await refreshShortFormThumbnailStatus();
+      const missingThumbnailIndices = latest.segments
+        .map((_, idx) => idx)
+        .filter((idx) => !thumbnailPaths[idx]);
+      if (missingThumbnailIndices.length > 0) {
+        setYoloStep("Generate SF Thumbnails");
+        setProductionBusyTask("sf-thumbnails");
+        setProductionProgress(0);
+        const { job_id } = missingThumbnailIndices.length === segmentTotal
+          ? await generateShortFormThumbnailsAll(scriptId)
+          : await generateShortFormThumbnailsBatch(scriptId, missingThumbnailIndices);
+        await pollShortFormJob(job_id, (status) => {
+          if (typeof status.progress === "number") setProductionProgress(status.progress);
+        });
+        await refreshShortFormThumbnailStatus();
+      }
+
+      const shortSeoCount = render.shortFormSeoMetadata?.shorts.length ?? 0;
+      if (segmentTotal > 0 && shortSeoCount < segmentTotal) {
+        setYoloStep("Generate SF SEO");
+        setProductionBusyTask("sf-seo");
+        setProductionProgress(null);
+        await render.generateShortFormSEO();
+      }
+
+      const rendered = await refreshShortFormRenderStatus();
+      const missingRenderIndices = latest.segments
+        .map((_, idx) => idx)
+        .filter((idx) => !rendered[idx]);
+      if (missingRenderIndices.length > 0) {
+        setYoloStep("Render SF Videos");
+        setProductionBusyTask("sf-renders");
+        setProductionProgress(0);
+        const { job_id } = missingRenderIndices.length === segmentTotal
+          ? await renderShortAll(scriptId)
+          : await renderShortBatch(scriptId, missingRenderIndices);
+        await pollShortFormJob(job_id, (status) => {
+          if (typeof status.progress === "number") setProductionProgress(status.progress);
+        });
+        await refreshShortFormRenderStatus();
+      }
+
+      setProductionBusyTask(null);
+      setProductionProgress(null);
+      setYoloStep("Export Bundle");
       await render.yoloRender(() => {
         setShowExport(true);
         setExportInitialTab("render-long");
       });
+      await refreshScriptContent();
+      await refreshShortFormThumbnailStatus();
+      await refreshShortFormRenderStatus();
     } catch (err) {
       setYoloRenderError(err instanceof Error ? err.message : "YOLO render failed");
     } finally {
+      productionBusyRef.current = false;
+      setProductionBusyTask(null);
+      setProductionProgress(null);
       setYoloRenderRunning(false);
+      setYoloStep(null);
     }
-  }, [render, yoloRenderRunning]);
+  }, [
+    refreshScriptContent,
+    refreshShortFormRenderStatus,
+    refreshShortFormThumbnailStatus,
+    render,
+    runYoloCreationPipeline,
+    scriptId,
+    voicePicker.selectedVoiceId,
+    yoloRenderRunning,
+  ]);
 
   // Export test: start + poll
   const handleExportTest = async (options: ExportTestOptions) => {
@@ -1826,13 +1985,18 @@ function TimelineEditor({
 
           {/* YOLO / Stats Row */}
           {(() => {
-            const remaining: string[] = [];
-            if (!allTitleCardsGenerated && state.hasTitleCards) remaining.push("Title Cards");
-            if (!allAudioGenerated) remaining.push("Audio");
-            if (!allImagesGenerated) remaining.push("Images");
-            if (!allFXGenerated) remaining.push("FX");
-            if (!allEliGenerated) remaining.push("Eli");
-            const allDone = remaining.length === 0;
+            const creationRemaining: string[] = [];
+            if (!allTitleCardsGenerated && state.hasTitleCards) creationRemaining.push("Title Cards");
+            if (!allAudioGenerated) creationRemaining.push("Audio");
+            if (!allImagesGenerated) creationRemaining.push("Images");
+            if (!allFXGenerated) creationRemaining.push("FX");
+            if (!allEliGenerated) creationRemaining.push("Eli");
+            const renderRemaining = [...creationRemaining];
+            if (!lfSeoDone) renderRemaining.push("LF SEO");
+            if (!sfThumbnailsDone) renderRemaining.push("SF Thumbnails");
+            if (!sfSeoDone) renderRemaining.push("SF SEO");
+            if (!sfRendersDone) renderRemaining.push("SF Videos");
+            const allDone = creationRemaining.length === 0;
 
             const statsBlock = (
               <div className="ml-auto flex items-center gap-1.5 shrink-0">
@@ -1897,11 +2061,11 @@ function TimelineEditor({
               </div>
             );
 
-            const yoloButtonBaseClass = "group relative flex h-10 w-[9.5rem] shrink-0 items-center justify-center overflow-hidden rounded-lg px-4 text-center text-xs font-bold leading-tight text-white/95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100";
+            const yoloButtonBaseClass = "group relative flex h-9 w-[9.5rem] shrink-0 items-center justify-center overflow-hidden rounded-lg px-4 text-center text-xs font-bold leading-tight text-white/95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100";
             const yoloButtonContentClass = "relative flex min-w-0 items-center justify-center gap-1.5 text-center";
             const yoloInfoClass = "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-neutral-700/60 bg-neutral-900 text-neutral-500 transition-colors hover:border-neutral-500 hover:text-neutral-200";
-            const yoloModeDescription = `Runs every unfinished creation step in order. Missing title cards, narration audio, scene images, FX, and Eli animation are generated automatically, then the timeline refreshes with the new assets. Currently pending: ${remaining.join(", ")}.`;
-            const yoloRenderDescription = "Builds the finished export package. It renders the long-form video when needed, renders all short-form segments, writes metadata and thumbnail assets, then saves the complete project folder for upload or archive.";
+            const yoloModeDescription = `Runs every unfinished creation step in order. Missing title cards, narration audio, scene images, FX, and Eli animation are generated automatically, then the timeline refreshes with the new assets. Currently pending: ${creationRemaining.join(", ") || "none"}.`;
+            const yoloRenderDescription = `Runs the full 1-9 pipeline from the next unfinished task, then renders long-form video and exports the bundle. Currently pending: ${renderRemaining.join(", ") || "final export only"}.`;
 
             const yoloInfo = (content: string, label: string) => (
               <Tooltip content={content} side="bottom">
@@ -1958,6 +2122,9 @@ function TimelineEditor({
                     {yoloRenderError && (
                       <span className="text-[11px] text-red-400">{yoloRenderError}</span>
                     )}
+                    {yoloRenderRunning && yoloStep && (
+                      <span className="text-xs text-sky-300/75 font-medium">{yoloStep}</span>
+                    )}
                     {statsBlock}
                   </div>
                 </div>
@@ -1990,6 +2157,9 @@ function TimelineEditor({
                   </div>
                   {yoloRenderError && (
                     <span className="text-[11px] text-red-400">{yoloRenderError}</span>
+                  )}
+                  {yoloRenderRunning && yoloStep && (
+                    <span className="text-xs text-sky-300/75 font-medium">{yoloStep}</span>
                   )}
                   {statsBlock}
                 </div>

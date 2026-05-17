@@ -498,12 +498,11 @@ export function useTimelineState(
     async (missingOnly = false) => {
       // Collect AI-generated scenes
       const scenes: { scene_id: string; visual_prompt: string; name: string; frame_directives: any[]; contains_person: boolean; media_source: string; gameplay_game_name: string; gameplay_game_override: string; audio_duration_seconds: number }[] = [];
-      // Collect title card scene IDs for progress tracking
-      let hasTitleCards = false;
+      let shouldGenerateTitleCards = false;
       for (const seg of contentRef.current.segments) {
         for (const sc of seg.scenes) {
           if (sc.is_title_card) {
-            hasTitleCards = true;
+            if (!missingOnly || !sc.image_url) shouldGenerateTitleCards = true;
           } else if (sc.visual_prompt && !sc.is_title_card) {
             if (missingOnly && (sc.image_url || sc.video_url || (sc.frame_urls && sc.frame_urls.length > 0))) continue;
             scenes.push({
@@ -520,7 +519,7 @@ export function useTimelineState(
           }
         }
       }
-      if (scenes.length === 0 && !hasTitleCards) return;
+      if (scenes.length === 0 && !shouldGenerateTitleCards) return;
 
       imagesCancelRef.current = false;
       setBatchGenerating(true);
@@ -546,7 +545,7 @@ export function useTimelineState(
       let failed = 0;
 
       // Generate title cards first (background job)
-      if (hasTitleCards) {
+      if (shouldGenerateTitleCards) {
         try {
           const res = await api.post("/api/visuals/generate-title-cards", {
             script_id: scriptId,
