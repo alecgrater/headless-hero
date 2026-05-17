@@ -368,7 +368,9 @@ export async function pollFXJob(
 /** Open a URL in Chrome via Electron, or a new tab in browser-only dev mode. */
 export function openInBrowser(url: string): void {
   if (window.api?.openExternal) {
-    window.api.openExternal(url);
+    window.api.openExternal(url).catch((err) => {
+      showToast(err instanceof Error ? err.message : "Failed to open link in Chrome");
+    });
   } else {
     window.open(url, "_blank");
   }
