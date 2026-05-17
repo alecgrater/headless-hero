@@ -425,7 +425,8 @@ def update_script(script_id: str, body: UpdateScriptRequest, session: Session = 
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
 
-    record.script_json = body.script.model_dump_json()
+    content = body.script.model_copy(update={"title": record.topic_title or body.script.title})
+    record.script_json = content.model_dump_json()
     session.add(record)
     session.commit()
     session.refresh(record)
@@ -436,7 +437,7 @@ def update_script(script_id: str, body: UpdateScriptRequest, session: Session = 
         brand_id=record.brand_id,
         topic_title=record.topic_title,
         topic_description=record.topic_description,
-        script=body.script,
+        script=content,
         created_at=record.created_at,
     )
 

@@ -4,12 +4,13 @@ import pytest
 from fastapi import HTTPException
 from sqlmodel import Session, SQLModel, create_engine
 
-from api.scripts import update_script_title
+from api.scripts import update_script, update_script_title
 from models.script import (
     Scene,
     Script,
     ScriptContent,
     Segment,
+    UpdateScriptRequest,
     UpdateScriptTitleRequest,
 )
 
@@ -81,3 +82,32 @@ def test_update_script_title_rejects_blank_after_trim(tmp_path):
             )
 
     assert exc.value.status_code == 422
+
+
+def test_update_script_preserves_record_title_when_body_has_stale_title(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    SQLModel.metadata.create_all(engine)
+    stale_content = ScriptContent(title="Old Title", segments=[])
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id="script-1",
+                brand_id="brand-1",
+                topic_title="New Title",
+                script_json=ScriptContent(title="New Title", segments=[]).model_dump_json(),
+            )
+        )
+        session.commit()
+
+        updated = update_script(
+            "script-1",
+            UpdateScriptRequest(script=stale_content),
+            session,
+        )
+        stored = session.get(Script, "script-1")
+
+    assert updated.topic_title == "New Title"
+    assert updated.script.title == "New Title"
+    assert stored is not None
+    assert json.loads(stored.script_json)["title"] == "New Title"
