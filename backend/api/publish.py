@@ -181,15 +181,9 @@ def _rendered_short_path(script_id: str, segment_idx: int, content: ScriptConten
     raise HTTPException(status_code=400, detail=f"Short {segment_idx + 1} has not been rendered yet")
 
 def _rendered_longform_path(script_id: str, project_title: str) -> Path:
-    renders_dir = DATA_DIR / "projects" / script_id / "renders"
-    if renders_dir.exists():
-        candidates = sorted(
-            renders_dir.glob("full_youtube*.mp4"),
-            key=lambda path: (path.name != "full_youtube.mp4", path.name),
-        )
-        for path in candidates:
-            if path.is_file():
-                return path
+    canonical_render = DATA_DIR / "projects" / script_id / "renders" / "full_youtube.mp4"
+    if canonical_render.is_file():
+        return canonical_render
 
     exported_path = project_downloads_folder(project_title, create=False) / longform_filename("Video", project_title, ".mp4")
     if exported_path.is_file():
