@@ -52,6 +52,16 @@ const OPENAI_REASONING_OPTIONS: {
   },
 ];
 
+const OPENAI_MODEL_RECOMMENDATIONS: Record<string, string> = {
+  "gpt-5.5": "Recommended model: GPT-5.5. Best fit when script quality, story structure, or hook judgment matters most. Tradeoff: higher latency and cost than smaller GPT-5 models.",
+  "gpt-5-mini": "Recommended model: GPT-5 Mini. Strong balance for ideation, metadata, routing, and scene decisions where you want reliable judgment without premium-model cost. Tradeoff: less nuanced than GPT-5.5 on long creative planning.",
+  "gpt-5-nano": "Recommended model: GPT-5 Nano. Fast and inexpensive for short structured tasks such as scoring, detection, and simple animation choices. Tradeoff: least capable on ambiguous creative calls, so upgrade if outputs feel brittle.",
+};
+
+const openaiModelRecommendation = (model: string) =>
+  OPENAI_MODEL_RECOMMENDATIONS[model] ??
+  `Recommended model: ${model}. Use this when it is the OpenAI model you have validated for this workflow. Tradeoff: custom selections may vary in speed, cost, and reasoning quality.`;
+
 interface LlmTaskConfig {
   id: string;
   label: string;
@@ -672,6 +682,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                   const reasoningDescription =
                     OPENAI_REASONING_OPTIONS.find((option) => option.value === route.openaiReasoningEffort)
                       ?.description ?? OPENAI_REASONING_OPTIONS[0].description;
+                  const recommendedModelDescription = openaiModelRecommendation(task.openaiDefaultModel);
                   return (
                     <div key={task.id} className="rounded-lg border border-neutral-800 bg-neutral-950/40 p-3 space-y-3">
                       <div>
@@ -746,17 +757,19 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                           </select>
                         </div>
                       </div>
-                      <div className="flex items-start gap-2 rounded-md border border-sky-500/20 bg-sky-500/5 px-2.5 py-2">
-                        <Info className="h-3.5 w-3.5 shrink-0 text-sky-400 mt-[1px]" aria-hidden />
-                        <div className="space-y-1">
-                          <p className="text-xs text-neutral-300 leading-relaxed">
-                            {reasoningDescription}
-                          </p>
-                          <p className="text-xs text-neutral-500 leading-relaxed">
-                            Applies only when this task uses OpenAI. Anthropic and Ollama ignore this setting.
-                          </p>
+                      {effectiveProvider === "openai" && (
+                        <div className="flex items-start gap-2 rounded-md border border-sky-500/20 bg-sky-500/5 px-2.5 py-2">
+                          <Info className="h-3.5 w-3.5 shrink-0 text-sky-400 mt-[1px]" aria-hidden />
+                          <div className="space-y-1">
+                            <p className="text-xs text-neutral-300 leading-relaxed">
+                              {recommendedModelDescription}
+                            </p>
+                            <p className="text-xs text-neutral-400 leading-relaxed">
+                              Reasoning: {reasoningDescription}
+                            </p>
+                          </div>
                         </div>
-                      </div>
+                      )}
                       {effectiveProvider === "anthropic" && !anthropicKeyConfigured && (
                         <p className="text-xs text-amber-400">Anthropic key missing for this route.</p>
                       )}
