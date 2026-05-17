@@ -15,6 +15,7 @@ interface ApiClient {
   delete: <T = unknown>(path: string) => Promise<ApiResponse<T>>;
   request: <T = unknown>(method: string, path: string, body?: unknown) => Promise<ApiResponse<T>>;
   openExternal?: (url: string) => Promise<void>;
+  openUploadShortsWindows?: () => Promise<void>;
   downloadFile?: (url: string, defaultFilename: string) => Promise<{ canceled: boolean; filePath?: string }>;
   saveToDownloads?: (url: string, folderName: string, filename: string) => Promise<{ filePath: string }>;
   selectFolder?: (title?: string, defaultPath?: string) => Promise<{ canceled: boolean; path?: string }>;
@@ -108,6 +109,7 @@ const api: ApiClient = {
   put: (path: string, body?: unknown) => interceptedRequest("PUT", path, body),
   delete: (path: string) => interceptedRequest("DELETE", path),
   openExternal: rawApi.openExternal,
+  openUploadShortsWindows: rawApi.openUploadShortsWindows,
 };
 
 export default api;
@@ -372,6 +374,26 @@ export function openInBrowser(url: string): void {
       showToast(err instanceof Error ? err.message : "Failed to open link in Chrome");
     });
   } else {
+    window.open(url, "_blank");
+  }
+}
+
+const UPLOAD_SHORTS_URLS = [
+  "https://www.instagram.com/watchunranked/",
+  "https://www.tiktok.com/tiktokstudio",
+  "https://studio.youtube.com/channel/UCBLhENZIlxFAQ59owrMSauw/videos/upload?d=ud&filter=%5B%5D&sort=%7B%22columnType%22%3A%22date%22%2C%22sortOrder%22%3A%22DESCENDING%22%7D",
+];
+
+/** Open short-form upload destinations in Chrome windows when Electron is available. */
+export function openUploadShortsWindows(): void {
+  if (window.api?.openUploadShortsWindows) {
+    window.api.openUploadShortsWindows().catch((err) => {
+      showToast(err instanceof Error ? err.message : "Failed to open upload windows in Chrome");
+    });
+    return;
+  }
+
+  for (const url of UPLOAD_SHORTS_URLS) {
     window.open(url, "_blank");
   }
 }

@@ -8,6 +8,7 @@ import {
   PanelsTopLeft,
   Search,
   Smartphone,
+  Upload,
   Video,
   Zap,
   type LucideIcon,
@@ -27,6 +28,7 @@ import api, {
   getShortFormThumbnailsStatus,
   getUploadTracking,
   getYouTubeOAuthStatus,
+  openUploadShortsWindows,
   pollEliJob,
   pollFXJob,
   pollShortFormJob,
@@ -147,11 +149,13 @@ function DistributionTrackingModal({
   tracking,
   updating,
   onToggle,
+  onOpenUploadShorts,
   onClose,
 }: {
   tracking: UploadTracking;
   updating: Partial<Record<keyof UploadTracking, boolean>>;
   onToggle: (key: keyof UploadTracking) => void;
+  onOpenUploadShorts: () => void;
   onClose: () => void;
 }) {
   const anyUpdating = Object.values(updating).some(Boolean);
@@ -179,6 +183,14 @@ function DistributionTrackingModal({
           </button>
         </div>
         <div className="space-y-2 p-3">
+          <button
+            type="button"
+            onClick={onOpenUploadShorts}
+            className="mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-violet-500 transition-colors"
+          >
+            <Upload className="h-4 w-4" />
+            Upload Shorts
+          </button>
           {DISTRIBUTION_TARGETS.map(({ key, label }) => {
             const isUploaded = tracking[key];
             const isUpdating = updating[key];
@@ -1344,6 +1356,10 @@ function TimelineEditor({
       setTrackingUpdating((prev) => ({ ...prev, [key]: false }));
     }
   }, [scriptId, trackingUpdating, uploadTracking]);
+
+  const handleOpenUploadShorts = useCallback(() => {
+    openUploadShortsWindows();
+  }, []);
 
   useEffect(() => {
     if (!showCostBreakdown) return;
@@ -2576,6 +2592,7 @@ function TimelineEditor({
                     tracking={uploadTracking}
                     updating={trackingUpdating}
                     onToggle={handleToggleUploadTracking}
+                    onOpenUploadShorts={handleOpenUploadShorts}
                     onClose={() => setShowDistributionTracking(false)}
                   />
                 )}

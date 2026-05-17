@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Film, ImageIcon, Search, Smartphone, Upload, Video, X, Zap } from "lucide-react";
-import api, { assetUrl, catalogUpload, getPublishStatus, getYouTubeOAuthStatus, showInFolder, openInBrowser, uploadLongformYouTube, getUploadTracking, setUploadTracking as apiSetUploadTracking, YOUTUBE_STUDIO_URL } from "../../api";
+import api, { assetUrl, catalogUpload, getPublishStatus, getYouTubeOAuthStatus, showInFolder, openInBrowser, openUploadShortsWindows, uploadLongformYouTube, getUploadTracking, setUploadTracking as apiSetUploadTracking, YOUTUBE_STUDIO_URL } from "../../api";
 import { showToast } from "../ToastContainer";
 import type { CatalogUploadOptions, PublishJobStatus } from "../../api";
 import type { UploadTracking } from "../../types/script";
@@ -499,6 +499,14 @@ export default function ExportPanel({
               <p className="mt-0.5 text-xs text-neutral-500">Package final video assets, thumbnails, and upload metadata.</p>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={openUploadShortsWindows}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-semibold text-white hover:bg-violet-500 transition-colors"
+              >
+                <Upload className="h-4 w-4" />
+                Upload Shorts
+              </button>
               {exportBundleResult && (
                 <div className="flex items-center gap-2 text-xs text-emerald-400">
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -830,7 +838,17 @@ export default function ExportPanel({
               <section className="space-y-3 border-t border-neutral-800 pt-5">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-neutral-300 uppercase tracking-wider">Distribution Tracking</h3>
-                  <span className="text-xs text-neutral-600">Click to toggle</span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={openUploadShortsWindows}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-200 hover:bg-violet-500/20 transition-colors"
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      Upload Shorts
+                    </button>
+                    <span className="text-xs text-neutral-600">Click to toggle</span>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {([

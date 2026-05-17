@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog, screen } = require("electron");
 const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
@@ -10,6 +10,12 @@ const isDev = !app.isPackaged;
 const BACKEND_PORT = 8420;
 const BACKEND_URL = `http://localhost:${BACKEND_PORT}`;
 const CHROME_APP_NAME = "Google Chrome";
+const UPLOAD_SHORTS_URLS = [
+  "https://www.instagram.com/watchunranked/",
+  "https://www.tiktok.com/tiktokstudio",
+  "https://studio.youtube.com/channel/UCBLhENZIlxFAQ59owrMSauw/videos/upload?d=ud&filter=%5B%5D&sort=%7B%22columnType%22%3A%22date%22%2C%22sortOrder%22%3A%22DESCENDING%22%7D",
+];
+const UPLOAD_SHORTS_WINDOW_SIZE = { width: 684, height: 1203 };
 
 function isAppUrl(url) {
   const appOrigins = ["http://localhost:5173", "http://localhost:8420"];
@@ -43,6 +49,83 @@ function openExternalUrl(url) {
 function openExternalUrlFromEvent(url) {
   openExternalUrl(url).catch((error) => {
     console.error(`[main] Failed to open external URL in ${CHROME_APP_NAME}:`, error);
+  });
+}
+
+function appleScriptString(value) {
+  return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+function getUploadShortsWindowBounds() {
+  const displays = screen.getAllDisplays().sort((a, b) => {
+    if (a.bounds.x !== b.bounds.x) return a.bounds.x - b.bounds.x;
+    return a.bounds.y - b.bounds.y;
+  });
+  const leftDisplay = displays[0] ?? screen.getPrimaryDisplay();
+  const middleDisplay = displays[1] ?? leftDisplay;
+  const { width, height } = UPLOAD_SHORTS_WINDOW_SIZE;
+
+  const clampHeight = (display) => Math.min(height, display.workArea.height);
+  const top = (display) => display.workArea.y;
+
+  return [
+    {
+      x: leftDisplay.workArea.x,
+      y: top(leftDisplay),
+      width,
+      height: clampHeight(leftDisplay),
+    },
+    {
+      x: leftDisplay.workArea.x + Math.max(leftDisplay.workArea.width - width, 0),
+      y: top(leftDisplay),
+      width,
+      height: clampHeight(leftDisplay),
+    },
+    {
+      x: middleDisplay.workArea.x,
+      y: top(middleDisplay),
+      width,
+      height: clampHeight(middleDisplay),
+    },
+  ];
+}
+
+function openUploadShortsWindows() {
+  if (process.platform !== "darwin") {
+    return Promise.all(UPLOAD_SHORTS_URLS.map((url) => shell.openExternal(url))).then(() => undefined);
+  }
+
+  const bounds = getUploadShortsWindowBounds();
+  const scriptLines = [
+    `tell application ${appleScriptString(CHROME_APP_NAME)}`,
+    "activate",
+    ...UPLOAD_SHORTS_URLS.flatMap((url, index) => {
+      const { x, y, width, height } = bounds[index];
+      return [
+        "set uploadWindow to make new window",
+        `set URL of active tab of uploadWindow to ${appleScriptString(url)}`,
+        `set bounds of uploadWindow to {${x}, ${y}, ${x + width}, ${y + height}}`,
+      ];
+    }),
+    "end tell",
+  ];
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (fn) => {
+      if (settled) return;
+      settled = true;
+      fn();
+    };
+    const child = spawn("osascript", ["-e", scriptLines.join("\n")], { stdio: "ignore" });
+    child.once("error", (error) => settle(() => reject(error)));
+    child.once("exit", (code) => {
+      settle(
+        code === 0
+          ? resolve
+          : () => reject(new Error(`Failed to open upload windows in ${CHROME_APP_NAME}`)),
+      );
+    });
   });
 }
 
@@ -110,6 +193,9 @@ function createWindow() {
 
 // IPC: open external URLs in Chrome, regardless of the system default browser.
 ipcMain.handle("open-external", (_event, url) => openExternalUrl(url));
+
+// IPC: open the short-form upload destinations in positioned Chrome windows.
+ipcMain.handle("open-upload-shorts-windows", () => openUploadShortsWindows());
 
 // IPC: reveal a file or folder in Finder / Explorer
 ipcMain.handle("show-item-in-folder", (_event, fullPath) => shell.showItemInFolder(fullPath));
