@@ -1133,14 +1133,18 @@ function TimelineEditor({
               </div>
             );
 
+            const yoloButtonBaseClass = "group relative flex h-10 w-[9.5rem] items-center justify-center overflow-hidden rounded-lg px-4 text-center text-xs font-bold leading-tight text-white/95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100";
+            const yoloButtonContentClass = "relative flex min-w-0 items-center justify-center gap-1.5 text-center";
+            const yoloDescriptionClass = "flex h-10 w-[13rem] items-center text-xs leading-5 text-neutral-500";
+
             const yoloRenderButton = (
               <button
                 onClick={handleYoloRender}
                 disabled={yoloRenderRunning || yoloRunning}
-                className="group relative px-5 py-1.5 text-xs font-bold rounded-lg transition-all overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 bg-gradient-to-r from-sky-500/80 via-emerald-400/70 to-amber-400/70 text-white/95 shadow-[0_0_15px_rgba(14,165,233,0.2)] hover:shadow-[0_0_22px_rgba(14,165,233,0.35)] hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
+                className={`${yoloButtonBaseClass} bg-gradient-to-r from-sky-500/80 via-emerald-400/70 to-amber-400/70 shadow-[0_0_15px_rgba(14,165,233,0.2)] hover:shadow-[0_0_22px_rgba(14,165,233,0.35)] focus-visible:ring-sky-500`}
               >
                 <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_ease-in-out_infinite]" />
-                <span className="relative flex items-center gap-1.5">
+                <span className={yoloButtonContentClass}>
                   {yoloRenderRunning ? (
                     <span className="w-3 h-3 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
                   ) : (
@@ -1174,7 +1178,7 @@ function TimelineEditor({
                 <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
                   <div className="flex items-center gap-3">
                     {yoloRenderButton}
-                    <span className="text-[11px] text-neutral-500">
+                    <span className={yoloDescriptionClass}>
                       {yoloRenderRunning
                         ? render.exportPhase === "rendering"
                           ? "Rendering long-form video..."
@@ -1195,15 +1199,15 @@ function TimelineEditor({
                 <div className="flex items-center gap-3">
                   <button
                     onClick={handleYolo}
-                    className="group relative px-5 py-1.5 text-xs font-bold rounded-lg transition-all overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 bg-gradient-to-r from-violet-500/80 via-fuchsia-400/70 to-amber-400/70 text-white/95 shadow-[0_0_15px_rgba(168,85,247,0.2)] hover:shadow-[0_0_22px_rgba(168,85,247,0.35)] hover:scale-[1.02]"
+                    className={`${yoloButtonBaseClass} bg-gradient-to-r from-violet-500/80 via-fuchsia-400/70 to-amber-400/70 shadow-[0_0_15px_rgba(168,85,247,0.2)] hover:shadow-[0_0_22px_rgba(168,85,247,0.35)] focus-visible:ring-violet-500`}
                   >
                     <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_ease-in-out_infinite]" />
-                    <span className="relative flex items-center gap-1.5">
+                    <span className={yoloButtonContentClass}>
                       <Zap size={12} />
                       YOLO MODE
                     </span>
                   </button>
-                  <span className="text-[11px] text-neutral-500">
+                  <span className={yoloDescriptionClass}>
                     {remaining.length} step{remaining.length !== 1 ? "s" : ""} remaining: {remaining.join(" → ")}
                   </span>
                   {yoloError && (
@@ -1211,7 +1215,7 @@ function TimelineEditor({
                   )}
                   <span className="w-px h-4 bg-neutral-700/50" />
                   {yoloRenderButton}
-                  <span className="text-[11px] text-neutral-500">
+                  <span className={yoloDescriptionClass}>
                     {yoloRenderRunning
                       ? render.exportPhase === "rendering"
                         ? "Rendering long-form video..."
