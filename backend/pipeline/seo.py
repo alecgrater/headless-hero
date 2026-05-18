@@ -122,6 +122,42 @@ def _short_form_title(project_title: str, segment_title: str) -> str:
     clean_segment_title = segment_title.strip() or "Untitled"
     return f"{clean_project_title} - {clean_segment_title}"
 
+
+def retitle_short_form_seo_metadata(metadata: dict | None, project_title: str, content: ScriptContent) -> dict | None:
+    """Update stored short-form upload titles after the project title changes."""
+    if not metadata:
+        return metadata
+    items = metadata.get("shorts")
+    if not isinstance(items, list):
+        return metadata
+
+    parsed_indices: list[int] = []
+    for item in items:
+        try:
+            parsed_indices.append(int(item.get("index", -1)))
+        except (AttributeError, TypeError, ValueError):
+            parsed_indices.append(-1)
+    uses_one_based_indices = 1 in parsed_indices
+
+    updated = dict(metadata)
+    updated_items: list[dict] = []
+    for item_idx, item in enumerate(items):
+        if not isinstance(item, dict):
+            updated_items.append(item)
+            continue
+        parsed_index = parsed_indices[item_idx]
+        segment_idx = (
+            parsed_index - 1 if uses_one_based_indices and parsed_index >= 1
+            else parsed_index if parsed_index >= 0
+            else item_idx
+        )
+        if 0 <= segment_idx < len(content.segments):
+            item = dict(item)
+            item["title"] = _short_form_title(project_title, content.segments[segment_idx].name)
+        updated_items.append(item)
+    updated["shorts"] = updated_items
+    return updated
+
 def build_short_form_seo_contexts(content: ScriptContent) -> list[dict]:
     """Build one transcript summary per rendered short."""
     shorts: list[dict] = []

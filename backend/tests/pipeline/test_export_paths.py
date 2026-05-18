@@ -6,6 +6,7 @@ from pipeline.export_paths import (
     longform_filename,
     project_downloads_folder,
     project_folder_name,
+    rename_project_exports,
     shortform_filename,
     shortform_video_filename,
 )
@@ -70,3 +71,19 @@ def test_project_downloads_folder_uses_exports_setting(tmp_path, monkeypatch):
 
     assert folder == Path(exports_dir / "[project] Project Name")
     assert folder.is_dir()
+
+
+def test_rename_project_exports_moves_folder_and_title_based_files(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
+    old_folder = project_downloads_folder("Old Project")
+    old_video = old_folder / longform_filename("Video", "Old Project", ".mp4")
+    old_video.write_bytes(b"video")
+    short_video = old_folder / shortform_video_filename("Segment", 1, 2)
+    short_video.write_bytes(b"short")
+
+    new_folder = rename_project_exports("Old Project", "New Project")
+
+    assert new_folder == Path(tmp_path / "Exports" / "[project] New Project")
+    assert not old_folder.exists()
+    assert (new_folder / longform_filename("Video", "New Project", ".mp4")).read_bytes() == b"video"
+    assert (new_folder / shortform_video_filename("Segment", 1, 2)).read_bytes() == b"short"

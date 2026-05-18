@@ -37,6 +37,50 @@ def project_downloads_folder(project_title: str, *, create: bool = True) -> Path
     return folder
 
 
+def rename_project_exports(old_title: str, new_title: str) -> Path:
+    """Move an existing project export folder and title-based filenames to a new title."""
+    old_folder = project_downloads_folder(old_title, create=False)
+    new_folder = project_downloads_folder(new_title, create=False)
+    if old_folder == new_folder:
+        return new_folder
+
+    if old_folder.is_dir():
+        new_folder.parent.mkdir(parents=True, exist_ok=True)
+        if new_folder.exists():
+            for child in old_folder.iterdir():
+                target = new_folder / child.name
+                if child.is_dir():
+                    if target.exists():
+                        shutil.rmtree(target)
+                    shutil.move(str(child), str(target))
+                else:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    os.replace(child, target)
+            try:
+                old_folder.rmdir()
+            except OSError:
+                pass
+        else:
+            old_folder.rename(new_folder)
+
+    if not new_folder.is_dir():
+        return new_folder
+
+    safe_old = sanitize_filename(old_title or "Untitled")
+    safe_new = sanitize_filename(new_title or "Untitled")
+    if safe_old == safe_new:
+        return new_folder
+
+    for child in sorted(new_folder.iterdir(), key=lambda path: path.name):
+        if not child.is_file() or safe_old not in child.name:
+            continue
+        renamed = child.with_name(child.name.replace(safe_old, safe_new))
+        if renamed == child:
+            continue
+        os.replace(child, renamed)
+    return new_folder
+
+
 def export_filename(
     kind: ExportKind,
     asset: ExportAsset,

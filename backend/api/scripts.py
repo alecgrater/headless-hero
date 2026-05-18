@@ -40,9 +40,64 @@ from pipeline.scriptwriter import generate_script
 from pipeline.audio_split import split_scene_audio
 from pipeline.hook_scorer import score_hook
 from pipeline.media_analyzer import analyze_media_sources, apply_assignments
+from pipeline.export_paths import longform_filename, rename_project_exports, shortform_filename
+from pipeline.seo import retitle_short_form_seo_metadata
 from prompts import CHARACTER_SPEC_MD, IMAGE_VISUAL_STYLE
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
+
+
+def _short_item_index(item: dict, fallback_index: int, uses_one_based_indices: bool) -> int:
+    try:
+        raw = int(item.get("index", -1))
+    except (TypeError, ValueError):
+        raw = -1
+    if uses_one_based_indices and raw >= 1:
+        return raw - 1
+    if raw >= 0:
+        return raw
+    return fallback_index
+
+
+def _refresh_exported_seo_files(project_title: str, content: ScriptContent, folder: Path) -> None:
+    """Rewrite exported SEO markdown after title-derived names or titles change."""
+    if not folder.is_dir():
+        return
+
+    from api.render import _format_longform_seo_markdown, _format_shortform_seo_markdown
+
+    if content.seo_metadata:
+        seo_markdown = _format_longform_seo_markdown(content.seo_metadata)
+        if seo_markdown.strip():
+            (folder / longform_filename("SEO", project_title, ".txt")).unlink(missing_ok=True)
+            (folder / longform_filename("SEO", project_title, ".md")).write_text(seo_markdown, encoding="utf-8")
+
+    short_items = (content.short_form_seo_metadata or {}).get("shorts", [])
+    if not isinstance(short_items, list) or not short_items:
+        return
+    parsed_indices: list[int] = []
+    for item in short_items:
+        try:
+            parsed_indices.append(int(item.get("index", -1)))
+        except (AttributeError, TypeError, ValueError):
+            parsed_indices.append(-1)
+    uses_one_based_indices = 1 in parsed_indices
+    total_segments = len(content.segments)
+    for item_idx, item in enumerate(short_items):
+        if not isinstance(item, dict):
+            continue
+        segment_idx = _short_item_index(item, item_idx, uses_one_based_indices)
+        segment_name = (
+            content.segments[segment_idx].name
+            if 0 <= segment_idx < total_segments
+            else f"Short {item.get('index', '?')}"
+        )
+        n = (segment_idx + 1) if 0 <= segment_idx < total_segments else (item_idx + 1)
+        (folder / shortform_filename("SEO", segment_name, ".txt", index=n, total=total_segments)).unlink(missing_ok=True)
+        (folder / shortform_filename("SEO", segment_name, ".md", index=n, total=total_segments)).write_text(
+            _format_shortform_seo_markdown(item),
+            encoding="utf-8",
+        )
 
 
 def _collect_hook_scenes(content: ScriptContent, max_scenes: int = 5, max_seconds: float = 30.0) -> list[Scene]:
@@ -459,12 +514,24 @@ def update_script_title(
         raise HTTPException(status_code=422, detail="Title cannot be blank")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
+    old_title = record.topic_title or content.title or "Untitled"
     content.title = title
+    if content.seo_metadata:
+        youtube = content.seo_metadata.get("youtube")
+        if isinstance(youtube, dict) and str(youtube.get("title", "")).strip() == old_title.strip():
+            youtube["title"] = title
+    content.short_form_seo_metadata = retitle_short_form_seo_metadata(
+        content.short_form_seo_metadata,
+        title,
+        content,
+    )
     record.topic_title = title
     record.script_json = content.model_dump_json()
     session.add(record)
     session.commit()
     session.refresh(record)
+    folder = rename_project_exports(old_title, title)
+    _refresh_exported_seo_files(title, content, folder)
 
     logger.info("Updated script title %s", script_id)
     return ScriptRead(
