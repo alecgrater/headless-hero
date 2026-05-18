@@ -17,6 +17,7 @@ from pipeline.process_manager import register_process, run_tracked, terminate_pr
 logger = logging.getLogger(__name__)
 
 ProgressCallback = Callable[[float, str], None] | None
+CancelCheck = Callable[[], None] | None
 
 # Path to the remotion project at repo root
 REMOTION_DIR = Path(__file__).resolve().parents[2] / "remotion"
@@ -442,6 +443,7 @@ def render_full_video(
     width: int = VIDEO_WIDTH,
     height: int = VIDEO_HEIGHT,
     on_progress: ProgressCallback = None,
+    cancel_check: CancelCheck = None,
     title: str = "",
     speed: float = 1.0,
     brand: dict | None = None,
@@ -453,6 +455,10 @@ def render_full_video(
     scenes = content.all_scenes()
     total = len(scenes)
 
+    def check_cancelled() -> None:
+        if cancel_check:
+            cancel_check()
+
     logger.info(
         "[%s] render_full_video started — %d scenes, speed=%.1fx, title=%r",
         script_id, total, speed, title or content.title,
@@ -462,11 +468,13 @@ def render_full_video(
     from pipeline.modifiers.title_cards import prepare_title_card_scene
     brand_dict = brand or {}
     for i, scene in enumerate(scenes):
+        check_cancelled()
         if on_progress:
             on_progress(0.3 * (i + 1) / total, f"Preparing scene {i + 1}/{total}")
         logger.info("[%s] Preparing scene %d/%d (scene_id=%s)", script_id, i + 1, total, scene.id)
         scenes[i] = prepare_title_card_scene(scene, script_id, brand_dict)
 
+    check_cancelled()
     if on_progress:
         on_progress(0.3, "Building Remotion composition...")
 
@@ -513,6 +521,7 @@ def render_full_video(
 
     props_path = _write_input_props(props, raw_output)
 
+    check_cancelled()
     if on_progress:
         on_progress(0.4, "Rendering video with Remotion...")
 
@@ -533,10 +542,12 @@ def render_full_video(
         )
 
         # Verify Remotion's output is decodable
+        check_cancelled()
         if not _verify_video(raw_output):
             logger.warning("[%s] Raw output corrupt — retrying Remotion render once", script_id)
             if on_progress:
                 on_progress(0.5, "First render corrupt, retrying...")
+            check_cancelled()
             _run_remotion(
                 composition_id="FullVideo",
                 props_path=props_path,
@@ -545,18 +556,21 @@ def render_full_video(
                 height=height,
                 log_level="verbose",
             )
+            check_cancelled()
             if not _verify_video(raw_output):
                 raise RuntimeError(
                     f"Remotion produced corrupt video on both attempts for {script_id}"
                 )
 
         # Re-encode with controlled H.264 settings (keyframes, pixel format, faststart)
+        check_cancelled()
         if on_progress:
             on_progress(0.8, "Re-encoding with proper keyframes...")
         if not _reencode_h264(raw_output, reencode_output):
             raise RuntimeError(f"H.264 re-encode failed for {script_id}")
 
         if needs_speed:
+            check_cancelled()
             if on_progress:
                 on_progress(0.9, f"Applying {speed}x speed...")
             _apply_speed(reencode_output, output_path, speed)

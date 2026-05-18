@@ -489,6 +489,7 @@ def _phase_render(ctx: ExportContext) -> None:
             script_id=ctx.script_id,
             content=first_seg_content,
             on_progress=None,
+            cancel_check=lambda: _check_cancelled(ctx.job.id),
             title="",  # Don't copy to Downloads inside render_full_video — _phase_copy handles it
             speed=1.25,
             brand=ctx.brand_dict,
@@ -580,6 +581,7 @@ def start_full_render(body: RenderFullRequest, session: Session = Depends(get_se
                 width=body.width,
                 height=body.height,
                 on_progress=on_progress,
+                cancel_check=lambda: _check_cancelled(job.id),
                 title=body.title,
                 speed=speed,
                 brand=brand_dict,

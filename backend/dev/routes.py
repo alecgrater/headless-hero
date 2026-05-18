@@ -20,7 +20,7 @@ from dev.log_handler import DevLog, get_broadcast_queue
 from integrations.usage_tracker import estimate_local_llm_savings
 from models.api_usage import ApiUsage
 from pipeline import render_jobs
-from pipeline.process_manager import terminate_all_processes
+from pipeline.process_manager import register_process, terminate_all_processes, unregister_process
 from pipeline.render_jobs import cancel_all_jobs
 
 logger = logging.getLogger(__name__)
@@ -69,6 +69,8 @@ async def launch_electron():
     global _electron_proc
     if _electron_proc is not None and _electron_proc.poll() is None:
         return {"status": "already_running"}
+    if _electron_proc is not None:
+        unregister_process(_electron_proc)
     _electron_proc = subprocess.Popen(
         ["npx", "electron", "."],
         cwd=PROJECT_ROOT,
@@ -76,6 +78,7 @@ async def launch_electron():
         stderr=subprocess.DEVNULL,
         start_new_session=True,
     )
+    register_process(_electron_proc, "Dev dashboard launched Electron")
     return {"status": "launched"}
 
 
