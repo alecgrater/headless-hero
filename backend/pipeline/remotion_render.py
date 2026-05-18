@@ -12,6 +12,7 @@ from typing import Any, Callable
 from config import BACKEND_PORT, DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH
 from models.script import ChapterMarker, Scene, SceneFX, ScriptContent, VideoFX
 from pipeline.export_paths import copy_to_project_downloads, longform_filename
+from pipeline.process_manager import register_process, run_tracked, terminate_process_group, unregister_process
 
 logger = logging.getLogger(__name__)
 
@@ -321,7 +322,9 @@ def _run_remotion(
         text=True,
         cwd=str(REMOTION_DIR),
         env={**os.environ, "NODE_OPTIONS": "--max-old-space-size=4096"},
+        start_new_session=os.name == "posix",
     )
+    register_process(proc, f"Remotion render: {output_path.name}")
 
     try:
         assert proc.stderr is not None
@@ -343,9 +346,10 @@ def _run_remotion(
 
         proc.wait(timeout=3600)
     except subprocess.TimeoutExpired:
-        proc.kill()
-        proc.wait()
+        terminate_process_group(proc, f"Remotion render: {output_path.name}")
         raise RuntimeError("Remotion render timed out after 60 minutes")
+    finally:
+        unregister_process(proc)
 
     elapsed = time.monotonic() - t0
 
@@ -373,7 +377,7 @@ def _apply_speed(input_path: Path, output_path: Path, speed: float) -> None:
         str(output_path),
     ]
     logger.info("Applying speed %.2fx: %s", speed, " ".join(cmd))
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    result = run_tracked(cmd, label=f"FFmpeg speed: {output_path.name}", capture_output=True, timeout=600)
     if result.returncode != 0:
         logger.error("FFmpeg stderr: %s", result.stderr)
         raise RuntimeError(f"FFmpeg speed filter failed (exit {result.returncode}): {result.stderr[-500:]}")
@@ -383,9 +387,10 @@ def _apply_speed(input_path: Path, output_path: Path, speed: float) -> None:
 def _verify_video(video_path: Path) -> bool:
     """Spot-check video integrity by decoding 5 seconds from the middle."""
     try:
-        probe = subprocess.run(
+        probe = run_tracked(
             ["ffprobe", "-v", "error", "-show_entries", "format=duration",
              "-of", "csv=p=0", str(video_path)],
+            label=f"FFprobe verify: {video_path.name}",
             capture_output=True, text=True, timeout=30,
         )
         duration = float(probe.stdout.strip()) if probe.returncode == 0 else 10.0
@@ -400,7 +405,7 @@ def _verify_video(video_path: Path) -> bool:
         "-t", "5",
         "-f", "null", "/dev/null",
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    result = run_tracked(cmd, label=f"FFmpeg verify: {video_path.name}", capture_output=True, timeout=60)
     if result.returncode != 0:
         logger.error("Video verification FAILED: %s", result.stderr[-300:])
         return False
@@ -423,7 +428,7 @@ def _reencode_h264(input_path: Path, output_path: Path) -> bool:
         str(output_path),
     ]
     logger.info("Re-encoding with proper keyframes: %s", " ".join(cmd))
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
+    result = run_tracked(cmd, label=f"FFmpeg re-encode: {output_path.name}", capture_output=True, timeout=3600)
     if result.returncode != 0:
         logger.error("Re-encode failed (exit %d): %s", result.returncode, result.stderr[-500:])
         return False

@@ -484,6 +484,7 @@ def _phase_render(ctx: ExportContext) -> None:
     timer.start()
 
     try:
+        _check_cancelled(ctx.job.id)
         ctx.video_url = render_full_video(
             script_id=ctx.script_id,
             content=first_seg_content,
@@ -496,6 +497,7 @@ def _phase_render(ctx: ExportContext) -> None:
         stop_timer.set()
         timer.join(timeout=2)
 
+    _check_cancelled(ctx.job.id)
     update_job(ctx.job.id, progress=render_end)
     logger.info("[%s] Phase: render — Remotion complete (first segment), output: %s", ctx.script_id, ctx.video_url)
 
@@ -556,6 +558,7 @@ def start_full_render(body: RenderFullRequest, session: Session = Depends(get_se
         timer = threading.Thread(target=_timer_updater, daemon=True)
 
         def on_progress(p: float, msg: str):
+            _check_cancelled(job.id)
             if p >= 0.4 and not timer_started.is_set():
                 # Remotion render phase starting — switch to timer
                 timer_started.set()

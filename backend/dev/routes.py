@@ -20,6 +20,7 @@ from dev.log_handler import DevLog, get_broadcast_queue
 from integrations.usage_tracker import estimate_local_llm_savings
 from models.api_usage import ApiUsage
 from pipeline import render_jobs
+from pipeline.process_manager import terminate_all_processes
 from pipeline.render_jobs import cancel_all_jobs
 
 logger = logging.getLogger(__name__)
@@ -196,10 +197,16 @@ async def get_jobs():
 
 @router.post("/api/kill-all")
 async def kill_all():
-    """Cancel all running render jobs."""
+    """Cancel all running jobs and terminate tracked child processes."""
     render_count = cancel_all_jobs()
-    logger.info("Kill all: cancelled %d render jobs", render_count)
-    return {"cancelled": render_count, "render_jobs": render_count}
+    process_count = terminate_all_processes()
+    total = render_count + process_count
+    logger.warning(
+        "Kill all: cancelled %d render jobs and terminated %d subprocess groups",
+        render_count,
+        process_count,
+    )
+    return {"cancelled": total, "render_jobs": render_count, "processes": process_count}
 
 
 @router.websocket("/ws/logs")
