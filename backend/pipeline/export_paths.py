@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import shutil
@@ -9,6 +10,8 @@ from pathlib import Path
 from typing import Literal
 
 from config import DEFAULT_EXPORTS_DIR, sanitize_filename
+
+logger = logging.getLogger(__name__)
 
 ExportKind = Literal["Longform", "Shortform"]
 ExportAsset = Literal["Thumbnail", "SEO", "Video", "Audio"]
@@ -42,11 +45,13 @@ def rename_project_exports(old_title: str, new_title: str) -> Path:
     old_folder = project_downloads_folder(old_title, create=False)
     new_folder = project_downloads_folder(new_title, create=False)
     if old_folder == new_folder:
+        logger.info("Export project folder already matches title: %s", new_folder)
         return new_folder
 
     if old_folder.is_dir():
         new_folder.parent.mkdir(parents=True, exist_ok=True)
         if new_folder.exists():
+            logger.info("Merging export project folder %s into existing folder %s", old_folder, new_folder)
             for child in old_folder.iterdir():
                 target = new_folder / child.name
                 if child.is_dir():
@@ -54,23 +59,34 @@ def rename_project_exports(old_title: str, new_title: str) -> Path:
                         _merge_directory_non_destructive(child, target)
                     else:
                         shutil.move(str(child), str(target))
+                        logger.info("Moved export directory %s to %s", child, target)
                 else:
                     if not target.exists():
                         target.parent.mkdir(parents=True, exist_ok=True)
                         os.replace(child, target)
+                        logger.info("Moved export file %s to %s", child, target)
+                    else:
+                        logger.info("Skipped export file move because destination exists: %s", target)
             try:
                 old_folder.rmdir()
+                logger.info("Removed empty old export project folder: %s", old_folder)
             except OSError:
+                logger.info("Kept old export project folder because it still has files: %s", old_folder)
                 pass
         else:
             old_folder.rename(new_folder)
+            logger.info("Renamed export project folder %s to %s", old_folder, new_folder)
+    else:
+        logger.info("No existing export project folder to rename: %s", old_folder)
 
     if not new_folder.is_dir():
+        logger.info("New export project folder does not exist after title rename: %s", new_folder)
         return new_folder
 
     safe_old = sanitize_filename(old_title or "Untitled")
     safe_new = sanitize_filename(new_title or "Untitled")
     if safe_old == safe_new:
+        logger.info("Sanitized export title did not change for %s", new_folder)
         return new_folder
 
     for child in sorted(new_folder.iterdir(), key=lambda path: path.name):
@@ -81,6 +97,9 @@ def rename_project_exports(old_title: str, new_title: str) -> Path:
             continue
         if not renamed.exists():
             os.replace(child, renamed)
+            logger.info("Renamed export file %s to %s", child, renamed)
+        else:
+            logger.info("Skipped export file rename because destination exists: %s", renamed)
     return new_folder
 
 
@@ -94,11 +113,17 @@ def _merge_directory_non_destructive(src: Path, dest: Path) -> None:
                 _merge_directory_non_destructive(child, target)
             else:
                 shutil.move(str(child), str(target))
+                logger.info("Moved export directory %s to %s", child, target)
         elif not target.exists():
             os.replace(child, target)
+            logger.info("Moved export file %s to %s", child, target)
+        else:
+            logger.info("Skipped export file move because destination exists: %s", target)
     try:
         src.rmdir()
+        logger.info("Removed empty merged export directory: %s", src)
     except OSError:
+        logger.info("Kept merged export directory because it still has files: %s", src)
         pass
 
 

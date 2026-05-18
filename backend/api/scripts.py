@@ -62,6 +62,7 @@ def _short_item_index(item: dict, fallback_index: int, uses_one_based_indices: b
 def _refresh_exported_seo_files(project_title: str, content: ScriptContent, folder: Path) -> None:
     """Rewrite exported SEO markdown after title-derived names or titles change."""
     if not folder.is_dir():
+        logger.info("Skipped exported SEO refresh because project folder is missing: %s", folder)
         return
 
     from api.render import _format_longform_seo_markdown, _format_shortform_seo_markdown
@@ -70,10 +71,15 @@ def _refresh_exported_seo_files(project_title: str, content: ScriptContent, fold
         seo_markdown = _format_longform_seo_markdown(content.seo_metadata)
         if seo_markdown.strip():
             (folder / longform_filename("SEO", project_title, ".txt")).unlink(missing_ok=True)
-            (folder / longform_filename("SEO", project_title, ".md")).write_text(seo_markdown, encoding="utf-8")
+            dest = folder / longform_filename("SEO", project_title, ".md")
+            dest.write_text(seo_markdown, encoding="utf-8")
+            logger.info("Refreshed exported long-form SEO markdown: %s", dest)
+    else:
+        logger.info("Skipped exported long-form SEO refresh because metadata is missing")
 
     short_items = (content.short_form_seo_metadata or {}).get("shorts", [])
     if not isinstance(short_items, list) or not short_items:
+        logger.info("Skipped exported short-form SEO refresh because metadata is missing")
         return
     parsed_indices: list[int] = []
     for item in short_items:
@@ -94,10 +100,12 @@ def _refresh_exported_seo_files(project_title: str, content: ScriptContent, fold
         )
         n = (segment_idx + 1) if 0 <= segment_idx < total_segments else (item_idx + 1)
         (folder / shortform_filename("SEO", segment_name, ".txt", index=n, total=total_segments)).unlink(missing_ok=True)
-        (folder / shortform_filename("SEO", segment_name, ".md", index=n, total=total_segments)).write_text(
+        dest = folder / shortform_filename("SEO", segment_name, ".md", index=n, total=total_segments)
+        dest.write_text(
             _format_shortform_seo_markdown(item),
             encoding="utf-8",
         )
+        logger.info("Refreshed exported short-form SEO markdown: %s", dest)
 
 
 def _collect_hook_scenes(content: ScriptContent, max_scenes: int = 5, max_seconds: float = 30.0) -> list[Scene]:
@@ -515,16 +523,27 @@ def update_script_title(
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
     old_title = record.topic_title or content.title or "Untitled"
+    logger.info("Updating script title for %s from %r to %r", script_id, old_title, title)
     content.title = title
     if content.seo_metadata:
         youtube = content.seo_metadata.get("youtube")
         if isinstance(youtube, dict) and str(youtube.get("title", "")).strip() == old_title.strip():
             youtube["title"] = title
+            logger.info("Retitled stored long-form SEO title for script %s", script_id)
+        else:
+            logger.info("Kept stored long-form SEO title for script %s because it was custom", script_id)
+    else:
+        logger.info("No stored long-form SEO metadata to retitle for script %s", script_id)
+    short_count = len((content.short_form_seo_metadata or {}).get("shorts", []))
     content.short_form_seo_metadata = retitle_short_form_seo_metadata(
         content.short_form_seo_metadata,
         title,
         content,
     )
+    if short_count:
+        logger.info("Retitled stored short-form SEO titles for %d shorts in script %s", short_count, script_id)
+    else:
+        logger.info("No stored short-form SEO metadata to retitle for script %s", script_id)
     folder = rename_project_exports(old_title, title)
     _refresh_exported_seo_files(title, content, folder)
     record.topic_title = title
@@ -533,7 +552,7 @@ def update_script_title(
     session.commit()
     session.refresh(record)
 
-    logger.info("Updated script title %s", script_id)
+    logger.info("Updated script title %s and persisted title rename actions", script_id)
     return ScriptRead(
         id=record.id,
         brand_id=record.brand_id,

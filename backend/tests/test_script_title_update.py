@@ -59,8 +59,9 @@ def test_update_script_title_updates_record_and_script_json(tmp_path):
     assert json.loads(stored.script_json)["title"] == "New Title"
 
 
-def test_update_script_title_renames_existing_exports_and_short_seo(tmp_path, monkeypatch):
+def test_update_script_title_renames_existing_exports_and_short_seo(tmp_path, monkeypatch, caplog):
     monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
+    caplog.set_level("INFO")
     engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
     SQLModel.metadata.create_all(engine)
     content = ScriptContent(
@@ -115,6 +116,12 @@ def test_update_script_title_renames_existing_exports_and_short_seo(tmp_path, mo
     assert "New Title - First" in (
         new_folder / shortform_filename("SEO", "First", ".md", index=1, total=2)
     ).read_text(encoding="utf-8")
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("Updating script title for script-1 from 'Old Title' to 'New Title'" in msg for msg in messages)
+    assert any("Renamed export project folder" in msg for msg in messages)
+    assert any("Renamed export file" in msg and "New Title.mp4" in msg for msg in messages)
+    assert any("Retitled stored short-form SEO titles for 2 shorts" in msg for msg in messages)
+    assert any("Refreshed exported short-form SEO markdown" in msg for msg in messages)
 
 
 def test_update_script_title_rejects_blank_after_trim(tmp_path):
