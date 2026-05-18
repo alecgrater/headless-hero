@@ -40,9 +40,9 @@ def project_downloads_folder(project_title: str, *, create: bool = True) -> Path
     return folder
 
 
-def rename_project_exports(old_title: str, new_title: str) -> Path:
+def rename_project_exports(old_title: str, new_title: str, *, source_folder: Path | None = None) -> Path:
     """Move an existing project export folder and title-based filenames to a new title."""
-    old_folder = project_downloads_folder(old_title, create=False)
+    old_folder = source_folder or project_downloads_folder(old_title, create=False)
     new_folder = project_downloads_folder(new_title, create=False)
     if old_folder == new_folder:
         logger.info("Export project folder already matches title: %s", new_folder)

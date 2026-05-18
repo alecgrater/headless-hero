@@ -40,7 +40,15 @@ from pipeline.scriptwriter import generate_script
 from pipeline.audio_split import split_scene_audio
 from pipeline.hook_scorer import score_hook
 from pipeline.media_analyzer import analyze_media_sources, apply_assignments
-from pipeline.export_paths import longform_filename, project_downloads_folder, rename_project_exports, shortform_filename
+from pipeline.export_paths import (
+    downloads_base,
+    has_export_label,
+    longform_filename,
+    project_downloads_folder,
+    rename_project_exports,
+    shortform_filename,
+    shortform_video_filename,
+)
 from pipeline.seo import retitle_short_form_seo_metadata
 from prompts import CHARACTER_SPEC_MD, IMAGE_VISUAL_STYLE
 
@@ -106,6 +114,96 @@ def _refresh_exported_seo_files(project_title: str, content: ScriptContent, fold
             encoding="utf-8",
         )
         logger.info("Refreshed exported short-form SEO markdown: %s", dest)
+
+
+def _normalize_exported_longform_filenames(project_title: str, folder: Path) -> None:
+    """Retitle long-form export filenames inside a known project folder."""
+    if not folder.is_dir():
+        logger.info("Skipped long-form export filename normalization because project folder is missing: %s", folder)
+        return
+
+    for file in sorted(folder.iterdir(), key=lambda path: path.name):
+        if not file.is_file():
+            continue
+        for asset in ("Video", "Thumbnail", "SEO"):
+            if not has_export_label(file.name, "Longform", asset):
+                continue
+            dest = folder / longform_filename(asset, project_title, file.suffix)
+            if file == dest:
+                break
+            if dest.exists():
+                if asset == "SEO":
+                    file.unlink()
+                    logger.info("Removed stale exported long-form SEO filename after title rename: %s", file)
+                else:
+                    logger.info("Skipped long-form export filename rename because destination exists: %s", dest)
+                break
+            file.rename(dest)
+            logger.info("Renamed long-form export file %s to %s", file, dest)
+            break
+
+
+def _exports_folder_score(folder: Path, content: ScriptContent) -> int:
+    """Score how confidently a project export folder belongs to this script."""
+    if not folder.is_dir():
+        return 0
+
+    score = 0
+    total = len(content.segments)
+    for idx, segment in enumerate(content.segments):
+        n = idx + 1
+        if (folder / shortform_video_filename(segment.name, n, total)).is_file():
+            score += 6
+        if (folder / shortform_filename("Thumbnail", segment.name, ".png", index=n, total=total)).is_file():
+            score += 3
+        if (folder / shortform_filename("SEO", segment.name, ".md", index=n, total=total)).is_file():
+            score += 2
+
+    for file in folder.iterdir():
+        if not file.is_file():
+            continue
+        if has_export_label(file.name, "Longform", "Video"):
+            score += 5
+        elif has_export_label(file.name, "Longform", "Thumbnail"):
+            score += 3
+        elif has_export_label(file.name, "Longform", "SEO"):
+            score += 2
+    return score
+
+
+def _find_exports_folder_for_title_rename(old_title: str, new_title: str, content: ScriptContent) -> Path | None:
+    """Find existing exports even when a previous title edit left the folder under an older title."""
+    old_folder = project_downloads_folder(old_title, create=False)
+    if old_folder.is_dir():
+        return old_folder
+
+    new_folder = project_downloads_folder(new_title, create=False)
+    if new_folder.is_dir() and _exports_folder_score(new_folder, content) > 0:
+        return new_folder
+
+    base = downloads_base()
+    if not base.is_dir():
+        logger.info("Exports base does not exist while searching for title rename folder: %s", base)
+        return None
+
+    candidates: list[tuple[int, Path]] = []
+    for folder in base.glob("[[]project[]] *"):
+        score = _exports_folder_score(folder, content)
+        if score > 0:
+            candidates.append((score, folder))
+
+    if not candidates:
+        logger.info("No content-matching export folder found for title rename from %r to %r", old_title, new_title)
+        return None
+
+    candidates.sort(key=lambda item: (item[0], item[1].stat().st_mtime), reverse=True)
+    best_score, best_folder = candidates[0]
+    logger.info(
+        "Discovered export project folder for title rename by matching script assets: %s (score=%d)",
+        best_folder,
+        best_score,
+    )
+    return best_folder
 
 
 def _collect_hook_scenes(content: ScriptContent, max_scenes: int = 5, max_seconds: float = 30.0) -> list[Scene]:
@@ -246,7 +344,14 @@ def ensure_script_exports_folder(script_id: str, session: Session = Depends(get_
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
     title = record.topic_title or content.title or "Untitled"
-    folder = project_downloads_folder(title, create=True)
+    source_folder = _find_exports_folder_for_title_rename(title, title, content)
+    folder = (
+        rename_project_exports(title, title, source_folder=source_folder)
+        if source_folder
+        else project_downloads_folder(title, create=True)
+    )
+    _normalize_exported_longform_filenames(title, folder)
+    _refresh_exported_seo_files(title, content, folder)
     return ScriptExportsFolderResponse(folder_path=str(folder))
 
 
@@ -560,7 +665,9 @@ def update_script_title(
         logger.info("Retitled stored short-form SEO titles for %d shorts in script %s", short_count, script_id)
     else:
         logger.info("No stored short-form SEO metadata to retitle for script %s", script_id)
-    folder = rename_project_exports(old_title, title)
+    source_folder = _find_exports_folder_for_title_rename(old_title, title, content)
+    folder = rename_project_exports(old_title, title, source_folder=source_folder)
+    _normalize_exported_longform_filenames(title, folder)
     _refresh_exported_seo_files(title, content, folder)
     record.topic_title = title
     record.script_json = content.model_dump_json()

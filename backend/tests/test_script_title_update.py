@@ -86,6 +86,46 @@ def test_ensure_script_exports_folder_uses_topic_title_and_creates_folder(tmp_pa
     assert folder.is_dir()
 
 
+def test_ensure_script_exports_folder_repairs_discovered_export_folder(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
+    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    SQLModel.metadata.create_all(engine)
+    content = ScriptContent(
+        title="New Title",
+        short_form_seo_metadata={
+            "shorts": [
+                {"index": 1, "title": "New Title - First", "description": "First desc", "hashtags": [], "tags": []},
+            ]
+        },
+        segments=[
+            Segment(name="First", scenes=[Scene(id="scene-1", narration="One.", visual_prompt="Visual.")]),
+        ],
+    )
+    old_folder = project_downloads_folder("Much Older Title")
+    (old_folder / shortform_video_filename("First", 1, 1)).write_bytes(b"short")
+    (old_folder / longform_filename("Video", "Much Older Title", ".mp4")).write_bytes(b"video")
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id="script-1",
+                brand_id="brand-1",
+                topic_title="New Title",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        response = ensure_script_exports_folder("script-1", session)
+
+    new_folder = tmp_path / "Exports" / "[project] New Title"
+    assert response.folder_path == str(new_folder)
+    assert not old_folder.exists()
+    assert (new_folder / shortform_video_filename("First", 1, 1)).read_bytes() == b"short"
+    assert (new_folder / longform_filename("Video", "New Title", ".mp4")).read_bytes() == b"video"
+    assert (new_folder / shortform_filename("SEO", "First", ".md", index=1, total=1)).is_file()
+
+
 def test_update_script_title_renames_existing_exports_and_short_seo(tmp_path, monkeypatch, caplog):
     monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
     caplog.set_level("INFO")
@@ -149,6 +189,55 @@ def test_update_script_title_renames_existing_exports_and_short_seo(tmp_path, mo
     assert any("Renamed export file" in msg and "New Title.mp4" in msg for msg in messages)
     assert any("Retitled stored short-form SEO titles for 2 shorts" in msg for msg in messages)
     assert any("Refreshed exported short-form SEO markdown" in msg for msg in messages)
+
+
+def test_update_script_title_renames_discovered_exports_when_exact_old_folder_missing(tmp_path, monkeypatch, caplog):
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
+    caplog.set_level("INFO")
+    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    SQLModel.metadata.create_all(engine)
+    content = ScriptContent(
+        title="Current Title BOOP",
+        short_form_seo_metadata={
+            "shorts": [
+                {"index": 1, "title": "Current Title BOOP - First", "description": "First desc", "hashtags": [], "tags": []},
+                {"index": 2, "title": "Current Title BOOP - Second", "description": "Second desc", "hashtags": [], "tags": []},
+            ]
+        },
+        segments=[
+            Segment(name="First", scenes=[Scene(id="scene-1", narration="One.", visual_prompt="Visual.")]),
+            Segment(name="Second", scenes=[Scene(id="scene-2", narration="Two.", visual_prompt="Visual.")]),
+        ],
+    )
+    discovered_folder = project_downloads_folder("Much Older Export Title")
+    (discovered_folder / shortform_video_filename("First", 1, 2)).write_bytes(b"first")
+    (discovered_folder / shortform_video_filename("Second", 2, 2)).write_bytes(b"second")
+    (discovered_folder / longform_filename("Video", "Much Older Export Title", ".mp4")).write_bytes(b"video")
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id="script-1",
+                brand_id="brand-1",
+                topic_title="Current Title BOOP",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        update_script_title(
+            "script-1",
+            UpdateScriptTitleRequest(title="Current Title"),
+            session,
+        )
+
+    new_folder = project_downloads_folder("Current Title", create=False)
+    assert not discovered_folder.exists()
+    assert (new_folder / shortform_video_filename("First", 1, 2)).read_bytes() == b"first"
+    assert (new_folder / shortform_video_filename("Second", 2, 2)).read_bytes() == b"second"
+    assert (new_folder / longform_filename("Video", "Current Title", ".mp4")).read_bytes() == b"video"
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("Discovered export project folder for title rename" in msg for msg in messages)
 
 
 def test_update_script_title_rejects_blank_after_trim(tmp_path):
