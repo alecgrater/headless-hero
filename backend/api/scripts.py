@@ -40,7 +40,7 @@ from pipeline.scriptwriter import generate_script
 from pipeline.audio_split import split_scene_audio
 from pipeline.hook_scorer import score_hook
 from pipeline.media_analyzer import analyze_media_sources, apply_assignments
-from pipeline.export_paths import longform_filename, rename_project_exports, shortform_filename
+from pipeline.export_paths import longform_filename, project_downloads_folder, rename_project_exports, shortform_filename
 from pipeline.seo import retitle_short_form_seo_metadata
 from prompts import CHARACTER_SPEC_MD, IMAGE_VISUAL_STYLE
 
@@ -232,6 +232,22 @@ class SetUploadTrackingRequest(BaseModel):
     shortform_youtube: bool | None = None
     shortform_instagram: bool | None = None
     shortform_tiktok: bool | None = None
+
+
+class ScriptExportsFolderResponse(BaseModel):
+    folder_path: str
+
+
+@router.post("/{script_id}/exports-folder", response_model=ScriptExportsFolderResponse)
+def ensure_script_exports_folder(script_id: str, session: Session = Depends(get_session)):
+    record = session.get(Script, script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    content = ScriptContent.model_validate(json.loads(record.script_json))
+    title = record.topic_title or content.title or "Untitled"
+    folder = project_downloads_folder(title, create=True)
+    return ScriptExportsFolderResponse(folder_path=str(folder))
 
 
 @router.get("/{script_id}/upload-tracking", response_model=UploadTracking)

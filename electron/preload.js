@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld("api", {
 
   // Reveal a file/folder in Finder/Explorer
   showItemInFolder: (fullPath) => ipcRenderer.invoke("show-item-in-folder", fullPath),
+  openPath: (fullPath) => ipcRenderer.invoke("open-path", fullPath),
 
   // File download via native save dialog
   downloadFile: (url, defaultFilename) =>

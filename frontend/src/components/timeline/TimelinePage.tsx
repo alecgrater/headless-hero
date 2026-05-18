@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import api, {
   assetUrl,
+  ensureScriptExportsFolder,
   exportLongFormSEO,
   exportLongFormThumbnail,
   exportShortFormSEO,
@@ -31,6 +32,7 @@ import api, {
   getShortFormThumbnailsStatus,
   getUploadSuiteStatus,
   getUploadTracking,
+  openPath,
   pollEliJob,
   pollFXJob,
   pollShortFormJob,
@@ -914,6 +916,45 @@ function UploadButton({
   );
 }
 
+function FinderIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
+      <rect x="4" y="5" width="24" height="22" rx="5" fill="#5bbcff" />
+      <path d="M16 5h7a5 5 0 0 1 5 5v12a5 5 0 0 1-5 5h-7V5Z" fill="#1d7ff2" />
+      <path d="M16 7v18" stroke="#0b1630" strokeWidth="1.5" strokeLinecap="round" opacity="0.65" />
+      <path d="M10 12v3" stroke="#0b1630" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M22 12v3" stroke="#0b1630" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M10 21c2.8 1.8 8.9 1.8 12 0" stroke="#0b1630" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+    </svg>
+  );
+}
+
+function OpenExportsButton({
+  opening,
+  onOpen,
+}: {
+  opening: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <Tooltip content="Open exports folder in Finder">
+      <button
+        type="button"
+        onClick={onOpen}
+        disabled={opening}
+        className="ml-auto inline-flex h-7 w-9 shrink-0 items-center justify-center rounded-md border border-neutral-700/60 bg-neutral-800/80 text-neutral-300 transition-colors hover:border-neutral-600 hover:bg-neutral-700/80 disabled:cursor-wait disabled:opacity-60"
+        title="Open exports folder in Finder"
+      >
+        {opening ? (
+          <span className="h-4 w-4 rounded-full border-2 border-sky-300/70 border-t-transparent animate-spin" />
+        ) : (
+          <FinderIcon />
+        )}
+      </button>
+    </Tooltip>
+  );
+}
+
 function ViewerSwitchRow({
   format,
   asset,
@@ -1257,6 +1298,7 @@ function TimelineEditor({
   const [showUpload, setShowUpload] = useState(false);
   const [uploadSuite, setUploadSuite] = useState<UploadSuiteStatus | null>(null);
   const [uploadSuiteChecking, setUploadSuiteChecking] = useState(false);
+  const [exportsFolderOpening, setExportsFolderOpening] = useState(false);
 
   const openUploadPanel = useCallback(async () => {
     if (uploadSuiteChecking) return;
@@ -1277,6 +1319,20 @@ function TimelineEditor({
       setUploadSuiteChecking(false);
     }
   }, [scriptId, uploadSuiteChecking]);
+
+  const handleOpenExportsFolder = useCallback(async () => {
+    if (exportsFolderOpening) return;
+    setExportsFolderOpening(true);
+    try {
+      const { folder_path } = await ensureScriptExportsFolder(scriptId);
+      await openPath(folder_path);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Failed to open exports folder");
+    } finally {
+      setExportsFolderOpening(false);
+    }
+  }, [exportsFolderOpening, scriptId]);
+
   const [showVoiceSetup, setShowVoiceSetup] = useState(false);
   const [pendingAudioAction, setPendingAudioAction] = useState<"all" | string | null>(null);
   const [generatingFX, setGeneratingFX] = useState(false);
@@ -2632,6 +2688,13 @@ function TimelineEditor({
                 key="distribution"
                 tracking={uploadTracking}
                 onClick={() => setShowDistributionTracking(true)}
+              />
+            );
+            statItems.push(
+              <OpenExportsButton
+                key="exports-folder"
+                opening={exportsFolderOpening}
+                onOpen={() => void handleOpenExportsFolder()}
               />
             );
 

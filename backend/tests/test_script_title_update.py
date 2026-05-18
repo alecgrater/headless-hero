@@ -4,7 +4,7 @@ import pytest
 from fastapi import HTTPException
 from sqlmodel import Session, SQLModel, create_engine
 
-from api.scripts import update_script, update_script_title
+from api.scripts import ensure_script_exports_folder, update_script, update_script_title
 from models.script import (
     Scene,
     Script,
@@ -57,6 +57,33 @@ def test_update_script_title_updates_record_and_script_json(tmp_path):
     assert stored is not None
     assert stored.topic_title == "New Title"
     assert json.loads(stored.script_json)["title"] == "New Title"
+
+
+def test_ensure_script_exports_folder_uses_topic_title_and_creates_folder(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
+    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    SQLModel.metadata.create_all(engine)
+    content = ScriptContent(
+        title="Stale JSON Title",
+        segments=[Segment(name="Segment", scenes=[Scene(id="scene-1", narration="One.", visual_prompt="Visual.")])],
+    )
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id="script-1",
+                brand_id="brand-1",
+                topic_title="Canonical Project",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        response = ensure_script_exports_folder("script-1", session)
+
+    folder = tmp_path / "Exports" / "[project] Canonical Project"
+    assert response.folder_path == str(folder)
+    assert folder.is_dir()
 
 
 def test_update_script_title_renames_existing_exports_and_short_seo(tmp_path, monkeypatch, caplog):

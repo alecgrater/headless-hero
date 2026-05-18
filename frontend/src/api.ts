@@ -21,6 +21,7 @@ interface ApiClient {
   saveToDownloads?: (url: string, folderName: string, filename: string) => Promise<{ filePath: string }>;
   selectFolder?: (title?: string, defaultPath?: string) => Promise<{ canceled: boolean; path?: string }>;
   showItemInFolder?: (fullPath: string) => Promise<void>;
+  openPath?: (fullPath: string) => Promise<void>;
 }
 
 declare global {
@@ -112,6 +113,7 @@ const api: ApiClient = {
   openExternal: rawApi.openExternal,
   openUploadShortsWindows: rawApi.openUploadShortsWindows,
   openYouTubeUploadWindow: rawApi.openYouTubeUploadWindow,
+  openPath: rawApi.openPath,
 };
 
 export default api;
@@ -425,6 +427,26 @@ export function showInFolder(fullPath: string): void {
   if (window.api?.showItemInFolder) {
     window.api.showItemInFolder(fullPath);
   }
+}
+
+/** Open a file or folder with the OS default app (Electron only). */
+export async function openPath(fullPath: string): Promise<void> {
+  if (!window.api?.openPath) {
+    showToast("Opening folders is only available in the desktop app");
+    return;
+  }
+  await window.api.openPath(fullPath);
+}
+
+export interface ScriptExportsFolderResponse {
+  folder_path: string;
+}
+
+/** Ensure the project's exports folder exists and return its absolute path. */
+export async function ensureScriptExportsFolder(scriptId: string): Promise<ScriptExportsFolderResponse> {
+  const res = await api.post(`/api/scripts/${encodeURIComponent(scriptId)}/exports-folder`);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to open exports folder");
+  return res.data as ScriptExportsFolderResponse;
 }
 
 export interface ExportTestOptions {

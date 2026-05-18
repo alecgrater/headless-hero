@@ -230,6 +230,12 @@ ipcMain.handle("open-youtube-upload-window", () => openUploadWindow(YOUTUBE_LONG
 // IPC: reveal a file or folder in Finder / Explorer
 ipcMain.handle("show-item-in-folder", (_event, fullPath) => shell.showItemInFolder(fullPath));
 
+// IPC: open a file or folder with the operating system default app
+ipcMain.handle("open-path", async (_event, fullPath) => {
+  const error = await shell.openPath(fullPath);
+  if (error) throw new Error(error);
+});
+
 // IPC: open a native folder picker and return the selected path
 ipcMain.handle("select-folder", async (_event, { title, defaultPath }) => {
   const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
