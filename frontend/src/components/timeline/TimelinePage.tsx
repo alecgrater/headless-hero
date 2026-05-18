@@ -937,21 +937,23 @@ function OpenExportsButton({
   onOpen: () => void;
 }) {
   return (
-    <Tooltip content="Open exports folder in Finder">
-      <button
-        type="button"
-        onClick={onOpen}
-        disabled={opening}
-        className="ml-auto inline-flex h-7 w-9 shrink-0 items-center justify-center rounded-md border border-neutral-700/60 bg-neutral-800/80 text-neutral-300 transition-colors hover:border-neutral-600 hover:bg-neutral-700/80 disabled:cursor-wait disabled:opacity-60"
-        title="Open exports folder in Finder"
-      >
-        {opening ? (
-          <span className="h-4 w-4 rounded-full border-2 border-sky-300/70 border-t-transparent animate-spin" />
-        ) : (
-          <FinderIcon />
-        )}
-      </button>
-    </Tooltip>
+    <div className="ml-auto inline-flex shrink-0">
+      <Tooltip content="Open exports folder in Finder">
+        <button
+          type="button"
+          onClick={onOpen}
+          disabled={opening}
+          className="inline-flex h-7 w-9 items-center justify-center rounded-md border border-neutral-700/60 bg-neutral-800/80 text-neutral-300 transition-colors hover:border-neutral-600 hover:bg-neutral-700/80 disabled:cursor-wait disabled:opacity-60"
+          title="Open exports folder in Finder"
+        >
+          {opening ? (
+            <span className="h-4 w-4 rounded-full border-2 border-sky-300/70 border-t-transparent animate-spin" />
+          ) : (
+            <FinderIcon />
+          )}
+        </button>
+      </Tooltip>
+    </div>
   );
 }
 
