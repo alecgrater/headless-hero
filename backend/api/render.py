@@ -943,10 +943,12 @@ def start_scene_preview(body: RenderScenePreviewRequest, session: Session = Depe
         timer.start()
 
         try:
+            _check_cancelled(job.id)
             video_url = render_full_video(
                 script_id=body.script_id,
                 content=single_scene_content,
                 on_progress=None,
+                cancel_check=lambda: _check_cancelled(job.id),
                 title="",
                 brand=brand_dict,
             )
@@ -954,6 +956,7 @@ def start_scene_preview(body: RenderScenePreviewRequest, session: Session = Depe
             stop_timer.set()
             timer.join(timeout=2)
 
+        _check_cancelled(job.id)
         return video_url
 
     run_in_background(job.id, do_render)
