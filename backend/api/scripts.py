@@ -148,17 +148,21 @@ def _exports_folder_score(folder: Path, content: ScriptContent) -> int:
     if not folder.is_dir():
         return 0
 
-    score = 0
+    short_asset_score = 0
     total = len(content.segments)
     for idx, segment in enumerate(content.segments):
         n = idx + 1
         if (folder / shortform_video_filename(segment.name, n, total)).is_file():
-            score += 6
+            short_asset_score += 6
         if (folder / shortform_filename("Thumbnail", segment.name, ".png", index=n, total=total)).is_file():
-            score += 3
+            short_asset_score += 3
         if (folder / shortform_filename("SEO", segment.name, ".md", index=n, total=total)).is_file():
-            score += 2
+            short_asset_score += 2
 
+    if short_asset_score == 0:
+        return 0
+
+    score = short_asset_score
     for file in folder.iterdir():
         if not file.is_file():
             continue

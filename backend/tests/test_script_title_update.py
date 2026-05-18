@@ -240,6 +240,46 @@ def test_update_script_title_renames_discovered_exports_when_exact_old_folder_mi
     assert any("Discovered export project folder for title rename" in msg for msg in messages)
 
 
+def test_update_script_title_does_not_discover_unrelated_longform_only_folder(tmp_path, monkeypatch, caplog):
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
+    caplog.set_level("INFO")
+    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    SQLModel.metadata.create_all(engine)
+    content = ScriptContent(
+        title="Current Title BOOP",
+        segments=[
+            Segment(name="First", scenes=[Scene(id="scene-1", narration="One.", visual_prompt="Visual.")]),
+        ],
+    )
+    unrelated_folder = project_downloads_folder("Unrelated Project")
+    (unrelated_folder / longform_filename("Video", "Unrelated Project", ".mp4")).write_bytes(b"video")
+    (unrelated_folder / longform_filename("Thumbnail", "Unrelated Project", ".png")).write_bytes(b"thumb")
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id="script-1",
+                brand_id="brand-1",
+                topic_title="Current Title BOOP",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        update_script_title(
+            "script-1",
+            UpdateScriptTitleRequest(title="Current Title"),
+            session,
+        )
+
+    new_folder = project_downloads_folder("Current Title", create=False)
+    assert unrelated_folder.exists()
+    assert not new_folder.exists()
+    assert (unrelated_folder / longform_filename("Video", "Unrelated Project", ".mp4")).read_bytes() == b"video"
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("No content-matching export folder found" in msg for msg in messages)
+
+
 def test_update_script_title_rejects_blank_after_trim(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
     SQLModel.metadata.create_all(engine)
