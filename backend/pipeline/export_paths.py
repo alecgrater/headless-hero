@@ -51,11 +51,13 @@ def rename_project_exports(old_title: str, new_title: str) -> Path:
                 target = new_folder / child.name
                 if child.is_dir():
                     if target.exists():
-                        shutil.rmtree(target)
-                    shutil.move(str(child), str(target))
+                        _merge_directory_non_destructive(child, target)
+                    else:
+                        shutil.move(str(child), str(target))
                 else:
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    os.replace(child, target)
+                    if not target.exists():
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        os.replace(child, target)
             try:
                 old_folder.rmdir()
             except OSError:
@@ -77,8 +79,27 @@ def rename_project_exports(old_title: str, new_title: str) -> Path:
         renamed = child.with_name(child.name.replace(safe_old, safe_new))
         if renamed == child:
             continue
-        os.replace(child, renamed)
+        if not renamed.exists():
+            os.replace(child, renamed)
     return new_folder
+
+
+def _merge_directory_non_destructive(src: Path, dest: Path) -> None:
+    """Move files from src into dest without replacing existing destination paths."""
+    dest.mkdir(parents=True, exist_ok=True)
+    for child in src.iterdir():
+        target = dest / child.name
+        if child.is_dir():
+            if target.exists():
+                _merge_directory_non_destructive(child, target)
+            else:
+                shutil.move(str(child), str(target))
+        elif not target.exists():
+            os.replace(child, target)
+    try:
+        src.rmdir()
+    except OSError:
+        pass
 
 
 def export_filename(

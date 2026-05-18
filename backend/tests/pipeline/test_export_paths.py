@@ -87,3 +87,22 @@ def test_rename_project_exports_moves_folder_and_title_based_files(tmp_path, mon
     assert not old_folder.exists()
     assert (new_folder / longform_filename("Video", "New Project", ".mp4")).read_bytes() == b"video"
     assert (new_folder / shortform_video_filename("Segment", 1, 2)).read_bytes() == b"short"
+
+
+def test_rename_project_exports_does_not_overwrite_existing_destination_files(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
+    old_folder = project_downloads_folder("Old Project")
+    new_folder = project_downloads_folder("New Project")
+    shared_name = shortform_video_filename("Segment", 1, 2)
+    (old_folder / shared_name).write_bytes(b"old")
+    (new_folder / shared_name).write_bytes(b"new")
+    old_title_file = old_folder / longform_filename("Video", "Old Project", ".mp4")
+    old_title_file.write_bytes(b"video")
+
+    result = rename_project_exports("Old Project", "New Project")
+
+    assert result == new_folder
+    assert (new_folder / shared_name).read_bytes() == b"new"
+    assert (new_folder / longform_filename("Video", "New Project", ".mp4")).read_bytes() == b"video"
+    assert old_folder.is_dir()
+    assert (old_folder / shared_name).read_bytes() == b"old"

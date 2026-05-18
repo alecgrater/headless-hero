@@ -525,13 +525,13 @@ def update_script_title(
         title,
         content,
     )
+    folder = rename_project_exports(old_title, title)
+    _refresh_exported_seo_files(title, content, folder)
     record.topic_title = title
     record.script_json = content.model_dump_json()
     session.add(record)
     session.commit()
     session.refresh(record)
-    folder = rename_project_exports(old_title, title)
-    _refresh_exported_seo_files(title, content, folder)
 
     logger.info("Updated script title %s", script_id)
     return ScriptRead(
