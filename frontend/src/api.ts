@@ -932,11 +932,32 @@ export interface UploadSuiteStatus {
   shorts: UploadSuiteShort[];
 }
 
+export interface ExportFileCategoryStatus {
+  label: string;
+  exported: number;
+  total: number;
+}
+
+export interface ExportFileStatus {
+  project_title: string;
+  folder_path: string;
+  exported: number;
+  total: number;
+  categories: Record<string, ExportFileCategoryStatus>;
+}
+
 /** Fetch the exported upload suite metadata used by the manual upload modal. */
 export async function getUploadSuiteStatus(scriptId: string): Promise<UploadSuiteStatus> {
   const res = await api.get(`/api/upload-suite/status?script_id=${encodeURIComponent(scriptId)}`);
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to check upload suite");
   return res.data as UploadSuiteStatus;
+}
+
+/** Count actual exported project files in the configured export folder. */
+export async function getExportFileStatus(scriptId: string): Promise<ExportFileStatus> {
+  const res = await api.get(`/api/upload-suite/export-status?script_id=${encodeURIComponent(scriptId)}`);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to check export files");
+  return res.data as ExportFileStatus;
 }
 
 /** Copy all rendered short-form videos into the project's Downloads folder. */

@@ -2682,7 +2682,6 @@ function TimelineEditor({
                 key="short-form"
                 scriptId={scriptId}
                 segmentCount={state.content.segments.length}
-                onClick={() => void openUploadPanel()}
               />
             );
             statItems.push(

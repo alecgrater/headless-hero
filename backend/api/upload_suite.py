@@ -44,6 +44,20 @@ class UploadSuiteStatusResponse(BaseModel):
     shorts: list[ShortUploadSuiteItem]
 
 
+class ExportFileCategoryStatus(BaseModel):
+    label: str
+    exported: int
+    total: int
+
+
+class ExportFileStatusResponse(BaseModel):
+    project_title: str
+    folder_path: str
+    exported: int
+    total: int
+    categories: dict[str, ExportFileCategoryStatus]
+
+
 def _load_script(session: Session, script_id: str) -> tuple[Script, ScriptContent]:
     record = session.get(Script, script_id)
     if not record:
@@ -122,6 +136,109 @@ def _longform_thumbnail_path(script_id: str) -> Path | None:
     if composite.is_file():
         return composite
     return None
+
+
+def _count_labeled_files(folder: Path, kind: str, asset: str, extension: str, total: int) -> int:
+    if total <= 0 or not folder.is_dir():
+        return 0
+    count = sum(
+        1
+        for file in folder.iterdir()
+        if file.is_file()
+        and file.suffix.lower() == extension
+        and has_export_label(file.name, kind, asset)
+    )
+    return min(count, total)
+
+
+def _count_expected_files(folder: Path, expected_files: list[str], kind: str, asset: str, extension: str) -> int:
+    if not folder.is_dir():
+        return 0
+    exact_count = sum(1 for filename in expected_files if (folder / filename).is_file())
+    labeled_count = _count_labeled_files(folder, kind, asset, extension, len(expected_files))
+    return max(exact_count, labeled_count)
+
+
+@router.get("/export-status", response_model=ExportFileStatusResponse)
+def export_file_status(script_id: str, session: Session = Depends(get_session)):
+    """Count exported project files by category in the configured export folder."""
+    record, content = _load_script(session, script_id)
+    project_title = record.topic_title or content.title or "Untitled"
+    folder = project_downloads_folder(project_title, create=False)
+    total_segments = len(content.segments)
+
+    expected_short_videos = [
+        shortform_video_filename(segment.name, idx + 1, total_segments)
+        for idx, segment in enumerate(content.segments)
+    ]
+    expected_short_thumbnails = [
+        shortform_filename("Thumbnail", segment.name, ".png", index=idx + 1, total=total_segments)
+        for idx, segment in enumerate(content.segments)
+    ]
+    expected_short_seo = [
+        shortform_filename("SEO", segment.name, ".md", index=idx + 1, total=total_segments)
+        for idx, segment in enumerate(content.segments)
+    ]
+
+    categories = {
+        "longform_video": ExportFileCategoryStatus(
+            label="Long form video",
+            exported=_count_expected_files(
+                folder,
+                [longform_filename("Video", project_title, ".mp4")],
+                "Longform",
+                "Video",
+                ".mp4",
+            ),
+            total=1,
+        ),
+        "longform_thumbnail": ExportFileCategoryStatus(
+            label="Long form thumbnail",
+            exported=_count_expected_files(
+                folder,
+                [longform_filename("Thumbnail", project_title, ".png")],
+                "Longform",
+                "Thumbnail",
+                ".png",
+            ),
+            total=1,
+        ),
+        "longform_seo": ExportFileCategoryStatus(
+            label="Long form SEO",
+            exported=_count_expected_files(
+                folder,
+                [longform_filename("SEO", project_title, ".md")],
+                "Longform",
+                "SEO",
+                ".md",
+            ),
+            total=1,
+        ),
+        "shortform_videos": ExportFileCategoryStatus(
+            label="Short form videos",
+            exported=_count_expected_files(folder, expected_short_videos, "Shortform", "Video", ".mp4"),
+            total=total_segments,
+        ),
+        "shortform_thumbnails": ExportFileCategoryStatus(
+            label="Short form thumbnails",
+            exported=_count_expected_files(folder, expected_short_thumbnails, "Shortform", "Thumbnail", ".png"),
+            total=total_segments,
+        ),
+        "shortform_seo": ExportFileCategoryStatus(
+            label="Short form SEO",
+            exported=_count_expected_files(folder, expected_short_seo, "Shortform", "SEO", ".md"),
+            total=total_segments,
+        ),
+    }
+    exported = sum(category.exported for category in categories.values())
+    total = sum(category.total for category in categories.values())
+    return ExportFileStatusResponse(
+        project_title=project_title,
+        folder_path=str(folder),
+        exported=exported,
+        total=total,
+        categories=categories,
+    )
 
 
 @router.get("/status", response_model=UploadSuiteStatusResponse)
