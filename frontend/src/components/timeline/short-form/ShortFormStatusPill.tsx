@@ -13,31 +13,31 @@ export default function ShortFormStatusPill({
   const [status, setStatus] = useState<ExportFileStatus | null>(null);
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const latestScriptIdRef = useRef(scriptId);
+  const requestSeqRef = useRef(0);
+
+  useEffect(() => {
+    latestScriptIdRef.current = scriptId;
+    setStatus(null);
+  }, [scriptId]);
 
   const refresh = useCallback(async () => {
+    const requestedScriptId = scriptId;
+    const requestId = requestSeqRef.current + 1;
+    requestSeqRef.current = requestId;
     try {
-      const nextStatus = await getExportFileStatus(scriptId);
+      const nextStatus = await getExportFileStatus(requestedScriptId);
+      if (requestSeqRef.current !== requestId || latestScriptIdRef.current !== requestedScriptId) return;
       setStatus(nextStatus);
     } catch {
+      if (requestSeqRef.current !== requestId || latestScriptIdRef.current !== requestedScriptId) return;
       setStatus(null);
     }
   }, [scriptId]);
 
   useEffect(() => {
-    let cancelled = false;
-    async function probe() {
-      try {
-        const nextStatus = await getExportFileStatus(scriptId);
-        if (!cancelled) setStatus(nextStatus);
-      } catch {
-        if (!cancelled) setStatus(null);
-      }
-    }
-    probe();
-    return () => {
-      cancelled = true;
-    };
-  }, [scriptId, segmentCount]);
+    void refresh();
+  }, [refresh, segmentCount]);
 
   useEffect(() => {
     if (!open) return;

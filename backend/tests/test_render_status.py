@@ -1,6 +1,7 @@
 from api import render as render_api
+from api import upload_suite as upload_suite_api
 from models.script import Scene, Script, ScriptContent, Segment
-from pipeline.export_paths import longform_filename, project_downloads_folder
+from pipeline.export_paths import longform_filename, project_downloads_folder, shortform_filename, shortform_video_filename
 from sqlmodel import Session, SQLModel, create_engine
 
 
@@ -148,3 +149,55 @@ def test_export_bundle_does_not_include_standalone_audio_file(tmp_path, monkeypa
     assert not stale_audio.exists()
     assert not (renders / "full_audio.mp3").exists()
     assert (folder / longform_filename("Video", project_title, ".mp4")).exists()
+
+
+def test_export_file_status_counts_only_project_export_files(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
+    monkeypatch.setattr(upload_suite_api, "DATA_DIR", tmp_path)
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    SQLModel.metadata.create_all(engine)
+
+    script_id = "script-123"
+    project_title = "Project Name"
+    content = ScriptContent(
+        title=project_title,
+        segments=[
+            Segment(name="First Segment", scenes=[]),
+            Segment(name="Second Segment", scenes=[]),
+        ],
+    )
+
+    folder = project_downloads_folder(project_title)
+    (folder / longform_filename("Video", project_title, ".mp4")).write_bytes(b"video")
+    (folder / longform_filename("SEO", project_title, ".md")).write_text("seo", encoding="utf-8")
+    (folder / shortform_video_filename("First Segment", 1, 2)).write_bytes(b"short")
+    (folder / shortform_filename("Thumbnail", "First Segment", ".png", index=1, total=2)).write_bytes(b"thumb")
+    (folder / shortform_filename("SEO", "Second Segment", ".md", index=2, total=2)).write_text("seo", encoding="utf-8")
+
+    cache = tmp_path / "projects" / script_id / "renders" / "shorts"
+    cache.mkdir(parents=True)
+    (cache / "1.mp4").write_bytes(b"cached short should not count")
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand-1",
+                topic_title=project_title,
+                topic_description="",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        result = upload_suite_api.export_file_status(script_id, session=session)
+
+    assert result.exported == 5
+    assert result.total == 9
+    assert result.categories["longform_video"].exported == 1
+    assert result.categories["longform_thumbnail"].exported == 0
+    assert result.categories["longform_seo"].exported == 1
+    assert result.categories["shortform_videos"].exported == 1
+    assert result.categories["shortform_thumbnails"].exported == 1
+    assert result.categories["shortform_seo"].exported == 1
