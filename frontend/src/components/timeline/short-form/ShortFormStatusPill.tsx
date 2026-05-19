@@ -15,9 +15,9 @@ export default function ShortFormStatusPill({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const latestScriptIdRef = useRef(scriptId);
   const requestSeqRef = useRef(0);
+  latestScriptIdRef.current = scriptId;
 
   useEffect(() => {
-    latestScriptIdRef.current = scriptId;
     setStatus(null);
   }, [scriptId]);
 
