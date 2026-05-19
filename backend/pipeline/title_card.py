@@ -20,6 +20,12 @@ from pipeline.title_card_composer import compose_title_card
 logger = logging.getLogger(__name__)
 
 
+def _setting_enabled(value: str | None, default: bool = True) -> bool:
+    if value is None or value == "":
+        return default
+    return value.strip().lower() not in {"0", "false", "no", "off"}
+
+
 def ensure_title_card_images(
     script_id: str,
     content: ScriptContent,
@@ -205,6 +211,7 @@ def ensure_title_card_images(
             base_image_path=base_path,
             video_title=card_title,
             script_id=script_id,
+            include_arrow=_setting_enabled(os.environ.get("LONGFORM_THUMBNAIL_ARROW_ENABLED"), default=True),
         )
         if enhanced_path:
             shutil.copy2(enhanced_path, str(composite_path))
