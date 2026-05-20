@@ -16,6 +16,7 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 from config import DATA_DIR
 from models.script import ScriptContent
 from pipeline.export_paths import project_downloads_folder, shortform_filename
+from pipeline.formats import resolve_format
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +41,17 @@ def _thumbs_dir(script_id: str) -> Path:
     return d
 
 
-def _source_image_path(script_id: str, segment_idx: int) -> Path:
-    return DATA_DIR / "projects" / script_id / "images" / f"title_card_{segment_idx}.png"
+def _source_image_path(script_id: str, segment_idx: int, content: ScriptContent) -> Path:
+    """Resolve the per-segment source image path per the script's format.
+
+    composite-grid (youtube-listicle): images/title_card_{idx}.png
+    cinematic-chapters (life-as-a): images/chapter_{idx + 1}.png
+    """
+    images_dir = DATA_DIR / "projects" / script_id / "images"
+    fmt = resolve_format(content.format_id)
+    if fmt.title_card_strategy.kind == "cinematic-chapters":
+        return images_dir / f"chapter_{segment_idx + 1}.png"
+    return images_dir / f"title_card_{segment_idx}.png"
 
 
 def _web_url(script_id: str, segment_idx: int) -> str:
@@ -179,7 +189,7 @@ def generate_short_thumbnail(
     if segment_idx < 0 or segment_idx >= len(content.segments):
         raise RuntimeError(f"segment_idx {segment_idx} out of range")
 
-    src_path = _source_image_path(script_id, segment_idx)
+    src_path = _source_image_path(script_id, segment_idx, content)
     if not src_path.exists():
         raise RuntimeError(
             f"Title-card image missing for segment {segment_idx + 1}. Generate title card images first."

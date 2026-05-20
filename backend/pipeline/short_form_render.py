@@ -41,17 +41,28 @@ def _shorts_dir(script_id: str) -> Path:
     return d
 
 
-def _title_card_backdrop_url(script_id: str, segment_idx: int) -> str:
+def _title_card_backdrop_url(script_id: str, segment_idx: int, content: ScriptContent) -> str:
     """Web-served URL for the per-segment square illustration used as title-card backdrop.
+
+    Resolves the filename per the script's title-card strategy:
+      - composite-grid: title_card_{idx}.png
+      - cinematic-chapters: chapter_{idx + 1}.png
 
     Returns "" if the file does not exist on disk; the Remotion component falls back
     to a black background in that case.
     """
+    from pipeline.formats import resolve_format
+
     base = DATA_DIR / "projects" / script_id / "images"
-    p = base / f"title_card_{segment_idx}.png"
+    fmt = resolve_format(content.format_id)
+    if fmt.title_card_strategy.kind == "cinematic-chapters":
+        filename = f"chapter_{segment_idx + 1}.png"
+    else:
+        filename = f"title_card_{segment_idx}.png"
+    p = base / filename
     if not p.exists():
         return ""
-    return f"http://localhost:{BACKEND_PORT}/static/projects/{script_id}/images/title_card_{segment_idx}.png"
+    return f"http://localhost:{BACKEND_PORT}/static/projects/{script_id}/images/{filename}"
 
 
 def _short_filename(segment_name: str, n: int, total: int) -> str:
@@ -149,7 +160,7 @@ def render_short_segment(
             logger.info("[%s] short #1: skipping %d hook scene(s)", script_id, skip)
             scenes_to_render = [scenes_to_render[0]] + scenes_to_render[1 + skip:]
 
-    backdrop_url = _title_card_backdrop_url(script_id, segment_idx)
+    backdrop_url = _title_card_backdrop_url(script_id, segment_idx, content)
     scene_props = _build_segment_scene_props(scenes_to_render, script_id, backdrop_url)
 
     props = {
