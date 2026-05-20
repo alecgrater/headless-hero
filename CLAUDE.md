@@ -29,7 +29,13 @@
 6. Only after **LGTM** — surface a single summary to the user: what was built, what the review caught (briefly), and what was fixed.
 
 **Why Agent instead of /review**: The `/review` skill produces visible text output, which causes Claude to treat the review as a completed turn and stop. The Agent tool returns results as invisible tool output, allowing the loop to continue uninterrupted.
- 
+
+**This rule is non-negotiable**: every code change — no matter how small — must end with (a) a commit on `main`, (b) a push to remote `main`, and (c) at least one subagent code review that returns **LGTM**. There is no "I'll review it myself" exception and no "this is too small to review" exception. If you wrote or edited code, run the loop.
+
+### Worktree-Driven Development
+
+Worktree-driven development (via `superpowers:using-git-worktrees` or manual `git worktree add`) is allowed and encouraged for isolated feature work. **However, the auto-commit rule still applies at the end:** the worktree branch MUST be merged back into `main`, and `main` MUST be pushed to remote with the subagent review loop run against the merge commit (or the squashed commit on `main`). A worktree is not "done" until its changes live on remote `main` and have passed a subagent review. Do not leave worktree branches hanging — finish the integration in the same session.
+
 ## Project Overview
 
 AI-powered Electron desktop app for creating faceless educational YouTube content. Full pipeline: idea → script → visuals → voice → video → publish.
