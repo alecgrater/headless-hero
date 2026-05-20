@@ -20,6 +20,9 @@ backend/data/
 # Superpowers brainstorm sessions
 .superpowers/
 
+# Claude worktrees
+.claude/worktrees/
+
 # Test scratch files
 test.html
 test.js
