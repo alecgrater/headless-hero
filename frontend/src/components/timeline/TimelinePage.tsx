@@ -1941,13 +1941,6 @@ function TimelineEditor({
   // Combined Export (LF render + SF renders)
   const lfRenderDone = render.youtubeUrl != null;
   const lfRendering = render.youtubeStatus?.status === "running" || render.youtubeStatus?.status === "pending";
-
-  // Mirror youtubeStatus into a ref so the combined Export task can wait on
-  // useRenderState's existing internal poller instead of double-polling.
-  const youtubeStatusRef = useRef(render.youtubeStatus);
-  useEffect(() => {
-    youtubeStatusRef.current = render.youtubeStatus;
-  }, [render.youtubeStatus]);
   const allExportsDone = lfRenderDone && (segmentCount === 0 || sfRendersDone);
   const hasExistingExports = lfRenderDone || sfRenderCount > 0;
   const missingExportCount = (lfRenderDone ? 0 : 1) + sfRenderMissingCount;
@@ -2188,16 +2181,18 @@ function TimelineEditor({
           if (indices.length > 0) {
             const { job_id } = await generateShortFormThumbnailsBatch(scriptId, indices);
             await pollShortFormJob(job_id, (status) => {
+              if (isCancelled()) return;
               if (typeof status.progress === "number") setProductionProgress(status.progress);
             });
-            await refreshShortFormThumbnailStatus();
+            if (!isCancelled()) await refreshShortFormThumbnailStatus();
           }
         } else {
           const { job_id } = await generateShortFormThumbnailsAll(scriptId);
           await pollShortFormJob(job_id, (status) => {
+            if (isCancelled()) return;
             if (typeof status.progress === "number") setProductionProgress(status.progress);
           });
-          await refreshShortFormThumbnailStatus();
+          if (!isCancelled()) await refreshShortFormThumbnailStatus();
         }
       }
 
@@ -2222,10 +2217,12 @@ function TimelineEditor({
   };
 
   const cancelThumbnailsCombined = () => {
+    // Flips both refs so any in-flight phase observes cancel.
+    // - titleCardCancelledRef: checked between phases
+    // - thumbnailsCancelledRef: checked inside handleRecompositeThumbnailInline (phase 3)
     titleCardCancelledRef.current = true;
     thumbnailsCancelledRef.current = true;
     setTitleCardGenerating(false);
-    setThumbnailsInlineGenerating(false);
   };
 
   // Combined SEO handler — runs LF SEO + SF SEO + auto-export markdown
@@ -2272,14 +2269,17 @@ function TimelineEditor({
       if (!missingOnly || !lfRenderDone) {
         const jobId = await render.startYoutubeRender();
         if (jobId) {
-          // useRenderState already polls /api/render/status and updates
-          // youtubeStatus + youtubeUrl. Wait on that ref instead of running
-          // a second pollRenderJob against the same endpoint.
+          // Poll the new jobId directly. Avoids relying on youtubeStatusRef,
+          // which can read a stale "completed"/"failed" status from a prior
+          // run before useRenderState's effect commits the reset.
           for (;;) {
-            const status = youtubeStatusRef.current;
-            if (status?.status === "completed") break;
-            if (status?.status === "failed") {
-              throw new Error(status.error ?? "Long-form render failed");
+            const res = await api.get(`/api/render/status/${jobId}`);
+            if (res.ok) {
+              const status = res.data as { status: string; error?: string };
+              if (status.status === "completed") break;
+              if (status.status === "failed") {
+                throw new Error(status.error ?? "Long-form render failed");
+              }
             }
             await new Promise((r) => setTimeout(r, 1500));
           }
