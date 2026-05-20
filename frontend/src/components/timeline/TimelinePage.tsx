@@ -2587,8 +2587,17 @@ function TimelineEditor({
     thumbnailsCancelledRef.current = false;
     setThumbnailsInlineGenerating(true);
     try {
-      if (state.content.format_id && state.content.format_id !== "youtube-listicle") {
-        // Non-composite-grid formats reuse the cinematic thumbnail produced at
+      if (state.content.format_id === "life-as-a") {
+        // life-as-a uses the split-progression Gemini call — re-roll and regenerate.
+        const res = await api.post("/api/thumbnail/regenerate-split-progression", {
+          script_id: scriptId,
+        });
+        if (res.ok && !thumbnailsCancelledRef.current) {
+          const data = res.data as { concepts: ThumbnailConcept[] };
+          setThumbnailsInline(data.concepts);
+        }
+      } else if (state.content.format_id && state.content.format_id !== "youtube-listicle") {
+        // Other non-composite-grid formats reuse the cinematic thumbnail produced at
         // title-card generation time; just refresh the existing thumbnail URL.
         const res = await api.get(`/api/thumbnail/${scriptId}`);
         if (res.ok && !thumbnailsCancelledRef.current) {
