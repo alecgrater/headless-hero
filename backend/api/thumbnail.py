@@ -18,6 +18,8 @@ from pipeline.title_card_composer import compose_title_card
 
 logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/thumbnail", tags=["thumbnail"])
 
 
@@ -152,4 +154,89 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
 
     return GenerateThumbnailResponse(
         concepts=[ThumbnailConceptResult(idx=0, title_text=card_title, visual_description="Gemini-enhanced title card", image_url=url)]
+    )
+
+
+class RegenerateSplitProgressionRequest(BaseModel):
+    script_id: str
+
+
+@router.post("/regenerate-split-progression", response_model=GenerateThumbnailResponse)
+def regenerate_split_progression(
+    body: RegenerateSplitProgressionRequest,
+    session: Session = Depends(get_session),
+):
+    """Re-roll the level pair and re-run the split-progression Gemini call only.
+
+    Does NOT regenerate chapter images or the cinematic clean image. Reuses both.
+    Used by the Timeline/Modal "Regenerate Thumbnail" button for life-as-a projects.
+    """
+    record = session.get(Script, body.script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    content = ScriptContent.model_validate(json.loads(record.script_json))
+
+    from pipeline.formats import resolve_format
+    fmt = resolve_format(content.format_id)
+    if fmt.title_card_strategy.kind != "cinematic-chapters":
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Split-progression regeneration is only available for cinematic-chapters "
+                f"formats. This script uses {content.format_id!r}."
+            ),
+        )
+
+    from pipeline.formats.title_cards.cinematic_chapters import _thumbnail_paths
+    from pipeline.thumbnail import (
+        _pick_level_pair,
+        _write_level_pair_sidecar,
+        enhance_split_progression,
+    )
+
+    clean_path, final_path, sidecar_path = _thumbnail_paths(body.script_id)
+    if not clean_path.exists():
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Cinematic clean image is missing. Run title card generation first."
+            ),
+        )
+
+    n_levels = len(content.levels) if content.levels else 0
+    if n_levels < 2:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Need at least 2 levels for a split-progression thumbnail; got {n_levels}."
+            ),
+        )
+
+    # Always re-roll on explicit regenerate (overwrites sidecar).
+    left_level, right_level = _pick_level_pair(n_levels)
+    _write_level_pair_sidecar(sidecar_path, left_level, right_level)
+
+    # Force-regenerate the final thumbnail via Gemini.
+    enhance_split_progression(
+        clean_image_path=clean_path,
+        output_path=final_path,
+        left_level=left_level,
+        right_level=right_level,
+        script_id=body.script_id,
+        force=True,
+    )
+
+    url = get_composite_thumbnail(body.script_id)
+    if url is None:
+        # Defensive — enhance_split_progression always writes final_path (with fallback to clean copy).
+        raise HTTPException(status_code=500, detail="Thumbnail file missing after regeneration")
+
+    return GenerateThumbnailResponse(
+        concepts=[ThumbnailConceptResult(
+            idx=0,
+            title_text=content.title or "",
+            visual_description="Split-progression thumbnail",
+            image_url=url,
+        )]
     )

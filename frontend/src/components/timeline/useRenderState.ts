@@ -169,9 +169,17 @@ export function useRenderState(
       setThumbnailsGenerating(true);
       thumbnailProgressHook.start();
       try {
-        if (formatId && formatId !== "youtube-listicle") {
-          // Cinematic-chapters and other non-composite formats produce their
-          // thumbnail at title-card generation time; just refresh from disk.
+        if (formatId === "life-as-a") {
+          // life-as-a uses the split-progression Gemini call — re-roll and regenerate.
+          const res = await api.post("/api/thumbnail/regenerate-split-progression", {
+            script_id: scriptId,
+          });
+          if (res.ok) {
+            const data = res.data as GenerateThumbnailResponse;
+            setThumbnails(data.concepts);
+          }
+        } else if (formatId && formatId !== "youtube-listicle") {
+          // Other non-composite formats: just refresh from disk.
           const res = await api.get(`/api/thumbnail/${scriptId}`);
           if (res.ok) {
             const data = res.data as GenerateThumbnailResponse;
