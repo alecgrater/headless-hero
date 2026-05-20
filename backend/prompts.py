@@ -1716,13 +1716,19 @@ LAYOUT RULES
 
 2. Use a NEAR-VERTICAL DIAGONAL DIVIDER, only slightly slanted.
 - The line should run from roughly the top-right area down to the bottom-left area.
-- The slant should be SUBTLE — closer to vertical than to 45 degrees. Steep, not dramatic.
+- The slant should be SUBTLE — tilted only about 10-20 degrees from vertical (i.e. roughly 70-80 degrees from horizontal). Almost upright, with just a hint of lean. NOT a 45-degree slash.
 - DIVIDER STYLING — STRICT, CONSISTENT ACROSS ALL THUMBNAILS: render the divider as a THICK GLOWING LIGHT BEAM in bright cyan/electric-blue, like a lightsaber or neon laser. The beam has a bright white-cyan core and a bold outer glow halo that softly bleeds into the surrounding image. It should feel luminous and energetic — NOT a thin gold pen line, NOT a dim outline. Use this exact cyan/blue light-beam style on every thumbnail. This is a recognizable brand element.
 
 3. SUBJECT FRAMING — CRITICAL:
 - Position the focal subject (person, face, hands, key prop) of each side AWAY from the diagonal divider so each subject is fully visible and uncropped on its respective side.
 - Do NOT let the divider bisect a person's body, face, or head. If the source image's subject would otherwise sit on the divider line, shift the subject toward the outer edge of its side so the divider passes behind/beside it, not through it.
 - Each side's subject must read clearly at small thumbnail sizes.
+
+3a. CHARACTER CONTINUITY — CRITICAL:
+- The thumbnail shows the SAME character at two different stages of the same topic. The person on the left side and the person on the right side must look like the SAME individual: same face, same hair, same body type, same defining features. Only their clothing, expression, posture, and surroundings change to communicate the stage difference.
+- Show EXACTLY ONE character per side. The total number of fully-visible characters in the thumbnail is exactly two — one on the left, one on the right.
+- Do NOT keep the source image's original character in their original position AND add new characters on each side. If the source has a character, that character becomes the figure on ONE of the two sides; the other side shows the same character at a different stage.
+- Do NOT duplicate the character (no twin in the background). Do NOT add a third person near the divider, in the kitchen, behind the counter, or in any background area. Background extras (blurry diners far away, silhouettes) are acceptable only if they are clearly anonymous secondary figures and clearly not the protagonist.
 
 4. Each side must have its own label:
 - Left side: "LEVEL {left_level}"
