@@ -13,9 +13,12 @@ file mtime, so callers that mutate those fields must call
 file's mtime is included in `latest_source_mtime`.
 """
 
+import logging
 from pathlib import Path
 
 from config import DATA_DIR
+
+logger = logging.getLogger(__name__)
 
 _MARKER_FILENAME = ".render_inputs_mtime"
 
@@ -29,10 +32,17 @@ def mark_render_inputs_changed(script_id: str) -> None:
 
     Touches a marker file whose mtime is included in `latest_source_mtime`,
     so cached MP4s older than the change are treated as stale.
+
+    Failures (read-only filesystem, etc.) are logged and swallowed so the
+    surrounding HTTP/job handler can still report success — a missed
+    invalidation is preferable to a 500 after a successful DB commit.
     """
     marker = _marker_path(script_id)
-    marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.touch()
+    try:
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.touch()
+    except OSError as exc:
+        logger.warning("Failed to mark render inputs changed for %s: %s", script_id, exc)
 
 
 def latest_source_mtime(script_id: str) -> float | None:
@@ -74,9 +84,6 @@ def is_render_up_to_date(render_path: Path, script_id: str) -> bool:
     or script-blob change marker has been modified after the render was
     written. Missing renders return False; projects with no source files
     return True (nothing can be stale).
-
-    Uses `>=` so a render written in the same second as a source is treated
-    as fresh — important on filesystems with second-level mtime resolution.
     """
     if not render_path.is_file():
         return False

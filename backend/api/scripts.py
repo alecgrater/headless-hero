@@ -35,6 +35,7 @@ from models.script import (
 )
 from models.publish import PublishRecord
 from pipeline.refine import refine_scene
+from pipeline.render_cache import mark_render_inputs_changed
 from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
 from pipeline.scriptwriter import generate_script
 from pipeline.audio_split import split_scene_audio
@@ -621,6 +622,7 @@ def update_script(script_id: str, body: UpdateScriptRequest, session: Session = 
     session.add(record)
     session.commit()
     session.refresh(record)
+    mark_render_inputs_changed(script_id)
 
     logger.info("Updated script %s", script_id)
     return ScriptRead(
@@ -678,6 +680,7 @@ def update_script_title(
     session.add(record)
     session.commit()
     session.refresh(record)
+    mark_render_inputs_changed(script_id)
 
     logger.info("Updated script title %s and persisted title rename actions", script_id)
     return ScriptRead(

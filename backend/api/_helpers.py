@@ -5,6 +5,7 @@ import json
 from sqlmodel import Session
 
 from models.script import Scene, Script, ScriptContent
+from pipeline.render_cache import mark_render_inputs_changed
 
 
 def update_scene(
@@ -24,6 +25,7 @@ def update_scene(
     record.script_json = content.model_dump_json()
     session.add(record)
     session.commit()
+    mark_render_inputs_changed(script_id)
 
 
 def find_scene_in_content(content: ScriptContent, scene_id: str) -> Scene:
