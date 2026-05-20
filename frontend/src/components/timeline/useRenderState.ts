@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import api, {
   exportShortFormThumbnails,
+  exportShortFormVideos,
   getRenderedLongformStatus,
   getRenderedShortsStatus,
   pollRenderJob,
@@ -352,6 +353,11 @@ export function useRenderState(
 
         setExportStatus({ label: "Generating and exporting short-form thumbnails...", progress: 0.75 });
         await exportShortFormThumbnails(scriptId);
+
+        if (segmentCount > 0) {
+          setExportStatus({ label: "Copying short-form videos to Downloads...", progress: 0.82 });
+          await exportShortFormVideos(scriptId);
+        }
 
         setExportStatus({ label: "Building final export bundle with video, thumbnails, and SEO...", progress: 0.88 });
         const res = await api.post("/api/render/export-bundle", {
