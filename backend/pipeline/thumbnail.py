@@ -4,6 +4,7 @@ When the title_cards modifier is active and a composite title card exists,
 it is used directly as the thumbnail.
 """
 
+import json
 import logging
 import os
 import random
@@ -43,6 +44,27 @@ def _pick_level_pair(n_levels: int) -> tuple[int, int]:
 
     # Defensive fallback — should not be reached for n >= 2.
     return (1, n_levels)
+
+
+def _write_level_pair_sidecar(path: Path, left_level: int, right_level: int) -> None:
+    """Persist the chosen level pair next to the thumbnail."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"left_level": left_level, "right_level": right_level}))
+
+
+def _read_level_pair_sidecar(path: Path) -> tuple[int, int] | None:
+    """Read a previously-persisted level pair. Returns None if missing/corrupt/incomplete."""
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    left = data.get("left_level")
+    right = data.get("right_level")
+    if not isinstance(left, int) or not isinstance(right, int):
+        return None
+    return (left, right)
 
 
 def _cache_bust(url: str, file_path: str) -> str:

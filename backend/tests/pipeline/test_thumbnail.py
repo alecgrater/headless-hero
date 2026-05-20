@@ -1,10 +1,12 @@
 """Tests for long-form thumbnail helpers."""
 
+import json
+
 import pytest
 from PIL import Image
 
 from pipeline import thumbnail
-from pipeline.thumbnail import _pick_level_pair
+from pipeline.thumbnail import _pick_level_pair, _read_level_pair_sidecar, _write_level_pair_sidecar
 
 
 def test_gemini_thumbnail_prompt_forbids_arrows(tmp_path, monkeypatch):
@@ -79,3 +81,26 @@ def test_pick_level_pair_one_level_raises():
 def test_pick_level_pair_zero_raises():
     with pytest.raises(ValueError):
         _pick_level_pair(0)
+
+
+def test_write_and_read_level_pair_sidecar(tmp_path):
+    sidecar = tmp_path / "thumb.levels.json"
+    _write_level_pair_sidecar(sidecar, 1, 4)
+    assert _read_level_pair_sidecar(sidecar) == (1, 4)
+
+
+def test_read_level_pair_sidecar_missing_returns_none(tmp_path):
+    sidecar = tmp_path / "missing.json"
+    assert _read_level_pair_sidecar(sidecar) is None
+
+
+def test_read_level_pair_sidecar_corrupt_returns_none(tmp_path):
+    sidecar = tmp_path / "corrupt.json"
+    sidecar.write_text("not json {{{")
+    assert _read_level_pair_sidecar(sidecar) is None
+
+
+def test_read_level_pair_sidecar_missing_keys_returns_none(tmp_path):
+    sidecar = tmp_path / "partial.json"
+    sidecar.write_text(json.dumps({"left_level": 1}))
+    assert _read_level_pair_sidecar(sidecar) is None
