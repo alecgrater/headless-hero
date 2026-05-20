@@ -34,7 +34,7 @@ def _pick_level_pair(n_levels: int) -> tuple[int, int]:
     left_choices = [n for n in (1, 2) if n <= n_levels]
     right_choices = [n for n in (n_levels - 1, n_levels) if n >= 1]
 
-    # Re-roll until left < right (always terminates fast — at least one valid pair exists for n >= 2).
+    # Re-roll until left < right (always terminates fast — at least one valid pair exists for n >= 3).
     for _ in range(20):
         left = random.choice(left_choices)
         right = random.choice(right_choices)

@@ -1,8 +1,10 @@
 """Tests for long-form thumbnail helpers."""
 
+import pytest
 from PIL import Image
 
 from pipeline import thumbnail
+from pipeline.thumbnail import _pick_level_pair
 
 
 def test_gemini_thumbnail_prompt_forbids_arrows(tmp_path, monkeypatch):
@@ -30,11 +32,6 @@ def test_gemini_thumbnail_prompt_forbids_arrows(tmp_path, monkeypatch):
 
     assert result == str(tmp_path / "enhanced.png")
     assert "DO NOT add any arrow" in captured["prompt"]
-
-
-import pytest
-
-from pipeline.thumbnail import _pick_level_pair
 
 
 def test_pick_level_pair_two_levels_is_deterministic():
