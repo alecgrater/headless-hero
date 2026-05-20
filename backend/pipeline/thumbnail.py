@@ -16,6 +16,35 @@ from prompts import IMAGE_CTR_EXPRESSION_GUIDANCE
 logger = logging.getLogger(__name__)
 
 
+def _pick_level_pair(n_levels: int) -> tuple[int, int]:
+    """Pick (left_level, right_level) for split-progression thumbnail labels.
+
+    - left_level chosen from {1, 2}, clamped to ≤ n_levels.
+    - right_level chosen from {n_levels - 1, n_levels}, clamped to ≥ 1.
+    - Constraint: left_level < right_level (re-roll if violated).
+
+    Raises ValueError if n_levels < 2 (no valid pair exists).
+    """
+    if n_levels < 2:
+        raise ValueError(f"_pick_level_pair requires n_levels >= 2, got {n_levels}")
+
+    if n_levels == 2:
+        return (1, 2)
+
+    left_choices = [n for n in (1, 2) if n <= n_levels]
+    right_choices = [n for n in (n_levels - 1, n_levels) if n >= 1]
+
+    # Re-roll until left < right (always terminates fast — at least one valid pair exists for n >= 2).
+    for _ in range(20):
+        left = random.choice(left_choices)
+        right = random.choice(right_choices)
+        if left < right:
+            return (left, right)
+
+    # Defensive fallback — should not be reached for n >= 2.
+    return (1, n_levels)
+
+
 def _cache_bust(url: str, file_path: str) -> str:
     """Append file mtime as query param to bust browser cache."""
     try:
