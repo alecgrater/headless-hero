@@ -68,6 +68,11 @@ export interface ChapterMapData {
   circles: ChapterCircle[];
 }
 
+export interface ChapterOverlay {
+  level_number: number;
+  descriptor: string;
+}
+
 // --- Scene / Composition types ---
 
 export type Orientation = "horizontal" | "vertical";
@@ -111,6 +116,9 @@ export interface SceneInput {
   // Multi-source media
   media_type?: "image" | "video";
   video_path?: string | null;
+
+  // Cinematic-chapters chapter title overlay
+  chapter_overlay?: ChapterOverlay | null;
 }
 
 export interface SegmentInput {

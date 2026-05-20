@@ -174,6 +174,10 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
     if eli_overlay and scene.contains_person:
         eli_overlay = {**eli_overlay, "enabled": False}
 
+    # Cinematic-chapters chapter overlay (sourced from visual_source_metadata)
+    metadata = scene.visual_source_metadata or {}
+    chapter_overlay = metadata.get("chapter_overlay")
+
     return {
         "id": scene.id,
         "narration": scene.narration,
@@ -196,6 +200,7 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
         "transition_in": scene.transition_in if scene.transition_in != "cut" else None,
         "media_type": media_type if media_type != "image" else None,
         "video_path": video_path,
+        "chapter_overlay": chapter_overlay,
     }
 
 
