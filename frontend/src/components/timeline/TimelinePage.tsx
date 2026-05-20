@@ -35,6 +35,7 @@ import api, {
   openPath,
   pollEliJob,
   pollFXJob,
+  pollRenderJob,
   pollShortFormJob,
   renderShortAll,
   renderShortBatch,
@@ -512,7 +513,7 @@ const VIEWER_TAB_OPTIONS: { key: "timeline" | "media-sources" | "segments"; labe
   { key: "media-sources", label: "Media Sources", Icon: PanelsTopLeft },
   { key: "segments", label: "Segments", Icon: Layers },
 ];
-type ProductionTask = "lf-seo" | "sf-thumbnails" | "sf-seo" | "sf-renders";
+type ProductionTask = "lf-seo" | "sf-thumbnails" | "sf-seo" | "sf-renders" | "thumbnails-combined" | "seo-combined" | "export-combined";
 
 const YOLO_PROGRESS_STEPS = [
   "Title Cards",
@@ -729,122 +730,185 @@ function ProductionTaskButton({
   );
 }
 
-function ProductionWorkflowRow({
-  segmentCount,
-  lfSeoDone,
-  sfSeoDone,
-  sfSeoMissingCount,
-  sfThumbnailsDone,
-  sfThumbnailsMissingCount,
-  sfRendersDone,
-  sfRendersMissingCount,
-  busyTask,
-  progress,
-  seoGenerating,
-  shortFormSeoGenerating,
-  onGenerateLfSeo,
-  onGenerateMissingLfSeo,
-  onGenerateSfThumbnails,
-  onGenerateMissingSfThumbnails,
-  onGenerateSfSeo,
-  onGenerateMissingSfSeo,
-  onRenderSfVideos,
-  onRenderMissingSfVideos,
+function FinalizationRow({
+  allEliGenerated,
+  hasExistingEli,
+  missingEliCount,
+  generatingEli,
+  setGeneratingEli,
+  confirmAndGenerateEli,
+  generateMissingEli,
+  eliCancelledRef,
+  eliEstimatedSeconds,
+  eliProgressActive,
+  eliProgress,
+  allSeoDone,
+  missingSeoCount,
+  seoBusy,
+  confirmAndGenerateSeo,
+  generateMissingSeo,
+  allExportsDone,
+  hasExistingExports,
+  missingExportCount,
+  exportBusy,
+  confirmAndExport,
+  exportMissing,
+  yoloModeActive,
+  productionProgress,
+  productionBusyTask,
 }: {
-  segmentCount: number;
-  lfSeoDone: boolean;
-  sfSeoDone: boolean;
-  sfSeoMissingCount: number;
-  sfThumbnailsDone: boolean;
-  sfThumbnailsMissingCount: number;
-  sfRendersDone: boolean;
-  sfRendersMissingCount: number;
-  busyTask: ProductionTask | null;
-  progress: number | null;
-  seoGenerating: boolean;
-  shortFormSeoGenerating: boolean;
-  onGenerateLfSeo: () => void;
-  onGenerateMissingLfSeo: () => void;
-  onGenerateSfThumbnails: () => void;
-  onGenerateMissingSfThumbnails: () => void;
-  onGenerateSfSeo: () => void;
-  onGenerateMissingSfSeo: () => void;
-  onRenderSfVideos: () => void;
-  onRenderMissingSfVideos: () => void;
+  allEliGenerated: boolean;
+  hasExistingEli: boolean;
+  missingEliCount: number;
+  generatingEli: boolean;
+  setGeneratingEli: (v: boolean) => void;
+  confirmAndGenerateEli: () => void;
+  generateMissingEli: () => void;
+  eliCancelledRef: React.RefObject<boolean>;
+  eliEstimatedSeconds: number | null;
+  eliProgressActive: boolean;
+  eliProgress: number | null;
+  allSeoDone: boolean;
+  missingSeoCount: number;
+  seoBusy: boolean;
+  confirmAndGenerateSeo: () => void;
+  generateMissingSeo: () => void;
+  allExportsDone: boolean;
+  hasExistingExports: boolean;
+  missingExportCount: number;
+  exportBusy: boolean;
+  confirmAndExport: () => void;
+  exportMissing: () => void;
+  yoloModeActive: boolean;
+  productionProgress: number | null;
+  productionBusyTask: ProductionTask | null;
 }) {
-  const anyBusy = busyTask !== null || seoGenerating || shortFormSeoGenerating;
-  const lfSeoBusy = seoGenerating || busyTask === "lf-seo";
-  const sfSeoBusy = shortFormSeoGenerating || busyTask === "sf-seo";
-  const sfThumbnailsBusy = busyTask === "sf-thumbnails";
-  const sfRendersBusy = busyTask === "sf-renders";
+  const [showEliDropdown, setShowEliDropdown] = useState(false);
+  const eliDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showEliDropdown) return;
+    const handler = (e: MouseEvent) => {
+      if (eliDropdownRef.current && !eliDropdownRef.current.contains(e.target as Node)) setShowEliDropdown(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showEliDropdown]);
+
+  const seoProgress = productionBusyTask === "seo-combined" ? productionProgress : null;
+  const exportProgress = productionBusyTask === "export-combined" ? productionProgress : null;
 
   return (
     <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
-      <div className="grid w-full items-center gap-2 min-w-0" style={{ gridTemplateColumns: "max-content auto max-content auto max-content auto max-content auto max-content" }}>
+      <div className="grid w-full items-center gap-2 min-w-0" style={{ gridTemplateColumns: "minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr)" }}>
+        {/* Step 5 — Eli (under Thumbnails) */}
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5">
+            <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
+              generatingEli
+                ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)] animate-[pulseDot_2s_ease-in-out_infinite]"
+                : allEliGenerated
+                  ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
+                  : "border-neutral-600 text-neutral-500"
+            }`}>5</span>
+            <div ref={eliDropdownRef} className="relative flex items-stretch flex-1">
+              <button
+                onClick={generatingEli ? (yoloModeActive ? undefined : () => { eliCancelledRef.current = true; setGeneratingEli(false); }) : confirmAndGenerateEli}
+                className={`text-xs pl-3 pr-1.5 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
+                  generatingEli
+                    ? `bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] ${yoloModeActive ? "cursor-default" : "hover:border-red-500/50 hover:text-red-400"}`
+                    : allEliGenerated
+                      ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
+                      : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
+                }`}
+                title={generatingEli ? (yoloModeActive ? "Generating Eli" : "Cancel Eli generation") : "Add Eli character overlay to all scenes"}
+              >
+                {generatingEli ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
+                    {yoloModeActive ? compactProgressText(eliProgress) : "Cancel"}
+                  </>
+                ) : allEliGenerated ? (
+                  "Eli ✓"
+                ) : (
+                  "Eli"
+                )}
+              </button>
+              {!generatingEli ? (
+                <button
+                  onClick={() => setShowEliDropdown(!showEliDropdown)}
+                  className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center"
+                  title="Eli generation options"
+                >
+                  <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                    <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              ) : (
+                <span className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-lg flex items-center">
+                  <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
+                    <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              )}
+              {showEliDropdown && (
+                <div className="absolute top-full left-0 mt-1.5 w-48 bg-neutral-800/90 border border-neutral-700/60 rounded-xl shadow-2xl z-50 py-1.5">
+                  <button
+                    onClick={() => { setShowEliDropdown(false); generateMissingEli(); }}
+                    disabled={allEliGenerated || !hasExistingEli}
+                    className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Generate Missing ({missingEliCount})
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          {generatingEli && <MiniProgressBar estimatedSeconds={eliEstimatedSeconds} active={eliProgressActive} />}
+        </div>
+
+        <svg className="w-3 h-3 text-neutral-600/60 shrink-0" viewBox="0 0 12 12" fill="none">
+          <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+
+        {/* Step 6 — SEO (under Audio) */}
         <ProductionTaskButton
           stepNumber={6}
-          label="Generate LF SEO"
-          done={lfSeoDone}
-          busy={lfSeoBusy}
-          disabled={anyBusy && !lfSeoBusy}
-          missingCount={lfSeoDone ? 0 : 1}
-          progress={busyTask === "lf-seo" ? progress : null}
-          onRunAll={onGenerateLfSeo}
-          onRunMissing={onGenerateMissingLfSeo}
+          label="SEO"
+          done={allSeoDone}
+          busy={seoBusy}
+          disabled={false}
+          missingCount={missingSeoCount}
+          progress={seoProgress}
+          onRunAll={confirmAndGenerateSeo}
+          onRunMissing={generateMissingSeo}
           missingLabel="Generate Missing"
-          allTitle="Generate long-form YouTube title, description, and tags"
+          allTitle="Generate long-form + short-form SEO and export markdown files"
         />
+
         <svg className="w-3 h-3 text-neutral-600/60 shrink-0" viewBox="0 0 12 12" fill="none">
           <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
+
+        {/* Step 7 — Export (under Images) */}
         <ProductionTaskButton
           stepNumber={7}
-          label="Generate SF Thumbnails"
-          done={sfThumbnailsDone}
-          busy={sfThumbnailsBusy}
-          disabled={anyBusy && !sfThumbnailsBusy}
-          missingCount={sfThumbnailsMissingCount}
-          progress={busyTask === "sf-thumbnails" ? progress : null}
-          onRunAll={onGenerateSfThumbnails}
-          onRunMissing={onGenerateMissingSfThumbnails}
-          missingLabel="Generate Missing"
-          allTitle={`Generate vertical thumbnails for all ${segmentCount} short-form videos`}
+          label="Export"
+          done={allExportsDone}
+          busy={exportBusy}
+          disabled={false}
+          missingCount={missingExportCount}
+          progress={exportProgress}
+          onRunAll={confirmAndExport}
+          onRunMissing={exportMissing}
+          missingLabel={hasExistingExports ? "Render Missing" : "Render Missing"}
+          allTitle="Render the long-form video and all short-form videos"
         />
-        <svg className="w-3 h-3 text-neutral-600/60 shrink-0" viewBox="0 0 12 12" fill="none">
-          <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        <ProductionTaskButton
-          stepNumber={8}
-          label="Generate SF SEO"
-          done={sfSeoDone}
-          busy={sfSeoBusy}
-          disabled={anyBusy && !sfSeoBusy}
-          missingCount={sfSeoMissingCount}
-          progress={busyTask === "sf-seo" ? progress : null}
-          onRunAll={onGenerateSfSeo}
-          onRunMissing={onGenerateMissingSfSeo}
-          missingLabel="Generate Missing"
-          allTitle={`Generate upload SEO for all ${segmentCount} short-form videos`}
-        />
-        <svg className="w-3 h-3 text-neutral-600/60 shrink-0" viewBox="0 0 12 12" fill="none">
-          <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        <ProductionTaskButton
-          stepNumber={9}
-          label="Render SF Videos"
-          done={sfRendersDone}
-          busy={sfRendersBusy}
-          disabled={anyBusy && !sfRendersBusy}
-          missingCount={sfRendersMissingCount}
-          progress={busyTask === "sf-renders" ? progress : null}
-          onRunAll={onRenderSfVideos}
-          onRunMissing={onRenderMissingSfVideos}
-          missingLabel="Render Missing"
-          allTitle={`Render all ${segmentCount} short-form videos`}
-        />
+
         <svg className="w-3 h-3 invisible shrink-0" viewBox="0 0 12 12" fill="none" aria-hidden="true">
           <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
+        {/* Empty 4th column under FX */}
         <div aria-hidden="true" />
       </div>
     </div>
@@ -1344,7 +1408,7 @@ function TimelineEditor({
   const [eliStep, setEliStep] = useState<string>("");
   const [eliProgressPct, setEliProgressPct] = useState<number>(0);
   const [eliProgressTotal, setEliProgressTotal] = useState<number>(0);
-  const [confirmOverwrite, setConfirmOverwrite] = useState<"images" | "audio" | "fx" | "eli" | null>(null);
+  const [confirmOverwrite, setConfirmOverwrite] = useState<"images" | "audio" | "fx" | "eli" | "thumbnails" | "seo" | "export" | null>(null);
   const [pixelsPerSecond, setPixelsPerSecond] = useState(20);
   const [exportTestJobId, setExportTestJobId] = useState<string | null>(null);
   const [exportTestStep, setExportTestStep] = useState("");
@@ -1841,6 +1905,48 @@ function TimelineEditor({
   const sfThumbnailMissingCount = Math.max(0, segmentCount - sfThumbnailCount);
   const sfRenderMissingCount = Math.max(0, segmentCount - sfRenderCount);
 
+  // Combined Thumbnails (title cards + SF thumbnails + LF thumbnail)
+  const lfThumbnailDone = thumbnailsInline.length > 0 && !!thumbnailsInline[0]?.image_url;
+  const titleCardsApplicable = state.hasTitleCards;
+  const titleCardsAllDone = !titleCardsApplicable || allTitleCardsGenerated;
+  const titleCardsMissingCount = titleCardsApplicable ? titleScenes.filter((sc) => !sc.image_url).length : 0;
+  const sfApplicable = segmentCount > 0;
+  const sfThumbnailsAllDone = !sfApplicable || sfThumbnailsDone;
+  const allThumbnailsDone = titleCardsAllDone && sfThumbnailsAllDone && lfThumbnailDone;
+  const hasExistingThumbnails =
+    (titleCardsApplicable && titleScenes.some((sc) => sc.image_url)) ||
+    sfThumbnailCount > 0 ||
+    lfThumbnailDone;
+  const missingThumbnailCount =
+    titleCardsMissingCount + sfThumbnailMissingCount + (lfThumbnailDone ? 0 : 1);
+  const thumbnailsBusy =
+    titleCardGenerating ||
+    productionBusyTask === "sf-thumbnails" ||
+    thumbnailsInlineGenerating ||
+    productionBusyTask === "thumbnails-combined";
+
+  // Combined SEO (LF SEO + SF SEO + auto-export markdown)
+  const allSeoDone = lfSeoDone && (segmentCount === 0 || sfSeoDone);
+  const hasExistingSeo = lfSeoDone || shortFormSeoCount > 0;
+  const missingSeoCount = (lfSeoDone ? 0 : 1) + sfSeoMissingCount;
+  const seoBusy =
+    render.seoGenerating ||
+    render.shortFormSeoGenerating ||
+    productionBusyTask === "lf-seo" ||
+    productionBusyTask === "sf-seo" ||
+    productionBusyTask === "seo-combined";
+
+  // Combined Export (LF render + SF renders)
+  const lfRenderDone = render.youtubeUrl != null;
+  const lfRendering = render.youtubeStatus?.status === "running" || render.youtubeStatus?.status === "pending";
+  const allExportsDone = lfRenderDone && (segmentCount === 0 || sfRendersDone);
+  const hasExistingExports = lfRenderDone || sfRenderCount > 0;
+  const missingExportCount = (lfRenderDone ? 0 : 1) + sfRenderMissingCount;
+  const exportBusy =
+    lfRendering ||
+    productionBusyTask === "sf-renders" ||
+    productionBusyTask === "export-combined";
+
   const confirmAndGenerateImages = () => {
     if (hasExistingImages) {
       setConfirmOverwrite("images");
@@ -2023,72 +2129,158 @@ function TimelineEditor({
     }
   };
 
-  const handleGenerateLfSeo = () => {
-    void runProductionTask("lf-seo", async () => {
-      await render.generateSEO();
+  // Combined Thumbnails handler — runs title cards + SF thumbnails + LF thumbnail
+  const runThumbnailsCombined = (missingOnly: boolean) => {
+    void runProductionTask("thumbnails-combined", async () => {
+      // 1. Title cards
+      if (titleCardsApplicable && (!missingOnly || !titleCardsAllDone)) {
+        const segCount = state.content.segments.length;
+        titleCardCancelledRef.current = false;
+        setTitleCardGenerating(true);
+        setTitleCardProgressPct(0);
+        titleCardProgress.start(segCount);
+        try {
+          await state.generateTitleCardsStandalone(!missingOnly, (status) => {
+            if (typeof status.progress === "number") setTitleCardProgressPct(status.progress);
+          });
+          if (!titleCardCancelledRef.current) {
+            setTitleCardProgressPct(1);
+            setTitleCardGenerated(true);
+            setTitleCardTimestamp(Date.now());
+          }
+        } finally {
+          setTitleCardGenerating(false);
+          setTitleCardProgressPct(null);
+          titleCardProgress.end(segCount);
+        }
+        if (titleCardCancelledRef.current) return;
+      }
+
+      // 2. Short-form thumbnails
+      if (sfApplicable && (!missingOnly || !sfThumbnailsAllDone)) {
+        const refreshed = missingOnly ? await refreshShortFormThumbnailStatus() : null;
+        if (missingOnly && refreshed) {
+          const indices = state.content.segments.map((_, idx) => idx).filter((idx) => !refreshed[idx]);
+          if (indices.length > 0) {
+            const { job_id } = await generateShortFormThumbnailsBatch(scriptId, indices);
+            await pollShortFormJob(job_id, (status) => {
+              if (typeof status.progress === "number") setProductionProgress(status.progress);
+            });
+            await refreshShortFormThumbnailStatus();
+          }
+        } else {
+          const { job_id } = await generateShortFormThumbnailsAll(scriptId);
+          await pollShortFormJob(job_id, (status) => {
+            if (typeof status.progress === "number") setProductionProgress(status.progress);
+          });
+          await refreshShortFormThumbnailStatus();
+        }
+      }
+
+      // 3. Long-form thumbnail (recomposite). Skip if already done.
+      if (!lfThumbnailDone) {
+        await handleRecompositeThumbnailInline();
+      }
     });
   };
 
-  const handleGenerateMissingLfSeo = () => {
-    if (lfSeoDone) return;
-    handleGenerateLfSeo();
+  const confirmAndGenerateThumbnails = () => {
+    if (hasExistingThumbnails) {
+      setConfirmOverwrite("thumbnails");
+    } else {
+      runThumbnailsCombined(false);
+    }
   };
 
-  const handleGenerateSfSeo = () => {
-    void runProductionTask("sf-seo", async () => {
-      await render.generateShortFormSEO();
+  const generateMissingThumbnails = () => {
+    runThumbnailsCombined(true);
+  };
+
+  const cancelThumbnailsCombined = () => {
+    titleCardCancelledRef.current = true;
+    thumbnailsCancelledRef.current = true;
+    setTitleCardGenerating(false);
+    setThumbnailsInlineGenerating(false);
+  };
+
+  // Combined SEO handler — runs LF SEO + SF SEO + auto-export markdown
+  const runSeoCombined = (missingOnly: boolean) => {
+    void runProductionTask("seo-combined", async () => {
+      if (!missingOnly || !lfSeoDone) {
+        await render.generateSEO();
+      }
+      if (segmentCount > 0 && (!missingOnly || !sfSeoDone)) {
+        await render.generateShortFormSEO();
+      }
+      // Auto-export markdown for both
+      try {
+        await exportLongFormSEO(scriptId);
+      } catch {
+        // ignore — best-effort export
+      }
+      if (segmentCount > 0) {
+        try {
+          await exportShortFormSEO(scriptId);
+        } catch {
+          // ignore — best-effort export
+        }
+      }
     });
   };
 
-  const handleGenerateMissingSfSeo = () => {
-    if (sfSeoDone) return;
-    handleGenerateSfSeo();
+  const confirmAndGenerateSeo = () => {
+    if (hasExistingSeo) {
+      setConfirmOverwrite("seo");
+    } else {
+      runSeoCombined(false);
+    }
   };
 
-  const handleGenerateSfThumbnails = () => {
-    void runProductionTask("sf-thumbnails", async () => {
-      const { job_id } = await generateShortFormThumbnailsAll(scriptId);
-      await pollShortFormJob(job_id, (status) => {
-        if (typeof status.progress === "number") setProductionProgress(status.progress);
-      });
-      await refreshShortFormThumbnailStatus();
+  const generateMissingSeo = () => {
+    runSeoCombined(true);
+  };
+
+  // Combined Export handler — renders LF + all SF videos
+  const runExportCombined = (missingOnly: boolean) => {
+    void runProductionTask("export-combined", async () => {
+      if (!missingOnly || !lfRenderDone) {
+        const jobId = await render.startYoutubeRender();
+        if (jobId) {
+          await pollRenderJob(jobId);
+        }
+      }
+      if (sfApplicable && (!missingOnly || !sfRendersDone)) {
+        const refreshed = missingOnly ? await refreshShortFormRenderStatus() : null;
+        if (missingOnly && refreshed) {
+          const indices = state.content.segments.map((_, idx) => idx).filter((idx) => !refreshed[idx]);
+          if (indices.length > 0) {
+            const { job_id } = await renderShortBatch(scriptId, indices);
+            await pollShortFormJob(job_id, (status) => {
+              if (typeof status.progress === "number") setProductionProgress(status.progress);
+            });
+            await refreshShortFormRenderStatus();
+          }
+        } else {
+          const { job_id } = await renderShortAll(scriptId);
+          await pollShortFormJob(job_id, (status) => {
+            if (typeof status.progress === "number") setProductionProgress(status.progress);
+          });
+          await refreshShortFormRenderStatus();
+        }
+      }
     });
   };
 
-  const handleGenerateMissingSfThumbnails = () => {
-    void runProductionTask("sf-thumbnails", async () => {
-      const refreshed = await refreshShortFormThumbnailStatus();
-      const indices = state.content.segments.map((_, idx) => idx).filter((idx) => !refreshed[idx]);
-      if (indices.length === 0) return;
-      const { job_id } = await generateShortFormThumbnailsBatch(scriptId, indices);
-      await pollShortFormJob(job_id, (status) => {
-        if (typeof status.progress === "number") setProductionProgress(status.progress);
-      });
-      await refreshShortFormThumbnailStatus();
-    });
+  const confirmAndExport = () => {
+    if (hasExistingExports) {
+      setConfirmOverwrite("export");
+    } else {
+      runExportCombined(false);
+    }
   };
 
-  const handleRenderSfVideos = () => {
-    void runProductionTask("sf-renders", async () => {
-      const { job_id } = await renderShortAll(scriptId);
-      await pollShortFormJob(job_id, (status) => {
-        if (typeof status.progress === "number") setProductionProgress(status.progress);
-      });
-      await refreshShortFormRenderStatus();
-    });
-  };
-
-  const handleRenderMissingSfVideos = () => {
-    void runProductionTask("sf-renders", async () => {
-      const refreshed = await refreshShortFormRenderStatus();
-      const indices = state.content.segments.map((_, idx) => idx).filter((idx) => !refreshed[idx]);
-      if (indices.length === 0) return;
-      const { job_id } = await renderShortBatch(scriptId, indices);
-      await pollShortFormJob(job_id, (status) => {
-        if (typeof status.progress === "number") setProductionProgress(status.progress);
-      });
-      await refreshShortFormRenderStatus();
-    });
+  const exportMissing = () => {
+    runExportCombined(true);
   };
 
   const refreshScriptContent = useCallback(async () => {
@@ -2248,34 +2440,6 @@ function TimelineEditor({
     state,
     titleCardProgress,
   ]);
-
-  const handleGenerateTitleCards = async (force = false) => {
-    const segCount = state.content.segments.length;
-    titleCardCancelledRef.current = false;
-    setTitleCardGenerating(true);
-    setTitleCardProgressPct(0);
-    titleCardProgress.start(segCount);
-    try {
-      await state.generateTitleCardsStandalone(force, (status) => {
-        if (typeof status.progress === "number") setTitleCardProgressPct(status.progress);
-      });
-      if (!titleCardCancelledRef.current) {
-        setTitleCardProgressPct(1);
-        setTitleCardGenerated(true);
-        setTitleCardTimestamp(Date.now());
-        await handleRecompositeThumbnailInline();
-      }
-    } finally {
-      setTitleCardGenerating(false);
-      setTitleCardProgressPct(null);
-      titleCardProgress.end(segCount);
-    }
-  };
-
-  const cancelTitleCards = () => {
-    titleCardCancelledRef.current = true;
-    setTitleCardGenerating(false);
-  };
 
   const handleRecompositeThumbnailInline = async () => {
     thumbnailsCancelledRef.current = false;
@@ -2734,18 +2898,20 @@ function TimelineEditor({
           })()}
 
           <PipelineSteps
-            titleCardGenerating={titleCardGenerating}
-            titleCardGenerated={titleCardGenerated || allTitleCardsGenerated}
+            thumbnailsBusy={thumbnailsBusy}
+            allThumbnailsDone={allThumbnailsDone}
+            hasExistingThumbnails={hasExistingThumbnails}
+            missingThumbnailCount={missingThumbnailCount}
             allImagesGenerated={allImagesGenerated}
             allAudioGenerated={allAudioGenerated}
             allFXGenerated={allFXGenerated}
             batchGenerating={state.batchGenerating}
             batchGeneratingAudio={state.batchGeneratingAudio}
-            hasTitleCards={state.hasTitleCards}
             generatingFX={generatingFX}
             setGeneratingFX={setGeneratingFX}
-            handleGenerateTitleCards={handleGenerateTitleCards}
-            cancelTitleCards={cancelTitleCards}
+            confirmAndGenerateThumbnails={confirmAndGenerateThumbnails}
+            generateMissingThumbnails={generateMissingThumbnails}
+            cancelThumbnails={cancelThumbnailsCombined}
             confirmAndGenerateImages={confirmAndGenerateImages}
             confirmAndGenerateAudio={confirmAndGenerateAudio}
             confirmAndGenerateFX={confirmAndGenerateFX}
@@ -2769,49 +2935,43 @@ function TimelineEditor({
             voicePickerRef={voicePicker.voicePickerRef}
             onRecordVoiceover={onRecordVoiceover}
             fxPotentiallyStale={lastAudioGenTimestamp > 0 && lastAudioGenTimestamp > lastFXGenTimestamp}
+            fxEstimatedSeconds={fxProgress.estimatedSeconds}
+            fxProgressActive={fxProgress.active}
+            thumbnailsEstimatedSeconds={titleCardProgress.estimatedSeconds}
+            thumbnailsProgressActive={titleCardProgress.active}
+            yoloModeActive={yoloRenderRunning}
+            thumbnailsProgress={titleCardProgressPct}
+            audioProgress={batchProgressValue(state.batchAudioProgress)}
+            imageProgress={batchProgressValue(state.batchImageProgress)}
+            fxProgress={fxProgressPct}
+          />
+
+          <FinalizationRow
             allEliGenerated={allEliGenerated}
+            hasExistingEli={hasExistingEli}
+            missingEliCount={missingEliCount}
             generatingEli={generatingEli}
             setGeneratingEli={setGeneratingEli}
             confirmAndGenerateEli={confirmAndGenerateEli}
             generateMissingEli={generateMissingEli}
-            hasExistingEli={hasExistingEli}
-            missingEliCount={missingEliCount}
             eliCancelledRef={eliCancelledRef}
-            fxEstimatedSeconds={fxProgress.estimatedSeconds}
-            fxProgressActive={fxProgress.active}
             eliEstimatedSeconds={eliProgress.estimatedSeconds}
             eliProgressActive={eliProgress.active}
-            titleCardEstimatedSeconds={titleCardProgress.estimatedSeconds}
-            titleCardProgressActive={titleCardProgress.active}
-            yoloModeActive={yoloRenderRunning}
-            titleCardProgress={titleCardProgressPct}
-            audioProgress={batchProgressValue(state.batchAudioProgress)}
-            imageProgress={batchProgressValue(state.batchImageProgress)}
-            fxProgress={fxProgressPct}
             eliProgress={eliProgressPct}
-          />
-
-          <ProductionWorkflowRow
-            segmentCount={segmentCount}
-            lfSeoDone={lfSeoDone}
-            sfSeoDone={sfSeoDone}
-            sfSeoMissingCount={sfSeoMissingCount}
-            sfThumbnailsDone={sfThumbnailsDone}
-            sfThumbnailsMissingCount={sfThumbnailMissingCount}
-            sfRendersDone={sfRendersDone}
-            sfRendersMissingCount={sfRenderMissingCount}
-            busyTask={productionBusyTask}
-            progress={productionProgress}
-            seoGenerating={render.seoGenerating}
-            shortFormSeoGenerating={render.shortFormSeoGenerating}
-            onGenerateLfSeo={handleGenerateLfSeo}
-            onGenerateMissingLfSeo={handleGenerateMissingLfSeo}
-            onGenerateSfThumbnails={handleGenerateSfThumbnails}
-            onGenerateMissingSfThumbnails={handleGenerateMissingSfThumbnails}
-            onGenerateSfSeo={handleGenerateSfSeo}
-            onGenerateMissingSfSeo={handleGenerateMissingSfSeo}
-            onRenderSfVideos={handleRenderSfVideos}
-            onRenderMissingSfVideos={handleRenderMissingSfVideos}
+            allSeoDone={allSeoDone}
+            missingSeoCount={missingSeoCount}
+            seoBusy={seoBusy}
+            confirmAndGenerateSeo={confirmAndGenerateSeo}
+            generateMissingSeo={generateMissingSeo}
+            allExportsDone={allExportsDone}
+            hasExistingExports={hasExistingExports}
+            missingExportCount={missingExportCount}
+            exportBusy={exportBusy}
+            confirmAndExport={confirmAndExport}
+            exportMissing={exportMissing}
+            yoloModeActive={yoloRenderRunning}
+            productionProgress={productionProgress}
+            productionBusyTask={productionBusyTask}
           />
           {yoloRenderRunning && (
             <YoloProgressStrip
@@ -3155,6 +3315,9 @@ function TimelineEditor({
               {confirmOverwrite === "audio" && "Some scenes already have generated audio. Regenerating will overwrite them."}
               {confirmOverwrite === "fx" && "Some scenes already have FX assignments. Regenerating will overwrite them."}
               {confirmOverwrite === "eli" && "Some scenes already have Eli overlays. Regenerating will overwrite them."}
+              {confirmOverwrite === "thumbnails" && "Some thumbnails (title cards, short-form, or long-form) are already generated. Continuing will overwrite them. Use the dropdown's \"Generate Missing\" option to only fill in what's missing."}
+              {confirmOverwrite === "seo" && "SEO has already been generated. Continuing will regenerate and re-export the markdown files. Use the dropdown's \"Generate Missing\" option to only fill in what's missing."}
+              {confirmOverwrite === "export" && "Some videos have already been rendered. Continuing will re-render them. Use the dropdown's \"Render Missing\" option to only render what's missing."}
             </p>
             <div className="flex justify-end gap-3">
               <button
@@ -3171,6 +3334,9 @@ function TimelineEditor({
                   else if (action === "audio") tryGenerateAudio("all");
                   else if (action === "fx") handleGenerateFX();
                   else if (action === "eli") handleGenerateEli();
+                  else if (action === "thumbnails") runThumbnailsCombined(false);
+                  else if (action === "seo") runSeoCombined(false);
+                  else if (action === "export") runExportCombined(false);
                 }}
                 className="px-4 py-2 text-sm rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium transition-colors"
               >
