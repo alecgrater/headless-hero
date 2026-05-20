@@ -176,7 +176,16 @@ def test_regenerate_split_progression_200_and_overwrites_thumbnail(
 def test_regenerate_split_progression_re_rolls_level_pair(
     client, db_engine, patched_data_dirs, fake_gemini_transform, monkeypatch
 ):
-    """Endpoint always re-rolls the level pair (ignores existing sidecar)."""
+    """Endpoint always re-rolls the level pair (ignores existing sidecar).
+
+    Verified by:
+    - Monkeypatching _pick_level_pair to a deterministic stub that returns (1, 3)
+      and counting how many times it is called.
+    - Pre-seeding the sidecar with (2, 4) — a different pair.
+    - Hitting the endpoint twice.
+    - Asserting _pick_level_pair was called exactly twice (once per request).
+    - Asserting the sidecar now contains (1, 3), proving it was overwritten each time.
+    """
     tmp_path = patched_data_dirs
     script_id = "script-reroll-test"
     content = _make_life_as_a_content(n_levels=4)
@@ -185,9 +194,9 @@ def test_regenerate_split_progression_re_rolls_level_pair(
     images_dir.mkdir(parents=True, exist_ok=True)
     Image.new("RGB", (32, 32), (1, 2, 3)).save(images_dir / "cinematic_thumbnail_clean.png")
 
-    # Sidecar pinned to (1, 3)
+    # Pre-seed sidecar with (2, 4) — stub will return (1, 3), proving overwrite
     sidecar_path = images_dir / "cinematic_thumbnail.levels.json"
-    sidecar_path.write_text(json.dumps({"left_level": 1, "right_level": 3}))
+    sidecar_path.write_text(json.dumps({"left_level": 2, "right_level": 4}))
 
     with Session(db_engine) as session:
         session.add(Script(
@@ -199,22 +208,45 @@ def test_regenerate_split_progression_re_rolls_level_pair(
         ))
         session.commit()
 
-    resp = client.post(
+    # Monkeypatch _pick_level_pair in the source module so the endpoint picks it up.
+    # The endpoint imports it inside the function body as:
+    #   from pipeline.thumbnail import _pick_level_pair
+    # so patching pipeline.thumbnail._pick_level_pair is the correct target.
+    pick_call_count = {"n": 0}
+
+    def stub_pick_level_pair(n_levels: int) -> tuple[int, int]:
+        pick_call_count["n"] += 1
+        return (1, 3)
+
+    monkeypatch.setattr(thumbnail_pipeline, "_pick_level_pair", stub_pick_level_pair)
+
+    # First call
+    resp1 = client.post(
         "/api/thumbnail/regenerate-split-progression",
         json={"script_id": script_id},
     )
-    assert resp.status_code == 200, resp.text
+    assert resp1.status_code == 200, resp1.text
 
-    # Exactly one Gemini call (not zero, not many)
-    assert len(fake_gemini_transform) == 1
+    # Second call
+    resp2 = client.post(
+        "/api/thumbnail/regenerate-split-progression",
+        json={"script_id": script_id},
+    )
+    assert resp2.status_code == 200, resp2.text
 
-    # Sidecar must exist with valid pair
+    # _pick_level_pair must have been called exactly once per request
+    assert pick_call_count["n"] == 2, (
+        f"Expected _pick_level_pair to be called 2 times, got {pick_call_count['n']}"
+    )
+
+    # Sidecar must now contain the stub's deterministic pair (1, 3),
+    # proving the endpoint overwrote the seeded (2, 4) on each call.
     sidecar_data = json.loads(sidecar_path.read_text())
-    left = sidecar_data["left_level"]
-    right = sidecar_data["right_level"]
-    assert isinstance(left, int)
-    assert isinstance(right, int)
-    assert left < right
+    assert sidecar_data["left_level"] == 1, f"Expected left_level=1, got {sidecar_data['left_level']}"
+    assert sidecar_data["right_level"] == 3, f"Expected right_level=3, got {sidecar_data['right_level']}"
+
+    # Two Gemini enhancement calls (one per request)
+    assert len(fake_gemini_transform) == 2
 
 
 def test_regenerate_split_progression_404_on_missing_script(

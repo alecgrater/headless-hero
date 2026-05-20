@@ -18,8 +18,6 @@ from pipeline.title_card_composer import compose_title_card
 
 logger = logging.getLogger(__name__)
 
-logger = logging.getLogger(__name__)
-
 router = APIRouter(prefix="/api/thumbnail", tags=["thumbnail"])
 
 
