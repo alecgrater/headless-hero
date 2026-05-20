@@ -52,7 +52,7 @@ def resolve_format(format_id: str | None) -> VideoFormat:
 # is the canonical default during list_formats() iteration.
 def _bootstrap() -> None:
     from . import youtube_listicle  # noqa: F401 — side effect: registers
-    # life-as-a registration lands in Task 5
+    from . import life_as_a         # noqa: F401 — side effect: registers
 
 
 _bootstrap()
