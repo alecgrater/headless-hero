@@ -591,6 +591,13 @@ export function useTimelineState(
             const scriptRes = await api.get(`/api/scripts/${scriptId}`);
             if (scriptRes.ok) {
               const scriptData = scriptRes.data as { script: ScriptContent };
+              for (const seg of scriptData.script.segments) {
+                for (const sc of seg.scenes) {
+                  if (sc.is_title_card) {
+                    bumpAssetVersion(sc.image_url ?? "", ...(sc.frame_urls ?? []));
+                  }
+                }
+              }
               setContent(scriptData.script);
             }
           }
@@ -625,6 +632,7 @@ export function useTimelineState(
           });
           if (res.ok) {
             const data = res.data as GenerateVisualResponse;
+            bumpAssetVersion(data.image_url ?? "", ...(data.frame_urls ?? []));
             setContent((prev) => ({
               ...prev,
               segments: prev.segments.map((seg) => ({
@@ -707,6 +715,14 @@ export function useTimelineState(
           const scriptRes = await api.get(`/api/scripts/${scriptId}`);
           if (scriptRes.ok) {
             const scriptData = scriptRes.data as { script: ScriptContent };
+            const updated = (() => {
+              for (const seg of scriptData.script.segments) {
+                const found = seg.scenes.find((s) => s.id === sceneId);
+                if (found) return found;
+              }
+              return null;
+            })();
+            if (updated?.audio_url) bumpAssetVersion(updated.audio_url);
             setContent(scriptData.script);
           }
         }
@@ -739,6 +755,15 @@ export function useTimelineState(
           const scriptRes = await api.get(`/api/scripts/${scriptId}`);
           if (scriptRes.ok) {
             const scriptData = scriptRes.data as { script: ScriptContent };
+            if (force) {
+              for (const seg of scriptData.script.segments) {
+                for (const sc of seg.scenes) {
+                  if (sc.is_title_card) {
+                    bumpAssetVersion(sc.image_url ?? "", ...(sc.frame_urls ?? []));
+                  }
+                }
+              }
+            }
             setContent(scriptData.script);
           }
         }
@@ -810,6 +835,7 @@ export function useTimelineState(
           });
           if (res.ok) {
             const data = res.data as GenerateAudioResponse;
+            if (data.audio_url) bumpAssetVersion(data.audio_url);
             setContent((prev) => ({
               ...prev,
               segments: prev.segments.map((seg) => ({

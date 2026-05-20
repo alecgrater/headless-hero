@@ -193,22 +193,30 @@ export async function importRecordingTake(
 
 const _assetVersions = new Map<string, number>();
 
-/** Bust the browser cache for one or more static asset paths after they've been overwritten on disk. */
+const _ORIGIN = `http://localhost:${BACKEND_PORT}`;
+
+function _normalizeAssetKey(p: string): string {
+  let key = p.split("?")[0];
+  if (key.startsWith(_ORIGIN)) key = key.slice(_ORIGIN.length);
+  return key;
+}
+
+/** Bust the browser cache for one or more static asset paths after they've been overwritten on disk.
+ *  Pass bare static paths (e.g. "/static/projects/.../image.png"). Origin prefixes are stripped. */
 export function bumpAssetVersion(...paths: string[]): void {
   const v = Date.now();
   for (const p of paths) {
-    if (p) _assetVersions.set(p.split("?")[0], v);
+    if (p) _assetVersions.set(_normalizeAssetKey(p), v);
   }
 }
 
 /** Prepend the backend origin to a static asset path (e.g. /static/projects/...). */
 export function assetUrl(path: string): string {
-  const [bare] = path.split("?");
-  const v = _assetVersions.get(bare);
-  const base = `http://localhost:${BACKEND_PORT}${path}`;
-  if (v === undefined) return base;
-  const sep = path.includes("?") ? "&" : "?";
-  return `${base}${sep}v=${v}`;
+  const key = _normalizeAssetKey(path);
+  const v = _assetVersions.get(key);
+  if (v === undefined) return `${_ORIGIN}${path}`;
+  // Rebuild from the bare key so a pre-existing ?v= isn't duplicated.
+  return `${_ORIGIN}${key}?v=${v}`;
 }
 
 /** Fetch generation time estimate for a given operation type. */
