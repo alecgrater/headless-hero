@@ -1283,14 +1283,13 @@ Key visual traits to preserve:
 Eli's pose and expression should match the scene context, but the identity must be unmistakably Eli.
 
 SINGLE-ELI RULE (critical):
-Only ONE person in the image may be Eli — the visually dominant/main subject. If the scene calls for additional people (a crowd, a second figure, bystanders, etc.), those secondary people MUST NOT look like Eli. Render them as nondescript, faceless figures:
-- Same flat 2D cartoon illustration style as the rest of the image (do not switch to a different art style)
-- No identifying features: no glasses, no distinctive hair, no detailed facial features
-- Faces should be obscured, faceless, blank, or shown from behind/in profile
-- Neutral, generic clothing in muted colors — clearly differentiated from Eli's teal shirt and charcoal hoodie
-- Smaller, less prominent, or further back in the frame than Eli, so attention stays on Eli
+Only ONE person in the image may be Eli — the visually dominant/main subject. If the scene calls for additional people (a second figure, bystanders, a crowd, etc.), those secondary people MUST NOT look like Eli, but they should still be drawn as normal, fully-rendered people in the same flat 2D cartoon style as Eli:
+- Same flat 2D cartoon illustration style as Eli — fully drawn faces with eyes, mouth, and complete features (do NOT make them faceless, blank, or silhouettes)
+- Visually distinct from Eli: different hair (color, length, or style), different skin tone, no round glasses, different clothing colors clearly differentiated from Eli's teal shirt and charcoal hoodie
+- Same cartoon proportions and rendering quality as Eli — they belong in the same illustrated world
+- Eli should remain the visually dominant figure (foreground, better lit, or more central) so attention stays on him
 
-Never duplicate Eli. There is exactly one Eli per image.
+Never duplicate Eli. There is exactly one Eli per image, but other people in the image are normal, fully-drawn cartoon characters — not faceless figures.
 """,
     retention=RetentionMeta(
         goal="Maintain character consistency for audience recognition and trust",
