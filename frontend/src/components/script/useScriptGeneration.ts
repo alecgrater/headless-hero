@@ -21,6 +21,7 @@ function snapSegmentCount(n: number): 8 | 10 {
 interface Params {
   brandId: string;
   idea: VideoIdea;
+  supportsColdOpen?: boolean;
 }
 
 interface GenJobStatus {
@@ -80,7 +81,7 @@ export interface ScriptGenerationState {
   setStockPhotoEnabled: (v: boolean) => void;
 }
 
-export default function useScriptGeneration({ brandId, idea }: Params): ScriptGenerationState {
+export default function useScriptGeneration({ brandId, idea, supportsColdOpen = true }: Params): ScriptGenerationState {
   const [script, setScript] = useState<ScriptContent | null>(null);
   const [scriptId, setScriptId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -288,8 +289,10 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
     setColdOpenResult(null);
     setSelectedColdOpen(null);
 
-    // If idea already has a pre-selected hook, skip cold opens and go straight to script gen
-    if (idea.cold_open_text) {
+    // Skip cold opens if:
+    //   - idea already has a pre-selected hook, OR
+    //   - the active format does not support cold opens (e.g. life-as-a)
+    if (idea.cold_open_text || !supportsColdOpen) {
       setPhase("script");
 
       fetchGenerationEstimate("script_generation_youtube")
@@ -301,12 +304,13 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
           topic: idea.title,
           description: idea.description,
           brand_id: brandId,
+          format_id: idea.format_id ?? "youtube-listicle",
           segment_count:
             idea.segments_est > 0 ? snapSegmentCount(idea.segments_est) : undefined,
           animated_scene_count: 5,
           model: selectedModel !== DEFAULT_MODEL ? selectedModel : undefined,
           segmented,
-          cold_open_text: idea.cold_open_text,
+          cold_open_text: idea.cold_open_text ?? null,
           gameplay_enabled: gameplayEnabled,
           stock_photo_enabled: stockPhotoEnabled,
         });
@@ -430,6 +434,7 @@ export default function useScriptGeneration({ brandId, idea }: Params): ScriptGe
         topic: idea.title,
         description: idea.description,
         brand_id: brandId,
+        format_id: idea.format_id ?? "youtube-listicle",
         segment_count:
           idea.segments_est > 0 ? snapSegmentCount(idea.segments_est) : undefined,
         animated_scene_count: 5,
