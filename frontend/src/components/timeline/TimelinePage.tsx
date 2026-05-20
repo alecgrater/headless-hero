@@ -35,7 +35,6 @@ import api, {
   openPath,
   pollEliJob,
   pollFXJob,
-  pollRenderJob,
   pollShortFormJob,
   renderShortAll,
   renderShortBatch,
@@ -742,13 +741,13 @@ function FinalizationRow({
   eliEstimatedSeconds,
   eliProgressActive,
   eliProgress,
+  allAudioGenerated,
   allSeoDone,
   missingSeoCount,
   seoBusy,
   confirmAndGenerateSeo,
   generateMissingSeo,
   allExportsDone,
-  hasExistingExports,
   missingExportCount,
   exportBusy,
   confirmAndExport,
@@ -756,6 +755,7 @@ function FinalizationRow({
   yoloModeActive,
   productionProgress,
   productionBusyTask,
+  anyProductionBusy,
 }: {
   allEliGenerated: boolean;
   hasExistingEli: boolean;
@@ -768,13 +768,13 @@ function FinalizationRow({
   eliEstimatedSeconds: number | null;
   eliProgressActive: boolean;
   eliProgress: number | null;
+  allAudioGenerated: boolean;
   allSeoDone: boolean;
   missingSeoCount: number;
   seoBusy: boolean;
   confirmAndGenerateSeo: () => void;
   generateMissingSeo: () => void;
   allExportsDone: boolean;
-  hasExistingExports: boolean;
   missingExportCount: number;
   exportBusy: boolean;
   confirmAndExport: () => void;
@@ -782,6 +782,7 @@ function FinalizationRow({
   yoloModeActive: boolean;
   productionProgress: number | null;
   productionBusyTask: ProductionTask | null;
+  anyProductionBusy: boolean;
 }) {
   const [showEliDropdown, setShowEliDropdown] = useState(false);
   const eliDropdownRef = useRef<HTMLDivElement>(null);
@@ -814,14 +815,15 @@ function FinalizationRow({
             <div ref={eliDropdownRef} className="relative flex items-stretch flex-1">
               <button
                 onClick={generatingEli ? (yoloModeActive ? undefined : () => { eliCancelledRef.current = true; setGeneratingEli(false); }) : confirmAndGenerateEli}
-                className={`text-xs pl-3 pr-1.5 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
+                disabled={!allAudioGenerated && !generatingEli}
+                className={`text-xs pl-3 pr-1.5 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
                   generatingEli
                     ? `bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] ${yoloModeActive ? "cursor-default" : "hover:border-red-500/50 hover:text-red-400"}`
                     : allEliGenerated
                       ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
                       : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
                 }`}
-                title={generatingEli ? (yoloModeActive ? "Generating Eli" : "Cancel Eli generation") : "Add Eli character overlay to all scenes"}
+                title={!allAudioGenerated && !generatingEli ? "Generate audio first — Eli needs voiceover for mouth animation" : generatingEli ? (yoloModeActive ? "Generating Eli" : "Cancel Eli generation") : "Add Eli character overlay to all scenes"}
               >
                 {generatingEli ? (
                   <>
@@ -837,8 +839,9 @@ function FinalizationRow({
               {!generatingEli ? (
                 <button
                   onClick={() => setShowEliDropdown(!showEliDropdown)}
-                  className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center"
-                  title="Eli generation options"
+                  disabled={!allAudioGenerated}
+                  className={`text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 rounded-r-lg transition-all flex items-center ${!allAudioGenerated ? "text-neutral-600 cursor-not-allowed" : "text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200"}`}
+                  title={!allAudioGenerated ? "Generate audio first" : "Eli generation options"}
                 >
                   <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
                     <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -855,7 +858,7 @@ function FinalizationRow({
                 <div className="absolute top-full left-0 mt-1.5 w-48 bg-neutral-800/90 border border-neutral-700/60 rounded-xl shadow-2xl z-50 py-1.5">
                   <button
                     onClick={() => { setShowEliDropdown(false); generateMissingEli(); }}
-                    disabled={allEliGenerated || !hasExistingEli}
+                    disabled={allEliGenerated || !hasExistingEli || !allAudioGenerated}
                     className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Generate Missing ({missingEliCount})
@@ -877,7 +880,7 @@ function FinalizationRow({
           label="SEO"
           done={allSeoDone}
           busy={seoBusy}
-          disabled={false}
+          disabled={anyProductionBusy && !seoBusy}
           missingCount={missingSeoCount}
           progress={seoProgress}
           onRunAll={confirmAndGenerateSeo}
@@ -896,12 +899,12 @@ function FinalizationRow({
           label="Export"
           done={allExportsDone}
           busy={exportBusy}
-          disabled={false}
+          disabled={anyProductionBusy && !exportBusy}
           missingCount={missingExportCount}
           progress={exportProgress}
           onRunAll={confirmAndExport}
           onRunMissing={exportMissing}
-          missingLabel={hasExistingExports ? "Render Missing" : "Render Missing"}
+          missingLabel="Render Missing"
           allTitle="Render the long-form video and all short-form videos"
         />
 
@@ -1915,8 +1918,7 @@ function TimelineEditor({
   const allThumbnailsDone = titleCardsAllDone && sfThumbnailsAllDone && lfThumbnailDone;
   const hasExistingThumbnails =
     (titleCardsApplicable && titleScenes.some((sc) => sc.image_url)) ||
-    sfThumbnailCount > 0 ||
-    lfThumbnailDone;
+    sfThumbnailCount > 0;
   const missingThumbnailCount =
     titleCardsMissingCount + sfThumbnailMissingCount + (lfThumbnailDone ? 0 : 1);
   const thumbnailsBusy =
@@ -1939,6 +1941,13 @@ function TimelineEditor({
   // Combined Export (LF render + SF renders)
   const lfRenderDone = render.youtubeUrl != null;
   const lfRendering = render.youtubeStatus?.status === "running" || render.youtubeStatus?.status === "pending";
+
+  // Mirror youtubeStatus into a ref so the combined Export task can wait on
+  // useRenderState's existing internal poller instead of double-polling.
+  const youtubeStatusRef = useRef(render.youtubeStatus);
+  useEffect(() => {
+    youtubeStatusRef.current = render.youtubeStatus;
+  }, [render.youtubeStatus]);
   const allExportsDone = lfRenderDone && (segmentCount === 0 || sfRendersDone);
   const hasExistingExports = lfRenderDone || sfRenderCount > 0;
   const missingExportCount = (lfRenderDone ? 0 : 1) + sfRenderMissingCount;
@@ -1946,6 +1955,14 @@ function TimelineEditor({
     lfRendering ||
     productionBusyTask === "sf-renders" ||
     productionBusyTask === "export-combined";
+
+  const anyProductionBusy =
+    productionBusyTask !== null ||
+    render.seoGenerating ||
+    render.shortFormSeoGenerating ||
+    lfRendering ||
+    titleCardGenerating ||
+    thumbnailsInlineGenerating;
 
   const confirmAndGenerateImages = () => {
     if (hasExistingImages) {
@@ -2132,10 +2149,16 @@ function TimelineEditor({
   // Combined Thumbnails handler — runs title cards + SF thumbnails + LF thumbnail
   const runThumbnailsCombined = (missingOnly: boolean) => {
     void runProductionTask("thumbnails-combined", async () => {
+      const isCancelled = () => titleCardCancelledRef.current || thumbnailsCancelledRef.current;
+      let titleCardsRegenerated = false;
+
+      // Reset cancel flags at the start of a fresh run
+      titleCardCancelledRef.current = false;
+      thumbnailsCancelledRef.current = false;
+
       // 1. Title cards
       if (titleCardsApplicable && (!missingOnly || !titleCardsAllDone)) {
         const segCount = state.content.segments.length;
-        titleCardCancelledRef.current = false;
         setTitleCardGenerating(true);
         setTitleCardProgressPct(0);
         titleCardProgress.start(segCount);
@@ -2143,21 +2166,22 @@ function TimelineEditor({
           await state.generateTitleCardsStandalone(!missingOnly, (status) => {
             if (typeof status.progress === "number") setTitleCardProgressPct(status.progress);
           });
-          if (!titleCardCancelledRef.current) {
+          if (!isCancelled()) {
             setTitleCardProgressPct(1);
             setTitleCardGenerated(true);
             setTitleCardTimestamp(Date.now());
+            titleCardsRegenerated = true;
           }
         } finally {
           setTitleCardGenerating(false);
           setTitleCardProgressPct(null);
           titleCardProgress.end(segCount);
         }
-        if (titleCardCancelledRef.current) return;
+        if (isCancelled()) return;
       }
 
       // 2. Short-form thumbnails
-      if (sfApplicable && (!missingOnly || !sfThumbnailsAllDone)) {
+      if (!isCancelled() && sfApplicable && (!missingOnly || !sfThumbnailsAllDone)) {
         const refreshed = missingOnly ? await refreshShortFormThumbnailStatus() : null;
         if (missingOnly && refreshed) {
           const indices = state.content.segments.map((_, idx) => idx).filter((idx) => !refreshed[idx]);
@@ -2177,8 +2201,9 @@ function TimelineEditor({
         }
       }
 
-      // 3. Long-form thumbnail (recomposite). Skip if already done.
-      if (!lfThumbnailDone) {
+      // 3. Long-form thumbnail. Recomposite when title cards were regenerated
+      // (composite is stale) or when the LF thumbnail was never generated.
+      if (!isCancelled() && (titleCardsRegenerated || !lfThumbnailDone)) {
         await handleRecompositeThumbnailInline();
       }
     });
@@ -2212,17 +2237,18 @@ function TimelineEditor({
       if (segmentCount > 0 && (!missingOnly || !sfSeoDone)) {
         await render.generateShortFormSEO();
       }
-      // Auto-export markdown for both
+      // Auto-export markdown for both. Surface failures via toast but
+      // don't fail the whole task — generation already succeeded.
       try {
         await exportLongFormSEO(scriptId);
-      } catch {
-        // ignore — best-effort export
+      } catch (err) {
+        showToast(`Long-form SEO markdown export failed: ${err instanceof Error ? err.message : "unknown error"}`);
       }
       if (segmentCount > 0) {
         try {
           await exportShortFormSEO(scriptId);
-        } catch {
-          // ignore — best-effort export
+        } catch (err) {
+          showToast(`Short-form SEO markdown export failed: ${err instanceof Error ? err.message : "unknown error"}`);
         }
       }
     });
@@ -2246,7 +2272,17 @@ function TimelineEditor({
       if (!missingOnly || !lfRenderDone) {
         const jobId = await render.startYoutubeRender();
         if (jobId) {
-          await pollRenderJob(jobId);
+          // useRenderState already polls /api/render/status and updates
+          // youtubeStatus + youtubeUrl. Wait on that ref instead of running
+          // a second pollRenderJob against the same endpoint.
+          for (;;) {
+            const status = youtubeStatusRef.current;
+            if (status?.status === "completed") break;
+            if (status?.status === "failed") {
+              throw new Error(status.error ?? "Long-form render failed");
+            }
+            await new Promise((r) => setTimeout(r, 1500));
+          }
         }
       }
       if (sfApplicable && (!missingOnly || !sfRendersDone)) {
@@ -2958,13 +2994,13 @@ function TimelineEditor({
             eliEstimatedSeconds={eliProgress.estimatedSeconds}
             eliProgressActive={eliProgress.active}
             eliProgress={eliProgressPct}
+            allAudioGenerated={allAudioGenerated}
             allSeoDone={allSeoDone}
             missingSeoCount={missingSeoCount}
             seoBusy={seoBusy}
             confirmAndGenerateSeo={confirmAndGenerateSeo}
             generateMissingSeo={generateMissingSeo}
             allExportsDone={allExportsDone}
-            hasExistingExports={hasExistingExports}
             missingExportCount={missingExportCount}
             exportBusy={exportBusy}
             confirmAndExport={confirmAndExport}
@@ -2972,6 +3008,7 @@ function TimelineEditor({
             yoloModeActive={yoloRenderRunning}
             productionProgress={productionProgress}
             productionBusyTask={productionBusyTask}
+            anyProductionBusy={anyProductionBusy}
           />
           {yoloRenderRunning && (
             <YoloProgressStrip
