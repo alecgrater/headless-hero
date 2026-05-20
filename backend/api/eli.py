@@ -12,6 +12,7 @@ from api._helpers import find_scene_in_content
 from database import get_session
 from models.script import Script, ScriptContent
 from pipeline.eli_animator import generate_scene_eli
+from pipeline.render_cache import mark_render_inputs_changed
 from pipeline.render_jobs import create_job, update_job, get_job
 
 logger = logging.getLogger(__name__)
@@ -93,6 +94,7 @@ async def regenerate_eli(req: RegenerateEliRequest, session: Session = Depends(g
     record.script_json = content.model_dump_json()
     session.add(record)
     session.commit()
+    mark_render_inputs_changed(req.script_id)
 
     return {"eli_overlay": eli_result}
 
@@ -143,6 +145,7 @@ def _run_eli_generation(script_id: str, scene_ids: list[str], job_id: str) -> No
             session.add(record)
             session.commit()
 
+        mark_render_inputs_changed(script_id)
         update_job(job_id, status="completed", progress=1.0, current_step="Done")
         logger.info("[ELI] Generation complete for %d scenes (job=%s)", total, job_id)
     except Exception as e:

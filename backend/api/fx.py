@@ -14,6 +14,7 @@ from database import get_session, engine
 from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
 from pipeline.fx_generator import generate_scene_fx
+from pipeline.render_cache import mark_render_inputs_changed
 from pipeline.render_jobs import create_job, get_job, update_job
 
 logger = logging.getLogger(__name__)
@@ -149,6 +150,7 @@ def regenerate_scene_fx(body: RegenerateFXRequest, session: Session = Depends(ge
     record.script_json = content.model_dump_json()
     session.add(record)
     session.commit()
+    mark_render_inputs_changed(body.script_id)
 
     logger.info("Regenerated FX for scene %s", body.scene_id)
     return RegenerateFXResponse(scene_id=body.scene_id, fx=result["fx"], transition_in=target_scene.transition_in)
@@ -263,6 +265,7 @@ def _run_fx_generation(script_id: str, missing_only: bool, job_id: str) -> None:
             record.script_json = content.model_dump_json()
             session.add(record)
             session.commit()
+            mark_render_inputs_changed(script_id)
 
             logger.info("Applied FX to %d/%d target scenes for script %s", updated, target_scenes, script_id)
 

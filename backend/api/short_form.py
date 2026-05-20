@@ -303,6 +303,7 @@ def export_short_form_videos(
     import shutil
 
     from pipeline.export_paths import project_downloads_folder
+    from pipeline.render_cache import is_render_up_to_date
     from pipeline.short_form_render import _short_filename, is_short_render_current
 
     content = _load_content(session, body.script_id)
@@ -324,11 +325,11 @@ def export_short_form_videos(
             missing.append(idx + 1)
             continue
         downloads_path = folder / _short_filename(segment.name, idx + 1, total)
-        if downloads_path.is_file():
+        if downloads_path.is_file() and is_render_up_to_date(downloads_path, body.script_id):
             sources[idx] = downloads_path
             continue
         project_path = project_dir / f"{idx}.mp4"
-        if project_path.is_file():
+        if project_path.is_file() and is_render_up_to_date(project_path, body.script_id):
             sources[idx] = project_path
             continue
         missing.append(idx + 1)
