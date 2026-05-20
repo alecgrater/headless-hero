@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api";
-import { fetchGenerationEstimate, recordDuration, pollTitleCardJob } from "../../api";
+import { fetchGenerationEstimate, recordDuration, pollTitleCardJob, bumpAssetVersion } from "../../api";
 import type { Scene, ScriptContent } from "../../types/script";
 import type { GenerateVisualResponse, GenerateTitleCardsResponse } from "../../types/visual";
 import type { GenerateAudioResponse } from "../../types/audio";
@@ -455,6 +455,19 @@ export function useTimelineState(
             const scriptRes = await api.get(`/api/scripts/${scriptId}`);
             if (scriptRes.ok) {
               const scriptData = scriptRes.data as { script: ScriptContent };
+              const updated = (() => {
+                for (const seg of scriptData.script.segments) {
+                  const found = seg.scenes.find((s) => s.id === sceneId);
+                  if (found) return found;
+                }
+                return null;
+              })();
+              if (updated) {
+                bumpAssetVersion(
+                  updated.image_url ?? "",
+                  ...(updated.frame_urls ?? []),
+                );
+              }
               setContent(scriptData.script);
             }
           }
@@ -488,6 +501,19 @@ export function useTimelineState(
           const scriptRes = await api.get(`/api/scripts/${scriptId}`);
           if (scriptRes.ok) {
             const scriptData = scriptRes.data as { script: ScriptContent };
+            const updated = (() => {
+              for (const seg of scriptData.script.segments) {
+                const found = seg.scenes.find((s) => s.id === sceneId);
+                if (found) return found;
+              }
+              return null;
+            })();
+            if (updated) {
+              bumpAssetVersion(
+                updated.image_url ?? "",
+                ...(updated.frame_urls ?? []),
+              );
+            }
             setContent(scriptData.script);
           }
         }

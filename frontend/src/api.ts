@@ -191,9 +191,24 @@ export async function importRecordingTake(
   return response.json();
 }
 
+const _assetVersions = new Map<string, number>();
+
+/** Bust the browser cache for one or more static asset paths after they've been overwritten on disk. */
+export function bumpAssetVersion(...paths: string[]): void {
+  const v = Date.now();
+  for (const p of paths) {
+    if (p) _assetVersions.set(p.split("?")[0], v);
+  }
+}
+
 /** Prepend the backend origin to a static asset path (e.g. /static/projects/...). */
 export function assetUrl(path: string): string {
-  return `http://localhost:${BACKEND_PORT}${path}`;
+  const [bare] = path.split("?");
+  const v = _assetVersions.get(bare);
+  const base = `http://localhost:${BACKEND_PORT}${path}`;
+  if (v === undefined) return base;
+  const sep = path.includes("?") ? "&" : "?";
+  return `${base}${sep}v=${v}`;
 }
 
 /** Fetch generation time estimate for a given operation type. */
