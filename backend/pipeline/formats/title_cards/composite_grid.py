@@ -28,12 +28,14 @@ class CompositeGridStrategy:
         content: ScriptContent,
         accent_color: str,
         force: bool = False,
+        job_id: str | None = None,
     ) -> None:
         ensure_title_card_images(
             script_id=script_id,
             content=content,
             accent_color=accent_color,
             force=force,
+            job_id=job_id,
         )
 
     def prepare_title_card_scene(

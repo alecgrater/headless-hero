@@ -465,14 +465,16 @@ def render_full_video(
     )
 
     # Always prepare title card scenes (title cards are always active)
-    from pipeline.modifiers.title_cards import prepare_title_card_scene
+    from pipeline.formats import resolve_format
+    fmt = resolve_format(content.format_id)
+    strategy = fmt.title_card_strategy
     brand_dict = brand or {}
     for i, scene in enumerate(scenes):
         check_cancelled()
         if on_progress:
             on_progress(0.3 * (i + 1) / total, f"Preparing scene {i + 1}/{total}")
         logger.info("[%s] Preparing scene %d/%d (scene_id=%s)", script_id, i + 1, total, scene.id)
-        scenes[i] = prepare_title_card_scene(scene, script_id, brand_dict)
+        scenes[i] = strategy.prepare_title_card_scene(scene, script_id, content, brand_dict)
 
     check_cancelled()
     if on_progress:

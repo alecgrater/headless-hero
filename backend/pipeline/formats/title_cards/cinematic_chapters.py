@@ -34,7 +34,13 @@ class CinematicChaptersStrategy:
         content: ScriptContent,
         accent_color: str,
         force: bool = False,
+        job_id: str | None = None,
     ) -> None:
+        # ``job_id`` is part of the strategy protocol contract for cancellation /
+        # progress tracking. The cinematic-chapters pipeline does not yet wire
+        # job_id into its sub-steps; accepted here as a no-op for future use.
+        del job_id
+
         # 1. Single cinematic thumbnail (clean — no overlay)
         clean_path, with_title_path = _thumbnail_paths(script_id)
         clean_path.parent.mkdir(parents=True, exist_ok=True)

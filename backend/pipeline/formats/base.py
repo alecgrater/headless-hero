@@ -31,8 +31,13 @@ class TitleCardStrategy(Protocol):
         content: ScriptContent,
         accent_color: str,
         force: bool = False,
+        job_id: str | None = None,
     ) -> None:
-        """Generate the YouTube thumbnail and any chapter-card images. Idempotent."""
+        """Generate the YouTube thumbnail and any chapter-card images. Idempotent.
+
+        ``job_id`` is forwarded to underlying pipelines that support cancellation
+        / progress tracking (currently only the composite-grid strategy uses it).
+        """
 
     def prepare_title_card_scene(
         self,
