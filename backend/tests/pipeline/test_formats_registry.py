@@ -55,3 +55,39 @@ def test_life_as_a_flags():
     assert fmt.supports_segmented_generation is True
     assert fmt.title_card_strategy.kind == "cinematic-chapters"
     assert fmt.level_label == "level"
+
+
+def test_generate_script_dispatches_to_format(monkeypatch):
+    """Smoke test: generate_script() routes to the right system prompt per format."""
+    import json
+
+    from pipeline import scriptwriter
+
+    captured = {}
+
+    def fake_chat(system: str, user: str, **kwargs):
+        captured["system"] = system
+        captured["user"] = user
+        return json.dumps({
+            "title": "Your Life As A Test",
+            "segments": [{"name": "Level 1, the entry", "scenes": [
+                {"id": "s1", "narration": "you walk in", "visual_prompt": "[ESTABLISHING] door"}
+            ]}],
+            "intro_hook": "",
+            "outro_cta": "",
+            "card_title": "TEST",
+            "card_title_highlight_word": "TEST",
+            "card_subtitle": "",
+            "format_id": "life-as-a",
+            "levels": [{"number": 1, "descriptor": "entry", "image_prompt": "a door"}],
+            "cinematic_thumbnail_prompt": "a door at dawn",
+        })
+
+    monkeypatch.setattr(scriptwriter, "chat", fake_chat)
+    content = scriptwriter.generate_script(
+        topic="Your Life As A Test",
+        format_id="life-as-a",
+        segmented=False,
+    )
+    assert content.format_id == "life-as-a"
+    assert "Level" in captured["user"] or "level" in captured["user"]

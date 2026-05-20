@@ -114,8 +114,9 @@ def generate_script(
     gameplay_enabled: bool = False,
     stock_photo_enabled: bool = False,
     script_id: str | None = None,
+    format_id: str = "youtube-listicle",
 ) -> ScriptContent:
-    """Generate a segmented video script via the routed LLM provider.
+    """Generate a video script for the given format. Dispatches via the format registry.
 
     Args:
         topic: The video title/topic.
@@ -125,45 +126,68 @@ def generate_script(
         brand: Brand profile dict for modifier hooks.
         model: Override SCRIPT_MODEL setting for this request.
         segmented: Use two-phase segmented generation (one API call per segment).
+        format_id: Video format ID (registered in pipeline.formats).
 
     Returns:
         A validated ScriptContent object.
     """
-    from pipeline.modifiers.title_cards import TITLE_CARD_PROMPT_INSTRUCTIONS, enforce_title_cards_and_min_scenes
+    from pipeline.formats import get_format
+    from pipeline.modifiers.title_cards import TITLE_CARD_PROMPT_INSTRUCTIONS
 
+    fmt = get_format(format_id)
     resolved_model = model
 
+    # --- Build the user message ---
     user_parts = [f'Write a full segmented video script for: "{topic}"']
     if description:
         user_parts.append(f"Angle/description: {description}")
-    user_parts.append(f"Use exactly {SEGMENT_COUNT} segments.")
+
+    if isinstance(fmt.level_count, int):
+        user_parts.append(f"Use exactly {fmt.level_count} {fmt.level_label}s.")
+    else:
+        lo, hi = fmt.level_count
+        user_parts.append(
+            f"Use between {lo} and {hi} {fmt.level_label}s — pick the count that best fits the topic."
+        )
+
     if brand_context:
         user_parts.append(f"Brand context (use for visual style and tone): {brand_context}")
+
     user_parts.append(
         "For each scene, set visual_beat and provide matching frame_directives "
-        "following the Visual Beat System guidelines. Use varied beat types "
-        "across the video for maximum visual energy. "
-        "Every visual_prompt must begin with a [SHOT_TYPE] label from the Visual "
-        "storytelling arc palette."
+        "following the Visual Beat System guidelines. "
+        "Every visual_prompt must begin with a [SHOT_TYPE] label."
     )
-    if cold_open_text:
+
+    if cold_open_text and fmt.supports_cold_open:
         user_parts.append(
             "MANDATORY COLD OPEN — use this EXACT opening for the video.\n"
             "The intro_hook and first 2-3 content scenes MUST use this text verbatim "
-            "or with minimal polish. Build the rest of the script to flow naturally "
-            "from this opening:\n\n"
+            "or with minimal polish:\n\n"
             f"{cold_open_text}"
         )
 
-    system_prompt = BASE_SYSTEM_PROMPT
     base_user_message = "\n".join(user_parts)
 
-    # Always apply title card instructions (title cards are always active)
-    system_prompt += TITLE_CARD_PROMPT_INSTRUCTIONS
+    # --- Build the system prompt ---
+    system_prompt = fmt.script_system_prompt.template
+    # Title-card instructions: only inject for composite-grid (life-as-a uses cinematic chapter cards
+    # whose instructions are baked into the format's script_system_prompt).
+    if fmt.title_card_strategy.kind == "composite-grid":
+        system_prompt += TITLE_CARD_PROMPT_INSTRUCTIONS
 
-    # --- Single generation pass (no retry loop) ---
-    if segmented:
-        logger.info("Using SEGMENTED generation for topic %r, description=%r (model=%s)", topic, description, resolved_model or "configured")
+    # --- Generation ---
+    use_segmented = segmented and fmt.supports_segmented_generation
+    if use_segmented:
+        if fmt.outline_prompt is None or fmt.segment_scenes_prompt is None:
+            raise RuntimeError(
+                f"Format {fmt.id!r} declared supports_segmented_generation=True "
+                f"but missing outline_prompt or segment_scenes_prompt"
+            )
+        logger.info(
+            "Format %s — SEGMENTED generation for topic %r, description=%r (model=%s)",
+            fmt.id, topic, description, resolved_model or "configured",
+        )
         content = _generate_segmented(
             system_prompt=system_prompt,
             user_message=base_user_message,
@@ -173,9 +197,14 @@ def generate_script(
             model=resolved_model,
             progress_callback=progress_callback,
             script_id=script_id,
+            outline_instructions=fmt.outline_prompt.template,
+            segment_scenes_instructions=fmt.segment_scenes_prompt.template,
         )
     else:
-        logger.info("Generating script for topic %r, description=%r using model=%s (segments=%d)", topic, description, resolved_model or "configured", SEGMENT_COUNT)
+        logger.info(
+            "Format %s — single-pass generation for topic %r, description=%r (model=%s)",
+            fmt.id, topic, description, resolved_model or "configured",
+        )
         raw = chat(
             system_prompt,
             base_user_message,
@@ -199,18 +228,18 @@ def generate_script(
         data = json.loads(text)
         content = ScriptContent.model_validate(data)
 
-    # Always enforce title card constraints
-    content = enforce_title_cards_and_min_scenes(content)
-
-    # Fix visual monotony in-place (no regeneration needed)
-    _fix_visual_monotony(content)
+    content.format_id = fmt.id
+    content = fmt.enforce_post_processing(content)
+    _fix_visual_monotony(content, rules=fmt.visual_beat_rules)
 
     # Persist multi-source media settings on the script
     content.gameplay_enabled = gameplay_enabled
     content.stock_photo_enabled = stock_photo_enabled
 
-    logger.info("Script generated for topic %r: %s segments, %s total scenes",
-                topic, len(content.segments), sum(len(s.scenes) for s in content.segments))
+    logger.info(
+        "Script generated for topic %r [format=%s]: %s segments, %s total scenes",
+        topic, fmt.id, len(content.segments), sum(len(s.scenes) for s in content.segments),
+    )
     return content
 
 
@@ -228,12 +257,13 @@ def _generate_outline(
     user_message: str,
     model: str | None,
     script_id: str | None,
+    outline_instructions: str = _OUTLINE_INSTRUCTIONS,
 ) -> dict:
     """Phase 1: Generate script outline (no scenes) via a single small LLM call."""
     t0 = time.monotonic()
     logger.info("SEGMENTED: Phase 1 — generating outline (model=%s)", model)
 
-    outline_msg = user_message + "\n\n" + _OUTLINE_INSTRUCTIONS
+    outline_msg = user_message + "\n\n" + outline_instructions
     raw = chat(
         system_prompt,
         outline_msg,
@@ -275,6 +305,7 @@ def _generate_segment_scenes(
     model: str | None,
     trailing_context: str = "",
     script_id: str | None = None,
+    segment_scenes_instructions: str = _SEGMENT_SCENES_INSTRUCTIONS,
 ) -> list[Scene]:
     """Phase 2: Generate scenes for a single segment."""
     segment = outline["segments"][segment_index]
@@ -297,7 +328,7 @@ def _generate_segment_scenes(
         f"Circle color: {segment.get('circle_color', DEFAULT_ACCENT_COLOR)}\n"
         f"Title card image prompt: {segment.get('title_card_image_prompt', '')}\n\n"
         f"{trailing_context}"
-        f"{_SEGMENT_SCENES_INSTRUCTIONS}"
+        f"{segment_scenes_instructions}"
     )
 
     raw = chat(
@@ -375,12 +406,17 @@ def _generate_segmented(
     model: str | None,
     progress_callback: Callable[[int, int, str], None] | None = None,
     script_id: str | None = None,
+    outline_instructions: str = _OUTLINE_INSTRUCTIONS,
+    segment_scenes_instructions: str = _SEGMENT_SCENES_INSTRUCTIONS,
 ) -> ScriptContent:
     """Orchestrate two-phase segmented script generation."""
     total_t0 = time.monotonic()
 
     # Phase 1: outline
-    outline = _generate_outline(system_prompt, user_message, model, script_id)
+    outline = _generate_outline(
+        system_prompt, user_message, model, script_id,
+        outline_instructions=outline_instructions,
+    )
 
     # Phase 2: per-segment scene generation (sequential for coherence)
     segments: list[Segment] = []
@@ -399,6 +435,7 @@ def _generate_segmented(
                 model,
                 trailing_context,
                 script_id=script_id,
+                segment_scenes_instructions=segment_scenes_instructions,
             )
         except Exception as e:
             seg_name = seg_outline.get("name", f"Segment {i + 1}")
