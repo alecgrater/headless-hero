@@ -1689,30 +1689,24 @@ The final thumbnail should feel optimized for viral YouTube CTR.
 IMPORTANT:
 The progression does NOT always need to become "better."
 
-Depending on the topic, the progression may become:
-- more successful
-- more dangerous
-- more depressing
-- more chaotic
-- more extreme
-- more wealthy
-- more addicted
-- more powerful
-- more unstable
-- more luxurious
-- more miserable
-- more intense
+Depending on the topic, the right side may show:
+- more experienced or more developed
+- more successful or more established
+- more weathered or more worn-down
+- more isolated or more burdened
+- darker tones (only if the topic itself is genuinely destructive — e.g. addiction, war, prison)
 
-The right side should represent the MOST EXTREME or MOST ADVANCED version of the topic — not automatically the "best" version.
+The right side should represent the more advanced version of the topic — not automatically the "best" version, and not automatically the "worst" version either. Match the topic's actual emotional weight.
 
 Examples:
-- "Every Level of Software Engineer" → right side may feel elite/successful.
-- "Every Level of Drug Addiction" → right side may feel dark/destructive/chaotic.
-- "Every Level of Prison" → right side may feel dangerous/intimidating.
-- "Every Level of Wealth" → right side may feel luxurious/powerful.
-- "Every Level of Burnout" → right side may feel exhausted/collapsed.
+- "Every Level of Software Engineer" → right side feels elevated, in-command, experienced.
+- "Working at Burger King" → right side is the same job, more tired/messy/lived-in. NOT a hellscape.
+- "Every Level of Drug Addiction" → darker tones are warranted; show the cost realistically (exhaustion, isolation, decline) — not demons or hellfire.
+- "Every Level of Prison" → tougher, more institutional, more shut-down — not gore or torture.
+- "Every Level of Wealth" → more polished, more powerful — not literal piles of gold.
+- "Every Level of Burnout" → exhausted, drained, dimmed — not collapsed in flames.
 
-The emotional direction should match the topic.
+The emotional direction should match the topic LITERALLY, not be amplified into something the topic does not warrant.
 
 ========================
 LAYOUT RULES
@@ -1720,12 +1714,17 @@ LAYOUT RULES
 
 1. Convert the thumbnail into a TWO-SIDED SPLIT DESIGN.
 
-2. Use a DRAMATIC DIAGONAL DIVIDER through the middle.
-- NOT vertical.
-- The diagonal should create motion and tension.
-- Add glow/light along the divider.
+2. Use a NEAR-VERTICAL DIAGONAL DIVIDER, only slightly slanted.
+- The line should run from roughly the top-right area down to the bottom-left area.
+- The slant should be SUBTLE — closer to vertical than to 45 degrees. Steep, not dramatic.
+- Add a soft glow/light along the divider.
 
-3. Each side must have its own label:
+3. SUBJECT FRAMING — CRITICAL:
+- Position the focal subject (person, face, hands, key prop) of each side AWAY from the diagonal divider so each subject is fully visible and uncropped on its respective side.
+- Do NOT let the divider bisect a person's body, face, or head. If the source image's subject would otherwise sit on the divider line, shift the subject toward the outer edge of its side so the divider passes behind/beside it, not through it.
+- Each side's subject must read clearly at small thumbnail sizes.
+
+4. Each side must have its own label:
 - Left side: "LEVEL {left_level}"
 - Right side: "LEVEL {right_level}"
 
@@ -1787,31 +1786,40 @@ RIGHT SIDE RULES (LEVEL {right_level})
 ========================
 
 The right side should represent:
-- the more advanced stage
-- the peak version
-- the extreme outcome
-- the highest intensity state shown
+- the more advanced / more developed stage
+- a clear evolution from the left side
+- the more transformed version of the topic
 
-The emotional tone depends entirely on the topic.
+The emotional tone should match the topic LITERALLY, without leaning on horror clichés.
 
-If the topic is aspirational:
-- make the right side feel elite, luxurious, successful, powerful.
+If the topic is aspirational (career success, wealth, mastery):
+- the right side should feel elevated, polished, more put-together, more in-command.
 
-If the topic is destructive:
-- make the right side feel chaotic, dangerous, depressing, unstable, dark, or tragic.
+If the topic is mundane / unglamorous (working a regular job, daily routines):
+- the right side should still feel different — more experienced, more weathered, more settled into the role — but stay grounded. NOT a hellscape.
 
-If the topic is absurd/funny:
-- exaggerate the chaos and humor dramatically.
+If the topic is genuinely destructive (addiction, financial collapse, abusive relationships, war, prison):
+- darker tones are appropriate, but communicate the cost through realistic environmental and emotional cues (exhaustion, isolation, mess, weight gain/loss, dim lighting), not through demons, hellfire, gore, or supernatural horror imagery.
 
-The right side should ALWAYS feel:
-- more intense
-- more emotionally charged
-- more visually dramatic
-than the left side.
+If the topic is absurd / funny:
+- exaggerate playfully, lean into the joke. Still avoid horror.
 
-EXAGGERATE for CTR.
-Do not aim for realism.
-Aim for emotional impact.
+The right side should feel different from the left — more advanced, more developed — but the change should feel grounded in the topic. Do NOT escalate to extremes the topic does not warrant.
+
+========================
+TONE GUARDRAILS — DO NOT
+========================
+
+NEVER reach for horror or apocalyptic imagery as a way to show "more advanced." Specifically:
+- NO demonic faces, glowing eyes, ghouls, monsters, or supernatural beings.
+- NO hellscapes, walls of fire, brimstone, smoke clouds with faces in them.
+- NO gore, blood, skeletons, corpses, or graphic injury.
+- NO literal flames as metaphor (a stressed worker is tired, not standing in fire).
+- NO mountains of money, infinite riches, or other obvious "rich person" clichés unless the topic is literally about extreme wealth.
+
+The contrast between sides comes from realistic environment, lighting, expression, posture, props, and clothing — NOT from supernatural or horror motifs. Show the change a real person would feel after years in this stage, not a parody of the worst possible outcome.
+
+Stay in the same illustration style and world as the source image. The right side should look like the same artist drew it.
 
 ========================
 VISUAL CONTRAST RULES
@@ -1899,13 +1907,12 @@ IMPORTANT
 
 Do NOT simply split the original image in half.
 
-Completely REIMAGINE both sides so they feel like:
-- early stage vs extreme stage
-- beginner vs advanced
+REIMAGINE each side so they feel like:
+- earlier stage vs more developed stage
+- beginner vs more experienced
 - before vs after
-- normal vs transformed
 
-while still clearly belonging to the same overall world/topic.
+while still clearly belonging to the same overall world/topic and the same illustration style.
 
 The final thumbnail should immediately make viewers think:
 "What happened between Level {left_level} and Level {right_level}?"
