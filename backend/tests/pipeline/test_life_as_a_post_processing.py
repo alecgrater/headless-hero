@@ -1,0 +1,83 @@
+"""Tests for the life-as-a format post-processor."""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from models.script import LevelMeta, Scene, ScriptContent, Segment
+from pipeline.formats.life_as_a import enforce_life_as_a_constraints
+
+
+def _scene(scene_id: str, beat: str = "static", title_card: bool = False) -> Scene:
+    return Scene(
+        id=scene_id,
+        narration="x",
+        visual_prompt="[ESTABLISHING] x",
+        visual_beat=beat,
+        is_title_card=title_card,
+    )
+
+
+def test_disallowed_beats_coerced_to_static():
+    content = ScriptContent(
+        title="Your Life As A Test",
+        format_id="life-as-a",
+        segments=[
+            Segment(name="Level 1, the entry", scenes=[
+                _scene("s1", beat="aha_subtitle"),
+                _scene("s2", beat="montage"),
+                _scene("s3", beat="continuous"),
+            ]),
+        ],
+    )
+    out = enforce_life_as_a_constraints(content)
+    beats = [s.visual_beat for s in out.all_scenes() if not s.is_title_card]
+    assert "aha_subtitle" not in beats
+    assert "montage" not in beats
+    assert "continuous" in beats
+
+
+def test_chapter_card_inserted_when_missing():
+    content = ScriptContent(
+        title="Your Life As A Test",
+        format_id="life-as-a",
+        segments=[
+            Segment(name="Level 1, the entry", title_card_image_prompt="a door", scenes=[
+                _scene("s1"),
+            ]),
+        ],
+    )
+    out = enforce_life_as_a_constraints(content)
+    assert out.segments[0].scenes[0].is_title_card is True
+    assert out.segments[0].scenes[0].id == "chapter_01"
+
+
+def test_levels_synthesized_when_missing():
+    content = ScriptContent(
+        title="Your Life As A Test",
+        format_id="life-as-a",
+        segments=[
+            Segment(name="Level 1", short_name="entry", title_card_image_prompt="a door", scenes=[
+                _scene("s1", title_card=True),
+            ]),
+        ],
+    )
+    out = enforce_life_as_a_constraints(content)
+    assert out.levels is not None
+    assert out.levels[0].number == 1
+    assert out.levels[0].descriptor == "entry"
+
+
+def test_existing_levels_preserved():
+    levels = [LevelMeta(number=1, descriptor="naive", image_prompt="x")]
+    content = ScriptContent(
+        title="Your Life As A Test",
+        format_id="life-as-a",
+        levels=levels,
+        segments=[
+            Segment(name="Level 1, the naive", scenes=[_scene("s1", title_card=True)]),
+        ],
+    )
+    out = enforce_life_as_a_constraints(content)
+    assert out.levels[0].descriptor == "naive"
