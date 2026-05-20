@@ -362,7 +362,7 @@ export default function UploadPanel({ suite, onClose }: Props) {
           <div className="mt-3">
             {activeTab === "long-form" ? (
               <PrimaryActionStack
-                onOpenFolder={() => showInFolder(suite.folder_path)}
+                onOpenFolder={() => showInFolder(suite.longform_video_path || suite.folder_path)}
                 onOpenDestination={openYouTubeUploadWindow}
                 destinationLabel="Open YouTube"
                 destinationIcon={<ExternalLink className="h-3.5 w-3.5" />}
@@ -370,7 +370,7 @@ export default function UploadPanel({ suite, onClose }: Props) {
               />
             ) : (
               <PrimaryActionStack
-                onOpenFolder={() => showInFolder(suite.folder_path)}
+                onOpenFolder={() => showInFolder(activeShortItem?.video_path || suite.folder_path)}
                 onOpenDestination={openUploadShortsWindows}
                 destinationLabel="Open Short Form Apps"
                 destinationIcon={<ExternalLink className="h-3.5 w-3.5" />}
