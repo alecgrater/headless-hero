@@ -17,14 +17,19 @@ def _chapter_image_path(script_id: str, level_number: int) -> Path:
     return DATA_DIR / "projects" / script_id / "images" / f"chapter_{level_number}.png"
 
 
-def _thumbnail_paths(script_id: str) -> tuple[Path, Path]:
-    """Returns (clean_path, with_title_path) for the cinematic thumbnail.
+def _thumbnail_paths(script_id: str) -> tuple[Path, Path, Path]:
+    """Returns (clean_path, final_path, sidecar_path) for the cinematic thumbnail.
 
-    - clean_path: the AI-generated bare image (no overlay)
-    - with_title_path: the final composited thumbnail with title overlay (frontend reads this)
+    - clean_path: AI-generated iconic image. Also reused as chapter_1.png.
+    - final_path: split-progression enhanced thumbnail (frontend reads this).
+    - sidecar_path: persisted level-pair JSON for re-render consistency.
     """
     base = DATA_DIR / "projects" / script_id / "images"
-    return base / "cinematic_thumbnail_clean.png", base / "cinematic_thumbnail.png"
+    return (
+        base / "cinematic_thumbnail_clean.png",
+        base / "cinematic_thumbnail.png",
+        base / "cinematic_thumbnail.levels.json",
+    )
 
 
 @dataclass(frozen=True)
@@ -44,10 +49,16 @@ class CinematicChaptersStrategy:
         # ``job_id`` is part of the strategy protocol contract for cancellation /
         # progress tracking. The cinematic-chapters pipeline does not yet wire
         # job_id into its sub-steps; accepted here as a no-op for future use.
-        del job_id
+        del job_id, accent_color  # accent_color was used by the old Pillow title overlay.
 
-        # 1. Single cinematic thumbnail (clean — no overlay)
-        clean_path, with_title_path = _thumbnail_paths(script_id)
+        from pipeline.thumbnail import (
+            _pick_level_pair,
+            _read_level_pair_sidecar,
+            _write_level_pair_sidecar,
+            enhance_split_progression,
+        )
+
+        clean_path, final_path, sidecar_path = _thumbnail_paths(script_id)
         clean_path.parent.mkdir(parents=True, exist_ok=True)
 
         thumb_prompt = content.cinematic_thumbnail_prompt or content.title
@@ -56,6 +67,7 @@ class CinematicChaptersStrategy:
                 "cinematic-chapters: cinematic_thumbnail_prompt missing on ScriptContent"
             )
 
+        # 1. Generate the iconic image (Gemini call)
         generate_scene_image(
             scene_id="cinematic_thumbnail_clean",
             visual_prompt=thumb_prompt,
@@ -63,31 +75,70 @@ class CinematicChaptersStrategy:
             force=force,
         )
 
-        # 2. The "with title" variant is composited by an existing helper
-        #    (text-overlay composite — same util used for legacy thumbnails). Defer
-        #    to thumbnail.py's existing _composite_title_overlay() once available.
-        from pipeline.thumbnail import composite_title_overlay
-        composite_title_overlay(
-            source_image=clean_path,
-            output_image=with_title_path,
-            title=content.title,
-            accent_color=accent_color,
-        )
+        # 2. Reuse it as chapter_1.png — copy if missing or older than the source.
+        chapter_1_path = _chapter_image_path(script_id, 1)
+        if (
+            force
+            or not chapter_1_path.exists()
+            or chapter_1_path.stat().st_mtime < clean_path.stat().st_mtime
+        ):
+            chapter_1_path.parent.mkdir(parents=True, exist_ok=True)
+            import shutil
+            shutil.copy2(str(clean_path), str(chapter_1_path))
+            logger.info(
+                "cinematic-chapters: copied cinematic image -> chapter_1 for script %s",
+                script_id,
+            )
 
-        # 3. Per-level chapter card images (one per segment with is_title_card scene)
+        # 3. Generate chapter images for levels 2..N from levels[i].image_prompt.
         if not content.levels:
             logger.warning(
                 "cinematic-chapters: content.levels is empty; no chapter images generated"
             )
             return
 
-        for level in content.levels:
+        for level in content.levels[1:]:
+            if not level.image_prompt:
+                logger.warning(
+                    "cinematic-chapters: level %d missing image_prompt — skipping",
+                    level.number,
+                )
+                continue
             generate_scene_image(
                 scene_id=f"chapter_{level.number}",
                 visual_prompt=level.image_prompt,
                 script_id=script_id,
                 force=force,
             )
+
+        # 4. Decide level pair (cached in sidecar for re-render consistency).
+        n_levels = len(content.levels)
+        if n_levels < 2:
+            logger.warning(
+                "cinematic-chapters: only %d level(s) — skipping split-progression "
+                "enhancement, using clean image as final thumbnail",
+                n_levels,
+            )
+            import shutil
+            shutil.copy2(str(clean_path), str(final_path))
+            return
+
+        cached_pair = None if force else _read_level_pair_sidecar(sidecar_path)
+        if cached_pair is None:
+            left_level, right_level = _pick_level_pair(n_levels)
+            _write_level_pair_sidecar(sidecar_path, left_level, right_level)
+        else:
+            left_level, right_level = cached_pair
+
+        # 5. Split-progression enhancement (Gemini call).
+        enhance_split_progression(
+            clean_image_path=clean_path,
+            output_path=final_path,
+            left_level=left_level,
+            right_level=right_level,
+            script_id=script_id,
+            force=force,
+        )
 
     def prepare_title_card_scene(
         self,
