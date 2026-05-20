@@ -1717,7 +1717,7 @@ LAYOUT RULES
 2. Use a NEAR-VERTICAL DIAGONAL DIVIDER, only slightly slanted.
 - The line should run from roughly the top-right area down to the bottom-left area.
 - The slant should be SUBTLE — closer to vertical than to 45 degrees. Steep, not dramatic.
-- Add a soft glow/light along the divider.
+- DIVIDER STYLING — STRICT, CONSISTENT ACROSS ALL THUMBNAILS: render the divider as a THICK GLOWING LIGHT BEAM in bright cyan/electric-blue, like a lightsaber or neon laser. The beam has a bright white-cyan core and a bold outer glow halo that softly bleeds into the surrounding image. It should feel luminous and energetic — NOT a thin gold pen line, NOT a dim outline. Use this exact cyan/blue light-beam style on every thumbnail. This is a recognizable brand element.
 
 3. SUBJECT FRAMING — CRITICAL:
 - Position the focal subject (person, face, hands, key prop) of each side AWAY from the diagonal divider so each subject is fully visible and uncropped on its respective side.
@@ -1728,11 +1728,18 @@ LAYOUT RULES
 - Left side: "LEVEL {left_level}"
 - Right side: "LEVEL {right_level}"
 
-These labels should:
-- be huge
-- bold
-- simple
-- instantly readable
+LABEL TYPOGRAPHY — STRICT, CONSISTENT ACROSS ALL THUMBNAILS:
+- Color: bright pale-yellow / warm gold (a vivid, slightly cream-tinted yellow — high contrast against any background).
+- Stroke: every letter has a THICK BLACK OUTLINE (heavy stroke, roughly 6-10% of letter height). This is mandatory — labels without a black stroke are wrong.
+- Drop shadow: a small dark shadow offset slightly down and to the right for extra punch.
+- Font: condensed bold sans-serif, ALL CAPS, with TIGHT character spacing — letters nearly touching, no extra tracking. Compact and punchy, not airy or spread-out.
+- Size: huge — each label should occupy roughly 14-20% of the image width.
+- "LEVEL {left_level}" sits in the TOP-LEFT corner area of the left side.
+- "LEVEL {right_level}" sits in the BOTTOM-RIGHT corner area of the right side.
+- The labels are diagonally opposite, mirroring the divider's orientation.
+- These labels are the ONLY text on the thumbnail. Do NOT add any other words anywhere.
+
+This label styling MUST stay identical across every thumbnail so the channel has a recognizable visual brand.
 
 ========================
 TEXT MINIMALISM (CRITICAL)
