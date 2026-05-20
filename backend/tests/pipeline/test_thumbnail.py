@@ -1,6 +1,7 @@
 """Tests for long-form thumbnail helpers."""
 
 import json
+import os
 
 import pytest
 from PIL import Image
@@ -104,3 +105,94 @@ def test_read_level_pair_sidecar_missing_keys_returns_none(tmp_path):
     sidecar = tmp_path / "partial.json"
     sidecar.write_text(json.dumps({"left_level": 1}))
     assert _read_level_pair_sidecar(sidecar) is None
+
+
+def test_enhance_split_progression_calls_gemini_with_templated_prompt(tmp_path, monkeypatch):
+    clean_path = tmp_path / "clean.png"
+    output_path = tmp_path / "final.png"
+    Image.new("RGB", (32, 32), (10, 20, 30)).save(clean_path)
+
+    captured: dict[str, object] = {}
+
+    def fake_transform(prompt: str, image_paths: list[str], script_id: str | None = None) -> str:
+        captured["prompt"] = prompt
+        captured["image_paths"] = image_paths
+        # Simulate Gemini producing a temp output
+        result = tmp_path / "gemini_temp.png"
+        Image.new("RGB", (32, 32), (200, 100, 50)).save(result)
+        return str(result)
+
+    monkeypatch.setattr("integrations.google_image_client.transform_with_references", fake_transform)
+
+    result = thumbnail.enhance_split_progression(
+        clean_image_path=clean_path,
+        output_path=output_path,
+        left_level=1,
+        right_level=4,
+        script_id="script-1",
+    )
+
+    assert result == output_path
+    assert output_path.exists()
+    assert "LEVEL 1" in captured["prompt"]
+    assert "LEVEL 4" in captured["prompt"]
+    assert "What happened between Level 1 and Level 4" in captured["prompt"]
+    assert captured["image_paths"] == [str(clean_path)]
+
+
+def test_enhance_split_progression_falls_back_on_gemini_error(tmp_path, monkeypatch):
+    clean_path = tmp_path / "clean.png"
+    output_path = tmp_path / "final.png"
+    Image.new("RGB", (32, 32), (50, 50, 50)).save(clean_path)
+
+    def failing_transform(prompt: str, image_paths: list[str], script_id: str | None = None) -> str:
+        raise RuntimeError("Gemini exploded")
+
+    monkeypatch.setattr("integrations.google_image_client.transform_with_references", failing_transform)
+
+    result = thumbnail.enhance_split_progression(
+        clean_image_path=clean_path,
+        output_path=output_path,
+        left_level=1,
+        right_level=4,
+        script_id="script-1",
+    )
+
+    # Fallback: output is a copy of the clean image
+    assert result == output_path
+    assert output_path.exists()
+    assert output_path.read_bytes() == clean_path.read_bytes()
+
+
+def test_enhance_split_progression_caches_by_mtime(tmp_path, monkeypatch):
+    clean_path = tmp_path / "clean.png"
+    output_path = tmp_path / "final.png"
+    Image.new("RGB", (32, 32), (10, 20, 30)).save(clean_path)
+
+    call_count = {"n": 0}
+
+    def fake_transform(prompt: str, image_paths: list[str], script_id: str | None = None) -> str:
+        call_count["n"] += 1
+        result = tmp_path / f"gemini_{call_count['n']}.png"
+        Image.new("RGB", (32, 32), (call_count["n"] * 10, 0, 0)).save(result)
+        return str(result)
+
+    monkeypatch.setattr("integrations.google_image_client.transform_with_references", fake_transform)
+
+    # First call generates
+    thumbnail.enhance_split_progression(clean_image_path=clean_path, output_path=output_path, left_level=1, right_level=3, script_id="s1")
+    assert call_count["n"] == 1
+
+    # Second call with unchanged source uses cache
+    thumbnail.enhance_split_progression(clean_image_path=clean_path, output_path=output_path, left_level=1, right_level=3, script_id="s1")
+    assert call_count["n"] == 1
+
+    # Bumping source mtime invalidates cache
+    new_mtime = output_path.stat().st_mtime + 10
+    os.utime(clean_path, (new_mtime, new_mtime))
+    thumbnail.enhance_split_progression(clean_image_path=clean_path, output_path=output_path, left_level=1, right_level=3, script_id="s1")
+    assert call_count["n"] == 2
+
+    # force=True also invalidates cache
+    thumbnail.enhance_split_progression(clean_image_path=clean_path, output_path=output_path, left_level=1, right_level=3, script_id="s1", force=True)
+    assert call_count["n"] == 3

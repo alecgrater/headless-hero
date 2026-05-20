@@ -67,6 +67,65 @@ def _read_level_pair_sidecar(path: Path) -> tuple[int, int] | None:
     return (left, right)
 
 
+def enhance_split_progression(
+    clean_image_path: Path,
+    output_path: Path,
+    left_level: int,
+    right_level: int,
+    script_id: str | None = None,
+    force: bool = False,
+) -> Path:
+    """Transform a single iconic life-as-a thumbnail into a split-progression thumbnail.
+
+    Sends the clean image to Gemini with the SPLIT_PROGRESSION_PROMPT (with
+    {left_level} / {right_level} substituted) and writes the result to output_path.
+
+    Caches by mtime: re-runs only if output is missing, source is newer, or force=True.
+    On Gemini failure, falls back to copying the clean image to output_path.
+    """
+    from integrations.google_image_client import transform_with_references
+    from prompts import SPLIT_PROGRESSION_PROMPT
+
+    # mtime cache check
+    if not force and output_path.exists():
+        try:
+            if output_path.stat().st_mtime >= clean_image_path.stat().st_mtime:
+                logger.info(
+                    "[%s] split-progression cache hit: %s",
+                    script_id or "no-id", output_path,
+                )
+                return output_path
+        except OSError:
+            pass  # Fall through and regenerate
+
+    prompt = SPLIT_PROGRESSION_PROMPT.template.format(
+        left_level=left_level,
+        right_level=right_level,
+    )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        result_path = transform_with_references(
+            prompt=prompt,
+            image_paths=[str(clean_image_path)],
+            script_id=script_id,
+        )
+        shutil.copy2(result_path, str(output_path))
+        logger.info(
+            "[%s] split-progression thumbnail written: %s (LEVEL %d / LEVEL %d)",
+            script_id or "no-id", output_path, left_level, right_level,
+        )
+        return output_path
+    except Exception as exc:
+        logger.warning(
+            "[%s] split-progression Gemini call failed (%s); falling back to clean image",
+            script_id or "no-id", exc,
+        )
+        shutil.copy2(str(clean_image_path), str(output_path))
+        return output_path
+
+
 def _cache_bust(url: str, file_path: str) -> str:
     """Append file mtime as query param to bust browser cache."""
     try:
