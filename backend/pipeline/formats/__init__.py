@@ -51,8 +51,8 @@ def resolve_format(format_id: str | None) -> VideoFormat:
 # Register formats. Order matters — youtube-listicle must register first so it
 # is the canonical default during list_formats() iteration.
 def _bootstrap() -> None:
-    # Format registrations land in Task 4 (youtube-listicle) and Task 5 (life-as-a).
-    pass
+    from . import youtube_listicle  # noqa: F401 — side effect: registers
+    # life-as-a registration lands in Task 5
 
 
 _bootstrap()
