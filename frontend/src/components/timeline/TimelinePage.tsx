@@ -1451,6 +1451,7 @@ function TimelineEditor({
     editableTitle,
     initialContent.seo_metadata,
     initialContent.short_form_seo_metadata,
+    initialContent.format_id,
   );
   // Operation progress tracking
   const fxProgress = useOperationProgress("fx_generation");
@@ -2498,12 +2499,22 @@ function TimelineEditor({
         thumbnailsCancelledRef.current = false;
         setThumbnailsInlineGenerating(true);
         try {
-          const res = await api.post("/api/thumbnail/recomposite", {
-            script_id: scriptId,
-          });
-          if (res.ok && !thumbnailsCancelledRef.current) {
-            const data = res.data as { concepts: ThumbnailConcept[] };
-            setThumbnailsInline(data.concepts);
+          if (latest.format_id && latest.format_id !== "youtube-listicle") {
+            // Non-composite-grid formats (e.g. life-as-a) generate their thumbnail
+            // during the title-card step itself; skip the listicle-only recomposite.
+            const refreshed = await api.get(`/api/thumbnail/${scriptId}`);
+            if (refreshed.ok && !thumbnailsCancelledRef.current) {
+              const data = refreshed.data as { concepts: ThumbnailConcept[] };
+              setThumbnailsInline(data.concepts);
+            }
+          } else {
+            const res = await api.post("/api/thumbnail/recomposite", {
+              script_id: scriptId,
+            });
+            if (res.ok && !thumbnailsCancelledRef.current) {
+              const data = res.data as { concepts: ThumbnailConcept[] };
+              setThumbnailsInline(data.concepts);
+            }
           }
         } finally {
           setThumbnailsInlineGenerating(false);
@@ -2576,12 +2587,22 @@ function TimelineEditor({
     thumbnailsCancelledRef.current = false;
     setThumbnailsInlineGenerating(true);
     try {
-      const res = await api.post("/api/thumbnail/recomposite", {
-        script_id: scriptId,
-      });
-      if (res.ok && !thumbnailsCancelledRef.current) {
-        const data = res.data as { concepts: ThumbnailConcept[] };
-        setThumbnailsInline(data.concepts);
+      if (state.content.format_id && state.content.format_id !== "youtube-listicle") {
+        // Non-composite-grid formats reuse the cinematic thumbnail produced at
+        // title-card generation time; just refresh the existing thumbnail URL.
+        const res = await api.get(`/api/thumbnail/${scriptId}`);
+        if (res.ok && !thumbnailsCancelledRef.current) {
+          const data = res.data as { concepts: ThumbnailConcept[] };
+          setThumbnailsInline(data.concepts);
+        }
+      } else {
+        const res = await api.post("/api/thumbnail/recomposite", {
+          script_id: scriptId,
+        });
+        if (res.ok && !thumbnailsCancelledRef.current) {
+          const data = res.data as { concepts: ThumbnailConcept[] };
+          setThumbnailsInline(data.concepts);
+        }
       }
     } finally {
       setThumbnailsInlineGenerating(false);
@@ -3193,22 +3214,35 @@ function TimelineEditor({
           <div className="flex items-center gap-4">
             <span className="text-xs text-neutral-500 shrink-0">Title Cards:</span>
             <div className="flex gap-3">
-              <div className="space-y-0.5">
-                <img
-                  src={assetUrl(`/static/projects/${scriptId}/images/composite_title_card.png`) + `?t=${titleCardTimestamp}`}
-                  alt="Thumbnail"
-                  className="h-16 aspect-video object-cover rounded border border-neutral-700"
-                />
-                <p className="text-[10px] text-neutral-500">With title</p>
-              </div>
-              <div className="space-y-0.5">
-                <img
-                  src={assetUrl(`/static/projects/${scriptId}/images/composite_title_card_notitle.png`) + `?t=${titleCardTimestamp}`}
-                  alt="Title Slide"
-                  className="h-16 aspect-video object-cover rounded border border-neutral-700"
-                />
-                <p className="text-[10px] text-neutral-500">No title</p>
-              </div>
+              {state.content.format_id === "life-as-a" ? (
+                <div className="space-y-0.5">
+                  <img
+                    src={assetUrl(`/static/projects/${scriptId}/images/cinematic_thumbnail.png`) + `?t=${titleCardTimestamp}`}
+                    alt="Cinematic thumbnail"
+                    className="h-16 aspect-video object-cover rounded border border-neutral-700"
+                  />
+                  <p className="text-[10px] text-neutral-500">Thumbnail</p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-0.5">
+                    <img
+                      src={assetUrl(`/static/projects/${scriptId}/images/composite_title_card.png`) + `?t=${titleCardTimestamp}`}
+                      alt="Thumbnail"
+                      className="h-16 aspect-video object-cover rounded border border-neutral-700"
+                    />
+                    <p className="text-[10px] text-neutral-500">With title</p>
+                  </div>
+                  <div className="space-y-0.5">
+                    <img
+                      src={assetUrl(`/static/projects/${scriptId}/images/composite_title_card_notitle.png`) + `?t=${titleCardTimestamp}`}
+                      alt="Title Slide"
+                      className="h-16 aspect-video object-cover rounded border border-neutral-700"
+                    />
+                    <p className="text-[10px] text-neutral-500">No title</p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

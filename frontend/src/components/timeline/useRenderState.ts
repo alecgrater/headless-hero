@@ -72,6 +72,7 @@ export function useRenderState(
   title: string,
   initialSeoMetadata?: SEOMetadata | null,
   initialShortFormSeoMetadata?: ShortFormSEOMetadata | null,
+  formatId?: string,
 ): RenderState {
   const [youtubeJobId, setYoutubeJobId] = useState<string | null>(null);
   const [youtubeStatus, setYoutubeStatus] = useState<RenderStatusResponse | null>(null);
@@ -168,19 +169,29 @@ export function useRenderState(
       setThumbnailsGenerating(true);
       thumbnailProgressHook.start();
       try {
-        const res = await api.post("/api/thumbnail/recomposite", {
-          script_id: scriptId,
-        });
-        if (res.ok) {
-          const data = res.data as GenerateThumbnailResponse;
-          setThumbnails(data.concepts);
+        if (formatId && formatId !== "youtube-listicle") {
+          // Cinematic-chapters and other non-composite formats produce their
+          // thumbnail at title-card generation time; just refresh from disk.
+          const res = await api.get(`/api/thumbnail/${scriptId}`);
+          if (res.ok) {
+            const data = res.data as GenerateThumbnailResponse;
+            setThumbnails(data.concepts);
+          }
+        } else {
+          const res = await api.post("/api/thumbnail/recomposite", {
+            script_id: scriptId,
+          });
+          if (res.ok) {
+            const data = res.data as GenerateThumbnailResponse;
+            setThumbnails(data.concepts);
+          }
         }
       } finally {
         setThumbnailsGenerating(false);
         thumbnailProgressHook.end();
       }
     },
-    [scriptId],
+    [scriptId, formatId],
   );
 
   const generateSEO = useCallback(async () => {
