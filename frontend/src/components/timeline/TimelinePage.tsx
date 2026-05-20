@@ -3,7 +3,6 @@ import {
   Check,
   Film,
   ImageIcon,
-  Info,
   Layers,
   ListVideo,
   PanelsTopLeft,
@@ -730,6 +729,18 @@ function ProductionTaskButton({
 }
 
 function FinalizationRow({
+  allFXGenerated,
+  hasExistingFX,
+  missingFXCount,
+  generatingFX,
+  setGeneratingFX,
+  confirmAndGenerateFX,
+  generateMissingFX,
+  fxCancelledRef,
+  fxPotentiallyStale,
+  fxEstimatedSeconds,
+  fxProgressActive,
+  fxProgress,
   allEliGenerated,
   hasExistingEli,
   missingEliCount,
@@ -757,6 +768,18 @@ function FinalizationRow({
   productionBusyTask,
   anyProductionBusy,
 }: {
+  allFXGenerated: boolean;
+  hasExistingFX: boolean;
+  missingFXCount: number;
+  generatingFX: boolean;
+  setGeneratingFX: (v: boolean) => void;
+  confirmAndGenerateFX: () => void;
+  generateMissingFX: () => void;
+  fxCancelledRef: React.RefObject<boolean>;
+  fxPotentiallyStale: boolean;
+  fxEstimatedSeconds: number | null;
+  fxProgressActive: boolean;
+  fxProgress: number | null;
   allEliGenerated: boolean;
   hasExistingEli: boolean;
   missingEliCount: number;
@@ -785,16 +808,19 @@ function FinalizationRow({
   anyProductionBusy: boolean;
 }) {
   const [showEliDropdown, setShowEliDropdown] = useState(false);
+  const [showFXDropdown, setShowFXDropdown] = useState(false);
   const eliDropdownRef = useRef<HTMLDivElement>(null);
+  const fxDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!showEliDropdown) return;
+    if (!showEliDropdown && !showFXDropdown) return;
     const handler = (e: MouseEvent) => {
-      if (eliDropdownRef.current && !eliDropdownRef.current.contains(e.target as Node)) setShowEliDropdown(false);
+      if (showEliDropdown && eliDropdownRef.current && !eliDropdownRef.current.contains(e.target as Node)) setShowEliDropdown(false);
+      if (showFXDropdown && fxDropdownRef.current && !fxDropdownRef.current.contains(e.target as Node)) setShowFXDropdown(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [showEliDropdown]);
+  }, [showEliDropdown, showFXDropdown]);
 
   const seoProgress = productionBusyTask === "seo-combined" ? productionProgress : null;
   const exportProgress = productionBusyTask === "export-combined" ? productionProgress : null;
@@ -802,6 +828,82 @@ function FinalizationRow({
   return (
     <div className="px-5 py-2 border-t border-neutral-800/60 shrink-0">
       <div className="grid w-full items-center gap-2 min-w-0" style={{ gridTemplateColumns: "minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr)" }}>
+        {/* Step 4 — FX (under YOLO MODE) */}
+        <div className="flex flex-col">
+          <div className="flex items-center gap-1.5">
+            <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
+              generatingFX
+                ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)] animate-[pulseDot_2s_ease-in-out_infinite]"
+                : allFXGenerated && fxPotentiallyStale
+                  ? "border-amber-400 bg-amber-500/10 text-amber-300 shadow-[0_0_6px_rgba(245,158,11,0.3)]"
+                  : allFXGenerated
+                    ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
+                    : "border-neutral-600 text-neutral-500"
+            }`}>4</span>
+            <div ref={fxDropdownRef} className="relative flex items-stretch flex-1">
+              <button
+                onClick={generatingFX ? (yoloModeActive ? undefined : () => { fxCancelledRef.current = true; setGeneratingFX(false); }) : confirmAndGenerateFX}
+                className={`text-xs pl-3 pr-1.5 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
+                  generatingFX
+                    ? `bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] ${yoloModeActive ? "cursor-default" : "hover:border-red-500/50 hover:text-red-400"}`
+                    : allFXGenerated && fxPotentiallyStale
+                      ? "bg-amber-500/8 border-amber-500/25 text-amber-400 hover:bg-amber-500/15"
+                      : allFXGenerated
+                        ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
+                        : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
+                }`}
+                title={generatingFX ? (yoloModeActive ? "Generating FX" : "Cancel FX generation") : fxPotentiallyStale && allFXGenerated ? "Audio changed since FX was last generated — regenerate to sync" : "Use AI to assign visual effects to all scenes"}
+              >
+                {generatingFX ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-violet-400/60 border-t-transparent rounded-full animate-spin" />
+                    {yoloModeActive ? compactProgressText(fxProgress) : "Cancel"}
+                  </>
+                ) : allFXGenerated && fxPotentiallyStale ? (
+                  "FX ⚠"
+                ) : allFXGenerated ? (
+                  "FX ✓"
+                ) : (
+                  "FX"
+                )}
+              </button>
+              {!generatingFX ? (
+                <button
+                  onClick={() => setShowFXDropdown(!showFXDropdown)}
+                  className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center"
+                  title="FX generation options"
+                >
+                  <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+                    <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              ) : (
+                <span className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-lg flex items-center">
+                  <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
+                    <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              )}
+              {showFXDropdown && (
+                <div className="absolute top-full left-0 mt-1.5 w-48 bg-neutral-800/90 border border-neutral-700/60 rounded-xl shadow-2xl z-50 py-1.5">
+                  <button
+                    onClick={() => { setShowFXDropdown(false); generateMissingFX(); }}
+                    disabled={allFXGenerated || !hasExistingFX}
+                    className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Generate Missing ({missingFXCount})
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          {generatingFX && <MiniProgressBar estimatedSeconds={fxEstimatedSeconds} active={fxProgressActive} />}
+        </div>
+
+        <svg className="w-3 h-3 text-neutral-600/60 shrink-0" viewBox="0 0 12 12" fill="none">
+          <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+
         {/* Step 5 — Eli (under Thumbnails) */}
         <div className="flex flex-col">
           <div className="flex items-center gap-1.5">
@@ -907,12 +1009,6 @@ function FinalizationRow({
           missingLabel="Render Missing"
           allTitle="Render the long-form video and all short-form videos"
         />
-
-        <svg className="w-3 h-3 invisible shrink-0" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-          <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        {/* Empty 4th column under FX */}
-        <div aria-hidden="true" />
       </div>
     </div>
   );
@@ -1435,7 +1531,6 @@ function TimelineEditor({
   const [lastFXGenTimestamp, setLastFXGenTimestamp] = useState(0);
   const [yoloStep, setYoloStep] = useState<string | null>(null);
   const [yoloRenderRunning, setYoloRenderRunning] = useState(false);
-  const [yoloRenderError, setYoloRenderError] = useState<string | null>(null);
   const [titleCardProgressPct, setTitleCardProgressPct] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"timeline" | "media-sources" | "segments">("timeline");
   const [viewerFormat, setViewerFormat] = useState<ViewerFormat>("long-form");
@@ -2496,12 +2591,11 @@ function TimelineEditor({
   const handleYoloRender = useCallback(async () => {
     if (yoloRenderRunning) return;
     if (!voicePicker.selectedVoiceId) {
-      setYoloRenderError("Select a voice in settings before running YOLO render");
+      showToast("Select a voice in settings before running YOLO render");
       return;
     }
 
     setYoloRenderRunning(true);
-    setYoloRenderError(null);
     setYoloStep(null);
     yoloCancelledRef.current = false;
     productionBusyRef.current = true;
@@ -2572,7 +2666,7 @@ function TimelineEditor({
       await refreshShortFormThumbnailStatus();
       await refreshShortFormRenderStatus();
     } catch (err) {
-      setYoloRenderError(err instanceof Error ? err.message : "YOLO render failed");
+      showToast(err instanceof Error ? err.message : "YOLO render failed");
     } finally {
       productionBusyRef.current = false;
       setProductionBusyTask(null);
@@ -2689,64 +2783,23 @@ function TimelineEditor({
     return null;
   })();
 
-  const yoloArea = (() => {
-    const creationStatus = getCreationStatus(state.content);
-    const creationRemaining: string[] = [];
-    if (!creationStatus.titleCardsDone && creationStatus.hasTitleCards) creationRemaining.push("Title Cards");
-    if (!creationStatus.audioDone) creationRemaining.push("Audio");
-    if (!creationStatus.imagesDone) creationRemaining.push("Images");
-    if (!creationStatus.fxDone) creationRemaining.push("FX");
-    if (!creationStatus.eliDone) creationRemaining.push("Eli");
-    const renderRemaining = [...creationRemaining];
-    if (!lfSeoDone) renderRemaining.push("LF SEO");
-    if (!sfThumbnailsDone) renderRemaining.push("SF Thumbnails");
-    if (!sfSeoDone) renderRemaining.push("SF SEO");
-    if (!sfRendersDone) renderRemaining.push("SF Videos");
-    const buttonDescription = `Runs the full YOLO pipeline from the next unfinished task. Missing creation assets, long-form render, short-form assets, and the final bundle are completed automatically. Currently pending: ${renderRemaining.join(", ") || "final export only"}.`;
-    const yoloButtonBaseClass = "group relative flex h-7 w-[9.5rem] shrink-0 items-center justify-center overflow-hidden rounded-lg px-4 text-center text-xs font-bold leading-tight text-white/95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100";
-    const yoloButtonContentClass = "relative flex min-w-0 items-center justify-center gap-1.5 text-center";
-    const yoloInfoClass = "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-neutral-700/60 bg-neutral-900 text-neutral-500 transition-colors hover:border-neutral-500 hover:text-neutral-200";
-    const yoloButtonColorClass = "bg-gradient-to-r from-sky-500/80 via-emerald-400/70 to-amber-400/70 shadow-[0_0_15px_rgba(14,165,233,0.2)] hover:shadow-[0_0_22px_rgba(14,165,233,0.35)] focus-visible:ring-sky-500";
-
-    const yoloInfo = (content: string, label: string) => (
-      <Tooltip content={content} side="bottom">
-        <span className={yoloInfoClass} aria-label={label}>
-          <Info size={14} />
-        </span>
-      </Tooltip>
-    );
-
-    const yoloButton = (
-      <button
-        onClick={handleYoloRender}
-        disabled={yoloRenderRunning}
-        className={`${yoloButtonBaseClass} ${yoloButtonColorClass}`}
-      >
-        <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_ease-in-out_infinite]" />
-        <span className={yoloButtonContentClass}>
-          {yoloRenderRunning ? (
-            <span className="w-3 h-3 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <Zap size={14} />
-          )}
-          YOLO MODE
-        </span>
-      </button>
-    );
-
-    return (
-      <div className="flex items-center gap-2 shrink-0">
-        {yoloRenderError && (
-          <span className="text-[11px] text-red-400 truncate max-w-[14rem]">{yoloRenderError}</span>
+  const yoloButton = (
+    <button
+      onClick={handleYoloRender}
+      disabled={yoloRenderRunning}
+      className="group relative flex h-9 w-full shrink-0 items-center justify-center overflow-hidden rounded-lg px-4 text-center text-xs font-bold leading-tight text-white/95 bg-gradient-to-r from-sky-500/80 via-emerald-400/70 to-amber-400/70 shadow-[0_0_15px_rgba(14,165,233,0.2)] transition-all hover:shadow-[0_0_22px_rgba(14,165,233,0.35)] hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 disabled:opacity-50 disabled:hover:scale-100"
+    >
+      <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_ease-in-out_infinite]" />
+      <span className="relative flex min-w-0 items-center justify-center gap-1.5 text-center">
+        {yoloRenderRunning ? (
+          <span className="w-3 h-3 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <Zap size={14} />
         )}
-        {yoloRenderRunning && yoloStep && (
-          <span className="text-xs text-sky-300/75 font-medium truncate max-w-[14rem]">{yoloStep}</span>
-        )}
-        {yoloButton}
-        {yoloInfo(buttonDescription, "YOLO mode details")}
-      </div>
-    );
-  })();
+        YOLO MODE
+      </span>
+    </button>
+  );
 
   return (
     <div className="flex flex-col h-[calc(100vh-105px)]">
@@ -2809,7 +2862,6 @@ function TimelineEditor({
                 </>
               )}
             </div>
-            {yoloArea}
             <UploadButton
               checking={uploadSuiteChecking}
               onOpenUpload={() => void openUploadPanel()}
@@ -2934,35 +2986,28 @@ function TimelineEditor({
           })()}
 
           <PipelineSteps
+            yoloButton={yoloButton}
             thumbnailsBusy={thumbnailsBusy}
             allThumbnailsDone={allThumbnailsDone}
             hasExistingThumbnails={hasExistingThumbnails}
             missingThumbnailCount={missingThumbnailCount}
             allImagesGenerated={allImagesGenerated}
             allAudioGenerated={allAudioGenerated}
-            allFXGenerated={allFXGenerated}
             batchGenerating={state.batchGenerating}
             batchGeneratingAudio={state.batchGeneratingAudio}
-            generatingFX={generatingFX}
-            setGeneratingFX={setGeneratingFX}
             confirmAndGenerateThumbnails={confirmAndGenerateThumbnails}
             generateMissingThumbnails={generateMissingThumbnails}
             cancelThumbnails={cancelThumbnailsCombined}
             confirmAndGenerateImages={confirmAndGenerateImages}
             confirmAndGenerateAudio={confirmAndGenerateAudio}
-            confirmAndGenerateFX={confirmAndGenerateFX}
             generateMissingImages={generateMissingImages}
             generateMissingAudio={generateMissingAudio}
-            generateMissingFX={generateMissingFX}
             hasExistingImages={hasExistingImages}
             hasExistingAudio={hasExistingAudio}
-            hasExistingFX={hasExistingFX}
             missingImageCount={missingImageCount}
             missingAudioCount={missingAudioCount}
-            missingFXCount={missingFXCount}
             cancelImageGeneration={state.cancelImageGeneration}
             cancelAudioGeneration={state.cancelAudioGeneration}
-            fxCancelledRef={fxCancelledRef}
             showVoicePicker={voicePicker.showVoicePicker}
             setShowVoicePicker={voicePicker.setShowVoicePicker}
             voices={voicePicker.voices}
@@ -2970,19 +3015,27 @@ function TimelineEditor({
             setSelectedVoiceId={voicePicker.setSelectedVoiceId}
             voicePickerRef={voicePicker.voicePickerRef}
             onRecordVoiceover={onRecordVoiceover}
-            fxPotentiallyStale={lastAudioGenTimestamp > 0 && lastAudioGenTimestamp > lastFXGenTimestamp}
-            fxEstimatedSeconds={fxProgress.estimatedSeconds}
-            fxProgressActive={fxProgress.active}
             thumbnailsEstimatedSeconds={titleCardProgress.estimatedSeconds}
             thumbnailsProgressActive={titleCardProgress.active}
             yoloModeActive={yoloRenderRunning}
             thumbnailsProgress={titleCardProgressPct}
             audioProgress={batchProgressValue(state.batchAudioProgress)}
             imageProgress={batchProgressValue(state.batchImageProgress)}
-            fxProgress={fxProgressPct}
           />
 
           <FinalizationRow
+            allFXGenerated={allFXGenerated}
+            hasExistingFX={hasExistingFX}
+            missingFXCount={missingFXCount}
+            generatingFX={generatingFX}
+            setGeneratingFX={setGeneratingFX}
+            confirmAndGenerateFX={confirmAndGenerateFX}
+            generateMissingFX={generateMissingFX}
+            fxCancelledRef={fxCancelledRef}
+            fxPotentiallyStale={lastAudioGenTimestamp > 0 && lastAudioGenTimestamp > lastFXGenTimestamp}
+            fxEstimatedSeconds={fxProgress.estimatedSeconds}
+            fxProgressActive={fxProgress.active}
+            fxProgress={fxProgressPct}
             allEliGenerated={allEliGenerated}
             hasExistingEli={hasExistingEli}
             missingEliCount={missingEliCount}
