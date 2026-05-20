@@ -120,7 +120,7 @@ class LevelMeta(BaseModel):
     """Per-level metadata used only by the cinematic-chapters strategy."""
     number: int
     descriptor: str
-    image_prompt: str
+    image_prompt: str = ""  # Empty for level 1 — covered by cinematic_thumbnail_prompt instead.
 
 class Segment(BaseModel):
     """A named segment (e.g. "Caffeine") containing multiple scenes."""

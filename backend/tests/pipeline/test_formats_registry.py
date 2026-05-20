@@ -108,7 +108,7 @@ def test_segmented_life_as_a_preserves_outline_fields(monkeypatch):
         "card_subtitle": "",
         "cinematic_thumbnail_prompt": "a door at dawn",
         "levels": [
-            {"number": 1, "descriptor": "entry", "image_prompt": "a door"},
+            {"number": 1, "descriptor": "entry"},
             {"number": 2, "descriptor": "drift", "image_prompt": "a hallway"},
         ],
         "segments": [
@@ -141,6 +141,45 @@ def test_segmented_life_as_a_preserves_outline_fields(monkeypatch):
     assert content.levels is not None
     assert len(content.levels) == 2
     assert content.levels[0].descriptor == "entry"
-    assert content.levels[0].image_prompt == "a door"
+    assert content.levels[0].image_prompt == ""  # Level 1's chapter image comes from cinematic_thumbnail_prompt.
     assert content.levels[1].descriptor == "drift"
     assert content.levels[1].image_prompt == "a hallway"
+
+
+def test_enforce_life_as_a_falls_back_to_cinematic_prompt_for_level_1():
+    """When levels[0].image_prompt is empty, the level-1 chapter scene should
+    use cinematic_thumbnail_prompt as its visual_prompt fallback."""
+    from models.script import LevelMeta, Scene, ScriptContent, Segment
+    from pipeline.formats.life_as_a import enforce_life_as_a_constraints
+
+    content = ScriptContent(
+        title="Your Life As A Test",
+        format_id="life-as-a",
+        cinematic_thumbnail_prompt="a door at dawn",
+        levels=[
+            LevelMeta(number=1, descriptor="entry", image_prompt=""),
+            LevelMeta(number=2, descriptor="drift", image_prompt="a hallway"),
+        ],
+        segments=[
+            Segment(name="Level 1, the entry", scenes=[
+                Scene(id="s1", narration="walking", visual_prompt="[ESTABLISHING] something",
+                      duration_estimate_seconds=10, is_title_card=False),
+            ]),
+            Segment(name="Level 2, the drift", scenes=[
+                Scene(id="s2", narration="drifting", visual_prompt="[ESTABLISHING] something",
+                      duration_estimate_seconds=10, is_title_card=False),
+            ]),
+        ],
+    )
+
+    enforce_life_as_a_constraints(content)
+
+    # Level 1 chapter card scene was inserted at index 0 of segment 0
+    level_1_chapter = content.segments[0].scenes[0]
+    assert level_1_chapter.is_title_card is True
+    assert "a door at dawn" in level_1_chapter.visual_prompt
+
+    # Level 2 chapter card uses its own image_prompt
+    level_2_chapter = content.segments[1].scenes[0]
+    assert level_2_chapter.is_title_card is True
+    assert "a hallway" in level_2_chapter.visual_prompt

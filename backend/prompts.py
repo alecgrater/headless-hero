@@ -535,7 +535,11 @@ Return ONLY valid JSON — no markdown fences, no commentary. The JSON must have
   "levels": [
     {
       "number": 1,
-      "descriptor": "occasional",
+      "descriptor": "occasional"
+    },
+    {
+      "number": 2,
+      "descriptor": "regular",
       "image_prompt": "Vivid one-line scene description for the chapter card image."
     }
   ],
@@ -564,6 +568,7 @@ Return ONLY valid JSON — no markdown fences, no commentary. The JSON must have
 Output rules:
 - `levels` and `segments` are PARALLEL arrays of equal length (4–7 entries each). Level N corresponds to segment N.
 - Each segment's `name` field MUST follow the literal format `Level {N}, the {descriptor}` — e.g. `Level 1, the occasional`. Comma after the number, lowercase descriptor, no colon.
+- `levels[0]` (level 1) does NOT need an `image_prompt`; the chapter-card image for level 1 is reused from the cinematic thumbnail. Levels 2..N require `image_prompt`.
 - `intro_hook` is the very first lines the viewer hears; it must already be in second person, present tense, and must NOT greet the viewer.
 - `outro_cta` is editor metadata only. Do NOT fold its language into scene narration.
 - Each level's first scene is a chapter card (`is_title_card: true`, `visual_beat: "static"`, `frame_directives: []`) whose narration is the level title line ("Level one, the occasional.").
@@ -611,7 +616,7 @@ For each level, produce:
 - `number` (1-indexed integer)
 - `descriptor` — 1–3 words, lowercase, no colon. Names a state of being, not an action. (e.g. "occasional", "architecture", "floor", "aftermath")
 - `topic_summary` — 2–3 sentences describing what happens to the protagonist at this level, what shifts, what new vocabulary or behavior appears. This is the rail for the per-level scene phase.
-- `image_prompt` — a vivid one-line scene description for the chapter-card image. Begins with one of `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, `[METAPHOR]`.
+- `image_prompt` — a vivid one-line scene description for the chapter-card image. Begins with one of `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, `[METAPHOR]`. **Required for levels 2..N. Omit (or set to empty string) for level 1** — level 1's chapter card image is reused from the cinematic thumbnail.
 
 ## Output format
 
@@ -629,6 +634,11 @@ Return ONLY valid JSON — no markdown fences, no commentary. The JSON has this 
     {
       "number": 1,
       "descriptor": "occasional",
+      "topic_summary": "2-3 sentences for context."
+    },
+    {
+      "number": 2,
+      "descriptor": "regular",
       "topic_summary": "2-3 sentences for context.",
       "image_prompt": "[ESTABLISHING] vivid one-line description."
     }
