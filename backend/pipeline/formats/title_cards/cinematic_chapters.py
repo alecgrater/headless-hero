@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -83,7 +84,6 @@ class CinematicChaptersStrategy:
             or chapter_1_path.stat().st_mtime < clean_path.stat().st_mtime
         ):
             chapter_1_path.parent.mkdir(parents=True, exist_ok=True)
-            import shutil
             shutil.copy2(str(clean_path), str(chapter_1_path))
             logger.info(
                 "cinematic-chapters: copied cinematic image -> chapter_1 for script %s",
@@ -119,7 +119,6 @@ class CinematicChaptersStrategy:
                 "enhancement, using clean image as final thumbnail",
                 n_levels,
             )
-            import shutil
             shutil.copy2(str(clean_path), str(final_path))
             return
 
