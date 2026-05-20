@@ -20,6 +20,7 @@ from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
 from pipeline.render_jobs import RenderJob, create_job, estimate_render_time, get_job, is_cancelled, run_in_background, update_job
 from pipeline.remotion_render import render_full_video
+from pipeline.render_cache import is_render_up_to_date
 from pipeline.export_paths import (
     copy_to_project_downloads,
     has_export_label,
@@ -171,7 +172,11 @@ def _format_shortform_seo_markdown(item: dict) -> str:
 
 
 def _find_rendered_longform(script_id: str, project_title: str) -> tuple[str | None, str | None]:
-    """Return an existing long-form render path and optional web URL."""
+    """Return an existing long-form render path and optional web URL.
+
+    Stale renders (older than any source image/audio file) are ignored so the
+    caller will re-render when assets have been regenerated.
+    """
     renders_dir = DATA_DIR / "projects" / script_id / "renders"
     if renders_dir.exists():
         candidates = sorted(
@@ -179,12 +184,12 @@ def _find_rendered_longform(script_id: str, project_title: str) -> tuple[str | N
             key=lambda path: (path.name != "full_youtube.mp4", path.name),
         )
         for mp4 in candidates:
-            if mp4.is_file():
+            if mp4.is_file() and is_render_up_to_date(mp4, script_id):
                 return str(mp4), f"/static/projects/{script_id}/renders/{mp4.name}"
 
     folder = project_downloads_folder(project_title, create=False)
     exported = folder / longform_filename("Video", project_title, ".mp4")
-    if exported.is_file():
+    if exported.is_file() and is_render_up_to_date(exported, script_id):
         return str(exported), None
     if folder.is_dir():
         exported_videos = sorted(
@@ -195,8 +200,9 @@ def _find_rendered_longform(script_id: str, project_title: str) -> tuple[str | N
             ),
             key=lambda path: path.name,
         )
-        if exported_videos:
-            return str(exported_videos[0]), None
+        for video in exported_videos:
+            if is_render_up_to_date(video, script_id):
+                return str(video), None
 
     return None, None
 

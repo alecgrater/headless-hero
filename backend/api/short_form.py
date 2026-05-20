@@ -133,17 +133,19 @@ def rendered_shorts(script_id: str, session: Session = Depends(get_session)):
     project_title = record.topic_title or "Untitled"
     expected_paths = _short_download_paths_for_content(project_title, content)
     project_dir = DATA_DIR / "projects" / script_id / "renders" / "shorts"
+    from pipeline.render_cache import is_render_up_to_date
     from pipeline.short_form_render import is_short_render_current
 
     paths: dict[int, str] = {}
     for idx, path in expected_paths.items():
         if not is_short_render_current(script_id, idx, content):
             continue
-        if Path(path).is_file():
+        downloads_path = Path(path)
+        if downloads_path.is_file() and is_render_up_to_date(downloads_path, script_id):
             paths[idx] = path
             continue
         project_path = project_dir / f"{idx}.mp4"
-        if project_path.is_file():
+        if project_path.is_file() and is_render_up_to_date(project_path, script_id):
             paths[idx] = str(project_path)
     return RenderedShortsResponse(
         rendered_indices=sorted(paths.keys()),
