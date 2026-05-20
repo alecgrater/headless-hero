@@ -51,22 +51,30 @@ def _find_runs(labels: list[str], skip: set[str], threshold: int = 3) -> list[tu
     return runs
 
 
-def _fix_visual_monotony(content: "ScriptContent") -> int:
+def _fix_visual_monotony(content: "ScriptContent", rules: "VisualBeatRules | None" = None) -> int:
     """Detect and fix monotonous runs of beat types in-place.
 
-    Breaks up runs of 3+ consecutive identical beat types by reassigning
-    every 3rd scene in a run to an alternative beat type. This preserves
-    narration and flow while ensuring visual variety.
-
-    Returns the number of scenes that were reassigned.
+    When `rules` is provided, only beats in `rules.allowed_beats` are considered
+    candidates for reassignment, and the run threshold is `rules.monotony_threshold`.
+    When None, falls back to legacy listicle behavior (threshold=3, all ALL_BEAT_TYPES allowed).
     """
+    from pipeline.formats.base import VisualBeatRules  # noqa: F401  (referenced in type hint)
+
     all_scenes = content.all_scenes()
     if not all_scenes:
         return 0
 
-    fixes = 0
+    if rules is None:
+        allowed_alts = ALL_BEAT_TYPES
+        threshold = 3
+    else:
+        allowed_alts = sorted(rules.allowed_beats)
+        threshold = rules.monotony_threshold
 
-    # Build beat type list (skip title cards)
+    if threshold > len(all_scenes):
+        return 0  # rule effectively disables run-breaking
+
+    fixes = 0
     beat_types: list[str] = []
     for scene in all_scenes:
         if scene.is_title_card:
@@ -74,28 +82,22 @@ def _fix_visual_monotony(content: "ScriptContent") -> int:
         else:
             beat_types.append(scene.visual_beat or "static")
 
-    for label, length, start_1, end_1 in _find_runs(beat_types, {"TITLE_CARD"}):
-        # start_1/end_1 are 1-indexed; convert to 0-indexed
+    for label, length, start_1, _end_1 in _find_runs(beat_types, {"TITLE_CARD"}, threshold=threshold):
         start = start_1 - 1
-        # Reassign every 3rd scene in the run to break it up
-        # (keeps the rhythm: original-original-variety-original-original-variety)
         for i in range(start + 2, start + length, 3):
             scene = all_scenes[i]
             if scene.is_title_card:
                 continue
-            alternatives = [b for b in ALL_BEAT_TYPES if b != label]
-            # Pick based on position for determinism — cycle through alternatives
+            alternatives = [b for b in allowed_alts if b != label]
+            if not alternatives:
+                continue
             new_beat = alternatives[i % len(alternatives)]
-            logger.info(
-                "Monotony fix: scene %d beat '%s' → '%s' (was in run of %d)",
-                i + 1, label, new_beat, length,
-            )
+            logger.info("Monotony fix: scene %d beat '%s' → '%s' (run=%d)", i + 1, label, new_beat, length)
             scene.visual_beat = new_beat
             fixes += 1
 
     if fixes:
         logger.info("Fixed %d scene(s) to break visual monotony", fixes)
-
     return fixes
 
 
