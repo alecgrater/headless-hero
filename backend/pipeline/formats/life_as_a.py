@@ -51,15 +51,23 @@ def enforce_life_as_a_constraints(content: ScriptContent) -> ScriptContent:
     for seg_idx, segment in enumerate(content.segments):
         if not segment.scenes or not segment.scenes[0].is_title_card:
             level_num = seg_idx + 1
-            descriptor = (
-                content.levels[seg_idx].descriptor
+            level = (
+                content.levels[seg_idx]
                 if content.levels and seg_idx < len(content.levels)
-                else segment.name
+                else None
+            )
+            descriptor = level.descriptor if level else segment.name
+            # Prefer levels[].image_prompt (populated by segmented assembly) over
+            # segment.title_card_image_prompt (which the segmented outline does not set).
+            image_prompt = (
+                (level.image_prompt if level and level.image_prompt else None)
+                or segment.title_card_image_prompt
+                or descriptor
             )
             chapter_scene = Scene(
                 id=f"chapter_{level_num:02d}",
                 narration=f"Level {level_num}, the {descriptor.lower()}.",
-                visual_prompt=f"[ESTABLISHING] {segment.title_card_image_prompt or descriptor}",
+                visual_prompt=f"[ESTABLISHING] {image_prompt}",
                 duration_estimate_seconds=4.0,
                 is_title_card=True,
                 visual_beat="static",

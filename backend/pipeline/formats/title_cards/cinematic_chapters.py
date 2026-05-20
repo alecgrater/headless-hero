@@ -18,8 +18,13 @@ def _chapter_image_path(script_id: str, level_number: int) -> Path:
 
 
 def _thumbnail_paths(script_id: str) -> tuple[Path, Path]:
+    """Returns (clean_path, with_title_path) for the cinematic thumbnail.
+
+    - clean_path: the AI-generated bare image (no overlay)
+    - with_title_path: the final composited thumbnail with title overlay (frontend reads this)
+    """
     base = DATA_DIR / "projects" / script_id / "images"
-    return base / "cinematic_thumbnail.png", base / "cinematic_thumbnail_clean.png"
+    return base / "cinematic_thumbnail_clean.png", base / "cinematic_thumbnail.png"
 
 
 @dataclass(frozen=True)

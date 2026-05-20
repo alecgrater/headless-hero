@@ -8,7 +8,7 @@ from collections.abc import Callable
 
 from config import DEFAULT_ACCENT_COLOR, SEGMENT_COUNT, parse_json_array_response, strip_markdown_fences
 from integrations.llm_client import chat
-from models.script import Scene, ScriptContent, Segment
+from models.script import LevelMeta, Scene, ScriptContent, Segment
 from prompts import SCRIPT_OUTLINE_INSTRUCTIONS, SCRIPT_SEGMENT_SCENES_INSTRUCTIONS, SCRIPT_SYSTEM
 
 logger = logging.getLogger(__name__)
@@ -481,6 +481,9 @@ def _generate_segmented(
         ))
 
     # Assemble final ScriptContent
+    raw_levels = outline.get("levels") or []
+    levels = [LevelMeta.model_validate(lv) for lv in raw_levels] if raw_levels else None
+
     content = ScriptContent(
         title=outline.get("title", topic),
         segments=segments,
@@ -489,6 +492,8 @@ def _generate_segmented(
         card_title=outline.get("card_title", ""),
         card_title_highlight_word=outline.get("card_title_highlight_word", ""),
         card_subtitle=outline.get("card_subtitle", ""),
+        cinematic_thumbnail_prompt=outline.get("cinematic_thumbnail_prompt"),
+        levels=levels,
     )
 
     total_elapsed = time.monotonic() - total_t0

@@ -91,3 +91,56 @@ def test_generate_script_dispatches_to_format(monkeypatch):
     )
     assert content.format_id == "life-as-a"
     assert "Level" in captured["user"] or "level" in captured["user"]
+
+
+def test_segmented_life_as_a_preserves_outline_fields(monkeypatch):
+    """Segmented life-as-a generation must forward cinematic_thumbnail_prompt and levels[] from the outline."""
+    import json
+
+    from pipeline import scriptwriter
+
+    outline_json = json.dumps({
+        "title": "Your Life As A Test",
+        "intro_hook": "",
+        "outro_cta": "",
+        "card_title": "TEST",
+        "card_title_highlight_word": "TEST",
+        "card_subtitle": "",
+        "cinematic_thumbnail_prompt": "a door at dawn",
+        "levels": [
+            {"number": 1, "descriptor": "entry", "image_prompt": "a door"},
+            {"number": 2, "descriptor": "drift", "image_prompt": "a hallway"},
+        ],
+        "segments": [
+            {"name": "Level 1, the entry", "topic_summary": "you arrive"},
+            {"name": "Level 2, the drift", "topic_summary": "things shift"},
+        ],
+    })
+    scene_json = json.dumps({"scenes": [
+        {"id": "s1", "narration": "you walk in", "visual_prompt": "[ESTABLISHING] door"}
+    ]})
+
+    call_index = {"n": 0}
+
+    def fake_chat(system: str, user: str, **kwargs):
+        idx = call_index["n"]
+        call_index["n"] += 1
+        # First call = outline, subsequent = per-segment scenes
+        return outline_json if idx == 0 else scene_json
+
+    monkeypatch.setattr(scriptwriter, "chat", fake_chat)
+
+    content = scriptwriter.generate_script(
+        topic="Your Life As A Test",
+        format_id="life-as-a",
+        segmented=True,
+    )
+
+    assert content.format_id == "life-as-a"
+    assert content.cinematic_thumbnail_prompt == "a door at dawn"
+    assert content.levels is not None
+    assert len(content.levels) == 2
+    assert content.levels[0].descriptor == "entry"
+    assert content.levels[0].image_prompt == "a door"
+    assert content.levels[1].descriptor == "drift"
+    assert content.levels[1].image_prompt == "a hallway"
