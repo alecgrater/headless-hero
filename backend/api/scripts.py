@@ -37,6 +37,7 @@ from models.publish import PublishRecord
 from pipeline.refine import refine_scene
 from pipeline.render_cache import mark_render_inputs_changed
 from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
+from pipeline.formats import resolve_format
 from pipeline.scriptwriter import generate_script
 from pipeline.audio_split import split_scene_audio
 from pipeline.hook_scorer import score_hook
@@ -455,7 +456,9 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
     if not brand:
         raise HTTPException(status_code=404, detail="Brand not found")
 
-    logger.info("Script generation requested: topic=%r, brand_id=%s", body.topic, brand_id)
+    fmt = resolve_format(body.format_id)
+
+    logger.info("Script generation requested: topic=%r, brand_id=%s, format_id=%s", body.topic, brand_id, fmt.id)
 
     # Dedup: if an identical script was created in the last 60 seconds, return it as a completed job
     cutoff = datetime.now(timezone.utc) - timedelta(seconds=60)
@@ -491,6 +494,8 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
     cold_open_text = body.cold_open_text
     gameplay_enabled = body.gameplay_enabled
     stock_photo_enabled = body.stock_photo_enabled
+    format_id = fmt.id
+    supports_hook_scoring = fmt.supports_hook_scoring
 
     job = create_job()
     job_id = job.id
@@ -519,6 +524,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             gameplay_enabled=gameplay_enabled,
             stock_photo_enabled=stock_photo_enabled,
             script_id=script_id,
+            format_id=format_id,
         )
         duration = time.monotonic() - t0
 
@@ -529,6 +535,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             record = Script(
                 id=script_id,
                 brand_id=brand_id,
+                format_id=format_id,
                 topic_title=topic,
                 topic_description=description,
                 script_json=script_content.model_dump_json(),
@@ -561,11 +568,11 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
 
         # Auto-score the hook on the final generated script
         try:
-            update_job(job_id, current_step="Scoring hook...")
-            t_hook = time.monotonic()
             hook_scenes = _collect_hook_scenes(script_content)
 
-            if hook_scenes:
+            if supports_hook_scoring and hook_scenes:
+                update_job(job_id, current_step="Scoring hook...")
+                t_hook = time.monotonic()
                 hook_result = score_hook(script_content.intro_hook, hook_scenes, script_content.title, script_id)
                 script_content.hook_score = hook_result.model_dump()
                 with SqlSession(engine) as bg_session2:
@@ -576,6 +583,8 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
                     bg_session2.add(GenerationDuration(operation_type="hook_score", duration_seconds=time.monotonic() - t_hook))
                     bg_session2.commit()
                 logger.info("Hook scored for %s: overall=%d", script_id, hook_result.overall)
+            elif not supports_hook_scoring:
+                logger.info("Skipping hook scoring for format %s", format_id)
         except Exception:
             logger.exception("Hook scoring failed for %s — script saved without score", script_id)
 
