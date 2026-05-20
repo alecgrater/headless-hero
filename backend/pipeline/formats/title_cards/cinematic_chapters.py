@@ -93,8 +93,9 @@ class CinematicChaptersStrategy:
         # 3. Generate chapter images for levels 2..N from levels[i].image_prompt.
         if not content.levels:
             logger.warning(
-                "cinematic-chapters: content.levels is empty; no chapter images generated"
+                "cinematic-chapters: content.levels is empty; falling back to clean image as final thumbnail"
             )
+            shutil.copy2(str(clean_path), str(final_path))
             return
 
         for level in content.levels[1:]:

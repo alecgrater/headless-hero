@@ -79,7 +79,7 @@ def test_generate_script_dispatches_to_format(monkeypatch):
             "card_title_highlight_word": "TEST",
             "card_subtitle": "",
             "format_id": "life-as-a",
-            "levels": [{"number": 1, "descriptor": "entry", "image_prompt": "a door"}],
+            "levels": [{"number": 1, "descriptor": "entry"}],
             "cinematic_thumbnail_prompt": "a door at dawn",
         })
 
