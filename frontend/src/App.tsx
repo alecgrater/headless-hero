@@ -471,7 +471,7 @@ function App() {
         <div className={viewPanelClass("script-generation", view)}>
           {visitedViews.has("script-generation") && selectedIdea && defaultBrandId && (
             <ScriptGenerationPage
-              key={`${selectedIdea.title}:${selectedIdea.cold_open_text ?? ""}`}
+              key={`${selectedIdea.title}:${selectedIdea.format_id ?? "youtube-listicle"}:${selectedIdea.cold_open_text ?? ""}`}
               brandId={defaultBrandId}
               idea={selectedIdea}
               onBack={() => handleSetView("ideation")}

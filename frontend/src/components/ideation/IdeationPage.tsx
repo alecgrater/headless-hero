@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import api, { fetchGenerationEstimate } from "../../api";
+import api, { fetchGenerationEstimate, getFormats } from "../../api";
 import type { GenerateIdeasResponse, VideoIdea } from "../../types/idea";
+import type { VideoFormat } from "../../types/format";
 import GenerationProgressBar from "../GenerationProgressBar";
+import { FormatSelector } from "./FormatSelector";
 import IdeaCard from "./IdeaCard";
 import IdeationInput, { type IdeationInputHandle } from "./IdeationInput";
+
+const FORMAT_KEY = "hh-selected-format";
 
 interface Props {
   onUseIdea: (idea: VideoIdea) => void;
@@ -39,10 +43,26 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
       return new Set();
     }
   });
+  const [formats, setFormats] = useState<VideoFormat[]>([]);
+  const [selectedFormatId, setSelectedFormatId] = useState<string>(() => {
+    try {
+      return localStorage.getItem(FORMAT_KEY) || "youtube-listicle";
+    } catch {
+      return "youtube-listicle";
+    }
+  });
   const [animateFromIndex, setAnimateFromIndex] = useState(0);
   const inputRef = useRef<IdeationInputHandle>(null);
   const cancelledRef = useRef(false);
   const lastAutoGenerateRequestId = useRef<number | null>(null);
+
+  useEffect(() => {
+    getFormats().then(setFormats).catch(() => setFormats([]));
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem(FORMAT_KEY, selectedFormatId); } catch {}
+  }, [selectedFormatId]);
 
   useEffect(() => {
     if (!initialIdeas) return;
@@ -85,6 +105,7 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
         guide,
         count: BATCH_SIZE,
         exclude_titles: opts?.excludeTitles ?? [],
+        format_id: selectedFormatId,
       });
       if (cancelledRef.current) return;
       if (res.ok) {
@@ -158,6 +179,14 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
         </p>
       </div>
 
+      {formats.length > 0 && (
+        <FormatSelector
+          formats={formats}
+          selectedId={selectedFormatId}
+          onSelect={setSelectedFormatId}
+        />
+      )}
+
       <IdeationInput ref={inputRef} onGenerate={generate} onCancel={handleCancel} loading={loading} />
 
       {loading && (
@@ -190,7 +219,7 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
                 bookmarked={bookmarked.has(idea.title)}
                 onToggleBookmark={() => toggleBookmark(idea.title)}
                 onMoreLikeThis={handleMoreLikeThis}
-                onUseIdea={onUseIdea}
+                onUseIdea={(idea) => onUseIdea({ ...idea, format_id: idea.format_id ?? selectedFormatId })}
                 animationDelay={
                   i >= animateFromIndex
                     ? (i - animateFromIndex) * 80
