@@ -1,22 +1,11 @@
 """Tests for long-form thumbnail helpers."""
 
-from pathlib import Path
-
 from PIL import Image
 
-from api.settings import ALLOWED_KEYS, _DEFAULTS, _PLAINTEXT_KEYS
 from pipeline import thumbnail
 
 
-def test_longform_thumbnail_arrow_setting_is_exposed():
-    key = "LONGFORM_THUMBNAIL_ARROW_ENABLED"
-
-    assert key in ALLOWED_KEYS
-    assert key in _PLAINTEXT_KEYS
-    assert _DEFAULTS[key] == "true"
-
-
-def test_gemini_thumbnail_prompt_can_disable_arrow(tmp_path, monkeypatch):
+def test_gemini_thumbnail_prompt_forbids_arrows(tmp_path, monkeypatch):
     base_path = tmp_path / "base.png"
     ref_dir = tmp_path / "refs"
     ref_dir.mkdir()
@@ -37,7 +26,6 @@ def test_gemini_thumbnail_prompt_can_disable_arrow(tmp_path, monkeypatch):
         base_image_path=str(base_path),
         video_title="Test Video",
         script_id="script-1",
-        include_arrow=False,
     )
 
     assert result == str(tmp_path / "enhanced.png")

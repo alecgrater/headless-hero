@@ -2,7 +2,6 @@
 
 import json
 import logging
-import os
 import shutil
 import time
 
@@ -20,12 +19,6 @@ from pipeline.title_card_composer import compose_title_card
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/thumbnail", tags=["thumbnail"])
-
-
-def _setting_enabled(value: str | None, default: bool = True) -> bool:
-    if value is None or value == "":
-        return default
-    return value.strip().lower() not in {"0", "false", "no", "off"}
 
 
 class RecompositeThumbnailRequest(BaseModel):
@@ -131,7 +124,6 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
         base_image_path=base_path,
         video_title=card_title,
         script_id=body.script_id,
-        include_arrow=_setting_enabled(os.environ.get("LONGFORM_THUMBNAIL_ARROW_ENABLED"), default=True),
     )
 
     # If Gemini succeeded, use the enhanced version as the final thumbnail

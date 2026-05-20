@@ -11,13 +11,11 @@ function settingEnabled(val: string): boolean {
 export default function MiscSection() {
   const [hookRefinementEnabled, setHookRefinementEnabled] = useState("true");
   const [showSpeedRenderButton, setShowSpeedRenderButton] = useState("true");
-  const [longformThumbnailArrowEnabled, setLongformThumbnailArrowEnabled] = useState("true");
   const [rateLimitEnabled, setRateLimitEnabled] = useState("true");
   const [scraperFallbackEnabled, setScraperFallbackEnabled] = useState("false");
 
   const [originalHookRefinement, setOriginalHookRefinement] = useState("true");
   const [originalShowSpeedRenderButton, setOriginalShowSpeedRenderButton] = useState("true");
-  const [originalLongformThumbnailArrow, setOriginalLongformThumbnailArrow] = useState("true");
   const [originalRateLimit, setOriginalRateLimit] = useState("true");
   const [originalScraperFallback, setOriginalScraperFallback] = useState("false");
 
@@ -34,9 +32,6 @@ export default function MiscSection() {
         const srVal = data.SHOW_SPEED_RENDER_BUTTON?.masked || "true";
         setShowSpeedRenderButton(settingEnabled(srVal) ? "true" : "false");
         setOriginalShowSpeedRenderButton(settingEnabled(srVal) ? "true" : "false");
-        const arrowVal = data.LONGFORM_THUMBNAIL_ARROW_ENABLED?.masked || "true";
-        setLongformThumbnailArrowEnabled(settingEnabled(arrowVal) ? "true" : "false");
-        setOriginalLongformThumbnailArrow(settingEnabled(arrowVal) ? "true" : "false");
         const rlVal = data.IMAGE_RATE_LIMIT_MS?.masked || "true";
         setRateLimitEnabled(settingEnabled(rlVal) ? "true" : "false");
         setOriginalRateLimit(settingEnabled(rlVal) ? "true" : "false");
@@ -51,7 +46,6 @@ export default function MiscSection() {
   const hasChanges =
     hookRefinementEnabled !== originalHookRefinement ||
     showSpeedRenderButton !== originalShowSpeedRenderButton ||
-    longformThumbnailArrowEnabled !== originalLongformThumbnailArrow ||
     rateLimitEnabled !== originalRateLimit ||
     scraperFallbackEnabled !== originalScraperFallback;
 
@@ -60,7 +54,6 @@ export default function MiscSection() {
     const res = await api.put("/api/settings/keys", {
       HOOK_REFINEMENT_ENABLED: hookRefinementEnabled,
       SHOW_SPEED_RENDER_BUTTON: showSpeedRenderButton,
-      LONGFORM_THUMBNAIL_ARROW_ENABLED: longformThumbnailArrowEnabled,
       IMAGE_RATE_LIMIT_MS: rateLimitEnabled === "true" ? "10000" : "0",
       IMAGE_SCRAPER_FALLBACK_ENABLED: scraperFallbackEnabled,
     });
@@ -69,7 +62,6 @@ export default function MiscSection() {
       showToast("Settings saved", "success");
       setOriginalHookRefinement(hookRefinementEnabled);
       setOriginalShowSpeedRenderButton(showSpeedRenderButton);
-      setOriginalLongformThumbnailArrow(longformThumbnailArrowEnabled);
       setOriginalRateLimit(rateLimitEnabled);
       setOriginalScraperFallback(scraperFallbackEnabled);
     }
@@ -145,35 +137,6 @@ export default function MiscSection() {
               <span
                 className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
                   showSpeedRenderButton === "true" ? "translate-x-5" : "translate-x-0"
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-
-        {/* Long-Form Thumbnail Arrow */}
-        <div className="p-5">
-          <div className="flex items-center justify-between gap-5">
-            <div>
-              <h3 className="text-sm font-medium text-neutral-100">Long-Form Thumbnail Arrow</h3>
-              <p className="text-xs text-neutral-500">
-                Ask Gemini to add a small arrow pointing at the Eli portal in generated YouTube thumbnails.
-              </p>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={longformThumbnailArrowEnabled === "true"}
-              onClick={() =>
-                setLongformThumbnailArrowEnabled(longformThumbnailArrowEnabled === "true" ? "false" : "true")
-              }
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
-                longformThumbnailArrowEnabled === "true" ? "bg-violet-600 shadow-sm shadow-violet-500/30" : "bg-neutral-700"
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                  longformThumbnailArrowEnabled === "true" ? "translate-x-5" : "translate-x-0"
                 }`}
               />
             </button>

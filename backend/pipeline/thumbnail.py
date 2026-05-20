@@ -62,7 +62,6 @@ def gemini_enhance_thumbnail(
     base_image_path: str,
     video_title: str,
     script_id: str | None = None,
-    include_arrow: bool = True,
 ) -> str | None:
     """Enhance a base title card composite using Gemini with reference thumbnails.
 
@@ -74,7 +73,6 @@ def gemini_enhance_thumbnail(
         base_image_path: Path to the base Pillow-generated composite.
         video_title: The video title (provides context for expression selection).
         script_id: Optional script ID for usage tracking.
-        include_arrow: Whether Gemini should add an arrow pointing at the character portal.
 
     Returns:
         Path to the enhanced image, or None if enhancement can't be performed
@@ -129,13 +127,6 @@ def gemini_enhance_thumbnail(
     if eli_frame_path:
         image_paths.append(eli_frame_path)
 
-    arrow_instruction = (
-        "Add a small, eye-catching arrow (curved or straight) pointing at the portal circle, "
-        "to draw the viewer's eye there.\n\n"
-        if include_arrow
-        else "Do NOT add any arrow, pointer, caret, callout line, or direction marker anywhere in the image.\n\n"
-    )
-
     # Build prompt
     character_instruction = ""
     if eli_frame_path:
@@ -155,7 +146,7 @@ def gemini_enhance_thumbnail(
             "Do NOT draw the portal between two circles or overlapping into adjacent cells. "
             "The portal boundary and the original circle boundary must be pixel-aligned.\n\n"
             "Keep the segment label badge beneath the portal circle readable.\n"
-            f"{arrow_instruction}"
+            "Do NOT add any arrow, pointer, caret, callout line, or direction marker anywhere in the image.\n\n"
             f"{_CTR_EXPRESSION_GUIDANCE}\n\n"
         )
 
@@ -194,7 +185,7 @@ def gemini_enhance_thumbnail(
         "- DO NOT leave any segment blank, faded, or missing.\n"
         "- DO NOT invent extra segments or add/remove circles — the grid size must match the input exactly.\n"
         "- DO NOT add a second copy of the character anywhere else in the image.\n\n"
-        f"- {'If adding an arrow, keep it small and pointed at the character portal.' if include_arrow else 'DO NOT add any arrow, pointer, caret, callout line, or direction marker.'}\n\n"
+        "- DO NOT add any arrow, pointer, caret, callout line, or direction marker anywhere in the image.\n\n"
         "Return the modified image."
     )
 
