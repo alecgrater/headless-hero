@@ -15,6 +15,7 @@ from models.generation_duration import GenerationDuration
 from models.cold_open import GenerateColdOpensRequest
 from models.script import HookScore
 from pipeline.cold_open import generate_cold_opens
+from pipeline.formats import resolve_format
 from pipeline.hook_refiner import RefinedHook, refine_hook
 from pipeline.hook_scorer import score_hook
 from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
@@ -59,7 +60,17 @@ def generate_cold_opens_endpoint(
     if not brand:
         raise HTTPException(status_code=404, detail="Brand not found")
 
-    logger.info("Cold open generation requested: topic=%r, brand_id=%s", body.topic, brand_id)
+    fmt = resolve_format(body.format_id)
+    if not fmt.supports_cold_open:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Format {fmt.id!r} does not support cold opens",
+        )
+
+    logger.info(
+        "Cold open generation requested: topic=%r, brand_id=%s, format_id=%s",
+        body.topic, brand_id, fmt.id,
+    )
 
     # Build brand context (same pattern as api/scripts.py)
     parts = [brand.name]

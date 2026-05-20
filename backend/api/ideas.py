@@ -21,6 +21,7 @@ class GenerateIdeasRequest(BaseModel):
     guide: str | None = Field(default=None, description="Optional creator guidance for the idea angle")
     count: int = Field(default=10, ge=1, le=20)
     exclude_titles: list[str] = Field(default=[], description="Titles to exclude for dedup on Load More")
+    format_id: str = Field(default="youtube-listicle", description="Video format ID (e.g. youtube-listicle, life-as-a)")
 
 class GenerateIdeasResponse(BaseModel):
     ideas: list[VideoIdea]
@@ -40,6 +41,7 @@ def generate(body: GenerateIdeasRequest, session: Session = Depends(get_session)
         count=body.count,
         brand_context=brand_context,
         exclude_titles=body.exclude_titles,
+        format_id=body.format_id,
     )
     duration = time.monotonic() - t0
     session.add(GenerationDuration(operation_type="idea_generation", duration_seconds=duration))

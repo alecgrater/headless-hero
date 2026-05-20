@@ -174,6 +174,10 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
     if eli_overlay and scene.contains_person:
         eli_overlay = {**eli_overlay, "enabled": False}
 
+    # Cinematic-chapters chapter overlay (sourced from visual_source_metadata)
+    metadata = scene.visual_source_metadata or {}
+    chapter_overlay = metadata.get("chapter_overlay")
+
     return {
         "id": scene.id,
         "narration": scene.narration,
@@ -196,6 +200,7 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
         "transition_in": scene.transition_in if scene.transition_in != "cut" else None,
         "media_type": media_type if media_type != "image" else None,
         "video_path": video_path,
+        "chapter_overlay": chapter_overlay,
     }
 
 
@@ -465,14 +470,16 @@ def render_full_video(
     )
 
     # Always prepare title card scenes (title cards are always active)
-    from pipeline.modifiers.title_cards import prepare_title_card_scene
+    from pipeline.formats import resolve_format
+    fmt = resolve_format(content.format_id)
+    strategy = fmt.title_card_strategy
     brand_dict = brand or {}
     for i, scene in enumerate(scenes):
         check_cancelled()
         if on_progress:
             on_progress(0.3 * (i + 1) / total, f"Preparing scene {i + 1}/{total}")
         logger.info("[%s] Preparing scene %d/%d (scene_id=%s)", script_id, i + 1, total, scene.id)
-        scenes[i] = prepare_title_card_scene(scene, script_id, brand_dict)
+        scenes[i] = strategy.prepare_title_card_scene(scene, script_id, content, brand_dict)
 
     check_cancelled()
     if on_progress:

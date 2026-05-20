@@ -61,6 +61,15 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
         raise HTTPException(status_code=404, detail="Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
+
+    from pipeline.formats import resolve_format
+    fmt = resolve_format(content.format_id)
+    if fmt.title_card_strategy.kind != "composite-grid":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Recomposite is only available for composite-grid formats. This script uses {fmt.id!r}.",
+        )
+
     images_dir = DATA_DIR / "projects" / body.script_id / "images"
 
     # Collect existing circle images

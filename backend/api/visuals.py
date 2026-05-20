@@ -8,14 +8,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from config import IMAGE_HEIGHT, IMAGE_WIDTH
+from config import DEFAULT_ACCENT_COLOR, IMAGE_HEIGHT, IMAGE_WIDTH
 from database import get_session
 from api._helpers import update_scene
 from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
 from pipeline.image_gen import generate_batch, generate_scene_frames_v2, generate_scene_image
 from pipeline.render_jobs import create_job, get_job, run_in_background
-from pipeline.title_card import ensure_title_card_images
+from pipeline.formats import resolve_format
 
 logger = logging.getLogger(__name__)
 
@@ -294,9 +294,11 @@ def generate_title_cards(body: GenerateTitleCardsRequest, session: Session = Dep
 
         t0_bg = time.monotonic()
 
-        ensure_title_card_images(
+        fmt = resolve_format(content.format_id)
+        fmt.title_card_strategy.prepare_thumbnail(
             script_id=script_id,
             content=content,
+            accent_color=DEFAULT_ACCENT_COLOR,
             force=force,
             job_id=job.id,
         )
@@ -305,7 +307,7 @@ def generate_title_cards(body: GenerateTitleCardsRequest, session: Session = Dep
         with SyncSession(engine) as bg_session:
             rec = bg_session.get(Script, script_id)
             if rec:
-                # Re-serialize the mutated content (ensure_title_card_images mutates it)
+                # Re-serialize the mutated content (strategy.prepare_thumbnail mutates it)
                 rec.script_json = content.model_dump_json()
                 bg_session.add(rec)
                 bg_session.commit()

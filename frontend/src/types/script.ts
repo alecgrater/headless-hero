@@ -92,6 +92,12 @@ export interface Segment {
   scenes: Scene[];
 }
 
+export interface LevelMeta {
+  number: number;
+  descriptor: string;
+  image_prompt: string;
+}
+
 export interface ScriptContent {
   title: string;
   segments: Segment[];
@@ -109,6 +115,10 @@ export interface ScriptContent {
   gameplay_game_name?: string;
   // Short-form export
   hook_scene_count?: number | null;  // Leading scenes in segment 0 that are hook teasers; skipped from short #1
+  // Script format
+  format_id?: string;
+  cinematic_thumbnail_prompt?: string | null;
+  levels?: LevelMeta[] | null;
 }
 
 export interface ScriptRead {

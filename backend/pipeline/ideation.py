@@ -2,11 +2,10 @@
 
 import logging
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 
-from config import SEGMENT_COUNT, parse_json_array_response
+from config import parse_json_array_response
 from integrations.llm_client import chat
-from prompts import IDEATION_SYSTEM
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +15,10 @@ class VideoIdea(BaseModel):
     title: str
     segments_est: int
     description: str
-    keywords: list[str]
-
-    @field_validator("segments_est", mode="before")
-    @classmethod
-    def coerce_segments(cls, v: object) -> int:
-        return SEGMENT_COUNT
+    keywords: list[str] = []
+    cold_open_text: str | None = None
+    format_id: str = "youtube-listicle"
+    closing_image: str | None = None  # life-as-a only
 
 def generate_ideas(
     niche: str,
@@ -29,6 +26,7 @@ def generate_ideas(
     count: int = 10,
     brand_context: str | None = None,
     exclude_titles: list[str] | None = None,
+    format_id: str = "youtube-listicle",
 ) -> list[VideoIdea]:
     """Generate video topic ideas for the given niche via the routed LLM provider.
 
@@ -38,10 +36,26 @@ def generate_ideas(
         count: How many ideas to generate (10-20).
         brand_context: Optional brand art style / description for context.
         exclude_titles: Titles to avoid repeating (for "Load More" dedup).
+        format_id: Which video format's ideation prompt to use.
 
     Returns:
-        A list of VideoIdea objects.
+        A list of VideoIdea objects, each tagged with the format_id used.
     """
+    from pipeline.formats import get_format
+
+    fmt = get_format(format_id)
+
+    # Build system prompt from the format-supplied PromptDef.
+    if fmt.ideation_prompt.builder is not None:
+        # Listicle ideation expects a segments string (e.g. "8") as the builder input.
+        if isinstance(fmt.level_count, int):
+            system_prompt = fmt.ideation_prompt.build(str(fmt.level_count))
+        else:
+            lo, hi = fmt.level_count
+            system_prompt = fmt.ideation_prompt.build(f"{lo}–{hi}")
+    else:
+        system_prompt = fmt.ideation_prompt.template
+
     user_parts = [f"Generate {count} video topic ideas for the niche: \"{niche}\"."]
     normalized_guide = guide.strip() if guide else ""
     if normalized_guide:
@@ -60,10 +74,12 @@ def generate_ideas(
         )
     user_message = "\n".join(user_parts)
 
-    logger.info("Generating %s ideas for niche %r", count, niche)
-    raw = chat(IDEATION_SYSTEM.build(str(SEGMENT_COUNT)), user_message, json_mode=True, task="idea")
+    logger.info("Generating %s ideas for niche %r (format=%s)", count, niche, fmt.id)
+    raw = chat(system_prompt, user_message, json_mode=True, task="idea")
 
     ideas_data = parse_json_array_response(raw, key="ideas")
     ideas = [VideoIdea.model_validate(item) for item in ideas_data]
-    logger.info("Generated %s ideas for niche %r", len(ideas), niche)
+    for idea in ideas:
+        idea.format_id = fmt.id
+    logger.info("Generated %s ideas for niche %r (format=%s)", len(ideas), niche, fmt.id)
     return ideas

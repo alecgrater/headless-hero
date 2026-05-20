@@ -37,3 +37,4 @@ class GenerateColdOpensRequest(BaseModel):
     description: str = ""
     brand_id: str | None = None
     model: str | None = None
+    format_id: str = Field(default="youtube-listicle")

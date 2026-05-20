@@ -17,6 +17,7 @@ def init_db() -> None:
     logger.info("Initializing database")
     SQLModel.metadata.create_all(engine)
     _migrate_add_eli_position()
+    _migrate_add_format_id_to_scripts()
     _migrate_script_model_default()
     _migrate_llm_task_route_defaults()
     _migrate_add_script_id_to_api_usage()
@@ -68,6 +69,23 @@ def _migrate_add_eli_position() -> None:
             conn.execute("ALTER TABLE brand_profiles ADD COLUMN eli_position_json TEXT DEFAULT ''")
             conn.commit()
             logger.info("Migrated: added eli_position_json to brand_profiles")
+    finally:
+        conn.close()
+
+
+def _migrate_add_format_id_to_scripts() -> None:
+    """Add format_id column to scripts if missing. Defaults to 'youtube-listicle' for back-compat."""
+    import sqlite3
+
+    conn = sqlite3.connect(str(_db_path))
+    try:
+        cursor = conn.execute("PRAGMA table_info(scripts)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "format_id" not in columns:
+            conn.execute("ALTER TABLE scripts ADD COLUMN format_id TEXT DEFAULT 'youtube-listicle' NOT NULL")
+            conn.execute("CREATE INDEX IF NOT EXISTS ix_scripts_format_id ON scripts(format_id)")
+            conn.commit()
+            logger.info("Migrated: added format_id to scripts (defaulted to 'youtube-listicle')")
     finally:
         conn.close()
 

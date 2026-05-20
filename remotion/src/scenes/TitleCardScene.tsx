@@ -16,6 +16,7 @@ export const TitleCardScene: React.FC<Props> = ({ scene }) => {
 
   const imagePath = scene.image_path;
   const target = scene.title_card_zoom_target;
+  const overlay = scene.chapter_overlay;
 
   if (!imagePath) {
     return (
@@ -32,6 +33,66 @@ export const TitleCardScene: React.FC<Props> = ({ scene }) => {
         }}
       >
         No title card image
+      </div>
+    );
+  }
+
+  // Cinematic-chapters chapter card: full-frame image + two-line text overlay
+  if (overlay) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          overflow: "hidden",
+          position: "relative",
+          backgroundColor: "#000",
+        }}
+      >
+        <Img
+          src={imagePath}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textShadow: "0 4px 24px rgba(0,0,0,0.8)",
+            color: "white",
+            fontFamily: "Inter, sans-serif",
+            pointerEvents: "none",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 56,
+              fontWeight: 600,
+              letterSpacing: 8,
+              opacity: 0.85,
+              textTransform: "uppercase",
+            }}
+          >
+            Level {overlay.level_number}
+          </div>
+          <div
+            style={{
+              fontSize: 180,
+              fontWeight: 800,
+              letterSpacing: 4,
+              textTransform: "uppercase",
+              marginTop: 24,
+            }}
+          >
+            The {overlay.descriptor}
+          </div>
+        </div>
       </div>
     );
   }

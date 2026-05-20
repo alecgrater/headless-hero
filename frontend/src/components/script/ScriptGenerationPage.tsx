@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import api, { assetUrl } from "../../api";
+import api, { assetUrl, getFormats } from "../../api";
 import type { VideoIdea } from "../../types/idea";
+import type { VideoFormat } from "../../types/format";
 import { SCRIPT_MODELS } from "../settings/GeneralSection";
 import { Button } from "../ui/Button";
 import GenerationProgressBar from "../GenerationProgressBar";
@@ -8,6 +9,7 @@ import useScriptGeneration from "./useScriptGeneration";
 import useSceneEditing from "./useSceneEditing";
 import useTitleCardGeneration from "./useTitleCardGeneration";
 import ColdOpenSelector from "./ColdOpenSelector";
+import CinematicChaptersPreview from "./CinematicChaptersPreview";
 
 interface Props {
   brandId: string;
@@ -28,6 +30,17 @@ export default function ScriptGenerationPage({
   onBack,
   onContinue,
 }: Props) {
+  const [format, setFormat] = useState<VideoFormat | null>(null);
+  const formatId = idea.format_id ?? "youtube-listicle";
+
+  useEffect(() => {
+    getFormats().then((all) => {
+      setFormat(all.find((f) => f.id === formatId) ?? all[0] ?? null);
+    });
+  }, [formatId]);
+
+  const supportsColdOpen = format?.supports_cold_open ?? true;
+
   const {
     script,
     scriptId,
@@ -55,7 +68,7 @@ export default function ScriptGenerationPage({
     hasPexelsKey,
     setGameplayEnabled,
     setStockPhotoEnabled,
-  } = useScriptGeneration({ brandId, idea });
+  } = useScriptGeneration({ brandId, idea, supportsColdOpen });
 
   const {
     editingKey,
@@ -317,7 +330,7 @@ export default function ScriptGenerationPage({
                       <div className="w-4 h-4 rounded-full border border-neutral-700 shrink-0" />
                     )}
                     <span className={`text-sm ${done ? "text-neutral-300" : active ? "text-neutral-200" : "text-neutral-600"}`}>
-                      Segment {segNum}{active && genSegments.name ? `: ${genSegments.name}` : ""}
+                      {format?.level_label === "level" ? `Level ${segNum}` : `Segment ${segNum}`}{active && genSegments.name ? `: ${genSegments.name}` : ""}
                     </span>
                   </div>
                 );
@@ -340,7 +353,7 @@ export default function ScriptGenerationPage({
       )}
 
       {/* Cold open selection */}
-      {phase === "selecting" && coldOpenResult && !loading && (
+      {format?.supports_cold_open !== false && phase === "selecting" && coldOpenResult && !loading && (
         <ColdOpenSelector result={coldOpenResult} onSelect={handleColdOpenSelect} />
       )}
 
@@ -371,7 +384,9 @@ export default function ScriptGenerationPage({
               <span className="text-neutral-100 font-medium">
                 {script.segments.length}
               </span>{" "}
-              {script.segments.length === 1 ? "segment" : "segments"}
+              {format?.level_label === "level"
+                ? script.segments.length === 1 ? "level" : "levels"
+                : script.segments.length === 1 ? "segment" : "segments"}
             </span>
             <span>
               <span className="text-neutral-100 font-medium">
@@ -434,24 +449,32 @@ export default function ScriptGenerationPage({
 
               {titleCardGenerated && !titleCardGenerating && (
                 <>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-neutral-500 mb-1.5">Thumbnail (with title)</p>
-                      <img
-                        src={assetUrl(`/static/projects/${scriptId}/images/composite_title_card.png`) + `?t=${titleCardTimestamp}`}
-                        alt="Thumbnail"
-                        className="w-full rounded-lg border border-neutral-700"
-                      />
+                  {format?.title_card_strategy_kind === "cinematic-chapters" ? (
+                    <CinematicChaptersPreview
+                      script={script}
+                      scriptId={scriptId ?? ""}
+                      timestamp={titleCardTimestamp}
+                    />
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-neutral-500 mb-1.5">Thumbnail (with title)</p>
+                        <img
+                          src={assetUrl(`/static/projects/${scriptId}/images/composite_title_card.png`) + `?t=${titleCardTimestamp}`}
+                          alt="Thumbnail"
+                          className="w-full rounded-lg border border-neutral-700"
+                        />
+                      </div>
+                      <div>
+                        <p className="text-xs text-neutral-500 mb-1.5">Title Slide (no title)</p>
+                        <img
+                          src={assetUrl(`/static/projects/${scriptId}/images/composite_title_card_notitle.png`) + `?t=${titleCardTimestamp}`}
+                          alt="Title Slide"
+                          className="w-full rounded-lg border border-neutral-700"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs text-neutral-500 mb-1.5">Title Slide (no title)</p>
-                      <img
-                        src={assetUrl(`/static/projects/${scriptId}/images/composite_title_card_notitle.png`) + `?t=${titleCardTimestamp}`}
-                        alt="Title Slide"
-                        className="w-full rounded-lg border border-neutral-700"
-                      />
-                    </div>
-                  </div>
+                  )}
                   <button
                     onClick={() => generateTitleCards(true)}
                     className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-sm font-medium transition-colors text-neutral-300 border border-neutral-700"

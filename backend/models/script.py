@@ -116,6 +116,12 @@ class Scene(BaseModel):
             return value
         return "cut"
 
+class LevelMeta(BaseModel):
+    """Per-level metadata used only by the cinematic-chapters strategy."""
+    number: int
+    descriptor: str
+    image_prompt: str
+
 class Segment(BaseModel):
     """A named segment (e.g. "Caffeine") containing multiple scenes."""
 
@@ -147,6 +153,10 @@ class ScriptContent(BaseModel):
     gameplay_enabled: bool = False
     stock_photo_enabled: bool = False
     gameplay_game_name: str = ""
+    # --- Format awareness ---
+    format_id: str = "youtube-listicle"
+    cinematic_thumbnail_prompt: str | None = None
+    levels: list[LevelMeta] | None = None
 
     def all_scenes(self) -> list["Scene"]:
         """Flatten all scenes from all segments in order."""
@@ -161,6 +171,7 @@ class Script(SQLModel, table=True):
 
     id: str = Field(default_factory=lambda: uuid.uuid4().hex, primary_key=True)
     brand_id: str = Field(index=True)
+    format_id: str = Field(default="youtube-listicle", index=True)
     topic_title: str = Field(default="")
     topic_description: str = Field(default="", sa_column=Column(Text))
     script_json: str = Field(default="{}", sa_column=Column(Text))  # serialised ScriptContent
@@ -171,6 +182,7 @@ class Script(SQLModel, table=True):
 class GenerateScriptRequest(BaseModel):
     topic: str = PydanticField(..., min_length=1, description="Video topic / title")
     description: str = PydanticField(default="", description="Optional topic description or angle")
+    format_id: str = PydanticField(..., description="Video format ID (e.g. 'youtube-listicle' | 'life-as-a')")
     brand_id: str | None = PydanticField(default=None, description="Brand profile ID (auto-resolved if omitted)")
     animated_scene_count: int = PydanticField(
         default=5, ge=0, le=50, description="Number of scenes to make animated A/B flip (0 = none)"

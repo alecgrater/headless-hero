@@ -4,6 +4,8 @@ export interface VideoIdea {
   description: string;
   keywords: string[];
   cold_open_text?: string;
+  format_id?: string;
+  closing_image?: string;
 }
 
 export interface GenerateIdeasResponse {

@@ -1,6 +1,7 @@
 import { showToast } from "./components/ToastContainer";
 import { BACKEND_PORT } from "./constants";
 import type { UploadTracking } from "./types/script";
+import type { VideoFormat } from "./types/format";
 
 export interface ApiResponse<T = unknown> {
   ok: boolean;
@@ -276,6 +277,12 @@ export async function fetchScriptCost(scriptId: string): Promise<ScriptCostRespo
     };
   }
   return { total_cost: 0, breakdown: [] };
+}
+
+/** Fetch the list of available script formats. */
+export async function getFormats(): Promise<VideoFormat[]> {
+  const res = await api.get("/api/formats");
+  return (res.data ?? []) as VideoFormat[];
 }
 
 /** Generate FX assignments for all scenes in a script via the routed LLM provider. */
