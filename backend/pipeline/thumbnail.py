@@ -26,16 +26,26 @@ def _cache_bust(url: str, file_path: str) -> str:
 
 
 def get_composite_thumbnail(script_id: str) -> str | None:
-    """Check if a composite title card exists and return its web path if so."""
-    composite = DATA_DIR / "projects" / script_id / "images" / "composite_title_card.png"
-    if composite.exists():
-        # Copy to thumbnail location
-        thumbs_dir = DATA_DIR / "projects" / script_id / "renders" / "thumbnails"
-        thumbs_dir.mkdir(parents=True, exist_ok=True)
-        thumb_path = thumbs_dir / "0.png"
-        shutil.copy2(str(composite), str(thumb_path))
-        url = f"/static/projects/{script_id}/renders/thumbnails/0.png"
-        return _cache_bust(url, str(thumb_path))
+    """Return a web path for the script's primary thumbnail, if one exists.
+
+    Tries cinematic_thumbnail.png (life-as-a / cinematic-chapters) first, then
+    falls back to composite_title_card.png (youtube-listicle / composite-grid).
+    The two files are mutually exclusive on disk per format, so trying both is
+    safe and keeps callers format-agnostic.
+    """
+    images_dir = DATA_DIR / "projects" / script_id / "images"
+    candidates = [
+        images_dir / "cinematic_thumbnail.png",
+        images_dir / "composite_title_card.png",
+    ]
+    for source in candidates:
+        if source.exists():
+            thumbs_dir = DATA_DIR / "projects" / script_id / "renders" / "thumbnails"
+            thumbs_dir.mkdir(parents=True, exist_ok=True)
+            thumb_path = thumbs_dir / "0.png"
+            shutil.copy2(str(source), str(thumb_path))
+            url = f"/static/projects/{script_id}/renders/thumbnails/0.png"
+            return _cache_bust(url, str(thumb_path))
     return None
 
 
