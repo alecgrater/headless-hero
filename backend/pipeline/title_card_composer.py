@@ -251,7 +251,6 @@ def _draw_3d_title_text(
 ) -> Image.Image:
     """Render title with 3D extrusion, gradient fill, stroke, and drop shadow."""
     w, h = canvas.size
-    font = _load_title_font(_TITLE_FONT_SIZE)
 
     # Split title into segments: before, highlight, after
     highlight = highlight_word.upper() if highlight_word else ""
@@ -267,14 +266,30 @@ def _draw_3d_title_text(
     else:
         segments.append((title_text, False))
 
-    # Measure total width
-    total_w = 0
-    seg_widths: list[int] = []
-    for text, _ in segments:
-        bbox = font.getbbox(text)
-        sw = bbox[2] - bbox[0]
-        seg_widths.append(sw)
-        total_w += sw
+    # Auto-shrink font so the rendered title (plus stroke/extrusion) fits within
+    # the canvas with a safety margin. Stroke and extrusion add roughly
+    # _TITLE_STROKE_WIDTH on each side, so reserve that as additional padding.
+    side_margin = 60
+    stroke_pad = _TITLE_STROKE_WIDTH + 4
+    max_title_w = w - (side_margin + stroke_pad) * 2
+    font_size = _TITLE_FONT_SIZE
+    min_font_size = 90
+
+    def _measure(size: int) -> tuple[ImageFont.FreeTypeFont, list[int], int]:
+        f = _load_title_font(size)
+        widths = [f.getbbox(t)[2] - f.getbbox(t)[0] for t, _ in segments]
+        return f, widths, sum(widths)
+
+    font, seg_widths, total_w = _measure(font_size)
+    while total_w > max_title_w and font_size > min_font_size:
+        font_size = max(min_font_size, font_size - 6)
+        font, seg_widths, total_w = _measure(font_size)
+
+    if total_w > max_title_w:
+        logger.warning(
+            "Title %r still exceeds max width at min font size (%d > %d) — letters may clip",
+            title_text, total_w, max_title_w,
+        )
 
     x_start = (w - total_w) // 2
 
