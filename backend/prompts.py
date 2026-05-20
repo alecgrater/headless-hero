@@ -535,7 +535,11 @@ Return ONLY valid JSON — no markdown fences, no commentary. The JSON must have
   "levels": [
     {
       "number": 1,
-      "descriptor": "occasional",
+      "descriptor": "occasional"
+    },
+    {
+      "number": 2,
+      "descriptor": "regular",
       "image_prompt": "Vivid one-line scene description for the chapter card image."
     }
   ],
@@ -564,6 +568,7 @@ Return ONLY valid JSON — no markdown fences, no commentary. The JSON must have
 Output rules:
 - `levels` and `segments` are PARALLEL arrays of equal length (4–7 entries each). Level N corresponds to segment N.
 - Each segment's `name` field MUST follow the literal format `Level {N}, the {descriptor}` — e.g. `Level 1, the occasional`. Comma after the number, lowercase descriptor, no colon.
+- `levels[0]` (level 1) does NOT need an `image_prompt`; the chapter-card image for level 1 is reused from the cinematic thumbnail. Levels 2..N require `image_prompt`.
 - `intro_hook` is the very first lines the viewer hears; it must already be in second person, present tense, and must NOT greet the viewer.
 - `outro_cta` is editor metadata only. Do NOT fold its language into scene narration.
 - Each level's first scene is a chapter card (`is_title_card: true`, `visual_beat: "static"`, `frame_directives: []`) whose narration is the level title line ("Level one, the occasional.").
@@ -611,7 +616,7 @@ For each level, produce:
 - `number` (1-indexed integer)
 - `descriptor` — 1–3 words, lowercase, no colon. Names a state of being, not an action. (e.g. "occasional", "architecture", "floor", "aftermath")
 - `topic_summary` — 2–3 sentences describing what happens to the protagonist at this level, what shifts, what new vocabulary or behavior appears. This is the rail for the per-level scene phase.
-- `image_prompt` — a vivid one-line scene description for the chapter-card image. Begins with one of `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, `[METAPHOR]`.
+- `image_prompt` — a vivid one-line scene description for the chapter-card image. Begins with one of `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, `[METAPHOR]`. **Required for levels 2..N. Omit (or set to empty string) for level 1** — level 1's chapter card image is reused from the cinematic thumbnail.
 
 ## Output format
 
@@ -629,6 +634,11 @@ Return ONLY valid JSON — no markdown fences, no commentary. The JSON has this 
     {
       "number": 1,
       "descriptor": "occasional",
+      "topic_summary": "2-3 sentences for context."
+    },
+    {
+      "number": 2,
+      "descriptor": "regular",
       "topic_summary": "2-3 sentences for context.",
       "image_prompt": "[ESTABLISHING] vivid one-line description."
     }
@@ -1651,6 +1661,259 @@ Pick the tier and specific expression that best matches the video title/topic.
         goal="Maximize thumbnail CTR through expression selection",
         failure_mode="Wrong expression tier reduces click-through rate",
         metrics_to_watch=["click_through_rate", "impressions"],
+    ),
+))
+
+SPLIT_PROGRESSION_PROMPT = register(PromptDef(
+    name="SPLIT_PROGRESSION_PROMPT",
+    domain="IMAGE",
+    purpose="Transform a single iconic life-as-a thumbnail into a split-progression thumbnail (LEVEL X vs LEVEL Y).",
+    target_model="gemini",
+    expected_output_format="A single PNG image (1920x1080) — the final thumbnail.",
+    template="""\
+You are an elite YouTube thumbnail redesign artist specializing in HIGH CTR transformation thumbnails.
+
+Your task is to transform the uploaded thumbnail into a dramatically improved "split progression" thumbnail while preserving the original topic and branding style.
+
+CORE GOAL:
+Create a thumbnail that instantly communicates:
+- progression
+- escalation
+- transformation
+- contrast
+- consequences
+- curiosity
+
+The final thumbnail should feel optimized for viral YouTube CTR.
+
+IMPORTANT:
+The progression does NOT always need to become "better."
+
+Depending on the topic, the progression may become:
+- more successful
+- more dangerous
+- more depressing
+- more chaotic
+- more extreme
+- more wealthy
+- more addicted
+- more powerful
+- more unstable
+- more luxurious
+- more miserable
+- more intense
+
+The right side should represent the MOST EXTREME or MOST ADVANCED version of the topic — not automatically the "best" version.
+
+Examples:
+- "Every Level of Software Engineer" → right side may feel elite/successful.
+- "Every Level of Drug Addiction" → right side may feel dark/destructive/chaotic.
+- "Every Level of Prison" → right side may feel dangerous/intimidating.
+- "Every Level of Wealth" → right side may feel luxurious/powerful.
+- "Every Level of Burnout" → right side may feel exhausted/collapsed.
+
+The emotional direction should match the topic.
+
+========================
+LAYOUT RULES
+========================
+
+1. Convert the thumbnail into a TWO-SIDED SPLIT DESIGN.
+
+2. Use a DRAMATIC DIAGONAL DIVIDER through the middle.
+- NOT vertical.
+- The diagonal should create motion and tension.
+- Add glow/light along the divider.
+
+3. Each side must have its own label:
+- Left side: "LEVEL {left_level}"
+- Right side: "LEVEL {right_level}"
+
+These labels should:
+- be huge
+- bold
+- simple
+- instantly readable
+
+========================
+TEXT MINIMALISM (CRITICAL)
+========================
+
+IMPORTANT:
+Do NOT include the full video title in the thumbnail unless absolutely necessary.
+
+Prefer minimal text.
+
+The thumbnail should rely primarily on:
+- visual storytelling
+- emotional contrast
+- progression
+- curiosity
+
+Use only:
+- "LEVEL {left_level}"
+- "LEVEL {right_level}"
+- and optionally ONE very short supporting phrase if it significantly improves clarity.
+
+Prioritize larger visuals and cleaner composition over extra text.
+
+========================
+LEFT SIDE RULES (LEVEL {left_level})
+========================
+
+The left side should represent:
+- the beginner / earlier-progression stage
+- lower intensity
+- earlier progression
+- less experience
+- less extreme conditions
+
+This can mean:
+- weaker
+- poorer
+- happier
+- more innocent
+- less skilled
+- less corrupted
+- less dangerous
+- less advanced
+
+depending on the topic.
+
+Use environmental storytelling to communicate the difference instantly.
+
+========================
+RIGHT SIDE RULES (LEVEL {right_level})
+========================
+
+The right side should represent:
+- the more advanced stage
+- the peak version
+- the extreme outcome
+- the highest intensity state shown
+
+The emotional tone depends entirely on the topic.
+
+If the topic is aspirational:
+- make the right side feel elite, luxurious, successful, powerful.
+
+If the topic is destructive:
+- make the right side feel chaotic, dangerous, depressing, unstable, dark, or tragic.
+
+If the topic is absurd/funny:
+- exaggerate the chaos and humor dramatically.
+
+The right side should ALWAYS feel:
+- more intense
+- more emotionally charged
+- more visually dramatic
+than the left side.
+
+EXAGGERATE for CTR.
+Do not aim for realism.
+Aim for emotional impact.
+
+========================
+VISUAL CONTRAST RULES
+========================
+
+The two sides should feel dramatically different using:
+- lighting
+- color palette
+- facial expression
+- environment
+- composition
+- posture
+- atmosphere
+- props
+- clothing
+- energy level
+
+Examples:
+- calm vs chaotic
+- clean vs dirty
+- poor vs rich
+- hopeful vs hopeless
+- small vs dominant
+- relaxed vs overwhelmed
+- normal vs insane
+
+The contrast should be understandable instantly without needing to read.
+
+========================
+CTR OPTIMIZATION RULES
+========================
+
+The thumbnail must:
+- be readable at tiny mobile sizes
+- have extremely clear focal points
+- create instant curiosity
+- feel emotionally intense
+- communicate progression instantly
+- look visually "expensive"
+- tell a story in under 1 second
+
+Prioritize:
+1. readability
+2. emotional contrast
+3. curiosity
+4. simplicity
+5. visual storytelling
+
+Avoid:
+- clutter
+- tiny details
+- flat lighting
+- weak contrast
+- realistic dullness
+- excessive text
+
+========================
+STYLE RULES
+========================
+
+Style should resemble:
+- modern viral YouTube thumbnails
+- documentary/commentary channels
+- transformation/progression content
+- highly polished digital illustration
+
+Use:
+- cinematic lighting
+- dramatic shadows
+- glow effects
+- strong rim lighting
+- high saturation
+- sharp contrast
+- dynamic composition
+
+Faces and subjects should be:
+- larger
+- clearer
+- more expressive
+- instantly recognizable
+
+========================
+IMPORTANT
+========================
+
+Do NOT simply split the original image in half.
+
+Completely REIMAGINE both sides so they feel like:
+- early stage vs extreme stage
+- beginner vs advanced
+- before vs after
+- normal vs transformed
+
+while still clearly belonging to the same overall world/topic.
+
+The final thumbnail should immediately make viewers think:
+"What happened between Level {left_level} and Level {right_level}?"
+""",
+    retention=RetentionMeta(
+        goal="Maximize CTR through split-progression thumbnails for life-as-a videos",
+        failure_mode="Mundane single-image thumbnails with title text that bury the progression hook",
+        metrics_to_watch=["thumbnail_ctr"],
     ),
 ))
 

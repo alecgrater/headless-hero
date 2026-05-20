@@ -4,6 +4,7 @@ When the title_cards modifier is active and a composite title card exists,
 it is used directly as the thumbnail.
 """
 
+import json
 import logging
 import os
 import random
@@ -14,6 +15,115 @@ from config import DATA_DIR
 from prompts import IMAGE_CTR_EXPRESSION_GUIDANCE
 
 logger = logging.getLogger(__name__)
+
+
+def _pick_level_pair(n_levels: int) -> tuple[int, int]:
+    """Pick (left_level, right_level) for split-progression thumbnail labels.
+
+    - left_level chosen from {1, 2}, clamped to ≤ n_levels.
+    - right_level chosen from {n_levels - 1, n_levels}, clamped to ≥ 1.
+    - Constraint: left_level < right_level (re-roll if violated).
+
+    Raises ValueError if n_levels < 2 (no valid pair exists).
+    """
+    if n_levels < 2:
+        raise ValueError(f"_pick_level_pair requires n_levels >= 2, got {n_levels}")
+
+    if n_levels == 2:
+        return (1, 2)
+
+    left_choices = [n for n in (1, 2) if n <= n_levels]
+    right_choices = [n for n in (n_levels - 1, n_levels) if n >= 1]
+
+    # Re-roll until left < right (always terminates fast — at least one valid pair exists for n >= 3).
+    for _ in range(20):
+        left = random.choice(left_choices)
+        right = random.choice(right_choices)
+        if left < right:
+            return (left, right)
+
+    # Defensive fallback — should not be reached for n >= 2.
+    return (1, n_levels)
+
+
+def _write_level_pair_sidecar(path: Path, left_level: int, right_level: int) -> None:
+    """Persist the chosen level pair next to the thumbnail."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"left_level": left_level, "right_level": right_level}))
+
+
+def _read_level_pair_sidecar(path: Path) -> tuple[int, int] | None:
+    """Read a previously-persisted level pair. Returns None if missing/corrupt/incomplete."""
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    left = data.get("left_level")
+    right = data.get("right_level")
+    if not isinstance(left, int) or not isinstance(right, int):
+        return None
+    return (left, right)
+
+
+def enhance_split_progression(
+    clean_image_path: Path,
+    output_path: Path,
+    left_level: int,
+    right_level: int,
+    script_id: str | None = None,
+    force: bool = False,
+) -> Path:
+    """Transform a single iconic life-as-a thumbnail into a split-progression thumbnail.
+
+    Sends the clean image to Gemini with the SPLIT_PROGRESSION_PROMPT (with
+    {left_level} / {right_level} substituted) and writes the result to output_path.
+
+    Caches by mtime: re-runs only if output is missing, source is newer, or force=True.
+    On Gemini failure, falls back to copying the clean image to output_path.
+    """
+    from integrations.google_image_client import transform_with_references
+    from prompts import SPLIT_PROGRESSION_PROMPT
+
+    # mtime cache check
+    if not force and output_path.exists():
+        try:
+            if output_path.stat().st_mtime >= clean_image_path.stat().st_mtime:
+                logger.info(
+                    "[%s] split-progression cache hit: %s",
+                    script_id or "no-id", output_path,
+                )
+                return output_path
+        except OSError:
+            pass  # Fall through and regenerate
+
+    prompt = SPLIT_PROGRESSION_PROMPT.template.format(
+        left_level=left_level,
+        right_level=right_level,
+    )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        result_path = transform_with_references(
+            prompt=prompt,
+            image_paths=[str(clean_image_path)],
+            script_id=script_id,
+        )
+        shutil.copy2(result_path, str(output_path))
+        logger.info(
+            "[%s] split-progression thumbnail written: %s (LEVEL %d / LEVEL %d)",
+            script_id or "no-id", output_path, left_level, right_level,
+        )
+        return output_path
+    except Exception as exc:
+        logger.warning(
+            "[%s] split-progression Gemini call failed (%s); falling back to clean image",
+            script_id or "no-id", exc,
+        )
+        shutil.copy2(str(clean_image_path), str(output_path))
+        return output_path
 
 
 def _cache_bust(url: str, file_path: str) -> str:
@@ -210,106 +320,3 @@ def gemini_enhance_thumbnail(
     except Exception as exc:
         logger.warning("Gemini thumbnail enhancement failed, using base image: %s", exc)
         return None
-
-
-def _load_overlay_font(size: int):
-    """Try to load a sensible bold system font, fall back to PIL default."""
-    from PIL import ImageFont
-
-    candidates = [
-        "/System/Library/Fonts/Supplemental/Impact.ttf",
-        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-        "/System/Library/Fonts/HelveticaNeue.ttc",
-        "/Library/Fonts/Arial Bold.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    ]
-    for path in candidates:
-        try:
-            return ImageFont.truetype(path, size=size)
-        except OSError:
-            continue
-    return ImageFont.load_default()
-
-
-def composite_title_overlay(
-    source_image: Path,
-    output_image: Path,
-    title: str,
-    accent_color: str,
-) -> None:
-    """Composite a YouTube-thumbnail-style title overlay onto a source image.
-
-    Used by the cinematic-chapters strategy for life-as-a thumbnails. The
-    rendering is intentionally simple:
-      - The source image is opened (any size) and saved at its native size as
-        the base of the output.
-      - The title is rendered in `accent_color`, with a soft dark drop shadow
-        for legibility against varying backgrounds.
-      - Text is placed in the bottom third of the frame, horizontally centered,
-        word-wrapped to fit within ~92% of the image width.
-    """
-    from PIL import Image, ImageDraw
-
-    source = Image.open(source_image).convert("RGBA")
-    width, height = source.size
-
-    # Pick a font size relative to the image height for resilience to size changes.
-    font_size = max(48, int(height * 0.11))
-    font = _load_overlay_font(font_size)
-
-    draw = ImageDraw.Draw(source)
-
-    # Word-wrap the title to fit within max_width.
-    max_width = int(width * 0.92)
-    words = (title or "").strip().split()
-    lines: list[str] = []
-    current = ""
-    for word in words:
-        candidate = f"{current} {word}".strip()
-        bbox = draw.textbbox((0, 0), candidate, font=font)
-        if bbox[2] - bbox[0] <= max_width or not current:
-            current = candidate
-        else:
-            lines.append(current)
-            current = word
-    if current:
-        lines.append(current)
-    if not lines:
-        lines = [title or ""]
-
-    # Compute total text block height.
-    line_heights: list[int] = []
-    for line in lines:
-        bbox = draw.textbbox((0, 0), line, font=font)
-        line_heights.append(bbox[3] - bbox[1])
-    line_gap = int(font_size * 0.15)
-    total_text_height = sum(line_heights) + line_gap * (len(lines) - 1)
-
-    # Anchor the block in the bottom third (start ~62% down the image).
-    y_start = int(height * 0.62)
-    # If the block would overflow the bottom, nudge it up.
-    bottom_margin = int(height * 0.06)
-    if y_start + total_text_height + bottom_margin > height:
-        y_start = max(0, height - total_text_height - bottom_margin)
-
-    shadow_color = (0, 0, 0, 220)
-    shadow_offset = max(2, int(font_size * 0.06))
-
-    y = y_start
-    for line, line_h in zip(lines, line_heights):
-        bbox = draw.textbbox((0, 0), line, font=font)
-        line_w = bbox[2] - bbox[0]
-        x = (width - line_w) // 2
-
-        # Drop shadow (drawn 4 directions for a cheap soft halo).
-        for dx, dy in ((shadow_offset, shadow_offset),
-                       (-shadow_offset, shadow_offset),
-                       (shadow_offset, -shadow_offset),
-                       (-shadow_offset, -shadow_offset)):
-            draw.text((x + dx, y + dy), line, font=font, fill=shadow_color)
-
-        draw.text((x, y), line, font=font, fill=accent_color)
-        y += line_h + line_gap
-
-    output_image.parent.mkdir(parents=True, exist_ok=True)
-    source.convert("RGB").save(output_image, "PNG")

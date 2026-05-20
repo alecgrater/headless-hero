@@ -61,6 +61,7 @@ def enforce_life_as_a_constraints(content: ScriptContent) -> ScriptContent:
             # segment.title_card_image_prompt (which the segmented outline does not set).
             image_prompt = (
                 (level.image_prompt if level and level.image_prompt else None)
+                or (content.cinematic_thumbnail_prompt if level_num == 1 else None)
                 or segment.title_card_image_prompt
                 or descriptor
             )
