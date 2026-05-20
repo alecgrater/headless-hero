@@ -1271,7 +1271,7 @@ IMAGE_CHARACTER_IN_SCENE = register(PromptDef(
     target_model="gemini",
     template="""\
 CHARACTER CONSISTENCY REQUIREMENT:
-Any person in this image MUST be "Eli" — the recurring host character. A reference image of Eli is included. The person MUST match this reference exactly: same face, same glasses, same hair, same proportions, same flat 2D cartoon style.
+The primary/main person in this image MUST be "Eli" — the recurring host character. A reference image of Eli is included. Eli MUST match this reference exactly: same face, same glasses, same hair, same proportions, same flat 2D cartoon style.
 
 Key visual traits to preserve:
 - Young adult male, medium-brown skin, short messy dark curly hair
@@ -1280,7 +1280,17 @@ Key visual traits to preserve:
 - Default outfit: muted teal crewneck t-shirt under charcoal gray open zip hoodie
 - Flat 2D cartoon illustration style — never realistic, never 3D
 
-The character's pose and expression should match the scene context, but the identity must be unmistakably Eli.
+Eli's pose and expression should match the scene context, but the identity must be unmistakably Eli.
+
+SINGLE-ELI RULE (critical):
+Only ONE person in the image may be Eli — the visually dominant/main subject. If the scene calls for additional people (a crowd, a second figure, bystanders, etc.), those secondary people MUST NOT look like Eli. Render them as nondescript, faceless figures:
+- Same flat 2D cartoon illustration style as the rest of the image (do not switch to a different art style)
+- No identifying features: no glasses, no distinctive hair, no detailed facial features
+- Faces should be obscured, faceless, blank, or shown from behind/in profile
+- Neutral, generic clothing in muted colors — clearly differentiated from Eli's teal shirt and charcoal hoodie
+- Smaller, less prominent, or further back in the frame than Eli, so attention stays on Eli
+
+Never duplicate Eli. There is exactly one Eli per image.
 """,
     retention=RetentionMeta(
         goal="Maintain character consistency for audience recognition and trust",
