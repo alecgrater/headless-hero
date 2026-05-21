@@ -185,34 +185,107 @@ function startBackend() {
   });
 }
 
-function listListeningPids(port) {
-  if (process.platform === "win32") return Promise.resolve([]);
+function execFileLines(command, args) {
   return new Promise((resolve) => {
-    execFile("lsof", ["-ti", `tcp:${port}`], (error, stdout) => {
+    execFile(command, args, (error, stdout) => {
       if (error) {
         resolve([]);
         return;
       }
-      const pids = stdout
-        .split(/\s+/)
-        .map((pid) => Number.parseInt(pid, 10))
-        .filter((pid) => Number.isInteger(pid) && pid > 0 && pid !== process.pid);
-      resolve([...new Set(pids)]);
+      resolve(stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
     });
   });
 }
 
-function terminatePid(pid) {
-  try {
-    process.kill(pid, "SIGTERM");
-  } catch {
-    return;
+function parsePid(value) {
+  const pid = Number.parseInt(value, 10);
+  return Number.isInteger(pid) && pid > 0 && pid !== process.pid ? pid : null;
+}
+
+async function listListeningPids(port) {
+  if (process.platform === "win32") return [];
+  const lines = await execFileLines("lsof", ["-ti", `tcp:${port}`]);
+  return [...new Set(lines.map(parsePid).filter(Boolean))];
+}
+
+async function getProcessInfo(pid) {
+  const lines = await execFileLines("ps", ["-o", "ppid=", "-o", "command=", "-p", String(pid)]);
+  const [line] = lines;
+  if (!line) return null;
+  const match = line.match(/^(\d+)\s+(.+)$/);
+  if (!match) return null;
+  const ppid = parsePid(match[1]);
+  return { pid, ppid, command: match[2] };
+}
+
+async function listChildPids(pid) {
+  if (process.platform === "win32") return [];
+  const lines = await execFileLines("pgrep", ["-P", String(pid)]);
+  return lines.map(parsePid).filter(Boolean);
+}
+
+function isYoloDevServerCommand(command) {
+  return (
+    command.includes("npm run dev:backend") ||
+    command.includes("npm run dev:frontend") ||
+    command.includes("uv run uvicorn api.main:app") ||
+    command.includes("uvicorn api.main:app") ||
+    command.includes("vite --host") ||
+    /(^|\s)vite(\s|$)/.test(command)
+  );
+}
+
+async function collectDescendantPids(pid, collected = new Set()) {
+  for (const childPid of await listChildPids(pid)) {
+    if (collected.has(childPid)) continue;
+    collected.add(childPid);
+    await collectDescendantPids(childPid, collected);
+  }
+  return collected;
+}
+
+async function collectYoloProcessPids(seedPids) {
+  const pids = new Set(seedPids);
+
+  for (const pid of seedPids) {
+    for (const childPid of await collectDescendantPids(pid)) {
+      pids.add(childPid);
+    }
+
+    let currentPid = pid;
+    while (currentPid) {
+      const info = await getProcessInfo(currentPid);
+      if (!info?.ppid) break;
+
+      const parentInfo = await getProcessInfo(info.ppid);
+      if (!parentInfo || !isYoloDevServerCommand(parentInfo.command)) break;
+
+      pids.add(parentInfo.pid);
+      for (const childPid of await collectDescendantPids(parentInfo.pid)) {
+        pids.add(childPid);
+      }
+      currentPid = parentInfo.pid;
+    }
+  }
+
+  return [...pids].filter((pid) => pid !== process.pid);
+}
+
+function terminatePids(pids) {
+  for (const pid of pids) {
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch {
+      // Process already exited.
+    }
   }
   setTimeout(() => {
-    try {
-      process.kill(pid, "SIGKILL");
-    } catch {
-      // Process exited after SIGTERM.
+    for (const pid of pids) {
+      try {
+        process.kill(pid, "SIGKILL");
+      } catch {
+        // Process exited after SIGTERM.
+      }
     }
   }, 1500).unref();
 }
@@ -227,12 +300,11 @@ async function stopYoloProcesses() {
     console.warn("[main] Backend kill-all request failed:", error.message);
   }
 
-  const pids = isDev
+  const listeningPids = isDev
     ? await Promise.all([listListeningPids(FRONTEND_PORT), listListeningPids(BACKEND_PORT)])
     : [[]];
-  for (const pid of new Set(pids.flat())) {
-    terminatePid(pid);
-  }
+  const pids = await collectYoloProcessPids([...new Set(listeningPids.flat())]);
+  terminatePids(pids);
 
   if (backendProcess) {
     backendProcess.kill();
@@ -240,7 +312,7 @@ async function stopYoloProcesses() {
   }
 
   setTimeout(() => app.quit(), 100).unref();
-  return { stopped: true, processes: new Set(pids.flat()).size };
+  return { stopped: true, processes: pids.length };
 }
 
 async function waitForBackend(retries = 30, delay = 500) {
