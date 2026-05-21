@@ -2303,8 +2303,10 @@ function TimelineEditor({
     });
   };
 
-  const confirmAndGenerateThumbnails = () => {
-    if (hasExistingThumbnails) {
+  const confirmAndGenerateThumbnails = async () => {
+    const longFormThumbnails = thumbnailsInline.length > 0 ? thumbnailsInline : await refreshLongFormThumbnailsInline();
+    const hasExistingLongFormThumbnail = longFormThumbnails.some((concept) => concept.image_url);
+    if (hasExistingThumbnails || hasExistingLongFormThumbnail) {
       setConfirmOverwrite("thumbnails");
     } else {
       runThumbnailsCombined(false);
