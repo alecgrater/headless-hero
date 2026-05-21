@@ -244,7 +244,7 @@
       </div>
 
       <!-- Service cards -->
-      <div id="usageServiceCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3"></div>
+      <div id="usageServiceCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
 
       <!-- Daily cost chart (ASCII bar chart) -->
       <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
@@ -1259,6 +1259,7 @@ const SERVICE_DISPLAY = {
   elevenlabs: { label: 'ElevenLabs', color: 'amber', icon: '🔊', manageUrl: 'https://elevenlabs.io/app/subscription/creative' },
   ollama: { label: 'Local LLM', color: 'emerald', icon: '▣', manageUrl: null, savings: true },
   replicate: { label: 'Replicate', color: 'neutral', icon: '🖼️', manageUrl: 'https://replicate.com/users/alecgrater/settings/billing/manage-credit?next=/account/billing' },
+  fal: { label: 'fal', color: 'neutral', icon: '◇', manageUrl: 'https://fal.ai/dashboard/usage-billing/credits' },
 };
 
 const SERVICE_COLORS = {
@@ -1268,6 +1269,7 @@ const SERVICE_COLORS = {
   elevenlabs: 'bg-amber-600/30 text-amber-400 border-amber-600/30',
   ollama: 'bg-emerald-600/30 text-emerald-400 border-emerald-600/30',
   replicate: 'bg-neutral-600/30 text-neutral-400 border-neutral-600/30',
+  fal: 'bg-neutral-900 text-neutral-100 border-neutral-100',
 };
 
 const SERVICE_BAR_COLORS = {
@@ -1277,6 +1279,7 @@ const SERVICE_BAR_COLORS = {
   elevenlabs: 'bg-amber-500',
   ollama: 'bg-emerald-500',
   replicate: 'bg-neutral-500',
+  fal: 'bg-neutral-200',
 };
 
 let usageRecentOffset = 0;
@@ -1303,7 +1306,7 @@ function renderUsageSummary(data) {
 
   // Service cards
   const cards = document.getElementById('usageServiceCards');
-  const knownServices = ['openai', 'anthropic', 'google_ai', 'elevenlabs', 'ollama', 'replicate'];
+  const knownServices = ['openai', 'anthropic', 'google_ai', 'elevenlabs', 'ollama', 'replicate', 'fal'];
   const observedServices = data.services.map(s => s.service).filter(s => !knownServices.includes(s));
   const allServices = [...knownServices, ...observedServices];
   let html = '';
