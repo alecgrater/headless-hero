@@ -92,6 +92,7 @@ export default function PropertiesPanel({
 
   const MEDIA_SOURCE_OPTIONS: { value: string; label: string }[] = [
     { value: "ai", label: "AI Generated" },
+    { value: "ai_video", label: "AI Video" },
     { value: "stock_photo", label: "Stock Photo" },
     { value: "gameplay_video", label: "Gameplay" },
     { value: "user_upload", label: "Upload" },
@@ -106,7 +107,9 @@ export default function PropertiesPanel({
         ? "user upload"
         : scene.media_source === "gameplay_video"
           ? "gameplay"
-          : null;
+          : scene.media_source === "ai_video"
+            ? "AI video"
+            : null;
 
   return (
     <div className="flex flex-col min-h-0 flex-1 overflow-y-auto">
@@ -206,13 +209,15 @@ export default function PropertiesPanel({
           {/* Generate Image button */}
           {onGenerateImage && (
             <button
-              onClick={() => scene.image_url ? setConfirmOverwrite("image") : onGenerateImage()}
+              onClick={() => (scene.image_url || scene.video_url) ? setConfirmOverwrite("image") : onGenerateImage()}
               disabled={isGenerating}
               className="shrink-0 w-full text-sm px-3 py-1.5 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 rounded-lg transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isGenerating ? (
                 <><span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" /> Generating...</>
-              ) : scene.image_url ? "Regenerate Image" : "Generate Image"}
+              ) : scene.media_source === "ai_video"
+                ? scene.video_url ? "Regenerate Video" : "Generate Video"
+                : scene.image_url ? "Regenerate Image" : "Generate Image"}
             </button>
           )}
 

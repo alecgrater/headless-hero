@@ -316,6 +316,7 @@ interface GeneralSectionProps {
 export default function GeneralSection({ panel }: GeneralSectionProps) {
   const [exportsDir, setExportsDir] = useState("");
   const [imageProvider, setImageProvider] = useState("google");
+  const [aiVideoEnabled, setAiVideoEnabled] = useState(false);
   const [promptUpsampling, setPromptUpsampling] = useState("true");
   const [replicateModel, setReplicateModel] = useState("black-forest-labs/flux-1.1-pro");
   const [safetyTolerance, setSafetyTolerance] = useState("2");
@@ -329,6 +330,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
   const [taskRoutes, setTaskRoutes] = useState<Record<string, TaskRoute>>(initialTaskRoutes);
   const [originalExportsDir, setOriginalExportsDir] = useState("");
   const [originalProvider, setOriginalProvider] = useState("google");
+  const [originalAiVideoEnabled, setOriginalAiVideoEnabled] = useState(false);
   const [originalUpsampling, setOriginalUpsampling] = useState("true");
   const [originalModel, setOriginalModel] = useState("black-forest-labs/flux-1.1-pro");
   const [originalSafety, setOriginalSafety] = useState("2");
@@ -347,6 +349,9 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
         const provVal = data.IMAGE_PROVIDER?.masked || "google";
         setImageProvider(provVal);
         setOriginalProvider(provVal);
+        const aiVideoVal = data.AI_VIDEO_ENABLED?.masked === "true";
+        setAiVideoEnabled(aiVideoVal);
+        setOriginalAiVideoEnabled(aiVideoVal);
         const upVal = data.REPLICATE_PROMPT_UPSAMPLING?.masked || "true";
         setPromptUpsampling(upVal);
         setOriginalUpsampling(upVal);
@@ -403,6 +408,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
     const res = await api.put("/api/settings/keys", {
       DOWNLOADS_DIR: exportsDir.trim(),
       IMAGE_PROVIDER: imageProvider,
+      AI_VIDEO_ENABLED: aiVideoEnabled ? "true" : "false",
       REPLICATE_MODEL: replicateModel,
       REPLICATE_PROMPT_UPSAMPLING: promptUpsampling,
       REPLICATE_SAFETY_TOLERANCE: safetyTolerance,
@@ -417,6 +423,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
       showToast("Settings saved", "success");
       setOriginalExportsDir(exportsDir.trim());
       setOriginalProvider(imageProvider);
+      setOriginalAiVideoEnabled(aiVideoEnabled);
       setOriginalModel(replicateModel);
       setOriginalUpsampling(promptUpsampling);
       setOriginalSafety(safetyTolerance);
@@ -512,6 +519,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
   const hasChanges =
     exportsDir.trim() !== originalExportsDir ||
     imageProvider !== originalProvider ||
+    aiVideoEnabled !== originalAiVideoEnabled ||
     replicateModel !== originalModel ||
     promptUpsampling !== originalUpsampling ||
     safetyTolerance !== originalSafety ||
@@ -740,6 +748,35 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                   );
                 })}
               </div>
+            </div>
+
+            <div className="p-5 space-y-3">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-neutral-100">AI Video Scenes</h3>
+                  <p className="text-xs text-neutral-500">
+                    Route selected high-motion scenes to Runway Gen-4 Turbo image-to-video.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAiVideoEnabled((value) => !value)}
+                  className={`relative h-6 w-11 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
+                    aiVideoEnabled ? "bg-violet-500" : "bg-neutral-700 hover:bg-neutral-600"
+                  }`}
+                  aria-pressed={aiVideoEnabled}
+                  aria-label="Toggle AI video scenes"
+                >
+                  <span
+                    className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${
+                      aiVideoEnabled ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+              <p className="text-xs text-neutral-500">
+                Requires a Runway key. Script generation routes up to five high-motion scenes, at most one per segment.
+              </p>
             </div>
 
           </div>

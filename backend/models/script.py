@@ -101,7 +101,7 @@ class Scene(BaseModel):
     visual_in_seconds: float = 0.0      # visual appears this many seconds into the audio
     visual_out_seconds: float = 0.0     # visual ends this many seconds before audio ends
     # --- Multi-source media ---
-    media_source: str = "ai"            # "ai" | "gameplay_video" | "stock_photo" | "user_upload"
+    media_source: str = "ai"            # "ai" | "ai_video" | "gameplay_video" | "stock_photo" | "user_upload"
     gameplay_game_override: str = ""    # per-scene game name override (falls back to script-level)
     video_url: str = ""                 # web-relative path to gameplay/uploaded video clip
     upload_url: str = ""                # web-relative path to user-uploaded media
@@ -152,6 +152,7 @@ class ScriptContent(BaseModel):
     # --- Multi-source media ---
     gameplay_enabled: bool = False
     stock_photo_enabled: bool = False
+    ai_video_enabled: bool = False
     gameplay_game_name: str = ""
     # --- Format awareness ---
     format_id: str = "youtube-listicle"

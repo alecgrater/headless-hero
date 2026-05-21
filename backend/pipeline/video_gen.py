@@ -1,0 +1,107 @@
+"""AI video generation pipeline for scene visuals."""
+
+import hashlib
+import json
+import logging
+from pathlib import Path
+
+from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH
+from pipeline.image_gen import generate_scene_image
+
+logger = logging.getLogger(__name__)
+
+
+_NEGATIVE_MOTION_GUIDANCE = (
+    "No text, letters, captions, subtitles, logos, watermarks, new characters, "
+    "new objects, heavy camera shake, photorealism, 3D rendering, style change, "
+    "warped faces, distorted hands, flicker, or sudden cuts."
+)
+
+
+def _build_animation_prompt(visual_prompt: str) -> str:
+    prompt = visual_prompt.strip()
+    return (
+        "Animate this as a polished educational explainer shot in the same flat 2D cartoon style "
+        "as the reference image. Preserve the exact composition, subject identities, colors, clean "
+        "line art, and lighting from the source frame. Use subtle natural motion that supports the "
+        f"scene: {prompt}. Add a calm, slow documentary push-in with gentle parallax where appropriate. "
+        "Keep the motion restrained and readable for narration. "
+        f"{_NEGATIVE_MOTION_GUIDANCE}"
+    )
+
+
+def _prompt_marker_path(video_path: Path) -> Path:
+    return video_path.with_suffix(".prompt")
+
+
+def _metadata_path(video_path: Path) -> Path:
+    return video_path.with_suffix(".source.json")
+
+
+def _read_metadata(video_path: Path) -> dict[str, object] | None:
+    path = _metadata_path(video_path)
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        logger.warning("Invalid video source metadata at %s", path)
+        return None
+
+
+def _source_image_path(script_id: str, scene_id: str, image_url: str) -> Path:
+    filename = image_url.rsplit("/", 1)[-1] if image_url else f"{scene_id}.png"
+    return DATA_DIR / "projects" / script_id / "images" / filename
+
+
+def generate_scene_video(
+    *,
+    scene_id: str,
+    visual_prompt: str,
+    script_id: str,
+    width: int = IMAGE_WIDTH,
+    height: int = IMAGE_HEIGHT,
+    scene_duration_seconds: float = 5.0,
+    force: bool = False,
+    contains_person: bool = False,
+) -> tuple[str, str, dict[str, object] | None]:
+    """Generate one anchor image, animate it with Runway, and save the MP4 locally."""
+    videos_dir = DATA_DIR / "projects" / script_id / "videos"
+    videos_dir.mkdir(parents=True, exist_ok=True)
+    video_path = videos_dir / f"{scene_id}.mp4"
+    web_path = f"/static/projects/{script_id}/videos/{scene_id}.mp4"
+    prompt = _build_animation_prompt(visual_prompt)
+
+    # Include the prompt hash in the marker so edits invalidate the video cache.
+    prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+    marker = _prompt_marker_path(video_path)
+    if not force and video_path.exists() and marker.exists() and marker.read_text(encoding="utf-8").strip() == prompt_hash:
+        logger.info("AI video cache hit for scene %s", scene_id)
+        return web_path, prompt, _read_metadata(video_path)
+
+    image_url, _image_prompt, _image_metadata = generate_scene_image(
+        scene_id=scene_id,
+        visual_prompt=visual_prompt,
+        script_id=script_id,
+        width=width,
+        height=height,
+        force=force,
+        contains_person=contains_person,
+    )
+    image_path = _source_image_path(script_id, scene_id, image_url)
+    if not image_path.exists():
+        raise RuntimeError(f"AI video anchor image was not found: {image_path}")
+
+    from integrations.runway_video_client import generate_video_from_image
+
+    metadata = generate_video_from_image(
+        image_path=str(image_path),
+        prompt=prompt,
+        output_path=video_path,
+        width=width,
+        height=height,
+        scene_duration_seconds=scene_duration_seconds,
+        script_id=script_id,
+    )
+    marker.write_text(prompt_hash, encoding="utf-8")
+    return web_path, prompt, metadata

@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import shutil
 import time
 import uuid
@@ -494,6 +495,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
     cold_open_text = body.cold_open_text
     gameplay_enabled = body.gameplay_enabled
     stock_photo_enabled = body.stock_photo_enabled
+    ai_video_enabled = os.environ.get("AI_VIDEO_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
     format_id = fmt.id
     supports_hook_scoring = fmt.supports_hook_scoring
 
@@ -526,6 +528,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             script_id=script_id,
             format_id=format_id,
         )
+        script_content.ai_video_enabled = ai_video_enabled
         duration = time.monotonic() - t0
 
         # Persist to SQLite using a fresh session (background thread)
@@ -546,13 +549,15 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
 
         logger.info("Script generated: %s (%d segments) in %.1fs", script_id, len(script_content.segments), duration)
 
-        if gameplay_enabled or stock_photo_enabled:
+        if gameplay_enabled or stock_photo_enabled or (ai_video_enabled and animated_scene_count > 0):
             try:
                 update_job(job_id, current_step="Analyzing media sources...")
                 assignments = analyze_media_sources(
                     script_content,
                     gameplay_enabled=gameplay_enabled,
                     stock_photo_enabled=stock_photo_enabled,
+                    ai_video_enabled=ai_video_enabled,
+                    animated_scene_count=animated_scene_count,
                     script_id=script_id,
                 )
                 apply_assignments(script_content, assignments)

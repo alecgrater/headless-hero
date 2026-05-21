@@ -123,7 +123,7 @@ Remove legacy FFmpeg video rendering pipeline
 ## Environment Variables
 
 Required: `ANTHROPIC_API_KEY`, `GOOGLE_AI_KEY`, `ELEVENLABS_API_KEY`
-Optional: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (YouTube publishing), `REPLICATE_API_TOKEN` (alternative image provider)
+Optional: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (YouTube publishing), `REPLICATE_API_TOKEN` (alternative image provider), `RUNWAYML_API_SECRET` (AI video scenes)
 
 Stored in DB via AppSettings, loaded into env at startup. Never commit `.env` files.
 
@@ -148,6 +148,7 @@ Stored in DB via AppSettings, loaded into env at startup. Never commit `.env` fi
 - **Anthropic uses direct API model IDs**: Claude model defaults and Settings values must use Anthropic API ids like `claude-opus-4-7`, `claude-sonnet-4-6`, and `claude-haiku-4-5-20251001`, not AWS Bedrock ids like `anthropic.claude-...-v1:0`. The script task defaults to Anthropic/Claude and should remain easy to configure from Settings → API Keys and Settings → AI Models.
 - **ElevenLabs duration as timing source of truth**: Scene duration in the Remotion timeline is derived from the ElevenLabs-generated audio duration, not estimated or manually set
 - **Visual storytelling arc in scriptwriter**: Script generation prompts are structured to produce a coherent visual narrative arc across scenes, not just talking-head descriptions
+- **AI video scenes are routed, then generated from anchor images**: When `AI_VIDEO_ENABLED=true`, media analysis may assign up to the requested animated scene count as `media_source="ai_video"` (at most one per segment). Generation first creates the normal styled scene image, then sends that anchor image to Runway Gen-4 Turbo so motion preserves the existing visual format. Track the follow-up to move candidate selection into script generation in `docs/ai-video-followups.md`.
 
 ## Video Rendering (Remotion)
 

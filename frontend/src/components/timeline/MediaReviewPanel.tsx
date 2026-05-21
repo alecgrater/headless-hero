@@ -18,6 +18,7 @@ interface Props {
 
 const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
   ai: { label: "AI", color: "bg-violet-500/20 text-violet-300" },
+  ai_video: { label: "AI Video", color: "bg-fuchsia-500/20 text-fuchsia-300" },
   gameplay_video: { label: "Gameplay", color: "bg-emerald-500/20 text-emerald-300" },
   stock_photo: { label: "Stock Photo", color: "bg-sky-500/20 text-sky-300" },
 };
@@ -36,7 +37,7 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
 
   const totalScenes = assignments.length;
 
-  const handleSourceChange = (sceneId: string, newSource: "ai" | "gameplay_video" | "stock_photo") => {
+  const handleSourceChange = (sceneId: string, newSource: "ai" | "ai_video" | "gameplay_video" | "stock_photo") => {
     setSaveState("idle");
     setAssignments((prev) =>
       prev.map((a) =>
@@ -132,10 +133,11 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
               <span className="text-neutral-500 w-6 text-right shrink-0">{idx + 1}</span>
               <select
                 value={a.media_source}
-                onChange={(e) => handleSourceChange(a.scene_id, e.target.value as "ai" | "gameplay_video" | "stock_photo")}
+              onChange={(e) => handleSourceChange(a.scene_id, e.target.value as "ai" | "ai_video" | "gameplay_video" | "stock_photo")}
                 className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 shrink-0"
               >
                 <option value="ai">AI</option>
+                <option value="ai_video">AI Video</option>
                 <option value="gameplay_video">Gameplay</option>
                 <option value="stock_photo">Stock Photo</option>
               </select>
@@ -165,7 +167,7 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
                   className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 placeholder-neutral-600 flex-1 min-w-0"
                 />
               )}
-              {a.media_source === "ai" && (
+              {(a.media_source === "ai" || a.media_source === "ai_video") && (
                 <span className="flex-1" />
               )}
               {scenes && scenes[a.scene_id] && (

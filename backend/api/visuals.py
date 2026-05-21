@@ -89,7 +89,7 @@ def _update_scene_with_frames(
 
 @router.post("/generate", response_model=GenerateVisualResponse)
 def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_session)):
-    """Generate an image for a single scene, dispatching by media_source."""
+    """Generate a visual for a single scene, dispatching by media_source."""
     t0 = time.monotonic()
     record = session.get(Script, body.script_id)
     if not record:
@@ -149,6 +149,32 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
         session.commit()
         return GenerateVisualResponse(image_url="", prompt_used=f"gameplay:{game_name}", video_url=video_url)
+
+    # --- AI video dispatch ---
+    if body.media_source == "ai_video":
+        from pipeline.video_gen import generate_scene_video
+
+        duration = body.audio_duration_seconds or 5.0
+        logger.info("[RUNWAY] scene %s — prompt: %s", body.scene_id, body.visual_prompt[:80])
+        video_url, prompt_used, source_metadata = generate_scene_video(
+            scene_id=body.scene_id,
+            visual_prompt=body.visual_prompt,
+            script_id=body.script_id,
+            width=body.width,
+            height=body.height,
+            scene_duration_seconds=duration,
+            contains_person=body.contains_person,
+        )
+        update_scene(
+            session,
+            body.script_id,
+            body.scene_id,
+            video_url=video_url,
+            visual_source_metadata=source_metadata,
+        )
+        session.add(GenerationDuration(operation_type="single_video_generation", duration_seconds=time.monotonic() - t0))
+        session.commit()
+        return GenerateVisualResponse(image_url="", prompt_used=prompt_used, video_url=video_url, visual_source_metadata=source_metadata)
 
     # --- AI-generated (default) ---
     logger.info("[GEMINI] scene %s — prompt: %s", body.scene_id, body.visual_prompt[:80])

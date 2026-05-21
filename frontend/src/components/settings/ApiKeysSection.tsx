@@ -58,6 +58,12 @@ const SERVICE_GROUPS: ServiceGroup[] = [
       placeholder: "r8_...",
     },
     {
+      key: "RUNWAYML_API_SECRET",
+      label: "Runway",
+      description: "Generates animated scene videos via Gen-4 Turbo image-to-video.",
+      placeholder: "key_...",
+    },
+    {
       key: "PEXELS_API_KEY",
       label: "Pexels",
       description: "Stock photos for scenes via Pexels API.",

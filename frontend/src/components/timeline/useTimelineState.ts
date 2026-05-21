@@ -511,6 +511,7 @@ export function useTimelineState(
             if (updated) {
               bumpAssetVersion(
                 updated.image_url ?? "",
+                updated.video_url ?? "",
                 ...(updated.frame_urls ?? []),
               );
             }
@@ -632,7 +633,7 @@ export function useTimelineState(
           });
           if (res.ok) {
             const data = res.data as GenerateVisualResponse;
-            bumpAssetVersion(data.image_url ?? "", ...(data.frame_urls ?? []));
+            bumpAssetVersion(data.image_url ?? "", data.video_url ?? "", ...(data.frame_urls ?? []));
             setContent((prev) => ({
               ...prev,
               segments: prev.segments.map((seg) => ({

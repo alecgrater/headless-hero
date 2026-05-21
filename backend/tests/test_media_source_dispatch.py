@@ -122,6 +122,31 @@ class TestMediaSourceDispatch:
         assert results[0]["error"] is None
         assert results[0]["video_url"] is not None
 
+    def test_ai_video_generates_anchor_image_then_runway_video(self, mock_gemini, mock_pexels, tmp_data_dir):
+        def _fake_video(**kwargs):
+            Path(kwargs["output_path"]).write_bytes(b"\x00" * 100)
+            return {
+                "source_type": "ai_generated_video",
+                "provider": "runway",
+                "model": "gen4_turbo",
+            }
+
+        with patch("integrations.runway_video_client.generate_video_from_image", side_effect=_fake_video) as mock_runway:
+            scenes = [{
+                "scene_id": "scene_ai_video_1",
+                "visual_prompt": "A character points at a thought bubble",
+                "media_source": "ai_video",
+                "audio_duration_seconds": 5.0,
+            }]
+            results = generate_batch(scenes, script_id="test-script-video")
+
+        assert mock_gemini.called, "AI video should create a styled anchor image first"
+        assert mock_runway.called, "AI video should call Runway image-to-video"
+        assert not mock_pexels.called, "AI video should NOT call Pexels"
+        assert results[0]["error"] is None
+        assert results[0]["image_url"] is None
+        assert results[0]["video_url"] == "/static/projects/test-script-video/videos/scene_ai_video_1.mp4"
+
     def test_default_source_is_ai(self, mock_gemini, mock_pexels, tmp_data_dir):
         scenes = [{
             "scene_id": "scene_default_1",

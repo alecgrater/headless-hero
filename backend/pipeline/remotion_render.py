@@ -138,13 +138,17 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
     audio_path = _scene_audio_path(script_id, scene.id)
     frame_paths = _scene_frame_paths(script_id, scene)
 
-    # Detect video scenes (gameplay clips or uploaded videos)
+    # Detect video scenes (AI-generated clips, gameplay clips, or uploaded videos)
     video_path: str | None = None
     media_type = "image"
-    if scene.media_source in ("gameplay_video", "user_upload"):
+    if scene.media_source in ("ai_video", "gameplay_video", "user_upload"):
+        ai_video_path = DATA_DIR / "projects" / script_id / "videos" / f"{scene.id}.mp4"
+        if scene.media_source == "ai_video" and ai_video_path.exists():
+            video_path = _to_remotion_path(str(ai_video_path))
+            media_type = "video"
         # Check for gameplay clip
         clip_path = DATA_DIR / "projects" / script_id / "clips" / f"{scene.id}.mp4"
-        if clip_path.exists():
+        if not video_path and clip_path.exists():
             video_path = _to_remotion_path(str(clip_path))
             media_type = "video"
         # Check for uploaded video

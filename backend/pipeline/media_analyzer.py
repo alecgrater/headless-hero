@@ -25,6 +25,8 @@ def analyze_media_sources(
     script_content: ScriptContent,
     gameplay_enabled: bool = True,
     stock_photo_enabled: bool = True,
+    ai_video_enabled: bool = False,
+    animated_scene_count: int = 0,
     script_id: str | None = None,
 ) -> list[MediaAssignment]:
     """Analyze a completed script and assign media sources per scene.
@@ -33,17 +35,26 @@ def analyze_media_sources(
     assignments based on the narrative content.
     """
     sources = ['"ai"']
+    if ai_video_enabled and animated_scene_count > 0:
+        sources.append('"ai_video"')
     if gameplay_enabled:
         sources.append('"gameplay_video"')
     if stock_photo_enabled:
         sources.append('"stock_photo"')
     available_sources = ", ".join(sources)
 
-    system_prompt = MEDIA_ANALYZER_SYSTEM.template.replace("{available_sources}", available_sources)
+    ai_video_limit = max(0, animated_scene_count if ai_video_enabled else 0)
+    system_prompt = (
+        MEDIA_ANALYZER_SYSTEM.template
+        .replace("{available_sources}", available_sources)
+        .replace("{ai_video_limit}", str(ai_video_limit))
+    )
 
     scenes_summary = []
+    scene_segments: dict[str, str] = {}
     for seg in script_content.segments:
         for scene in seg.scenes:
+            scene_segments[scene.id] = seg.name
             scenes_summary.append({
                 "scene_id": scene.id,
                 "segment": seg.name,
@@ -69,28 +80,41 @@ def analyze_media_sources(
     cleaned = strip_markdown_fences(response)
     raw_assignments = parse_json_array_response(cleaned, key="assignments")
 
-    valid_sources = {"ai", "gameplay_video", "stock_photo"}
+    valid_sources = {"ai", "ai_video", "gameplay_video", "stock_photo"}
     assignments = []
+    ai_video_assigned = 0
+    segment_ai_video_counts: dict[str, int] = {}
     for entry in raw_assignments:
         source = entry.get("media_source", "ai")
         if source not in valid_sources:
             source = "ai"
+        scene_id = entry["scene_id"]
+        segment_name = scene_segments.get(scene_id, "")
+        if not ai_video_enabled and source == "ai_video":
+            source = "ai"
+        if source == "ai_video":
+            if ai_video_assigned >= ai_video_limit or segment_ai_video_counts.get(segment_name, 0) >= 1:
+                source = "ai"
+            else:
+                ai_video_assigned += 1
+                segment_ai_video_counts[segment_name] = segment_ai_video_counts.get(segment_name, 0) + 1
         if not gameplay_enabled and source == "gameplay_video":
             source = "ai"
         if not stock_photo_enabled and source == "stock_photo":
             source = "ai"
 
         assignments.append(MediaAssignment(
-            scene_id=entry["scene_id"],
+            scene_id=scene_id,
             media_source=source,
             game_name=entry.get("game_name"),
             search_query=entry.get("search_query"),
             reasoning=entry.get("reasoning", ""),
         ))
 
-    logger.info("[%s] Media analysis complete: %d ai, %d gameplay, %d stock",
+    logger.info("[%s] Media analysis complete: %d ai, %d ai_video, %d gameplay, %d stock",
                 script_id or "no-id",
                 sum(1 for a in assignments if a.media_source == "ai"),
+                sum(1 for a in assignments if a.media_source == "ai_video"),
                 sum(1 for a in assignments if a.media_source == "gameplay_video"),
                 sum(1 for a in assignments if a.media_source == "stock_photo"))
 

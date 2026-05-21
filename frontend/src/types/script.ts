@@ -71,7 +71,7 @@ export interface Scene {
   visual_in_seconds?: number;
   visual_out_seconds?: number;
   // Multi-source media
-  media_source?: "ai" | "gameplay_video" | "stock_photo" | "user_upload";
+  media_source?: "ai" | "ai_video" | "gameplay_video" | "stock_photo" | "user_upload";
   gameplay_game_override?: string;
   video_url?: string;
   upload_url?: string;
@@ -112,6 +112,7 @@ export interface ScriptContent {
   // Multi-source media
   gameplay_enabled?: boolean;
   stock_photo_enabled?: boolean;
+  ai_video_enabled?: boolean;
   gameplay_game_name?: string;
   // Short-form export
   hook_scene_count?: number | null;  // Leading scenes in segment 0 that are hook teasers; skipped from short #1

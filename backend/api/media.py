@@ -79,11 +79,12 @@ class ApplyResponse(BaseModel):
     ok: bool
 
 
-def media_analysis_source_flags(script_json: dict) -> tuple[bool, bool]:
+def media_analysis_source_flags(script_json: dict) -> tuple[bool, bool, bool]:
     """Return enabled media sources, defaulting old scripts to manual analysis sources."""
     return (
         script_json.get("gameplay_enabled", True),
         script_json.get("stock_photo_enabled", True),
+        script_json.get("ai_video_enabled", False),
     )
 
 
@@ -92,18 +93,22 @@ def preserve_media_analysis_source_flags(
     script_json: dict,
     gameplay_enabled: bool,
     stock_photo_enabled: bool,
+    ai_video_enabled: bool,
 ) -> None:
     """Persist inferred legacy source flags without overwriting explicit final settings."""
     if "gameplay_enabled" not in script_json:
         content.gameplay_enabled = gameplay_enabled
     if "stock_photo_enabled" not in script_json:
         content.stock_photo_enabled = stock_photo_enabled
+    if "ai_video_enabled" not in script_json:
+        content.ai_video_enabled = ai_video_enabled
 
 
 def normalize_media_assignments_for_sources(
     assignments: list[MediaAssignment],
     gameplay_enabled: bool,
     stock_photo_enabled: bool,
+    ai_video_enabled: bool,
 ) -> list[MediaAssignment]:
     """Coerce assignments to AI when their source is disabled in the latest script."""
     normalized: list[MediaAssignment] = []
@@ -112,6 +117,8 @@ def normalize_media_assignments_for_sources(
             assignment.media_source == "gameplay_video" and not gameplay_enabled
         ) or (
             assignment.media_source == "stock_photo" and not stock_photo_enabled
+        ) or (
+            assignment.media_source == "ai_video" and not ai_video_enabled
         ):
             normalized.append(MediaAssignment(
                 scene_id=assignment.scene_id,
@@ -149,13 +156,15 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
             fresh_raw = json.loads(rec.script_json)
             fresh_content = ScriptContent.model_validate(fresh_raw)
 
-        gameplay_enabled, stock_photo_enabled = media_analysis_source_flags(fresh_raw)
+        gameplay_enabled, stock_photo_enabled, ai_video_enabled = media_analysis_source_flags(fresh_raw)
 
-        if gameplay_enabled or stock_photo_enabled:
+        if gameplay_enabled or stock_photo_enabled or ai_video_enabled:
             assignments = analyze_media_sources(
                 fresh_content,
                 gameplay_enabled=gameplay_enabled,
                 stock_photo_enabled=stock_photo_enabled,
+                ai_video_enabled=ai_video_enabled,
+                animated_scene_count=5,
                 script_id=script_id,
             )
         else:
@@ -165,7 +174,7 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
                     media_source="ai",
                     game_name=None,
                     search_query=None,
-                    reasoning="Gameplay and stock photo routing are disabled for this script.",
+                    reasoning="Gameplay, stock photo, and AI video routing are disabled for this script.",
                 )
                 for scene in fresh_content.all_scenes()
             ]
@@ -176,11 +185,12 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
                 raise RuntimeError(f"Script {script_id} deleted during media analysis")
             final_raw = json.loads(rec.script_json)
             final_content = ScriptContent.model_validate(final_raw)
-            final_gameplay_enabled, final_stock_photo_enabled = media_analysis_source_flags(final_raw)
+            final_gameplay_enabled, final_stock_photo_enabled, final_ai_video_enabled = media_analysis_source_flags(final_raw)
             final_assignments = normalize_media_assignments_for_sources(
                 assignments,
                 gameplay_enabled=final_gameplay_enabled,
                 stock_photo_enabled=final_stock_photo_enabled,
+                ai_video_enabled=final_ai_video_enabled,
             )
             apply_assignments(final_content, final_assignments)
             preserve_media_analysis_source_flags(
@@ -188,6 +198,7 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
                 script_json=final_raw,
                 gameplay_enabled=gameplay_enabled,
                 stock_photo_enabled=stock_photo_enabled,
+                ai_video_enabled=ai_video_enabled,
             )
             rec.script_json = final_content.model_dump_json()
             bg_session.add(rec)

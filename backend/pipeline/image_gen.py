@@ -558,7 +558,7 @@ def generate_batch(
 
     Each scene dict must have 'scene_id' and 'visual_prompt'.
     Optionally 'frame_prompts' (list[str]) for multi-frame scenes.
-    Dispatches based on scene 'media_source': ai (default), stock_photo, gameplay_video.
+    Dispatches based on scene 'media_source': ai (default), ai_video, stock_photo, gameplay_video.
     Returns list of {scene_id, image_url, prompt_used, frame_urls?, video_url?, error?}.
     """
     results: list[dict[str, str | None]] = []
@@ -620,6 +620,31 @@ def generate_batch(
                     "image_url": None,
                     "video_url": video_url,
                     "prompt_used": f"gameplay:{game_name}",
+                    "error": None,
+                })
+                continue
+
+            # --- AI video dispatch ---
+            if media_source == "ai_video":
+                from pipeline.video_gen import generate_scene_video
+
+                duration = float(scene.get("audio_duration_seconds", 5.0) or 5.0)
+                logger.info("[RUNWAY] scene %s — prompt: %s", scene["scene_id"], scene.get("visual_prompt", "")[:80])
+                video_url, prompt_used, source_metadata = generate_scene_video(
+                    scene_id=scene["scene_id"],
+                    visual_prompt=scene.get("visual_prompt", ""),
+                    script_id=script_id,
+                    width=width,
+                    height=height,
+                    scene_duration_seconds=duration,
+                    contains_person=scene.get("contains_person", False),
+                )
+                results.append({
+                    "scene_id": scene["scene_id"],
+                    "image_url": None,
+                    "video_url": video_url,
+                    "prompt_used": prompt_used,
+                    "visual_source_metadata": source_metadata,
                     "error": None,
                 })
                 continue

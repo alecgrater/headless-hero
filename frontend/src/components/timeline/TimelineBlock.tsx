@@ -58,6 +58,7 @@ export default function TimelineBlock({
 function MediaSourceBadge({ source }: { source?: string }) {
   const color: Record<string, string> = {
     ai: "bg-violet-500/60",
+    ai_video: "bg-fuchsia-500/60",
     gameplay_video: "bg-sky-500/60",
     stock_photo: "bg-amber-500/60",
     user_upload: "bg-emerald-500/60",
@@ -72,6 +73,15 @@ function MediaSourceBadge({ source }: { source?: string }) {
 
 function ImageContent({ scene }: { scene: Scene }) {
   const hasImage = !!scene.image_url || (scene.frame_urls && scene.frame_urls.length > 0);
+
+  if (scene.video_url) {
+    return (
+      <div className="flex gap-1.5 items-center">
+        <span className="w-2 h-2 rounded-full shrink-0 bg-fuchsia-500" />
+        <span className="text-[10px] font-medium text-fuchsia-200 uppercase">Video</span>
+      </div>
+    );
+  }
 
   if (scene.frame_urls && scene.frame_urls.length > 0) {
     return (

@@ -748,7 +748,7 @@ export async function uploadSceneMedia(
 
 export interface MediaAssignment {
   scene_id: string;
-  media_source: "ai" | "gameplay_video" | "stock_photo";
+  media_source: "ai" | "ai_video" | "gameplay_video" | "stock_photo";
   game_name: string | null;
   search_query: string | null;
   reasoning: string;
