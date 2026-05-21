@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+import os
 from pathlib import Path
 
 from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH
@@ -54,6 +55,41 @@ def _source_image_path(script_id: str, scene_id: str, image_url: str) -> Path:
     return DATA_DIR / "projects" / script_id / "images" / filename
 
 
+def _file_hash(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _cache_marker(
+    *,
+    prompt: str,
+    image_path: Path,
+    image_metadata: dict[str, object] | None,
+    width: int,
+    height: int,
+    scene_duration_seconds: float,
+) -> str:
+    from integrations.runway_video_client import RUNWAY_MODEL, duration_for_scene, ratio_for_dimensions
+
+    contract = {
+        "prompt": prompt,
+        "provider": "runway",
+        "model": RUNWAY_MODEL,
+        "runway_duration_seconds": duration_for_scene(scene_duration_seconds),
+        "ratio": ratio_for_dimensions(width, height),
+        "width": width,
+        "height": height,
+        "anchor_image_hash": _file_hash(image_path),
+        "anchor_source_type": (image_metadata or {}).get("source_type"),
+        "anchor_provider": (image_metadata or {}).get("provider"),
+        "image_provider_setting": os.environ.get("IMAGE_PROVIDER", "google"),
+    }
+    return hashlib.sha256(json.dumps(contract, sort_keys=True).encode("utf-8")).hexdigest()
+
+
 def generate_scene_video(
     *,
     scene_id: str,
@@ -72,14 +108,7 @@ def generate_scene_video(
     web_path = f"/static/projects/{script_id}/videos/{scene_id}.mp4"
     prompt = _build_animation_prompt(visual_prompt)
 
-    # Include the prompt hash in the marker so edits invalidate the video cache.
-    prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
-    marker = _prompt_marker_path(video_path)
-    if not force and video_path.exists() and marker.exists() and marker.read_text(encoding="utf-8").strip() == prompt_hash:
-        logger.info("AI video cache hit for scene %s", scene_id)
-        return web_path, prompt, _read_metadata(video_path)
-
-    image_url, _image_prompt, _image_metadata = generate_scene_image(
+    image_url, _image_prompt, image_metadata = generate_scene_image(
         scene_id=scene_id,
         visual_prompt=visual_prompt,
         script_id=script_id,
@@ -88,9 +117,27 @@ def generate_scene_video(
         force=force,
         contains_person=contains_person,
     )
+    if not image_metadata or image_metadata.get("source_type") != "ai_generated":
+        raise RuntimeError(
+            "Refusing to animate non-AI anchor image "
+            f"for scene {scene_id}: {(image_metadata or {}).get('source_type')}"
+        )
     image_path = _source_image_path(script_id, scene_id, image_url)
     if not image_path.exists():
         raise RuntimeError(f"AI video anchor image was not found: {image_path}")
+
+    marker_hash = _cache_marker(
+        prompt=prompt,
+        image_path=image_path,
+        image_metadata=image_metadata,
+        width=width,
+        height=height,
+        scene_duration_seconds=scene_duration_seconds,
+    )
+    marker = _prompt_marker_path(video_path)
+    if not force and video_path.exists() and marker.exists() and marker.read_text(encoding="utf-8").strip() == marker_hash:
+        logger.info("AI video cache hit for scene %s", scene_id)
+        return web_path, prompt, _read_metadata(video_path)
 
     from integrations.runway_video_client import generate_video_from_image
 
@@ -103,5 +150,5 @@ def generate_scene_video(
         scene_duration_seconds=scene_duration_seconds,
         script_id=script_id,
     )
-    marker.write_text(prompt_hash, encoding="utf-8")
+    marker.write_text(marker_hash, encoding="utf-8")
     return web_path, prompt, metadata

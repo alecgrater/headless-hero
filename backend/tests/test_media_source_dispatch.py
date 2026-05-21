@@ -10,10 +10,13 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlmodel import Session, SQLModel, create_engine
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from pipeline.image_gen import generate_batch, generate_scene_image
+from api._helpers import update_scene
+from models.script import Script, ScriptContent, Scene, Segment
 
 
 @pytest.fixture(autouse=True)
@@ -74,6 +77,46 @@ def mock_gemini():
             return tmp.name
         mock.side_effect = _fake_generate
         yield mock
+
+
+def test_update_scene_can_clear_mutually_exclusive_visual_fields(tmp_data_dir):
+    engine = create_engine(f"sqlite:///{tmp_data_dir / 'test.db'}")
+    SQLModel.metadata.create_all(engine)
+    content = ScriptContent(
+        title="Visual field clearing",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="scene_1",
+                        narration="A line.",
+                        visual_prompt="A prompt",
+                        image_url="/old.png",
+                        frame_urls=["/old-frame.png"],
+                        video_url="/old.mp4",
+                    ),
+                ],
+            ),
+        ],
+    )
+    with Session(engine) as session:
+        session.add(Script(id="script-clear", brand_id="brand", script_json=content.model_dump_json()))
+        session.commit()
+        update_scene(
+            session,
+            "script-clear",
+            "scene_1",
+            image_url="",
+            frame_urls=[],
+            video_url="/new.mp4",
+        )
+        updated = ScriptContent.model_validate_json(session.get(Script, "script-clear").script_json)
+
+    scene = updated.segments[0].scenes[0]
+    assert scene.image_url == ""
+    assert scene.frame_urls == []
+    assert scene.video_url == "/new.mp4"
 
 
 class TestMediaSourceDispatch:
@@ -146,6 +189,22 @@ class TestMediaSourceDispatch:
         assert results[0]["error"] is None
         assert results[0]["image_url"] is None
         assert results[0]["video_url"] == "/static/projects/test-script-video/videos/scene_ai_video_1.mp4"
+
+    def test_ai_video_does_not_animate_placeholder_anchor(self, monkeypatch, tmp_data_dir):
+        monkeypatch.setenv("IMAGE_SCRAPER_FALLBACK_ENABLED", "false")
+        with patch("pipeline.image_gen.generate_image", side_effect=RuntimeError("Gemini blocked")), \
+             patch("integrations.runway_video_client.generate_video_from_image") as mock_runway:
+            scenes = [{
+                "scene_id": "scene_ai_video_placeholder",
+                "visual_prompt": "A character points at a thought bubble",
+                "media_source": "ai_video",
+                "audio_duration_seconds": 5.0,
+            }]
+            results = generate_batch(scenes, script_id="test-script-video-placeholder")
+
+        assert not mock_runway.called
+        assert results[0]["error"] is not None
+        assert "Refusing to animate non-AI anchor image" in results[0]["error"]
 
     def test_default_source_is_ai(self, mock_gemini, mock_pexels, tmp_data_dir):
         scenes = [{

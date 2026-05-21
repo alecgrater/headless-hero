@@ -41,7 +41,7 @@ def _headers() -> dict[str, str]:
     }
 
 
-def _ratio_for_dimensions(width: int, height: int) -> str:
+def ratio_for_dimensions(width: int, height: int) -> str:
     ratio = width / max(height, 1)
     options = [
         (1280 / 720, "1280:720"),
@@ -54,7 +54,7 @@ def _ratio_for_dimensions(width: int, height: int) -> str:
     return min(options, key=lambda item: abs(item[0] - ratio))[1]
 
 
-def _duration_for_scene(duration_seconds: float) -> int:
+def duration_for_scene(duration_seconds: float) -> int:
     return 10 if duration_seconds > 6.5 else 5
 
 
@@ -128,8 +128,8 @@ def generate_video_from_image(
     script_id: str | None = None,
 ) -> dict[str, object]:
     """Generate a Runway Gen-4 Turbo video from an image and save it locally."""
-    duration = _duration_for_scene(scene_duration_seconds)
-    ratio = _ratio_for_dimensions(width, height)
+    duration = duration_for_scene(scene_duration_seconds)
+    ratio = ratio_for_dimensions(width, height)
     payload = {
         "model": RUNWAY_MODEL,
         "promptImage": _image_to_data_uri(image_path),

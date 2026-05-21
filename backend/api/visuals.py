@@ -169,6 +169,8 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             session,
             body.script_id,
             body.scene_id,
+            image_url="",
+            frame_urls=[],
             video_url=video_url,
             visual_source_metadata=source_metadata,
         )
@@ -196,11 +198,12 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         if frame_urls:
             _update_scene_with_frames(
                 session,
-                body.script_id,
-                body.scene_id,
-                frame_urls=frame_urls,
-                visual_source_metadata=source_metadata,
-            )
+                    body.script_id,
+                    body.scene_id,
+                    video_url="",
+                    frame_urls=frame_urls,
+                    visual_source_metadata=source_metadata,
+                )
         session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
         session.commit()
         return GenerateVisualResponse(
@@ -220,7 +223,15 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         contains_person=body.contains_person,
     )
 
-    update_scene(session, body.script_id, body.scene_id, image_url=image_url, visual_source_metadata=source_metadata)
+    update_scene(
+        session,
+        body.script_id,
+        body.scene_id,
+        image_url=image_url,
+        frame_urls=[],
+        video_url="",
+        visual_source_metadata=source_metadata,
+    )
 
     session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
     session.commit()
@@ -269,13 +280,18 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
         video_url = r.get("video_url")
         if video_url:
             sc.video_url = video_url
+            sc.image_url = ""
+            sc.frame_urls = []
         elif frame_urls:
             sc.frame_urls = frame_urls
+            sc.video_url = ""
             first_image = next((u for u in frame_urls if u), "")
             if first_image:
                 sc.image_url = first_image
         elif r.get("image_url"):
             sc.image_url = r["image_url"]
+            sc.frame_urls = []
+            sc.video_url = ""
         if r.get("visual_source_metadata") is not None:
             sc.visual_source_metadata = r["visual_source_metadata"]
     record.script_json = content.model_dump_json()
