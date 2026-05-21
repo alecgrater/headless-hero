@@ -2639,11 +2639,13 @@ function TimelineEditor({
     setProductionProgress(null);
     showToast("Stopping YOLO render and backend work...", "info");
     try {
-      const res = await api.post("/dev/api/kill-all");
-      if (!res.ok) {
-        throw new Error("Could not reach backend kill switch");
+      if (api.stopYoloProcesses) {
+        await api.stopYoloProcesses();
+        return;
       }
-      const data = res.data as { cancelled?: number; render_jobs?: number; processes?: number };
+      const res = await api.post("/dev/api/kill-all");
+      if (!res.ok) throw new Error("Could not reach backend kill switch");
+      const data = res.data as { cancelled?: number };
       const cancelled = data.cancelled ?? 0;
       showToast(`Stopped YOLO task (${cancelled} backend item${cancelled === 1 ? "" : "s"} cancelled)`, "success");
     } catch (err) {

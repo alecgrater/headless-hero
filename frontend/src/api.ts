@@ -18,6 +18,7 @@ interface ApiClient {
   openExternal?: (url: string) => Promise<void>;
   openUploadShortsWindows?: () => Promise<void>;
   openYouTubeUploadWindow?: () => Promise<void>;
+  stopYoloProcesses?: () => Promise<{ stopped: boolean; processes: number }>;
   downloadFile?: (url: string, defaultFilename: string) => Promise<{ canceled: boolean; filePath?: string }>;
   saveToDownloads?: (url: string, folderName: string, filename: string) => Promise<{ filePath: string }>;
   selectFolder?: (title?: string, defaultPath?: string) => Promise<{ canceled: boolean; path?: string }>;
@@ -114,6 +115,7 @@ const api: ApiClient = {
   openExternal: rawApi.openExternal,
   openUploadShortsWindows: rawApi.openUploadShortsWindows,
   openYouTubeUploadWindow: rawApi.openYouTubeUploadWindow,
+  stopYoloProcesses: rawApi.stopYoloProcesses,
   openPath: rawApi.openPath,
 };
 

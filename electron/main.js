@@ -1,13 +1,14 @@
 const { app, BrowserWindow, ipcMain, shell, dialog, screen } = require("electron");
 const fs = require("fs");
 const path = require("path");
-const { spawn } = require("child_process");
+const { execFile, spawn } = require("child_process");
 
 let mainWindow;
 let backendProcess;
 
 const isDev = !app.isPackaged;
 const BACKEND_PORT = 8420;
+const FRONTEND_PORT = 5173;
 const BACKEND_URL = `http://localhost:${BACKEND_PORT}`;
 const CHROME_APP_NAME = "Google Chrome";
 const UPLOAD_SHORTS_URLS = [
@@ -184,6 +185,64 @@ function startBackend() {
   });
 }
 
+function listListeningPids(port) {
+  if (process.platform === "win32") return Promise.resolve([]);
+  return new Promise((resolve) => {
+    execFile("lsof", ["-ti", `tcp:${port}`], (error, stdout) => {
+      if (error) {
+        resolve([]);
+        return;
+      }
+      const pids = stdout
+        .split(/\s+/)
+        .map((pid) => Number.parseInt(pid, 10))
+        .filter((pid) => Number.isInteger(pid) && pid > 0 && pid !== process.pid);
+      resolve([...new Set(pids)]);
+    });
+  });
+}
+
+function terminatePid(pid) {
+  try {
+    process.kill(pid, "SIGTERM");
+  } catch {
+    return;
+  }
+  setTimeout(() => {
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {
+      // Process exited after SIGTERM.
+    }
+  }, 1500).unref();
+}
+
+async function stopYoloProcesses() {
+  try {
+    await fetch(`${BACKEND_URL}/dev/api/kill-all`, {
+      method: "POST",
+      signal: AbortSignal.timeout(3000),
+    });
+  } catch (error) {
+    console.warn("[main] Backend kill-all request failed:", error.message);
+  }
+
+  const pids = isDev
+    ? await Promise.all([listListeningPids(FRONTEND_PORT), listListeningPids(BACKEND_PORT)])
+    : [[]];
+  for (const pid of new Set(pids.flat())) {
+    terminatePid(pid);
+  }
+
+  if (backendProcess) {
+    backendProcess.kill();
+    backendProcess = null;
+  }
+
+  setTimeout(() => app.quit(), 100).unref();
+  return { stopped: true, processes: new Set(pids.flat()).size };
+}
+
 async function waitForBackend(retries = 30, delay = 500) {
   for (let i = 0; i < retries; i++) {
     try {
@@ -226,6 +285,9 @@ ipcMain.handle("open-upload-shorts-windows", () => openUploadShortsWindows());
 
 // IPC: open the long-form upload destination in a positioned Chrome window.
 ipcMain.handle("open-youtube-upload-window", () => openUploadWindow(YOUTUBE_LONGFORM_UPLOAD_URL));
+
+// IPC: emergency stop for YOLO mode. Cancels backend jobs, kills dev servers, and quits Electron.
+ipcMain.handle("stop-yolo-processes", () => stopYoloProcesses());
 
 // IPC: reveal a file or folder in Finder / Explorer
 ipcMain.handle("show-item-in-folder", (_event, fullPath) => shell.showItemInFolder(fullPath));
