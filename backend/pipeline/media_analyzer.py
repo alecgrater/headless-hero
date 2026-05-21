@@ -164,8 +164,10 @@ def analyze_media_sources(
     Sends the full script to the routed LLM provider, which returns per-scene
     assignments based on the narrative content.
     """
+    ai_video_available = ai_video_enabled and animated_scene_count > 0
+
     sources = ['"ai"']
-    if ai_video_enabled and animated_scene_count > 0:
+    if ai_video_available:
         sources.append('"ai_video"')
     if gameplay_enabled:
         sources.append('"gameplay_video"')
@@ -174,7 +176,7 @@ def analyze_media_sources(
     available_sources = ", ".join(sources)
 
     segment_count = len(script_content.segments)
-    ai_video_limit = max(0, max(animated_scene_count, segment_count) if ai_video_enabled else 0)
+    ai_video_limit = max(0, max(animated_scene_count, segment_count) if ai_video_available else 0)
     system_prompt = (
         MEDIA_ANALYZER_SYSTEM.template
         .replace("{available_sources}", available_sources)
@@ -227,9 +229,12 @@ def analyze_media_sources(
         if not scene_id:
             logger.warning("Skipping media assignment for unknown scene id: %r", entry.get("scene_id"))
             continue
+        if scene_id in assignments_by_scene:
+            logger.warning("Skipping duplicate media assignment for scene id: %s", scene_id)
+            continue
         segment_index = scene_segment_indexes.get(scene_id, -1)
         scene = scenes_by_id[scene_id]
-        if not ai_video_enabled and source == "ai_video":
+        if not ai_video_available and source == "ai_video":
             source = "ai"
         if source == "ai_video":
             if (
@@ -264,7 +269,7 @@ def analyze_media_sources(
                 reasoning="Defaulted to AI art because the media analyzer omitted this scene.",
             )
 
-    if ai_video_enabled and ai_video_assigned < ai_video_limit:
+    if ai_video_available and ai_video_assigned < ai_video_limit:
         for seg_index, seg in enumerate(script_content.segments):
             if ai_video_assigned >= ai_video_limit:
                 break

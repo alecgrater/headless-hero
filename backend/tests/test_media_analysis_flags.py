@@ -236,3 +236,80 @@ def test_analyze_media_sources_does_not_promote_stock_or_text_only(monkeypatch):
     assert sources["scene_003"] == "ai_video"
     assert sources["scene_005"] == "ai"
     assert sources["scene_006"] == "ai_video"
+
+
+def test_analyze_media_sources_respects_zero_ai_video_count(monkeypatch):
+    content = ScriptContent(
+        title="Disabled animation",
+        segments=[
+            Segment(
+                name="Segment 1",
+                scenes=[
+                    Scene(id="scene_001", narration="Title.", visual_prompt="[ESTABLISHING] title", is_title_card=True),
+                    Scene(
+                        id="scene_002",
+                        narration="A guard walks down the hallway.",
+                        visual_prompt="[ESTABLISHING] A guard walking down a hallway",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(media_analyzer, "chat", lambda **_: """{
+      "assignments": [
+        {"scene_id": "scene_001", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "title"},
+        {"scene_id": "scene_002", "media_source": "ai_video", "game_name": null, "search_query": null, "reasoning": "model wanted motion"}
+      ]
+    }""")
+
+    assignments = analyze_media_sources(
+        content,
+        gameplay_enabled=True,
+        stock_photo_enabled=False,
+        ai_video_enabled=True,
+        animated_scene_count=0,
+        script_id="test-script",
+    )
+
+    assert all(assignment.media_source != "ai_video" for assignment in assignments)
+
+
+def test_analyze_media_sources_ignores_duplicate_resolved_scene_ids(monkeypatch):
+    content = ScriptContent(
+        title="Duplicate ids",
+        segments=[
+            Segment(
+                name="Segment 1",
+                scenes=[
+                    Scene(id="scene_001", narration="Title.", visual_prompt="[ESTABLISHING] title", is_title_card=True),
+                    Scene(
+                        id="scene_002",
+                        narration="A guard walks down the hallway.",
+                        visual_prompt="[ESTABLISHING] A guard walking down a hallway",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(media_analyzer, "chat", lambda **_: """{
+      "assignments": [
+        {"scene_id": "scene_2", "media_source": "ai_video", "game_name": null, "search_query": null, "reasoning": "accepted"},
+        {"scene_id": "scene_002", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "duplicate downgrade"},
+        {"scene_id": "scene_001", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "title"}
+      ]
+    }""")
+
+    assignments = analyze_media_sources(
+        content,
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+        ai_video_enabled=True,
+        animated_scene_count=1,
+        script_id="test-script",
+    )
+
+    sources = {assignment.scene_id: assignment.media_source for assignment in assignments}
+    assert sources["scene_001"] == "ai"
+    assert sources["scene_002"] == "ai_video"
