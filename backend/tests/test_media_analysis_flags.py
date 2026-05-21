@@ -11,7 +11,7 @@ from api.media import (
     preserve_media_analysis_source_flags,
 )
 from models.script import ScriptContent
-from pipeline.media_analyzer import MediaAssignment
+from pipeline.media_analyzer import MediaAssignment, _resolve_scene_id
 
 
 def test_media_analysis_flags_default_old_scripts_to_manual_sources():
@@ -86,3 +86,11 @@ def test_normalize_media_assignments_coerces_disabled_sources_to_ai():
     assert normalized[0].game_name is None
     assert normalized[1].search_query is None
     assert normalized[3].reasoning == "ai fits"
+
+
+def test_resolve_scene_id_handles_unpadded_llm_ids():
+    valid_scene_ids = {"scene_001", "scene_003", "scene_010"}
+
+    assert _resolve_scene_id("scene_3", valid_scene_ids) == "scene_003"
+    assert _resolve_scene_id("scene_010", valid_scene_ids) == "scene_010"
+    assert _resolve_scene_id("scene_99", valid_scene_ids) is None

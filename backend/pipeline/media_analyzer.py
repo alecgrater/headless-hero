@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 from dataclasses import dataclass
 
 from config import parse_json_array_response, strip_markdown_fences
@@ -19,6 +20,21 @@ class MediaAssignment:
     game_name: str | None
     search_query: str | None
     reasoning: str
+
+
+def _resolve_scene_id(raw_scene_id: str, valid_scene_ids: set[str]) -> str | None:
+    """Resolve minor LLM scene-id formatting drift like scene_3 -> scene_003."""
+    if raw_scene_id in valid_scene_ids:
+        return raw_scene_id
+    match = re.fullmatch(r"scene_(\d+)", raw_scene_id)
+    if not match:
+        return None
+    number = int(match.group(1))
+    for width in (3, 2, 1):
+        candidate = f"scene_{number:0{width}d}"
+        if candidate in valid_scene_ids:
+            return candidate
+    return None
 
 
 def analyze_media_sources(
@@ -52,8 +68,10 @@ def analyze_media_sources(
 
     scenes_summary = []
     scene_segments: dict[str, str] = {}
+    valid_scene_ids: set[str] = set()
     for seg in script_content.segments:
         for scene in seg.scenes:
+            valid_scene_ids.add(scene.id)
             scene_segments[scene.id] = seg.name
             scenes_summary.append({
                 "scene_id": scene.id,
@@ -88,7 +106,10 @@ def analyze_media_sources(
         source = entry.get("media_source", "ai")
         if source not in valid_sources:
             source = "ai"
-        scene_id = entry["scene_id"]
+        scene_id = _resolve_scene_id(str(entry.get("scene_id", "")), valid_scene_ids)
+        if not scene_id:
+            logger.warning("Skipping media assignment for unknown scene id: %r", entry.get("scene_id"))
+            continue
         segment_name = scene_segments.get(scene_id, "")
         if not ai_video_enabled and source == "ai_video":
             source = "ai"
