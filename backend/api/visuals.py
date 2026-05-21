@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/visuals", tags=["visuals"])
 
-METADATA_CLEAR = {"source_type": "none", "provider": "", "fallback": False}
+METADATA_CLEAR: dict[str, object] = {}
 
 # --- Request / Response schemas ---
 
@@ -294,6 +294,8 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
     content = ScriptContent.model_validate(json.loads(record.script_json))
     scene_map = {sc.id: sc for seg in content.segments for sc in seg.scenes}
     for r in results:
+        if r.get("error"):
+            continue
         sc = scene_map.get(r["scene_id"])
         if not sc:
             continue
