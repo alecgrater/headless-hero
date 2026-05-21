@@ -2016,7 +2016,8 @@ function TimelineEditor({
   const allThumbnailsDone = titleCardsAllDone && sfThumbnailsAllDone && lfThumbnailDone;
   const hasExistingThumbnails =
     (titleCardsApplicable && titleScenes.some((sc) => sc.image_url)) ||
-    sfThumbnailCount > 0;
+    sfThumbnailCount > 0 ||
+    lfThumbnailDone;
   const missingThumbnailCount =
     titleCardsMissingCount + sfThumbnailMissingCount + (lfThumbnailDone ? 0 : 1);
   const thumbnailsBusy =
@@ -2480,6 +2481,34 @@ function TimelineEditor({
     }
   }, [eliProgress, refreshCost, refreshScriptContent, scriptId]);
 
+  const refreshLongFormThumbnailsInline = useCallback(async () => {
+    const res = await api.get(`/api/thumbnail/${scriptId}`);
+    if (!res.ok || thumbnailsCancelledRef.current) return [];
+    const data = res.data as { concepts: ThumbnailConcept[] };
+    setThumbnailsInline(data.concepts);
+    return data.concepts;
+  }, [scriptId]);
+
+  const ensureLongFormThumbnailForYolo = useCallback(async () => {
+    thumbnailsCancelledRef.current = false;
+    setThumbnailsInlineGenerating(true);
+    try {
+      const existing = await refreshLongFormThumbnailsInline();
+      if (existing.some((concept) => concept.image_url)) return;
+      if (state.content.format_id && state.content.format_id !== "youtube-listicle") return;
+
+      const res = await api.post("/api/thumbnail/recomposite", {
+        script_id: scriptId,
+      });
+      if (res.ok && !thumbnailsCancelledRef.current) {
+        const data = res.data as { concepts: ThumbnailConcept[] };
+        setThumbnailsInline(data.concepts);
+      }
+    } finally {
+      setThumbnailsInlineGenerating(false);
+    }
+  }, [refreshLongFormThumbnailsInline, scriptId, state.content.format_id]);
+
   const runYoloCreationPipeline = useCallback(async (voiceId: string) => {
     let latest = await refreshScriptContent();
     let status = getCreationStatus(latest);
@@ -2501,15 +2530,8 @@ function TimelineEditor({
         thumbnailsCancelledRef.current = false;
         setThumbnailsInlineGenerating(true);
         try {
-          if (latest.format_id && latest.format_id !== "youtube-listicle") {
-            // Non-composite-grid formats (e.g. life-as-a) generate their thumbnail
-            // during the title-card step itself; skip the listicle-only recomposite.
-            const refreshed = await api.get(`/api/thumbnail/${scriptId}`);
-            if (refreshed.ok && !thumbnailsCancelledRef.current) {
-              const data = refreshed.data as { concepts: ThumbnailConcept[] };
-              setThumbnailsInline(data.concepts);
-            }
-          } else {
+          const existing = await refreshLongFormThumbnailsInline();
+          if (!existing.some((concept) => concept.image_url) && !(latest.format_id && latest.format_id !== "youtube-listicle")) {
             const res = await api.post("/api/thumbnail/recomposite", {
               script_id: scriptId,
             });
@@ -2575,9 +2597,14 @@ function TimelineEditor({
       if (yoloCancelledRef.current) return false;
     }
 
+    await ensureLongFormThumbnailForYolo();
+    if (yoloCancelledRef.current) return false;
+
     return true;
   }, [
+    ensureLongFormThumbnailForYolo,
     refreshScriptContent,
+    refreshLongFormThumbnailsInline,
     runMissingEliForYolo,
     runMissingFXForYolo,
     scriptId,
