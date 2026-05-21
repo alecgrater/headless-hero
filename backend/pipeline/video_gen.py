@@ -117,6 +117,17 @@ def generate_scene_video(
         force=force,
         contains_person=contains_person,
     )
+    if image_metadata is None:
+        logger.info("Regenerating AI video anchor for scene %s because cached image lacks source metadata", scene_id)
+        image_url, _image_prompt, image_metadata = generate_scene_image(
+            scene_id=scene_id,
+            visual_prompt=visual_prompt,
+            script_id=script_id,
+            width=width,
+            height=height,
+            force=True,
+            contains_person=contains_person,
+        )
     if not image_metadata or image_metadata.get("source_type") != "ai_generated":
         raise RuntimeError(
             "Refusing to animate non-AI anchor image "

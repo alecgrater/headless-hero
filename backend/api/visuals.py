@@ -119,6 +119,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
                     session,
                     body.script_id,
                     body.scene_id,
+                    video_url="",
                     frame_urls=frame_urls,
                     visual_source_metadata=source_metadata,
                 )
@@ -131,7 +132,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
                 visual_source_metadata=source_metadata,
             )
         image_url = generate_stock_photo(body.script_id, body.scene_id, body.visual_prompt)
-        update_scene(session, body.script_id, body.scene_id, image_url=image_url)
+        update_scene(session, body.script_id, body.scene_id, image_url=image_url, frame_urls=[], video_url="")
         session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
         session.commit()
         return GenerateVisualResponse(image_url=image_url, prompt_used=body.visual_prompt)
@@ -145,7 +146,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         logger.info("[TWITCH] scene %s — game: %s, duration: %.1fs", body.scene_id, game_name, body.audio_duration_seconds or 8.0)
         duration = body.audio_duration_seconds or 8.0
         video_url = generate_gameplay_clip(body.script_id, body.scene_id, game_name, duration)
-        update_scene(session, body.script_id, body.scene_id, video_url=video_url)
+        update_scene(session, body.script_id, body.scene_id, image_url="", frame_urls=[], video_url=video_url)
         session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
         session.commit()
         return GenerateVisualResponse(image_url="", prompt_used=f"gameplay:{game_name}", video_url=video_url)
