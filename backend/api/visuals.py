@@ -129,13 +129,14 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
                 image_url=first_image,
                 prompt_used=body.visual_prompt,
                 frame_urls=frame_urls,
+                video_url="",
                 visual_source_metadata=source_metadata,
             )
         image_url = generate_stock_photo(body.script_id, body.scene_id, body.visual_prompt)
         update_scene(session, body.script_id, body.scene_id, image_url=image_url, frame_urls=[], video_url="")
         session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
         session.commit()
-        return GenerateVisualResponse(image_url=image_url, prompt_used=body.visual_prompt)
+        return GenerateVisualResponse(image_url=image_url, prompt_used=body.visual_prompt, frame_urls=[], video_url="")
 
     # --- Gameplay video dispatch ---
     if body.media_source == "gameplay_video":
@@ -149,7 +150,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         update_scene(session, body.script_id, body.scene_id, image_url="", frame_urls=[], video_url=video_url)
         session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
         session.commit()
-        return GenerateVisualResponse(image_url="", prompt_used=f"gameplay:{game_name}", video_url=video_url)
+        return GenerateVisualResponse(image_url="", prompt_used=f"gameplay:{game_name}", frame_urls=[], video_url=video_url)
 
     # --- AI video dispatch ---
     if body.media_source == "ai_video":
@@ -177,7 +178,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         )
         session.add(GenerationDuration(operation_type="single_video_generation", duration_seconds=time.monotonic() - t0))
         session.commit()
-        return GenerateVisualResponse(image_url="", prompt_used=prompt_used, video_url=video_url, visual_source_metadata=source_metadata)
+        return GenerateVisualResponse(image_url="", prompt_used=prompt_used, frame_urls=[], video_url=video_url, visual_source_metadata=source_metadata)
 
     # --- AI-generated (default) ---
     logger.info("[GEMINI] scene %s — prompt: %s", body.scene_id, body.visual_prompt[:80])
@@ -199,18 +200,19 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         if frame_urls:
             _update_scene_with_frames(
                 session,
-                    body.script_id,
-                    body.scene_id,
-                    video_url="",
-                    frame_urls=frame_urls,
-                    visual_source_metadata=source_metadata,
-                )
+                body.script_id,
+                body.scene_id,
+                video_url="",
+                frame_urls=frame_urls,
+                visual_source_metadata=source_metadata,
+            )
         session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
         session.commit()
         return GenerateVisualResponse(
             image_url=first_image,
             prompt_used=frame_results[0][1] if frame_results else "",
             frame_urls=frame_urls,
+            video_url="",
             visual_source_metadata=source_metadata,
         )
 
@@ -237,7 +239,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
     session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
     session.commit()
 
-    return GenerateVisualResponse(image_url=image_url, prompt_used=prompt_used, visual_source_metadata=source_metadata)
+    return GenerateVisualResponse(image_url=image_url, prompt_used=prompt_used, frame_urls=[], video_url="", visual_source_metadata=source_metadata)
 
 @router.post("/generate-batch", response_model=GenerateBatchResponse)
 def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends(get_session)):
