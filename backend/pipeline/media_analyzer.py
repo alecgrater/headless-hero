@@ -7,10 +7,52 @@ from dataclasses import dataclass
 
 from config import parse_json_array_response, strip_markdown_fences
 from integrations.llm_client import chat
-from models.script import ScriptContent
+from models.script import Scene, ScriptContent
 from prompts import MEDIA_ANALYZER_SYSTEM
 
 logger = logging.getLogger(__name__)
+
+
+AI_VIDEO_MOTION_TERMS = {
+    "walk",
+    "walking",
+    "slide",
+    "sliding",
+    "move",
+    "moving",
+    "turn",
+    "turning",
+    "shift",
+    "shifting",
+    "drive",
+    "driving",
+    "passes",
+    "passing",
+    "open",
+    "opening",
+    "close",
+    "closing",
+    "gesture",
+    "reveal",
+    "drift",
+    "fills",
+    "emptying",
+    "cycle",
+    "change",
+    "changing",
+    "transition",
+}
+
+AI_VIDEO_STATIC_OBJECT_TERMS = {
+    "checklist",
+    "clipboard",
+    "paperwork",
+    "calendar",
+    "paper",
+    "document",
+    "plate",
+    "television",
+}
 
 
 @dataclass
@@ -37,6 +79,78 @@ def _resolve_scene_id(raw_scene_id: str, valid_scene_ids: set[str]) -> str | Non
     return None
 
 
+def _shot_type(scene: Scene) -> str:
+    match = re.match(r"\[([^\]]+)\]", scene.visual_prompt.strip())
+    return match.group(1).strip().upper() if match else ""
+
+
+def _has_ai_image_frame(scene: Scene) -> bool:
+    if not scene.frame_directives:
+        return True
+    return any(
+        str(frame.get("source", "ai_generated")) == "ai_generated"
+        for frame in scene.frame_directives
+    )
+
+
+def _is_ai_video_eligible(scene: Scene, current_source: str = "ai") -> bool:
+    if scene.is_title_card:
+        return False
+    if current_source in {"gameplay_video", "stock_photo", "user_upload"}:
+        return False
+    if scene.visual_beat == "aha_subtitle":
+        return False
+    if not scene.visual_prompt.strip():
+        return False
+    if _shot_type(scene) == "DIAGRAM":
+        return False
+    return _has_ai_image_frame(scene)
+
+
+def _ai_video_candidate_score(scene: Scene) -> int:
+    text = f"{scene.visual_prompt} {scene.narration}".lower()
+    score = 0
+
+    if scene.visual_beat == "continuous":
+        score += 50
+    elif scene.visual_beat == "static":
+        score += 18
+    elif scene.visual_beat == "quick_cuts":
+        score += 8
+
+    shot = _shot_type(scene)
+    if shot == "REACTION":
+        score += 28
+    elif shot == "ESTABLISHING":
+        score += 20
+    elif shot == "METAPHOR":
+        score += 16
+    elif shot == "CLOSE-UP":
+        score += 10
+
+    if scene.contains_person or "guard" in text or "figure" in text or "officer" in text:
+        score += 10
+
+    motion_hits = sum(1 for term in AI_VIDEO_MOTION_TERMS if term in text)
+    score += min(motion_hits, 6) * 8
+
+    static_hits = sum(1 for term in AI_VIDEO_STATIC_OBJECT_TERMS if term in text)
+    score -= min(static_hits, 3) * 5
+
+    if len(scene.narration) > 180:
+        score += 5
+
+    return score
+
+
+def _ai_video_reason(scene: Scene) -> str:
+    shot = _shot_type(scene).lower() or "visual"
+    return (
+        "Deterministic fallback selected this scene as the strongest "
+        f"{shot} AI-video candidate in its segment."
+    )
+
+
 def analyze_media_sources(
     script_content: ScriptContent,
     gameplay_enabled: bool = True,
@@ -59,7 +173,8 @@ def analyze_media_sources(
         sources.append('"stock_photo"')
     available_sources = ", ".join(sources)
 
-    ai_video_limit = max(0, animated_scene_count if ai_video_enabled else 0)
+    segment_count = len(script_content.segments)
+    ai_video_limit = max(0, max(animated_scene_count, segment_count) if ai_video_enabled else 0)
     system_prompt = (
         MEDIA_ANALYZER_SYSTEM.template
         .replace("{available_sources}", available_sources)
@@ -67,12 +182,14 @@ def analyze_media_sources(
     )
 
     scenes_summary = []
-    scene_segments: dict[str, str] = {}
+    scene_segment_indexes: dict[str, int] = {}
+    scenes_by_id: dict[str, Scene] = {}
     valid_scene_ids: set[str] = set()
-    for seg in script_content.segments:
+    for seg_index, seg in enumerate(script_content.segments):
         for scene in seg.scenes:
             valid_scene_ids.add(scene.id)
-            scene_segments[scene.id] = seg.name
+            scene_segment_indexes[scene.id] = seg_index
+            scenes_by_id[scene.id] = scene
             scenes_summary.append({
                 "scene_id": scene.id,
                 "segment": seg.name,
@@ -99,9 +216,9 @@ def analyze_media_sources(
     raw_assignments = parse_json_array_response(cleaned, key="assignments")
 
     valid_sources = {"ai", "ai_video", "gameplay_video", "stock_photo"}
-    assignments = []
+    assignments_by_scene: dict[str, MediaAssignment] = {}
     ai_video_assigned = 0
-    segment_ai_video_counts: dict[str, int] = {}
+    segments_with_ai_video: set[int] = set()
     for entry in raw_assignments:
         source = entry.get("media_source", "ai")
         if source not in valid_sources:
@@ -110,27 +227,75 @@ def analyze_media_sources(
         if not scene_id:
             logger.warning("Skipping media assignment for unknown scene id: %r", entry.get("scene_id"))
             continue
-        segment_name = scene_segments.get(scene_id, "")
+        segment_index = scene_segment_indexes.get(scene_id, -1)
+        scene = scenes_by_id[scene_id]
         if not ai_video_enabled and source == "ai_video":
             source = "ai"
         if source == "ai_video":
-            if ai_video_assigned >= ai_video_limit or segment_ai_video_counts.get(segment_name, 0) >= 1:
+            if (
+                ai_video_assigned >= ai_video_limit
+                or segment_index in segments_with_ai_video
+                or not _is_ai_video_eligible(scene)
+            ):
                 source = "ai"
             else:
                 ai_video_assigned += 1
-                segment_ai_video_counts[segment_name] = segment_ai_video_counts.get(segment_name, 0) + 1
+                segments_with_ai_video.add(segment_index)
         if not gameplay_enabled and source == "gameplay_video":
             source = "ai"
         if not stock_photo_enabled and source == "stock_photo":
             source = "ai"
 
-        assignments.append(MediaAssignment(
+        assignments_by_scene[scene_id] = MediaAssignment(
             scene_id=scene_id,
             media_source=source,
             game_name=entry.get("game_name"),
             search_query=entry.get("search_query"),
             reasoning=entry.get("reasoning", ""),
-        ))
+        )
+
+    for scene in script_content.all_scenes():
+        if scene.id not in assignments_by_scene:
+            assignments_by_scene[scene.id] = MediaAssignment(
+                scene_id=scene.id,
+                media_source="ai",
+                game_name=None,
+                search_query=None,
+                reasoning="Defaulted to AI art because the media analyzer omitted this scene.",
+            )
+
+    if ai_video_enabled and ai_video_assigned < ai_video_limit:
+        for seg_index, seg in enumerate(script_content.segments):
+            if ai_video_assigned >= ai_video_limit:
+                break
+            if seg_index in segments_with_ai_video:
+                continue
+            candidates = [
+                scene
+                for scene in seg.scenes
+                if _is_ai_video_eligible(
+                    scene,
+                    assignments_by_scene.get(scene.id, MediaAssignment(scene.id, "ai", None, None, "")).media_source,
+                )
+            ]
+            if not candidates:
+                continue
+            best_scene = max(candidates, key=_ai_video_candidate_score)
+            existing = assignments_by_scene[best_scene.id]
+            assignments_by_scene[best_scene.id] = MediaAssignment(
+                scene_id=best_scene.id,
+                media_source="ai_video",
+                game_name=None,
+                search_query=None,
+                reasoning=existing.reasoning or _ai_video_reason(best_scene),
+            )
+            ai_video_assigned += 1
+            segments_with_ai_video.add(seg_index)
+
+    assignments = [
+        assignments_by_scene[scene.id]
+        for scene in script_content.all_scenes()
+    ]
 
     logger.info("[%s] Media analysis complete: %d ai, %d ai_video, %d gameplay, %d stock",
                 script_id or "no-id",

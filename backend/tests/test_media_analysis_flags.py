@@ -11,7 +11,9 @@ from api.media import (
     preserve_media_analysis_source_flags,
 )
 from models.script import ScriptContent
-from pipeline.media_analyzer import MediaAssignment, _resolve_scene_id
+from models.script import Scene, Segment
+from pipeline import media_analyzer
+from pipeline.media_analyzer import MediaAssignment, _resolve_scene_id, analyze_media_sources
 
 
 def test_media_analysis_flags_default_old_scripts_to_manual_sources():
@@ -94,3 +96,143 @@ def test_resolve_scene_id_handles_unpadded_llm_ids():
     assert _resolve_scene_id("scene_3", valid_scene_ids) == "scene_003"
     assert _resolve_scene_id("scene_010", valid_scene_ids) == "scene_010"
     assert _resolve_scene_id("scene_99", valid_scene_ids) is None
+
+
+def test_analyze_media_sources_fills_ai_video_one_per_segment(monkeypatch):
+    content = ScriptContent(
+        title="Motion routing",
+        segments=[
+            Segment(
+                name="Level 1",
+                scenes=[
+                    Scene(id="scene_001", narration="Level one.", visual_prompt="[ESTABLISHING] title", is_title_card=True),
+                    Scene(
+                        id="scene_002",
+                        narration="You walk down the corridor and the light shifts.",
+                        visual_prompt="[ESTABLISHING] A guard walking down a corridor as shadows move",
+                    ),
+                ],
+            ),
+            Segment(
+                name="Level 2",
+                scenes=[
+                    Scene(id="scene_003", narration="Level two.", visual_prompt="[ESTABLISHING] title", is_title_card=True),
+                    Scene(
+                        id="scene_004",
+                        narration="A hand slides the tray through the slot.",
+                        visual_prompt="[CLOSE-UP] A meal tray sliding through a narrow slot",
+                    ),
+                ],
+            ),
+            Segment(
+                name="Level 3",
+                scenes=[
+                    Scene(id="scene_005", narration="Level three.", visual_prompt="[ESTABLISHING] title", is_title_card=True),
+                    Scene(
+                        id="scene_006",
+                        narration="The room changes across the year.",
+                        visual_prompt="[CONTINUOUS] A break room slowly emptying as months pass",
+                        visual_beat="continuous",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(media_analyzer, "chat", lambda **_: """{
+      "assignments": [
+        {"scene_id": "scene_001", "media_source": "ai_video", "game_name": null, "search_query": null, "reasoning": "bad title choice"},
+        {"scene_id": "scene_002", "media_source": "ai_video", "game_name": null, "search_query": null, "reasoning": "good model choice"},
+        {"scene_id": "scene_003", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "title"},
+        {"scene_id": "scene_004", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "missed candidate"},
+        {"scene_id": "scene_005", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "title"},
+        {"scene_id": "scene_006", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "missed candidate"}
+      ]
+    }""")
+
+    assignments = analyze_media_sources(
+        content,
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+        ai_video_enabled=True,
+        animated_scene_count=1,
+        script_id="test-script",
+    )
+
+    sources = {assignment.scene_id: assignment.media_source for assignment in assignments}
+    assert sources == {
+        "scene_001": "ai",
+        "scene_002": "ai_video",
+        "scene_003": "ai",
+        "scene_004": "ai_video",
+        "scene_005": "ai",
+        "scene_006": "ai_video",
+    }
+
+
+def test_analyze_media_sources_does_not_promote_stock_or_text_only(monkeypatch):
+    content = ScriptContent(
+        title="Mixed routing",
+        segments=[
+            Segment(
+                name="Segment 1",
+                scenes=[
+                    Scene(id="scene_001", narration="Segment title.", visual_prompt="[ESTABLISHING] title", is_title_card=True),
+                    Scene(
+                        id="scene_002",
+                        narration="A real courthouse exterior appears.",
+                        visual_prompt="[ESTABLISHING] County courthouse exterior",
+                    ),
+                    Scene(
+                        id="scene_003",
+                        narration="A guard turns toward the corridor.",
+                        visual_prompt="[REACTION] A guard turning toward a corridor",
+                    ),
+                ],
+            ),
+            Segment(
+                name="Segment 2",
+                scenes=[
+                    Scene(id="scene_004", narration="Segment title.", visual_prompt="[ESTABLISHING] title", is_title_card=True),
+                    Scene(
+                        id="scene_005",
+                        narration="A stark sentence appears.",
+                        visual_prompt="",
+                        visual_beat="aha_subtitle",
+                        frame_directives=[{"source": "subtitle", "prompt": "TEXT", "transition": "cut"}],
+                    ),
+                    Scene(
+                        id="scene_006",
+                        narration="A figure walks back into the kitchen.",
+                        visual_prompt="[ESTABLISHING] A figure walking back into a kitchen",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(media_analyzer, "chat", lambda **_: """{
+      "assignments": [
+        {"scene_id": "scene_001", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "title"},
+        {"scene_id": "scene_002", "media_source": "stock_photo", "game_name": null, "search_query": "courthouse exterior", "reasoning": "real place"},
+        {"scene_id": "scene_003", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "ai art"},
+        {"scene_id": "scene_004", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "title"},
+        {"scene_id": "scene_005", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "text only"},
+        {"scene_id": "scene_006", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "ai art"}
+      ]
+    }""")
+
+    assignments = analyze_media_sources(
+        content,
+        gameplay_enabled=False,
+        stock_photo_enabled=True,
+        ai_video_enabled=True,
+        animated_scene_count=2,
+        script_id="test-script",
+    )
+
+    sources = {assignment.scene_id: assignment.media_source for assignment in assignments}
+    assert sources["scene_002"] == "stock_photo"
+    assert sources["scene_003"] == "ai_video"
+    assert sources["scene_005"] == "ai"
+    assert sources["scene_006"] == "ai_video"
