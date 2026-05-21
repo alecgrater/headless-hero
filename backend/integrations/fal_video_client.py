@@ -66,11 +66,19 @@ def _image_to_data_uri(image_path: str) -> str:
     return f"data:{mime};base64,{encoded}"
 
 
-def _poll_request(client: httpx.Client, request_id: str, timeout_seconds: float, model: str) -> dict[str, Any]:
+def _poll_request(client: httpx.Client, request_id: str, timeout_seconds: float, status_url: str) -> dict[str, Any]:
     deadline = time.monotonic() + timeout_seconds
-    status_url = f"{FAL_QUEUE_BASE}/{model}/requests/{request_id}/status"
+    include_logs = True
     while time.monotonic() < deadline:
-        response = client.get(status_url, headers=_headers(), params={"logs": "1"})
+        response = client.get(
+            status_url,
+            headers=_headers(),
+            params={"logs": "1"} if include_logs else None,
+        )
+        if response.status_code == 405 and include_logs:
+            logger.warning("Fal status endpoint rejected logs polling for request %s; retrying without logs", request_id)
+            include_logs = False
+            response = client.get(status_url, headers=_headers())
         response.raise_for_status()
         status = response.json()
         status_name = str(status.get("status", "")).upper()
@@ -131,8 +139,17 @@ def generate_video_from_image(
         request_id = created.get("request_id")
         if not isinstance(request_id, str) or not request_id:
             raise RuntimeError(f"Fal did not return a request id: {created}")
-        _poll_request(client, request_id, timeout_seconds=timeout, model=model)
-        result_response = client.get(f"{FAL_QUEUE_BASE}/{model}/requests/{request_id}", headers=_headers())
+        status_url = created.get("status_url")
+        if not isinstance(status_url, str) or not status_url:
+            status_url = f"{FAL_QUEUE_BASE}/{model}/requests/{request_id}/status"
+        result_url = created.get("response_url") or created.get("result_url")
+        if not isinstance(result_url, str) or not result_url:
+            result_url = f"{FAL_QUEUE_BASE}/{model}/requests/{request_id}/response"
+        status = _poll_request(client, request_id, timeout_seconds=timeout, status_url=status_url)
+        status_result_url = status.get("response_url")
+        if isinstance(status_result_url, str) and status_result_url:
+            result_url = status_result_url
+        result_response = client.get(result_url, headers=_headers())
         result_response.raise_for_status()
         result = result_response.json()
         video_url = _extract_video_url(result)
