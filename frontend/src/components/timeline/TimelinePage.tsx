@@ -1532,6 +1532,7 @@ function TimelineEditor({
   const [lastFXGenTimestamp, setLastFXGenTimestamp] = useState(0);
   const [yoloStep, setYoloStep] = useState<string | null>(null);
   const [yoloRenderRunning, setYoloRenderRunning] = useState(false);
+  const [yoloStopping, setYoloStopping] = useState(false);
   const [titleCardProgressPct, setTitleCardProgressPct] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"timeline" | "media-sources" | "segments">("timeline");
   const [viewerFormat, setViewerFormat] = useState<ViewerFormat>("long-form");
@@ -1542,6 +1543,7 @@ function TimelineEditor({
   const [productionProgress, setProductionProgress] = useState<number | null>(null);
   const [productionError, setProductionError] = useState<string | null>(null);
   const yoloCancelledRef = useRef(false);
+  const yoloStoppingRef = useRef(false);
   const productionBusyRef = useRef(false);
   const microTimelineRef = useRef<MicroTimelineHandle>(null);
   const costBreakdownRef = useRef<HTMLDivElement>(null);
@@ -2618,14 +2620,53 @@ function TimelineEditor({
     }
   };
 
+  const requestYoloStop = useCallback(async () => {
+    if (yoloStoppingRef.current) return;
+    yoloStoppingRef.current = true;
+    setYoloStopping(true);
+    yoloCancelledRef.current = true;
+    titleCardCancelledRef.current = true;
+    thumbnailsCancelledRef.current = true;
+    fxCancelledRef.current = true;
+    eliCancelledRef.current = true;
+    state.cancelAudioGeneration();
+    state.cancelImageGeneration();
+    setTitleCardGenerating(false);
+    setThumbnailsInlineGenerating(false);
+    setGeneratingFX(false);
+    setGeneratingEli(false);
+    setProductionBusyTask(null);
+    setProductionProgress(null);
+    showToast("Stopping YOLO render and backend work...", "info");
+    try {
+      const res = await api.post("/dev/api/kill-all");
+      if (!res.ok) {
+        throw new Error("Could not reach backend kill switch");
+      }
+      const data = res.data as { cancelled?: number; render_jobs?: number; processes?: number };
+      const cancelled = data.cancelled ?? 0;
+      showToast(`Stopped YOLO task (${cancelled} backend item${cancelled === 1 ? "" : "s"} cancelled)`, "success");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Could not stop backend work");
+    } finally {
+      setYoloStopping(false);
+      yoloStoppingRef.current = false;
+    }
+  }, [state]);
+
   const handleYoloRender = useCallback(async () => {
-    if (yoloRenderRunning) return;
+    if (yoloRenderRunning) {
+      await requestYoloStop();
+      return;
+    }
     if (!voicePicker.selectedVoiceId) {
       showToast("Select a voice in settings before running YOLO render");
       return;
     }
 
     setYoloRenderRunning(true);
+    setYoloStopping(false);
+    yoloStoppingRef.current = false;
     setYoloStep(null);
     yoloCancelledRef.current = false;
     productionBusyRef.current = true;
@@ -2709,6 +2750,7 @@ function TimelineEditor({
     refreshShortFormRenderStatus,
     refreshShortFormThumbnailStatus,
     render,
+    requestYoloStop,
     runYoloCreationPipeline,
     scriptId,
     voicePicker.selectedVoiceId,
@@ -2816,17 +2858,24 @@ function TimelineEditor({
   const yoloButton = (
     <button
       onClick={handleYoloRender}
-      disabled={yoloRenderRunning}
-      className="group relative flex h-9 w-full shrink-0 items-center justify-center overflow-hidden rounded-lg px-4 text-center text-xs font-bold leading-tight text-white/95 bg-gradient-to-r from-sky-500/80 via-emerald-400/70 to-amber-400/70 shadow-[0_0_15px_rgba(14,165,233,0.2)] transition-all hover:shadow-[0_0_22px_rgba(14,165,233,0.35)] hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 disabled:opacity-50 disabled:hover:scale-100"
+      disabled={yoloStopping}
+      title={yoloRenderRunning ? "Stop YOLO render and cancel backend work" : "Run the full YOLO pipeline"}
+      className={`group relative flex h-9 w-full shrink-0 items-center justify-center overflow-hidden rounded-lg px-4 text-center text-xs font-bold leading-tight text-white/95 shadow-[0_0_15px_rgba(14,165,233,0.2)] transition-all hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 disabled:cursor-wait disabled:opacity-60 disabled:hover:scale-100 ${
+        yoloRenderRunning
+          ? "bg-red-600/85 hover:bg-red-500 hover:shadow-[0_0_22px_rgba(239,68,68,0.35)]"
+          : "bg-gradient-to-r from-sky-500/80 via-emerald-400/70 to-amber-400/70 hover:shadow-[0_0_22px_rgba(14,165,233,0.35)]"
+      }`}
     >
-      <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_ease-in-out_infinite]" />
+      {!yoloRenderRunning && (
+        <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_ease-in-out_infinite]" />
+      )}
       <span className="relative flex min-w-0 items-center justify-center gap-1.5 text-center">
-        {yoloRenderRunning ? (
+        {yoloRenderRunning || yoloStopping ? (
           <span className="w-3 h-3 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
         ) : (
           <Zap size={14} />
         )}
-        YOLO MODE
+        {yoloStopping ? "STOPPING" : yoloRenderRunning ? "STOP YOLO" : "YOLO MODE"}
       </span>
     </button>
   );
