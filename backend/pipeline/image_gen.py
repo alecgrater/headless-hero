@@ -602,6 +602,7 @@ def generate_batch(
                     "scene_id": scene["scene_id"],
                     "image_url": image_url,
                     "prompt_used": search_query,
+                    "visual_source_metadata": None,
                     "error": None,
                 })
                 continue
@@ -620,6 +621,7 @@ def generate_batch(
                     "image_url": None,
                     "video_url": video_url,
                     "prompt_used": f"gameplay:{game_name}",
+                    "visual_source_metadata": None,
                     "error": None,
                 })
                 continue
@@ -655,6 +657,7 @@ def generate_batch(
                     "scene_id": scene["scene_id"],
                     "image_url": scene.get("upload_url") or scene.get("image_url"),
                     "prompt_used": None,
+                    "visual_source_metadata": None,
                     "error": None,
                 })
                 continue

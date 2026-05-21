@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/visuals", tags=["visuals"])
 
+METADATA_CLEAR = {"source_type": "none", "provider": "", "fallback": False}
+
 # --- Request / Response schemas ---
 
 class GenerateVisualRequest(BaseModel):
@@ -121,7 +123,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
                     body.scene_id,
                     video_url="",
                     frame_urls=frame_urls,
-                    visual_source_metadata=source_metadata,
+                    visual_source_metadata=source_metadata or METADATA_CLEAR,
                 )
             session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
             session.commit()
@@ -130,13 +132,21 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
                 prompt_used=body.visual_prompt,
                 frame_urls=frame_urls,
                 video_url="",
-                visual_source_metadata=source_metadata,
+                visual_source_metadata=source_metadata or METADATA_CLEAR,
             )
         image_url = generate_stock_photo(body.script_id, body.scene_id, body.visual_prompt)
-        update_scene(session, body.script_id, body.scene_id, image_url=image_url, frame_urls=[], video_url="")
+        update_scene(
+            session,
+            body.script_id,
+            body.scene_id,
+            image_url=image_url,
+            frame_urls=[],
+            video_url="",
+            visual_source_metadata=METADATA_CLEAR,
+        )
         session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
         session.commit()
-        return GenerateVisualResponse(image_url=image_url, prompt_used=body.visual_prompt, frame_urls=[], video_url="")
+        return GenerateVisualResponse(image_url=image_url, prompt_used=body.visual_prompt, frame_urls=[], video_url="", visual_source_metadata=METADATA_CLEAR)
 
     # --- Gameplay video dispatch ---
     if body.media_source == "gameplay_video":
@@ -147,10 +157,18 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         logger.info("[TWITCH] scene %s — game: %s, duration: %.1fs", body.scene_id, game_name, body.audio_duration_seconds or 8.0)
         duration = body.audio_duration_seconds or 8.0
         video_url = generate_gameplay_clip(body.script_id, body.scene_id, game_name, duration)
-        update_scene(session, body.script_id, body.scene_id, image_url="", frame_urls=[], video_url=video_url)
+        update_scene(
+            session,
+            body.script_id,
+            body.scene_id,
+            image_url="",
+            frame_urls=[],
+            video_url=video_url,
+            visual_source_metadata=METADATA_CLEAR,
+        )
         session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
         session.commit()
-        return GenerateVisualResponse(image_url="", prompt_used=f"gameplay:{game_name}", frame_urls=[], video_url=video_url)
+        return GenerateVisualResponse(image_url="", prompt_used=f"gameplay:{game_name}", frame_urls=[], video_url=video_url, visual_source_metadata=METADATA_CLEAR)
 
     # --- AI video dispatch ---
     if body.media_source == "ai_video":
@@ -295,8 +313,7 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
             sc.image_url = r["image_url"]
             sc.frame_urls = []
             sc.video_url = ""
-        if r.get("visual_source_metadata") is not None:
-            sc.visual_source_metadata = r["visual_source_metadata"]
+        sc.visual_source_metadata = r.get("visual_source_metadata") or METADATA_CLEAR
     record.script_json = content.model_dump_json()
     session.add(record)
     session.commit()
