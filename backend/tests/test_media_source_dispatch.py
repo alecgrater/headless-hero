@@ -22,6 +22,7 @@ from models.script import Script, ScriptContent, Scene, Segment
 @pytest.fixture(autouse=True)
 def tmp_data_dir(monkeypatch, tmp_path):
     monkeypatch.setattr("pipeline.image_gen.DATA_DIR", tmp_path)
+    monkeypatch.setattr("pipeline.video_gen.DATA_DIR", tmp_path)
     monkeypatch.setattr("config.DATA_DIR", tmp_path)
     return tmp_path
 
@@ -165,7 +166,9 @@ class TestMediaSourceDispatch:
         assert results[0]["error"] is None
         assert results[0]["video_url"] is not None
 
-    def test_ai_video_generates_anchor_image_then_runway_video(self, mock_gemini, mock_pexels, tmp_data_dir):
+    def test_ai_video_provider_runway_calls_runway_client(self, monkeypatch, mock_gemini, mock_pexels, tmp_data_dir):
+        monkeypatch.setenv("AI_VIDEO_PROVIDER", "runway")
+
         def _fake_video(**kwargs):
             Path(kwargs["output_path"]).write_bytes(b"\x00" * 100)
             return {
@@ -190,8 +193,81 @@ class TestMediaSourceDispatch:
         assert results[0]["image_url"] is None
         assert results[0]["video_url"] == "/static/projects/test-script-video/videos/scene_ai_video_1.mp4"
 
+    def test_ai_video_provider_fal_calls_fal_client(self, monkeypatch, mock_gemini, mock_pexels, tmp_data_dir):
+        monkeypatch.setenv("AI_VIDEO_PROVIDER", "fal")
+
+        def _fake_video(**kwargs):
+            Path(kwargs["output_path"]).write_bytes(b"\x00" * 100)
+            return {
+                "source_type": "ai_generated_video",
+                "provider": "fal",
+                "model": "fal-ai/wan/v2.2-a14b/image-to-video/turbo",
+            }
+
+        with patch("integrations.runway_video_client.generate_video_from_image") as mock_runway, \
+             patch("integrations.fal_video_client.generate_video_from_image", side_effect=_fake_video) as mock_fal:
+            scenes = [{
+                "scene_id": "scene_ai_video_fal",
+                "visual_prompt": "A character points at a thought bubble",
+                "media_source": "ai_video",
+                "audio_duration_seconds": 5.0,
+            }]
+            results = generate_batch(scenes, script_id="test-script-video-fal")
+
+        assert mock_gemini.called, "AI video should create a styled anchor image first"
+        assert mock_fal.called, "AI video should call Fal image-to-video"
+        assert not mock_runway.called, "Fal provider should not call Runway"
+        assert not mock_pexels.called, "AI video should NOT call Pexels"
+        assert results[0]["error"] is None
+        assert results[0]["image_url"] is None
+        assert results[0]["video_url"] == "/static/projects/test-script-video-fal/videos/scene_ai_video_fal.mp4"
+
+    def test_ai_video_cache_key_changes_when_provider_or_model_changes(self, monkeypatch, mock_gemini, tmp_data_dir):
+        scene = {
+            "scene_id": "scene_ai_video_cache",
+            "visual_prompt": "A character points at a thought bubble",
+            "media_source": "ai_video",
+            "audio_duration_seconds": 5.0,
+        }
+
+        def _fake_runway(**kwargs):
+            Path(kwargs["output_path"]).write_bytes(b"runway")
+            return {
+                "source_type": "ai_generated_video",
+                "provider": "runway",
+                "model": "gen4_turbo",
+            }
+
+        def _fake_fal(**kwargs):
+            Path(kwargs["output_path"]).write_bytes(b"fal")
+            return {
+                "source_type": "ai_generated_video",
+                "provider": "fal",
+                "model": "fal-ai/wan/v2.2-a14b/image-to-video/turbo",
+            }
+
+        monkeypatch.setenv("AI_VIDEO_PROVIDER", "runway")
+        with patch("integrations.runway_video_client.generate_video_from_image", side_effect=_fake_runway) as mock_runway:
+            first = generate_batch([scene], script_id="test-script-video-cache")
+
+        monkeypatch.setenv("AI_VIDEO_PROVIDER", "fal")
+        with patch("integrations.fal_video_client.generate_video_from_image", side_effect=_fake_fal) as mock_fal:
+            second = generate_batch([scene], script_id="test-script-video-cache")
+
+        monkeypatch.setenv("FAL_VIDEO_MODEL", "fal-ai/wan/custom-test-model")
+        with patch("integrations.fal_video_client.generate_video_from_image", side_effect=_fake_fal) as mock_fal_model:
+            third = generate_batch([scene], script_id="test-script-video-cache")
+
+        assert first[0]["error"] is None
+        assert second[0]["error"] is None
+        assert third[0]["error"] is None
+        assert mock_runway.call_count == 1
+        assert mock_fal.call_count == 1
+        assert mock_fal_model.call_count == 1
+
     def test_ai_video_does_not_animate_placeholder_anchor(self, monkeypatch, tmp_data_dir):
         monkeypatch.setenv("IMAGE_SCRAPER_FALLBACK_ENABLED", "false")
+        monkeypatch.setenv("AI_VIDEO_PROVIDER", "runway")
         with patch("pipeline.image_gen.generate_image", side_effect=RuntimeError("Gemini blocked")), \
              patch("integrations.runway_video_client.generate_video_from_image") as mock_runway:
             scenes = [{

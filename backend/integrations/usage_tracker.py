@@ -145,5 +145,12 @@ REPLICATE_KONTEXT_PER_IMAGE = 0.04
 # Runway Gen-4 Turbo video generation — 5 credits/sec, $0.01/credit.
 RUNWAY_GEN4_TURBO_PER_SECOND = 0.05
 
+# Fal Wan 2.2 A14B Turbo image-to-video — pricing is per generated video.
+FAL_WAN_22_TURBO_PER_VIDEO_BY_RESOLUTION = {
+    "480p": 0.05,
+    "580p": 0.075,
+    "720p": 0.10,
+}
+
 # ElevenLabs — per character (Creator plan ~$22/mo for ~100k chars)
 ELEVENLABS_PER_CHAR = 0.00022  # rough estimate

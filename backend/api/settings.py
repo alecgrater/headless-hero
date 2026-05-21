@@ -27,7 +27,10 @@ ALLOWED_KEYS = {
     "REPLICATE_API_TOKEN",
     "IMAGE_PROVIDER",
     "AI_VIDEO_ENABLED",
+    "AI_VIDEO_PROVIDER",
     "RUNWAYML_API_SECRET",
+    "FAL_API_KEY",
+    "FAL_VIDEO_MODEL",
     "IMAGE_SCRAPER_FALLBACK_ENABLED",
     "REPLICATE_MODEL",
     "REPLICATE_PROMPT_UPSAMPLING",
@@ -63,6 +66,8 @@ _PLAINTEXT_KEYS = {
     "DOWNLOADS_DIR",
     "IMAGE_PROVIDER",
     "AI_VIDEO_ENABLED",
+    "AI_VIDEO_PROVIDER",
+    "FAL_VIDEO_MODEL",
     "IMAGE_SCRAPER_FALLBACK_ENABLED",
     "REPLICATE_MODEL",
     "REPLICATE_PROMPT_UPSAMPLING",
@@ -90,6 +95,8 @@ _DEFAULTS: dict[str, str] = {
     "IMAGE_RATE_LIMIT_MS": "10000",  # 6 req/min to stay under free-tier limits
     "IMAGE_SCRAPER_FALLBACK_ENABLED": "false",
     "AI_VIDEO_ENABLED": "false",
+    "AI_VIDEO_PROVIDER": "runway",
+    "FAL_VIDEO_MODEL": "fal-ai/wan/v2.2-a14b/image-to-video/turbo",
     "SCRIPT_MODEL": DEFAULT_CLAUDE_MODEL,
     "AUDIO_FILTER_HIGHPASS": "true",
     "AUDIO_FILTER_NOISE_REDUCTION": "true",
@@ -174,6 +181,15 @@ async def save_keys(
     # Validate provider settings before any writes.
     provider_keys = {"LLM_PROVIDER", *(task["provider_key"] for task in LLM_TASKS.values())}
     reasoning_keys = {f"OPENAI_REASONING_EFFORT_{task_id.upper()}" for task_id in LLM_TASKS}
+    if "AI_VIDEO_PROVIDER" in keys:
+        ai_video_provider = (keys["AI_VIDEO_PROVIDER"] or "").strip().lower()
+        if ai_video_provider and ai_video_provider not in {"runway", "fal"}:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid AI_VIDEO_PROVIDER: "
+                f"{ai_video_provider!r}. Must be one of ['fal', 'runway'].",
+            )
+        keys["AI_VIDEO_PROVIDER"] = ai_video_provider
     for provider_key in provider_keys.intersection(keys):
         provider = (keys[provider_key] or "").strip().lower()
         if provider and provider not in ALLOWED_PROVIDERS:

@@ -5,6 +5,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from typing import Callable
 
 from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH
 from pipeline.image_gen import generate_scene_image
@@ -17,6 +18,8 @@ _NEGATIVE_MOTION_GUIDANCE = (
     "new objects, heavy camera shake, photorealism, 3D rendering, style change, "
     "warped faces, distorted hands, flicker, or sudden cuts."
 )
+
+ALLOWED_AI_VIDEO_PROVIDERS = {"runway", "fal"}
 
 
 def _build_animation_prompt(visual_prompt: str) -> str:
@@ -63,6 +66,52 @@ def _file_hash(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _provider_name() -> str:
+    provider = os.environ.get("AI_VIDEO_PROVIDER", "runway").strip().lower() or "runway"
+    if provider not in ALLOWED_AI_VIDEO_PROVIDERS:
+        raise RuntimeError(
+            f"Unsupported AI_VIDEO_PROVIDER={provider!r}. "
+            f"Expected one of: {', '.join(sorted(ALLOWED_AI_VIDEO_PROVIDERS))}."
+        )
+    return provider
+
+
+def _provider_contract(
+    *,
+    provider: str,
+    width: int,
+    height: int,
+    scene_duration_seconds: float,
+) -> tuple[dict[str, object], Callable[..., dict[str, object]]]:
+    if provider == "runway":
+        from integrations.runway_video_client import RUNWAY_MODEL, duration_for_scene, generate_video_from_image, ratio_for_dimensions
+
+        duration = duration_for_scene(scene_duration_seconds)
+        return (
+            {
+                "provider": "runway",
+                "model": RUNWAY_MODEL,
+                "duration_seconds": duration,
+                "ratio": ratio_for_dimensions(width, height),
+            },
+            generate_video_from_image,
+        )
+    if provider == "fal":
+        from integrations.fal_video_client import aspect_ratio_for_dimensions, generate_video_from_image, model_name, resolution
+
+        return (
+            {
+                "provider": "fal",
+                "model": model_name(),
+                "duration_seconds": scene_duration_seconds,
+                "ratio": aspect_ratio_for_dimensions(width, height),
+                "resolution": resolution(),
+            },
+            generate_video_from_image,
+        )
+    raise RuntimeError(f"Unsupported AI video provider: {provider}")
+
+
 def _cache_marker(
     *,
     prompt: str,
@@ -71,15 +120,11 @@ def _cache_marker(
     width: int,
     height: int,
     scene_duration_seconds: float,
+    provider_contract: dict[str, object],
 ) -> str:
-    from integrations.runway_video_client import RUNWAY_MODEL, duration_for_scene, ratio_for_dimensions
-
     contract = {
         "prompt": prompt,
-        "provider": "runway",
-        "model": RUNWAY_MODEL,
-        "runway_duration_seconds": duration_for_scene(scene_duration_seconds),
-        "ratio": ratio_for_dimensions(width, height),
+        **provider_contract,
         "width": width,
         "height": height,
         "anchor_image_hash": _file_hash(image_path),
@@ -101,12 +146,19 @@ def generate_scene_video(
     force: bool = False,
     contains_person: bool = False,
 ) -> tuple[str, str, dict[str, object] | None]:
-    """Generate one anchor image, animate it with Runway, and save the MP4 locally."""
+    """Generate one anchor image, animate it with the configured provider, and save the MP4 locally."""
     videos_dir = DATA_DIR / "projects" / script_id / "videos"
     videos_dir.mkdir(parents=True, exist_ok=True)
     video_path = videos_dir / f"{scene_id}.mp4"
     web_path = f"/static/projects/{script_id}/videos/{scene_id}.mp4"
     prompt = _build_animation_prompt(visual_prompt)
+    provider = _provider_name()
+    provider_contract, generate_video_from_image = _provider_contract(
+        provider=provider,
+        width=width,
+        height=height,
+        scene_duration_seconds=scene_duration_seconds,
+    )
 
     image_url, _image_prompt, image_metadata = generate_scene_image(
         scene_id=scene_id,
@@ -144,13 +196,12 @@ def generate_scene_video(
         width=width,
         height=height,
         scene_duration_seconds=scene_duration_seconds,
+        provider_contract=provider_contract,
     )
     marker = _prompt_marker_path(video_path)
     if not force and video_path.exists() and marker.exists() and marker.read_text(encoding="utf-8").strip() == marker_hash:
         logger.info("AI video cache hit for scene %s", scene_id)
         return web_path, prompt, _read_metadata(video_path)
-
-    from integrations.runway_video_client import generate_video_from_image
 
     metadata = generate_video_from_image(
         image_path=str(image_path),

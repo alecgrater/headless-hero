@@ -16,6 +16,11 @@ const IMAGE_PROVIDERS = [
   { value: "replicate", label: "Replicate (Flux)" },
 ] as const;
 
+const AI_VIDEO_PROVIDERS = [
+  { value: "runway", label: "Runway Gen-4 Turbo" },
+  { value: "fal", label: "Fal.ai Wan 2.2 image-to-video turbo" },
+] as const;
+
 const LLM_PROVIDERS = [
   { value: "ollama", label: "Ollama (local)", description: "Local Qwen3 via Ollama" },
   { value: "anthropic", label: "Anthropic API", description: "Real Claude API (requires ANTHROPIC_API_KEY)" },
@@ -317,6 +322,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
   const [exportsDir, setExportsDir] = useState("");
   const [imageProvider, setImageProvider] = useState("google");
   const [aiVideoEnabled, setAiVideoEnabled] = useState(false);
+  const [aiVideoProvider, setAiVideoProvider] = useState("runway");
   const [promptUpsampling, setPromptUpsampling] = useState("true");
   const [replicateModel, setReplicateModel] = useState("black-forest-labs/flux-1.1-pro");
   const [safetyTolerance, setSafetyTolerance] = useState("2");
@@ -331,6 +337,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
   const [originalExportsDir, setOriginalExportsDir] = useState("");
   const [originalProvider, setOriginalProvider] = useState("google");
   const [originalAiVideoEnabled, setOriginalAiVideoEnabled] = useState(false);
+  const [originalAiVideoProvider, setOriginalAiVideoProvider] = useState("runway");
   const [originalUpsampling, setOriginalUpsampling] = useState("true");
   const [originalModel, setOriginalModel] = useState("black-forest-labs/flux-1.1-pro");
   const [originalSafety, setOriginalSafety] = useState("2");
@@ -352,6 +359,9 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
         const aiVideoVal = data.AI_VIDEO_ENABLED?.masked === "true";
         setAiVideoEnabled(aiVideoVal);
         setOriginalAiVideoEnabled(aiVideoVal);
+        const aiVideoProviderVal = data.AI_VIDEO_PROVIDER?.masked || "runway";
+        setAiVideoProvider(aiVideoProviderVal);
+        setOriginalAiVideoProvider(aiVideoProviderVal);
         const upVal = data.REPLICATE_PROMPT_UPSAMPLING?.masked || "true";
         setPromptUpsampling(upVal);
         setOriginalUpsampling(upVal);
@@ -409,6 +419,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
       DOWNLOADS_DIR: exportsDir.trim(),
       IMAGE_PROVIDER: imageProvider,
       AI_VIDEO_ENABLED: aiVideoEnabled ? "true" : "false",
+      AI_VIDEO_PROVIDER: aiVideoProvider,
       REPLICATE_MODEL: replicateModel,
       REPLICATE_PROMPT_UPSAMPLING: promptUpsampling,
       REPLICATE_SAFETY_TOLERANCE: safetyTolerance,
@@ -424,6 +435,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
       setOriginalExportsDir(exportsDir.trim());
       setOriginalProvider(imageProvider);
       setOriginalAiVideoEnabled(aiVideoEnabled);
+      setOriginalAiVideoProvider(aiVideoProvider);
       setOriginalModel(replicateModel);
       setOriginalUpsampling(promptUpsampling);
       setOriginalSafety(safetyTolerance);
@@ -520,6 +532,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
     exportsDir.trim() !== originalExportsDir ||
     imageProvider !== originalProvider ||
     aiVideoEnabled !== originalAiVideoEnabled ||
+    aiVideoProvider !== originalAiVideoProvider ||
     replicateModel !== originalModel ||
     promptUpsampling !== originalUpsampling ||
     safetyTolerance !== originalSafety ||
@@ -755,7 +768,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                 <div>
                   <h3 className="text-sm font-medium text-neutral-100">AI Video Scenes</h3>
                   <p className="text-xs text-neutral-500">
-                    Route selected high-motion scenes to Runway Gen-4 Turbo image-to-video.
+                    Route selected high-motion scenes to the configured image-to-video provider.
                   </p>
                 </div>
                 <button
@@ -775,7 +788,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                 </button>
               </div>
               <p className="text-xs text-neutral-500">
-                Requires a Runway key. Script generation routes up to five high-motion scenes, at most one per segment.
+                Requires a key for the selected video provider. Script generation routes up to five high-motion scenes, at most one per segment.
               </p>
             </div>
 
@@ -803,6 +816,31 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                 ))}
               </select>
             </div>
+
+            {aiVideoEnabled && (
+              <div className="p-5 space-y-2">
+                <div>
+                  <h3 className="text-sm font-medium text-neutral-100">AI Video Provider</h3>
+                  <p className="text-xs text-neutral-500">
+                    Choose which image-to-video service animates routed AI video scenes.
+                  </p>
+                </div>
+                <select
+                  value={aiVideoProvider}
+                  onChange={(e) => setAiVideoProvider(e.target.value)}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
+                >
+                  {AI_VIDEO_PROVIDERS.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-neutral-500">
+                  Existing cached clips are reused only when the provider, model, dimensions, duration, and anchor image all match.
+                </p>
+              </div>
+            )}
 
           </div>
           )}

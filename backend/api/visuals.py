@@ -175,7 +175,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         from pipeline.video_gen import generate_scene_video
 
         duration = body.audio_duration_seconds or 5.0
-        logger.info("[RUNWAY] scene %s — prompt: %s", body.scene_id, body.visual_prompt[:80])
+        logger.info("[AI_VIDEO] scene %s — prompt: %s", body.scene_id, body.visual_prompt[:80])
         video_url, prompt_used, source_metadata = generate_scene_video(
             scene_id=body.scene_id,
             visual_prompt=body.visual_prompt,

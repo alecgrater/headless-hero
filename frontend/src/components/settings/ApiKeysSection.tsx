@@ -64,6 +64,12 @@ const SERVICE_GROUPS: ServiceGroup[] = [
       placeholder: "key_...",
     },
     {
+      key: "FAL_API_KEY",
+      label: "Fal.ai",
+      description: "Generates animated scene videos via Wan image-to-video.",
+      placeholder: "fal-...",
+    },
+    {
       key: "PEXELS_API_KEY",
       label: "Pexels",
       description: "Stock photos for scenes via Pexels API.",
