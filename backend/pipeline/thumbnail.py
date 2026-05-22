@@ -85,7 +85,8 @@ def enhance_split_progression(
     Sends the clean image to Gemini with the SPLIT_PROGRESSION_PROMPT (with
     {left_label} / {right_label} substituted) and writes the result to output_path.
 
-    Caches by mtime: re-runs only if output is missing, source is newer, or force=True.
+    Caches by mtime plus prompt/label fingerprint: re-runs if output is missing,
+    source is newer, prompt or labels changed, or force=True.
     On Gemini failure, falls back to copying the clean image to output_path.
     """
     from integrations.google_image_client import transform_with_references
