@@ -193,6 +193,10 @@ class GenerateScriptRequest(BaseModel):
     cold_open_text: str | None = PydanticField(default=None, description="Pre-selected cold open text to inject into script generation")
     gameplay_enabled: bool = PydanticField(default=False, description="Enable gameplay video clips for some scenes")
     stock_photo_enabled: bool = PydanticField(default=False, description="Enable stock photos for some scenes")
+    eli_enabled: bool = PydanticField(
+        default=True,
+        description="Whether Eli is enabled for this project. False switches to per-project main character.",
+    )
 
 class GenerateScriptResponse(BaseModel):
     id: str

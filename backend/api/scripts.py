@@ -511,6 +511,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
     cold_open_text = body.cold_open_text
     gameplay_enabled = body.gameplay_enabled
     stock_photo_enabled = body.stock_photo_enabled
+    eli_enabled = body.eli_enabled
     ai_video_enabled = os.environ.get("AI_VIDEO_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
     try:
         ai_video_scenes_per_segment = int(os.environ.get("AI_VIDEO_SCENES_PER_SEGMENT", "2"))
@@ -567,6 +568,13 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             bg_session.add(record)
             bg_session.commit()
             bg_session.refresh(record)
+
+            from models.project_config import get_or_create_project_config
+
+            get_or_create_project_config(
+                bg_session, script_id, eli_enabled=eli_enabled
+            )
+            bg_session.commit()
 
         logger.info("Script generated: %s (%d segments) in %.1fs", script_id, len(script_content.segments), duration)
 
