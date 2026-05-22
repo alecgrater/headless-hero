@@ -1640,6 +1640,14 @@ function TimelineEditor({
     }
   }, [scriptId]);
 
+  const handleShortFormThumbnailStatusChange = useCallback((paths?: Record<number, string | undefined>) => {
+    if (paths) {
+      setSfThumbnailPaths(paths);
+      return;
+    }
+    void refreshShortFormThumbnailStatus();
+  }, [refreshShortFormThumbnailStatus]);
+
   const refreshShortFormRenderStatus = useCallback(async () => {
     try {
       const status = await getRenderedShortsStatus(scriptId);
@@ -2063,7 +2071,7 @@ function TimelineEditor({
   const allEliGenerated = eliScenes.length > 0 && eliScenes.every((sc) => sc.eli_overlay);
   const hasExistingEli = allScenes.some((sc) => sc.eli_overlay);
   const missingEliCount = eliScenes.filter((sc) => !sc.eli_overlay).length;
-  const sfThumbnailCount = Object.values(sfThumbnailPaths).filter(Boolean).length;
+  const sfThumbnailCount = state.content.segments.filter((_, idx) => sfThumbnailPaths[idx]).length;
   const sfRenderCount = Object.values(sfRenderPaths).filter(Boolean).length;
   const shortFormSeoCount = render.shortFormSeoMetadata?.shorts.length ?? 0;
   const lfSeoDone = render.seoMetadata != null;
@@ -3451,7 +3459,7 @@ function TimelineEditor({
           <ShortFormThumbnailsCard
             scriptId={scriptId}
             segments={state.content.segments.map((s) => ({ name: s.name }))}
-            onStatusChange={() => void refreshShortFormThumbnailStatus()}
+            onStatusChange={handleShortFormThumbnailStatusChange}
           />
         </div>
       ) : viewerFormat === "short-form" && viewerAsset === "seo" ? (
@@ -3575,7 +3583,7 @@ function TimelineEditor({
           generating={thumbnailsInlineGenerating}
           onGenerate={handleRecompositeThumbnailInline}
           onClose={() => setShowThumbnailModal(false)}
-          onShortFormStatusChange={() => void refreshShortFormThumbnailStatus()}
+          onShortFormStatusChange={handleShortFormThumbnailStatusChange}
           scriptId={scriptId}
           segments={state.content.segments.map((s) => ({ name: s.name }))}
         />

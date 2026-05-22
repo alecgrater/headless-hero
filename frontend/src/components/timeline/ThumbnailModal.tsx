@@ -9,7 +9,7 @@ interface Props {
   generating: boolean;
   onGenerate: () => void;
   onClose: () => void;
-  onShortFormStatusChange?: () => void;
+  onShortFormStatusChange?: (paths?: Record<number, string | undefined>) => void;
   scriptId: string;
   segments: { name: string }[];
 }

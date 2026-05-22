@@ -15,7 +15,7 @@ import type { ShortFormJobStatus } from "../../../types/render";
 interface Props {
   scriptId: string;
   segments: { name: string }[];
-  onStatusChange?: () => void;
+  onStatusChange?: (paths?: Record<number, string | undefined>) => void;
 }
 
 type CurrentOp =
@@ -40,7 +40,7 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, onStatusCh
   const [exportFolder, setExportFolder] = useState<string | null>(null);
 
   const total = segments.length;
-  const generatedCount = Object.values(thumbnailUrls).filter(Boolean).length;
+  const generatedCount = segments.filter((_, idx) => thumbnailUrls[idx]).length;
   const missingIndices = segments.map((_, idx) => idx).filter((idx) => !thumbnailUrls[idx]);
   const missingCount = missingIndices.length;
   const allDone = total > 0 && generatedCount === total;
@@ -49,15 +49,19 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, onStatusCh
   const refreshThumbnails = useCallback(async () => {
     const status = await getShortFormThumbnailsStatus(scriptId);
     setThumbnailUrls(status.paths);
+    onStatusChange?.(status.paths);
     return status.paths;
-  }, [scriptId]);
+  }, [onStatusChange, scriptId]);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
         const paths = await getShortFormThumbnailsStatus(scriptId);
-        if (!cancelled) setThumbnailUrls(paths.paths);
+        if (!cancelled) {
+          setThumbnailUrls(paths.paths);
+          onStatusChange?.(paths.paths);
+        }
       } catch {
         if (!cancelled) setThumbnailUrls({});
       }
@@ -66,7 +70,7 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, onStatusCh
     return () => {
       cancelled = true;
     };
-  }, [scriptId]);
+  }, [onStatusChange, scriptId]);
 
   const { startPolling } = usePollJob<ShortFormJobStatus>({
     pollFn: (id) => getShortFormJobStatus(id),
