@@ -472,7 +472,7 @@ Critically different from listicle scenes:
 |---|---|---|
 | Narration per scene | 1–2 sentences | 3–8 sentences, paragraph-shaped |
 | Duration per scene | ~5–10s | ~10–25s |
-| Visual beats | varied (static/quick_cuts/montage/aha) | mostly `static`, occasional `continuous` |
+| Visual beats | varied (static/quick_cuts/montage/aha) | balanced `static`, `continuous`, and `quick_cuts` |
 | Transitions | varied with intentional energy | mostly `cut`, occasional `crossfade` for time-passage |
 
 Each non-title scene should be **3–8 sentences** of narration, shaped as a small paragraph. Aim for ~10–25 seconds of speech per scene. Resist the urge to break paragraphs into fragments — the long form is the point. Paragraphs may end mid-thought; trust the next scene to carry it.
@@ -510,15 +510,17 @@ Levels overlap at the edges. The protagonist is already deep into level N before
 
 The visual beat distribution is constrained for this format:
 
-- **`static`: 80–90%** of non-chapter-card scenes. This is the dominant beat — a single strong image holding through paragraph-shaped narration.
-- **`continuous`: 10–15%** for time-passage moments where the camera or subject drifts (a kitchen filling and emptying through a year, a chair gathering dust).
-- **`quick_cuts`: 0–5%** — only for compressed time, used SPARINGLY ("you go four times in the second year, then six, then you stop counting"). Never for emphasis.
+- **`static`: 45–60%** of non-chapter-card scenes. Use a single strong image when the paragraph is emotionally unified.
+- **`continuous`: 25–35%** for time-passage moments where the camera or subject drifts (a kitchen filling and emptying through a year, a chair gathering dust). Use 2–4 frame directives.
+- **`quick_cuts`: 15–25%** for compressed routines, repeated procedures, sensory lists, and the accumulation of small consequences ("you go four times in the second year, then six"). Use 3–6 independent frame directives.
 - **`aha_subtitle`: DISABLED.** This beat breaks the literary register and must never appear in a life-as-a script.
 - **`montage`: DISABLED.** Real-photo intercutting breaks immersion in the second-person present-tense world.
 
+Do not allow three non-title-card `static` scenes in a row. A life-as-a video should often have multiple generated images within a scene; visual variety comes from both paragraph-to-paragraph composition changes and multi-frame `continuous` / `quick_cuts` scenes.
+
 Shot-type palette: every `visual_prompt` MUST begin with one of `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, `[METAPHOR]`. `[DIAGRAM]` and `[SCALE]` are de-prioritized — this format is not explanatory. Visual prompts must NEVER ask for text, letters, words, labels, or written characters in the image.
 
-For multi-frame `continuous` scenes, frames should show subtle progression of the SAME scene (reference_previous: true, transition: "crossfade").
+For multi-frame `continuous` scenes, frames should show subtle progression of the SAME scene (reference_previous: true, transition: "crossfade"). For `quick_cuts`, every frame should be a distinct image with reference_previous: false and transition: "cut".
 
 ---
 
@@ -722,9 +724,9 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 - If this level is the FINAL level of the video, the closing scene MUST end on the `closing_image` chosen in the outline. The image must be specific and earned. The register (cautionary vs reflective) was chosen in the outline — match it. Never moralize. Never wrap it in a bow. Trust the image.
 
 ### Visual beats (strict)
-- `visual_beat` is `"static"` for ~85% of scenes in this level. This is the dominant beat.
-- Use `"continuous"` (10–15%) only for time-passage moments where a single space drifts across a span (a kitchen filling and emptying, a chair gathering dust).
-- Use `"quick_cuts"` (0–5%) only for compressed-time moments ("you go four times in the second year, then six").
+- `visual_beat` is `"static"` for 45–60% of non-title scenes in this level. Do not use three static content scenes in a row.
+- Use `"continuous"` for 25–35% of non-title scenes, especially time-passage moments where a single space drifts across a span (a kitchen filling and emptying, a chair gathering dust). Provide 2–4 frame directives.
+- Use `"quick_cuts"` for 15–25% of non-title scenes, especially repeated routines, compressed time, sensory lists, and accumulating consequences ("you go four times in the second year, then six"). Provide 3–6 independent frame directives.
 - NEVER use `"aha_subtitle"`. NEVER use `"montage"`. These beats are DISABLED for this format.
 - Every `visual_prompt` MUST begin with `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, or `[METAPHOR]`. `[DIAGRAM]` and `[SCALE]` are de-prioritized for this format.
 - Visual prompts must NEVER request text, letters, words, labels, or written characters in the image.

@@ -128,6 +128,7 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
       <div className={`divide-y divide-neutral-800 ${fullHeight ? "overflow-y-auto" : "max-h-96 overflow-y-auto"}`}>
         {assignments.map((a, idx) => {
           const sourceInfo = SOURCE_LABELS[a.media_source] ?? { label: a.media_source, color: "bg-neutral-700 text-neutral-300" };
+          const isVideoSource = a.media_source === "ai_video" || a.media_source === "gameplay_video";
           return (
             <div key={a.scene_id} className="px-4 py-2.5 flex items-center gap-3 text-sm">
               <span className="text-neutral-500 w-6 text-right shrink-0">{idx + 1}</span>
@@ -144,9 +145,14 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
               <span className={`px-2 py-0.5 rounded text-xs font-medium shrink-0 ${sourceInfo.color}`}>
                 {sourceInfo.label}
               </span>
-              {frameCounts && frameCounts[a.scene_id] && (
+              {!isVideoSource && frameCounts && frameCounts[a.scene_id] && (
                 <span className="px-1.5 py-0.5 rounded text-xs text-neutral-400 bg-neutral-800 shrink-0">
                   {frameCounts[a.scene_id]} photos
+                </span>
+              )}
+              {isVideoSource && (
+                <span className="px-1.5 py-0.5 rounded text-xs text-fuchsia-200 bg-fuchsia-500/10 shrink-0">
+                  video scene
                 </span>
               )}
               {a.media_source === "gameplay_video" && (

@@ -55,6 +55,9 @@ def test_life_as_a_flags():
     assert fmt.supports_segmented_generation is True
     assert fmt.title_card_strategy.kind == "cinematic-chapters"
     assert fmt.level_label == "level"
+    assert fmt.visual_beat_rules.monotony_threshold == 3
+    assert fmt.visual_beat_rules.target_distribution["static"] == (0.45, 0.60)
+    assert fmt.visual_beat_rules.target_distribution["quick_cuts"] == (0.15, 0.25)
 
 
 def test_generate_script_dispatches_to_format(monkeypatch):

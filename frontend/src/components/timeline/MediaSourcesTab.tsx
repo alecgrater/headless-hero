@@ -7,7 +7,7 @@ function buildFrameCounts(content: ScriptContent): Record<string, number> {
   for (const seg of content.segments) {
     for (const scene of seg.scenes) {
       const directives = scene.frame_directives ?? [];
-      if (directives.length > 1) {
+      if (directives.length > 1 && !["ai_video", "gameplay_video", "user_upload"].includes(scene.media_source ?? "")) {
         counts[scene.id] = directives.length;
       }
     }
@@ -42,7 +42,7 @@ function DescriptionText() {
     <div className="space-y-2 text-sm leading-6 text-neutral-400">
       <p>
         Media sources decide where each scene gets its visuals before generation starts.
-        Use this tab to route scenes between AI-generated imagery, gameplay clips, and
+        Use this tab to route scenes between AI-generated imagery, AI-generated video, gameplay clips, and
         stock photos so the final video uses the best source for each beat instead of
         treating the whole script the same way.
       </p>
@@ -121,7 +121,9 @@ export default function MediaSourcesTab({
 
   const gameplayEnabled = content.gameplay_enabled;
   const stockEnabled = content.stock_photo_enabled;
+  const aiVideoEnabled = content.ai_video_enabled;
   const enabledSources = [
+    aiVideoEnabled && "AI Video",
     gameplayEnabled && "Gameplay Video",
     stockEnabled && "Stock Photos",
   ].filter(Boolean);
@@ -134,7 +136,7 @@ export default function MediaSourcesTab({
           <p className="text-sm text-neutral-400">
           {enabledSources.length > 0
             ? `This project has ${enabledSources.join(" and ")} enabled. Analyze your script to assign media sources per scene.`
-            : "Analyze your script to assign media sources (AI, gameplay, stock photos) per scene."}
+            : "Analyze your script to assign media sources (AI, AI video, gameplay, stock photos) per scene."}
           </p>
         </div>
         <button

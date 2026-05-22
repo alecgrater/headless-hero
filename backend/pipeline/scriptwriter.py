@@ -21,6 +21,99 @@ ALL_BEAT_TYPES = ["static", "continuous", "quick_cuts", "aha_subtitle", "montage
 _SHOT_LABEL_RE = re.compile(r"^\[([A-Z\-]+)\]")
 
 
+def _directive_prompt(scene: Scene, suffix: str = "") -> str:
+    prompt = scene.visual_prompt.strip() or scene.narration.strip()
+    return f"{prompt} {suffix}".strip()
+
+
+def _synthesize_frame_directives(scene: Scene, beat: str) -> None:
+    """Ensure post-processed non-static beats actually generate multiple frames."""
+    if scene.is_title_card:
+        return
+    if scene.frame_directives and len(scene.frame_directives) > 1:
+        return
+
+    contains_person = bool(scene.contains_person)
+    if beat == "continuous":
+        scene.frame_directives = [
+            {
+                "prompt": _directive_prompt(scene),
+                "source": "ai_generated",
+                "transition": "cut",
+                "reference_previous": False,
+                "search_query": "",
+                "contains_person": contains_person,
+            },
+            {
+                "prompt": "A subtle time-passage progression in the same composition.",
+                "source": "ai_generated",
+                "transition": "crossfade",
+                "reference_previous": True,
+                "search_query": "",
+                "contains_person": contains_person,
+            },
+            {
+                "prompt": "A later quiet progression of the same moment, preserving the composition.",
+                "source": "ai_generated",
+                "transition": "crossfade",
+                "reference_previous": True,
+                "search_query": "",
+                "contains_person": contains_person,
+            },
+        ]
+    elif beat == "quick_cuts":
+        scene.frame_directives = [
+            {
+                "prompt": _directive_prompt(scene),
+                "source": "ai_generated",
+                "transition": "cut",
+                "reference_previous": False,
+                "search_query": "",
+                "contains_person": contains_person,
+            },
+            {
+                "prompt": _directive_prompt(scene, "A different angle from the same lived situation."),
+                "source": "ai_generated",
+                "transition": "cut",
+                "reference_previous": False,
+                "search_query": "",
+                "contains_person": contains_person,
+            },
+            {
+                "prompt": _directive_prompt(scene, "A close detail that compresses time and consequence."),
+                "source": "ai_generated",
+                "transition": "cut",
+                "reference_previous": False,
+                "search_query": "",
+                "contains_person": contains_person,
+            },
+            {
+                "prompt": _directive_prompt(scene, "A final contrasting shot that completes the beat."),
+                "source": "ai_generated",
+                "transition": "cut",
+                "reference_previous": False,
+                "search_query": "",
+                "contains_person": contains_person,
+            },
+        ]
+    elif beat == "aha_subtitle":
+        scene.frame_directives = [
+            {
+                "prompt": scene.narration.strip(),
+                "source": "subtitle",
+                "transition": "cut",
+                "reference_previous": False,
+                "search_query": "",
+                "contains_person": False,
+            }
+        ]
+
+
+def _ensure_visual_beat_directives(content: ScriptContent) -> None:
+    for scene in content.all_scenes():
+        _synthesize_frame_directives(scene, scene.visual_beat or "static")
+
+
 def _find_runs(labels: list[str], skip: set[str], threshold: int = 3) -> list[tuple[str, int, int, int]]:
     """Find runs of consecutive identical labels that meet or exceed *threshold*.
 
@@ -94,6 +187,7 @@ def _fix_visual_monotony(content: "ScriptContent", rules: "VisualBeatRules | Non
             new_beat = alternatives[i % len(alternatives)]
             logger.info("Monotony fix: scene %d beat '%s' → '%s' (run=%d)", i + 1, label, new_beat, length)
             scene.visual_beat = new_beat
+            _synthesize_frame_directives(scene, new_beat)
             fixes += 1
 
     if fixes:
@@ -231,6 +325,7 @@ def generate_script(
     content.format_id = fmt.id
     content = fmt.enforce_post_processing(content)
     _fix_visual_monotony(content, rules=fmt.visual_beat_rules)
+    _ensure_visual_beat_directives(content)
 
     # Persist multi-source media settings on the script
     content.gameplay_enabled = gameplay_enabled

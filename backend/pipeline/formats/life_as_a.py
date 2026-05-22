@@ -22,12 +22,12 @@ logger = logging.getLogger(__name__)
 LIFE_AS_A_BEAT_RULES = VisualBeatRules(
     allowed_beats=frozenset({"static", "continuous", "quick_cuts"}),
     target_distribution={
-        "static": (0.80, 0.90),
-        "continuous": (0.10, 0.15),
-        "quick_cuts": (0.0, 0.05),
+        "static": (0.45, 0.60),
+        "continuous": (0.25, 0.35),
+        "quick_cuts": (0.15, 0.25),
     },
-    max_consecutive_same_beat=12,    # static is dominant — long runs are intended
-    monotony_threshold=99,           # effectively disable run-breaking
+    max_consecutive_same_beat=2,
+    monotony_threshold=3,
 )
 
 

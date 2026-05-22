@@ -55,7 +55,7 @@ export function useMediaReview({ scriptId, content }: UseMediaReviewOptions) {
     if (hasNonAi && !mediaReviewDismissed) {
       const existing: MediaAssignment[] = allScenes.map((s) => ({
         scene_id: s.id,
-        media_source: (s.media_source ?? "ai") as "ai" | "gameplay_video" | "stock_photo",
+        media_source: (s.media_source ?? "ai") as MediaAssignment["media_source"],
         game_name: s.gameplay_game_override || null,
         search_query: s.media_source === "stock_photo" ? s.visual_prompt : null,
         reasoning: "",
