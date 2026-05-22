@@ -23,6 +23,24 @@ def test_build_reference_prompt_uses_all_fields():
     assert "neutral" in prompt.lower() or "plain" in prompt.lower()
 
 
+def test_build_reference_prompt_enforces_house_cartoon_style():
+    char = MainCharacter(
+        name="Maya",
+        appearance="athletic runner with a high ponytail and teal leggings",
+        vibe="upbeat and focused",
+    )
+    prompt = build_reference_prompt(char).lower()
+
+    assert "universal visual style" in prompt
+    assert "flat 2d cartoon" in prompt
+    assert "same illustrated world" in prompt
+    assert "no text" in prompt
+    assert "never use photorealism" in prompt
+    assert "cinematic film still aesthetic" not in prompt.replace(
+        "never use photorealism, cinematic film still aesthetics", ""
+    )
+
+
 def test_character_reference_path_is_per_project():
     p = character_reference_path("script-abc")
     assert "script-abc" in str(p)

@@ -14,6 +14,7 @@ from pathlib import Path
 from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH
 from integrations.google_image_client import generate_image
 from models.script import MainCharacter
+from prompts import IMAGE_VISUAL_STYLE
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +32,24 @@ def character_reference_web_path(script_id: str) -> str:
 def build_reference_prompt(character: MainCharacter) -> str:
     """Compose the Gemini prompt for the canonical reference image."""
     return (
-        f"Cinematic character reference portrait of {character.name}.\n"
+        f"{IMAGE_VISUAL_STYLE.template}\n\n"
+        "CHARACTER REFERENCE REQUIREMENT:\n"
+        "Create a canonical reference image for a recurring topic-specific main character. "
+        "This image will be reused as the visual identity anchor for later scene images, "
+        "so the art style must match the existing Headless Hero videos exactly.\n\n"
+        f"Character: {character.name}.\n"
         f"Appearance: {character.appearance}\n"
         f"Personality: {character.vibe}\n\n"
-        "Chest-up framing. Centered. Direct lighting from front-left. "
-        "Plain neutral light gray background. No props in hands. "
-        "Mouth closed, neutral expression. "
-        "Photorealistic, cinematic film still aesthetic, shallow depth of field. "
+        "Draw the character as a polished flat 2D cartoon illustration with clean medium-thick "
+        "outlines, saturated colors, simple expressive features, flat fills, and one subtle "
+        "shadow tone per major shape. The character may be completely different from Eli, but "
+        "must look like they belong in the exact same illustrated world as every other Headless "
+        "Hero video.\n\n"
+        "Centered three-quarter full-body character pose on a plain neutral light gray background. "
+        "No props in hands. Mouth closed, neutral-friendly expression. "
+        "No text, letters, numbers, labels, logos, captions, signs, or written marks anywhere. "
+        "Never use photorealism, cinematic film still aesthetics, 3D rendering, realistic lens "
+        "effects, gradients, shallow depth of field, or painterly concept art. "
         "16:9 aspect ratio."
     )
 
