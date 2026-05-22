@@ -436,6 +436,7 @@ def _generate_outline(
         json_mode=True,
         task="script",
         script_id=script_id,
+        cache=True,
     )
     text = strip_markdown_fences(raw)
 
@@ -503,6 +504,7 @@ def _generate_segment_scenes(
         json_mode=True,
         task="script",
         script_id=script_id,
+        cache=True,
     )
     text = strip_markdown_fences(raw)
 
