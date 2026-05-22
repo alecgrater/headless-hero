@@ -9,6 +9,7 @@ interface Props {
   generating: boolean;
   onGenerate: () => void;
   onClose: () => void;
+  onShortFormStatusChange?: () => void;
   scriptId: string;
   segments: { name: string }[];
 }
@@ -25,6 +26,7 @@ export default function ThumbnailModal({
   generating,
   onGenerate,
   onClose,
+  onShortFormStatusChange,
   scriptId,
   segments,
 }: Props) {
@@ -203,7 +205,11 @@ export default function ThumbnailModal({
               )}
             </>
           ) : (
-            <ShortFormThumbnailsCard scriptId={scriptId} segments={segments} />
+            <ShortFormThumbnailsCard
+              scriptId={scriptId}
+              segments={segments}
+              onStatusChange={onShortFormStatusChange}
+            />
           )}
         </div>
 

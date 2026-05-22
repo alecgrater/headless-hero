@@ -1769,7 +1769,7 @@ function TimelineEditor({
         const res = await api.get(`/api/thumbnail/${scriptId}`);
         if (res.ok) {
           const data = res.data as { concepts: ThumbnailConcept[] };
-          if (data.concepts.length > 0) setThumbnailsInline(data.concepts);
+          setThumbnailsInline(data.concepts);
         }
       } catch (_) { /* thumbnails are optional */ }
     })();
@@ -2715,6 +2715,19 @@ function TimelineEditor({
     }
   };
 
+  const refreshThumbnailCompletionStatus = useCallback(async () => {
+    await Promise.allSettled([
+      refreshLongFormThumbnailsInline(),
+      refreshShortFormThumbnailStatus(),
+      refreshScriptContent(),
+    ]);
+  }, [refreshLongFormThumbnailsInline, refreshScriptContent, refreshShortFormThumbnailStatus]);
+
+  const openThumbnailModal = () => {
+    setShowThumbnailModal(true);
+    void refreshThumbnailCompletionStatus();
+  };
+
   const requestYoloStop = useCallback(async () => {
     if (yoloStoppingRef.current) return;
     yoloStoppingRef.current = true;
@@ -3254,7 +3267,7 @@ function TimelineEditor({
         {/* Right — Thumbnail Preview */}
         <div className="shrink-0 border-l border-neutral-800/60 px-4 py-2.5 flex items-center justify-center">
           <button
-            onClick={() => setShowThumbnailModal(true)}
+            onClick={openThumbnailModal}
             className="relative group"
             title="Click to manage thumbnails"
           >
@@ -3560,6 +3573,7 @@ function TimelineEditor({
           generating={thumbnailsInlineGenerating}
           onGenerate={handleRecompositeThumbnailInline}
           onClose={() => setShowThumbnailModal(false)}
+          onShortFormStatusChange={() => void refreshShortFormThumbnailStatus()}
           scriptId={scriptId}
           segments={state.content.segments.map((s) => ({ name: s.name }))}
         />
