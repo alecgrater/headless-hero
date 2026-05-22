@@ -97,6 +97,9 @@ export function useRenderState(
   const thumbnailProgressHook = useOperationProgress("thumbnail_generation");
   const seoProgressHook = useOperationProgress("seo_generation");
   const shortFormSeoProgressHook = useOperationProgress("short_form_seo_generation");
+  const { start: startThumbnailProgress, end: endThumbnailProgress } = thumbnailProgressHook;
+  const { start: startSeoProgress, end: endSeoProgress } = seoProgressHook;
+  const { start: startShortFormSeoProgress, end: endShortFormSeoProgress } = shortFormSeoProgressHook;
   const {
     estimatedSeconds: exportBundleEstimatedSeconds,
     active: exportBundleActive,
@@ -167,7 +170,7 @@ export function useRenderState(
   const recompositeThumbnail = useCallback(
     async () => {
       setThumbnailsGenerating(true);
-      thumbnailProgressHook.start();
+      startThumbnailProgress();
       try {
         if (formatId === "life-as-a") {
           // life-as-a uses the split-progression Gemini call — re-roll and regenerate.
@@ -196,15 +199,15 @@ export function useRenderState(
         }
       } finally {
         setThumbnailsGenerating(false);
-        thumbnailProgressHook.end();
+        endThumbnailProgress();
       }
     },
-    [scriptId, formatId],
+    [scriptId, formatId, startThumbnailProgress, endThumbnailProgress],
   );
 
   const generateSEO = useCallback(async () => {
     setSeoGenerating(true);
-    seoProgressHook.start();
+    startSeoProgress();
     try {
       const res = await api.post("/api/seo/generate", {
         script_id: scriptId,
@@ -215,13 +218,13 @@ export function useRenderState(
       }
     } finally {
       setSeoGenerating(false);
-      seoProgressHook.end();
+      endSeoProgress();
     }
-  }, [scriptId]);
+  }, [scriptId, startSeoProgress, endSeoProgress]);
 
   const generateShortFormSEO = useCallback(async () => {
     setShortFormSeoGenerating(true);
-    shortFormSeoProgressHook.start();
+    startShortFormSeoProgress();
     try {
       const res = await api.post("/api/seo/generate-shorts", {
         script_id: scriptId,
@@ -232,9 +235,9 @@ export function useRenderState(
       }
     } finally {
       setShortFormSeoGenerating(false);
-      shortFormSeoProgressHook.end();
+      endShortFormSeoProgress();
     }
-  }, [scriptId]);
+  }, [scriptId, startShortFormSeoProgress, endShortFormSeoProgress]);
 
   const fetchEstimate = useCallback(
     async (sceneCount: number, totalAudioDuration: number) => {
