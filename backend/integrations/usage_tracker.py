@@ -1,7 +1,11 @@
 """Lightweight helper to record API usage from any integration client."""
 
+import atexit
 import logging
+import os
+import queue
 import threading
+import time
 
 from sqlmodel import Session
 
@@ -9,6 +13,86 @@ from database import engine
 from models.api_usage import ApiUsage
 
 logger = logging.getLogger(__name__)
+
+_QUEUE_MAX = 10_000
+_BATCH_SIZE = 50
+_FLUSH_INTERVAL_S = 1.0
+_SHUTDOWN_TIMEOUT_S = 5.0
+
+_usage_queue: "queue.Queue[ApiUsage | None]" = queue.Queue(maxsize=_QUEUE_MAX)
+_writer_thread: threading.Thread | None = None
+_writer_lock = threading.Lock()
+_disabled = False
+
+
+def _flush_batch(batch: list[ApiUsage]) -> None:
+    if not batch:
+        return
+    try:
+        with Session(engine) as session:
+            for row in batch:
+                session.add(row)
+            session.commit()
+    except Exception:
+        logger.debug("Failed to flush %d usage rows", len(batch), exc_info=True)
+
+
+def _writer_loop() -> None:
+    """Drain the queue in batches until a None sentinel is received."""
+    batch: list[ApiUsage] = []
+    last_flush = time.monotonic()
+    while True:
+        timeout = max(0.0, _FLUSH_INTERVAL_S - (time.monotonic() - last_flush))
+        try:
+            item = _usage_queue.get(timeout=timeout)
+        except queue.Empty:
+            _flush_batch(batch)
+            batch = []
+            last_flush = time.monotonic()
+            continue
+        if item is None:
+            # Shutdown sentinel: flush and exit.
+            _flush_batch(batch)
+            return
+        batch.append(item)
+        if len(batch) >= _BATCH_SIZE:
+            _flush_batch(batch)
+            batch = []
+            last_flush = time.monotonic()
+
+
+def _ensure_writer_started() -> None:
+    global _writer_thread, _disabled
+    if _disabled:
+        return
+    if _writer_thread is not None and _writer_thread.is_alive():
+        return
+    with _writer_lock:
+        if _writer_thread is not None and _writer_thread.is_alive():
+            return
+        if os.environ.get("HEADLESS_HERO_DISABLE_USAGE_THREAD"):
+            _disabled = True
+            return
+        _writer_thread = threading.Thread(
+            target=_writer_loop,
+            name="usage-writer",
+            daemon=True,
+        )
+        _writer_thread.start()
+        atexit.register(_shutdown_writer)
+
+
+def _shutdown_writer() -> None:
+    """Send sentinel and wait briefly so in-flight rows persist on exit."""
+    if _writer_thread is None or not _writer_thread.is_alive():
+        return
+    try:
+        _usage_queue.put_nowait(None)
+    except queue.Full:
+        # Queue is saturated; drop the sentinel attempt — daemon thread
+        # will be killed on interpreter exit anyway.
+        return
+    _writer_thread.join(timeout=_SHUTDOWN_TIMEOUT_S)
 
 
 def record_usage(
@@ -24,28 +108,29 @@ def record_usage(
     metadata_json: str = "",
     script_id: str | None = None,
 ) -> None:
-    """Record an API usage event in a background thread (fire-and-forget)."""
-    def _write():
-        try:
-            row = ApiUsage(
-                service=service,
-                operation=operation,
-                model=model,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                characters=characters,
-                images=images,
-                cost_estimate=cost_estimate,
-                metadata_json=metadata_json,
-                script_id=script_id,
-            )
-            with Session(engine) as session:
-                session.add(row)
-                session.commit()
-        except Exception:
-            logger.debug("Failed to record API usage", exc_info=True)
-
-    threading.Thread(target=_write, daemon=True).start()
+    """Enqueue an API usage event for batched background persistence."""
+    _ensure_writer_started()
+    if _disabled:
+        return
+    row = ApiUsage(
+        service=service,
+        operation=operation,
+        model=model,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        characters=characters,
+        images=images,
+        cost_estimate=cost_estimate,
+        metadata_json=metadata_json,
+        script_id=script_id,
+    )
+    try:
+        _usage_queue.put_nowait(row)
+    except queue.Full:
+        logger.warning(
+            "Usage queue full (max=%d); dropping record service=%s operation=%s",
+            _QUEUE_MAX, service, operation,
+        )
 
 
 # --- Pricing constants (USD per token) ---
