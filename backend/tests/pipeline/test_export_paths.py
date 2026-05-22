@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from pipeline.export_paths import (
+    copy_to_project_downloads,
     longform_filename,
     project_downloads_folder,
     project_folder_name,
@@ -71,6 +72,35 @@ def test_project_downloads_folder_uses_exports_setting(tmp_path, monkeypatch):
 
     assert folder == Path(exports_dir / "[project] Project Name")
     assert folder.is_dir()
+
+
+def test_video_exports_are_hardlinked_when_possible(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
+    src = tmp_path / "projects" / "script-123" / "renders" / "full_youtube.mp4"
+    src.parent.mkdir(parents=True)
+    src.write_bytes(b"video")
+
+    dest = Path(copy_to_project_downloads("Project Name", src, longform_filename("Video", "Project Name", ".mp4")))
+
+    assert dest.read_bytes() == b"video"
+    assert dest.stat().st_ino == src.stat().st_ino
+
+
+def test_video_exports_fall_back_to_copy_when_hardlink_fails(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
+    src = tmp_path / "projects" / "script-123" / "renders" / "full_youtube.mp4"
+    src.parent.mkdir(parents=True)
+    src.write_bytes(b"video")
+
+    def fail_link(_src, _dest):
+        raise OSError("cross-device link")
+
+    monkeypatch.setattr("pipeline.export_paths.os.link", fail_link)
+
+    dest = Path(copy_to_project_downloads("Project Name", src, longform_filename("Video", "Project Name", ".mp4")))
+
+    assert dest.read_bytes() == b"video"
+    assert dest.stat().st_ino != src.stat().st_ino
 
 
 def test_rename_project_exports_moves_folder_and_title_based_files(tmp_path, monkeypatch):

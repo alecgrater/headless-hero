@@ -137,6 +137,7 @@ Stored in DB via AppSettings, loaded into env at startup. Never commit `.env` fi
 
 - **JSON blobs over migrations**: Script content stored as JSON TEXT in SQLite — no migration burden
 - **Exports directory is the single final-media root**: User-facing exported assets live under the Settings → General → Storage `Exports` directory, defaulting to `~/Headless Hero Videos`. Project folders use `{Exports}/[project] {Project Title}` with the project title sanitized for filesystem safety. Do not add a second export/download root.
+- **Exported videos are deduped when possible**: Rendered MP4 exports should go through `pipeline.export_paths.copy_to_project_downloads`, which hardlinks same-drive video exports instead of byte-copying them. Keep the internal render path and user-facing export path compatible, and fall back to a normal copy only when hardlinking is unavailable (for example, cross-device exports).
 - **Async rendering with polling**: Long renders run in background threads, frontend polls `/api/render/status/{job_id}`
 - **IPC fallback**: Frontend works with or without Electron (direct HTTP to backend in dev)
 - **Static file serving**: FastAPI mounts `/static/projects` → `data/projects/`

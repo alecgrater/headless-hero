@@ -167,10 +167,43 @@ def copy_to_project_downloads(
     src_path: str | Path,
     filename: str,
 ) -> str:
-    """Copy a file into the configured project export folder."""
+    """Copy a file into the configured project export folder.
+
+    Large rendered videos are hard-linked when possible so the app can keep
+    both the internal render path and the user-facing export path without
+    storing duplicate MP4 bytes on the same drive. Cross-device exports fall
+    back to a normal copy.
+    """
     dest = project_downloads_folder(project_title) / filename
-    shutil.copy2(str(src_path), str(dest))
+    src = Path(src_path)
+    if _should_hardlink_export(src, dest):
+        _hardlink_or_copy(src, dest)
+    else:
+        shutil.copy2(str(src), str(dest))
     return str(dest)
+
+
+def _should_hardlink_export(src: Path, dest: Path) -> bool:
+    """Return True for large rendered video exports that benefit from dedupe."""
+    return src.suffix.lower() == ".mp4" and dest.suffix.lower() == ".mp4"
+
+
+def _hardlink_or_copy(src: Path, dest: Path) -> None:
+    """Hard-link src to dest when possible, falling back to shutil.copy2."""
+    if dest.exists():
+        try:
+            if dest.samefile(src):
+                return
+        except OSError:
+            pass
+        dest.unlink()
+    try:
+        os.link(src, dest)
+        shutil.copystat(src, dest, follow_symlinks=True)
+        logger.info("Hard-linked export video %s to %s", src, dest)
+    except OSError:
+        shutil.copy2(str(src), str(dest))
+        logger.info("Copied export video %s to %s", src, dest)
 
 
 def has_asset_label(filename: str, asset: ExportAsset) -> bool:
