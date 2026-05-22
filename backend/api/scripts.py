@@ -577,6 +577,28 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             )
             bg_session.commit()
 
+            if not eli_enabled and script_content.main_character is not None:
+                from pipeline.main_character import generate_character_reference
+                from models.project_config import update_project_config
+
+                logger.info(
+                    "Generating main character reference for script_id=%s", script_id
+                )
+                try:
+                    web_path = generate_character_reference(
+                        script_id=script_id,
+                        character=script_content.main_character,
+                    )
+                    update_project_config(
+                        bg_session,
+                        script_id,
+                        main_character_reference_url=web_path,
+                    )
+                    bg_session.commit()
+                except Exception as exc:  # noqa: BLE001
+                    logger.exception("Main character reference generation failed: %s", exc)
+                    # Non-fatal: project still works, scenes will just lack the reference.
+
         logger.info("Script generated: %s (%d segments) in %.1fs", script_id, len(script_content.segments), duration)
 
         if gameplay_enabled or stock_photo_enabled or (ai_video_enabled and animated_scene_count > 0):
