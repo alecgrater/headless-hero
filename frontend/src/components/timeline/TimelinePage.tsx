@@ -2549,9 +2549,9 @@ function TimelineEditor({
     }
   }, [eliProgress, refreshCost, refreshScriptContent, scriptId]);
 
-  const refreshLongFormThumbnailsInline = useCallback(async () => {
+  const refreshLongFormThumbnailsInline = useCallback(async (respectCancellation = true) => {
     const res = await api.get(`/api/thumbnail/${scriptId}`);
-    if (!res.ok || thumbnailsCancelledRef.current) return [];
+    if (!res.ok || (respectCancellation && thumbnailsCancelledRef.current)) return [];
     const data = res.data as { concepts: ThumbnailConcept[] };
     setThumbnailsInline(data.concepts);
     return data.concepts;
@@ -2717,7 +2717,7 @@ function TimelineEditor({
 
   const refreshThumbnailCompletionStatus = useCallback(async () => {
     await Promise.allSettled([
-      refreshLongFormThumbnailsInline(),
+      refreshLongFormThumbnailsInline(false),
       refreshShortFormThumbnailStatus(),
       refreshScriptContent(),
     ]);
