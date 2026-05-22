@@ -13,6 +13,7 @@ from pipeline.thumbnail import (
     _write_level_pair_sidecar,
     archive_current_longform_thumbnail,
     list_longform_thumbnails,
+    replace_active_longform_thumbnail,
     write_active_longform_thumbnail,
 )
 
@@ -134,6 +135,26 @@ def test_longform_thumbnail_archive_preserves_previous_active(tmp_path, monkeypa
     assert [idx for idx, _url in variants] == [0, 1]
     assert "thumbnails/0.png" in variants[0][1]
     assert "thumbnails/1.png" in variants[1][1]
+
+
+def test_replace_active_longform_thumbnail_archives_under_one_helper(tmp_path, monkeypatch):
+    monkeypatch.setattr(thumbnail, "DATA_DIR", tmp_path)
+    script_id = "script-replace"
+    first = tmp_path / "first.png"
+    second = tmp_path / "second.png"
+    third = tmp_path / "third.png"
+    Image.new("RGB", (32, 32), (10, 20, 30)).save(first)
+    Image.new("RGB", (32, 32), (200, 100, 50)).save(second)
+    Image.new("RGB", (32, 32), (50, 150, 200)).save(third)
+
+    write_active_longform_thumbnail(script_id, first)
+    replace_active_longform_thumbnail(script_id, second)
+    replace_active_longform_thumbnail(script_id, third)
+
+    thumbs_dir = tmp_path / "projects" / script_id / "renders" / "thumbnails"
+    assert (thumbs_dir / "0.png").read_bytes() == third.read_bytes()
+    assert (thumbs_dir / "1.png").read_bytes() == first.read_bytes()
+    assert (thumbs_dir / "2.png").read_bytes() == second.read_bytes()
 
 
 def test_enhance_split_progression_calls_gemini_with_templated_prompt(tmp_path, monkeypatch):

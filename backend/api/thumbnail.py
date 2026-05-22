@@ -14,11 +14,10 @@ from database import get_session
 from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
 from pipeline.thumbnail import (
-    archive_current_longform_thumbnail,
     get_composite_thumbnail,
     list_longform_thumbnails,
     gemini_enhance_thumbnail,
-    write_active_longform_thumbnail,
+    replace_active_longform_thumbnail,
 )
 from pipeline.title_card_composer import compose_title_card
 
@@ -105,7 +104,6 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
 
     thumbs_dir = DATA_DIR / "projects" / body.script_id / "renders" / "thumbnails"
     thumbs_dir.mkdir(parents=True, exist_ok=True)
-    archive_current_longform_thumbnail(body.script_id)
 
     # Generate base composite (no Eli — Gemini places Eli bursting out of one
     # randomly-chosen segment circle as a portal effect for maximum CTR)
@@ -152,7 +150,7 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
         logger.info("Using Gemini-enhanced thumbnail")
 
     # Copy to renders/thumbnails for export
-    url = write_active_longform_thumbnail(body.script_id, images_dir / "composite_title_card.png")
+    url = replace_active_longform_thumbnail(body.script_id, images_dir / "composite_title_card.png")
 
     duration = time.monotonic() - t0
     session.add(GenerationDuration(operation_type="thumbnail_generation", duration_seconds=duration))
@@ -227,8 +225,6 @@ def regenerate_split_progression(
     left_level, right_level = _pick_level_pair(n_levels)
     _write_level_pair_sidecar(sidecar_path, left_level, right_level)
 
-    archive_current_longform_thumbnail(body.script_id)
-
     # Force-regenerate the final thumbnail via Gemini.
     enhance_split_progression(
         clean_image_path=clean_path,
@@ -242,7 +238,7 @@ def regenerate_split_progression(
     if not final_path.exists():
         # Defensive — enhance_split_progression always writes final_path (with fallback to clean copy).
         raise HTTPException(status_code=500, detail="Thumbnail file missing after regeneration")
-    write_active_longform_thumbnail(body.script_id, final_path)
+    replace_active_longform_thumbnail(body.script_id, final_path)
 
     return GenerateThumbnailResponse(
         concepts=[

@@ -182,14 +182,26 @@ def archive_current_longform_thumbnail(script_id: str) -> Path | None:
         return archived
 
 
-def write_active_longform_thumbnail(script_id: str, source: Path) -> str:
-    """Copy ``source`` to the active long-form thumbnail slot and return its URL."""
+def replace_active_longform_thumbnail(
+    script_id: str,
+    source: Path,
+    archive_existing: bool = True,
+) -> str:
+    """Optionally archive the active thumbnail, then replace it atomically per script."""
     with _longform_thumbnail_lock(script_id):
         thumbs_dir = _longform_thumbnails_dir(script_id)
         thumb_path = thumbs_dir / "0.png"
+        if archive_existing and thumb_path.is_file():
+            archived = _next_longform_thumbnail_path(script_id)
+            shutil.copy2(str(thumb_path), str(archived))
         shutil.copy2(str(source), str(thumb_path))
     url = f"/static/projects/{script_id}/renders/thumbnails/0.png"
     return _cache_bust(url, str(thumb_path))
+
+
+def write_active_longform_thumbnail(script_id: str, source: Path) -> str:
+    """Copy ``source`` to the active long-form thumbnail slot and return its URL."""
+    return replace_active_longform_thumbnail(script_id, source, archive_existing=False)
 
 
 def list_longform_thumbnails(script_id: str) -> list[tuple[int, str]]:

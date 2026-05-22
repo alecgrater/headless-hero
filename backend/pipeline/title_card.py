@@ -211,10 +211,9 @@ def ensure_title_card_images(
             logger.info("Applied Gemini thumbnail enhancement")
 
     # Step 5: Copy with-title composite to the active thumbnail slot.
-    from pipeline.thumbnail import archive_current_longform_thumbnail, write_active_longform_thumbnail
+    from pipeline.thumbnail import replace_active_longform_thumbnail
 
-    archive_current_longform_thumbnail(script_id)
-    thumbnail_url = write_active_longform_thumbnail(script_id, composite_path)
+    thumbnail_url = replace_active_longform_thumbnail(script_id, composite_path)
     logger.info("Copied composite title card to thumbnail: %s", thumbnail_url)
 
     # Step 6: Set image_url on title card scenes to no-title version (for zoom rendering)
