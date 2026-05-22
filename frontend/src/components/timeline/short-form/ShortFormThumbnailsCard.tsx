@@ -53,6 +53,19 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, onStatusCh
     return status.paths;
   }, [onStatusChange, scriptId]);
 
+  const confirmBeforeRegenerating = useCallback(async (indices: number[]) => {
+    const paths = await refreshThumbnails();
+    const existing = indices.filter((idx) => paths[idx]);
+    if (existing.length === 0) return true;
+
+    const label = existing.length === 1
+      ? `thumbnail ${existing[0] + 1}`
+      : `${existing.length} existing thumbnails`;
+    return window.confirm(
+      `Warning: ${label} already exists. Regenerating will overwrite the existing thumbnail file. Continue?`,
+    );
+  }, [refreshThumbnails]);
+
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -119,6 +132,8 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, onStatusCh
 
   async function handleGenerateAll() {
     try {
+      const confirmed = await confirmBeforeRegenerating(segments.map((_, idx) => idx));
+      if (!confirmed) return;
       setBusy(true);
       setStatus(null);
       setCurrentOp({ type: "all" });
@@ -153,6 +168,8 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, onStatusCh
 
   async function handleGenerateOne(idx: number) {
     try {
+      const confirmed = await confirmBeforeRegenerating([idx]);
+      if (!confirmed) return;
       setBusySegment(idx);
       setStatus(null);
       setCurrentOp({ type: "one", index: idx });

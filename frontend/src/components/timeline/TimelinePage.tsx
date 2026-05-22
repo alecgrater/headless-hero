@@ -2380,9 +2380,17 @@ function TimelineEditor({
   };
 
   const confirmAndGenerateThumbnails = async () => {
-    const longFormThumbnails = thumbnailsInline.length > 0 ? thumbnailsInline : await refreshLongFormThumbnailsInline();
+    const [longFormThumbnails, shortFormPaths, latestContent] = await Promise.all([
+      refreshLongFormThumbnailsInline(false),
+      refreshShortFormThumbnailStatus(),
+      refreshScriptContent(),
+    ]);
     const hasExistingLongFormThumbnail = longFormThumbnails.some((concept) => concept.image_url);
-    if (hasExistingThumbnails || hasExistingLongFormThumbnail) {
+    const hasExistingTitleCards = latestContent.segments.some((segment) =>
+      segment.scenes.some((scene) => scene.is_title_card && scene.image_url),
+    );
+    const hasExistingShortFormThumbnails = Object.values(shortFormPaths).some(Boolean);
+    if (hasExistingTitleCards || hasExistingShortFormThumbnails || hasExistingLongFormThumbnail) {
       setConfirmOverwrite("thumbnails");
     } else {
       runThumbnailsCombined(false);
@@ -2724,6 +2732,25 @@ function TimelineEditor({
       setThumbnailsInlineGenerating(false);
     }
   };
+
+  const confirmLongFormThumbnailOverwrite = useCallback(async () => {
+    const existing = await refreshLongFormThumbnailsInline(false);
+    if (!existing.some((concept) => concept.image_url)) return true;
+    return window.confirm(
+      "Warning: a long-form thumbnail already exists. Regenerating will overwrite the current active thumbnail. Continue?",
+    );
+  }, [refreshLongFormThumbnailsInline]);
+
+  const handleRecompositeThumbnailInlineWithWarning = useCallback(async () => {
+    if (!(await confirmLongFormThumbnailOverwrite())) return;
+    await handleRecompositeThumbnailInline();
+  }, [confirmLongFormThumbnailOverwrite]);
+
+  const handleRenderLongFormThumbnailWithWarning = useCallback(async () => {
+    if (!(await confirmLongFormThumbnailOverwrite())) return;
+    await render.recompositeThumbnail();
+    await refreshLongFormThumbnailsInline(false);
+  }, [confirmLongFormThumbnailOverwrite, refreshLongFormThumbnailsInline, render]);
 
   const refreshThumbnailCompletionStatus = useCallback(async () => {
     await Promise.allSettled([
@@ -3430,7 +3457,7 @@ function TimelineEditor({
         <LongFormThumbnailsPanel
           thumbnails={render.thumbnails}
           generating={render.thumbnailsGenerating}
-          onGenerate={() => void render.recompositeThumbnail()}
+          onGenerate={() => void handleRenderLongFormThumbnailWithWarning()}
           onExport={() => void handleExportLongFormThumbnail()}
           exporting={longFormThumbnailExporting}
           progress={render.thumbnailProgress}
@@ -3581,7 +3608,7 @@ function TimelineEditor({
         <ThumbnailModal
           thumbnails={thumbnailsInline}
           generating={thumbnailsInlineGenerating}
-          onGenerate={handleRecompositeThumbnailInline}
+          onGenerate={handleRecompositeThumbnailInlineWithWarning}
           onClose={() => setShowThumbnailModal(false)}
           onShortFormStatusChange={handleShortFormThumbnailStatusChange}
           scriptId={scriptId}
