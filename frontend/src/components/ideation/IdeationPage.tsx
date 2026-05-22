@@ -52,12 +52,25 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
     }
   });
   const [animateFromIndex, setAnimateFromIndex] = useState(0);
+  const [eliEnabled, setEliEnabled] = useState<boolean>(true);
   const inputRef = useRef<IdeationInputHandle>(null);
   const cancelledRef = useRef(false);
   const lastAutoGenerateRequestId = useRef<number | null>(null);
 
   useEffect(() => {
     getFormats().then(setFormats).catch(() => setFormats([]));
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      const res = await api.get("/api/settings/keys");
+      if (res.ok) {
+        const data = res.data as Record<string, string>;
+        const raw = data["ELI_ENABLED_DEFAULT"];
+        // Stored as string "true"/"false"
+        setEliEnabled(raw !== "false");
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -186,6 +199,33 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
           onSelect={setSelectedFormatId}
         />
       )}
+
+      <div className="flex items-center gap-3 px-4 py-3 bg-neutral-900 rounded-lg border border-neutral-800">
+        <span className="text-sm font-medium text-neutral-100">Eli host overlay</span>
+        <button
+          type="button"
+          onClick={() => setEliEnabled(true)}
+          className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+            eliEnabled ? "bg-violet-600 text-white" : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
+          }`}
+        >
+          Enabled
+        </button>
+        <button
+          type="button"
+          onClick={() => setEliEnabled(false)}
+          className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
+            !eliEnabled ? "bg-violet-600 text-white" : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
+          }`}
+        >
+          Disabled
+        </button>
+        <span className="text-xs text-neutral-500 ml-2">
+          {eliEnabled
+            ? "Eli will be the recurring on-screen host."
+            : "A topic-specific main character will appear in scene images instead."}
+        </span>
+      </div>
 
       <IdeationInput ref={inputRef} onGenerate={generate} onCancel={handleCancel} loading={loading} />
 
