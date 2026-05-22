@@ -520,6 +520,8 @@ Do not allow three non-title-card `static` scenes in a row. A life-as-a video sh
 
 Shot-type palette: every `visual_prompt` MUST begin with one of `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, `[METAPHOR]`. `[DIAGRAM]` and `[SCALE]` are de-prioritized — this format is not explanatory. Visual prompts must NEVER ask for text, letters, words, labels, or written characters in the image.
 
+Eli is the visual identity of the second-person protagonist. When a life-as-a visual depicts the protagonist, the role named in the title, or a visible main person (for example a guard in "Your Life As A Guard"), the primary subject MUST be Eli in that role. If other people appear, they are secondary and visually distinct from Eli. Object-only, room-only, and atmosphere shots can omit Eli.
+
 For multi-frame `continuous` scenes, frames should show subtle progression of the SAME scene (reference_previous: true, transition: "crossfade"). For `quick_cuts`, every frame should be a distinct image with reference_previous: false and transition: "cut".
 
 ---
@@ -730,6 +732,7 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 - NEVER use `"aha_subtitle"`. NEVER use `"montage"`. These beats are DISABLED for this format.
 - Every `visual_prompt` MUST begin with `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, or `[METAPHOR]`. `[DIAGRAM]` and `[SCALE]` are de-prioritized for this format.
 - Visual prompts must NEVER request text, letters, words, labels, or written characters in the image.
+- Eli is the visual identity of the second-person protagonist. When a scene or frame depicts the protagonist, the role named in the title, or a visible main person, make Eli the visually dominant main subject in that role. Other people may appear as secondary characters, but they must be visually distinct from Eli. Object-only, room-only, and atmosphere shots can omit Eli.
 
 ### Forbidden in scene narration
 - Whole-video recap language, channel CTAs, subscribe requests, "come back next week", "before you go", "as we have seen", references to other levels by number ("in level three we saw").

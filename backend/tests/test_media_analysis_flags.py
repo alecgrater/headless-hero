@@ -238,6 +238,72 @@ def test_analyze_media_sources_does_not_promote_stock_or_text_only(monkeypatch):
     assert sources["scene_006"] == "ai_video"
 
 
+def test_life_as_a_ai_video_only_promotes_eli_scenes(monkeypatch):
+    content = ScriptContent(
+        title="Your Life As A Prison Guard",
+        format_id="life-as-a",
+        segments=[
+            Segment(
+                name="Level 1",
+                scenes=[
+                    Scene(id="scene_001", narration="Level one.", visual_prompt="[ESTABLISHING] title", is_title_card=True),
+                    Scene(
+                        id="scene_002",
+                        narration="The fluorescent lights flicker over the empty break room.",
+                        visual_prompt="[ESTABLISHING] An empty break room with chairs stacked by the wall",
+                        visual_beat="continuous",
+                    ),
+                    Scene(
+                        id="scene_003",
+                        narration="You walk the corridor and learn the rhythm of the doors.",
+                        visual_prompt=(
+                            "Eli, the recurring character, is the main subject and protagonist in this scene. "
+                            "Depict Eli as Prison Guard; any other people are secondary and visually distinct from Eli. "
+                            "[ESTABLISHING] A prison guard walking down a corridor"
+                        ),
+                        contains_person=True,
+                    ),
+                ],
+            ),
+            Segment(
+                name="Level 2",
+                scenes=[
+                    Scene(id="scene_004", narration="Level two.", visual_prompt="[ESTABLISHING] title", is_title_card=True),
+                    Scene(
+                        id="scene_005",
+                        narration="A plastic tray slides through the slot.",
+                        visual_prompt="[CLOSE-UP] A plastic tray sliding through a narrow slot",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(media_analyzer, "chat", lambda **_: """{
+      "assignments": [
+        {"scene_id": "scene_001", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "title"},
+        {"scene_id": "scene_002", "media_source": "ai_video", "game_name": null, "search_query": null, "reasoning": "moving but no eli"},
+        {"scene_id": "scene_003", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "missed eli"},
+        {"scene_id": "scene_004", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "title"},
+        {"scene_id": "scene_005", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "object"}
+      ]
+    }""")
+
+    assignments = analyze_media_sources(
+        content,
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+        ai_video_enabled=True,
+        animated_scene_count=1,
+        script_id="test-script",
+    )
+
+    sources = {assignment.scene_id: assignment.media_source for assignment in assignments}
+    assert sources["scene_002"] == "ai"
+    assert sources["scene_003"] == "ai_video"
+    assert sources["scene_005"] == "ai"
+
+
 def test_analyze_media_sources_respects_zero_ai_video_count(monkeypatch):
     content = ScriptContent(
         title="Disabled animation",

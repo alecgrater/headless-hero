@@ -93,7 +93,13 @@ def _has_ai_image_frame(scene: Scene) -> bool:
     )
 
 
-def _is_ai_video_eligible(scene: Scene, current_source: str = "ai") -> bool:
+def _is_ai_video_eligible(
+    scene: Scene,
+    current_source: str = "ai",
+    *,
+    require_eli_scene: bool = False,
+    life_as_a_role: str = "",
+) -> bool:
     if scene.is_title_card:
         return False
     if current_source in {"gameplay_video", "stock_photo", "user_upload"}:
@@ -104,6 +110,11 @@ def _is_ai_video_eligible(scene: Scene, current_source: str = "ai") -> bool:
         return False
     if _shot_type(scene) == "DIAGRAM":
         return False
+    if require_eli_scene:
+        from pipeline.formats.life_as_a import is_life_as_a_eli_scene
+
+        if not is_life_as_a_eli_scene(scene, life_as_a_role):
+            return False
     return _has_ai_image_frame(scene)
 
 
@@ -177,6 +188,12 @@ def analyze_media_sources(
 
     segment_count = len(script_content.segments)
     ai_video_limit = max(0, max(animated_scene_count, segment_count) if ai_video_available else 0)
+    require_eli_scene_for_ai_video = script_content.format_id == "life-as-a"
+    life_as_a_role = ""
+    if require_eli_scene_for_ai_video:
+        from pipeline.formats.life_as_a import life_as_a_role as resolve_life_as_a_role
+
+        life_as_a_role = resolve_life_as_a_role(script_content)
     system_prompt = (
         MEDIA_ANALYZER_SYSTEM.template
         .replace("{available_sources}", available_sources)
@@ -240,7 +257,11 @@ def analyze_media_sources(
             if (
                 ai_video_assigned >= ai_video_limit
                 or segment_index in segments_with_ai_video
-                or not _is_ai_video_eligible(scene)
+                or not _is_ai_video_eligible(
+                    scene,
+                    require_eli_scene=require_eli_scene_for_ai_video,
+                    life_as_a_role=life_as_a_role,
+                )
             ):
                 source = "ai"
             else:
@@ -281,6 +302,8 @@ def analyze_media_sources(
                 if _is_ai_video_eligible(
                     scene,
                     assignments_by_scene.get(scene.id, MediaAssignment(scene.id, "ai", None, None, "")).media_source,
+                    require_eli_scene=require_eli_scene_for_ai_video,
+                    life_as_a_role=life_as_a_role,
                 )
             ]
             if not candidates:
