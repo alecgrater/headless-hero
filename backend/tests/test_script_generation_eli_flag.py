@@ -2,17 +2,58 @@
 
 import uuid
 
-from sqlmodel import Session, select
+import pytest
+from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine, select
 from fastapi.testclient import TestClient
 
 from api import app
-from database import engine
+import database as database_module
+from api import scripts as scripts_module
+from models.brand import BrandProfile
 from models.project_config import ProjectConfig
 
 
-def test_project_config_row_written_with_eli_enabled_false(monkeypatch):
+@pytest.fixture
+def isolated_engine(monkeypatch):
+    """Swap the production SQLite engine for an in-memory one and seed a default brand.
+
+    Patches both `database.engine` and the already-imported `api.scripts.engine`
+    reference, and overrides the FastAPI `get_session` dependency so request
+    handlers also see the in-memory DB. Without this, the test would write
+    Script + ProjectConfig rows into the dev `data/db.sqlite`.
+    """
+    # StaticPool ensures the same in-memory SQLite database is shared across
+    # every Session opened against this engine (default NullPool would give
+    # each connection its own empty :memory: DB).
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+
+    # Seed a default brand so get_default_brand_id() inside the endpoint succeeds.
+    with Session(engine) as session:
+        session.add(BrandProfile(name="Test Brand"))
+        session.commit()
+
+    monkeypatch.setattr(database_module, "engine", engine)
+    monkeypatch.setattr(scripts_module, "engine", engine)
+
+    def _override_get_session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[database_module.get_session] = _override_get_session
+    try:
+        yield engine
+    finally:
+        app.dependency_overrides.pop(database_module.get_session, None)
+
+
+def test_project_config_row_written_with_eli_enabled_false(monkeypatch, isolated_engine):
     """When script gen completes with eli_enabled=False, a ProjectConfig row exists."""
-    from api import scripts as scripts_module
 
     def fake_run(job_id, target):
         # Run synchronously so we can assert post-state.
@@ -27,9 +68,6 @@ def test_project_config_row_written_with_eli_enabled_false(monkeypatch):
         return ScriptContent(title="t", segments=[Segment(name="seg-1", scenes=[])])
 
     monkeypatch.setattr(scripts_module, "generate_script", fake_generate_script)
-
-    # Skip media analysis side effects: keep flags off so the branch is skipped.
-    # Also stub hook scoring path's dependency just in case.
 
     unique_topic = f"eli-flag-test-{uuid.uuid4().hex}"
 
@@ -47,7 +85,7 @@ def test_project_config_row_written_with_eli_enabled_false(monkeypatch):
     # fake_run executed synchronously, so the Script row should exist now.
     from models.script import Script
 
-    with Session(engine) as session:
+    with Session(isolated_engine) as session:
         script_row = session.exec(
             select(Script).where(Script.topic_title == unique_topic)
         ).first()
@@ -60,9 +98,8 @@ def test_project_config_row_written_with_eli_enabled_false(monkeypatch):
     assert cfg_row.eli_enabled is False, f"Expected eli_enabled=False, got {cfg_row.eli_enabled}"
 
 
-def test_project_config_row_defaults_to_eli_enabled_true(monkeypatch):
+def test_project_config_row_defaults_to_eli_enabled_true(monkeypatch, isolated_engine):
     """Omitting eli_enabled in the request defaults to True (legacy behavior)."""
-    from api import scripts as scripts_module
 
     def fake_run(job_id, target):
         target()
@@ -90,7 +127,7 @@ def test_project_config_row_defaults_to_eli_enabled_true(monkeypatch):
 
     from models.script import Script
 
-    with Session(engine) as session:
+    with Session(isolated_engine) as session:
         script_row = session.exec(
             select(Script).where(Script.topic_title == unique_topic)
         ).first()
