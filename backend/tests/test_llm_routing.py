@@ -76,3 +76,9 @@ def test_openai_reasoning_efforts_are_exposed_as_settings():
         assert key in _PLAINTEXT_KEYS
         if config.get("openai_reasoning_effort"):
             assert _DEFAULTS[key] == config["openai_reasoning_effort"]
+
+
+def test_ai_video_scenes_per_segment_is_exposed_as_plaintext_setting():
+    assert "AI_VIDEO_SCENES_PER_SEGMENT" in ALLOWED_KEYS
+    assert "AI_VIDEO_SCENES_PER_SEGMENT" in _PLAINTEXT_KEYS
+    assert _DEFAULTS["AI_VIDEO_SCENES_PER_SEGMENT"] == "2"

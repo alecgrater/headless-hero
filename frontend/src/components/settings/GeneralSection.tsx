@@ -323,6 +323,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
   const [imageProvider, setImageProvider] = useState("google");
   const [aiVideoEnabled, setAiVideoEnabled] = useState(false);
   const [aiVideoProvider, setAiVideoProvider] = useState("runway");
+  const [aiVideoScenesPerSegment, setAiVideoScenesPerSegment] = useState("2");
   const [promptUpsampling, setPromptUpsampling] = useState("true");
   const [replicateModel, setReplicateModel] = useState("black-forest-labs/flux-1.1-pro");
   const [safetyTolerance, setSafetyTolerance] = useState("2");
@@ -338,6 +339,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
   const [originalProvider, setOriginalProvider] = useState("google");
   const [originalAiVideoEnabled, setOriginalAiVideoEnabled] = useState(false);
   const [originalAiVideoProvider, setOriginalAiVideoProvider] = useState("runway");
+  const [originalAiVideoScenesPerSegment, setOriginalAiVideoScenesPerSegment] = useState("2");
   const [originalUpsampling, setOriginalUpsampling] = useState("true");
   const [originalModel, setOriginalModel] = useState("black-forest-labs/flux-1.1-pro");
   const [originalSafety, setOriginalSafety] = useState("2");
@@ -362,6 +364,9 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
         const aiVideoProviderVal = data.AI_VIDEO_PROVIDER?.masked || "runway";
         setAiVideoProvider(aiVideoProviderVal);
         setOriginalAiVideoProvider(aiVideoProviderVal);
+        const aiVideoScenesPerSegmentVal = data.AI_VIDEO_SCENES_PER_SEGMENT?.masked || "2";
+        setAiVideoScenesPerSegment(aiVideoScenesPerSegmentVal);
+        setOriginalAiVideoScenesPerSegment(aiVideoScenesPerSegmentVal);
         const upVal = data.REPLICATE_PROMPT_UPSAMPLING?.masked || "true";
         setPromptUpsampling(upVal);
         setOriginalUpsampling(upVal);
@@ -420,6 +425,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
       IMAGE_PROVIDER: imageProvider,
       AI_VIDEO_ENABLED: aiVideoEnabled ? "true" : "false",
       AI_VIDEO_PROVIDER: aiVideoProvider,
+      AI_VIDEO_SCENES_PER_SEGMENT: aiVideoScenesPerSegment,
       REPLICATE_MODEL: replicateModel,
       REPLICATE_PROMPT_UPSAMPLING: promptUpsampling,
       REPLICATE_SAFETY_TOLERANCE: safetyTolerance,
@@ -436,6 +442,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
       setOriginalProvider(imageProvider);
       setOriginalAiVideoEnabled(aiVideoEnabled);
       setOriginalAiVideoProvider(aiVideoProvider);
+      setOriginalAiVideoScenesPerSegment(aiVideoScenesPerSegment);
       setOriginalModel(replicateModel);
       setOriginalUpsampling(promptUpsampling);
       setOriginalSafety(safetyTolerance);
@@ -533,6 +540,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
     imageProvider !== originalProvider ||
     aiVideoEnabled !== originalAiVideoEnabled ||
     aiVideoProvider !== originalAiVideoProvider ||
+    aiVideoScenesPerSegment !== originalAiVideoScenesPerSegment ||
     replicateModel !== originalModel ||
     promptUpsampling !== originalUpsampling ||
     safetyTolerance !== originalSafety ||
@@ -788,7 +796,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                 </button>
               </div>
               <p className="text-xs text-neutral-500">
-                Requires a key for the selected video provider. Script generation routes up to five high-motion scenes, at most one per segment.
+                Requires a key for the selected video provider. Script generation routes high-motion scenes up to the configured per-segment count.
               </p>
             </div>
 
@@ -838,6 +846,29 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                 </select>
                 <p className="text-xs text-neutral-500">
                   Existing cached clips are reused only when the provider, model, dimensions, duration, and anchor image all match.
+                </p>
+              </div>
+            )}
+
+            {aiVideoEnabled && (
+              <div className="p-5 space-y-2">
+                <div>
+                  <h3 className="text-sm font-medium text-neutral-100">AI Video Scenes per Segment</h3>
+                  <p className="text-xs text-neutral-500">
+                    Maximum eligible high-motion scenes to animate in each segment.
+                  </p>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  max="5"
+                  step="1"
+                  value={aiVideoScenesPerSegment}
+                  onChange={(e) => setAiVideoScenesPerSegment(e.target.value)}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
+                />
+                <p className="text-xs text-neutral-500">
+                  Default is 2. Use 0 to keep AI video available but skip automatic routing.
                 </p>
               </div>
             )}

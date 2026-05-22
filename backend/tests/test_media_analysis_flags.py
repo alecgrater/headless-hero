@@ -98,7 +98,7 @@ def test_resolve_scene_id_handles_unpadded_llm_ids():
     assert _resolve_scene_id("scene_99", valid_scene_ids) is None
 
 
-def test_analyze_media_sources_fills_ai_video_one_per_segment(monkeypatch):
+def test_analyze_media_sources_fills_ai_video_per_segment_slots(monkeypatch):
     content = ScriptContent(
         title="Motion routing",
         segments=[
@@ -110,6 +110,11 @@ def test_analyze_media_sources_fills_ai_video_one_per_segment(monkeypatch):
                         id="scene_002",
                         narration="You walk down the corridor and the light shifts.",
                         visual_prompt="[ESTABLISHING] A guard walking down a corridor as shadows move",
+                    ),
+                    Scene(
+                        id="scene_007",
+                        narration="The door opens and the alarm light turns red.",
+                        visual_prompt="[CLOSE-UP] A security door opening as a red alarm light turns on",
                     ),
                 ],
             ),
@@ -143,6 +148,7 @@ def test_analyze_media_sources_fills_ai_video_one_per_segment(monkeypatch):
       "assignments": [
         {"scene_id": "scene_001", "media_source": "ai_video", "game_name": null, "search_query": null, "reasoning": "bad title choice"},
         {"scene_id": "scene_002", "media_source": "ai_video", "game_name": null, "search_query": null, "reasoning": "good model choice"},
+        {"scene_id": "scene_007", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "missed second candidate"},
         {"scene_id": "scene_003", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "title"},
         {"scene_id": "scene_004", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "missed candidate"},
         {"scene_id": "scene_005", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "title"},
@@ -156,6 +162,7 @@ def test_analyze_media_sources_fills_ai_video_one_per_segment(monkeypatch):
         stock_photo_enabled=False,
         ai_video_enabled=True,
         animated_scene_count=1,
+        ai_video_scenes_per_segment=2,
         script_id="test-script",
     )
 
@@ -163,6 +170,7 @@ def test_analyze_media_sources_fills_ai_video_one_per_segment(monkeypatch):
     assert sources == {
         "scene_001": "ai",
         "scene_002": "ai_video",
+        "scene_007": "ai_video",
         "scene_003": "ai",
         "scene_004": "ai_video",
         "scene_005": "ai",

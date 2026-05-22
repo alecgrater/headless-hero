@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -21,6 +22,14 @@ router = APIRouter(prefix="/api/media", tags=["media"])
 ALLOWED_IMAGE_TYPES = {".png", ".jpg", ".jpeg", ".webp"}
 ALLOWED_VIDEO_TYPES = {".mp4", ".mov", ".webm"}
 ALLOWED_TYPES = ALLOWED_IMAGE_TYPES | ALLOWED_VIDEO_TYPES
+
+
+def _ai_video_scenes_per_segment() -> int:
+    try:
+        value = int(os.environ.get("AI_VIDEO_SCENES_PER_SEGMENT", "2"))
+    except ValueError:
+        return 2
+    return max(0, min(value, 5))
 
 
 class UploadResponse(BaseModel):
@@ -165,6 +174,7 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
                 stock_photo_enabled=stock_photo_enabled,
                 ai_video_enabled=ai_video_enabled,
                 animated_scene_count=5,
+                ai_video_scenes_per_segment=_ai_video_scenes_per_segment(),
                 script_id=script_id,
             )
         else:

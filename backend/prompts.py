@@ -2304,7 +2304,7 @@ For each scene, assign one of these media sources:
 {available_sources}
 
 Guidelines:
-- "ai_video": When included in the available source list, actively distribute animated AI-generated clips across the script. Choose exactly one eligible non-title-card scene per segment until you reach {ai_video_limit} scenes total, unless a segment has no suitable eligible scene. Eligible scenes have clear motion potential in a stylized illustration: a character gesture, physical transformation, environmental movement, reveal, metaphor coming alive, or emotionally important moment. Never use for title cards, "aha_subtitle" text-only scenes, diagrams that require precise labels, stock-photo-real subjects, or gameplay scenes.
+- "ai_video": When included in the available source list, actively distribute animated AI-generated clips across the script. Choose up to {ai_video_scenes_per_segment} eligible non-title-card scenes per segment until you reach {ai_video_limit} scenes total, unless a segment has fewer suitable eligible scenes. Eligible scenes have clear motion potential in a stylized illustration: a character gesture, physical transformation, environmental movement, reveal, metaphor coming alive, or emotionally important moment. Never use for title cards, "aha_subtitle" text-only scenes, diagrams that require precise labels, stock-photo-real subjects, or gameplay scenes.
 - "gameplay_video": Use when a scene discusses, references, or relates to a specific video game. Extract the most precise game title possible (e.g. "Grand Theft Auto III" not "GTA games", "Halo: Combat Evolved" not "Halo"). Infer the game from segment context — if a segment is titled "Shenmue — The Seventy Million Dollar Gamble", all non-title-card scenes in that segment are about Shenmue even if the scene text doesn't name it explicitly. For gaming-focused videos, most scenes discussing specific games should use this source.
 - "stock_photo": Use when real-world objects, events, places, people, products, or historical moments are discussed (e.g. a console launch event, a company headquarters, a real person). Generate an optimized Pexels search query: specific, descriptive, landscape-oriented (e.g. "PlayStation 2 console product photo black background" not "PS2").
 - "ai": Fallback for abstract concepts, metaphors, stylized illustrations, or scenes where no specific game or real-world subject is identifiable. Also use for title card scenes (is_title_card=true) — these must ALWAYS be "ai". Do NOT default to "ai" when a game name can be inferred from the scene or segment context.
@@ -2328,7 +2328,7 @@ Rules:
 - Only assign sources from the available list above
 - game_name must be null unless media_source is "gameplay_video"
 - search_query must be null unless media_source is "stock_photo"
-- Use "ai_video" only when it is included in the available source list, but when it is available you should strongly bias toward one animated candidate per segment
+- Use "ai_video" only when it is included in the available source list, but when it is available you should strongly bias toward the configured animated scene count in each segment
 - Return ONLY the JSON object with the "assignments" key, no other text""",
     inputs=["script_content_json", "available_sources"],
     retention=RetentionMeta(

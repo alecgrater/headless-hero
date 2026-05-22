@@ -496,6 +496,11 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
     gameplay_enabled = body.gameplay_enabled
     stock_photo_enabled = body.stock_photo_enabled
     ai_video_enabled = os.environ.get("AI_VIDEO_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
+    try:
+        ai_video_scenes_per_segment = int(os.environ.get("AI_VIDEO_SCENES_PER_SEGMENT", "2"))
+    except ValueError:
+        ai_video_scenes_per_segment = 2
+    ai_video_scenes_per_segment = max(0, min(ai_video_scenes_per_segment, 5))
     format_id = fmt.id
     supports_hook_scoring = fmt.supports_hook_scoring
 
@@ -558,6 +563,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
                     stock_photo_enabled=stock_photo_enabled,
                     ai_video_enabled=ai_video_enabled,
                     animated_scene_count=animated_scene_count,
+                    ai_video_scenes_per_segment=ai_video_scenes_per_segment,
                     script_id=script_id,
                 )
                 apply_assignments(script_content, assignments)

@@ -168,6 +168,7 @@ def analyze_media_sources(
     stock_photo_enabled: bool = True,
     ai_video_enabled: bool = False,
     animated_scene_count: int = 0,
+    ai_video_scenes_per_segment: int = 2,
     script_id: str | None = None,
 ) -> list[MediaAssignment]:
     """Analyze a completed script and assign media sources per scene.
@@ -175,7 +176,8 @@ def analyze_media_sources(
     Sends the full script to the routed LLM provider, which returns per-scene
     assignments based on the narrative content.
     """
-    ai_video_available = ai_video_enabled and animated_scene_count > 0
+    ai_video_scenes_per_segment = max(0, ai_video_scenes_per_segment)
+    ai_video_available = ai_video_enabled and animated_scene_count > 0 and ai_video_scenes_per_segment > 0
 
     sources = ['"ai"']
     if ai_video_available:
@@ -187,7 +189,10 @@ def analyze_media_sources(
     available_sources = ", ".join(sources)
 
     segment_count = len(script_content.segments)
-    ai_video_limit = max(0, max(animated_scene_count, segment_count) if ai_video_available else 0)
+    ai_video_limit = max(
+        0,
+        max(animated_scene_count, segment_count * ai_video_scenes_per_segment) if ai_video_available else 0,
+    )
     require_eli_scene_for_ai_video = script_content.format_id == "life-as-a"
     life_as_a_role = ""
     if require_eli_scene_for_ai_video:
@@ -198,6 +203,7 @@ def analyze_media_sources(
         MEDIA_ANALYZER_SYSTEM.template
         .replace("{available_sources}", available_sources)
         .replace("{ai_video_limit}", str(ai_video_limit))
+        .replace("{ai_video_scenes_per_segment}", str(ai_video_scenes_per_segment))
     )
 
     scenes_summary = []
@@ -237,7 +243,7 @@ def analyze_media_sources(
     valid_sources = {"ai", "ai_video", "gameplay_video", "stock_photo"}
     assignments_by_scene: dict[str, MediaAssignment] = {}
     ai_video_assigned = 0
-    segments_with_ai_video: set[int] = set()
+    segment_ai_video_counts: dict[int, int] = {}
     for entry in raw_assignments:
         source = entry.get("media_source", "ai")
         if source not in valid_sources:
@@ -256,7 +262,7 @@ def analyze_media_sources(
         if source == "ai_video":
             if (
                 ai_video_assigned >= ai_video_limit
-                or segment_index in segments_with_ai_video
+                or segment_ai_video_counts.get(segment_index, 0) >= ai_video_scenes_per_segment
                 or not _is_ai_video_eligible(
                     scene,
                     require_eli_scene=require_eli_scene_for_ai_video,
@@ -266,7 +272,7 @@ def analyze_media_sources(
                 source = "ai"
             else:
                 ai_video_assigned += 1
-                segments_with_ai_video.add(segment_index)
+                segment_ai_video_counts[segment_index] = segment_ai_video_counts.get(segment_index, 0) + 1
         if not gameplay_enabled and source == "gameplay_video":
             source = "ai"
         if not stock_photo_enabled and source == "stock_photo":
@@ -294,12 +300,14 @@ def analyze_media_sources(
         for seg_index, seg in enumerate(script_content.segments):
             if ai_video_assigned >= ai_video_limit:
                 break
-            if seg_index in segments_with_ai_video:
+            remaining_segment_slots = ai_video_scenes_per_segment - segment_ai_video_counts.get(seg_index, 0)
+            if remaining_segment_slots <= 0:
                 continue
             candidates = [
                 scene
                 for scene in seg.scenes
-                if _is_ai_video_eligible(
+                if assignments_by_scene.get(scene.id, MediaAssignment(scene.id, "ai", None, None, "")).media_source != "ai_video"
+                and _is_ai_video_eligible(
                     scene,
                     assignments_by_scene.get(scene.id, MediaAssignment(scene.id, "ai", None, None, "")).media_source,
                     require_eli_scene=require_eli_scene_for_ai_video,
@@ -308,17 +316,19 @@ def analyze_media_sources(
             ]
             if not candidates:
                 continue
-            best_scene = max(candidates, key=_ai_video_candidate_score)
-            existing = assignments_by_scene[best_scene.id]
-            assignments_by_scene[best_scene.id] = MediaAssignment(
-                scene_id=best_scene.id,
-                media_source="ai_video",
-                game_name=None,
-                search_query=None,
-                reasoning=existing.reasoning or _ai_video_reason(best_scene),
-            )
-            ai_video_assigned += 1
-            segments_with_ai_video.add(seg_index)
+            for best_scene in sorted(candidates, key=_ai_video_candidate_score, reverse=True)[:remaining_segment_slots]:
+                if ai_video_assigned >= ai_video_limit:
+                    break
+                existing = assignments_by_scene[best_scene.id]
+                assignments_by_scene[best_scene.id] = MediaAssignment(
+                    scene_id=best_scene.id,
+                    media_source="ai_video",
+                    game_name=None,
+                    search_query=None,
+                    reasoning=existing.reasoning or _ai_video_reason(best_scene),
+                )
+                ai_video_assigned += 1
+                segment_ai_video_counts[seg_index] = segment_ai_video_counts.get(seg_index, 0) + 1
 
     assignments = [
         assignments_by_scene[scene.id]

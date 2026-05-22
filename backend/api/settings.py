@@ -28,6 +28,7 @@ ALLOWED_KEYS = {
     "IMAGE_PROVIDER",
     "AI_VIDEO_ENABLED",
     "AI_VIDEO_PROVIDER",
+    "AI_VIDEO_SCENES_PER_SEGMENT",
     "RUNWAYML_API_SECRET",
     "FAL_API_KEY",
     "FAL_VIDEO_MODEL",
@@ -67,6 +68,7 @@ _PLAINTEXT_KEYS = {
     "IMAGE_PROVIDER",
     "AI_VIDEO_ENABLED",
     "AI_VIDEO_PROVIDER",
+    "AI_VIDEO_SCENES_PER_SEGMENT",
     "FAL_VIDEO_MODEL",
     "IMAGE_SCRAPER_FALLBACK_ENABLED",
     "REPLICATE_MODEL",
@@ -96,6 +98,7 @@ _DEFAULTS: dict[str, str] = {
     "IMAGE_SCRAPER_FALLBACK_ENABLED": "false",
     "AI_VIDEO_ENABLED": "false",
     "AI_VIDEO_PROVIDER": "runway",
+    "AI_VIDEO_SCENES_PER_SEGMENT": "2",
     "FAL_VIDEO_MODEL": "fal-ai/wan/v2.2-a14b/image-to-video/turbo",
     "SCRIPT_MODEL": DEFAULT_CLAUDE_MODEL,
     "AUDIO_FILTER_HIGHPASS": "true",
@@ -190,6 +193,21 @@ async def save_keys(
                 f"{ai_video_provider!r}. Must be one of ['fal', 'runway'].",
             )
         keys["AI_VIDEO_PROVIDER"] = ai_video_provider
+    if "AI_VIDEO_SCENES_PER_SEGMENT" in keys:
+        raw_count = (keys["AI_VIDEO_SCENES_PER_SEGMENT"] or "").strip()
+        try:
+            scenes_per_segment = int(raw_count)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid AI_VIDEO_SCENES_PER_SEGMENT: must be an integer from 0 to 5.",
+            )
+        if scenes_per_segment < 0 or scenes_per_segment > 5:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid AI_VIDEO_SCENES_PER_SEGMENT: must be an integer from 0 to 5.",
+            )
+        keys["AI_VIDEO_SCENES_PER_SEGMENT"] = str(scenes_per_segment)
     for provider_key in provider_keys.intersection(keys):
         provider = (keys[provider_key] or "").strip().lower()
         if provider and provider not in ALLOWED_PROVIDERS:
