@@ -1,8 +1,8 @@
 import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import type { MediaAssignment } from "../../api";
 import { applyMediaAssignments } from "../../api";
 import type { Scene } from "../../types/script";
-import ScenePreviewModal from "./ScenePreviewModal";
 
 interface Props {
   scriptId: string;
@@ -30,7 +30,7 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
   const [saving, setSaving] = useState(false);
   const [applying, setApplying] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
-  const [previewSceneId, setPreviewSceneId] = useState<string | null>(null);
+  const [expandedSceneIds, setExpandedSceneIds] = useState<Set<string>>(new Set());
 
   const summary = assignments.reduce<Record<string, number>>((acc, a) => {
     acc[a.media_source] = (acc[a.media_source] || 0) + 1;
@@ -55,6 +55,18 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
     setAssignments((prev) =>
       prev.map((a) => (a.scene_id === sceneId ? { ...a, [field]: field === "search_query" ? value : value || null } : a)),
     );
+  };
+
+  const toggleExpanded = (sceneId: string) => {
+    setExpandedSceneIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(sceneId)) {
+        next.delete(sceneId);
+      } else {
+        next.add(sceneId);
+      }
+      return next;
+    });
   };
 
   const applyAssignments = async () => {
@@ -133,6 +145,8 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
           const scene = scenes?.[a.scene_id];
           const isUploadedVideo = a.media_source === "user_upload" && !!scene?.video_url;
           const isVideoSource = a.media_source === "ai_video" || a.media_source === "gameplay_video" || isUploadedVideo;
+          const isExpanded = expandedSceneIds.has(a.scene_id);
+          const visualPrompt = sceneVisualPrompt(scene);
           return (
             <div key={a.scene_id} className="px-4 py-3 flex items-start gap-3 text-sm">
               <span className="text-neutral-500 w-6 text-right shrink-0 pt-1">{idx + 1}</span>
@@ -167,11 +181,17 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
                   {sceneSegments?.[a.scene_id] && <span className="truncate">{sceneSegments[a.scene_id]}</span>}
                   {scene?.is_title_card && <span className="text-neutral-600">Title card</span>}
                 </div>
-                <p className="truncate text-sm text-neutral-200" title={scene?.narration || ""}>
+                <p
+                  className={`${isExpanded ? "whitespace-pre-wrap break-words" : "truncate"} text-sm text-neutral-200`}
+                  title={isExpanded ? undefined : scene?.narration || ""}
+                >
                   {scene?.narration || "No narration for this scene."}
                 </p>
-                <p className="truncate text-xs text-neutral-500" title={sceneVisualPrompt(scene)}>
-                  {sceneVisualPrompt(scene) || "No visual prompt."}
+                <p
+                  className={`${isExpanded ? "whitespace-pre-wrap break-words leading-5" : "truncate"} text-xs text-neutral-500`}
+                  title={isExpanded ? undefined : visualPrompt}
+                >
+                  {visualPrompt || "No visual prompt."}
                 </p>
                 {a.media_source === "gameplay_video" && (
                   <input
@@ -192,39 +212,21 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
                   />
                 )}
               </div>
-              {scenes && scenes[a.scene_id] && (
-                <button
-                  onClick={() => setPreviewSceneId(a.scene_id)}
-                  disabled={!hasPreviewableAssets(scenes[a.scene_id])}
-                  className="w-7 h-7 flex items-center justify-center rounded-md text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors shrink-0"
-                  title="Preview scene"
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5Z" />
-                    <circle cx="8" cy="8" r="2" />
-                  </svg>
-                </button>
-              )}
+              <button
+                onClick={() => toggleExpanded(a.scene_id)}
+                className="w-7 h-7 flex items-center justify-center rounded-md text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700 transition-colors shrink-0"
+                title={isExpanded ? "Collapse scene text" : "Expand scene text"}
+                aria-label={isExpanded ? `Collapse scene ${idx + 1} text` : `Expand scene ${idx + 1} text`}
+                aria-expanded={isExpanded}
+              >
+                {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
             </div>
           );
         })}
       </div>
-
-      {/* Preview modal */}
-      {previewSceneId && scenes && scenes[previewSceneId] && (
-        <ScenePreviewModal
-          scene={scenes[previewSceneId]}
-          sceneIndex={Math.max(0, assignments.findIndex((a) => a.scene_id === previewSceneId))}
-          scriptId={scriptId}
-          onClose={() => setPreviewSceneId(null)}
-        />
-      )}
     </div>
   );
-}
-
-function hasPreviewableAssets(scene: Scene): boolean {
-  return !!(scene.image_url || (scene.frame_urls && scene.frame_urls.length > 0) || scene.audio_url || scene.video_url);
 }
 
 function sceneVisualPrompt(scene?: Scene): string {
