@@ -91,6 +91,7 @@ def _ensure_writer_started() -> None:
     if os.environ.get("HEADLESS_HERO_DISABLE_USAGE_THREAD"):
         _disabled = True
         return
+    _disabled = False
     if _writer_thread is not None and _writer_thread.is_alive():
         return
     with _writer_lock:
@@ -120,7 +121,9 @@ def _shutdown_writer() -> None:
             try:
                 _usage_queue.get_nowait()
             except queue.Empty:
-                break
+                # Writer drained between attempts — retry the put on the
+                # next loop iteration so the sentinel still goes through.
+                continue
     else:
         logger.warning("Could not enqueue usage-writer shutdown sentinel; rows may be lost")
         return
