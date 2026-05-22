@@ -1,7 +1,7 @@
 /**
  * VideoScene — renders a video clip (gameplay footage or user upload)
  * using Remotion's OffthreadVideo for frame-accurate playback.
- * Trims/loops the video to match the scene's audio duration.
+ * Scene duration is capped by the backend when the source clip is shorter.
  */
 import React from "react";
 import { OffthreadVideo } from "remotion";

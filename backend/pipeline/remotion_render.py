@@ -90,6 +90,104 @@ def _scene_frame_paths(script_id: str, scene: Scene) -> list[str]:
     return paths
 
 
+def _scene_video_path(script_id: str, scene: Scene) -> Path | None:
+    """Resolve the local filesystem path for video-backed scenes."""
+    if scene.media_source not in ("ai_video", "gameplay_video", "user_upload"):
+        return None
+
+    if scene.media_source == "ai_video":
+        ai_video_path = DATA_DIR / "projects" / script_id / "videos" / f"{scene.id}.mp4"
+        if ai_video_path.exists():
+            return ai_video_path
+
+    clip_path = DATA_DIR / "projects" / script_id / "clips" / f"{scene.id}.mp4"
+    if clip_path.exists():
+        return clip_path
+
+    uploads_dir = DATA_DIR / "projects" / script_id / "uploads"
+    for ext in (".mp4", ".mov", ".webm"):
+        upload_path = uploads_dir / f"{scene.id}{ext}"
+        if upload_path.exists():
+            return upload_path
+
+    return None
+
+
+def _read_video_metadata_duration(video_path: Path) -> float | None:
+    metadata_path = video_path.with_suffix(".source.json")
+    if not metadata_path.exists():
+        return None
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        logger.warning("Could not read video metadata duration from %s", metadata_path)
+        return None
+
+    duration = metadata.get("duration_seconds")
+    if isinstance(duration, (int, float)) and duration > 0:
+        return float(duration)
+    return None
+
+
+def _probe_video_duration(video_path: Path) -> float | None:
+    try:
+        result = run_tracked(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                str(video_path),
+            ],
+            label=f"FFprobe video duration: {video_path.name}",
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode == 0:
+            duration = float(result.stdout.strip())
+            if duration > 0:
+                return duration
+    except Exception as exc:
+        logger.warning("Could not probe video duration for %s: %s", video_path, exc)
+    return None
+
+
+def _video_clip_duration(video_path: Path) -> float | None:
+    """Return the actual clip duration, falling back to provider metadata."""
+    return _probe_video_duration(video_path) or _read_video_metadata_duration(video_path)
+
+
+def _base_scene_duration(scene: Scene) -> float:
+    return scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else scene.duration_estimate_seconds
+
+
+def _scene_render_duration(scene: Scene, script_id: str, video_path: Path | None = None) -> float:
+    """Return the Remotion sequence duration for a scene.
+
+    Video-backed scenes end at the clip boundary when the clip is shorter than
+    narration, preventing Remotion from holding the last frame while FX continue.
+    """
+    duration = _base_scene_duration(scene)
+    local_video_path = video_path or _scene_video_path(script_id, scene)
+    if not local_video_path:
+        return duration
+
+    clip_duration = _video_clip_duration(local_video_path)
+    if clip_duration and clip_duration + (1 / FPS) < duration:
+        logger.info(
+            "Capping video scene %s duration from %.3fs to clip duration %.3fs",
+            scene.id,
+            duration,
+            clip_duration,
+        )
+        return clip_duration
+    return duration
+
+
 def _title_card_image_path(script_id: str) -> str | None:
     """Resolve path to the title card composite image."""
     notitle = DATA_DIR / "projects" / script_id / "images" / "composite_title_card_notitle.png"
@@ -140,26 +238,11 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
 
     # Detect video scenes (AI-generated clips, gameplay clips, or uploaded videos)
     video_path: str | None = None
+    local_video_path = _scene_video_path(script_id, scene)
     media_type = "image"
-    if scene.media_source in ("ai_video", "gameplay_video", "user_upload"):
-        ai_video_path = DATA_DIR / "projects" / script_id / "videos" / f"{scene.id}.mp4"
-        if scene.media_source == "ai_video" and ai_video_path.exists():
-            video_path = _to_remotion_path(str(ai_video_path))
-            media_type = "video"
-        # Check for gameplay clip
-        clip_path = DATA_DIR / "projects" / script_id / "clips" / f"{scene.id}.mp4"
-        if not video_path and clip_path.exists():
-            video_path = _to_remotion_path(str(clip_path))
-            media_type = "video"
-        # Check for uploaded video
-        if not video_path:
-            uploads_dir = DATA_DIR / "projects" / script_id / "uploads"
-            for ext in (".mp4", ".mov", ".webm"):
-                upload_path = uploads_dir / f"{scene.id}{ext}"
-                if upload_path.exists():
-                    video_path = _to_remotion_path(str(upload_path))
-                    media_type = "video"
-                    break
+    if local_video_path:
+        video_path = _to_remotion_path(str(local_video_path))
+        media_type = "video"
 
     # For title cards, use the composite image
     if scene.is_title_card and scene.title_card_zoom_target:
@@ -168,7 +251,7 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
             image_path = tc_path
 
     # Parse FX if stored as dict — resolve trigger_word → trigger_frame
-    duration = scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else scene.duration_estimate_seconds
+    duration = _scene_render_duration(scene, script_id, local_video_path)
     fx = _resolve_zoom_punch_frame(scene.fx, scene.word_timestamps, duration)
 
     # Eli overlay passes through as-is (corner is set per-scene by generator)
@@ -250,7 +333,7 @@ def _compute_chapter_markers(
             })
 
         for scene in seg.scenes:
-            duration = scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else scene.duration_estimate_seconds
+            duration = _scene_render_duration(scene, script_id)
             scene_frames = max(fps, int(duration * fps))
             current_frame += scene_frames
 
