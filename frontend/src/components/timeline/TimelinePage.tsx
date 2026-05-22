@@ -1266,21 +1266,21 @@ function LongFormThumbnailsPanel({
   progress: { estimatedSeconds: number | null; active: boolean };
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
-  const activeThumbnail = thumbnails[activeIndex] ?? thumbnails[0] ?? null;
+  const safeActiveIndex = thumbnails.length === 0 ? 0 : Math.min(activeIndex, thumbnails.length - 1);
+  const activeThumbnail = thumbnails[safeActiveIndex] ?? null;
   const canFlip = thumbnails.length > 1;
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [thumbnails]);
 
   const goPrevious = () => {
     if (!canFlip) return;
-    setActiveIndex((idx) => (idx === 0 ? thumbnails.length - 1 : idx - 1));
+    setActiveIndex((idx) => {
+      const currentIndex = Math.min(idx, thumbnails.length - 1);
+      return currentIndex === 0 ? thumbnails.length - 1 : currentIndex - 1;
+    });
   };
 
   const goNext = () => {
     if (!canFlip) return;
-    setActiveIndex((idx) => (idx + 1) % thumbnails.length);
+    setActiveIndex((idx) => (Math.min(idx, thumbnails.length - 1) + 1) % thumbnails.length);
   };
 
   return (
@@ -1849,7 +1849,7 @@ function TimelineEditor({
           const data = res.data as { concepts: ThumbnailConcept[] };
           setThumbnailsInline(data.concepts);
         }
-      } catch (_) { /* thumbnails are optional */ }
+      } catch { /* thumbnails are optional */ }
     })();
   }, [scriptId]);
 
@@ -2892,7 +2892,7 @@ function TimelineEditor({
       const creationComplete = await runYoloCreationPipeline(voicePicker.selectedVoiceId);
       if (!creationComplete || yoloCancelledRef.current) return;
 
-      let latest = await refreshScriptContent();
+      const latest = await refreshScriptContent();
       const segmentTotal = latest.segments.length;
 
       if (!render.seoMetadata) {
@@ -2966,6 +2966,7 @@ function TimelineEditor({
     refreshScriptContent,
     refreshShortFormRenderStatus,
     refreshShortFormThumbnailStatus,
+    openUploadPanel,
     render,
     requestYoloStop,
     runYoloCreationPipeline,
