@@ -152,6 +152,7 @@ export interface ShortFormVideoProps {
   scenes: SceneInput[];          // first scene has is_title_card=true; rest are narration
   stripped_title: string;         // long-form video title with leading digits stripped
   segment_name: string;           // this segment's name (rendered with pop-in flourish)
+  part_indicator?: string;        // life-as-a only, e.g. Part 3/6
   fps: number;
   width: number;                  // 1080
   height: number;                 // 1920

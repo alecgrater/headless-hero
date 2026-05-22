@@ -18,6 +18,7 @@ export const ShortFormVideo: React.FC<ShortFormVideoProps> = ({
   scenes,
   stripped_title,
   segment_name,
+  part_indicator,
   fps,
   subtitle_highlight,
 }) => {
@@ -39,6 +40,7 @@ export const ShortFormVideo: React.FC<ShortFormVideoProps> = ({
           <ShortTitleCardScene
             stripped_title={stripped_title}
             segment_name={segment_name}
+            part_indicator={part_indicator ?? ""}
             backdrop_image_path={scene.image_path ?? ""}
           />
           {scene.audio_path && <Audio src={scene.audio_path} volume={1} />}

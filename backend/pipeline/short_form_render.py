@@ -15,6 +15,7 @@ from pipeline.remotion_render import (
     _scene_to_input_props,
     _verify_video,
 )
+from pipeline.short_form_parts import short_form_part_indicator
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +168,7 @@ def render_short_segment(
         "scenes": scene_props,
         "stripped_title": strip_leading_number(content.title),
         "segment_name": segment.name,
+        "part_indicator": short_form_part_indicator(content, segment_idx),
         "fps": FPS,
         "width": SHORT_WIDTH,
         "height": SHORT_HEIGHT,

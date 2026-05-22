@@ -2,6 +2,7 @@
 
 import json
 import logging
+import re
 
 from pydantic import BaseModel
 
@@ -11,6 +12,8 @@ from models.script import ScriptContent
 from prompts import SEO_SYSTEM, SHORT_FORM_SEO_SYSTEM
 
 logger = logging.getLogger(__name__)
+
+_PART_SUFFIX_RE = re.compile(r"\s*\(Part\s+[^)]*\)\s*$", re.IGNORECASE)
 
 class YouTubeSEO(BaseModel):
     title: str
@@ -118,9 +121,14 @@ def _validate_short_indices(result: ShortFormSEOMetadata, shorts: list[dict]) ->
 
 def _short_form_title(project_title: str, segment_title: str) -> str:
     """Build the deterministic upload title for a short-form segment."""
-    clean_project_title = project_title.strip() or "Untitled"
-    clean_segment_title = segment_title.strip() or "Untitled"
+    clean_project_title = strip_short_form_part_suffix(project_title.strip()) or "Untitled"
+    clean_segment_title = strip_short_form_part_suffix(segment_title.strip()) or "Untitled"
     return f"{clean_project_title} - {clean_segment_title}"
+
+
+def strip_short_form_part_suffix(title: str) -> str:
+    """Remove legacy visible Part N/M suffixes from upload titles."""
+    return _PART_SUFFIX_RE.sub("", title).strip()
 
 
 def retitle_short_form_seo_metadata(metadata: dict | None, project_title: str, content: ScriptContent) -> dict | None:

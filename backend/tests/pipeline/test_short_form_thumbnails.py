@@ -6,6 +6,7 @@ from PIL import Image, ImageDraw
 
 from models.script import Scene, ScriptContent, Segment
 from pipeline import short_form_thumbnails as thumbs
+from pipeline.short_form_parts import short_form_part_indicator
 
 
 def _content() -> ScriptContent:
@@ -38,6 +39,14 @@ def test_short_thumbnail_filename_sanitizes_segment_name():
     result = thumbs.short_thumbnail_filename('Bad/Name: "Test"', 3, 8)
     assert result == "[Shortform 3∕8] [Thumbnail] - BadName Test.png"
     assert "/" not in result
+
+
+def test_short_form_part_indicator_only_for_life_as_a():
+    content = _content()
+    assert short_form_part_indicator(content, 0) == ""
+
+    content.format_id = "life-as-a"
+    assert short_form_part_indicator(content, 1) == "Part 2/2"
 
 
 def test_fit_text_shrinks_instead_of_splitting_single_word():

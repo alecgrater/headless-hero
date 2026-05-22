@@ -11,6 +11,7 @@ from pipeline.seo import (
     _validate_short_indices,
     build_short_form_seo_contexts,
     generate_short_form_seo,
+    strip_short_form_part_suffix,
 )
 
 
@@ -103,6 +104,11 @@ class TestValidateShortIndices:
 class TestShortFormTitles:
     def test_builds_project_title_segment_title(self):
         assert _short_form_title("Project", "Segment") == "Project - Segment"
+
+    def test_strips_legacy_part_suffix_from_titles(self):
+        assert strip_short_form_part_suffix("Project - Segment (Part 3/7)") == "Project - Segment"
+        assert strip_short_form_part_suffix("Project - Segment (Part {current}/{total})") == "Project - Segment"
+        assert _short_form_title("Project (Part 1/2)", "Segment (Part 2/2)") == "Project - Segment"
 
     def test_generated_short_titles_are_deterministic(self, monkeypatch):
         def fake_chat(*args, **kwargs):

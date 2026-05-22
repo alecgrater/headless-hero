@@ -61,6 +61,7 @@ export const Root: React.FC = () => {
           scenes: [],
           stripped_title: "",
           segment_name: "",
+          part_indicator: "",
           fps: 30,
           width: 1080,
           height: 1920,

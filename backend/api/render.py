@@ -29,6 +29,7 @@ from pipeline.export_paths import (
     shortform_filename,
     shortform_video_filename,
 )
+from pipeline.seo import strip_short_form_part_suffix
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +134,7 @@ def _format_longform_seo_markdown(seo: dict) -> str:
 def _format_shortform_seo_markdown(item: dict) -> str:
     hashtags = item.get("hashtags") or []
     tags = item.get("tags") or []
-    title = item.get("title", "")
+    title = strip_short_form_part_suffix(str(item.get("title", "")))
     description = item.get("description", "")
     hashtags_line = " ".join(hashtags)
     tags_line = ", ".join(tags)

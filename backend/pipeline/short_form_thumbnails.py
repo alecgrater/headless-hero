@@ -17,6 +17,7 @@ from config import DATA_DIR
 from models.script import ScriptContent
 from pipeline.export_paths import project_downloads_folder, shortform_filename
 from pipeline.formats import resolve_format
+from pipeline.short_form_parts import short_form_part_indicator
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ SHORT_THUMB_WIDTH = 1080
 SHORT_THUMB_HEIGHT = 1920
 FOCAL_SIZE = 980
 IMAGE_TEXT_GAP = 40
+PART_LABEL_GAP = 28
 COMPOSITION_TOP_BIAS = 30
 TEXT_MAX_HEIGHT = 280
 TEXT_MAX_WIDTH = 920
@@ -165,6 +167,25 @@ def _fit_text(
     return font, lines, 6, bboxes
 
 
+def _fit_single_line(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    max_width: int,
+    *,
+    start_size: int,
+    min_size: int = 28,
+    title: bool = True,
+    stroke_width: int = 0,
+) -> tuple[ImageFont.FreeTypeFont, tuple[int, int, int, int]]:
+    for size in range(start_size, min_size - 1, -4):
+        font = _load_font(size, title=title)
+        bbox = _text_bbox(draw, text, font, stroke_width=stroke_width)
+        if bbox[2] - bbox[0] <= max_width:
+            return font, bbox
+    font = _load_font(min_size, title=title)
+    return font, _text_bbox(draw, text, font, stroke_width=stroke_width)
+
+
 def _save_png_under_limit(image: Image.Image, output_path: Path) -> None:
     rgb = image.convert("RGB")
     rgb.save(output_path, format="PNG", optimize=True, compress_level=9, dpi=(72, 72))
@@ -213,14 +234,33 @@ def generate_short_thumbnail(
     focal = ImageEnhance.Contrast(focal).enhance(1.08)
 
     text = short_thumbnail_title(content, segment_idx)
+    part_label = short_form_part_indicator(content, segment_idx)
     measure_draw = ImageDraw.Draw(canvas)
     font, lines, line_gap, line_bboxes = _fit_text(measure_draw, text, TEXT_MAX_WIDTH, TEXT_MAX_HEIGHT)
     heights = [bbox[3] - bbox[1] for bbox in line_bboxes]
     total_text_h = sum(heights) + line_gap * (len(lines) - 1)
 
+    part_font: ImageFont.FreeTypeFont | None = None
+    part_bbox: tuple[int, int, int, int] | None = None
+    part_h = 0
+    if part_label:
+        part_font, part_bbox = _fit_single_line(
+            measure_draw,
+            part_label.upper(),
+            TEXT_MAX_WIDTH,
+            start_size=76,
+            title=True,
+            stroke_width=5,
+        )
+        part_h = part_bbox[3] - part_bbox[1]
+
     comp_h = focal.height + IMAGE_TEXT_GAP + total_text_h
+    if part_label:
+        comp_h += part_h + PART_LABEL_GAP
     focal_x = (SHORT_THUMB_WIDTH - focal.width) // 2
-    focal_y = (SHORT_THUMB_HEIGHT - comp_h) // 2 - COMPOSITION_TOP_BIAS
+    comp_y = (SHORT_THUMB_HEIGHT - comp_h) // 2 - COMPOSITION_TOP_BIAS
+    part_y = comp_y if part_label else 0
+    focal_y = comp_y + (part_h + PART_LABEL_GAP if part_label else 0)
     text_y = focal_y + focal.height + IMAGE_TEXT_GAP
 
     shadow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
@@ -241,6 +281,27 @@ def generate_short_thumbnail(
         on_progress(0.65, "Drawing title...")
 
     draw = ImageDraw.Draw(canvas)
+
+    if part_label and part_font and part_bbox:
+        part_text = part_label.upper()
+        part_w = part_bbox[2] - part_bbox[0]
+        part_x = (SHORT_THUMB_WIDTH - part_w) // 2
+        draw.text(
+            (part_x - part_bbox[0] + 5, part_y - part_bbox[1] + 7),
+            part_text,
+            font=part_font,
+            fill=(0, 0, 0, 230),
+            stroke_width=5,
+            stroke_fill=(0, 0, 0, 230),
+        )
+        draw.text(
+            (part_x - part_bbox[0], part_y - part_bbox[1]),
+            part_text,
+            font=part_font,
+            fill=(255, 244, 141, 255),
+            stroke_width=5,
+            stroke_fill=(23, 9, 0, 255),
+        )
 
     glow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow)

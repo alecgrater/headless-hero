@@ -24,6 +24,7 @@ const { fontFamily: heavyFontFamily } = loadHeavyFont("normal", {
 interface Props {
   stripped_title: string;
   segment_name: string;
+  part_indicator?: string;
   backdrop_image_path: string;
 }
 
@@ -48,6 +49,7 @@ function fitTitleFontSize(title: string): number {
 export const ShortTitleCardScene: React.FC<Props> = ({
   stripped_title,
   segment_name,
+  part_indicator = "",
   backdrop_image_path,
 }) => {
   const frame = useCurrentFrame();
@@ -74,6 +76,7 @@ export const ShortTitleCardScene: React.FC<Props> = ({
 
   const titleFontSize = fitTitleFontSize(stripped_title);
   const titleText = stripped_title.toUpperCase();
+  const partText = part_indicator.trim().toUpperCase();
 
   return (
     <div
@@ -115,9 +118,27 @@ export const ShortTitleCardScene: React.FC<Props> = ({
           justifyContent: "center",
           padding: "80px 64px 40px",
           boxSizing: "border-box",
-          gap: 20,
+          gap: partText ? 16 : 20,
         }}
       >
+        {partText && (
+          <div
+            style={{
+              fontFamily: displayFontFamily,
+              fontWeight: 800,
+              fontSize: 44,
+              lineHeight: 1,
+              color: "#fff3a3",
+              textAlign: "center",
+              textTransform: "uppercase",
+              textShadow:
+                "0 3px 0 rgba(0,0,0,0.9), 0 10px 24px rgba(0,0,0,0.8), 0 0 18px rgba(251,191,36,0.5)",
+            }}
+          >
+            {partText}
+          </div>
+        )}
+
         {/* Amber accent bar (top) */}
         <div
           style={{
