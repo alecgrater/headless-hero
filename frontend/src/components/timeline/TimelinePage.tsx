@@ -759,6 +759,7 @@ function FinalizationRow({
   eliEstimatedSeconds,
   eliProgressActive,
   eliProgress,
+  eliDisabledForProject,
   allAudioGenerated,
   allSeoDone,
   missingSeoCount,
@@ -798,6 +799,7 @@ function FinalizationRow({
   eliEstimatedSeconds: number | null;
   eliProgressActive: boolean;
   eliProgress: number | null;
+  eliDisabledForProject: boolean;
   allAudioGenerated: boolean;
   allSeoDone: boolean;
   missingSeoCount: number;
@@ -924,7 +926,7 @@ function FinalizationRow({
             <div ref={eliDropdownRef} className="relative flex items-stretch flex-1">
               <button
                 onClick={generatingEli ? (yoloModeActive ? undefined : () => { eliCancelledRef.current = true; setGeneratingEli(false); }) : confirmAndGenerateEli}
-                disabled={!allAudioGenerated && !generatingEli}
+                disabled={eliDisabledForProject || (!allAudioGenerated && !generatingEli)}
                 className={`text-xs pl-3 pr-1.5 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
                   generatingEli
                     ? `bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] ${yoloModeActive ? "cursor-default" : "hover:border-red-500/50 hover:text-red-400"}`
@@ -932,7 +934,7 @@ function FinalizationRow({
                       ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
                       : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
                 }`}
-                title={!allAudioGenerated && !generatingEli ? "Generate audio first — Eli needs voiceover for mouth animation" : generatingEli ? (yoloModeActive ? "Generating Eli" : "Cancel Eli generation") : "Add Eli character overlay to all scenes"}
+                title={eliDisabledForProject ? "Eli is disabled for this project. The main character is integrated into scene images instead." : !allAudioGenerated && !generatingEli ? "Generate audio first — Eli needs voiceover for mouth animation" : generatingEli ? (yoloModeActive ? "Generating Eli" : "Cancel Eli generation") : "Add Eli character overlay to all scenes"}
               >
                 {generatingEli ? (
                   <>
@@ -948,9 +950,9 @@ function FinalizationRow({
               {!generatingEli ? (
                 <button
                   onClick={() => setShowEliDropdown(!showEliDropdown)}
-                  disabled={!allAudioGenerated}
-                  className={`text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 rounded-r-lg transition-all flex items-center ${!allAudioGenerated ? "text-neutral-600 cursor-not-allowed" : "text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200"}`}
-                  title={!allAudioGenerated ? "Generate audio first" : "Eli generation options"}
+                  disabled={eliDisabledForProject || !allAudioGenerated}
+                  className={`text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 rounded-r-lg transition-all flex items-center ${eliDisabledForProject || !allAudioGenerated ? "text-neutral-600 cursor-not-allowed opacity-40" : "text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200"}`}
+                  title={eliDisabledForProject ? "Eli is disabled for this project. The main character is integrated into scene images instead." : !allAudioGenerated ? "Generate audio first" : "Eli generation options"}
                 >
                   <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
                     <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -967,7 +969,7 @@ function FinalizationRow({
                 <div className="absolute top-full left-0 mt-1.5 w-48 bg-neutral-800/90 border border-neutral-700/60 rounded-xl shadow-2xl z-50 py-1.5">
                   <button
                     onClick={() => { setShowEliDropdown(false); generateMissingEli(); }}
-                    disabled={allEliGenerated || !hasExistingEli || !allAudioGenerated}
+                    disabled={eliDisabledForProject || allEliGenerated || !hasExistingEli || !allAudioGenerated}
                     className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Generate Missing ({missingEliCount})
@@ -3305,6 +3307,7 @@ function TimelineEditor({
             eliEstimatedSeconds={eliProgress.estimatedSeconds}
             eliProgressActive={eliProgress.active}
             eliProgress={eliProgressPct}
+            eliDisabledForProject={projectConfig != null && !projectConfig.eli_enabled}
             allAudioGenerated={allAudioGenerated}
             allSeoDone={allSeoDone}
             missingSeoCount={missingSeoCount}
