@@ -2,6 +2,7 @@
 
 import json
 import os
+from types import SimpleNamespace
 
 from PIL import Image
 
@@ -140,7 +141,11 @@ def test_enhance_split_progression_calls_gemini_with_templated_prompt(tmp_path, 
 
     captured: dict[str, object] = {}
 
-    def fake_transform(prompt: str, image_paths: list[str], script_id: str | None = None) -> str:
+    def fake_transform(
+        prompt: str,
+        image_paths: list[str],
+        script_id: str | None = None,
+    ) -> str:
         captured["prompt"] = prompt
         captured["image_paths"] = image_paths
         # Simulate Gemini producing a temp output
@@ -148,7 +153,10 @@ def test_enhance_split_progression_calls_gemini_with_templated_prompt(tmp_path, 
         Image.new("RGB", (32, 32), (200, 100, 50)).save(result)
         return str(result)
 
-    monkeypatch.setattr("integrations.google_image_client.transform_with_references", fake_transform)
+    monkeypatch.setattr(
+        "integrations.google_image_client.transform_with_references",
+        fake_transform,
+    )
 
     result = thumbnail.enhance_split_progression(
         clean_image_path=clean_path,
@@ -205,13 +213,20 @@ def test_enhance_split_progression_caches_by_mtime(tmp_path, monkeypatch):
 
     call_count = {"n": 0}
 
-    def fake_transform(prompt: str, image_paths: list[str], script_id: str | None = None) -> str:
+    def fake_transform(
+        prompt: str,
+        image_paths: list[str],
+        script_id: str | None = None,
+    ) -> str:
         call_count["n"] += 1
         result = tmp_path / f"gemini_{call_count['n']}.png"
         Image.new("RGB", (32, 32), (call_count["n"] * 10, 0, 0)).save(result)
         return str(result)
 
-    monkeypatch.setattr("integrations.google_image_client.transform_with_references", fake_transform)
+    monkeypatch.setattr(
+        "integrations.google_image_client.transform_with_references",
+        fake_transform,
+    )
 
     # First call generates
     thumbnail.enhance_split_progression(
@@ -255,3 +270,91 @@ def test_enhance_split_progression_caches_by_mtime(tmp_path, monkeypatch):
         force=True,
     )
     assert call_count["n"] == 3
+
+
+def test_enhance_split_progression_cache_invalidates_on_label_change(tmp_path, monkeypatch):
+    clean_path = tmp_path / "clean.png"
+    output_path = tmp_path / "final.png"
+    Image.new("RGB", (32, 32), (10, 20, 30)).save(clean_path)
+
+    call_count = {"n": 0}
+
+    def fake_transform(
+        prompt: str,
+        image_paths: list[str],
+        script_id: str | None = None,
+    ) -> str:
+        call_count["n"] += 1
+        result = tmp_path / f"gemini_{call_count['n']}.png"
+        Image.new("RGB", (32, 32), (call_count["n"] * 10, 0, 0)).save(result)
+        return str(result)
+
+    monkeypatch.setattr(
+        "integrations.google_image_client.transform_with_references",
+        fake_transform,
+    )
+
+    thumbnail.enhance_split_progression(
+        clean_image_path=clean_path,
+        output_path=output_path,
+        left_label="3 months in",
+        right_label="8 years in",
+        script_id="s1",
+    )
+    thumbnail.enhance_split_progression(
+        clean_image_path=clean_path,
+        output_path=output_path,
+        left_label="4 months in",
+        right_label="8 years in",
+        script_id="s1",
+    )
+
+    assert call_count["n"] == 2
+
+
+def test_enhance_split_progression_cache_invalidates_on_prompt_change(tmp_path, monkeypatch):
+    clean_path = tmp_path / "clean.png"
+    output_path = tmp_path / "final.png"
+    Image.new("RGB", (32, 32), (10, 20, 30)).save(clean_path)
+
+    call_count = {"n": 0}
+
+    def fake_transform(
+        prompt: str,
+        image_paths: list[str],
+        script_id: str | None = None,
+    ) -> str:
+        call_count["n"] += 1
+        result = tmp_path / f"gemini_{call_count['n']}.png"
+        Image.new("RGB", (32, 32), (call_count["n"] * 10, 0, 0)).save(result)
+        return str(result)
+
+    monkeypatch.setattr(
+        "integrations.google_image_client.transform_with_references",
+        fake_transform,
+    )
+    monkeypatch.setattr(
+        "prompts.SPLIT_PROGRESSION_PROMPT",
+        SimpleNamespace(template="old prompt {left_label} {right_label}"),
+    )
+    thumbnail.enhance_split_progression(
+        clean_image_path=clean_path,
+        output_path=output_path,
+        left_label="3 months in",
+        right_label="8 years in",
+        script_id="s1",
+    )
+
+    monkeypatch.setattr(
+        "prompts.SPLIT_PROGRESSION_PROMPT",
+        SimpleNamespace(template="new prompt {left_label} {right_label}"),
+    )
+    thumbnail.enhance_split_progression(
+        clean_image_path=clean_path,
+        output_path=output_path,
+        left_label="3 months in",
+        right_label="8 years in",
+        script_id="s1",
+    )
+
+    assert call_count["n"] == 2

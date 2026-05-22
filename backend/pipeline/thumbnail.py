@@ -11,6 +11,7 @@ import random
 import re
 import shutil
 import threading
+from hashlib import sha256
 from pathlib import Path
 
 from config import DATA_DIR
@@ -90,24 +91,36 @@ def enhance_split_progression(
     from integrations.google_image_client import transform_with_references
     from prompts import SPLIT_PROGRESSION_PROMPT
 
+    prompt = SPLIT_PROGRESSION_PROMPT.template.format(
+        left_label=left_label,
+        right_label=right_label,
+    )
+    cache_metadata_path = output_path.with_suffix(f"{output_path.suffix}.cache.json")
+    prompt_hash = sha256(prompt.encode("utf-8")).hexdigest()
+
     # mtime cache check
     if not force and output_path.exists():
         try:
-            if output_path.stat().st_mtime >= clean_image_path.stat().st_mtime:
+            cache_metadata = json.loads(cache_metadata_path.read_text())
+            cache_matches = (
+                cache_metadata.get("prompt_hash") == prompt_hash
+                and cache_metadata.get("left_label") == left_label
+                and cache_metadata.get("right_label") == right_label
+            )
+            if (
+                cache_matches
+                and output_path.stat().st_mtime >= clean_image_path.stat().st_mtime
+            ):
                 logger.info(
                     "[%s] split-progression cache hit: %s",
                     script_id or "no-id", output_path,
                 )
                 return output_path
-        except OSError:
+        except (OSError, json.JSONDecodeError):
             pass  # Fall through and regenerate
 
-    prompt = SPLIT_PROGRESSION_PROMPT.template.format(
-        left_label=left_label,
-        right_label=right_label,
-    )
-
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_metadata_path.unlink(missing_ok=True)
 
     try:
         result_path = transform_with_references(
@@ -116,6 +129,11 @@ def enhance_split_progression(
             script_id=script_id,
         )
         shutil.copy2(result_path, str(output_path))
+        cache_metadata_path.write_text(json.dumps({
+            "prompt_hash": prompt_hash,
+            "left_label": left_label,
+            "right_label": right_label,
+        }))
         logger.info(
             "[%s] split-progression thumbnail written: %s (%s / %s)",
             script_id or "no-id", output_path, left_label, right_label,
