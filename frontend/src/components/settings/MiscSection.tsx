@@ -13,11 +13,13 @@ export default function MiscSection() {
   const [showSpeedRenderButton, setShowSpeedRenderButton] = useState("true");
   const [rateLimitEnabled, setRateLimitEnabled] = useState("true");
   const [scraperFallbackEnabled, setScraperFallbackEnabled] = useState("false");
+  const [eliEnabledDefault, setEliEnabledDefault] = useState("true");
 
   const [originalHookRefinement, setOriginalHookRefinement] = useState("true");
   const [originalShowSpeedRenderButton, setOriginalShowSpeedRenderButton] = useState("true");
   const [originalRateLimit, setOriginalRateLimit] = useState("true");
   const [originalScraperFallback, setOriginalScraperFallback] = useState("false");
+  const [originalEliEnabledDefault, setOriginalEliEnabledDefault] = useState("true");
 
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -38,6 +40,9 @@ export default function MiscSection() {
         const sfVal = data.IMAGE_SCRAPER_FALLBACK_ENABLED?.masked || "false";
         setScraperFallbackEnabled(settingEnabled(sfVal) ? "true" : "false");
         setOriginalScraperFallback(settingEnabled(sfVal) ? "true" : "false");
+        const eliVal = data.ELI_ENABLED_DEFAULT?.masked || "true";
+        setEliEnabledDefault(settingEnabled(eliVal) ? "true" : "false");
+        setOriginalEliEnabledDefault(settingEnabled(eliVal) ? "true" : "false");
       }
       setLoading(false);
     });
@@ -47,7 +52,8 @@ export default function MiscSection() {
     hookRefinementEnabled !== originalHookRefinement ||
     showSpeedRenderButton !== originalShowSpeedRenderButton ||
     rateLimitEnabled !== originalRateLimit ||
-    scraperFallbackEnabled !== originalScraperFallback;
+    scraperFallbackEnabled !== originalScraperFallback ||
+    eliEnabledDefault !== originalEliEnabledDefault;
 
   const handleSave = async () => {
     setSaving(true);
@@ -56,6 +62,7 @@ export default function MiscSection() {
       SHOW_SPEED_RENDER_BUTTON: showSpeedRenderButton,
       IMAGE_RATE_LIMIT_MS: rateLimitEnabled === "true" ? "10000" : "0",
       IMAGE_SCRAPER_FALLBACK_ENABLED: scraperFallbackEnabled,
+      ELI_ENABLED_DEFAULT: eliEnabledDefault,
     });
     setSaving(false);
     if (res.ok) {
@@ -64,6 +71,7 @@ export default function MiscSection() {
       setOriginalShowSpeedRenderButton(showSpeedRenderButton);
       setOriginalRateLimit(rateLimitEnabled);
       setOriginalScraperFallback(scraperFallbackEnabled);
+      setOriginalEliEnabledDefault(eliEnabledDefault);
     }
   };
 
@@ -85,6 +93,36 @@ export default function MiscSection() {
       </div>
 
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl divide-y divide-neutral-800">
+        {/* Eli Host Overlay Default */}
+        <div className="p-5">
+          <div className="flex items-start justify-between gap-5">
+            <div className="space-y-1">
+              <h3 className="text-sm font-medium text-neutral-100">Enable Eli host overlay by default for new projects</h3>
+              <p className="text-xs text-neutral-500 leading-relaxed">
+                When off, new projects start with Eli disabled and use a project-specific main character integrated into scene images instead. Existing projects are unaffected.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={eliEnabledDefault === "true"}
+              aria-label="Enable Eli host overlay by default for new projects"
+              onClick={() =>
+                setEliEnabledDefault(eliEnabledDefault === "true" ? "false" : "true")
+              }
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
+                eliEnabledDefault === "true" ? "bg-violet-600 shadow-sm shadow-violet-500/30" : "bg-neutral-700"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  eliEnabledDefault === "true" ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
         {/* Hook Refinement */}
         <div className="p-5">
           <div className="flex items-center justify-between gap-5">
