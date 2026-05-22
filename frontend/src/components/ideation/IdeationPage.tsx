@@ -10,7 +10,7 @@ import IdeationInput, { type IdeationInputHandle } from "./IdeationInput";
 const FORMAT_KEY = "hh-selected-format";
 
 interface Props {
-  onUseIdea: (idea: VideoIdea) => void;
+  onUseIdea: (idea: VideoIdea, opts?: { eliEnabled?: boolean }) => void;
   initialNiche?: string | null;
   initialIdeas?: VideoIdea[] | null;
   autoGenerateNiche?: string | null;
@@ -259,7 +259,7 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
                 bookmarked={bookmarked.has(idea.title)}
                 onToggleBookmark={() => toggleBookmark(idea.title)}
                 onMoreLikeThis={handleMoreLikeThis}
-                onUseIdea={(idea) => onUseIdea({ ...idea, format_id: idea.format_id ?? selectedFormatId })}
+                onUseIdea={(idea) => onUseIdea({ ...idea, format_id: idea.format_id ?? selectedFormatId }, { eliEnabled })}
                 animationDelay={
                   i >= animateFromIndex
                     ? (i - animateFromIndex) * 80

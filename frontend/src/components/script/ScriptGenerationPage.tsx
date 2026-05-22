@@ -14,6 +14,7 @@ import CinematicChaptersPreview from "./CinematicChaptersPreview";
 interface Props {
   brandId: string;
   idea: VideoIdea;
+  eliEnabled?: boolean;
   onBack: () => void;
   onContinue: (scriptId: string) => void;
 }
@@ -27,6 +28,7 @@ const PROVIDER_LABELS: Record<string, string> = {
 export default function ScriptGenerationPage({
   brandId,
   idea,
+  eliEnabled = true,
   onBack,
   onContinue,
 }: Props) {
@@ -68,7 +70,7 @@ export default function ScriptGenerationPage({
     hasPexelsKey,
     setGameplayEnabled,
     setStockPhotoEnabled,
-  } = useScriptGeneration({ brandId, idea, supportsColdOpen });
+  } = useScriptGeneration({ brandId, idea, supportsColdOpen, eliEnabled });
 
   const {
     editingKey,
