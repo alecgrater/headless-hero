@@ -13,7 +13,7 @@ from config import FPS
 from database import get_session, engine
 from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
-from pipeline.fx_generator import generate_scene_fx
+from pipeline.fx_generator import generate_fx_batch, generate_scene_fx
 from pipeline.render_cache import mark_render_inputs_changed
 from pipeline.render_jobs import create_job, get_job, update_job
 
@@ -175,8 +175,33 @@ def _count_fx_generation_targets(content: ScriptContent, missing_only: bool) -> 
     )
 
 
+def _build_scene_fx_data(scene, seg, seg_idx, sc_idx, global_idx, total_scenes) -> dict:
+    duration = scene.audio_duration_seconds or scene.duration_estimate_seconds
+    scene_data = {
+        "id": scene.id,
+        "segment": seg.name,
+        "segment_index": seg_idx,
+        "scene_index_in_segment": sc_idx,
+        "global_index": global_idx,
+        "is_first_scene": global_idx == 0,
+        "is_last_scene": global_idx == total_scenes - 1,
+        "is_first_in_segment": sc_idx == 0,
+        "is_title_card": scene.is_title_card,
+        "narration": scene.narration,
+        "duration_seconds": duration,
+        "duration_frames": int(duration * FPS),
+        "has_multiple_frames": bool(scene.frame_urls and len(scene.frame_urls) > 1),
+        "visual_beat": scene.visual_beat or "static",
+    }
+    if scene.word_timestamps:
+        scene_data["word_timestamps"] = scene.word_timestamps
+    return scene_data
+
+
 def _run_fx_generation(script_id: str, missing_only: bool, job_id: str) -> None:
-    """Background thread: generate FX for all scenes, or only missing non-title scenes."""
+    """Background thread: generate FX in a single batched LLM call, then retry
+    any missing or invalid entries one at a time.
+    """
     t0 = time.monotonic()
     try:
         with Session(engine) as session:
@@ -197,70 +222,62 @@ def _run_fx_generation(script_id: str, missing_only: bool, job_id: str) -> None:
                 total_scenes,
             )
 
-            updated = 0
-            processed = 0
+            # Build scene-data payloads up front, indexed by scene id, and
+            # remember each scene's location so we can reapply results.
+            scene_index: dict[str, tuple[int, int]] = {}
+            scenes_data: list[dict] = []
             global_idx = 0
-            previous_drift = None
-            previous_transition = None
             for seg_idx, seg in enumerate(content.segments):
                 for sc_idx, scene in enumerate(seg.scenes):
-                    job = get_job(job_id)
-                    if job and job.status == "cancelled":
-                        return
-
                     if not _should_generate_fx(scene, missing_only):
-                        fx_data = scene.fx if isinstance(scene.fx, dict) else {}
-                        if fx_data.get("drift"):
-                            previous_drift = fx_data["drift"]
-                        previous_transition = scene.transition_in if scene.transition_in != "cut" else None
                         global_idx += 1
                         continue
-
-                    update_job(
-                        job_id,
-                        progress=processed / target_scenes if target_scenes else 1.0,
-                        current_step=f"Scene {processed + 1}/{target_scenes} ({scene.id})" if target_scenes else "Done",
+                    scenes_data.append(
+                        _build_scene_fx_data(scene, seg, seg_idx, sc_idx, global_idx, total_scenes)
                     )
-
-                    duration = scene.audio_duration_seconds or scene.duration_estimate_seconds
-                    scene_data = {
-                        "id": scene.id,
-                        "segment": seg.name,
-                        "segment_index": seg_idx,
-                        "scene_index_in_segment": sc_idx,
-                        "global_index": global_idx,
-                        "is_first_scene": global_idx == 0,
-                        "is_last_scene": global_idx == total_scenes - 1,
-                        "is_first_in_segment": sc_idx == 0,
-                        "is_title_card": scene.is_title_card,
-                        "narration": scene.narration,
-                        "duration_seconds": duration,
-                        "duration_frames": int(duration * FPS),
-                        "has_multiple_frames": bool(scene.frame_urls and len(scene.frame_urls) > 1),
-                        "visual_beat": scene.visual_beat or "static",
-                    }
-                    if scene.word_timestamps:
-                        scene_data["word_timestamps"] = scene.word_timestamps
-                    if previous_drift:
-                        scene_data["previous_drift"] = previous_drift
-                    if previous_transition:
-                        scene_data["previous_transition"] = previous_transition
-
-                    try:
-                        result = generate_scene_fx(scene_data, script_id=script_id)
-                        scene.fx = result["fx"]
-                        scene.transition_in = result.get("transition_in", "cut")
-                        fx_result = result["fx"] if isinstance(result["fx"], dict) else {}
-                        if fx_result.get("drift"):
-                            previous_drift = fx_result["drift"]
-                        previous_transition = scene.transition_in if scene.transition_in != "cut" else None
-                        updated += 1
-                        logger.info("Generated FX for scene %d/%d (%s)", processed + 1, target_scenes, scene.id)
-                    except Exception as e:
-                        logger.warning("Failed FX for scene %s: %s", scene.id, e)
-
-                    processed += 1
+                    scene_index[scene.id] = (seg_idx, sc_idx)
                     global_idx += 1
+
+            update_job(job_id, progress=0.0, current_step=f"Batching FX for {len(scenes_data)} scenes")
+
+            job = get_job(job_id)
+            if job and job.status == "cancelled":
+                return
+
+            # First pass: one batched LLM call per chunk of _BATCH_SIZE scenes.
+            results = generate_fx_batch(scenes_data, script_id=script_id)
+
+            update_job(
+                job_id,
+                progress=0.85 if scenes_data else 1.0,
+                current_step=f"Filling gaps ({len(scenes_data) - len(results)} remaining)",
+            )
+
+            # Second pass: retry any scene the batch couldn't produce or
+            # validate, one at a time. Existing per-scene cancel checks still
+            # apply.
+            for scene_data in scenes_data:
+                sid = scene_data["id"]
+                if sid in results:
+                    continue
+                job = get_job(job_id)
+                if job and job.status == "cancelled":
+                    return
+                try:
+                    results[sid] = generate_scene_fx(scene_data, script_id=script_id)
+                except Exception as e:
+                    logger.warning("Retry FX for scene %s failed: %s", sid, e)
+
+            # Apply results to the script content.
+            updated = 0
+            for scene_id, (seg_idx, sc_idx) in scene_index.items():
+                result = results.get(scene_id)
+                if not result:
+                    continue
+                scene = content.segments[seg_idx].scenes[sc_idx]
+                scene.fx = result["fx"]
+                scene.transition_in = result.get("transition_in", "cut")
+                updated += 1
 
             record.script_json = content.model_dump_json()
             session.add(record)
