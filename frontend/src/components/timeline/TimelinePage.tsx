@@ -1328,7 +1328,7 @@ function LongFormThumbnailsPanel({
               <div className="p-3 flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm text-neutral-200 truncate">{activeThumbnail?.title_text}</p>
-                  <p className="text-xs text-neutral-500">{activeIndex + 1} of {thumbnails.length}</p>
+                  <p className="text-xs text-neutral-500">{safeActiveIndex + 1} of {thumbnails.length}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -1370,7 +1370,7 @@ function LongFormThumbnailsPanel({
                     type="button"
                     onClick={() => setActiveIndex(idx)}
                     className={`rounded-lg overflow-hidden border transition-colors ${
-                      idx === activeIndex
+                      idx === safeActiveIndex
                         ? "border-violet-400 bg-violet-500/10"
                         : "border-neutral-800 bg-neutral-900/50 hover:border-neutral-600"
                     }`}
