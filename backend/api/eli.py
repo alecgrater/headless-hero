@@ -99,7 +99,12 @@ async def regenerate_eli(req: RegenerateEliRequest, session: Session = Depends(g
         if prev.eli_overlay and isinstance(prev.eli_overlay, dict):
             previous_corner = prev.eli_overlay.get("corner")
 
-    eli_result = generate_scene_eli(scene.narration, previous_corner=previous_corner, script_id=req.script_id)
+    eli_result = generate_scene_eli(
+        scene.narration,
+        previous_corner=previous_corner,
+        script_id=req.script_id,
+        bypass_heuristics=True,
+    )
     scene.eli_overlay = eli_result
 
     record.script_json = content.model_dump_json()
@@ -128,7 +133,13 @@ def _run_eli_generation(script_id: str, scene_ids: list[str], job_id: str) -> No
             all_scenes = content.all_scenes()
             scene_map = {sc.id: sc for sc in all_scenes}
 
-            ordered_scenes = [scene_map[sid] for sid in scene_ids if sid in scene_map]
+            ordered_scenes = []
+            for sid in scene_ids:
+                sc = scene_map.get(sid)
+                if sc is None:
+                    logger.warning("[ELI] Requested scene id %s not found in script %s", sid, script_id)
+                    continue
+                ordered_scenes.append(sc)
             scenes_payload = [
                 {"id": sc.id, "narration": sc.narration or ""}
                 for sc in ordered_scenes

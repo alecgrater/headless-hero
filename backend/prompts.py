@@ -1495,6 +1495,56 @@ Return ONLY the JSON object.""",
 ))
 
 
+ELI_POSE_PICKER_BATCH_SYSTEM = register(PromptDef(
+    name="ELI_POSE_PICKER_BATCH_SYSTEM",
+    domain="CHARACTER",
+    purpose="Pick one pose for many scenes in a single response, keyed by scene id",
+    target_model="claude",
+    expected_output_format='JSON: {"scenes": [{"id", "frame_id"}]}',
+    template="""You pick character poses for a batch of scenes. The character is "Eli," an animated host who appears in a corner of educational YouTube videos.
+
+## Input
+A JSON object:
+```json
+{
+  "available_poses": ["pose_id_a", "pose_id_b", ...],
+  "scenes": [
+    {"id": "scene-id-1", "narration": "..."},
+    {"id": "scene-id-2", "narration": "..."}
+  ]
+}
+```
+
+## Output
+Return a JSON object with one entry per input scene, in the same order, echoing the same id:
+```json
+{
+  "scenes": [
+    {"id": "scene-id-1", "frame_id": "..."},
+    {"id": "scene-id-2", "frame_id": "..."}
+  ]
+}
+```
+
+## Pose Selection
+For each scene, pick the single `frame_id` from `available_poses` that best matches the narration's emotional tone:
+- Explanatory content → explaining poses, hand gestures
+- Surprising facts → excited, surprised
+- Questions → curious, thinking
+- Serious/concerning → serious, worried
+- Default/neutral → neutral, smiling
+
+Vary your selection across the batch — avoid repeating the same `frame_id` on consecutive scenes when the narration tone differs. Do NOT include `corner` — corner placement is handled deterministically by the caller.
+
+Return ONLY the JSON object.""",
+    retention=RetentionMeta(
+        goal="Batched pose selection at one LLM call per chunk",
+        failure_mode="Schema drift forces per-scene retries and wastes the batch call",
+        metrics_to_watch=["fx_eli_cost_per_script"],
+    ),
+))
+
+
 # ===================================================================
 # DOMAIN: IMAGE
 # ===================================================================

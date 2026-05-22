@@ -7,7 +7,7 @@ import re
 
 from integrations.llm_client import chat
 from pipeline.character_frames import get_manifest
-from prompts import ELI_POSE_PICKER_SYSTEM
+from prompts import ELI_POSE_PICKER_BATCH_SYSTEM, ELI_POSE_PICKER_SYSTEM
 
 logger = logging.getLogger(__name__)
 
@@ -21,16 +21,16 @@ _BATCH_SIZE = 20
 # Heuristic cues mapped to pose-id prefixes. The first prefix that has a
 # matching frame in the manifest wins. Keep these tight: when the regex
 # fires, we want high confidence the pose category fits — anything
-# ambiguous should fall through to the LLM batch.
+# ambiguous should fall through to the LLM batch. Common filler words
+# like "first/then/so/next/because" are deliberately excluded so the
+# heuristic doesn't fire on the vast majority of educational narration.
 _HEURISTIC_RULES: list[tuple[re.Pattern[str], tuple[str, ...]]] = [
-    (re.compile(r"\b(why|how|what|when|where|who|wonder(?:s|ed)?|hmm|consider|imagine)\b", re.IGNORECASE),
+    (re.compile(r"\b(why|how come|wonder(?:s|ed)?|hmm|imagine|what if)\b", re.IGNORECASE),
      ("thinking_", "curious_")),
-    (re.compile(r"(?:!{1,}|\bwow\b|\bincredible\b|\bamazing\b|\bsurpris(?:e|ing|ed)\b|\bshocking\b)", re.IGNORECASE),
+    (re.compile(r"(?:!{2,}|\bwow\b|\bincredible\b|\bamazing\b|\bsurpris(?:e|ing|ed)\b|\bshocking\b|\bunbelievable\b)", re.IGNORECASE),
      ("excited_", "surprised_")),
-    (re.compile(r"\b(warning|danger|risk(?:s|y)?|careful|beware|caution|never|don't|avoid)\b", re.IGNORECASE),
+    (re.compile(r"\b(warning|danger(?:ous)?|risky|beware|catastrophic|deadly|fatal)\b", re.IGNORECASE),
      ("serious_", "warning_", "stern_")),
-    (re.compile(r"\b(explain|because|reason|step|first|second|third|next|then|so\s)\b", re.IGNORECASE),
-     ("explaining_", "neutral_")),
 ]
 
 
@@ -91,10 +91,15 @@ def generate_scene_eli(
     narration: str,
     previous_corner: str | None = None,
     script_id: str | None = None,
+    bypass_heuristics: bool = False,
 ) -> dict:
     """Pick one pose for a scene based on narration tone.
 
     Returns: {"enabled": True, "corner": "BR", "frame_id": "thinking_handonchin"}
+
+    `bypass_heuristics=True` forces the LLM call even when a heuristic rule
+    would match — used by the manual /api/eli/regenerate endpoint so users
+    don't keep getting the same deterministic pose on regenerate.
     """
     manifest = get_manifest()
     if not manifest or not manifest.get("frames"):
@@ -102,7 +107,7 @@ def generate_scene_eli(
 
     frame_ids = [f["id"] for f in manifest["frames"]]
 
-    if _heuristics_enabled():
+    if not bypass_heuristics and _heuristics_enabled():
         heur = _heuristic_pose(narration, frame_ids)
         if heur is not None:
             return {"enabled": True, "corner": _pick_corner(previous_corner), "frame_id": heur}
@@ -194,7 +199,7 @@ def generate_eli_batch(
         })
         try:
             response = chat(
-                system=ELI_POSE_PICKER_SYSTEM.template,
+                system=ELI_POSE_PICKER_BATCH_SYSTEM.template,
                 user_message=user_msg,
                 max_tokens=2048,
                 script_id=script_id,
@@ -252,9 +257,9 @@ def generate_eli_batch(
         results[sid] = {"enabled": True, "corner": corner, "frame_id": pose}
         prev_corner = corner
 
+    still_undecided = sum(1 for sc in undecided if sc.get("id") not in llm_pose)
     logger.info(
-        "[ELI] Batch picked %d/%d scenes (heuristics=%d, llm=%d, undecided=%d, scenes=%d)",
-        len(results), len(scenes), len(heuristic_pose), len(llm_pose),
-        len(undecided) - len(llm_pose), len(scenes),
+        "[ELI] Batch picked %d/%d scenes (heuristics=%d, llm=%d, undecided=%d)",
+        len(results), len(scenes), len(heuristic_pose), len(llm_pose), still_undecided,
     )
     return results
