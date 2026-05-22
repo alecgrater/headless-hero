@@ -1,8 +1,10 @@
 """Voiceover pipeline — connects narration text to ElevenLabs TTS."""
 
 import logging
+import os
 import statistics
 import struct
+from concurrent.futures import ThreadPoolExecutor
 
 from config import DATA_DIR, DEFAULT_TTS_MODEL
 from integrations.elevenlabs_client import generate_speech
@@ -138,6 +140,40 @@ def generate_scene_audio(
     phrase_timestamps = compute_phrase_timestamps(word_timestamps) if word_timestamps else []
     return web_path, duration, word_timestamps, phrase_timestamps
 
+def _generate_one_audio(
+    scene: dict[str, str],
+    voice_id: str,
+    script_id: str,
+    model_id: str,
+    voice_settings: dict | None,
+) -> dict:
+    try:
+        audio_url, duration, word_timestamps, phrase_timestamps = generate_scene_audio(
+            scene_id=scene["scene_id"],
+            narration=scene["narration"],
+            voice_id=voice_id,
+            script_id=script_id,
+            model_id=model_id,
+            voice_settings=voice_settings,
+        )
+        return {
+            "scene_id": scene["scene_id"],
+            "audio_url": audio_url,
+            "duration_seconds": duration,
+            "word_timestamps": word_timestamps,
+            "phrase_timestamps": phrase_timestamps,
+            "error": None,
+        }
+    except Exception as exc:
+        logger.exception("Audio generation failed for scene %s", scene["scene_id"])
+        return {
+            "scene_id": scene["scene_id"],
+            "audio_url": None,
+            "duration_seconds": None,
+            "error": str(exc),
+        }
+
+
 def generate_batch_audio(
     scenes: list[dict[str, str]],
     voice_id: str,
@@ -145,39 +181,33 @@ def generate_batch_audio(
     model_id: str = DEFAULT_TTS_MODEL,
     voice_settings: dict | None = None,
 ) -> list[dict[str, str | None]]:
-    """Generate TTS audio for a list of scenes sequentially.
+    """Generate TTS audio for a list of scenes with bounded concurrency.
 
     Each scene dict must have 'scene_id' and 'narration'.
-    Returns list of {scene_id, audio_url, duration_seconds, error?}.
+    Returns list of {scene_id, audio_url, duration_seconds, error?} preserving
+    input order. Concurrency is tunable via HH_TTS_CONCURRENCY (default 4).
     """
-    results: list[dict] = []
-    logger.info("Starting batch audio generation for %d scenes (script=%s, voice=%s)", len(scenes), script_id, voice_id)
-    for scene in scenes:
-        try:
-            audio_url, duration, word_timestamps, phrase_timestamps = generate_scene_audio(
-                scene_id=scene["scene_id"],
-                narration=scene["narration"],
-                voice_id=voice_id,
-                script_id=script_id,
-                model_id=model_id,
-                voice_settings=voice_settings,
-            )
-            results.append({
-                "scene_id": scene["scene_id"],
-                "audio_url": audio_url,
-                "duration_seconds": duration,
-                "word_timestamps": word_timestamps,
-                "phrase_timestamps": phrase_timestamps,
-                "error": None,
-            })
-        except Exception as exc:
-            logger.exception("Audio generation failed for scene %s", scene["scene_id"])
-            results.append({
-                "scene_id": scene["scene_id"],
-                "audio_url": None,
-                "duration_seconds": None,
-                "error": str(exc),
-            })
-    succeeded = sum(1 for r in results if r["error"] is None)
+    try:
+        max_workers = max(1, int(os.environ.get("HH_TTS_CONCURRENCY", "4")))
+    except ValueError:
+        max_workers = 4
+    max_workers = min(max_workers, max(1, len(scenes)))
+
+    logger.info(
+        "Starting batch audio generation for %d scenes (script=%s, voice=%s, max_workers=%d)",
+        len(scenes), script_id, voice_id, max_workers,
+    )
+    results: list[dict | None] = [None] * len(scenes)
+    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="tts") as pool:
+        futures = {
+            pool.submit(_generate_one_audio, scene, voice_id, script_id, model_id, voice_settings): idx
+            for idx, scene in enumerate(scenes)
+        }
+        for fut in futures:
+            idx = futures[fut]
+            results[idx] = fut.result()
+
+    final_results: list[dict] = [r for r in results if r is not None]
+    succeeded = sum(1 for r in final_results if r["error"] is None)
     logger.info("Batch audio complete: %d/%d succeeded (script %s)", succeeded, len(scenes), script_id)
-    return results
+    return final_results
