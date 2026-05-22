@@ -30,6 +30,7 @@ import api, {
   generateFX,
   generateShortFormThumbnailsAll,
   generateShortFormThumbnailsBatch,
+  getProjectConfig,
   getRenderedShortsStatus,
   getShortFormThumbnailsStatus,
   getUploadSuiteStatus,
@@ -44,6 +45,7 @@ import api, {
 } from "../../api";
 import type { ExportTestOptions } from "../../api";
 import type { MediaAssignment } from "../../api";
+import type { ProjectConfig } from "../../api";
 import type { ScriptCostBreakdownItem } from "../../api";
 import { showToast } from "../ToastContainer";
 import type { ScriptContent, UploadTracking } from "../../types/script";
@@ -53,6 +55,7 @@ import type { UploadSuiteStatus } from "../../api";
 import type { SaveState } from "../../App";
 import type { MicroTimelineHandle } from "./SceneMicroTimeline";
 import ExportTestModal from "./ExportTestModal";
+import MainCharacterDrawer from "./MainCharacterDrawer";
 import UploadPanel from "./UploadPanel";
 import MediaSourcesTab from "./MediaSourcesTab";
 import SegmentsTab from "./SegmentsTab";
@@ -756,6 +759,9 @@ function FinalizationRow({
   eliEstimatedSeconds,
   eliProgressActive,
   eliProgress,
+  eliDisabledForProject,
+  projectConfig,
+  onOpenMainCharacterDrawer,
   allAudioGenerated,
   allSeoDone,
   missingSeoCount,
@@ -795,6 +801,9 @@ function FinalizationRow({
   eliEstimatedSeconds: number | null;
   eliProgressActive: boolean;
   eliProgress: number | null;
+  eliDisabledForProject: boolean;
+  projectConfig: ProjectConfig | null;
+  onOpenMainCharacterDrawer: () => void;
   allAudioGenerated: boolean;
   allSeoDone: boolean;
   missingSeoCount: number;
@@ -908,7 +917,30 @@ function FinalizationRow({
           <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
 
-        {/* Step 5 — Eli (under Thumbnails) */}
+        {/* Step 5 — Eli OR Main Character (when Eli disabled for project) */}
+        {eliDisabledForProject ? (
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1.5">
+              <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
+                projectConfig?.main_character_reference_url
+                  ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
+                  : "border-neutral-600 text-neutral-500"
+              }`}>5</span>
+              <button
+                type="button"
+                onClick={onOpenMainCharacterDrawer}
+                className={`text-xs px-3 py-2 border rounded-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
+                  projectConfig?.main_character_reference_url
+                    ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
+                    : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
+                }`}
+                title={projectConfig?.main_character_reference_url ? "Main character reference is generated. Click to view or edit." : "Main character reference is not yet generated. Click to generate."}
+              >
+                {projectConfig?.main_character_reference_url ? "Main character ✓" : "Main character"}
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="flex flex-col">
           <div className="flex items-center gap-1.5">
             <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
@@ -921,7 +953,7 @@ function FinalizationRow({
             <div ref={eliDropdownRef} className="relative flex items-stretch flex-1">
               <button
                 onClick={generatingEli ? (yoloModeActive ? undefined : () => { eliCancelledRef.current = true; setGeneratingEli(false); }) : confirmAndGenerateEli}
-                disabled={!allAudioGenerated && !generatingEli}
+                disabled={eliDisabledForProject || (!allAudioGenerated && !generatingEli)}
                 className={`text-xs pl-3 pr-1.5 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
                   generatingEli
                     ? `bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] ${yoloModeActive ? "cursor-default" : "hover:border-red-500/50 hover:text-red-400"}`
@@ -929,7 +961,7 @@ function FinalizationRow({
                       ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
                       : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
                 }`}
-                title={!allAudioGenerated && !generatingEli ? "Generate audio first — Eli needs voiceover for mouth animation" : generatingEli ? (yoloModeActive ? "Generating Eli" : "Cancel Eli generation") : "Add Eli character overlay to all scenes"}
+                title={eliDisabledForProject ? "Eli is disabled for this project. The main character is integrated into scene images instead." : !allAudioGenerated && !generatingEli ? "Generate audio first — Eli needs voiceover for mouth animation" : generatingEli ? (yoloModeActive ? "Generating Eli" : "Cancel Eli generation") : "Add Eli character overlay to all scenes"}
               >
                 {generatingEli ? (
                   <>
@@ -945,9 +977,9 @@ function FinalizationRow({
               {!generatingEli ? (
                 <button
                   onClick={() => setShowEliDropdown(!showEliDropdown)}
-                  disabled={!allAudioGenerated}
-                  className={`text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 rounded-r-lg transition-all flex items-center ${!allAudioGenerated ? "text-neutral-600 cursor-not-allowed" : "text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200"}`}
-                  title={!allAudioGenerated ? "Generate audio first" : "Eli generation options"}
+                  disabled={eliDisabledForProject || !allAudioGenerated}
+                  className={`text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 rounded-r-lg transition-all flex items-center ${eliDisabledForProject || !allAudioGenerated ? "text-neutral-600 cursor-not-allowed opacity-40" : "text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200"}`}
+                  title={eliDisabledForProject ? "Eli is disabled for this project. The main character is integrated into scene images instead." : !allAudioGenerated ? "Generate audio first" : "Eli generation options"}
                 >
                   <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
                     <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -964,7 +996,7 @@ function FinalizationRow({
                 <div className="absolute top-full left-0 mt-1.5 w-48 bg-neutral-800/90 border border-neutral-700/60 rounded-xl shadow-2xl z-50 py-1.5">
                   <button
                     onClick={() => { setShowEliDropdown(false); generateMissingEli(); }}
-                    disabled={allEliGenerated || !hasExistingEli || !allAudioGenerated}
+                    disabled={eliDisabledForProject || allEliGenerated || !hasExistingEli || !allAudioGenerated}
                     className="w-full text-left px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Generate Missing ({missingEliCount})
@@ -975,6 +1007,7 @@ function FinalizationRow({
           </div>
           {generatingEli && <MiniProgressBar estimatedSeconds={eliEstimatedSeconds} active={eliProgressActive} />}
         </div>
+        )}
 
         <svg className="w-3 h-3 text-neutral-600/60 shrink-0" viewBox="0 0 12 12" fill="none">
           <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -1609,6 +1642,8 @@ function TimelineEditor({
   const [productionBusyTask, setProductionBusyTask] = useState<ProductionTask | null>(null);
   const [productionProgress, setProductionProgress] = useState<number | null>(null);
   const [productionError, setProductionError] = useState<string | null>(null);
+  const [projectConfig, setProjectConfig] = useState<ProjectConfig | null>(null);
+  const [showMainCharacterDrawer, setShowMainCharacterDrawer] = useState(false);
   const yoloCancelledRef = useRef(false);
   const yoloStoppingRef = useRef(false);
   const productionBusyRef = useRef(false);
@@ -1623,6 +1658,20 @@ function TimelineEditor({
     setTitleDraft(title);
     setEditingTitle(false);
   }, [scriptId, title]);
+
+  useEffect(() => {
+    if (!scriptId) return;
+    let cancelled = false;
+    (async () => {
+      const res = await getProjectConfig(scriptId);
+      if (!cancelled && res.ok) {
+        setProjectConfig(res.data as ProjectConfig);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [scriptId]);
 
   // Auto-switch to Media Sources tab when new assignments arrive
   useEffect(() => {
@@ -3085,6 +3134,18 @@ function TimelineEditor({
                   >
                     <Pencil size={14} />
                   </button>
+                  {projectConfig && !projectConfig.eli_enabled && (
+                    <button
+                      type="button"
+                      onClick={() => setShowMainCharacterDrawer(true)}
+                      className="ml-1 px-2.5 py-1 text-xs rounded-full bg-neutral-800 text-neutral-300 hover:bg-neutral-700 transition-colors border border-neutral-700 shrink-0"
+                      title="Open main character drawer"
+                    >
+                      {projectConfig.main_character
+                        ? `Main character: ${projectConfig.main_character.name}`
+                        : "Eli: off"}
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -3247,6 +3308,7 @@ function TimelineEditor({
             thumbnailsProgress={titleCardProgressPct}
             audioProgress={batchProgressValue(state.batchAudioProgress)}
             imageProgress={batchProgressValue(state.batchImageProgress)}
+            projectConfig={projectConfig}
           />
 
           <FinalizationRow
@@ -3273,6 +3335,9 @@ function TimelineEditor({
             eliEstimatedSeconds={eliProgress.estimatedSeconds}
             eliProgressActive={eliProgress.active}
             eliProgress={eliProgressPct}
+            eliDisabledForProject={projectConfig != null && !projectConfig.eli_enabled}
+            projectConfig={projectConfig}
+            onOpenMainCharacterDrawer={() => setShowMainCharacterDrawer(true)}
             allAudioGenerated={allAudioGenerated}
             allSeoDone={allSeoDone}
             missingSeoCount={missingSeoCount}
@@ -3561,6 +3626,7 @@ function TimelineEditor({
             selectedSceneId={state.selectedSceneId}
             onSelectScene={handleSelectScene}
             pixelsPerSecond={pixelsPerSecond}
+            projectConfig={projectConfig}
           />
         </div>
 
@@ -3613,6 +3679,15 @@ function TimelineEditor({
           onShortFormStatusChange={handleShortFormThumbnailStatusChange}
           scriptId={scriptId}
           segments={state.content.segments.map((s) => ({ name: s.name }))}
+        />
+      )}
+
+      {showMainCharacterDrawer && projectConfig && (
+        <MainCharacterDrawer
+          scriptId={scriptId}
+          config={projectConfig}
+          onClose={() => setShowMainCharacterDrawer(false)}
+          onUpdated={(next) => setProjectConfig(next)}
         />
       )}
 

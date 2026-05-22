@@ -12,6 +12,8 @@ _db_path = DATA_DIR / "db.sqlite"
 
 engine = create_engine(f"sqlite:///{_db_path}", echo=False)
 
+from models.project_config import ProjectConfig  # noqa: F401, E402  -- registers table
+
 def init_db() -> None:
     """Create all tables. Safe to call repeatedly."""
     logger.info("Initializing database")

@@ -22,6 +22,7 @@ interface Params {
   brandId: string;
   idea: VideoIdea;
   supportsColdOpen?: boolean;
+  eliEnabled?: boolean;
 }
 
 interface GenJobStatus {
@@ -81,7 +82,7 @@ export interface ScriptGenerationState {
   setStockPhotoEnabled: (v: boolean) => void;
 }
 
-export default function useScriptGeneration({ brandId, idea, supportsColdOpen = true }: Params): ScriptGenerationState {
+export default function useScriptGeneration({ brandId, idea, supportsColdOpen = true, eliEnabled = true }: Params): ScriptGenerationState {
   const [script, setScript] = useState<ScriptContent | null>(null);
   const [scriptId, setScriptId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -313,6 +314,7 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
           cold_open_text: idea.cold_open_text ?? null,
           gameplay_enabled: gameplayEnabled,
           stock_photo_enabled: stockPhotoEnabled,
+          eli_enabled: eliEnabled,
         });
         if (cancelledRef.current) return;
         if (!res.ok) {
@@ -444,6 +446,7 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
         cold_open_text: coldOpenText,
         gameplay_enabled: gameplayEnabled,
         stock_photo_enabled: stockPhotoEnabled,
+        eli_enabled: eliEnabled,
       })
       .then((res) => {
         if (cancelledRef.current) return;

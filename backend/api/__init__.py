@@ -20,6 +20,7 @@ from api.fx import router as fx_router
 from api.ideas import router as ideas_router
 from api.media import router as media_router
 from api.idea_board import router as idea_board_router
+from api.project_config import router as project_config_router
 from api.publish import router as publish_router
 from api.recording import router as recording_router
 from api.render import router as render_router
@@ -110,6 +111,7 @@ app.include_router(ideas_router)
 app.include_router(media_router)
 app.include_router(idea_board_router)
 app.include_router(scripts_router)
+app.include_router(project_config_router)
 app.include_router(visuals_router)
 app.include_router(voiceover_router)
 app.include_router(render_router)

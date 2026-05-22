@@ -4,12 +4,15 @@ import TimelineRuler from "./TimelineRuler";
 import TimelineBlock from "./TimelineBlock";
 import { SEGMENT_COLORS, SEGMENT_TEXT_COLORS, SEGMENT_BG_COLORS } from "./constants";
 import type { ScriptContent, Scene } from "../../types/script";
+import type { ProjectConfig } from "../../api";
 
 interface Props {
   content: ScriptContent;
   selectedSceneId: string | null;
   onSelectScene: (sceneId: string) => void;
   pixelsPerSecond: number;
+  // Project config — used to hide the EliLane row when Eli is disabled.
+  projectConfig?: ProjectConfig | null;
 }
 
 const LANE_TYPES = ["images", "voiceover", "fx", "eli", "timer", "subtitle"] as const;
@@ -36,10 +39,18 @@ export default function TimelineLanes({
   selectedSceneId,
   onSelectScene,
   pixelsPerSecond,
+  projectConfig,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const GAP_PX = 2; // matches gap-0.5 on lane rows
+
+  // Hide the Eli lane when the project explicitly disables Eli.
+  // Treat null/undefined as "default enabled" so we don't flicker the lane out
+  // while the project config is still loading.
+  const visibleLanes = LANE_TYPES.filter(
+    (type) => !(type === "eli" && projectConfig != null && !projectConfig.eli_enabled),
+  );
 
   // Flatten scenes with segment info for rendering
   const flatScenes: { scene: Scene; segmentIdx: number }[] = [];
@@ -101,7 +112,7 @@ export default function TimelineLanes({
           <div className="h-6 flex items-center px-3 text-[10px] text-neutral-500 font-medium border-b border-neutral-800/50">
             Segments
           </div>
-          {LANE_TYPES.map((lane) => {
+          {visibleLanes.map((lane) => {
             const Icon = LANE_ICONS[lane];
             return (
               <div
@@ -147,7 +158,7 @@ export default function TimelineLanes({
             </div>
 
             {/* Lanes */}
-            {LANE_TYPES.map((laneType) => (
+            {visibleLanes.map((laneType) => (
               <div
                 key={laneType}
                 className="relative h-10 flex items-center gap-0.5 border-b border-neutral-800/50"

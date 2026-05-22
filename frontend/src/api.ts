@@ -297,6 +297,31 @@ export async function regenerateFX(scriptId: string, sceneId: string) {
   return api.post("/api/fx/regenerate", { script_id: scriptId, scene_id: sceneId });
 }
 
+export type MainCharacter = {
+  name: string;
+  appearance: string;
+  vibe: string;
+};
+
+export type ProjectConfig = {
+  script_id: string;
+  eli_enabled: boolean;
+  main_character_reference_url: string | null;
+  main_character: MainCharacter | null;
+};
+
+export async function getProjectConfig(scriptId: string) {
+  return api.get(`/api/projects/${scriptId}/config`);
+}
+
+export async function updateMainCharacter(scriptId: string, character: MainCharacter) {
+  return api.put(`/api/projects/${scriptId}/config/character`, character);
+}
+
+export async function regenerateMainCharacterReference(scriptId: string) {
+  return api.post(`/api/projects/${scriptId}/config/character/regenerate`, {});
+}
+
 /** Generate Eli pose selection for all scenes in a script via the routed LLM provider. */
 export async function generateEli(scriptId: string, missingOnly = false) {
   return api.post("/api/eli/generate", { script_id: scriptId, missing_only: missingOnly });

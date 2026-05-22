@@ -55,6 +55,7 @@ ALLOWED_KEYS = {
     "QWEN_MODEL",
     "HOOK_REFINEMENT_ENABLED",
     "SHOW_SPEED_RENDER_BUTTON",
+    "ELI_ENABLED_DEFAULT",
 }
 
 for _task_id, _task_config in LLM_TASKS.items():
@@ -84,6 +85,7 @@ _PLAINTEXT_KEYS = {
     "QWEN_MODEL",
     "HOOK_REFINEMENT_ENABLED",
     "SHOW_SPEED_RENDER_BUTTON",
+    "ELI_ENABLED_DEFAULT",
 }
 
 for _task_id, _task_config in LLM_TASKS.items():
@@ -108,6 +110,7 @@ _DEFAULTS: dict[str, str] = {
     "QWEN_MODEL": "qwen3:14b",
     "HOOK_REFINEMENT_ENABLED": "true",
     "SHOW_SPEED_RENDER_BUTTON": "true",
+    "ELI_ENABLED_DEFAULT": "true",
 }
 
 for _task_id, _task_config in LLM_TASKS.items():

@@ -1,6 +1,5 @@
 """Image generation pipeline — connects visual prompts to Google Gemini."""
 
-import hashlib
 import json
 import logging
 import os
@@ -11,6 +10,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH, VIDEO_HEIGHT, VIDEO_WIDTH
 from integrations.image_client import generate_image
+from models.script import MainCharacter
 from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VISUAL_STYLE
 
 logger = logging.getLogger(__name__)
@@ -21,30 +21,83 @@ _CHARACTER_PROMPT = IMAGE_CHARACTER_IN_SCENE.template
 
 # --- Character reference helpers ---
 
-_char_ref_cache: dict[str, str] = {}  # mtime -> hash
+
+def _eli_reference_path() -> str | None:
+    """Path to Eli's selected reference, or None if not present."""
+    p = DATA_DIR / "character" / "frames" / "selected_reference.png"
+    return str(p) if p.exists() else None
 
 
-def _get_character_reference() -> str | None:
-    """Return path to selected character reference image, or None."""
-    from pipeline.character_frames import SELECTED_REFERENCE_PATH
-    if SELECTED_REFERENCE_PATH.exists():
-        return str(SELECTED_REFERENCE_PATH)
-    return None
+def _project_character_reference_path(script_id: str) -> str | None:
+    p = DATA_DIR / "projects" / script_id / "character" / "reference.png"
+    return str(p) if p.exists() else None
 
 
-def _character_ref_hash() -> str:
-    """Short hash of the character reference image for cache invalidation."""
-    from pipeline.character_frames import SELECTED_REFERENCE_PATH
-    if not SELECTED_REFERENCE_PATH.exists():
-        return ""
-    mtime = str(SELECTED_REFERENCE_PATH.stat().st_mtime)
-    if mtime in _char_ref_cache:
-        return _char_ref_cache[mtime]
-    with open(SELECTED_REFERENCE_PATH, "rb") as f:
-        content_hash = hashlib.md5(f.read(4096)).hexdigest()[:8]
-    _char_ref_cache.clear()
-    _char_ref_cache[mtime] = content_hash
-    return content_hash
+def _serialize_main_character(char: MainCharacter) -> str:
+    return (
+        f"Recurring main character: {char.name}. "
+        f"Appearance: {char.appearance}. "
+        f"Vibe: {char.vibe}."
+    )
+
+
+def _load_project_character_context(
+    script_id: str,
+) -> tuple[bool, str | None, MainCharacter | None]:
+    """Load (eli_enabled, main_character_reference_url, main_character) for a script.
+
+    Reads ProjectConfig and ScriptContent from the DB. Returns sane defaults
+    (eli_enabled=True, no main_character) if the script row is missing or invalid.
+    """
+    from sqlmodel import Session
+    from database import engine
+    from models.project_config import get_project_config
+    from models.script import Script, ScriptContent
+
+    with Session(engine) as session:
+        cfg = get_project_config(session, script_id)
+        script_row = session.get(Script, script_id)
+
+    main_character_obj: MainCharacter | None = None
+    if script_row is not None:
+        try:
+            content = ScriptContent.model_validate_json(script_row.script_json)
+            main_character_obj = content.main_character
+        except Exception:  # noqa: BLE001
+            main_character_obj = None
+
+    return cfg.eli_enabled, cfg.main_character_reference_url, main_character_obj
+
+
+def _resolve_character_reference(
+    *,
+    script_id: str,
+    contains_person: bool,
+    eli_enabled: bool,
+    main_character_reference_url: str | None,
+    main_character: MainCharacter | None,
+) -> tuple[str | None, str]:
+    """Return (reference_image_path, character_prompt_text) for image gen.
+
+    eli_enabled=True   -> Eli's reference + _CHARACTER_PROMPT (existing behavior).
+    eli_enabled=False  -> project main character reference + serialized description.
+    contains_person=False always returns (None, "").
+    """
+    if not contains_person:
+        return None, ""
+
+    if eli_enabled:
+        return _eli_reference_path(), (_CHARACTER_PROMPT or "")
+
+    if main_character is None or not main_character_reference_url:
+        # Eli disabled but project has not generated a character yet — fall back
+        # to no reference. Scene will still render, just without character chaining.
+        return None, ""
+
+    ref = _project_character_reference_path(script_id)
+    if ref is None:
+        return None, ""
+    return ref, _serialize_main_character(main_character)
 
 
 def _create_placeholder_image(path: Path, width: int, height: int, text: str) -> None:
@@ -113,25 +166,34 @@ def generate_scene_image(
     """
     guide = style_guide if style_guide else _STYLE_GUIDE
 
+    eli_enabled, main_character_url, main_character_obj = _load_project_character_context(script_id)
+
+    reference_image_path, character_text = _resolve_character_reference(
+        script_id=script_id,
+        contains_person=contains_person,
+        eli_enabled=eli_enabled,
+        main_character_reference_url=main_character_url,
+        main_character=main_character_obj,
+    )
+
     # Build prompt: universal style → guide → character → visual prompt
     parts: list[str] = []
     if _VISUAL_STYLE:
         parts.append(_VISUAL_STYLE)
     if guide:
         parts.append(guide)
-    if contains_person and _CHARACTER_PROMPT:
-        parts.append(_CHARACTER_PROMPT)
+    if character_text:
+        parts.append(character_text)
     parts.append(visual_prompt)
     prompt = "\n\n".join(parts)
 
-    # Append character ref hash for cache invalidation
-    if contains_person:
-        ref_hash = _character_ref_hash()
-        if ref_hash:
-            prompt += f"\n[char_ref:{ref_hash}]"
-
-    # Resolve character reference image
-    reference_image_path = _get_character_reference() if contains_person else None
+    # Append reference path + mtime for cache invalidation when reference changes
+    if reference_image_path:
+        try:
+            mtime = int(Path(reference_image_path).stat().st_mtime)
+            prompt += f"\n[char_ref:{reference_image_path}:{mtime}]"
+        except OSError:
+            pass
 
     # Check cache: if image exists and we have a matching prompt marker, skip regen
     images_dir = DATA_DIR / "projects" / script_id / "images"
@@ -233,6 +295,15 @@ def generate_scene_frames(
     images_dir = DATA_DIR / "projects" / script_id / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
 
+    eli_enabled, main_character_url, main_character_obj = _load_project_character_context(script_id)
+    reference_image_path, character_text = _resolve_character_reference(
+        script_id=script_id,
+        contains_person=contains_person,
+        eli_enabled=eli_enabled,
+        main_character_reference_url=main_character_url,
+        main_character=main_character_obj,
+    )
+
     total_frames = len(frame_prompts)
     logger.info("Generating %s frames for scene %s", total_frames, scene_id)
     results: list[tuple[str, str, dict[str, object] | None]] = []
@@ -266,8 +337,8 @@ def generate_scene_frames(
             parts: list[str] = []
             if _VISUAL_STYLE:
                 parts.append(_VISUAL_STYLE)
-            if contains_person and _CHARACTER_PROMPT:
-                parts.append(_CHARACTER_PROMPT)
+            if character_text:
+                parts.append(character_text)
             parts.append(
                 f"This is frame {i + 1} of {total_frames} in an animation sequence. "
                 f"Using the input image as reference, change ONLY the following: "
@@ -283,8 +354,8 @@ def generate_scene_frames(
                 parts.append(_VISUAL_STYLE)
             if guide:
                 parts.append(guide)
-            if contains_person and _CHARACTER_PROMPT:
-                parts.append(_CHARACTER_PROMPT)
+            if character_text:
+                parts.append(character_text)
 
             if visual_prompt and total_frames > 1:
                 continuity = (
@@ -303,11 +374,13 @@ def generate_scene_frames(
 
             prompt = "\n\n".join(parts)
 
-        # Append character ref hash for cache invalidation
-        if contains_person:
-            ref_hash = _character_ref_hash()
-            if ref_hash:
-                prompt += f"\n[char_ref:{ref_hash}]"
+        # Append reference path + mtime for cache invalidation when reference changes
+        if reference_image_path:
+            try:
+                mtime = int(Path(reference_image_path).stat().st_mtime)
+                prompt += f"\n[char_ref:{reference_image_path}:{mtime}]"
+            except OSError:
+                pass
 
         # Cache check
         if not force and local_path.exists() and prompt_marker.exists():
@@ -317,13 +390,11 @@ def generate_scene_frames(
                 prev_frame_path = local_path
                 continue
 
-        # Frame 0 with person: use character reference; frames 1+: use prev frame for continuity
+        # Frame 0 with person: use resolved character reference; frames 1+: use prev frame for continuity
         if use_reference:
             ref_path = str(prev_frame_path)
-        elif contains_person:
-            ref_path = _get_character_reference()
         else:
-            ref_path = None
+            ref_path = reference_image_path
 
         tmp_path = generate_image(
             prompt,
@@ -371,6 +442,8 @@ def generate_scene_frames_v2(
     guide = style_guide if style_guide else _STYLE_GUIDE
     images_dir = DATA_DIR / "projects" / script_id / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
+
+    eli_enabled, main_character_url, main_character_obj = _load_project_character_context(script_id)
 
     total_frames = len(frame_directives)
     logger.info("Generating %d frames (v2) for scene %s", total_frames, scene_id)
@@ -472,6 +545,15 @@ def generate_scene_frames_v2(
         # Per-frame contains_person: check directive first, fall back to scene-level
         frame_has_person = directive.contains_person or contains_person
 
+        # Resolve character reference for this frame's person flag.
+        reference_image_path, character_text = _resolve_character_reference(
+            script_id=script_id,
+            contains_person=frame_has_person,
+            eli_enabled=eli_enabled,
+            main_character_reference_url=main_character_url,
+            main_character=main_character_obj,
+        )
+
         use_reference = (
             directive.reference_previous
             and prev_frame_path is not None
@@ -483,8 +565,8 @@ def generate_scene_frames_v2(
             parts: list[str] = []
             if _VISUAL_STYLE:
                 parts.append(_VISUAL_STYLE)
-            if frame_has_person and _CHARACTER_PROMPT:
-                parts.append(_CHARACTER_PROMPT)
+            if character_text:
+                parts.append(character_text)
             parts.append(
                 f"This is frame {i + 1} of {total_frames} in an animation sequence. "
                 f"Using the input image as reference, change ONLY the following: "
@@ -500,16 +582,18 @@ def generate_scene_frames_v2(
                 parts.append(_VISUAL_STYLE)
             if guide and guide != directive_prompt:
                 parts.append(f"Scene context: {guide}\n\nThis specific frame:")
-            if frame_has_person and _CHARACTER_PROMPT:
-                parts.append(_CHARACTER_PROMPT)
+            if character_text:
+                parts.append(character_text)
             parts.append(directive_prompt)
             prompt = "\n\n".join(parts)
 
-        # Append character ref hash for cache invalidation
-        if frame_has_person:
-            ref_hash = _character_ref_hash()
-            if ref_hash:
-                prompt += f"\n[char_ref:{ref_hash}]"
+        # Append reference path + mtime for cache invalidation when reference changes
+        if reference_image_path:
+            try:
+                mtime = int(Path(reference_image_path).stat().st_mtime)
+                prompt += f"\n[char_ref:{reference_image_path}:{mtime}]"
+            except OSError:
+                pass
 
         # Cache check
         if not force and local_path.exists() and prompt_marker.exists():
@@ -519,13 +603,11 @@ def generate_scene_frames_v2(
                 prev_frame_path = local_path
                 continue
 
-        # reference_previous wins for animation continuity; otherwise use character ref
+        # reference_previous wins for animation continuity; otherwise use resolved character ref
         if use_reference:
             ref_path = str(prev_frame_path)
-        elif frame_has_person:
-            ref_path = _get_character_reference()
         else:
-            ref_path = None
+            ref_path = reference_image_path
 
         tmp_path = generate_image(
             prompt,

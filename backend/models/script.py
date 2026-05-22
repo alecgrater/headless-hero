@@ -131,6 +131,11 @@ class Segment(BaseModel):
     circle_color: str = ""              # hex color for composite title card circle background
     title_card_image_prompt: str = ""   # visual prompt for AI-generated circle image
 
+class MainCharacter(BaseModel):
+    name: str
+    appearance: str
+    vibe: str = ""
+
 class ScriptContent(BaseModel):
     """The full script payload matching PRD section 7.2."""
 
@@ -143,6 +148,7 @@ class ScriptContent(BaseModel):
     card_subtitle: str = ""              # action subtitle below title (e.g. "RE-WRITING HISTORY")
     video_fx: dict | None = None          # VideoFX dict — computed deterministically at render time
     eli_position: dict | None = None      # Per-video Eli overlay position override {x, y}
+    main_character: MainCharacter | None = None  # Per-project main character (name, appearance, vibe)
     segment_timer_enabled: bool = True    # Global toggle for segment countdown timer overlay
     subtitle_highlight_enabled: bool = True  # Global toggle for active word highlight in subtitles
     seo_metadata: dict | None = None      # Generated SEO metadata (title, description, tags)
@@ -193,6 +199,10 @@ class GenerateScriptRequest(BaseModel):
     cold_open_text: str | None = PydanticField(default=None, description="Pre-selected cold open text to inject into script generation")
     gameplay_enabled: bool = PydanticField(default=False, description="Enable gameplay video clips for some scenes")
     stock_photo_enabled: bool = PydanticField(default=False, description="Enable stock photos for some scenes")
+    eli_enabled: bool = PydanticField(
+        default=True,
+        description="Whether Eli is enabled for this project. False switches to per-project main character.",
+    )
 
 class GenerateScriptResponse(BaseModel):
     id: str

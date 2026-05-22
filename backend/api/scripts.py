@@ -511,6 +511,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
     cold_open_text = body.cold_open_text
     gameplay_enabled = body.gameplay_enabled
     stock_photo_enabled = body.stock_photo_enabled
+    eli_enabled = body.eli_enabled
     ai_video_enabled = os.environ.get("AI_VIDEO_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
     try:
         ai_video_scenes_per_segment = int(os.environ.get("AI_VIDEO_SCENES_PER_SEGMENT", "2"))
@@ -548,6 +549,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             stock_photo_enabled=stock_photo_enabled,
             script_id=script_id,
             format_id=format_id,
+            eli_enabled=eli_enabled,
         )
         script_content.ai_video_enabled = ai_video_enabled
         duration = time.monotonic() - t0
@@ -567,6 +569,35 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             bg_session.add(record)
             bg_session.commit()
             bg_session.refresh(record)
+
+            from models.project_config import get_or_create_project_config
+
+            get_or_create_project_config(
+                bg_session, script_id, eli_enabled=eli_enabled
+            )
+            bg_session.commit()
+
+            if not eli_enabled and script_content.main_character is not None:
+                from pipeline.main_character import generate_character_reference
+                from models.project_config import update_project_config
+
+                logger.info(
+                    "Generating main character reference for script_id=%s", script_id
+                )
+                try:
+                    web_path = generate_character_reference(
+                        script_id=script_id,
+                        character=script_content.main_character,
+                    )
+                    update_project_config(
+                        bg_session,
+                        script_id,
+                        main_character_reference_url=web_path,
+                    )
+                    bg_session.commit()
+                except Exception as exc:  # noqa: BLE001
+                    logger.exception("Main character reference generation failed: %s", exc)
+                    # Non-fatal: project still works, scenes will just lack the reference.
 
         logger.info("Script generated: %s (%d segments) in %.1fs", script_id, len(script_content.segments), duration)
 
