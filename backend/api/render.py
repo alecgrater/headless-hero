@@ -412,7 +412,7 @@ def _phase_fx(ctx: ExportContext) -> None:
 def _phase_eli(ctx: ExportContext) -> None:
     """Phase 6: Generate Eli pose selection for all scenes (skips title cards)."""
     try:
-        from pipeline.eli_animator import generate_scene_eli
+        from pipeline.eli_animator import generate_eli_batch, generate_scene_eli
     except ImportError:
         logger.warning("eli_animator module not found — skipping Eli phase")
         return
@@ -422,25 +422,43 @@ def _phase_eli(ctx: ExportContext) -> None:
     logger.info("[%s] Phase: eli — generating Eli poses for %d scenes", ctx.script_id, scene_count)
 
     content_now = _reload_content(ctx.script_id)
-    eli_updates: dict[str, dict] = {}
-    previous_corner: str | None = None
-    for i, sc_info in enumerate(non_tc):
-        _check_cancelled(ctx.job.id)
-        p = _phase_progress(ctx, "eli", i / scene_count)
-        update_job(ctx.job.id, progress=p, current_step=f"Generating Eli ({i+1}/{scene_count})...")
+
+    # Build batch payload, skipping scenes that already opted out via
+    # contains_person.
+    eligible: list = []
+    for sc_info in non_tc:
         scene_now = find_scene_in_content(content_now, sc_info["scene_id"])
-        if scene_now.contains_person:
+        if scene_now is None or scene_now.contains_person:
+            continue
+        eligible.append(scene_now)
+
+    _check_cancelled(ctx.job.id)
+    update_job(
+        ctx.job.id,
+        progress=_phase_progress(ctx, "eli", 0.0),
+        current_step=f"Generating Eli ({len(eligible)} scenes)...",
+    )
+
+    scenes_payload = [{"id": sc.id, "narration": sc.narration or ""} for sc in eligible]
+    eli_updates: dict[str, dict] = generate_eli_batch(scenes_payload, script_id=ctx.script_id)
+
+    # Per-scene retry for any scene the batch couldn't deliver.
+    previous_corner: str | None = None
+    for sc in eligible:
+        _check_cancelled(ctx.job.id)
+        if sc.id in eli_updates:
+            previous_corner = eli_updates[sc.id].get("corner")
             continue
         try:
             eli_result = generate_scene_eli(
-                scene_now.narration,
+                sc.narration,
                 previous_corner=previous_corner,
                 script_id=ctx.script_id,
             )
-            eli_updates[sc_info["scene_id"]] = eli_result
+            eli_updates[sc.id] = eli_result
             previous_corner = eli_result.get("corner")
         except Exception as e:
-            logger.warning("Failed Eli for scene %s: %s", sc_info["scene_id"], e)
+            logger.warning("Failed Eli for scene %s: %s", sc.id, e)
 
     # Persist all Eli overlays in a single DB write
     if eli_updates:

@@ -12,7 +12,7 @@ from api._helpers import find_scene_in_content
 from database import get_session
 from models.project_config import get_project_config
 from models.script import Script, ScriptContent
-from pipeline.eli_animator import generate_scene_eli
+from pipeline.eli_animator import generate_eli_batch, generate_scene_eli
 from pipeline.render_cache import mark_render_inputs_changed
 from pipeline.render_jobs import create_job, update_job, get_job
 
@@ -111,13 +111,12 @@ async def regenerate_eli(req: RegenerateEliRequest, session: Session = Depends(g
 
 
 def _run_eli_generation(script_id: str, scene_ids: list[str], job_id: str) -> None:
-    """Background thread: generate Eli poses for listed scenes."""
+    """Background thread: pick Eli poses for listed scenes via batched LLM call."""
     from database import engine
 
     try:
         total = len(scene_ids)
         logger.info("[ELI] Starting generation for %d scenes (job=%s)", total, job_id)
-        previous_corner: str | None = None
 
         with Session(engine) as session:
             record = session.get(Script, script_id)
@@ -129,28 +128,46 @@ def _run_eli_generation(script_id: str, scene_ids: list[str], job_id: str) -> No
             all_scenes = content.all_scenes()
             scene_map = {sc.id: sc for sc in all_scenes}
 
-            for i, scene_id in enumerate(scene_ids):
+            ordered_scenes = [scene_map[sid] for sid in scene_ids if sid in scene_map]
+            scenes_payload = [
+                {"id": sc.id, "narration": sc.narration or ""}
+                for sc in ordered_scenes
+            ]
+
+            update_job(job_id, progress=0.0, current_step=f"Batching Eli poses for {len(scenes_payload)} scenes")
+
+            job = get_job(job_id)
+            if job and job.status == "cancelled":
+                return
+
+            results = generate_eli_batch(scenes_payload, script_id=script_id)
+
+            update_job(
+                job_id,
+                progress=0.85 if scenes_payload else 1.0,
+                current_step=f"Filling gaps ({len(scenes_payload) - len(results)} remaining)",
+            )
+
+            # Per-scene retry for any scene the batch couldn't deliver.
+            previous_corner: str | None = None
+            for sc in ordered_scenes:
                 job = get_job(job_id)
                 if job and job.status == "cancelled":
                     return
-
-                update_job(job_id, progress=i / total, current_step=f"Scene {i+1}/{total}")
-                logger.info("[ELI] Scene %d/%d (%s): generating pose", i + 1, total, scene_id)
-
-                sc = scene_map.get(scene_id)
-                if not sc:
+                if sc.id in results:
+                    previous_corner = results[sc.id].get("corner")
                     continue
-
                 try:
-                    eli_result = generate_scene_eli(sc.narration, previous_corner=previous_corner, script_id=script_id)
-                    sc.eli_overlay = eli_result
-                    previous_corner = eli_result.get("corner")
-                    logger.info(
-                        "[ELI] Scene %d/%d complete (frame=%s, corner=%s)",
-                        i + 1, total, eli_result.get("frame_id"), eli_result.get("corner"),
-                    )
+                    result = generate_scene_eli(sc.narration, previous_corner=previous_corner, script_id=script_id)
+                    results[sc.id] = result
+                    previous_corner = result.get("corner")
                 except Exception as e:
-                    logger.warning("[ELI] Scene %d/%d failed (%s): %s", i + 1, total, scene_id, e)
+                    logger.warning("[ELI] Retry for scene %s failed: %s", sc.id, e)
+
+            for sc in ordered_scenes:
+                eli_overlay = results.get(sc.id)
+                if eli_overlay:
+                    sc.eli_overlay = eli_overlay
 
             record.script_json = content.model_dump_json()
             session.add(record)
