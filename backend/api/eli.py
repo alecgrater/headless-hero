@@ -10,6 +10,7 @@ from sqlmodel import Session
 
 from api._helpers import find_scene_in_content
 from database import get_session
+from models.project_config import get_project_config
 from models.script import Script, ScriptContent
 from pipeline.eli_animator import generate_scene_eli
 from pipeline.render_cache import mark_render_inputs_changed
@@ -17,6 +18,14 @@ from pipeline.render_jobs import create_job, update_job, get_job
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/eli", tags=["eli"])
+
+
+def _ensure_eli_enabled(session: Session, script_id: str) -> None:
+    cfg = get_project_config(session, script_id)
+    if not cfg.eli_enabled:
+        raise HTTPException(
+            status_code=400, detail="Eli is disabled for this project"
+        )
 
 
 class GenerateEliRequest(BaseModel):
@@ -31,6 +40,7 @@ class RegenerateEliRequest(BaseModel):
 
 @router.post("/generate")
 async def generate_eli(req: GenerateEliRequest, session: Session = Depends(get_session)):
+    _ensure_eli_enabled(session, req.script_id)
     record = session.get(Script, req.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
@@ -71,6 +81,7 @@ async def eli_status(job_id: str):
 
 @router.post("/regenerate")
 async def regenerate_eli(req: RegenerateEliRequest, session: Session = Depends(get_session)):
+    _ensure_eli_enabled(session, req.script_id)
     record = session.get(Script, req.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
