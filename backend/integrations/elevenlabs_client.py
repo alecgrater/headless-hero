@@ -52,8 +52,18 @@ def _close_http_client() -> None:
             _HTTPX_CLIENT = None
 
 
-def _reset_clients_for_testing() -> None:
+def reset_clients() -> None:
+    """Close the cached httpx client so subsequent calls re-establish it.
+
+    Call this after the Settings UI mutates ELEVENLABS_API_KEY (the key is
+    read per-call via `_get_key()`, but this is also the right hook for any
+    future credential-bound state on the client itself).
+    """
     _close_http_client()
+
+
+# Back-compat alias for any existing test imports.
+_reset_clients_for_testing = reset_clients
 
 def _get_key() -> str:
     key = os.environ.get("ELEVENLABS_API_KEY")

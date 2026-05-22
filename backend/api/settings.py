@@ -9,6 +9,8 @@ from sqlmodel import Session, select
 from database import get_session
 from config import DEFAULT_CLAUDE_MODEL, DEFAULT_EXPORTS_DIR
 from integrations.llm_client import ALLOWED_PROVIDERS, LLM_TASKS, VALID_OPENAI_REASONING_EFFORTS
+from integrations import llm_client as _llm_client_module
+from integrations import elevenlabs_client as _elevenlabs_client_module
 from models.settings import AppSetting
 
 logger = logging.getLogger(__name__)
@@ -230,6 +232,8 @@ async def save_keys(
 
     saved_keys: list[str] = []
     skipped_keys: list[str] = []
+    llm_credential_changed = False
+    elevenlabs_credential_changed = False
 
     for key, value in keys.items():
         if key not in ALLOWED_KEYS:
@@ -248,7 +252,17 @@ async def save_keys(
         elif key in os.environ:
             del os.environ[key]
         saved_keys.append(key)
+        if key in {"ANTHROPIC_API_KEY", "OPENAI_API_KEY"}:
+            llm_credential_changed = True
+        elif key == "ELEVENLABS_API_KEY":
+            elevenlabs_credential_changed = True
 
     session.commit()
+    # Invalidate cached SDK clients so they pick up the new credentials
+    # without a backend restart.
+    if llm_credential_changed:
+        _llm_client_module.reset_clients()
+    if elevenlabs_credential_changed:
+        _elevenlabs_client_module.reset_clients()
     logger.info("Settings saved: %s, skipped: %s", saved_keys, skipped_keys)
     return {"status": "ok", "saved": saved_keys, "skipped": skipped_keys}

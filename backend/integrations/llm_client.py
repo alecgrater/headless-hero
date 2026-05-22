@@ -15,6 +15,14 @@ from integrations.usage_tracker import record_usage, get_model_pricing
 
 logger = logging.getLogger(__name__)
 
+_OLLAMA_BASE_URL = "http://localhost:11434/v1"
+_DEFAULT_QWEN_MODEL = "qwen3:14b"
+_DEFAULT_TASK = "script"
+
+_THINK_BLOCK_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
+
+ALLOWED_PROVIDERS = {"anthropic", "ollama", "openai"}
+
 # Module-level singleton clients. Each provider's SDK client is thread-safe and
 # maintains an internal connection pool; sharing one instance across the process
 # avoids re-establishing TLS for every call.
@@ -25,34 +33,48 @@ _OLLAMA_CLIENT: Any = None
 
 
 def get_anthropic_client() -> anthropic.Anthropic:
-    """Return the process-wide Anthropic client (lazy, thread-safe)."""
+    """Return the process-wide Anthropic client (lazy, thread-safe).
+
+    Re-validates ANTHROPIC_API_KEY on every call so that a key rotation via
+    the Settings UI is picked up without restart (the cached client is
+    invalidated by `reset_clients()` when settings change, but this guard
+    catches the case where the env var was cleared after init).
+    """
     global _ANTHROPIC_CLIENT
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        raise RuntimeError("ANTHROPIC_API_KEY is required when using the Anthropic provider.")
     if _ANTHROPIC_CLIENT is not None:
         return _ANTHROPIC_CLIENT
     with _CLIENT_LOCK:
         if _ANTHROPIC_CLIENT is None:
-            if not os.environ.get("ANTHROPIC_API_KEY"):
-                raise RuntimeError("ANTHROPIC_API_KEY is required when using the Anthropic provider.")
             _ANTHROPIC_CLIENT = anthropic.Anthropic()
     return _ANTHROPIC_CLIENT
 
 
 def get_openai_client() -> Any:
-    """Return the process-wide OpenAI client (lazy, thread-safe)."""
+    """Return the process-wide OpenAI client (lazy, thread-safe).
+
+    Re-validates OPENAI_API_KEY on every call (see `get_anthropic_client`).
+    """
     global _OPENAI_CLIENT
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise RuntimeError("OPENAI_API_KEY is not configured")
     if _OPENAI_CLIENT is not None:
         return _OPENAI_CLIENT
     from openai import OpenAI
     with _CLIENT_LOCK:
         if _OPENAI_CLIENT is None:
-            if not os.environ.get("OPENAI_API_KEY"):
-                raise RuntimeError("OPENAI_API_KEY is not configured")
             _OPENAI_CLIENT = OpenAI()
     return _OPENAI_CLIENT
 
 
 def get_ollama_client() -> Any:
-    """Return the process-wide Ollama client (OpenAI-compatible, lazy)."""
+    """Return the process-wide Ollama client (OpenAI-compatible, lazy).
+
+    `api_key="ollama"` is a placeholder Ollama ignores — leaving it out
+    would cause the OpenAI SDK to inherit OPENAI_API_KEY when set, which
+    breaks local Ollama for users with both keys configured.
+    """
     global _OLLAMA_CLIENT
     if _OLLAMA_CLIENT is not None:
         return _OLLAMA_CLIENT
@@ -63,21 +85,22 @@ def get_ollama_client() -> Any:
     return _OLLAMA_CLIENT
 
 
-def _reset_clients_for_testing() -> None:
-    """Drop cached SDK clients so subsequent calls re-read env vars. Test-only."""
+def reset_clients() -> None:
+    """Drop cached SDK clients so subsequent calls re-read env vars.
+
+    Call this after the Settings UI mutates ANTHROPIC_API_KEY or
+    OPENAI_API_KEY, otherwise the previously-built singleton continues
+    using the stale key.
+    """
     global _ANTHROPIC_CLIENT, _OPENAI_CLIENT, _OLLAMA_CLIENT
     with _CLIENT_LOCK:
         _ANTHROPIC_CLIENT = None
         _OPENAI_CLIENT = None
         _OLLAMA_CLIENT = None
 
-_OLLAMA_BASE_URL = "http://localhost:11434/v1"
-_DEFAULT_QWEN_MODEL = "qwen3:14b"
-_DEFAULT_TASK = "script"
 
-_THINK_BLOCK_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
-
-ALLOWED_PROVIDERS = {"anthropic", "ollama", "openai"}
+# Back-compat alias for any existing test imports.
+_reset_clients_for_testing = reset_clients
 
 _ANTHROPIC_MODEL_ALIASES = {
     # Legacy Headless Hero defaults that used Bedrock-style or provisional ids.
