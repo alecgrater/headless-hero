@@ -4,7 +4,7 @@ import type { GenerateIdeasResponse, VideoIdea } from "../../types/idea";
 import type { VideoFormat } from "../../types/format";
 import GenerationProgressBar from "../GenerationProgressBar";
 import { FormatSelector } from "./FormatSelector";
-import IdeaCard from "./IdeaCard";
+import GeneratedIdeaCard from "./GeneratedIdeaCard";
 import IdeationInput, { type IdeationInputHandle } from "./IdeationInput";
 
 const FORMAT_KEY = "hh-selected-format";
@@ -251,7 +251,7 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
 
           <div className="grid gap-3">
             {ideas.map((idea, i) => (
-              <IdeaCard
+              <GeneratedIdeaCard
                 key={`${idea.title}-${i}`}
                 idea={idea}
                 index={i}

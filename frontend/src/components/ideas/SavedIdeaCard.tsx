@@ -47,7 +47,7 @@ interface Props {
   onGenerateIdeas: (niche: string) => void;
 }
 
-export default function IdeaCard({ idea, onUpdate, onDelete, onGenerateIdeas }: Props) {
+export default function SavedIdeaCard({ idea, onUpdate, onDelete, onGenerateIdeas }: Props) {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(idea.text);
   const inputRef = useRef<HTMLTextAreaElement>(null);

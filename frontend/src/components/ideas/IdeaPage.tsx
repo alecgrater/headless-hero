@@ -8,7 +8,7 @@ import {
   getIdeaCategories,
 } from "../../api";
 import type { Idea, IdeaStatus } from "../../types/idea";
-import IdeaCard from "./IdeaCard";
+import SavedIdeaCard from "./SavedIdeaCard";
 import { EmptyState } from "../ui/EmptyState";
 
 const STATUS_FILTERS: { key: IdeaStatus | "all"; label: string }[] = [
@@ -219,7 +219,7 @@ export default function IdeaPage({ onGenerateIdeas }: Props) {
       ) : (
         <div className="space-y-2">
           {ideas.map((idea) => (
-            <IdeaCard
+            <SavedIdeaCard
               key={idea.id}
               idea={idea}
               onUpdate={handleUpdate}

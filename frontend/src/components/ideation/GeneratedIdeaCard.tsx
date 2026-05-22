@@ -12,7 +12,7 @@ interface Props {
 
 const MAX_KEYWORDS = 4;
 
-export default function IdeaCard({
+export default function GeneratedIdeaCard({
   idea,
   index,
   bookmarked,
