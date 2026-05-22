@@ -333,20 +333,24 @@ function BatchProgressBar({ progress, label }: BatchProgressProps) {
 
   useEffect(() => {
     if (!progress.startedAt || progress.completed + progress.failed >= progress.total) {
-      return;
+      const reset = window.setTimeout(() => setNow(null), 0);
+      return () => window.clearTimeout(reset);
     }
 
-    const interval = window.setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
+    const updateNow = () => setNow(Date.now());
+    const immediate = window.setTimeout(updateNow, 0);
+    const interval = window.setInterval(updateNow, 1000);
 
-    return () => window.clearInterval(interval);
+    return () => {
+      window.clearTimeout(immediate);
+      window.clearInterval(interval);
+    };
   }, [progress.completed, progress.failed, progress.startedAt, progress.total]);
 
   if (progress.total === 0) return null;
   const done = progress.completed + progress.failed;
   const pct = done / progress.total;
-  const elapsed = progress.startedAt && now ? (now - progress.startedAt) / 1000 : 0;
+  const elapsed = progress.startedAt && now ? Math.max(0, (now - progress.startedAt) / 1000) : 0;
   const avgPerScene = done > 0 ? elapsed / done : 0;
   const perSceneRemaining = (progress.total - done) * avgPerScene;
 
