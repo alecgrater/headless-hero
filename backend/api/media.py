@@ -68,7 +68,7 @@ async def upload_scene_media(
                 out.write(chunk)
                 bytes_written += len(chunk)
         temp_dest.replace(dest)
-    except Exception:
+    except BaseException:
         temp_dest.unlink(missing_ok=True)
         raise
 
