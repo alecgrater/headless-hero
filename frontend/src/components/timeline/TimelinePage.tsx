@@ -3311,7 +3311,6 @@ function TimelineEditor({
             thumbnailsProgress={titleCardProgressPct}
             audioProgress={batchProgressValue(state.batchAudioProgress)}
             imageProgress={batchProgressValue(state.batchImageProgress)}
-            projectConfig={projectConfig}
           />
 
           <FinalizationRow

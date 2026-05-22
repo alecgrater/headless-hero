@@ -16,7 +16,7 @@ class ProjectConfig(SQLModel, table=True):
 
     __tablename__ = "project_config"
 
-    script_id: str = Field(primary_key=True)
+    script_id: str = Field(primary_key=True, foreign_key="scripts.id")
     eli_enabled: bool = Field(default=True)
     main_character_reference_url: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=_utcnow)

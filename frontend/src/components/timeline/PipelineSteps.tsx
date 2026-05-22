@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { VoiceInfo } from "../../types/audio";
-import type { ProjectConfig } from "../../api";
 import MiniProgressBar from "../MiniProgressBar";
 
 interface Props {
@@ -45,8 +44,6 @@ interface Props {
   thumbnailsProgress: number | null;
   audioProgress: number | null;
   imageProgress: number | null;
-  // Project config (Task 17 will use this to disable "Add Eli" button)
-  projectConfig?: ProjectConfig | null;
 }
 
 function compactProgressText(progress: number | null) {

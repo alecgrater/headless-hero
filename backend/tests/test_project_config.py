@@ -1,4 +1,5 @@
 from sqlmodel import Session, SQLModel, create_engine
+from models import script  # noqa: F401  -- registers Script table for FK resolution
 from models.project_config import ProjectConfig, get_or_create_project_config, get_project_config
 
 

@@ -26,6 +26,10 @@ export default function MainCharacterDrawer({
   const [vibe, setVibe] = useState(initial?.vibe ?? "");
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  // Cache-buster: stable per drawer mount, refreshed when the reference is
+  // regenerated, so the <img> tag picks up the new file instead of the
+  // browser-cached version of the same URL.
+  const [refTs, setRefTs] = useState(() => Date.now());
 
   useEffect(() => {
     setName(config.main_character?.name ?? "");
@@ -53,6 +57,7 @@ export default function MainCharacterDrawer({
     const res = await regenerateMainCharacterReference(scriptId);
     setRegenerating(false);
     if (res.ok) {
+      setRefTs(Date.now());
       onUpdated(res.data as ProjectConfig);
     }
   };
@@ -76,7 +81,7 @@ export default function MainCharacterDrawer({
 
         {config.main_character_reference_url ? (
           <img
-            src={assetUrl(config.main_character_reference_url)}
+            src={`${assetUrl(config.main_character_reference_url)}?t=${refTs}`}
             alt="Main character reference"
             className="w-full aspect-video rounded-lg border border-neutral-800 mb-4 object-cover"
           />

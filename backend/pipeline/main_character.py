@@ -69,7 +69,7 @@ def generate_character_reference(
     prompt = build_reference_prompt(character)
     logger.info("Generating main character reference for script_id=%s", script_id)
     temp_path = _call_image_generator(prompt, script_id)
-    shutil.copyfile(temp_path, target)
+    shutil.move(temp_path, target)
     return character_reference_web_path(script_id)
 
 

@@ -19,6 +19,7 @@ from api.short_form_hooks import ensure_short_form_hook_scene_count
 from database import get_default_brand_id, get_session, engine
 from models.brand import BrandProfile
 from models.generation_duration import GenerationDuration
+from models.project_config import ProjectConfig
 from models.script import (
     GenerateScriptRequest,
     GenerateScriptResponse,
@@ -449,6 +450,13 @@ def delete_script(script_id: str, session: Session = Depends(get_session)):
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
 
+    # Clean up associated ProjectConfig row first (no FK cascade configured).
+    existing_cfg = session.exec(
+        select(ProjectConfig).where(ProjectConfig.script_id == script_id)
+    ).first()
+    if existing_cfg:
+        session.delete(existing_cfg)
+
     session.delete(record)
     session.commit()
 
@@ -485,10 +493,18 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
         .order_by(Script.created_at.desc())  # type: ignore[arg-type]
     ).first()
     if existing:
-        # Create an already-completed job pointing to the existing script
-        job = create_job()
-        update_job(job.id, status="completed", progress=1.0, current_step="Complete", output_urls=[existing.id])
-        return GenerateJobResponse(job_id=job.id)
+        # If the existing script has a different eli_enabled mode than the
+        # incoming request, skip the dedup so we don't return a script with
+        # the wrong character configuration.
+        existing_cfg = session.exec(
+            select(ProjectConfig).where(ProjectConfig.script_id == existing.id)
+        ).first()
+        existing_eli_enabled = existing_cfg.eli_enabled if existing_cfg else True
+        if existing_eli_enabled == body.eli_enabled:
+            # Create an already-completed job pointing to the existing script
+            job = create_job()
+            update_job(job.id, status="completed", progress=1.0, current_step="Complete", output_urls=[existing.id])
+            return GenerateJobResponse(job_id=job.id)
 
     # Build brand context string with universal style + character
     parts = [brand.name]
