@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -58,12 +59,18 @@ async def upload_scene_media(
     uploads_dir = DATA_DIR / "projects" / script_id / "uploads"
     uploads_dir.mkdir(parents=True, exist_ok=True)
     dest = uploads_dir / f"{scene_id}{ext}"
+    temp_dest = uploads_dir / f".{scene_id}.{uuid.uuid4().hex}.tmp"
 
     bytes_written = 0
-    with dest.open("wb") as out:
-        while chunk := await file.read(UPLOAD_CHUNK_SIZE):
-            out.write(chunk)
-            bytes_written += len(chunk)
+    try:
+        with temp_dest.open("wb") as out:
+            while chunk := await file.read(UPLOAD_CHUNK_SIZE):
+                out.write(chunk)
+                bytes_written += len(chunk)
+        temp_dest.replace(dest)
+    except Exception:
+        temp_dest.unlink(missing_ok=True)
+        raise
 
     media_type = "video" if ext in ALLOWED_VIDEO_TYPES else "image"
     url = f"/static/projects/{script_id}/uploads/{scene_id}{ext}"
