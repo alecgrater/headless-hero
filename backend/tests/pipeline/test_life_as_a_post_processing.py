@@ -160,3 +160,26 @@ def test_life_as_a_role_adjective_does_not_mark_object_scene():
 
     assert scene.contains_person is False
     assert scene.visual_prompt == "[ESTABLISHING] An empty prison corridor before dawn"
+
+
+def test_life_as_a_unknown_role_head_noun_marks_protagonist_scene():
+    content = ScriptContent(
+        title="Your Life As A Medieval Knight",
+        format_id="life-as-a",
+        segments=[
+            Segment(name="Level 1, the entry", scenes=[
+                Scene(
+                    id="s1",
+                    narration="You stand outside the hall before sunrise.",
+                    visual_prompt="[REACTION] A knight holding a dented helmet in both hands",
+                ),
+            ]),
+        ],
+    )
+
+    out = enforce_life_as_a_constraints(content)
+    scene = out.segments[0].scenes[1]
+
+    assert scene.contains_person is True
+    assert scene.visual_prompt.startswith("[REACTION] Eli, the recurring character")
+    assert "Depict Eli as Medieval Knight" in scene.visual_prompt

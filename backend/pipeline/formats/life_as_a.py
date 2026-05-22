@@ -76,7 +76,7 @@ def life_as_a_role(content: ScriptContent) -> str:
 def _role_terms(role: str) -> set[str]:
     terms = {role.lower()} if role else set()
     words = [word for word in re.split(r"[^a-zA-Z]+", role.lower()) if len(word) > 2]
-    if words and words[-1] in _HUMAN_SUBJECT_TERMS:
+    if words:
         terms.add(words[-1])
     return terms
 
