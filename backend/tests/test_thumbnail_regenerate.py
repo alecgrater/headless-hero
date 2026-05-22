@@ -131,7 +131,7 @@ def test_regenerate_split_progression_200_and_archives_previous_thumbnail(
     active_path = thumbs_dir / "0.png"
     Image.new("RGB", (64, 64), (11, 22, 33)).save(active_path)
     sidecar_path = images_dir / "cinematic_thumbnail.levels.json"
-    sidecar_path.write_text(json.dumps({"left_level": 1, "right_level": 2}))
+    sidecar_path.write_text(json.dumps({"left_label": "3 months in", "right_label": "8 years in"}))
     original_final_bytes = final_path.read_bytes()
     original_active_bytes = active_path.read_bytes()
 
@@ -176,25 +176,25 @@ def test_regenerate_split_progression_200_and_archives_previous_thumbnail(
     # Sidecar was rewritten (new pair)
     assert sidecar_path.exists()
     sidecar_data = json.loads(sidecar_path.read_text())
-    assert "left_level" in sidecar_data
-    assert "right_level" in sidecar_data
+    assert "left_label" in sidecar_data
+    assert "right_label" in sidecar_data
 
     # Exactly one Gemini call was made (enhance_split_progression only)
     assert len(fake_gemini_transform) == 1
 
 
-def test_regenerate_split_progression_re_rolls_level_pair(
+def test_regenerate_split_progression_re_rolls_time_labels(
     client, db_engine, patched_data_dirs, fake_gemini_transform, monkeypatch
 ):
-    """Endpoint always re-rolls the level pair (ignores existing sidecar).
+    """Endpoint always re-rolls the time labels (ignores existing sidecar).
 
     Verified by:
-    - Monkeypatching _pick_level_pair to a deterministic stub that returns (1, 3)
+    - Monkeypatching _pick_life_as_a_thumbnail_labels to a deterministic stub
       and counting how many times it is called.
-    - Pre-seeding the sidecar with (2, 4) — a different pair.
+    - Pre-seeding the sidecar with different labels.
     - Hitting the endpoint twice.
-    - Asserting _pick_level_pair was called exactly twice (once per request).
-    - Asserting the sidecar now contains (1, 3), proving it was overwritten each time.
+    - Asserting _pick_life_as_a_thumbnail_labels was called exactly twice (once per request).
+    - Asserting the sidecar now contains the stub labels, proving it was overwritten each time.
     """
     tmp_path = patched_data_dirs
     script_id = "script-reroll-test"
@@ -204,9 +204,9 @@ def test_regenerate_split_progression_re_rolls_level_pair(
     images_dir.mkdir(parents=True, exist_ok=True)
     Image.new("RGB", (32, 32), (1, 2, 3)).save(images_dir / "cinematic_thumbnail_clean.png")
 
-    # Pre-seed sidecar with (2, 4) — stub will return (1, 3), proving overwrite
+    # Pre-seed sidecar with different labels — stub labels prove overwrite.
     sidecar_path = images_dir / "cinematic_thumbnail.levels.json"
-    sidecar_path.write_text(json.dumps({"left_level": 2, "right_level": 4}))
+    sidecar_path.write_text(json.dumps({"left_label": "4 months in", "right_label": "9 years in"}))
 
     with Session(db_engine) as session:
         session.add(Script(
@@ -218,17 +218,21 @@ def test_regenerate_split_progression_re_rolls_level_pair(
         ))
         session.commit()
 
-    # Monkeypatch _pick_level_pair in the source module so the endpoint picks it up.
+    # Monkeypatch _pick_life_as_a_thumbnail_labels in the source module so the endpoint picks it up.
     # The endpoint imports it inside the function body as:
-    #   from pipeline.thumbnail import _pick_level_pair
-    # so patching pipeline.thumbnail._pick_level_pair is the correct target.
+    #   from pipeline.thumbnail import _pick_life_as_a_thumbnail_labels
+    # so patching pipeline.thumbnail._pick_life_as_a_thumbnail_labels is the correct target.
     pick_call_count = {"n": 0}
 
-    def stub_pick_level_pair(n_levels: int) -> tuple[int, int]:
+    def stub_pick_life_as_a_thumbnail_labels() -> tuple[str, str]:
         pick_call_count["n"] += 1
-        return (1, 3)
+        return ("3 months in", "8 years in")
 
-    monkeypatch.setattr(thumbnail_pipeline, "_pick_level_pair", stub_pick_level_pair)
+    monkeypatch.setattr(
+        thumbnail_pipeline,
+        "_pick_life_as_a_thumbnail_labels",
+        stub_pick_life_as_a_thumbnail_labels,
+    )
 
     # First call
     resp1 = client.post(
@@ -244,16 +248,16 @@ def test_regenerate_split_progression_re_rolls_level_pair(
     )
     assert resp2.status_code == 200, resp2.text
 
-    # _pick_level_pair must have been called exactly once per request
+    # _pick_life_as_a_thumbnail_labels must have been called exactly once per request
     assert pick_call_count["n"] == 2, (
-        f"Expected _pick_level_pair to be called 2 times, got {pick_call_count['n']}"
+        f"Expected _pick_life_as_a_thumbnail_labels to be called 2 times, got {pick_call_count['n']}"
     )
 
-    # Sidecar must now contain the stub's deterministic pair (1, 3),
-    # proving the endpoint overwrote the seeded (2, 4) on each call.
+    # Sidecar must now contain the stub's deterministic labels,
+    # proving the endpoint overwrote the seeded labels on each call.
     sidecar_data = json.loads(sidecar_path.read_text())
-    assert sidecar_data["left_level"] == 1, f"Expected left_level=1, got {sidecar_data['left_level']}"
-    assert sidecar_data["right_level"] == 3, f"Expected right_level=3, got {sidecar_data['right_level']}"
+    assert sidecar_data["left_label"] == "3 months in"
+    assert sidecar_data["right_label"] == "8 years in"
 
     # Two Gemini enhancement calls (one per request)
     assert len(fake_gemini_transform) == 2

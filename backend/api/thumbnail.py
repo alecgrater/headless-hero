@@ -174,7 +174,7 @@ def regenerate_split_progression(
     body: RegenerateSplitProgressionRequest,
     session: Session = Depends(get_session),
 ):
-    """Re-roll the level pair and re-run the split-progression Gemini call only.
+    """Re-roll the time-period labels and re-run the split-progression Gemini call only.
 
     Does NOT regenerate chapter images or the cinematic clean image. Reuses both.
     Used by the Timeline/Modal "Regenerate Thumbnail" button for life-as-a projects.
@@ -198,8 +198,8 @@ def regenerate_split_progression(
 
     from pipeline.formats.title_cards.cinematic_chapters import _thumbnail_paths
     from pipeline.thumbnail import (
-        _pick_level_pair,
-        _write_level_pair_sidecar,
+        _pick_life_as_a_thumbnail_labels,
+        _write_life_as_a_thumbnail_label_sidecar,
         enhance_split_progression,
     )
 
@@ -222,15 +222,15 @@ def regenerate_split_progression(
         )
 
     # Always re-roll on explicit regenerate (overwrites sidecar).
-    left_level, right_level = _pick_level_pair(n_levels)
-    _write_level_pair_sidecar(sidecar_path, left_level, right_level)
+    left_label, right_label = _pick_life_as_a_thumbnail_labels()
+    _write_life_as_a_thumbnail_label_sidecar(sidecar_path, left_label, right_label)
 
     # Force-regenerate the final thumbnail via Gemini.
     enhance_split_progression(
         clean_image_path=clean_path,
         output_path=final_path,
-        left_level=left_level,
-        right_level=right_level,
+        left_label=left_label,
+        right_label=right_label,
         script_id=body.script_id,
         force=True,
     )

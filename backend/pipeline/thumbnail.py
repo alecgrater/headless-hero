@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 _LONGFORM_THUMB_RE = re.compile(r"^(\d+)\.png$")
 _LONGFORM_THUMB_LOCKS: dict[str, threading.Lock] = {}
 _LONGFORM_THUMB_LOCKS_GUARD = threading.Lock()
+_EARLY_LIFE_AS_A_THUMBNAIL_LABELS = tuple(f"{months} months in" for months in range(3, 9))
+_LATE_LIFE_AS_A_THUMBNAIL_LABELS = tuple(f"{years} years in" for years in range(8, 16))
 
 
 def _longform_thumbnail_lock(script_id: str) -> threading.Lock:
@@ -32,52 +34,39 @@ def _longform_thumbnail_lock(script_id: str) -> threading.Lock:
         return lock
 
 
-def _pick_level_pair(n_levels: int) -> tuple[int, int]:
-    """Pick (left_level, right_level) for split-progression thumbnail labels.
-
-    - left_level chosen from {1, 2}, clamped to ≤ n_levels.
-    - right_level chosen from {n_levels - 1, n_levels}, clamped to ≥ 1.
-    - Constraint: left_level < right_level (re-roll if violated).
-
-    Raises ValueError if n_levels < 2 (no valid pair exists).
-    """
-    if n_levels < 2:
-        raise ValueError(f"_pick_level_pair requires n_levels >= 2, got {n_levels}")
-
-    if n_levels == 2:
-        return (1, 2)
-
-    left_choices = [n for n in (1, 2) if n <= n_levels]
-    right_choices = [n for n in (n_levels - 1, n_levels) if n >= 1]
-
-    # Re-roll until left < right (always terminates fast — at least one valid pair exists for n >= 3).
-    for _ in range(20):
-        left = random.choice(left_choices)
-        right = random.choice(right_choices)
-        if left < right:
-            return (left, right)
-
-    # Defensive fallback — should not be reached for n >= 2.
-    return (1, n_levels)
+def _pick_life_as_a_thumbnail_labels() -> tuple[str, str]:
+    """Pick early/late time-period labels for a life-as-a split thumbnail."""
+    return (
+        random.choice(_EARLY_LIFE_AS_A_THUMBNAIL_LABELS),
+        random.choice(_LATE_LIFE_AS_A_THUMBNAIL_LABELS),
+    )
 
 
-def _write_level_pair_sidecar(path: Path, left_level: int, right_level: int) -> None:
-    """Persist the chosen level pair next to the thumbnail."""
+def _write_life_as_a_thumbnail_label_sidecar(
+    path: Path,
+    left_label: str,
+    right_label: str,
+) -> None:
+    """Persist the chosen time-period labels next to the thumbnail."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"left_level": left_level, "right_level": right_level}))
+    path.write_text(json.dumps({"left_label": left_label, "right_label": right_label}))
 
 
-def _read_level_pair_sidecar(path: Path) -> tuple[int, int] | None:
-    """Read a previously-persisted level pair. Returns None if missing/corrupt/incomplete."""
+def _read_life_as_a_thumbnail_label_sidecar(path: Path) -> tuple[str, str] | None:
+    """Read persisted time labels. Returns None for missing, corrupt, or legacy data."""
     if not path.exists():
         return None
     try:
         data = json.loads(path.read_text())
     except (OSError, json.JSONDecodeError):
         return None
-    left = data.get("left_level")
-    right = data.get("right_level")
-    if not isinstance(left, int) or not isinstance(right, int):
+    left = data.get("left_label")
+    right = data.get("right_label")
+    if not isinstance(left, str) or not isinstance(right, str):
+        return None
+    if left not in _EARLY_LIFE_AS_A_THUMBNAIL_LABELS:
+        return None
+    if right not in _LATE_LIFE_AS_A_THUMBNAIL_LABELS:
         return None
     return (left, right)
 
@@ -85,15 +74,15 @@ def _read_level_pair_sidecar(path: Path) -> tuple[int, int] | None:
 def enhance_split_progression(
     clean_image_path: Path,
     output_path: Path,
-    left_level: int,
-    right_level: int,
+    left_label: str,
+    right_label: str,
     script_id: str | None = None,
     force: bool = False,
 ) -> Path:
     """Transform a single iconic life-as-a thumbnail into a split-progression thumbnail.
 
     Sends the clean image to Gemini with the SPLIT_PROGRESSION_PROMPT (with
-    {left_level} / {right_level} substituted) and writes the result to output_path.
+    {left_label} / {right_label} substituted) and writes the result to output_path.
 
     Caches by mtime: re-runs only if output is missing, source is newer, or force=True.
     On Gemini failure, falls back to copying the clean image to output_path.
@@ -114,8 +103,8 @@ def enhance_split_progression(
             pass  # Fall through and regenerate
 
     prompt = SPLIT_PROGRESSION_PROMPT.template.format(
-        left_level=left_level,
-        right_level=right_level,
+        left_label=left_label,
+        right_label=right_label,
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -128,8 +117,8 @@ def enhance_split_progression(
         )
         shutil.copy2(result_path, str(output_path))
         logger.info(
-            "[%s] split-progression thumbnail written: %s (LEVEL %d / LEVEL %d)",
-            script_id or "no-id", output_path, left_level, right_level,
+            "[%s] split-progression thumbnail written: %s (%s / %s)",
+            script_id or "no-id", output_path, left_label, right_label,
         )
         return output_path
     except Exception as exc:

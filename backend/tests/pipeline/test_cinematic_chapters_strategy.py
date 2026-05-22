@@ -115,14 +115,16 @@ def test_prepare_thumbnail_generates_clean_chapter1_and_split(
     assert len(fake_gemini_transform) == 1
     call = fake_gemini_transform[0]
     assert call["image_paths"] == [str(clean_path)]
-    assert "LEVEL " in call["prompt"]
+    assert "months in" in call["prompt"]
+    assert "years in" in call["prompt"]
+    assert "LEVEL " not in call["prompt"]
 
     # Final thumbnail and sidecar both exist
     assert final_path.exists()
     assert sidecar_path.exists()
 
 
-def test_prepare_thumbnail_caches_level_pair_across_runs(
+def test_prepare_thumbnail_caches_time_labels_across_runs(
     patched_data_dir, fake_image_gen, fake_gemini_transform,
 ):
     script_id = "test-2"
@@ -131,12 +133,14 @@ def test_prepare_thumbnail_caches_level_pair_across_runs(
     CINEMATIC_CHAPTERS.prepare_thumbnail(script_id=script_id, content=content, accent_color="#ff0066")
     _, _, sidecar_path = _thumbnail_paths(script_id)
     import json
-    first_pair = json.loads(sidecar_path.read_text())
+    first_labels = json.loads(sidecar_path.read_text())
 
-    # Second run without force should reuse the same level pair (sidecar unchanged)
+    # Second run without force should reuse the same labels (sidecar unchanged)
     CINEMATIC_CHAPTERS.prepare_thumbnail(script_id=script_id, content=content, accent_color="#ff0066")
-    second_pair = json.loads(sidecar_path.read_text())
-    assert first_pair == second_pair
+    second_labels = json.loads(sidecar_path.read_text())
+    assert first_labels == second_labels
+    assert "left_label" in first_labels
+    assert "right_label" in first_labels
 
 
 def test_prepare_thumbnail_falls_back_when_one_level(

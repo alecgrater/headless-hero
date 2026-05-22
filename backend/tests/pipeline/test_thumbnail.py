@@ -3,14 +3,15 @@
 import json
 import os
 
-import pytest
 from PIL import Image
 
 from pipeline import thumbnail
 from pipeline.thumbnail import (
-    _pick_level_pair,
-    _read_level_pair_sidecar,
-    _write_level_pair_sidecar,
+    _EARLY_LIFE_AS_A_THUMBNAIL_LABELS,
+    _LATE_LIFE_AS_A_THUMBNAIL_LABELS,
+    _pick_life_as_a_thumbnail_labels,
+    _read_life_as_a_thumbnail_label_sidecar,
+    _write_life_as_a_thumbnail_label_sidecar,
     archive_current_longform_thumbnail,
     list_longform_thumbnails,
     replace_active_longform_thumbnail,
@@ -45,74 +46,49 @@ def test_gemini_thumbnail_prompt_forbids_arrows(tmp_path, monkeypatch):
     assert "DO NOT add any arrow" in captured["prompt"]
 
 
-def test_pick_level_pair_two_levels_is_deterministic():
-    # N == 2 → only valid pair is (1, 2)
-    assert _pick_level_pair(2) == (1, 2)
-
-
-def test_pick_level_pair_three_levels_yields_valid_pair():
-    # N == 3 → valid pairs: (1,2), (1,3), (2,3) — all have left < right and both in [1, 3]
-    for _ in range(50):
-        left, right = _pick_level_pair(3)
-        assert 1 <= left < right <= 3
-        assert (left, right) in {(1, 2), (1, 3), (2, 3)}
-
-
-def test_pick_level_pair_four_levels_uses_endpoints():
-    # N == 4 → left ∈ {1, 2}, right ∈ {3, 4}, left < right
-    seen: set[tuple[int, int]] = set()
+def test_pick_life_as_a_thumbnail_labels_uses_allowed_ranges():
+    seen_left: set[str] = set()
+    seen_right: set[str] = set()
     for _ in range(200):
-        pair = _pick_level_pair(4)
-        seen.add(pair)
-        left, right = pair
-        assert left in {1, 2}
-        assert right in {3, 4}
-        assert left < right
-    # Over 200 trials all 4 combinations should appear
-    assert seen == {(1, 3), (1, 4), (2, 3), (2, 4)}
+        left, right = _pick_life_as_a_thumbnail_labels()
+        seen_left.add(left)
+        seen_right.add(right)
+        assert left in _EARLY_LIFE_AS_A_THUMBNAIL_LABELS
+        assert right in _LATE_LIFE_AS_A_THUMBNAIL_LABELS
+    assert seen_left == set(_EARLY_LIFE_AS_A_THUMBNAIL_LABELS)
+    assert seen_right == set(_LATE_LIFE_AS_A_THUMBNAIL_LABELS)
 
 
-def test_pick_level_pair_seven_levels_uses_endpoints():
-    # N == 7 → left ∈ {1, 2}, right ∈ {6, 7}, left < right
-    for _ in range(50):
-        left, right = _pick_level_pair(7)
-        assert left in {1, 2}
-        assert right in {6, 7}
-        assert left < right
-
-
-def test_pick_level_pair_one_level_raises():
-    # N < 2 → cannot form a pair
-    with pytest.raises(ValueError):
-        _pick_level_pair(1)
-
-
-def test_pick_level_pair_zero_raises():
-    with pytest.raises(ValueError):
-        _pick_level_pair(0)
-
-
-def test_write_and_read_level_pair_sidecar(tmp_path):
+def test_write_and_read_life_as_a_thumbnail_label_sidecar(tmp_path):
     sidecar = tmp_path / "thumb.levels.json"
-    _write_level_pair_sidecar(sidecar, 1, 4)
-    assert _read_level_pair_sidecar(sidecar) == (1, 4)
+    _write_life_as_a_thumbnail_label_sidecar(sidecar, "3 months in", "8 years in")
+    assert _read_life_as_a_thumbnail_label_sidecar(sidecar) == (
+        "3 months in",
+        "8 years in",
+    )
 
 
-def test_read_level_pair_sidecar_missing_returns_none(tmp_path):
+def test_read_life_as_a_thumbnail_label_sidecar_missing_returns_none(tmp_path):
     sidecar = tmp_path / "missing.json"
-    assert _read_level_pair_sidecar(sidecar) is None
+    assert _read_life_as_a_thumbnail_label_sidecar(sidecar) is None
 
 
-def test_read_level_pair_sidecar_corrupt_returns_none(tmp_path):
+def test_read_life_as_a_thumbnail_label_sidecar_corrupt_returns_none(tmp_path):
     sidecar = tmp_path / "corrupt.json"
     sidecar.write_text("not json {{{")
-    assert _read_level_pair_sidecar(sidecar) is None
+    assert _read_life_as_a_thumbnail_label_sidecar(sidecar) is None
 
 
-def test_read_level_pair_sidecar_missing_keys_returns_none(tmp_path):
+def test_read_life_as_a_thumbnail_label_sidecar_missing_keys_returns_none(tmp_path):
     sidecar = tmp_path / "partial.json"
-    sidecar.write_text(json.dumps({"left_level": 1}))
-    assert _read_level_pair_sidecar(sidecar) is None
+    sidecar.write_text(json.dumps({"left_label": "3 months in"}))
+    assert _read_life_as_a_thumbnail_label_sidecar(sidecar) is None
+
+
+def test_read_life_as_a_thumbnail_label_sidecar_rejects_legacy_levels(tmp_path):
+    sidecar = tmp_path / "legacy.json"
+    sidecar.write_text(json.dumps({"left_level": 1, "right_level": 4}))
+    assert _read_life_as_a_thumbnail_label_sidecar(sidecar) is None
 
 
 def test_longform_thumbnail_archive_preserves_previous_active(tmp_path, monkeypatch):
@@ -177,16 +153,17 @@ def test_enhance_split_progression_calls_gemini_with_templated_prompt(tmp_path, 
     result = thumbnail.enhance_split_progression(
         clean_image_path=clean_path,
         output_path=output_path,
-        left_level=1,
-        right_level=4,
+        left_label="3 months in",
+        right_label="8 years in",
         script_id="script-1",
     )
 
     assert result == output_path
     assert output_path.exists()
-    assert "LEVEL 1" in captured["prompt"]
-    assert "LEVEL 4" in captured["prompt"]
-    assert "What happened between Level 1 and Level 4" in captured["prompt"]
+    assert "3 months in" in captured["prompt"]
+    assert "8 years in" in captured["prompt"]
+    assert "LEVEL " not in captured["prompt"]
+    assert "What happened between 3 months in and 8 years in" in captured["prompt"]
     assert captured["image_paths"] == [str(clean_path)]
 
 
@@ -203,8 +180,8 @@ def test_enhance_split_progression_falls_back_on_gemini_error(tmp_path, monkeypa
     result = thumbnail.enhance_split_progression(
         clean_image_path=clean_path,
         output_path=output_path,
-        left_level=1,
-        right_level=4,
+        left_label="4 months in",
+        right_label="9 years in",
         script_id="script-1",
     )
 
@@ -230,19 +207,44 @@ def test_enhance_split_progression_caches_by_mtime(tmp_path, monkeypatch):
     monkeypatch.setattr("integrations.google_image_client.transform_with_references", fake_transform)
 
     # First call generates
-    thumbnail.enhance_split_progression(clean_image_path=clean_path, output_path=output_path, left_level=1, right_level=3, script_id="s1")
+    thumbnail.enhance_split_progression(
+        clean_image_path=clean_path,
+        output_path=output_path,
+        left_label="3 months in",
+        right_label="8 years in",
+        script_id="s1",
+    )
     assert call_count["n"] == 1
 
     # Second call with unchanged source uses cache
-    thumbnail.enhance_split_progression(clean_image_path=clean_path, output_path=output_path, left_level=1, right_level=3, script_id="s1")
+    thumbnail.enhance_split_progression(
+        clean_image_path=clean_path,
+        output_path=output_path,
+        left_label="3 months in",
+        right_label="8 years in",
+        script_id="s1",
+    )
     assert call_count["n"] == 1
 
     # Bumping source mtime invalidates cache
     new_mtime = output_path.stat().st_mtime + 10
     os.utime(clean_path, (new_mtime, new_mtime))
-    thumbnail.enhance_split_progression(clean_image_path=clean_path, output_path=output_path, left_level=1, right_level=3, script_id="s1")
+    thumbnail.enhance_split_progression(
+        clean_image_path=clean_path,
+        output_path=output_path,
+        left_label="3 months in",
+        right_label="8 years in",
+        script_id="s1",
+    )
     assert call_count["n"] == 2
 
     # force=True also invalidates cache
-    thumbnail.enhance_split_progression(clean_image_path=clean_path, output_path=output_path, left_level=1, right_level=3, script_id="s1", force=True)
+    thumbnail.enhance_split_progression(
+        clean_image_path=clean_path,
+        output_path=output_path,
+        left_label="3 months in",
+        right_label="8 years in",
+        script_id="s1",
+        force=True,
+    )
     assert call_count["n"] == 3

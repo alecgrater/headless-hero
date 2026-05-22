@@ -23,7 +23,7 @@ def _thumbnail_paths(script_id: str) -> tuple[Path, Path, Path]:
 
     - clean_path: AI-generated iconic image. Also reused as chapter_1.png.
     - final_path: split-progression enhanced thumbnail (frontend reads this).
-    - sidecar_path: persisted level-pair JSON for re-render consistency.
+    - sidecar_path: persisted label JSON for re-render consistency.
     """
     base = DATA_DIR / "projects" / script_id / "images"
     return (
@@ -53,9 +53,9 @@ class CinematicChaptersStrategy:
         del job_id, accent_color  # accent_color was used by the old Pillow title overlay.
 
         from pipeline.thumbnail import (
-            _pick_level_pair,
-            _read_level_pair_sidecar,
-            _write_level_pair_sidecar,
+            _pick_life_as_a_thumbnail_labels,
+            _read_life_as_a_thumbnail_label_sidecar,
+            _write_life_as_a_thumbnail_label_sidecar,
             enhance_split_progression,
         )
 
@@ -112,7 +112,7 @@ class CinematicChaptersStrategy:
                 force=force,
             )
 
-        # 4. Decide level pair (cached in sidecar for re-render consistency).
+        # 4. Decide time labels (cached in sidecar for re-render consistency).
         n_levels = len(content.levels)
         if n_levels < 2:
             logger.warning(
@@ -123,19 +123,21 @@ class CinematicChaptersStrategy:
             shutil.copy2(str(clean_path), str(final_path))
             return
 
-        cached_pair = None if force else _read_level_pair_sidecar(sidecar_path)
-        if cached_pair is None:
-            left_level, right_level = _pick_level_pair(n_levels)
-            _write_level_pair_sidecar(sidecar_path, left_level, right_level)
+        cached_labels = (
+            None if force else _read_life_as_a_thumbnail_label_sidecar(sidecar_path)
+        )
+        if cached_labels is None:
+            left_label, right_label = _pick_life_as_a_thumbnail_labels()
+            _write_life_as_a_thumbnail_label_sidecar(sidecar_path, left_label, right_label)
         else:
-            left_level, right_level = cached_pair
+            left_label, right_label = cached_labels
 
         # 5. Split-progression enhancement (Gemini call).
         enhance_split_progression(
             clean_image_path=clean_path,
             output_path=final_path,
-            left_level=left_level,
-            right_level=right_level,
+            left_label=left_label,
+            right_label=right_label,
             script_id=script_id,
             force=force,
         )

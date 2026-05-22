@@ -1737,17 +1737,18 @@ LAYOUT RULES
 - Do NOT duplicate the character (no twin in the background). Do NOT add a third person near the divider, in the kitchen, behind the counter, or in any background area. Background extras (blurry diners far away, silhouettes) are acceptable only if they are clearly anonymous secondary figures and clearly not the protagonist.
 
 4. Each side must have its own label:
-- Left side: "LEVEL {left_level}"
-- Right side: "LEVEL {right_level}"
+- Left side: "{left_label}"
+- Right side: "{right_label}"
 
 LABEL TYPOGRAPHY — STRICT, CONSISTENT ACROSS ALL THUMBNAILS:
 - Color: bright pale-yellow / warm gold (a vivid, slightly cream-tinted yellow — high contrast against any background).
 - Stroke: every letter has a THICK BLACK OUTLINE (heavy stroke, roughly 6-10% of letter height). This is mandatory — labels without a black stroke are wrong.
 - Drop shadow: a small dark shadow offset slightly down and to the right for extra punch.
-- Font: condensed bold sans-serif, ALL CAPS, with TIGHT character spacing — letters nearly touching, no extra tracking. Compact and punchy, not airy or spread-out.
+- Font: condensed bold sans-serif with TIGHT character spacing — letters nearly touching, no extra tracking. Compact and punchy, not airy or spread-out.
+- Casing: preserve the exact label text and casing shown above, including lowercase "months in" / "years in".
 - Size: huge — each label should occupy roughly 14-20% of the image width.
-- "LEVEL {left_level}" sits in the TOP-LEFT corner area of the left side.
-- "LEVEL {right_level}" sits in the BOTTOM-RIGHT corner area of the right side.
+- "{left_label}" sits in the TOP-LEFT corner area of the left side.
+- "{right_label}" sits in the BOTTOM-RIGHT corner area of the right side.
 - The labels are diagonally opposite, mirroring the divider's orientation.
 - These labels are the ONLY text on the thumbnail. Do NOT add any other words anywhere.
 
@@ -1769,14 +1770,14 @@ The thumbnail should rely primarily on:
 - curiosity
 
 Use only:
-- "LEVEL {left_level}"
-- "LEVEL {right_level}"
+- "{left_label}"
+- "{right_label}"
 - and optionally ONE very short supporting phrase if it significantly improves clarity.
 
 Prioritize larger visuals and cleaner composition over extra text.
 
 ========================
-LEFT SIDE RULES (LEVEL {left_level})
+LEFT SIDE RULES ({left_label})
 ========================
 
 The left side should represent:
@@ -1801,7 +1802,7 @@ depending on the topic.
 Use environmental storytelling to communicate the difference instantly.
 
 ========================
-RIGHT SIDE RULES (LEVEL {right_level})
+RIGHT SIDE RULES ({right_label})
 ========================
 
 The right side should represent:
@@ -1934,7 +1935,7 @@ REIMAGINE each side so they feel like:
 while still clearly belonging to the same overall world/topic and the same illustration style.
 
 The final thumbnail should immediately make viewers think:
-"What happened between Level {left_level} and Level {right_level}?"
+"What happened between {left_label} and {right_label}?"
 """,
     retention=RetentionMeta(
         goal="Maximize CTR through split-progression thumbnails for life-as-a videos",
