@@ -30,6 +30,7 @@ import api, {
   generateFX,
   generateShortFormThumbnailsAll,
   generateShortFormThumbnailsBatch,
+  getProjectConfig,
   getRenderedShortsStatus,
   getShortFormThumbnailsStatus,
   getUploadSuiteStatus,
@@ -44,6 +45,7 @@ import api, {
 } from "../../api";
 import type { ExportTestOptions } from "../../api";
 import type { MediaAssignment } from "../../api";
+import type { ProjectConfig } from "../../api";
 import type { ScriptCostBreakdownItem } from "../../api";
 import { showToast } from "../ToastContainer";
 import type { ScriptContent, UploadTracking } from "../../types/script";
@@ -1609,6 +1611,8 @@ function TimelineEditor({
   const [productionBusyTask, setProductionBusyTask] = useState<ProductionTask | null>(null);
   const [productionProgress, setProductionProgress] = useState<number | null>(null);
   const [productionError, setProductionError] = useState<string | null>(null);
+  const [projectConfig, setProjectConfig] = useState<ProjectConfig | null>(null);
+  const [showMainCharacterDrawer, setShowMainCharacterDrawer] = useState(false);
   const yoloCancelledRef = useRef(false);
   const yoloStoppingRef = useRef(false);
   const productionBusyRef = useRef(false);
@@ -1623,6 +1627,20 @@ function TimelineEditor({
     setTitleDraft(title);
     setEditingTitle(false);
   }, [scriptId, title]);
+
+  useEffect(() => {
+    if (!scriptId) return;
+    let cancelled = false;
+    (async () => {
+      const res = await getProjectConfig(scriptId);
+      if (!cancelled && res.ok) {
+        setProjectConfig(res.data as ProjectConfig);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [scriptId]);
 
   // Auto-switch to Media Sources tab when new assignments arrive
   useEffect(() => {
@@ -3085,6 +3103,18 @@ function TimelineEditor({
                   >
                     <Pencil size={14} />
                   </button>
+                  {projectConfig && !projectConfig.eli_enabled && (
+                    <button
+                      type="button"
+                      onClick={() => setShowMainCharacterDrawer(true)}
+                      className="ml-1 px-2.5 py-1 text-xs rounded-full bg-neutral-800 text-neutral-300 hover:bg-neutral-700 transition-colors border border-neutral-700 shrink-0"
+                      title="Open main character drawer"
+                    >
+                      {projectConfig.main_character
+                        ? `Main character: ${projectConfig.main_character.name}`
+                        : "Eli: off"}
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -3247,6 +3277,7 @@ function TimelineEditor({
             thumbnailsProgress={titleCardProgressPct}
             audioProgress={batchProgressValue(state.batchAudioProgress)}
             imageProgress={batchProgressValue(state.batchImageProgress)}
+            projectConfig={projectConfig}
           />
 
           <FinalizationRow
@@ -3561,6 +3592,7 @@ function TimelineEditor({
             selectedSceneId={state.selectedSceneId}
             onSelectScene={handleSelectScene}
             pixelsPerSecond={pixelsPerSecond}
+            projectConfig={projectConfig}
           />
         </div>
 
@@ -3615,6 +3647,9 @@ function TimelineEditor({
           segments={state.content.segments.map((s) => ({ name: s.name }))}
         />
       )}
+
+      {/* TODO Task 16: render <MainCharacterDrawer /> here when showMainCharacterDrawer is true */}
+      {showMainCharacterDrawer && null}
 
       {showUpload && uploadSuite && (
         <UploadPanel

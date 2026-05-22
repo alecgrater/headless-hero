@@ -4,12 +4,15 @@ import TimelineRuler from "./TimelineRuler";
 import TimelineBlock from "./TimelineBlock";
 import { SEGMENT_COLORS, SEGMENT_TEXT_COLORS, SEGMENT_BG_COLORS } from "./constants";
 import type { ScriptContent, Scene } from "../../types/script";
+import type { ProjectConfig } from "../../api";
 
 interface Props {
   content: ScriptContent;
   selectedSceneId: string | null;
   onSelectScene: (sceneId: string) => void;
   pixelsPerSecond: number;
+  // Project config (Task 18 will use this to hide EliLane when disabled)
+  projectConfig?: ProjectConfig | null;
 }
 
 const LANE_TYPES = ["images", "voiceover", "fx", "eli", "timer", "subtitle"] as const;
