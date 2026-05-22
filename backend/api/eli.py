@@ -96,8 +96,8 @@ async def regenerate_eli(req: RegenerateEliRequest, session: Session = Depends(g
     idx = next((i for i, s in enumerate(all_scenes) if s.id == req.scene_id), -1)
     if idx > 0:
         prev = all_scenes[idx - 1]
-        if prev.eli_overlay and isinstance(prev.eli_overlay, dict):
-            previous_corner = prev.eli_overlay.get("corner")
+        if prev.eli_overlay:
+            previous_corner = prev.eli_overlay.corner
 
     eli_result = generate_scene_eli(
         scene.narration,

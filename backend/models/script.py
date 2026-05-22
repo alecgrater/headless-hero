@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, Field as PydanticField, field_validator
+from pydantic import BaseModel, ConfigDict, Field as PydanticField, field_validator
 from sqlmodel import Column, Field, SQLModel, Text
 
 # --- Pydantic models for the script JSON structure ---
@@ -38,6 +38,19 @@ class EliOverlay(BaseModel):
     enabled: bool = True
     corner: Literal["TL", "TR", "BL", "BR"] = "BR"
     frame_id: str = ""
+
+class WordTimestamp(BaseModel):
+    """A single word with its millisecond start/end markers from the TTS engine."""
+    word: str
+    start_ms: int
+    end_ms: int
+
+
+class PhraseTimestamp(BaseModel):
+    """A phrase grouping derived from word_timestamps via gap detection."""
+    start_ms: int
+    end_ms: int
+
 
 class FrameDirective(BaseModel):
     """Per-frame generation directive for the Visual Beat System."""
@@ -77,6 +90,8 @@ class HookScore(BaseModel):
 class Scene(BaseModel):
     """A single scene within a segment."""
 
+    model_config = ConfigDict(validate_assignment=True)
+
     id: str
     narration: str
     visual_prompt: str
@@ -85,14 +100,14 @@ class Scene(BaseModel):
     image_url: str = ""
     audio_url: str = ""
     audio_duration_seconds: float = 0.0
-    word_timestamps: list[dict] | None = None
-    phrase_timestamps: list[dict] | None = None
+    word_timestamps: list[WordTimestamp] | None = None
+    phrase_timestamps: list[PhraseTimestamp] | None = None
     title_card_zoom_target: dict | None = None  # {"x": int, "y": int, "radius": int} for zoompan
     frame_urls: list[str] = []        # web-relative paths to frame images
-    fx: dict | None = None             # SceneFX dict — assigned by FX generator, used by Remotion
-    eli_overlay: dict | None = None    # EliOverlay dict — Eli character animation keyframes
+    fx: SceneFX | None = None          # assigned by FX generator, used by Remotion
+    eli_overlay: EliOverlay | None = None  # Eli character animation keyframes
     visual_beat: str = "static"        # "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage"
-    frame_directives: list[dict] = []  # FrameDirective dicts; validated at runtime
+    frame_directives: list[FrameDirective] = []
     contains_person: bool = False       # true if any frame depicts a human figure
     # --- Scene-boundary transition ---
     transition_in: str = "cut"  # "cut" | "fade_black" | "flash_white" | "wipe"

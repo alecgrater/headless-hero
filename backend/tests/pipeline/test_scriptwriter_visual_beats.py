@@ -62,4 +62,4 @@ def test_non_static_beats_without_directives_are_repaired():
     _ensure_visual_beat_directives(content)
 
     assert len(scene.frame_directives) == 3
-    assert scene.frame_directives[1]["reference_previous"] is True
+    assert scene.frame_directives[1].reference_previous is True

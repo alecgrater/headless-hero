@@ -208,7 +208,7 @@ def _phase_fx(ctx: ExportContext) -> None:
             "has_multiple_frames": bool(scene_now.frame_urls and len(scene_now.frame_urls) > 1),
         }
         if scene_now.word_timestamps:
-            scene_data["word_timestamps"] = scene_now.word_timestamps
+            scene_data["word_timestamps"] = [w.model_dump() for w in scene_now.word_timestamps]
         try:
             fx_result = generate_scene_fx(scene_data)
             fx_updates[sc_info["scene_id"]] = fx_result["fx"]

@@ -89,10 +89,7 @@ def _shot_type(scene: Scene) -> str:
 def _has_ai_image_frame(scene: Scene) -> bool:
     if not scene.frame_directives:
         return True
-    return any(
-        str(frame.get("source", "ai_generated")) == "ai_generated"
-        for frame in scene.frame_directives
-    )
+    return any(frame.source == "ai_generated" for frame in scene.frame_directives)
 
 
 def _known_audio_duration_seconds(scene: Scene) -> float | None:

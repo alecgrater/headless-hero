@@ -128,15 +128,14 @@ def regenerate_scene_fx(body: RegenerateFXRequest, session: Session = Depends(ge
         "visual_beat": target_scene.visual_beat or "static",
     }
     if target_scene.word_timestamps:
-        scene_data["word_timestamps"] = target_scene.word_timestamps
+        scene_data["word_timestamps"] = [w.model_dump() for w in target_scene.word_timestamps]
 
     # Find neighboring scene's drift and transition for context
     all_scenes = content.all_scenes()
     if global_idx > 0:
         prev_scene = all_scenes[global_idx - 1]
-        prev_fx = prev_scene.fx if isinstance(prev_scene.fx, dict) else {}
-        if prev_fx.get("drift"):
-            scene_data["previous_drift"] = prev_fx["drift"]
+        if prev_scene.fx and prev_scene.fx.drift:
+            scene_data["previous_drift"] = prev_scene.fx.drift.model_dump()
         if prev_scene.transition_in and prev_scene.transition_in != "cut":
             scene_data["previous_transition"] = prev_scene.transition_in
 
@@ -194,7 +193,7 @@ def _build_scene_fx_data(scene, seg, seg_idx, sc_idx, global_idx, total_scenes) 
         "visual_beat": scene.visual_beat or "static",
     }
     if scene.word_timestamps:
-        scene_data["word_timestamps"] = scene.word_timestamps
+        scene_data["word_timestamps"] = [w.model_dump() for w in scene.word_timestamps]
     return scene_data
 
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api";
 import { fetchGenerationEstimate, recordDuration, pollTitleCardJob, bumpAssetVersion } from "../../api";
-import type { Scene, ScriptContent } from "../../types/script";
+import type { FrameDirective, Scene, ScriptContent } from "../../types/script";
 import type { GenerateVisualResponse, GenerateTitleCardsResponse } from "../../types/visual";
 import type { GenerateAudioResponse } from "../../types/audio";
 
@@ -532,7 +532,7 @@ export function useTimelineState(
   const generateAllImages = useCallback(
     async (missingOnly = false) => {
       // Collect AI-generated scenes
-      const scenes: { scene_id: string; visual_prompt: string; name: string; frame_directives: any[]; contains_person: boolean; media_source: string; gameplay_game_name: string; gameplay_game_override: string; audio_duration_seconds: number }[] = [];
+      const scenes: { scene_id: string; visual_prompt: string; name: string; frame_directives: FrameDirective[]; contains_person: boolean; media_source: string; gameplay_game_name: string; gameplay_game_override: string; audio_duration_seconds: number }[] = [];
       let shouldGenerateTitleCards = false;
       for (const seg of contentRef.current.segments) {
         for (const sc of seg.scenes) {

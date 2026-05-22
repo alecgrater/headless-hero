@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from config import BACKEND_PORT, DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH
-from models.script import ChapterMarker, Scene, SceneFX, ScriptContent, VideoFX
+from models.script import ChapterMarker, Scene, SceneFX, ScriptContent, VideoFX, WordTimestamp
 from pipeline.export_paths import copy_to_project_downloads, longform_filename
 from pipeline.process_manager import register_process, run_tracked, terminate_process_group, unregister_process
 
@@ -79,7 +79,7 @@ def _scene_frame_paths(script_id: str, scene: Scene) -> list[str]:
     if scene.frame_urls and len(scene.frame_urls) > 1:
         for i in range(len(scene.frame_urls)):
             # Check if this frame is a subtitle (no image needed)
-            if i < len(directives) and directives[i].get("source") == "subtitle":
+            if i < len(directives) and directives[i].source == "subtitle":
                 paths.append("")
                 continue
             fp = DATA_DIR / "projects" / script_id / "images" / f"{scene.id}_f{i}.png"
@@ -198,8 +198,8 @@ def _title_card_image_path(script_id: str) -> str | None:
 
 
 def _resolve_zoom_punch_frame(
-    fx: dict | None,
-    word_timestamps: list[dict] | None,
+    fx: SceneFX | None,
+    word_timestamps: list[WordTimestamp] | None,
     duration_seconds: float,
 ) -> dict | None:
     """Resolve trigger_word → trigger_frame on zoom_punch FX.
@@ -208,25 +208,26 @@ def _resolve_zoom_punch_frame(
     start_ms and converts to a frame number. Falls back to mid-scene if the
     word is not found. Returns fx unchanged if no zoom_punch or no trigger_word.
     """
-    if not fx or not fx.get("zoom_punch"):
-        return fx
-    zp = fx["zoom_punch"]
+    if not fx or not fx.zoom_punch:
+        return fx.model_dump() if fx else None
+    out = fx.model_dump()
+    zp = out["zoom_punch"]
     trigger_word = zp.get("trigger_word")
     if not trigger_word:
-        return fx
+        return out
 
     # Try to find the word in timestamps
     if word_timestamps:
         lower = re.sub(r"[^a-z0-9]", "", trigger_word.lower())
         for wt in word_timestamps:
-            wt_word = re.sub(r"[^a-z0-9]", "", wt.get("word", "").lower())
+            wt_word = re.sub(r"[^a-z0-9]", "", wt.word.lower())
             if wt_word == lower:
-                frame = round(wt.get("start_ms", 0) / 1000 * FPS)
-                return {**fx, "zoom_punch": {**zp, "trigger_frame": frame}}
+                zp["trigger_frame"] = round(wt.start_ms / 1000 * FPS)
+                return out
 
     # Fallback: estimate from word position in narration (mid-scene if no narration context)
-    frame = round(duration_seconds / 2 * FPS)
-    return {**fx, "zoom_punch": {**zp, "trigger_frame": frame}}
+    zp["trigger_frame"] = round(duration_seconds / 2 * FPS)
+    return out
 
 
 def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
@@ -254,8 +255,8 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
     duration = _scene_render_duration(scene, script_id, local_video_path)
     fx = _resolve_zoom_punch_frame(scene.fx, scene.word_timestamps, duration)
 
-    # Eli overlay passes through as-is (corner is set per-scene by generator)
-    eli_overlay = scene.eli_overlay
+    # Eli overlay passes through as a dict for the Remotion JSON payload
+    eli_overlay = scene.eli_overlay.model_dump() if scene.eli_overlay else None
 
     # Suppress eli overlay when Eli is already in the generated image
     if eli_overlay and scene.contains_person:
@@ -277,10 +278,10 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
         "fx": fx,
         "eli_overlay": eli_overlay,
         "character_frames_base_url": f"http://localhost:{BACKEND_PORT}/static/character/frames",
-        "word_timestamps": scene.word_timestamps if not scene.is_title_card else None,
-        "phrase_timestamps": scene.phrase_timestamps if not scene.is_title_card else None,
+        "word_timestamps": [w.model_dump() for w in scene.word_timestamps] if scene.word_timestamps and not scene.is_title_card else None,
+        "phrase_timestamps": [p.model_dump() for p in scene.phrase_timestamps] if scene.phrase_timestamps and not scene.is_title_card else None,
         "visual_beat": scene.visual_beat,
-        "frame_directives": scene.frame_directives or None,
+        "frame_directives": [d.model_dump() for d in scene.frame_directives] if scene.frame_directives else None,
         "frame_timings": scene.frame_timings,
         "visual_in_seconds": scene.visual_in_seconds,
         "visual_out_seconds": scene.visual_out_seconds,

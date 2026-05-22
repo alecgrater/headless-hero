@@ -88,7 +88,7 @@ def _contains_any_term(text: str, terms: set[str]) -> bool:
 
 def _scene_text(scene: Scene) -> str:
     pieces = [scene.visual_prompt, scene.narration]
-    pieces.extend(str(frame.get("prompt", "")) for frame in scene.frame_directives or [])
+    pieces.extend(frame.prompt for frame in scene.frame_directives or [])
     return "\n".join(piece for piece in pieces if piece)
 
 
@@ -132,14 +132,14 @@ def _mark_eli_protagonist_scenes(content: ScriptContent) -> int:
             updated += 1
 
         for frame in scene.frame_directives or []:
-            if frame.get("source", "ai_generated") != "ai_generated":
+            if frame.source != "ai_generated":
                 continue
-            frame_prompt = str(frame.get("prompt", ""))
+            frame_prompt = frame.prompt
             new_prompt = _eli_scene_prompt(frame_prompt, role)
             if new_prompt != frame_prompt:
-                frame["prompt"] = new_prompt
+                frame.prompt = new_prompt
                 updated += 1
-            frame["contains_person"] = True
+            frame.contains_person = True
 
     if updated:
         logger.info("life-as-a: marked %d visual prompt(s) as Eli-protagonist scenes", updated)

@@ -114,8 +114,8 @@ def test_life_as_a_marks_role_scenes_as_eli_protagonist():
     assert scene.contains_person is True
     assert scene.visual_prompt.startswith("[ESTABLISHING] Eli, the recurring character")
     assert "Depict Eli as Prison Guard" in scene.visual_prompt
-    assert scene.frame_directives[0]["contains_person"] is True
-    assert scene.frame_directives[0]["prompt"].startswith("[ESTABLISHING] Eli, the recurring character")
+    assert scene.frame_directives[0].contains_person is True
+    assert scene.frame_directives[0].prompt.startswith("[ESTABLISHING] Eli, the recurring character")
 
 
 def test_life_as_a_leaves_non_person_object_scenes_unmarked():
