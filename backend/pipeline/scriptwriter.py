@@ -16,6 +16,31 @@ logger = logging.getLogger(__name__)
 # Base system prompt — title card instructions are injected separately.
 BASE_SYSTEM_PROMPT = SCRIPT_SYSTEM.template
 
+
+def build_main_character_instructions() -> str:
+    """Instructions appended to the system prompt when Eli is disabled.
+
+    Tells Claude to invent one project-wide main character and to set
+    contains_person=true on scenes where that character would naturally appear.
+    """
+    return (
+        "\n\n## Main Character (Eli is disabled for this project)\n"
+        "Invent ONE recurring main character that fits this video's topic. "
+        "Output a top-level `main_character` object with three fields:\n"
+        "  - name: the character's name\n"
+        "  - appearance: detailed visual description (face, hair, build, "
+        "    clothing, distinguishing features) — written so an image "
+        "    generator could draw them consistently\n"
+        "  - vibe: 1-2 sentences on personality / energy\n\n"
+        "For each scene, set `contains_person: true` ONLY when this main "
+        "character should appear in that scene's visual. Set "
+        "`contains_person: false` for landscapes, abstract concepts, "
+        "object close-ups, or any shot where forcing a person in would "
+        "feel awkward. Aim for a balance — not every scene needs a "
+        "person.\n"
+    )
+
+
 ALL_BEAT_TYPES = ["static", "continuous", "quick_cuts", "aha_subtitle", "montage"]
 
 _SHOT_LABEL_RE = re.compile(r"^\[([A-Z\-]+)\]")
@@ -209,6 +234,7 @@ def generate_script(
     stock_photo_enabled: bool = False,
     script_id: str | None = None,
     format_id: str = "youtube-listicle",
+    eli_enabled: bool = True,
 ) -> ScriptContent:
     """Generate a video script for the given format. Dispatches via the format registry.
 
@@ -269,6 +295,13 @@ def generate_script(
     # whose instructions are baked into the format's script_system_prompt).
     if fmt.title_card_strategy.kind == "composite-grid":
         system_prompt += TITLE_CARD_PROMPT_INSTRUCTIONS
+
+    # When Eli is disabled, instruct Claude to invent a project-wide main character
+    # and to set per-scene contains_person flags accordingly. This applies to both
+    # single-pass and segmented generation paths (the system prompt is reused for
+    # both the outline and per-segment scene calls).
+    if not eli_enabled:
+        system_prompt = system_prompt + build_main_character_instructions()
 
     # --- Generation ---
     use_segmented = segmented and fmt.supports_segmented_generation

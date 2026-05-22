@@ -549,6 +549,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             stock_photo_enabled=stock_photo_enabled,
             script_id=script_id,
             format_id=format_id,
+            eli_enabled=eli_enabled,
         )
         script_content.ai_video_enabled = ai_video_enabled
         duration = time.monotonic() - t0
