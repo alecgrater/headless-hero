@@ -89,8 +89,12 @@ export function usePublishState(scriptId: string): PublishState {
 
   // Load on mount
   useEffect(() => {
-    fetchConnections();
-    refreshHistory();
+    const loadTimer = window.setTimeout(() => {
+      void fetchConnections();
+      void refreshHistory();
+    }, 0);
+
+    return () => window.clearTimeout(loadTimer);
   }, [fetchConnections, refreshHistory]);
 
   // Cleanup on unmount
