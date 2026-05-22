@@ -2698,7 +2698,7 @@ function TimelineEditor({
     titleCardProgress,
   ]);
 
-  const handleRecompositeThumbnailInline = async () => {
+  const handleRecompositeThumbnailInline = useCallback(async () => {
     thumbnailsCancelledRef.current = false;
     setThumbnailsInlineGenerating(true);
     try {
@@ -2731,7 +2731,7 @@ function TimelineEditor({
     } finally {
       setThumbnailsInlineGenerating(false);
     }
-  };
+  }, [scriptId, state.content.format_id]);
 
   const confirmLongFormThumbnailOverwrite = useCallback(async () => {
     const existing = await refreshLongFormThumbnailsInline(false);
@@ -2744,7 +2744,7 @@ function TimelineEditor({
   const handleRecompositeThumbnailInlineWithWarning = useCallback(async () => {
     if (!(await confirmLongFormThumbnailOverwrite())) return;
     await handleRecompositeThumbnailInline();
-  }, [confirmLongFormThumbnailOverwrite]);
+  }, [confirmLongFormThumbnailOverwrite, handleRecompositeThumbnailInline]);
 
   const handleRenderLongFormThumbnailWithWarning = useCallback(async () => {
     if (!(await confirmLongFormThumbnailOverwrite())) return;
