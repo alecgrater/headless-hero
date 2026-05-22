@@ -10,6 +10,7 @@ interface Props {
   frameCounts?: Record<string, number>;
   fullHeight?: boolean;
   scenes?: Record<string, Scene>;
+  sceneSegments?: Record<string, string>;
   onBeforeApply?: () => Promise<boolean | void> | boolean | void;
   onSaved?: (assignments: MediaAssignment[]) => Promise<void> | void;
   onApproved: () => void;
@@ -24,7 +25,7 @@ const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
   user_upload: { label: "Upload", color: "bg-emerald-500/20 text-emerald-300" },
 };
 
-export default function MediaReviewPanel({ scriptId, assignments: initial, frameCounts, fullHeight, scenes, onBeforeApply, onSaved, onApproved, onReanalyze }: Props) {
+export default function MediaReviewPanel({ scriptId, assignments: initial, frameCounts, fullHeight, scenes, sceneSegments, onBeforeApply, onSaved, onApproved, onReanalyze }: Props) {
   const [assignments, setAssignments] = useState<MediaAssignment[]>(initial);
   const [saving, setSaving] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -133,53 +134,64 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
           const isUploadedVideo = a.media_source === "user_upload" && !!scene?.video_url;
           const isVideoSource = a.media_source === "ai_video" || a.media_source === "gameplay_video" || isUploadedVideo;
           return (
-            <div key={a.scene_id} className="px-4 py-2.5 flex items-center gap-3 text-sm">
-              <span className="text-neutral-500 w-6 text-right shrink-0">{idx + 1}</span>
-              <select
-                value={a.media_source}
-                onChange={(e) => handleSourceChange(a.scene_id, e.target.value as MediaAssignment["media_source"])}
-                className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 shrink-0"
-              >
-                <option value="ai">AI</option>
-                <option value="ai_video">AI Video</option>
-                <option value="gameplay_video">Gameplay</option>
-                <option value="stock_photo">Stock Photo</option>
-                {a.media_source === "user_upload" && <option value="user_upload">Upload</option>}
-              </select>
-              <span className={`px-2 py-0.5 rounded text-xs font-medium shrink-0 ${sourceInfo.color}`}>
-                {sourceInfo.label}
-              </span>
-              {!isVideoSource && frameCounts && frameCounts[a.scene_id] && (
-                <span className="px-1.5 py-0.5 rounded text-xs text-neutral-400 bg-neutral-800 shrink-0">
-                  {frameCounts[a.scene_id]} photos
+            <div key={a.scene_id} className="px-4 py-3 flex items-start gap-3 text-sm">
+              <span className="text-neutral-500 w-6 text-right shrink-0 pt-1">{idx + 1}</span>
+              <div className="flex flex-wrap items-center gap-2 w-64 shrink-0">
+                <select
+                  value={a.media_source}
+                  onChange={(e) => handleSourceChange(a.scene_id, e.target.value as MediaAssignment["media_source"])}
+                  className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 shrink-0"
+                >
+                  <option value="ai">AI</option>
+                  <option value="ai_video">AI Video</option>
+                  <option value="gameplay_video">Gameplay</option>
+                  <option value="stock_photo">Stock Photo</option>
+                  {a.media_source === "user_upload" && <option value="user_upload">Upload</option>}
+                </select>
+                <span className={`px-2 py-0.5 rounded text-xs font-medium shrink-0 ${sourceInfo.color}`}>
+                  {sourceInfo.label}
                 </span>
-              )}
-              {isVideoSource && (
-                <span className="px-1.5 py-0.5 rounded text-xs text-fuchsia-200 bg-fuchsia-500/10 shrink-0">
-                  video scene
-                </span>
-              )}
-              {a.media_source === "gameplay_video" && (
-                <input
-                  type="text"
-                  value={a.game_name ?? ""}
-                  onChange={(e) => handleFieldChange(a.scene_id, "game_name", e.target.value)}
-                  placeholder="Game name"
-                  className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 placeholder-neutral-600 flex-1 min-w-0"
-                />
-              )}
-              {a.media_source === "stock_photo" && (
-                <input
-                  type="text"
-                  value={a.search_query ?? ""}
-                  onChange={(e) => handleFieldChange(a.scene_id, "search_query", e.target.value)}
-                  placeholder="Search query"
-                  className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 placeholder-neutral-600 flex-1 min-w-0"
-                />
-              )}
-              {(a.media_source === "ai" || a.media_source === "ai_video") && (
-                <span className="flex-1" />
-              )}
+                {!isVideoSource && frameCounts && frameCounts[a.scene_id] && (
+                  <span className="px-1.5 py-0.5 rounded text-xs text-neutral-400 bg-neutral-800 shrink-0">
+                    {frameCounts[a.scene_id]} photos
+                  </span>
+                )}
+                {isVideoSource && (
+                  <span className="px-1.5 py-0.5 rounded text-xs text-fuchsia-200 bg-fuchsia-500/10 shrink-0">
+                    video scene
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="flex items-center gap-2 text-xs text-neutral-500">
+                  {sceneSegments?.[a.scene_id] && <span className="truncate">{sceneSegments[a.scene_id]}</span>}
+                  {scene?.is_title_card && <span className="text-neutral-600">Title card</span>}
+                </div>
+                <p className="truncate text-sm text-neutral-200" title={scene?.narration || ""}>
+                  {scene?.narration || "No narration for this scene."}
+                </p>
+                <p className="truncate text-xs text-neutral-500" title={sceneVisualPrompt(scene)}>
+                  {sceneVisualPrompt(scene) || "No visual prompt."}
+                </p>
+                {a.media_source === "gameplay_video" && (
+                  <input
+                    type="text"
+                    value={a.game_name ?? ""}
+                    onChange={(e) => handleFieldChange(a.scene_id, "game_name", e.target.value)}
+                    placeholder="Game name"
+                    className="mt-1 w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 placeholder-neutral-600"
+                  />
+                )}
+                {a.media_source === "stock_photo" && (
+                  <input
+                    type="text"
+                    value={a.search_query ?? ""}
+                    onChange={(e) => handleFieldChange(a.scene_id, "search_query", e.target.value)}
+                    placeholder="Search query"
+                    className="mt-1 w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 placeholder-neutral-600"
+                  />
+                )}
+              </div>
               {scenes && scenes[a.scene_id] && (
                 <button
                   onClick={() => setPreviewSceneId(a.scene_id)}
@@ -213,4 +225,8 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
 
 function hasPreviewableAssets(scene: Scene): boolean {
   return !!(scene.image_url || (scene.frame_urls && scene.frame_urls.length > 0) || scene.audio_url || scene.video_url);
+}
+
+function sceneVisualPrompt(scene?: Scene): string {
+  return scene?.original_visual_prompt || scene?.visual_prompt || "";
 }

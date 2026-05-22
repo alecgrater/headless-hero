@@ -25,6 +25,16 @@ function buildScenesMap(content: ScriptContent): Record<string, Scene> {
   return map;
 }
 
+function buildSceneSegments(content: ScriptContent): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const seg of content.segments) {
+    for (const scene of seg.scenes) {
+      map[scene.id] = seg.name;
+    }
+  }
+  return map;
+}
+
 interface Props {
   scriptId: string;
   content: ScriptContent;
@@ -81,6 +91,7 @@ export default function MediaSourcesTab({
   if (mediaAssignments && !mediaReviewDismissed) {
     const frameCounts = buildFrameCounts(content);
     const scenes = buildScenesMap(content);
+    const sceneSegments = buildSceneSegments(content);
     return (
       <div className="flex-1 overflow-auto p-4 space-y-4">
         <div className="rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3">
@@ -91,6 +102,7 @@ export default function MediaSourcesTab({
           assignments={mediaAssignments}
           frameCounts={frameCounts}
           scenes={scenes}
+          sceneSegments={sceneSegments}
           fullHeight
           onBeforeApply={onBeforeAssignmentsApply}
           onSaved={onAssignmentsSaved}
