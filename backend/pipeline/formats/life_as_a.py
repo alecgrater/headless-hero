@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 _ELI_PREFIX_RE = re.compile(r"^Eli, the recurring character, is the main subject\b", re.IGNORECASE)
 _ROLE_PREFIX_RE = re.compile(r"^your life as an?\s+", re.IGNORECASE)
+_SHOT_PREFIX_RE = re.compile(r"^(\[[A-Z\-]+\]\s*)(.*)$")
 
 _HUMAN_SUBJECT_TERMS = {
     "person",
@@ -51,6 +52,7 @@ _HUMAN_SUBJECT_TERMS = {
     "pilot",
     "farmer",
     "mechanic",
+    "engineer",
 }
 
 
@@ -74,7 +76,8 @@ def life_as_a_role(content: ScriptContent) -> str:
 def _role_terms(role: str) -> set[str]:
     terms = {role.lower()} if role else set()
     words = [word for word in re.split(r"[^a-zA-Z]+", role.lower()) if len(word) > 2]
-    terms.update(words)
+    if words and words[-1] in _HUMAN_SUBJECT_TERMS:
+        terms.add(words[-1])
     return terms
 
 
@@ -105,11 +108,15 @@ def _eli_scene_prompt(prompt: str, role: str) -> str:
     if not stripped or _ELI_PREFIX_RE.match(stripped) or re.search(r"\bEli\b", stripped):
         return prompt
     role_phrase = role if role != "the protagonist" else "the protagonist"
-    return (
+    eli_instruction = (
         "Eli, the recurring character, is the main subject and protagonist in this scene. "
-        f"Depict Eli as {role_phrase}; any other people are secondary and visually distinct from Eli. "
-        f"{stripped}"
+        f"Depict Eli as {role_phrase}; any other people are secondary and visually distinct from Eli."
     )
+    shot_match = _SHOT_PREFIX_RE.match(stripped)
+    if not shot_match:
+        return f"{eli_instruction} {stripped}"
+    shot_tag, rest = shot_match.groups()
+    return f"{shot_tag}{eli_instruction} {rest}".strip()
 
 
 def _mark_eli_protagonist_scenes(content: ScriptContent) -> int:

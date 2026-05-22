@@ -112,10 +112,10 @@ def test_life_as_a_marks_role_scenes_as_eli_protagonist():
     scene = out.segments[0].scenes[1]
 
     assert scene.contains_person is True
-    assert scene.visual_prompt.startswith("Eli, the recurring character")
+    assert scene.visual_prompt.startswith("[ESTABLISHING] Eli, the recurring character")
     assert "Depict Eli as Prison Guard" in scene.visual_prompt
     assert scene.frame_directives[0]["contains_person"] is True
-    assert scene.frame_directives[0]["prompt"].startswith("Eli, the recurring character")
+    assert scene.frame_directives[0]["prompt"].startswith("[ESTABLISHING] Eli, the recurring character")
 
 
 def test_life_as_a_leaves_non_person_object_scenes_unmarked():
@@ -138,3 +138,25 @@ def test_life_as_a_leaves_non_person_object_scenes_unmarked():
 
     assert scene.contains_person is False
     assert not scene.visual_prompt.startswith("Eli, the recurring character")
+
+
+def test_life_as_a_role_adjective_does_not_mark_object_scene():
+    content = ScriptContent(
+        title="Your Life As A Prison Guard",
+        format_id="life-as-a",
+        segments=[
+            Segment(name="Level 1, the entry", scenes=[
+                Scene(
+                    id="s1",
+                    narration="The corridor is empty before the shift starts.",
+                    visual_prompt="[ESTABLISHING] An empty prison corridor before dawn",
+                ),
+            ]),
+        ],
+    )
+
+    out = enforce_life_as_a_constraints(content)
+    scene = out.segments[0].scenes[1]
+
+    assert scene.contains_person is False
+    assert scene.visual_prompt == "[ESTABLISHING] An empty prison corridor before dawn"
