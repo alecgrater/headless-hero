@@ -168,6 +168,77 @@ def _ai_video_reason(scene: Scene) -> str:
     )
 
 
+def _scene_order(script_content: ScriptContent) -> list[str]:
+    return [scene.id for scene in script_content.all_scenes()]
+
+
+def _has_adjacent_ai_video(
+    scene_id: str,
+    assignments_by_scene: dict[str, MediaAssignment],
+    ordered_scene_ids: list[str],
+) -> bool:
+    try:
+        scene_index = ordered_scene_ids.index(scene_id)
+    except ValueError:
+        return False
+
+    adjacent_scene_ids = []
+    if scene_index > 0:
+        adjacent_scene_ids.append(ordered_scene_ids[scene_index - 1])
+    if scene_index < len(ordered_scene_ids) - 1:
+        adjacent_scene_ids.append(ordered_scene_ids[scene_index + 1])
+
+    return any(
+        assignments_by_scene.get(adjacent_scene_id, MediaAssignment(adjacent_scene_id, "ai", None, None, "")).media_source
+        == "ai_video"
+        for adjacent_scene_id in adjacent_scene_ids
+    )
+
+
+def _remove_adjacent_ai_video_assignments(
+    script_content: ScriptContent,
+    assignments_by_scene: dict[str, MediaAssignment],
+    scenes_by_id: dict[str, Scene],
+    scene_segment_indexes: dict[str, int],
+    segment_ai_video_counts: dict[int, int],
+) -> int:
+    """Downgrade the weaker scene in each adjacent AI-video pair."""
+    ordered_scene_ids = _scene_order(script_content)
+    for left_id, right_id in zip(ordered_scene_ids, ordered_scene_ids[1:]):
+        left = assignments_by_scene.get(left_id)
+        right = assignments_by_scene.get(right_id)
+        if not left or not right:
+            continue
+        if left.media_source != "ai_video" or right.media_source != "ai_video":
+            continue
+
+        left_scene = scenes_by_id.get(left_id)
+        right_scene = scenes_by_id.get(right_id)
+        if not left_scene or not right_scene:
+            downgrade_id = right_id
+        elif _ai_video_candidate_score(left_scene) >= _ai_video_candidate_score(right_scene):
+            downgrade_id = right_id
+        else:
+            downgrade_id = left_id
+
+        existing = assignments_by_scene[downgrade_id]
+        assignments_by_scene[downgrade_id] = MediaAssignment(
+            scene_id=downgrade_id,
+            media_source="ai",
+            game_name=None,
+            search_query=None,
+            reasoning=(
+                existing.reasoning
+                or "Downgraded to AI art so AI-video scenes are not back to back."
+            ),
+        )
+        segment_index = scene_segment_indexes.get(downgrade_id)
+        if segment_index is not None:
+            segment_ai_video_counts[segment_index] = max(0, segment_ai_video_counts.get(segment_index, 0) - 1)
+
+    return sum(1 for assignment in assignments_by_scene.values() if assignment.media_source == "ai_video")
+
+
 def analyze_media_sources(
     script_content: ScriptContent,
     gameplay_enabled: bool = True,
@@ -250,6 +321,7 @@ def analyze_media_sources(
     assignments_by_scene: dict[str, MediaAssignment] = {}
     ai_video_assigned = 0
     segment_ai_video_counts: dict[int, int] = {}
+    ordered_scene_ids = _scene_order(script_content)
     for entry in raw_assignments:
         source = entry.get("media_source", "ai")
         if source not in valid_sources:
@@ -269,6 +341,7 @@ def analyze_media_sources(
             if (
                 ai_video_assigned >= ai_video_limit
                 or segment_ai_video_counts.get(segment_index, 0) >= ai_video_scenes_per_segment
+                or _has_adjacent_ai_video(scene_id, assignments_by_scene, ordered_scene_ids)
                 or not _is_ai_video_eligible(
                     scene,
                     require_eli_scene=require_eli_scene_for_ai_video,
@@ -302,6 +375,14 @@ def analyze_media_sources(
                 reasoning="Defaulted to AI art because the media analyzer omitted this scene.",
             )
 
+    ai_video_assigned = _remove_adjacent_ai_video_assignments(
+        script_content,
+        assignments_by_scene,
+        scenes_by_id,
+        scene_segment_indexes,
+        segment_ai_video_counts,
+    )
+
     if ai_video_available and ai_video_assigned < ai_video_limit:
         for seg_index, seg in enumerate(script_content.segments):
             if ai_video_assigned >= ai_video_limit:
@@ -313,6 +394,7 @@ def analyze_media_sources(
                 scene
                 for scene in seg.scenes
                 if assignments_by_scene.get(scene.id, MediaAssignment(scene.id, "ai", None, None, "")).media_source != "ai_video"
+                and not _has_adjacent_ai_video(scene.id, assignments_by_scene, ordered_scene_ids)
                 and _is_ai_video_eligible(
                     scene,
                     assignments_by_scene.get(scene.id, MediaAssignment(scene.id, "ai", None, None, "")).media_source,
@@ -322,9 +404,13 @@ def analyze_media_sources(
             ]
             if not candidates:
                 continue
-            for best_scene in sorted(candidates, key=_ai_video_candidate_score, reverse=True)[:remaining_segment_slots]:
+            for best_scene in sorted(candidates, key=_ai_video_candidate_score, reverse=True):
                 if ai_video_assigned >= ai_video_limit:
                     break
+                if segment_ai_video_counts.get(seg_index, 0) >= ai_video_scenes_per_segment:
+                    break
+                if _has_adjacent_ai_video(best_scene.id, assignments_by_scene, ordered_scene_ids):
+                    continue
                 existing = assignments_by_scene[best_scene.id]
                 assignments_by_scene[best_scene.id] = MediaAssignment(
                     scene_id=best_scene.id,

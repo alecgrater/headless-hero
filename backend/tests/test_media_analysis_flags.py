@@ -170,12 +170,67 @@ def test_analyze_media_sources_fills_ai_video_per_segment_slots(monkeypatch):
     assert sources == {
         "scene_001": "ai",
         "scene_002": "ai_video",
-        "scene_007": "ai_video",
+        "scene_007": "ai",
         "scene_003": "ai",
         "scene_004": "ai_video",
         "scene_005": "ai",
         "scene_006": "ai_video",
     }
+
+
+def test_analyze_media_sources_does_not_assign_back_to_back_ai_video(monkeypatch):
+    content = ScriptContent(
+        title="Spaced motion routing",
+        segments=[
+            Segment(
+                name="Segment 1",
+                scenes=[
+                    Scene(id="scene_001", narration="Title.", visual_prompt="[ESTABLISHING] title", is_title_card=True),
+                    Scene(
+                        id="scene_002",
+                        narration="You walk into the hallway as the light changes.",
+                        visual_prompt="[ESTABLISHING] A person walking into a hallway as the light shifts",
+                    ),
+                    Scene(
+                        id="scene_003",
+                        narration="The door opens and smoke rolls across the floor.",
+                        visual_prompt="[CLOSE-UP] A door opening as smoke rolls across the floor",
+                    ),
+                    Scene(
+                        id="scene_004",
+                        narration="The camera drifts across a control room.",
+                        visual_prompt="[ESTABLISHING] A camera drifting across a control room",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(media_analyzer, "chat", lambda **_: """{
+      "assignments": [
+        {"scene_id": "scene_001", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "title"},
+        {"scene_id": "scene_002", "media_source": "ai_video", "game_name": null, "search_query": null, "reasoning": "model choice"},
+        {"scene_id": "scene_003", "media_source": "ai_video", "game_name": null, "search_query": null, "reasoning": "adjacent model choice"},
+        {"scene_id": "scene_004", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "missed candidate"}
+      ]
+    }""")
+
+    assignments = analyze_media_sources(
+        content,
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+        ai_video_enabled=True,
+        animated_scene_count=3,
+        ai_video_scenes_per_segment=3,
+        script_id="test-script",
+    )
+
+    sources = [assignment.media_source for assignment in assignments]
+    assert sources == ["ai", "ai_video", "ai", "ai_video"]
+    assert all(
+        left != "ai_video" or right != "ai_video"
+        for left, right in zip(sources, sources[1:])
+    )
 
 
 def test_analyze_media_sources_does_not_promote_stock_or_text_only(monkeypatch):
