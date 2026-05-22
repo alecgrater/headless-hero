@@ -55,6 +55,7 @@ import type { UploadSuiteStatus } from "../../api";
 import type { SaveState } from "../../App";
 import type { MicroTimelineHandle } from "./SceneMicroTimeline";
 import ExportTestModal from "./ExportTestModal";
+import MainCharacterDrawer from "./MainCharacterDrawer";
 import UploadPanel from "./UploadPanel";
 import MediaSourcesTab from "./MediaSourcesTab";
 import SegmentsTab from "./SegmentsTab";
@@ -3648,8 +3649,14 @@ function TimelineEditor({
         />
       )}
 
-      {/* TODO Task 16: render <MainCharacterDrawer /> here when showMainCharacterDrawer is true */}
-      {showMainCharacterDrawer && null}
+      {showMainCharacterDrawer && projectConfig && (
+        <MainCharacterDrawer
+          scriptId={scriptId}
+          config={projectConfig}
+          onClose={() => setShowMainCharacterDrawer(false)}
+          onUpdated={(next) => setProjectConfig(next)}
+        />
+      )}
 
       {showUpload && uploadSuite && (
         <UploadPanel
