@@ -42,6 +42,8 @@ AI-powered Electron desktop app for creating faceless educational YouTube conten
 npm run dev              # Start backend + frontend + electron (all three)
 npm run dev:frontend     # Frontend only (Vite on :5173)
 npm run dev:backend      # Backend only (uvicorn on :8420)
+npm run test             # Backend pytest suite from repo root
+npm run test:backend     # Same as: uv run --project backend pytest
 cd frontend && npm run build  # Production frontend build
 ```
 
@@ -50,10 +52,14 @@ cd frontend && npm run build  # Production frontend build
 **Never use `python`, `python3`, `pip`, or `pip3` directly.** All Python operations go through `uv`:
 
 - `uv run python script.py` — run scripts
+- `uv run --project backend pytest` — run backend tests from the repo root
+- `cd backend && uv run pytest` — run backend tests from inside `backend/`
 - `uv pip install pkg` — install packages
 - `uv add pkg` — add project dependency
 - `uv sync` — install from lockfile
 - `uv venv` — create virtual environment
+
+Do not run `uv run pytest` from the repo root; the Python project and pytest dependency live in `backend/`.
 
 ## Architecture
 

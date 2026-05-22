@@ -9,6 +9,8 @@
     "dev:backend": "cd backend && uv run uvicorn api.main:app --host 127.0.0.1 --port 8420 --reload",
     "dev:electron": "sleep 5 && electron .",
     "build:frontend": "cd frontend && npm run build",
+    "test": "npm run test:backend --",
+    "test:backend": "uv run --project backend pytest",
     "start": "electron ."
   },
   "keywords": [],
