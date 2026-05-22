@@ -300,9 +300,7 @@ def export_short_form_videos(
 
     Fails with 400 if any segment has no rendered video yet.
     """
-    import shutil
-
-    from pipeline.export_paths import project_downloads_folder
+    from pipeline.export_paths import copy_to_project_downloads, project_downloads_folder
     from pipeline.render_cache import is_render_up_to_date
     from pipeline.short_form_render import _short_filename, is_short_render_current
 
@@ -345,7 +343,7 @@ def export_short_form_videos(
     for idx, src in sources.items():
         dest = folder / _short_filename(content.segments[idx].name, idx + 1, total)
         if src.resolve() != dest.resolve():
-            shutil.copy2(str(src), str(dest))
+            copy_to_project_downloads(project_title, src, dest.name)
         files.append(dest.name)
         paths[idx] = str(dest)
 

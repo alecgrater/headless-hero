@@ -33,6 +33,7 @@ from pipeline.render_phases import (
     _phase_render,
 )
 from pipeline.export_paths import (
+    copy_to_project_downloads,
     has_export_label,
     longform_filename,
     project_downloads_folder,
@@ -328,7 +329,7 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
     if longform_path:
         dest = folder / longform_filename("Video", project_title, ".mp4")
         if str(dest) != longform_path:
-            shutil.copy2(longform_path, dest)
+            copy_to_project_downloads(project_title, longform_path, dest.name)
         copied_files.append(dest.name)
 
     # Thumbnail — auto-generate if missing

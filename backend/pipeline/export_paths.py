@@ -199,7 +199,6 @@ def _hardlink_or_copy(src: Path, dest: Path) -> None:
         dest.unlink()
     try:
         os.link(src, dest)
-        shutil.copystat(src, dest, follow_symlinks=True)
         logger.info("Hard-linked export video %s to %s", src, dest)
     except OSError:
         shutil.copy2(str(src), str(dest))
