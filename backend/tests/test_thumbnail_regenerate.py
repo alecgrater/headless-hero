@@ -109,10 +109,10 @@ def fake_gemini_transform(tmp_path, monkeypatch):
 # Tests
 # ---------------------------------------------------------------------------
 
-def test_regenerate_split_progression_200_and_overwrites_thumbnail(
+def test_regenerate_split_progression_200_and_archives_previous_thumbnail(
     client, db_engine, patched_data_dirs, fake_gemini_transform
 ):
-    """Happy path: 200, returns thumbnail_url, overwrites final thumbnail + sidecar."""
+    """Happy path: 200, returns thumbnail_url, archives previous active thumbnail + sidecar."""
     tmp_path = patched_data_dirs
     script_id = "script-regen-test"
     content = _make_life_as_a_content(n_levels=3)
@@ -126,9 +126,14 @@ def test_regenerate_split_progression_200_and_overwrites_thumbnail(
     # Pre-existing final thumbnail + sidecar from a previous run
     final_path = images_dir / "cinematic_thumbnail.png"
     Image.new("RGB", (64, 64), (99, 99, 99)).save(final_path)
+    thumbs_dir = tmp_path / "projects" / script_id / "renders" / "thumbnails"
+    thumbs_dir.mkdir(parents=True, exist_ok=True)
+    active_path = thumbs_dir / "0.png"
+    Image.new("RGB", (64, 64), (11, 22, 33)).save(active_path)
     sidecar_path = images_dir / "cinematic_thumbnail.levels.json"
     sidecar_path.write_text(json.dumps({"left_level": 1, "right_level": 2}))
     original_final_bytes = final_path.read_bytes()
+    original_active_bytes = active_path.read_bytes()
 
     # Insert a Script record into the DB
     with Session(db_engine) as session:
@@ -152,7 +157,7 @@ def test_regenerate_split_progression_200_and_overwrites_thumbnail(
     assert resp.status_code == 200, resp.text
     data = resp.json()
     assert "concepts" in data
-    assert len(data["concepts"]) == 1
+    assert len(data["concepts"]) == 2
     concept = data["concepts"][0]
     assert "thumbnail_url" in concept or "image_url" in concept
     url_key = "image_url" if "image_url" in concept else "thumbnail_url"
@@ -162,6 +167,11 @@ def test_regenerate_split_progression_200_and_overwrites_thumbnail(
     # Final thumbnail was overwritten (content different from pre-existing)
     assert final_path.exists()
     assert final_path.read_bytes() != original_final_bytes
+    assert active_path.exists()
+    assert active_path.read_bytes() == final_path.read_bytes()
+    archived_path = thumbs_dir / "1.png"
+    assert archived_path.exists()
+    assert archived_path.read_bytes() == original_active_bytes
 
     # Sidecar was rewritten (new pair)
     assert sidecar_path.exists()

@@ -1722,6 +1722,7 @@ LAYOUT RULES
 3. SUBJECT FRAMING — CRITICAL:
 - Position the focal subject (person, face, hands, key prop) of each side AWAY from the diagonal divider so each subject is fully visible and uncropped on its respective side.
 - Do NOT let the divider bisect a person's body, face, or head. If the source image's subject would otherwise sit on the divider line, shift the subject toward the outer edge of its side so the divider passes behind/beside it, not through it.
+- On the LEFT side, keep the focal subject centered within the left-side image area itself. Do not push the left subject too far toward the far-left edge; it should feel centered relative to the left panel, while still clear of the divider.
 - Each side's subject must read clearly at small thumbnail sizes.
 
 3a. CHARACTER CONTINUITY — CRITICAL:

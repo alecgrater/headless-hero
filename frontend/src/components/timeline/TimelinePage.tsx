@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ChevronLeft,
+  ChevronRight,
   Check,
+  Download,
   Film,
   ImageIcon,
   Layers,
@@ -1208,6 +1211,24 @@ function LongFormThumbnailsPanel({
   exporting: boolean;
   progress: { estimatedSeconds: number | null; active: boolean };
 }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const activeThumbnail = thumbnails[activeIndex] ?? thumbnails[0] ?? null;
+  const canFlip = thumbnails.length > 1;
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [thumbnails]);
+
+  const goPrevious = () => {
+    if (!canFlip) return;
+    setActiveIndex((idx) => (idx === 0 ? thumbnails.length - 1 : idx - 1));
+  };
+
+  const goNext = () => {
+    if (!canFlip) return;
+    setActiveIndex((idx) => (idx + 1) % thumbnails.length);
+  };
+
   return (
     <div className="flex-1 overflow-y-auto p-5">
       <section className="space-y-4">
@@ -1237,34 +1258,79 @@ function LongFormThumbnailsPanel({
         </div>
         {generating && <MiniProgressBar estimatedSeconds={progress.estimatedSeconds} active={progress.active} />}
         {thumbnails.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {thumbnails.map((thumbnail) => (
-              <article key={thumbnail.idx} className="rounded-lg border border-neutral-800 bg-neutral-900/70 overflow-hidden">
-                {thumbnail.image_url ? (
-                  <img
-                    src={assetUrl(thumbnail.image_url)}
-                    alt={thumbnail.title_text}
-                    className="w-full aspect-video object-cover"
-                  />
-                ) : (
-                  <div className="w-full aspect-video bg-red-500/10 flex items-center justify-center text-xs text-red-400 p-3">
-                    {thumbnail.error ?? "No image generated"}
-                  </div>
-                )}
-                <div className="p-3 flex items-center justify-between gap-3">
-                  <p className="text-sm text-neutral-200 truncate">{thumbnail.title_text}</p>
-                  {thumbnail.image_url && (
+          <div className="space-y-4">
+            <article className="rounded-lg border border-neutral-800 bg-neutral-900/70 overflow-hidden">
+              {activeThumbnail?.image_url ? (
+                <img
+                  src={assetUrl(activeThumbnail.image_url)}
+                  alt={activeThumbnail.title_text}
+                  className="w-full aspect-video object-cover"
+                />
+              ) : (
+                <div className="w-full aspect-video bg-red-500/10 flex items-center justify-center text-xs text-red-400 p-3">
+                  {activeThumbnail?.error ?? "No image generated"}
+                </div>
+              )}
+              <div className="p-3 flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm text-neutral-200 truncate">{activeThumbnail?.title_text}</p>
+                  <p className="text-xs text-neutral-500">{activeIndex + 1} of {thumbnails.length}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={goPrevious}
+                    disabled={!canFlip}
+                    className="w-8 h-8 rounded-lg bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:hover:bg-neutral-800 text-neutral-300 transition-colors flex items-center justify-center"
+                    aria-label="Previous thumbnail"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={goNext}
+                    disabled={!canFlip}
+                    className="w-8 h-8 rounded-lg bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:hover:bg-neutral-800 text-neutral-300 transition-colors flex items-center justify-center"
+                    aria-label="Next thumbnail"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                  {activeThumbnail?.image_url && (
                     <a
-                      href={assetUrl(thumbnail.image_url)}
+                      href={assetUrl(activeThumbnail.image_url)}
                       download
-                      className="text-xs px-2.5 py-1 bg-neutral-800 hover:bg-neutral-700 rounded text-neutral-300 transition-colors"
+                      className="w-8 h-8 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-neutral-300 transition-colors flex items-center justify-center"
+                      aria-label="Download thumbnail"
                     >
-                      Download
+                      <Download className="w-4 h-4" />
                     </a>
                   )}
                 </div>
-              </article>
-            ))}
+              </div>
+            </article>
+            {canFlip && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {thumbnails.map((thumbnail, idx) => (
+                  <button
+                    key={thumbnail.idx}
+                    type="button"
+                    onClick={() => setActiveIndex(idx)}
+                    className={`rounded-lg overflow-hidden border transition-colors ${
+                      idx === activeIndex
+                        ? "border-violet-400 bg-violet-500/10"
+                        : "border-neutral-800 bg-neutral-900/50 hover:border-neutral-600"
+                    }`}
+                    aria-label={`Select thumbnail ${idx + 1}`}
+                  >
+                    {thumbnail.image_url ? (
+                      <img src={assetUrl(thumbnail.image_url)} alt={thumbnail.title_text} className="w-full aspect-video object-cover" />
+                    ) : (
+                      <div className="w-full aspect-video bg-red-500/10" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <div className="rounded-lg border border-dashed border-neutral-800 bg-neutral-900/40 p-10 text-center">

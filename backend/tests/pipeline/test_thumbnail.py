@@ -7,7 +7,14 @@ import pytest
 from PIL import Image
 
 from pipeline import thumbnail
-from pipeline.thumbnail import _pick_level_pair, _read_level_pair_sidecar, _write_level_pair_sidecar
+from pipeline.thumbnail import (
+    _pick_level_pair,
+    _read_level_pair_sidecar,
+    _write_level_pair_sidecar,
+    archive_current_longform_thumbnail,
+    list_longform_thumbnails,
+    write_active_longform_thumbnail,
+)
 
 
 def test_gemini_thumbnail_prompt_forbids_arrows(tmp_path, monkeypatch):
@@ -105,6 +112,28 @@ def test_read_level_pair_sidecar_missing_keys_returns_none(tmp_path):
     sidecar = tmp_path / "partial.json"
     sidecar.write_text(json.dumps({"left_level": 1}))
     assert _read_level_pair_sidecar(sidecar) is None
+
+
+def test_longform_thumbnail_archive_preserves_previous_active(tmp_path, monkeypatch):
+    monkeypatch.setattr(thumbnail, "DATA_DIR", tmp_path)
+    script_id = "script-thumbs"
+    first = tmp_path / "first.png"
+    second = tmp_path / "second.png"
+    Image.new("RGB", (32, 32), (10, 20, 30)).save(first)
+    Image.new("RGB", (32, 32), (200, 100, 50)).save(second)
+
+    write_active_longform_thumbnail(script_id, first)
+    archived = archive_current_longform_thumbnail(script_id)
+    write_active_longform_thumbnail(script_id, second)
+
+    assert archived is not None
+    assert archived.name == "1.png"
+    assert archived.read_bytes() == first.read_bytes()
+
+    variants = list_longform_thumbnails(script_id)
+    assert [idx for idx, _url in variants] == [0, 1]
+    assert "thumbnails/0.png" in variants[0][1]
+    assert "thumbnails/1.png" in variants[1][1]
 
 
 def test_enhance_split_progression_calls_gemini_with_templated_prompt(tmp_path, monkeypatch):

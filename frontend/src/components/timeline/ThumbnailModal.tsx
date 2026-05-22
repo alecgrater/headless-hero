@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Film, ImageIcon, Smartphone, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Film, ImageIcon, Smartphone, X } from "lucide-react";
 import { assetUrl } from "../../api";
 import type { ThumbnailConcept } from "../../types/render";
 import ShortFormThumbnailsCard from "./short-form/ShortFormThumbnailsCard";
@@ -30,6 +30,13 @@ export default function ThumbnailModal({
 }: Props) {
   const [activeTab, setActiveTab] = useState<ThumbnailTab>("long-form");
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const activeThumbnail = thumbnails[activeIndex] ?? thumbnails[0] ?? null;
+  const canFlip = thumbnails.length > 1;
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [thumbnails]);
 
   useEffect(() => {
     if (!selectedUrl) return;
@@ -39,6 +46,16 @@ export default function ThumbnailModal({
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [selectedUrl]);
+
+  const goPrevious = () => {
+    if (!canFlip) return;
+    setActiveIndex((idx) => (idx === 0 ? thumbnails.length - 1 : idx - 1));
+  };
+
+  const goNext = () => {
+    if (!canFlip) return;
+    setActiveIndex((idx) => (idx + 1) % thumbnails.length);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -91,40 +108,90 @@ export default function ThumbnailModal({
           {activeTab === "long-form" ? (
             <>
               {thumbnails.length > 0 ? (
-                <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: `repeat(${Math.min(thumbnails.length, 3)}, 1fr)` }}>
-                  {thumbnails.map((t) => (
-                    <div key={t.idx} className="space-y-1.5">
-                      {t.image_url ? (
-                        <div className="relative group">
-                          <img
-                            src={assetUrl(t.image_url)}
-                            alt={t.title_text}
-                            onClick={() => setSelectedUrl(assetUrl(t.image_url!))}
-                            className="w-full aspect-video object-cover rounded-lg border border-neutral-700 cursor-pointer hover:border-violet-500 transition-colors"
-                          />
+                <div className="space-y-4 mb-4">
+                  <div className="relative group">
+                    {activeThumbnail?.image_url ? (
+                      <img
+                        src={assetUrl(activeThumbnail.image_url)}
+                        alt={activeThumbnail.title_text}
+                        onClick={() => setSelectedUrl(assetUrl(activeThumbnail.image_url!))}
+                        className="w-full aspect-video object-cover rounded-lg border border-neutral-700 cursor-pointer hover:border-violet-500 transition-colors"
+                      />
+                    ) : activeThumbnail?.error ? (
+                      <div className="w-full aspect-video bg-red-500/10 rounded-lg flex items-center justify-center text-xs text-red-400 border border-red-500/20">
+                        Error generating
+                      </div>
+                    ) : null}
+                    <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-3">
+                      <div className="rounded-lg bg-black/70 px-3 py-1.5">
+                        <p className="text-xs text-neutral-100">{activeThumbnail?.title_text}</p>
+                        <p className="text-[10px] text-neutral-400">{activeIndex + 1} of {thumbnails.length}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={goPrevious}
+                          disabled={!canFlip}
+                          className="w-8 h-8 rounded-lg bg-black/70 hover:bg-black/90 disabled:opacity-40 disabled:hover:bg-black/70 text-neutral-200 transition-colors flex items-center justify-center"
+                          aria-label="Previous thumbnail"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={goNext}
+                          disabled={!canFlip}
+                          className="w-8 h-8 rounded-lg bg-black/70 hover:bg-black/90 disabled:opacity-40 disabled:hover:bg-black/70 text-neutral-200 transition-colors flex items-center justify-center"
+                          aria-label="Next thumbnail"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                        {activeThumbnail?.image_url && (
                           <a
-                            href={assetUrl(t.image_url)}
+                            href={assetUrl(activeThumbnail.image_url)}
                             download
-                            className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 text-neutral-200 text-[10px] px-2 py-1 rounded-md hover:bg-black/90"
+                            className="w-8 h-8 rounded-lg bg-black/70 hover:bg-black/90 text-neutral-200 transition-colors flex items-center justify-center"
+                            aria-label="Download thumbnail"
                           >
-                            Download
+                            <Download className="w-4 h-4" />
                           </a>
-                        </div>
-                      ) : t.error ? (
-                        <div className="w-full aspect-video bg-red-500/10 rounded-lg flex items-center justify-center text-xs text-red-400 border border-red-500/20">
-                          Error generating
-                        </div>
-                      ) : null}
-                      <p className="text-[11px] text-neutral-400 truncate">{t.title_text}</p>
-                      <p className="text-[10px] text-neutral-600 line-clamp-2">{t.visual_description}</p>
+                        )}
+                      </div>
                     </div>
-                  ))}
+                  </div>
+                  {canFlip && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {thumbnails.map((t, idx) => (
+                        <button
+                          key={t.idx}
+                          type="button"
+                          onClick={() => setActiveIndex(idx)}
+                          className={`rounded-lg overflow-hidden border transition-colors ${
+                            idx === activeIndex
+                              ? "border-violet-400 bg-violet-500/10"
+                              : "border-neutral-800 bg-neutral-950/40 hover:border-neutral-600"
+                          }`}
+                          aria-label={`Select thumbnail ${idx + 1}`}
+                        >
+                          {t.image_url ? (
+                            <img
+                              src={assetUrl(t.image_url)}
+                              alt={t.title_text}
+                              className="w-full aspect-video object-cover"
+                            />
+                          ) : (
+                            <div className="w-full aspect-video bg-red-500/10" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ) : !generating ? (
                 <div className="flex flex-col items-center justify-center py-12 text-neutral-500">
                   <ImageIcon className="w-10 h-10 mb-3 text-neutral-600" strokeWidth={1} />
                   <p className="text-sm">No thumbnails yet</p>
-                  <p className="text-xs text-neutral-600 mt-1">Generate 3 YouTube thumbnail concepts</p>
+                  <p className="text-xs text-neutral-600 mt-1">Generate a YouTube thumbnail</p>
                 </div>
               ) : null}
 

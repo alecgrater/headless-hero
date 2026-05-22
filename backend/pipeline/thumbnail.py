@@ -9,12 +9,15 @@ import logging
 import os
 import random
 import shutil
+import re
 from pathlib import Path
 
 from config import DATA_DIR
 from prompts import IMAGE_CTR_EXPRESSION_GUIDANCE
 
 logger = logging.getLogger(__name__)
+
+_LONGFORM_THUMB_RE = re.compile(r"^(\d+)\.png$")
 
 
 def _pick_level_pair(n_levels: int) -> tuple[int, int]:
@@ -135,6 +138,72 @@ def _cache_bust(url: str, file_path: str) -> str:
         return url
 
 
+def _longform_thumbnails_dir(script_id: str) -> Path:
+    thumbs_dir = DATA_DIR / "projects" / script_id / "renders" / "thumbnails"
+    thumbs_dir.mkdir(parents=True, exist_ok=True)
+    return thumbs_dir
+
+
+def _next_longform_thumbnail_path(script_id: str) -> Path:
+    thumbs_dir = _longform_thumbnails_dir(script_id)
+    highest = 0
+    for file in thumbs_dir.iterdir():
+        match = _LONGFORM_THUMB_RE.match(file.name)
+        if match:
+            highest = max(highest, int(match.group(1)))
+    return thumbs_dir / f"{highest + 1}.png"
+
+
+def archive_current_longform_thumbnail(script_id: str) -> Path | None:
+    """Save the current active long-form thumbnail as a numbered variant.
+
+    ``0.png`` remains the active thumbnail used by exports and upload helpers.
+    Before regeneration replaces it, copy the previous current image to the
+    next numbered sibling so users can compare versions in the UI.
+    """
+    current = _longform_thumbnails_dir(script_id) / "0.png"
+    if not current.is_file():
+        return None
+    archived = _next_longform_thumbnail_path(script_id)
+    shutil.copy2(str(current), str(archived))
+    return archived
+
+
+def write_active_longform_thumbnail(script_id: str, source: Path) -> str:
+    """Copy ``source`` to the active long-form thumbnail slot and return its URL."""
+    thumbs_dir = _longform_thumbnails_dir(script_id)
+    thumb_path = thumbs_dir / "0.png"
+    shutil.copy2(str(source), str(thumb_path))
+    url = f"/static/projects/{script_id}/renders/thumbnails/0.png"
+    return _cache_bust(url, str(thumb_path))
+
+
+def list_longform_thumbnails(script_id: str) -> list[tuple[int, str]]:
+    """Return saved long-form thumbnail variants as ``(idx, cache-busted URL)``.
+
+    The active thumbnail (0.png) is returned first. Older archived variants are
+    returned newest-first by numeric filename.
+    """
+    thumbs_dir = DATA_DIR / "projects" / script_id / "renders" / "thumbnails"
+    if not thumbs_dir.is_dir():
+        return []
+
+    found: list[tuple[int, Path]] = []
+    for file in thumbs_dir.iterdir():
+        match = _LONGFORM_THUMB_RE.match(file.name)
+        if match and file.is_file():
+            found.append((int(match.group(1)), file))
+
+    found.sort(key=lambda item: (item[0] != 0, -item[0] if item[0] != 0 else 0))
+    return [
+        (
+            idx,
+            _cache_bust(f"/static/projects/{script_id}/renders/thumbnails/{idx}.png", str(path)),
+        )
+        for idx, path in found
+    ]
+
+
 def get_composite_thumbnail(script_id: str) -> str | None:
     """Return a web path for the script's primary thumbnail, if one exists.
 
@@ -150,12 +219,7 @@ def get_composite_thumbnail(script_id: str) -> str | None:
     ]
     for source in candidates:
         if source.exists():
-            thumbs_dir = DATA_DIR / "projects" / script_id / "renders" / "thumbnails"
-            thumbs_dir.mkdir(parents=True, exist_ok=True)
-            thumb_path = thumbs_dir / "0.png"
-            shutil.copy2(str(source), str(thumb_path))
-            url = f"/static/projects/{script_id}/renders/thumbnails/0.png"
-            return _cache_bust(url, str(thumb_path))
+            return write_active_longform_thumbnail(script_id, source)
     return None
 
 

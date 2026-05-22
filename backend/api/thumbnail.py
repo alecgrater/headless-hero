@@ -13,7 +13,13 @@ from config import DATA_DIR, DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS
 from database import get_session
 from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
-from pipeline.thumbnail import get_composite_thumbnail, _cache_bust, gemini_enhance_thumbnail
+from pipeline.thumbnail import (
+    archive_current_longform_thumbnail,
+    get_composite_thumbnail,
+    list_longform_thumbnails,
+    gemini_enhance_thumbnail,
+    write_active_longform_thumbnail,
+)
 from pipeline.title_card_composer import compose_title_card
 
 logger = logging.getLogger(__name__)
@@ -45,9 +51,13 @@ def get_existing_thumbnails(script_id: str, session: Session = Depends(get_sessi
         raise HTTPException(status_code=404, detail="Script not found")
 
     concepts: list[ThumbnailConceptResult] = []
-    url = get_composite_thumbnail(script_id)
-    if url:
-        concepts.append(ThumbnailConceptResult(idx=0, title_text="", visual_description="Title card thumbnail", image_url=url))
+    saved = list_longform_thumbnails(script_id)
+    if not saved:
+        get_composite_thumbnail(script_id)
+        saved = list_longform_thumbnails(script_id)
+    for idx, url in saved:
+        label = "Current thumbnail" if idx == 0 else f"Saved thumbnail {idx}"
+        concepts.append(ThumbnailConceptResult(idx=idx, title_text=label, visual_description="Long-form thumbnail", image_url=url))
     return GenerateThumbnailResponse(concepts=concepts)
 
 
@@ -95,6 +105,7 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
 
     thumbs_dir = DATA_DIR / "projects" / body.script_id / "renders" / "thumbnails"
     thumbs_dir.mkdir(parents=True, exist_ok=True)
+    archive_current_longform_thumbnail(body.script_id)
 
     # Generate base composite (no Eli — Gemini places Eli bursting out of one
     # randomly-chosen segment circle as a portal effect for maximum CTR)
@@ -141,18 +152,19 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
         logger.info("Using Gemini-enhanced thumbnail")
 
     # Copy to renders/thumbnails for export
-    thumb_dest = thumbs_dir / "0.png"
-    shutil.copy2(output_path, str(thumb_dest))
-    url = f"/static/projects/{body.script_id}/renders/thumbnails/0.png"
-    url = _cache_bust(url, str(thumb_dest))
+    url = write_active_longform_thumbnail(body.script_id, images_dir / "composite_title_card.png")
 
     duration = time.monotonic() - t0
     session.add(GenerationDuration(operation_type="thumbnail_generation", duration_seconds=duration))
     session.commit()
 
-    return GenerateThumbnailResponse(
-        concepts=[ThumbnailConceptResult(idx=0, title_text=card_title, visual_description="Gemini-enhanced title card", image_url=url)]
-    )
+    concepts = [
+        ThumbnailConceptResult(idx=idx, title_text=("Current thumbnail" if idx == 0 else f"Saved thumbnail {idx}"), visual_description="Gemini-enhanced title card", image_url=thumb_url)
+        for idx, thumb_url in list_longform_thumbnails(body.script_id)
+    ]
+    if not concepts:
+        concepts = [ThumbnailConceptResult(idx=0, title_text=card_title, visual_description="Gemini-enhanced title card", image_url=url)]
+    return GenerateThumbnailResponse(concepts=concepts)
 
 
 class RegenerateSplitProgressionRequest(BaseModel):
@@ -215,6 +227,8 @@ def regenerate_split_progression(
     left_level, right_level = _pick_level_pair(n_levels)
     _write_level_pair_sidecar(sidecar_path, left_level, right_level)
 
+    archive_current_longform_thumbnail(body.script_id)
+
     # Force-regenerate the final thumbnail via Gemini.
     enhance_split_progression(
         clean_image_path=clean_path,
@@ -225,16 +239,19 @@ def regenerate_split_progression(
         force=True,
     )
 
-    url = get_composite_thumbnail(body.script_id)
-    if url is None:
+    if not final_path.exists():
         # Defensive — enhance_split_progression always writes final_path (with fallback to clean copy).
         raise HTTPException(status_code=500, detail="Thumbnail file missing after regeneration")
+    write_active_longform_thumbnail(body.script_id, final_path)
 
     return GenerateThumbnailResponse(
-        concepts=[ThumbnailConceptResult(
-            idx=0,
-            title_text=content.title or "",
-            visual_description="Split-progression thumbnail",
-            image_url=url,
-        )]
+        concepts=[
+            ThumbnailConceptResult(
+                idx=idx,
+                title_text=("Current thumbnail" if idx == 0 else f"Saved thumbnail {idx}"),
+                visual_description="Split-progression thumbnail",
+                image_url=url,
+            )
+            for idx, url in list_longform_thumbnails(body.script_id)
+        ]
     )
