@@ -47,9 +47,13 @@ export function usePollJob<T>(config: PollJobConfig<T>) {
       stopPolling();
 
       let consecutiveFailures = 0;
+      let pollInFlight = false;
       const interval = configRef.current.intervalMs ?? 1000;
 
       pollRef.current = setInterval(async () => {
+        if (pollInFlight) return;
+
+        pollInFlight = true;
         const cfg = configRef.current;
         try {
           const status = await cfg.pollFn(jobId);
@@ -73,6 +77,8 @@ export function usePollJob<T>(config: PollJobConfig<T>) {
             stopPolling();
             cfg.onConnectionLost();
           }
+        } finally {
+          pollInFlight = false;
         }
       }, interval);
     },
