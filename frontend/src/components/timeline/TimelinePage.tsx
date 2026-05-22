@@ -538,7 +538,7 @@ function clampProgress(value: number | null | undefined) {
   return Math.min(1, Math.max(0, value));
 }
 
-function getCreationStatus(content: ScriptContent) {
+function getCreationStatus(content: ScriptContent, projectConfig?: ProjectConfig | null) {
   const allScenes = content.segments.flatMap((seg) => seg.scenes);
   const nonTitleScenes = allScenes.filter((sc) => !sc.is_title_card);
   const titleScenes = allScenes.filter((sc) => sc.is_title_card);
@@ -546,11 +546,13 @@ function getCreationStatus(content: ScriptContent) {
   const imageScenes = nonTitleScenes.filter((sc) => sc.visual_prompt);
   const eliScenes = nonTitleScenes.filter((sc) => sc.narration && !sc.contains_person);
 
+  const eliDisabledForProject = projectConfig?.eli_enabled === false;
+
   const titleCardsDone = titleScenes.length === 0 || titleScenes.every((sc) => sc.image_url);
   const audioDone = narratedScenes.length === 0 || narratedScenes.every((sc) => sc.audio_url);
   const imagesDone = imageScenes.length === 0 || imageScenes.every((sc) => sc.image_url || sc.frame_urls?.length || sc.video_url);
   const fxDone = nonTitleScenes.length === 0 || nonTitleScenes.every((sc) => sc.fx);
-  const eliDone = eliScenes.length === 0 || eliScenes.every((sc) => sc.eli_overlay);
+  const eliDone = eliDisabledForProject || eliScenes.length === 0 || eliScenes.every((sc) => sc.eli_overlay);
 
   return {
     titleCardsDone,
@@ -559,8 +561,8 @@ function getCreationStatus(content: ScriptContent) {
     fxDone,
     eliDone,
     missingFXCount: nonTitleScenes.filter((sc) => !sc.fx).length,
-    missingEliCount: eliScenes.filter((sc) => !sc.eli_overlay).length,
-    eliSceneCount: eliScenes.length,
+    missingEliCount: eliDisabledForProject ? 0 : eliScenes.filter((sc) => !sc.eli_overlay).length,
+    eliSceneCount: eliDisabledForProject ? 0 : eliScenes.length,
     hasTitleCards: titleScenes.length > 0,
   };
 }
@@ -2646,7 +2648,7 @@ function TimelineEditor({
 
   const runYoloCreationPipeline = useCallback(async (voiceId: string) => {
     let latest = await refreshScriptContent();
-    let status = getCreationStatus(latest);
+    let status = getCreationStatus(latest, projectConfig);
 
     if (!status.titleCardsDone && status.hasTitleCards) {
       setYoloStep("Title Cards");
@@ -2684,7 +2686,7 @@ function TimelineEditor({
         titleCardProgress.end(latest.segments.length);
       }
       latest = await refreshScriptContent();
-      status = getCreationStatus(latest);
+      status = getCreationStatus(latest, projectConfig);
       if (yoloCancelledRef.current) return false;
     }
 
@@ -2692,7 +2694,7 @@ function TimelineEditor({
       setYoloStep("Generate Audio");
       await state.generateAllAudio(voiceId, true);
       latest = await refreshScriptContent();
-      status = getCreationStatus(latest);
+      status = getCreationStatus(latest, projectConfig);
       if (!status.audioDone) {
         throw new Error("Audio generation did not complete for every narrated scene");
       }
@@ -2703,7 +2705,7 @@ function TimelineEditor({
       setYoloStep("Generate Images");
       await state.generateAllImages(true);
       latest = await refreshScriptContent();
-      status = getCreationStatus(latest);
+      status = getCreationStatus(latest, projectConfig);
       if (!status.imagesDone) {
         throw new Error("Image generation did not complete for every visual scene");
       }
@@ -2714,7 +2716,7 @@ function TimelineEditor({
       setYoloStep("Generate FX");
       await runMissingFXForYolo(status.missingFXCount);
       latest = await refreshScriptContent();
-      status = getCreationStatus(latest);
+      status = getCreationStatus(latest, projectConfig);
       if (!status.fxDone) {
         throw new Error("FX generation did not complete for every scene");
       }
@@ -2725,7 +2727,7 @@ function TimelineEditor({
       setYoloStep("Add Eli");
       await runMissingEliForYolo(status.missingEliCount || status.eliSceneCount);
       latest = await refreshScriptContent();
-      status = getCreationStatus(latest);
+      status = getCreationStatus(latest, projectConfig);
       if (!status.eliDone) {
         throw new Error("Eli generation did not complete for every eligible scene");
       }
@@ -2745,6 +2747,7 @@ function TimelineEditor({
     scriptId,
     state,
     titleCardProgress,
+    projectConfig,
   ]);
 
   const handleRecompositeThumbnailInline = useCallback(async () => {

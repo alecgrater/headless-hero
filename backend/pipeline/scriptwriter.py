@@ -8,7 +8,7 @@ from collections.abc import Callable
 
 from config import DEFAULT_ACCENT_COLOR, SEGMENT_COUNT, parse_json_array_response, strip_markdown_fences
 from integrations.llm_client import chat
-from models.script import LevelMeta, Scene, ScriptContent, Segment
+from models.script import LevelMeta, MainCharacter, Scene, ScriptContent, Segment
 from prompts import SCRIPT_OUTLINE_INSTRUCTIONS, SCRIPT_SEGMENT_SCENES_INSTRUCTIONS, SCRIPT_SYSTEM
 
 logger = logging.getLogger(__name__)
@@ -39,6 +39,40 @@ def build_main_character_instructions() -> str:
         "feel awkward. Aim for a balance — not every scene needs a "
         "person.\n"
     )
+
+
+def build_outline_main_character_addendum() -> str:
+    """Addendum appended to outline instructions when Eli is disabled.
+
+    The format-level outline schemas explicitly enumerate the JSON fields
+    they expect, which causes Claude to omit `main_character` even though
+    the system prompt asks for it. This addendum re-asserts the schema
+    requirement at the outline phase so segmented generation propagates
+    the main character through.
+    """
+    return (
+        "\n\nADDITIONAL OUTLINE FIELD (Eli is disabled for this project):\n"
+        "The outline JSON MUST also include a top-level `main_character` "
+        "object with this exact shape:\n"
+        '  "main_character": {\n'
+        '    "name": "Character Name",\n'
+        '    "appearance": "Detailed visual description (face, hair, build, clothing, distinguishing features) so an image generator could draw them consistently.",\n'
+        '    "vibe": "1-2 sentences on personality / energy."\n'
+        "  }\n"
+        "This is REQUIRED — do not omit it. Add it alongside the existing "
+        "outline fields.\n"
+    )
+
+
+def build_script_outline_instructions(eli_enabled: bool, base_template: str = SCRIPT_OUTLINE_INSTRUCTIONS.template) -> str:
+    """Build outline instructions, conditionally including main_character schema.
+
+    When eli_enabled is False, the outline must include a `main_character`
+    block so segmented generation can propagate it into ScriptContent.
+    """
+    if eli_enabled:
+        return base_template
+    return base_template + build_outline_main_character_addendum()
 
 
 ALL_BEAT_TYPES = ["static", "continuous", "quick_cuts", "aha_subtitle", "montage"]
@@ -326,6 +360,7 @@ def generate_script(
             script_id=script_id,
             outline_instructions=fmt.outline_prompt.template,
             segment_scenes_instructions=fmt.segment_scenes_prompt.template,
+            eli_enabled=eli_enabled,
         )
     else:
         logger.info(
@@ -536,9 +571,17 @@ def _generate_segmented(
     script_id: str | None = None,
     outline_instructions: str = _OUTLINE_INSTRUCTIONS,
     segment_scenes_instructions: str = _SEGMENT_SCENES_INSTRUCTIONS,
+    eli_enabled: bool = True,
 ) -> ScriptContent:
     """Orchestrate two-phase segmented script generation."""
     total_t0 = time.monotonic()
+
+    # When Eli is disabled, the format-level outline schema explicitly enumerates
+    # the JSON fields it expects, which causes Claude to omit `main_character`
+    # even though the system prompt asks for it. Re-assert the schema requirement
+    # at the outline phase so segmented generation propagates the main character.
+    if not eli_enabled:
+        outline_instructions = outline_instructions + build_outline_main_character_addendum()
 
     # Phase 1: outline
     outline = _generate_outline(
@@ -612,6 +655,13 @@ def _generate_segmented(
     raw_levels = outline.get("levels") or []
     levels = [LevelMeta.model_validate(lv) for lv in raw_levels] if raw_levels else None
 
+    raw_main_character = outline.get("main_character")
+    main_character = (
+        MainCharacter.model_validate(raw_main_character)
+        if raw_main_character and isinstance(raw_main_character, dict)
+        else None
+    )
+
     content = ScriptContent(
         title=outline.get("title", topic),
         segments=segments,
@@ -622,6 +672,7 @@ def _generate_segmented(
         card_subtitle=outline.get("card_subtitle", ""),
         cinematic_thumbnail_prompt=outline.get("cinematic_thumbnail_prompt"),
         levels=levels,
+        main_character=main_character,
     )
 
     total_elapsed = time.monotonic() - total_t0
