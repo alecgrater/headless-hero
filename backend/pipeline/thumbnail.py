@@ -8,8 +8,9 @@ import json
 import logging
 import os
 import random
-import shutil
 import re
+import shutil
+import threading
 from pathlib import Path
 
 from config import DATA_DIR
@@ -18,6 +19,17 @@ from prompts import IMAGE_CTR_EXPRESSION_GUIDANCE
 logger = logging.getLogger(__name__)
 
 _LONGFORM_THUMB_RE = re.compile(r"^(\d+)\.png$")
+_LONGFORM_THUMB_LOCKS: dict[str, threading.Lock] = {}
+_LONGFORM_THUMB_LOCKS_GUARD = threading.Lock()
+
+
+def _longform_thumbnail_lock(script_id: str) -> threading.Lock:
+    with _LONGFORM_THUMB_LOCKS_GUARD:
+        lock = _LONGFORM_THUMB_LOCKS.get(script_id)
+        if lock is None:
+            lock = threading.Lock()
+            _LONGFORM_THUMB_LOCKS[script_id] = lock
+        return lock
 
 
 def _pick_level_pair(n_levels: int) -> tuple[int, int]:
@@ -161,19 +173,21 @@ def archive_current_longform_thumbnail(script_id: str) -> Path | None:
     Before regeneration replaces it, copy the previous current image to the
     next numbered sibling so users can compare versions in the UI.
     """
-    current = _longform_thumbnails_dir(script_id) / "0.png"
-    if not current.is_file():
-        return None
-    archived = _next_longform_thumbnail_path(script_id)
-    shutil.copy2(str(current), str(archived))
-    return archived
+    with _longform_thumbnail_lock(script_id):
+        current = _longform_thumbnails_dir(script_id) / "0.png"
+        if not current.is_file():
+            return None
+        archived = _next_longform_thumbnail_path(script_id)
+        shutil.copy2(str(current), str(archived))
+        return archived
 
 
 def write_active_longform_thumbnail(script_id: str, source: Path) -> str:
     """Copy ``source`` to the active long-form thumbnail slot and return its URL."""
-    thumbs_dir = _longform_thumbnails_dir(script_id)
-    thumb_path = thumbs_dir / "0.png"
-    shutil.copy2(str(source), str(thumb_path))
+    with _longform_thumbnail_lock(script_id):
+        thumbs_dir = _longform_thumbnails_dir(script_id)
+        thumb_path = thumbs_dir / "0.png"
+        shutil.copy2(str(source), str(thumb_path))
     url = f"/static/projects/{script_id}/renders/thumbnails/0.png"
     return _cache_bust(url, str(thumb_path))
 

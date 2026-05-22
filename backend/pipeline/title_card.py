@@ -210,11 +210,12 @@ def ensure_title_card_images(
             shutil.copy2(enhanced_path, str(composite_path))
             logger.info("Applied Gemini thumbnail enhancement")
 
-    # Step 5: Copy with-title composite to thumbnail location
-    thumbs_dir = DATA_DIR / "projects" / script_id / "renders" / "thumbnails"
-    thumbs_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(str(composite_path), str(thumbs_dir / "0.png"))
-    logger.info("Copied composite title card to thumbnail: %s", thumbs_dir / "0.png")
+    # Step 5: Copy with-title composite to the active thumbnail slot.
+    from pipeline.thumbnail import archive_current_longform_thumbnail, write_active_longform_thumbnail
+
+    archive_current_longform_thumbnail(script_id)
+    thumbnail_url = write_active_longform_thumbnail(script_id, composite_path)
+    logger.info("Copied composite title card to thumbnail: %s", thumbnail_url)
 
     # Step 6: Set image_url on title card scenes to no-title version (for zoom rendering)
     web_path = f"/static/projects/{script_id}/images/composite_title_card_notitle.png"
