@@ -157,21 +157,20 @@ def generate_fx_batch(
             )
             continue
 
-        # Match returned entries to input scenes by id when possible; fall back
-        # to positional alignment when ids are missing/duplicated.
+        # Match returned entries to input scenes strictly by id. Positional
+        # fallback would risk applying scene B's FX to scene A if the model
+        # ever omitted ids or returned entries in a scrambled order; a missing
+        # id just means the caller retries that scene individually.
         by_id: dict[str, dict] = {}
-        ordered: list[dict] = []
         for entry in entries:
-            if isinstance(entry, dict):
-                ordered.append(entry)
-                eid = entry.get("id")
-                if isinstance(eid, str):
-                    by_id[eid] = entry
+            if not isinstance(entry, dict):
+                continue
+            eid = entry.get("id")
+            if isinstance(eid, str):
+                by_id[eid] = entry
 
-        for pos, expected_id in enumerate(chunk_ids):
+        for expected_id in chunk_ids:
             entry = by_id.get(expected_id)
-            if entry is None and pos < len(ordered):
-                entry = ordered[pos]
             if entry is None:
                 continue
             validated = _validate_entry(entry, expected_id, script_id)
