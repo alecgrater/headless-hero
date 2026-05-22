@@ -54,6 +54,8 @@ AI_VIDEO_STATIC_OBJECT_TERMS = {
     "television",
 }
 
+AI_VIDEO_MAX_ROUTED_DURATION_SECONDS = 6.5
+
 
 @dataclass
 class MediaAssignment:
@@ -93,6 +95,10 @@ def _has_ai_image_frame(scene: Scene) -> bool:
     )
 
 
+def _scene_duration_seconds(scene: Scene) -> float:
+    return scene.audio_duration_seconds or scene.duration_estimate_seconds or 0.0
+
+
 def _is_ai_video_eligible(
     scene: Scene,
     current_source: str = "ai",
@@ -105,6 +111,8 @@ def _is_ai_video_eligible(
     if current_source in {"gameplay_video", "stock_photo", "user_upload"}:
         return False
     if scene.visual_beat == "aha_subtitle":
+        return False
+    if _scene_duration_seconds(scene) > AI_VIDEO_MAX_ROUTED_DURATION_SECONDS:
         return False
     if not scene.visual_prompt.strip():
         return False
