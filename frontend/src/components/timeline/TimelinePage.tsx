@@ -760,6 +760,8 @@ function FinalizationRow({
   eliProgressActive,
   eliProgress,
   eliDisabledForProject,
+  projectConfig,
+  onOpenMainCharacterDrawer,
   allAudioGenerated,
   allSeoDone,
   missingSeoCount,
@@ -800,6 +802,8 @@ function FinalizationRow({
   eliProgressActive: boolean;
   eliProgress: number | null;
   eliDisabledForProject: boolean;
+  projectConfig: ProjectConfig | null;
+  onOpenMainCharacterDrawer: () => void;
   allAudioGenerated: boolean;
   allSeoDone: boolean;
   missingSeoCount: number;
@@ -913,7 +917,30 @@ function FinalizationRow({
           <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
 
-        {/* Step 5 — Eli (under Thumbnails) */}
+        {/* Step 5 — Eli OR Main Character (when Eli disabled for project) */}
+        {eliDisabledForProject ? (
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1.5">
+              <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
+                projectConfig?.main_character_reference_url
+                  ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
+                  : "border-neutral-600 text-neutral-500"
+              }`}>5</span>
+              <button
+                type="button"
+                onClick={onOpenMainCharacterDrawer}
+                className={`text-xs px-3 py-2 border rounded-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
+                  projectConfig?.main_character_reference_url
+                    ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
+                    : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
+                }`}
+                title={projectConfig?.main_character_reference_url ? "Main character reference is generated. Click to view or edit." : "Main character reference is not yet generated. Click to generate."}
+              >
+                {projectConfig?.main_character_reference_url ? "Main character ✓" : "Main character"}
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="flex flex-col">
           <div className="flex items-center gap-1.5">
             <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
@@ -980,6 +1007,7 @@ function FinalizationRow({
           </div>
           {generatingEli && <MiniProgressBar estimatedSeconds={eliEstimatedSeconds} active={eliProgressActive} />}
         </div>
+        )}
 
         <svg className="w-3 h-3 text-neutral-600/60 shrink-0" viewBox="0 0 12 12" fill="none">
           <path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -3308,6 +3336,8 @@ function TimelineEditor({
             eliProgressActive={eliProgress.active}
             eliProgress={eliProgressPct}
             eliDisabledForProject={projectConfig != null && !projectConfig.eli_enabled}
+            projectConfig={projectConfig}
+            onOpenMainCharacterDrawer={() => setShowMainCharacterDrawer(true)}
             allAudioGenerated={allAudioGenerated}
             allSeoDone={allSeoDone}
             missingSeoCount={missingSeoCount}
