@@ -7,7 +7,7 @@ let mainWindow;
 let backendProcess;
 
 const isDev = !app.isPackaged;
-const DEBUG = !!process.env.DEBUG;
+const DEBUG = !!process.env.HH_DEBUG;
 const debug = (...args) => {
   if (DEBUG) console.log(...args);
 };
@@ -185,7 +185,11 @@ function startBackend() {
   });
 
   backendProcess.on("close", (code) => {
-    debug(`[backend] exited with code ${code}`);
+    if (code && code !== 0) {
+      console.error(`[backend] exited with code ${code}`);
+    } else {
+      debug(`[backend] exited with code ${code}`);
+    }
   });
 }
 
