@@ -22,6 +22,7 @@ router = APIRouter(prefix="/api/media", tags=["media"])
 ALLOWED_IMAGE_TYPES = {".png", ".jpg", ".jpeg", ".webp"}
 ALLOWED_VIDEO_TYPES = {".mp4", ".mov", ".webm"}
 ALLOWED_TYPES = ALLOWED_IMAGE_TYPES | ALLOWED_VIDEO_TYPES
+UPLOAD_CHUNK_SIZE = 1024 * 1024
 
 
 def _ai_video_scenes_per_segment() -> int:
@@ -58,13 +59,16 @@ async def upload_scene_media(
     uploads_dir.mkdir(parents=True, exist_ok=True)
     dest = uploads_dir / f"{scene_id}{ext}"
 
-    content = await file.read()
-    dest.write_bytes(content)
+    bytes_written = 0
+    with dest.open("wb") as out:
+        while chunk := await file.read(UPLOAD_CHUNK_SIZE):
+            out.write(chunk)
+            bytes_written += len(chunk)
 
     media_type = "video" if ext in ALLOWED_VIDEO_TYPES else "image"
     url = f"/static/projects/{script_id}/uploads/{scene_id}{ext}"
 
-    logger.info("Uploaded %s for scene %s: %s (%d bytes)", media_type, scene_id, dest, len(content))
+    logger.info("Uploaded %s for scene %s: %s (%d bytes)", media_type, scene_id, dest, bytes_written)
     return UploadResponse(url=url, media_type=media_type)
 
 
