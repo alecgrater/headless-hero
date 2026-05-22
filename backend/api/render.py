@@ -38,7 +38,7 @@ from pipeline.export_paths import (
     project_downloads_folder,
     shortform_filename,
 )
-from pipeline.seo import strip_short_form_part_suffix
+from pipeline.script_helpers import _format_longform_seo_markdown, _format_shortform_seo_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -126,59 +126,6 @@ def _load_brand(session: Session, script_id: str) -> dict:
     return {
         "name": brand.name,
     }
-
-
-def _format_longform_seo_markdown(seo: dict) -> str:
-    yt = seo.get("youtube", {})
-    lines: list[str] = []
-    if yt.get("title"):
-        lines.extend(["# Title", "", yt["title"], ""])
-    if yt.get("description"):
-        lines.extend(["# Description", "", yt["description"], ""])
-    if yt.get("tags"):
-        lines.extend(["# Tags", "", ", ".join(yt["tags"]), ""])
-    return "\n".join(lines).strip() + "\n"
-
-
-def _format_shortform_seo_markdown(item: dict) -> str:
-    hashtags = item.get("hashtags") or []
-    tags = item.get("tags") or []
-    title = strip_short_form_part_suffix(str(item.get("title", "")))
-    description = item.get("description", "")
-    hashtags_line = " ".join(hashtags)
-    tags_line = ", ".join(tags)
-    lines = [
-        f"# Short {item.get('index', '?')}",
-        "",
-        "# Youtube",
-        "",
-        "## Title",
-        "",
-        title,
-        "",
-        "## Description",
-        "",
-        description,
-        "",
-        "## Hashtags",
-        "",
-        hashtags_line,
-        "",
-        "## SEO Tags",
-        "",
-        tags_line,
-        "",
-        "# Tiktok / Insta",
-        "",
-        title,
-        "",
-        description,
-    ]
-    if hashtags:
-        lines.extend(["", hashtags_line])
-    if tags:
-        lines.extend(["", tags_line])
-    return "\n".join(lines).strip() + "\n"
 
 
 def _find_rendered_longform(script_id: str, project_title: str) -> tuple[str | None, str | None]:

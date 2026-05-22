@@ -8,11 +8,12 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from api.render import _find_rendered_longform, _format_longform_seo_markdown, _format_shortform_seo_markdown
+from api.render import _find_rendered_longform
 from api.short_form_hooks import ensure_short_form_hook_scene_count
 from config import DATA_DIR
 from database import get_session
 from models.script import Script, ScriptContent
+from pipeline.script_helpers import _format_longform_seo_markdown, _format_shortform_seo_markdown
 from pipeline.export_paths import (
     has_export_label,
     longform_filename,

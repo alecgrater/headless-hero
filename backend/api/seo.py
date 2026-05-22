@@ -136,7 +136,7 @@ class ExportSEOResponse(BaseModel):
 @router.post("/export-longform", response_model=ExportSEOResponse)
 def export_longform_seo(body: GenerateSEORequest, session: Session = Depends(get_session)):
     """Write the long-form SEO markdown file into the project Downloads folder."""
-    from api.render import _format_longform_seo_markdown
+    from pipeline.script_helpers import _format_longform_seo_markdown
 
     record = session.get(Script, body.script_id)
     if not record:
@@ -163,7 +163,7 @@ def export_longform_seo(body: GenerateSEORequest, session: Session = Depends(get
 @router.post("/export-shorts", response_model=ExportSEOResponse)
 def export_short_form_seo(body: GenerateSEORequest, session: Session = Depends(get_session)):
     """Write all short-form SEO markdown files into the project Downloads folder."""
-    from api.render import _format_shortform_seo_markdown
+    from pipeline.script_helpers import _format_shortform_seo_markdown
 
     record = session.get(Script, body.script_id)
     if not record:

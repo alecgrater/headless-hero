@@ -5,6 +5,7 @@ from api import upload_suite as upload_suite_api
 from models.script import Scene, Script, ScriptContent, Segment
 from pipeline import short_form_thumbnails as thumbs
 from pipeline.export_paths import longform_filename, project_downloads_folder, shortform_filename, shortform_video_filename
+from pipeline.script_helpers import _format_shortform_seo_markdown
 from pipeline.short_form_thumbnails import short_thumbnail_filename
 from sqlmodel import Session, SQLModel, create_engine
 
@@ -70,7 +71,7 @@ def test_render_router_has_no_audio_only_export_endpoint():
 
 
 def test_format_shortform_seo_markdown_includes_platform_sections():
-    markdown = render_api._format_shortform_seo_markdown(
+    markdown = _format_shortform_seo_markdown(
         {
             "index": 2,
             "title": "Project - Segment",
