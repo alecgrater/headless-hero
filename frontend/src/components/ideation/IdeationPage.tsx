@@ -19,15 +19,6 @@ interface Props {
 
 const BATCH_SIZE = 5;
 
-const EXAMPLE_NICHES = [
-  "deep sea creatures",
-  "unsolved crimes",
-  "retro gaming history",
-  "psychology experiments",
-  "space exploration",
-  "ancient civilizations",
-];
-
 export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, autoGenerateNiche, autoGenerateRequestId }: Props) {
   const [ideas, setIdeas] = useState<VideoIdea[]>(initialIdeas ?? []);
   const [loading, setLoading] = useState(false);
@@ -170,10 +161,6 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
     });
   };
 
-  const handleChipClick = (niche: string) => {
-    inputRef.current?.setNiche(niche);
-  };
-
   return (
     <div className="space-y-6">
       {/* Inline keyframes for card animations */}
@@ -281,44 +268,6 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
         </div>
       )}
 
-      {/* Empty state */}
-      {!loading && ideas.length === 0 && !error && (
-        <div className="text-center py-20 space-y-4">
-          {/* Sparkles icon */}
-          <div className="flex justify-center">
-            <svg
-              className="w-12 h-12 text-violet-500/40"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.2}
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
-              />
-            </svg>
-          </div>
-          <p className="text-xl font-medium text-neutral-300">
-            What should your next video be about?
-          </p>
-          <p className="text-sm text-neutral-500">
-            Pick a niche to get started
-          </p>
-          <div className="flex flex-wrap justify-center gap-2 pt-1">
-            {EXAMPLE_NICHES.map((niche) => (
-              <button
-                key={niche}
-                onClick={() => handleChipClick(niche)}
-                className="text-sm px-4 py-2 rounded-full bg-neutral-800 border border-neutral-700/60 text-neutral-400 hover:border-violet-500/50 hover:text-violet-400 hover:bg-violet-500/10 transition-colors"
-              >
-                {niche}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
