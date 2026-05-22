@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -629,129 +630,27 @@ def generate_scene_frames_v2(
     return results
 
 
-def generate_batch(
-    scenes: list[dict[str, str]],
+def _generate_one_scene(
+    scene: dict[str, str],
     script_id: str,
-    width: int = IMAGE_WIDTH,
-    height: int = IMAGE_HEIGHT,
-    style_guide: str = "",
-) -> list[dict[str, str | None]]:
-    """Generate images for a list of scenes sequentially.
+    width: int,
+    height: int,
+    style_guide: str,
+) -> dict[str, str | None]:
+    """Generate visuals for a single scene; mirrors the original per-scene branches.
 
-    Each scene dict must have 'scene_id' and 'visual_prompt'.
-    Optionally 'frame_prompts' (list[str]) for multi-frame scenes.
-    Dispatches based on scene 'media_source': ai (default), ai_video, stock_photo, gameplay_video.
-    Returns list of {scene_id, image_url, prompt_used, frame_urls?, video_url?, error?}.
+    Returns the same shape the batch loop used to append. Errors are captured
+    in the returned dict so a parallel worker pool can keep going.
     """
-    results: list[dict[str, str | None]] = []
-    logger.info("Starting batch image generation for %s scenes (script %s)", len(scenes), script_id)
-    for scene in scenes:
-        try:
-            media_source = scene.get("media_source", "ai")
+    try:
+        media_source = scene.get("media_source", "ai")
 
-            # --- Stock photo dispatch ---
-            if media_source == "stock_photo":
-                logger.info("[PEXELS] scene %s — query: %s", scene["scene_id"], scene.get("visual_prompt", "")[:80])
-                frame_directives = scene.get("frame_directives", [])
-                if frame_directives:
-                    # Multi-frame stock photo — use v2 pipeline
-                    frame_results = generate_scene_frames_v2(
-                        scene_id=scene["scene_id"],
-                        frame_directives=frame_directives,
-                        script_id=script_id,
-                        visual_prompt=scene.get("visual_prompt", ""),
-                        width=width,
-                        height=height,
-                        style_guide=style_guide,
-                        contains_person=scene.get("contains_person", False),
-                    )
-                    frame_urls = [url for url, _, _ in frame_results]
-                    source_metadata = next((metadata for url, _, metadata in frame_results if url and metadata), None)
-                    results.append({
-                        "scene_id": scene["scene_id"],
-                        "image_url": next((u for u in frame_urls if u), None),
-                        "frame_urls": frame_urls,
-                        "prompt_used": frame_results[0][1] if frame_results else None,
-                        "visual_source_metadata": source_metadata,
-                        "error": None,
-                    })
-                    continue
-                # Single stock photo (no frame_directives)
-                from pipeline.stock_photo import generate_stock_photo
-                search_query = scene.get("visual_prompt", "")
-                image_url = generate_stock_photo(script_id, scene["scene_id"], search_query)
-                results.append({
-                    "scene_id": scene["scene_id"],
-                    "image_url": image_url,
-                    "prompt_used": search_query,
-                    "visual_source_metadata": None,
-                    "error": None,
-                })
-                continue
-
-            # --- Gameplay video dispatch ---
-            if media_source == "gameplay_video":
-                from pipeline.gameplay import generate_gameplay_clip
-                game_name = scene.get("gameplay_game_name", "") or scene.get("gameplay_game_override", "")
-                duration = scene.get("audio_duration_seconds", 8.0)
-                if not game_name:
-                    raise RuntimeError("Gameplay scene missing game_name")
-                logger.info("[TWITCH] scene %s — game: %s, duration: %.1fs", scene["scene_id"], game_name, float(duration))
-                video_url = generate_gameplay_clip(script_id, scene["scene_id"], game_name, float(duration))
-                results.append({
-                    "scene_id": scene["scene_id"],
-                    "image_url": None,
-                    "video_url": video_url,
-                    "prompt_used": f"gameplay:{game_name}",
-                    "visual_source_metadata": None,
-                    "error": None,
-                })
-                continue
-
-            # --- AI video dispatch ---
-            if media_source == "ai_video":
-                from pipeline.video_gen import generate_scene_video
-
-                duration = float(scene.get("audio_duration_seconds", 5.0) or 5.0)
-                logger.info("[AI_VIDEO] scene %s — prompt: %s", scene["scene_id"], scene.get("visual_prompt", "")[:80])
-                video_url, prompt_used, source_metadata = generate_scene_video(
-                    scene_id=scene["scene_id"],
-                    visual_prompt=scene.get("visual_prompt", ""),
-                    script_id=script_id,
-                    width=width,
-                    height=height,
-                    scene_duration_seconds=duration,
-                    contains_person=scene.get("contains_person", False),
-                )
-                results.append({
-                    "scene_id": scene["scene_id"],
-                    "image_url": None,
-                    "video_url": video_url,
-                    "prompt_used": prompt_used,
-                    "visual_source_metadata": source_metadata,
-                    "error": None,
-                })
-                continue
-
-            # --- User upload: skip generation ---
-            if media_source == "user_upload":
-                results.append({
-                    "scene_id": scene["scene_id"],
-                    "image_url": scene.get("upload_url") or scene.get("image_url"),
-                    "prompt_used": None,
-                    "visual_source_metadata": None,
-                    "error": None,
-                })
-                continue
-
-            # --- AI-generated (default) ---
-            logger.info("[GEMINI] scene %s — prompt: %s", scene["scene_id"], scene.get("visual_prompt", "")[:80])
+        # --- Stock photo dispatch ---
+        if media_source == "stock_photo":
+            logger.info("[PEXELS] scene %s — query: %s", scene["scene_id"], scene.get("visual_prompt", "")[:80])
             frame_directives = scene.get("frame_directives", [])
-            frame_prompts = scene.get("frame_prompts", [])
-            scene_contains_person = scene.get("contains_person", False)
-
-            # Visual Beat System v2 path: per-frame directives
             if frame_directives:
+                # Multi-frame stock photo — use v2 pipeline
                 frame_results = generate_scene_frames_v2(
                     scene_id=scene["scene_id"],
                     frame_directives=frame_directives,
@@ -760,69 +659,201 @@ def generate_batch(
                     width=width,
                     height=height,
                     style_guide=style_guide,
-                    contains_person=scene_contains_person,
+                    contains_person=scene.get("contains_person", False),
                 )
                 frame_urls = [url for url, _, _ in frame_results]
                 source_metadata = next((metadata for url, _, metadata in frame_results if url and metadata), None)
-                results.append({
+                return {
                     "scene_id": scene["scene_id"],
                     "image_url": next((u for u in frame_urls if u), None),
                     "frame_urls": frame_urls,
                     "prompt_used": frame_results[0][1] if frame_results else None,
                     "visual_source_metadata": source_metadata,
                     "error": None,
-                })
-                continue
+                }
+            # Single stock photo (no frame_directives)
+            from pipeline.stock_photo import generate_stock_photo
+            search_query = scene.get("visual_prompt", "")
+            image_url = generate_stock_photo(script_id, scene["scene_id"], search_query)
+            return {
+                "scene_id": scene["scene_id"],
+                "image_url": image_url,
+                "prompt_used": search_query,
+                "visual_source_metadata": None,
+                "error": None,
+            }
 
-            # Legacy multi-frame path
-            if frame_prompts:
-                frame_results = generate_scene_frames(
-                    scene_id=scene["scene_id"],
-                    frame_prompts=frame_prompts,
-                    script_id=script_id,
-                    visual_prompt=scene.get("visual_prompt", ""),
-                    width=width,
-                    height=height,
-                    style_guide=style_guide,
-                    contains_person=scene_contains_person,
-                )
-                frame_urls = [url for url, _, _ in frame_results]
-                source_metadata = next((metadata for url, _, metadata in frame_results if url and metadata), None)
-                results.append({
-                    "scene_id": scene["scene_id"],
-                    "image_url": frame_urls[0] if frame_urls else None,
-                    "frame_urls": frame_urls,
-                    "prompt_used": frame_results[0][1] if frame_results else None,
-                    "visual_source_metadata": source_metadata,
-                    "error": None,
-                })
-                continue
+        # --- Gameplay video dispatch ---
+        if media_source == "gameplay_video":
+            from pipeline.gameplay import generate_gameplay_clip
+            game_name = scene.get("gameplay_game_name", "") or scene.get("gameplay_game_override", "")
+            duration = scene.get("audio_duration_seconds", 8.0)
+            if not game_name:
+                raise RuntimeError("Gameplay scene missing game_name")
+            logger.info("[TWITCH] scene %s — game: %s, duration: %.1fs", scene["scene_id"], game_name, float(duration))
+            video_url = generate_gameplay_clip(script_id, scene["scene_id"], game_name, float(duration))
+            return {
+                "scene_id": scene["scene_id"],
+                "image_url": None,
+                "video_url": video_url,
+                "prompt_used": f"gameplay:{game_name}",
+                "visual_source_metadata": None,
+                "error": None,
+            }
 
-            # Single-image path
-            image_url, prompt_used, source_metadata = generate_scene_image(
+        # --- AI video dispatch ---
+        if media_source == "ai_video":
+            from pipeline.video_gen import generate_scene_video
+
+            duration = float(scene.get("audio_duration_seconds", 5.0) or 5.0)
+            logger.info("[AI_VIDEO] scene %s — prompt: %s", scene["scene_id"], scene.get("visual_prompt", "")[:80])
+            video_url, prompt_used, source_metadata = generate_scene_video(
                 scene_id=scene["scene_id"],
-                visual_prompt=scene["visual_prompt"],
+                visual_prompt=scene.get("visual_prompt", ""),
                 script_id=script_id,
+                width=width,
+                height=height,
+                scene_duration_seconds=duration,
+                contains_person=scene.get("contains_person", False),
+            )
+            return {
+                "scene_id": scene["scene_id"],
+                "image_url": None,
+                "video_url": video_url,
+                "prompt_used": prompt_used,
+                "visual_source_metadata": source_metadata,
+                "error": None,
+            }
+
+        # --- User upload: skip generation ---
+        if media_source == "user_upload":
+            return {
+                "scene_id": scene["scene_id"],
+                "image_url": scene.get("upload_url") or scene.get("image_url"),
+                "prompt_used": None,
+                "visual_source_metadata": None,
+                "error": None,
+            }
+
+        # --- AI-generated (default) ---
+        logger.info("[GEMINI] scene %s — prompt: %s", scene["scene_id"], scene.get("visual_prompt", "")[:80])
+        frame_directives = scene.get("frame_directives", [])
+        frame_prompts = scene.get("frame_prompts", [])
+        scene_contains_person = scene.get("contains_person", False)
+
+        # Visual Beat System v2 path: per-frame directives
+        if frame_directives:
+            frame_results = generate_scene_frames_v2(
+                scene_id=scene["scene_id"],
+                frame_directives=frame_directives,
+                script_id=script_id,
+                visual_prompt=scene.get("visual_prompt", ""),
                 width=width,
                 height=height,
                 style_guide=style_guide,
                 contains_person=scene_contains_person,
             )
-            results.append({
+            frame_urls = [url for url, _, _ in frame_results]
+            source_metadata = next((metadata for url, _, metadata in frame_results if url and metadata), None)
+            return {
                 "scene_id": scene["scene_id"],
-                "image_url": image_url,
-                "prompt_used": prompt_used,
+                "image_url": next((u for u in frame_urls if u), None),
+                "frame_urls": frame_urls,
+                "prompt_used": frame_results[0][1] if frame_results else None,
                 "visual_source_metadata": source_metadata,
                 "error": None,
-            })
-        except Exception as exc:
-            logger.error("Image generation failed for scene %s: %s", scene["scene_id"], exc, exc_info=True)
-            results.append({
+            }
+
+        # Legacy multi-frame path
+        if frame_prompts:
+            frame_results = generate_scene_frames(
+                scene_id=scene["scene_id"],
+                frame_prompts=frame_prompts,
+                script_id=script_id,
+                visual_prompt=scene.get("visual_prompt", ""),
+                width=width,
+                height=height,
+                style_guide=style_guide,
+                contains_person=scene_contains_person,
+            )
+            frame_urls = [url for url, _, _ in frame_results]
+            source_metadata = next((metadata for url, _, metadata in frame_results if url and metadata), None)
+            return {
                 "scene_id": scene["scene_id"],
-                "image_url": None,
-                "prompt_used": None,
-                "error": str(exc),
-            })
+                "image_url": frame_urls[0] if frame_urls else None,
+                "frame_urls": frame_urls,
+                "prompt_used": frame_results[0][1] if frame_results else None,
+                "visual_source_metadata": source_metadata,
+                "error": None,
+            }
+
+        # Single-image path
+        image_url, prompt_used, source_metadata = generate_scene_image(
+            scene_id=scene["scene_id"],
+            visual_prompt=scene["visual_prompt"],
+            script_id=script_id,
+            width=width,
+            height=height,
+            style_guide=style_guide,
+            contains_person=scene_contains_person,
+        )
+        return {
+            "scene_id": scene["scene_id"],
+            "image_url": image_url,
+            "prompt_used": prompt_used,
+            "visual_source_metadata": source_metadata,
+            "error": None,
+        }
+    except Exception as exc:
+        logger.error("Image generation failed for scene %s: %s", scene["scene_id"], exc, exc_info=True)
+        return {
+            "scene_id": scene["scene_id"],
+            "image_url": None,
+            "prompt_used": None,
+            "error": str(exc),
+        }
+
+
+def generate_batch(
+    scenes: list[dict[str, str]],
+    script_id: str,
+    width: int = IMAGE_WIDTH,
+    height: int = IMAGE_HEIGHT,
+    style_guide: str = "",
+) -> list[dict[str, str | None]]:
+    """Generate images for a list of scenes with bounded concurrency.
+
+    Each scene dict must have 'scene_id' and 'visual_prompt'.
+    Optionally 'frame_prompts' (list[str]) for multi-frame scenes.
+    Dispatches based on scene 'media_source': ai (default), ai_video, stock_photo, gameplay_video.
+    Returns list of {scene_id, image_url, prompt_used, frame_urls?, video_url?, error?}
+    in the same order as the input scenes.
+
+    Concurrency is tunable via HH_IMAGE_GEN_CONCURRENCY (default 4).
+    """
+    try:
+        max_workers = max(1, int(os.environ.get("HH_IMAGE_GEN_CONCURRENCY", "4")))
+    except ValueError:
+        max_workers = 4
+    # Don't spin up more workers than scenes.
+    max_workers = min(max_workers, max(1, len(scenes)))
+
+    logger.info(
+        "Starting batch image generation for %s scenes (script %s, max_workers=%d)",
+        len(scenes), script_id, max_workers,
+    )
+
+    results: list[dict[str, str | None] | None] = [None] * len(scenes)
+    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="img-gen") as pool:
+        futures = {
+            pool.submit(_generate_one_scene, scene, script_id, width, height, style_guide): idx
+            for idx, scene in enumerate(scenes)
+        }
+        for fut in futures:
+            idx = futures[fut]
+            results[idx] = fut.result()
+
+    final_results: list[dict[str, str | None]] = [r for r in results if r is not None]
     logger.info("Batch image generation complete: %s/%s succeeded",
-                sum(1 for r in results if r.get("error") is None), len(scenes))
-    return results
+                sum(1 for r in final_results if r.get("error") is None), len(scenes))
+    return final_results
