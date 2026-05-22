@@ -7,6 +7,10 @@ let mainWindow;
 let backendProcess;
 
 const isDev = !app.isPackaged;
+const DEBUG = !!process.env.DEBUG;
+const debug = (...args) => {
+  if (DEBUG) console.log(...args);
+};
 const BACKEND_PORT = 8420;
 const FRONTEND_PORT = 5173;
 const BACKEND_URL = `http://localhost:${BACKEND_PORT}`;
@@ -173,7 +177,7 @@ function startBackend() {
   );
 
   backendProcess.stdout.on("data", (data) => {
-    console.log(`[backend] ${data}`);
+    debug(`[backend] ${data}`);
   });
 
   backendProcess.stderr.on("data", (data) => {
@@ -181,7 +185,7 @@ function startBackend() {
   });
 
   backendProcess.on("close", (code) => {
-    console.log(`[backend] exited with code ${code}`);
+    debug(`[backend] exited with code ${code}`);
   });
 }
 
@@ -412,7 +416,7 @@ ipcMain.handle("save-to-downloads", async (_event, { url, folderName, filename }
     destPath = path.join(folder, `${stem}${counter}${ext}`);
     counter += 1;
   }
-  console.log(`[save-to-downloads] requested=${safeFilename} initial=${initialDest} final=${destPath} collided=${destPath !== initialDest}`);
+  debug(`[save-to-downloads] requested=${safeFilename} initial=${initialDest} final=${destPath} collided=${destPath !== initialDest}`);
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Download failed: ${response.status}`);
   const buffer = Buffer.from(await response.arrayBuffer());
@@ -456,12 +460,12 @@ app.whenReady().then(async () => {
   }
 
   if (alreadyRunning) {
-    console.log("[main] Backend already running, skipping spawn");
+    debug("[main] Backend already running, skipping spawn");
   } else {
     startBackend();
     try {
       await waitForBackend();
-      console.log("[main] Backend is ready");
+      debug("[main] Backend is ready");
     } catch (e) {
       console.error("[main] Backend failed to start:", e.message);
     }
