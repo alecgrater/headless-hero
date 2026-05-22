@@ -1,5 +1,6 @@
 """Integration tests for the rewritten CinematicChaptersStrategy.prepare_thumbnail."""
-from pathlib import Path
+import json
+import os
 
 import pytest
 from PIL import Image
@@ -141,6 +142,50 @@ def test_prepare_thumbnail_caches_time_labels_across_runs(
     assert first_labels == second_labels
     assert "left_label" in first_labels
     assert "right_label" in first_labels
+
+
+def test_prepare_thumbnail_regenerates_when_legacy_level_sidecar_exists(
+    patched_data_dir, monkeypatch, fake_gemini_transform,
+):
+    script_id = "test-legacy-sidecar"
+    content = _make_content(n_levels=4)
+    clean_path, final_path, sidecar_path = _thumbnail_paths(script_id)
+    clean_path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (32, 32), (123, 45, 67)).save(clean_path)
+    Image.new("RGB", (32, 32), (99, 99, 99)).save(final_path)
+    sidecar_path.write_text(json.dumps({"left_level": 1, "right_level": 4}))
+
+    newer_mtime = clean_path.stat().st_mtime + 10
+    os.utime(final_path, (newer_mtime, newer_mtime))
+
+    import pipeline.formats.title_cards.cinematic_chapters as cinematic_module
+
+    def cached_generate(
+        scene_id: str,
+        visual_prompt: str,
+        script_id: str,
+        force: bool = False,
+        **_kwargs,
+    ) -> str:
+        del visual_prompt, force
+        out = patched_data_dir / "projects" / script_id / "images" / f"{scene_id}.png"
+        if not out.exists():
+            out.parent.mkdir(parents=True, exist_ok=True)
+            Image.new("RGB", (32, 32), (123, 45, 67)).save(out)
+        return str(out)
+
+    monkeypatch.setattr(cinematic_module, "generate_scene_image", cached_generate)
+
+    CINEMATIC_CHAPTERS.prepare_thumbnail(
+        script_id=script_id,
+        content=content,
+        accent_color="#ff0066",
+    )
+
+    assert len(fake_gemini_transform) == 1
+    sidecar_data = json.loads(sidecar_path.read_text())
+    assert "left_label" in sidecar_data
+    assert "right_label" in sidecar_data
 
 
 def test_prepare_thumbnail_falls_back_when_one_level(

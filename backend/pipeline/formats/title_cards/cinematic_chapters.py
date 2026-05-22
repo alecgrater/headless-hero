@@ -129,8 +129,10 @@ class CinematicChaptersStrategy:
         if cached_labels is None:
             left_label, right_label = _pick_life_as_a_thumbnail_labels()
             _write_life_as_a_thumbnail_label_sidecar(sidecar_path, left_label, right_label)
+            force_enhancement = True
         else:
             left_label, right_label = cached_labels
+            force_enhancement = force
 
         # 5. Split-progression enhancement (Gemini call).
         enhance_split_progression(
@@ -139,7 +141,7 @@ class CinematicChaptersStrategy:
             left_label=left_label,
             right_label=right_label,
             script_id=script_id,
-            force=force,
+            force=force_enhancement,
         )
 
     def prepare_title_card_scene(
