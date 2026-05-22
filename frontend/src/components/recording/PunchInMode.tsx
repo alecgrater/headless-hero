@@ -104,11 +104,11 @@ export default function PunchInMode({
 
       recorder.start();
       setMediaRecorder(recorder);
-    } catch (err) {
+    } catch {
       showToast("Microphone access failed");
       setState("selecting");
     }
-  }, [punchInMs, punchOutMs, scriptId, sceneId, baseTakeNumber, onPunchComplete]);
+  }, [punchInMs, punchOutMs, scriptId, sceneId, baseTakeNumber, baseTakeFilename, onPunchComplete]);
 
   const handleStopPunch = useCallback(() => {
     if (mediaRecorder && mediaRecorder.state === "recording") {

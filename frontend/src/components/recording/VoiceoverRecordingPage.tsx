@@ -473,12 +473,10 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
       pendingAutoAdvanceRef.current = null;
       setTimeout(() => handleStartRecordingRef.current(), 300);
     }
-    if (playingReference) {
-      referenceAudioRef.current?.pause();
-      setPlayingReference(false);
-      setReferenceElapsedMs(0);
-      if (referenceTimerRef.current) cancelAnimationFrame(referenceTimerRef.current);
-    }
+    referenceAudioRef.current?.pause();
+    setPlayingReference(false);
+    setReferenceElapsedMs(0);
+    if (referenceTimerRef.current) cancelAnimationFrame(referenceTimerRef.current);
     pausedTakeRef.current = null;
   }, [activeSceneId]);
 
@@ -550,7 +548,7 @@ export default function VoiceoverRecordingPage({ scriptId, onClose }: Props) {
 
     silenceRafRef.current = requestAnimationFrame(checkSilence);
     return () => cancelAnimationFrame(silenceRafRef.current);
-  }, [mode, recorder.isRecording, handleStopRecording]);
+  }, [mode, recorder.isRecording, recorder.audioLevelRef, handleStopRecording]);
 
   if (loading || !content) {
     return (

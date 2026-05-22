@@ -232,7 +232,7 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     };
     rafId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(rafId);
-  }, [countdown, wordTimings.length]);
+  }, [countdown, wordTimings.length, freeMode]);
 
   // Update needle position based on elapsed time during recording
   useEffect(() => {
@@ -302,7 +302,7 @@ export default function TeleprompterPanel({ scene, isRecording, elapsedMs, audio
     }
 
     setNeedle({ x, y });
-  }, [isRecording, elapsedMs, wordTimings]);
+  }, [isRecording, elapsedMs, wordTimings, freeMode]);
 
   // Determine energy zone background for a word index
   const getEnergyBg = useCallback((idx: number): string | undefined => {

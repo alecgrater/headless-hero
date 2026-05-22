@@ -73,7 +73,7 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
   }, []);
 
   useEffect(() => {
-    try { localStorage.setItem(FORMAT_KEY, selectedFormatId); } catch {}
+    try { localStorage.setItem(FORMAT_KEY, selectedFormatId); } catch { /* localStorage unavailable */ }
   }, [selectedFormatId]);
 
   useEffect(() => {

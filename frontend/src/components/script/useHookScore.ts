@@ -28,7 +28,7 @@ export default function useHookScore({ scriptId, script }: UseHookScoreOptions) 
       setHookScoreLoading(false);
       hookScoreProgress.end();
     }
-  }, [scriptId]);
+  }, [scriptId, hookScoreProgress]);
 
   // Auto-trigger when script loads and has no existing score
   useEffect(() => {

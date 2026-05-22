@@ -9,6 +9,7 @@ export interface Toast {
 let _addToast: ((toast: Toast) => void) | null = null;
 
 /** Show a toast notification from anywhere (outside React tree). */
+// eslint-disable-next-line react-refresh/only-export-components -- co-located with the only consumer of _addToast
 export function showToast(message: string, type: Toast["type"] = "error") {
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   _addToast?.({ id, message, type });

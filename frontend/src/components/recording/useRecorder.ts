@@ -70,7 +70,7 @@ export function useRecorder(): UseRecorderResult {
       }, 50);
 
       setIsRecording(true);
-    } catch (err) {
+    } catch {
       setError("Could not start recording — check microphone permissions");
     }
   }, []);

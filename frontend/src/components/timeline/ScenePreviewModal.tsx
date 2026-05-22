@@ -329,9 +329,10 @@ function CrossfadePlayer({ scene }: { scene: Scene }) {
   };
 
   useEffect(() => {
+    const audio = audioRef.current;
     return () => {
       cancelAnimationFrame(rafRef.current);
-      audioRef.current?.pause();
+      audio?.pause();
     };
   }, []);
 

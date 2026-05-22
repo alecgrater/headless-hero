@@ -19,5 +19,21 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // Allow leading-underscore vars/args to opt out of the unused check.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
+      // React Compiler-style rules from eslint-plugin-react-hooks@6.
+      // They flag patterns that block future React Compiler auto-memoization,
+      // not runtime bugs. We are not adopting React Compiler yet, so these
+      // are turned off until that work is scheduled.
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/immutability': 'off',
+      'react-hooks/refs': 'off',
+      'react-hooks/purity': 'off',
+      'react-hooks/preserve-manual-memoization': 'off',
+    },
   },
 ])

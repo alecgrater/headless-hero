@@ -244,6 +244,7 @@ const REPLICATE_MODELS = [
   { value: "black-forest-labs/flux-schnell", label: "Flux Schnell", description: "Fastest, lowest cost" },
 ] as const;
 
+// eslint-disable-next-line react-refresh/only-export-components -- co-located with the GeneralSection component that consumes these
 export const SCRIPT_MODELS = [
   { value: DEFAULT_MODEL, label: "Claude Opus 4.7" },
   { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },

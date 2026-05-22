@@ -5,6 +5,7 @@ import MiscSection from "./MiscSection";
 import PublishingSection from "./PublishingSection";
 import VoiceSection from "./VoiceSection";
 
+// eslint-disable-next-line react-refresh/only-export-components -- co-located with the SettingsPage component that owns these section IDs
 export const SECTIONS = [
   { id: "storage", label: "Storage", icon: "folder" },
   { id: "ai-models", label: "AI Models", icon: "brain" },

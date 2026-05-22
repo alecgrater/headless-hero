@@ -35,7 +35,7 @@ export function useAudioDevices(): UseAudioDevicesResult {
         setSelectedDeviceId(audioInputs[0].deviceId);
       }
       setError(null);
-    } catch (err) {
+    } catch {
       setError("Microphone access denied");
     }
   }, [selectedDeviceId]);
