@@ -21,6 +21,7 @@ const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
   ai_video: { label: "AI Video", color: "bg-fuchsia-500/20 text-fuchsia-300" },
   gameplay_video: { label: "Gameplay", color: "bg-emerald-500/20 text-emerald-300" },
   stock_photo: { label: "Stock Photo", color: "bg-sky-500/20 text-sky-300" },
+  user_upload: { label: "Upload", color: "bg-emerald-500/20 text-emerald-300" },
 };
 
 export default function MediaReviewPanel({ scriptId, assignments: initial, frameCounts, fullHeight, scenes, onBeforeApply, onSaved, onApproved, onReanalyze }: Props) {
@@ -37,7 +38,7 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
 
   const totalScenes = assignments.length;
 
-  const handleSourceChange = (sceneId: string, newSource: "ai" | "ai_video" | "gameplay_video" | "stock_photo") => {
+  const handleSourceChange = (sceneId: string, newSource: MediaAssignment["media_source"]) => {
     setSaveState("idle");
     setAssignments((prev) =>
       prev.map((a) =>
@@ -128,19 +129,22 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
       <div className={`divide-y divide-neutral-800 ${fullHeight ? "overflow-y-auto" : "max-h-96 overflow-y-auto"}`}>
         {assignments.map((a, idx) => {
           const sourceInfo = SOURCE_LABELS[a.media_source] ?? { label: a.media_source, color: "bg-neutral-700 text-neutral-300" };
-          const isVideoSource = a.media_source === "ai_video" || a.media_source === "gameplay_video";
+          const scene = scenes?.[a.scene_id];
+          const isUploadedVideo = a.media_source === "user_upload" && !!scene?.video_url;
+          const isVideoSource = a.media_source === "ai_video" || a.media_source === "gameplay_video" || isUploadedVideo;
           return (
             <div key={a.scene_id} className="px-4 py-2.5 flex items-center gap-3 text-sm">
               <span className="text-neutral-500 w-6 text-right shrink-0">{idx + 1}</span>
               <select
                 value={a.media_source}
-              onChange={(e) => handleSourceChange(a.scene_id, e.target.value as "ai" | "ai_video" | "gameplay_video" | "stock_photo")}
+                onChange={(e) => handleSourceChange(a.scene_id, e.target.value as MediaAssignment["media_source"])}
                 className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 shrink-0"
               >
                 <option value="ai">AI</option>
                 <option value="ai_video">AI Video</option>
                 <option value="gameplay_video">Gameplay</option>
                 <option value="stock_photo">Stock Photo</option>
+                {a.media_source === "user_upload" && <option value="user_upload">Upload</option>}
               </select>
               <span className={`px-2 py-0.5 rounded text-xs font-medium shrink-0 ${sourceInfo.color}`}>
                 {sourceInfo.label}
