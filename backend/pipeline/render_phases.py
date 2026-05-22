@@ -14,11 +14,11 @@ from dataclasses import dataclass, field
 from sqlmodel import Session
 
 from config import DATA_DIR, FPS
-from api._helpers import find_scene_in_content
 from models.script import Script, ScriptContent
 from pipeline.export_paths import copy_to_project_downloads, shortform_video_filename
 from pipeline.remotion_render import render_full_video
 from pipeline.render_jobs import RenderJob, estimate_render_time, is_cancelled, update_job
+from pipeline.script_utils import find_scene_in_content
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ def _reload_content(script_id: str) -> ScriptContent:
 
 
 def _phase_images(ctx: ExportContext) -> None:
-    """Phase 3: Generate images for all scenes (skips title cards)."""
+    """Generate images for all scenes (skips title cards)."""
     from pipeline.image_gen import generate_scene_image
 
     non_tc = [sc for sc in ctx.scenes if not sc.get("is_title_card")]
@@ -114,7 +114,7 @@ def _phase_images(ctx: ExportContext) -> None:
 
 
 def _phase_audio(ctx: ExportContext) -> None:
-    """Phase 2: Generate audio for all scenes."""
+    """Generate audio for all scenes."""
     from pipeline.voiceover import generate_scene_audio
 
     scene_count = len(ctx.scenes)
@@ -135,7 +135,7 @@ def _phase_audio(ctx: ExportContext) -> None:
 
 
 def _phase_persist(ctx: ExportContext) -> None:
-    """Phase 4: Persist regenerated assets to DB in a single write."""
+    """Persist regenerated assets to DB in a single write."""
     logger.info("[%s] Phase: persist — saving %d scene assets to DB", ctx.script_id, len(ctx.scenes))
     update_job(ctx.job.id, progress=_phase_progress(ctx, "persist", 0), current_step="Saving scene data...")
 
@@ -176,7 +176,7 @@ def _phase_persist(ctx: ExportContext) -> None:
 
 
 def _phase_fx(ctx: ExportContext) -> None:
-    """Phase 5: Generate FX for all scenes (skips title cards), persist in a single write."""
+    """Generate FX for all scenes (skips title cards), persist in a single write."""
     from pipeline.fx_generator import generate_scene_fx
 
     non_tc = [sc for sc in ctx.scenes if not sc.get("is_title_card")]
@@ -233,7 +233,7 @@ def _phase_fx(ctx: ExportContext) -> None:
 
 
 def _phase_eli(ctx: ExportContext) -> None:
-    """Phase 6: Generate Eli pose selection for all scenes (skips title cards)."""
+    """Generate Eli pose selection for all scenes (skips title cards)."""
     try:
         from pipeline.eli_animator import generate_eli_batch, generate_scene_eli
     except ImportError:
@@ -352,7 +352,7 @@ def _phase_render(ctx: ExportContext) -> None:
 
 
 def _phase_copy_to_downloads(ctx: ExportContext) -> None:
-    """Phase 8: Copy rendered video to Downloads folder (always runs)."""
+    """Copy rendered video to Downloads folder (always runs)."""
     logger.info("[%s] Phase: copy — copying to Downloads", ctx.script_id)
     update_job(ctx.job.id, progress=ctx.phase_ranges["copy"][0], current_step="Copying to Downloads...")
     projects_prefix = "/static/projects/"

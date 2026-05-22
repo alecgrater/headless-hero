@@ -13,7 +13,7 @@ from sqlmodel import Session
 from config import DATA_DIR, VIDEO_HEIGHT, VIDEO_WIDTH
 from api.short_form_hooks import ensure_short_form_hook_scene_count
 from database import get_default_brand_id, get_session
-from api._helpers import find_scene_in_content
+from pipeline.script_utils import find_scene_in_content
 from models.brand import BrandProfile
 from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent

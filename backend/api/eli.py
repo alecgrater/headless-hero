@@ -8,13 +8,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from api._helpers import find_scene_in_content
 from database import get_session
 from models.project_config import get_project_config
 from models.script import Script, ScriptContent
 from pipeline.eli_animator import generate_eli_batch, generate_scene_eli
 from pipeline.render_cache import mark_render_inputs_changed
 from pipeline.render_jobs import create_job, update_job, get_job
+from pipeline.script_utils import find_scene_in_content
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/eli", tags=["eli"])

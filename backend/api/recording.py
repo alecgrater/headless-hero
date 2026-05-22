@@ -13,12 +13,13 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from api._helpers import update_scene, find_scene_in_content
+from api._helpers import update_scene
 from config import DATA_DIR
 from database import get_session
 from models.script import Script, ScriptContent
 from pipeline.audio_alignment import align_audio
 from pipeline.script_deviation import compute_deviation
+from pipeline.script_utils import find_scene_in_content
 from pipeline.voiceover import compute_phrase_timestamps
 
 logger = logging.getLogger(__name__)

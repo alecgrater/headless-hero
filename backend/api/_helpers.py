@@ -4,7 +4,7 @@ import json
 
 from sqlmodel import Session
 
-from models.script import Scene, Script, ScriptContent
+from models.script import Script, ScriptContent
 from pipeline.render_cache import mark_render_inputs_changed
 
 
@@ -27,14 +27,3 @@ def update_scene(
     session.commit()
     mark_render_inputs_changed(script_id)
 
-
-def find_scene_in_content(content: ScriptContent, scene_id: str) -> Scene:
-    """Find a scene by ID across all segments.
-
-    Raises RuntimeError if the scene is not found.
-    """
-    for seg in content.segments:
-        for sc in seg.scenes:
-            if sc.id == scene_id:
-                return sc
-    raise RuntimeError(f"Scene {scene_id} not found in content")
