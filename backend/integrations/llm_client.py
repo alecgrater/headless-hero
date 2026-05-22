@@ -4,7 +4,9 @@ import json
 import logging
 import os
 import re
+import threading
 import time
+from typing import Any
 
 import anthropic
 
@@ -12,6 +14,62 @@ from config import BALANCED_CLAUDE_MODEL, DEFAULT_CLAUDE_MODEL, DEFAULT_OPENAI_M
 from integrations.usage_tracker import record_usage, get_model_pricing
 
 logger = logging.getLogger(__name__)
+
+# Module-level singleton clients. Each provider's SDK client is thread-safe and
+# maintains an internal connection pool; sharing one instance across the process
+# avoids re-establishing TLS for every call.
+_CLIENT_LOCK = threading.Lock()
+_ANTHROPIC_CLIENT: anthropic.Anthropic | None = None
+_OPENAI_CLIENT: Any = None
+_OLLAMA_CLIENT: Any = None
+
+
+def get_anthropic_client() -> anthropic.Anthropic:
+    """Return the process-wide Anthropic client (lazy, thread-safe)."""
+    global _ANTHROPIC_CLIENT
+    if _ANTHROPIC_CLIENT is not None:
+        return _ANTHROPIC_CLIENT
+    with _CLIENT_LOCK:
+        if _ANTHROPIC_CLIENT is None:
+            if not os.environ.get("ANTHROPIC_API_KEY"):
+                raise RuntimeError("ANTHROPIC_API_KEY is required when using the Anthropic provider.")
+            _ANTHROPIC_CLIENT = anthropic.Anthropic()
+    return _ANTHROPIC_CLIENT
+
+
+def get_openai_client() -> Any:
+    """Return the process-wide OpenAI client (lazy, thread-safe)."""
+    global _OPENAI_CLIENT
+    if _OPENAI_CLIENT is not None:
+        return _OPENAI_CLIENT
+    from openai import OpenAI
+    with _CLIENT_LOCK:
+        if _OPENAI_CLIENT is None:
+            if not os.environ.get("OPENAI_API_KEY"):
+                raise RuntimeError("OPENAI_API_KEY is not configured")
+            _OPENAI_CLIENT = OpenAI()
+    return _OPENAI_CLIENT
+
+
+def get_ollama_client() -> Any:
+    """Return the process-wide Ollama client (OpenAI-compatible, lazy)."""
+    global _OLLAMA_CLIENT
+    if _OLLAMA_CLIENT is not None:
+        return _OLLAMA_CLIENT
+    from openai import OpenAI
+    with _CLIENT_LOCK:
+        if _OLLAMA_CLIENT is None:
+            _OLLAMA_CLIENT = OpenAI(api_key="ollama", base_url=_OLLAMA_BASE_URL)
+    return _OLLAMA_CLIENT
+
+
+def _reset_clients_for_testing() -> None:
+    """Drop cached SDK clients so subsequent calls re-read env vars. Test-only."""
+    global _ANTHROPIC_CLIENT, _OPENAI_CLIENT, _OLLAMA_CLIENT
+    with _CLIENT_LOCK:
+        _ANTHROPIC_CLIENT = None
+        _OPENAI_CLIENT = None
+        _OLLAMA_CLIENT = None
 
 _OLLAMA_BASE_URL = "http://localhost:11434/v1"
 _DEFAULT_QWEN_MODEL = "qwen3:14b"
@@ -224,13 +282,11 @@ def _resolve_openai_reasoning_effort(task: str | None) -> str | None:
 
 
 def get_client(provider: str | None = None) -> anthropic.Anthropic:
-    """Return an Anthropic client using ANTHROPIC_API_KEY."""
+    """Return an Anthropic client using ANTHROPIC_API_KEY (back-compat shim)."""
     provider = provider or _get_provider()
     if provider != "anthropic":
         raise ValueError(f"Anthropic client requested for unsupported provider: {provider}")
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        return anthropic.Anthropic()
-    raise RuntimeError("ANTHROPIC_API_KEY is required when using the Anthropic provider.")
+    return get_anthropic_client()
 
 
 def chat(
@@ -286,7 +342,7 @@ def chat(
             reasoning_effort=reasoning_effort,
         )
 
-    client = get_client(provider)
+    client = get_anthropic_client()
     logger.info(
         "Calling Claude API provider=%s task=%s model=%s max_tokens=%d timeout=%.0fs cache=%s",
         provider, task or "default", resolved_model, max_tokens, timeout, cache,
@@ -378,8 +434,8 @@ def _chat_ollama(
     task: str | None,
 ) -> str:
     """Call a local Ollama model via its OpenAI-compatible /v1 endpoint."""
-    # Lazy import so the backend still starts if openai isn't installed yet.
-    from openai import BadRequestError, OpenAI
+    # Lazy import for BadRequestError; client is fetched from the singleton helper.
+    from openai import BadRequestError
 
     qwen_model = model.strip() or _DEFAULT_QWEN_MODEL
 
@@ -402,7 +458,7 @@ def _chat_ollama(
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": effective_user_message})
 
-    client = OpenAI(api_key="ollama", base_url=_OLLAMA_BASE_URL, timeout=timeout)
+    client = get_ollama_client()
     logger.info(
         "Calling Ollama task=%s model=%s max_tokens=%d num_ctx=%d timeout=%.0fs json_mode=%s keep_alive=30m",
         task or "default", qwen_model, max_tokens, num_ctx, timeout, json_mode,
@@ -414,6 +470,7 @@ def _chat_ollama(
         "max_completion_tokens": max_tokens,
         "messages": messages,
         "extra_body": {"keep_alive": "30m", "options": {"num_ctx": num_ctx}},
+        "timeout": timeout,
     }
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
@@ -479,10 +536,8 @@ def _chat_openai(
     reasoning_effort: str | None = None,
 ) -> str:
     """Call OpenAI via Chat Completions."""
-    from openai import BadRequestError, OpenAI
+    from openai import BadRequestError
 
-    if not os.environ.get("OPENAI_API_KEY"):
-        raise RuntimeError("OPENAI_API_KEY is not configured")
     if cache:
         logger.debug("OpenAI path ignores cache=True")
 
@@ -495,7 +550,7 @@ def _chat_openai(
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": effective_user_message})
 
-    client = OpenAI(timeout=timeout)
+    client = get_openai_client()
     logger.info(
         "Calling OpenAI task=%s model=%s max_tokens=%d timeout=%.0fs json_mode=%s reasoning_effort=%s",
         task or "default", model, max_tokens, timeout, json_mode, reasoning_effort or "default",
@@ -506,6 +561,7 @@ def _chat_openai(
         "model": model,
         "messages": messages,
         "max_completion_tokens": max_tokens,
+        "timeout": timeout,
     }
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}

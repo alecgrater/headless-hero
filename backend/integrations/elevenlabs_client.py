@@ -1,8 +1,10 @@
 """Thin wrapper around the ElevenLabs API for text-to-speech."""
 
+import atexit
 import base64
 import logging
 import os
+import threading
 import time
 
 import httpx
@@ -21,6 +23,37 @@ _DEFAULT_VOICE_SETTINGS = {
     "style": 0.0,
     "use_speaker_boost": True,
 }
+
+# Process-wide httpx.Client. httpx.Client is thread-safe and reuses its
+# connection pool across calls; recreating per-call wastes TLS handshakes.
+_HTTPX_CLIENT_LOCK = threading.Lock()
+_HTTPX_CLIENT: httpx.Client | None = None
+
+
+def _get_http_client() -> httpx.Client:
+    global _HTTPX_CLIENT
+    if _HTTPX_CLIENT is not None:
+        return _HTTPX_CLIENT
+    with _HTTPX_CLIENT_LOCK:
+        if _HTTPX_CLIENT is None:
+            _HTTPX_CLIENT = httpx.Client()
+            atexit.register(_close_http_client)
+    return _HTTPX_CLIENT
+
+
+def _close_http_client() -> None:
+    global _HTTPX_CLIENT
+    with _HTTPX_CLIENT_LOCK:
+        if _HTTPX_CLIENT is not None:
+            try:
+                _HTTPX_CLIENT.close()
+            except Exception:
+                logger.debug("httpx client close failed", exc_info=True)
+            _HTTPX_CLIENT = None
+
+
+def _reset_clients_for_testing() -> None:
+    _close_http_client()
 
 def _get_key() -> str:
     key = os.environ.get("ELEVENLABS_API_KEY")
@@ -103,22 +136,23 @@ def generate_speech(
     }
 
     t0 = time.monotonic()
-    with httpx.Client(timeout=120.0) as client:
-        response = client.post(
-            url,
-            json=payload,
-            headers={
-                "xi-api-key": _get_key(),
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            },
-        )
-        try:
-            response.raise_for_status()
-        except httpx.HTTPStatusError:
-            logger.error("ElevenLabs TTS request failed: %s %s", response.status_code, response.text[:500])
-            raise
-        data = response.json()
+    client = _get_http_client()
+    response = client.post(
+        url,
+        json=payload,
+        headers={
+            "xi-api-key": _get_key(),
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        },
+        timeout=120.0,
+    )
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError:
+        logger.error("ElevenLabs TTS request failed: %s %s", response.status_code, response.text[:500])
+        raise
+    data = response.json()
 
     elapsed = time.monotonic() - t0
     audio_bytes = base64.b64decode(data["audio_base64"])
@@ -168,15 +202,16 @@ def clone_voice(
     files = [("files", (fname, fbytes, "audio/mpeg")) for fname, fbytes in audio_files]
     data = {"name": name, "description": description}
 
-    with httpx.Client(timeout=120.0) as client:
-        response = client.post(
-            url,
-            data=data,
-            files=files,
-            headers={"xi-api-key": _get_key()},
-        )
-        response.raise_for_status()
-        voice_id = response.json()["voice_id"]
+    client = _get_http_client()
+    response = client.post(
+        url,
+        data=data,
+        files=files,
+        headers={"xi-api-key": _get_key()},
+        timeout=120.0,
+    )
+    response.raise_for_status()
+    voice_id = response.json()["voice_id"]
 
     record_usage(
         service="elevenlabs",
@@ -195,10 +230,10 @@ def list_voices() -> list[dict[str, str]]:
     url = f"{_BASE_URL}/voices"
     logger.info("Listing ElevenLabs voices")
 
-    with httpx.Client(timeout=30.0) as client:
-        response = client.get(url, headers=_headers())
-        response.raise_for_status()
-        data = response.json()
+    client = _get_http_client()
+    response = client.get(url, headers=_headers(), timeout=30.0)
+    response.raise_for_status()
+    data = response.json()
 
     voices: list[dict[str, str]] = []
     for v in data.get("voices", []):
@@ -224,10 +259,10 @@ def search_library_voices(search: str, page_size: int = 20) -> list[dict]:
     params = {"search": search, "page_size": page_size}
     logger.info("Searching ElevenLabs voice library: query=%r, page_size=%d", search, page_size)
 
-    with httpx.Client(timeout=30.0) as client:
-        response = client.get(url, headers=_headers(), params=params)
-        response.raise_for_status()
-        data = response.json()
+    client = _get_http_client()
+    response = client.get(url, headers=_headers(), params=params, timeout=30.0)
+    response.raise_for_status()
+    data = response.json()
 
     results: list[dict] = []
     for v in data.get("voices", []):
@@ -255,14 +290,15 @@ def add_library_voice(public_user_id: str, voice_id: str, new_name: str) -> str:
     url = f"{_BASE_URL}/voices/add/{public_user_id}/{voice_id}"
     logger.info("Adding library voice %s to account as %r", voice_id, new_name)
 
-    with httpx.Client(timeout=30.0) as client:
-        response = client.post(
-            url,
-            json={"new_name": new_name},
-            headers={
-                "xi-api-key": _get_key(),
-                "Content-Type": "application/json",
-            },
-        )
-        response.raise_for_status()
-        return response.json()["voice_id"]
+    client = _get_http_client()
+    response = client.post(
+        url,
+        json={"new_name": new_name},
+        headers={
+            "xi-api-key": _get_key(),
+            "Content-Type": "application/json",
+        },
+        timeout=30.0,
+    )
+    response.raise_for_status()
+    return response.json()["voice_id"]
