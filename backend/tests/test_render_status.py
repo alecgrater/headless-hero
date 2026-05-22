@@ -1,7 +1,11 @@
+import os
+
 from api import render as render_api
 from api import upload_suite as upload_suite_api
 from models.script import Scene, Script, ScriptContent, Segment
+from pipeline import short_form_thumbnails as thumbs
 from pipeline.export_paths import longform_filename, project_downloads_folder, shortform_filename, shortform_video_filename
+from pipeline.short_form_thumbnails import short_thumbnail_filename
 from sqlmodel import Session, SQLModel, create_engine
 
 
@@ -201,3 +205,48 @@ def test_export_file_status_counts_only_project_export_files(tmp_path, monkeypat
     assert result.categories["shortform_videos"].exported == 1
     assert result.categories["shortform_thumbnails"].exported == 1
     assert result.categories["shortform_seo"].exported == 1
+
+
+def test_upload_suite_thumbnail_prefers_newer_current_cache_over_stale_export(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
+    monkeypatch.setattr(upload_suite_api, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(thumbs, "DATA_DIR", tmp_path)
+
+    script_id = "script-123"
+    project_title = "Project Name"
+    content = ScriptContent(
+        title=project_title,
+        format_id="life-as-a",
+        segments=[
+            Segment(name="First Segment", scenes=[]),
+            Segment(name="Second Segment", scenes=[]),
+        ],
+    )
+
+    folder = project_downloads_folder(project_title)
+    exported = folder / short_thumbnail_filename("Second Segment", 2, 2)
+    exported.write_bytes(b"old exported thumbnail")
+
+    cache = tmp_path / "projects" / script_id / "renders" / "short_thumbnails"
+    cache.mkdir(parents=True)
+    cached = cache / "1.png"
+    cached.write_bytes(b"new cached thumbnail")
+    (cache / "1.json").write_text(
+        '{"segment_idx": 1, "part_indicator": "Part 2/2"}',
+        encoding="utf-8",
+    )
+
+    stale_time = 1_700_000_000
+    current_time = stale_time + 60
+    exported.touch()
+    cached.touch()
+    os.utime(exported, (stale_time, stale_time))
+    os.utime(cached, (current_time, current_time))
+
+    assert upload_suite_api._short_thumbnail_path(
+        script_id,
+        folder,
+        "Second Segment",
+        1,
+        content,
+    ) == cached

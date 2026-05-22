@@ -111,10 +111,16 @@ def _short_thumbnail_path(
     exported = folder / short_thumbnail_filename(segment_name, index + 1, total)
     cached = DATA_DIR / "projects" / script_id / "renders" / "short_thumbnails" / f"{index}.png"
     cached_is_current = cached.is_file() and is_short_thumbnail_current(script_id, index, content)
+    if cached_is_current:
+        if exported.is_file():
+            try:
+                if exported.stat().st_mtime >= cached.stat().st_mtime:
+                    return exported
+            except OSError:
+                pass
+        return cached
     if exported.is_file() and is_short_thumbnail_current(script_id, index, content):
         return exported
-    if cached_is_current:
-        return cached
     return None
 
 
