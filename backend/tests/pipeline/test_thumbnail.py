@@ -164,6 +164,13 @@ def test_enhance_split_progression_calls_gemini_with_templated_prompt(tmp_path, 
     assert "8 years in" in captured["prompt"]
     assert "LEVEL " not in captured["prompt"]
     assert "What happened between 3 months in and 8 years in" in captured["prompt"]
+    assert "medium-close / waist-up framing" in captured["prompt"]
+    assert "45-65% of their panel height" in captured["prompt"]
+    assert "visual center of the left panel" in captured["prompt"]
+    assert "visual center of the right panel" in captured["prompt"]
+    assert "saturated attention-grabbing yellow" in captured["prompt"]
+    assert "EXTRA-THICK BLACK OUTLINE" in captured["prompt"]
+    assert "strong dark shadow" in captured["prompt"]
     assert captured["image_paths"] == [str(clean_path)]
 
 

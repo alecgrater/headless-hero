@@ -1672,7 +1672,7 @@ Pick the tier and specific expression that best matches the video title/topic.
 SPLIT_PROGRESSION_PROMPT = register(PromptDef(
     name="SPLIT_PROGRESSION_PROMPT",
     domain="IMAGE",
-    purpose="Transform a single iconic life-as-a thumbnail into a split-progression thumbnail (LEVEL X vs LEVEL Y).",
+    purpose="Transform a single iconic life-as-a thumbnail into a split-progression thumbnail (early vs late time labels).",
     target_model="gemini",
     expected_output_format="A single PNG image (1920x1080) — the final thumbnail.",
     template="""\
@@ -1727,8 +1727,12 @@ LAYOUT RULES
 3. SUBJECT FRAMING — CRITICAL:
 - Position the focal subject (person, face, hands, key prop) of each side AWAY from the diagonal divider so each subject is fully visible and uncropped on its respective side.
 - Do NOT let the divider bisect a person's body, face, or head. If the source image's subject would otherwise sit on the divider line, shift the subject toward the outer edge of its side so the divider passes behind/beside it, not through it.
-- On the LEFT side, keep the focal subject centered within the left-side image area itself. Do not push the left subject too far toward the far-left edge; it should feel centered relative to the left panel, while still clear of the divider.
-- Each side's subject must read clearly at small thumbnail sizes.
+- Make BOTH characters feel much closer to the camera than a full-room establishing shot. Use medium-close / waist-up framing by default: the head and torso should dominate their side, not appear as a small full-body figure in the environment.
+- Each character should occupy roughly 45-65% of their panel height. Do NOT make either character tiny, distant, or mostly surrounded by empty room.
+- On the LEFT side, keep the focal subject centered within the left-side image area itself, near the visual center of the left panel. Do not leave the left subject small and far away near a door, wall, or back corner.
+- On the RIGHT side, keep the focal subject centered within the right-side image area itself, near the visual center of the right panel, while still clear of the label and divider.
+- It is acceptable to crop slightly at the lower legs or feet if that makes the face and torso larger. Do NOT crop the head, face, hands, or important props.
+- Each side's subject must read clearly at small thumbnail sizes, with the face and expression immediately legible.
 
 3a. CHARACTER CONTINUITY — CRITICAL:
 - The thumbnail shows the SAME character at two different stages of the same topic. The person on the left side and the person on the right side must look like the SAME individual: same face, same hair, same body type, same defining features. Only their clothing, expression, posture, and surroundings change to communicate the stage difference.
@@ -1741,9 +1745,10 @@ LAYOUT RULES
 - Right side: "{right_label}"
 
 LABEL TYPOGRAPHY — STRICT, CONSISTENT ACROSS ALL THUMBNAILS:
-- Color: bright pale-yellow / warm gold (a vivid, slightly cream-tinted yellow — high contrast against any background).
-- Stroke: every letter has a THICK BLACK OUTLINE (heavy stroke, roughly 6-10% of letter height). This is mandatory — labels without a black stroke are wrong.
-- Drop shadow: a small dark shadow offset slightly down and to the right for extra punch.
+- Color: saturated attention-grabbing yellow / warm gold, closer to bright YouTube thumbnail yellow than muted cream. It should pop hard against both light and dark backgrounds.
+- Add a subtle bright highlight on the upper-left of the letters so the yellow feels glossy and dimensional, not flat.
+- Stroke: every letter has an EXTRA-THICK BLACK OUTLINE (heavy stroke, roughly 8-12% of letter height). This is mandatory — labels without a black stroke are wrong.
+- Drop shadow: a strong dark shadow offset slightly down and to the right for extra punch and separation from the illustration.
 - Font: condensed bold sans-serif with TIGHT character spacing — letters nearly touching, no extra tracking. Compact and punchy, not airy or spread-out.
 - Casing: preserve the exact label text and casing shown above, including lowercase "months in" / "years in".
 - Size: huge — each label should occupy roughly 14-20% of the image width.
