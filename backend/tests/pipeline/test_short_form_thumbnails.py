@@ -49,6 +49,29 @@ def test_short_form_part_indicator_only_for_life_as_a():
     assert short_form_part_indicator(content, 1) == "Part 2/2"
 
 
+def test_life_as_a_thumbnail_cache_requires_part_indicator_metadata(tmp_path, monkeypatch):
+    monkeypatch.setattr(thumbs, "DATA_DIR", tmp_path)
+    content = _content()
+    content.format_id = "life-as-a"
+    script_id = "abc"
+    thumb_dir = tmp_path / "projects" / script_id / "renders" / "short_thumbnails"
+    thumb_dir.mkdir(parents=True)
+    Image.new("RGB", (1080, 1920), (0, 0, 0)).save(thumb_dir / "1.png")
+
+    assert thumbs.is_short_thumbnail_current(script_id, 1, content) is False
+    assert thumbs.existing_short_thumbnail_paths(script_id, content) == {}
+
+    (thumb_dir / "1.json").write_text(
+        '{"segment_idx": 1, "part_indicator": "Part 2/2"}',
+        encoding="utf-8",
+    )
+
+    assert thumbs.is_short_thumbnail_current(script_id, 1, content) is True
+    assert thumbs.existing_short_thumbnail_paths(script_id, content) == {
+        1: f"/static/projects/{script_id}/renders/short_thumbnails/1.png",
+    }
+
+
 def test_fit_text_shrinks_instead_of_splitting_single_word():
     canvas = Image.new("RGB", (1080, 1920), (0, 0, 0))
     draw = ImageDraw.Draw(canvas)

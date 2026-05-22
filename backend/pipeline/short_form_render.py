@@ -79,13 +79,16 @@ def _write_short_render_metadata(script_id: str, segment_idx: int, content: Scri
     metadata = {
         "segment_idx": segment_idx,
         "hook_scene_count": content.hook_scene_count or 0,
+        "part_indicator": short_form_part_indicator(content, segment_idx),
     }
     _short_metadata_path(script_id, segment_idx).write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
 
 def is_short_render_current(script_id: str, segment_idx: int, content: ScriptContent) -> bool:
     """Return whether a cached short render matches content-sensitive render options."""
-    if segment_idx != 0 or not content.hook_scene_count:
+    expected_part_indicator = short_form_part_indicator(content, segment_idx)
+    requires_metadata = bool(expected_part_indicator) or (segment_idx == 0 and bool(content.hook_scene_count))
+    if not requires_metadata:
         return True
 
     metadata_path = _short_metadata_path(script_id, segment_idx)
@@ -96,7 +99,9 @@ def is_short_render_current(script_id: str, segment_idx: int, content: ScriptCon
         cached_hook_scene_count = int(metadata.get("hook_scene_count") or 0)
     except (OSError, json.JSONDecodeError, TypeError, ValueError):
         return False
-    return cached_hook_scene_count == int(content.hook_scene_count or 0)
+    if segment_idx == 0 and cached_hook_scene_count != int(content.hook_scene_count or 0):
+        return False
+    return metadata.get("part_indicator", "") == expected_part_indicator
 
 
 def _copy_to_downloads(project_title: str, src_path: Path, dest_filename: str) -> str:

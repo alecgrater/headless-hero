@@ -6,6 +6,7 @@ center 1:1 crop carries the important title text so profile grids stay useful.
 
 from __future__ import annotations
 
+import json
 import logging
 import shutil
 from pathlib import Path
@@ -58,6 +59,34 @@ def _source_image_path(script_id: str, segment_idx: int, content: ScriptContent)
 
 def _web_url(script_id: str, segment_idx: int) -> str:
     return f"/static/projects/{script_id}/renders/short_thumbnails/{segment_idx}.png"
+
+
+def _thumbnail_metadata_path(script_id: str, segment_idx: int) -> Path:
+    return _thumbs_dir(script_id) / f"{segment_idx}.json"
+
+
+def _write_thumbnail_metadata(script_id: str, segment_idx: int, content: ScriptContent) -> None:
+    metadata = {
+        "segment_idx": segment_idx,
+        "part_indicator": short_form_part_indicator(content, segment_idx),
+    }
+    _thumbnail_metadata_path(script_id, segment_idx).write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+
+
+def is_short_thumbnail_current(script_id: str, segment_idx: int, content: ScriptContent) -> bool:
+    """Return whether a cached short thumbnail matches content-sensitive overlay options."""
+    expected_part_indicator = short_form_part_indicator(content, segment_idx)
+    if not expected_part_indicator:
+        return True
+
+    metadata_path = _thumbnail_metadata_path(script_id, segment_idx)
+    if not metadata_path.is_file():
+        return False
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return metadata.get("part_indicator", "") == expected_part_indicator
 
 
 def short_thumbnail_title(content: ScriptContent, segment_idx: int) -> str:
@@ -340,6 +369,7 @@ def generate_short_thumbnail(
     if on_progress:
         on_progress(0.9, "Saving PNG...")
     _save_png_under_limit(canvas, output_path)
+    _write_thumbnail_metadata(script_id, segment_idx, content)
 
     if output_path.stat().st_size > MAX_PNG_BYTES:
         logger.warning("Short thumbnail exceeded 2 MB after optimization: %s", output_path)
@@ -368,12 +398,13 @@ def generate_all_short_thumbnails(
     return results
 
 
-def existing_short_thumbnail_paths(script_id: str, total: int) -> dict[int, str]:
+def existing_short_thumbnail_paths(script_id: str, content: ScriptContent) -> dict[int, str]:
     base = _thumbs_dir(script_id)
     paths: dict[int, str] = {}
+    total = len(content.segments)
     for idx in range(total):
         path = base / f"{idx}.png"
-        if path.is_file():
+        if path.is_file() and is_short_thumbnail_current(script_id, idx, content):
             paths[idx] = _web_url(script_id, idx)
     return paths
 
@@ -384,10 +415,11 @@ def export_short_thumbnails(
     project_title: str,
 ) -> tuple[str, list[str], dict[int, str]]:
     """Generate missing thumbnails, copy all to Downloads, and return paths."""
-    missing = [
-        idx for idx in range(len(content.segments))
-        if not (_thumbs_dir(script_id) / f"{idx}.png").is_file()
-    ]
+    missing = []
+    for idx in range(len(content.segments)):
+        path = _thumbs_dir(script_id) / f"{idx}.png"
+        if not path.is_file() or not is_short_thumbnail_current(script_id, idx, content):
+            missing.append(idx)
     if missing:
         generate_all_short_thumbnails(script_id, content, missing)
 

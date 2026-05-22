@@ -159,7 +159,7 @@ def short_thumbnails(script_id: str, session: Session = Depends(get_session)):
     from pipeline.short_form_thumbnails import existing_short_thumbnail_paths
 
     content = _load_content(session, script_id)
-    paths = existing_short_thumbnail_paths(script_id, len(content.segments))
+    paths = existing_short_thumbnail_paths(script_id, content)
     return ShortThumbnailsResponse(
         generated_indices=sorted(paths.keys()),
         paths=paths,

@@ -120,6 +120,27 @@ class TestShortRenderCurrent:
         content.hook_scene_count = 2
         assert is_short_render_current("script-1", 1, content) is True
 
+    def test_life_as_a_requires_matching_part_indicator_metadata(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(short_form_render, "DATA_DIR", tmp_path)
+        content = ScriptContent(
+            title="Test",
+            format_id="life-as-a",
+            segments=[
+                Segment(name="First", scenes=[_scene("title", "First.", True), _scene("body", "Body.")]),
+                Segment(name="Second", scenes=[_scene("title", "Second.", True), _scene("body", "Body.")]),
+            ],
+        )
+
+        assert is_short_render_current("script-1", 1, content) is False
+
+        metadata_path = tmp_path / "projects" / "script-1" / "renders" / "shorts" / "1.json"
+        metadata_path.write_text(
+            '{"segment_idx": 1, "hook_scene_count": 0, "part_indicator": "Part 2/2"}',
+            encoding="utf-8",
+        )
+
+        assert is_short_render_current("script-1", 1, content) is True
+
 
 class TestLifeAsAPartIndicator:
     def test_render_props_include_part_indicator_for_life_as_a(self, tmp_path, monkeypatch):

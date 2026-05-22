@@ -20,7 +20,7 @@ from pipeline.export_paths import (
     shortform_filename,
     shortform_video_filename,
 )
-from pipeline.short_form_thumbnails import short_thumbnail_filename
+from pipeline.short_form_thumbnails import is_short_thumbnail_current, short_thumbnail_filename
 
 router = APIRouter(prefix="/api/upload-suite", tags=["upload-suite"])
 
@@ -100,12 +100,20 @@ def _short_seo_by_index(content: ScriptContent) -> dict[int, dict]:
     return by_index
 
 
-def _short_thumbnail_path(script_id: str, folder: Path, segment_name: str, index: int, total: int) -> Path | None:
+def _short_thumbnail_path(
+    script_id: str,
+    folder: Path,
+    segment_name: str,
+    index: int,
+    content: ScriptContent,
+) -> Path | None:
+    total = len(content.segments)
     exported = folder / short_thumbnail_filename(segment_name, index + 1, total)
-    if exported.is_file():
-        return exported
     cached = DATA_DIR / "projects" / script_id / "renders" / "short_thumbnails" / f"{index}.png"
-    if cached.is_file():
+    cached_is_current = cached.is_file() and is_short_thumbnail_current(script_id, index, content)
+    if exported.is_file() and is_short_thumbnail_current(script_id, index, content):
+        return exported
+    if cached_is_current:
         return cached
     return None
 
@@ -283,7 +291,7 @@ def upload_suite_status(script_id: str, session: Session = Depends(get_session))
             if item:
                 seo_markdown = _format_shortform_seo_markdown(item)
 
-        thumb = _short_thumbnail_path(script_id, folder, segment.name, idx, total)
+        thumb = _short_thumbnail_path(script_id, folder, segment.name, idx, content)
         thumbnail_url = f"/api/upload-suite/thumbnail?script_id={script_id}&index={idx}" if thumb else None
         shorts.append(
             ShortUploadSuiteItem(
@@ -325,7 +333,7 @@ def upload_suite_thumbnail(script_id: str, index: int, session: Session = Depend
         raise HTTPException(status_code=404, detail="Thumbnail not found")
     project_title = record.topic_title or content.title or "Untitled"
     folder = project_downloads_folder(project_title, create=False)
-    thumb = _short_thumbnail_path(script_id, folder, content.segments[index].name, index, len(content.segments))
+    thumb = _short_thumbnail_path(script_id, folder, content.segments[index].name, index, content)
     if not thumb:
         raise HTTPException(status_code=404, detail="Thumbnail not found")
     return FileResponse(str(thumb))
