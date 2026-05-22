@@ -65,10 +65,9 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
     (async () => {
       const res = await api.get("/api/settings/keys");
       if (res.ok) {
-        const data = res.data as Record<string, string>;
-        const raw = data["ELI_ENABLED_DEFAULT"];
-        // Stored as string "true"/"false"
-        setEliEnabled(raw !== "false");
+        const data = res.data as Record<string, { masked: string; configured: boolean; source: string }>;
+        const raw = data.ELI_ENABLED_DEFAULT?.masked || "true";
+        setEliEnabled(raw.trim().toLowerCase() !== "false");
       }
     })();
   }, []);
