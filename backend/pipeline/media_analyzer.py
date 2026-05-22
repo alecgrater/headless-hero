@@ -95,8 +95,8 @@ def _has_ai_image_frame(scene: Scene) -> bool:
     )
 
 
-def _scene_duration_seconds(scene: Scene) -> float:
-    return scene.audio_duration_seconds or scene.duration_estimate_seconds or 0.0
+def _known_audio_duration_seconds(scene: Scene) -> float | None:
+    return scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else None
 
 
 def _is_ai_video_eligible(
@@ -112,7 +112,8 @@ def _is_ai_video_eligible(
         return False
     if scene.visual_beat == "aha_subtitle":
         return False
-    if _scene_duration_seconds(scene) > AI_VIDEO_MAX_ROUTED_DURATION_SECONDS:
+    known_audio_duration = _known_audio_duration_seconds(scene)
+    if known_audio_duration is not None and known_audio_duration > AI_VIDEO_MAX_ROUTED_DURATION_SECONDS:
         return False
     if not scene.visual_prompt.strip():
         return False
