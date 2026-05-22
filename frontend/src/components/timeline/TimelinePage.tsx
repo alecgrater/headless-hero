@@ -75,7 +75,8 @@ import { useMediaReview } from "./useMediaReview";
 import { useOperationProgress } from "../../hooks/useOperationProgress";
 
 import { useVoicePicker } from "./useVoicePicker";
-import { useKeyboardShortcuts, ShortcutHelpOverlay } from "./useKeyboardShortcuts";
+import { ShortcutHelpOverlay } from "./ShortcutHelpOverlay";
+import { useKeyboardShortcuts } from "./useKeyboardShortcuts";
 
 const DEFAULT_UPLOAD_TRACKING: UploadTracking = {
   longform_youtube: false,

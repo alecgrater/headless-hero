@@ -9,7 +9,7 @@ import ScriptGenerationPage from "./components/script/ScriptGenerationPage";
 import SettingsPage, { SECTIONS, SectionIcon, type SectionId } from "./components/settings/SettingsPage";
 import TimelinePage from "./components/timeline/TimelinePage";
 import VoiceoverRecordingPage from "./components/recording/VoiceoverRecordingPage";
-import { ShortcutHelpOverlay } from "./components/timeline/useKeyboardShortcuts";
+import { ShortcutHelpOverlay } from "./components/timeline/ShortcutHelpOverlay";
 import DiscoverPage from "./components/trending/DiscoverPage";
 import IdeaPage from "./components/ideas/IdeaPage";
 import useLongPress from "./hooks/useLongPress";
