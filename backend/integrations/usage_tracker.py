@@ -33,8 +33,23 @@ def _flush_batch(batch: list[ApiUsage]) -> None:
             for row in batch:
                 session.add(row)
             session.commit()
+        return
     except Exception:
-        logger.debug("Failed to flush %d usage rows", len(batch), exc_info=True)
+        logger.warning(
+            "Batch commit failed for %d usage rows; retrying per-row",
+            len(batch),
+            exc_info=True,
+        )
+    # Fallback: insert each row independently so a single bad row doesn't
+    # take down the rest of the batch.
+    for row in batch:
+        try:
+            with Session(engine) as session:
+                session.add(row)
+                session.commit()
+        except Exception:
+            logger.warning("Dropping unwritable usage row service=%s operation=%s",
+                           row.service, row.operation, exc_info=True)
 
 
 def _writer_loop() -> None:
@@ -42,7 +57,12 @@ def _writer_loop() -> None:
     batch: list[ApiUsage] = []
     last_flush = time.monotonic()
     while True:
-        timeout = max(0.0, _FLUSH_INTERVAL_S - (time.monotonic() - last_flush))
+        # Block indefinitely when nothing is in flight; otherwise cap the
+        # wait so we flush a partial batch within _FLUSH_INTERVAL_S.
+        if batch:
+            timeout: float | None = max(0.0, _FLUSH_INTERVAL_S - (time.monotonic() - last_flush))
+        else:
+            timeout = None
         try:
             item = _usage_queue.get(timeout=timeout)
         except queue.Empty:
@@ -62,16 +82,19 @@ def _writer_loop() -> None:
 
 
 def _ensure_writer_started() -> None:
+    """Lazy-start the singleton writer thread.
+
+    HEADLESS_HERO_DISABLE_USAGE_THREAD is consulted on every call so tests
+    that flip it via monkeypatch take effect without re-importing.
+    """
     global _writer_thread, _disabled
-    if _disabled:
+    if os.environ.get("HEADLESS_HERO_DISABLE_USAGE_THREAD"):
+        _disabled = True
         return
     if _writer_thread is not None and _writer_thread.is_alive():
         return
     with _writer_lock:
         if _writer_thread is not None and _writer_thread.is_alive():
-            return
-        if os.environ.get("HEADLESS_HERO_DISABLE_USAGE_THREAD"):
-            _disabled = True
             return
         _writer_thread = threading.Thread(
             target=_writer_loop,
@@ -86,13 +109,25 @@ def _shutdown_writer() -> None:
     """Send sentinel and wait briefly so in-flight rows persist on exit."""
     if _writer_thread is None or not _writer_thread.is_alive():
         return
-    try:
-        _usage_queue.put_nowait(None)
-    except queue.Full:
-        # Queue is saturated; drop the sentinel attempt — daemon thread
-        # will be killed on interpreter exit anyway.
+    # If the queue is full, drop a couple of pending records to make room
+    # for the sentinel — losing a few records is preferable to silently
+    # abandoning the entire backlog when the daemon is killed.
+    for _ in range(3):
+        try:
+            _usage_queue.put_nowait(None)
+            break
+        except queue.Full:
+            try:
+                _usage_queue.get_nowait()
+            except queue.Empty:
+                break
+    else:
+        logger.warning("Could not enqueue usage-writer shutdown sentinel; rows may be lost")
         return
     _writer_thread.join(timeout=_SHUTDOWN_TIMEOUT_S)
+    if _writer_thread.is_alive():
+        logger.warning("usage-writer did not exit within %.1fs; pending rows may be lost",
+                       _SHUTDOWN_TIMEOUT_S)
 
 
 def record_usage(
