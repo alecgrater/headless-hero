@@ -456,7 +456,8 @@ function MediaBreakdownPopover({
   totalScenes: number;
 }) {
   const rows = [
-    { key: "ai", label: "AI", color: "text-violet-300", count: mediaCounts.ai ?? 0 },
+    { key: "ai", label: "AI Image", color: "text-violet-300", count: mediaCounts.ai ?? 0 },
+    { key: "ai_video", label: "AI Video", color: "text-fuchsia-300", count: mediaCounts.ai_video ?? 0 },
     { key: "gameplay_video", label: "Gameplay", color: "text-sky-300", count: mediaCounts.gameplay_video ?? 0 },
     { key: "stock_photo", label: "Stock Photo", color: "text-amber-300", count: mediaCounts.stock_photo ?? 0 },
     { key: "user_upload", label: "Upload", color: "text-emerald-300", count: mediaCounts.user_upload ?? 0 },
@@ -1994,7 +1995,8 @@ function TimelineEditor({
       {} as Record<string, number>,
     );
   const mediaSceneTotal = allScenes.filter((sc) => !sc.is_title_card).length;
-  const aiScenePercent = formatScenePercent(mediaCounts.ai ?? 0, mediaSceneTotal);
+  const aiSceneCount = (mediaCounts.ai ?? 0) + (mediaCounts.ai_video ?? 0);
+  const aiScenePercent = formatScenePercent(aiSceneCount, mediaSceneTotal);
 
   // Check if assets already exist for overwrite confirmation
   const hasExistingImages = allScenes.some((sc) => !sc.is_title_card && (sc.image_url || sc.frame_urls?.length));
