@@ -175,3 +175,77 @@ def test_put_main_character_rejected_when_eli_enabled(monkeypatch):
 
     from database import get_session
     app.dependency_overrides.pop(get_session, None)
+
+
+def test_get_project_config_includes_style_preset_enabled(monkeypatch):
+    engine, app = _setup_app(monkeypatch)
+    _seed_script(engine, "test-spe-1", eli_enabled=True)
+
+    from fastapi.testclient import TestClient
+    client = TestClient(app)
+    res = client.get("/api/projects/test-spe-1/config")
+    assert res.status_code == 200
+    body = res.json()
+    assert "style_preset_enabled" in body
+    assert body["style_preset_enabled"] is True
+
+    from database import get_session
+    app.dependency_overrides.pop(get_session, None)
+
+
+def test_put_project_config_updates_style_preset_enabled(monkeypatch):
+    engine, app = _setup_app(monkeypatch)
+    _seed_script(engine, "test-spe-2", eli_enabled=True)
+
+    from fastapi.testclient import TestClient
+    client = TestClient(app)
+
+    res = client.put(
+        "/api/projects/test-spe-2/config",
+        json={"style_preset_enabled": False},
+    )
+    assert res.status_code == 200
+
+    res = client.get("/api/projects/test-spe-2/config")
+    assert res.json()["style_preset_enabled"] is False
+
+    from database import get_session
+    app.dependency_overrides.pop(get_session, None)
+
+
+def test_put_project_config_style_preset_enabled_true(monkeypatch):
+    """Verify style_preset_enabled=True can be explicitly set."""
+    engine, app = _setup_app(monkeypatch)
+
+    from models.project_config import ProjectConfig
+    from models.script import Script, ScriptContent
+    with Session(engine) as session:
+        content = ScriptContent(title="t", segments=[])
+        session.add(
+            Script(
+                id="test-spe-3",
+                brand_id="default",
+                format_id="youtube-listicle",
+                topic_title="t",
+                topic_description="",
+                script_json=content.model_dump_json(),
+            )
+        )
+        # Seed with style_preset_enabled=False
+        session.add(ProjectConfig(script_id="test-spe-3", eli_enabled=True, style_preset_enabled=False))
+        session.commit()
+
+    from fastapi.testclient import TestClient
+    client = TestClient(app)
+
+    res = client.put(
+        "/api/projects/test-spe-3/config",
+        json={"style_preset_enabled": True},
+    )
+    assert res.status_code == 200
+
+    res = client.get("/api/projects/test-spe-3/config")
+    assert res.json()["style_preset_enabled"] is True
+
+    from database import get_session
+    app.dependency_overrides.pop(get_session, None)

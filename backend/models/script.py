@@ -219,6 +219,10 @@ class GenerateScriptRequest(BaseModel):
         default=True,
         description="Whether Eli is enabled for this project. False switches to per-project main character.",
     )
+    style_preset_enabled: bool | None = PydanticField(
+        default=None,
+        description="Whether the global style preset is enabled for this project. None falls back to STYLE_PRESET_ENABLED_DEFAULT app setting.",
+    )
 
 class GenerateScriptResponse(BaseModel):
     id: str

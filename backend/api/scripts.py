@@ -371,6 +371,13 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
     gameplay_enabled = body.gameplay_enabled
     stock_photo_enabled = body.stock_photo_enabled
     eli_enabled = body.eli_enabled
+    # Resolve style_preset_enabled: use explicit value, else fall back to AppSettings
+    if body.style_preset_enabled is not None:
+        style_preset_enabled = body.style_preset_enabled
+    else:
+        from models.settings import AppSetting
+        style_setting = session.get(AppSetting, "STYLE_PRESET_ENABLED_DEFAULT")
+        style_preset_enabled = (style_setting.value if style_setting else "true").lower() == "true"
     ai_video_enabled = os.environ.get("AI_VIDEO_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
     try:
         ai_video_scenes_per_segment = int(os.environ.get("AI_VIDEO_SCENES_PER_SEGMENT", "2"))
@@ -432,7 +439,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             from models.project_config import get_or_create_project_config
 
             get_or_create_project_config(
-                bg_session, script_id, eli_enabled=eli_enabled
+                bg_session, script_id, eli_enabled=eli_enabled, style_preset_enabled=style_preset_enabled
             )
             bg_session.commit()
 

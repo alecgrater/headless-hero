@@ -18,8 +18,14 @@ router = APIRouter(prefix="/api/projects", tags=["project_config"])
 class ProjectConfigResponse(BaseModel):
     script_id: str
     eli_enabled: bool
+    style_preset_enabled: bool
     main_character_reference_url: str | None
     main_character: MainCharacter | None
+
+
+class UpdateProjectConfigRequest(BaseModel):
+    eli_enabled: bool | None = None
+    style_preset_enabled: bool | None = None
 
 
 @router.get("/{script_id}/config", response_model=ProjectConfigResponse)
@@ -39,6 +45,46 @@ def get_config(script_id: str, session: Session = Depends(get_session)) -> Proje
     return ProjectConfigResponse(
         script_id=script_id,
         eli_enabled=cfg.eli_enabled,
+        style_preset_enabled=cfg.style_preset_enabled,
+        main_character_reference_url=cfg.main_character_reference_url,
+        main_character=main_character,
+    )
+
+
+@router.put("/{script_id}/config", response_model=ProjectConfigResponse)
+def update_config(
+    script_id: str,
+    body: UpdateProjectConfigRequest,
+    session: Session = Depends(get_session),
+) -> ProjectConfigResponse:
+    script = session.get(Script, script_id)
+    if script is None:
+        raise HTTPException(status_code=404, detail="Script not found")
+
+    cfg = get_project_config(session, script_id)
+    # If this is a synthetic default (no DB row), we need to persist it first
+    if session.get(ProjectConfig, script_id) is None:
+        session.add(cfg)
+
+    if body.eli_enabled is not None:
+        cfg.eli_enabled = body.eli_enabled
+    if body.style_preset_enabled is not None:
+        cfg.style_preset_enabled = body.style_preset_enabled
+    session.add(cfg)
+    session.commit()
+    session.refresh(cfg)
+
+    main_character: MainCharacter | None = None
+    try:
+        content = ScriptContent.model_validate_json(script.script_json)
+        main_character = content.main_character
+    except Exception:  # noqa: BLE001
+        main_character = None
+
+    return ProjectConfigResponse(
+        script_id=script_id,
+        eli_enabled=cfg.eli_enabled,
+        style_preset_enabled=cfg.style_preset_enabled,
         main_character_reference_url=cfg.main_character_reference_url,
         main_character=main_character,
     )
@@ -76,6 +122,7 @@ def update_character(
     return ProjectConfigResponse(
         script_id=script_id,
         eli_enabled=cfg.eli_enabled,
+        style_preset_enabled=cfg.style_preset_enabled,
         main_character_reference_url=cfg.main_character_reference_url,
         main_character=body,
     )
@@ -120,6 +167,7 @@ def regenerate_character_reference(
     return ProjectConfigResponse(
         script_id=script_id,
         eli_enabled=cfg.eli_enabled,
+        style_preset_enabled=cfg.style_preset_enabled,
         main_character_reference_url=web_path,
         main_character=content.main_character,
     )

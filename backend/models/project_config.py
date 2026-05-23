@@ -35,7 +35,11 @@ def get_project_config(session: Session, script_id: str) -> ProjectConfig:
 
 
 def get_or_create_project_config(
-    session: Session, script_id: str, *, eli_enabled: bool
+    session: Session,
+    script_id: str,
+    *,
+    eli_enabled: bool,
+    style_preset_enabled: bool = True,
 ) -> ProjectConfig:
     """Insert a config row if missing, else return the existing row unchanged."""
     existing = session.exec(
@@ -43,7 +47,11 @@ def get_or_create_project_config(
     ).first()
     if existing is not None:
         return existing
-    row = ProjectConfig(script_id=script_id, eli_enabled=eli_enabled)
+    row = ProjectConfig(
+        script_id=script_id,
+        eli_enabled=eli_enabled,
+        style_preset_enabled=style_preset_enabled,
+    )
     session.add(row)
     return row
 
@@ -52,6 +60,8 @@ def update_project_config(
     session: Session,
     script_id: str,
     *,
+    eli_enabled: bool | None = None,
+    style_preset_enabled: bool | None = None,
     main_character_reference_url: str | None = None,
 ) -> ProjectConfig:
     """Update mutable fields on an existing ProjectConfig. Raises if missing."""
@@ -60,6 +70,10 @@ def update_project_config(
     ).first()
     if row is None:
         raise ValueError(f"ProjectConfig not found for script_id={script_id}")
+    if eli_enabled is not None:
+        row.eli_enabled = eli_enabled
+    if style_preset_enabled is not None:
+        row.style_preset_enabled = style_preset_enabled
     if main_character_reference_url is not None:
         row.main_character_reference_url = main_character_reference_url
     row.updated_at = _utcnow()
