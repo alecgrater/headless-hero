@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import api, { assetUrl, getFormats } from "../../api";
+import api, { assetUrl, getFormats, getProjectConfig } from "../../api";
+import type { ProjectConfig } from "../../api";
 import type { VideoIdea } from "../../types/idea";
 import type { VideoFormat } from "../../types/format";
 import { SCRIPT_MODELS } from "../settings/GeneralSection";
@@ -10,6 +11,7 @@ import useSceneEditing from "./useSceneEditing";
 import useTitleCardGeneration from "./useTitleCardGeneration";
 import ColdOpenSelector from "./ColdOpenSelector";
 import CinematicChaptersPreview from "./CinematicChaptersPreview";
+import MainCharacterDrawer from "../timeline/MainCharacterDrawer";
 
 interface Props {
   brandId: string;
@@ -106,6 +108,23 @@ export default function ScriptGenerationPage({
   const [mediaSourcesOpen, setMediaSourcesOpen] = useState(false);
   const [llmProvider, setLlmProvider] = useState<string>("");
   const [qwenModel, setQwenModel] = useState<string>("");
+  const [projectConfig, setProjectConfig] = useState<ProjectConfig | null>(null);
+  const [showCharacterDrawer, setShowCharacterDrawer] = useState(false);
+
+  useEffect(() => {
+    if (!scriptId) {
+      setProjectConfig(null);
+      return;
+    }
+    let cancelled = false;
+    getProjectConfig(scriptId).then((res) => {
+      if (cancelled) return;
+      if (res.ok) setProjectConfig(res.data as ProjectConfig);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [scriptId]);
 
   useEffect(() => {
     api.get("/api/settings/keys").then((res) => {
@@ -133,6 +152,10 @@ export default function ScriptGenerationPage({
     : 0;
 
   const hasTitleCards = true;
+
+  const mainCharacterRequired = projectConfig?.eli_enabled === false;
+  const mainCharacterReady =
+    !mainCharacterRequired || Boolean(projectConfig?.main_character_reference_url);
 
   const loadingText =
     phase === "cold_opens"
@@ -403,6 +426,56 @@ export default function ScriptGenerationPage({
             )}
           </div>
 
+          {/* Main Character setup (Eli-disabled projects) */}
+          {mainCharacterRequired && projectConfig && (
+            <div className="rounded-lg border border-neutral-800 bg-neutral-900 px-5 py-4 space-y-3">
+              <div className="flex items-center justify-between gap-4">
+                <h3 className="text-sm font-semibold text-neutral-200 uppercase tracking-wider">
+                  Main Character
+                </h3>
+                {mainCharacterReady ? (
+                  <span className="text-xs uppercase tracking-wide text-emerald-400">
+                    Ready
+                  </span>
+                ) : (
+                  <span className="text-xs uppercase tracking-wide text-amber-400">
+                    Required before generating images
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-4">
+                {projectConfig.main_character_reference_url ? (
+                  <img
+                    src={assetUrl(projectConfig.main_character_reference_url)}
+                    alt="Main character reference"
+                    className="w-32 aspect-video rounded-md border border-neutral-700 object-cover"
+                  />
+                ) : (
+                  <div className="w-32 aspect-video rounded-md border border-dashed border-neutral-700 flex items-center justify-center text-[11px] text-neutral-500 text-center px-2">
+                    No reference yet
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-neutral-300 truncate">
+                    {projectConfig.main_character?.name?.trim() || "No character defined"}
+                  </p>
+                  <p className="text-xs text-neutral-500 mt-1">
+                    Choose a main character and approve a reference image before
+                    generating thumbnails or scene visuals.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCharacterDrawer(true)}
+                  className="px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg text-sm font-medium transition-colors shrink-0"
+                >
+                  {mainCharacterReady ? "Edit" : "Set up"}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Thumbnail & Title Slide generation */}
           {hasTitleCards && (
             <div className="rounded-lg border border-neutral-800 bg-neutral-900 px-5 py-4 space-y-3">
@@ -415,12 +488,20 @@ export default function ScriptGenerationPage({
               )}
 
               {!titleCardGenerated && !titleCardGenerating && (
-                <button
-                  onClick={() => generateTitleCards(false)}
-                  className="px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Generate
-                </button>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => generateTitleCards(false)}
+                    disabled={!mainCharacterReady}
+                    className="px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Generate
+                  </button>
+                  {!mainCharacterReady && (
+                    <p className="text-xs text-amber-400">
+                      Set up the main character above before generating images.
+                    </p>
+                  )}
+                </div>
               )}
 
               {titleCardGenerating && script && (
@@ -701,6 +782,15 @@ export default function ScriptGenerationPage({
             </Button>
           </div>
         </div>
+      )}
+
+      {showCharacterDrawer && projectConfig && scriptId && (
+        <MainCharacterDrawer
+          scriptId={scriptId}
+          config={projectConfig}
+          onClose={() => setShowCharacterDrawer(false)}
+          onUpdated={(next) => setProjectConfig(next)}
+        />
       )}
     </div>
   );
