@@ -359,13 +359,21 @@ def generate_title_cards(body: GenerateTitleCardsRequest, session: Session = Dep
         t0_bg = time.monotonic()
 
         fmt = resolve_format(content.format_id)
-        fmt.title_card_strategy.prepare_thumbnail(
+        strategy = fmt.title_card_strategy
+        strategy.prepare_thumbnail(
             script_id=script_id,
             content=content,
             accent_color=DEFAULT_ACCENT_COLOR,
             force=force,
             job_id=job.id,
         )
+
+        # Wire generated chapter images onto title-card scenes so they appear
+        # in the timeline/segments UI immediately (without waiting for full render).
+        brand_dict: dict = {}
+        for scene in content.all_scenes():
+            if scene.is_title_card:
+                strategy.prepare_title_card_scene(scene, script_id, content, brand_dict)
 
         # Persist updated image_urls back to script_json
         with SyncSession(engine) as bg_session:
