@@ -655,7 +655,7 @@ function ViewerSwitchRow({
 
   return (
     <div className="px-5 py-2 border-t border-b border-neutral-800/60 shrink-0">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2">
         <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
           {FORMAT_OPTIONS.map(({ key, label, Icon }) => (
             <button
@@ -670,7 +670,6 @@ function ViewerSwitchRow({
             </button>
           ))}
         </div>
-        <div className="h-6 w-px bg-neutral-800" />
         <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
           {ASSET_OPTIONS.map(({ key, label, Icon }) => (
             <button
@@ -686,7 +685,7 @@ function ViewerSwitchRow({
           ))}
         </div>
         {renderTabSelector && (
-          <div className="ml-auto inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
+          <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
             {VIEWER_TAB_OPTIONS.map(({ key, label, Icon }) => (
               <button
                 key={key}
