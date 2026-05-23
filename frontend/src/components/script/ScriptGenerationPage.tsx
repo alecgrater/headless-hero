@@ -10,7 +10,6 @@ import useScriptGeneration from "./useScriptGeneration";
 import useSceneEditing from "./useSceneEditing";
 import useTitleCardGeneration from "./useTitleCardGeneration";
 import ColdOpenSelector from "./ColdOpenSelector";
-import CinematicChaptersPreview from "./CinematicChaptersPreview";
 import MainCharacterDrawer from "../timeline/MainCharacterDrawer";
 
 interface Props {
@@ -98,7 +97,6 @@ export default function ScriptGenerationPage({
   const {
     titleCardGenerating,
     titleCardGenerated,
-    titleCardTimestamp,
     titleCardError,
     titleCardCompleted,
     titleCardTotal,
@@ -533,40 +531,12 @@ export default function ScriptGenerationPage({
               )}
 
               {titleCardGenerated && !titleCardGenerating && (
-                <>
-                  {format?.title_card_strategy_kind === "cinematic-chapters" ? (
-                    <CinematicChaptersPreview
-                      script={script}
-                      scriptId={scriptId ?? ""}
-                      timestamp={titleCardTimestamp}
-                    />
-                  ) : (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-neutral-500 mb-1.5">Thumbnail (with title)</p>
-                        <img
-                          src={assetUrl(`/static/projects/${scriptId}/images/composite_title_card.png`) + `?t=${titleCardTimestamp}`}
-                          alt="Thumbnail"
-                          className="w-full rounded-lg border border-neutral-700"
-                        />
-                      </div>
-                      <div>
-                        <p className="text-xs text-neutral-500 mb-1.5">Title Slide (no title)</p>
-                        <img
-                          src={assetUrl(`/static/projects/${scriptId}/images/composite_title_card_notitle.png`) + `?t=${titleCardTimestamp}`}
-                          alt="Title Slide"
-                          className="w-full rounded-lg border border-neutral-700"
-                        />
-                      </div>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => generateTitleCards(true)}
-                    className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-sm font-medium transition-colors text-neutral-300 border border-neutral-700"
-                  >
-                    Regenerate
-                  </button>
-                </>
+                <button
+                  onClick={() => generateTitleCards(true)}
+                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-sm font-medium transition-colors text-neutral-300 border border-neutral-700"
+                >
+                  Regenerate
+                </button>
               )}
             </div>
           )}
