@@ -13,6 +13,7 @@ import shutil
 import threading
 from hashlib import sha256
 from pathlib import Path
+from typing import Literal
 
 from config import DATA_DIR
 from prompts import IMAGE_CTR_EXPRESSION_GUIDANCE
@@ -24,6 +25,10 @@ _LONGFORM_THUMB_LOCKS: dict[str, threading.Lock] = {}
 _LONGFORM_THUMB_LOCKS_GUARD = threading.Lock()
 _EARLY_LIFE_AS_A_THUMBNAIL_LABELS = tuple(f"{months} months in" for months in range(3, 9))
 _LATE_LIFE_AS_A_THUMBNAIL_LABELS = tuple(f"{years} years in" for years in range(8, 16))
+_LEVEL_LABEL_RE = re.compile(r"^LEVEL [1-9]\d?$")
+
+ThumbnailLabelStyle = Literal["time_periods", "levels"]
+DEFAULT_THUMBNAIL_LABEL_STYLE: ThumbnailLabelStyle = "time_periods"
 
 
 def _longform_thumbnail_lock(script_id: str) -> threading.Lock:
@@ -35,7 +40,7 @@ def _longform_thumbnail_lock(script_id: str) -> threading.Lock:
         return lock
 
 
-def _pick_life_as_a_thumbnail_labels() -> tuple[str, str]:
+def _pick_time_period_thumbnail_labels() -> tuple[str, str]:
     """Pick early/late time-period labels for a life-as-a split thumbnail."""
     return (
         random.choice(_EARLY_LIFE_AS_A_THUMBNAIL_LABELS),
@@ -43,18 +48,63 @@ def _pick_life_as_a_thumbnail_labels() -> tuple[str, str]:
     )
 
 
+def _pick_level_thumbnail_labels(n_levels: int) -> tuple[str, str]:
+    """Pick a (left, right) ``LEVEL X`` / ``LEVEL Y`` label pair.
+
+    left ∈ {1, 2}, right ∈ {n_levels-1, n_levels}, ensuring left < right.
+    """
+    assert n_levels >= 2, f"_pick_level_thumbnail_labels requires n_levels >= 2, got {n_levels}"
+    left_candidates = [n for n in (1, 2) if n < n_levels]
+    right_candidates = [n for n in (n_levels - 1, n_levels) if n > 1]
+    left = random.choice(left_candidates)
+    right_choices = [n for n in right_candidates if n > left]
+    if not right_choices:
+        right_choices = right_candidates
+    right = random.choice(right_choices)
+    if left >= right:
+        left, right = 1, n_levels
+    return (f"LEVEL {left}", f"LEVEL {right}")
+
+
+def _pick_life_as_a_thumbnail_labels(
+    style: ThumbnailLabelStyle = DEFAULT_THUMBNAIL_LABEL_STYLE,
+    n_levels: int | None = None,
+) -> tuple[str, str]:
+    """Pick split-progression labels for the active style.
+
+    For ``"time_periods"``, returns lowercase ``"X months in"`` / ``"Y years in"``.
+    For ``"levels"``, returns ``"LEVEL X"`` / ``"LEVEL Y"`` based on ``n_levels``.
+    """
+    if style == "levels":
+        if n_levels is None:
+            raise ValueError("n_levels is required for style='levels'")
+        return _pick_level_thumbnail_labels(n_levels)
+    return _pick_time_period_thumbnail_labels()
+
+
 def _write_life_as_a_thumbnail_label_sidecar(
     path: Path,
+    style: ThumbnailLabelStyle,
     left_label: str,
     right_label: str,
 ) -> None:
-    """Persist the chosen time-period labels next to the thumbnail."""
+    """Persist the chosen labels (with their style) next to the thumbnail."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"left_label": left_label, "right_label": right_label}))
+    path.write_text(json.dumps({
+        "style": style,
+        "left_label": left_label,
+        "right_label": right_label,
+    }))
 
 
-def _read_life_as_a_thumbnail_label_sidecar(path: Path) -> tuple[str, str] | None:
-    """Read persisted time labels. Returns None for missing, corrupt, or legacy data."""
+def _read_life_as_a_thumbnail_label_sidecar(
+    path: Path,
+) -> tuple[ThumbnailLabelStyle, str, str] | None:
+    """Read persisted labels. Returns ``(style, left, right)`` or None.
+
+    Falls back to ``style="time_periods"`` for back-compat sidecars without
+    a style field. Rejects legacy ``{"left_level": …}`` schemas.
+    """
     if not path.exists():
         return None
     try:
@@ -65,11 +115,25 @@ def _read_life_as_a_thumbnail_label_sidecar(path: Path) -> tuple[str, str] | Non
     right = data.get("right_label")
     if not isinstance(left, str) or not isinstance(right, str):
         return None
-    if left not in _EARLY_LIFE_AS_A_THUMBNAIL_LABELS:
+    style = data.get("style")
+    if style not in ("time_periods", "levels"):
+        # Back-compat: infer time_periods from label shape.
+        if (
+            left in _EARLY_LIFE_AS_A_THUMBNAIL_LABELS
+            and right in _LATE_LIFE_AS_A_THUMBNAIL_LABELS
+        ):
+            return ("time_periods", left, right)
         return None
-    if right not in _LATE_LIFE_AS_A_THUMBNAIL_LABELS:
+    if style == "time_periods":
+        if left not in _EARLY_LIFE_AS_A_THUMBNAIL_LABELS:
+            return None
+        if right not in _LATE_LIFE_AS_A_THUMBNAIL_LABELS:
+            return None
+        return ("time_periods", left, right)
+    # style == "levels"
+    if not _LEVEL_LABEL_RE.match(left) or not _LEVEL_LABEL_RE.match(right):
         return None
-    return (left, right)
+    return ("levels", left, right)
 
 
 def enhance_split_progression(
@@ -79,6 +143,7 @@ def enhance_split_progression(
     right_label: str,
     script_id: str | None = None,
     force: bool = False,
+    style: ThumbnailLabelStyle | None = None,
 ) -> Path:
     """Transform a single iconic life-as-a thumbnail into a split-progression thumbnail.
 
@@ -86,7 +151,7 @@ def enhance_split_progression(
     {left_label} / {right_label} substituted) and writes the result to output_path.
 
     Caches by mtime plus prompt/label fingerprint: re-runs if output is missing,
-    source is newer, prompt or labels changed, or force=True.
+    source is newer, prompt or labels changed, style changed, or force=True.
     On Gemini failure, falls back to copying the clean image to output_path.
     """
     from integrations.google_image_client import transform_with_references
@@ -107,6 +172,7 @@ def enhance_split_progression(
                 cache_metadata.get("prompt_hash") == prompt_hash
                 and cache_metadata.get("left_label") == left_label
                 and cache_metadata.get("right_label") == right_label
+                and cache_metadata.get("style") == style
             )
             if (
                 cache_matches
@@ -134,6 +200,7 @@ def enhance_split_progression(
             "prompt_hash": prompt_hash,
             "left_label": left_label,
             "right_label": right_label,
+            "style": style,
         }))
         logger.info(
             "[%s] split-progression thumbnail written: %s (%s / %s)",
@@ -210,6 +277,32 @@ def replace_active_longform_thumbnail(
 def write_active_longform_thumbnail(script_id: str, source: Path) -> str:
     """Copy ``source`` to the active long-form thumbnail slot and return its URL."""
     return replace_active_longform_thumbnail(script_id, source, archive_existing=False)
+
+
+def promote_longform_thumbnail(script_id: str, idx: int) -> str:
+    """Make ``idx.png`` the active thumbnail (``0.png``).
+
+    Archives the current 0.png to the next free slot, then renames
+    ``idx.png`` → ``0.png``. Returns the cache-busted URL of the new active.
+    Raises FileNotFoundError if idx.png does not exist.
+    Raises ValueError if idx == 0.
+    """
+    if idx == 0:
+        raise ValueError("idx 0 is already active")
+    with _longform_thumbnail_lock(script_id):
+        thumbs_dir = _longform_thumbnails_dir(script_id)
+        target = thumbs_dir / f"{idx}.png"
+        active = thumbs_dir / "0.png"
+        if not target.is_file():
+            raise FileNotFoundError(f"thumbnail variant {idx} not found")
+        if active.is_file():
+            archived = _next_longform_thumbnail_path(script_id)
+            shutil.move(str(active), str(archived))
+        shutil.move(str(target), str(active))
+    return _cache_bust(
+        f"/static/projects/{script_id}/renders/thumbnails/0.png",
+        str(active),
+    )
 
 
 def list_longform_thumbnails(script_id: str) -> list[tuple[int, str]]:

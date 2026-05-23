@@ -14,9 +14,13 @@ from database import get_session
 from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
 from pipeline.thumbnail import (
+    DEFAULT_THUMBNAIL_LABEL_STYLE,
+    ThumbnailLabelStyle,
+    _read_life_as_a_thumbnail_label_sidecar,
     get_composite_thumbnail,
     list_longform_thumbnails,
     gemini_enhance_thumbnail,
+    promote_longform_thumbnail,
     replace_active_longform_thumbnail,
 )
 from pipeline.title_card_composer import compose_title_card
@@ -24,6 +28,20 @@ from pipeline.title_card_composer import compose_title_card
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/thumbnail", tags=["thumbnail"])
+
+
+def _life_as_a_sidecar_path(script_id: str):
+    return DATA_DIR / "projects" / script_id / "images" / "cinematic_thumbnail.levels.json"
+
+
+def _read_label_style(script_id: str) -> ThumbnailLabelStyle | None:
+    """Return the persisted label_style for a script, or None if no sidecar exists."""
+    sidecar = _life_as_a_sidecar_path(script_id)
+    cached = _read_life_as_a_thumbnail_label_sidecar(sidecar)
+    if cached is None:
+        return None
+    style, _left, _right = cached
+    return style
 
 
 class RecompositeThumbnailRequest(BaseModel):
@@ -40,6 +58,7 @@ class ThumbnailConceptResult(BaseModel):
 
 class GenerateThumbnailResponse(BaseModel):
     concepts: list[ThumbnailConceptResult]
+    label_style: ThumbnailLabelStyle | None = None
 
 
 @router.get("/{script_id}", response_model=GenerateThumbnailResponse)
@@ -57,7 +76,10 @@ def get_existing_thumbnails(script_id: str, session: Session = Depends(get_sessi
     for idx, url in saved:
         label = "Current thumbnail" if idx == 0 else f"Saved thumbnail {idx}"
         concepts.append(ThumbnailConceptResult(idx=idx, title_text=label, visual_description="Long-form thumbnail", image_url=url))
-    return GenerateThumbnailResponse(concepts=concepts)
+    return GenerateThumbnailResponse(
+        concepts=concepts,
+        label_style=_read_label_style(script_id),
+    )
 
 
 @router.post("/recomposite", response_model=GenerateThumbnailResponse)
@@ -162,11 +184,15 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
     ]
     if not concepts:
         concepts = [ThumbnailConceptResult(idx=0, title_text=card_title, visual_description="Gemini-enhanced title card", image_url=url)]
-    return GenerateThumbnailResponse(concepts=concepts)
+    return GenerateThumbnailResponse(
+        concepts=concepts,
+        label_style=_read_label_style(body.script_id),
+    )
 
 
 class RegenerateSplitProgressionRequest(BaseModel):
     script_id: str
+    style: ThumbnailLabelStyle | None = None
 
 
 @router.post("/regenerate-split-progression", response_model=GenerateThumbnailResponse)
@@ -174,10 +200,13 @@ def regenerate_split_progression(
     body: RegenerateSplitProgressionRequest,
     session: Session = Depends(get_session),
 ):
-    """Re-roll the time-period labels and re-run the split-progression Gemini call only.
+    """Re-roll the labels and re-run the split-progression Gemini call only.
 
     Does NOT regenerate chapter images or the cinematic clean image. Reuses both.
     Used by the Timeline/Modal "Regenerate Thumbnail" button for life-as-a projects.
+
+    The active label style is resolved as: explicit body.style > sidecar style >
+    DEFAULT_THUMBNAIL_LABEL_STYLE.
     """
     record = session.get(Script, body.script_id)
     if not record:
@@ -199,6 +228,7 @@ def regenerate_split_progression(
     from pipeline.formats.title_cards.cinematic_chapters import _thumbnail_paths
     from pipeline.thumbnail import (
         _pick_life_as_a_thumbnail_labels,
+        _read_life_as_a_thumbnail_label_sidecar,
         _write_life_as_a_thumbnail_label_sidecar,
         enhance_split_progression,
     )
@@ -221,9 +251,18 @@ def regenerate_split_progression(
             ),
         )
 
+    # Resolve active style: body > sidecar > default.
+    if body.style is not None:
+        style: ThumbnailLabelStyle = body.style
+    else:
+        cached = _read_life_as_a_thumbnail_label_sidecar(sidecar_path)
+        style = cached[0] if cached is not None else DEFAULT_THUMBNAIL_LABEL_STYLE
+
     # Always re-roll on explicit regenerate (overwrites sidecar).
-    left_label, right_label = _pick_life_as_a_thumbnail_labels()
-    _write_life_as_a_thumbnail_label_sidecar(sidecar_path, left_label, right_label)
+    left_label, right_label = _pick_life_as_a_thumbnail_labels(
+        style=style, n_levels=n_levels,
+    )
+    _write_life_as_a_thumbnail_label_sidecar(sidecar_path, style, left_label, right_label)
 
     # Force-regenerate the final thumbnail via Gemini.
     enhance_split_progression(
@@ -233,6 +272,7 @@ def regenerate_split_progression(
         right_label=right_label,
         script_id=body.script_id,
         force=True,
+        style=style,
     )
 
     if not final_path.exists():
@@ -249,5 +289,49 @@ def regenerate_split_progression(
                 image_url=url,
             )
             for idx, url in list_longform_thumbnails(body.script_id)
-        ]
+        ],
+        label_style=style,
+    )
+
+
+class SetActiveThumbnailRequest(BaseModel):
+    idx: int
+
+
+@router.post("/{script_id}/set-active", response_model=GenerateThumbnailResponse)
+def set_active_thumbnail(
+    script_id: str,
+    body: SetActiveThumbnailRequest,
+    session: Session = Depends(get_session),
+):
+    """Promote an archived thumbnail variant (``idx.png``) to be the active one (``0.png``).
+
+    The current active thumbnail is archived to the next free slot before the
+    promotion; nothing is deleted. Returns the refreshed thumbnail list and the
+    persisted label_style for the script.
+    """
+    record = session.get(Script, script_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Script not found")
+    if body.idx == 0:
+        raise HTTPException(status_code=400, detail="Thumbnail 0 is already active")
+    try:
+        promote_longform_thumbnail(script_id, body.idx)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    concepts = [
+        ThumbnailConceptResult(
+            idx=idx,
+            title_text=("Current thumbnail" if idx == 0 else f"Saved thumbnail {idx}"),
+            visual_description="Long-form thumbnail",
+            image_url=url,
+        )
+        for idx, url in list_longform_thumbnails(script_id)
+    ]
+    return GenerateThumbnailResponse(
+        concepts=concepts,
+        label_style=_read_label_style(script_id),
     )

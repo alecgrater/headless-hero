@@ -23,6 +23,7 @@ import type {
   SEOMetadata,
   ShortFormSEOMetadata,
   ThumbnailConcept,
+  ThumbnailLabelStyle,
 } from "../../types/render";
 
 interface RenderState {
@@ -36,6 +37,9 @@ interface RenderState {
   thumbnails: ThumbnailConcept[];
   thumbnailsGenerating: boolean;
   recompositeThumbnail: () => Promise<void>;
+  setActiveLongformThumbnail: (idx: number) => Promise<void>;
+  thumbnailLabelStyle: ThumbnailLabelStyle;
+  setThumbnailLabelStyle: (style: ThumbnailLabelStyle) => void;
 
   // SEO
   seoMetadata: SEOMetadata | null;
@@ -80,6 +84,7 @@ export function useRenderState(
 
   const [thumbnails, setThumbnails] = useState<ThumbnailConcept[]>([]);
   const [thumbnailsGenerating, setThumbnailsGenerating] = useState(false);
+  const [thumbnailLabelStyle, setThumbnailLabelStyle] = useState<ThumbnailLabelStyle>("time_periods");
 
   const [seoMetadata, setSeoMetadata] = useState<SEOMetadata | null>(initialSeoMetadata ?? null);
   const [seoGenerating, setSeoGenerating] = useState(false);
@@ -142,6 +147,7 @@ export function useRenderState(
         if (res.ok) {
           const data = res.data as GenerateThumbnailResponse;
           if (data.concepts.length > 0) setThumbnails(data.concepts);
+          if (data.label_style) setThumbnailLabelStyle(data.label_style);
         }
       } catch {
         // ignore — thumbnails are optional
@@ -176,10 +182,12 @@ export function useRenderState(
           // life-as-a uses the split-progression Gemini call — re-roll and regenerate.
           const res = await api.post("/api/thumbnail/regenerate-split-progression", {
             script_id: scriptId,
+            style: thumbnailLabelStyle,
           });
           if (res.ok) {
             const data = res.data as GenerateThumbnailResponse;
             setThumbnails(data.concepts);
+            if (data.label_style) setThumbnailLabelStyle(data.label_style);
           }
         } else if (formatId && formatId !== "youtube-listicle") {
           // Other non-composite formats: just refresh from disk.
@@ -202,7 +210,20 @@ export function useRenderState(
         endThumbnailProgress();
       }
     },
-    [scriptId, formatId, startThumbnailProgress, endThumbnailProgress],
+    [scriptId, formatId, thumbnailLabelStyle, startThumbnailProgress, endThumbnailProgress],
+  );
+
+  const setActiveLongformThumbnail = useCallback(
+    async (idx: number) => {
+      if (idx === 0) return;
+      const res = await api.post(`/api/thumbnail/${scriptId}/set-active`, { idx });
+      if (res.ok) {
+        const data = res.data as GenerateThumbnailResponse;
+        setThumbnails(data.concepts);
+        if (data.label_style) setThumbnailLabelStyle(data.label_style);
+      }
+    },
+    [scriptId],
   );
 
   const generateSEO = useCallback(async () => {
@@ -412,6 +433,9 @@ export function useRenderState(
     thumbnails,
     thumbnailsGenerating,
     recompositeThumbnail,
+    setActiveLongformThumbnail,
+    thumbnailLabelStyle,
+    setThumbnailLabelStyle,
     seoMetadata,
     seoGenerating,
     generateSEO,

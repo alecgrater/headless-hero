@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Download, Film, ImageIcon, Smartphone, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Film, ImageIcon, Smartphone, Star, X } from "lucide-react";
 import { assetUrl } from "../../api";
-import type { ThumbnailConcept } from "../../types/render";
+import type { ThumbnailConcept, ThumbnailLabelStyle } from "../../types/render";
 import ShortFormThumbnailsCard from "./short-form/ShortFormThumbnailsCard";
+import ThumbnailLabelStyleToggle from "./ThumbnailLabelStyleToggle";
 
 interface Props {
   thumbnails: ThumbnailConcept[];
@@ -12,6 +13,10 @@ interface Props {
   onShortFormStatusChange?: (paths?: Record<number, string | undefined>) => void;
   scriptId: string;
   segments: { name: string }[];
+  formatId?: string;
+  thumbnailLabelStyle?: ThumbnailLabelStyle;
+  onThumbnailLabelStyleChange?: (style: ThumbnailLabelStyle) => void;
+  onSetActiveThumbnail?: (idx: number) => Promise<void> | void;
 }
 
 type ThumbnailTab = "long-form" | "short-form";
@@ -29,12 +34,22 @@ export default function ThumbnailModal({
   onShortFormStatusChange,
   scriptId,
   segments,
+  formatId,
+  thumbnailLabelStyle,
+  onThumbnailLabelStyleChange,
+  onSetActiveThumbnail,
 }: Props) {
   const [activeTab, setActiveTab] = useState<ThumbnailTab>("long-form");
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [promoting, setPromoting] = useState(false);
   const activeThumbnail = thumbnails[activeIndex] ?? thumbnails[0] ?? null;
   const canFlip = thumbnails.length > 1;
+  const canPromote = !!onSetActiveThumbnail
+    && !!activeThumbnail
+    && activeThumbnail.idx !== 0
+    && !generating
+    && !promoting;
 
   useEffect(() => {
     setActiveIndex(0);
@@ -57,6 +72,17 @@ export default function ThumbnailModal({
   const goNext = () => {
     if (!canFlip) return;
     setActiveIndex((idx) => (idx + 1) % thumbnails.length);
+  };
+
+  const handleSetActive = async () => {
+    if (!onSetActiveThumbnail || !activeThumbnail || activeThumbnail.idx === 0) return;
+    setPromoting(true);
+    try {
+      await onSetActiveThumbnail(activeThumbnail.idx);
+      setActiveIndex(0);
+    } finally {
+      setPromoting(false);
+    }
   };
 
   return (
@@ -148,6 +174,19 @@ export default function ThumbnailModal({
                         >
                           <ChevronRight className="w-4 h-4" />
                         </button>
+                        {onSetActiveThumbnail && activeThumbnail && activeThumbnail.idx !== 0 && (
+                          <button
+                            type="button"
+                            onClick={() => void handleSetActive()}
+                            disabled={!canPromote}
+                            className="h-8 px-3 rounded-lg bg-black/70 hover:bg-black/90 disabled:opacity-40 disabled:hover:bg-black/70 text-neutral-200 transition-colors flex items-center gap-1.5 text-xs"
+                            aria-label="Set as active thumbnail"
+                            title="Set as active thumbnail"
+                          >
+                            <Star className="w-3.5 h-3.5" />
+                            <span>{promoting ? "Setting..." : "Set as active"}</span>
+                          </button>
+                        )}
                         {activeThumbnail?.image_url && (
                           <a
                             href={assetUrl(activeThumbnail.image_url)}
@@ -214,6 +253,19 @@ export default function ThumbnailModal({
         </div>
 
         <div className="flex justify-end gap-3 px-6 py-4 border-t border-neutral-800 shrink-0">
+          {activeTab === "long-form"
+            && formatId === "life-as-a"
+            && thumbnailLabelStyle
+            && onThumbnailLabelStyleChange && (
+              <div className="mr-auto flex items-center gap-2">
+                <span className="text-xs text-neutral-400">Label style</span>
+                <ThumbnailLabelStyleToggle
+                  value={thumbnailLabelStyle}
+                  onChange={onThumbnailLabelStyleChange}
+                  disabled={generating}
+                />
+              </div>
+            )}
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm rounded-lg text-neutral-400 hover:bg-neutral-800 transition-colors"

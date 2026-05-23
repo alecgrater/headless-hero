@@ -24,6 +24,8 @@ export interface ExportProgressStatus {
 
 // --- Thumbnail ---
 
+export type ThumbnailLabelStyle = "time_periods" | "levels";
+
 export interface ThumbnailConcept {
   idx: number;
   title_text: string;
@@ -34,6 +36,7 @@ export interface ThumbnailConcept {
 
 export interface GenerateThumbnailResponse {
   concepts: ThumbnailConcept[];
+  label_style?: ThumbnailLabelStyle | null;
 }
 
 // --- SEO ---

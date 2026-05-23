@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Star } from "lucide-react";
 import { assetUrl } from "../../api";
-import type { ThumbnailConcept } from "../../types/render";
+import type { ThumbnailConcept, ThumbnailLabelStyle } from "../../types/render";
 import MiniProgressBar from "../MiniProgressBar";
+import ThumbnailLabelStyleToggle from "./ThumbnailLabelStyleToggle";
 
 export function LongFormThumbnailsPanel({
   thumbnails,
@@ -11,6 +12,10 @@ export function LongFormThumbnailsPanel({
   onExport,
   exporting,
   progress,
+  formatId,
+  thumbnailLabelStyle,
+  onThumbnailLabelStyleChange,
+  onSetActiveThumbnail,
 }: {
   thumbnails: ThumbnailConcept[];
   generating: boolean;
@@ -18,11 +23,21 @@ export function LongFormThumbnailsPanel({
   onExport: () => void;
   exporting: boolean;
   progress: { estimatedSeconds: number | null; active: boolean };
+  formatId?: string;
+  thumbnailLabelStyle?: ThumbnailLabelStyle;
+  onThumbnailLabelStyleChange?: (style: ThumbnailLabelStyle) => void;
+  onSetActiveThumbnail?: (idx: number) => Promise<void> | void;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [promoting, setPromoting] = useState(false);
   const safeActiveIndex = thumbnails.length === 0 ? 0 : Math.min(activeIndex, thumbnails.length - 1);
   const activeThumbnail = thumbnails[safeActiveIndex] ?? null;
   const canFlip = thumbnails.length > 1;
+  const canPromote = !!onSetActiveThumbnail
+    && !!activeThumbnail
+    && activeThumbnail.idx !== 0
+    && !generating
+    && !promoting;
 
   const goPrevious = () => {
     if (!canFlip) return;
@@ -37,6 +52,17 @@ export function LongFormThumbnailsPanel({
     setActiveIndex((idx) => (Math.min(idx, thumbnails.length - 1) + 1) % thumbnails.length);
   };
 
+  const handleSetActive = async () => {
+    if (!onSetActiveThumbnail || !activeThumbnail || activeThumbnail.idx === 0) return;
+    setPromoting(true);
+    try {
+      await onSetActiveThumbnail(activeThumbnail.idx);
+      setActiveIndex(0);
+    } finally {
+      setPromoting(false);
+    }
+  };
+
   return (
     <div className="flex-1 overflow-y-auto p-5">
       <section className="space-y-4">
@@ -46,6 +72,15 @@ export function LongFormThumbnailsPanel({
             <p className="text-xs text-neutral-500">{thumbnails.length} concept{thumbnails.length !== 1 ? "s" : ""} available</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
+            {formatId === "life-as-a"
+              && thumbnailLabelStyle
+              && onThumbnailLabelStyleChange && (
+                <ThumbnailLabelStyleToggle
+                  value={thumbnailLabelStyle}
+                  onChange={onThumbnailLabelStyleChange}
+                  disabled={generating}
+                />
+              )}
             <button
               onClick={onGenerate}
               disabled={generating}
@@ -103,6 +138,19 @@ export function LongFormThumbnailsPanel({
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
+                  {onSetActiveThumbnail && activeThumbnail && activeThumbnail.idx !== 0 && (
+                    <button
+                      type="button"
+                      onClick={() => void handleSetActive()}
+                      disabled={!canPromote}
+                      className="h-8 px-3 rounded-lg bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:hover:bg-neutral-800 text-neutral-300 transition-colors flex items-center gap-1.5 text-xs"
+                      aria-label="Set as active thumbnail"
+                      title="Set as active thumbnail"
+                    >
+                      <Star className="w-3.5 h-3.5" />
+                      <span>{promoting ? "Setting..." : "Set as active"}</span>
+                    </button>
+                  )}
                   {activeThumbnail?.image_url && (
                     <a
                       href={assetUrl(activeThumbnail.image_url)}
