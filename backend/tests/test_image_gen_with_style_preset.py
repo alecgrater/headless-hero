@@ -106,3 +106,82 @@ def test_generate_image_with_both_char_and_style_refs(tmp_path, fake_gemini_resp
     # Verify ordering: char ref first, style ref second
     assert contents[0].inline_data.data == b"charpng"
     assert contents[1].inline_data.data == b"stylepng"
+
+
+def test_generate_scene_image_threads_style_ref_when_eli_off(tmp_path, monkeypatch):
+    """When eli_enabled is False and a preset is active, generate_image gets style_reference_path."""
+    from pipeline import image_gen
+
+    monkeypatch.setattr(image_gen, "DATA_DIR", tmp_path)
+
+    # Stub out the project context: Eli OFF, style enabled, no main character
+    monkeypatch.setattr(
+        image_gen,
+        "_load_project_character_context",
+        lambda script_id: (False, None, None),
+    )
+    monkeypatch.setattr(
+        image_gen,
+        "_load_project_style_enabled",
+        lambda script_id: True,
+    )
+    monkeypatch.setattr(
+        image_gen,
+        "_active_style_preset_path",
+        lambda: str(tmp_path / "preset.png"),
+    )
+
+    # Create the preset file so resolver finds it
+    (tmp_path / "preset.png").write_bytes(b"fakepng")
+
+    captured = {}
+
+    def fake_generate_image(prompt, **kwargs):
+        captured.update(kwargs)
+        out = tmp_path / "out.png"
+        out.write_bytes(b"fakepng")
+        return str(out)
+
+    monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
+
+    image_gen.generate_scene_image(
+        scene_id="s1",
+        visual_prompt="a tree",
+        script_id="proj-1",
+        contains_person=False,
+    )
+
+    assert captured.get("style_reference_path") == str(tmp_path / "preset.png")
+
+
+def test_generate_scene_image_omits_style_ref_when_eli_on(tmp_path, monkeypatch):
+    from pipeline import image_gen
+
+    monkeypatch.setattr(image_gen, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(
+        image_gen,
+        "_load_project_character_context",
+        lambda script_id: (True, None, None),
+    )
+    monkeypatch.setattr(image_gen, "_load_project_style_enabled", lambda script_id: True)
+    monkeypatch.setattr(image_gen, "_active_style_preset_path", lambda: str(tmp_path / "preset.png"))
+    (tmp_path / "preset.png").write_bytes(b"fakepng")
+
+    captured = {}
+
+    def fake_generate_image(prompt, **kwargs):
+        captured.update(kwargs)
+        out = tmp_path / "out.png"
+        out.write_bytes(b"fakepng")
+        return str(out)
+
+    monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
+
+    image_gen.generate_scene_image(
+        scene_id="s1",
+        visual_prompt="a tree",
+        script_id="proj-1",
+        contains_person=False,
+    )
+
+    assert captured.get("style_reference_path") is None

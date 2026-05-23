@@ -82,6 +82,17 @@ def _serialize_main_character(char: MainCharacter) -> str:
     )
 
 
+def _load_project_style_enabled(script_id: str) -> bool:
+    """Read the project's style_preset_enabled flag, defaulting to True if missing."""
+    from sqlmodel import Session
+    from database import engine
+    from models.project_config import get_project_config
+
+    with Session(engine) as session:
+        cfg = get_project_config(session, script_id)
+    return cfg.style_preset_enabled
+
+
 def _load_project_character_context(
     script_id: str,
 ) -> tuple[bool, str | None, MainCharacter | None]:
@@ -209,6 +220,12 @@ def generate_scene_image(
 
     eli_enabled, main_character_url, main_character_obj = _load_project_character_context(script_id)
 
+    project_style_enabled = _load_project_style_enabled(script_id)
+    style_reference_path = _resolve_style_preset(
+        eli_enabled=eli_enabled,
+        project_style_enabled=project_style_enabled,
+    )
+
     reference_image_path, character_text = _resolve_character_reference(
         script_id=script_id,
         contains_person=contains_person,
@@ -236,6 +253,13 @@ def generate_scene_image(
         except OSError:
             pass
 
+    if style_reference_path:
+        try:
+            mtime = int(Path(style_reference_path).stat().st_mtime)
+            prompt += f"\n[style_ref:{style_reference_path}:{mtime}]"
+        except OSError:
+            pass
+
     # Check cache: if image exists and we have a matching prompt marker, skip regen
     images_dir = DATA_DIR / "projects" / script_id / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
@@ -258,6 +282,7 @@ def generate_scene_image(
             prompt, width=width, height=height,
             original_prompt=visual_prompt,
             reference_image_path=reference_image_path,
+            style_reference_path=style_reference_path,
             script_id=script_id,
         )
     except Exception:
@@ -345,6 +370,12 @@ def generate_scene_frames(
         main_character=main_character_obj,
     )
 
+    project_style_enabled = _load_project_style_enabled(script_id)
+    style_reference_path = _resolve_style_preset(
+        eli_enabled=eli_enabled,
+        project_style_enabled=project_style_enabled,
+    )
+
     total_frames = len(frame_prompts)
     logger.info("Generating %s frames for scene %s", total_frames, scene_id)
     results: list[tuple[str, str, dict[str, object] | None]] = []
@@ -423,6 +454,13 @@ def generate_scene_frames(
             except OSError:
                 pass
 
+        if style_reference_path:
+            try:
+                mtime = int(Path(style_reference_path).stat().st_mtime)
+                prompt += f"\n[style_ref:{style_reference_path}:{mtime}]"
+            except OSError:
+                pass
+
         # Cache check
         if not force and local_path.exists() and prompt_marker.exists():
             cached_prompt = prompt_marker.read_text(encoding="utf-8").strip()
@@ -443,6 +481,7 @@ def generate_scene_frames(
             height=height,
             reference_image_path=ref_path,
             original_prompt=full_frame_description,
+            style_reference_path=style_reference_path,
             script_id=script_id,
         )
         metadata = _move_generated_image(tmp_path, local_path, {
@@ -485,6 +524,12 @@ def generate_scene_frames_v2(
     images_dir.mkdir(parents=True, exist_ok=True)
 
     eli_enabled, main_character_url, main_character_obj = _load_project_character_context(script_id)
+
+    project_style_enabled = _load_project_style_enabled(script_id)
+    style_reference_path = _resolve_style_preset(
+        eli_enabled=eli_enabled,
+        project_style_enabled=project_style_enabled,
+    )
 
     total_frames = len(frame_directives)
     logger.info("Generating %d frames (v2) for scene %s", total_frames, scene_id)
@@ -636,6 +681,13 @@ def generate_scene_frames_v2(
             except OSError:
                 pass
 
+        if style_reference_path:
+            try:
+                mtime = int(Path(style_reference_path).stat().st_mtime)
+                prompt += f"\n[style_ref:{style_reference_path}:{mtime}]"
+            except OSError:
+                pass
+
         # Cache check
         if not force and local_path.exists() and prompt_marker.exists():
             cached_prompt = prompt_marker.read_text(encoding="utf-8").strip()
@@ -656,6 +708,7 @@ def generate_scene_frames_v2(
             height=height,
             reference_image_path=ref_path,
             original_prompt=directive_prompt,
+            style_reference_path=style_reference_path,
             script_id=script_id,
         )
         metadata = _move_generated_image(tmp_path, local_path, {
