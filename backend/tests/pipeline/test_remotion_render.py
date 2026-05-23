@@ -79,6 +79,35 @@ def test_video_scene_duration_keeps_audio_when_clip_is_long_enough(tmp_path, mon
     assert props["duration_seconds"] == 7.0
 
 
+def test_scene_to_input_props_includes_visual_treatment_layers(tmp_path, monkeypatch):
+    monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
+    image_dir = tmp_path / "projects" / "script" / "images"
+    image_dir.mkdir(parents=True)
+    (image_dir / "scene_layered_layer_panel_1.png").write_bytes(b"fake image")
+    scene = Scene(
+        id="scene_layered",
+        narration="A list appears.",
+        visual_prompt="x",
+        audio_duration_seconds=2.0,
+        visual_treatment="popup_sequence",
+        visual_layers=[
+            {
+                "id": "panel_1",
+                "type": "image",
+                "asset_kind": "panel",
+                "image_url": "/static/projects/script/images/scene_layered_layer_panel_1.png",
+                "placement": "left",
+                "enter_at_seconds": 0.5,
+                "animation": "pop_in",
+            }
+        ],
+    )
+    props = remotion_render._scene_to_input_props(scene, "script")
+    assert props["visual_treatment"] == "popup_sequence"
+    assert props["visual_layers"][0]["placement"] == "left"
+    assert props["visual_layers"][0]["image_path"].endswith("scene_layered_layer_panel_1.png")
+
+
 def test_chapter_marker_total_frames_use_full_ai_video_audio_duration(tmp_path, monkeypatch):
     monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
     monkeypatch.setattr(remotion_render, "_probe_video_duration", lambda _path: None)

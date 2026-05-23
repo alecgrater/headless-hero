@@ -21,6 +21,7 @@ export const FullVideo: React.FC<FullVideoProps> = ({
   chapter_map,
   segment_timer,
   subtitle_highlight,
+  visual_canvas,
 }) => {
   // Flatten all scenes with segment info
   const allScenes: { scene: SceneInput; segmentIndex: number; segmentName: string }[] = [];
@@ -132,6 +133,7 @@ export const FullVideo: React.FC<FullVideoProps> = ({
             })(),
           }}
           highlightEnabled={subtitle_highlight?.enabled ?? false}
+          visualCanvas={visual_canvas}
         />
       </Sequence>,
     );

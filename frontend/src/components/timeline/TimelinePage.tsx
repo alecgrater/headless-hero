@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import api, {
   assetUrl,
+  analyzeVisualTreatments,
+  applyVisualTreatmentAssignments,
   ensureScriptExportsFolder,
   exportLongFormSEO,
   exportLongFormThumbnail,
@@ -36,6 +38,8 @@ import api, {
   getShortFormThumbnailsStatus,
   getUploadSuiteStatus,
   getUploadTracking,
+  getVisualCanvasPalette,
+  getVisualTreatmentStatus,
   openPath,
   pollEliJob,
   pollFXJob,
@@ -43,9 +47,11 @@ import api, {
   renderShortAll,
   renderShortBatch,
   setUploadTracking as apiSetUploadTracking,
+  updateVisualCanvas,
 } from "../../api";
 import type { ExportTestOptions } from "../../api";
 import type { MediaAssignment } from "../../api";
+import type { VisualTreatmentAssignment } from "../../api";
 import type { ProjectConfig } from "../../api";
 import type { ExportFileCategoryStatus, ExportFileStatus } from "../../api";
 import type { ScriptCostBreakdownItem } from "../../api";
@@ -1123,11 +1129,16 @@ function TimelineEditor({
   const [productionError, setProductionError] = useState<string | null>(null);
   const [projectConfig, setProjectConfig] = useState<ProjectConfig | null>(null);
   const [showMainCharacterDrawer, setShowMainCharacterDrawer] = useState(false);
+  const [canvasPalette, setCanvasPalette] = useState<string[]>(["#F6C54A"]);
+  const [visualTreatmentAssignments, setVisualTreatmentAssignments] = useState<VisualTreatmentAssignment[] | null>(null);
+  const [visualTreatmentAnalyzing, setVisualTreatmentAnalyzing] = useState(false);
+  const [visualTreatmentJobId, setVisualTreatmentJobId] = useState<string | null>(null);
   const { activePreset } = useStylePreset();
   const yoloCancelledRef = useRef(false);
   const yoloStoppingRef = useRef(false);
   const productionBusyRef = useRef(false);
   const microTimelineRef = useRef<MicroTimelineHandle>(null);
+  const activeScriptIdRef = useRef(scriptId);
 
   const media = useMediaReview({ scriptId, content: state.content });
 
@@ -1136,6 +1147,69 @@ function TimelineEditor({
     setTitleDraft(title);
     setEditingTitle(false);
   }, [scriptId, title]);
+
+  useEffect(() => {
+    if (!scriptId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const palette = await getVisualCanvasPalette();
+        if (!cancelled) setCanvasPalette(palette.colors);
+      } catch {
+        if (!cancelled) setCanvasPalette(["#F6C54A"]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [scriptId]);
+
+  useEffect(() => {
+    activeScriptIdRef.current = scriptId;
+    setVisualTreatmentJobId(null);
+    setVisualTreatmentAssignments(null);
+    setVisualTreatmentAnalyzing(false);
+  }, [scriptId]);
+
+  useEffect(() => {
+    if (!visualTreatmentJobId) return;
+
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const poll = async () => {
+      try {
+        const status = await getVisualTreatmentStatus(visualTreatmentJobId);
+        if (cancelled) return;
+        if (status.status === "completed") {
+          setVisualTreatmentAssignments(status.assignments ?? []);
+          setVisualTreatmentAnalyzing(false);
+          setVisualTreatmentJobId(null);
+          showToast("Visual treatments analyzed.", "success");
+          return;
+        }
+        if (status.status === "failed" || status.status === "cancelled") {
+          setVisualTreatmentAnalyzing(false);
+          setVisualTreatmentJobId(null);
+          showToast(status.error || "Visual treatment analysis failed");
+          return;
+        }
+        timeoutId = setTimeout(poll, 1200);
+      } catch (err) {
+        if (cancelled) return;
+        setVisualTreatmentAnalyzing(false);
+        setVisualTreatmentJobId(null);
+        showToast(err instanceof Error ? err.message : "Failed to check visual treatment status");
+      }
+    };
+
+    timeoutId = setTimeout(poll, 1200);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [scriptId, visualTreatmentJobId]);
 
   useEffect(() => {
     if (!scriptId) return;
@@ -1155,6 +1229,65 @@ function TimelineEditor({
   useEffect(() => {
     if (media.hasPendingReview) setActiveTab("media-sources");
   }, [media.hasPendingReview]);
+
+  const handleSelectCanvasColor = useCallback(async (color: string) => {
+    try {
+      const requestScriptId = scriptId;
+      const saved = await state.save();
+      if (activeScriptIdRef.current !== requestScriptId) return;
+      if (!saved) {
+        showToast("Save your timeline changes before updating the canvas color.");
+        return;
+      }
+      const result = await updateVisualCanvas(requestScriptId, color);
+      if (activeScriptIdRef.current !== requestScriptId) return;
+      state.setContent(result.script);
+      setCanvasPalette(result.palette);
+      showToast("Canvas color updated.", "success");
+    } catch (err) {
+      if (activeScriptIdRef.current !== scriptId) return;
+      showToast(err instanceof Error ? err.message : "Failed to update canvas color");
+    }
+  }, [scriptId, state]);
+
+  const handleAnalyzeVisualTreatments = useCallback(async () => {
+    try {
+      const saved = await state.save();
+      if (activeScriptIdRef.current !== scriptId) return;
+      if (!saved) {
+        showToast("Save your timeline changes before analyzing visual treatments.");
+        return;
+      }
+      setVisualTreatmentAnalyzing(true);
+      setVisualTreatmentAssignments(null);
+      const { job_id } = await analyzeVisualTreatments(scriptId);
+      if (activeScriptIdRef.current !== scriptId) return;
+      setVisualTreatmentJobId(job_id);
+    } catch (err) {
+      setVisualTreatmentAnalyzing(false);
+      showToast(err instanceof Error ? err.message : "Failed to analyze visual treatments");
+    }
+  }, [scriptId, state]);
+
+  const handleApplyVisualTreatments = useCallback(async (assignments: VisualTreatmentAssignment[]) => {
+    try {
+      const requestScriptId = scriptId;
+      const saved = await state.save();
+      if (activeScriptIdRef.current !== requestScriptId) return;
+      if (!saved) {
+        showToast("Save your timeline changes before applying visual treatments.");
+        return;
+      }
+      const result = await applyVisualTreatmentAssignments(requestScriptId, assignments);
+      if (activeScriptIdRef.current !== requestScriptId) return;
+      state.setContent(result.script);
+      setVisualTreatmentAssignments(assignments);
+      showToast("Visual treatments applied.", "success");
+    } catch (err) {
+      if (activeScriptIdRef.current !== scriptId) return;
+      showToast(err instanceof Error ? err.message : "Failed to apply visual treatments");
+    }
+  }, [scriptId, state]);
 
   const refreshShortFormThumbnailStatus = useCallback(async () => {
     try {
@@ -2944,6 +3077,12 @@ function TimelineEditor({
           mediaAssignments={media.mediaAssignments}
           mediaAnalyzing={media.mediaAnalyzing}
           mediaReviewDismissed={media.mediaReviewDismissed}
+          canvasPalette={canvasPalette}
+          visualTreatmentAssignments={visualTreatmentAssignments}
+          visualTreatmentAnalyzing={visualTreatmentAnalyzing}
+          onSelectCanvasColor={handleSelectCanvasColor}
+          onAnalyzeVisualTreatments={handleAnalyzeVisualTreatments}
+          onApplyVisualTreatments={handleApplyVisualTreatments}
           onAnalyzeMedia={media.handleAnalyzeMedia}
           onBeforeAssignmentsApply={() => state.save()}
           onAssignmentsSaved={async (assignments: MediaAssignment[]) => {

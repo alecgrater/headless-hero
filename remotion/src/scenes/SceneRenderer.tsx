@@ -5,13 +5,15 @@
  */
 import React from "react";
 import { Audio, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
-import type { SceneInput, Orientation } from "../types";
+import type { SceneInput, Orientation, VisualCanvas } from "../types";
 import { StaticImageScene } from "./StaticImageScene";
 import { MultiFrameScene } from "./MultiFrameScene";
 import { TitleCardScene } from "./TitleCardScene";
 import { SubtitleScene } from "./SubtitleScene";
 import { VideoScene } from "./VideoScene";
 import { VerticalSceneLayout } from "./VerticalSceneLayout";
+import { StaticCanvas } from "./StaticCanvas";
+import { TreatmentRenderer } from "./TreatmentRenderer";
 
 import { ZoomPunch } from "../effects/camera/ZoomPunch";
 import { CameraDrift } from "../effects/camera/CameraDrift";
@@ -23,12 +25,14 @@ interface Props {
   scene: SceneInput;
   highlightEnabled?: boolean;
   orientation?: Orientation;
+  visualCanvas?: VisualCanvas | null;
 }
 
 export const SceneRenderer: React.FC<Props> = ({
   scene,
   highlightEnabled,
   orientation = "horizontal",
+  visualCanvas,
 }) => {
   const hasMultipleFrames = scene.frame_paths && scene.frame_paths.length > 1;
   const isTitleCard = scene.is_title_card && scene.title_card_zoom_target;
@@ -68,6 +72,7 @@ export const SceneRenderer: React.FC<Props> = ({
 
   // Visual layer dispatch
   let visualLayer: React.ReactNode;
+  let treatmentLayer: React.ReactNode | null = null;
   if (isTitleCard) {
     visualLayer = <TitleCardScene scene={scene} />;
   } else if (isAhaSubtitle) {
@@ -75,9 +80,13 @@ export const SceneRenderer: React.FC<Props> = ({
   } else if (isVideo) {
     visualLayer = <VideoScene scene={scene} />;
   } else if (hasMultipleFrames) {
-    visualLayer = <MultiFrameScene scene={scene} />;
+    const fallbackVisualLayer = <MultiFrameScene scene={scene} />;
+    treatmentLayer = <TreatmentRenderer scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
+    visualLayer = treatmentLayer;
   } else {
-    visualLayer = <StaticImageScene scene={scene} />;
+    const fallbackVisualLayer = <StaticImageScene scene={scene} />;
+    treatmentLayer = <TreatmentRenderer scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
+    visualLayer = treatmentLayer;
   }
 
   // Wrap with CameraDrift if assigned (not for subtitle or title card scenes)
@@ -102,6 +111,15 @@ export const SceneRenderer: React.FC<Props> = ({
       >
         {visualLayer}
       </ZoomPunch>
+    );
+  }
+
+  if (treatmentLayer) {
+    visualLayer = (
+      <>
+        <StaticCanvas canvas={visualCanvas} />
+        {visualLayer}
+      </>
     );
   }
 

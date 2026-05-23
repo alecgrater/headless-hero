@@ -175,3 +175,34 @@ class TestLifeAsAPartIndicator:
         render_short_segment("script-1", 2, content, "Project")
 
         assert captured_props["part_indicator"] == "Part 3/3"
+
+    def test_render_props_include_visual_canvas(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(short_form_render, "DATA_DIR", tmp_path)
+        captured_props: dict = {}
+
+        def fake_run_remotion(*, props_path, output_path, **_kwargs):
+            import json
+
+            captured_props.update(json.loads(props_path.read_text(encoding="utf-8")))
+            output_path.write_bytes(b"raw")
+
+        def fake_reencode(raw_output, output_path):
+            output_path.write_bytes(raw_output.read_bytes())
+            return True
+
+        monkeypatch.setattr(short_form_render, "_run_remotion", fake_run_remotion)
+        monkeypatch.setattr(short_form_render, "_verify_video", lambda _path: True)
+        monkeypatch.setattr(short_form_render, "_reencode_h264", fake_reencode)
+        monkeypatch.setattr(short_form_render, "_copy_to_downloads", lambda *_args: str(tmp_path / "out.mp4"))
+
+        content = ScriptContent(
+            title="Canvas Test",
+            visual_canvas={"background_color": "#ABCDEF"},
+            segments=[
+                Segment(name="Segment", scenes=[_scene("title-1", "", True), _scene("body-1", "Body.")]),
+            ],
+        )
+
+        render_short_segment("script-1", 0, content, "Project")
+
+        assert captured_props["visual_canvas"]["background_color"] == "#ABCDEF"

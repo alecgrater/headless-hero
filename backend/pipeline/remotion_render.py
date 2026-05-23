@@ -91,6 +91,21 @@ def _scene_frame_paths(script_id: str, scene: Scene) -> list[str]:
     return paths
 
 
+def _visual_layers_to_input_props(scene: Scene, script_id: str) -> list[dict[str, Any]]:
+    """Convert visual treatment layers to Remotion input props."""
+    layers: list[dict[str, Any]] = []
+    for layer in scene.visual_layers:
+        layer_props = layer.model_dump()
+        image_url = layer_props.get("image_url")
+        layer_props["image_path"] = (
+            _scene_image_path(script_id, scene.id, image_url)
+            if image_url
+            else None
+        )
+        layers.append(layer_props)
+    return layers
+
+
 def _scene_video_path(script_id: str, scene: Scene) -> Path | None:
     """Resolve the local filesystem path for video-backed scenes."""
     if scene.media_source not in ("ai_video", "gameplay_video", "user_upload"):
@@ -317,6 +332,8 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
         "word_timestamps": [w.model_dump() for w in scene.word_timestamps] if scene.word_timestamps and not scene.is_title_card else None,
         "phrase_timestamps": [p.model_dump() for p in scene.phrase_timestamps] if scene.phrase_timestamps and not scene.is_title_card else None,
         "visual_beat": scene.visual_beat,
+        "visual_treatment": scene.visual_treatment,
+        "visual_layers": _visual_layers_to_input_props(scene, script_id),
         "frame_directives": [d.model_dump() for d in scene.frame_directives] if scene.frame_directives else None,
         "frame_timings": scene.frame_timings,
         "visual_in_seconds": scene.visual_in_seconds,
@@ -635,6 +652,7 @@ def render_full_video(
         "fps": FPS,
         "width": width,
         "height": height,
+        "visual_canvas": content.visual_canvas.model_dump(),
         "video_fx": {"chapter_markers": chapter_markers},
         "chapter_map": chapter_map,
         "segment_timer": {"enabled": True} if content.segment_timer_enabled else None,
@@ -651,6 +669,11 @@ def render_full_video(
     raw_output = renders / f"full_youtube{speed_suffix}_raw.mkv"
     reencode_output = renders / f"full_youtube{speed_suffix}_enc.mp4" if needs_speed else output_path
 
+    logger.info(
+        "[VISUAL_CANVAS] render props script=%s color=%s",
+        script_id,
+        content.visual_canvas.background_color,
+    )
     props_path = _write_input_props(props, raw_output)
 
     check_cancelled()
