@@ -306,6 +306,7 @@ export type MainCharacter = {
 export type ProjectConfig = {
   script_id: string;
   eli_enabled: boolean;
+  style_preset_enabled: boolean;
   main_character_reference_url: string | null;
   main_character: MainCharacter | null;
 };

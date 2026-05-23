@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import api from "../../api";
+import { useStylePreset } from "../../contexts/StylePresetContext";
 import { showToast } from "../ToastContainer";
+import { StylePresetToggle } from "../shared/StylePresetToggle";
 
 const DISABLED_SETTING_VALUES = new Set(["", "0", "false", "no", "off"]);
 
@@ -14,15 +16,19 @@ export default function MiscSection() {
   const [rateLimitEnabled, setRateLimitEnabled] = useState("true");
   const [scraperFallbackEnabled, setScraperFallbackEnabled] = useState("false");
   const [eliEnabledDefault, setEliEnabledDefault] = useState("true");
+  const [stylePresetEnabledDefault, setStylePresetEnabledDefault] = useState("true");
 
   const [originalHookRefinement, setOriginalHookRefinement] = useState("true");
   const [originalShowSpeedRenderButton, setOriginalShowSpeedRenderButton] = useState("true");
   const [originalRateLimit, setOriginalRateLimit] = useState("true");
   const [originalScraperFallback, setOriginalScraperFallback] = useState("false");
   const [originalEliEnabledDefault, setOriginalEliEnabledDefault] = useState("true");
+  const [originalStylePresetEnabledDefault, setOriginalStylePresetEnabledDefault] = useState("true");
 
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const { activePreset } = useStylePreset();
 
   useEffect(() => {
     api.get("/api/settings/keys").then((res) => {
@@ -43,6 +49,9 @@ export default function MiscSection() {
         const eliVal = data.ELI_ENABLED_DEFAULT?.masked || "true";
         setEliEnabledDefault(settingEnabled(eliVal) ? "true" : "false");
         setOriginalEliEnabledDefault(settingEnabled(eliVal) ? "true" : "false");
+        const styleVal = data.STYLE_PRESET_ENABLED_DEFAULT?.masked || "true";
+        setStylePresetEnabledDefault(settingEnabled(styleVal) ? "true" : "false");
+        setOriginalStylePresetEnabledDefault(settingEnabled(styleVal) ? "true" : "false");
       }
       setLoading(false);
     });
@@ -53,7 +62,8 @@ export default function MiscSection() {
     showSpeedRenderButton !== originalShowSpeedRenderButton ||
     rateLimitEnabled !== originalRateLimit ||
     scraperFallbackEnabled !== originalScraperFallback ||
-    eliEnabledDefault !== originalEliEnabledDefault;
+    eliEnabledDefault !== originalEliEnabledDefault ||
+    stylePresetEnabledDefault !== originalStylePresetEnabledDefault;
 
   const handleSave = async () => {
     setSaving(true);
@@ -63,6 +73,7 @@ export default function MiscSection() {
       IMAGE_RATE_LIMIT_MS: rateLimitEnabled === "true" ? "10000" : "0",
       IMAGE_SCRAPER_FALLBACK_ENABLED: scraperFallbackEnabled,
       ELI_ENABLED_DEFAULT: eliEnabledDefault,
+      STYLE_PRESET_ENABLED_DEFAULT: stylePresetEnabledDefault,
     });
     setSaving(false);
     if (res.ok) {
@@ -72,6 +83,7 @@ export default function MiscSection() {
       setOriginalRateLimit(rateLimitEnabled);
       setOriginalScraperFallback(scraperFallbackEnabled);
       setOriginalEliEnabledDefault(eliEnabledDefault);
+      setOriginalStylePresetEnabledDefault(stylePresetEnabledDefault);
     }
   };
 
@@ -120,6 +132,24 @@ export default function MiscSection() {
                 }`}
               />
             </button>
+          </div>
+        </div>
+
+        {/* Style Preset Default */}
+        <div className="p-5">
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-sm font-medium text-neutral-100">Default style preset for new projects</h3>
+              <p className="text-xs text-neutral-500 leading-relaxed">
+                When on, new projects with Eli disabled will automatically use the active global style preset. Greyed out when Eli is enabled by default.
+              </p>
+            </div>
+            <StylePresetToggle
+              eliEnabled={eliEnabledDefault === "true"}
+              enabled={stylePresetEnabledDefault === "true"}
+              onChange={(next) => setStylePresetEnabledDefault(next ? "true" : "false")}
+              activePresetName={activePreset?.name ?? null}
+            />
           </div>
         </div>
 

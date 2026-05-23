@@ -15,6 +15,7 @@ interface Props {
   brandId: string;
   idea: VideoIdea;
   eliEnabled?: boolean;
+  stylePresetEnabled?: boolean;
   onBack: () => void;
   onContinue: (scriptId: string) => void;
 }
@@ -29,6 +30,7 @@ export default function ScriptGenerationPage({
   brandId,
   idea,
   eliEnabled = true,
+  stylePresetEnabled = true,
   onBack,
   onContinue,
 }: Props) {
@@ -70,7 +72,7 @@ export default function ScriptGenerationPage({
     hasPexelsKey,
     setGameplayEnabled,
     setStockPhotoEnabled,
-  } = useScriptGeneration({ brandId, idea, supportsColdOpen, eliEnabled });
+  } = useScriptGeneration({ brandId, idea, supportsColdOpen, eliEnabled, stylePresetEnabled });
 
   const {
     editingKey,

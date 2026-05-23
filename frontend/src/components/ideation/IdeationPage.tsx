@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import api, { fetchGenerationEstimate, getFormats } from "../../api";
 import type { GenerateIdeasResponse, VideoIdea } from "../../types/idea";
 import type { VideoFormat } from "../../types/format";
+import { useStylePreset } from "../../contexts/StylePresetContext";
 import GenerationProgressBar from "../GenerationProgressBar";
+import { StylePresetToggle } from "../shared/StylePresetToggle";
 import { FormatSelector } from "./FormatSelector";
 import GeneratedIdeaCard from "./GeneratedIdeaCard";
 import IdeationInput, { type IdeationInputHandle } from "./IdeationInput";
@@ -10,7 +12,7 @@ import IdeationInput, { type IdeationInputHandle } from "./IdeationInput";
 const FORMAT_KEY = "hh-selected-format";
 
 interface Props {
-  onUseIdea: (idea: VideoIdea, opts?: { eliEnabled?: boolean }) => void;
+  onUseIdea: (idea: VideoIdea, opts?: { eliEnabled?: boolean; stylePresetEnabled?: boolean }) => void;
   initialNiche?: string | null;
   initialIdeas?: VideoIdea[] | null;
   autoGenerateNiche?: string | null;
@@ -44,9 +46,11 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
   });
   const [animateFromIndex, setAnimateFromIndex] = useState(0);
   const [eliEnabled, setEliEnabled] = useState<boolean>(true);
+  const [stylePresetEnabled, setStylePresetEnabled] = useState<boolean>(true);
   const inputRef = useRef<IdeationInputHandle>(null);
   const cancelledRef = useRef(false);
   const lastAutoGenerateRequestId = useRef<number | null>(null);
+  const { activePreset } = useStylePreset();
 
   useEffect(() => {
     getFormats().then(setFormats).catch(() => setFormats([]));
@@ -59,6 +63,8 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
         const data = res.data as Record<string, { masked: string; configured: boolean; source: string }>;
         const raw = data.ELI_ENABLED_DEFAULT?.masked || "true";
         setEliEnabled(raw.trim().toLowerCase() !== "false");
+        const styleRaw = data.STYLE_PRESET_ENABLED_DEFAULT?.masked || "true";
+        setStylePresetEnabled(styleRaw.trim().toLowerCase() !== "false");
       }
     })();
   }, []);
@@ -213,6 +219,13 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
         </span>
       </div>
 
+      <StylePresetToggle
+        eliEnabled={eliEnabled}
+        enabled={stylePresetEnabled}
+        onChange={setStylePresetEnabled}
+        activePresetName={activePreset?.name ?? null}
+      />
+
       <IdeationInput ref={inputRef} onGenerate={generate} onCancel={handleCancel} loading={loading} />
 
       {loading && (
@@ -245,7 +258,7 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
                 bookmarked={bookmarked.has(idea.title)}
                 onToggleBookmark={() => toggleBookmark(idea.title)}
                 onMoreLikeThis={handleMoreLikeThis}
-                onUseIdea={(idea) => onUseIdea({ ...idea, format_id: idea.format_id ?? selectedFormatId }, { eliEnabled })}
+                onUseIdea={(idea) => onUseIdea({ ...idea, format_id: idea.format_id ?? selectedFormatId }, { eliEnabled, stylePresetEnabled })}
                 animationDelay={
                   i >= animateFromIndex
                     ? (i - animateFromIndex) * 80

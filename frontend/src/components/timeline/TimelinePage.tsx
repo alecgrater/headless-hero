@@ -44,6 +44,7 @@ import type { ExportTestOptions } from "../../api";
 import type { MediaAssignment } from "../../api";
 import type { ProjectConfig } from "../../api";
 import type { ScriptCostBreakdownItem } from "../../api";
+import { useStylePreset } from "../../contexts/StylePresetContext";
 import { showToast } from "../ToastContainer";
 import type { ScriptContent, UploadTracking } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
@@ -833,6 +834,7 @@ function TimelineEditor({
   const [productionError, setProductionError] = useState<string | null>(null);
   const [projectConfig, setProjectConfig] = useState<ProjectConfig | null>(null);
   const [showMainCharacterDrawer, setShowMainCharacterDrawer] = useState(false);
+  const { activePreset } = useStylePreset();
   const yoloCancelledRef = useRef(false);
   const yoloStoppingRef = useRef(false);
   const productionBusyRef = useRef(false);
@@ -2346,6 +2348,23 @@ function TimelineEditor({
                 </>
               )}
             </div>
+            {projectConfig && projectConfig.eli_enabled === false && (
+              <span
+                className="hidden sm:inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-neutral-800/60 px-2.5 text-xs text-neutral-400"
+                title="Style preset settings for this video"
+              >
+                <span>Eli: off</span>
+                <span className="text-neutral-600">·</span>
+                <span>
+                  Style:{" "}
+                  <span className="text-neutral-200">
+                    {projectConfig.style_preset_enabled && activePreset
+                      ? activePreset.name || "Untitled"
+                      : "off"}
+                  </span>
+                </span>
+              </span>
+            )}
             <UploadButton
               checking={uploadSuiteChecking}
               onOpenUpload={() => void openUploadPanel()}
