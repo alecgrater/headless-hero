@@ -687,7 +687,7 @@ function ViewerSwitchRow({
         </div>
         {renderTabSelector && (
           <>
-            <div className="h-6 w-px bg-neutral-800" />
+            <div className="h-6 w-px bg-neutral-800 ml-auto" />
             <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
               {VIEWER_TAB_OPTIONS.map(({ key, label, Icon }) => (
                 <button
@@ -2423,7 +2423,7 @@ function TimelineEditor({
 
             return (
               <>
-                <div className={`px-4 py-2 border-t border-neutral-800/60 shrink-0 ${yoloRenderRunning ? "bg-sky-500/5" : ""}`}>
+                <div className={`px-5 py-2 border-t border-neutral-800/60 shrink-0 ${yoloRenderRunning ? "bg-sky-500/5" : ""}`}>
                   <div className="flex flex-nowrap items-center gap-1 min-w-0 overflow-visible">
                     {interleavedStats}
                   </div>
