@@ -123,7 +123,14 @@ def test_prepare_thumbnail_generates_clean_chapter1_and_split(
     assert call["image_paths"] == [str(clean_path)]
     assert "months in" in call["prompt"]
     assert "years in" in call["prompt"]
-    assert "LEVEL " not in call["prompt"]
+    # No "LEVEL N" labels are substituted into the prompt (only in the casing example).
+    import re as _re
+    substituted_levels = [m for m in _re.findall(r"LEVEL \d+", call["prompt"]) if m != "LEVEL X"]
+    assert substituted_levels == []
+
+    # Sidecar reflects the default style (time_periods) for fresh runs.
+    sidecar_data = json.loads(sidecar_path.read_text())
+    assert sidecar_data.get("style") == "time_periods"
 
     # Final thumbnail and sidecar both exist
     assert final_path.exists()

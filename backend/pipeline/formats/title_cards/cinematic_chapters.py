@@ -79,6 +79,7 @@ class CinematicChaptersStrategy:
         del job_id, accent_color  # accent_color was used by the old Pillow title overlay.
 
         from pipeline.thumbnail import (
+            DEFAULT_THUMBNAIL_LABEL_STYLE,
             _pick_life_as_a_thumbnail_labels,
             _read_life_as_a_thumbnail_label_sidecar,
             _write_life_as_a_thumbnail_label_sidecar,
@@ -156,15 +157,21 @@ class CinematicChaptersStrategy:
             shutil.copy2(str(clean_path), str(final_path))
             return
 
-        cached_labels = (
+        cached = (
             None if force else _read_life_as_a_thumbnail_label_sidecar(sidecar_path)
         )
-        if cached_labels is None:
-            left_label, right_label = _pick_life_as_a_thumbnail_labels()
-            _write_life_as_a_thumbnail_label_sidecar(sidecar_path, left_label, right_label)
+        if cached is None:
+            style = DEFAULT_THUMBNAIL_LABEL_STYLE
+            left_label, right_label = _pick_life_as_a_thumbnail_labels(
+                style=style,
+                n_levels=n_levels,
+            )
+            _write_life_as_a_thumbnail_label_sidecar(
+                sidecar_path, style, left_label, right_label,
+            )
             force_enhancement = True
         else:
-            left_label, right_label = cached_labels
+            style, left_label, right_label = cached
             force_enhancement = force
 
         # 5. Split-progression enhancement (Gemini call).
@@ -175,6 +182,7 @@ class CinematicChaptersStrategy:
             right_label=right_label,
             script_id=script_id,
             force=force_enhancement,
+            style=style,
         )
 
     def prepare_title_card_scene(

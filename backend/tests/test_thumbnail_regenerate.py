@@ -224,7 +224,9 @@ def test_regenerate_split_progression_re_rolls_time_labels(
     # so patching pipeline.thumbnail._pick_life_as_a_thumbnail_labels is the correct target.
     pick_call_count = {"n": 0}
 
-    def stub_pick_life_as_a_thumbnail_labels() -> tuple[str, str]:
+    def stub_pick_life_as_a_thumbnail_labels(
+        style="time_periods", n_levels=None,
+    ) -> tuple[str, str]:
         pick_call_count["n"] += 1
         return ("3 months in", "8 years in")
 
@@ -355,3 +357,153 @@ def test_regenerate_split_progression_400_when_too_few_levels(
     )
     assert resp.status_code == 400
     assert len(fake_gemini_transform) == 0
+
+
+def test_regenerate_split_progression_style_levels(
+    client, db_engine, patched_data_dirs, fake_gemini_transform
+):
+    """Explicit style='levels' produces LEVEL X / LEVEL Y labels and persists style in sidecar."""
+    tmp_path = patched_data_dirs
+    script_id = "script-style-levels"
+    content = _make_life_as_a_content(n_levels=4)
+
+    images_dir = tmp_path / "projects" / script_id / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (32, 32), (1, 2, 3)).save(images_dir / "cinematic_thumbnail_clean.png")
+
+    with Session(db_engine) as session:
+        session.add(Script(
+            id=script_id,
+            brand_id="brand-1",
+            topic_title="Test",
+            topic_description="",
+            script_json=content.model_dump_json(),
+        ))
+        session.commit()
+
+    resp = client.post(
+        "/api/thumbnail/regenerate-split-progression",
+        json={"script_id": script_id, "style": "levels"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["label_style"] == "levels"
+
+    sidecar_path = images_dir / "cinematic_thumbnail.levels.json"
+    sidecar_data = json.loads(sidecar_path.read_text())
+    assert sidecar_data["style"] == "levels"
+    assert sidecar_data["left_label"].startswith("LEVEL ")
+    assert sidecar_data["right_label"].startswith("LEVEL ")
+
+
+def test_regenerate_split_progression_style_time_periods(
+    client, db_engine, patched_data_dirs, fake_gemini_transform
+):
+    """Explicit style='time_periods' produces months/years labels and persists style."""
+    tmp_path = patched_data_dirs
+    script_id = "script-style-tp"
+    content = _make_life_as_a_content(n_levels=4)
+
+    images_dir = tmp_path / "projects" / script_id / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (32, 32), (1, 2, 3)).save(images_dir / "cinematic_thumbnail_clean.png")
+
+    # Pre-seed with levels style — explicit body style should override.
+    sidecar_path = images_dir / "cinematic_thumbnail.levels.json"
+    sidecar_path.write_text(json.dumps({
+        "style": "levels", "left_label": "LEVEL 1", "right_label": "LEVEL 4",
+    }))
+
+    with Session(db_engine) as session:
+        session.add(Script(
+            id=script_id,
+            brand_id="brand-1",
+            topic_title="Test",
+            topic_description="",
+            script_json=content.model_dump_json(),
+        ))
+        session.commit()
+
+    resp = client.post(
+        "/api/thumbnail/regenerate-split-progression",
+        json={"script_id": script_id, "style": "time_periods"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["label_style"] == "time_periods"
+
+    sidecar_data = json.loads(sidecar_path.read_text())
+    assert sidecar_data["style"] == "time_periods"
+    assert sidecar_data["left_label"].endswith(" months in")
+    assert sidecar_data["right_label"].endswith(" years in")
+
+
+def test_regenerate_split_progression_omitted_style_reuses_sidecar(
+    client, db_engine, patched_data_dirs, fake_gemini_transform
+):
+    """When style is omitted, the endpoint reuses the sidecar's existing style."""
+    tmp_path = patched_data_dirs
+    script_id = "script-reuse-style"
+    content = _make_life_as_a_content(n_levels=4)
+
+    images_dir = tmp_path / "projects" / script_id / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (32, 32), (1, 2, 3)).save(images_dir / "cinematic_thumbnail_clean.png")
+
+    sidecar_path = images_dir / "cinematic_thumbnail.levels.json"
+    sidecar_path.write_text(json.dumps({
+        "style": "levels", "left_label": "LEVEL 1", "right_label": "LEVEL 4",
+    }))
+
+    with Session(db_engine) as session:
+        session.add(Script(
+            id=script_id,
+            brand_id="brand-1",
+            topic_title="Test",
+            topic_description="",
+            script_json=content.model_dump_json(),
+        ))
+        session.commit()
+
+    resp = client.post(
+        "/api/thumbnail/regenerate-split-progression",
+        json={"script_id": script_id},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["label_style"] == "levels"
+
+    sidecar_data = json.loads(sidecar_path.read_text())
+    assert sidecar_data["style"] == "levels"
+
+
+def test_regenerate_split_progression_omitted_style_no_sidecar_uses_default(
+    client, db_engine, patched_data_dirs, fake_gemini_transform
+):
+    """When style omitted and no sidecar, falls back to default (time_periods)."""
+    tmp_path = patched_data_dirs
+    script_id = "script-default-style"
+    content = _make_life_as_a_content(n_levels=4)
+
+    images_dir = tmp_path / "projects" / script_id / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (32, 32), (1, 2, 3)).save(images_dir / "cinematic_thumbnail_clean.png")
+    # No sidecar pre-seeded.
+
+    with Session(db_engine) as session:
+        session.add(Script(
+            id=script_id,
+            brand_id="brand-1",
+            topic_title="Test",
+            topic_description="",
+            script_json=content.model_dump_json(),
+        ))
+        session.commit()
+
+    resp = client.post(
+        "/api/thumbnail/regenerate-split-progression",
+        json={"script_id": script_id},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["label_style"] == "time_periods"

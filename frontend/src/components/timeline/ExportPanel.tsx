@@ -12,10 +12,12 @@ import type {
   ShortFormSEO,
   ShortFormSEOMetadata,
   ThumbnailConcept,
+  ThumbnailLabelStyle,
 } from "../../types/render";
 import ShortFormTab from "./short-form/ShortFormTab";
 import ShortFormThumbnailsCard from "./short-form/ShortFormThumbnailsCard";
 import MiniProgressBar from "../MiniProgressBar";
+import ThumbnailLabelStyleToggle from "./ThumbnailLabelStyleToggle";
 import { usePollJob } from "../../hooks/usePollJob";
 
 const YOUTUBE_RECONNECT_MESSAGE = "Your youtube connection has expired or been revoked. Please reconnect your account in Settings → Publishing.";
@@ -54,6 +56,9 @@ interface Props {
   thumbnails: ThumbnailConcept[];
   thumbnailsGenerating: boolean;
   onRecompositeThumbnail: () => void;
+  thumbnailLabelStyle: ThumbnailLabelStyle;
+  onThumbnailLabelStyleChange: (style: ThumbnailLabelStyle) => void;
+  formatId?: string;
 
   seoMetadata: SEOMetadata | null;
   seoGenerating: boolean;
@@ -312,6 +317,9 @@ export default function ExportPanel({
   thumbnails,
   thumbnailsGenerating,
   onRecompositeThumbnail,
+  thumbnailLabelStyle,
+  onThumbnailLabelStyleChange,
+  formatId,
   seoMetadata,
   seoGenerating,
   onGenerateSEO,
@@ -902,20 +910,29 @@ export default function ExportPanel({
                   ))}
                 </div>
               )}
-              <button
-                onClick={onRecompositeThumbnail}
-                disabled={thumbnailsGenerating}
-                className="text-sm px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
-              >
-                {thumbnailsGenerating ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                    Regenerating...
-                  </>
-                ) : (
-                  "Regenerate Thumbnail"
+              <div className="flex items-center gap-3 flex-wrap">
+                {formatId === "life-as-a" && (
+                  <ThumbnailLabelStyleToggle
+                    value={thumbnailLabelStyle}
+                    onChange={onThumbnailLabelStyleChange}
+                    disabled={thumbnailsGenerating}
+                  />
                 )}
-              </button>
+                <button
+                  onClick={onRecompositeThumbnail}
+                  disabled={thumbnailsGenerating}
+                  className="text-sm px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 rounded-lg font-medium transition-colors flex items-center gap-2"
+                >
+                  {thumbnailsGenerating ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                      Regenerating...
+                    </>
+                  ) : (
+                    "Regenerate Thumbnail"
+                  )}
+                </button>
+              </div>
               {thumbnailsGenerating && <MiniProgressBar estimatedSeconds={thumbnailProgress.estimatedSeconds} active={thumbnailProgress.active} />}
             </section>
           )}
