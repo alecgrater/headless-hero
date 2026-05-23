@@ -123,9 +123,9 @@ export default function MediaSourcesTab({
       <div className="flex flex-col items-center gap-5 max-w-2xl text-center px-6">
         <div className="space-y-3">
           <p className="text-sm text-neutral-400">
-          {enabledSources.length > 0
-            ? `This project has ${enabledSources.join(" and ")} enabled. Analyze your script to assign media sources per scene.`
-            : "Analyze your script to assign media sources (AI, AI video, gameplay, stock photos) per scene."}
+            {enabledSources.length > 0
+              ? `This project has ${enabledSources.join(" and ")} enabled. Analyze your script to assign media sources per scene.`
+              : "Analyze your script to assign media sources (AI, AI video, gameplay, stock photos) per scene."}
           </p>
         </div>
         <button
