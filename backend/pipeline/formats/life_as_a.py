@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import math
+import os
 import re
 
 from models.script import LevelMeta, Scene, ScriptContent, Segment
@@ -34,6 +36,7 @@ _LEVEL_NAME_PREFIX_RE = re.compile(
     r"^level\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b[\s,.:;!?\-—–]*",
     re.IGNORECASE,
 )
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 
 _HUMAN_SUBJECT_TERMS = {
     "person",
@@ -78,6 +81,32 @@ LIFE_AS_A_BEAT_RULES = VisualBeatRules(
     max_consecutive_same_beat=2,
     monotony_threshold=3,
 )
+
+
+def _setting_bool(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _setting_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    raw = os.environ.get(name, str(default)).strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning("[LIFE_AS_A_CHUNKING] invalid %s=%r; using default=%d", name, raw, default)
+        return default
+    return max(minimum, min(value, maximum))
+
+
+def life_as_a_chunking_settings() -> dict[str, int | bool]:
+    return {
+        "enabled": _setting_bool("LIFE_AS_A_SCENE_CHUNKING_ENABLED", True),
+        "target": _setting_int("LIFE_AS_A_TARGET_SCENE_SECONDS", 8, 5, 12),
+        "max": _setting_int("LIFE_AS_A_MAX_SCENE_SECONDS", 12, 8, 18),
+        "single_visual_max": _setting_int("LIFE_AS_A_SINGLE_VISUAL_MAX_SECONDS", 8, 5, 12),
+    }
 
 
 def life_as_a_role(content: ScriptContent) -> str:
@@ -163,6 +192,156 @@ def _main_character_scene_prompt(prompt: str, content: ScriptContent, role: str)
     return f"{shot_tag}{character_instruction} {stripped}".strip()
 
 
+def _split_sentences(narration: str) -> list[str]:
+    sentences = [part.strip() for part in _SENTENCE_SPLIT_RE.split(narration.strip()) if part.strip()]
+    return sentences or ([narration.strip()] if narration.strip() else [])
+
+
+def _single_frame_directives(scene: Scene) -> list[dict]:
+    contains_person = bool(scene.contains_person)
+    prompt = scene.visual_prompt.strip() or scene.narration.strip()
+    return [{
+        "prompt": prompt,
+        "source": "ai_generated",
+        "transition": "cut",
+        "reference_previous": False,
+        "search_query": "",
+        "contains_person": contains_person,
+    }]
+
+
+def _scene_estimated_duration(scene: Scene, *, target_seconds: int) -> float:
+    sentence_count = len(_split_sentences(scene.narration))
+    if scene.duration_estimate_seconds > 0:
+        if scene.duration_estimate_seconds <= target_seconds and sentence_count > 2:
+            return sentence_count * float(target_seconds)
+        return float(scene.duration_estimate_seconds)
+    return max(float(target_seconds), sentence_count * float(target_seconds))
+
+
+def _chunk_sentences(sentences: list[str], chunk_count: int) -> list[list[str]]:
+    if chunk_count <= 1 or len(sentences) <= 1:
+        return [sentences]
+    chunk_count = min(chunk_count, len(sentences))
+    chunks: list[list[str]] = []
+    for index in range(chunk_count):
+        start = round(index * len(sentences) / chunk_count)
+        end = round((index + 1) * len(sentences) / chunk_count)
+        chunks.append(sentences[start:end] or [sentences[min(index, len(sentences) - 1)]])
+    return chunks
+
+
+def _split_life_as_a_scenes(content: ScriptContent) -> int:
+    settings = life_as_a_chunking_settings()
+    enabled = bool(settings["enabled"])
+    target_seconds = int(settings["target"])
+    max_seconds = int(settings["max"])
+    single_visual_max = int(settings["single_visual_max"])
+    effective_max_seconds = min(max_seconds, 14)
+    logger.info(
+        "[LIFE_AS_A_CHUNKING] settings: enabled=%s target=%d max=%d single_visual_max=%d",
+        str(enabled).lower(),
+        target_seconds,
+        max_seconds,
+        single_visual_max,
+    )
+    if not enabled:
+        return 0
+
+    split_count = 0
+    for segment in content.segments:
+        rewritten: list[Scene] = []
+        for scene in segment.scenes:
+            if scene.is_title_card:
+                rewritten.append(scene)
+                continue
+            estimated_duration = _scene_estimated_duration(scene, target_seconds=target_seconds)
+            sentences = _split_sentences(scene.narration)
+            if estimated_duration <= effective_max_seconds or len(sentences) <= 1:
+                logger.info(
+                    "[LIFE_AS_A_CHUNKING] kept scene %s; reason=duration %.1fs within target",
+                    scene.id,
+                    estimated_duration,
+                )
+                rewritten.append(scene)
+                continue
+
+            chunk_count = min(len(sentences), max(2, math.ceil(estimated_duration / target_seconds)))
+            chunks = _chunk_sentences(sentences, chunk_count)
+            logger.info(
+                "[LIFE_AS_A_CHUNKING] split scene %s into %d chunks; reason=estimated_duration %.1fs > max %.1fs",
+                scene.id,
+                len(chunks),
+                estimated_duration,
+                float(effective_max_seconds),
+            )
+            for chunk_index, chunk in enumerate(chunks):
+                chunk_scene = scene.model_copy(deep=True)
+                chunk_scene.narration = " ".join(chunk).strip()
+                chunk_scene.duration_estimate_seconds = max(
+                    1.0,
+                    round(estimated_duration * len(chunk) / len(sentences), 2),
+                )
+                chunk_scene.visual_beat = "static"
+                chunk_scene.frame_directives = _single_frame_directives(chunk_scene)
+                chunk_scene.image_url = ""
+                chunk_scene.audio_url = ""
+                chunk_scene.audio_duration_seconds = 0.0
+                chunk_scene.word_timestamps = None
+                chunk_scene.phrase_timestamps = None
+                chunk_scene.frame_urls = []
+                chunk_scene.media_source = "ai"
+                chunk_scene.video_url = ""
+                chunk_scene.upload_url = ""
+                chunk_scene.visual_source_metadata = None
+                if chunk_index > 0:
+                    chunk_scene.fx = None
+                    chunk_scene.eli_overlay = None
+                rewritten.append(chunk_scene)
+            split_count += 1
+        segment.scenes = rewritten
+
+    _renumber_scenes(content)
+    return split_count
+
+
+def _renumber_scenes(content: ScriptContent) -> None:
+    next_id = 1
+    for scene in content.all_scenes():
+        scene.id = f"scene_{next_id:03d}"
+        next_id += 1
+
+
+def enforce_life_as_a_visual_complexity(content: ScriptContent) -> int:
+    settings = life_as_a_chunking_settings()
+    single_visual_max = int(settings["single_visual_max"])
+    collapsed = 0
+    for scene in content.all_scenes():
+        if scene.is_title_card:
+            continue
+        estimated_duration = _scene_estimated_duration(scene, target_seconds=int(settings["target"]))
+        if estimated_duration <= single_visual_max and (
+            scene.visual_beat != "static" or len(scene.frame_directives or []) > 1
+        ):
+            scene.visual_beat = "static"
+            scene.frame_directives = _single_frame_directives(scene)
+            collapsed += 1
+            logger.info(
+                "[LIFE_AS_A_VISUALS] collapsed scene %s to one frame; reason=short_scene duration=%.1fs",
+                scene.id,
+                estimated_duration,
+            )
+        elif estimated_duration <= 14 and len(scene.frame_directives or []) > 2:
+            scene.frame_directives = list(scene.frame_directives[:2])
+            collapsed += 1
+            logger.info(
+                "[LIFE_AS_A_VISUALS] trimmed scene %s to two frames; reason=medium_scene duration=%.1fs",
+                scene.id,
+                estimated_duration,
+            )
+    return collapsed
+
+
 def _mark_protagonist_scenes(content: ScriptContent, *, eli_enabled: bool = True) -> int:
     role = life_as_a_role(content)
     updated = 0
@@ -205,6 +384,7 @@ def enforce_life_as_a_constraints(content: ScriptContent, *, eli_enabled: bool =
     - Coerce disallowed visual_beat values ('aha_subtitle', 'montage') back to 'static'.
     - Ensure each segment has a chapter-card scene at index 0 (is_title_card=True).
     - Synthesize content.levels[] from segments if Claude omitted it (defensive).
+    - Split long paragraph scenes into short single-beat render scenes.
     - Mark visible protagonist scenes so the active protagonist reference is used.
     """
     allowed = LIFE_AS_A_BEAT_RULES.allowed_beats
@@ -274,7 +454,9 @@ def enforce_life_as_a_constraints(content: ScriptContent, *, eli_enabled: bool =
             segment.scenes[0].narration = normalized
             logger.info("life-as-a: normalized chapter card narration for level %d", seg_idx + 1)
 
+    _split_life_as_a_scenes(content)
     _mark_protagonist_scenes(content, eli_enabled=eli_enabled)
+    enforce_life_as_a_visual_complexity(content)
 
     return content
 

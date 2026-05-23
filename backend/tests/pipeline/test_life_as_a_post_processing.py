@@ -9,13 +9,19 @@ from models.script import LevelMeta, MainCharacter, Scene, ScriptContent, Segmen
 from pipeline.formats.life_as_a import enforce_life_as_a_constraints
 
 
-def _scene(scene_id: str, beat: str = "static", title_card: bool = False) -> Scene:
+def _scene(
+    scene_id: str,
+    beat: str = "static",
+    title_card: bool = False,
+    duration_estimate_seconds: float = 8.0,
+) -> Scene:
     return Scene(
         id=scene_id,
         narration="x",
         visual_prompt="[ESTABLISHING] x",
         visual_beat=beat,
         is_title_card=title_card,
+        duration_estimate_seconds=duration_estimate_seconds,
     )
 
 
@@ -27,7 +33,7 @@ def test_disallowed_beats_coerced_to_static():
             Segment(name="Level 1, the entry", scenes=[
                 _scene("s1", beat="aha_subtitle"),
                 _scene("s2", beat="montage"),
-                _scene("s3", beat="continuous"),
+                _scene("s3", beat="continuous", duration_estimate_seconds=10.0),
             ]),
         ],
     )
@@ -50,7 +56,7 @@ def test_chapter_card_inserted_when_missing():
     )
     out = enforce_life_as_a_constraints(content)
     assert out.segments[0].scenes[0].is_title_card is True
-    assert out.segments[0].scenes[0].id == "chapter_01"
+    assert out.segments[0].scenes[0].id == "scene_001"
     assert out.segments[0].scenes[0].narration == "The entry."
 
 
@@ -278,3 +284,217 @@ def test_life_as_a_unknown_role_head_noun_marks_protagonist_scene():
     assert scene.contains_person is True
     assert scene.visual_prompt.startswith("[REACTION] Eli, the recurring character")
     assert "Depict Eli as Medieval Knight" in scene.visual_prompt
+
+
+def test_life_as_a_splits_overlong_scene_into_short_static_chunks(monkeypatch):
+    monkeypatch.setenv("LIFE_AS_A_SCENE_CHUNKING_ENABLED", "true")
+    monkeypatch.setenv("LIFE_AS_A_TARGET_SCENE_SECONDS", "8")
+    monkeypatch.setenv("LIFE_AS_A_MAX_SCENE_SECONDS", "12")
+    monkeypatch.setenv("LIFE_AS_A_SINGLE_VISUAL_MAX_SECONDS", "8")
+    content = ScriptContent(
+        title="Your Life As A Prison Guard",
+        format_id="life-as-a",
+        segments=[
+            Segment(name="Level 1, the entry", scenes=[
+                Scene(
+                    id="s1",
+                    narration=(
+                        "You sign the clipboard before sunrise. "
+                        "The keys feel heavier than you expected. "
+                        "A senior guard points without looking up. "
+                        "You learn which doors make the loudest sound. "
+                        "By lunch, the hallway already feels familiar."
+                    ),
+                    visual_prompt="[ESTABLISHING] A prison guard entering a corridor before sunrise",
+                    duration_estimate_seconds=40.0,
+                    visual_beat="quick_cuts",
+                    contains_person=True,
+                    frame_directives=[
+                        {
+                            "prompt": "[ESTABLISHING] A prison guard entering a corridor before sunrise",
+                            "source": "ai_generated",
+                            "transition": "cut",
+                            "reference_previous": False,
+                            "search_query": "",
+                            "contains_person": True,
+                        },
+                        {
+                            "prompt": "[CLOSE-UP] A key ring in a hand",
+                            "source": "ai_generated",
+                            "transition": "cut",
+                            "reference_previous": False,
+                            "search_query": "",
+                            "contains_person": True,
+                        },
+                    ],
+                ),
+            ]),
+        ],
+    )
+
+    out = enforce_life_as_a_constraints(content)
+    scenes = out.segments[0].scenes
+
+    assert scenes[0].is_title_card is True
+    assert [scene.id for scene in scenes] == [
+        "scene_001",
+        "scene_002",
+        "scene_003",
+        "scene_004",
+        "scene_005",
+        "scene_006",
+    ]
+    split_scenes = scenes[1:]
+    assert [scene.narration for scene in split_scenes] == [
+        "You sign the clipboard before sunrise.",
+        "The keys feel heavier than you expected.",
+        "A senior guard points without looking up.",
+        "You learn which doors make the loudest sound.",
+        "By lunch, the hallway already feels familiar.",
+    ]
+    assert all(scene.visual_beat == "static" for scene in split_scenes)
+    assert all(len(scene.frame_directives) == 1 for scene in split_scenes)
+    assert all(scene.media_source == "ai" for scene in split_scenes)
+
+
+def test_life_as_a_chapter_card_is_not_split(monkeypatch):
+    monkeypatch.setenv("LIFE_AS_A_SCENE_CHUNKING_ENABLED", "true")
+    content = ScriptContent(
+        title="Your Life As A Prison Guard",
+        format_id="life-as-a",
+        segments=[
+            Segment(name="Level 1, the entry", scenes=[
+                Scene(
+                    id="chapter",
+                    narration=(
+                        "The entry. The keys. The corridor. The first hour. "
+                        "The first mistake. The locked door."
+                    ),
+                    visual_prompt="[ESTABLISHING] A heavy prison door",
+                    duration_estimate_seconds=40.0,
+                    is_title_card=True,
+                ),
+                _scene("s1"),
+            ]),
+        ],
+    )
+
+    out = enforce_life_as_a_constraints(content)
+
+    assert len(out.segments[0].scenes) == 2
+    assert out.segments[0].scenes[0].is_title_card is True
+    assert out.segments[0].scenes[0].narration == "The entry."
+
+
+def test_life_as_a_short_scene_collapses_multi_frame_directives(monkeypatch):
+    monkeypatch.setenv("LIFE_AS_A_SINGLE_VISUAL_MAX_SECONDS", "8")
+    content = ScriptContent(
+        title="Your Life As A Prison Guard",
+        format_id="life-as-a",
+        segments=[
+            Segment(name="Level 1, the entry", scenes=[
+                Scene(
+                    id="s1",
+                    narration="You hear the lock click.",
+                    visual_prompt="[CLOSE-UP] A guard listening to a lock click",
+                    duration_estimate_seconds=6.0,
+                    visual_beat="continuous",
+                    contains_person=True,
+                    frame_directives=[
+                        {
+                            "prompt": "[CLOSE-UP] A guard listening to a lock click",
+                            "source": "ai_generated",
+                            "transition": "crossfade",
+                            "reference_previous": True,
+                            "search_query": "",
+                            "contains_person": True,
+                        },
+                        {
+                            "prompt": "[REACTION] A guard turning toward the door",
+                            "source": "ai_generated",
+                            "transition": "crossfade",
+                            "reference_previous": True,
+                            "search_query": "",
+                            "contains_person": True,
+                        },
+                    ],
+                ),
+            ]),
+        ],
+    )
+
+    out = enforce_life_as_a_constraints(content)
+    scene = out.segments[0].scenes[1]
+
+    assert scene.visual_beat == "static"
+    assert len(scene.frame_directives) == 1
+    assert scene.frame_directives[0].transition == "cut"
+    assert scene.frame_directives[0].reference_previous is False
+
+
+def test_life_as_a_sentence_count_splits_when_default_duration_masks_long_scene(monkeypatch):
+    monkeypatch.setenv("LIFE_AS_A_TARGET_SCENE_SECONDS", "8")
+    monkeypatch.setenv("LIFE_AS_A_MAX_SCENE_SECONDS", "12")
+    content = ScriptContent(
+        title="Your Life As A Prison Guard",
+        format_id="life-as-a",
+        segments=[
+            Segment(name="Level 1, the entry", scenes=[
+                Scene(
+                    id="s1",
+                    narration=(
+                        "You wake before the alarm. "
+                        "The uniform waits on the chair. "
+                        "The shoes still hurt. "
+                        "The radio keeps hissing."
+                    ),
+                    visual_prompt="[ESTABLISHING] A guard uniform on a chair",
+                ),
+            ]),
+        ],
+    )
+
+    out = enforce_life_as_a_constraints(content)
+
+    assert len(out.segments[0].scenes) == 5
+
+
+def test_life_as_a_split_scenes_preserve_segment_order(monkeypatch):
+    monkeypatch.setenv("LIFE_AS_A_TARGET_SCENE_SECONDS", "8")
+    monkeypatch.setenv("LIFE_AS_A_MAX_SCENE_SECONDS", "12")
+    content = ScriptContent(
+        title="Your Life As A Prison Guard",
+        format_id="life-as-a",
+        segments=[
+            Segment(name="Level 1, the entry", scenes=[
+                Scene(
+                    id="a",
+                    narration="You arrive early. You check the door. You touch the cold key.",
+                    visual_prompt="[CLOSE-UP] A cold key",
+                    duration_estimate_seconds=24.0,
+                ),
+            ]),
+            Segment(name="Level 2, the routine", scenes=[
+                Scene(
+                    id="b",
+                    narration="You know the hallway. You know the voices. You know the silences.",
+                    visual_prompt="[ESTABLISHING] A prison hallway",
+                    duration_estimate_seconds=24.0,
+                ),
+            ]),
+        ],
+    )
+
+    out = enforce_life_as_a_constraints(content)
+
+    assert [segment.name for segment in out.segments] == ["Level 1, the entry", "Level 2, the routine"]
+    assert [scene.narration for scene in out.segments[0].scenes[1:]] == [
+        "You arrive early.",
+        "You check the door.",
+        "You touch the cold key.",
+    ]
+    assert [scene.narration for scene in out.segments[1].scenes[1:]] == [
+        "You know the hallway.",
+        "You know the voices.",
+        "You know the silences.",
+    ]

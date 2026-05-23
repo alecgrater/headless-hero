@@ -410,12 +410,12 @@ Critically different from listicle scenes:
 
 | | listicle | life-as-a |
 |---|---|---|
-| Narration per scene | 1–2 sentences | 3–8 sentences, paragraph-shaped |
-| Duration per scene | ~5–10s | ~10–25s |
+| Narration per scene | 1–2 sentences | 1–2 sentences, single visual beat |
+| Duration per scene | ~5–10s | ~5–9s |
 | Visual beats | varied (static/quick_cuts/montage/aha) | balanced `static`, `continuous`, and `quick_cuts` |
 | Transitions | varied with intentional energy | mostly `cut`, occasional `crossfade` for time-passage |
 
-Each non-title scene should be **3–8 sentences** of narration, shaped as a small paragraph. Aim for ~10–25 seconds of speech per scene. Resist the urge to break paragraphs into fragments — the long form is the point. Paragraphs may end mid-thought; trust the next scene to carry it.
+Each non-title scene should be **1–2 sentences** of narration and represent exactly one visual/narrative beat. Aim for **5–9 seconds** of speech per scene. Preserve the literary register through sentence texture and scene-to-scene flow, not by packing several moments into one long paragraph.
 
 ---
 
@@ -450,19 +450,19 @@ Levels overlap at the edges. The protagonist is already deep into level N before
 
 The visual beat distribution is constrained for this format:
 
-- **`static`: 45–60%** of non-chapter-card scenes. Use a single strong image when the paragraph is emotionally unified.
-- **`continuous`: 25–35%** for time-passage moments where the camera or subject drifts (a kitchen filling and emptying through a year, a chair gathering dust). Use 2–4 frame directives.
-- **`quick_cuts`: 15–25%** for compressed routines, repeated procedures, sensory lists, and the accumulation of small consequences ("you go four times in the second year, then six"). Use 3–6 independent frame directives.
+- **`static`: 60–75%** of non-chapter-card scenes. Use a single strong image for one clear lived moment.
+- **`continuous`: 15–25%** for time-passage moments where a single space or subject changes. Use only when the scene clearly needs visual progression and has enough duration; otherwise keep it static.
+- **`quick_cuts`: 5–15%** for compressed routines or sensory lists. Use sparingly, and only when the scene duration supports multiple images.
 - **`aha_subtitle`: DISABLED.** This beat breaks the literary register and must never appear in a life-as-a script.
 - **`montage`: DISABLED.** Real-photo intercutting breaks immersion in the second-person present-tense world.
 
-Do not allow three non-title-card `static` scenes in a row. A life-as-a video should often have multiple generated images within a scene; visual variety comes from both paragraph-to-paragraph composition changes and multi-frame `continuous` / `quick_cuts` scenes.
+Do not use multiple generated images inside short scenes. Visual variety should come primarily from more scene boundaries, not packing several photos into one scene.
 
 Shot-type palette: every `visual_prompt` MUST begin with one of `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, `[METAPHOR]`. `[DIAGRAM]` and `[SCALE]` are de-prioritized — this format is not explanatory. Visual prompts must NEVER ask for text, letters, words, labels, or written characters in the image.
 
 Eli is the visual identity of the second-person protagonist. When a life-as-a visual depicts the protagonist, the role named in the title, or a visible main person (for example a guard in "Your Life As A Guard"), the primary subject MUST be Eli in that role. If other people appear, they are secondary and visually distinct from Eli. Object-only, room-only, and atmosphere shots can omit Eli.
 
-For multi-frame `continuous` scenes, frames should show subtle progression of the SAME scene (reference_previous: true, transition: "crossfade"). For `quick_cuts`, every frame should be a distinct image with reference_previous: false and transition: "cut".
+For multi-frame `continuous` scenes, frames should show subtle progression of the SAME scene (reference_previous: true, transition: "crossfade"). For `quick_cuts`, every frame should be a distinct image with reference_previous: false and transition: "cut". Scenes at or below 8 seconds should use exactly one frame directive.
 
 ---
 
@@ -493,9 +493,9 @@ Return ONLY valid JSON — no markdown fences, no commentary. The JSON must have
       "scenes": [
         {
           "id": "scene_001",
-          "narration": "3-8 sentences of paragraph-shaped narration in second person, present tense.",
+          "narration": "1-2 sentences in second person, present tense; one visual beat.",
           "visual_prompt": "[ESTABLISHING] A vivid description of the image.",
-          "duration_estimate_seconds": 18,
+          "duration_estimate_seconds": 8,
           "is_title_card": false,
           "visual_beat": "static",
           "contains_person": true,
@@ -516,7 +516,7 @@ Output rules:
 - `intro_hook` is the very first lines the viewer hears; it must already be in second person, present tense, and must NOT greet the viewer.
 - `outro_cta` is editor metadata only. Do NOT fold its language into scene narration.
 - Each level's first scene is a chapter card (`is_title_card: true`, `visual_beat: "static"`, `frame_directives: []`) whose narration is ONLY the descriptor phrase, without the level label or number (for example, "The occasional."). The TTS pipeline adds "Level N" once at audio generation time.
-- After the chapter card, write paragraph-shaped scenes (3–8 sentences each, ~10–25s).
+- After the chapter card, write short single-beat scenes (1–2 sentences each, ~5–9s).
 - `visual_prompt` MUST begin with `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, or `[METAPHOR]`.
 - Scene IDs must be unique and sequential across the entire script: `scene_001`, `scene_002`, etc.
 - Visual prompts must NEVER request text, letters, words, labels, or written characters in the image.
@@ -631,7 +631,7 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
       "id": "scene_001",
       "narration": "...",
       "visual_prompt": "[ESTABLISHING|CLOSE-UP|REACTION|METAPHOR] ...",
-      "duration_estimate_seconds": 18,
+      "duration_estimate_seconds": 8,
       "is_title_card": false,
       "visual_beat": "static",
       "contains_person": true,
@@ -647,8 +647,8 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 
 ### Scene shape
 - The FIRST scene of this level MUST be a chapter card: `is_title_card: true`, `visual_beat: "static"`, `frame_directives: []`. Its narration is ONLY the descriptor phrase, without the level label or number — e.g. "The occasional." (one short sentence). The TTS pipeline adds "Level N" once at audio generation time.
-- After the chapter card, write paragraph-shaped scenes. Each non-title scene should be **3–8 sentences** of narration and run roughly **10–25 seconds** of speech. Do NOT chop paragraphs into 1–2 sentence fragments — the long form is the point.
-- There is no fixed scene count for a level. Let the narration and the level's topic_summary determine how many scenes the level needs. Most levels will have 4–8 content scenes after the chapter card.
+- After the chapter card, write short single-beat scenes. Each non-title scene should be **1–2 sentences** of narration and run roughly **5–9 seconds** of speech. Each scene must describe one visual moment, action, or realization.
+- There is no fixed scene count for a level. Let the narration and the level's topic_summary determine how many scenes the level needs. Most levels will have 8–14 short content scenes after the chapter card.
 - Scene IDs start at `scene_001` within this level (they will be renumbered globally later).
 
 ### Voice
@@ -666,9 +666,9 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 - If this level is the FINAL level of the video, the closing scene MUST end on the `closing_image` chosen in the outline. The image must be specific and earned. The register (cautionary vs reflective) was chosen in the outline — match it. Never moralize. Never wrap it in a bow. Trust the image.
 
 ### Visual beats (strict)
-- `visual_beat` is `"static"` for 45–60% of non-title scenes in this level. Do not use three static content scenes in a row.
-- Use `"continuous"` for 25–35% of non-title scenes, especially time-passage moments where a single space drifts across a span (a kitchen filling and emptying, a chair gathering dust). Provide 2–4 frame directives.
-- Use `"quick_cuts"` for 15–25% of non-title scenes, especially repeated routines, compressed time, sensory lists, and accumulating consequences ("you go four times in the second year, then six"). Provide 3–6 independent frame directives.
+- `visual_beat` is `"static"` for 60–75% of non-title scenes in this level. Short scenes should usually be static.
+- Use `"continuous"` for 15–25% of non-title scenes, especially time-passage moments where a single space drifts across a span. Use 2 frame directives only when the scene duration clearly supports progression.
+- Use `"quick_cuts"` for 5–15% of non-title scenes, especially repeated routines, compressed time, or sensory lists. Use sparingly, and avoid it for scenes at or below 8 seconds.
 - NEVER use `"aha_subtitle"`. NEVER use `"montage"`. These beats are DISABLED for this format.
 - Every `visual_prompt` MUST begin with `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, or `[METAPHOR]`. `[DIAGRAM]` and `[SCALE]` are de-prioritized for this format.
 - Visual prompts must NEVER request text, letters, words, labels, or written characters in the image.
@@ -684,7 +684,7 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 - The `"scenes"` array must be a FLAT list of scene dicts. Never wrap them under level objects, never add other top-level keys.
 """,
     retention=RetentionMeta(
-        goal="Produce paragraph-shaped, sensorially-anchored scenes that progress within one level without breaking voice",
+        goal="Produce short, sensorially-anchored single-beat scenes that progress within one level without breaking voice",
         failure_mode="Reverts to listicle cadence; thin sensory detail; announced level shifts",
         metrics_to_watch=["segment_retention_curve", "comments_emotional_resonance"],
     ),

@@ -16,11 +16,11 @@ def _write_video_metadata(tmp_path, script_id: str, scene_id: str, duration_seco
     )
 
 
-def test_video_scene_duration_caps_to_shorter_clip_metadata(tmp_path, monkeypatch):
+def test_ai_video_scene_slows_clip_when_short_by_25_percent_or_less(tmp_path, monkeypatch):
     monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
     monkeypatch.setattr(remotion_render, "_probe_video_duration", lambda _path: None)
     script_id = "script-1"
-    _write_video_metadata(tmp_path, script_id, "scene-1", 5.0)
+    _write_video_metadata(tmp_path, script_id, "scene-1", 10.0)
     scene = Scene(
         id="scene-1",
         narration="Long narration.",
@@ -31,9 +31,34 @@ def test_video_scene_duration_caps_to_shorter_clip_metadata(tmp_path, monkeypatc
 
     props = remotion_render._scene_to_input_props(scene, script_id)
 
-    assert props["duration_seconds"] == 5.0
+    assert props["duration_seconds"] == 12.0
     assert props["media_type"] == "video"
+    assert props["video_playback_rate"] == 10.0 / 12.0
     assert props["video_path"].endswith("/static/projects/script-1/videos/scene-1.mp4")
+
+
+def test_ai_video_scene_falls_back_to_image_when_slowdown_would_exceed_25_percent(tmp_path, monkeypatch):
+    monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(remotion_render, "_probe_video_duration", lambda _path: None)
+    script_id = "script-1"
+    _write_video_metadata(tmp_path, script_id, "scene-1", 5.0)
+    image_dir = tmp_path / "projects" / script_id / "images"
+    image_dir.mkdir(parents=True)
+    (image_dir / "scene-1.png").write_bytes(b"fake image")
+    scene = Scene(
+        id="scene-1",
+        narration="Long narration.",
+        visual_prompt="Animated explainer.",
+        media_source="ai_video",
+        audio_duration_seconds=12.0,
+    )
+
+    props = remotion_render._scene_to_input_props(scene, script_id)
+
+    assert props["duration_seconds"] == 12.0
+    assert props["media_type"] is None
+    assert props["video_path"] is None
+    assert props["image_path"].endswith("/static/projects/script-1/images/scene-1.png")
 
 
 def test_video_scene_duration_keeps_audio_when_clip_is_long_enough(tmp_path, monkeypatch):
@@ -54,7 +79,7 @@ def test_video_scene_duration_keeps_audio_when_clip_is_long_enough(tmp_path, mon
     assert props["duration_seconds"] == 7.0
 
 
-def test_chapter_marker_total_frames_use_capped_video_duration(tmp_path, monkeypatch):
+def test_chapter_marker_total_frames_use_full_ai_video_audio_duration(tmp_path, monkeypatch):
     monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
     monkeypatch.setattr(remotion_render, "_probe_video_duration", lambda _path: None)
     script_id = "script-1"
@@ -79,4 +104,4 @@ def test_chapter_marker_total_frames_use_capped_video_duration(tmp_path, monkeyp
 
     _markers, total_frames = remotion_render._compute_chapter_markers(content, script_id, fps=30)
 
-    assert total_frames == 150
+    assert total_frames == 360

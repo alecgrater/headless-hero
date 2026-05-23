@@ -162,19 +162,31 @@ def normalize_media_assignments_for_sources(
             ))
         elif assignment.media_source == "ai_video" and script_content is not None:
             scene = scenes_by_id.get(assignment.scene_id)
+            if scene is not None and scene.media_source in {"gameplay_video", "stock_photo", "user_upload"}:
+                logger.info(
+                    "[MEDIA_ANALYSIS] skipped stale ai_video scene %s; reason=current_media_source %s is protected",
+                    assignment.scene_id,
+                    scene.media_source,
+                )
+                continue
             if scene is None or not is_ai_video_eligible(
                 scene,
                 current_source=scene.media_source if scene is not None else "ai",
                 require_eli_scene=require_eli_scene_for_ai_video,
                 life_as_a_role=life_as_a_role,
+                enforce_duration_cap=False,
             ):
                 normalized.append(MediaAssignment(
                     scene_id=assignment.scene_id,
                     media_source="ai",
                     game_name=None,
                     search_query=None,
-                    reasoning="AI video assignment no longer fits the latest scene timing or content.",
+                    reasoning="AI video assignment no longer fits the latest scene timing, media source, or content.",
                 ))
+                logger.info(
+                    "[MEDIA_ANALYSIS] downgraded ai_video scene %s; reason=latest scene is ineligible",
+                    assignment.scene_id,
+                )
             else:
                 normalized.append(assignment)
         else:
@@ -203,6 +215,10 @@ def require_media_analysis_voiceover(content: ScriptContent) -> None:
     """Raise a user-facing job error when media analysis lacks voiceover timing."""
     missing_voiceover = missing_voiceover_scene_ids(content)
     if missing_voiceover:
+        logger.info(
+            "[MEDIA_ANALYSIS] blocked; reason=missing voiceover durations count=%d",
+            len(missing_voiceover),
+        )
         raise UserFacingJobError(
             media_analysis_voiceover_required_message(len(missing_voiceover))
         )
@@ -218,6 +234,10 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
     content = ScriptContent.model_validate(json.loads(record.script_json))
     missing_voiceover = missing_voiceover_scene_ids(content)
     if missing_voiceover:
+        logger.info(
+            "[MEDIA_ANALYSIS] blocked; reason=missing voiceover durations count=%d",
+            len(missing_voiceover),
+        )
         raise HTTPException(
             status_code=409,
             detail=media_analysis_voiceover_required_message(len(missing_voiceover)),
@@ -227,7 +247,7 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
     job_id = job.id
 
     def _run_analysis() -> list[str]:
-        update_job(job_id, current_step="Analyzing script for media sources...")
+        update_job(job_id, current_step="Validating media analysis against voiceover durations...")
 
         from database import engine
         from sqlmodel import Session as SqlSession
@@ -242,6 +262,7 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
         gameplay_enabled, stock_photo_enabled, ai_video_enabled = media_analysis_source_flags(fresh_raw)
 
         if gameplay_enabled or stock_photo_enabled or ai_video_enabled:
+            update_job(job_id, current_step="Analyzing script for media sources...")
             assignments = analyze_media_sources(
                 fresh_content,
                 gameplay_enabled=gameplay_enabled,
@@ -269,8 +290,10 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
                 raise RuntimeError(f"Script {script_id} deleted during media analysis")
             final_raw = json.loads(rec.script_json)
             final_content = ScriptContent.model_validate(final_raw)
+            update_job(job_id, current_step="Validating media analysis against voiceover durations...")
             require_media_analysis_voiceover(final_content)
             final_gameplay_enabled, final_stock_photo_enabled, final_ai_video_enabled = media_analysis_source_flags(final_raw)
+            update_job(job_id, current_step="Downgrading stale AI video assignments...")
             final_assignments = normalize_media_assignments_for_sources(
                 assignments,
                 script_content=final_content,

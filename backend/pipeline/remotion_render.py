@@ -25,6 +25,7 @@ REMOTION_ENTRY = REMOTION_DIR / "src" / "index.ts"
 
 
 BACKEND_STATIC_BASE = f"http://localhost:{BACKEND_PORT}/static/projects"
+MAX_AI_VIDEO_SLOWDOWN_RATIO = 1.25
 
 
 def _to_remotion_path(abs_path: str) -> str:
@@ -165,26 +166,61 @@ def _base_scene_duration(scene: Scene) -> float:
     return scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else scene.duration_estimate_seconds
 
 
-def _scene_render_duration(scene: Scene, script_id: str, video_path: Path | None = None) -> float:
-    """Return the Remotion sequence duration for a scene.
-
-    Video-backed scenes end at the clip boundary when the clip is shorter than
-    narration, preventing Remotion from holding the last frame while FX continue.
-    """
+def _scene_video_render_plan(
+    scene: Scene,
+    script_id: str,
+    video_path: Path | None = None,
+) -> tuple[float, bool, float | None]:
+    """Return (duration_seconds, use_video, video_playback_rate)."""
     duration = _base_scene_duration(scene)
     local_video_path = video_path or _scene_video_path(script_id, scene)
     if not local_video_path:
-        return duration
+        return duration, False, None
 
     clip_duration = _video_clip_duration(local_video_path)
-    if clip_duration and clip_duration + (1 / FPS) < duration:
-        logger.info(
-            "Capping video scene %s duration from %.3fs to clip duration %.3fs",
+    if not clip_duration or clip_duration + (1 / FPS) >= duration:
+        return duration, True, None
+
+    if scene.media_source == "ai_video":
+        slowdown_ratio = duration / clip_duration
+        if slowdown_ratio <= MAX_AI_VIDEO_SLOWDOWN_RATIO:
+            playback_rate = clip_duration / duration
+            logger.warning(
+                "[AI_VIDEO] slowed scene %s; audio_duration=%.1fs clip_duration=%.1fs slowdown=%.2fx max=%.2fx",
+                scene.id,
+                duration,
+                clip_duration,
+                slowdown_ratio,
+                MAX_AI_VIDEO_SLOWDOWN_RATIO,
+            )
+            return duration, True, playback_rate
+
+        logger.warning(
+            "[AI_VIDEO] downgraded scene %s to image render; reason=clip_duration %.1fs requires slowdown %.2fx > max %.2fx for audio_duration %.1fs",
             scene.id,
-            duration,
             clip_duration,
+            slowdown_ratio,
+            MAX_AI_VIDEO_SLOWDOWN_RATIO,
+            duration,
         )
-        return clip_duration
+        return duration, False, None
+
+    logger.info(
+        "Capping video scene %s duration from %.3fs to clip duration %.3fs",
+        scene.id,
+        duration,
+        clip_duration,
+    )
+    return clip_duration, True, None
+
+
+def _scene_render_duration(scene: Scene, script_id: str, video_path: Path | None = None) -> float:
+    """Return the Remotion sequence duration for a scene.
+
+    AI video may slow down slightly or fall back to its anchor image; other
+    video-backed scenes end at the clip boundary when the clip is shorter.
+    """
+    duration, _use_video, _playback_rate = _scene_video_render_plan(scene, script_id, video_path)
     return duration
 
 
@@ -241,7 +277,8 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
     video_path: str | None = None
     local_video_path = _scene_video_path(script_id, scene)
     media_type = "image"
-    if local_video_path:
+    duration, use_video, video_playback_rate = _scene_video_render_plan(scene, script_id, local_video_path)
+    if local_video_path and use_video:
         video_path = _to_remotion_path(str(local_video_path))
         media_type = "video"
 
@@ -252,7 +289,6 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
             image_path = tc_path
 
     # Parse FX if stored as dict — resolve trigger_word → trigger_frame
-    duration = _scene_render_duration(scene, script_id, local_video_path)
     fx = _resolve_zoom_punch_frame(scene.fx, scene.word_timestamps, duration)
 
     # Eli overlay passes through as a dict for the Remotion JSON payload
@@ -288,6 +324,7 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
         "transition_in": scene.transition_in if scene.transition_in != "cut" else None,
         "media_type": media_type if media_type != "image" else None,
         "video_path": video_path,
+        "video_playback_rate": video_playback_rate,
         "chapter_overlay": chapter_overlay,
     }
 

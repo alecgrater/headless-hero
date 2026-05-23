@@ -53,6 +53,7 @@ def test_non_static_beats_without_directives_are_repaired():
     scene = _static_scene("scene_001")
     scene.visual_beat = "continuous"
     scene.frame_directives = []
+    scene.duration_estimate_seconds = 10.0
     content = ScriptContent(
         title="Your Life As A Test",
         format_id="life-as-a",
@@ -61,5 +62,5 @@ def test_non_static_beats_without_directives_are_repaired():
 
     _ensure_visual_beat_directives(content)
 
-    assert len(scene.frame_directives) == 3
+    assert len(scene.frame_directives) == 2
     assert scene.frame_directives[1].reference_previous is True

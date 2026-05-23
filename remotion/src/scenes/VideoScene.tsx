@@ -1,7 +1,7 @@
 /**
  * VideoScene — renders a video clip (gameplay footage or user upload)
  * using Remotion's OffthreadVideo for frame-accurate playback.
- * Scene duration is capped by the backend when the source clip is shorter.
+ * AI video can be slowed slightly by the backend to cover narration.
  */
 import React from "react";
 import { OffthreadVideo } from "remotion";
@@ -36,6 +36,7 @@ export const VideoScene: React.FC<Props> = ({ scene }) => {
   return (
     <OffthreadVideo
       src={src}
+      playbackRate={scene.video_playback_rate ?? 1}
       style={{
         width: "100%",
         height: "100%",

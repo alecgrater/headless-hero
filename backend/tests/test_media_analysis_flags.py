@@ -95,7 +95,7 @@ def test_normalize_media_assignments_coerces_disabled_sources_to_ai():
     assert normalized[3].reasoning == "ai fits"
 
 
-def test_normalize_media_assignments_downgrades_stale_ai_video_for_final_duration():
+def test_normalize_media_assignments_preserves_stale_ai_video_for_final_duration():
     content = ScriptContent(
         title="Final duration",
         segments=[
@@ -124,11 +124,11 @@ def test_normalize_media_assignments_downgrades_stale_ai_video_for_final_duratio
         ai_video_enabled=True,
     )
 
-    assert normalized[0].media_source == "ai"
-    assert normalized[0].reasoning == "AI video assignment no longer fits the latest scene timing or content."
+    assert normalized[0].media_source == "ai_video"
+    assert normalized[0].reasoning == "Was eligible before voiceover changed"
 
 
-def test_normalize_media_assignments_downgrades_stale_ai_video_for_current_source():
+def test_normalize_media_assignments_preserves_protected_current_source():
     content = ScriptContent(
         title="User upload race",
         segments=[
@@ -158,8 +158,7 @@ def test_normalize_media_assignments_downgrades_stale_ai_video_for_current_sourc
         ai_video_enabled=True,
     )
 
-    assert normalized[0].media_source == "ai"
-    assert normalized[0].reasoning == "AI video assignment no longer fits the latest scene timing or content."
+    assert normalized == []
 
 
 def test_missing_voiceover_scene_ids_requires_audio_duration_for_every_scene():

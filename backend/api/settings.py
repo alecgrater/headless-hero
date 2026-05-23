@@ -17,6 +17,12 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
+RANGED_INTEGER_SETTINGS = {
+    "LIFE_AS_A_TARGET_SCENE_SECONDS": (5, 12),
+    "LIFE_AS_A_MAX_SCENE_SECONDS": (8, 18),
+    "LIFE_AS_A_SINGLE_VISUAL_MAX_SECONDS": (5, 12),
+}
+
 # Keys that can be managed through the settings UI
 ALLOWED_KEYS = {
     "ANTHROPIC_API_KEY",
@@ -31,6 +37,10 @@ ALLOWED_KEYS = {
     "AI_VIDEO_ENABLED",
     "AI_VIDEO_PROVIDER",
     "AI_VIDEO_SCENES_PER_SEGMENT",
+    "LIFE_AS_A_SCENE_CHUNKING_ENABLED",
+    "LIFE_AS_A_TARGET_SCENE_SECONDS",
+    "LIFE_AS_A_MAX_SCENE_SECONDS",
+    "LIFE_AS_A_SINGLE_VISUAL_MAX_SECONDS",
     "RUNWAYML_API_SECRET",
     "FAL_API_KEY",
     "FAL_VIDEO_MODEL",
@@ -74,6 +84,10 @@ _PLAINTEXT_KEYS = {
     "AI_VIDEO_ENABLED",
     "AI_VIDEO_PROVIDER",
     "AI_VIDEO_SCENES_PER_SEGMENT",
+    "LIFE_AS_A_SCENE_CHUNKING_ENABLED",
+    "LIFE_AS_A_TARGET_SCENE_SECONDS",
+    "LIFE_AS_A_MAX_SCENE_SECONDS",
+    "LIFE_AS_A_SINGLE_VISUAL_MAX_SECONDS",
     "FAL_VIDEO_MODEL",
     "IMAGE_SCRAPER_FALLBACK_ENABLED",
     "REPLICATE_MODEL",
@@ -107,6 +121,10 @@ _DEFAULTS: dict[str, str] = {
     "AI_VIDEO_ENABLED": "false",
     "AI_VIDEO_PROVIDER": "runway",
     "AI_VIDEO_SCENES_PER_SEGMENT": "2",
+    "LIFE_AS_A_SCENE_CHUNKING_ENABLED": "true",
+    "LIFE_AS_A_TARGET_SCENE_SECONDS": "8",
+    "LIFE_AS_A_MAX_SCENE_SECONDS": "12",
+    "LIFE_AS_A_SINGLE_VISUAL_MAX_SECONDS": "8",
     "FAL_VIDEO_MODEL": "fal-ai/wan/v2.2-a14b/image-to-video/turbo",
     "SCRIPT_MODEL": DEFAULT_CLAUDE_MODEL,
     "AUDIO_FILTER_HIGHPASS": "true",
@@ -167,6 +185,26 @@ def load_keys_into_env(session: Session) -> None:
         logger.info("Applied %d default values for unset keys: %s", len(applied_defaults), ", ".join(applied_defaults))
 
 
+def _validate_ranged_integer_settings(keys: dict[str, str]) -> None:
+    for key, (minimum, maximum) in RANGED_INTEGER_SETTINGS.items():
+        if key not in keys:
+            continue
+        raw_value = (keys[key] or "").strip()
+        try:
+            value = int(raw_value)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid {key}: must be an integer from {minimum} to {maximum}.",
+            )
+        if value < minimum or value > maximum:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid {key}: must be an integer from {minimum} to {maximum}.",
+            )
+        keys[key] = str(value)
+
+
 @router.get("/keys")
 async def get_keys(session: Session = Depends(get_session)):
     """Return which API keys are configured (masked values)."""
@@ -219,6 +257,7 @@ async def save_keys(
                 detail="Invalid AI_VIDEO_SCENES_PER_SEGMENT: must be an integer from 0 to 5.",
             )
         keys["AI_VIDEO_SCENES_PER_SEGMENT"] = str(scenes_per_segment)
+    _validate_ranged_integer_settings(keys)
     for provider_key in provider_keys.intersection(keys):
         provider = (keys[provider_key] or "").strip().lower()
         if provider and provider not in ALLOWED_PROVIDERS:

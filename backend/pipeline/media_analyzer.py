@@ -102,6 +102,7 @@ def is_ai_video_eligible(
     *,
     require_eli_scene: bool = False,
     life_as_a_role: str = "",
+    enforce_duration_cap: bool = True,
 ) -> bool:
     if scene.is_title_card:
         return False
@@ -110,7 +111,11 @@ def is_ai_video_eligible(
     if scene.visual_beat == "aha_subtitle":
         return False
     known_audio_duration = _known_audio_duration_seconds(scene)
-    if known_audio_duration is not None and known_audio_duration > AI_VIDEO_MAX_ROUTED_DURATION_SECONDS:
+    if (
+        enforce_duration_cap
+        and known_audio_duration is not None
+        and known_audio_duration > AI_VIDEO_MAX_ROUTED_DURATION_SECONDS
+    ):
         return False
     if not scene.visual_prompt.strip():
         return False
@@ -429,6 +434,16 @@ def analyze_media_sources(
         assignments_by_scene[scene.id]
         for scene in script_content.all_scenes()
     ]
+    for assignment in assignments:
+        if assignment.media_source == "ai_video":
+            scene = scenes_by_id.get(assignment.scene_id)
+            duration = scene.audio_duration_seconds if scene else 0.0
+            logger.info(
+                "[AI_VIDEO] selected scene %s; duration=%.1fs cap=%.1fs",
+                assignment.scene_id,
+                duration,
+                AI_VIDEO_MAX_ROUTED_DURATION_SECONDS,
+            )
 
     logger.info("[%s] Media analysis complete: %d ai, %d ai_video, %d gameplay, %d stock",
                 script_id or "no-id",

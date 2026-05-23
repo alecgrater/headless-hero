@@ -171,6 +171,10 @@ def _synthesize_frame_directives(scene: Scene, beat: str) -> None:
 def _ensure_visual_beat_directives(content: ScriptContent) -> None:
     for scene in content.all_scenes():
         _synthesize_frame_directives(scene, scene.visual_beat or "static")
+    if content.format_id == "life-as-a":
+        from pipeline.formats.life_as_a import enforce_life_as_a_visual_complexity
+
+        enforce_life_as_a_visual_complexity(content)
 
 
 def _find_runs(labels: list[str], skip: set[str], threshold: int = 3) -> list[tuple[str, int, int, int]]:

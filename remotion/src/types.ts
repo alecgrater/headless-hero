@@ -116,6 +116,7 @@ export interface SceneInput {
   // Multi-source media
   media_type?: "image" | "video";
   video_path?: string | null;
+  video_playback_rate?: number | null;
 
   // Cinematic-chapters chapter title overlay
   chapter_overlay?: ChapterOverlay | null;

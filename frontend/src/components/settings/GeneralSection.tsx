@@ -325,6 +325,10 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
   const [aiVideoEnabled, setAiVideoEnabled] = useState(false);
   const [aiVideoProvider, setAiVideoProvider] = useState("runway");
   const [aiVideoScenesPerSegment, setAiVideoScenesPerSegment] = useState("2");
+  const [lifeAsAChunkingEnabled, setLifeAsAChunkingEnabled] = useState(true);
+  const [lifeAsATargetSeconds, setLifeAsATargetSeconds] = useState("8");
+  const [lifeAsAMaxSeconds, setLifeAsAMaxSeconds] = useState("12");
+  const [lifeAsASingleVisualMaxSeconds, setLifeAsASingleVisualMaxSeconds] = useState("8");
   const [promptUpsampling, setPromptUpsampling] = useState("true");
   const [replicateModel, setReplicateModel] = useState("black-forest-labs/flux-1.1-pro");
   const [safetyTolerance, setSafetyTolerance] = useState("2");
@@ -341,6 +345,10 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
   const [originalAiVideoEnabled, setOriginalAiVideoEnabled] = useState(false);
   const [originalAiVideoProvider, setOriginalAiVideoProvider] = useState("runway");
   const [originalAiVideoScenesPerSegment, setOriginalAiVideoScenesPerSegment] = useState("2");
+  const [originalLifeAsAChunkingEnabled, setOriginalLifeAsAChunkingEnabled] = useState(true);
+  const [originalLifeAsATargetSeconds, setOriginalLifeAsATargetSeconds] = useState("8");
+  const [originalLifeAsAMaxSeconds, setOriginalLifeAsAMaxSeconds] = useState("12");
+  const [originalLifeAsASingleVisualMaxSeconds, setOriginalLifeAsASingleVisualMaxSeconds] = useState("8");
   const [originalUpsampling, setOriginalUpsampling] = useState("true");
   const [originalModel, setOriginalModel] = useState("black-forest-labs/flux-1.1-pro");
   const [originalSafety, setOriginalSafety] = useState("2");
@@ -368,6 +376,18 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
         const aiVideoScenesPerSegmentVal = data.AI_VIDEO_SCENES_PER_SEGMENT?.masked || "2";
         setAiVideoScenesPerSegment(aiVideoScenesPerSegmentVal);
         setOriginalAiVideoScenesPerSegment(aiVideoScenesPerSegmentVal);
+        const lifeAsAChunkingVal = data.LIFE_AS_A_SCENE_CHUNKING_ENABLED?.masked !== "false";
+        setLifeAsAChunkingEnabled(lifeAsAChunkingVal);
+        setOriginalLifeAsAChunkingEnabled(lifeAsAChunkingVal);
+        const lifeAsATargetVal = data.LIFE_AS_A_TARGET_SCENE_SECONDS?.masked || "8";
+        setLifeAsATargetSeconds(lifeAsATargetVal);
+        setOriginalLifeAsATargetSeconds(lifeAsATargetVal);
+        const lifeAsAMaxVal = data.LIFE_AS_A_MAX_SCENE_SECONDS?.masked || "12";
+        setLifeAsAMaxSeconds(lifeAsAMaxVal);
+        setOriginalLifeAsAMaxSeconds(lifeAsAMaxVal);
+        const lifeAsASingleVisualVal = data.LIFE_AS_A_SINGLE_VISUAL_MAX_SECONDS?.masked || "8";
+        setLifeAsASingleVisualMaxSeconds(lifeAsASingleVisualVal);
+        setOriginalLifeAsASingleVisualMaxSeconds(lifeAsASingleVisualVal);
         const upVal = data.REPLICATE_PROMPT_UPSAMPLING?.masked || "true";
         setPromptUpsampling(upVal);
         setOriginalUpsampling(upVal);
@@ -427,6 +447,10 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
       AI_VIDEO_ENABLED: aiVideoEnabled ? "true" : "false",
       AI_VIDEO_PROVIDER: aiVideoProvider,
       AI_VIDEO_SCENES_PER_SEGMENT: aiVideoScenesPerSegment,
+      LIFE_AS_A_SCENE_CHUNKING_ENABLED: lifeAsAChunkingEnabled ? "true" : "false",
+      LIFE_AS_A_TARGET_SCENE_SECONDS: lifeAsATargetSeconds,
+      LIFE_AS_A_MAX_SCENE_SECONDS: lifeAsAMaxSeconds,
+      LIFE_AS_A_SINGLE_VISUAL_MAX_SECONDS: lifeAsASingleVisualMaxSeconds,
       REPLICATE_MODEL: replicateModel,
       REPLICATE_PROMPT_UPSAMPLING: promptUpsampling,
       REPLICATE_SAFETY_TOLERANCE: safetyTolerance,
@@ -444,6 +468,10 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
       setOriginalAiVideoEnabled(aiVideoEnabled);
       setOriginalAiVideoProvider(aiVideoProvider);
       setOriginalAiVideoScenesPerSegment(aiVideoScenesPerSegment);
+      setOriginalLifeAsAChunkingEnabled(lifeAsAChunkingEnabled);
+      setOriginalLifeAsATargetSeconds(lifeAsATargetSeconds);
+      setOriginalLifeAsAMaxSeconds(lifeAsAMaxSeconds);
+      setOriginalLifeAsASingleVisualMaxSeconds(lifeAsASingleVisualMaxSeconds);
       setOriginalModel(replicateModel);
       setOriginalUpsampling(promptUpsampling);
       setOriginalSafety(safetyTolerance);
@@ -542,6 +570,10 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
     aiVideoEnabled !== originalAiVideoEnabled ||
     aiVideoProvider !== originalAiVideoProvider ||
     aiVideoScenesPerSegment !== originalAiVideoScenesPerSegment ||
+    lifeAsAChunkingEnabled !== originalLifeAsAChunkingEnabled ||
+    lifeAsATargetSeconds !== originalLifeAsATargetSeconds ||
+    lifeAsAMaxSeconds !== originalLifeAsAMaxSeconds ||
+    lifeAsASingleVisualMaxSeconds !== originalLifeAsASingleVisualMaxSeconds ||
     replicateModel !== originalModel ||
     promptUpsampling !== originalUpsampling ||
     safetyTolerance !== originalSafety ||
@@ -874,6 +906,78 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                 </p>
               </div>
             )}
+
+            <div className="p-5 space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-neutral-100">Life-as-a Scene Chunking</h3>
+                  <p className="text-xs text-neutral-500">
+                    Split long life-as-a narration into short single-beat scenes before voiceover.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={lifeAsAChunkingEnabled}
+                  onClick={() => setLifeAsAChunkingEnabled((value) => !value)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
+                    lifeAsAChunkingEnabled ? "bg-violet-600" : "bg-neutral-700 hover:bg-neutral-600"
+                  }`}
+                  aria-label="Toggle life-as-a scene chunking"
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                      lifeAsAChunkingEnabled ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+              <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs text-neutral-300 leading-relaxed">
+                Shorter life-as-a scenes improve AI-video compatibility. Long scenes are split before voiceover when possible, and short scenes use one image or video instead of multiple photos.
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <label className="space-y-1">
+                  <span className="text-xs text-neutral-400">Target scene seconds</span>
+                  <input
+                    type="number"
+                    min="5"
+                    max="12"
+                    step="1"
+                    value={lifeAsATargetSeconds}
+                    onChange={(e) => setLifeAsATargetSeconds(e.target.value)}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-neutral-400">Maximum scene seconds</span>
+                  <input
+                    type="number"
+                    min="8"
+                    max="18"
+                    step="1"
+                    value={lifeAsAMaxSeconds}
+                    onChange={(e) => setLifeAsAMaxSeconds(e.target.value)}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-neutral-400">Short scene visual policy</span>
+                  <input
+                    type="number"
+                    min="5"
+                    max="12"
+                    step="1"
+                    value={lifeAsASingleVisualMaxSeconds}
+                    onChange={(e) => setLifeAsASingleVisualMaxSeconds(e.target.value)}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
+                  />
+                  <span className="block text-[11px] text-neutral-500">Single image/video through this many seconds.</span>
+                </label>
+              </div>
+              <p className="text-xs text-neutral-500">
+                Default policy: scenes at or below {lifeAsASingleVisualMaxSeconds || "8"} seconds use one image or one AI video. Medium scenes can keep at most two frames; longer life-as-a scenes are split.
+              </p>
+            </div>
 
           </div>
           )}
