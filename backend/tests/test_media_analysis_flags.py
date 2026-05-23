@@ -128,6 +128,40 @@ def test_normalize_media_assignments_downgrades_stale_ai_video_for_final_duratio
     assert normalized[0].reasoning == "AI video assignment no longer fits the latest scene timing or content."
 
 
+def test_normalize_media_assignments_downgrades_stale_ai_video_for_current_source():
+    content = ScriptContent(
+        title="User upload race",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="scene_001",
+                        narration="Short enough for AI video.",
+                        visual_prompt="[ESTABLISHING] A guard walks down a hallway",
+                        audio_duration_seconds=4.2,
+                        media_source="user_upload",
+                    ),
+                ],
+            ),
+        ],
+    )
+    assignments = [
+        MediaAssignment("scene_001", "ai_video", None, None, "Was eligible before user upload"),
+    ]
+
+    normalized = normalize_media_assignments_for_sources(
+        assignments,
+        script_content=content,
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+        ai_video_enabled=True,
+    )
+
+    assert normalized[0].media_source == "ai"
+    assert normalized[0].reasoning == "AI video assignment no longer fits the latest scene timing or content."
+
+
 def test_missing_voiceover_scene_ids_requires_audio_duration_for_every_scene():
     content = ScriptContent(
         title="Voiceover gate",

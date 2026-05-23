@@ -164,6 +164,7 @@ def normalize_media_assignments_for_sources(
             scene = scenes_by_id.get(assignment.scene_id)
             if scene is None or not is_ai_video_eligible(
                 scene,
+                current_source=scene.media_source if scene is not None else "ai",
                 require_eli_scene=require_eli_scene_for_ai_video,
                 life_as_a_role=life_as_a_role,
             ):
