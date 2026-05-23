@@ -472,10 +472,12 @@ def start_export_test(body: ExportTestRequest, session: Session = Depends(get_se
         scenes_to_process.append({
             "scene_id": scene.id,
             "narration": scene.narration or "",
+            "tts_narration": scene.tts_narration or "",
             "visual_prompt": scene.visual_prompt or "",
             "sc_idx": sci,
             "global_idx": global_idx,
             "is_title_card": scene.is_title_card,
+            "segment_index": 0,  # export-test renders only the first segment
         })
         global_idx += 1
 

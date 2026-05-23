@@ -544,6 +544,18 @@ def update_script(script_id: str, body: UpdateScriptRequest, session: Session = 
         raise HTTPException(status_code=404, detail="Script not found")
 
     content = body.script.model_copy(update={"title": record.topic_title or body.script.title})
+
+    # Invalidate stale tts_narration when narration is edited.
+    try:
+        prev_content = ScriptContent.model_validate(json.loads(record.script_json))
+        prev_narration = {sc.id: sc.narration for seg in prev_content.segments for sc in seg.scenes}
+        for seg in content.segments:
+            for sc in seg.scenes:
+                if prev_narration.get(sc.id) != sc.narration:
+                    sc.tts_narration = ""
+    except Exception:
+        logger.exception("Failed to invalidate tts_narration on edited scenes; continuing")
+
     record.script_json = content.model_dump_json()
     session.add(record)
     session.commit()

@@ -94,6 +94,7 @@ class Scene(BaseModel):
 
     id: str
     narration: str
+    tts_narration: str = ""               # punctuation-enhanced variant sent to TTS; empty = use narration as-is
     visual_prompt: str
     duration_estimate_seconds: float = 8.0
     is_title_card: bool = False

@@ -115,7 +115,7 @@ def _phase_images(ctx: ExportContext) -> None:
 
 def _phase_audio(ctx: ExportContext) -> None:
     """Generate audio for all scenes."""
-    from pipeline.voiceover import generate_scene_audio
+    from pipeline.voiceover import frame_title_card_for_tts, generate_scene_audio
 
     scene_count = len(ctx.scenes)
     logger.info("[%s] Phase: audio — generating %d scene audio clips (voice %s)", ctx.script_id, scene_count, ctx.voice_id)
@@ -124,8 +124,16 @@ def _phase_audio(ctx: ExportContext) -> None:
         p = _phase_progress(ctx, "audio", i / scene_count)
         update_job(ctx.job.id, progress=p, current_step=f"Generating audio ({i+1}/{scene_count})...")
         logger.info("[%s] Generating audio for scene %s (%d/%d)", ctx.script_id, sc_info["scene_id"], i + 1, scene_count)
+        narration = sc_info["narration"]
+        if sc_info.get("is_title_card"):
+            level_number = int(sc_info.get("segment_index", 0)) + 1
+            narration = frame_title_card_for_tts(narration, level_number)
+        else:
+            tts_narration = (sc_info.get("tts_narration") or "").strip()
+            if tts_narration:
+                narration = tts_narration
         audio_url, audio_duration, word_timestamps, phrase_timestamps = generate_scene_audio(
-            sc_info["scene_id"], sc_info["narration"], ctx.voice_id, ctx.script_id,
+            sc_info["scene_id"], narration, ctx.voice_id, ctx.script_id,
         )
         sc_info["_audio_url"] = audio_url
         sc_info["_audio_duration"] = audio_duration

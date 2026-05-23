@@ -53,6 +53,7 @@ export interface WordTimestamp {
 export interface Scene {
   id: string;
   narration: string;
+  tts_narration?: string;
   visual_prompt: string;
   duration_estimate_seconds: number;
   is_title_card: boolean;

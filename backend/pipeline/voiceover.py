@@ -53,6 +53,19 @@ def _mp3_duration_seconds(data: bytes) -> float:
     # Fallback: assume 128kbps
     return round(len(data) / (128 * 1000 / 8), 2)
 
+def frame_title_card_for_tts(narration: str, level_number: int) -> str:
+    """Wrap a title card scene's narration with 'Level N — ' framing for TTS only.
+
+    Bare titles like 'Confidence' get voiced as awkward fragments — adding a
+    framing prefix and terminal period gives ElevenLabs heading-style intonation.
+    The script's stored narration is unchanged; only the TTS input is reframed.
+    """
+    cleaned = narration.strip().rstrip(".!?,;:—-").strip()
+    if not cleaned:
+        return narration
+    return f"Level {level_number} — {cleaned}."
+
+
 def compute_phrase_timestamps(word_timestamps: list[dict]) -> list[dict]:
     """Group word timestamps into phrase-level intervals for smooth mouth animation.
 
