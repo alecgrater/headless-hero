@@ -469,6 +469,7 @@ function sceneProgressCounter(step: string, progress: number, total: number): st
 
 type ViewerFormat = "long-form" | "short-form";
 type ViewerAsset = "render" | "thumbnails" | "seo";
+type ViewerTab = "timeline" | "media-sources" | "segments";
 
 const FORMAT_OPTIONS: { key: ViewerFormat; label: string; Icon: LucideIcon }[] = [
   { key: "long-form", label: "Long Form", Icon: Film },
@@ -476,12 +477,12 @@ const FORMAT_OPTIONS: { key: ViewerFormat; label: string; Icon: LucideIcon }[] =
 ];
 
 const ASSET_OPTIONS: { key: ViewerAsset; label: string; Icon: LucideIcon }[] = [
-  { key: "render", label: "Render", Icon: Video },
+  { key: "render", label: "Video", Icon: Video },
   { key: "thumbnails", label: "Thumbnails", Icon: ImageIcon },
   { key: "seo", label: "SEO", Icon: Search },
 ];
 
-const VIEWER_TAB_OPTIONS: { key: "timeline" | "media-sources" | "segments"; label: string; Icon: LucideIcon }[] = [
+const VIEWER_TAB_OPTIONS: { key: ViewerTab; label: string; Icon: LucideIcon }[] = [
   { key: "timeline", label: "Timeline", Icon: ListVideo },
   { key: "media-sources", label: "Media Sources", Icon: PanelsTopLeft },
   { key: "segments", label: "Segments", Icon: Layers },
@@ -570,7 +571,7 @@ function OpenExportsButton({
           type="button"
           onClick={onOpen}
           disabled={opening}
-          className="inline-flex h-7 w-9 items-center justify-center rounded-md border border-neutral-700/60 bg-neutral-800/80 text-neutral-300 transition-colors hover:border-neutral-600 hover:bg-neutral-700/80 disabled:cursor-wait disabled:opacity-60"
+          className="inline-flex h-7 w-8 items-center justify-center rounded-md border border-neutral-700/60 bg-neutral-800/80 text-neutral-300 transition-colors hover:border-neutral-600 hover:bg-neutral-700/80 disabled:cursor-wait disabled:opacity-60"
           title="Open exports folder in Finder"
         >
           {opening ? (
@@ -593,15 +594,11 @@ function ProjectDetailsButton({
     <button
       type="button"
       onClick={onClick}
-      className="group inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 text-xs font-medium text-violet-100 shadow-[0_0_18px_rgba(139,92,246,0.12)] transition-all hover:border-violet-400/50 hover:bg-violet-500/20 hover:shadow-[0_0_24px_rgba(139,92,246,0.22)]"
+      className="group inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 text-xs font-medium text-violet-100 shadow-[0_0_18px_rgba(139,92,246,0.12)] transition-all hover:border-violet-400/50 hover:bg-violet-500/20 hover:shadow-[0_0_24px_rgba(139,92,246,0.22)]"
       title="Open project details"
     >
       <Info className="h-4 w-4 text-violet-300" />
       <span>Project details</span>
-      <span className="hidden items-center gap-1.5 text-neutral-400 sm:inline-flex">
-        <span className="text-neutral-600">·</span>
-        <span>Stats, costs, media, exports</span>
-      </span>
       <ChevronDown className="h-3.5 w-3.5 text-violet-300 transition-transform group-hover:translate-y-0.5" />
     </button>
   );
@@ -745,10 +742,8 @@ function ProjectDetailsModal({
   exportStatus,
   uploadTracking,
   trackingUpdating,
-  exportsFolderOpening,
   onToggleUploadTracking,
   onOpenUploadSuite,
-  onOpenExportsFolder,
 }: {
   open: boolean;
   onClose: () => void;
@@ -766,10 +761,8 @@ function ProjectDetailsModal({
   exportStatus: ExportFileStatus | null;
   uploadTracking: UploadTracking;
   trackingUpdating: Partial<Record<keyof UploadTracking, boolean>>;
-  exportsFolderOpening: boolean;
   onToggleUploadTracking: (key: keyof UploadTracking) => void;
   onOpenUploadSuite: () => void;
-  onOpenExportsFolder: () => void;
 }) {
   const [openSection, setOpenSection] = useState<string | null>(null);
   const fallbackExportTotal = segmentCount * 3 + 3;
@@ -878,7 +871,6 @@ function ProjectDetailsModal({
             >
               <div className="space-y-3">
                 <ExportFileBreakdownPanel status={exportStatus} segmentCount={segmentCount} />
-                <OpenExportsButton opening={exportsFolderOpening} onOpen={onOpenExportsFolder} />
               </div>
             </DetailAccordion>
 
@@ -907,28 +899,33 @@ function ViewerSwitchRow({
   format,
   asset,
   activeTab,
+  exportsFolderOpening,
   onFormatChange,
   onAssetChange,
   onTabChange,
+  onOpenProjectDetails,
+  onOpenExportsFolder,
 }: {
   format: ViewerFormat;
   asset: ViewerAsset;
-  activeTab: "timeline" | "media-sources" | "segments";
+  activeTab: ViewerTab;
+  exportsFolderOpening: boolean;
   onFormatChange: (format: ViewerFormat) => void;
   onAssetChange: (asset: ViewerAsset) => void;
-  onTabChange: (tab: "timeline" | "media-sources" | "segments") => void;
+  onTabChange: (tab: ViewerTab) => void;
+  onOpenProjectDetails: () => void;
+  onOpenExportsFolder: () => void;
 }) {
   const renderTabSelector = format === "long-form" && asset === "render";
-
   return (
     <div className="px-5 py-2 border-t border-b border-neutral-800/60 shrink-0">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
           {FORMAT_OPTIONS.map(({ key, label, Icon }) => (
             <button
               key={key}
               onClick={() => onFormatChange(key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
                 format === key ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
               }`}
             >
@@ -938,35 +935,60 @@ function ViewerSwitchRow({
           ))}
         </div>
         <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
-          {ASSET_OPTIONS.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              onClick={() => onAssetChange(key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
-                asset === key ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5 shrink-0" />
-              {label}
-            </button>
-          ))}
-        </div>
-        {renderTabSelector && (
-          <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
-            {VIEWER_TAB_OPTIONS.map(({ key, label, Icon }) => (
+          {ASSET_OPTIONS.map(({ key, label, Icon }) => {
+            const isActiveAsset = asset === key;
+            if (key === "render" && renderTabSelector) {
+              return (
+                <div
+                  key={key}
+                  className="flex items-center rounded-lg bg-violet-500/20 text-violet-100 shadow-sm"
+                >
+                  <button
+                    type="button"
+                    onClick={() => onAssetChange(key)}
+                    className="flex items-center gap-1.5 py-1.5 pl-2.5 pr-2 text-xs font-medium whitespace-nowrap"
+                  >
+                    <Icon className="w-3.5 h-3.5 shrink-0" />
+                    {label}
+                  </button>
+                  <span className="h-4 w-px bg-violet-300/20" />
+                  <label className="relative flex items-center py-1.5 pl-2 pr-6">
+                    <select
+                      value={activeTab}
+                      onChange={(event) => onTabChange(event.target.value as ViewerTab)}
+                      className="appearance-none bg-transparent text-xs font-medium text-violet-100 outline-none"
+                      title="Video view"
+                    >
+                      {VIEWER_TAB_OPTIONS.map(({ key: tabKey, label: tabLabel }) => (
+                        <option key={tabKey} value={tabKey} className="bg-neutral-900 text-neutral-100">
+                          {tabLabel}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-1.5 h-3.5 w-3.5 text-violet-300" />
+                  </label>
+                </div>
+              );
+            }
+
+            return (
               <button
                 key={key}
-                onClick={() => onTabChange(key)}
-                className={`relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
-                  activeTab === key ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
+                onClick={() => onAssetChange(key)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
+                  isActiveAsset ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
                 }`}
               >
                 <Icon className="w-3.5 h-3.5 shrink-0" />
                 {label}
               </button>
-            ))}
-          </div>
-        )}
+            );
+          })}
+        </div>
+        <div className="inline-flex shrink-0 items-center gap-2">
+          <ProjectDetailsButton onClick={onOpenProjectDetails} />
+          <OpenExportsButton opening={exportsFolderOpening} onOpen={onOpenExportsFolder} />
+        </div>
       </div>
     </div>
   );
@@ -1064,7 +1086,7 @@ function TimelineEditor({
     shortForm: boolean;
     longForm: boolean;
   } | null>(null);
-  const [pixelsPerSecond, setPixelsPerSecond] = useState(20);
+  const pixelsPerSecond = 26;
   const [exportTestJobId, setExportTestJobId] = useState<string | null>(null);
   const [exportTestStep, setExportTestStep] = useState("");
   const [exportTestProgress, setExportTestProgress] = useState(0);
@@ -1089,7 +1111,7 @@ function TimelineEditor({
   const [yoloRenderRunning, setYoloRenderRunning] = useState(false);
   const [yoloStopping, setYoloStopping] = useState(false);
   const [titleCardProgressPct, setTitleCardProgressPct] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<"timeline" | "media-sources" | "segments">("timeline");
+  const [activeTab, setActiveTab] = useState<ViewerTab>("timeline");
   const [viewerFormat, setViewerFormat] = useState<ViewerFormat>("long-form");
   const [viewerAsset, setViewerAsset] = useState<ViewerAsset>("render");
   const [sfThumbnailPaths, setSfThumbnailPaths] = useState<Record<number, string | undefined>>({});
@@ -2627,21 +2649,16 @@ function TimelineEditor({
             />
           </div>
 
-          {/* Project Details + Viewer Switch */}
-          <div className={`px-5 py-2 border-t border-neutral-800/60 shrink-0 ${yoloRenderRunning ? "bg-sky-500/5" : ""}`}>
-            <div className="flex min-w-0 items-center justify-between gap-2">
-              <ProjectDetailsButton
-                onClick={() => setShowProjectDetails(true)}
-              />
-            </div>
-          </div>
           <ViewerSwitchRow
             format={viewerFormat}
             asset={viewerAsset}
             activeTab={activeTab}
+            exportsFolderOpening={exportsFolderOpening}
             onFormatChange={setViewerFormat}
             onAssetChange={setViewerAsset}
             onTabChange={setActiveTab}
+            onOpenProjectDetails={() => setShowProjectDetails(true)}
+            onOpenExportsFolder={() => void handleOpenExportsFolder()}
           />
           <ProjectDetailsModal
             open={showProjectDetails}
@@ -2660,10 +2677,8 @@ function TimelineEditor({
             exportStatus={exportFileStatus}
             uploadTracking={uploadTracking}
             trackingUpdating={trackingUpdating}
-            exportsFolderOpening={exportsFolderOpening}
             onToggleUploadTracking={handleToggleUploadTracking}
             onOpenUploadSuite={handleOpenDistributionUpload}
-            onOpenExportsFolder={() => void handleOpenExportsFolder()}
           />
 
           <PipelineSteps
@@ -3001,23 +3016,6 @@ function TimelineEditor({
       ) : (
       /* Vertical layout: Timeline on top (full width), Properties below */
       <div className="flex flex-col flex-1 overflow-hidden">
-        {/* Zoom slider — always visible above timeline */}
-        <div className="px-5 py-1.5 border-b border-neutral-800/60 shrink-0">
-          <div className="flex items-center gap-3 w-full">
-            <span className="text-[11px] text-neutral-500 shrink-0">Zoom</span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={pixelsPerSecond}
-              onChange={(e) => setPixelsPerSecond(parseInt(e.target.value, 10))}
-              className="flex-1 w-full accent-violet-500"
-              style={{ minWidth: 0 }}
-            />
-            <span className="text-[11px] text-neutral-500 font-mono shrink-0">{pixelsPerSecond}</span>
-          </div>
-        </div>
-
         {/* Main timeline area — full width */}
         <div className="overflow-auto p-4 shrink-0">
           <TimelineLanes
