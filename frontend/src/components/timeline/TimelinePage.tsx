@@ -1132,12 +1132,13 @@ function TimelineEditor({
   const [canvasPalette, setCanvasPalette] = useState<string[]>(["#F6C54A"]);
   const [visualTreatmentAssignments, setVisualTreatmentAssignments] = useState<VisualTreatmentAssignment[] | null>(null);
   const [visualTreatmentAnalyzing, setVisualTreatmentAnalyzing] = useState(false);
+  const [visualTreatmentJobId, setVisualTreatmentJobId] = useState<string | null>(null);
   const { activePreset } = useStylePreset();
   const yoloCancelledRef = useRef(false);
   const yoloStoppingRef = useRef(false);
   const productionBusyRef = useRef(false);
   const microTimelineRef = useRef<MicroTimelineHandle>(null);
-  const visualTreatmentPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const activeScriptIdRef = useRef(scriptId);
 
   const media = useMediaReview({ scriptId, content: state.content });
 
@@ -1164,13 +1165,51 @@ function TimelineEditor({
   }, [scriptId]);
 
   useEffect(() => {
-    return () => {
-      if (visualTreatmentPollRef.current) {
-        clearInterval(visualTreatmentPollRef.current);
-        visualTreatmentPollRef.current = null;
+    activeScriptIdRef.current = scriptId;
+    setVisualTreatmentJobId(null);
+    setVisualTreatmentAssignments(null);
+    setVisualTreatmentAnalyzing(false);
+  }, [scriptId]);
+
+  useEffect(() => {
+    if (!visualTreatmentJobId) return;
+
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const poll = async () => {
+      try {
+        const status = await getVisualTreatmentStatus(visualTreatmentJobId);
+        if (cancelled) return;
+        if (status.status === "completed") {
+          setVisualTreatmentAssignments(status.assignments ?? []);
+          setVisualTreatmentAnalyzing(false);
+          setVisualTreatmentJobId(null);
+          showToast("Visual treatments analyzed.", "success");
+          return;
+        }
+        if (status.status === "failed" || status.status === "cancelled") {
+          setVisualTreatmentAnalyzing(false);
+          setVisualTreatmentJobId(null);
+          showToast(status.error || "Visual treatment analysis failed");
+          return;
+        }
+        timeoutId = setTimeout(poll, 1200);
+      } catch (err) {
+        if (cancelled) return;
+        setVisualTreatmentAnalyzing(false);
+        setVisualTreatmentJobId(null);
+        showToast(err instanceof Error ? err.message : "Failed to check visual treatment status");
       }
     };
-  }, []);
+
+    timeoutId = setTimeout(poll, 1200);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [scriptId, visualTreatmentJobId]);
 
   useEffect(() => {
     if (!scriptId) return;
@@ -1208,12 +1247,9 @@ function TimelineEditor({
   }, [scriptId, state]);
 
   const handleAnalyzeVisualTreatments = useCallback(async () => {
-    if (visualTreatmentPollRef.current) {
-      clearInterval(visualTreatmentPollRef.current);
-      visualTreatmentPollRef.current = null;
-    }
     try {
       const saved = await state.save();
+      if (activeScriptIdRef.current !== scriptId) return;
       if (!saved) {
         showToast("Save your timeline changes before analyzing visual treatments.");
         return;
@@ -1221,29 +1257,8 @@ function TimelineEditor({
       setVisualTreatmentAnalyzing(true);
       setVisualTreatmentAssignments(null);
       const { job_id } = await analyzeVisualTreatments(scriptId);
-      const poll = setInterval(async () => {
-        try {
-          const status = await getVisualTreatmentStatus(job_id);
-          if (status.status === "completed") {
-            clearInterval(poll);
-            visualTreatmentPollRef.current = null;
-            setVisualTreatmentAssignments(status.assignments ?? []);
-            setVisualTreatmentAnalyzing(false);
-            showToast("Visual treatments analyzed.", "success");
-          } else if (status.status === "failed" || status.status === "cancelled") {
-            clearInterval(poll);
-            visualTreatmentPollRef.current = null;
-            setVisualTreatmentAnalyzing(false);
-            showToast(status.error || "Visual treatment analysis failed");
-          }
-        } catch (err) {
-          clearInterval(poll);
-          visualTreatmentPollRef.current = null;
-          setVisualTreatmentAnalyzing(false);
-          showToast(err instanceof Error ? err.message : "Failed to check visual treatment status");
-        }
-      }, 1200);
-      visualTreatmentPollRef.current = poll;
+      if (activeScriptIdRef.current !== scriptId) return;
+      setVisualTreatmentJobId(job_id);
     } catch (err) {
       setVisualTreatmentAnalyzing(false);
       showToast(err instanceof Error ? err.message : "Failed to analyze visual treatments");

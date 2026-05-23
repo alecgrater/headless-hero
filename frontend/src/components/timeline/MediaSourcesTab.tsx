@@ -43,9 +43,30 @@ function scenesMissingVoiceover(content: ScriptContent): Scene[] {
     .filter((scene) => (scene.audio_duration_seconds ?? 0) <= 0);
 }
 
+function scenesMissingVisualTreatmentTiming(content: ScriptContent) {
+  const nonTitleScenes = content.segments
+    .flatMap((seg) => seg.scenes)
+    .filter((scene) => !scene.is_title_card);
+  const missingAudioCount = nonTitleScenes.filter((scene) => (scene.audio_duration_seconds ?? 0) <= 0).length;
+  const missingWordTimingCount = nonTitleScenes.filter((scene) => (scene.word_timestamps?.length ?? 0) <= 0).length;
+  return { missingAudioCount, missingWordTimingCount };
+}
+
 function voiceoverBlockedReason(missingCount: number): string {
   if (missingCount <= 0) return "";
   return `Generate voiceover first. ${missingCount} scene${missingCount === 1 ? "" : "s"} still missing duration timing.`;
+}
+
+function visualTreatmentBlockedReason(missingAudioCount: number, missingWordTimingCount: number): string {
+  const parts: string[] = [];
+  if (missingAudioCount > 0) {
+    parts.push(`${missingAudioCount} non-title scene${missingAudioCount === 1 ? "" : "s"} missing duration timing`);
+  }
+  if (missingWordTimingCount > 0) {
+    parts.push(`${missingWordTimingCount} non-title scene${missingWordTimingCount === 1 ? "" : "s"} missing word timing`);
+  }
+  if (parts.length === 0) return "";
+  return `Generate voiceover first. ${parts.join(" and ")}.`;
 }
 
 interface Props {
@@ -86,6 +107,13 @@ export default function MediaSourcesTab({
   const missingVoiceoverScenes = scenesMissingVoiceover(content);
   const canAnalyzeMedia = missingVoiceoverScenes.length === 0;
   const analyzeBlockedReason = voiceoverBlockedReason(missingVoiceoverScenes.length);
+  const visualTreatmentTiming = scenesMissingVisualTreatmentTiming(content);
+  const canAnalyzeVisualTreatments =
+    visualTreatmentTiming.missingAudioCount === 0 && visualTreatmentTiming.missingWordTimingCount === 0;
+  const visualTreatmentAnalyzeBlockedReason = visualTreatmentBlockedReason(
+    visualTreatmentTiming.missingAudioCount,
+    visualTreatmentTiming.missingWordTimingCount,
+  );
   const scenes = buildScenesMap(content);
   const canvasColor = content.visual_canvas?.background_color ?? "#F6C54A";
 
@@ -107,8 +135,8 @@ export default function MediaSourcesTab({
         <VisualTreatmentReviewPanel
           assignments={visualTreatmentAssignments}
           scenes={scenes}
-          canAnalyze={canAnalyzeMedia}
-          analyzeBlockedReason={analyzeBlockedReason}
+          canAnalyze={canAnalyzeVisualTreatments}
+          analyzeBlockedReason={visualTreatmentAnalyzeBlockedReason}
           onApply={onApplyVisualTreatments}
           onReanalyze={onAnalyzeVisualTreatments}
         />
@@ -121,16 +149,16 @@ export default function MediaSourcesTab({
             <button
               type="button"
               onClick={onAnalyzeVisualTreatments}
-              disabled={!canAnalyzeMedia || visualTreatmentAnalyzing}
-              title={!canAnalyzeMedia ? analyzeBlockedReason : undefined}
+              disabled={!canAnalyzeVisualTreatments || visualTreatmentAnalyzing}
+              title={!canAnalyzeVisualTreatments ? visualTreatmentAnalyzeBlockedReason : undefined}
               className="rounded-lg bg-neutral-800 px-4 py-2 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-neutral-800"
             >
               {visualTreatmentAnalyzing ? "Analyzing..." : "Analyze Visual Treatments"}
             </button>
           </div>
-          {!canAnalyzeMedia && (
+          {!canAnalyzeVisualTreatments && (
             <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-              {analyzeBlockedReason}
+              {visualTreatmentAnalyzeBlockedReason}
             </p>
           )}
         </div>

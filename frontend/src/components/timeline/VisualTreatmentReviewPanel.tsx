@@ -46,6 +46,9 @@ export default function VisualTreatmentReviewPanel({
       { full_frame: 0, popup_sequence: 0, flipflop: 0 },
     );
   }, [draft]);
+  const hasInvalidLayerlessTreatment = draft.some(
+    (assignment) => assignment.visual_treatment !== "full_frame" && assignment.visual_layers.length === 0,
+  );
 
   useEffect(() => {
     setDraft(assignments);
@@ -91,12 +94,19 @@ export default function VisualTreatmentReviewPanel({
             <button
               type="button"
               onClick={() => onApply(draft)}
-              className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-violet-500"
+              disabled={hasInvalidLayerlessTreatment}
+              title={hasInvalidLayerlessTreatment ? "Re-analyze before applying layer-based treatments." : undefined}
+              className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-violet-600"
             >
               Apply
             </button>
           </div>
         </div>
+        {hasInvalidLayerlessTreatment && (
+          <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+            Re-analyze before applying popup sequence or flipflop treatments to scenes with no generated layers.
+          </p>
+        )}
 
         <div className="mt-3 grid gap-2 md:grid-cols-3">
           {TREATMENT_OPTIONS.map((treatment) => (
@@ -111,6 +121,7 @@ export default function VisualTreatmentReviewPanel({
       <div className="divide-y divide-neutral-800">
         {draft.map((assignment, idx) => {
           const scene = scenes[assignment.scene_id];
+          const hasLayers = assignment.visual_layers.length > 0;
           return (
             <div key={assignment.scene_id} className="flex items-start gap-3 px-4 py-3 text-sm">
               <span className="w-6 shrink-0 pt-1 text-right text-neutral-500">{idx + 1}</span>
@@ -118,17 +129,22 @@ export default function VisualTreatmentReviewPanel({
                 <select
                   value={assignment.visual_treatment}
                   onChange={(e) => handleTreatmentChange(assignment.scene_id, e.target.value as VisualTreatment)}
+                  title={!hasLayers ? "Re-analyze to generate layers before choosing popup sequence or flipflop." : undefined}
                   className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 transition-colors hover:border-neutral-600"
                 >
                   {TREATMENT_OPTIONS.map((treatment) => (
-                    <option key={treatment} value={treatment}>
+                    <option key={treatment} value={treatment} disabled={treatment !== "full_frame" && !hasLayers}>
                       {TREATMENT_LABELS[treatment].label}
                     </option>
                   ))}
                 </select>
-                {assignment.visual_layers.length > 0 && (
+                {hasLayers ? (
                   <p className="mt-1 text-xs text-neutral-500">
                     {assignment.visual_layers.length} layer{assignment.visual_layers.length === 1 ? "" : "s"}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Layer-based options need analysis output.
                   </p>
                 )}
               </div>
