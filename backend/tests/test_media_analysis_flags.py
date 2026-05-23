@@ -201,6 +201,46 @@ def test_life_as_a_ai_video_eligibility_allows_solo_role_name():
     ) is True
 
 
+def test_life_as_a_ai_video_eligibility_rejects_open_ended_secondary_role():
+    scene = Scene(
+        id="scene_001",
+        narration="You watch another nurse cross the empty ward.",
+        visual_prompt=(
+            "[REACTION] Eli, the recurring character, is the main subject and protagonist in this scene. "
+            "Depict Eli as Nurse; any other people are secondary and visually distinct from Eli. "
+            "A nurse watches another nurse cross the empty ward."
+        ),
+        audio_duration_seconds=5.4,
+        contains_person=True,
+    )
+
+    assert media_analyzer.is_ai_video_eligible(
+        scene,
+        require_eli_scene=True,
+        life_as_a_role="Nurse",
+    ) is False
+
+
+def test_life_as_a_ai_video_eligibility_rejects_named_secondary_interaction():
+    scene = Scene(
+        id="scene_001",
+        narration="You stand beside Maria at the locked door.",
+        visual_prompt=(
+            "[REACTION] Eli, the recurring character, is the main subject and protagonist in this scene. "
+            "Depict Eli as Knight; any other people are secondary and visually distinct from Eli. "
+            "A knight stands beside Maria at the locked door."
+        ),
+        audio_duration_seconds=5.4,
+        contains_person=True,
+    )
+
+    assert media_analyzer.is_ai_video_eligible(
+        scene,
+        require_eli_scene=True,
+        life_as_a_role="Knight",
+    ) is False
+
+
 def test_life_as_a_ai_video_assignment_injects_solo_subject_prompt():
     scene = Scene(
         id="scene_001",

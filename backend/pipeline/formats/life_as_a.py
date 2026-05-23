@@ -51,6 +51,9 @@ _SOLO_AI_VIDEO_BLOCKER_RE = re.compile(
     re.IGNORECASE,
 )
 _SOLO_AI_VIDEO_INSTRUCTION = "Only the active protagonist/main character appears; no other people are visible."
+_NAMED_SECONDARY_INTERACTION_RE = re.compile(
+    r"\b(?:with|beside|next to|argues? with|talks? to|speaks? to|faces|meets)\s+(?!Eli\b)[A-Z][a-z]{2,}\b"
+)
 _SOLO_AI_VIDEO_PERSON_TERMS = {
     "guard",
     "officer",
@@ -193,8 +196,10 @@ def is_life_as_a_solo_ai_video_scene(scene: Scene, role: str = "") -> bool:
     text = _solo_ai_video_candidate_text(scene)
     if _SOLO_AI_VIDEO_BLOCKER_RE.search(text):
         return False
+    if _NAMED_SECONDARY_INTERACTION_RE.search(text):
+        return False
     role_terms = _role_terms(role)
-    for term in _SOLO_AI_VIDEO_PERSON_TERMS:
+    for term in _SOLO_AI_VIDEO_PERSON_TERMS | role_terms:
         if term in role_terms:
             pattern = rf"\b(?:another|other|second|two|three)\s+{re.escape(term)}s?\b"
         else:
