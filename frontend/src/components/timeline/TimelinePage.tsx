@@ -1097,8 +1097,6 @@ function TimelineEditor({
   const [exportTestEstimatedSeconds, setExportTestEstimatedSeconds] = useState<number | null>(null);
   const [showExportTestModal, setShowExportTestModal] = useState(false);
   const [titleCardGenerating, setTitleCardGenerating] = useState(false);
-  const [titleCardGenerated, setTitleCardGenerated] = useState(false);
-  const [titleCardTimestamp, setTitleCardTimestamp] = useState(0);
   const [thumbnailsInline, setThumbnailsInline] = useState<ThumbnailConcept[]>([]);
   const [thumbnailsInlineGenerating, setThumbnailsInlineGenerating] = useState(false);
   const [thumbnailLabelStyleInline, setThumbnailLabelStyleInline] = useState<ThumbnailLabelStyle>("time_periods");
@@ -1871,8 +1869,6 @@ function TimelineEditor({
           });
           if (!isCancelled()) {
             setTitleCardProgressPct(1);
-            setTitleCardGenerated(true);
-            setTitleCardTimestamp(Date.now());
             titleCardsRegenerated = true;
           }
         } finally {
@@ -2160,8 +2156,6 @@ function TimelineEditor({
         });
         if (yoloCancelledRef.current) return false;
         setTitleCardProgressPct(1);
-        setTitleCardGenerated(true);
-        setTitleCardTimestamp(Date.now());
         thumbnailsCancelledRef.current = false;
         setThumbnailsInlineGenerating(true);
         try {
@@ -2891,45 +2885,6 @@ function TimelineEditor({
           </div>
         </div>
       )}
-      {titleCardGenerated && !titleCardGenerating && (
-        <div className="px-4 py-2 border-b border-neutral-800 shrink-0 bg-neutral-900/60">
-          <div className="flex items-center gap-4">
-            <span className="text-xs text-neutral-500 shrink-0">Title Cards:</span>
-            <div className="flex gap-3">
-              {state.content.format_id === "life-as-a" ? (
-                <div className="space-y-0.5">
-                  <img
-                    src={assetUrl(`/static/projects/${scriptId}/images/cinematic_thumbnail.png`) + `?t=${titleCardTimestamp}`}
-                    alt="Cinematic thumbnail"
-                    className="h-16 aspect-video object-cover rounded border border-neutral-700"
-                  />
-                  <p className="text-[10px] text-neutral-500">Thumbnail</p>
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-0.5">
-                    <img
-                      src={assetUrl(`/static/projects/${scriptId}/images/composite_title_card.png`) + `?t=${titleCardTimestamp}`}
-                      alt="Thumbnail"
-                      className="h-16 aspect-video object-cover rounded border border-neutral-700"
-                    />
-                    <p className="text-[10px] text-neutral-500">With title</p>
-                  </div>
-                  <div className="space-y-0.5">
-                    <img
-                      src={assetUrl(`/static/projects/${scriptId}/images/composite_title_card_notitle.png`) + `?t=${titleCardTimestamp}`}
-                      alt="Title Slide"
-                      className="h-16 aspect-video object-cover rounded border border-neutral-700"
-                    />
-                    <p className="text-[10px] text-neutral-500">No title</p>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {viewerFormat === "long-form" && viewerAsset === "thumbnails" ? (
         <LongFormThumbnailsPanel
           thumbnails={render.thumbnails}
