@@ -616,7 +616,7 @@ function OpenExportsButton({
   onOpen: () => void;
 }) {
   return (
-    <div className="ml-auto inline-flex shrink-0">
+    <div className="inline-flex shrink-0">
       <Tooltip content="Open exports folder in Finder">
         <button
           type="button"
@@ -2344,10 +2344,6 @@ function TimelineEditor({
 
           {/* Stats Row + Viewer Switch */}
           {(() => {
-            const sep = (key: string) => (
-              <span key={key} className="w-px h-4 shrink-0 bg-neutral-700/50" />
-            );
-
             const statItems: React.ReactNode[] = [];
             statItems.push(
               <span key="scenes" className="inline-flex h-7 shrink-0 items-center whitespace-nowrap text-xs text-neutral-400 bg-neutral-800/60 px-2.5 rounded-md tabular-nums">
@@ -2425,17 +2421,11 @@ function TimelineEditor({
               />
             );
 
-            const interleavedStats: React.ReactNode[] = [];
-            statItems.forEach((item, i) => {
-              if (i > 0) interleavedStats.push(sep(`sep-${i}`));
-              interleavedStats.push(item);
-            });
-
             return (
               <>
                 <div className={`px-5 py-2 border-t border-neutral-800/60 shrink-0 ${yoloRenderRunning ? "bg-sky-500/5" : ""}`}>
-                  <div className="flex flex-nowrap items-center gap-1 min-w-0 overflow-visible">
-                    {interleavedStats}
+                  <div className="flex flex-nowrap items-center justify-between gap-2 min-w-0 overflow-visible">
+                    {statItems}
                   </div>
                 </div>
                 <ViewerSwitchRow
