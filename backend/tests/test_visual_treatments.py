@@ -160,6 +160,8 @@ def test_update_visual_canvas_persists_script_color_and_palette():
             assert stored_script is not None
             stored_content = ScriptContent.model_validate_json(stored_script.script_json)
             assert stored_content.visual_canvas.background_color == "#ABCDEF"
+            assert isinstance(response.palette, list)
+            assert "#ABCDEF" in response.palette
             assert "#ABCDEF" in get_canvas_palette(session).colors
         finally:
             script = session.get(Script, script_id)

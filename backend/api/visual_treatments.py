@@ -35,7 +35,7 @@ class UpdateVisualCanvasRequest(BaseModel):
 
 class UpdateVisualCanvasResponse(BaseModel):
     script: ScriptContent
-    palette: CanvasPaletteResponse
+    palette: list[str]
 
 
 def normalize_hex_color(value: str) -> str:
@@ -137,7 +137,7 @@ def update_visual_canvas(
     session.add(record)
     session.commit()
 
-    palette = CanvasPaletteResponse(colors=add_palette_color(session, background_color))
+    palette = add_palette_color(session, background_color)
     mark_render_inputs_changed(script_id)
     logger.info(
         "[VISUAL_CANVAS] script=%s old=%s new=%s",
