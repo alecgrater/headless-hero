@@ -309,6 +309,11 @@ export type ProjectConfig = {
   style_preset_enabled: boolean;
   main_character_reference_url: string | null;
   main_character: MainCharacter | null;
+  main_character_reference_variants: Array<{
+    idx: number;
+    image_url: string;
+    active: boolean;
+  }>;
 };
 
 export async function getProjectConfig(scriptId: string) {
@@ -321,6 +326,10 @@ export async function updateMainCharacter(scriptId: string, character: MainChara
 
 export async function regenerateMainCharacterReference(scriptId: string) {
   return api.post(`/api/projects/${scriptId}/config/character/regenerate`, {});
+}
+
+export async function selectMainCharacterReference(scriptId: string, idx: number) {
+  return api.post(`/api/projects/${scriptId}/config/character/select/${idx}`, {});
 }
 
 /** Generate Eli pose selection for all scenes in a script via the routed LLM provider. */

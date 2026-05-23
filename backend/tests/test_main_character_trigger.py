@@ -1,10 +1,9 @@
-"""Verify main character reference generation is triggered during script gen
-when eli_enabled=False and the script content includes a main_character.
+"""Verify script gen stores main character details without auto-generating
+the reference image when eli_enabled=False.
 """
 
 import sys
 
-import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
@@ -29,8 +28,8 @@ def _build_inmemory_engine():
     return engine
 
 
-def test_main_character_reference_generated_when_eli_disabled(monkeypatch, tmp_path):
-    """When eli_enabled=False and Claude returns main_character, reference URL is persisted."""
+def test_main_character_reference_waits_for_ui_generation_when_eli_disabled(monkeypatch, tmp_path):
+    """When Claude returns main_character, the reference URL stays empty for UI approval."""
     monkeypatch.setenv("HH_DATA_DIR", str(tmp_path))
 
     # Reload config & main_character module so DATA_DIR points to tmp_path.
@@ -89,18 +88,12 @@ def test_main_character_reference_generated_when_eli_disabled(monkeypatch, tmp_p
 
     monkeypatch.setattr(scripts_module, "generate_script", fake_generate_script)
 
-    # Stub the Gemini call to write a fake PNG and return its path.
-    fake_png = tmp_path / "fake_gemini_output.png"
-    fake_png.write_bytes(b"\x89PNG fake")
+    def fail_image_generation(prompt, script_id):
+        raise AssertionError("script generation should not generate the reference image")
 
-    monkeypatch.setattr(
-        mc_mod, "_call_image_generator", lambda prompt, script_id: str(fake_png)
-    )
-    # Also patch the symbol referenced inside scripts.py via lazy import path.
+    monkeypatch.setattr(mc_mod, "_call_image_generator", fail_image_generation)
     if "pipeline.main_character" in sys.modules:
-        sys.modules["pipeline.main_character"]._call_image_generator = (
-            lambda prompt, script_id: str(fake_png)
-        )
+        sys.modules["pipeline.main_character"]._call_image_generator = fail_image_generation
 
     from fastapi.testclient import TestClient
 
@@ -116,16 +109,13 @@ def test_main_character_reference_generated_when_eli_disabled(monkeypatch, tmp_p
         )
         assert res.status_code == 200, res.text
 
-        # The ProjectConfig row should now have a main_character_reference_url.
+        # The ProjectConfig row is ready for the UI step, but no reference has
+        # been generated or approved yet.
         with Session(engine) as session:
             row = session.exec(
                 select(ProjectConfig).where(ProjectConfig.eli_enabled == False)  # noqa: E712
             ).first()
         assert row is not None
-        assert row.main_character_reference_url is not None, (
-            "Expected main_character_reference_url to be persisted on ProjectConfig"
-        )
-        assert row.main_character_reference_url.startswith("/static/projects/")
-        assert "/character/reference.png" in row.main_character_reference_url
+        assert row.main_character_reference_url is None
     finally:
         app.dependency_overrides.pop(get_session, None)

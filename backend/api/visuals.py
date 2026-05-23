@@ -87,6 +87,14 @@ def _update_scene_with_frames(
             fields["image_url"] = first_image
     update_scene(session, script_id, scene_id, **fields)
 
+
+def _require_character_reference_ready(session: Session, script_id: str) -> None:
+    from pipeline.main_character import missing_character_reference_reason
+
+    reason = missing_character_reference_reason(session, script_id)
+    if reason:
+        raise HTTPException(status_code=400, detail=reason)
+
 # --- Endpoints ---
 
 @router.post("/generate", response_model=GenerateVisualResponse)
@@ -96,6 +104,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
+    _require_character_reference_ready(session, body.script_id)
 
     logger.info("Generating visual for scene %s in script %s (media_source=%s)", body.scene_id, body.script_id, body.media_source)
 
@@ -265,6 +274,7 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
+    _require_character_reference_ready(session, body.script_id)
 
     logger.info("Starting batch visual generation for script %s (%d scenes)", body.script_id, len(body.scenes))
 
@@ -340,6 +350,7 @@ def generate_title_cards(body: GenerateTitleCardsRequest, session: Session = Dep
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
+    _require_character_reference_ready(session, body.script_id)
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
     segment_count = len(content.segments)

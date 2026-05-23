@@ -161,6 +161,52 @@ def test_put_main_character_updates_script_json(monkeypatch):
     app.dependency_overrides.pop(get_session, None)
 
 
+def test_generate_and_select_main_character_reference_variants(monkeypatch, tmp_path):
+    engine, app = _setup_app(monkeypatch)
+    _seed_script(
+        engine,
+        "test-cfg-variants",
+        eli_enabled=False,
+        main_character_dict={"name": "N", "appearance": "A", "vibe": "V"},
+    )
+
+    import pipeline.main_character as mc
+
+    monkeypatch.setattr(mc, "DATA_DIR", tmp_path)
+
+    counter = {"value": 0}
+
+    def fake_image(prompt, script_id):
+        counter["value"] += 1
+        path = tmp_path / f"generated-{counter['value']}.png"
+        path.write_bytes(f"png-{counter['value']}".encode())
+        return str(path)
+
+    monkeypatch.setattr(mc, "_call_image_generator", fake_image)
+
+    from fastapi.testclient import TestClient
+
+    client = TestClient(app)
+    first = client.post("/api/projects/test-cfg-variants/config/character/regenerate")
+    second = client.post("/api/projects/test-cfg-variants/config/character/regenerate")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    body = second.json()
+    assert body["main_character_reference_url"] == "/static/projects/test-cfg-variants/character/reference.png"
+    assert [v["idx"] for v in body["main_character_reference_variants"]] == [2, 1]
+    assert body["main_character_reference_variants"][0]["active"] is True
+
+    selected = client.post("/api/projects/test-cfg-variants/config/character/select/1")
+    assert selected.status_code == 200
+    selected_body = selected.json()
+    active = [v for v in selected_body["main_character_reference_variants"] if v["active"]]
+    assert [v["idx"] for v in active] == [1]
+
+    from database import get_session
+    app.dependency_overrides.pop(get_session, None)
+
+
 def test_put_main_character_rejected_when_eli_enabled(monkeypatch):
     engine, app = _setup_app(monkeypatch)
     _seed_script(engine, "test-cfg-3", eli_enabled=True)

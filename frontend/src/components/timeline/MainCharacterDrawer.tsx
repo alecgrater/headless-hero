@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   assetUrl,
   regenerateMainCharacterReference,
+  selectMainCharacterReference,
   updateMainCharacter,
 } from "../../api";
 import type { MainCharacter, ProjectConfig } from "../../api";
@@ -53,6 +54,9 @@ export default function MainCharacterDrawer({
   };
 
   const regenerate = async () => {
+    if (dirty) {
+      await save();
+    }
     setRegenerating(true);
     const res = await regenerateMainCharacterReference(scriptId);
     setRegenerating(false);
@@ -61,6 +65,17 @@ export default function MainCharacterDrawer({
       onUpdated(res.data as ProjectConfig);
     }
   };
+
+  const selectVariant = async (idx: number) => {
+    const res = await selectMainCharacterReference(scriptId, idx);
+    if (res.ok) {
+      setRefTs(Date.now());
+      onUpdated(res.data as ProjectConfig);
+    }
+  };
+
+  const variants = config.main_character_reference_variants ?? [];
+  const hasCharacterDetails = Boolean(name.trim() && appearance.trim());
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex justify-end" onClick={onClose}>
@@ -87,18 +102,55 @@ export default function MainCharacterDrawer({
           />
         ) : (
           <div className="w-full aspect-video rounded-lg border border-dashed border-neutral-700 flex items-center justify-center text-neutral-500 text-sm mb-4">
-            Reference image not generated yet
+            Create or select a reference before generating project images
           </div>
         )}
 
         <button
           type="button"
           onClick={regenerate}
-          disabled={regenerating || !name}
+          disabled={regenerating || saving || !hasCharacterDetails}
           className="w-full mb-6 px-3 py-2 text-sm rounded-md bg-neutral-800 text-neutral-200 hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {regenerating ? "Regenerating..." : "Regenerate reference image"}
+          {regenerating
+            ? "Generating..."
+            : config.main_character_reference_url
+              ? "Generate another reference"
+              : "Generate reference image"}
         </button>
+
+        {variants.length > 0 && (
+          <div className="mb-6">
+            <div className="text-xs text-neutral-400 uppercase tracking-wide mb-2">
+              References
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {variants.map((variant) => (
+                <button
+                  key={variant.idx}
+                  type="button"
+                  onClick={() => selectVariant(variant.idx)}
+                  className={`relative aspect-video overflow-hidden rounded-md border transition-colors ${
+                    variant.active
+                      ? "border-emerald-400"
+                      : "border-neutral-800 hover:border-neutral-600"
+                  }`}
+                >
+                  <img
+                    src={`${assetUrl(variant.image_url)}?t=${refTs}`}
+                    alt={`Main character reference ${variant.idx}`}
+                    className="h-full w-full object-cover"
+                  />
+                  {variant.active && (
+                    <span className="absolute left-2 top-2 rounded bg-emerald-500 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-950">
+                      Active
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="space-y-4">
           <label className="block">
@@ -133,16 +185,16 @@ export default function MainCharacterDrawer({
         <button
           type="button"
           onClick={save}
-          disabled={!dirty || saving}
+          disabled={!dirty || saving || !hasCharacterDetails}
           className="mt-6 w-full px-3 py-2 text-sm rounded-md bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {saving ? "Saving..." : "Save"}
         </button>
 
         <p className="mt-4 text-xs text-neutral-500">
-          Editing the description or regenerating the reference will invalidate
-          cached scene images that include the character. They will re-render on
-          next batch.
+          Save the character details, then generate one or more references and
+          choose the active image. Scene, title-card, and thumbnail generation
+          stay blocked until an active reference exists.
         </p>
       </div>
     </div>

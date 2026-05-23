@@ -1070,6 +1070,27 @@ function TimelineEditor({
     setPendingAudioAction(null);
   };
 
+  const mainCharacterReferenceReady =
+    projectConfig?.eli_enabled !== false ||
+    Boolean(projectConfig.main_character_reference_url);
+
+  const requireMainCharacterReference = useCallback(() => {
+    if (mainCharacterReferenceReady) return true;
+    setShowMainCharacterDrawer(true);
+    showToast("Create and select a main character reference before generating images.", "info");
+    return false;
+  }, [mainCharacterReferenceReady]);
+
+  const generateImageWithCharacterGate = useCallback((sceneId: string) => {
+    if (!requireMainCharacterReference()) return;
+    void state.generateImage(sceneId);
+  }, [requireMainCharacterReference, state]);
+
+  const generateAllImagesWithCharacterGate = useCallback((missingOnly = false) => {
+    if (!requireMainCharacterReference()) return;
+    void state.generateAllImages(missingOnly);
+  }, [requireMainCharacterReference, state]);
+
   // Find which segment the selected scene is in
   const selectedScene = state.selectedSceneId
     ? (() => {
@@ -1124,9 +1145,9 @@ function TimelineEditor({
     undo: state.undo,
     save: state.save,
     generateImage: () => {
-      if (state.selectedSceneId) state.generateImage(state.selectedSceneId);
+      if (state.selectedSceneId) generateImageWithCharacterGate(state.selectedSceneId);
     },
-    generateAllImages: () => state.generateAllImages(),
+    generateAllImages: () => generateAllImagesWithCharacterGate(),
     openUpload: () => {
       void openUploadPanel();
     },
@@ -1373,10 +1394,11 @@ function TimelineEditor({
     thumbnailsInlineGenerating;
 
   const confirmAndGenerateImages = () => {
+    if (!requireMainCharacterReference()) return;
     if (hasExistingImages) {
       setConfirmOverwrite("images");
     } else {
-      state.generateAllImages();
+      generateAllImagesWithCharacterGate();
     }
   };
 
@@ -1429,7 +1451,7 @@ function TimelineEditor({
     }
   };
 
-  const generateMissingImages = () => state.generateAllImages(true);
+  const generateMissingImages = () => generateAllImagesWithCharacterGate(true);
   const generateMissingAudio = () => tryGenerateAudio("missing");
   const generateMissingFX = async () => {
     const sceneCount = missingFXCount;
@@ -1556,6 +1578,7 @@ function TimelineEditor({
 
   // Combined Thumbnails handler — runs title cards + SF thumbnails + LF thumbnail
   const runThumbnailsCombined = (missingOnly: boolean) => {
+    if (!requireMainCharacterReference()) return;
     void runProductionTask("thumbnails-combined", async () => {
       const isCancelled = () => titleCardCancelledRef.current || thumbnailsCancelledRef.current;
       let titleCardsRegenerated = false;
@@ -1625,6 +1648,7 @@ function TimelineEditor({
   };
 
   const confirmAndGenerateThumbnails = async () => {
+    if (!requireMainCharacterReference()) return;
     const [longFormThumbnails, shortFormPaths, latestContent] = await Promise.all([
       refreshLongFormThumbnailsInline(false),
       refreshShortFormThumbnailStatus(),
@@ -1850,6 +1874,8 @@ function TimelineEditor({
     let latest = await refreshScriptContent();
     let status = getCreationStatus(latest, projectConfig);
 
+    if (!requireMainCharacterReference()) return false;
+
     if (!status.titleCardsDone && status.hasTitleCards) {
       setYoloStep("Title Cards");
       titleCardCancelledRef.current = false;
@@ -1942,6 +1968,7 @@ function TimelineEditor({
     ensureLongFormThumbnailForYolo,
     refreshScriptContent,
     refreshLongFormThumbnailsInline,
+    requireMainCharacterReference,
     runMissingEliForYolo,
     runMissingFXForYolo,
     scriptId,
@@ -2761,6 +2788,8 @@ function TimelineEditor({
             scriptId={scriptId}
             segments={state.content.segments.map((s) => ({ name: s.name }))}
             onStatusChange={handleShortFormThumbnailStatusChange}
+            canGenerateImages={mainCharacterReferenceReady}
+            onBlockedGeneration={requireMainCharacterReference}
           />
         </div>
       ) : viewerFormat === "short-form" && viewerAsset === "seo" ? (
@@ -2792,7 +2821,7 @@ function TimelineEditor({
           }}
           onApproved={() => {
             media.setMediaReviewDismissed(true);
-            state.generateAllImages();
+            generateAllImagesWithCharacterGate();
             setActiveTab("timeline");
           }}
         />
@@ -2803,7 +2832,7 @@ function TimelineEditor({
           selectedSceneId={state.selectedSceneId}
           onSelectScene={(id) => state.selectScene(id)}
           onUpdateScene={(id, updates) => state.updateScene(id, updates)}
-          onGenerateImage={(id) => state.generateImage(id)}
+          onGenerateImage={generateImageWithCharacterGate}
           onGenerateAudio={(id) => tryGenerateAudio(id)}
           generatingSceneIds={state.generatingSceneIds}
           generatingAudioSceneIds={state.generatingAudioSceneIds}
@@ -2851,7 +2880,7 @@ function TimelineEditor({
                 state.updateScene(selectedScene.scene.id, updates)
               }
               onGenerateImage={() =>
-                state.generateImage(selectedScene.scene.id)
+                generateImageWithCharacterGate(selectedScene.scene.id)
               }
               isGenerating={state.generatingSceneIds.has(selectedScene.scene.id)}
               onGenerateAudio={() =>
@@ -2961,7 +2990,7 @@ function TimelineEditor({
                 onClick={() => {
                   const action = confirmOverwrite;
                   setConfirmOverwrite(null);
-                  if (action === "images") state.generateAllImages();
+                  if (action === "images") generateAllImagesWithCharacterGate();
                   else if (action === "audio") tryGenerateAudio("all");
                   else if (action === "fx") handleGenerateFX();
                   else if (action === "eli") handleGenerateEli();

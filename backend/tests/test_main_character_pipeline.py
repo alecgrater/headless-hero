@@ -1,11 +1,9 @@
-from pathlib import Path
 from unittest.mock import patch
 
 from models.script import MainCharacter
 from pipeline.main_character import (
     build_reference_prompt,
     character_reference_path,
-    generate_character_reference,
 )
 
 
@@ -72,3 +70,13 @@ def test_generate_character_reference_writes_file_and_returns_web_path(tmp_path,
     assert web_path.startswith("/static/projects/script-xyz/character/")
     target = tmp_path / "projects" / "script-xyz" / "character" / "reference.png"
     assert target.exists()
+    variant = tmp_path / "projects" / "script-xyz" / "character" / "references" / "1.png"
+    assert variant.exists()
+    variants = mc.list_character_reference_variants("script-xyz")
+    assert variants == [
+        {
+            "idx": 1,
+            "image_url": "/static/projects/script-xyz/character/references/1.png",
+            "active": True,
+        }
+    ]

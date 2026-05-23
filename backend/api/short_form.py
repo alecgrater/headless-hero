@@ -100,6 +100,14 @@ def _load_content(session: Session, script_id: str) -> ScriptContent:
     return ScriptContent.model_validate(json.loads(record.script_json))
 
 
+def _require_character_reference_ready(session: Session, script_id: str) -> None:
+    from pipeline.main_character import missing_character_reference_reason
+
+    reason = missing_character_reference_reason(session, script_id)
+    if reason:
+        raise HTTPException(status_code=400, detail=reason)
+
+
 def _short_download_paths_for_content(project_title: str, content: ScriptContent) -> dict[int, str]:
     from pipeline.export_paths import project_downloads_folder
     from pipeline.short_form_render import _short_filename
@@ -174,6 +182,7 @@ def start_generate_all_short_thumbnails(
     from pipeline.short_form_thumbnails import generate_all_short_thumbnails
 
     content = _load_content(session, body.script_id)
+    _require_character_reference_ready(session, body.script_id)
     total = len(content.segments)
     job = create_job(scene_count=total)
     logger.info("Starting short-thumbnail generation for script %s (%d segments)", body.script_id, total)
@@ -202,6 +211,7 @@ def start_generate_one_short_thumbnail(
     from pipeline.short_form_thumbnails import generate_short_thumbnail
 
     content = _load_content(session, body.script_id)
+    _require_character_reference_ready(session, body.script_id)
     if body.segment_idx < 0 or body.segment_idx >= len(content.segments):
         raise HTTPException(status_code=400, detail="segment_idx out of range")
 
@@ -237,6 +247,7 @@ def start_generate_short_thumbnail_batch(
     from pipeline.short_form_thumbnails import generate_all_short_thumbnails
 
     content = _load_content(session, body.script_id)
+    _require_character_reference_ready(session, body.script_id)
     total_segments = len(content.segments)
     segment_indices = list(dict.fromkeys(body.segment_indices))
     invalid_indices = [
@@ -279,6 +290,7 @@ def export_short_form_thumbnails(
     from pipeline.short_form_thumbnails import export_short_thumbnails
 
     content = _load_content(session, body.script_id)
+    _require_character_reference_ready(session, body.script_id)
     record = session.get(Script, body.script_id)
     project_title = record.topic_title or "Untitled"
     try:

@@ -16,6 +16,8 @@ interface Props {
   scriptId: string;
   segments: { name: string }[];
   onStatusChange?: (paths?: Record<number, string | undefined>) => void;
+  canGenerateImages?: boolean;
+  onBlockedGeneration?: () => void;
 }
 
 type CurrentOp =
@@ -28,7 +30,13 @@ function segmentLabel(segment: { name: string }, idx: number): string {
   return segment.name || `Segment ${idx + 1}`;
 }
 
-export default function ShortFormThumbnailsCard({ scriptId, segments, onStatusChange }: Props) {
+export default function ShortFormThumbnailsCard({
+  scriptId,
+  segments,
+  onStatusChange,
+  canGenerateImages = true,
+  onBlockedGeneration,
+}: Props) {
   const [thumbnailUrls, setThumbnailUrls] = useState<Record<number, string | undefined>>({});
   const [thumbnailVersions, setThumbnailVersions] = useState<Record<number, number>>({});
   const [exportedPaths, setExportedPaths] = useState<Record<number, string | undefined>>({});
@@ -131,6 +139,10 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, onStatusCh
   });
 
   async function handleGenerateAll() {
+    if (!canGenerateImages) {
+      onBlockedGeneration?.();
+      return;
+    }
     try {
       const confirmed = await confirmBeforeRegenerating(segments.map((_, idx) => idx));
       if (!confirmed) return;
@@ -147,6 +159,10 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, onStatusCh
   }
 
   async function handleGenerateMissing() {
+    if (!canGenerateImages) {
+      onBlockedGeneration?.();
+      return;
+    }
     try {
       setBusy(true);
       setStatus(null);
@@ -167,6 +183,10 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, onStatusCh
   }
 
   async function handleGenerateOne(idx: number) {
+    if (!canGenerateImages) {
+      onBlockedGeneration?.();
+      return;
+    }
     try {
       const confirmed = await confirmBeforeRegenerating([idx]);
       if (!confirmed) return;
@@ -183,6 +203,10 @@ export default function ShortFormThumbnailsCard({ scriptId, segments, onStatusCh
   }
 
   async function handleExport() {
+    if (!canGenerateImages) {
+      onBlockedGeneration?.();
+      return;
+    }
     try {
       setExporting(true);
       const result = await exportShortFormThumbnails(scriptId);
