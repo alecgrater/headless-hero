@@ -54,6 +54,25 @@ def test_chapter_card_inserted_when_missing():
     assert out.segments[0].scenes[0].narration == "The entry."
 
 
+def test_existing_chapter_card_narration_normalized_to_descriptor():
+    content = ScriptContent(
+        title="Your Life As A Test",
+        format_id="life-as-a",
+        levels=[LevelMeta(number=1, descriptor="entry")],
+        segments=[
+            Segment(name="Level 1, the entry", scenes=[
+                _scene("s1", title_card=True),
+                _scene("s2"),
+            ]),
+        ],
+    )
+    content.segments[0].scenes[0].narration = "Level 1, the entry."
+
+    out = enforce_life_as_a_constraints(content)
+
+    assert out.segments[0].scenes[0].narration == "The entry."
+
+
 def test_levels_synthesized_when_missing():
     content = ScriptContent(
         title="Your Life As A Test",

@@ -257,6 +257,23 @@ def enforce_life_as_a_constraints(content: ScriptContent, *, eli_enabled: bool =
         ]
         logger.info("life-as-a: synthesized levels[] from segments")
 
+    # Normalize model-provided chapter cards too. The prompt asks for descriptor-
+    # only narration, but older scripts and occasional model drift may include
+    # the level prefix; TTS is the only layer that should add it back.
+    for seg_idx, segment in enumerate(content.segments):
+        if not segment.scenes or not segment.scenes[0].is_title_card:
+            continue
+        level = (
+            content.levels[seg_idx]
+            if content.levels and seg_idx < len(content.levels)
+            else None
+        )
+        descriptor = level.descriptor if level else segment.short_name or segment.name
+        normalized = _chapter_card_narration(descriptor)
+        if segment.scenes[0].narration != normalized:
+            segment.scenes[0].narration = normalized
+            logger.info("life-as-a: normalized chapter card narration for level %d", seg_idx + 1)
+
     _mark_protagonist_scenes(content, eli_enabled=eli_enabled)
 
     return content
