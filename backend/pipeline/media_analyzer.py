@@ -96,7 +96,7 @@ def _known_audio_duration_seconds(scene: Scene) -> float | None:
     return scene.audio_duration_seconds if scene.audio_duration_seconds > 0 else None
 
 
-def _is_ai_video_eligible(
+def is_ai_video_eligible(
     scene: Scene,
     current_source: str = "ai",
     *,
@@ -122,6 +122,9 @@ def _is_ai_video_eligible(
         if not is_life_as_a_eli_scene(scene, life_as_a_role):
             return False
     return _has_ai_image_frame(scene)
+
+
+_is_ai_video_eligible = is_ai_video_eligible
 
 
 def _ai_video_candidate_score(scene: Scene) -> int:

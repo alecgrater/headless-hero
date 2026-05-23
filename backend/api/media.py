@@ -13,7 +13,7 @@ from sqlmodel import Session
 from config import DATA_DIR
 from database import get_session
 from models.script import Script, ScriptContent
-from pipeline.media_analyzer import analyze_media_sources, apply_assignments, MediaAssignment
+from pipeline.media_analyzer import analyze_media_sources, apply_assignments, MediaAssignment, is_ai_video_eligible
 from pipeline.render_jobs import UserFacingJobError, create_job, get_job, run_in_background, update_job
 
 logger = logging.getLogger(__name__)
@@ -126,12 +126,25 @@ def preserve_media_analysis_source_flags(
 
 def normalize_media_assignments_for_sources(
     assignments: list[MediaAssignment],
+    *,
+    script_content: ScriptContent | None = None,
     gameplay_enabled: bool,
     stock_photo_enabled: bool,
     ai_video_enabled: bool,
 ) -> list[MediaAssignment]:
-    """Coerce assignments to AI when their source is disabled in the latest script."""
+    """Coerce assignments to AI when disabled or invalid for the latest script."""
     normalized: list[MediaAssignment] = []
+    scenes_by_id = {
+        scene.id: scene
+        for scene in script_content.all_scenes()
+    } if script_content is not None else {}
+    require_eli_scene_for_ai_video = script_content is not None and script_content.format_id == "life-as-a"
+    life_as_a_role = ""
+    if require_eli_scene_for_ai_video and script_content is not None:
+        from pipeline.formats.life_as_a import life_as_a_role as resolve_life_as_a_role
+
+        life_as_a_role = resolve_life_as_a_role(script_content)
+
     for assignment in assignments:
         if (
             assignment.media_source == "gameplay_video" and not gameplay_enabled
@@ -147,6 +160,22 @@ def normalize_media_assignments_for_sources(
                 search_query=None,
                 reasoning="Media source disabled before analysis completed.",
             ))
+        elif assignment.media_source == "ai_video" and script_content is not None:
+            scene = scenes_by_id.get(assignment.scene_id)
+            if scene is None or not is_ai_video_eligible(
+                scene,
+                require_eli_scene=require_eli_scene_for_ai_video,
+                life_as_a_role=life_as_a_role,
+            ):
+                normalized.append(MediaAssignment(
+                    scene_id=assignment.scene_id,
+                    media_source="ai",
+                    game_name=None,
+                    search_query=None,
+                    reasoning="AI video assignment no longer fits the latest scene timing or content.",
+                ))
+            else:
+                normalized.append(assignment)
         else:
             normalized.append(assignment)
     return normalized
@@ -243,6 +272,7 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
             final_gameplay_enabled, final_stock_photo_enabled, final_ai_video_enabled = media_analysis_source_flags(final_raw)
             final_assignments = normalize_media_assignments_for_sources(
                 assignments,
+                script_content=final_content,
                 gameplay_enabled=final_gameplay_enabled,
                 stock_photo_enabled=final_stock_photo_enabled,
                 ai_video_enabled=final_ai_video_enabled,
