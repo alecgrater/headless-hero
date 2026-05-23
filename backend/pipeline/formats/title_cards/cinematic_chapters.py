@@ -14,8 +14,21 @@ from pipeline.image_gen import generate_scene_image
 logger = logging.getLogger(__name__)
 
 
-def _with_main_character_subject(prompt: str, content: ScriptContent) -> str:
+def _eli_enabled_for_project(script_id: str) -> bool:
+    """Read whether the project uses Eli, defaulting to Eli-on behavior."""
+    from sqlmodel import Session
+
+    from database import engine
+    from models.project_config import get_project_config
+
+    with Session(engine) as session:
+        return get_project_config(session, script_id).eli_enabled
+
+
+def _with_main_character_subject(prompt: str, content: ScriptContent, *, eli_enabled: bool) -> str:
     """Strengthen life-as-a chapter prompts when a project character is active."""
+    if eli_enabled:
+        return prompt
     character = content.main_character
     if character is None or not character.name.strip():
         return prompt
@@ -74,6 +87,7 @@ class CinematicChaptersStrategy:
 
         clean_path, final_path, sidecar_path = _thumbnail_paths(script_id)
         clean_path.parent.mkdir(parents=True, exist_ok=True)
+        eli_enabled = _eli_enabled_for_project(script_id)
 
         thumb_prompt = content.cinematic_thumbnail_prompt or content.title
         if not thumb_prompt:
@@ -84,7 +98,7 @@ class CinematicChaptersStrategy:
         # 1. Generate the iconic image (Gemini call)
         generate_scene_image(
             scene_id="cinematic_thumbnail_clean",
-            visual_prompt=_with_main_character_subject(thumb_prompt, content),
+            visual_prompt=_with_main_character_subject(thumb_prompt, content, eli_enabled=eli_enabled),
             script_id=script_id,
             force=force,
             contains_person=True,
@@ -121,7 +135,11 @@ class CinematicChaptersStrategy:
                 continue
             generate_scene_image(
                 scene_id=f"chapter_{level.number}",
-                visual_prompt=_with_main_character_subject(level.image_prompt, content),
+                visual_prompt=_with_main_character_subject(
+                    level.image_prompt,
+                    content,
+                    eli_enabled=eli_enabled,
+                ),
                 script_id=script_id,
                 force=force,
                 contains_person=True,

@@ -5,7 +5,7 @@ import os
 import pytest
 from PIL import Image
 
-from models.script import LevelMeta, Scene, ScriptContent, Segment
+from models.script import LevelMeta, MainCharacter, Scene, ScriptContent, Segment
 from pipeline.formats.title_cards.cinematic_chapters import (
     CINEMATIC_CHAPTERS,
     _thumbnail_paths,
@@ -44,7 +44,12 @@ def _make_content(n_levels: int) -> ScriptContent:
 def patched_data_dir(tmp_path, monkeypatch):
     """Redirect DATA_DIR for the strategy and its helpers to tmp_path."""
     monkeypatch.setattr("pipeline.formats.title_cards.cinematic_chapters.DATA_DIR", tmp_path)
+    monkeypatch.setattr(
+        "pipeline.formats.title_cards.cinematic_chapters._eli_enabled_for_project",
+        lambda script_id: True,
+    )
     monkeypatch.setattr("pipeline.thumbnail.DATA_DIR", tmp_path)
+    monkeypatch.setattr("pipeline.thumbnail._resolve_thumbnail_style_ref", lambda script_id: None)
     return tmp_path
 
 
@@ -204,3 +209,44 @@ def test_prepare_thumbnail_falls_back_when_one_level(
     assert not sidecar_path.exists()
     # No Gemini transform call happened
     assert len(fake_gemini_transform) == 0
+
+
+def test_prepare_thumbnail_uses_main_character_prompt_only_when_eli_disabled(
+    patched_data_dir, fake_image_gen, fake_gemini_transform, monkeypatch,
+):
+    import pipeline.formats.title_cards.cinematic_chapters as cinematic_module
+
+    content = _make_content(n_levels=2)
+    content.main_character = MainCharacter(
+        name="Maya",
+        appearance="short black hair and a blue uniform",
+        vibe="focused",
+    )
+
+    monkeypatch.setattr(cinematic_module, "_eli_enabled_for_project", lambda script_id: True)
+
+    CINEMATIC_CHAPTERS.prepare_thumbnail(
+        script_id="eli-on",
+        content=content,
+        accent_color="#ff0066",
+        force=True,
+    )
+
+    eli_on_prompts = [prompt for _, prompt in fake_image_gen]
+    assert eli_on_prompts
+    assert all("Maya is the visually dominant main subject" not in prompt for prompt in eli_on_prompts)
+
+    fake_image_gen.clear()
+    fake_gemini_transform.clear()
+    monkeypatch.setattr(cinematic_module, "_eli_enabled_for_project", lambda script_id: False)
+
+    CINEMATIC_CHAPTERS.prepare_thumbnail(
+        script_id="eli-off",
+        content=content,
+        accent_color="#ff0066",
+        force=True,
+    )
+
+    eli_off_prompts = [prompt for _, prompt in fake_image_gen]
+    assert eli_off_prompts
+    assert all("Maya is the visually dominant main subject" in prompt for prompt in eli_off_prompts)
