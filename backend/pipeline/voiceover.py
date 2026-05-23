@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 import statistics
 import struct
 from concurrent.futures import ThreadPoolExecutor
@@ -10,6 +11,23 @@ from config import DATA_DIR, DEFAULT_TTS_MODEL
 from integrations.elevenlabs_client import generate_speech
 
 logger = logging.getLogger(__name__)
+
+_TITLE_CARD_LEVEL_PREFIX_RE = re.compile(
+    r"^level\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b[\s,.:;!?\-—–]*",
+    re.IGNORECASE,
+)
+_LEVEL_WORDS = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+}
 
 def _mp3_duration_seconds(data: bytes) -> float:
     """Estimate MP3 duration from raw bytes using frame headers.
@@ -63,6 +81,12 @@ def frame_title_card_for_tts(narration: str, level_number: int) -> str:
     cleaned = narration.strip().rstrip(".!?,;:—-").strip()
     if not cleaned:
         return narration
+    match = _TITLE_CARD_LEVEL_PREFIX_RE.match(cleaned)
+    if match:
+        label = match.group(1).lower()
+        parsed_level = int(label) if label.isdigit() else _LEVEL_WORDS[label]
+        if parsed_level == level_number:
+            return f"{cleaned}."
     return f"Level {level_number} — {cleaned}."
 
 

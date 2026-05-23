@@ -51,6 +51,7 @@ def test_chapter_card_inserted_when_missing():
     out = enforce_life_as_a_constraints(content)
     assert out.segments[0].scenes[0].is_title_card is True
     assert out.segments[0].scenes[0].id == "chapter_01"
+    assert out.segments[0].scenes[0].narration == "The entry."
 
 
 def test_levels_synthesized_when_missing():

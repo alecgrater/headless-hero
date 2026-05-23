@@ -30,6 +30,10 @@ _ELI_PROTAGONIST_INSTRUCTION_RE = re.compile(
 )
 _ROLE_PREFIX_RE = re.compile(r"^your life as an?\s+", re.IGNORECASE)
 _SHOT_PREFIX_RE = re.compile(r"^(\[[A-Z\-]+\]\s*)(.*)$")
+_LEVEL_NAME_PREFIX_RE = re.compile(
+    r"^level\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b[\s,.:;!?\-—–]*",
+    re.IGNORECASE,
+)
 
 _HUMAN_SUBJECT_TERMS = {
     "person",
@@ -79,6 +83,15 @@ LIFE_AS_A_BEAT_RULES = VisualBeatRules(
 def life_as_a_role(content: ScriptContent) -> str:
     role = _ROLE_PREFIX_RE.sub("", content.title.strip()).strip(" .,:;!?")
     return role or "the protagonist"
+
+
+def _chapter_card_narration(descriptor: str) -> str:
+    cleaned = _LEVEL_NAME_PREFIX_RE.sub("", descriptor.strip()).strip(" .,:;!?")
+    if not cleaned:
+        return "The beginning."
+    if cleaned.lower().startswith("the "):
+        return f"The {cleaned[4:].strip().lower()}."
+    return f"The {cleaned.lower()}."
 
 
 def _role_terms(role: str) -> set[str]:
@@ -223,7 +236,7 @@ def enforce_life_as_a_constraints(content: ScriptContent, *, eli_enabled: bool =
             )
             chapter_scene = Scene(
                 id=f"chapter_{level_num:02d}",
-                narration=f"Level {level_num}, the {descriptor.lower()}.",
+                narration=_chapter_card_narration(descriptor),
                 visual_prompt=f"[ESTABLISHING] {image_prompt}",
                 duration_estimate_seconds=4.0,
                 is_title_card=True,

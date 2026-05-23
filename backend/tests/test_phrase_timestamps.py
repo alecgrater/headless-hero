@@ -1,6 +1,23 @@
-"""Tests for compute_phrase_timestamps in pipeline/voiceover.py."""
+"""Tests for voiceover timing and title-card TTS helpers."""
 
-from pipeline.voiceover import compute_phrase_timestamps
+from pipeline.voiceover import compute_phrase_timestamps, frame_title_card_for_tts
+
+
+class TestFrameTitleCardForTts:
+    def test_frames_bare_title_card_text(self):
+        assert frame_title_card_for_tts("The Entry", 1) == "Level 1 — The Entry."
+
+    def test_does_not_duplicate_matching_level_prefix(self):
+        assert frame_title_card_for_tts("Level 1, the entry.", 1) == "Level 1, the entry."
+
+    def test_does_not_duplicate_matching_level_prefix_with_dash(self):
+        assert frame_title_card_for_tts("Level 2 - the drift", 2) == "Level 2 - the drift."
+
+    def test_does_not_duplicate_matching_level_word_prefix(self):
+        assert frame_title_card_for_tts("Level two, the drift", 2) == "Level two, the drift."
+
+    def test_keeps_mismatched_level_explicit(self):
+        assert frame_title_card_for_tts("Level 1, the entry.", 2) == "Level 2 — Level 1, the entry."
 
 
 class TestComputePhraseTimestamps:

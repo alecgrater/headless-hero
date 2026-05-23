@@ -515,7 +515,7 @@ Output rules:
 - `levels[0]` (level 1) does NOT need an `image_prompt`; the chapter-card image for level 1 is reused from the cinematic thumbnail. Levels 2..N require `image_prompt`.
 - `intro_hook` is the very first lines the viewer hears; it must already be in second person, present tense, and must NOT greet the viewer.
 - `outro_cta` is editor metadata only. Do NOT fold its language into scene narration.
-- Each level's first scene is a chapter card (`is_title_card: true`, `visual_beat: "static"`, `frame_directives: []`) whose narration is the level title line ("Level one, the occasional.").
+- Each level's first scene is a chapter card (`is_title_card: true`, `visual_beat: "static"`, `frame_directives: []`) whose narration is ONLY the descriptor phrase, without the level label or number (for example, "The occasional."). The TTS pipeline adds "Level N" once at audio generation time.
 - After the chapter card, write paragraph-shaped scenes (3–8 sentences each, ~10–25s).
 - `visual_prompt` MUST begin with `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, or `[METAPHOR]`.
 - Scene IDs must be unique and sequential across the entire script: `scene_001`, `scene_002`, etc.
@@ -646,7 +646,7 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 ## RULES
 
 ### Scene shape
-- The FIRST scene of this level MUST be a chapter card: `is_title_card: true`, `visual_beat: "static"`, `frame_directives: []`. Its narration is the level title line itself — e.g. "Level one, the occasional." (one short sentence).
+- The FIRST scene of this level MUST be a chapter card: `is_title_card: true`, `visual_beat: "static"`, `frame_directives: []`. Its narration is ONLY the descriptor phrase, without the level label or number — e.g. "The occasional." (one short sentence). The TTS pipeline adds "Level N" once at audio generation time.
 - After the chapter card, write paragraph-shaped scenes. Each non-title scene should be **3–8 sentences** of narration and run roughly **10–25 seconds** of speech. Do NOT chop paragraphs into 1–2 sentence fragments — the long form is the point.
 - There is no fixed scene count for a level. Let the narration and the level's topic_summary determine how many scenes the level needs. Most levels will have 4–8 content scenes after the chapter card.
 - Scene IDs start at `scene_001` within this level (they will be renumbered globally later).
