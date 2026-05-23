@@ -145,7 +145,7 @@ export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultS
           {activeSection === "api-keys" && <ApiKeysSection />}
           {activeSection === "misc" && <MiscSection />}
           {activeSection === "style-presets" && (
-            <div className="max-w-4xl px-8 py-8">
+            <div className="max-w-6xl px-8 py-8">
               <StylePresetsSection />
             </div>
           )}
