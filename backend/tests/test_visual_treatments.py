@@ -1,10 +1,18 @@
 import json
 
+import pytest
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
 from models.settings import AppSetting
 from models.script import ScriptContent, Scene, VisualCanvas, VisualLayer
+from pipeline.render_jobs import UserFacingJobError
+from pipeline.visual_treatments import (
+    VisualTreatmentAssignment,
+    analyze_visual_treatments,
+    apply_visual_treatment_assignments,
+    require_visual_treatment_voiceover,
+)
 
 
 def _build_test_engine():
@@ -15,6 +23,25 @@ def _build_test_engine():
     )
     SQLModel.metadata.create_all(engine)
     return engine
+
+
+def scene_with_words(scene_id: str, narration: str) -> Scene:
+    words = []
+    cursor = 0
+    for word in narration.replace(",", "").replace(".", "").split():
+        words.append({"word": word, "start_ms": cursor, "end_ms": cursor + 300})
+        cursor += 350
+    return Scene(
+        id=scene_id,
+        narration=narration,
+        visual_prompt=f"Panel for {scene_id}",
+        audio_duration_seconds=max(cursor / 1000, 1.0),
+        word_timestamps=words,
+    )
+
+
+def content_with_scenes(*scenes: Scene) -> ScriptContent:
+    return ScriptContent(title="Treatment Test", segments=[{"name": "Segment", "scenes": list(scenes)}])
 
 
 def test_visual_canvas_normalizes_hex_color():
@@ -208,3 +235,98 @@ def test_update_visual_canvas_persists_canonical_topic_title(tmp_path, monkeypat
         stored_content = ScriptContent.model_validate_json(stored_script.script_json)
         assert stored_content.title == "Canonical Title"
         assert stored_content.visual_canvas.background_color == "#ABCDEF"
+
+
+def test_require_visual_treatment_voiceover_raises_for_missing_non_title_audio():
+    title = Scene(id="title", narration="", visual_prompt="", is_title_card=True)
+    scene = Scene(id="s1", narration="Missing audio.", visual_prompt="Panel")
+    content = content_with_scenes(title, scene)
+
+    with pytest.raises(UserFacingJobError, match="Generate voiceover first"):
+        require_visual_treatment_voiceover(content)
+
+
+def test_require_visual_treatment_voiceover_raises_for_missing_non_title_word_timing():
+    scene = Scene(
+        id="s1",
+        narration="Missing word timings.",
+        visual_prompt="Panel",
+        audio_duration_seconds=2.0,
+        word_timestamps=[],
+    )
+    content = content_with_scenes(scene)
+
+    with pytest.raises(UserFacingJobError, match="sync to words"):
+        require_visual_treatment_voiceover(content)
+
+
+def test_analyze_visual_treatments_assigns_popup_sequence_for_list_narration():
+    scene = scene_with_words("s1", "First gather wood, second build shelter, third start a fire.")
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-popup")
+
+    assignment = assignments[0]
+    assert assignment.scene_id == "s1"
+    assert assignment.visual_treatment == "popup_sequence"
+    assert 2 <= len(assignment.visual_layers) <= 4
+    enter_times = [layer.enter_at_seconds for layer in assignment.visual_layers]
+    assert enter_times == sorted(enter_times)
+    assert all("small framed Headless Hero cartoon panel" in layer.prompt for layer in assignment.visual_layers)
+
+
+def test_analyze_visual_treatments_assigns_flipflop_for_two_state_narration():
+    scene = scene_with_words("s1", "At first the room is calm, but then everything becomes chaos.")
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-flip")
+
+    assignment = assignments[0]
+    assert assignment.scene_id == "s1"
+    assert assignment.visual_treatment == "flipflop"
+    assert len(assignment.visual_layers) == 2
+    assert [layer.id for layer in assignment.visual_layers] == ["s1_state_a", "s1_state_b"]
+    assert [layer.enter_at_seconds for layer in assignment.visual_layers] == [0.0, 0.5]
+
+
+def test_analyze_visual_treatments_assigns_flipflop_for_repetition():
+    scene = scene_with_words("s1", "The meter rises, rises, and rises again.")
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-repeat")
+
+    assert assignments[0].visual_treatment == "flipflop"
+    assert len(assignments[0].visual_layers) == 2
+
+
+def test_apply_visual_treatment_assignments_updates_matching_scenes():
+    first = scene_with_words("s1", "First panel.")
+    second = scene_with_words("s2", "Second panel.")
+    content = content_with_scenes(first, second)
+    layer = VisualLayer(id="s1_panel", prompt="Panel prompt")
+
+    apply_visual_treatment_assignments(
+        content,
+        [
+            VisualTreatmentAssignment(
+                scene_id="s1",
+                visual_treatment="popup_sequence",
+                visual_layers=[layer],
+            ),
+            VisualTreatmentAssignment(
+                scene_id="missing",
+                visual_treatment="flipflop",
+                visual_layers=[VisualLayer(id="missing_panel")],
+            ),
+            VisualTreatmentAssignment(
+                scene_id="s2",
+                visual_treatment="unknown",
+                visual_layers=[VisualLayer(id="ignored")],
+            ),
+        ],
+    )
+
+    assert first.visual_treatment == "popup_sequence"
+    assert first.visual_layers == [layer]
+    assert second.visual_treatment == "full_frame"
+    assert second.visual_layers == []
