@@ -237,6 +237,51 @@ def test_update_visual_canvas_persists_canonical_topic_title(tmp_path, monkeypat
         assert stored_content.visual_canvas.background_color == "#ABCDEF"
 
 
+def test_analyze_visual_treatments_status_does_not_expose_output_urls(monkeypatch):
+    import database
+    from api import visual_treatments as visual_treatments_api
+    from models.script import Script
+    from pipeline.render_jobs import update_job
+
+    engine = _build_test_engine()
+    script_id = "visual-treatment-analysis-job"
+    content = content_with_scenes(
+        scene_with_words("s1", "They learned to keep your head down, hide feelings, and never be different.")
+    )
+
+    def run_sync(job_id, target):
+        update_job(job_id, status="running")
+        result = target()
+        if isinstance(result, str):
+            output_urls = [result]
+        elif isinstance(result, list):
+            output_urls = result
+        else:
+            output_urls = []
+        update_job(job_id, status="completed", progress=1.0, current_step="Complete", output_urls=output_urls)
+
+    monkeypatch.setattr(database, "engine", engine)
+    monkeypatch.setattr(visual_treatments_api, "run_in_background", run_sync)
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Treatment Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        response = visual_treatments_api.analyze_visual_treatment_job(script_id, session)
+        status = visual_treatments_api.visual_treatment_analyze_status(response.job_id)
+
+    assert status["status"] == "completed"
+    assert status["output_urls"] == []
+    assert len(status["assignments"]) == 1
+
+
 def test_require_visual_treatment_voiceover_raises_for_missing_non_title_audio():
     title = Scene(id="title", narration="", visual_prompt="", is_title_card=True)
     scene = Scene(id="s1", narration="Missing audio.", visual_prompt="Panel")
@@ -314,7 +359,7 @@ def test_analyze_visual_treatments_assigns_flipflop_for_two_state_narration():
     assert assignment.visual_treatment == "flipflop"
     assert len(assignment.visual_layers) == 2
     assert [layer.id for layer in assignment.visual_layers] == ["s1_state_a", "s1_state_b"]
-    assert [layer.enter_at_seconds for layer in assignment.visual_layers] == [0.0, 0.5]
+    assert [layer.enter_at_seconds for layer in assignment.visual_layers] == [0.0, 2.1]
 
 
 def test_analyze_visual_treatments_assigns_flipflop_for_repetition():
@@ -325,6 +370,16 @@ def test_analyze_visual_treatments_assigns_flipflop_for_repetition():
 
     assert assignments[0].visual_treatment == "flipflop"
     assert len(assignments[0].visual_layers) == 2
+
+
+def test_analyze_visual_treatments_does_not_treat_cardinal_words_as_list_markers():
+    scene = scene_with_words("s1", "No one knew two guards were hiding.")
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-cardinal")
+
+    assert assignments[0].visual_treatment == "full_frame"
+    assert assignments[0].visual_layers == []
 
 
 def test_apply_visual_treatment_assignments_updates_matching_scenes():

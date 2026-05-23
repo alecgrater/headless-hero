@@ -187,10 +187,10 @@ def analyze_visual_treatment_job(
     except UserFacingJobError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-    job = create_job(scene_count=len(content.all_scenes()))
+    job = create_job()
     job_id = job.id
 
-    def _run_analysis() -> list[str]:
+    def _run_analysis() -> None:
         update_job(job_id, current_step="Analyzing visual treatments...")
 
         from database import engine
@@ -206,7 +206,7 @@ def analyze_visual_treatment_job(
                 job_id,
                 output_data=json.dumps([assignment.model_dump() for assignment in assignments]),
             )
-        return [script_id]
+        return None
 
     run_in_background(job_id, _run_analysis)
     return AnalyzeVisualTreatmentsResponse(job_id=job_id)

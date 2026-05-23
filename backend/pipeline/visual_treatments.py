@@ -18,10 +18,6 @@ LIST_MARKERS = {
     "second",
     "third",
     "fourth",
-    "one",
-    "two",
-    "three",
-    "four",
     "1",
     "2",
     "3",
@@ -39,6 +35,7 @@ CONTRAST_MARKERS = {
     "instead",
     "while",
 }
+TWO_STATE_MARKERS = {"again"}
 TWO_STATE_PHRASES = (
     "at first",
     "first the",
@@ -175,16 +172,19 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
         )
 
     contrast_words = _matching_words(scene, CONTRAST_MARKERS)
+    two_state_words = _matching_words(scene, TWO_STATE_MARKERS)
+    state_b_enter_at = _state_b_enter_at(scene, [*contrast_words, *two_state_words])
     if (
         contrast_words
         or _has_repeated_content_word(scene)
+        or two_state_words
         or any(phrase in scene.narration.lower() for phrase in TWO_STATE_PHRASES)
     ):
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_treatment="flipflop",
             reasoning="Detected contrast, repetition, or two-state narration.",
-            visual_layers=_flipflop_layers(scene),
+            visual_layers=_flipflop_layers(scene, state_b_enter_at),
         )
 
     natural_list_items = _natural_list_items(scene)
@@ -247,7 +247,7 @@ def _popup_layers(scene: Scene, list_items: list[tuple[str, float]]) -> list[Vis
     return layers
 
 
-def _flipflop_layers(scene: Scene) -> list[VisualLayer]:
+def _flipflop_layers(scene: Scene, state_b_enter_at: float) -> list[VisualLayer]:
     return [
         VisualLayer(
             id=f"{scene.id}_state_a",
@@ -260,7 +260,7 @@ def _flipflop_layers(scene: Scene) -> list[VisualLayer]:
             id=f"{scene.id}_state_b",
             prompt=_panel_prompt(scene, "state B"),
             placement="center",
-            enter_at_seconds=0.5,
+            enter_at_seconds=round(state_b_enter_at, 2),
             animation="pop_in",
         ),
     ]
@@ -282,6 +282,13 @@ def _matching_words(scene: Scene, markers: set[str]) -> list[tuple[str, float]]:
         if normalized in markers:
             matches.append((normalized, word.start_ms / 1000))
     return matches
+
+
+def _state_b_enter_at(scene: Scene, cue_words: list[tuple[str, float]]) -> float:
+    if cue_words:
+        return cue_words[0][1]
+    midpoint = scene.audio_duration_seconds / 2 if scene.audio_duration_seconds > 0 else 0.5
+    return max(midpoint, 0.5)
 
 
 def _natural_list_items(scene: Scene) -> list[tuple[str, float]]:
