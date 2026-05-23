@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from models.script import LevelMeta, Scene, ScriptContent, Segment
+from models.script import LevelMeta, MainCharacter, Scene, ScriptContent, Segment
 from pipeline.formats.life_as_a import enforce_life_as_a_constraints
 
 
@@ -116,6 +116,81 @@ def test_life_as_a_marks_role_scenes_as_eli_protagonist():
     assert "Depict Eli as Prison Guard" in scene.visual_prompt
     assert scene.frame_directives[0].contains_person is True
     assert scene.frame_directives[0].prompt.startswith("[ESTABLISHING] Eli, the recurring character")
+
+
+def test_life_as_a_eli_disabled_marks_role_scenes_as_main_character():
+    content = ScriptContent(
+        title="Your Life As A Prison Guard",
+        format_id="life-as-a",
+        main_character=MainCharacter(
+            name="Darnell",
+            appearance="Black male guard with close-cropped hair and a navy uniform",
+            vibe="Steady and observant.",
+        ),
+        segments=[
+            Segment(name="Level 1, the entry", scenes=[
+                Scene(
+                    id="s1",
+                    narration="You walk the corridor before dawn.",
+                    visual_prompt="[ESTABLISHING] A prison guard walking down a narrow corridor",
+                    frame_directives=[
+                        {
+                            "prompt": "[ESTABLISHING] A prison guard walking down a narrow corridor",
+                            "source": "ai_generated",
+                            "transition": "cut",
+                            "reference_previous": False,
+                            "search_query": "",
+                            "contains_person": False,
+                        }
+                    ],
+                ),
+            ]),
+        ],
+    )
+
+    out = enforce_life_as_a_constraints(content, eli_enabled=False)
+    scene = out.segments[0].scenes[1]
+
+    assert scene.contains_person is True
+    assert scene.visual_prompt.startswith("[ESTABLISHING] Darnell is the main subject")
+    assert "Depict Darnell as Prison Guard" in scene.visual_prompt
+    assert "Eli" not in scene.visual_prompt
+    assert scene.frame_directives[0].contains_person is True
+    assert scene.frame_directives[0].prompt.startswith("[ESTABLISHING] Darnell is the main subject")
+    assert "Eli" not in scene.frame_directives[0].prompt
+
+
+def test_life_as_a_eli_disabled_replaces_existing_eli_prompt_without_duplication():
+    content = ScriptContent(
+        title="Your Life As A Prison Guard",
+        format_id="life-as-a",
+        main_character=MainCharacter(
+            name="Darnell",
+            appearance="Black male guard with close-cropped hair and a navy uniform",
+            vibe="Steady and observant.",
+        ),
+        segments=[
+            Segment(name="Level 1, the entry", scenes=[
+                Scene(
+                    id="s1",
+                    narration="You stand at the entry door.",
+                    visual_prompt=(
+                        "[REACTION] Eli, the recurring character, is the main subject and protagonist in this scene. "
+                        "Depict Eli as Prison Guard; any other people are secondary and visually distinct from Eli. "
+                        "A guard standing at a heavy steel door"
+                    ),
+                ),
+            ]),
+        ],
+    )
+
+    out = enforce_life_as_a_constraints(content, eli_enabled=False)
+    scene = out.segments[0].scenes[1]
+
+    assert scene.visual_prompt.startswith("[REACTION] Darnell is the main subject")
+    assert scene.visual_prompt.count("Darnell is the main subject") == 1
+    assert "A guard standing at a heavy steel door" in scene.visual_prompt
+    assert "Eli" not in scene.visual_prompt
 
 
 def test_life_as_a_leaves_non_person_object_scenes_unmarked():

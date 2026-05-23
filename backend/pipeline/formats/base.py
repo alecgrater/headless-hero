@@ -77,4 +77,4 @@ class VideoFormat:
     visual_beat_rules: VisualBeatRules
 
     # Post-processing — applied after Claude generation, before _fix_visual_monotony
-    enforce_post_processing: Callable[[ScriptContent], ScriptContent]
+    enforce_post_processing: Callable[..., ScriptContent]

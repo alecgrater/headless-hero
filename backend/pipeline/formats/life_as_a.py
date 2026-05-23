@@ -19,7 +19,15 @@ from .title_cards.cinematic_chapters import CINEMATIC_CHAPTERS
 
 logger = logging.getLogger(__name__)
 
-_ELI_PREFIX_RE = re.compile(r"^Eli, the recurring character, is the main subject\b", re.IGNORECASE)
+_ELI_PREFIX_RE = re.compile(
+    r"^(?:\[[A-Z\-]+\]\s*)?Eli, the recurring character, is the main subject\b",
+    re.IGNORECASE,
+)
+_ELI_PROTAGONIST_INSTRUCTION_RE = re.compile(
+    r"^Eli, the recurring character, is the main subject and protagonist in this scene\.\s*"
+    r"Depict Eli as .*?; any other people are secondary and visually distinct from Eli\.\s*",
+    re.IGNORECASE,
+)
 _ROLE_PREFIX_RE = re.compile(r"^your life as an?\s+", re.IGNORECASE)
 _SHOT_PREFIX_RE = re.compile(r"^(\[[A-Z\-]+\]\s*)(.*)$")
 
@@ -119,14 +127,41 @@ def _eli_scene_prompt(prompt: str, role: str) -> str:
     return f"{shot_tag}{eli_instruction} {rest}".strip()
 
 
-def _mark_eli_protagonist_scenes(content: ScriptContent) -> int:
+def _main_character_scene_prompt(prompt: str, content: ScriptContent, role: str) -> str:
+    stripped = prompt.strip()
+    character = content.main_character
+    character_name = character.name.strip() if character and character.name.strip() else "the main character"
+    if not stripped:
+        return prompt
+
+    shot_tag = ""
+    shot_match = _SHOT_PREFIX_RE.match(stripped)
+    if shot_match:
+        shot_tag, stripped = shot_match.groups()
+
+    stripped = _ELI_PROTAGONIST_INSTRUCTION_RE.sub("", stripped).strip()
+    stripped = re.sub(r"\bEli\b", character_name, stripped)
+    character_instruction = (
+        f"{character_name} is the main subject and protagonist in this scene. "
+        f"Depict {character_name} as {role}; any other people are secondary and visually distinct from {character_name}."
+    )
+    if stripped.startswith(character_instruction):
+        return f"{shot_tag}{stripped}".strip()
+    return f"{shot_tag}{character_instruction} {stripped}".strip()
+
+
+def _mark_protagonist_scenes(content: ScriptContent, *, eli_enabled: bool = True) -> int:
     role = life_as_a_role(content)
     updated = 0
     for scene in content.all_scenes():
         if not is_life_as_a_eli_scene(scene, role):
             continue
         original_prompt = scene.visual_prompt
-        scene.visual_prompt = _eli_scene_prompt(scene.visual_prompt, role)
+        scene.visual_prompt = (
+            _eli_scene_prompt(scene.visual_prompt, role)
+            if eli_enabled
+            else _main_character_scene_prompt(scene.visual_prompt, content, role)
+        )
         scene.contains_person = True
         if scene.visual_prompt != original_prompt:
             updated += 1
@@ -135,24 +170,29 @@ def _mark_eli_protagonist_scenes(content: ScriptContent) -> int:
             if frame.source != "ai_generated":
                 continue
             frame_prompt = frame.prompt
-            new_prompt = _eli_scene_prompt(frame_prompt, role)
+            new_prompt = (
+                _eli_scene_prompt(frame_prompt, role)
+                if eli_enabled
+                else _main_character_scene_prompt(frame_prompt, content, role)
+            )
             if new_prompt != frame_prompt:
                 frame.prompt = new_prompt
                 updated += 1
             frame.contains_person = True
 
     if updated:
-        logger.info("life-as-a: marked %d visual prompt(s) as Eli-protagonist scenes", updated)
+        protagonist = "Eli" if eli_enabled else "main-character"
+        logger.info("life-as-a: marked %d visual prompt(s) as %s protagonist scenes", updated, protagonist)
     return updated
 
 
-def enforce_life_as_a_constraints(content: ScriptContent) -> ScriptContent:
+def enforce_life_as_a_constraints(content: ScriptContent, *, eli_enabled: bool = True) -> ScriptContent:
     """Post-process a life-as-a script.
 
     - Coerce disallowed visual_beat values ('aha_subtitle', 'montage') back to 'static'.
     - Ensure each segment has a chapter-card scene at index 0 (is_title_card=True).
     - Synthesize content.levels[] from segments if Claude omitted it (defensive).
-    - Mark visible protagonist scenes so Eli is the main subject and character reference is used.
+    - Mark visible protagonist scenes so the active protagonist reference is used.
     """
     allowed = LIFE_AS_A_BEAT_RULES.allowed_beats
     coerced = 0
@@ -204,7 +244,7 @@ def enforce_life_as_a_constraints(content: ScriptContent) -> ScriptContent:
         ]
         logger.info("life-as-a: synthesized levels[] from segments")
 
-    _mark_eli_protagonist_scenes(content)
+    _mark_protagonist_scenes(content, eli_enabled=eli_enabled)
 
     return content
 

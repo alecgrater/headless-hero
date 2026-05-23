@@ -391,7 +391,7 @@ def generate_script(
         content = ScriptContent.model_validate(data)
 
     content.format_id = fmt.id
-    content = fmt.enforce_post_processing(content)
+    content = fmt.enforce_post_processing(content, eli_enabled=eli_enabled)
     _fix_visual_monotony(content, rules=fmt.visual_beat_rules)
     _ensure_visual_beat_directives(content)
 

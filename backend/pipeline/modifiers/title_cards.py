@@ -83,7 +83,7 @@ def prepare_title_card_scene(scene: Scene, script_id: str, brand: dict) -> Scene
     return scene
 
 
-def enforce_title_cards_and_min_scenes(content: ScriptContent) -> ScriptContent:
+def enforce_title_cards_and_min_scenes(content: ScriptContent, **_: object) -> ScriptContent:
     """Post-process script to ensure title card consistency and composite card fields."""
     # Enforce card_title and highlight_word
     if not content.card_title:
