@@ -169,6 +169,15 @@ def media_analysis_voiceover_required_message(missing_count: int) -> str:
     )
 
 
+def require_media_analysis_voiceover(content: ScriptContent) -> None:
+    """Raise a user-facing job error when media analysis lacks voiceover timing."""
+    missing_voiceover = missing_voiceover_scene_ids(content)
+    if missing_voiceover:
+        raise UserFacingJobError(
+            media_analysis_voiceover_required_message(len(missing_voiceover))
+        )
+
+
 @router.post("/analyze/{script_id}", response_model=AnalyzeResponse)
 def analyze_media(script_id: str, session: Session = Depends(get_session)):
     """Trigger media source analysis for a script. Runs as a background job."""
@@ -198,11 +207,7 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
                 raise RuntimeError(f"Script {script_id} not found during background analysis")
             fresh_raw = json.loads(rec.script_json)
             fresh_content = ScriptContent.model_validate(fresh_raw)
-            fresh_missing_voiceover = missing_voiceover_scene_ids(fresh_content)
-            if fresh_missing_voiceover:
-                raise UserFacingJobError(
-                    media_analysis_voiceover_required_message(len(fresh_missing_voiceover))
-                )
+            require_media_analysis_voiceover(fresh_content)
 
         gameplay_enabled, stock_photo_enabled, ai_video_enabled = media_analysis_source_flags(fresh_raw)
 
@@ -234,6 +239,7 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
                 raise RuntimeError(f"Script {script_id} deleted during media analysis")
             final_raw = json.loads(rec.script_json)
             final_content = ScriptContent.model_validate(final_raw)
+            require_media_analysis_voiceover(final_content)
             final_gameplay_enabled, final_stock_photo_enabled, final_ai_video_enabled = media_analysis_source_flags(final_raw)
             final_assignments = normalize_media_assignments_for_sources(
                 assignments,

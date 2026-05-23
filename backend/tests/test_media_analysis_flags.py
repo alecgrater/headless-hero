@@ -3,6 +3,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from api.media import (
@@ -10,11 +12,13 @@ from api.media import (
     media_analysis_source_flags,
     normalize_media_assignments_for_sources,
     preserve_media_analysis_source_flags,
+    require_media_analysis_voiceover,
 )
 from models.script import ScriptContent
 from models.script import Scene, Segment
 from pipeline import media_analyzer
 from pipeline.media_analyzer import MediaAssignment, _resolve_scene_id, analyze_media_sources
+from pipeline.render_jobs import UserFacingJobError
 
 
 def test_media_analysis_flags_default_old_scripts_to_manual_sources():
@@ -106,6 +110,24 @@ def test_missing_voiceover_scene_ids_requires_audio_duration_for_every_scene():
     )
 
     assert missing_voiceover_scene_ids(content) == ["scene_002"]
+
+
+def test_require_media_analysis_voiceover_raises_user_facing_error():
+    content = ScriptContent(
+        title="Voiceover gate",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(id="scene_001", narration="Ready.", visual_prompt="Ready", audio_duration_seconds=4.2),
+                    Scene(id="scene_002", narration="Missing.", visual_prompt="Missing", audio_duration_seconds=0),
+                ],
+            ),
+        ],
+    )
+
+    with pytest.raises(UserFacingJobError, match="1 scene\\(s\\) are missing"):
+        require_media_analysis_voiceover(content)
 
 
 def test_resolve_scene_id_handles_unpadded_llm_ids():
