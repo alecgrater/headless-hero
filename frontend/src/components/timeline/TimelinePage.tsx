@@ -792,6 +792,11 @@ function TimelineEditor({
   const [eliProgressPct, setEliProgressPct] = useState<number>(0);
   const [eliProgressTotal, setEliProgressTotal] = useState<number>(0);
   const [confirmOverwrite, setConfirmOverwrite] = useState<"images" | "audio" | "fx" | "eli" | "thumbnails" | "seo" | "export" | null>(null);
+  const [thumbnailsOverwriteInfo, setThumbnailsOverwriteInfo] = useState<{
+    titleCards: boolean;
+    shortForm: boolean;
+    longForm: boolean;
+  } | null>(null);
   const [pixelsPerSecond, setPixelsPerSecond] = useState(20);
   const [exportTestJobId, setExportTestJobId] = useState<string | null>(null);
   const [exportTestStep, setExportTestStep] = useState("");
@@ -1629,6 +1634,11 @@ function TimelineEditor({
     );
     const hasExistingShortFormThumbnails = Object.values(shortFormPaths).some(Boolean);
     if (hasExistingTitleCards || hasExistingShortFormThumbnails || hasExistingLongFormThumbnail) {
+      setThumbnailsOverwriteInfo({
+        titleCards: hasExistingTitleCards,
+        shortForm: hasExistingShortFormThumbnails,
+        longForm: hasExistingLongFormThumbnail,
+      });
       setConfirmOverwrite("thumbnails");
     } else {
       runThumbnailsCombined(false);
@@ -2904,7 +2914,20 @@ function TimelineEditor({
               {confirmOverwrite === "audio" && "Some scenes already have generated audio. Regenerating will overwrite them."}
               {confirmOverwrite === "fx" && "Some scenes already have FX assignments. Regenerating will overwrite them."}
               {confirmOverwrite === "eli" && "Some scenes already have Eli overlays. Regenerating will overwrite them."}
-              {confirmOverwrite === "thumbnails" && "Some thumbnails (title cards, short-form, or long-form) are already generated. Continuing will overwrite them. Use the dropdown's \"Generate Missing\" option to only fill in what's missing."}
+              {confirmOverwrite === "thumbnails" && (() => {
+                const info = thumbnailsOverwriteInfo;
+                if (!info) return null;
+                const overwriteParts: string[] = [];
+                if (info.titleCards) overwriteParts.push("title cards");
+                if (info.shortForm) overwriteParts.push("short-form thumbnails");
+                const overwriteSentence = overwriteParts.length > 0
+                  ? `Existing ${overwriteParts.join(" and ")} will be overwritten.`
+                  : "";
+                const longFormSentence = info.longForm
+                  ? "The current long-form thumbnail will be archived (not deleted) — a new one is saved alongside it."
+                  : "";
+                return [overwriteSentence, longFormSentence].filter(Boolean).join(" ");
+              })()}
               {confirmOverwrite === "seo" && "SEO has already been generated. Continuing will regenerate and re-export the markdown files. Use the dropdown's \"Generate Missing\" option to only fill in what's missing."}
               {confirmOverwrite === "export" && "Some videos have already been rendered. Continuing will re-render them. Use the dropdown's \"Render Missing\" option to only render what's missing."}
             </p>
