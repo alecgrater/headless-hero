@@ -128,7 +128,7 @@ def _phase_images(ctx: ExportContext) -> None:
                 layer.model_dump() if hasattr(layer, "model_dump") else dict(layer)
                 for layer in visual_layers
             ]
-            sc_info["_visual_layers"] = generate_visual_layer_panels(sid, layer_dicts, ctx.script_id)
+            sc_info["_visual_layers"] = generate_visual_layer_panels(sid, layer_dicts, ctx.script_id, force=True)
     logger.info("[%s] Phase: images — complete (%d scenes)", ctx.script_id, scene_count)
 
 

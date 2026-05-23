@@ -242,9 +242,70 @@ def _move_generated_image(tmp_path: str, local_path: Path, metadata: dict[str, o
     return _read_source_metadata(local_path) or metadata
 
 
+def _safe_image_id(value: str) -> str:
+    return "".join(ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in value)
+
+
 def visual_layer_image_filename(scene_id: str, layer_id: str) -> str:
-    safe_layer = "".join(ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in layer_id)
-    return f"{scene_id}_layer_{safe_layer}.png"
+    return f"{_safe_image_id(scene_id)}_layer_{_safe_image_id(layer_id)}.png"
+
+
+def _compose_image_prompt_context(
+    *,
+    visual_prompt: str,
+    script_id: str,
+    style_guide: str = "",
+    contains_person: bool = False,
+) -> tuple[str, str | None, str | None]:
+    guide = style_guide if style_guide else _STYLE_GUIDE
+
+    eli_enabled, main_character_url, main_character_obj = _load_project_character_context(script_id)
+    _ensure_project_character_reference_ready(
+        script_id=script_id,
+        eli_enabled=eli_enabled,
+        main_character_reference_url=main_character_url,
+        main_character=main_character_obj,
+    )
+
+    project_style_enabled = _load_project_style_enabled(script_id)
+    style_reference_path = _resolve_style_preset(
+        eli_enabled=eli_enabled,
+        project_style_enabled=project_style_enabled,
+    )
+
+    reference_image_path, character_text = _resolve_character_reference(
+        script_id=script_id,
+        contains_person=contains_person,
+        eli_enabled=eli_enabled,
+        main_character_reference_url=main_character_url,
+        main_character=main_character_obj,
+    )
+
+    parts: list[str] = []
+    if _VISUAL_STYLE:
+        parts.append(_VISUAL_STYLE)
+    if guide:
+        parts.append(guide)
+    if character_text:
+        parts.append(character_text)
+    parts.append(visual_prompt)
+    prompt = "\n\n".join(parts)
+
+    if reference_image_path:
+        try:
+            mtime = int(Path(reference_image_path).stat().st_mtime)
+            prompt += f"\n[char_ref:{reference_image_path}:{mtime}]"
+        except OSError:
+            pass
+
+    if style_reference_path:
+        try:
+            mtime = int(Path(style_reference_path).stat().st_mtime)
+            prompt += f"\n[style_ref:{style_reference_path}:{mtime}]"
+        except OSError:
+            pass
+
+    return prompt, reference_image_path, style_reference_path
 
 
 def generate_visual_layer_panels(
@@ -278,12 +339,17 @@ def generate_visual_layer_panels(
         local_path = images_dir / filename
         prompt_marker = images_dir / f"{filename}.prompt"
         web_path = f"/static/projects/{script_id}/images/{filename}"
+        composed_prompt, reference_image_path, style_reference_path = _compose_image_prompt_context(
+            visual_prompt=prompt,
+            script_id=script_id,
+            contains_person=bool(layer.get("contains_person", False)),
+        )
 
         next_layer = dict(layer)
         next_layer["id"] = layer_id
         if not force and local_path.exists() and prompt_marker.exists():
             cached_prompt = prompt_marker.read_text(encoding="utf-8")
-            if cached_prompt == prompt:
+            if cached_prompt == composed_prompt:
                 logger.info("[PANEL_GEN] cache hit scene=%s layer=%s", scene_id, layer_id)
                 next_layer["image_url"] = web_path
                 source_metadata = _read_source_metadata(local_path)
@@ -294,11 +360,12 @@ def generate_visual_layer_panels(
 
         logger.info("[PANEL_GEN] generating panel scene=%s layer=%s", scene_id, layer_id)
         tmp_path = generate_image(
-            prompt,
+            composed_prompt,
             width=width,
             height=height,
-            reference_image_path=None,
+            reference_image_path=reference_image_path,
             original_prompt=prompt,
+            style_reference_path=style_reference_path,
             script_id=script_id,
         )
         metadata = _move_generated_image(
@@ -310,7 +377,7 @@ def generate_visual_layer_panels(
                 "fallback": False,
             },
         )
-        prompt_marker.write_text(prompt, encoding="utf-8")
+        prompt_marker.write_text(composed_prompt, encoding="utf-8")
         next_layer["image_url"] = web_path
         next_layer["visual_source_metadata"] = metadata
         processed_layers.append(next_layer)
@@ -336,55 +403,12 @@ def generate_scene_image(
     When contains_person is True, injects Eli character reference + prompt.
     Returns (web-relative path, composed prompt used, source metadata).
     """
-    guide = style_guide if style_guide else _STYLE_GUIDE
-
-    eli_enabled, main_character_url, main_character_obj = _load_project_character_context(script_id)
-    _ensure_project_character_reference_ready(
+    prompt, reference_image_path, style_reference_path = _compose_image_prompt_context(
+        visual_prompt=visual_prompt,
         script_id=script_id,
-        eli_enabled=eli_enabled,
-        main_character_reference_url=main_character_url,
-        main_character=main_character_obj,
-    )
-
-    project_style_enabled = _load_project_style_enabled(script_id)
-    style_reference_path = _resolve_style_preset(
-        eli_enabled=eli_enabled,
-        project_style_enabled=project_style_enabled,
-    )
-
-    reference_image_path, character_text = _resolve_character_reference(
-        script_id=script_id,
+        style_guide=style_guide,
         contains_person=contains_person,
-        eli_enabled=eli_enabled,
-        main_character_reference_url=main_character_url,
-        main_character=main_character_obj,
     )
-
-    # Build prompt: universal style → guide → character → visual prompt
-    parts: list[str] = []
-    if _VISUAL_STYLE:
-        parts.append(_VISUAL_STYLE)
-    if guide:
-        parts.append(guide)
-    if character_text:
-        parts.append(character_text)
-    parts.append(visual_prompt)
-    prompt = "\n\n".join(parts)
-
-    # Append reference path + mtime for cache invalidation when reference changes
-    if reference_image_path:
-        try:
-            mtime = int(Path(reference_image_path).stat().st_mtime)
-            prompt += f"\n[char_ref:{reference_image_path}:{mtime}]"
-        except OSError:
-            pass
-
-    if style_reference_path:
-        try:
-            mtime = int(Path(style_reference_path).stat().st_mtime)
-            prompt += f"\n[style_ref:{style_reference_path}:{mtime}]"
-        except OSError:
-            pass
 
     # Check cache: if image exists and we have a matching prompt marker, skip regen
     images_dir = DATA_DIR / "projects" / script_id / "images"
