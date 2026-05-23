@@ -12,16 +12,17 @@ You are generating illustrations for an educational YouTube channel. Every image
 
 ## Style Specification
 
-**Flat 2D cartoon illustration** — clean, confident linework with a hand-drawn quality. Think "a talented illustrator sketched this quickly but perfectly."
+**Flat 2D cartoon illustration in the style of a modern animated explainer or web cartoon** — uniform linework, minimal modeling, every shape filled with one solid color and at most one flat shadow. Think Saturday-morning cartoon or Kurzgesagt-adjacent vector cartoon, NOT polished comic-book / graphic-novel illustration and NOT digital painting.
 
 - **Stroke weight:** Medium-thick outlines (3–5px equivalent), consistent across all elements. No hairline details.
-- **Shading:** Single-layer flat color fills. One subtle shadow tone per major shape (slightly darker, same hue). No gradients, no realistic lighting, no 3D rendering.
+- **Shading:** Strictly flat. Each shape is filled with ONE solid color plus at most ONE solid (hard-edged) shadow tone. No soft gradients, no airbrush, no cheek blush gradients, no skin-tone modeling, no rim light, no specular highlights, no subsurface glow, no painterly blending. If you would describe the image as "rendered" or "illustrated with care," it has gone too far — pull it back to flat fills.
 - **Backgrounds:** Simple, slightly textured solid or two-tone backdrops. Never busy, never photorealistic. Subtle grain or paper texture is OK.
 - **Color palette:** Bold, saturated primary tones with one or two accent pops per image. High contrast between subject and background. Avoid muddy or desaturated palettes.
 - **Composition:** Clean and uncluttered. Massive negative space. The subject takes up 60–80% of the frame with room to breathe. One clear focal point — the viewer understands the image in under half a second.
 - **Typography:** NEVER include any text, letters, numbers, words, labels, signs, or written characters in the image. This includes partial or stylized text. The only visual elements should be illustrations — no written language of any kind.
-- **People:** When people appear, they should be stylized cartoon characters with simple, expressive features — not realistic portraits. Exaggerated proportions are encouraged (slightly large heads, expressive hands).
+- **People:** Stylized cartoon characters with MINIMAL facial detail — simple dot or oval eyes (no whites + pupils + highlight stack, no detailed eyelashes), a single mouth line/curve, a small nose shape or none at all. No rendered cheek shading, no lip highlights, no eye sparkles, no shaded skin gradients. Faces read clearly at thumbnail size. Slightly large heads and expressive hands are encouraged. Bodies are full-figure-friendly: include shoulders, torso, and limbs when relevant rather than tightly cropping to a portrait.
 - **Mood:** Warm, approachable, slightly playful. Never dark/gritty, never sterile/corporate.
+- **Avoid:** semi-realistic anime polish, comic-book / graphic-novel rendering, painterly illustration, soft pastel shading, photoreal lighting, fine cross-hatching, ultra-detailed faces. If two valid interpretations of the prompt exist, always choose the flatter, simpler, more graphic one.
 
 ## Topic-Specific Guidance
 
@@ -32,7 +33,7 @@ You are generating illustrations for an educational YouTube channel. Every image
 
 ## Quality Bar
 
-Every image should feel like it belongs in a premium animated explainer — cohesive, intentional, and visually satisfying. If it looks like generic AI clip art, it's wrong. If it looks like a frame from a well-funded educational animation, it's right.
+Every image should feel like it belongs in a premium animated explainer — cohesive, intentional, and visually satisfying. If it looks like generic AI clip art, it's wrong. If it looks like a frame from a well-funded educational animation, it's right. If it looks like a polished comic-book panel or a digital painting, it's wrong. If it looks like a still from a clean, modern animated explainer with flat shapes and minimal shading, it's right.
 """,
     retention=RetentionMeta(
         goal="Maintain consistent, high-quality visual brand across all images",
@@ -249,7 +250,7 @@ LABEL TYPOGRAPHY — STRICT, CONSISTENT ACROSS ALL THUMBNAILS:
 - Stroke: every letter has an EXTRA-THICK BLACK OUTLINE (heavy stroke, roughly 8-12% of letter height). This is mandatory — labels without a black stroke are wrong.
 - Drop shadow: a strong dark shadow offset slightly down and to the right for extra punch and separation from the illustration.
 - Font: condensed bold sans-serif with TIGHT character spacing — letters nearly touching, no extra tracking. Compact and punchy, not airy or spread-out.
-- Casing: preserve the exact label text and casing shown above, including lowercase "months in" / "years in".
+- Casing: preserve the exact label text and casing shown above (e.g. lowercase "months in" / "years in", or uppercase "LEVEL X").
 - Size: huge — each label should occupy roughly 14-20% of the image width.
 - "{left_label}" sits in the TOP-LEFT corner area of the left side.
 - "{right_label}" sits in the BOTTOM-RIGHT corner area of the right side.
@@ -343,7 +344,7 @@ NEVER reach for horror or apocalyptic imagery as a way to show "more advanced." 
 
 The contrast between sides comes from realistic environment, lighting, expression, posture, props, and clothing — NOT from supernatural or horror motifs. Show the change a real person would feel after years in this stage, not a parody of the worst possible outcome.
 
-Stay in the same illustration style and world as the source image. The right side should look like the same artist drew it.
+Stay in the same illustration style and world as the source image. The right side should look like the same artist drew it. Do NOT re-render or repaint either side in a more polished or shaded style — preserve the flat, minimally-shaded cartoon look of the source exactly.
 
 ========================
 VISUAL CONTRAST RULES
