@@ -97,8 +97,7 @@ def test_palette_adds_recent_first_and_dedupes():
         try:
             palette = add_palette_color(session, "#222222")
 
-            assert palette[0] == "#222222"
-            assert palette.count("#222222") == 1
+            assert palette == ["#222222", "#111111"]
         finally:
             row = session.get(AppSetting, VISUAL_CANVAS_COLOR_PALETTE_KEY)
             if previous_value is None:
@@ -157,6 +156,10 @@ def test_update_visual_canvas_persists_script_color_and_palette():
             )
 
             assert response.script.visual_canvas.background_color == "#ABCDEF"
+            stored_script = session.get(Script, script_id)
+            assert stored_script is not None
+            stored_content = ScriptContent.model_validate_json(stored_script.script_json)
+            assert stored_content.visual_canvas.background_color == "#ABCDEF"
             assert "#ABCDEF" in get_canvas_palette(session).colors
         finally:
             script = session.get(Script, script_id)
