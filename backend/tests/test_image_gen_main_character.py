@@ -70,19 +70,22 @@ def test_resolve_no_person_returns_none(tmp_path, monkeypatch):
     assert char_text == ""
 
 
-def test_resolve_eli_disabled_no_character_falls_back_to_no_ref(tmp_path, monkeypatch):
-    """If eli is disabled but main character not yet generated, fall back to no reference."""
+def test_resolve_eli_disabled_no_character_blocks_generation(tmp_path, monkeypatch):
+    """If Eli is disabled, character scenes must not generate without a reference."""
     ig_mod = _reset_data_dir(monkeypatch, tmp_path)
 
-    ref_path, char_text = ig_mod._resolve_character_reference(
-        script_id="s",
-        contains_person=True,
-        eli_enabled=False,
-        main_character_reference_url=None,
-        main_character=None,
-    )
-    assert ref_path is None
-    assert char_text == ""
+    try:
+        ig_mod._resolve_character_reference(
+            script_id="s",
+            contains_person=True,
+            eli_enabled=False,
+            main_character_reference_url=None,
+            main_character=None,
+        )
+    except RuntimeError as exc:
+        assert "Main character" in str(exc)
+    else:
+        raise AssertionError("Expected missing main character to block image generation")
 
 
 def _stub_generate_image(monkeypatch, ig_mod, captured: list[dict]):
@@ -108,12 +111,8 @@ def _stub_generate_image(monkeypatch, ig_mod, captured: list[dict]):
     monkeypatch.setattr(ig_mod, "generate_image", fake_generate_image)
 
 
-def test_generate_scene_frames_uses_resolved_reference(tmp_path, monkeypatch):
-    """generate_scene_frames must call _resolve_character_reference (not the old path).
-
-    With eli_enabled=False and no main character configured, the first frame should
-    receive ref_path=None and the prompt should NOT contain the Eli character prompt.
-    """
+def test_generate_scene_frames_blocks_when_project_character_missing(tmp_path, monkeypatch):
+    """generate_scene_frames must not fall back to Eli or anonymous generation."""
     ig_mod = _reset_data_dir(monkeypatch, tmp_path)
 
     # Eli reference file exists on disk — old path would have picked it up.
@@ -132,24 +131,24 @@ def test_generate_scene_frames_uses_resolved_reference(tmp_path, monkeypatch):
     captured: list[dict] = []
     _stub_generate_image(monkeypatch, ig_mod, captured)
 
-    ig_mod.generate_scene_frames(
-        scene_id="scene1",
-        frame_prompts=["a person waving"],
-        script_id="proj1",
-        visual_prompt="a person in a park",
-        contains_person=True,
-    )
+    try:
+        ig_mod.generate_scene_frames(
+            scene_id="scene1",
+            frame_prompts=["a person waving"],
+            script_id="proj1",
+            visual_prompt="a person in a park",
+            contains_person=True,
+        )
+    except RuntimeError as exc:
+        assert "Main character" in str(exc)
+    else:
+        raise AssertionError("Expected missing main character reference to block frame generation")
 
-    assert len(captured) == 1
-    # Old path would have set ref to the eli reference; new path returns None.
-    assert captured[0]["reference_image_path"] is None
-    # Old path would have appended the Eli _CHARACTER_PROMPT; new path skips it.
-    if ig_mod._CHARACTER_PROMPT:
-        assert ig_mod._CHARACTER_PROMPT not in captured[0]["prompt"]
+    assert captured == []
 
 
-def test_generate_scene_frames_v2_uses_resolved_reference(tmp_path, monkeypatch):
-    """generate_scene_frames_v2 must call _resolve_character_reference (not the old path)."""
+def test_generate_scene_frames_v2_blocks_when_project_character_missing(tmp_path, monkeypatch):
+    """generate_scene_frames_v2 must not fall back to Eli or anonymous generation."""
     ig_mod = _reset_data_dir(monkeypatch, tmp_path)
 
     eli_ref = tmp_path / "character" / "frames" / "selected_reference.png"
@@ -165,22 +164,52 @@ def test_generate_scene_frames_v2_uses_resolved_reference(tmp_path, monkeypatch)
     captured: list[dict] = []
     _stub_generate_image(monkeypatch, ig_mod, captured)
 
-    ig_mod.generate_scene_frames_v2(
-        scene_id="scene1",
-        frame_directives=[
-            {
-                "source": "ai_generated",
-                "prompt": "a person waving",
-                "reference_previous": False,
-                "contains_person": True,
-            },
-        ],
-        script_id="proj1",
-        visual_prompt="a person in a park",
-        contains_person=True,
+    try:
+        ig_mod.generate_scene_frames_v2(
+            scene_id="scene1",
+            frame_directives=[
+                {
+                    "source": "ai_generated",
+                    "prompt": "a person waving",
+                    "reference_previous": False,
+                    "contains_person": True,
+                },
+            ],
+            script_id="proj1",
+            visual_prompt="a person in a park",
+            contains_person=True,
+        )
+    except RuntimeError as exc:
+        assert "Main character" in str(exc)
+    else:
+        raise AssertionError("Expected missing main character reference to block frame generation")
+
+    assert captured == []
+
+
+def test_generate_scene_image_blocks_all_images_until_project_character_ready(tmp_path, monkeypatch):
+    """Eli-disabled projects should not generate even object-only images before the character reference exists."""
+    ig_mod = _reset_data_dir(monkeypatch, tmp_path)
+
+    monkeypatch.setattr(
+        ig_mod,
+        "_load_project_character_context",
+        lambda script_id: (False, None, MainCharacter(name="Maya", appearance="red coat", vibe="brisk")),
     )
 
-    assert len(captured) == 1
-    assert captured[0]["reference_image_path"] is None
-    if ig_mod._CHARACTER_PROMPT:
-        assert ig_mod._CHARACTER_PROMPT not in captured[0]["prompt"]
+    captured: list[dict] = []
+    _stub_generate_image(monkeypatch, ig_mod, captured)
+
+    try:
+        ig_mod.generate_scene_image(
+            scene_id="scene1",
+            visual_prompt="a close-up of keys on a belt",
+            script_id="proj1",
+            contains_person=False,
+        )
+    except RuntimeError as exc:
+        assert "reference" in str(exc)
+    else:
+        raise AssertionError("Expected missing main character reference to block all image generation")
+
+    assert captured == []

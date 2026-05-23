@@ -14,6 +14,19 @@ from pipeline.image_gen import generate_scene_image
 logger = logging.getLogger(__name__)
 
 
+def _with_main_character_subject(prompt: str, content: ScriptContent) -> str:
+    """Strengthen life-as-a chapter prompts when a project character is active."""
+    character = content.main_character
+    if character is None or not character.name.strip():
+        return prompt
+    name = character.name.strip()
+    return (
+        f"{name} is the visually dominant main subject and protagonist in this image. "
+        f"Depict {name} as the role named by the video; any other people are secondary and visually distinct from {name}. "
+        f"{prompt}"
+    )
+
+
 def _chapter_image_path(script_id: str, level_number: int) -> Path:
     return DATA_DIR / "projects" / script_id / "images" / f"chapter_{level_number}.png"
 
@@ -71,9 +84,10 @@ class CinematicChaptersStrategy:
         # 1. Generate the iconic image (Gemini call)
         generate_scene_image(
             scene_id="cinematic_thumbnail_clean",
-            visual_prompt=thumb_prompt,
+            visual_prompt=_with_main_character_subject(thumb_prompt, content),
             script_id=script_id,
             force=force,
+            contains_person=True,
         )
 
         # 2. Reuse it as chapter_1.png — copy if missing or older than the source.
@@ -107,9 +121,10 @@ class CinematicChaptersStrategy:
                 continue
             generate_scene_image(
                 scene_id=f"chapter_{level.number}",
-                visual_prompt=level.image_prompt,
+                visual_prompt=_with_main_character_subject(level.image_prompt, content),
                 script_id=script_id,
                 force=force,
+                contains_person=True,
             )
 
         # 4. Decide time labels (cached in sidecar for re-render consistency).

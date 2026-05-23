@@ -76,7 +76,11 @@ def _resolve_style_preset(
 
 def _serialize_main_character(char: MainCharacter) -> str:
     return (
-        f"Recurring main character: {char.name}. "
+        f'The primary/main person in this image MUST be "{char.name}" - the project-specific recurring main character. '
+        "A reference image of this character is included. The character MUST match this reference exactly: "
+        "same face, hair, body type, proportions, clothing cues, distinguishing features, and flat 2D cartoon style. "
+        "If the prompt depicts the protagonist, role character, or visible main person, make this character the "
+        "visually dominant subject. Other people may appear only as secondary characters and must be visually distinct. "
         f"Appearance: {char.appearance}. "
         f"Vibe: {char.vibe}."
     )
@@ -121,6 +125,41 @@ def _load_project_character_context(
     return cfg.eli_enabled, cfg.main_character_reference_url, main_character_obj
 
 
+def _project_character_missing_reason(
+    *,
+    script_id: str,
+    main_character_reference_url: str | None,
+    main_character: MainCharacter | None,
+) -> str | None:
+    """Return a human-readable missing-reference reason, or None when ready."""
+    if main_character is None:
+        return "Main character details are missing. Open the Main Character panel and save the character first."
+    if not main_character_reference_url:
+        return "Main character reference image is missing. Generate the main character reference before generating scene images."
+    if _project_character_reference_path(script_id) is None:
+        return "Main character reference file is missing on disk. Regenerate the main character reference before generating scene images."
+    return None
+
+
+def _ensure_project_character_reference_ready(
+    *,
+    script_id: str,
+    eli_enabled: bool,
+    main_character_reference_url: str | None,
+    main_character: MainCharacter | None,
+) -> None:
+    """Block project image generation when Eli is off but no canonical character exists."""
+    if eli_enabled:
+        return
+    reason = _project_character_missing_reason(
+        script_id=script_id,
+        main_character_reference_url=main_character_reference_url,
+        main_character=main_character,
+    )
+    if reason:
+        raise RuntimeError(reason)
+
+
 def _resolve_character_reference(
     *,
     script_id: str,
@@ -141,14 +180,18 @@ def _resolve_character_reference(
     if eli_enabled:
         return _eli_reference_path(), (_CHARACTER_PROMPT or "")
 
-    if main_character is None or not main_character_reference_url:
-        # Eli disabled but project has not generated a character yet — fall back
-        # to no reference. Scene will still render, just without character chaining.
-        return None, ""
+    _ensure_project_character_reference_ready(
+        script_id=script_id,
+        eli_enabled=eli_enabled,
+        main_character_reference_url=main_character_reference_url,
+        main_character=main_character,
+    )
 
     ref = _project_character_reference_path(script_id)
     if ref is None:
-        return None, ""
+        raise RuntimeError(
+            "Main character reference file is missing on disk. Regenerate the main character reference before generating scene images."
+        )
     return ref, _serialize_main_character(main_character)
 
 
@@ -219,6 +262,12 @@ def generate_scene_image(
     guide = style_guide if style_guide else _STYLE_GUIDE
 
     eli_enabled, main_character_url, main_character_obj = _load_project_character_context(script_id)
+    _ensure_project_character_reference_ready(
+        script_id=script_id,
+        eli_enabled=eli_enabled,
+        main_character_reference_url=main_character_url,
+        main_character=main_character_obj,
+    )
 
     project_style_enabled = _load_project_style_enabled(script_id)
     style_reference_path = _resolve_style_preset(
@@ -362,6 +411,12 @@ def generate_scene_frames(
     images_dir.mkdir(parents=True, exist_ok=True)
 
     eli_enabled, main_character_url, main_character_obj = _load_project_character_context(script_id)
+    _ensure_project_character_reference_ready(
+        script_id=script_id,
+        eli_enabled=eli_enabled,
+        main_character_reference_url=main_character_url,
+        main_character=main_character_obj,
+    )
     reference_image_path, character_text = _resolve_character_reference(
         script_id=script_id,
         contains_person=contains_person,
@@ -524,6 +579,12 @@ def generate_scene_frames_v2(
     images_dir.mkdir(parents=True, exist_ok=True)
 
     eli_enabled, main_character_url, main_character_obj = _load_project_character_context(script_id)
+    _ensure_project_character_reference_ready(
+        script_id=script_id,
+        eli_enabled=eli_enabled,
+        main_character_reference_url=main_character_url,
+        main_character=main_character_obj,
+    )
 
     project_style_enabled = _load_project_style_enabled(script_id)
     style_reference_path = _resolve_style_preset(

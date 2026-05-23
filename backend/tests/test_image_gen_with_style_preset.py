@@ -111,14 +111,22 @@ def test_generate_image_with_both_char_and_style_refs(tmp_path, fake_gemini_resp
 def test_generate_scene_image_threads_style_ref_when_eli_off(tmp_path, monkeypatch):
     """When eli_enabled is False and a preset is active, generate_image gets style_reference_path."""
     from pipeline import image_gen
+    from models.script import MainCharacter
 
     monkeypatch.setattr(image_gen, "DATA_DIR", tmp_path)
+    project_ref = tmp_path / "projects" / "proj-1" / "character" / "reference.png"
+    project_ref.parent.mkdir(parents=True, exist_ok=True)
+    project_ref.write_bytes(b"charpng")
 
-    # Stub out the project context: Eli OFF, style enabled, no main character
+    # Stub out the project context: Eli OFF, style enabled, main character ready
     monkeypatch.setattr(
         image_gen,
         "_load_project_character_context",
-        lambda script_id: (False, None, None),
+        lambda script_id: (
+            False,
+            "/static/projects/proj-1/character/reference.png",
+            MainCharacter(name="Maya", appearance="red coat", vibe="brisk"),
+        ),
     )
     monkeypatch.setattr(
         image_gen,
