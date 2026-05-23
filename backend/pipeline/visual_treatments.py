@@ -163,10 +163,10 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
     if _is_video_or_photo_backed(scene):
         return _full_frame_assignment(scene.id, "Video or photo-backed scenes keep their source media full-frame.")
 
-    list_words = _matching_words(scene, LIST_MARKERS)
-    if len(list_words) >= 2:
-        layer_count = min(len(list_words), 4)
-        layers = _popup_layers(scene, list_words[:layer_count])
+    marker_list_items = _matching_words(scene, LIST_MARKERS)
+    if len(marker_list_items) >= 2:
+        layer_count = min(len(marker_list_items), 4)
+        layers = _popup_layers(scene, marker_list_items[:layer_count])
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_treatment="popup_sequence",
@@ -185,6 +185,17 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             visual_treatment="flipflop",
             reasoning="Detected contrast, repetition, or two-state narration.",
             visual_layers=_flipflop_layers(scene),
+        )
+
+    natural_list_items = _natural_list_items(scene)
+    if len(natural_list_items) >= 2:
+        layer_count = min(len(natural_list_items), 4)
+        layers = _popup_layers(scene, natural_list_items[:layer_count])
+        return VisualTreatmentAssignment(
+            scene_id=scene.id,
+            visual_treatment="popup_sequence",
+            reasoning=f"Detected {layer_count} list items in narration.",
+            visual_layers=layers,
         )
 
     return _full_frame_assignment(scene.id, "No list or contrast pattern detected.")
@@ -213,21 +224,21 @@ def _normalize_treatment(value: str) -> VisualTreatment:
     return "full_frame"
 
 
-def _popup_layers(scene: Scene, matched_words: list[tuple[str, float]]) -> list[VisualLayer]:
+def _popup_layers(scene: Scene, list_items: list[tuple[str, float]]) -> list[VisualLayer]:
     placements_by_count = {
         2: ["left", "right"],
         3: ["left", "center", "right"],
         4: ["top-left", "top-right", "bottom-left", "bottom-right"],
     }
-    placements = placements_by_count.get(len(matched_words), placements_by_count[2])
-    fallback_step = max(scene.audio_duration_seconds / max(len(matched_words), 1), 0.5)
+    placements = placements_by_count.get(len(list_items), placements_by_count[2])
+    fallback_step = max(scene.audio_duration_seconds / max(len(list_items), 1), 0.5)
     layers: list[VisualLayer] = []
-    for index, (marker, enter_at) in enumerate(matched_words):
+    for index, (item, enter_at) in enumerate(list_items):
         fallback_enter_at = round(index * fallback_step, 2)
         layers.append(
             VisualLayer(
                 id=f"{scene.id}_popup_{index + 1}",
-                prompt=_panel_prompt(scene, marker),
+                prompt=_panel_prompt(scene, item),
                 placement=placements[index],
                 enter_at_seconds=round(enter_at if enter_at >= 0 else fallback_enter_at, 2),
                 animation="pop_in",
@@ -271,6 +282,44 @@ def _matching_words(scene: Scene, markers: set[str]) -> list[tuple[str, float]]:
         if normalized in markers:
             matches.append((normalized, word.start_ms / 1000))
     return matches
+
+
+def _natural_list_items(scene: Scene) -> list[tuple[str, float]]:
+    text = scene.narration.strip()
+    if not text:
+        return []
+
+    normalized_text = re.sub(r"\s+", " ", text)
+    pieces = [
+        piece.strip(" .,:;-")
+        for piece in re.split(r"\s*;\s*|\s*,\s*|\s+\b(?:and|or)\b\s+", normalized_text, flags=re.IGNORECASE)
+    ]
+    items = [piece for piece in pieces if _is_list_item_phrase(piece)]
+    if not 2 <= len(items) <= 6:
+        return []
+
+    return [(item, _phrase_start_seconds(scene, item, index, len(items))) for index, item in enumerate(items[:4])]
+
+
+def _is_list_item_phrase(value: str) -> bool:
+    words = [_normalize_word(word) for word in value.split()]
+    content_words = [word for word in words if word and word not in REPETITION_STOPWORDS]
+    return bool(content_words)
+
+
+def _phrase_start_seconds(scene: Scene, phrase: str, index: int, total: int) -> float:
+    phrase_words = [_normalize_word(word) for word in phrase.split()]
+    first_content_word = next(
+        (word for word in phrase_words if word and word not in REPETITION_STOPWORDS),
+        phrase_words[0] if phrase_words else "",
+    )
+    if first_content_word:
+        for word in scene.word_timestamps or []:
+            if _normalize_word(word.word) == first_content_word:
+                return word.start_ms / 1000
+
+    fallback_step = max(scene.audio_duration_seconds / max(total, 1), 0.5)
+    return index * fallback_step
 
 
 def _has_repeated_content_word(scene: Scene) -> bool:

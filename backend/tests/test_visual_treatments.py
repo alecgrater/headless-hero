@@ -261,7 +261,10 @@ def test_require_visual_treatment_voiceover_raises_for_missing_non_title_word_ti
 
 
 def test_analyze_visual_treatments_assigns_popup_sequence_for_list_narration():
-    scene = scene_with_words("s1", "First gather wood, second build shelter, third start a fire.")
+    scene = scene_with_words(
+        "s1",
+        "They learned to keep your head down, hide feelings, and never be different.",
+    )
     content = content_with_scenes(scene)
 
     assignments = analyze_visual_treatments(content, script_id="script-popup")
@@ -269,7 +272,7 @@ def test_analyze_visual_treatments_assigns_popup_sequence_for_list_narration():
     assignment = assignments[0]
     assert assignment.scene_id == "s1"
     assert assignment.visual_treatment == "popup_sequence"
-    assert 2 <= len(assignment.visual_layers) <= 4
+    assert len(assignment.visual_layers) == 3
     enter_times = [layer.enter_at_seconds for layer in assignment.visual_layers]
     assert enter_times == sorted(enter_times)
     assert all("small framed Headless Hero cartoon panel" in layer.prompt for layer in assignment.visual_layers)
