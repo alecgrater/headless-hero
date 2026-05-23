@@ -96,20 +96,22 @@ def delete_preset(preset_id: str, session: Session = Depends(get_session)):
     if preset is None:
         raise HTTPException(status_code=404, detail="preset not found")
 
-    # Delete file
-    image_path = DATA_DIR / "style" / "presets" / f"{preset_id}.png"
-    if image_path.exists():
-        image_path.unlink()
-
-    # Delete row
-    session.delete(preset)
-
-    # Clear active id if it pointed at this preset
+    # Clear active id if it pointed at this preset (commits internally)
     active_id = _read_active_id(session)
     if active_id == preset_id:
         _write_active_id(session, None)
 
+    # Delete row — _write_active_id may have already committed; this is a no-op
+    # if so, or the sole commit when active_id didn't match
+    session.delete(preset)
     session.commit()
+
+    # Delete file last — DB is already consistent so a file-system error is
+    # recoverable (orphaned file) rather than causing a phantom active preset
+    image_path = DATA_DIR / "style" / "presets" / f"{preset_id}.png"
+    if image_path.exists():
+        image_path.unlink()
+
     return {"ok": True}
 
 
