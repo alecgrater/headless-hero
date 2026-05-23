@@ -484,7 +484,7 @@ const ASSET_OPTIONS: { key: ViewerAsset; label: string; Icon: LucideIcon }[] = [
 
 const VIEWER_TAB_OPTIONS: { key: ViewerTab; label: string; Icon: LucideIcon }[] = [
   { key: "timeline", label: "Timeline", Icon: ListVideo },
-  { key: "media-sources", label: "Media Sources", Icon: PanelsTopLeft },
+  { key: "media-sources", label: "Media", Icon: PanelsTopLeft },
   { key: "segments", label: "Segments", Icon: Layers },
 ];
 function getCreationStatus(content: ScriptContent, projectConfig?: ProjectConfig | null) {
@@ -599,6 +599,10 @@ function ProjectDetailsButton({
     >
       <Info className="h-4 w-4 text-violet-300" />
       <span>Project details</span>
+      <span className="hidden items-center gap-1 text-neutral-400 xl:inline-flex">
+        <span className="text-neutral-600">·</span>
+        <span>Stats, costs, media, exports</span>
+      </span>
       <ChevronDown className="h-3.5 w-3.5 text-violet-300 transition-transform group-hover:translate-y-0.5" />
     </button>
   );
@@ -918,8 +922,8 @@ function ViewerSwitchRow({
 }) {
   const renderTabSelector = format === "long-form" && asset === "render";
   return (
-    <div className="px-5 py-2 border-t border-b border-neutral-800/60 shrink-0">
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
+    <div className="px-4 py-2 border-t border-b border-neutral-800/60 shrink-0">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
           {FORMAT_OPTIONS.map(({ key, label, Icon }) => (
             <button
@@ -946,13 +950,13 @@ function ViewerSwitchRow({
                   <button
                     type="button"
                     onClick={() => onAssetChange(key)}
-                    className="flex items-center gap-1.5 py-1.5 pl-2.5 pr-2 text-xs font-medium whitespace-nowrap"
+                    className="flex items-center gap-1.5 py-1.5 pl-2 pr-1.5 text-xs font-medium whitespace-nowrap"
                   >
                     <Icon className="w-3.5 h-3.5 shrink-0" />
                     {label}
                   </button>
                   <span className="h-4 w-px bg-violet-300/20" />
-                  <label className="relative flex items-center py-1.5 pl-2 pr-6">
+                  <label className="relative flex items-center py-1.5 pl-1.5 pr-5">
                     <select
                       value={activeTab}
                       onChange={(event) => onTabChange(event.target.value as ViewerTab)}
@@ -965,7 +969,7 @@ function ViewerSwitchRow({
                         </option>
                       ))}
                     </select>
-                    <ChevronDown className="pointer-events-none absolute right-1.5 h-3.5 w-3.5 text-violet-300" />
+                    <ChevronDown className="pointer-events-none absolute right-1 h-3.5 w-3.5 text-violet-300" />
                   </label>
                 </div>
               );
@@ -985,7 +989,7 @@ function ViewerSwitchRow({
             );
           })}
         </div>
-        <div className="inline-flex shrink-0 items-center gap-2">
+        <div className="inline-flex shrink-0 items-center gap-1.5">
           <ProjectDetailsButton onClick={onOpenProjectDetails} />
           <OpenExportsButton opening={exportsFolderOpening} onOpen={onOpenExportsFolder} />
         </div>
