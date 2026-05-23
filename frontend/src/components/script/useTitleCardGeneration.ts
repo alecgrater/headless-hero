@@ -17,7 +17,6 @@ interface TitleCardJobStatus {
 export interface TitleCardGenerationState {
   titleCardGenerating: boolean;
   titleCardGenerated: boolean;
-  titleCardTimestamp: number;
   titleCardError: string | null;
   titleCardCompleted: number[];
   titleCardTotal: number;
@@ -27,7 +26,6 @@ export interface TitleCardGenerationState {
 export default function useTitleCardGeneration({ scriptId, script }: Params): TitleCardGenerationState {
   const [titleCardGenerating, setTitleCardGenerating] = useState(false);
   const [titleCardGenerated, setTitleCardGenerated] = useState(false);
-  const [titleCardTimestamp, setTitleCardTimestamp] = useState(0);
   const [titleCardError, setTitleCardError] = useState<string | null>(null);
   const [titleCardCompleted, setTitleCardCompleted] = useState<number[]>([]);
   const [titleCardTotal, setTitleCardTotal] = useState(0);
@@ -59,7 +57,6 @@ export default function useTitleCardGeneration({ scriptId, script }: Params): Ti
       if (job.status === "completed") {
         setTitleCardGenerating(false);
         setTitleCardGenerated(true);
-        setTitleCardTimestamp(Date.now());
       } else if (job.status === "failed") {
         setTitleCardGenerating(false);
         setTitleCardError(job.error ?? "Title card generation failed");
@@ -101,7 +98,6 @@ export default function useTitleCardGeneration({ scriptId, script }: Params): Ti
   return {
     titleCardGenerating,
     titleCardGenerated,
-    titleCardTimestamp,
     titleCardError,
     titleCardCompleted,
     titleCardTotal,
