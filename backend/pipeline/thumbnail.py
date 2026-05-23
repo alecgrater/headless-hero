@@ -187,6 +187,9 @@ def enhance_split_progression(
     cache_metadata_path = output_path.with_suffix(f"{output_path.suffix}.cache.json")
     prompt_hash = sha256(prompt.encode("utf-8")).hexdigest()
 
+    # Resolve style preset before cache check so it participates in the cache key.
+    style_ref = _resolve_thumbnail_style_ref(script_id) if script_id else None
+
     # mtime cache check
     if not force and output_path.exists():
         try:
@@ -196,6 +199,7 @@ def enhance_split_progression(
                 and cache_metadata.get("left_label") == left_label
                 and cache_metadata.get("right_label") == right_label
                 and cache_metadata.get("style") == style
+                and cache_metadata.get("style_preset") == style_ref
             )
             if (
                 cache_matches
@@ -214,7 +218,6 @@ def enhance_split_progression(
 
     try:
         image_paths = [str(clean_image_path)]
-        style_ref = _resolve_thumbnail_style_ref(script_id) if script_id else None
         if style_ref:
             image_paths.append(style_ref)
         result_path = transform_with_references(
@@ -228,6 +231,7 @@ def enhance_split_progression(
             "left_label": left_label,
             "right_label": right_label,
             "style": style,
+            "style_preset": style_ref,
         }))
         logger.info(
             "[%s] split-progression thumbnail written: %s (%s / %s)",

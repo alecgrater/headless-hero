@@ -216,3 +216,62 @@ def test_gemini_enhance_thumbnail_no_style_ref_unchanged(tmp_path, monkeypatch):
     assert len(captured["image_paths"]) == 2
     assert str(base) in captured["image_paths"]
     assert str(ref_file) in captured["image_paths"]
+
+
+# ---------------------------------------------------------------------------
+# Cache invalidation: style_preset participates in the cache key
+# ---------------------------------------------------------------------------
+
+
+def test_enhance_split_progression_cache_busted_when_style_preset_changes(tmp_path, monkeypatch):
+    """Activating or changing the style preset causes the cached output to be regenerated."""
+    import json
+    import pipeline.thumbnail as thumb_module
+
+    monkeypatch.setattr(thumb_module, "DATA_DIR", tmp_path)
+
+    call_count = {"n": 0}
+
+    def fake_transform(prompt, image_paths, script_id=None):
+        call_count["n"] += 1
+        out = tmp_path / "enhanced.png"
+        out.write_bytes(b"fakepng")
+        return str(out)
+
+    clean = tmp_path / "clean.png"
+    clean.write_bytes(b"cleanpng")
+    out_path = tmp_path / "split.png"
+
+    style_ref_a = str(tmp_path / "preset_a.png")
+    style_ref_b = str(tmp_path / "preset_b.png")
+    (tmp_path / "preset_a.png").write_bytes(b"a")
+    (tmp_path / "preset_b.png").write_bytes(b"b")
+
+    # First run with preset A — should call transform
+    monkeypatch.setattr(thumb_module, "_resolve_thumbnail_style_ref", lambda sid: style_ref_a)
+    with patch("integrations.google_image_client.transform_with_references", fake_transform):
+        thumb_module.enhance_split_progression(
+            clean_image_path=clean, output_path=out_path,
+            left_label="3 months in", right_label="10 years in",
+            script_id="proj-1", force=False,
+        )
+    assert call_count["n"] == 1
+
+    # Second run with same preset A — should cache-hit (no transform call)
+    with patch("integrations.google_image_client.transform_with_references", fake_transform):
+        thumb_module.enhance_split_progression(
+            clean_image_path=clean, output_path=out_path,
+            left_label="3 months in", right_label="10 years in",
+            script_id="proj-1", force=False,
+        )
+    assert call_count["n"] == 1, "Should have been a cache hit, not a second Gemini call"
+
+    # Third run with preset B — cache key changes, must regenerate
+    monkeypatch.setattr(thumb_module, "_resolve_thumbnail_style_ref", lambda sid: style_ref_b)
+    with patch("integrations.google_image_client.transform_with_references", fake_transform):
+        thumb_module.enhance_split_progression(
+            clean_image_path=clean, output_path=out_path,
+            left_label="3 months in", right_label="10 years in",
+            script_id="proj-1", force=False,
+        )
+    assert call_count["n"] == 2, "Changing the style preset should have busted the cache"
