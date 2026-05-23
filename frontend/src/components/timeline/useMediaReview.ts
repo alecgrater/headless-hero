@@ -15,6 +15,10 @@ export function useMediaReview({ scriptId, content }: UseMediaReviewOptions) {
   const mediaPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleAnalyzeMedia = useCallback(async () => {
+    const allScenes = content.segments.flatMap((s) => s.scenes);
+    if (allScenes.some((scene) => (scene.audio_duration_seconds ?? 0) <= 0)) {
+      return;
+    }
     setMediaAnalyzing(true);
     setMediaAssignments(null);
     setMediaReviewDismissed(false);
@@ -40,7 +44,7 @@ export function useMediaReview({ scriptId, content }: UseMediaReviewOptions) {
       }
     }, 1000);
     mediaPollRef.current = poll;
-  }, [scriptId]);
+  }, [scriptId, content]);
 
   useEffect(() => {
     return () => {

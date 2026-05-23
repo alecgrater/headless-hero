@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from api.media import (
+    missing_voiceover_scene_ids,
     media_analysis_source_flags,
     normalize_media_assignments_for_sources,
     preserve_media_analysis_source_flags,
@@ -88,6 +89,23 @@ def test_normalize_media_assignments_coerces_disabled_sources_to_ai():
     assert normalized[0].game_name is None
     assert normalized[1].search_query is None
     assert normalized[3].reasoning == "ai fits"
+
+
+def test_missing_voiceover_scene_ids_requires_audio_duration_for_every_scene():
+    content = ScriptContent(
+        title="Voiceover gate",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(id="scene_001", narration="Ready.", visual_prompt="Ready", audio_duration_seconds=4.2),
+                    Scene(id="scene_002", narration="Missing.", visual_prompt="Missing", audio_duration_seconds=0),
+                ],
+            ),
+        ],
+    )
+
+    assert missing_voiceover_scene_ids(content) == ["scene_002"]
 
 
 def test_resolve_scene_id_handles_unpadded_llm_ids():

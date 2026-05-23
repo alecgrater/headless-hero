@@ -11,6 +11,8 @@ interface Props {
   fullHeight?: boolean;
   scenes?: Record<string, Scene>;
   sceneSegments?: Record<string, string>;
+  canAnalyze?: boolean;
+  analyzeBlockedReason?: string;
   onBeforeApply?: () => Promise<boolean | void> | boolean | void;
   onSaved?: (assignments: MediaAssignment[]) => Promise<void> | void;
   onApproved: () => void;
@@ -25,7 +27,7 @@ const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
   user_upload: { label: "Upload", color: "bg-emerald-500/20 text-emerald-300" },
 };
 
-export default function MediaReviewPanel({ scriptId, assignments: initial, frameCounts, fullHeight, scenes, sceneSegments, onBeforeApply, onSaved, onApproved, onReanalyze }: Props) {
+export default function MediaReviewPanel({ scriptId, assignments: initial, frameCounts, fullHeight, scenes, sceneSegments, canAnalyze = true, analyzeBlockedReason, onBeforeApply, onSaved, onApproved, onReanalyze }: Props) {
   const [assignments, setAssignments] = useState<MediaAssignment[]>(initial);
   const [saving, setSaving] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -112,7 +114,9 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
         <div className="flex items-center gap-2">
           <button
             onClick={onReanalyze}
-            className="px-3 py-1.5 text-xs bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors text-neutral-300"
+            disabled={!canAnalyze}
+            title={!canAnalyze ? analyzeBlockedReason : undefined}
+            className="px-3 py-1.5 text-xs bg-neutral-800 hover:bg-neutral-700 disabled:hover:bg-neutral-800 disabled:opacity-50 rounded-lg transition-colors text-neutral-300"
           >
             Re-analyze
           </button>
@@ -147,14 +151,15 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
           const isVideoSource = a.media_source === "ai_video" || a.media_source === "gameplay_video" || isUploadedVideo;
           const isExpanded = expandedSceneIds.has(a.scene_id);
           const visualPrompt = sceneVisualPrompt(scene);
+          const durationLabel = sceneDurationLabel(scene);
           return (
             <div key={a.scene_id} className="px-4 py-3 flex items-start gap-3 text-sm">
               <span className="text-neutral-500 w-6 text-right shrink-0 pt-1">{idx + 1}</span>
-              <div className="flex flex-wrap items-center gap-2 w-64 shrink-0">
+              <div className="flex flex-col gap-2 w-64 shrink-0">
                 <select
                   value={a.media_source}
                   onChange={(e) => handleSourceChange(a.scene_id, e.target.value as MediaAssignment["media_source"])}
-                  className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 shrink-0"
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200"
                 >
                   <option value="ai">AI</option>
                   <option value="ai_video">AI Video</option>
@@ -162,19 +167,24 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
                   <option value="stock_photo">Stock Photo</option>
                   {a.media_source === "user_upload" && <option value="user_upload">Upload</option>}
                 </select>
-                <span className={`px-2 py-0.5 rounded text-xs font-medium shrink-0 ${sourceInfo.color}`}>
-                  {sourceInfo.label}
-                </span>
-                {!isVideoSource && frameCounts && frameCounts[a.scene_id] && (
-                  <span className="px-1.5 py-0.5 rounded text-xs text-neutral-400 bg-neutral-800 shrink-0">
-                    {frameCounts[a.scene_id]} photos
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`px-2 py-0.5 rounded text-xs font-medium shrink-0 ${sourceInfo.color}`}>
+                    {sourceInfo.label}
                   </span>
-                )}
-                {isVideoSource && (
-                  <span className="px-1.5 py-0.5 rounded text-xs text-fuchsia-200 bg-fuchsia-500/10 shrink-0">
-                    video scene
+                  <span className={`px-1.5 py-0.5 rounded text-xs shrink-0 ${durationLabel ? "text-neutral-300 bg-neutral-800" : "text-amber-300 bg-amber-500/10"}`}>
+                    {durationLabel ?? "no voiceover"}
                   </span>
-                )}
+                  {!isVideoSource && frameCounts && frameCounts[a.scene_id] && (
+                    <span className="px-1.5 py-0.5 rounded text-xs text-neutral-400 bg-neutral-800 shrink-0">
+                      {frameCounts[a.scene_id]} photos
+                    </span>
+                  )}
+                  {isVideoSource && (
+                    <span className="px-1.5 py-0.5 rounded text-xs text-fuchsia-200 bg-fuchsia-500/10 shrink-0">
+                      video scene
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex items-center gap-2 text-xs text-neutral-500">
@@ -231,4 +241,10 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
 
 function sceneVisualPrompt(scene?: Scene): string {
   return scene?.original_visual_prompt || scene?.visual_prompt || "";
+}
+
+function sceneDurationLabel(scene?: Scene): string | null {
+  const duration = scene?.audio_duration_seconds ?? 0;
+  if (duration <= 0) return null;
+  return `${duration.toFixed(duration < 10 ? 1 : 0)}s`;
 }

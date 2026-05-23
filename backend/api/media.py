@@ -152,6 +152,15 @@ def normalize_media_assignments_for_sources(
     return normalized
 
 
+def missing_voiceover_scene_ids(content: ScriptContent) -> list[str]:
+    """Return scene ids that do not have generated voiceover duration yet."""
+    return [
+        scene.id
+        for scene in content.all_scenes()
+        if scene.audio_duration_seconds <= 0
+    ]
+
+
 @router.post("/analyze/{script_id}", response_model=AnalyzeResponse)
 def analyze_media(script_id: str, session: Session = Depends(get_session)):
     """Trigger media source analysis for a script. Runs as a background job."""
@@ -160,6 +169,15 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
         raise HTTPException(status_code=404, detail="Script not found")
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
+    missing_voiceover = missing_voiceover_scene_ids(content)
+    if missing_voiceover:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Generate voiceover before media analysis. "
+                f"{len(missing_voiceover)} scene(s) are missing audio duration timing."
+            ),
+        )
 
     job = create_job()
     job_id = job.id

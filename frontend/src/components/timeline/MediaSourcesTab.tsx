@@ -35,6 +35,17 @@ function buildSceneSegments(content: ScriptContent): Record<string, string> {
   return map;
 }
 
+function scenesMissingVoiceover(content: ScriptContent): Scene[] {
+  return content.segments
+    .flatMap((seg) => seg.scenes)
+    .filter((scene) => (scene.audio_duration_seconds ?? 0) <= 0);
+}
+
+function voiceoverBlockedReason(missingCount: number): string {
+  if (missingCount <= 0) return "";
+  return `Generate voiceover first. ${missingCount} scene${missingCount === 1 ? "" : "s"} still missing duration timing.`;
+}
+
 interface Props {
   scriptId: string;
   content: ScriptContent;
@@ -58,6 +69,10 @@ export default function MediaSourcesTab({
   onAssignmentsSaved,
   onApproved,
 }: Props) {
+  const missingVoiceoverScenes = scenesMissingVoiceover(content);
+  const canAnalyzeMedia = missingVoiceoverScenes.length === 0;
+  const analyzeBlockedReason = voiceoverBlockedReason(missingVoiceoverScenes.length);
+
   if (mediaAnalyzing) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -81,6 +96,8 @@ export default function MediaSourcesTab({
           frameCounts={frameCounts}
           scenes={scenes}
           sceneSegments={sceneSegments}
+          canAnalyze={canAnalyzeMedia}
+          analyzeBlockedReason={analyzeBlockedReason}
           fullHeight
           onBeforeApply={onBeforeAssignmentsApply}
           onSaved={onAssignmentsSaved}
@@ -100,7 +117,9 @@ export default function MediaSourcesTab({
           </div>
           <button
             onClick={onAnalyzeMedia}
-            className="px-4 py-2 text-sm bg-neutral-800 hover:bg-neutral-700 rounded-lg transition-colors text-neutral-300"
+            disabled={!canAnalyzeMedia}
+            title={!canAnalyzeMedia ? analyzeBlockedReason : undefined}
+            className="px-4 py-2 text-sm bg-neutral-800 hover:bg-neutral-700 disabled:hover:bg-neutral-800 disabled:opacity-50 rounded-lg transition-colors text-neutral-300"
           >
             Re-analyze Media Sources
           </button>
@@ -130,10 +149,17 @@ export default function MediaSourcesTab({
         </div>
         <button
           onClick={onAnalyzeMedia}
-          className="px-5 py-2 text-sm bg-violet-600 hover:bg-violet-500 rounded-lg transition-colors text-white font-medium"
+          disabled={!canAnalyzeMedia}
+          title={!canAnalyzeMedia ? analyzeBlockedReason : undefined}
+          className="px-5 py-2 text-sm bg-violet-600 hover:bg-violet-500 disabled:hover:bg-violet-600 disabled:opacity-50 rounded-lg transition-colors text-white font-medium"
         >
           Analyze Media Sources
         </button>
+        {!canAnalyzeMedia && (
+          <p className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+            {analyzeBlockedReason}
+          </p>
+        )}
       </div>
     </div>
   );
