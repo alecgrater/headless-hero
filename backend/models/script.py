@@ -14,6 +14,10 @@ VISUAL_TREATMENTS = {"full_frame", "popup_sequence", "flipflop"}
 VISUAL_LAYER_TYPES = {"image"}
 VISUAL_ASSET_KINDS = {"full_frame", "panel", "cutout"}
 VISUAL_LAYER_ANIMATIONS = {"none", "pop_in"}
+VisualTreatment = Literal["full_frame", "popup_sequence", "flipflop"]
+VisualLayerType = Literal["image"]
+VisualAssetKind = Literal["full_frame", "panel", "cutout"]
+VisualLayerAnimation = Literal["none", "pop_in"]
 
 # --- FX models (used by Remotion renderer) ---
 
@@ -60,14 +64,14 @@ class VisualLayer(BaseModel):
     """A renderer-facing layer used by visual treatments."""
 
     id: str
-    type: str = "image"
-    asset_kind: str = "panel"
+    type: VisualLayerType = "image"
+    asset_kind: VisualAssetKind = "panel"
     image_url: str = ""
     prompt: str = ""
     placement: str = "center"
     enter_at_seconds: float = 0.0
     exit_at_seconds: float | None = None
-    animation: str = "none"
+    animation: VisualLayerAnimation = "none"
 
     @field_validator("type", mode="before")
     @classmethod
@@ -162,8 +166,8 @@ class Scene(BaseModel):
     visual_beat: str = "static"        # "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage"
     frame_directives: list[FrameDirective] = []
     contains_person: bool = False       # true if any frame depicts a human figure
-    visual_treatment: str = "full_frame"  # "full_frame" | "popup_sequence" | "flipflop"
-    visual_layers: list[VisualLayer] = []
+    visual_treatment: VisualTreatment = "full_frame"
+    visual_layers: list[VisualLayer] = PydanticField(default_factory=list)
     # --- Scene-boundary transition ---
     transition_in: str = "cut"  # "cut" | "fade_black" | "flash_white" | "wipe"
     # --- Micro-timeline visual timing overrides ---

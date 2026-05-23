@@ -19,6 +19,16 @@ def test_scene_defaults_to_full_frame_visual_treatment():
     assert scene.visual_layers == []
 
 
+def test_scene_visual_layers_default_is_not_shared():
+    first_scene = Scene(id="s1", narration="Hello.", visual_prompt="A simple scene")
+    second_scene = Scene(id="s2", narration="Hi.", visual_prompt="Another simple scene")
+
+    first_scene.visual_layers.append(VisualLayer(id="panel_1"))
+
+    assert len(first_scene.visual_layers) == 1
+    assert second_scene.visual_layers == []
+
+
 def test_unknown_visual_treatment_normalizes_to_full_frame():
     scene = Scene(
         id="s1",
