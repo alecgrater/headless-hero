@@ -34,6 +34,46 @@ def _project_character_reference_path(script_id: str) -> str | None:
     return str(p) if p.exists() else None
 
 
+# --- Style preset helpers ---
+
+
+def _read_app_setting(key: str) -> str:
+    """Read a setting value from AppSettings; empty string if missing."""
+    from sqlmodel import Session
+    from database import engine
+    from models.settings import AppSetting
+
+    with Session(engine) as session:
+        row = session.get(AppSetting, key)
+        return row.value if row else ""
+
+
+def _active_style_preset_path() -> str | None:
+    """Return path to the active style preset image, or None if unset/missing."""
+    preset_id = _read_app_setting("ACTIVE_STYLE_PRESET_ID").strip()
+    if not preset_id:
+        return None
+    p = DATA_DIR / "style" / "presets" / f"{preset_id}.png"
+    return str(p) if p.exists() else None
+
+
+def _resolve_style_preset(
+    *,
+    eli_enabled: bool,
+    project_style_enabled: bool,
+) -> str | None:
+    """Return the active style preset path or None.
+
+    Returns None when:
+      - Eli is enabled (style preset never applies to Eli videos)
+      - The project's style_preset_enabled toggle is False
+      - No preset is active or the active preset's image file is missing
+    """
+    if eli_enabled or not project_style_enabled:
+        return None
+    return _active_style_preset_path()
+
+
 def _serialize_main_character(char: MainCharacter) -> str:
     return (
         f"Recurring main character: {char.name}. "
