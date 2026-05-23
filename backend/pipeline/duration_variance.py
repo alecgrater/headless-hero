@@ -128,6 +128,7 @@ def check_and_tighten(
             )
             old_duration = scene.audio_duration_seconds
             scene.narration = new_narration
+            scene.tts_narration = ""  # invalidate dramatized cache; new narration needs a fresh pass
             scene.audio_url = audio_url
             scene.audio_duration_seconds = duration
             if word_timestamps is not None:

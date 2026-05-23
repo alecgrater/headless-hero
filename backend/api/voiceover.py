@@ -113,12 +113,24 @@ def generate_audio(body: GenerateAudioRequest, session: Session = Depends(get_se
     logger.info("Generating audio for scene %s in script %s", body.scene_id, body.script_id)
     tts_text = body.narration
     content = ScriptContent.model_validate(json.loads(record.script_json))
+    found_scene = None
+    found_seg_idx = None
     for seg_idx, seg in enumerate(content.segments):
         for sc in seg.scenes:
-            if sc.id == body.scene_id and sc.is_title_card:
-                tts_text = frame_title_card_for_tts(body.narration, seg_idx + 1)
-                logger.info("Framed title-card narration for TTS: %r -> %r", body.narration, tts_text)
+            if sc.id == body.scene_id:
+                found_scene = sc
+                found_seg_idx = seg_idx
                 break
+        if found_scene:
+            break
+    if found_scene and found_scene.is_title_card:
+        tts_text = frame_title_card_for_tts(body.narration, (found_seg_idx or 0) + 1)
+        logger.info("Framed title-card narration for TTS: %r -> %r", body.narration, tts_text)
+    elif found_scene and (found_scene.tts_narration or "").strip() and body.narration == found_scene.narration:
+        # Honor the dramatized cache when the request narration matches the stored
+        # one (i.e., user didn't edit). Mismatch implies an edit — use body text.
+        tts_text = found_scene.tts_narration.strip()
+        logger.info("Using cached tts_narration for scene %s", body.scene_id)
     audio_url, duration, word_timestamps, phrase_timestamps = generate_scene_audio(
         scene_id=body.scene_id,
         narration=tts_text,
@@ -197,8 +209,10 @@ def generate_audio_batch(
         if not narration:
             narration = s.narration
         if s.scene_id in title_card_map:
-            framed = frame_title_card_for_tts(s.narration, title_card_map[s.scene_id])
-            logger.info("Framed title-card narration for TTS (scene %s): %r -> %r", s.scene_id, s.narration, framed)
+            # Use DB narration as canonical title text; body may be stale.
+            title_text = sc.narration if sc else s.narration
+            framed = frame_title_card_for_tts(title_text, title_card_map[s.scene_id])
+            logger.info("Framed title-card narration for TTS (scene %s): %r -> %r", s.scene_id, title_text, framed)
             narration = framed
         scenes.append({"scene_id": s.scene_id, "narration": narration})
 

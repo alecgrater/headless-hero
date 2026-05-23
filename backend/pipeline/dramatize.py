@@ -65,9 +65,12 @@ def dramatize_for_tts(scenes: list[Scene], *, script_id: str | None = None) -> d
         logger.warning("[%s] Dramatize response was not valid JSON; falling back", script_id)
         return {}
 
-    items = data.get("scenes") if isinstance(data, dict) else data
+    try:
+        items = data.get("scenes") if isinstance(data, dict) else data
+    except AttributeError:
+        items = None
     if not isinstance(items, list):
-        logger.warning("[%s] Dramatize response missing 'scenes' array", script_id)
+        logger.warning("[%s] Dramatize response missing 'scenes' array (got %s)", script_id, type(data).__name__)
         return {}
 
     out: dict[str, str] = {}
