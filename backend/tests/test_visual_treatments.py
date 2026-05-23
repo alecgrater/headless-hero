@@ -260,10 +260,34 @@ def test_require_visual_treatment_voiceover_raises_for_missing_non_title_word_ti
         require_visual_treatment_voiceover(content)
 
 
-def test_analyze_visual_treatments_assigns_popup_sequence_for_list_narration():
+@pytest.mark.parametrize(
+    ("narration", "expected_layers"),
+    [
+        (
+            "They learned to keep your head down, hide feelings, and never be different.",
+            3,
+        ),
+        (
+            "They learned to keep your head down; hide feelings; never be different.",
+            3,
+        ),
+        (
+            "They learned to keep your head down and hide feelings and never be different.",
+            3,
+        ),
+        (
+            "They could keep your head down or hide feelings or never be different.",
+            3,
+        ),
+    ],
+)
+def test_analyze_visual_treatments_assigns_popup_sequence_for_list_narration(
+    narration: str,
+    expected_layers: int,
+):
     scene = scene_with_words(
         "s1",
-        "They learned to keep your head down, hide feelings, and never be different.",
+        narration,
     )
     content = content_with_scenes(scene)
 
@@ -272,7 +296,8 @@ def test_analyze_visual_treatments_assigns_popup_sequence_for_list_narration():
     assignment = assignments[0]
     assert assignment.scene_id == "s1"
     assert assignment.visual_treatment == "popup_sequence"
-    assert len(assignment.visual_layers) == 3
+    assert 2 <= len(assignment.visual_layers) <= 4
+    assert len(assignment.visual_layers) == expected_layers
     enter_times = [layer.enter_at_seconds for layer in assignment.visual_layers]
     assert enter_times == sorted(enter_times)
     assert all("small framed Headless Hero cartoon panel" in layer.prompt for layer in assignment.visual_layers)
