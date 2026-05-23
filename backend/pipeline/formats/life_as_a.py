@@ -30,6 +30,10 @@ _ELI_PROTAGONIST_INSTRUCTION_RE = re.compile(
     r"Depict Eli as .*?; any other people are secondary and visually distinct from Eli\.\s*",
     re.IGNORECASE,
 )
+_SECONDARY_PEOPLE_INSTRUCTION_RE = re.compile(
+    r"; any other people are secondary and visually distinct from (?:Eli|[^.]+)",
+    re.IGNORECASE,
+)
 _ROLE_PREFIX_RE = re.compile(r"^your life as an?\s+", re.IGNORECASE)
 _SHOT_PREFIX_RE = re.compile(r"^(\[[A-Z\-]+\]\s*)(.*)$")
 _LEVEL_NAME_PREFIX_RE = re.compile(
@@ -37,6 +41,30 @@ _LEVEL_NAME_PREFIX_RE = re.compile(
     re.IGNORECASE,
 )
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+_SOLO_AI_VIDEO_BLOCKER_RE = re.compile(
+    r"\b("
+    r"crowd|crowds|group|groups|audience|classmates?|colleagues?|"
+    r"family|friends?|partners?|"
+    r"line of people|room full of people|another person|second person|"
+    r"two people|three people|other guards?|other workers?"
+    r")\b",
+    re.IGNORECASE,
+)
+_SOLO_AI_VIDEO_INSTRUCTION = "Only the active protagonist/main character appears; no other people are visible."
+_SOLO_AI_VIDEO_PERSON_TERMS = {
+    "guard",
+    "officer",
+    "inmate",
+    "prisoner",
+    "student",
+    "teacher",
+    "manager",
+    "coworker",
+    "customer",
+    "patient",
+    "worker",
+    "person",
+}
 
 _HUMAN_SUBJECT_TERMS = {
     "person",
@@ -151,6 +179,54 @@ def is_life_as_a_eli_scene(scene: Scene, role: str = "") -> bool:
         return True
     terms = _HUMAN_SUBJECT_TERMS | _role_terms(role)
     return scene.contains_person or _contains_any_term(text, terms)
+
+
+def _solo_ai_video_candidate_text(scene: Scene) -> str:
+    text = _scene_text(scene)
+    return _SECONDARY_PEOPLE_INSTRUCTION_RE.sub("", text)
+
+
+def is_life_as_a_solo_ai_video_scene(scene: Scene, role: str = "") -> bool:
+    """Return True when an AI-video scene can sensibly show only the protagonist."""
+    if scene.is_title_card:
+        return False
+    text = _solo_ai_video_candidate_text(scene)
+    if _SOLO_AI_VIDEO_BLOCKER_RE.search(text):
+        return False
+    role_terms = _role_terms(role)
+    for term in _SOLO_AI_VIDEO_PERSON_TERMS:
+        if term in role_terms:
+            pattern = rf"\b(?:another|other|second|two|three)\s+{re.escape(term)}s?\b"
+        else:
+            pattern = rf"\b{re.escape(term)}s?\b"
+        if re.search(pattern, text, re.IGNORECASE):
+            return False
+    return True
+
+
+def _solo_ai_video_prompt(prompt: str) -> str:
+    stripped = prompt.strip()
+    if not stripped:
+        return prompt
+    stripped = _SECONDARY_PEOPLE_INSTRUCTION_RE.sub("; no other people are visible", stripped)
+    if "no other people are visible" in stripped.lower():
+        return stripped
+    shot_match = _SHOT_PREFIX_RE.match(stripped)
+    if not shot_match:
+        return f"{_SOLO_AI_VIDEO_INSTRUCTION} {stripped}"
+    shot_tag, rest = shot_match.groups()
+    return f"{shot_tag}{_SOLO_AI_VIDEO_INSTRUCTION} {rest}".strip()
+
+
+def enforce_life_as_a_ai_video_solo_subject(scene: Scene) -> None:
+    """Strengthen AI-video prompts so animation never introduces extra people."""
+    scene.visual_prompt = _solo_ai_video_prompt(scene.visual_prompt)
+    scene.contains_person = True
+    for frame in scene.frame_directives or []:
+        if frame.source != "ai_generated":
+            continue
+        frame.prompt = _solo_ai_video_prompt(frame.prompt)
+        frame.contains_person = True
 
 
 def _eli_scene_prompt(prompt: str, role: str) -> str:

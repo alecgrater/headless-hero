@@ -122,9 +122,11 @@ def is_ai_video_eligible(
     if _shot_type(scene) == "DIAGRAM":
         return False
     if require_eli_scene:
-        from pipeline.formats.life_as_a import is_life_as_a_eli_scene
+        from pipeline.formats.life_as_a import is_life_as_a_eli_scene, is_life_as_a_solo_ai_video_scene
 
         if not is_life_as_a_eli_scene(scene, life_as_a_role):
+            return False
+        if not is_life_as_a_solo_ai_video_scene(scene, life_as_a_role):
             return False
     return _has_ai_image_frame(scene)
 
@@ -484,3 +486,8 @@ def apply_assignments(
             elif previous_source == "stock_photo" and scene.original_visual_prompt:
                 scene.visual_prompt = scene.original_visual_prompt
                 scene.original_visual_prompt = ""
+
+            if assignment.media_source == "ai_video" and script_content.format_id == "life-as-a":
+                from pipeline.formats.life_as_a import enforce_life_as_a_ai_video_solo_subject
+
+                enforce_life_as_a_ai_video_solo_subject(scene)

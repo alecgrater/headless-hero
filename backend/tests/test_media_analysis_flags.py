@@ -161,6 +161,89 @@ def test_normalize_media_assignments_preserves_protected_current_source():
     assert normalized == []
 
 
+def test_life_as_a_ai_video_eligibility_rejects_secondary_people():
+    scene = Scene(
+        id="scene_001",
+        narration="You watch another guard argue with an inmate at the door.",
+        visual_prompt=(
+            "[REACTION] Eli, the recurring character, is the main subject and protagonist in this scene. "
+            "Depict Eli as Prison Guard; any other people are secondary and visually distinct from Eli. "
+            "A guard watches another guard argue with an inmate."
+        ),
+        audio_duration_seconds=5.4,
+        contains_person=True,
+    )
+
+    assert media_analyzer.is_ai_video_eligible(
+        scene,
+        require_eli_scene=True,
+        life_as_a_role="Prison Guard",
+    ) is False
+
+
+def test_life_as_a_ai_video_eligibility_allows_solo_role_name():
+    scene = Scene(
+        id="scene_001",
+        narration="You step into the classroom alone before the bell.",
+        visual_prompt=(
+            "[REACTION] Eli, the recurring character, is the main subject and protagonist in this scene. "
+            "Depict Eli as Student; any other people are secondary and visually distinct from Eli. "
+            "A student steps into an empty classroom."
+        ),
+        audio_duration_seconds=5.4,
+        contains_person=True,
+    )
+
+    assert media_analyzer.is_ai_video_eligible(
+        scene,
+        require_eli_scene=True,
+        life_as_a_role="Student",
+    ) is True
+
+
+def test_life_as_a_ai_video_assignment_injects_solo_subject_prompt():
+    scene = Scene(
+        id="scene_001",
+        narration="You turn toward the locked door.",
+        visual_prompt=(
+            "[REACTION] Eli, the recurring character, is the main subject and protagonist in this scene. "
+            "Depict Eli as Prison Guard; any other people are secondary and visually distinct from Eli. "
+            "A prison guard turns toward the locked door."
+        ),
+        audio_duration_seconds=5.4,
+        contains_person=True,
+        frame_directives=[
+            {
+                "prompt": (
+                    "[REACTION] Eli, the recurring character, is the main subject and protagonist in this scene. "
+                    "Depict Eli as Prison Guard; any other people are secondary and visually distinct from Eli. "
+                    "A prison guard turns toward the locked door."
+                ),
+                "source": "ai_generated",
+                "transition": "cut",
+                "reference_previous": False,
+                "search_query": "",
+                "contains_person": True,
+            }
+        ],
+    )
+    content = ScriptContent(
+        title="Your Life As A Prison Guard",
+        format_id="life-as-a",
+        segments=[Segment(name="Level 1, the entry", scenes=[scene])],
+    )
+
+    media_analyzer.apply_assignments(
+        content,
+        [MediaAssignment("scene_001", "ai_video", None, None, "solo motion fits")],
+    )
+
+    assert scene.media_source == "ai_video"
+    assert "no other people are visible" in scene.visual_prompt
+    assert "any other people are secondary" not in scene.visual_prompt
+    assert "no other people are visible" in scene.frame_directives[0].prompt
+
+
 def test_missing_voiceover_scene_ids_requires_audio_duration_for_every_scene():
     content = ScriptContent(
         title="Voiceover gate",
