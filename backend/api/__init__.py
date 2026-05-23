@@ -32,6 +32,7 @@ from api.thumbnail_references import router as thumbnail_references_router
 from api.thumbnail import router as thumbnail_router
 from api.trending import router as trending_router
 from api.upload_suite import router as upload_suite_router
+from api.visual_treatments import router as visual_treatments_router
 from api.visuals import router as visuals_router
 from api.short_form import router as short_form_router
 from api.style import router as style_router
@@ -114,6 +115,7 @@ app.include_router(media_router)
 app.include_router(idea_board_router)
 app.include_router(scripts_router)
 app.include_router(project_config_router)
+app.include_router(visual_treatments_router)
 app.include_router(visuals_router)
 app.include_router(voiceover_router)
 app.include_router(render_router)

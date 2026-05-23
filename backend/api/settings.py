@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
+VISUAL_CANVAS_COLOR_PALETTE_KEY = "VISUAL_CANVAS_COLOR_PALETTE"
+
 RANGED_INTEGER_SETTINGS = {
     "LIFE_AS_A_TARGET_SCENE_SECONDS": (5, 12),
     "LIFE_AS_A_MAX_SCENE_SECONDS": (8, 18),
@@ -70,6 +72,7 @@ ALLOWED_KEYS = {
     "ELI_ENABLED_DEFAULT",
     "STYLE_PRESET_ENABLED_DEFAULT",
     "ACTIVE_STYLE_PRESET_ID",
+    VISUAL_CANVAS_COLOR_PALETTE_KEY,
 }
 
 for _task_id, _task_config in LLM_TASKS.items():
@@ -106,6 +109,7 @@ _PLAINTEXT_KEYS = {
     "ELI_ENABLED_DEFAULT",
     "STYLE_PRESET_ENABLED_DEFAULT",
     "ACTIVE_STYLE_PRESET_ID",
+    VISUAL_CANVAS_COLOR_PALETTE_KEY,
 }
 
 for _task_id, _task_config in LLM_TASKS.items():
@@ -137,6 +141,7 @@ _DEFAULTS: dict[str, str] = {
     "ELI_ENABLED_DEFAULT": "true",
     "STYLE_PRESET_ENABLED_DEFAULT": "true",
     "ACTIVE_STYLE_PRESET_ID": "",
+    VISUAL_CANVAS_COLOR_PALETTE_KEY: '["#F6C54A"]',
 }
 
 for _task_id, _task_config in LLM_TASKS.items():
