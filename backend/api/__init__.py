@@ -47,6 +47,7 @@ from models.api_usage import ApiUsage as _ApiUsage  # noqa: F401 — register ta
 from models.trending import TrendingTopic as _TrendingTopic  # noqa: F401 — register table
 from models.content_profile import ContentProfile as _ContentProfile  # noqa: F401 — register table
 from models.idea import Idea as _Idea  # noqa: F401 — register table
+from models.style_preset import StylePreset as _StylePreset  # noqa: F401 — register table
 
 from config import DATA_DIR
 

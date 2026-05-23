@@ -18,6 +18,7 @@ class ProjectConfig(SQLModel, table=True):
 
     script_id: str = Field(primary_key=True, foreign_key="scripts.id")
     eli_enabled: bool = Field(default=True)
+    style_preset_enabled: bool = Field(default=True)
     main_character_reference_url: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
@@ -30,7 +31,7 @@ def get_project_config(session: Session, script_id: str) -> ProjectConfig:
     ).first()
     if row is not None:
         return row
-    return ProjectConfig(script_id=script_id, eli_enabled=True)
+    return ProjectConfig(script_id=script_id, eli_enabled=True, style_preset_enabled=True)
 
 
 def get_or_create_project_config(

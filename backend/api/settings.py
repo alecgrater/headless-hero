@@ -58,6 +58,8 @@ ALLOWED_KEYS = {
     "HOOK_REFINEMENT_ENABLED",
     "SHOW_SPEED_RENDER_BUTTON",
     "ELI_ENABLED_DEFAULT",
+    "STYLE_PRESET_ENABLED_DEFAULT",
+    "ACTIVE_STYLE_PRESET_ID",
 }
 
 for _task_id, _task_config in LLM_TASKS.items():
@@ -88,6 +90,8 @@ _PLAINTEXT_KEYS = {
     "HOOK_REFINEMENT_ENABLED",
     "SHOW_SPEED_RENDER_BUTTON",
     "ELI_ENABLED_DEFAULT",
+    "STYLE_PRESET_ENABLED_DEFAULT",
+    "ACTIVE_STYLE_PRESET_ID",
 }
 
 for _task_id, _task_config in LLM_TASKS.items():
@@ -113,6 +117,8 @@ _DEFAULTS: dict[str, str] = {
     "HOOK_REFINEMENT_ENABLED": "true",
     "SHOW_SPEED_RENDER_BUTTON": "true",
     "ELI_ENABLED_DEFAULT": "true",
+    "STYLE_PRESET_ENABLED_DEFAULT": "true",
+    "ACTIVE_STYLE_PRESET_ID": "",
 }
 
 for _task_id, _task_config in LLM_TASKS.items():

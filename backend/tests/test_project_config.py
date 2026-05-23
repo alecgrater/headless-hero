@@ -42,3 +42,10 @@ def test_get_or_create_idempotent():
     with Session(engine) as session:
         loaded = get_project_config(session, "abc")
     assert loaded.eli_enabled is False
+
+
+def test_project_config_style_preset_enabled_defaults_true():
+    from models.project_config import ProjectConfig
+
+    cfg = ProjectConfig(script_id="s1")
+    assert cfg.style_preset_enabled is True

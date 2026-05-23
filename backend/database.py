@@ -19,6 +19,7 @@ def init_db() -> None:
     logger.info("Initializing database")
     SQLModel.metadata.create_all(engine)
     _migrate_add_eli_position()
+    _migrate_add_style_preset_enabled_to_project_config()
     _migrate_add_format_id_to_scripts()
     _migrate_script_model_default()
     _migrate_llm_task_route_defaults()
@@ -71,6 +72,24 @@ def _migrate_add_eli_position() -> None:
             conn.execute("ALTER TABLE brand_profiles ADD COLUMN eli_position_json TEXT DEFAULT ''")
             conn.commit()
             logger.info("Migrated: added eli_position_json to brand_profiles")
+    finally:
+        conn.close()
+
+
+def _migrate_add_style_preset_enabled_to_project_config() -> None:
+    """Add style_preset_enabled column to project_config if missing."""
+    import sqlite3
+
+    conn = sqlite3.connect(str(_db_path))
+    try:
+        cursor = conn.execute("PRAGMA table_info(project_config)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "style_preset_enabled" not in columns:
+            conn.execute(
+                "ALTER TABLE project_config ADD COLUMN style_preset_enabled INTEGER DEFAULT 1 NOT NULL"
+            )
+            conn.commit()
+            logger.info("Migrated: added style_preset_enabled to project_config")
     finally:
         conn.close()
 
