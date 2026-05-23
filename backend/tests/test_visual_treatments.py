@@ -30,10 +30,26 @@ def test_unknown_visual_treatment_normalizes_to_full_frame():
 
 
 def test_visual_layer_defaults_to_panel_image():
-    layer = VisualLayer(id="panel_1", prompt="A small panel")
+    layer = VisualLayer(id="panel_1")
     assert layer.type == "image"
     assert layer.asset_kind == "panel"
+    assert layer.image_url == ""
+    assert layer.prompt == ""
     assert layer.placement == "center"
+    assert layer.enter_at_seconds == 0.0
+    assert layer.exit_at_seconds is None
+    assert layer.animation == "none"
+
+
+def test_visual_layer_invalid_values_normalize_to_defaults():
+    layer = VisualLayer(
+        id="panel_1",
+        type="video",
+        asset_kind="thumbnail",
+        animation="slide",
+    )
+    assert layer.type == "image"
+    assert layer.asset_kind == "panel"
     assert layer.animation == "none"
 
 
