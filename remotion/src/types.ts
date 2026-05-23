@@ -67,6 +67,7 @@ export interface VisualLayer {
   type: "image";
   asset_kind: "full_frame" | "panel" | "cutout";
   image_url?: string;
+  image_path?: string | null;
   prompt?: string;
   placement?: string;
   enter_at_seconds?: number;
