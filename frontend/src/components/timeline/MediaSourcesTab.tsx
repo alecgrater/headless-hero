@@ -47,25 +47,6 @@ interface Props {
   onApproved: () => void;
 }
 
-function DescriptionText() {
-  return (
-    <div className="space-y-2 text-sm leading-6 text-neutral-400">
-      <p>
-        Media sources decide where each scene gets its visuals before generation starts.
-        Use this tab to route scenes between AI-generated imagery, AI-generated video, gameplay clips, and
-        stock photos so the final video uses the best source for each beat instead of
-        treating the whole script the same way.
-      </p>
-      <p>
-        After analysis, review each scene, adjust the selected source, and edit the
-        gameplay game name or stock search query when needed. Saving preserves those
-        choices for later; approving saves them and starts generating the visuals from
-        the selected sources.
-      </p>
-    </div>
-  );
-}
-
 export default function MediaSourcesTab({
   scriptId,
   content,
@@ -94,9 +75,6 @@ export default function MediaSourcesTab({
     const sceneSegments = buildSceneSegments(content);
     return (
       <div className="flex-1 overflow-auto p-4 space-y-4">
-        <div className="rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3">
-          <DescriptionText />
-        </div>
         <MediaReviewPanel
           scriptId={scriptId}
           assignments={mediaAssignments}
@@ -144,7 +122,6 @@ export default function MediaSourcesTab({
     <div className="flex-1 flex items-center justify-center">
       <div className="flex flex-col items-center gap-5 max-w-2xl text-center px-6">
         <div className="space-y-3">
-          <DescriptionText />
           <p className="text-sm text-neutral-400">
           {enabledSources.length > 0
             ? `This project has ${enabledSources.join(" and ")} enabled. Analyze your script to assign media sources per scene.`
