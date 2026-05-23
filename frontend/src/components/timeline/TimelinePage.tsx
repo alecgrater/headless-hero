@@ -1232,16 +1232,20 @@ function TimelineEditor({
 
   const handleSelectCanvasColor = useCallback(async (color: string) => {
     try {
+      const requestScriptId = scriptId;
       const saved = await state.save();
+      if (activeScriptIdRef.current !== requestScriptId) return;
       if (!saved) {
         showToast("Save your timeline changes before updating the canvas color.");
         return;
       }
-      const result = await updateVisualCanvas(scriptId, color);
+      const result = await updateVisualCanvas(requestScriptId, color);
+      if (activeScriptIdRef.current !== requestScriptId) return;
       state.setContent(result.script);
       setCanvasPalette(result.palette);
       showToast("Canvas color updated.", "success");
     } catch (err) {
+      if (activeScriptIdRef.current !== scriptId) return;
       showToast(err instanceof Error ? err.message : "Failed to update canvas color");
     }
   }, [scriptId, state]);
@@ -1267,16 +1271,20 @@ function TimelineEditor({
 
   const handleApplyVisualTreatments = useCallback(async (assignments: VisualTreatmentAssignment[]) => {
     try {
+      const requestScriptId = scriptId;
       const saved = await state.save();
+      if (activeScriptIdRef.current !== requestScriptId) return;
       if (!saved) {
         showToast("Save your timeline changes before applying visual treatments.");
         return;
       }
-      const result = await applyVisualTreatmentAssignments(scriptId, assignments);
+      const result = await applyVisualTreatmentAssignments(requestScriptId, assignments);
+      if (activeScriptIdRef.current !== requestScriptId) return;
       state.setContent(result.script);
       setVisualTreatmentAssignments(assignments);
       showToast("Visual treatments applied.", "success");
     } catch (err) {
+      if (activeScriptIdRef.current !== scriptId) return;
       showToast(err instanceof Error ? err.message : "Failed to apply visual treatments");
     }
   }, [scriptId, state]);

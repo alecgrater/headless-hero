@@ -162,10 +162,17 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
     return <>{fallbackVisualLayer}</>;
   }
 
-  const activeIndex = layers.length === 1
+  const layerEnterFrame = (layer: VisualLayer) => Math.round((layer.enter_at_seconds ?? 0) * fps);
+  const eligibleLayers = layers.filter((layer) => frame >= layerEnterFrame(layer));
+  const activeLayers = eligibleLayers.length > 0 ? eligibleLayers : [layers[0]];
+  const intervalFrames = Math.max(1, Math.round(fps * 0.5));
+  const latestEnterFrame = Math.max(...activeLayers.map(layerEnterFrame));
+  const newestEligibleIndex = Math.max(0, activeLayers.findIndex((layer) => layerEnterFrame(layer) === latestEnterFrame));
+  const ticksSinceLatestEntry = Math.floor(Math.max(0, frame - latestEnterFrame) / intervalFrames);
+  const activeIndex = activeLayers.length === 1
     ? 0
-    : Math.floor(frame / Math.max(1, Math.round(fps * 0.5))) % layers.length;
-  const activeLayer = layers[activeIndex];
+    : (newestEligibleIndex + ticksSinceLatestEntry) % activeLayers.length;
+  const activeLayer = activeLayers[activeIndex];
 
   return (
     <div style={{ position: "absolute", inset: 0 }}>

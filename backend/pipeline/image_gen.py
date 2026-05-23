@@ -315,6 +315,7 @@ def generate_visual_layer_panels(
     width: int = IMAGE_WIDTH,
     height: int = IMAGE_HEIGHT,
     force: bool = False,
+    contains_person: bool = False,
 ) -> list[dict]:
     images_dir = DATA_DIR / "projects" / script_id / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
@@ -339,10 +340,11 @@ def generate_visual_layer_panels(
         local_path = images_dir / filename
         prompt_marker = images_dir / f"{filename}.prompt"
         web_path = f"/static/projects/{script_id}/images/{filename}"
+        layer_contains_person = bool(layer.get("contains_person", contains_person))
         composed_prompt, reference_image_path, style_reference_path = _compose_image_prompt_context(
             visual_prompt=prompt,
             script_id=script_id,
-            contains_person=bool(layer.get("contains_person", False)),
+            contains_person=layer_contains_person,
         )
 
         next_layer = dict(layer)
@@ -897,6 +899,28 @@ def _generate_one_scene(
     Returns the same shape the batch loop used to append. Errors are captured
     in the returned dict so a parallel worker pool can keep going.
     """
+    def with_visual_layers(result: dict[str, object]) -> dict[str, object]:
+        treatment = scene.get("visual_treatment", "full_frame")
+        layers = scene.get("visual_layers", []) or []
+        if treatment not in {"popup_sequence", "flipflop"} or not layers:
+            return result
+        layer_dicts = [
+            layer.model_dump() if hasattr(layer, "model_dump") else dict(layer)
+            for layer in layers
+            if isinstance(layer, dict) or hasattr(layer, "model_dump")
+        ]
+        if not layer_dicts:
+            return result
+        result["visual_layers"] = generate_visual_layer_panels(
+            scene["scene_id"],
+            layer_dicts,
+            script_id,
+            width=width,
+            height=height,
+            contains_person=bool(scene.get("contains_person", False)),
+        )
+        return result
+
     try:
         media_source = scene.get("media_source", "ai")
 
@@ -918,25 +942,25 @@ def _generate_one_scene(
                 )
                 frame_urls = [url for url, _, _ in frame_results]
                 source_metadata = next((metadata for url, _, metadata in frame_results if url and metadata), None)
-                return {
+                return with_visual_layers({
                     "scene_id": scene["scene_id"],
                     "image_url": next((u for u in frame_urls if u), None),
                     "frame_urls": frame_urls,
                     "prompt_used": frame_results[0][1] if frame_results else None,
                     "visual_source_metadata": source_metadata,
                     "error": None,
-                }
+                })
             # Single stock photo (no frame_directives)
             from pipeline.stock_photo import generate_stock_photo
             search_query = scene.get("visual_prompt", "")
             image_url = generate_stock_photo(script_id, scene["scene_id"], search_query)
-            return {
+            return with_visual_layers({
                 "scene_id": scene["scene_id"],
                 "image_url": image_url,
                 "prompt_used": search_query,
                 "visual_source_metadata": None,
                 "error": None,
-            }
+            })
 
         # --- Gameplay video dispatch ---
         if media_source == "gameplay_video":
@@ -947,14 +971,14 @@ def _generate_one_scene(
                 raise RuntimeError("Gameplay scene missing game_name")
             logger.info("[TWITCH] scene %s — game: %s, duration: %.1fs", scene["scene_id"], game_name, float(duration))
             video_url = generate_gameplay_clip(script_id, scene["scene_id"], game_name, float(duration))
-            return {
+            return with_visual_layers({
                 "scene_id": scene["scene_id"],
                 "image_url": None,
                 "video_url": video_url,
                 "prompt_used": f"gameplay:{game_name}",
                 "visual_source_metadata": None,
                 "error": None,
-            }
+            })
 
         # --- AI video dispatch ---
         if media_source == "ai_video":
@@ -971,24 +995,24 @@ def _generate_one_scene(
                 scene_duration_seconds=duration,
                 contains_person=scene.get("contains_person", False),
             )
-            return {
+            return with_visual_layers({
                 "scene_id": scene["scene_id"],
                 "image_url": None,
                 "video_url": video_url,
                 "prompt_used": prompt_used,
                 "visual_source_metadata": source_metadata,
                 "error": None,
-            }
+            })
 
         # --- User upload: skip generation ---
         if media_source == "user_upload":
-            return {
+            return with_visual_layers({
                 "scene_id": scene["scene_id"],
                 "image_url": scene.get("upload_url") or scene.get("image_url"),
                 "prompt_used": None,
                 "visual_source_metadata": None,
                 "error": None,
-            }
+            })
 
         # --- AI-generated (default) ---
         logger.info("[GEMINI] scene %s — prompt: %s", scene["scene_id"], scene.get("visual_prompt", "")[:80])
@@ -1010,14 +1034,14 @@ def _generate_one_scene(
             )
             frame_urls = [url for url, _, _ in frame_results]
             source_metadata = next((metadata for url, _, metadata in frame_results if url and metadata), None)
-            return {
+            return with_visual_layers({
                 "scene_id": scene["scene_id"],
                 "image_url": next((u for u in frame_urls if u), None),
                 "frame_urls": frame_urls,
                 "prompt_used": frame_results[0][1] if frame_results else None,
                 "visual_source_metadata": source_metadata,
                 "error": None,
-            }
+            })
 
         # Legacy multi-frame path
         if frame_prompts:
@@ -1033,14 +1057,14 @@ def _generate_one_scene(
             )
             frame_urls = [url for url, _, _ in frame_results]
             source_metadata = next((metadata for url, _, metadata in frame_results if url and metadata), None)
-            return {
+            return with_visual_layers({
                 "scene_id": scene["scene_id"],
                 "image_url": frame_urls[0] if frame_urls else None,
                 "frame_urls": frame_urls,
                 "prompt_used": frame_results[0][1] if frame_results else None,
                 "visual_source_metadata": source_metadata,
                 "error": None,
-            }
+            })
 
         # Single-image path
         image_url, prompt_used, source_metadata = generate_scene_image(
@@ -1052,13 +1076,13 @@ def _generate_one_scene(
             style_guide=style_guide,
             contains_person=scene_contains_person,
         )
-        return {
+        return with_visual_layers({
             "scene_id": scene["scene_id"],
             "image_url": image_url,
             "prompt_used": prompt_used,
             "visual_source_metadata": source_metadata,
             "error": None,
-        }
+        })
     except Exception as exc:
         logger.error("Image generation failed for scene %s: %s", scene["scene_id"], exc, exc_info=True)
         return {

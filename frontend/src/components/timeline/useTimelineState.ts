@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api";
 import { fetchGenerationEstimate, recordDuration, pollTitleCardJob, bumpAssetVersion } from "../../api";
-import type { FrameDirective, Scene, ScriptContent } from "../../types/script";
+import type { FrameDirective, Scene, ScriptContent, VisualLayer, VisualTreatment } from "../../types/script";
 import type { GenerateVisualResponse, GenerateTitleCardsResponse } from "../../types/visual";
 import type { GenerateAudioResponse } from "../../types/audio";
 
@@ -495,6 +495,8 @@ export function useTimelineState(
           gameplay_game_name: scene.gameplay_game_override || contentRef.current.gameplay_game_name || "",
           gameplay_game_override: scene.gameplay_game_override || "",
           audio_duration_seconds: scene.audio_duration_seconds || 0,
+          visual_treatment: scene.visual_treatment || "full_frame",
+          visual_layers: scene.visual_layers || [],
         });
         if (res.ok) {
           // Re-fetch from backend which already persisted the image data
@@ -513,6 +515,7 @@ export function useTimelineState(
                 updated.image_url ?? "",
                 updated.video_url ?? "",
                 ...(updated.frame_urls ?? []),
+                ...(updated.visual_layers ?? []).map((layer) => layer.image_url ?? ""),
               );
             }
             setContent(scriptData.script);
@@ -532,7 +535,19 @@ export function useTimelineState(
   const generateAllImages = useCallback(
     async (missingOnly = false) => {
       // Collect AI-generated scenes
-      const scenes: { scene_id: string; visual_prompt: string; name: string; frame_directives: FrameDirective[]; contains_person: boolean; media_source: string; gameplay_game_name: string; gameplay_game_override: string; audio_duration_seconds: number }[] = [];
+      const scenes: {
+        scene_id: string;
+        visual_prompt: string;
+        name: string;
+        frame_directives: FrameDirective[];
+        contains_person: boolean;
+        media_source: string;
+        gameplay_game_name: string;
+        gameplay_game_override: string;
+        audio_duration_seconds: number;
+        visual_treatment: VisualTreatment;
+        visual_layers: VisualLayer[];
+      }[] = [];
       let shouldGenerateTitleCards = false;
       for (const seg of contentRef.current.segments) {
         for (const sc of seg.scenes) {
@@ -550,6 +565,8 @@ export function useTimelineState(
               gameplay_game_name: sc.gameplay_game_override || contentRef.current.gameplay_game_name || "",
               gameplay_game_override: sc.gameplay_game_override || "",
               audio_duration_seconds: sc.audio_duration_seconds || 0,
+              visual_treatment: sc.visual_treatment || "full_frame",
+              visual_layers: sc.visual_layers || [],
             });
           }
         }
@@ -630,10 +647,17 @@ export function useTimelineState(
             gameplay_game_name: scene.gameplay_game_name,
             gameplay_game_override: scene.gameplay_game_override,
             audio_duration_seconds: scene.audio_duration_seconds,
+            visual_treatment: scene.visual_treatment,
+            visual_layers: scene.visual_layers,
           });
           if (res.ok) {
             const data = res.data as GenerateVisualResponse;
-            bumpAssetVersion(data.image_url ?? "", data.video_url ?? "", ...(data.frame_urls ?? []));
+            bumpAssetVersion(
+              data.image_url ?? "",
+              data.video_url ?? "",
+              ...(data.frame_urls ?? []),
+              ...(data.visual_layers ?? []).map((layer) => layer.image_url ?? ""),
+            );
             setContent((prev) => ({
               ...prev,
               segments: prev.segments.map((seg) => ({
@@ -645,6 +669,7 @@ export function useTimelineState(
                         image_url: data.image_url ?? sc.image_url,
                         video_url: data.video_url ?? sc.video_url,
                         frame_urls: data.frame_urls ?? sc.frame_urls,
+                        visual_layers: data.visual_layers ?? sc.visual_layers,
                         visual_source_metadata: data.visual_source_metadata ?? sc.visual_source_metadata,
                       }
                     : sc,

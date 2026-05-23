@@ -195,6 +195,23 @@ def test_generate_visual_layer_panels_uses_composed_prompt_and_references(tmp_pa
     assert prompt_marker.read_text(encoding="utf-8") == prompt
 
 
+def test_generate_visual_layer_panels_uses_scene_person_fallback(tmp_path, monkeypatch):
+    image_gen_mod, char_ref, _ = _stub_panel_image_context(monkeypatch, tmp_path)
+    captured = []
+    _stub_generate_image_file(monkeypatch, image_gen_mod, captured)
+
+    generate_visual_layer_panels(
+        "scene_001",
+        [{"id": "panel_1", "type": "image", "asset_kind": "panel", "prompt": "Raw panel"}],
+        "script-1",
+        contains_person=True,
+    )
+
+    assert len(captured) == 1
+    assert "CHARACTER PROMPT" in captured[0]["prompt"]
+    assert captured[0]["reference_image_path"] == char_ref
+
+
 def test_generate_visual_layer_panels_cache_hit_uses_composed_prompt(tmp_path, monkeypatch):
     image_gen_mod, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
     captured = []
@@ -330,7 +347,7 @@ def test_phase_images_forces_visual_layer_panel_regeneration(monkeypatch):
         lambda scene_id, visual_prompt, script_id, force: ("/static/projects/script-1/images/scene_001.png", "", None),
     )
 
-    def fake_generate_visual_layer_panels(scene_id, layers, script_id, force=False):
+    def fake_generate_visual_layer_panels(scene_id, layers, script_id, force=False, **kwargs):
         captured["force"] = force
         return layers
 
@@ -362,6 +379,78 @@ def test_phase_images_forces_visual_layer_panel_regeneration(monkeypatch):
     _phase_images(ctx)
 
     assert captured["force"] is True
+
+
+def test_generate_visual_persists_generated_visual_layers(monkeypatch):
+    from api import visuals as visuals_api
+    from api.visuals import GenerateVisualRequest
+
+    engine = _build_test_engine()
+    script_id = "regular-visual-panels"
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="Panel scene.",
+            visual_prompt="Panel",
+            contains_person=True,
+            visual_treatment="popup_sequence",
+            visual_layers=[VisualLayer(id="panel_1", prompt="Panel prompt")],
+        )
+    )
+
+    captured = {}
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+    monkeypatch.setattr(
+        visuals_api,
+        "generate_scene_image",
+        lambda **kwargs: ("/static/projects/regular-visual-panels/images/scene_001.png", "prompt", None),
+    )
+
+    def fake_generate_visual_layer_panels(scene_id, layers, script_id, **kwargs):
+        captured["scene_id"] = scene_id
+        captured["layers"] = layers
+        captured["contains_person"] = kwargs.get("contains_person")
+        return [
+            {
+                **layers[0],
+                "image_url": "/static/projects/regular-visual-panels/images/scene_001_layer_panel_1.png",
+            }
+        ]
+
+    monkeypatch.setattr(visuals_api, "generate_visual_layer_panels", fake_generate_visual_layer_panels, raising=False)
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Treatment Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        response = visuals_api.generate_visual(
+            GenerateVisualRequest(
+                script_id=script_id,
+                scene_id="scene_001",
+                visual_prompt="Panel",
+                contains_person=False,
+            ),
+            session,
+        )
+
+        stored = session.get(Script, script_id)
+        assert stored is not None
+        stored_content = ScriptContent.model_validate_json(stored.script_json)
+
+    assert captured["scene_id"] == "scene_001"
+    assert captured["contains_person"] is True
+    assert captured["layers"][0]["prompt"] == "Panel prompt"
+    assert response.visual_layers[0]["image_url"] == "/static/projects/regular-visual-panels/images/scene_001_layer_panel_1.png"
+    assert stored_content.segments[0].scenes[0].visual_layers[0].image_url == (
+        "/static/projects/regular-visual-panels/images/scene_001_layer_panel_1.png"
+    )
 
 
 def test_script_content_has_visual_canvas_default():

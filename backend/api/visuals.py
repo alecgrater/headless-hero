@@ -5,7 +5,7 @@ import logging
 import time
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session
 
 from config import DEFAULT_ACCENT_COLOR, IMAGE_HEIGHT, IMAGE_WIDTH
@@ -13,7 +13,7 @@ from database import get_session
 from api._helpers import update_scene
 from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
-from pipeline.image_gen import generate_batch, generate_scene_frames_v2, generate_scene_image
+from pipeline.image_gen import generate_batch, generate_scene_frames_v2, generate_scene_image, generate_visual_layer_panels
 from pipeline.render_jobs import create_job, get_job, run_in_background
 from pipeline.formats import resolve_format
 
@@ -37,6 +37,8 @@ class GenerateVisualRequest(BaseModel):
     gameplay_game_name: str = ""
     gameplay_game_override: str = ""
     audio_duration_seconds: float = 0.0
+    visual_treatment: str = ""
+    visual_layers: list[dict] = Field(default_factory=list)
 
 class GenerateVisualResponse(BaseModel):
     image_url: str
@@ -44,6 +46,7 @@ class GenerateVisualResponse(BaseModel):
     frame_urls: list[str] = []
     video_url: str | None = None
     visual_source_metadata: dict | None = None
+    visual_layers: list[dict] = Field(default_factory=list)
 
 class BatchScene(BaseModel):
     scene_id: str
@@ -55,6 +58,8 @@ class BatchScene(BaseModel):
     gameplay_game_override: str = ""
     audio_duration_seconds: float = 0.0
     upload_url: str = ""
+    visual_treatment: str = ""
+    visual_layers: list[dict] = Field(default_factory=list)
 
 class GenerateBatchRequest(BaseModel):
     script_id: str
@@ -69,6 +74,7 @@ class BatchResultItem(BaseModel):
     video_url: str | None = None
     prompt_used: str | None = None
     visual_source_metadata: dict | None = None
+    visual_layers: list[dict] = Field(default_factory=list)
     error: str | None = None
 
 class GenerateBatchResponse(BaseModel):
@@ -95,6 +101,75 @@ def _require_character_reference_ready(session: Session, script_id: str) -> None
     if reason:
         raise HTTPException(status_code=400, detail=reason)
 
+
+def _visual_layer_dicts(raw_layers: list[object]) -> list[dict]:
+    layers: list[dict] = []
+    for layer in raw_layers:
+        if hasattr(layer, "model_dump"):
+            layers.append(layer.model_dump())
+        elif isinstance(layer, dict):
+            layers.append(dict(layer))
+    return layers
+
+
+def _resolve_visual_layer_context(
+    *,
+    content: ScriptContent,
+    scene_id: str,
+    request_treatment: str = "",
+    request_layers: list[dict] | None = None,
+    request_contains_person: bool = False,
+) -> tuple[str, list[dict], bool]:
+    scene = next((sc for seg in content.segments for sc in seg.scenes if sc.id == scene_id), None)
+    treatment = request_treatment or (scene.visual_treatment if scene is not None else "full_frame")
+    raw_layers: list[object] = list(request_layers or [])
+    if not raw_layers and scene is not None:
+        raw_layers = list(scene.visual_layers)
+    contains_person = bool(request_contains_person or (scene.contains_person if scene is not None else False))
+    return treatment, _visual_layer_dicts(raw_layers), contains_person
+
+
+def _generate_scene_visual_layers(
+    *,
+    content: ScriptContent,
+    scene_id: str,
+    script_id: str,
+    width: int,
+    height: int,
+    request_treatment: str = "",
+    request_layers: list[dict] | None = None,
+    request_contains_person: bool = False,
+) -> list[dict] | None:
+    treatment, layers, contains_person = _resolve_visual_layer_context(
+        content=content,
+        scene_id=scene_id,
+        request_treatment=request_treatment,
+        request_layers=request_layers,
+        request_contains_person=request_contains_person,
+    )
+    if treatment not in {"popup_sequence", "flipflop"} or not layers:
+        return None
+    logger.info(
+        "[VISUAL_TREATMENT] generating panels scene=%s treatment=%s layers=%d",
+        scene_id,
+        treatment,
+        len(layers),
+    )
+    return generate_visual_layer_panels(
+        scene_id,
+        layers,
+        script_id,
+        width=width,
+        height=height,
+        contains_person=contains_person,
+    )
+
+
+def _with_visual_layers(fields: dict[str, object], visual_layers: list[dict] | None) -> dict[str, object]:
+    if visual_layers is not None:
+        fields["visual_layers"] = visual_layers
+    return fields
+
 # --- Endpoints ---
 
 @router.post("/generate", response_model=GenerateVisualResponse)
@@ -105,6 +180,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
     _require_character_reference_ready(session, body.script_id)
+    content = ScriptContent.model_validate_json(record.script_json)
 
     logger.info("Generating visual for scene %s in script %s (media_source=%s)", body.scene_id, body.script_id, body.media_source)
 
@@ -113,6 +189,16 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         logger.info("[PEXELS] scene %s — query: %s", body.scene_id, body.visual_prompt[:80])
         from pipeline.stock_photo import generate_stock_photo
         if body.frame_directives:
+            visual_layers = _generate_scene_visual_layers(
+                content=content,
+                scene_id=body.scene_id,
+                script_id=body.script_id,
+                width=body.width,
+                height=body.height,
+                request_treatment=body.visual_treatment,
+                request_layers=body.visual_layers,
+                request_contains_person=body.contains_person,
+            )
             frame_results = generate_scene_frames_v2(
                 scene_id=body.scene_id,
                 frame_directives=body.frame_directives,
@@ -130,9 +216,14 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
                     session,
                     body.script_id,
                     body.scene_id,
-                    video_url="",
-                    frame_urls=frame_urls,
-                    visual_source_metadata=source_metadata or METADATA_CLEAR,
+                    **_with_visual_layers(
+                        {
+                            "video_url": "",
+                            "frame_urls": frame_urls,
+                            "visual_source_metadata": source_metadata or METADATA_CLEAR,
+                        },
+                        visual_layers,
+                    ),
                 )
             session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
             session.commit()
@@ -142,20 +233,43 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
                 frame_urls=frame_urls,
                 video_url="",
                 visual_source_metadata=source_metadata or METADATA_CLEAR,
+                visual_layers=visual_layers or [],
             )
         image_url = generate_stock_photo(body.script_id, body.scene_id, body.visual_prompt)
+        visual_layers = _generate_scene_visual_layers(
+            content=content,
+            scene_id=body.scene_id,
+            script_id=body.script_id,
+            width=body.width,
+            height=body.height,
+            request_treatment=body.visual_treatment,
+            request_layers=body.visual_layers,
+            request_contains_person=body.contains_person,
+        )
         update_scene(
             session,
             body.script_id,
             body.scene_id,
-            image_url=image_url,
-            frame_urls=[],
-            video_url="",
-            visual_source_metadata=METADATA_CLEAR,
+            **_with_visual_layers(
+                {
+                    "image_url": image_url,
+                    "frame_urls": [],
+                    "video_url": "",
+                    "visual_source_metadata": METADATA_CLEAR,
+                },
+                visual_layers,
+            ),
         )
         session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
         session.commit()
-        return GenerateVisualResponse(image_url=image_url, prompt_used=body.visual_prompt, frame_urls=[], video_url="", visual_source_metadata=METADATA_CLEAR)
+        return GenerateVisualResponse(
+            image_url=image_url,
+            prompt_used=body.visual_prompt,
+            frame_urls=[],
+            video_url="",
+            visual_source_metadata=METADATA_CLEAR,
+            visual_layers=visual_layers or [],
+        )
 
     # --- Gameplay video dispatch ---
     if body.media_source == "gameplay_video":
@@ -166,18 +280,40 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         logger.info("[TWITCH] scene %s — game: %s, duration: %.1fs", body.scene_id, game_name, body.audio_duration_seconds or 8.0)
         duration = body.audio_duration_seconds or 8.0
         video_url = generate_gameplay_clip(body.script_id, body.scene_id, game_name, duration)
+        visual_layers = _generate_scene_visual_layers(
+            content=content,
+            scene_id=body.scene_id,
+            script_id=body.script_id,
+            width=body.width,
+            height=body.height,
+            request_treatment=body.visual_treatment,
+            request_layers=body.visual_layers,
+            request_contains_person=body.contains_person,
+        )
         update_scene(
             session,
             body.script_id,
             body.scene_id,
-            image_url="",
-            frame_urls=[],
-            video_url=video_url,
-            visual_source_metadata=METADATA_CLEAR,
+            **_with_visual_layers(
+                {
+                    "image_url": "",
+                    "frame_urls": [],
+                    "video_url": video_url,
+                    "visual_source_metadata": METADATA_CLEAR,
+                },
+                visual_layers,
+            ),
         )
         session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
         session.commit()
-        return GenerateVisualResponse(image_url="", prompt_used=f"gameplay:{game_name}", frame_urls=[], video_url=video_url, visual_source_metadata=METADATA_CLEAR)
+        return GenerateVisualResponse(
+            image_url="",
+            prompt_used=f"gameplay:{game_name}",
+            frame_urls=[],
+            video_url=video_url,
+            visual_source_metadata=METADATA_CLEAR,
+            visual_layers=visual_layers or [],
+        )
 
     # --- AI video dispatch ---
     if body.media_source == "ai_video":
@@ -194,24 +330,56 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             scene_duration_seconds=duration,
             contains_person=body.contains_person,
         )
+        visual_layers = _generate_scene_visual_layers(
+            content=content,
+            scene_id=body.scene_id,
+            script_id=body.script_id,
+            width=body.width,
+            height=body.height,
+            request_treatment=body.visual_treatment,
+            request_layers=body.visual_layers,
+            request_contains_person=body.contains_person,
+        )
         update_scene(
             session,
             body.script_id,
             body.scene_id,
-            image_url="",
-            frame_urls=[],
-            video_url=video_url,
-            visual_source_metadata=source_metadata,
+            **_with_visual_layers(
+                {
+                    "image_url": "",
+                    "frame_urls": [],
+                    "video_url": video_url,
+                    "visual_source_metadata": source_metadata,
+                },
+                visual_layers,
+            ),
         )
         session.add(GenerationDuration(operation_type="single_video_generation", duration_seconds=time.monotonic() - t0))
         session.commit()
-        return GenerateVisualResponse(image_url="", prompt_used=prompt_used, frame_urls=[], video_url=video_url, visual_source_metadata=source_metadata)
+        return GenerateVisualResponse(
+            image_url="",
+            prompt_used=prompt_used,
+            frame_urls=[],
+            video_url=video_url,
+            visual_source_metadata=source_metadata,
+            visual_layers=visual_layers or [],
+        )
 
     # --- AI-generated (default) ---
     logger.info("[GEMINI] scene %s — prompt: %s", body.scene_id, body.visual_prompt[:80])
 
     # Visual Beat System v2 path: per-frame directives
     if body.frame_directives:
+        visual_layers = _generate_scene_visual_layers(
+            content=content,
+            scene_id=body.scene_id,
+            script_id=body.script_id,
+            width=body.width,
+            height=body.height,
+            request_treatment=body.visual_treatment,
+            request_layers=body.visual_layers,
+            request_contains_person=body.contains_person,
+        )
         frame_results = generate_scene_frames_v2(
             scene_id=body.scene_id,
             frame_directives=body.frame_directives,
@@ -229,9 +397,14 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
                 session,
                 body.script_id,
                 body.scene_id,
-                video_url="",
-                frame_urls=frame_urls,
-                visual_source_metadata=source_metadata,
+                **_with_visual_layers(
+                    {
+                        "video_url": "",
+                        "frame_urls": frame_urls,
+                        "visual_source_metadata": source_metadata,
+                    },
+                    visual_layers,
+                ),
             )
         session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
         session.commit()
@@ -241,6 +414,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             frame_urls=frame_urls,
             video_url="",
             visual_source_metadata=source_metadata,
+            visual_layers=visual_layers or [],
         )
 
     # Single-image path
@@ -252,21 +426,43 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         height=body.height,
         contains_person=body.contains_person,
     )
+    visual_layers = _generate_scene_visual_layers(
+        content=content,
+        scene_id=body.scene_id,
+        script_id=body.script_id,
+        width=body.width,
+        height=body.height,
+        request_treatment=body.visual_treatment,
+        request_layers=body.visual_layers,
+        request_contains_person=body.contains_person,
+    )
 
     update_scene(
         session,
         body.script_id,
         body.scene_id,
-        image_url=image_url,
-        frame_urls=[],
-        video_url="",
-        visual_source_metadata=source_metadata,
+        **_with_visual_layers(
+            {
+                "image_url": image_url,
+                "frame_urls": [],
+                "video_url": "",
+                "visual_source_metadata": source_metadata,
+            },
+            visual_layers,
+        ),
     )
 
     session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
     session.commit()
 
-    return GenerateVisualResponse(image_url=image_url, prompt_used=prompt_used, frame_urls=[], video_url="", visual_source_metadata=source_metadata)
+    return GenerateVisualResponse(
+        image_url=image_url,
+        prompt_used=prompt_used,
+        frame_urls=[],
+        video_url="",
+        visual_source_metadata=source_metadata,
+        visual_layers=visual_layers or [],
+    )
 
 @router.post("/generate-batch", response_model=GenerateBatchResponse)
 def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends(get_session)):
@@ -278,17 +474,25 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
 
     logger.info("Starting batch visual generation for script %s (%d scenes)", body.script_id, len(body.scenes))
 
+    content = ScriptContent.model_validate_json(record.script_json)
+    scene_map = {sc.id: sc for seg in content.segments for sc in seg.scenes}
     scenes = [
         {
             "scene_id": s.scene_id,
             "visual_prompt": s.visual_prompt,
             "frame_directives": s.frame_directives,
-            "contains_person": s.contains_person,
+            "contains_person": s.contains_person or (scene_map[s.scene_id].contains_person if s.scene_id in scene_map else False),
             "media_source": s.media_source,
             "gameplay_game_name": s.gameplay_game_name,
             "gameplay_game_override": s.gameplay_game_override,
             "audio_duration_seconds": s.audio_duration_seconds,
             "upload_url": s.upload_url,
+            "visual_treatment": s.visual_treatment or (scene_map[s.scene_id].visual_treatment if s.scene_id in scene_map else "full_frame"),
+            "visual_layers": s.visual_layers or (
+                [layer.model_dump() for layer in scene_map[s.scene_id].visual_layers]
+                if s.scene_id in scene_map
+                else []
+            ),
         }
         for s in body.scenes
     ]
@@ -301,8 +505,6 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
     )
 
     # Persist all successful results in a single DB write
-    content = ScriptContent.model_validate(json.loads(record.script_json))
-    scene_map = {sc.id: sc for seg in content.segments for sc in seg.scenes}
     for r in results:
         if r.get("error"):
             continue
@@ -325,6 +527,8 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
             sc.image_url = r["image_url"]
             sc.frame_urls = []
             sc.video_url = ""
+        if r.get("visual_layers"):
+            sc.visual_layers = r["visual_layers"]
         sc.visual_source_metadata = r.get("visual_source_metadata") or METADATA_CLEAR
     record.script_json = content.model_dump_json()
     session.add(record)
