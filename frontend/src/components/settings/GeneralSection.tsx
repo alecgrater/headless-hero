@@ -782,16 +782,17 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                 </div>
                 <button
                   type="button"
+                  role="switch"
+                  aria-checked={aiVideoEnabled}
                   onClick={() => setAiVideoEnabled((value) => !value)}
-                  className={`relative h-6 w-11 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
-                    aiVideoEnabled ? "bg-violet-500" : "bg-neutral-700 hover:bg-neutral-600"
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
+                    aiVideoEnabled ? "bg-violet-600" : "bg-neutral-700 hover:bg-neutral-600"
                   }`}
-                  aria-pressed={aiVideoEnabled}
                   aria-label="Toggle AI video scenes"
                 >
                   <span
-                    className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-transform ${
-                      aiVideoEnabled ? "translate-x-6" : "translate-x-1"
+                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                      aiVideoEnabled ? "translate-x-5" : "translate-x-0"
                     }`}
                   />
                 </button>
