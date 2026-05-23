@@ -105,7 +105,6 @@ def add_palette_color(session: Session, color: str) -> list[str]:
                 value=json.dumps(colors),
             )
         )
-    session.commit()
     logger.info(
         "[VISUAL_CANVAS] palette updated; added=%s size=%d",
         normalized_color,
@@ -131,13 +130,13 @@ def update_visual_canvas(
 
     background_color = normalize_hex_color(request.background_color)
     content = ScriptContent.model_validate_json(record.script_json)
+    content.title = record.topic_title or content.title
     old_color = content.visual_canvas.background_color
     content.visual_canvas.background_color = background_color
     record.script_json = content.model_dump_json()
     session.add(record)
-    session.commit()
-
     palette = add_palette_color(session, background_color)
+    session.commit()
     mark_render_inputs_changed(script_id)
     logger.info(
         "[VISUAL_CANVAS] script=%s old=%s new=%s",

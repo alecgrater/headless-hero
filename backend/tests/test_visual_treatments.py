@@ -1,10 +1,20 @@
 import json
-import shutil
 
-from sqlmodel import Session
+from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel.pool import StaticPool
 
 from models.settings import AppSetting
 from models.script import ScriptContent, Scene, VisualCanvas, VisualLayer
+
+
+def _build_test_engine():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    return engine
 
 
 def test_visual_canvas_normalizes_hex_color():
@@ -74,50 +84,54 @@ def test_script_content_has_visual_canvas_default():
 
 
 def test_palette_adds_recent_first_and_dedupes():
-    from database import engine
     from api.visual_treatments import (
         VISUAL_CANVAS_COLOR_PALETTE_KEY,
         add_palette_color,
     )
 
+    engine = _build_test_engine()
     with Session(engine) as session:
-        existing = session.get(AppSetting, VISUAL_CANVAS_COLOR_PALETTE_KEY)
-        previous_value = existing.value if existing else None
-        if existing:
-            existing.value = '["#111111", "#222222"]'
-        else:
-            session.add(
-                AppSetting(
-                    key=VISUAL_CANVAS_COLOR_PALETTE_KEY,
-                    value='["#111111", "#222222"]',
-                )
+        session.add(
+            AppSetting(
+                key=VISUAL_CANVAS_COLOR_PALETTE_KEY,
+                value='["#111111", "#222222"]',
             )
+        )
         session.commit()
 
-        try:
-            palette = add_palette_color(session, "#222222")
+        palette = add_palette_color(session, "#222222")
 
-            assert palette == ["#222222", "#111111"]
-        finally:
-            row = session.get(AppSetting, VISUAL_CANVAS_COLOR_PALETTE_KEY)
-            if previous_value is None:
-                if row:
-                    session.delete(row)
-            elif row:
-                row.value = previous_value
-            else:
-                session.add(
-                    AppSetting(
-                        key=VISUAL_CANVAS_COLOR_PALETTE_KEY,
-                        value=previous_value,
-                    )
-                )
-            session.commit()
+        assert palette == ["#222222", "#111111"]
 
 
-def test_update_visual_canvas_persists_script_color_and_palette():
-    from database import engine
+def test_palette_add_mutates_without_committing():
+    from api.visual_treatments import (
+        VISUAL_CANVAS_COLOR_PALETTE_KEY,
+        add_palette_color,
+    )
+
+    engine = _build_test_engine()
+    with Session(engine) as session:
+        session.add(
+            AppSetting(
+                key=VISUAL_CANVAS_COLOR_PALETTE_KEY,
+                value='["#111111", "#222222"]',
+            )
+        )
+        session.commit()
+
+        add_palette_color(session, "#333333")
+        session.rollback()
+
+    with Session(engine) as session:
+        row = session.get(AppSetting, VISUAL_CANVAS_COLOR_PALETTE_KEY)
+        assert row is not None
+        assert json.loads(row.value) == ["#111111", "#222222"]
+
+
+def test_update_visual_canvas_persists_script_color_and_palette(tmp_path, monkeypatch):
     from models.script import Script
+    from pipeline import render_cache
     from api.visual_treatments import (
         VISUAL_CANVAS_COLOR_PALETTE_KEY,
         UpdateVisualCanvasRequest,
@@ -125,19 +139,12 @@ def test_update_visual_canvas_persists_script_color_and_palette():
         update_visual_canvas,
     )
 
+    monkeypatch.setattr(render_cache, "DATA_DIR", tmp_path)
+    engine = _build_test_engine()
     script_id = "canvas-script-test"
     content = ScriptContent(title="Canvas Test", segments=[])
 
     with Session(engine) as session:
-        existing_script = session.get(Script, script_id)
-        if existing_script:
-            session.delete(existing_script)
-        existing_palette = session.get(AppSetting, VISUAL_CANVAS_COLOR_PALETTE_KEY)
-        previous_palette_value = existing_palette.value if existing_palette else None
-        if existing_palette:
-            session.delete(existing_palette)
-        session.commit()
-
         session.add(
             Script(
                 id=script_id,
@@ -148,39 +155,56 @@ def test_update_visual_canvas_persists_script_color_and_palette():
         )
         session.commit()
 
-        try:
-            response = update_visual_canvas(
-                script_id,
-                UpdateVisualCanvasRequest(background_color="abcdef"),
-                session,
+        response = update_visual_canvas(
+            script_id,
+            UpdateVisualCanvasRequest(background_color="abcdef"),
+            session,
+        )
+
+        assert response.script.visual_canvas.background_color == "#ABCDEF"
+        stored_script = session.get(Script, script_id)
+        assert stored_script is not None
+        stored_content = ScriptContent.model_validate_json(stored_script.script_json)
+        assert stored_content.visual_canvas.background_color == "#ABCDEF"
+        assert isinstance(response.palette, list)
+        assert "#ABCDEF" in response.palette
+        assert "#ABCDEF" in get_canvas_palette(session).colors
+        assert (tmp_path / "projects" / script_id / ".render_inputs_mtime").is_file()
+
+
+def test_update_visual_canvas_persists_canonical_topic_title(tmp_path, monkeypatch):
+    from models.script import Script
+    from pipeline import render_cache
+    from api.visual_treatments import (
+        UpdateVisualCanvasRequest,
+        update_visual_canvas,
+    )
+
+    monkeypatch.setattr(render_cache, "DATA_DIR", tmp_path)
+    engine = _build_test_engine()
+    script_id = "canonical-title-canvas-test"
+    stale_content = ScriptContent(title="Stale JSON Title", segments=[])
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Canonical Title",
+                script_json=stale_content.model_dump_json(),
             )
+        )
+        session.commit()
 
-            assert response.script.visual_canvas.background_color == "#ABCDEF"
-            stored_script = session.get(Script, script_id)
-            assert stored_script is not None
-            stored_content = ScriptContent.model_validate_json(stored_script.script_json)
-            assert stored_content.visual_canvas.background_color == "#ABCDEF"
-            assert isinstance(response.palette, list)
-            assert "#ABCDEF" in response.palette
-            assert "#ABCDEF" in get_canvas_palette(session).colors
-        finally:
-            script = session.get(Script, script_id)
-            if script:
-                session.delete(script)
-            palette = session.get(AppSetting, VISUAL_CANVAS_COLOR_PALETTE_KEY)
-            if previous_palette_value is None:
-                if palette:
-                    session.delete(palette)
-            elif palette:
-                palette.value = previous_palette_value
-            else:
-                session.add(
-                    AppSetting(
-                        key=VISUAL_CANVAS_COLOR_PALETTE_KEY,
-                        value=previous_palette_value,
-                    )
-                )
-            session.commit()
-            from config import DATA_DIR
+        response = update_visual_canvas(
+            script_id,
+            UpdateVisualCanvasRequest(background_color="#abcdef"),
+            session,
+        )
 
-            shutil.rmtree(DATA_DIR / "projects" / script_id, ignore_errors=True)
+        assert response.script.title == "Canonical Title"
+        stored_script = session.get(Script, script_id)
+        assert stored_script is not None
+        stored_content = ScriptContent.model_validate_json(stored_script.script_json)
+        assert stored_content.title == "Canonical Title"
+        assert stored_content.visual_canvas.background_color == "#ABCDEF"
