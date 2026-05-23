@@ -1,6 +1,6 @@
 import { showToast } from "./components/ToastContainer";
 import { BACKEND_PORT } from "./constants";
-import type { UploadTracking } from "./types/script";
+import type { ScriptContent, UploadTracking, VisualLayer, VisualTreatment } from "./types/script";
 import type { VideoFormat } from "./types/format";
 
 export interface ApiResponse<T = unknown> {
@@ -47,7 +47,7 @@ function extractErrorMessage(status: number, data: unknown): string {
 }
 
 /** Paths that should not trigger toast notifications on error. */
-const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/publish/short-form/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/", "/api/short-form/jobs/", "/api/short-form/rendered", "/api/style/presets/jobs/"];
+const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/publish/short-form/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/visual-treatments/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/", "/api/short-form/jobs/", "/api/short-form/rendered", "/api/style/presets/jobs/"];
 
 function shouldSilence(path: string): boolean {
   return SILENT_PATHS.some((p) => path.startsWith(p));
@@ -797,6 +797,20 @@ export interface MediaAnalysisStatus {
   summary?: Record<string, number>;
 }
 
+export interface VisualTreatmentAssignment {
+  scene_id: string;
+  visual_treatment: VisualTreatment;
+  reasoning: string;
+  visual_layers: VisualLayer[];
+}
+
+export interface VisualTreatmentStatus {
+  status: string;
+  progress: number;
+  error: string | null;
+  assignments?: VisualTreatmentAssignment[];
+}
+
 export async function analyzeMedia(scriptId: string) {
   return api.post(`/api/media/analyze/${scriptId}`);
 }
@@ -810,6 +824,61 @@ export async function applyMediaAssignments(
   assignments: MediaAssignment[],
 ) {
   return api.post<{ ok: boolean }>(`/api/media/apply/${scriptId}`, { assignments });
+}
+
+export async function getVisualCanvasPalette(): Promise<{ colors: string[] }> {
+  const res = await api.get<{ colors: string[] }>("/api/visual-treatments/palette");
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to load canvas palette");
+  return res.data;
+}
+
+export async function updateVisualCanvas(
+  scriptId: string,
+  backgroundColor: string,
+): Promise<{ script: ScriptContent; palette: string[] }> {
+  const res = await api.put<{ script: ScriptContent; palette: string[] }>(
+    `/api/visual-treatments/${scriptId}/canvas`,
+    { background_color: backgroundColor },
+  );
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to update canvas color");
+  return res.data;
+}
+
+export async function analyzeVisualTreatments(scriptId: string): Promise<{ job_id: string }> {
+  const res = await api.post<{ job_id: string }>(`/api/visual-treatments/${scriptId}/analyze`);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to analyze visual treatments");
+  return res.data;
+}
+
+export async function getVisualTreatmentStatus(jobId: string): Promise<VisualTreatmentStatus> {
+  const res = await api.get<VisualTreatmentStatus>(`/api/visual-treatments/analyze/status/${jobId}`);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to check visual treatment status");
+  return res.data;
+}
+
+export async function applyVisualTreatmentAssignments(
+  scriptId: string,
+  assignments: VisualTreatmentAssignment[],
+): Promise<{ ok: boolean; script: ScriptContent }> {
+  const res = await api.post<{ ok: boolean; script: ScriptContent }>(
+    `/api/visual-treatments/${scriptId}/apply`,
+    { assignments },
+  );
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to apply visual treatments");
+  return res.data;
+}
+
+export async function updateSceneVisualTreatment(
+  scriptId: string,
+  sceneId: string,
+  visualTreatment: VisualTreatment,
+): Promise<{ ok: boolean; script: ScriptContent }> {
+  const res = await api.put<{ ok: boolean; script: ScriptContent }>(
+    `/api/visual-treatments/${scriptId}/scene`,
+    { scene_id: sceneId, visual_treatment: visualTreatment },
+  );
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to update visual treatment");
+  return res.data;
 }
 
 /** Start a single-scene preview render via Remotion. */
