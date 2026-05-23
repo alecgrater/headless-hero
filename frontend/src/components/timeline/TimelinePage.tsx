@@ -47,7 +47,7 @@ import type { ScriptCostBreakdownItem } from "../../api";
 import { showToast } from "../ToastContainer";
 import type { ScriptContent, UploadTracking } from "../../types/script";
 import type { ScriptRead } from "../../types/script";
-import type { ThumbnailConcept } from "../../types/render";
+import type { ThumbnailConcept, ThumbnailLabelStyle } from "../../types/render";
 import type { UploadSuiteStatus } from "../../api";
 import type { SaveState } from "../../App";
 import type { MicroTimelineHandle } from "./SceneMicroTimeline";
@@ -686,8 +686,8 @@ function ViewerSwitchRow({
           ))}
         </div>
         {renderTabSelector && (
-          <>
-            <div className="h-6 w-px bg-neutral-800 ml-auto" />
+          <div className="ml-auto flex items-center gap-3">
+            <div className="h-6 w-px bg-neutral-800" />
             <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
               {VIEWER_TAB_OPTIONS.map(({ key, label, Icon }) => (
                 <button
@@ -702,7 +702,7 @@ function ViewerSwitchRow({
                 </button>
               ))}
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>
@@ -807,6 +807,7 @@ function TimelineEditor({
   const [titleCardTimestamp, setTitleCardTimestamp] = useState(0);
   const [thumbnailsInline, setThumbnailsInline] = useState<ThumbnailConcept[]>([]);
   const [thumbnailsInlineGenerating, setThumbnailsInlineGenerating] = useState(false);
+  const [thumbnailLabelStyleInline, setThumbnailLabelStyleInline] = useState<ThumbnailLabelStyle>("time_periods");
   const [showThumbnailModal, setShowThumbnailModal] = useState(false);
   const [totalCost, setTotalCost] = useState<number>(0);
   const [costBreakdown, setCostBreakdown] = useState<ScriptCostBreakdownItem[]>([]);
@@ -1806,8 +1807,9 @@ function TimelineEditor({
   const refreshLongFormThumbnailsInline = useCallback(async (respectCancellation = true) => {
     const res = await api.get(`/api/thumbnail/${scriptId}`);
     if (!res.ok || (respectCancellation && thumbnailsCancelledRef.current)) return [];
-    const data = res.data as { concepts: ThumbnailConcept[] };
+    const data = res.data as { concepts: ThumbnailConcept[]; label_style?: ThumbnailLabelStyle | null };
     setThumbnailsInline(data.concepts);
+    if (data.label_style) setThumbnailLabelStyleInline(data.label_style);
     return data.concepts;
   }, [scriptId]);
 
@@ -1943,10 +1945,12 @@ function TimelineEditor({
         // life-as-a uses the split-progression Gemini call — re-roll and regenerate.
         const res = await api.post("/api/thumbnail/regenerate-split-progression", {
           script_id: scriptId,
+          style: thumbnailLabelStyleInline,
         });
         if (res.ok && !thumbnailsCancelledRef.current) {
-          const data = res.data as { concepts: ThumbnailConcept[] };
+          const data = res.data as { concepts: ThumbnailConcept[]; label_style?: ThumbnailLabelStyle | null };
           setThumbnailsInline(data.concepts);
+          if (data.label_style) setThumbnailLabelStyleInline(data.label_style);
         }
       } else if (state.content.format_id && state.content.format_id !== "youtube-listicle") {
         // Other non-composite-grid formats reuse the cinematic thumbnail produced at
@@ -1968,7 +1972,7 @@ function TimelineEditor({
     } finally {
       setThumbnailsInlineGenerating(false);
     }
-  }, [scriptId, state.content.format_id]);
+  }, [scriptId, state.content.format_id, thumbnailLabelStyleInline]);
 
   const confirmLongFormThumbnailOverwrite = useCallback(async () => {
     const existing = await refreshLongFormThumbnailsInline(false);
@@ -2702,6 +2706,9 @@ function TimelineEditor({
           onExport={() => void handleExportLongFormThumbnail()}
           exporting={longFormThumbnailExporting}
           progress={render.thumbnailProgress}
+          formatId={state.content.format_id}
+          thumbnailLabelStyle={render.thumbnailLabelStyle}
+          onThumbnailLabelStyleChange={render.setThumbnailLabelStyle}
         />
       ) : viewerFormat === "long-form" && viewerAsset === "seo" ? (
         <LongFormSeoPanel
@@ -2855,6 +2862,9 @@ function TimelineEditor({
           onShortFormStatusChange={handleShortFormThumbnailStatusChange}
           scriptId={scriptId}
           segments={state.content.segments.map((s) => ({ name: s.name }))}
+          formatId={state.content.format_id}
+          thumbnailLabelStyle={thumbnailLabelStyleInline}
+          onThumbnailLabelStyleChange={setThumbnailLabelStyleInline}
         />
       )}
 
