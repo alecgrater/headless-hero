@@ -113,6 +113,7 @@ def generate_image(
     height: int = IMAGE_HEIGHT,
     seed: int | None = None,
     reference_image_path: str | None = None,
+    style_reference_path: str | None = None,
     original_prompt: str | None = None,
     script_id: str | None = None,
 ) -> str:
@@ -120,6 +121,10 @@ def generate_image(
 
     If reference_image_path is provided, the image is loaded as a multi-modal
     Part so Gemini can use it as a visual reference for character/style consistency.
+
+    If style_reference_path is provided, it is attached as an additional Part
+    after the character reference. Used to enforce a global art style across
+    videos when the project has Eli disabled and style preset enabled.
 
     original_prompt is the raw visual description before style guide was prepended.
     Used for retry when Gemini blocks the full prompt.
@@ -129,21 +134,26 @@ def generate_image(
     """
     client = get_google_client()
     aspect = _closest_aspect_ratio(width, height)
-    logger.info("Generating image via Gemini (aspect=%s, has_reference=%s)", aspect, reference_image_path is not None)
+    logger.info(
+        "Generating image via Gemini (aspect=%s, has_char_ref=%s, has_style_ref=%s)",
+        aspect, reference_image_path is not None, style_reference_path is not None,
+    )
 
-    # Build reference image part (reusable across retries)
-    ref_part = None
+    # Build reference image parts (reusable across retries)
+    ref_parts: list = []
     if reference_image_path:
-        ref_path = reference_image_path
-        mime = "image/png" if ref_path.lower().endswith(".png") else "image/jpeg"
-        with open(ref_path, "rb") as f:
-            ref_part = types.Part.from_bytes(data=f.read(), mime_type=mime)
-        logger.info("Including reference image: %s", ref_path)
+        mime = "image/png" if reference_image_path.lower().endswith(".png") else "image/jpeg"
+        with open(reference_image_path, "rb") as f:
+            ref_parts.append(types.Part.from_bytes(data=f.read(), mime_type=mime))
+        logger.info("Including character reference image: %s", reference_image_path)
+    if style_reference_path:
+        mime = "image/png" if style_reference_path.lower().endswith(".png") else "image/jpeg"
+        with open(style_reference_path, "rb") as f:
+            ref_parts.append(types.Part.from_bytes(data=f.read(), mime_type=mime))
+        logger.info("Including style reference image: %s", style_reference_path)
 
     # First attempt with full prompt
-    contents: list = []
-    if ref_part:
-        contents.append(ref_part)
+    contents: list = list(ref_parts)
     contents.append(prompt)
 
     try:
@@ -164,9 +174,7 @@ def generate_image(
         retry_prompt[:200],
     )
 
-    contents = []
-    if ref_part:
-        contents.append(ref_part)
+    contents = list(ref_parts)
     contents.append(retry_prompt)
 
     try:
