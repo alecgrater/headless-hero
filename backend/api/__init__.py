@@ -34,6 +34,7 @@ from api.trending import router as trending_router
 from api.upload_suite import router as upload_suite_router
 from api.visuals import router as visuals_router
 from api.short_form import router as short_form_router
+from api.style import router as style_router
 from api.voiceover import router as voiceover_router
 from dev.log_handler import DevLog as _DevLog  # noqa: F401 — register table
 from dev.log_handler import SQLiteLogHandler, prune_old_logs
@@ -121,6 +122,7 @@ app.include_router(recording_router)
 app.include_router(thumbnail_router)
 app.include_router(generation_router)
 app.include_router(short_form_router)
+app.include_router(style_router)
 app.include_router(seo_router)
 app.include_router(settings_router)
 app.include_router(thumbnail_references_router)
@@ -138,6 +140,10 @@ app.mount("/static/projects", StaticFiles(directory=str(_projects_dir)), name="p
 _character_dir = DATA_DIR / "character"
 _character_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/static/character", StaticFiles(directory=str(_character_dir)), name="character-assets")
+
+_style_dir = DATA_DIR / "style" / "presets"
+_style_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/static/style", StaticFiles(directory=str(DATA_DIR / "style")), name="style-assets")
 
 @app.get("/api/health")
 async def health():

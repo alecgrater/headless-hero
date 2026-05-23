@@ -43,4 +43,4 @@ class GeneratePresetJobResponse(BaseModel):
 
 
 class SetActivePresetRequest(BaseModel):
-    preset_id: str | None
+    preset_id: str | None = None
