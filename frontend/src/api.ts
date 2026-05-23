@@ -47,7 +47,7 @@ function extractErrorMessage(status: number, data: unknown): string {
 }
 
 /** Paths that should not trigger toast notifications on error. */
-const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/publish/short-form/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/", "/api/short-form/jobs/", "/api/short-form/rendered"];
+const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/publish/short-form/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/", "/api/short-form/jobs/", "/api/short-form/rendered", "/api/style/presets/jobs/"];
 
 function shouldSilence(path: string): boolean {
   return SILENT_PATHS.some((p) => path.startsWith(p));
@@ -1056,4 +1056,76 @@ export async function setUploadTracking(
   const res = await api.post(`/api/scripts/${encodeURIComponent(scriptId)}/upload-tracking`, patch);
   if (!res.ok) throw new Error(`Failed to set upload tracking: ${res.status}`);
   return res.data as UploadTracking;
+}
+
+// ---------------------------------------------------------------------------
+// Style presets
+// ---------------------------------------------------------------------------
+
+export type StylePreset = {
+  id: string;
+  name: string;
+  prompt: string;
+  image_url: string;
+  created_at: string;
+};
+
+export type StylePresetJobStatus = {
+  job_id: string;
+  status: "pending" | "running" | "completed" | "failed";
+  error: string | null;
+  preset_id: string | null;
+  preset?: StylePreset;
+};
+
+export async function listStylePresets(): Promise<StylePreset[]> {
+  const res = await api.get("/api/style/presets");
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to list style presets");
+  return res.data as StylePreset[];
+}
+
+export async function createStylePreset(
+  prompt: string,
+  name: string,
+): Promise<{ job_id: string }> {
+  const res = await api.post("/api/style/presets", { prompt, name });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to create style preset");
+  return res.data as { job_id: string };
+}
+
+export async function getStylePresetJob(jobId: string): Promise<StylePresetJobStatus> {
+  const res = await api.get(`/api/style/presets/jobs/${jobId}`);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to fetch preset job status");
+  return res.data as StylePresetJobStatus;
+}
+
+export async function pollStylePresetJob(
+  jobId: string,
+  onUpdate?: (status: StylePresetJobStatus) => void,
+): Promise<StylePreset> {
+  for (;;) {
+    const status = await getStylePresetJob(jobId);
+    onUpdate?.(status);
+    if (status.status === "completed" && status.preset) return status.preset;
+    if (status.status === "failed") {
+      throw new Error(status.error || "Preset generation failed");
+    }
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+}
+
+export async function deleteStylePreset(id: string): Promise<void> {
+  const res = await api.delete(`/api/style/presets/${id}`);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to delete style preset");
+}
+
+export async function getActiveStylePreset(): Promise<StylePreset | null> {
+  const res = await api.get("/api/style/active");
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to fetch active style preset");
+  return res.data as StylePreset | null;
+}
+
+export async function setActiveStylePreset(presetId: string | null): Promise<void> {
+  const res = await api.put("/api/style/active", { preset_id: presetId });
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to set active style preset");
 }

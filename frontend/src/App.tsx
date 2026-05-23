@@ -16,6 +16,7 @@ import useLongPress from "./hooks/useLongPress";
 import type { VideoIdea } from "./types/idea";
 import type { ScriptSummary } from "./types/script";
 import type { OAuthStatusResponse } from "./types/publish";
+import { StylePresetProvider } from "./contexts/StylePresetContext";
 
 type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "ideas" | "voiceover-recording" | "dev-dashboard";
 
@@ -230,6 +231,7 @@ function App() {
   }, [projectsDropdownOpen, settingsDropdownOpen]);
 
   return (
+    <StylePresetProvider>
     <div className="h-screen bg-app text-neutral-100 flex flex-col overflow-hidden">
       {/* Top bar */}
       <header className="relative z-50 border-b border-neutral-800/40 px-6 py-4 flex items-center justify-between bg-neutral-950/80 backdrop-blur-sm">
@@ -544,6 +546,7 @@ function App() {
         <ShortcutHelpOverlay onClose={() => setShowShortcutHelp(false)} />
       )}
     </div>
+    </StylePresetProvider>
   );
 }
 
