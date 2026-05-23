@@ -3,6 +3,7 @@ import ApiKeysSection from "./ApiKeysSection";
 import GeneralSection from "./GeneralSection";
 import MiscSection from "./MiscSection";
 import PublishingSection from "./PublishingSection";
+import { StylePresetsSection } from "./StylePresetsSection";
 import VoiceSection from "./VoiceSection";
 
 // eslint-disable-next-line react-refresh/only-export-components -- co-located with the SettingsPage component that owns these section IDs
@@ -15,6 +16,7 @@ export const SECTIONS = [
   { id: "publishing", label: "Publishing", icon: "upload" },
   { id: "api-keys", label: "API Keys", icon: "key" },
   { id: "misc", label: "Miscellaneous", icon: "sparkles" },
+  { id: "style-presets", label: "Style Presets", icon: "palette" },
 ] as const;
 
 export type SectionId = (typeof SECTIONS)[number]["id"];
@@ -67,6 +69,12 @@ export function SectionIcon({ icon, className }: { icon: string; className?: str
       return (
         <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+        </svg>
+      );
+    case "palette":
+      return (
+        <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008z" />
         </svg>
       );
     default:
@@ -136,6 +144,11 @@ export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultS
           {activeSection === "publishing" && <PublishingSection />}
           {activeSection === "api-keys" && <ApiKeysSection />}
           {activeSection === "misc" && <MiscSection />}
+          {activeSection === "style-presets" && (
+            <div className="px-8 py-8 max-w-2xl">
+              <StylePresetsSection />
+            </div>
+          )}
         </div>
       </div>
     </div>
