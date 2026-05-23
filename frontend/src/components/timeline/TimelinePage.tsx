@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import {
+  BarChart3,
+  ChevronDown,
   Check,
   Film,
   ImageIcon,
+  Info,
   Layers,
   ListVideo,
   PanelsTopLeft,
@@ -25,6 +28,7 @@ import api, {
   fetchScriptCost,
   generateEli,
   generateFX,
+  getExportFileStatus,
   generateShortFormThumbnailsAll,
   generateShortFormThumbnailsBatch,
   getProjectConfig,
@@ -43,6 +47,7 @@ import api, {
 import type { ExportTestOptions } from "../../api";
 import type { MediaAssignment } from "../../api";
 import type { ProjectConfig } from "../../api";
+import type { ExportFileCategoryStatus, ExportFileStatus } from "../../api";
 import type { ScriptCostBreakdownItem } from "../../api";
 import { useStylePreset } from "../../contexts/StylePresetContext";
 import { showToast } from "../ToastContainer";
@@ -62,7 +67,6 @@ import PropertiesPanel from "./PropertiesPanel";
 import ThumbnailModal from "./ThumbnailModal";
 import TimelineLanes from "./TimelineLanes";
 import VoiceSetupModal from "../brand/VoiceSetupModal";
-import ShortFormStatusPill from "./short-form/ShortFormStatusPill";
 import ShortFormTab from "./short-form/ShortFormTab";
 import ShortFormThumbnailsCard from "./short-form/ShortFormThumbnailsCard";
 import { Tooltip } from "../ui/Tooltip";
@@ -136,119 +140,6 @@ function DistributionIcon({
     <svg className={iconClass} viewBox="0 0 24 24" fill={fill} stroke={stroke} strokeWidth={1.5}>
       <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0C.488 3.45.029 5.804 0 12c.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0C23.512 20.55 23.971 18.196 24 12c-.029-6.185-.484-8.549-4.385-8.816zM9 16V8l8 4-8 4z" />
     </svg>
-  );
-}
-
-function DistributionTrackingButton({
-  tracking,
-  onClick,
-}: {
-  tracking: UploadTracking;
-  onClick: () => void;
-}) {
-  const uploadedCount = DISTRIBUTION_TARGETS.filter(({ key }) => tracking[key]).length;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap text-xs px-2.5 bg-neutral-800 hover:bg-neutral-700 rounded-md text-neutral-300 tabular-nums transition-colors"
-      title="Open distribution tracking"
-    >
-      <span className="flex items-center gap-1.5">
-        {DISTRIBUTION_TARGETS.map(({ key }) => (
-          <DistributionIcon key={key} target={key} uploaded={tracking[key]} className="w-3.5 h-3.5" />
-        ))}
-      </span>
-      <span>{uploadedCount}/4 uploaded</span>
-    </button>
-  );
-}
-
-function DistributionTrackingModal({
-  tracking,
-  updating,
-  onToggle,
-  onOpenUploadSuite,
-  onClose,
-}: {
-  tracking: UploadTracking;
-  updating: Partial<Record<keyof UploadTracking, boolean>>;
-  onToggle: (key: keyof UploadTracking) => void;
-  onOpenUploadSuite: () => void;
-  onClose: () => void;
-}) {
-  const anyUpdating = Object.values(updating).some(Boolean);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={onClose}>
-      <div
-        className="w-full max-w-sm rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl shadow-black/50"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="distribution-tracking-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-3">
-          <h3 id="distribution-tracking-title" className="text-sm font-semibold text-neutral-100">
-            Distribution Tracking
-          </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-md text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800 transition-colors"
-            aria-label="Close distribution tracking"
-          >
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-        <div className="space-y-2 p-3">
-          <div className="mb-2 flex items-center gap-3 rounded-lg border border-neutral-800 bg-neutral-950/40 p-2">
-            <button
-              type="button"
-              onClick={onOpenUploadSuite}
-              className="flex shrink-0 items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-violet-500 transition-colors"
-            >
-              <Upload className="h-4 w-4" />
-              Upload
-            </button>
-            <p className="text-xs leading-5 text-neutral-400">
-              Opens the upload suite for exported videos and upload metadata.
-            </p>
-          </div>
-          {DISTRIBUTION_TARGETS.map(({ key, label }) => {
-            const isUploaded = tracking[key];
-            const isUpdating = updating[key];
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => onToggle(key)}
-                disabled={anyUpdating}
-                aria-pressed={isUploaded}
-                className={`w-full flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                  isUploaded
-                    ? "border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20"
-                    : "border-neutral-800 bg-neutral-950/50 hover:border-neutral-700 hover:bg-neutral-800/60"
-                } disabled:opacity-60 disabled:cursor-wait`}
-              >
-                <span className="flex items-center gap-3 min-w-0">
-                  {isUpdating ? (
-                    <span className="w-5 h-5 rounded-full border border-neutral-400 border-t-transparent animate-spin" />
-                  ) : (
-                    <DistributionIcon target={key} uploaded={isUploaded} className="w-5 h-5" />
-                  )}
-                  <span className="text-sm font-medium text-neutral-200 truncate">{label}</span>
-                </span>
-                <span className={`text-xs font-medium ${isUploaded ? "text-emerald-300" : "text-neutral-500"}`}>
-                  {isUploaded ? "Uploaded" : "Not uploaded"}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -426,7 +317,7 @@ function formatCostMetrics(item: ScriptCostBreakdownItem) {
   return parts.join(" · ");
 }
 
-function CostBreakdownPopover({
+function CostBreakdownPanel({
   totalCost,
   breakdown,
 }: {
@@ -434,7 +325,7 @@ function CostBreakdownPopover({
   breakdown: ScriptCostBreakdownItem[];
 }) {
   return (
-    <div className="absolute right-0 top-8 z-40 w-80 rounded-lg border border-neutral-700 bg-neutral-950 shadow-2xl shadow-black/50">
+    <div className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/60">
       <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
         <span className="text-xs font-semibold text-neutral-200">Cost breakdown</span>
         <span className="text-xs font-mono text-emerald-300">{formatCost(totalCost)}</span>
@@ -472,7 +363,7 @@ function formatScenePercent(count: number, total: number) {
   return `${Math.round((count / total) * 100)}%`;
 }
 
-function MediaBreakdownPopover({
+function MediaBreakdownPanel({
   mediaCounts,
   totalScenes,
 }: {
@@ -488,7 +379,7 @@ function MediaBreakdownPopover({
   ];
 
   return (
-    <div className="absolute right-0 top-8 z-40 w-72 rounded-lg border border-neutral-700 bg-neutral-950 shadow-2xl shadow-black/50">
+    <div className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/60">
       <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
         <span className="text-xs font-semibold text-neutral-200">Media source mix</span>
         <span className="text-xs font-mono text-neutral-400">
@@ -507,6 +398,62 @@ function MediaBreakdownPopover({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function ExportFileBreakdownPanel({
+  status,
+  segmentCount,
+}: {
+  status: ExportFileStatus | null;
+  segmentCount: number;
+}) {
+  const fallbackTotal = segmentCount * 3 + 3;
+  const rows: Array<[string, ExportFileCategoryStatus]> = status
+    ? [
+        ["longform_video", status.categories.longform_video],
+        ["longform_thumbnail", status.categories.longform_thumbnail],
+        ["longform_seo", status.categories.longform_seo],
+        ["shortform_videos", status.categories.shortform_videos],
+        ["shortform_thumbnails", status.categories.shortform_thumbnails],
+        ["shortform_seo", status.categories.shortform_seo],
+      ].filter((entry): entry is [string, ExportFileCategoryStatus] => Boolean(entry[1]))
+    : [];
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/60">
+      <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
+        <span className="text-xs font-semibold text-neutral-200">Exported files</span>
+        <span className="text-xs font-mono text-sky-300 tabular-nums">
+          {status ? `${status.exported}/${status.total}` : `0/${fallbackTotal}`}
+        </span>
+      </div>
+      <div className="py-1">
+        {rows.length > 0 ? (
+          rows.map(([key, row]) => (
+            <div key={key} className="px-3 py-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-medium text-neutral-300">{row.label}</span>
+                <span className="text-xs font-mono text-neutral-200 tabular-nums">
+                  {row.exported}/{row.total}
+                </span>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="px-3 py-5 text-center text-xs text-neutral-500">
+            Export folder status is unavailable.
+          </div>
+        )}
+      </div>
+      {status && (
+        <div className="border-t border-neutral-800 px-3 py-2">
+          <p className="truncate text-[11px] text-neutral-500" title={status.folder_path}>
+            {status.folder_path}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -633,6 +580,325 @@ function OpenExportsButton({
           )}
         </button>
       </Tooltip>
+    </div>
+  );
+}
+
+function ProjectDetailsButton({
+  onClick,
+}: {
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 text-xs font-medium text-violet-100 shadow-[0_0_18px_rgba(139,92,246,0.12)] transition-all hover:border-violet-400/50 hover:bg-violet-500/20 hover:shadow-[0_0_24px_rgba(139,92,246,0.22)]"
+      title="Open project details"
+    >
+      <Info className="h-4 w-4 text-violet-300" />
+      <span>Project details</span>
+      <span className="hidden items-center gap-1.5 text-neutral-400 sm:inline-flex">
+        <span className="text-neutral-600">·</span>
+        <span>Stats, costs, media, exports</span>
+      </span>
+      <ChevronDown className="h-3.5 w-3.5 text-violet-300 transition-transform group-hover:translate-y-0.5" />
+    </button>
+  );
+}
+
+function DetailMetric({
+  label,
+  value,
+  tone = "neutral",
+}: {
+  label: string;
+  value: string;
+  tone?: "neutral" | "emerald" | "sky" | "violet";
+}) {
+  const toneClass = {
+    neutral: "text-neutral-100",
+    emerald: "text-emerald-300",
+    sky: "text-sky-300",
+    violet: "text-violet-300",
+  }[tone];
+
+  return (
+    <div className="rounded-lg border border-neutral-800 bg-neutral-950/50 px-3 py-2">
+      <div className="text-[11px] uppercase tracking-[0.08em] text-neutral-500">{label}</div>
+      <div className={`mt-1 truncate text-sm font-semibold tabular-nums ${toneClass}`}>{value}</div>
+    </div>
+  );
+}
+
+function DetailAccordion({
+  id,
+  title,
+  summary,
+  openSection,
+  setOpenSection,
+  children,
+}: {
+  id: string;
+  title: string;
+  summary: string;
+  openSection: string | null;
+  setOpenSection: (section: string | null) => void;
+  children: ReactNode;
+}) {
+  const open = openSection === id;
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/35">
+      <button
+        type="button"
+        onClick={() => setOpenSection(open ? null : id)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-neutral-800/50"
+      >
+        <span className="min-w-0">
+          <span className="block text-sm font-medium text-neutral-100">{title}</span>
+          <span className="block truncate text-xs text-neutral-500">{summary}</span>
+        </span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-neutral-500 transition-transform duration-200 ${open ? "rotate-180 text-neutral-300" : ""}`} />
+      </button>
+      <div className={`grid transition-all duration-300 ease-out ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+        <div className="min-h-0 overflow-hidden">
+          <div className="border-t border-neutral-800 p-3">{children}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DistributionTrackingPanel({
+  tracking,
+  updating,
+  onToggle,
+  onOpenUploadSuite,
+}: {
+  tracking: UploadTracking;
+  updating: Partial<Record<keyof UploadTracking, boolean>>;
+  onToggle: (key: keyof UploadTracking) => void;
+  onOpenUploadSuite: () => void;
+}) {
+  const anyUpdating = Object.values(updating).some(Boolean);
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={onOpenUploadSuite}
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-500"
+      >
+        <Upload className="h-4 w-4" />
+        Upload suite
+      </button>
+      {DISTRIBUTION_TARGETS.map(({ key, label }) => {
+        const isUploaded = tracking[key];
+        const isUpdating = updating[key];
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onToggle(key)}
+            disabled={anyUpdating}
+            aria-pressed={isUploaded}
+            className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
+              isUploaded
+                ? "border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20"
+                : "border-neutral-800 bg-neutral-950/50 hover:border-neutral-700 hover:bg-neutral-800/60"
+            } disabled:cursor-wait disabled:opacity-60`}
+          >
+            <span className="flex min-w-0 items-center gap-3">
+              {isUpdating ? (
+                <span className="h-5 w-5 rounded-full border border-neutral-400 border-t-transparent animate-spin" />
+              ) : (
+                <DistributionIcon target={key} uploaded={isUploaded} className="h-5 w-5" />
+              )}
+              <span className="truncate text-sm font-medium text-neutral-200">{label}</span>
+            </span>
+            <span className={`text-xs font-medium ${isUploaded ? "text-emerald-300" : "text-neutral-500"}`}>
+              {isUploaded ? "Uploaded" : "Not uploaded"}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ProjectDetailsModal({
+  open,
+  onClose,
+  sceneCount,
+  segmentCount,
+  durationStr,
+  totalWords,
+  projectConfig,
+  activePresetName,
+  totalCost,
+  costBreakdown,
+  mediaCounts,
+  mediaSceneTotal,
+  aiScenePercent,
+  exportStatus,
+  uploadTracking,
+  trackingUpdating,
+  exportsFolderOpening,
+  onToggleUploadTracking,
+  onOpenUploadSuite,
+  onOpenExportsFolder,
+}: {
+  open: boolean;
+  onClose: () => void;
+  sceneCount: number;
+  segmentCount: number;
+  durationStr: string;
+  totalWords: number;
+  projectConfig: ProjectConfig | null;
+  activePresetName: string | null;
+  totalCost: number;
+  costBreakdown: ScriptCostBreakdownItem[];
+  mediaCounts: Record<string, number>;
+  mediaSceneTotal: number;
+  aiScenePercent: string;
+  exportStatus: ExportFileStatus | null;
+  uploadTracking: UploadTracking;
+  trackingUpdating: Partial<Record<keyof UploadTracking, boolean>>;
+  exportsFolderOpening: boolean;
+  onToggleUploadTracking: (key: keyof UploadTracking) => void;
+  onOpenUploadSuite: () => void;
+  onOpenExportsFolder: () => void;
+}) {
+  const [openSection, setOpenSection] = useState<string | null>(null);
+  const fallbackExportTotal = segmentCount * 3 + 3;
+  const exported = exportStatus?.exported ?? 0;
+  const exportTotal = exportStatus?.total ?? fallbackExportTotal;
+  const uploadedCount = DISTRIBUTION_TARGETS.filter(({ key }) => uploadTracking[key]).length;
+  const eliStatus = projectConfig == null || projectConfig.eli_enabled ? "On" : "Off";
+  const styleStatus =
+    projectConfig && projectConfig.eli_enabled === false && projectConfig.style_preset_enabled
+      ? activePresetName ?? "Set"
+      : "Off";
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, open]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/65 px-4 py-10" onClick={onClose}>
+      <style>{`
+        @keyframes projectDetailsBackdrop {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes projectDetailsWindow {
+          from { opacity: 0; transform: translateY(-18px) scale(0.96); filter: blur(6px); }
+          to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+        }
+      `}</style>
+      <div
+        className="w-full max-w-3xl animate-[projectDetailsWindow_220ms_cubic-bezier(0.16,1,0.3,1)] rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl shadow-black/60"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="project-details-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
+              <BarChart3 className="h-4 w-4" />
+            </span>
+            <div>
+              <h3 id="project-details-title" className="text-sm font-semibold text-neutral-100">
+                Project Details
+              </h3>
+              <p className="text-xs text-neutral-500">Stats, costs, media mix, exports, and distribution.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-200"
+            aria-label="Close project details"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="max-h-[calc(100vh-10rem)] overflow-y-auto p-4">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            <DetailMetric label="Eli" value={eliStatus} tone={eliStatus === "On" ? "emerald" : "neutral"} />
+            <DetailMetric label="Style" value={styleStatus} tone={styleStatus === "Off" ? "neutral" : "violet"} />
+            <DetailMetric label="Scenes" value={sceneCount.toLocaleString()} />
+            <DetailMetric label="Segments" value={segmentCount.toLocaleString()} />
+            <DetailMetric label="Duration" value={durationStr} />
+            <DetailMetric label="Words" value={totalWords > 0 ? totalWords.toLocaleString() : "0"} />
+            <DetailMetric label="Cost" value={formatCost(totalCost)} tone="emerald" />
+            <DetailMetric label="Exports" value={`${exported}/${exportTotal}`} tone="sky" />
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <DetailAccordion
+              id="cost"
+              title="Cost Breakdown"
+              summary={`${formatCost(totalCost)} across ${costBreakdown.length} tracked item${costBreakdown.length !== 1 ? "s" : ""}`}
+              openSection={openSection}
+              setOpenSection={setOpenSection}
+            >
+              <CostBreakdownPanel totalCost={totalCost} breakdown={costBreakdown} />
+            </DetailAccordion>
+
+            <DetailAccordion
+              id="media"
+              title="Media Source Mix"
+              summary={`${aiScenePercent} AI across ${mediaSceneTotal} media scene${mediaSceneTotal !== 1 ? "s" : ""}`}
+              openSection={openSection}
+              setOpenSection={setOpenSection}
+            >
+              <MediaBreakdownPanel mediaCounts={mediaCounts} totalScenes={mediaSceneTotal} />
+            </DetailAccordion>
+
+            <DetailAccordion
+              id="exports"
+              title="Exported Files"
+              summary={`${exported}/${exportTotal} files in the project export folder`}
+              openSection={openSection}
+              setOpenSection={setOpenSection}
+            >
+              <div className="space-y-3">
+                <ExportFileBreakdownPanel status={exportStatus} segmentCount={segmentCount} />
+                <OpenExportsButton opening={exportsFolderOpening} onOpen={onOpenExportsFolder} />
+              </div>
+            </DetailAccordion>
+
+            <DetailAccordion
+              id="distribution"
+              title="Distribution"
+              summary={`${uploadedCount}/4 destinations marked uploaded`}
+              openSection={openSection}
+              setOpenSection={setOpenSection}
+            >
+              <DistributionTrackingPanel
+                tracking={uploadTracking}
+                updating={trackingUpdating}
+                onToggle={onToggleUploadTracking}
+                onOpenUploadSuite={onOpenUploadSuite}
+              />
+            </DetailAccordion>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -813,9 +1079,8 @@ function TimelineEditor({
   const [showThumbnailModal, setShowThumbnailModal] = useState(false);
   const [totalCost, setTotalCost] = useState<number>(0);
   const [costBreakdown, setCostBreakdown] = useState<ScriptCostBreakdownItem[]>([]);
-  const [showCostBreakdown, setShowCostBreakdown] = useState(false);
-  const [showMediaBreakdown, setShowMediaBreakdown] = useState(false);
-  const [showDistributionTracking, setShowDistributionTracking] = useState(false);
+  const [showProjectDetails, setShowProjectDetails] = useState(false);
+  const [exportFileStatus, setExportFileStatus] = useState<ExportFileStatus | null>(null);
   const [uploadTracking, setUploadTracking] = useState<UploadTracking>(DEFAULT_UPLOAD_TRACKING);
   const [trackingUpdating, setTrackingUpdating] = useState<Partial<Record<keyof UploadTracking, boolean>>>({});
   const [lastAudioGenTimestamp, setLastAudioGenTimestamp] = useState(0);
@@ -839,8 +1104,6 @@ function TimelineEditor({
   const yoloStoppingRef = useRef(false);
   const productionBusyRef = useRef(false);
   const microTimelineRef = useRef<MicroTimelineHandle>(null);
-  const costBreakdownRef = useRef<HTMLDivElement>(null);
-  const mediaBreakdownRef = useRef<HTMLDivElement>(null);
 
   const media = useMediaReview({ scriptId, content: state.content });
 
@@ -919,24 +1182,35 @@ function TimelineEditor({
     }
   }, [scriptId]);
 
+  const refreshExportFileStatus = useCallback(async () => {
+    try {
+      setExportFileStatus(await getExportFileStatus(scriptId));
+    } catch {
+      setExportFileStatus(null);
+    }
+  }, [scriptId]);
+
   // Fetch cost on mount
   useEffect(() => { refreshCost(); }, [refreshCost]);
+  useEffect(() => { void refreshExportFileStatus(); }, [refreshExportFileStatus]);
 
   useEffect(() => {
     if (isActive) void refreshUploadTracking();
   }, [isActive, refreshUploadTracking]);
 
   useEffect(() => {
-    if (!showDistributionTracking) return;
+    if (!showProjectDetails) return;
     void refreshUploadTracking();
+    void refreshCost();
+    void refreshExportFileStatus();
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setShowDistributionTracking(false);
+      if (event.key === "Escape") setShowProjectDetails(false);
     }
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [refreshUploadTracking, showDistributionTracking]);
+  }, [refreshCost, refreshExportFileStatus, refreshUploadTracking, showProjectDetails]);
 
   const handleToggleUploadTracking = useCallback(async (key: keyof UploadTracking) => {
     if (Object.values(trackingUpdating).some(Boolean)) return;
@@ -954,37 +1228,9 @@ function TimelineEditor({
   }, [scriptId, trackingUpdating, uploadTracking]);
 
   const handleOpenDistributionUpload = useCallback(() => {
-    setShowDistributionTracking(false);
+    setShowProjectDetails(false);
     void openUploadPanel();
   }, [openUploadPanel]);
-
-  useEffect(() => {
-    if (!showCostBreakdown) return;
-
-    function handlePointerDown(event: PointerEvent) {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (costBreakdownRef.current?.contains(target)) return;
-      setShowCostBreakdown(false);
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [showCostBreakdown]);
-
-  useEffect(() => {
-    if (!showMediaBreakdown) return;
-
-    function handlePointerDown(event: PointerEvent) {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (mediaBreakdownRef.current?.contains(target)) return;
-      setShowMediaBreakdown(false);
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [showMediaBreakdown]);
 
   // Refresh cost when image or audio batch generation completes
   const imgDone = state.batchImageProgress.total > 0 && (state.batchImageProgress.completed + state.batchImageProgress.failed) >= state.batchImageProgress.total;
@@ -2375,135 +2621,50 @@ function TimelineEditor({
                 </>
               )}
             </div>
-            {projectConfig && projectConfig.eli_enabled === false && (
-              <span
-                className="hidden sm:inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-neutral-800/60 px-2.5 text-xs text-neutral-400"
-                title="Style preset settings for this video"
-              >
-                <span>Eli: off</span>
-                <span className="text-neutral-600">·</span>
-                <span>
-                  Style:{" "}
-                  <span className="text-neutral-200">
-                    {projectConfig.style_preset_enabled && activePreset
-                      ? activePreset.name || "Untitled"
-                      : "off"}
-                  </span>
-                </span>
-              </span>
-            )}
             <UploadButton
               checking={uploadSuiteChecking}
               onOpenUpload={() => void openUploadPanel()}
             />
           </div>
 
-          {/* Stats Row + Viewer Switch */}
-          {(() => {
-            const statItems: React.ReactNode[] = [];
-            statItems.push(
-              <span key="scenes" className="inline-flex h-7 shrink-0 items-center whitespace-nowrap text-xs text-neutral-400 bg-neutral-800/60 px-2.5 rounded-md tabular-nums">
-                {sceneCount} scene{sceneCount !== 1 ? "s" : ""}
-              </span>
-            );
-            statItems.push(
-              <span key="segs" className="inline-flex h-7 shrink-0 items-center whitespace-nowrap text-xs text-neutral-400 bg-neutral-800/60 px-2.5 rounded-md tabular-nums">
-                {segmentCount} segment{segmentCount !== 1 ? "s" : ""}
-              </span>
-            );
-            statItems.push(
-              <span key="duration" className="inline-flex h-7 shrink-0 items-center whitespace-nowrap text-xs text-neutral-400 bg-neutral-800/60 px-2.5 rounded-md tabular-nums font-mono">
-                {durationStr}
-              </span>
-            );
-            if (totalWords > 0) {
-              statItems.push(
-                <span key="words" className="inline-flex h-7 shrink-0 items-center whitespace-nowrap text-xs text-neutral-400 bg-neutral-800/60 px-2.5 rounded-md tabular-nums">
-                  {totalWords.toLocaleString()} words
-                </span>
-              );
-            }
-            statItems.push(
-              <div key="cost" ref={costBreakdownRef} className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowCostBreakdown((show) => !show)}
-                  className="inline-flex h-7 shrink-0 items-center whitespace-nowrap text-xs text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 rounded-md tabular-nums font-medium transition-colors"
-                  title="Show cost breakdown"
-                >
-                  {formatCost(totalCost)}
-                </button>
-                {showCostBreakdown && (
-                  <CostBreakdownPopover totalCost={totalCost} breakdown={costBreakdown} />
-                )}
-              </div>
-            );
-            if (mediaSceneTotal > 0) {
-              statItems.push(
-                <div key="media" ref={mediaBreakdownRef} className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowMediaBreakdown((show) => !show)}
-                    className="inline-flex h-7 shrink-0 items-center whitespace-nowrap text-xs text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 px-2.5 rounded-md tabular-nums font-medium transition-colors"
-                    title="Show media source breakdown"
-                  >
-                    {aiScenePercent} AI
-                  </button>
-                  {showMediaBreakdown && (
-                    <MediaBreakdownPopover mediaCounts={mediaCounts} totalScenes={mediaSceneTotal} />
-                  )}
-                </div>
-              );
-            }
-            statItems.push(
-              <ShortFormStatusPill
-                key="short-form"
-                scriptId={scriptId}
-                segmentCount={state.content.segments.length}
+          {/* Project Details + Viewer Switch */}
+          <div className={`px-5 py-2 border-t border-neutral-800/60 shrink-0 ${yoloRenderRunning ? "bg-sky-500/5" : ""}`}>
+            <div className="flex min-w-0 items-center justify-between gap-2">
+              <ProjectDetailsButton
+                onClick={() => setShowProjectDetails(true)}
               />
-            );
-            statItems.push(
-              <DistributionTrackingButton
-                key="distribution"
-                tracking={uploadTracking}
-                onClick={() => setShowDistributionTracking(true)}
-              />
-            );
-            statItems.push(
-              <OpenExportsButton
-                key="exports-folder"
-                opening={exportsFolderOpening}
-                onOpen={() => void handleOpenExportsFolder()}
-              />
-            );
-
-            return (
-              <>
-                <div className={`px-5 py-2 border-t border-neutral-800/60 shrink-0 ${yoloRenderRunning ? "bg-sky-500/5" : ""}`}>
-                  <div className="flex flex-nowrap items-center justify-between gap-2 min-w-0 overflow-visible">
-                    {statItems}
-                  </div>
-                </div>
-                <ViewerSwitchRow
-                  format={viewerFormat}
-                  asset={viewerAsset}
-                  activeTab={activeTab}
-                  onFormatChange={setViewerFormat}
-                  onAssetChange={setViewerAsset}
-                  onTabChange={setActiveTab}
-                />
-                {showDistributionTracking && (
-                  <DistributionTrackingModal
-                    tracking={uploadTracking}
-                    updating={trackingUpdating}
-                    onToggle={handleToggleUploadTracking}
-                    onOpenUploadSuite={handleOpenDistributionUpload}
-                    onClose={() => setShowDistributionTracking(false)}
-                  />
-                )}
-              </>
-            );
-          })()}
+            </div>
+          </div>
+          <ViewerSwitchRow
+            format={viewerFormat}
+            asset={viewerAsset}
+            activeTab={activeTab}
+            onFormatChange={setViewerFormat}
+            onAssetChange={setViewerAsset}
+            onTabChange={setActiveTab}
+          />
+          <ProjectDetailsModal
+            open={showProjectDetails}
+            onClose={() => setShowProjectDetails(false)}
+            sceneCount={sceneCount}
+            segmentCount={segmentCount}
+            durationStr={durationStr}
+            totalWords={totalWords}
+            projectConfig={projectConfig}
+            activePresetName={activePreset?.name || null}
+            totalCost={totalCost}
+            costBreakdown={costBreakdown}
+            mediaCounts={mediaCounts}
+            mediaSceneTotal={mediaSceneTotal}
+            aiScenePercent={aiScenePercent}
+            exportStatus={exportFileStatus}
+            uploadTracking={uploadTracking}
+            trackingUpdating={trackingUpdating}
+            exportsFolderOpening={exportsFolderOpening}
+            onToggleUploadTracking={handleToggleUploadTracking}
+            onOpenUploadSuite={handleOpenDistributionUpload}
+            onOpenExportsFolder={() => void handleOpenExportsFolder()}
+          />
 
           <PipelineSteps
             yoloButton={yoloButton}
