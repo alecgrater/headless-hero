@@ -96,20 +96,39 @@ def _reload_content(script_id: str) -> ScriptContent:
 
 def _phase_images(ctx: ExportContext) -> None:
     """Generate images for all scenes (skips title cards)."""
-    from pipeline.image_gen import generate_scene_image
+    from pipeline.image_gen import generate_scene_image, generate_visual_layer_panels
 
     non_tc = [sc for sc in ctx.scenes if not sc.get("is_title_card")]
     scene_count = len(non_tc)
+    content_now = _reload_content(ctx.script_id)
     logger.info("[%s] Phase: images — generating %d scene images", ctx.script_id, scene_count)
     for i, sc_info in enumerate(non_tc):
         _check_cancelled(ctx.job.id)
         p = _phase_progress(ctx, "images", i / scene_count)
         update_job(ctx.job.id, progress=p, current_step=f"Generating image ({i+1}/{scene_count})...")
         sid = sc_info["scene_id"]
+        scene_now = find_scene_in_content(content_now, sid)
         logger.info("[%s] Generating image for scene %s (%d/%d)", ctx.script_id, sid, i + 1, scene_count)
         image_url, _, _ = generate_scene_image(sid, sc_info["visual_prompt"], ctx.script_id, force=True)
         sc_info["_image_url"] = image_url
         sc_info["_frame_urls"] = None
+        visual_layers = sc_info.get("visual_layers")
+        if visual_layers is None and scene_now is not None:
+            visual_layers = [layer.model_dump() for layer in scene_now.visual_layers]
+        visual_layers = visual_layers or []
+        treatment = sc_info.get("visual_treatment") or (scene_now.visual_treatment if scene_now is not None else "full_frame")
+        if treatment in {"popup_sequence", "flipflop"} and visual_layers:
+            logger.info(
+                "[VISUAL_TREATMENT] generating panels scene=%s treatment=%s layers=%d",
+                sid,
+                treatment,
+                len(visual_layers),
+            )
+            layer_dicts = [
+                layer.model_dump() if hasattr(layer, "model_dump") else dict(layer)
+                for layer in visual_layers
+            ]
+            sc_info["_visual_layers"] = generate_visual_layer_panels(sid, layer_dicts, ctx.script_id)
     logger.info("[%s] Phase: images — complete (%d scenes)", ctx.script_id, scene_count)
 
 
@@ -148,6 +167,8 @@ def _phase_persist(ctx: ExportContext) -> None:
     update_job(ctx.job.id, progress=_phase_progress(ctx, "persist", 0), current_step="Saving scene data...")
 
     from database import engine
+    from models.script import VisualLayer
+
     with Session(engine) as session:
         record = session.get(Script, ctx.script_id)
         if not record:
@@ -177,6 +198,8 @@ def _phase_persist(ctx: ExportContext) -> None:
             sc.audio_duration_seconds = sc_info.get("_audio_duration", sc.audio_duration_seconds)
             sc.word_timestamps = sc_info.get("_word_timestamps", sc.word_timestamps)
             sc.phrase_timestamps = sc_info.get("_phrase_timestamps", sc.phrase_timestamps)
+            if "_visual_layers" in sc_info:
+                sc.visual_layers = [VisualLayer.model_validate(layer) for layer in sc_info["_visual_layers"]]
 
         record.script_json = content.model_dump_json()
         session.add(record)

@@ -242,6 +242,83 @@ def _move_generated_image(tmp_path: str, local_path: Path, metadata: dict[str, o
     return _read_source_metadata(local_path) or metadata
 
 
+def visual_layer_image_filename(scene_id: str, layer_id: str) -> str:
+    safe_layer = "".join(ch if ch.isalnum() or ch in {"_", "-"} else "_" for ch in layer_id)
+    return f"{scene_id}_layer_{safe_layer}.png"
+
+
+def generate_visual_layer_panels(
+    scene_id: str,
+    layers: list[dict],
+    script_id: str,
+    width: int = IMAGE_WIDTH,
+    height: int = IMAGE_HEIGHT,
+    force: bool = False,
+) -> list[dict]:
+    images_dir = DATA_DIR / "projects" / script_id / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
+
+    processed_layers: list[dict] = []
+    for index, layer in enumerate(layers):
+        if not isinstance(layer, dict):
+            processed_layers.append(layer)
+            continue
+        if layer.get("type", "image") != "image" or layer.get("asset_kind", "panel") != "panel":
+            processed_layers.append(layer)
+            continue
+
+        prompt = (layer.get("prompt") or "").strip()
+        layer_id = layer.get("id") or f"{scene_id}_layer_{index}"
+        if not prompt:
+            logger.info("[PANEL_GEN] skipped empty prompt scene=%s layer=%s", scene_id, layer_id)
+            processed_layers.append(layer)
+            continue
+
+        filename = visual_layer_image_filename(scene_id, str(layer_id))
+        local_path = images_dir / filename
+        prompt_marker = images_dir / f"{filename}.prompt"
+        web_path = f"/static/projects/{script_id}/images/{filename}"
+
+        next_layer = dict(layer)
+        next_layer["id"] = layer_id
+        if not force and local_path.exists() and prompt_marker.exists():
+            cached_prompt = prompt_marker.read_text(encoding="utf-8")
+            if cached_prompt == prompt:
+                logger.info("[PANEL_GEN] cache hit scene=%s layer=%s", scene_id, layer_id)
+                next_layer["image_url"] = web_path
+                source_metadata = _read_source_metadata(local_path)
+                if source_metadata:
+                    next_layer["visual_source_metadata"] = source_metadata
+                processed_layers.append(next_layer)
+                continue
+
+        logger.info("[PANEL_GEN] generating panel scene=%s layer=%s", scene_id, layer_id)
+        tmp_path = generate_image(
+            prompt,
+            width=width,
+            height=height,
+            reference_image_path=None,
+            original_prompt=prompt,
+            script_id=script_id,
+        )
+        metadata = _move_generated_image(
+            tmp_path,
+            local_path,
+            {
+                "source_type": "visual_layer_panel",
+                "provider": os.environ.get("IMAGE_PROVIDER", "google"),
+                "fallback": False,
+            },
+        )
+        prompt_marker.write_text(prompt, encoding="utf-8")
+        next_layer["image_url"] = web_path
+        next_layer["visual_source_metadata"] = metadata
+        processed_layers.append(next_layer)
+        logger.info("[PANEL_GEN] complete scene=%s layer=%s", scene_id, layer_id)
+
+    return processed_layers
+
+
 def generate_scene_image(
     scene_id: str,
     visual_prompt: str,

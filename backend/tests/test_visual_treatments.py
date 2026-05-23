@@ -6,6 +6,7 @@ from sqlmodel.pool import StaticPool
 
 from models.settings import AppSetting
 from models.script import ScriptContent, Scene, VisualCanvas, VisualLayer
+from pipeline.image_gen import visual_layer_image_filename
 from pipeline.render_jobs import UserFacingJobError
 from pipeline.visual_treatments import (
     VisualTreatmentAssignment,
@@ -102,6 +103,10 @@ def test_visual_layer_invalid_values_normalize_to_defaults():
     assert layer.type == "image"
     assert layer.asset_kind == "panel"
     assert layer.animation == "none"
+
+
+def test_visual_layer_image_filename_is_stable_and_png():
+    assert visual_layer_image_filename("scene_001", "scene_001_panel_1") == "scene_001_layer_scene_001_panel_1.png"
 
 
 def test_script_content_has_visual_canvas_default():
