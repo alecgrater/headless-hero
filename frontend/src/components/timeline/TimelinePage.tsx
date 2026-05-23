@@ -655,13 +655,13 @@ function ViewerSwitchRow({
 
   return (
     <div className="px-5 py-2 border-t border-b border-neutral-800/60 shrink-0">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
           {FORMAT_OPTIONS.map(({ key, label, Icon }) => (
             <button
               key={key}
               onClick={() => onFormatChange(key)}
-              className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
                 format === key ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
               }`}
             >
@@ -676,7 +676,7 @@ function ViewerSwitchRow({
             <button
               key={key}
               onClick={() => onAssetChange(key)}
-              className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
                 asset === key ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
               }`}
             >
@@ -686,22 +686,19 @@ function ViewerSwitchRow({
           ))}
         </div>
         {renderTabSelector && (
-          <div className="ml-auto flex items-center gap-3">
-            <div className="h-6 w-px bg-neutral-800" />
-            <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
-              {VIEWER_TAB_OPTIONS.map(({ key, label, Icon }) => (
-                <button
-                  key={key}
-                  onClick={() => onTabChange(key)}
-                  className={`relative flex items-center gap-1.5 px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
-                    activeTab === key ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5 shrink-0" />
-                  {label}
-                </button>
-              ))}
-            </div>
+          <div className="ml-auto inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
+            {VIEWER_TAB_OPTIONS.map(({ key, label, Icon }) => (
+              <button
+                key={key}
+                onClick={() => onTabChange(key)}
+                className={`relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
+                  activeTab === key ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5 shrink-0" />
+                {label}
+              </button>
+            ))}
           </div>
         )}
       </div>
@@ -1608,9 +1605,14 @@ function TimelineEditor({
         }
       }
 
-      // 3. Long-form thumbnail. Recomposite when title cards were regenerated
-      // (composite is stale) or when the LF thumbnail was never generated.
-      if (!isCancelled() && (titleCardsRegenerated || !lfThumbnailDone)) {
+      // 3. Long-form thumbnail.
+      //   - missingOnly: only generate when the main thumbnail is absent.
+      //   - full regen: also recomposite when title cards were regenerated, since the
+      //     youtube-listicle composite depends on per-segment circle images.
+      const shouldRecomposite = missingOnly
+        ? !lfThumbnailDone
+        : (titleCardsRegenerated || !lfThumbnailDone);
+      if (!isCancelled() && shouldRecomposite) {
         await handleRecompositeThumbnailInline();
       }
     });
@@ -1992,6 +1994,11 @@ function TimelineEditor({
     await render.recompositeThumbnail();
     await refreshLongFormThumbnailsInline(false);
   }, [confirmLongFormThumbnailOverwrite, refreshLongFormThumbnailsInline, render]);
+
+  const handleSetActiveLongformThumbnail = useCallback(async (idx: number) => {
+    await render.setActiveLongformThumbnail(idx);
+    await refreshLongFormThumbnailsInline(false);
+  }, [refreshLongFormThumbnailsInline, render]);
 
   const refreshThumbnailCompletionStatus = useCallback(async () => {
     await Promise.allSettled([
@@ -2709,6 +2716,7 @@ function TimelineEditor({
           formatId={state.content.format_id}
           thumbnailLabelStyle={render.thumbnailLabelStyle}
           onThumbnailLabelStyleChange={render.setThumbnailLabelStyle}
+          onSetActiveThumbnail={handleSetActiveLongformThumbnail}
         />
       ) : viewerFormat === "long-form" && viewerAsset === "seo" ? (
         <LongFormSeoPanel
@@ -2865,6 +2873,7 @@ function TimelineEditor({
           formatId={state.content.format_id}
           thumbnailLabelStyle={thumbnailLabelStyleInline}
           onThumbnailLabelStyleChange={setThumbnailLabelStyleInline}
+          onSetActiveThumbnail={handleSetActiveLongformThumbnail}
         />
       )}
 
