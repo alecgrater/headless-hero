@@ -14,7 +14,7 @@ from config import DATA_DIR
 from database import get_session
 from models.script import Script, ScriptContent
 from pipeline.media_analyzer import analyze_media_sources, apply_assignments, MediaAssignment
-from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
+from pipeline.render_jobs import UserFacingJobError, create_job, get_job, run_in_background, update_job
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +161,14 @@ def missing_voiceover_scene_ids(content: ScriptContent) -> list[str]:
     ]
 
 
+def media_analysis_voiceover_required_message(missing_count: int) -> str:
+    """Build the user-facing media analysis voiceover gate message."""
+    return (
+        "Generate voiceover before media analysis. "
+        f"{missing_count} scene(s) are missing audio duration timing."
+    )
+
+
 @router.post("/analyze/{script_id}", response_model=AnalyzeResponse)
 def analyze_media(script_id: str, session: Session = Depends(get_session)):
     """Trigger media source analysis for a script. Runs as a background job."""
@@ -173,10 +181,7 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
     if missing_voiceover:
         raise HTTPException(
             status_code=409,
-            detail=(
-                "Generate voiceover before media analysis. "
-                f"{len(missing_voiceover)} scene(s) are missing audio duration timing."
-            ),
+            detail=media_analysis_voiceover_required_message(len(missing_voiceover)),
         )
 
     job = create_job()
@@ -193,6 +198,11 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
                 raise RuntimeError(f"Script {script_id} not found during background analysis")
             fresh_raw = json.loads(rec.script_json)
             fresh_content = ScriptContent.model_validate(fresh_raw)
+            fresh_missing_voiceover = missing_voiceover_scene_ids(fresh_content)
+            if fresh_missing_voiceover:
+                raise UserFacingJobError(
+                    media_analysis_voiceover_required_message(len(fresh_missing_voiceover))
+                )
 
         gameplay_enabled, stock_photo_enabled, ai_video_enabled = media_analysis_source_flags(fresh_raw)
 
