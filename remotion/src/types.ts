@@ -56,6 +56,24 @@ export interface VideoFX {
   chapter_markers: ChapterMarker[];
 }
 
+export type VisualTreatment = "full_frame" | "popup_sequence" | "flipflop";
+
+export interface VisualCanvas {
+  background_color: string;
+}
+
+export interface VisualLayer {
+  id: string;
+  type: "image";
+  asset_kind: "full_frame" | "panel" | "cutout";
+  image_url?: string;
+  prompt?: string;
+  placement?: string;
+  enter_at_seconds?: number;
+  exit_at_seconds?: number | null;
+  animation?: "none" | "pop_in";
+}
+
 export interface ChapterCircle {
   x: number;
   y: number;
@@ -99,6 +117,8 @@ export interface SceneInput {
   // Visual Beat System
   visual_beat?: "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage";
   frame_directives?: FrameDirective[] | null;
+  visual_treatment?: VisualTreatment;
+  visual_layers?: VisualLayer[] | null;
 
   // Timing
   word_timestamps?: WordTimestamp[] | null;
@@ -145,6 +165,7 @@ export interface FullVideoProps {
   chapter_map?: ChapterMapData | null;
   segment_timer?: SegmentTimerConfig | null;
   subtitle_highlight?: SubtitleHighlightConfig | null;
+  visual_canvas?: VisualCanvas | null;
 }
 
 // --- Short-form types ---
@@ -158,4 +179,5 @@ export interface ShortFormVideoProps {
   width: number;                  // 1080
   height: number;                 // 1920
   subtitle_highlight?: SubtitleHighlightConfig | null;
+  visual_canvas?: VisualCanvas | null;
 }

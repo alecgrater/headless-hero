@@ -10,6 +10,10 @@ from sqlmodel import Column, Field, SQLModel, Text
 # --- Pydantic models for the script JSON structure ---
 
 ALLOWED_TRANSITIONS = {"cut", "fade_black", "flash_white", "wipe"}
+VISUAL_TREATMENTS = {"full_frame", "popup_sequence", "flipflop"}
+VISUAL_LAYER_TYPES = {"image"}
+VISUAL_ASSET_KINDS = {"full_frame", "panel", "cutout"}
+VISUAL_LAYER_ANIMATIONS = {"none", "pop_in"}
 
 # --- FX models (used by Remotion renderer) ---
 
@@ -32,6 +36,54 @@ class SceneFX(BaseModel):
 
     zoom_punch: ZoomPunchFX | None = None
     drift: DriftFX | None = None
+
+
+class VisualCanvas(BaseModel):
+    """Video-level static canvas rendered beneath every scene."""
+
+    background_color: str = "#F6C54A"
+
+    @field_validator("background_color", mode="before")
+    @classmethod
+    def normalize_background_color(cls, value: object) -> str:
+        if not isinstance(value, str):
+            return "#F6C54A"
+        text = value.strip().upper()
+        if not text.startswith("#"):
+            text = f"#{text}"
+        if len(text) == 7 and all(ch in "0123456789ABCDEF" for ch in text[1:]):
+            return text
+        return "#F6C54A"
+
+
+class VisualLayer(BaseModel):
+    """A renderer-facing layer used by visual treatments."""
+
+    id: str
+    type: str = "image"
+    asset_kind: str = "panel"
+    image_url: str = ""
+    prompt: str = ""
+    placement: str = "center"
+    enter_at_seconds: float = 0.0
+    exit_at_seconds: float | None = None
+    animation: str = "none"
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def normalize_type(cls, value: object) -> str:
+        return value if isinstance(value, str) and value in VISUAL_LAYER_TYPES else "image"
+
+    @field_validator("asset_kind", mode="before")
+    @classmethod
+    def normalize_asset_kind(cls, value: object) -> str:
+        return value if isinstance(value, str) and value in VISUAL_ASSET_KINDS else "panel"
+
+    @field_validator("animation", mode="before")
+    @classmethod
+    def normalize_animation(cls, value: object) -> str:
+        return value if isinstance(value, str) and value in VISUAL_LAYER_ANIMATIONS else "none"
+
 
 class EliOverlay(BaseModel):
     """Eli character overlay configuration for a scene — single pose per scene."""
@@ -110,6 +162,8 @@ class Scene(BaseModel):
     visual_beat: str = "static"        # "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage"
     frame_directives: list[FrameDirective] = []
     contains_person: bool = False       # true if any frame depicts a human figure
+    visual_treatment: str = "full_frame"  # "full_frame" | "popup_sequence" | "flipflop"
+    visual_layers: list[VisualLayer] = []
     # --- Scene-boundary transition ---
     transition_in: str = "cut"  # "cut" | "fade_black" | "flash_white" | "wipe"
     # --- Micro-timeline visual timing overrides ---
@@ -131,6 +185,13 @@ class Scene(BaseModel):
         if isinstance(value, str) and value in ALLOWED_TRANSITIONS:
             return value
         return "cut"
+
+    @field_validator("visual_treatment", mode="before")
+    @classmethod
+    def normalize_visual_treatment(cls, value: object) -> str:
+        if isinstance(value, str) and value in VISUAL_TREATMENTS:
+            return value
+        return "full_frame"
 
 class LevelMeta(BaseModel):
     """Per-level metadata used only by the cinematic-chapters strategy."""
@@ -163,6 +224,7 @@ class ScriptContent(BaseModel):
     card_title_highlight_word: str = ""   # word to render in accent color (e.g. "DREAMS")
     card_subtitle: str = ""              # action subtitle below title (e.g. "RE-WRITING HISTORY")
     video_fx: dict | None = None          # VideoFX dict — computed deterministically at render time
+    visual_canvas: VisualCanvas = PydanticField(default_factory=VisualCanvas)
     eli_position: dict | None = None      # Per-video Eli overlay position override {x, y}
     main_character: MainCharacter | None = None  # Per-project main character (name, appearance, vibe)
     segment_timer_enabled: bool = True    # Global toggle for segment countdown timer overlay

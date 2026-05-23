@@ -35,6 +35,24 @@ export interface VideoFX {
   chapter_markers: ChapterMarker[];
 }
 
+export type VisualTreatment = "full_frame" | "popup_sequence" | "flipflop";
+
+export interface VisualCanvas {
+  background_color: string;
+}
+
+export interface VisualLayer {
+  id: string;
+  type: "image";
+  asset_kind: "full_frame" | "panel" | "cutout";
+  image_url?: string;
+  prompt?: string;
+  placement?: string;
+  enter_at_seconds?: number;
+  exit_at_seconds?: number | null;
+  animation?: "none" | "pop_in";
+}
+
 export interface FrameDirective {
   prompt: string;
   source: "ai_generated" | "real_photo" | "subtitle" | "gameplay_video" | "stock_photo" | "user_upload";
@@ -64,6 +82,8 @@ export interface Scene {
   visual_beat?: "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage";
   frame_directives?: FrameDirective[];
   contains_person?: boolean;
+  visual_treatment?: VisualTreatment;
+  visual_layers?: VisualLayer[];
   fx?: SceneFX | null;
   eli_overlay?: EliOverlay | null;
   word_timestamps?: WordTimestamp[];
@@ -105,6 +125,7 @@ export interface ScriptContent {
   intro_hook: string;
   outro_cta: string;
   video_fx?: VideoFX | null;
+  visual_canvas?: VisualCanvas;
   segment_timer_enabled?: boolean;
   subtitle_highlight_enabled?: boolean;
   seo_metadata?: SEOMetadata | null;
