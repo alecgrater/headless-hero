@@ -2323,18 +2323,6 @@ function TimelineEditor({
                   >
                     <Pencil size={14} />
                   </button>
-                  {projectConfig && !projectConfig.eli_enabled && (
-                    <button
-                      type="button"
-                      onClick={() => setShowMainCharacterDrawer(true)}
-                      className="ml-1 px-2.5 py-1 text-xs rounded-full bg-neutral-800 text-neutral-300 hover:bg-neutral-700 transition-colors border border-neutral-700 shrink-0"
-                      title="Open main character drawer"
-                    >
-                      {projectConfig.main_character
-                        ? `Main character: ${projectConfig.main_character.name}`
-                        : "Eli: off"}
-                    </button>
-                  )}
                 </>
               )}
             </div>
