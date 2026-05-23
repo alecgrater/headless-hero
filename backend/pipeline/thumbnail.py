@@ -20,6 +20,29 @@ from prompts import IMAGE_CTR_EXPRESSION_GUIDANCE
 
 logger = logging.getLogger(__name__)
 
+
+def _resolve_thumbnail_style_ref(script_id: str) -> str | None:
+    """Return the active style preset path for this project, or None.
+
+    Mirrors pipeline.image_gen._resolve_style_preset's behavior:
+      - None when Eli is enabled for the project
+      - None when the project's style_preset_enabled flag is False
+      - None when no preset is active or its image file is missing
+      - Otherwise the absolute path to the active preset image
+    """
+    from sqlmodel import Session
+    from database import engine
+    from models.project_config import get_project_config
+    from pipeline.image_gen import _resolve_style_preset
+
+    with Session(engine) as session:
+        cfg = get_project_config(session, script_id)
+
+    return _resolve_style_preset(
+        eli_enabled=cfg.eli_enabled,
+        project_style_enabled=cfg.style_preset_enabled,
+    )
+
 _LONGFORM_THUMB_RE = re.compile(r"^(\d+)\.png$")
 _LONGFORM_THUMB_LOCKS: dict[str, threading.Lock] = {}
 _LONGFORM_THUMB_LOCKS_GUARD = threading.Lock()
@@ -190,9 +213,13 @@ def enhance_split_progression(
     cache_metadata_path.unlink(missing_ok=True)
 
     try:
+        image_paths = [str(clean_image_path)]
+        style_ref = _resolve_thumbnail_style_ref(script_id) if script_id else None
+        if style_ref:
+            image_paths.append(style_ref)
         result_path = transform_with_references(
             prompt=prompt,
-            image_paths=[str(clean_image_path)],
+            image_paths=image_paths,
             script_id=script_id,
         )
         shutil.copy2(result_path, str(output_path))
@@ -433,10 +460,13 @@ def gemini_enhance_thumbnail(
     except Exception as exc:
         logger.debug("Could not load Eli frame for thumbnail: %s", exc)
 
-    # Build image list: base image first, then reference, then Eli frame
+    # Build image list: base image first, then reference, then Eli frame, then style preset
     image_paths = [base_image_path, ref_path]
     if eli_frame_path:
         image_paths.append(eli_frame_path)
+    style_ref = _resolve_thumbnail_style_ref(script_id) if script_id else None
+    if style_ref:
+        image_paths.append(style_ref)
 
     # Build prompt
     character_instruction = ""
