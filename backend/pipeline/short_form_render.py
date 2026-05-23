@@ -177,6 +177,7 @@ def render_short_segment(
         "fps": FPS,
         "width": SHORT_WIDTH,
         "height": SHORT_HEIGHT,
+        "visual_canvas": content.visual_canvas.model_dump(),
         "subtitle_highlight": (
             {"enabled": True} if content.subtitle_highlight_enabled else None
         ),

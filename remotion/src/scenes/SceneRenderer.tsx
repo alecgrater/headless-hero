@@ -72,6 +72,7 @@ export const SceneRenderer: React.FC<Props> = ({
 
   // Visual layer dispatch
   let visualLayer: React.ReactNode;
+  let treatmentLayer: React.ReactNode | null = null;
   if (isTitleCard) {
     visualLayer = <TitleCardScene scene={scene} />;
   } else if (isAhaSubtitle) {
@@ -80,20 +81,12 @@ export const SceneRenderer: React.FC<Props> = ({
     visualLayer = <VideoScene scene={scene} />;
   } else if (hasMultipleFrames) {
     const fallbackVisualLayer = <MultiFrameScene scene={scene} />;
-    visualLayer = (
-      <>
-        <StaticCanvas canvas={visualCanvas} />
-        <TreatmentRenderer scene={scene} fallbackVisualLayer={fallbackVisualLayer} />
-      </>
-    );
+    treatmentLayer = <TreatmentRenderer scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
+    visualLayer = treatmentLayer;
   } else {
     const fallbackVisualLayer = <StaticImageScene scene={scene} />;
-    visualLayer = (
-      <>
-        <StaticCanvas canvas={visualCanvas} />
-        <TreatmentRenderer scene={scene} fallbackVisualLayer={fallbackVisualLayer} />
-      </>
-    );
+    treatmentLayer = <TreatmentRenderer scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
+    visualLayer = treatmentLayer;
   }
 
   // Wrap with CameraDrift if assigned (not for subtitle or title card scenes)
@@ -118,6 +111,15 @@ export const SceneRenderer: React.FC<Props> = ({
       >
         {visualLayer}
       </ZoomPunch>
+    );
+  }
+
+  if (treatmentLayer) {
+    visualLayer = (
+      <>
+        <StaticCanvas canvas={visualCanvas} />
+        {visualLayer}
+      </>
     );
   }
 

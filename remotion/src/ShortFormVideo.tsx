@@ -21,6 +21,7 @@ export const ShortFormVideo: React.FC<ShortFormVideoProps> = ({
   part_indicator,
   fps,
   subtitle_highlight,
+  visual_canvas,
 }) => {
   const sequences: React.ReactNode[] = [];
   let currentFrame = 0;
@@ -64,6 +65,7 @@ export const ShortFormVideo: React.FC<ShortFormVideoProps> = ({
           }}
           highlightEnabled={subtitle_highlight?.enabled ?? false}
           orientation="vertical"
+          visualCanvas={visual_canvas}
         />
       </Sequence>,
     );

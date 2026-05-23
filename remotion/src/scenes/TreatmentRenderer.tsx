@@ -27,7 +27,7 @@ const validImageLayers = (scene: SceneInput): VisualLayer[] => {
 };
 
 const panelPlacementStyle = (placement?: string): React.CSSProperties => {
-  const normalized = placement ?? "center";
+  const normalized = (placement ?? "center").replace(/-/g, "_");
   const base: React.CSSProperties = {
     position: "absolute",
     width: 700,
@@ -56,6 +56,41 @@ const panelPlacementStyle = (placement?: string): React.CSSProperties => {
       return { ...base, left: "50%", top: "50%", transform: "translate(-50%, -50%)" };
   }
 };
+
+const layerFrameStyle = (layer: VisualLayer): React.CSSProperties => {
+  if (layer.asset_kind === "full_frame") {
+    return {
+      position: "absolute",
+      inset: 0,
+    };
+  }
+  if (layer.asset_kind === "cutout") {
+    return {
+      ...panelPlacementStyle(layer.placement),
+      width: 620,
+      height: 620,
+    };
+  }
+  return panelPlacementStyle(layer.placement);
+};
+
+const layerImageStyle = (layer: VisualLayer): React.CSSProperties => ({
+  width: "100%",
+  height: "100%",
+  objectFit: layer.asset_kind === "cutout" ? "contain" : "cover",
+  display: "block",
+});
+
+const layerChromeStyle = (layer: VisualLayer, scale = 1): React.CSSProperties => ({
+  width: "100%",
+  height: "100%",
+  transform: `scale(${scale})`,
+  transformOrigin: "center",
+  border: layer.asset_kind === "panel" ? "10px solid #111" : "none",
+  boxShadow: layer.asset_kind === "full_frame" ? "none" : "0 24px 60px rgba(0, 0, 0, 0.45)",
+  overflow: "hidden",
+  backgroundColor: layer.asset_kind === "cutout" ? "transparent" : "#111",
+});
 
 const PopupSequence: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
   const frame = useCurrentFrame();
@@ -98,31 +133,15 @@ const PopupSequence: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
           <div
             key={layer.id}
             style={{
-              ...panelPlacementStyle(layer.placement),
+              ...layerFrameStyle(layer),
               opacity,
               transformOrigin: "center",
             }}
           >
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-                transform: `scale(${scale})`,
-                transformOrigin: "center",
-                border: "10px solid #111",
-                boxShadow: "0 24px 60px rgba(0, 0, 0, 0.45)",
-                overflow: "hidden",
-                backgroundColor: "#111",
-              }}
-            >
+            <div style={layerChromeStyle(layer, scale)}>
               <Img
                 src={layer.image_path ?? ""}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  display: "block",
-                }}
+                style={layerImageStyle(layer)}
               />
             </div>
           </div>
@@ -150,15 +169,14 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
 
   return (
     <div style={{ position: "absolute", inset: 0 }}>
-      <Img
-        src={activeLayer.image_path ?? ""}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          display: "block",
-        }}
-      />
+      <div style={layerFrameStyle(activeLayer)}>
+        <div style={layerChromeStyle(activeLayer)}>
+          <Img
+            src={activeLayer.image_path ?? ""}
+            style={layerImageStyle(activeLayer)}
+          />
+        </div>
+      </div>
     </div>
   );
 };
