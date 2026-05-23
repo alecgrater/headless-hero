@@ -180,9 +180,11 @@ export function StylePresetsSection() {
                   type="button"
                   onClick={() => setViewedId(p.id)}
                   aria-label={`View ${p.name || "Untitled"} style preset`}
-                  className={`h-12 w-20 rounded border p-0.5 transition-colors ${
+                  className={`relative h-12 w-20 rounded border p-0.5 transition-colors ${
                     p.id === viewedPreset.id
                       ? "border-violet-500 bg-violet-500/10"
+                      : p.id === activeId
+                        ? "border-violet-400 bg-violet-500/5"
                       : "border-neutral-700 bg-neutral-950 hover:border-violet-500/70"
                   }`}
                 >
@@ -191,6 +193,9 @@ export function StylePresetsSection() {
                     alt=""
                     className="h-full w-full rounded-sm object-cover"
                   />
+                  {p.id === activeId && (
+                    <span className="absolute bottom-1 right-1 size-2 rounded-full bg-violet-400 shadow-[0_0_0_2px_rgba(10,10,10,0.85)]" />
+                  )}
                 </button>
               ))}
               <button
