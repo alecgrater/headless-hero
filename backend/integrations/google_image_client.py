@@ -17,6 +17,14 @@ from integrations.usage_tracker import record_usage, GOOGLE_IMAGE_PER_CALL
 logger = logging.getLogger(__name__)
 
 
+def _part_from_path(path: str) -> types.Part:
+    """Load an image file as a Gemini Part, inferring MIME type from extension."""
+    ext = os.path.splitext(path.lower())[1]
+    mime = {".png": "image/png", ".webp": "image/webp"}.get(ext, "image/jpeg")
+    with open(path, "rb") as f:
+        return types.Part.from_bytes(data=f.read(), mime_type=mime)
+
+
 def _setting_enabled(value: str | None) -> bool:
     return (value or "").strip().lower() in {"1", "true", "yes", "on"}
 
@@ -142,14 +150,10 @@ def generate_image(
     # Build reference image parts (reusable across retries)
     ref_parts: list = []
     if reference_image_path:
-        mime = "image/png" if reference_image_path.lower().endswith(".png") else "image/jpeg"
-        with open(reference_image_path, "rb") as f:
-            ref_parts.append(types.Part.from_bytes(data=f.read(), mime_type=mime))
+        ref_parts.append(_part_from_path(reference_image_path))
         logger.info("Including character reference image: %s", reference_image_path)
     if style_reference_path:
-        mime = "image/png" if style_reference_path.lower().endswith(".png") else "image/jpeg"
-        with open(style_reference_path, "rb") as f:
-            ref_parts.append(types.Part.from_bytes(data=f.read(), mime_type=mime))
+        ref_parts.append(_part_from_path(style_reference_path))
         logger.info("Including style reference image: %s", style_reference_path)
 
     # First attempt with full prompt
@@ -263,11 +267,7 @@ def transform_with_references(
     # Build contents: all images first, then prompt text
     contents: list = []
     for img_path in image_paths:
-        ext = os.path.splitext(img_path.lower())[1]
-        mime = {".png": "image/png", ".webp": "image/webp"}.get(ext, "image/jpeg")
-        with open(img_path, "rb") as f:
-            part = types.Part.from_bytes(data=f.read(), mime_type=mime)
-        contents.append(part)
+        contents.append(_part_from_path(img_path))
     contents.append(prompt)
 
     result = _call_gemini(client, contents, aspect, script_id=script_id)

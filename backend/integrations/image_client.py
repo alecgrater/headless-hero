@@ -25,8 +25,9 @@ def generate_image(
     If reference_image_path is provided, the provider may use it as a visual
     reference for img2img generation (e.g. FLUX Kontext on Replicate).
 
-    If style_reference_path is provided, it is attached as an additional Part
-    after the character reference to enforce a global art style.
+    If style_reference_path is provided, it is passed to the provider as an
+    additional visual reference to enforce a global art style across generations.
+    Only the Google provider currently supports this; other providers ignore it.
 
     original_prompt is the raw visual description before style guide was prepended,
     used by Google provider for retry on content filter blocks.
@@ -36,6 +37,9 @@ def generate_image(
                 provider, width, height, reference_image_path is not None, style_reference_path is not None)
 
     if provider == "replicate":
+        if style_reference_path is not None:
+            logger.warning("Replicate provider does not support style_reference_path; ignoring")
+        # style_reference_path intentionally not forwarded — Replicate has no img-style support
         from integrations.replicate_client import generate_image as _gen
         return _gen(prompt, width, height, reference_image_path=reference_image_path, script_id=script_id)
     else:

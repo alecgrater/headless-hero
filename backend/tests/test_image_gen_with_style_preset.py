@@ -53,6 +53,7 @@ def test_generate_image_passes_style_reference_as_part(tmp_path, fake_gemini_res
 
 
 def test_generate_image_without_style_reference_omits_part(tmp_path, fake_gemini_response):
+    """When neither reference nor style_reference_path is set, only the prompt is sent."""
     from integrations import google_image_client
 
     captured_contents = []
@@ -102,3 +103,6 @@ def test_generate_image_with_both_char_and_style_refs(tmp_path, fake_gemini_resp
     # 2 parts (char + style) + prompt = 3 items
     assert len(contents) == 3
     assert contents[-1] == "a scene"
+    # Verify ordering: char ref first, style ref second
+    assert contents[0].inline_data.data == b"charpng"
+    assert contents[1].inline_data.data == b"stylepng"
