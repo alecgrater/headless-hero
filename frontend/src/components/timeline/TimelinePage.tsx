@@ -571,7 +571,7 @@ function OpenExportsButton({
           type="button"
           onClick={onOpen}
           disabled={opening}
-          className="inline-flex h-7 w-8 items-center justify-center rounded-md border border-neutral-700/60 bg-neutral-800/80 text-neutral-300 transition-colors hover:border-neutral-600 hover:bg-neutral-700/80 disabled:cursor-wait disabled:opacity-60"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-neutral-700/60 bg-neutral-800/80 text-neutral-300 transition-colors hover:border-neutral-600 hover:bg-neutral-700/80 disabled:cursor-wait disabled:opacity-60"
           title="Open exports folder in Finder"
         >
           {opening ? (
@@ -599,7 +599,7 @@ function ProjectDetailsButton({
     >
       <Info className="h-4 w-4 text-violet-300" />
       <span>Project details</span>
-      <span className="hidden items-center gap-1 text-neutral-400 xl:inline-flex">
+      <span className="hidden items-center gap-1 text-neutral-400 2xl:inline-flex">
         <span className="text-neutral-600">·</span>
         <span>Stats, costs, media, exports</span>
       </span>
@@ -920,74 +920,78 @@ function ViewerSwitchRow({
   onOpenProjectDetails: () => void;
   onOpenExportsFolder: () => void;
 }) {
-  const renderTabSelector = format === "long-form" && asset === "render";
+  const showVideoViewSelector = format === "long-form";
   return (
-    <div className="px-4 py-2 border-t border-b border-neutral-800/60 shrink-0">
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-        <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
-          {FORMAT_OPTIONS.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              onClick={() => onFormatChange(key)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
-                format === key ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
-              }`}
-            >
-              <Icon className="w-3.5 h-3.5 shrink-0" />
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
-          {ASSET_OPTIONS.map(({ key, label, Icon }) => {
-            const isActiveAsset = asset === key;
-            if (key === "render" && renderTabSelector) {
-              return (
-                <div
-                  key={key}
-                  className="flex items-center rounded-lg bg-violet-500/20 text-violet-100 shadow-sm"
-                >
-                  <button
-                    type="button"
-                    onClick={() => onAssetChange(key)}
-                    className="flex items-center gap-1.5 py-1.5 pl-2 pr-1.5 text-xs font-medium whitespace-nowrap"
-                  >
-                    <Icon className="w-3.5 h-3.5 shrink-0" />
-                    {label}
-                  </button>
-                  <span className="h-4 w-px bg-violet-300/20" />
-                  <label className="relative flex items-center py-1.5 pl-1.5 pr-5">
-                    <select
-                      value={activeTab}
-                      onChange={(event) => onTabChange(event.target.value as ViewerTab)}
-                      className="appearance-none bg-transparent text-xs font-medium text-violet-100 outline-none"
-                      title="Video view"
-                    >
-                      {VIEWER_TAB_OPTIONS.map(({ key: tabKey, label: tabLabel }) => (
-                        <option key={tabKey} value={tabKey} className="bg-neutral-900 text-neutral-100">
-                          {tabLabel}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-1 h-3.5 w-3.5 text-violet-300" />
-                  </label>
-                </div>
-              );
-            }
-
-            return (
+    <div className="px-5 py-2 border-t border-b border-neutral-800/60 shrink-0">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
+            {FORMAT_OPTIONS.map(({ key, label, Icon }) => (
               <button
                 key={key}
-                onClick={() => onAssetChange(key)}
+                onClick={() => onFormatChange(key)}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
-                  isActiveAsset ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
+                  format === key ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
                 }`}
               >
                 <Icon className="w-3.5 h-3.5 shrink-0" />
                 {label}
               </button>
-            );
-          })}
+            ))}
+          </div>
+          <div className="inline-flex items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
+            {ASSET_OPTIONS.map(({ key, label, Icon }) => {
+              const isActiveAsset = asset === key;
+              if (key === "render" && showVideoViewSelector) {
+                return (
+                  <div
+                    key={key}
+                    className={`flex items-center rounded-lg transition-all duration-200 ${
+                      isActiveAsset ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onAssetChange(key)}
+                      className="flex items-center gap-1.5 py-1.5 pl-2 pr-1.5 text-xs font-medium whitespace-nowrap"
+                    >
+                      <Icon className="w-3.5 h-3.5 shrink-0" />
+                      {label}
+                    </button>
+                    <span className={`h-4 w-px ${isActiveAsset ? "bg-violet-300/20" : "bg-neutral-700/70"}`} />
+                    <label className="relative flex items-center py-1.5 pl-1.5 pr-5">
+                      <select
+                        value={activeTab}
+                        onChange={(event) => onTabChange(event.target.value as ViewerTab)}
+                        className="appearance-none bg-transparent text-xs font-medium text-current outline-none"
+                        title="Video view"
+                      >
+                        {VIEWER_TAB_OPTIONS.map(({ key: tabKey, label: tabLabel }) => (
+                          <option key={tabKey} value={tabKey} className="bg-neutral-900 text-neutral-100">
+                            {tabLabel}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className={`pointer-events-none absolute right-1 h-3.5 w-3.5 ${isActiveAsset ? "text-violet-300" : "text-neutral-500"}`} />
+                    </label>
+                  </div>
+                );
+              }
+
+              return (
+                <button
+                  key={key}
+                  onClick={() => onAssetChange(key)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
+                    isActiveAsset ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
         <div className="inline-flex shrink-0 items-center gap-1.5">
           <ProjectDetailsButton onClick={onOpenProjectDetails} />
