@@ -44,6 +44,14 @@ def _read_label_style(script_id: str) -> ThumbnailLabelStyle | None:
     return style
 
 
+def _require_character_reference_ready(session: Session, script_id: str) -> None:
+    from pipeline.main_character import missing_character_reference_reason
+
+    reason = missing_character_reference_reason(session, script_id)
+    if reason:
+        raise HTTPException(status_code=400, detail=reason)
+
+
 class RecompositeThumbnailRequest(BaseModel):
     script_id: str
 
@@ -90,6 +98,7 @@ def recomposite_thumbnail(body: RecompositeThumbnailRequest, session: Session = 
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
+    _require_character_reference_ready(session, body.script_id)
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
 
@@ -211,6 +220,7 @@ def regenerate_split_progression(
     record = session.get(Script, body.script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
+    _require_character_reference_ready(session, body.script_id)
 
     content = ScriptContent.model_validate(json.loads(record.script_json))
 

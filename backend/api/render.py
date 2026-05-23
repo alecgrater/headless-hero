@@ -129,6 +129,14 @@ def _load_brand(session: Session, script_id: str) -> dict:
     }
 
 
+def _require_character_reference_ready(session: Session, script_id: str) -> None:
+    from pipeline.main_character import missing_character_reference_reason
+
+    reason = missing_character_reference_reason(session, script_id)
+    if reason:
+        raise HTTPException(status_code=400, detail=reason)
+
+
 def _find_rendered_longform(script_id: str, project_title: str) -> tuple[str | None, str | None]:
     """Return an existing long-form render path and optional web URL.
 
@@ -446,6 +454,8 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
 def start_export_test(body: ExportTestRequest, session: Session = Depends(get_session)):
     """Run the full pipeline (audio → image → FX → Eli → render) for the first segment."""
     content = _load_content(session, body.script_id)
+    if body.regen_images:
+        _require_character_reference_ready(session, body.script_id)
     brand_dict = _load_brand(session, body.script_id)
     record = session.get(Script, body.script_id)
     project_title = record.topic_title if record and record.topic_title else content.title or "Untitled"
