@@ -267,9 +267,20 @@ def _main_character_from_settings(settings: dict, preset: TestLabPreset) -> Main
         return raw.model_copy(deep=True)
     if isinstance(raw, dict):
         return MainCharacter.model_validate(raw)
-    if preset.main_character is None:
+    _ = preset
+    return None
+
+
+def _active_style_preset_main_character(session: Session) -> MainCharacter | None:
+    from pipeline.main_character import get_active_style_preset_character, read_active_style_preset_id
+
+    preset_id = read_active_style_preset_id(session)
+    if not preset_id:
         return None
-    return preset.main_character.model_copy(deep=True)
+    character = get_active_style_preset_character(session, preset_id)
+    if character is None:
+        return None
+    return MainCharacter(name=character.name, appearance=character.appearance, vibe=character.vibe)
 
 
 def _visual_canvas_background_from_settings(settings: dict, preset: TestLabPreset) -> str:
@@ -376,6 +387,10 @@ def create_hidden_test_script(
     script_id = f"test-lab-{safe_run_id}"
     content = build_content_from_preset(preset_id, settings)
     brand_id = settings.get("brand_id") or get_default_brand_id(session)
+    eli_enabled = _bool_setting(settings, "eli_enabled", True)
+    style_preset_enabled = _bool_setting(settings, "style_preset_enabled", True)
+    if not eli_enabled and content.main_character is None:
+        content.main_character = _active_style_preset_main_character(session)
     existing = session.get(Script, script_id)
     if existing is None:
         existing = Script(
@@ -396,8 +411,6 @@ def create_hidden_test_script(
         existing.is_test_lab = True
     session.add(existing)
 
-    eli_enabled = _bool_setting(settings, "eli_enabled", True)
-    style_preset_enabled = _bool_setting(settings, "style_preset_enabled", True)
     cfg = session.get(ProjectConfig, script_id)
     if cfg is None:
         cfg = ProjectConfig(
@@ -525,15 +538,15 @@ def _stage_character_reference(ctx: TestLabRunContext) -> None:
         if sync_global_main_character_to_project(session, ctx.script_id):
             session.commit()
             cfg = session.get(ProjectConfig, ctx.script_id)
+        block_reason = missing_character_reference_reason(session, ctx.script_id)
+        if block_reason:
+            raise RuntimeError(block_reason)
         record, content = _load_content_for_script(session, ctx.script_id)
         _ = record
         if content.main_character is None:
             raise RuntimeError(
                 "Global main character details are required. Set them in Settings → Style Presets → Main Character."
             )
-        block_reason = missing_character_reference_reason(session, ctx.script_id)
-        if block_reason:
-            raise RuntimeError(block_reason)
         ctx.manifest.assets.append(
             TestLabAsset(kind="image", label="Main character reference", url=cfg.main_character_reference_url or "")
         )

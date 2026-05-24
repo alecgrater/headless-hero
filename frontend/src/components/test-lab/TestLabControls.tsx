@@ -1,8 +1,8 @@
 import { HelpCircle, Image, Video } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import type { MainCharacter } from "../../api";
-import type { TestLabPreset, TestLabSettings, TestLabStages } from "../../types/testLab";
+import { assetUrl } from "../../api";
+import type { TestLabMainCharacter, TestLabPreset, TestLabSettings, TestLabStages } from "../../types/testLab";
 import type { VisualTreatment } from "../../types/script";
 import { Tooltip } from "../ui/Tooltip";
 
@@ -10,7 +10,7 @@ type StageKey = keyof TestLabStages;
 
 interface TestLabControlsProps {
   preset: TestLabPreset | null;
-  defaultMainCharacter: MainCharacter | null;
+  defaultMainCharacter: TestLabMainCharacter | null;
   settings: TestLabSettings;
   onChange: (settings: TestLabSettings) => void;
   onValidityChange?: (valid: boolean) => void;
@@ -278,12 +278,7 @@ export default function TestLabControls({
             Eli overlay is enabled, so this run will not integrate a main character into scene images.
           </div>
         ) : displayedCharacter ? (
-          <div className="rounded-md border border-neutral-800 bg-neutral-950/60 p-3 text-xs">
-            <p className="text-[11px] font-medium uppercase text-neutral-500">{displayedCharacterSource}</p>
-            <p className="mt-2 font-medium text-neutral-200">{displayedCharacter.name}</p>
-            <p className="mt-1 text-neutral-500">{displayedCharacter.appearance}</p>
-            <p className="mt-1 text-neutral-500">{displayedCharacter.vibe}</p>
-          </div>
+          <CharacterPreview character={displayedCharacter} source={displayedCharacterSource} />
         ) : (
           <div className="rounded-md border border-neutral-800 bg-neutral-950/60 p-3 text-xs text-neutral-500">
             No active style preset character is selected.
@@ -374,7 +369,7 @@ export default function TestLabControls({
 function getFallbackCharacterName(
   settings: TestLabSettings,
   preset: TestLabPreset | null,
-  defaultMainCharacter: MainCharacter | null,
+  defaultMainCharacter: TestLabMainCharacter | null,
 ) {
   const character = getDisplayedCharacter(settings, preset, defaultMainCharacter);
   const name = character?.name?.trim();
@@ -384,19 +379,50 @@ function getFallbackCharacterName(
 function getDisplayedCharacter(
   settings: TestLabSettings,
   preset: TestLabPreset | null,
-  defaultMainCharacter: MainCharacter | null,
+  defaultMainCharacter: TestLabMainCharacter | null,
 ) {
+  void preset;
   if (settings.eli_enabled) return null;
-  return settings.main_character ?? defaultMainCharacter ?? preset?.main_character ?? null;
+  return settings.main_character ?? defaultMainCharacter ?? null;
 }
 
 function getDisplayedCharacterSource(
   settings: TestLabSettings,
-  defaultMainCharacter: MainCharacter | null,
+  defaultMainCharacter: TestLabMainCharacter | null,
 ) {
   if (settings.main_character) return "Custom run override";
   if (defaultMainCharacter) return "Active style preset character";
   return "Dummy scene fallback";
+}
+
+function CharacterPreview({
+  character,
+  source,
+}: {
+  character: TestLabMainCharacter;
+  source: string;
+}) {
+  const referenceUrl = character.reference_image_url?.trim();
+
+  return (
+    <div className="overflow-hidden rounded-md border border-neutral-800 bg-neutral-950/60">
+      {referenceUrl ? (
+        <img
+          src={assetUrl(referenceUrl)}
+          alt={character.name}
+          className="aspect-video w-full bg-neutral-950 object-contain"
+        />
+      ) : (
+        <div className="flex aspect-video w-full items-center justify-center bg-neutral-950 text-xs text-neutral-600">
+          No character reference image
+        </div>
+      )}
+      <div className="border-t border-neutral-800 px-3 py-2">
+        <p className="text-[11px] font-medium uppercase text-neutral-500">{source}</p>
+        <p className="mt-1 truncate text-sm font-medium text-neutral-100">{character.name}</p>
+      </div>
+    </div>
+  );
 }
 
 function Panel({ title, help, children }: { title: string; help: string; children: ReactNode }) {

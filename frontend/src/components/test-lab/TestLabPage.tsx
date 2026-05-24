@@ -2,8 +2,7 @@ import { Beaker, Play, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import api, { getTestLabPresets, getTestLabRun, getTestLabRuns, startTestLabRun } from "../../api";
 import type { MutableRefObject } from "react";
-import type { MainCharacter } from "../../api";
-import type { TestLabPreset, TestLabRun, TestLabSettings } from "../../types/testLab";
+import type { TestLabMainCharacter, TestLabPreset, TestLabRun, TestLabSettings } from "../../types/testLab";
 import TestLabControls from "./TestLabControls";
 import TestLabRunPanel from "./TestLabRunPanel";
 
@@ -38,7 +37,7 @@ export default function TestLabPage() {
   const pollTimerRef = useRef<number | null>(null);
   const resolvePollSleepRef = useRef<((mounted: boolean) => void) | null>(null);
   const [presets, setPresets] = useState<TestLabPreset[]>([]);
-  const [defaultMainCharacter, setDefaultMainCharacter] = useState<MainCharacter | null>(null);
+  const [defaultMainCharacter, setDefaultMainCharacter] = useState<TestLabMainCharacter | null>(null);
   const [selectedPresetId, setSelectedPresetId] = useState<string>("");
   const [settings, setSettings] = useState<TestLabSettings>(DEFAULT_SETTINGS);
   const [runs, setRuns] = useState<TestLabRun[]>([]);

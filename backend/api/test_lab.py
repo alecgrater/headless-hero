@@ -41,6 +41,7 @@ def _default_main_character(session: Session) -> dict[str, str] | None:
         "name": character.name,
         "appearance": character.appearance,
         "vibe": character.vibe,
+        "reference_image_url": character.reference_image_url,
     }
 
 

@@ -222,6 +222,10 @@ def test_test_lab_scenes_endpoint_returns_active_default_character(monkeypatch, 
         assert response.status_code == 200
         data = response.json()
         assert data["default_main_character"]["name"] == "Mara"
+        assert (
+            data["default_main_character"]["reference_image_url"]
+            == f"/static/style/presets/{preset_id}/characters/{character_id}.png"
+        )
     finally:
         from database import get_session
 
@@ -390,11 +394,19 @@ def test_test_lab_preset_main_character_is_not_mutated_by_content():
     assert preset.main_character is not None
     original_name = preset.main_character.name
 
-    content = build_content_from_preset("life-scribe", {})
+    content = build_content_from_preset("life-scribe", {"main_character": preset.main_character.model_dump()})
     assert content.main_character is not None
     content.main_character.name = "Mutated Rowan"
 
     assert preset.main_character.name == original_name
+
+
+def test_test_lab_preset_does_not_fall_back_to_dummy_character():
+    from pipeline.test_lab import build_content_from_preset
+
+    content = build_content_from_preset("life-scribe", {})
+
+    assert content.main_character is None
 
 
 def test_test_lab_rejects_unsafe_run_ids(monkeypatch, tmp_path):
@@ -477,6 +489,56 @@ def test_create_hidden_test_script_creates_script_and_project_config(monkeypatch
     content = ScriptContent.model_validate_json(script.script_json)
     assert content.main_character is not None
     assert content.main_character.name == "Test"
+
+
+def test_create_hidden_test_script_uses_active_style_preset_character(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.main_character as main_character
+    import pipeline.test_lab as test_lab
+    from models.settings import AppSetting
+    from models.script import Script, ScriptContent
+    from models.style_preset import StylePreset
+    from models.style_preset_character import StylePresetCharacter
+
+    monkeypatch.setattr(main_character, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(test_lab, "DATA_DIR", tmp_path)
+
+    preset_id = "preset-a"
+    character_id = "character-a"
+    (tmp_path / "style" / "presets").mkdir(parents=True)
+    (tmp_path / "style" / "presets" / f"{preset_id}.png").write_bytes(b"fakepng")
+    (tmp_path / "style" / "presets" / preset_id / "characters").mkdir(parents=True)
+    (tmp_path / "style" / "presets" / preset_id / "characters" / f"{character_id}.png").write_bytes(b"fakepng")
+
+    with Session(engine) as session:
+        session.add(StylePreset(id=preset_id, name="House style", prompt="flat 2d"))
+        session.add(
+            StylePresetCharacter(
+                id=character_id,
+                style_preset_id=preset_id,
+                name="Mara",
+                appearance="A cheerful explorer in a yellow jacket.",
+                vibe="Bright and curious.",
+                reference_image_url=f"/static/style/presets/{preset_id}/characters/{character_id}.png",
+            )
+        )
+        session.add(AppSetting(key="ACTIVE_STYLE_PRESET_ID", value=preset_id))
+        session.add(AppSetting(key=main_character.active_style_preset_character_key(preset_id), value=character_id))
+        script_id = test_lab.create_hidden_test_script(
+            session,
+            run_id="run-active-character",
+            preset_id="life-scribe",
+            settings={"eli_enabled": False},
+        )
+        session.commit()
+
+        script = session.get(Script, script_id)
+
+    assert script is not None
+    content = ScriptContent.model_validate_json(script.script_json)
+    assert content.main_character is not None
+    assert content.main_character.name == "Mara"
 
 
 def test_create_hidden_test_script_coerces_raw_boolean_settings(monkeypatch, tmp_path):

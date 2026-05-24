@@ -1,6 +1,10 @@
 import type { SceneFX, VisualLayer, VisualTreatment } from "./script";
 import type { MainCharacter, ScriptCostBreakdownItem } from "../api";
 
+export interface TestLabMainCharacter extends MainCharacter {
+  reference_image_url?: string | null;
+}
+
 export interface TestLabPreset {
   id: string;
   title: string;
@@ -17,13 +21,13 @@ export interface TestLabPreset {
   contains_person?: boolean;
   visual_beat?: string;
   frame_directives?: Array<Record<string, unknown>>;
-  main_character: MainCharacter | null;
+  main_character: TestLabMainCharacter | null;
   tags?: string[];
 }
 
 export interface TestLabScenes {
   presets: TestLabPreset[];
-  default_main_character: MainCharacter | null;
+  default_main_character: TestLabMainCharacter | null;
 }
 
 export interface TestLabStages {
