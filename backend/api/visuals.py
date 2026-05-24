@@ -272,6 +272,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             body.scene_id,
             **_with_visual_layers(
                 {
+                    "visual_treatment": treatment,
                     "image_url": "",
                     "frame_urls": [],
                     "video_url": "",
@@ -425,6 +426,10 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
         width=body.width,
         height=body.height,
     )
+    requested_treatments = {
+        scene["scene_id"]: scene.get("visual_treatment") or "full_frame"
+        for scene in scenes
+    }
 
     # Persist all successful results in a single DB write
     for r in results:
@@ -433,6 +438,7 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
         sc = scene_map.get(r["scene_id"])
         if not sc:
             continue
+        sc.visual_treatment = requested_treatments.get(sc.id, sc.visual_treatment)
         frame_urls = r.get("frame_urls", [])
         video_url = r.get("video_url")
         if video_url:

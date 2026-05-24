@@ -604,6 +604,82 @@ def test_generate_batch_flipflop_skips_scene_image(monkeypatch):
     assert [layer["id"] for layer in results[0]["visual_layers"]] == ["state_a", "state_b"]
 
 
+def test_generate_batch_persists_request_visual_treatment(monkeypatch):
+    from api import visuals as visuals_api
+    from api.visuals import BatchScene, GenerateBatchRequest
+
+    engine = _build_test_engine()
+    script_id = "batch-request-treatment"
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="Before and after.",
+            visual_prompt="Person changes expression.",
+            visual_treatment="full_frame",
+            image_url="/static/projects/batch-request-treatment/images/stale.png",
+        )
+    )
+
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+    monkeypatch.setattr(
+        visuals_api,
+        "generate_batch",
+        lambda scenes, script_id, **_kwargs: [
+            {
+                "scene_id": scenes[0]["scene_id"],
+                "image_url": None,
+                "frame_urls": [],
+                "video_url": None,
+                "prompt_used": None,
+                "visual_source_metadata": None,
+                "visual_layers": [
+                    {**scenes[0]["visual_layers"][0], "image_url": f"/static/projects/{script_id}/images/state_a.png"},
+                    {**scenes[0]["visual_layers"][1], "image_url": f"/static/projects/{script_id}/images/state_b.png"},
+                ],
+                "error": None,
+            }
+        ],
+    )
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Treatment Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        visuals_api.generate_visual_batch(
+            GenerateBatchRequest(
+                script_id=script_id,
+                scenes=[
+                    BatchScene(
+                        scene_id="scene_001",
+                        visual_prompt="Person changes expression.",
+                        visual_treatment="flipflop",
+                        visual_layers=[
+                            {"id": "state_a", "type": "image", "asset_kind": "panel", "prompt": "state A"},
+                            {"id": "state_b", "type": "image", "asset_kind": "panel", "prompt": "state B"},
+                        ],
+                    )
+                ],
+            ),
+            session,
+        )
+
+        stored = session.get(Script, script_id)
+        assert stored is not None
+        stored_scene = ScriptContent.model_validate_json(stored.script_json).segments[0].scenes[0]
+
+    assert stored_scene.visual_treatment == "flipflop"
+    assert stored_scene.image_url == ""
+    assert stored_scene.frame_urls == []
+    assert [layer.id for layer in stored_scene.visual_layers] == ["state_a", "state_b"]
+
+
 def test_generate_visual_persists_generated_visual_layers(monkeypatch):
     from api import visuals as visuals_api
     from api.visuals import GenerateVisualRequest
@@ -681,6 +757,72 @@ def test_generate_visual_persists_generated_visual_layers(monkeypatch):
     assert stored_content.segments[0].scenes[0].visual_layers[0].image_url == (
         "/static/projects/regular-visual-panels/popup_crops/scene_001/crop_02_panel_prompt.png"
     )
+
+
+def test_generate_visual_persists_request_visual_treatment(monkeypatch):
+    from api import visuals as visuals_api
+    from api.visuals import GenerateVisualRequest
+
+    engine = _build_test_engine()
+    script_id = "request-treatment-panels"
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="Before and after.",
+            visual_prompt="Person changes expression.",
+            visual_treatment="full_frame",
+            image_url="/static/projects/request-treatment-panels/images/stale.png",
+        )
+    )
+
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+    monkeypatch.setattr(
+        visuals_api,
+        "generate_scene_image",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("flipflop should not generate scene images")),
+    )
+    monkeypatch.setattr(
+        visuals_api,
+        "generate_visual_layer_panels",
+        lambda scene_id, layers, script_id, **_kwargs: [
+            {**layers[0], "image_url": f"/static/projects/{script_id}/images/{scene_id}_state_a.png"},
+            {**layers[1], "image_url": f"/static/projects/{script_id}/images/{scene_id}_state_b.png"},
+        ],
+    )
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Treatment Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        visuals_api.generate_visual(
+            GenerateVisualRequest(
+                script_id=script_id,
+                scene_id="scene_001",
+                visual_prompt="Person changes expression.",
+                visual_treatment="flipflop",
+                visual_layers=[
+                    {"id": "state_a", "type": "image", "asset_kind": "panel", "prompt": "state A"},
+                    {"id": "state_b", "type": "image", "asset_kind": "panel", "prompt": "state B"},
+                ],
+            ),
+            session,
+        )
+
+        stored = session.get(Script, script_id)
+        assert stored is not None
+        stored_scene = ScriptContent.model_validate_json(stored.script_json).segments[0].scenes[0]
+
+    assert stored_scene.visual_treatment == "flipflop"
+    assert stored_scene.image_url == ""
+    assert stored_scene.frame_urls == []
+    assert [layer.id for layer in stored_scene.visual_layers] == ["state_a", "state_b"]
 
 
 def test_generate_visual_routes_popup_sequence_to_cutout_assets(monkeypatch):
