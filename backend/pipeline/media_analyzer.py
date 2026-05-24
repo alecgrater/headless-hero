@@ -67,6 +67,18 @@ class MediaAssignment:
     visual_mode: str = ""
 
 
+def _canonical_visual_mode(value: str, media_source: str = "ai") -> str:
+    if media_source == "ai_video":
+        return "video"
+    if value in {"quick_cuts", "montage", "multi_frame"}:
+        return "multi_frame"
+    if value == "continuous":
+        return "continuous"
+    if value in {"video", "full_frame", "popup_sequence", "flipflop"}:
+        return value
+    return "full_frame"
+
+
 def _resolve_scene_id(raw_scene_id: str, valid_scene_ids: set[str]) -> str | None:
     """Resolve minor LLM scene-id formatting drift like scene_3 -> scene_003."""
     if raw_scene_id in valid_scene_ids:
@@ -372,7 +384,10 @@ def analyze_media_sources(
             game_name=entry.get("game_name"),
             search_query=entry.get("search_query"),
             reasoning=entry.get("reasoning", ""),
-            visual_mode="video" if source == "ai_video" else "full_frame",
+            visual_mode=_canonical_visual_mode(
+                str(entry.get("visual_mode") or entry.get("visual_beat") or scene.visual_mode),
+                source,
+            ),
         )
 
     for scene in script_content.all_scenes():
@@ -383,7 +398,7 @@ def analyze_media_sources(
                 game_name=None,
                 search_query=None,
                 reasoning="Defaulted to AI art because the media analyzer omitted this scene.",
-                visual_mode="full_frame",
+                visual_mode=_canonical_visual_mode(scene.visual_mode),
             )
 
     ai_video_assigned = _remove_adjacent_ai_video_assignments(
@@ -471,7 +486,12 @@ def apply_assignments(
             if not assignment:
                 continue
 
-            scene.set_visual_mode(assignment.visual_mode or ("video" if assignment.media_source == "ai_video" else "full_frame"))
+            scene.set_visual_mode(
+                _canonical_visual_mode(
+                    assignment.visual_mode,
+                    assignment.media_source,
+                )
+            )
 
             scene.original_visual_prompt = ""
 

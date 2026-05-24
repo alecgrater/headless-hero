@@ -11,6 +11,7 @@ from sqlmodel import Session, SQLModel, create_engine
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from pipeline.image_gen import generate_batch, generate_scene_frames_v2, generate_scene_image
+from pipeline import media_analyzer
 from api._helpers import update_scene
 from models.script import Script, ScriptContent, Scene, Segment
 
@@ -337,3 +338,69 @@ def test_real_photo_frame_directives_are_generated_as_ai(monkeypatch, mock_gemin
     assert results[0][0].endswith("/scene_real_photo_removed_f0.png")
     assert results[0][2] is not None
     assert results[0][2]["source_type"] == "ai_generated"
+
+
+def test_media_analyzer_maps_legacy_quick_cuts_mode_to_multi_frame(monkeypatch):
+    content = ScriptContent(
+        title="Media modes",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="scene_001",
+                        narration="Three independent details snap into view.",
+                        visual_prompt="Three separate visual details",
+                    )
+                ],
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        media_analyzer,
+        "chat",
+        lambda **_kwargs: (
+            '[{"scene_id":"scene_001","media_source":"ai","visual_mode":"quick_cuts",'
+            '"reasoning":"Legacy multi-frame request."}]'
+        ),
+    )
+
+    assignments = media_analyzer.analyze_media_sources(content, script_id="script-multi-frame")
+    media_analyzer.apply_assignments(content, assignments)
+
+    assert assignments[0].visual_mode == "multi_frame"
+    assert content.all_scenes()[0].visual_mode == "multi_frame"
+    assert content.all_scenes()[0].visual_treatment == "full_frame"
+
+
+def test_media_analyzer_preserves_continuous_mode(monkeypatch):
+    content = ScriptContent(
+        title="Media modes",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="scene_001",
+                        narration="The crack slowly spreads across the glass.",
+                        visual_prompt="A crack growing across glass",
+                    )
+                ],
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        media_analyzer,
+        "chat",
+        lambda **_kwargs: (
+            '[{"scene_id":"scene_001","media_source":"ai","visual_mode":"continuous",'
+            '"reasoning":"Same-scene progression."}]'
+        ),
+    )
+
+    assignments = media_analyzer.analyze_media_sources(content, script_id="script-continuous")
+    media_analyzer.apply_assignments(content, assignments)
+
+    assert assignments[0].visual_mode == "continuous"
+    assert content.all_scenes()[0].visual_mode == "continuous"
+    assert content.all_scenes()[0].visual_treatment == "full_frame"

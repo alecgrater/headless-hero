@@ -1854,6 +1854,31 @@ def test_analyze_visual_treatments_does_not_treat_cardinal_words_as_list_markers
     assert assignments[0].visual_layers == []
 
 
+def test_analyze_visual_treatments_preserves_explicit_multi_frame_mode():
+    scene = scene_with_words("s1", "The wall shows three separate warning signs.")
+    scene.set_visual_mode("multi_frame")
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-multi-frame")
+
+    assignment = assignments[0]
+    assert assignment.visual_mode == "multi_frame"
+    assert assignment.visual_treatment == "full_frame"
+    assert assignment.visual_layers == []
+
+
+def test_analyze_visual_treatments_detects_continuous_progression():
+    scene = scene_with_words("s1", "The crack slowly spreads across the glass.")
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-continuous")
+
+    assignment = assignments[0]
+    assert assignment.visual_mode == "continuous"
+    assert assignment.visual_treatment == "full_frame"
+    assert assignment.visual_layers == []
+
+
 def test_apply_visual_treatment_assignments_updates_matching_scenes():
     first = scene_with_words("s1", "First panel.")
     second = scene_with_words("s2", "Second panel.")
@@ -1885,3 +1910,47 @@ def test_apply_visual_treatment_assignments_updates_matching_scenes():
     assert first.visual_layers == [layer]
     assert second.visual_treatment == "full_frame"
     assert second.visual_layers == []
+
+
+def test_apply_visual_treatment_assignment_accepts_multi_frame_mode():
+    scene = scene_with_words("s1", "Three separate images appear.")
+    content = content_with_scenes(scene)
+
+    apply_visual_treatment_assignments(
+        content,
+        [
+            VisualTreatmentAssignment(
+                scene_id="s1",
+                visual_mode="multi_frame",
+                visual_treatment="full_frame",
+                visual_layers=[VisualLayer(id="bogus")],
+            )
+        ],
+    )
+
+    assert scene.visual_mode == "multi_frame"
+    assert scene.media_source == "ai"
+    assert scene.visual_treatment == "full_frame"
+    assert scene.visual_layers == []
+
+
+def test_apply_visual_treatment_assignment_accepts_continuous_mode():
+    scene = scene_with_words("s1", "The crack slowly spreads across the glass.")
+    content = content_with_scenes(scene)
+
+    apply_visual_treatment_assignments(
+        content,
+        [
+            VisualTreatmentAssignment(
+                scene_id="s1",
+                visual_mode="continuous",
+                visual_treatment="full_frame",
+                visual_layers=[VisualLayer(id="bogus")],
+            )
+        ],
+    )
+
+    assert scene.visual_mode == "continuous"
+    assert scene.media_source == "ai"
+    assert scene.visual_treatment == "full_frame"
+    assert scene.visual_layers == []

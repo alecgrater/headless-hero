@@ -49,6 +49,25 @@ TWO_STATE_PHRASES = (
     "two states",
     "switches between",
 )
+PROGRESSION_MARKERS = {
+    "build",
+    "builds",
+    "built",
+    "crack",
+    "cracks",
+    "crawl",
+    "crawls",
+    "expand",
+    "expands",
+    "grow",
+    "grows",
+    "pour",
+    "pours",
+    "spread",
+    "spreads",
+    "transform",
+    "transforms",
+}
 REPETITION_STOPWORDS = {
     "a",
     "an",
@@ -156,7 +175,11 @@ def apply_visual_treatment_assignments(
             continue
         mode = _normalize_visual_mode(assignment.visual_mode or assignment.visual_treatment)
         scene.set_visual_mode(mode)
-        scene.visual_layers = [] if mode in {"video", "full_frame"} else list(assignment.visual_layers)
+        scene.visual_layers = (
+            list(assignment.visual_layers)
+            if mode in {"popup_sequence", "flipflop"}
+            else []
+        )
 
 
 def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
@@ -168,6 +191,31 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             visual_mode="video",
             visual_treatment="full_frame",
             reasoning="Video scenes keep their generated clip as the scene mode.",
+            visual_layers=[],
+        )
+
+    if scene.visual_mode == "multi_frame" or scene.visual_beat in {"quick_cuts", "montage", "multi_frame"}:
+        return VisualTreatmentAssignment(
+            scene_id=scene.id,
+            visual_mode="multi_frame",
+            visual_treatment="full_frame",
+            reasoning="Scene is explicitly marked for independent multi-frame rendering.",
+            visual_layers=[],
+        )
+    if scene.visual_mode == "continuous" or scene.visual_beat == "continuous":
+        return VisualTreatmentAssignment(
+            scene_id=scene.id,
+            visual_mode="continuous",
+            visual_treatment="full_frame",
+            reasoning="Scene is explicitly marked for same-scene progression.",
+            visual_layers=[],
+        )
+    if _looks_like_continuous_progression(scene):
+        return VisualTreatmentAssignment(
+            scene_id=scene.id,
+            visual_mode="continuous",
+            visual_treatment="full_frame",
+            reasoning="Detected same-scene visual progression in narration.",
             visual_layers=[],
         )
 
@@ -250,9 +298,28 @@ def _normalize_treatment(value: str) -> VisualTreatment:
 def _normalize_visual_mode(value: str) -> VisualMode:
     if value in VISUAL_MODES:
         return value  # type: ignore[return-value]
+    if value in {"quick_cuts", "montage"}:
+        return "multi_frame"
     if value in VISUAL_TREATMENTS:
         return value  # type: ignore[return-value]
     return "full_frame"
+
+
+def _looks_like_continuous_progression(scene: Scene) -> bool:
+    words = {_normalize_word(word.word) for word in scene.word_timestamps or []}
+    if words & PROGRESSION_MARKERS:
+        return True
+    text = scene.narration.lower()
+    return any(
+        phrase in text
+        for phrase in (
+            "over time",
+            "slowly turns",
+            "slowly becomes",
+            "step by step",
+            "piece by piece",
+        )
+    )
 
 
 def _popup_layers(scene: Scene, list_items: list[tuple[str, float]]) -> list[VisualLayer]:
