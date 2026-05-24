@@ -119,7 +119,7 @@ def _phase_images(ctx: ExportContext) -> None:
         treatment = sc_info.get("visual_treatment") or (scene_now.visual_treatment if scene_now is not None else "full_frame")
         if treatment in {"popup_sequence", "flipflop"} and visual_layers:
             logger.info(
-                "[VISUAL_TREATMENT] generating panels scene=%s treatment=%s layers=%d",
+                "[ANIMATION_TYPE] generating panels scene=%s animation_type=%s layers=%d",
                 sid,
                 treatment,
                 len(visual_layers),

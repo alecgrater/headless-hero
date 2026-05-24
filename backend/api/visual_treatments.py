@@ -1,4 +1,8 @@
-"""Endpoints for static canvas visual treatment settings."""
+"""Endpoints for static canvas animation type settings.
+
+The route path remains /api/visual-treatments for compatibility with existing
+frontend builds and any saved local tooling.
+"""
 
 from __future__ import annotations
 
@@ -191,7 +195,7 @@ def analyze_visual_treatment_job(
     job_id = job.id
 
     def _run_analysis() -> None:
-        update_job(job_id, current_step="Analyzing visual treatments...")
+        update_job(job_id, current_step="Analyzing animation types...")
 
         from database import engine
         from sqlmodel import Session as SqlSession
@@ -199,7 +203,7 @@ def analyze_visual_treatment_job(
         with SqlSession(engine) as bg_session:
             rec = bg_session.get(Script, script_id)
             if not rec:
-                raise RuntimeError(f"Script {script_id} not found during visual treatment analysis")
+                raise RuntimeError(f"Script {script_id} not found during animation type analysis")
             fresh_content = ScriptContent.model_validate_json(rec.script_json)
             assignments = analyze_visual_treatments(fresh_content, script_id=script_id)
             update_job(

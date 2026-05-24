@@ -636,7 +636,7 @@ def test_require_visual_treatment_voiceover_raises_for_missing_non_title_audio()
     scene = Scene(id="s1", narration="Missing audio.", visual_prompt="Panel")
     content = content_with_scenes(title, scene)
 
-    with pytest.raises(UserFacingJobError, match="Generate voiceover first"):
+    with pytest.raises(UserFacingJobError, match="animation types can sync to words"):
         require_visual_treatment_voiceover(content)
 
 

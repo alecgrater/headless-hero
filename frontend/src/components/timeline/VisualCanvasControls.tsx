@@ -34,7 +34,7 @@ export default function VisualCanvasControls({ color, palette, saving = false, o
         <div className="space-y-1">
           <h3 className="text-sm font-semibold text-neutral-100">Canvas Color</h3>
           <p className="max-w-2xl text-xs leading-5 text-neutral-400">
-            The canvas color sits behind every scene. Full-frame visuals cover it completely; popup and flipflop treatments let it show through.
+            The canvas color sits behind every scene. Full-frame visuals cover it completely; popup and flipflop animation types let it show through.
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start">

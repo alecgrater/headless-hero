@@ -699,7 +699,7 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
             for layer in scene.visual_layers:
                 if layer.image_url:
                     ctx.manifest.assets.append(
-                        TestLabAsset(kind="treatment_asset", label=f"Treatment asset {layer.id}", url=layer.image_url)
+                        TestLabAsset(kind="treatment_asset", label=f"Animation asset {layer.id}", url=layer.image_url)
                     )
         _save_content(session, record, content)
 

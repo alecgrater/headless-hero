@@ -259,7 +259,7 @@ function AssetIcon({ asset }: { asset: TestLabAsset }) {
 function assetKindLabel(kind: TestLabAsset["kind"]) {
   if (kind === "video") return "Video asset";
   if (kind === "render") return "Render";
-  if (kind === "treatment_asset") return "Treatment asset";
+  if (kind === "treatment_asset") return "Animation asset";
   if (kind === "audio") return "Audio";
   if (kind === "image") return "Image";
   return "Asset";

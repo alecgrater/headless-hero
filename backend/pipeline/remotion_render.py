@@ -92,7 +92,7 @@ def _scene_frame_paths(script_id: str, scene: Scene) -> list[str]:
 
 
 def _visual_layers_to_input_props(scene: Scene, script_id: str) -> list[dict[str, Any]]:
-    """Convert visual treatment layers to Remotion input props."""
+    """Convert animation type layers to Remotion input props."""
     layers: list[dict[str, Any]] = []
     for layer in scene.visual_layers:
         layer_props = layer.model_dump()

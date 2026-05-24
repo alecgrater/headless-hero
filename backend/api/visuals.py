@@ -145,7 +145,7 @@ def _generate_scene_visual_layers(
     if treatment not in {"popup_sequence", "flipflop"} or not layers:
         return None
     logger.info(
-        "[VISUAL_TREATMENT] generating panels scene=%s treatment=%s layers=%d",
+        "[ANIMATION_TYPE] generating panels scene=%s animation_type=%s layers=%d",
         scene_id,
         treatment,
         len(layers),

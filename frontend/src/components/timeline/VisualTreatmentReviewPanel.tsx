@@ -73,9 +73,9 @@ export default function VisualTreatmentReviewPanel({
       <div className="border-b border-neutral-800 px-4 py-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-1">
-            <h3 className="text-sm font-semibold text-neutral-100">Visual Treatment Review</h3>
+            <h3 className="text-sm font-semibold text-neutral-100">Animation Type Review</h3>
             <p className="max-w-3xl text-xs leading-5 text-neutral-400">
-              Visual treatment controls how a scene is staged. Media source chooses where assets come from; treatment chooses how they appear on the canvas.
+              Animation type controls how a scene is staged. Media source chooses where assets come from; animation type chooses how they appear on the canvas.
             </p>
             <p className="text-xs text-neutral-500">
               {summary.full_frame} full frame, {summary.popup_sequence} popup sequence, {summary.flipflop} flipflop
@@ -95,7 +95,7 @@ export default function VisualTreatmentReviewPanel({
               type="button"
               onClick={() => onApply(draft)}
               disabled={hasInvalidLayerlessTreatment}
-              title={hasInvalidLayerlessTreatment ? "Re-analyze before applying layer-based treatments." : undefined}
+              title={hasInvalidLayerlessTreatment ? "Re-analyze before applying layer-based animation types." : undefined}
               className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-violet-600"
             >
               Apply
@@ -104,7 +104,7 @@ export default function VisualTreatmentReviewPanel({
         </div>
         {hasInvalidLayerlessTreatment && (
           <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-            Re-analyze before applying popup sequence or flipflop treatments to scenes with no generated layers.
+            Re-analyze before applying popup sequence or flipflop animation types to scenes with no generated layers.
           </p>
         )}
 

@@ -48,10 +48,10 @@ const STAGE_OPTIONS: Array<{ key: StageKey; label: string; help: ToggleHelp }> =
   },
   {
     key: "treatment_assets",
-    label: "Treatment assets",
+    label: "Animation assets",
     help: {
-      on: "Generate extra image layers used by popup sequence and flip-flop visual treatments.",
-      off: "Render with the base scene media only; layered treatments may have fewer or no extra cutout assets.",
+      on: "Generate extra image layers used by popup sequence and flip-flop animation types.",
+      off: "Render with the base scene media only; layered animation types may have fewer or no extra cutout assets.",
     },
   },
   {
@@ -257,7 +257,7 @@ export default function TestLabControls({
             description="Apply the active preset character and house style."
             checked={settings.style_preset_enabled}
             help={{
-              on: "Apply the house visual style preset to generated character, image, and treatment assets.",
+              on: "Apply the house visual style preset to generated character, image, and animation assets.",
               off: "Use the raw preset prompt/settings without injecting the house style preset.",
             }}
             onChange={(enabled) => update({ style_preset_enabled: enabled })}
@@ -306,11 +306,11 @@ export default function TestLabControls({
         </div>
       </Panel>
 
-      <Panel title="Treatment, FX, canvas" help="Tune the render wrapper and overlay behavior around the generated scene media.">
+      <Panel title="Animation type, FX, canvas" help="Tune the render wrapper and overlay behavior around the generated scene media.">
         <div className="grid grid-cols-2 gap-3">
           <div className="block">
             <span className={`text-xs font-medium ${isAiVideo ? "text-neutral-500" : "text-neutral-300"}`}>
-              Visual treatment
+              Animation type
             </span>
             <div className="mt-2 grid gap-2">
               {TREATMENT_OPTIONS.map((option) => (
@@ -325,7 +325,7 @@ export default function TestLabControls({
             </div>
             {isAiVideo && (
               <p className="mt-2 text-xs leading-5 text-neutral-500">
-                AI video scenes render the generated clip full-frame, so visual treatments and treatment assets are disabled.
+                AI video scenes render the generated clip full-frame, so layered animation assets are disabled.
               </p>
             )}
           </div>

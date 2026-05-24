@@ -893,13 +893,13 @@ export async function updateVisualCanvas(
 
 export async function analyzeVisualTreatments(scriptId: string): Promise<{ job_id: string }> {
   const res = await api.post<{ job_id: string }>(`/api/visual-treatments/${scriptId}/analyze`);
-  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to analyze visual treatments");
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to analyze animation types");
   return res.data;
 }
 
 export async function getVisualTreatmentStatus(jobId: string): Promise<VisualTreatmentStatus> {
   const res = await api.get<VisualTreatmentStatus>(`/api/visual-treatments/analyze/status/${jobId}`);
-  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to check visual treatment status");
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to check animation type status");
   return res.data;
 }
 
@@ -911,7 +911,7 @@ export async function applyVisualTreatmentAssignments(
     `/api/visual-treatments/${scriptId}/apply`,
     { assignments },
   );
-  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to apply visual treatments");
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to apply animation types");
   return res.data;
 }
 
@@ -924,7 +924,7 @@ export async function updateSceneVisualTreatment(
     `/api/visual-treatments/${scriptId}/scene`,
     { scene_id: sceneId, visual_treatment: visualTreatment },
   );
-  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to update visual treatment");
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to update animation type");
   return res.data;
 }
 

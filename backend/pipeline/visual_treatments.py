@@ -1,4 +1,8 @@
-"""Static-canvas visual treatment analysis and assignment helpers."""
+"""Static-canvas animation type analysis and assignment helpers.
+
+The persisted scene field is still named ``visual_treatment`` for backward
+compatibility with existing script JSON and Remotion props.
+"""
 
 from __future__ import annotations
 
@@ -89,7 +93,7 @@ def missing_visual_treatment_voiceover_scene_ids(content: ScriptContent) -> tupl
 
 def visual_treatment_voiceover_required_message(audio_count: int, word_count: int) -> str:
     return (
-        "Generate voiceover first so visual treatments can sync to words. "
+        "Generate voiceover first so animation types can sync to words. "
         f"{audio_count} scene(s) are missing audio duration and "
         f"{word_count} scene(s) are missing word timing."
     )
@@ -102,7 +106,7 @@ def require_visual_treatment_voiceover(content: ScriptContent) -> None:
 
     scene_ids = sorted(set(missing_audio) | set(missing_words))
     logger.info(
-        "[VISUAL_TREATMENT] blocked; missing_audio=%d missing_word_timing=%d scene_ids=%s",
+        "[ANIMATION_TYPE] blocked; missing_audio=%d missing_word_timing=%d scene_ids=%s",
         len(missing_audio),
         len(missing_words),
         scene_ids,
@@ -120,7 +124,7 @@ def analyze_visual_treatments(
     require_visual_treatment_voiceover(content)
     scenes = content.all_scenes()
     logger.info(
-        "[VISUAL_TREATMENT] analysis requested; script=%s scenes=%d format=%s",
+        "[ANIMATION_TYPE] analysis requested; script=%s scenes=%d format=%s",
         script_id,
         len(scenes),
         content.format_id,
@@ -130,7 +134,7 @@ def analyze_visual_treatments(
     for scene in scenes:
         assignment = _analyze_scene(scene)
         logger.info(
-            "[VISUAL_TREATMENT] scene=%s treatment=%s layers=%d reason=%s",
+            "[ANIMATION_TYPE] scene=%s animation_type=%s layers=%d reason=%s",
             scene.id,
             assignment.visual_treatment,
             len(assignment.visual_layers),

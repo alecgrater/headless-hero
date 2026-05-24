@@ -61,7 +61,7 @@ class VisualCanvas(BaseModel):
 
 
 class VisualLayer(BaseModel):
-    """A renderer-facing layer used by visual treatments."""
+    """A renderer-facing layer used by layered animation types."""
 
     id: str
     type: VisualLayerType = "image"

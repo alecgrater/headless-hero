@@ -1182,13 +1182,13 @@ function TimelineEditor({
           setVisualTreatmentAssignments(status.assignments ?? []);
           setVisualTreatmentAnalyzing(false);
           setVisualTreatmentJobId(null);
-          showToast("Visual treatments analyzed.", "success");
+          showToast("Animation types analyzed.", "success");
           return;
         }
         if (status.status === "failed" || status.status === "cancelled") {
           setVisualTreatmentAnalyzing(false);
           setVisualTreatmentJobId(null);
-          showToast(status.error || "Visual treatment analysis failed");
+          showToast(status.error || "Animation type analysis failed");
           return;
         }
         timeoutId = setTimeout(poll, 1200);
@@ -1196,7 +1196,7 @@ function TimelineEditor({
         if (cancelled) return;
         setVisualTreatmentAnalyzing(false);
         setVisualTreatmentJobId(null);
-        showToast(err instanceof Error ? err.message : "Failed to check visual treatment status");
+        showToast(err instanceof Error ? err.message : "Failed to check animation type status");
       }
     };
 
@@ -1252,7 +1252,7 @@ function TimelineEditor({
       const saved = await state.save();
       if (activeScriptIdRef.current !== scriptId) return;
       if (!saved) {
-        showToast("Save your timeline changes before analyzing visual treatments.");
+        showToast("Save your timeline changes before analyzing animation types.");
         return;
       }
       setVisualTreatmentAnalyzing(true);
@@ -1262,7 +1262,7 @@ function TimelineEditor({
       setVisualTreatmentJobId(job_id);
     } catch (err) {
       setVisualTreatmentAnalyzing(false);
-      showToast(err instanceof Error ? err.message : "Failed to analyze visual treatments");
+      showToast(err instanceof Error ? err.message : "Failed to analyze animation types");
     }
   }, [scriptId, state]);
 
@@ -1272,17 +1272,17 @@ function TimelineEditor({
       const saved = await state.save();
       if (activeScriptIdRef.current !== requestScriptId) return;
       if (!saved) {
-        showToast("Save your timeline changes before applying visual treatments.");
+        showToast("Save your timeline changes before applying animation types.");
         return;
       }
       const result = await applyVisualTreatmentAssignments(requestScriptId, assignments);
       if (activeScriptIdRef.current !== requestScriptId) return;
       state.setContent(result.script);
       setVisualTreatmentAssignments(assignments);
-      showToast("Visual treatments applied.", "success");
+      showToast("Animation types applied.", "success");
     } catch (err) {
       if (activeScriptIdRef.current !== scriptId) return;
-      showToast(err instanceof Error ? err.message : "Failed to apply visual treatments");
+      showToast(err instanceof Error ? err.message : "Failed to apply animation types");
     }
   }, [scriptId, state]);
 
