@@ -1,5 +1,7 @@
 from unittest.mock import patch
 
+from PIL import Image, ImageDraw
+
 from models.script import MainCharacter
 from pipeline.main_character import (
     build_reference_prompt,
@@ -59,7 +61,10 @@ def test_generate_character_reference_writes_file_and_returns_web_path(tmp_path,
     importlib.reload(mc)
 
     fake_temp = tmp_path / "fake_gemini_output.png"
-    fake_temp.write_bytes(b"\x89PNG fake")
+    image = Image.new("RGB", (180, 140), (0, 255, 0))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((70, 34, 110, 112), fill=(255, 0, 0))
+    image.save(fake_temp)
 
     with patch.object(mc, "_call_image_generator", return_value=str(fake_temp)):
         web_path = mc.generate_character_reference(
@@ -71,12 +76,17 @@ def test_generate_character_reference_writes_file_and_returns_web_path(tmp_path,
     target = tmp_path / "projects" / "script-xyz" / "character" / "reference.png"
     assert target.exists()
     variant = tmp_path / "projects" / "script-xyz" / "character" / "references" / "1.png"
+    variant_cutout = tmp_path / "projects" / "script-xyz" / "character" / "references" / "1.cutout.png"
+    active_cutout = tmp_path / "projects" / "script-xyz" / "character" / "cutout.png"
     assert variant.exists()
+    assert variant_cutout.exists()
+    assert active_cutout.exists()
     variants = mc.list_character_reference_variants("script-xyz")
     assert variants == [
         {
             "idx": 1,
             "image_url": "/static/projects/script-xyz/character/references/1.png",
+            "cutout_image_url": "/static/projects/script-xyz/character/references/1.cutout.png",
             "active": True,
         }
     ]

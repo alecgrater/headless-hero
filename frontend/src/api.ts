@@ -403,10 +403,12 @@ export type ProjectConfig = {
   eli_enabled: boolean;
   style_preset_enabled: boolean;
   main_character_reference_url: string | null;
+  main_character_cutout_url: string | null;
   main_character: MainCharacter | null;
   main_character_reference_variants: Array<{
     idx: number;
     image_url: string;
+    cutout_image_url: string;
     active: boolean;
   }>;
 };
@@ -414,27 +416,29 @@ export type ProjectConfig = {
 export type MainCharacterConfig = {
   main_character: MainCharacter | null;
   main_character_reference_url: string | null;
+  main_character_cutout_url?: string | null;
   main_character_reference_variants: Array<{
     idx: number;
     image_url: string;
+    cutout_image_url: string;
     active: boolean;
   }>;
 };
 
 export async function getProjectConfig(scriptId: string) {
-  return api.get(`/api/projects/${scriptId}/config`);
+  return api.get<ProjectConfig>(`/api/projects/${scriptId}/config`);
 }
 
 export async function updateMainCharacter(scriptId: string, character: MainCharacter) {
-  return api.put(`/api/projects/${scriptId}/config/character`, character);
+  return api.put<ProjectConfig>(`/api/projects/${scriptId}/config/character`, character);
 }
 
 export async function regenerateMainCharacterReference(scriptId: string) {
-  return api.post(`/api/projects/${scriptId}/config/character/regenerate`, {});
+  return api.post<ProjectConfig>(`/api/projects/${scriptId}/config/character/regenerate`, {});
 }
 
 export async function selectMainCharacterReference(scriptId: string, idx: number) {
-  return api.post(`/api/projects/${scriptId}/config/character/select/${idx}`, {});
+  return api.post<ProjectConfig>(`/api/projects/${scriptId}/config/character/select/${idx}`, {});
 }
 
 export async function getGlobalMainCharacter() {
