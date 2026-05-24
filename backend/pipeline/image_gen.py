@@ -1204,10 +1204,11 @@ def _generate_one_scene(
         return result
 
     try:
+        visual_mode = scene.get("visual_mode") or ("video" if scene.get("media_source") == "ai_video" else scene.get("visual_treatment", "full_frame"))
         media_source = scene.get("media_source", "ai")
 
         # --- AI video dispatch ---
-        if media_source == "ai_video":
+        if visual_mode == "video" or media_source == "ai_video":
             from pipeline.video_gen import generate_scene_video
 
             duration = float(scene.get("audio_duration_seconds", 5.0) or 5.0)
@@ -1236,6 +1237,8 @@ def _generate_one_scene(
         frame_prompts = scene.get("frame_prompts", [])
         scene_contains_person = scene.get("contains_person", False)
         treatment = scene.get("visual_treatment", "full_frame")
+        if visual_mode in {"popup_sequence", "flipflop"}:
+            treatment = visual_mode
 
         if treatment != "full_frame":
             return with_visual_layers({

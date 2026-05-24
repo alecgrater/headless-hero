@@ -127,7 +127,7 @@ def _visual_layers_to_input_props(scene: Scene, script_id: str) -> list[dict[str
 
 def _scene_video_path(script_id: str, scene: Scene) -> Path | None:
     """Resolve the local filesystem path for video-backed scenes."""
-    if scene.media_source != "ai_video":
+    if scene.visual_mode != "video" and scene.media_source != "ai_video":
         return None
 
     ai_video_path = DATA_DIR / "projects" / script_id / "videos" / f"{scene.id}.mp4"
@@ -204,7 +204,7 @@ def _scene_video_render_plan(
     if not clip_duration or clip_duration + (1 / FPS) >= duration:
         return duration, True, None
 
-    if scene.media_source == "ai_video":
+    if scene.visual_mode == "video" or scene.media_source == "ai_video":
         slowdown_ratio = duration / clip_duration
         if slowdown_ratio <= MAX_AI_VIDEO_SLOWDOWN_RATIO:
             playback_rate = clip_duration / duration
@@ -340,6 +340,7 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
         "word_timestamps": [w.model_dump() for w in scene.word_timestamps] if scene.word_timestamps and not scene.is_title_card else None,
         "phrase_timestamps": [p.model_dump() for p in scene.phrase_timestamps] if scene.phrase_timestamps and not scene.is_title_card else None,
         "visual_beat": scene.visual_beat,
+        "visual_mode": scene.visual_mode,
         "visual_treatment": scene.visual_treatment,
         "visual_layers": _visual_layers_to_input_props(scene, script_id),
         "frame_directives": [d.model_dump() for d in scene.frame_directives] if scene.frame_directives else None,

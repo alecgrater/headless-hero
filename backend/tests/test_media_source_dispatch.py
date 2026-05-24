@@ -116,6 +116,32 @@ class TestMediaSourceDispatch:
         assert results[0]["image_url"] is None
         assert results[0]["video_url"] == "/static/projects/test-script-video/videos/scene_ai_video_1.mp4"
 
+    def test_video_visual_mode_routes_to_ai_video_generation(self, monkeypatch, mock_gemini, tmp_data_dir):
+        monkeypatch.setenv("AI_VIDEO_PROVIDER", "runway")
+
+        def _fake_video(**kwargs):
+            Path(kwargs["output_path"]).write_bytes(b"\x00" * 100)
+            return {
+                "source_type": "ai_generated_video",
+                "provider": "runway",
+                "model": "gen4_turbo",
+            }
+
+        with patch("integrations.runway_video_client.generate_video_from_image", side_effect=_fake_video) as mock_runway:
+            scenes = [{
+                "scene_id": "scene_visual_mode_video",
+                "visual_prompt": "A character points at a thought bubble",
+                "visual_mode": "video",
+                "audio_duration_seconds": 5.0,
+            }]
+            results = generate_batch(scenes, script_id="test-script-visual-mode-video")
+
+        assert mock_gemini.called
+        assert mock_runway.called
+        assert results[0]["error"] is None
+        assert results[0]["image_url"] is None
+        assert results[0]["video_url"] == "/static/projects/test-script-visual-mode-video/videos/scene_visual_mode_video.mp4"
+
     def test_ai_video_provider_fal_calls_fal_client(self, monkeypatch, mock_gemini, tmp_data_dir):
         monkeypatch.setenv("AI_VIDEO_PROVIDER", "fal")
 

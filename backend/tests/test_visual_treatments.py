@@ -110,6 +110,44 @@ def test_visual_layer_invalid_values_normalize_to_defaults():
     assert layer.animation == "none"
 
 
+def test_visual_treatment_assignment_sets_canonical_visual_mode():
+    content = content_with_scenes(
+        Scene(id="scene_001", narration="First this, second that.", visual_prompt="A list")
+    )
+
+    apply_visual_treatment_assignments(
+        content,
+        [
+            VisualTreatmentAssignment(
+                scene_id="scene_001",
+                visual_treatment="popup_sequence",
+                visual_layers=[VisualLayer(id="panel_1")],
+            )
+        ],
+    )
+
+    scene = content.all_scenes()[0]
+    assert scene.visual_mode == "popup_sequence"
+    assert scene.media_source == "ai"
+    assert scene.visual_treatment == "popup_sequence"
+
+
+def test_visual_treatment_assignment_preserves_video_visual_mode():
+    content = content_with_scenes(
+        scene_with_words("scene_001", "Video line with motion.")
+    )
+    content.all_scenes()[0].set_visual_mode("video")
+
+    assignments = analyze_visual_treatments(content, script_id="script-1")
+    apply_visual_treatment_assignments(content, assignments)
+
+    scene = content.all_scenes()[0]
+    assert scene.visual_mode == "video"
+    assert scene.media_source == "ai_video"
+    assert scene.visual_treatment == "full_frame"
+    assert scene.visual_layers == []
+
+
 def test_visual_layer_image_filename_is_stable_and_png():
     assert visual_layer_image_filename("scene_001", "scene_001_panel_1") == "scene_001_layer_scene_001_panel_1.png"
 

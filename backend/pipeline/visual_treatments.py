@@ -11,7 +11,7 @@ import re
 
 from pydantic import BaseModel, Field
 
-from models.script import ScriptContent, Scene, VISUAL_TREATMENTS, VisualLayer, VisualTreatment
+from models.script import ScriptContent, Scene, VISUAL_MODES, VISUAL_TREATMENTS, VisualLayer, VisualMode, VisualTreatment
 from pipeline.render_jobs import UserFacingJobError
 
 logger = logging.getLogger(__name__)
@@ -71,6 +71,7 @@ REPETITION_STOPWORDS = {
 
 class VisualTreatmentAssignment(BaseModel):
     scene_id: str
+    visual_mode: str = ""
     visual_treatment: str
     reasoning: str = ""
     visual_layers: list[VisualLayer] = Field(default_factory=list)
@@ -153,16 +154,24 @@ def apply_visual_treatment_assignments(
         scene = scenes_by_id.get(assignment.scene_id)
         if scene is None:
             continue
-        treatment = _normalize_treatment(assignment.visual_treatment)
-        scene.visual_treatment = treatment
-        scene.visual_layers = [] if treatment == "full_frame" else list(assignment.visual_layers)
+        mode = _normalize_visual_mode(assignment.visual_mode or assignment.visual_treatment)
+        if scene.visual_mode == "video":
+            mode = "video"
+        scene.set_visual_mode(mode)
+        scene.visual_layers = [] if mode in {"video", "full_frame"} else list(assignment.visual_layers)
 
 
 def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
     if scene.is_title_card:
         return _full_frame_assignment(scene.id, "Title-card scenes keep their existing full-frame animation type.")
     if _is_video_or_photo_backed(scene):
-        return _full_frame_assignment(scene.id, "Video or photo-backed scenes keep their source media full-frame.")
+        return VisualTreatmentAssignment(
+            scene_id=scene.id,
+            visual_mode="video",
+            visual_treatment="full_frame",
+            reasoning="Video scenes keep their generated clip as the scene mode.",
+            visual_layers=[],
+        )
 
     marker_list_items = _matching_words(scene, LIST_MARKERS)
     if len(marker_list_items) >= 2:
@@ -170,6 +179,7 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
         layers = _popup_layers(scene, marker_list_items[:layer_count])
         return VisualTreatmentAssignment(
             scene_id=scene.id,
+            visual_mode="popup_sequence",
             visual_treatment="popup_sequence",
             reasoning=f"Detected {layer_count} list markers in narration.",
             visual_layers=layers,
@@ -185,6 +195,7 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
     ):
         return VisualTreatmentAssignment(
             scene_id=scene.id,
+            visual_mode="flipflop",
             visual_treatment="flipflop",
             reasoning="Detected contrast, repetition, or two-state narration.",
             visual_layers=_flipflop_layers(scene, state_b_enter_at),
@@ -196,6 +207,7 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
         layers = _popup_layers(scene, natural_list_items[:layer_count])
         return VisualTreatmentAssignment(
             scene_id=scene.id,
+            visual_mode="popup_sequence",
             visual_treatment="popup_sequence",
             reasoning=f"Detected {layer_count} list items in narration.",
             visual_layers=layers,
@@ -204,6 +216,7 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
     if _has_repeated_content_word(scene):
         return VisualTreatmentAssignment(
             scene_id=scene.id,
+            visual_mode="flipflop",
             visual_treatment="flipflop",
             reasoning="Detected repeated narration content.",
             visual_layers=_flipflop_layers(scene, state_b_enter_at),
@@ -215,6 +228,7 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
 def _full_frame_assignment(scene_id: str, reasoning: str) -> VisualTreatmentAssignment:
     return VisualTreatmentAssignment(
         scene_id=scene_id,
+        visual_mode="full_frame",
         visual_treatment="full_frame",
         reasoning=reasoning,
         visual_layers=[],
@@ -223,12 +237,21 @@ def _full_frame_assignment(scene_id: str, reasoning: str) -> VisualTreatmentAssi
 
 def _is_video_or_photo_backed(scene: Scene) -> bool:
     return (
-        scene.media_source in VIDEO_OR_PHOTO_SOURCES
+        scene.visual_mode == "video"
+        or scene.media_source in VIDEO_OR_PHOTO_SOURCES
         or bool(scene.video_url)
     )
 
 
 def _normalize_treatment(value: str) -> VisualTreatment:
+    if value in VISUAL_TREATMENTS:
+        return value  # type: ignore[return-value]
+    return "full_frame"
+
+
+def _normalize_visual_mode(value: str) -> VisualMode:
+    if value in VISUAL_MODES:
+        return value  # type: ignore[return-value]
     if value in VISUAL_TREATMENTS:
         return value  # type: ignore[return-value]
     return "full_frame"

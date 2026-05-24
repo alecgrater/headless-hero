@@ -64,6 +64,7 @@ class MediaAssignment:
     game_name: str | None
     search_query: str | None
     reasoning: str
+    visual_mode: str = ""
 
 
 def _resolve_scene_id(raw_scene_id: str, valid_scene_ids: set[str]) -> str | None:
@@ -240,6 +241,7 @@ def _remove_adjacent_ai_video_assignments(
                 existing.reasoning
                 or "Downgraded to AI art so AI-video scenes are not back to back."
             ),
+            visual_mode="full_frame",
         )
         segment_index = scene_segment_indexes.get(downgrade_id)
         if segment_index is not None:
@@ -370,6 +372,7 @@ def analyze_media_sources(
             game_name=entry.get("game_name"),
             search_query=entry.get("search_query"),
             reasoning=entry.get("reasoning", ""),
+            visual_mode="video" if source == "ai_video" else "full_frame",
         )
 
     for scene in script_content.all_scenes():
@@ -380,6 +383,7 @@ def analyze_media_sources(
                 game_name=None,
                 search_query=None,
                 reasoning="Defaulted to AI art because the media analyzer omitted this scene.",
+                visual_mode="full_frame",
             )
 
     ai_video_assigned = _remove_adjacent_ai_video_assignments(
@@ -426,6 +430,7 @@ def analyze_media_sources(
                     game_name=None,
                     search_query=None,
                     reasoning=existing.reasoning or _ai_video_reason(best_scene),
+                    visual_mode="video",
                 )
                 ai_video_assigned += 1
                 segment_ai_video_counts[seg_index] = segment_ai_video_counts.get(seg_index, 0) + 1
@@ -466,7 +471,7 @@ def apply_assignments(
             if not assignment:
                 continue
 
-            scene.media_source = assignment.media_source
+            scene.set_visual_mode(assignment.visual_mode or ("video" if assignment.media_source == "ai_video" else "full_frame"))
 
             scene.original_visual_prompt = ""
 

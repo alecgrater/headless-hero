@@ -64,6 +64,7 @@ class ApplyVisualTreatmentsResponse(BaseModel):
 
 class UpdateVisualTreatmentRequest(BaseModel):
     scene_id: str
+    visual_mode: str = ""
     visual_treatment: str
 
 
@@ -268,6 +269,7 @@ def update_scene_visual_treatment(
         [
             VisualTreatmentAssignment(
                 scene_id=request.scene_id,
+                visual_mode=request.visual_mode or request.visual_treatment,
                 visual_treatment=request.visual_treatment,
                 visual_layers=[],
             )

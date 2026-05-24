@@ -40,8 +40,8 @@ export default function TimelineBlock({
       {/* Color-coded left border */}
       <div className={`absolute left-0 top-0 bottom-0 w-1 ${borderColor}`} />
 
-      {/* Media source badge */}
-      {laneType === "images" && <MediaSourceBadge source={scene.media_source} />}
+      {/* Visual mode badge */}
+      {laneType === "images" && <VisualModeBadge mode={scene.visual_mode ?? (scene.media_source === "ai_video" ? "video" : scene.visual_treatment ?? "full_frame")} />}
 
       <div className="pl-2.5 pr-1.5 w-full overflow-hidden">
         {laneType === "images" && <ImageContent scene={scene} />}
@@ -55,12 +55,14 @@ export default function TimelineBlock({
   );
 }
 
-function MediaSourceBadge({ source }: { source?: string }) {
+function VisualModeBadge({ mode }: { mode?: string }) {
   const color: Record<string, string> = {
-    ai: "bg-violet-500/60",
-    ai_video: "bg-fuchsia-500/60",
+    full_frame: "bg-violet-500/60",
+    video: "bg-fuchsia-500/60",
+    popup_sequence: "bg-sky-500/60",
+    flipflop: "bg-emerald-500/60",
   };
-  const c = color[source || "ai"];
+  const c = color[mode || "full_frame"];
   if (!c) return null;
 
   return (

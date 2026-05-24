@@ -72,6 +72,7 @@ class TestLabPreset(BaseModel):
     narration: str
     visual_prompt: str
     background_color: str = "#F6C54A"
+    visual_mode: Literal["video", "full_frame", "popup_sequence", "flipflop"] = "full_frame"
     media_source: Literal["ai", "ai_video"] = "ai"
     duration_estimate_seconds: float = 7.0
     main_character: MainCharacter | None = None
@@ -322,7 +323,7 @@ def _visual_canvas_background_from_settings(settings: dict, preset: TestLabPrese
 
 def _sync_ai_video_enabled(content: ScriptContent) -> ScriptContent:
     content.ai_video_enabled = any(
-        scene.media_source == "ai_video"
+        scene.visual_mode == "video" or scene.media_source == "ai_video"
         for segment in content.segments
         for scene in segment.scenes
     )
@@ -351,8 +352,11 @@ def _reapply_top_level_scene_settings(content: ScriptContent, settings: dict) ->
     if advanced_scene is None:
         return
     scene = _first_scene(content)
-    if "visual_treatment" in settings and "visual_treatment" not in advanced_scene:
-        scene.visual_treatment = settings["visual_treatment"]
+    visual_mode = settings.get("visual_mode")
+    if isinstance(visual_mode, str) and "visual_mode" not in advanced_scene:
+        scene.set_visual_mode(visual_mode)
+    elif "visual_treatment" in settings and "visual_treatment" not in advanced_scene:
+        scene.set_visual_mode(settings["visual_treatment"])
     if (
         "visual_layers" in settings
         and "visual_layers" not in advanced_scene
@@ -363,15 +367,23 @@ def _reapply_top_level_scene_settings(content: ScriptContent, settings: dict) ->
 
 def _normalize_ai_video_treatments(content: ScriptContent) -> None:
     for scene in content.all_scenes():
-        if scene.media_source != "ai_video":
+        if scene.visual_mode != "video" and scene.media_source != "ai_video":
             continue
-        scene.visual_treatment = "full_frame"
+        scene.set_visual_mode("video")
         scene.visual_layers = []
 
 
 def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
     preset = get_preset(preset_id)
-    media_source = _setting(settings, "media_source", preset.media_source)
+    legacy_media_source = _setting(settings, "media_source", preset.media_source)
+    if isinstance(settings.get("visual_mode"), str):
+        visual_mode = settings["visual_mode"]
+    elif legacy_media_source == "ai_video":
+        visual_mode = "video"
+    elif isinstance(settings.get("visual_treatment"), str):
+        visual_mode = settings["visual_treatment"]
+    else:
+        visual_mode = preset.visual_mode
     scene = Scene(
         id=f"{preset.id}-scene-1",
         narration=_setting(settings, "narration", preset.narration),
@@ -379,7 +391,7 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
         duration_estimate_seconds=float(
             _setting(settings, "duration_estimate_seconds", preset.duration_estimate_seconds)
         ),
-        media_source=media_source,
+        visual_mode=visual_mode,
         contains_person=bool(_setting(settings, "contains_person", preset.main_character is not None)),
         visual_treatment=_setting(settings, "visual_treatment", "full_frame"),
         visual_layers=settings.get("visual_layers") if isinstance(settings.get("visual_layers"), list) else [],
@@ -402,7 +414,7 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
         main_character=_main_character_from_settings(settings, preset),
         segment_timer_enabled=bool(_setting(settings, "segment_timer_enabled", True)),
         subtitle_highlight_enabled=bool(_setting(settings, "subtitle_highlight_enabled", True)),
-        ai_video_enabled=media_source == "ai_video",
+        ai_video_enabled=visual_mode == "video",
         format_id=_setting(settings, "format_id", preset.format_id),
     )
     advanced_script = settings.get("advanced_script")
@@ -638,7 +650,7 @@ def _stage_visual(ctx: TestLabRunContext) -> None:
     with Session(ctx.engine) as session:
         record, content = _load_content_for_script(session, ctx.script_id)
         scene = _first_scene(content)
-        if scene.media_source == "ai_video":
+        if scene.visual_mode == "video" or scene.media_source == "ai_video":
             from pipeline.video_gen import generate_scene_video
 
             video_url, _prompt_used, source_metadata = generate_scene_video(
@@ -656,7 +668,7 @@ def _stage_visual(ctx: TestLabRunContext) -> None:
             scene.visual_source_metadata = source_metadata
             ctx.manifest.assets.append(TestLabAsset(kind="video", label="AI video", url=video_url))
             ctx.manifest.assets.append(TestLabAsset(kind="image", label="Anchor image", url=image_url))
-        elif scene.visual_treatment != "full_frame":
+        elif scene.visual_mode in {"popup_sequence", "flipflop"}:
             scene.image_url = ""
             scene.video_url = ""
             scene.frame_urls = []
@@ -687,22 +699,22 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
     with Session(ctx.engine) as session:
         record, content = _load_content_for_script(session, ctx.script_id)
         scene = _first_scene(content)
-        if scene.media_source == "ai_video":
-            scene.visual_treatment = "full_frame"
+        if scene.visual_mode == "video" or scene.media_source == "ai_video":
+            scene.set_visual_mode("video")
             scene.visual_layers = []
             _save_content(session, record, content)
             return
-        requested_treatment = ctx.settings.get("visual_treatment")
-        if isinstance(requested_treatment, str):
-            scene.visual_treatment = requested_treatment
-        layer_based_treatment = scene.visual_treatment in {"popup_sequence", "flipflop"}
-        explicit_treatment = "visual_treatment" in ctx.settings or scene.visual_treatment != "full_frame"
+        requested_mode = ctx.settings.get("visual_mode") or ctx.settings.get("visual_treatment")
+        if isinstance(requested_mode, str):
+            scene.set_visual_mode(requested_mode)
+        layer_based_treatment = scene.visual_mode in {"popup_sequence", "flipflop"}
+        explicit_treatment = "visual_mode" in ctx.settings or "visual_treatment" in ctx.settings or scene.visual_mode != "full_frame"
         if not explicit_treatment:
             assignments = analyze_visual_treatments(content, script_id=ctx.script_id)
             apply_visual_treatment_assignments(content, assignments)
             scene = _first_scene(content)
-            layer_based_treatment = scene.visual_treatment in {"popup_sequence", "flipflop"}
-        if scene.visual_treatment == "full_frame":
+            layer_based_treatment = scene.visual_mode in {"popup_sequence", "flipflop"}
+        if scene.visual_mode == "full_frame":
             scene.visual_layers = []
             _save_content(session, record, content)
             return
@@ -714,11 +726,11 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
             if scene.audio_duration_seconds > 0 and scene.word_timestamps:
                 assignments = analyze_visual_treatments(content, script_id=ctx.script_id)
                 assignment = _assignment_for_scene(assignments, scene.id)
-                if assignment and isinstance(requested_treatment, str) and assignment.visual_treatment != requested_treatment:
+                if assignment and isinstance(requested_mode, str) and assignment.visual_mode != requested_mode:
                     logger.info(
                         "[TEST_LAB] ignoring %s animation assets for explicitly selected %s scene=%s",
-                        assignment.visual_treatment,
-                        requested_treatment,
+                        assignment.visual_mode,
+                        requested_mode,
                         scene.id,
                     )
                     assignment = None
@@ -727,11 +739,11 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
                 if assignment and assignment.visual_layers
                 else _fallback_visual_layers_for_treatment(scene)
             )
-            if isinstance(requested_treatment, str):
-                scene.visual_treatment = requested_treatment
+            if isinstance(requested_mode, str):
+                scene.set_visual_mode(requested_mode)
         if scene.visual_layers:
             layer_dicts = [layer.model_dump() for layer in scene.visual_layers]
-            if scene.visual_treatment == "popup_sequence":
+            if scene.visual_mode == "popup_sequence":
                 generated_layers = generate_popup_sequence_cutouts(
                     scene_id=scene.id,
                     layers=layer_dicts,
@@ -764,7 +776,7 @@ def _assignment_for_scene(assignments: list["VisualTreatmentAssignment"], scene_
 
 def _fallback_visual_layers_for_treatment(scene: Scene) -> list[VisualLayer]:
     base_prompt = scene.visual_prompt.strip() or scene.narration.strip()
-    if scene.visual_treatment == "popup_sequence":
+    if scene.visual_mode == "popup_sequence":
         duration = scene.audio_duration_seconds or scene.duration_estimate_seconds
         second_enter_at = max(duration / 3, 0.5)
         third_enter_at = max((duration * 2) / 3, 1.0)
@@ -902,9 +914,8 @@ def _stage_render(ctx: TestLabRunContext) -> None:
 
 def _stage_defaults(settings: dict) -> dict[str, bool]:
     eli_default = _bool_setting(settings, "eli_enabled", True)
-    treatment_assets_enabled = (
-        False if settings.get("media_source") == "ai_video" else _enabled(settings, "treatment_assets", True)
-    )
+    visual_mode = settings.get("visual_mode") or ("video" if settings.get("media_source") == "ai_video" else "full_frame")
+    treatment_assets_enabled = False if visual_mode == "video" else _enabled(settings, "treatment_assets", True)
     return {
         "character": _enabled(settings, "character", False),
         "audio": _enabled(settings, "audio", True),

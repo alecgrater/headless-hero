@@ -4,16 +4,18 @@ import uuid
 from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field as PydanticField, field_validator
+from pydantic import BaseModel, ConfigDict, Field as PydanticField, field_validator, model_validator
 from sqlmodel import Column, Field, SQLModel, Text
 
 # --- Pydantic models for the script JSON structure ---
 
 ALLOWED_TRANSITIONS = {"cut", "fade_black", "flash_white", "wipe"}
+VISUAL_MODES = {"video", "full_frame", "popup_sequence", "flipflop"}
 VISUAL_TREATMENTS = {"full_frame", "popup_sequence", "flipflop"}
 VISUAL_LAYER_TYPES = {"image"}
 VISUAL_ASSET_KINDS = {"full_frame", "panel", "cutout"}
 VISUAL_LAYER_ANIMATIONS = {"none", "pop_in"}
+VisualMode = Literal["video", "full_frame", "popup_sequence", "flipflop"]
 VisualTreatment = Literal["full_frame", "popup_sequence", "flipflop"]
 VisualLayerType = Literal["image"]
 VisualAssetKind = Literal["full_frame", "panel", "cutout"]
@@ -166,6 +168,7 @@ class Scene(BaseModel):
     visual_beat: str = "static"        # "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage"
     frame_directives: list[FrameDirective] = []
     contains_person: bool = False       # true if any frame depicts a human figure
+    visual_mode: VisualMode = "full_frame"
     visual_treatment: VisualTreatment = "full_frame"
     visual_layers: list[VisualLayer] = PydanticField(default_factory=list)
     # --- Scene-boundary transition ---
@@ -179,6 +182,25 @@ class Scene(BaseModel):
     video_url: str = ""                 # web-relative path to AI-generated video clip
     original_visual_prompt: str = ""    # deprecated
     visual_source_metadata: dict | None = None  # provider/source details for generated or fallback visuals
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_visual_mode_fields(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        normalized = dict(data)
+        mode = _resolve_visual_mode(
+            normalized.get("visual_mode"),
+            normalized.get("media_source"),
+            normalized.get("visual_treatment"),
+        )
+        media_source, visual_treatment = _legacy_fields_for_visual_mode(mode)
+        normalized["visual_mode"] = mode
+        normalized["media_source"] = media_source
+        normalized["visual_treatment"] = visual_treatment
+        if mode != "full_frame":
+            normalized["frame_urls"] = [] if mode in {"video", "popup_sequence", "flipflop"} else normalized.get("frame_urls", [])
+        return normalized
 
     @field_validator("transition_in", mode="before")
     @classmethod
@@ -194,6 +216,42 @@ class Scene(BaseModel):
         if isinstance(value, str) and value in VISUAL_TREATMENTS:
             return value
         return "full_frame"
+
+    @field_validator("visual_mode", mode="before")
+    @classmethod
+    def normalize_visual_mode(cls, value: object) -> str:
+        if isinstance(value, str) and value in VISUAL_MODES:
+            return value
+        return "full_frame"
+
+    def set_visual_mode(self, visual_mode: str) -> None:
+        mode = _resolve_visual_mode(visual_mode, None, None)
+        media_source, visual_treatment = _legacy_fields_for_visual_mode(mode)
+        self.visual_mode = mode
+        self.media_source = media_source
+        self.visual_treatment = visual_treatment
+
+
+def _resolve_visual_mode(
+    visual_mode: object,
+    media_source: object,
+    visual_treatment: object,
+) -> VisualMode:
+    if isinstance(visual_mode, str) and visual_mode in VISUAL_MODES:
+        return visual_mode  # type: ignore[return-value]
+    if media_source == "ai_video":
+        return "video"
+    if isinstance(visual_treatment, str) and visual_treatment in {"popup_sequence", "flipflop"}:
+        return visual_treatment  # type: ignore[return-value]
+    return "full_frame"
+
+
+def _legacy_fields_for_visual_mode(visual_mode: VisualMode) -> tuple[str, VisualTreatment]:
+    if visual_mode == "video":
+        return "ai_video", "full_frame"
+    if visual_mode in {"popup_sequence", "flipflop"}:
+        return "ai", visual_mode
+    return "ai", "full_frame"
 
 class LevelMeta(BaseModel):
     """Per-level metadata used only by the cinematic-chapters strategy."""

@@ -368,21 +368,23 @@ function formatScenePercent(count: number, total: number) {
 }
 
 function MediaBreakdownPanel({
-  mediaCounts,
+  modeCounts,
   totalScenes,
 }: {
-  mediaCounts: Record<string, number>;
+  modeCounts: Record<string, number>;
   totalScenes: number;
 }) {
   const rows = [
-    { key: "ai", label: "AI Image", color: "text-violet-300", count: mediaCounts.ai ?? 0 },
-    { key: "ai_video", label: "AI Video", color: "text-fuchsia-300", count: mediaCounts.ai_video ?? 0 },
+    { key: "full_frame", label: "Full frame", color: "text-violet-300", count: modeCounts.full_frame ?? 0 },
+    { key: "video", label: "Video", color: "text-fuchsia-300", count: modeCounts.video ?? 0 },
+    { key: "popup_sequence", label: "Popup sequence", color: "text-sky-300", count: modeCounts.popup_sequence ?? 0 },
+    { key: "flipflop", label: "Flip-flop", color: "text-emerald-300", count: modeCounts.flipflop ?? 0 },
   ];
 
   return (
     <div className="overflow-hidden rounded-lg border border-neutral-800 bg-neutral-950/60">
       <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
-        <span className="text-xs font-semibold text-neutral-200">Media source mix</span>
+        <span className="text-xs font-semibold text-neutral-200">Visual mode mix</span>
         <span className="text-xs font-mono text-neutral-400">
           {totalScenes} scene{totalScenes !== 1 ? "s" : ""}
         </span>
@@ -480,7 +482,7 @@ const FORMAT_OPTIONS: { key: ViewerFormat; label: string; Icon: LucideIcon }[] =
 
 const VIEWER_NAV_OPTIONS: { key: ViewerNavKey; label: string; Icon: LucideIcon }[] = [
   { key: "segments", label: "Segments", Icon: Layers },
-  { key: "media-sources", label: "Media", Icon: PanelsTopLeft },
+  { key: "media-sources", label: "Visual Modes", Icon: PanelsTopLeft },
   { key: "timeline", label: "Timeline", Icon: ListVideo },
   { key: "thumbnails", label: "Thumbnails", Icon: ImageIcon },
   { key: "seo", label: "SEO", Icon: Search },
@@ -951,12 +953,12 @@ function ProjectDetailsModal({
 
             <DetailAccordion
               id="media"
-              title="Media Source Mix"
-              summary={`${aiScenePercent} AI across ${mediaSceneTotal} media scene${mediaSceneTotal !== 1 ? "s" : ""}`}
+              title="Visual Mode Mix"
+              summary={`${aiScenePercent} assigned across ${mediaSceneTotal} visual scene${mediaSceneTotal !== 1 ? "s" : ""}`}
               openSection={openSection}
               setOpenSection={setOpenSection}
             >
-              <MediaBreakdownPanel mediaCounts={mediaCounts} totalScenes={mediaSceneTotal} />
+              <MediaBreakdownPanel modeCounts={mediaCounts} totalScenes={mediaSceneTotal} />
             </DetailAccordion>
 
             <DetailAccordion
@@ -1241,13 +1243,13 @@ function TimelineEditor({
           setVisualTreatmentAssignments(status.assignments ?? []);
           setVisualTreatmentAnalyzing(false);
           setVisualTreatmentJobId(null);
-          showToast("Animation types analyzed.", "success");
+          showToast("Visual modes analyzed.", "success");
           return;
         }
         if (status.status === "failed" || status.status === "cancelled") {
           setVisualTreatmentAnalyzing(false);
           setVisualTreatmentJobId(null);
-          showToast(status.error || "Animation type analysis failed");
+          showToast(status.error || "Visual mode analysis failed");
           return;
         }
         timeoutId = setTimeout(poll, 1200);
@@ -1255,7 +1257,7 @@ function TimelineEditor({
         if (cancelled) return;
         setVisualTreatmentAnalyzing(false);
         setVisualTreatmentJobId(null);
-        showToast(err instanceof Error ? err.message : "Failed to check animation type status");
+        showToast(err instanceof Error ? err.message : "Failed to check visual mode status");
       }
     };
 
@@ -1281,7 +1283,7 @@ function TimelineEditor({
     };
   }, [scriptId]);
 
-  // Auto-switch to Media Sources tab when new assignments arrive
+  // Auto-switch to visual modes tab when new assignments arrive
   useEffect(() => {
     if (media.hasPendingReview) setActiveTab("media-sources");
   }, [media.hasPendingReview]);
@@ -1313,7 +1315,7 @@ function TimelineEditor({
       const saved = await state.save();
       if (activeScriptIdRef.current !== scriptId) return;
       if (!saved) {
-        showToast("Save your timeline changes before analyzing animation types.");
+        showToast("Save your timeline changes before analyzing visual modes.");
         return;
       }
       setVisualTreatmentAnalyzing(true);
@@ -1323,7 +1325,7 @@ function TimelineEditor({
       setVisualTreatmentJobId(job_id);
     } catch (err) {
       setVisualTreatmentAnalyzing(false);
-      showToast(err instanceof Error ? err.message : "Failed to analyze animation types");
+      showToast(err instanceof Error ? err.message : "Failed to analyze visual modes");
     }
   }, [scriptId, state]);
 
@@ -1333,17 +1335,17 @@ function TimelineEditor({
       const saved = await state.save();
       if (activeScriptIdRef.current !== requestScriptId) return;
       if (!saved) {
-        showToast("Save your timeline changes before applying animation types.");
+        showToast("Save your timeline changes before applying visual modes.");
         return;
       }
       const result = await applyVisualTreatmentAssignments(requestScriptId, assignments);
       if (activeScriptIdRef.current !== requestScriptId) return;
       state.setContent(result.script);
       setVisualTreatmentAssignments(assignments);
-      showToast("Animation types applied.", "success");
+      showToast("Visual modes applied.", "success");
     } catch (err) {
       if (activeScriptIdRef.current !== scriptId) return;
-      showToast(err instanceof Error ? err.message : "Failed to apply animation types");
+      showToast(err instanceof Error ? err.message : "Failed to apply visual modes");
     }
   }, [scriptId, state]);
 
@@ -1713,19 +1715,19 @@ function TimelineEditor({
     0,
   );
 
-  // Media source counts (exclude title cards)
+  // Visual mode counts (exclude title cards)
   const mediaCounts = allScenes
     .filter((sc) => !sc.is_title_card)
     .reduce(
       (acc, sc) => {
-        const src = sc.media_source ?? "ai";
-        acc[src] = (acc[src] ?? 0) + 1;
+        const mode = sc.visual_mode ?? (sc.media_source === "ai_video" ? "video" : sc.visual_treatment ?? "full_frame");
+        acc[mode] = (acc[mode] ?? 0) + 1;
         return acc;
       },
       {} as Record<string, number>,
     );
   const mediaSceneTotal = allScenes.filter((sc) => !sc.is_title_card).length;
-  const aiSceneCount = (mediaCounts.ai ?? 0) + (mediaCounts.ai_video ?? 0);
+  const aiSceneCount = Object.values(mediaCounts).reduce((sum, count) => sum + count, 0);
   const aiScenePercent = formatScenePercent(aiSceneCount, mediaSceneTotal);
 
   // Check if assets already exist for overwrite confirmation

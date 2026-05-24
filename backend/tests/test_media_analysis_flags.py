@@ -210,6 +210,30 @@ def test_normalize_media_assignments_preserves_stale_ai_video_for_final_duration
     assert normalized[0].reasoning == "Was eligible before voiceover changed"
 
 
+def test_apply_media_assignment_sets_canonical_video_visual_mode():
+    content = ScriptContent(
+        title="Visual mode routing",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(id="scene_001", narration="A line.", visual_prompt="A walking character."),
+                ],
+            ),
+        ],
+    )
+
+    media_analyzer.apply_assignments(
+        content,
+        [MediaAssignment("scene_001", "ai_video", None, None, "motion fits")],
+    )
+
+    scene = content.all_scenes()[0]
+    assert scene.visual_mode == "video"
+    assert scene.media_source == "ai_video"
+    assert scene.visual_treatment == "full_frame"
+
+
 def test_life_as_a_ai_video_eligibility_rejects_secondary_people():
     scene = Scene(
         id="scene_001",

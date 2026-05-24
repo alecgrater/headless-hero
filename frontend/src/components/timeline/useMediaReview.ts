@@ -54,11 +54,12 @@ export function useMediaReview({ scriptId, content }: UseMediaReviewOptions) {
 
   useEffect(() => {
     const allScenes = content.segments.flatMap((s) => s.scenes);
-    const hasNonAi = allScenes.some((s) => s.media_source && s.media_source !== "ai");
+    const hasNonAi = allScenes.some((s) => (s.visual_mode === "video") || (s.media_source && s.media_source !== "ai"));
 
     if (hasNonAi && !mediaReviewDismissed) {
       const existing: MediaAssignment[] = allScenes.map((s) => ({
         scene_id: s.id,
+        visual_mode: s.visual_mode ?? (s.media_source === "ai_video" ? "video" : "full_frame"),
         media_source: (s.media_source ?? "ai") as MediaAssignment["media_source"],
         game_name: null,
         search_query: null,

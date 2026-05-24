@@ -56,6 +56,7 @@ export interface VideoFX {
   chapter_markers: ChapterMarker[];
 }
 
+export type VisualMode = "video" | "full_frame" | "popup_sequence" | "flipflop";
 export type VisualTreatment = "full_frame" | "popup_sequence" | "flipflop";
 
 export interface VisualCanvas {
@@ -118,6 +119,7 @@ export interface SceneInput {
   // Visual Beat System
   visual_beat?: "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage";
   frame_directives?: FrameDirective[] | null;
+  visual_mode?: VisualMode;
   visual_treatment?: VisualTreatment;
   visual_layers?: VisualLayer[] | null;
 

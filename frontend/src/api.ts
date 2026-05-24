@@ -1,6 +1,6 @@
 import { showToast } from "./components/ToastContainer";
 import { BACKEND_PORT } from "./constants";
-import type { ScriptContent, UploadTracking, VisualLayer, VisualTreatment } from "./types/script";
+import type { ScriptContent, UploadTracking, VisualLayer, VisualMode, VisualTreatment } from "./types/script";
 import type { VideoFormat } from "./types/format";
 import type {
   PopupCropAnchorResult,
@@ -900,6 +900,7 @@ export async function getPublishStatus(jobId: string): Promise<PublishJobStatus 
 
 export interface MediaAssignment {
   scene_id: string;
+  visual_mode?: VisualMode;
   media_source: "ai" | "ai_video";
   game_name: string | null;
   search_query: string | null;
@@ -916,6 +917,7 @@ export interface MediaAnalysisStatus {
 
 export interface VisualTreatmentAssignment {
   scene_id: string;
+  visual_mode?: VisualMode;
   visual_treatment: VisualTreatment;
   reasoning: string;
   visual_layers: VisualLayer[];
@@ -963,13 +965,13 @@ export async function updateVisualCanvas(
 
 export async function analyzeVisualTreatments(scriptId: string): Promise<{ job_id: string }> {
   const res = await api.post<{ job_id: string }>(`/api/visual-treatments/${scriptId}/analyze`);
-  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to analyze animation types");
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to analyze visual modes");
   return res.data;
 }
 
 export async function getVisualTreatmentStatus(jobId: string): Promise<VisualTreatmentStatus> {
   const res = await api.get<VisualTreatmentStatus>(`/api/visual-treatments/analyze/status/${jobId}`);
-  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to check animation type status");
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to check visual mode status");
   return res.data;
 }
 
@@ -981,7 +983,7 @@ export async function applyVisualTreatmentAssignments(
     `/api/visual-treatments/${scriptId}/apply`,
     { assignments },
   );
-  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to apply animation types");
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to apply visual modes");
   return res.data;
 }
 
@@ -989,12 +991,13 @@ export async function updateSceneVisualTreatment(
   scriptId: string,
   sceneId: string,
   visualTreatment: VisualTreatment,
+  visualMode?: VisualMode,
 ): Promise<{ ok: boolean; script: ScriptContent }> {
   const res = await api.put<{ ok: boolean; script: ScriptContent }>(
     `/api/visual-treatments/${scriptId}/scene`,
-    { scene_id: sceneId, visual_treatment: visualTreatment },
+    { scene_id: sceneId, visual_mode: visualMode ?? visualTreatment, visual_treatment: visualTreatment },
   );
-  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to update animation type");
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to update visual mode");
   return res.data;
 }
 

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { Film, Image, PanelsTopLeft, Repeat2 } from "lucide-react";
 import { assetUrl, regenerateFX } from "../../api";
-import type { Scene, SceneFX } from "../../types/script";
+import type { Scene, SceneFX, VisualMode } from "../../types/script";
 import AudioPlayer from "./AudioPlayer";
 import SceneMicroTimeline from "./SceneMicroTimeline";
 import type { MicroTimelineHandle } from "./SceneMicroTimeline";
@@ -73,15 +75,28 @@ export default function PropertiesPanel({
     }
   };
 
-  const MEDIA_SOURCE_OPTIONS: { value: string; label: string }[] = [
-    { value: "ai", label: "AI Generated" },
-    { value: "ai_video", label: "AI Video" },
+  const VISUAL_MODE_OPTIONS: { value: VisualMode; label: string; icon: ReactNode }[] = [
+    { value: "video", label: "Video", icon: <Film className="h-3 w-3" /> },
+    { value: "full_frame", label: "Full frame", icon: <Image className="h-3 w-3" /> },
+    { value: "popup_sequence", label: "Popup", icon: <PanelsTopLeft className="h-3 w-3" /> },
+    { value: "flipflop", label: "Flip-flop", icon: <Repeat2 className="h-3 w-3" /> },
   ];
+  const visualMode: VisualMode =
+    scene.visual_mode ?? (scene.media_source === "ai_video" ? "video" : scene.visual_treatment ?? "full_frame");
+
+  const setVisualMode = (mode: VisualMode) => {
+    onUpdate({
+      visual_mode: mode,
+      media_source: mode === "video" ? "ai_video" : "ai",
+      visual_treatment: mode === "video" ? "full_frame" : mode,
+      visual_layers: mode === "video" || mode === "full_frame" ? [] : scene.visual_layers,
+    });
+  };
 
   const sourceMeta = scene.visual_source_metadata;
   const sourceLabel = sourceMeta?.source_type
     ? sourceMeta.source_type.replace(/_/g, " ")
-    : scene.media_source === "ai_video"
+    : visualMode === "video"
       ? "AI video"
       : null;
 
@@ -123,20 +138,23 @@ export default function PropertiesPanel({
           </div>
         </div>
 
-        {/* Col 3: Media source selector + Generate Image + Generate Audio + FX */}
+        {/* Col 3: Visual mode selector + Generate Image + Generate Audio + FX */}
         <div className="flex-[1.2] flex flex-col justify-center gap-2 min-w-0 min-h-0">
-          {/* Media source selector */}
+          {/* Visual mode selector */}
           <div className="shrink-0 flex flex-wrap gap-1">
-            {MEDIA_SOURCE_OPTIONS.map((opt) => (
+            {VISUAL_MODE_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
-                onClick={() => onUpdate({ media_source: opt.value as Scene["media_source"] })}
-                className={`text-[10px] px-2 py-0.5 rounded-full transition-colors ${
-                  (scene.media_source || "ai") === opt.value
+                type="button"
+                onClick={() => setVisualMode(opt.value)}
+                title={`Set visual mode to ${opt.label}`}
+                className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full transition-colors ${
+                  visualMode === opt.value
                     ? "bg-violet-500/20 text-violet-300 font-medium"
                     : "text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800"
                 }`}
               >
+                {opt.icon}
                 {opt.label}
               </button>
             ))}
@@ -151,7 +169,7 @@ export default function PropertiesPanel({
             >
               {isGenerating ? (
                 <><span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" /> Generating...</>
-              ) : scene.media_source === "ai_video"
+              ) : visualMode === "video"
                 ? scene.video_url ? "Regenerate Video" : "Generate Video"
                 : scene.image_url ? "Regenerate Image" : "Generate Image"}
             </button>

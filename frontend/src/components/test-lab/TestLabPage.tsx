@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS: TestLabSettings = {
   },
   eli_enabled: true,
   style_preset_enabled: true,
+  visual_mode: "full_frame",
   media_source: "ai",
   visual_treatment: "full_frame",
   visual_layers: [],

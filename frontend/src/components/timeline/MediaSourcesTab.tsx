@@ -8,7 +8,7 @@ function buildFrameCounts(content: ScriptContent): Record<string, number> {
   for (const seg of content.segments) {
     for (const scene of seg.scenes) {
       const directives = scene.frame_directives ?? [];
-      if (directives.length > 1 && scene.media_source !== "ai_video") {
+      if (directives.length > 1 && scene.visual_mode !== "video" && scene.media_source !== "ai_video") {
         counts[scene.id] = directives.length;
       }
     }
@@ -115,13 +115,13 @@ export default function MediaSourcesTab({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-neutral-100">Animation Types</h3>
-          <p className="text-xs text-neutral-500">Choose how scene visuals sit on the canvas.</p>
+          <h3 className="text-sm font-semibold text-neutral-100">Layered Visual Modes</h3>
+          <p className="text-xs text-neutral-500">Find popup and flip-flop candidates inside the unified visual mode system.</p>
         </div>
         {visualTreatmentAnalyzing && (
           <div className="flex items-center gap-2 text-xs text-neutral-400">
             <span className="h-4 w-4 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
-            Analyzing animation types...
+            Analyzing layered modes...
           </div>
         )}
       </div>
@@ -138,7 +138,7 @@ export default function MediaSourcesTab({
         <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="max-w-2xl text-xs leading-5 text-neutral-400">
-              Analyze scenes for popup and flipflop opportunities after voiceover timing exists.
+              Analyze scenes for popup and flip-flop opportunities after voiceover timing exists.
             </p>
             <button
               type="button"
@@ -147,7 +147,7 @@ export default function MediaSourcesTab({
               title={!canAnalyzeVisualTreatments ? visualTreatmentAnalyzeBlockedReason : undefined}
               className="rounded-lg bg-neutral-800 px-4 py-2 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-neutral-800"
             >
-              {visualTreatmentAnalyzing ? "Analyzing..." : "Analyze Animation Types"}
+              {visualTreatmentAnalyzing ? "Analyzing..." : "Analyze Layered Modes"}
             </button>
           </div>
           {!canAnalyzeVisualTreatments && (
@@ -167,7 +167,7 @@ export default function MediaSourcesTab({
         <div className="flex items-center justify-center py-16">
           <div className="flex flex-col items-center gap-3">
             <span className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm text-neutral-400">Analyzing media sources...</span>
+            <span className="text-sm text-neutral-400">Analyzing visual modes...</span>
           </div>
         </div>
       </div>
@@ -205,7 +205,7 @@ export default function MediaSourcesTab({
         <div className="flex items-center justify-center py-16">
           <div className="flex flex-col items-center gap-4">
             <div className="text-sm text-neutral-400">
-              Media sources have been approved. Images are generating.
+              Visual modes have been approved. Assets are generating.
             </div>
             <button
               onClick={onAnalyzeMedia}
@@ -213,7 +213,7 @@ export default function MediaSourcesTab({
               title={!canAnalyzeMedia ? analyzeBlockedReason : undefined}
               className="px-4 py-2 text-sm bg-neutral-800 hover:bg-neutral-700 disabled:hover:bg-neutral-800 disabled:opacity-50 rounded-lg transition-colors text-neutral-300"
             >
-              Re-analyze Media Sources
+              Re-analyze Visual Modes
             </button>
           </div>
         </div>
@@ -234,8 +234,8 @@ export default function MediaSourcesTab({
           <div className="space-y-3">
             <p className="text-sm text-neutral-400">
               {enabledSources.length > 0
-                ? `This project has ${enabledSources.join(" and ")} enabled. Analyze your script to assign media sources per scene.`
-                : "Analyze your script to assign AI image and AI video sources per scene."}
+                ? `This project has ${enabledSources.join(" and ")} enabled. Analyze your script to assign visual modes per scene.`
+                : "Analyze your script to assign full-frame and video modes per scene."}
             </p>
           </div>
           <button
@@ -244,7 +244,7 @@ export default function MediaSourcesTab({
             title={!canAnalyzeMedia ? analyzeBlockedReason : undefined}
             className="px-5 py-2 text-sm bg-violet-600 hover:bg-violet-500 disabled:hover:bg-violet-600 disabled:opacity-50 rounded-lg transition-colors text-white font-medium"
           >
-            Analyze Media Sources
+            Analyze Visual Modes
           </button>
           {!canAnalyzeMedia && (
             <p className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">

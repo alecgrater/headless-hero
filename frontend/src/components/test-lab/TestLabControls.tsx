@@ -1,4 +1,4 @@
-import { HelpCircle, Image, Palette, UserRound, Video } from "lucide-react";
+import { Film, HelpCircle, Image, Palette, PanelsTopLeft, Repeat2, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { assetUrl } from "../../api";
@@ -9,7 +9,7 @@ import type {
   TestLabSettings,
   TestLabStages,
 } from "../../types/testLab";
-import type { VisualTreatment } from "../../types/script";
+import type { VisualMode, VisualTreatment } from "../../types/script";
 import { Tooltip } from "../ui/Tooltip";
 
 type StageKey = keyof TestLabStages;
@@ -87,16 +87,26 @@ const STAGE_OPTIONS: Array<{ key: StageKey; label: string; help: ToggleHelp }> =
   },
 ];
 
-const TREATMENT_OPTIONS: Array<{
-  value: VisualTreatment;
+const VISUAL_MODE_OPTIONS: Array<{
+  value: VisualMode;
   label: string;
+  icon: ReactNode;
   summary: string;
   description: string;
   bestFor: string;
 }> = [
   {
+    value: "video",
+    label: "Video",
+    icon: <Film className="h-4 w-4" />,
+    summary: "Generated AI clip owns the scene.",
+    description: "Creates an image anchor, sends it to the video provider, then renders the clip full-frame.",
+    bestFor: "Use for character gestures, physical movement, reveals, and moments where motion should carry the beat.",
+  },
+  {
     value: "full_frame",
     label: "Full frame",
+    icon: <Image className="h-4 w-4" />,
     summary: "Single image or video fills the canvas.",
     description: "Renders the base scene media edge-to-edge over the canvas, with normal subtitles and FX layered on top.",
     bestFor: "Use for cinematic shots, simple illustrations, AI video scenes, or moments where one strong visual should carry the line.",
@@ -104,6 +114,7 @@ const TREATMENT_OPTIONS: Array<{
   {
     value: "popup_sequence",
     label: "Popup sequence",
+    icon: <PanelsTopLeft className="h-4 w-4" />,
     summary: "Small panels appear on narration beats.",
     description: "Keeps the canvas visible while timed visual layers pop in one by one, usually as compact callouts across the frame.",
     bestFor: "Use for lists, step-by-step explanations, object callouts, or scenes where the narration names several distinct things.",
@@ -111,6 +122,7 @@ const TREATMENT_OPTIONS: Array<{
   {
     value: "flipflop",
     label: "Flip-flop",
+    icon: <Repeat2 className="h-4 w-4" />,
     summary: "Two visuals alternate for quick contrast.",
     description: "Switches between paired visual layers on a steady rhythm to create motion without generating a video clip.",
     bestFor: "Use for before-and-after ideas, two-state comparisons, repeated choices, or fast comedic contrast.",
@@ -131,7 +143,8 @@ export default function TestLabControls({
   const displayedCharacter = getDisplayedCharacter(settings, preset, defaultMainCharacter);
   const displayedCharacterSource = getDisplayedCharacterSource(settings, defaultMainCharacter);
   const fallbackCharacterName = getFallbackCharacterName(settings, preset, defaultMainCharacter);
-  const isAiVideo = settings.media_source === "ai_video";
+  const visualMode = settings.visual_mode ?? (settings.media_source === "ai_video" ? "video" : settings.visual_treatment);
+  const isVideo = visualMode === "video";
   const [voiceSettingsText, setVoiceSettingsText] = useState("");
   const [voiceSettingsError, setVoiceSettingsError] = useState("");
 
@@ -149,7 +162,7 @@ export default function TestLabControls({
   }
 
   function updateStage(key: StageKey, enabled: boolean) {
-    if (isAiVideo && key === "treatment_assets") return;
+    if (isVideo && key === "treatment_assets") return;
     if (!settings.eli_enabled && key === "eli") return;
     onChange({
       ...settings,
@@ -160,8 +173,24 @@ export default function TestLabControls({
     });
   }
 
-  function updateVisualTreatment(visualTreatment: VisualTreatment) {
-    onChange(settingsWithVisualTreatmentDefaults(settings, preset, visualTreatment, visualTreatmentDefaults));
+  function updateVisualMode(nextMode: VisualMode) {
+    const visualTreatment = nextMode === "video" ? "full_frame" : nextMode;
+    onChange(settingsWithVisualTreatmentDefaults(
+      {
+        ...settings,
+        visual_mode: nextMode,
+        media_source: nextMode === "video" ? "ai_video" : "ai",
+        visual_treatment: visualTreatment,
+        visual_layers: nextMode === "video" || nextMode === "full_frame" ? [] : settings.visual_layers,
+        stages: {
+          ...settings.stages,
+          treatment_assets: nextMode === "video" ? false : settings.stages.treatment_assets,
+        },
+      },
+      preset,
+      visualTreatment,
+      visualTreatmentDefaults,
+    ));
   }
 
   function updateVoiceSettings(value: string) {
@@ -202,7 +231,7 @@ export default function TestLabControls({
       <Panel title="Pipeline stages" help="Disable individual stages to inspect partial output or reuse existing intermediate assets.">
         <div className="grid grid-cols-2 gap-2">
           {STAGE_OPTIONS.map((stage) => {
-            const disabled = (stage.key === "treatment_assets" && isAiVideo) || (stage.key === "eli" && !settings.eli_enabled);
+            const disabled = (stage.key === "treatment_assets" && isVideo) || (stage.key === "eli" && !settings.eli_enabled);
             const checked = disabled ? false : settings.stages[stage.key];
             const help =
               stage.key === "eli" && !settings.eli_enabled
@@ -307,50 +336,23 @@ export default function TestLabControls({
         </div>
       </Panel>
 
-      <Panel title="Visual source" help="Test Lab only uses first-party AI-generated scene media. Deprecated stock, gameplay, and upload sources are intentionally absent.">
-        <div className="grid grid-cols-2 overflow-hidden rounded-md border border-neutral-800 bg-neutral-950/70">
-          <SegmentButton
-            active={settings.media_source === "ai"}
-            label="AI image"
-            icon={<Image className="h-4 w-4" />}
-            onClick={() => update({ media_source: "ai" })}
-          />
-          <SegmentButton
-            active={settings.media_source === "ai_video"}
-            label="AI video"
-            icon={<Video className="h-4 w-4" />}
-            onClick={() =>
-              update({
-                media_source: "ai_video",
-                visual_treatment: "full_frame",
-                visual_layers: [],
-                stages: { ...settings.stages, treatment_assets: false },
-              })
-            }
-          />
-        </div>
-      </Panel>
-
-      <Panel title="Animation type, FX, canvas" help="Tune the render wrapper and overlay behavior around the generated scene media.">
+      <Panel title="Visual mode, FX, canvas" help="Choose the single scene visual route. Each mode owns its own assets.">
         <div className="grid grid-cols-2 gap-3">
           <div className="block">
-            <span className={`text-xs font-medium ${isAiVideo ? "text-neutral-500" : "text-neutral-300"}`}>
-              Animation type
-            </span>
+            <span className="text-xs font-medium text-neutral-300">Visual mode</span>
             <div className="mt-2 grid gap-2">
-              {TREATMENT_OPTIONS.map((option) => (
+              {VISUAL_MODE_OPTIONS.map((option) => (
                 <TreatmentOptionButton
                   key={option.value}
                   option={option}
-                  active={settings.visual_treatment === option.value}
-                  disabled={isAiVideo}
-                  onClick={() => updateVisualTreatment(option.value)}
+                  active={visualMode === option.value}
+                  onClick={() => updateVisualMode(option.value)}
                 />
               ))}
             </div>
-            {isAiVideo && (
+            {isVideo && (
               <p className="mt-2 text-xs leading-5 text-neutral-500">
-                AI video scenes render the generated clip full-frame, so layered animation assets are disabled.
+                Video scenes render the generated clip full-frame, so layered animation assets are disabled.
               </p>
             )}
           </div>
@@ -660,7 +662,7 @@ function TreatmentOptionButton({
   disabled = false,
   onClick,
 }: {
-  option: (typeof TREATMENT_OPTIONS)[number];
+  option: (typeof VISUAL_MODE_OPTIONS)[number];
   active: boolean;
   disabled?: boolean;
   onClick: () => void;
@@ -686,9 +688,14 @@ function TreatmentOptionButton({
               : "border-neutral-800 bg-neutral-950/70 text-neutral-400 hover:border-neutral-700 hover:bg-neutral-900/70 hover:text-neutral-100"
         }`}
       >
-        <span className="min-w-0">
-          <span className="block text-sm font-medium">{option.label}</span>
-          <span className="mt-1 block text-xs leading-4 text-neutral-500">{option.summary}</span>
+        <span className="flex min-w-0 items-start gap-2">
+          <span className={`mt-0.5 shrink-0 ${active && !disabled ? "text-violet-300" : "text-neutral-500"}`}>
+            {option.icon}
+          </span>
+          <span className="min-w-0">
+            <span className="block text-sm font-medium">{option.label}</span>
+            <span className="mt-1 block text-xs leading-4 text-neutral-500">{option.summary}</span>
+          </span>
         </span>
         <HelpCircle
           className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${active && !disabled ? "text-violet-300" : "text-neutral-600"}`}
@@ -707,37 +714,12 @@ function TreatmentOptionButton({
   );
 }
 
-function TreatmentHelpContent({ option }: { option: (typeof TREATMENT_OPTIONS)[number] }) {
+function TreatmentHelpContent({ option }: { option: (typeof VISUAL_MODE_OPTIONS)[number] }) {
   return (
     <span className="block max-w-72 space-y-2">
       <span className="block font-semibold text-neutral-100">{option.label}</span>
       <span className="block text-neutral-200">{option.description}</span>
       <span className="block text-neutral-400">{option.bestFor}</span>
     </span>
-  );
-}
-
-function SegmentButton({
-  active,
-  label,
-  icon,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  icon: ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex min-h-10 items-center justify-center gap-2 px-3 py-2 text-xs font-medium transition-colors ${
-        active ? "bg-sky-500/20 text-sky-200" : "text-neutral-500 hover:bg-neutral-900 hover:text-neutral-200"
-      }`}
-    >
-      {icon}
-      {label}
-    </button>
   );
 }

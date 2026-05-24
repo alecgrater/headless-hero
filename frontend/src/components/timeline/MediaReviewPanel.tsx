@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { MediaAssignment } from "../../api";
 import { applyMediaAssignments } from "../../api";
-import type { Scene } from "../../types/script";
+import type { Scene, VisualMode } from "../../types/script";
 
 interface Props {
   scriptId: string;
@@ -19,10 +19,12 @@ interface Props {
   onReanalyze: () => void;
 }
 
-const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
-  ai: { label: "AI", color: "bg-violet-500/20 text-violet-300" },
-  ai_video: { label: "AI Video", color: "bg-fuchsia-500/20 text-fuchsia-300" },
+const MODE_LABELS: Record<string, { label: string; color: string }> = {
+  full_frame: { label: "Full frame", color: "bg-violet-500/20 text-violet-300" },
+  video: { label: "Video", color: "bg-fuchsia-500/20 text-fuchsia-300" },
 };
+const modeForAssignment = (assignment: MediaAssignment): VisualMode =>
+  assignment.visual_mode ?? (assignment.media_source === "ai_video" ? "video" : "full_frame");
 
 export default function MediaReviewPanel({ scriptId, assignments: initial, frameCounts, fullHeight, scenes, sceneSegments, canAnalyze = true, analyzeBlockedReason, onBeforeApply, onSaved, onApproved, onReanalyze }: Props) {
   const [assignments, setAssignments] = useState<MediaAssignment[]>(initial);
@@ -32,18 +34,25 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
   const [expandedSceneIds, setExpandedSceneIds] = useState<Set<string>>(new Set());
 
   const summary = assignments.reduce<Record<string, number>>((acc, a) => {
-    acc[a.media_source] = (acc[a.media_source] || 0) + 1;
+    const mode = modeForAssignment(a);
+    acc[mode] = (acc[mode] || 0) + 1;
     return acc;
   }, {});
 
   const totalScenes = assignments.length;
 
-  const handleSourceChange = (sceneId: string, newSource: MediaAssignment["media_source"]) => {
+  const handleModeChange = (sceneId: string, newMode: Extract<VisualMode, "video" | "full_frame">) => {
     setSaveState("idle");
     setAssignments((prev) =>
       prev.map((a) =>
         a.scene_id === sceneId
-          ? { ...a, media_source: newSource, game_name: null, search_query: null }
+          ? {
+              ...a,
+              visual_mode: newMode,
+              media_source: newMode === "video" ? "ai_video" : "ai",
+              game_name: null,
+              search_query: null,
+            }
           : a,
       ),
     );
@@ -96,9 +105,9 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
       {/* Header */}
       <div className="px-4 py-3 border-b border-neutral-800 flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-neutral-200">Media Source Review</h3>
+          <h3 className="text-sm font-semibold text-neutral-200">Visual Mode Review</h3>
           <p className="text-xs text-neutral-500 mt-0.5">
-            {totalScenes} scenes: {Object.entries(summary).map(([src, count]) => `${count} ${SOURCE_LABELS[src]?.label ?? src}`).join(", ")}
+            {totalScenes} scenes: {Object.entries(summary).map(([mode, count]) => `${count} ${MODE_LABELS[mode]?.label ?? mode}`).join(", ")}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -128,16 +137,17 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
       </div>
       {saveState !== "idle" && (
         <div className={`px-4 py-2 text-xs border-b border-neutral-800 ${saveState === "saved" ? "text-emerald-300 bg-emerald-500/10" : "text-red-300 bg-red-500/10"}`}>
-          {saveState === "saved" ? "Media source edits saved." : "Could not save media source edits."}
+          {saveState === "saved" ? "Visual mode edits saved." : "Could not save visual mode edits."}
         </div>
       )}
 
       {/* Scene list */}
       <div className={`divide-y divide-neutral-800 ${fullHeight ? "overflow-y-auto" : "max-h-96 overflow-y-auto"}`}>
         {assignments.map((a, idx) => {
-          const sourceInfo = SOURCE_LABELS[a.media_source] ?? { label: a.media_source, color: "bg-neutral-700 text-neutral-300" };
+          const mode = modeForAssignment(a);
+          const sourceInfo = MODE_LABELS[mode] ?? { label: mode, color: "bg-neutral-700 text-neutral-300" };
           const scene = scenes?.[a.scene_id];
-          const isVideoSource = a.media_source === "ai_video";
+          const isVideoSource = mode === "video";
           const isExpanded = expandedSceneIds.has(a.scene_id);
           const visualPrompt = sceneVisualPrompt(scene);
           const durationLabel = sceneDurationLabel(scene);
@@ -146,12 +156,12 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
               <span className="text-neutral-500 w-6 text-right shrink-0 pt-1">{idx + 1}</span>
               <div className="flex flex-col gap-2 w-64 shrink-0">
                 <select
-                  value={a.media_source}
-                  onChange={(e) => handleSourceChange(a.scene_id, e.target.value as MediaAssignment["media_source"])}
+                  value={mode}
+                  onChange={(e) => handleModeChange(a.scene_id, e.target.value as Extract<VisualMode, "video" | "full_frame">)}
                   className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200"
                 >
-                  <option value="ai">AI</option>
-                  <option value="ai_video">AI Video</option>
+                  <option value="full_frame">Full frame</option>
+                  <option value="video">Video</option>
                 </select>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className={`px-2 py-0.5 rounded text-xs font-medium shrink-0 ${sourceInfo.color}`}>

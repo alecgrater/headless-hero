@@ -37,6 +37,26 @@ def test_ai_video_scene_slows_clip_when_short_by_25_percent_or_less(tmp_path, mo
     assert props["video_path"].endswith("/static/projects/script-1/videos/scene-1.mp4")
 
 
+def test_video_visual_mode_resolves_video_scene_props(tmp_path, monkeypatch):
+    monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(remotion_render, "_probe_video_duration", lambda _path: None)
+    script_id = "script-1"
+    _write_video_metadata(tmp_path, script_id, "scene-1", 10.0)
+    scene = Scene(
+        id="scene-1",
+        narration="Long narration.",
+        visual_prompt="Animated explainer.",
+        visual_mode="video",
+        audio_duration_seconds=12.0,
+    )
+
+    props = remotion_render._scene_to_input_props(scene, script_id)
+
+    assert props["visual_mode"] == "video"
+    assert props["media_type"] == "video"
+    assert props["video_path"].endswith("/static/projects/script-1/videos/scene-1.mp4")
+
+
 def test_ai_video_scene_falls_back_to_image_when_slowdown_would_exceed_25_percent(tmp_path, monkeypatch):
     monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
     monkeypatch.setattr(remotion_render, "_probe_video_duration", lambda _path: None)
@@ -103,6 +123,7 @@ def test_scene_to_input_props_includes_visual_treatment_layers(tmp_path, monkeyp
         ],
     )
     props = remotion_render._scene_to_input_props(scene, "script")
+    assert props["visual_mode"] == "popup_sequence"
     assert props["visual_treatment"] == "popup_sequence"
     assert props["visual_layers"][0]["placement"] == "left"
     assert props["visual_layers"][0]["image_path"].endswith("scene_layered_layer_panel_1.png")

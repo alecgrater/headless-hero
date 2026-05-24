@@ -33,6 +33,7 @@ async def upload_scene_media():
 
 class MediaAssignmentResponse(BaseModel):
     scene_id: str
+    visual_mode: str = ""
     media_source: str
     game_name: str | None = None
     search_query: str | None = None
@@ -213,6 +214,7 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
             assignments = [
                 MediaAssignment(
                     scene_id=scene.id,
+                    visual_mode="full_frame",
                     media_source="ai",
                     game_name=None,
                     search_query=None,
@@ -252,6 +254,7 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
 
         result_data = json.dumps([{
             "scene_id": a.scene_id,
+            "visual_mode": a.visual_mode or ("video" if a.media_source == "ai_video" else "full_frame"),
             "media_source": a.media_source,
             "game_name": a.game_name,
             "search_query": a.search_query,
@@ -295,6 +298,7 @@ def apply_media(body: ApplyRequest, script_id: str, session: Session = Depends(g
     assignments = [
         MediaAssignment(
             scene_id=a.scene_id,
+            visual_mode=a.visual_mode,
             media_source=a.media_source,
             game_name=a.game_name,
             search_query=a.search_query,

@@ -39,6 +39,7 @@ class GenerateVisualRequest(BaseModel):
     height: int = IMAGE_HEIGHT
     frame_directives: list[dict] = []
     contains_person: bool = False
+    visual_mode: str = ""
     media_source: str = "ai"
     audio_duration_seconds: float = 0.0
     visual_treatment: str = ""
@@ -57,6 +58,7 @@ class BatchScene(BaseModel):
     visual_prompt: str
     frame_directives: list[dict] = []
     contains_person: bool = False
+    visual_mode: str = ""
     media_source: str = "ai"
     audio_duration_seconds: float = 0.0
     visual_treatment: str = ""
@@ -196,10 +198,11 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
     _require_character_reference_ready(session, body.script_id)
     content = ScriptContent.model_validate_json(record.script_json)
 
-    logger.info("Generating visual for scene %s in script %s (media_source=%s)", body.scene_id, body.script_id, body.media_source)
+    visual_mode = body.visual_mode or ("video" if body.media_source == "ai_video" else body.visual_treatment or "full_frame")
+    logger.info("Generating visual for scene %s in script %s (visual_mode=%s)", body.scene_id, body.script_id, visual_mode)
 
     # --- AI video dispatch ---
-    if body.media_source == "ai_video":
+    if visual_mode == "video" or body.media_source == "ai_video":
         from pipeline.video_gen import generate_scene_video
 
         duration = body.audio_duration_seconds or 5.0
@@ -232,6 +235,9 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
                 {
                     "image_url": "",
                     "frame_urls": [],
+                    "visual_mode": "video",
+                    "media_source": "ai_video",
+                    "visual_treatment": "full_frame",
                     "video_url": video_url,
                     "visual_source_metadata": source_metadata,
                 },
@@ -252,7 +258,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
     # --- AI-generated (default) ---
     logger.info("[GEMINI] scene %s — prompt: %s", body.scene_id, body.visual_prompt[:80])
     scene = next((sc for seg in content.segments for sc in seg.scenes if sc.id == body.scene_id), None)
-    treatment = body.visual_treatment or (scene.visual_treatment if scene is not None else "full_frame")
+    treatment = body.visual_treatment or (visual_mode if visual_mode in {"popup_sequence", "flipflop"} else "") or (scene.visual_treatment if scene is not None else "full_frame")
 
     if treatment != "full_frame":
         visual_layers = _generate_scene_visual_layers(
@@ -273,6 +279,8 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             **_with_visual_layers(
                 {
                     "visual_treatment": treatment,
+                    "visual_mode": treatment,
+                    "media_source": "ai",
                     "image_url": "",
                     "frame_urls": [],
                     "video_url": "",
@@ -325,6 +333,9 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
                 **_with_visual_layers(
                     {
                         "video_url": "",
+                        "visual_mode": "full_frame",
+                        "media_source": "ai",
+                        "visual_treatment": "full_frame",
                         "frame_urls": frame_urls,
                         "visual_source_metadata": source_metadata,
                     },
@@ -371,6 +382,9 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             {
                 "image_url": image_url,
                 "frame_urls": [],
+                "visual_mode": "full_frame",
+                "media_source": "ai",
+                "visual_treatment": "full_frame",
                 "video_url": "",
                 "visual_source_metadata": source_metadata,
             },
@@ -408,6 +422,9 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
             "visual_prompt": s.visual_prompt,
             "frame_directives": s.frame_directives,
             "contains_person": s.contains_person or (scene_map[s.scene_id].contains_person if s.scene_id in scene_map else False),
+            "visual_mode": s.visual_mode
+            or (s.visual_treatment if s.visual_treatment in {"popup_sequence", "flipflop"} else "")
+            or (scene_map[s.scene_id].visual_mode if s.scene_id in scene_map else ""),
             "media_source": s.media_source,
             "audio_duration_seconds": s.audio_duration_seconds,
             "visual_treatment": s.visual_treatment or (scene_map[s.scene_id].visual_treatment if s.scene_id in scene_map else "full_frame"),
@@ -430,6 +447,10 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
         scene["scene_id"]: scene.get("visual_treatment") or "full_frame"
         for scene in scenes
     }
+    requested_modes = {
+        scene["scene_id"]: scene.get("visual_mode") or ("video" if scene.get("media_source") == "ai_video" else scene.get("visual_treatment") or "full_frame")
+        for scene in scenes
+    }
 
     # Persist all successful results in a single DB write
     for r in results:
@@ -438,7 +459,9 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
         sc = scene_map.get(r["scene_id"])
         if not sc:
             continue
-        sc.visual_treatment = requested_treatments.get(sc.id, sc.visual_treatment)
+        sc.set_visual_mode(requested_modes.get(sc.id, sc.visual_mode))
+        if sc.visual_mode != "video":
+            sc.visual_treatment = requested_treatments.get(sc.id, sc.visual_treatment)
         frame_urls = r.get("frame_urls", [])
         video_url = r.get("video_url")
         if video_url:
