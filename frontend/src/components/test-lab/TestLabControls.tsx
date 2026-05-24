@@ -11,6 +11,7 @@ interface TestLabControlsProps {
   preset: TestLabPreset | null;
   settings: TestLabSettings;
   onChange: (settings: TestLabSettings) => void;
+  onValidityChange?: (valid: boolean) => void;
 }
 
 const STAGE_OPTIONS: Array<{ key: StageKey; label: string; help: string }> = [
@@ -29,7 +30,7 @@ const TREATMENT_OPTIONS: Array<{ value: VisualTreatment; label: string }> = [
   { value: "flipflop", label: "Flip-flop" },
 ];
 
-export default function TestLabControls({ preset, settings, onChange }: TestLabControlsProps) {
+export default function TestLabControls({ preset, settings, onChange, onValidityChange }: TestLabControlsProps) {
   const narration = settings.narration ?? preset?.narration ?? "";
   const visualPrompt = settings.visual_prompt ?? preset?.visual_prompt ?? "";
   const backgroundColor = settings.visual_canvas?.background_color ?? preset?.background_color ?? "#F6C54A";
@@ -40,6 +41,10 @@ export default function TestLabControls({ preset, settings, onChange }: TestLabC
     setVoiceSettingsText(settings.voice_settings ? JSON.stringify(settings.voice_settings, null, 2) : "");
     setVoiceSettingsError("");
   }, [settings.voice_settings]);
+
+  useEffect(() => {
+    onValidityChange?.(!voiceSettingsError);
+  }, [onValidityChange, voiceSettingsError]);
 
   function update(next: Partial<TestLabSettings>) {
     onChange({ ...settings, ...next });

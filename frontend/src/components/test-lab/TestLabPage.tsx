@@ -43,6 +43,7 @@ export default function TestLabPage() {
   const [activeRun, setActiveRun] = useState<TestLabRun | null>(null);
   const [running, setRunning] = useState(false);
   const [jobStatus, setJobStatus] = useState<TestLabJobStatus | null>(null);
+  const [controlsValid, setControlsValid] = useState(true);
 
   const refreshRuns = useCallback(async () => {
     const nextRuns = await getTestLabRuns();
@@ -125,7 +126,7 @@ export default function TestLabPage() {
   }, [refreshRuns]);
 
   async function handleRun() {
-    if (!selectedPresetId || running) return;
+    if (!selectedPresetId || running || !controlsValid) return;
 
     setRunning(true);
     setJobStatus({ status: "queued", current_step: "Starting Test Lab run..." });
@@ -158,7 +159,7 @@ export default function TestLabPage() {
             </div>
             <button
               onClick={handleRun}
-              disabled={running || !selectedPreset}
+              disabled={running || !selectedPreset || !controlsValid}
               className="inline-flex items-center gap-2 rounded-md bg-violet-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500"
             >
               {running ? <RotateCcw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
@@ -189,7 +190,12 @@ export default function TestLabPage() {
           </aside>
 
           <section className="min-h-0 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
-            <TestLabControls preset={selectedPreset} settings={settings} onChange={setSettings} />
+            <TestLabControls
+              preset={selectedPreset}
+              settings={settings}
+              onChange={setSettings}
+              onValidityChange={setControlsValid}
+            />
           </section>
 
           <aside className="min-h-0 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
