@@ -669,7 +669,6 @@ def generate_scene_frames_v2(
 
     Dispatches per-directive based on source and reference_previous:
       - source == "subtitle" → skip generation, return ("", prompt)
-      - source == "real_photo" → scrape Google Images; fallback to AI
       - source == "ai_generated" + reference_previous → Gemini image-to-image
       - source == "ai_generated" + !reference_previous → Gemini text-to-image (independent)
 
@@ -715,44 +714,7 @@ def generate_scene_frames_v2(
             # Don't update prev_frame_path — subtitles can't be references
             continue
 
-        # --- Real photo frames: Google Images scraper ---
-        if directive.source == "real_photo" and directive.search_query:
-            from integrations.google_image_scraper import scrape_google_image_sync
-
-            # Cache check
-            if not force and local_path.exists() and prompt_marker.exists():
-                cached = prompt_marker.read_text(encoding="utf-8").strip()
-                if cached == directive.search_query:
-                    results.append((web_path, directive.search_query, _read_source_metadata(local_path)))
-                    prev_frame_path = local_path
-                    continue
-
-            scraped = scrape_google_image_sync(
-                query=directive.search_query,
-                output_path=str(local_path),
-                width=VIDEO_WIDTH,
-                height=VIDEO_HEIGHT,
-            )
-            if scraped:
-                metadata = {
-                    "source_type": "scraped_web_image",
-                    "provider": "google_images_scraper",
-                    "query": directive.search_query,
-                    "reason": "Frame directive requested a real photo",
-                    "license_note": "Scraped web image; verify usage rights before publishing.",
-                    "fallback": False,
-                }
-                _write_source_metadata(local_path, metadata)
-                prompt_marker.write_text(directive.search_query, encoding="utf-8")
-                results.append((web_path, directive.search_query, metadata))
-                prev_frame_path = local_path
-                continue
-
-            # Fallback to AI generation using search_query as prompt
-            logger.info("Google scrape failed for %r, falling back to AI gen", directive.search_query)
-            directive_prompt = directive.search_query
-        else:
-            directive_prompt = directive.prompt
+        directive_prompt = directive.prompt or directive.search_query
 
         # --- AI-generated frames ---
         # Per-frame contains_person: check directive first, fall back to scene-level

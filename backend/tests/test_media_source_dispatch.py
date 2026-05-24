@@ -10,7 +10,7 @@ from sqlmodel import Session, SQLModel, create_engine
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from pipeline.image_gen import generate_batch, generate_scene_image
+from pipeline.image_gen import generate_batch, generate_scene_frames_v2, generate_scene_image
 from api._helpers import update_scene
 from models.script import Script, ScriptContent, Scene, Segment
 
@@ -287,3 +287,27 @@ class TestImageFallbackBehavior:
         assert metadata["source_type"] == "scraped_web_image"
         assert metadata["provider"] == "google_images_scraper"
         assert metadata["fallback"] is True
+
+
+def test_real_photo_frame_directives_are_generated_as_ai(monkeypatch, mock_gemini, tmp_data_dir):
+    with patch("integrations.google_image_scraper.scrape_google_image_sync") as mock_scrape:
+        results = generate_scene_frames_v2(
+            scene_id="scene_real_photo_removed",
+            frame_directives=[
+                {
+                    "prompt": "A courthouse exterior in the house illustration style",
+                    "source": "real_photo",
+                    "search_query": "courthouse exterior",
+                    "transition": "cut",
+                    "reference_previous": False,
+                    "contains_person": False,
+                }
+            ],
+            script_id="test-script-real-photo-removed",
+        )
+
+    assert mock_gemini.called
+    assert not mock_scrape.called
+    assert results[0][0].endswith("/scene_real_photo_removed_f0.png")
+    assert results[0][2] is not None
+    assert results[0][2]["source_type"] == "ai_generated"

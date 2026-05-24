@@ -358,7 +358,15 @@ def apply_media(body: ApplyRequest, script_id: str, session: Session = Depends(g
         for a in body.assignments
     ]
 
-    apply_assignments(content, assignments)
+    normalized_assignments = normalize_media_assignments_for_sources(
+        assignments,
+        script_content=content,
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+        ai_video_enabled=content.ai_video_enabled,
+    )
+
+    apply_assignments(content, normalized_assignments)
 
     record.script_json = content.model_dump_json()
     session.add(record)

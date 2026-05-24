@@ -55,7 +55,7 @@ export interface VisualLayer {
 
 export interface FrameDirective {
   prompt: string;
-  source: "ai_generated" | "real_photo" | "subtitle";
+  source: "ai_generated" | "subtitle";
   search_query?: string;
   transition: "cut" | "crossfade" | "fade_black";
   reference_previous: boolean;

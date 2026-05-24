@@ -111,7 +111,7 @@ class PhraseTimestamp(BaseModel):
 class FrameDirective(BaseModel):
     """Per-frame generation directive for the Visual Beat System."""
     prompt: str
-    source: str = "ai_generated"       # "ai_generated" | "real_photo" | "subtitle"
+    source: str = "ai_generated"       # "ai_generated" | "subtitle"
     search_query: str = ""
     transition: str = "crossfade"      # "cut" | "crossfade" | "fade_black"
     reference_previous: bool = True

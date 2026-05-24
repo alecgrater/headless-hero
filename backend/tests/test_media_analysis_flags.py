@@ -8,17 +8,22 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from api.media import (
+    ApplyRequest,
+    MediaAssignmentResponse,
+    apply_media,
     missing_voiceover_scene_ids,
     media_analysis_source_flags,
     normalize_media_assignments_for_sources,
     preserve_media_analysis_source_flags,
     require_media_analysis_voiceover,
 )
+from models.script import Script
 from models.script import ScriptContent
 from models.script import Scene, Segment
 from pipeline import media_analyzer
 from pipeline.media_analyzer import MediaAssignment, _resolve_scene_id, analyze_media_sources
 from pipeline.render_jobs import UserFacingJobError
+from sqlmodel import Session as SqlSession, SQLModel, create_engine
 
 
 def test_media_analysis_flags_default_old_scripts_to_ai_only_sources():
@@ -90,6 +95,56 @@ def test_normalize_media_assignments_always_coerces_removed_sources_to_ai():
     assert [a.media_source for a in normalized] == ["ai", "ai"]
     assert normalized[0].game_name is None
     assert normalized[1].search_query is None
+
+
+def test_apply_media_coerces_removed_sources_before_persisting(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'media-apply.db'}")
+    SQLModel.metadata.create_all(engine)
+    content = ScriptContent(
+        title="Apply removed source",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(id="s1", narration="A line.", visual_prompt="A prompt"),
+                    Scene(id="s2", narration="Another line.", visual_prompt="Another prompt"),
+                ],
+            ),
+        ],
+    )
+
+    with SqlSession(engine) as session:
+        session.add(Script(id="script-apply", brand_id="brand", script_json=content.model_dump_json()))
+        session.commit()
+
+        apply_media(
+            ApplyRequest(
+                assignments=[
+                    MediaAssignmentResponse(
+                        scene_id="s1",
+                        media_source="gameplay_video",
+                        game_name="Minecraft",
+                        search_query=None,
+                        reasoning="stale client",
+                    ),
+                    MediaAssignmentResponse(
+                        scene_id="s2",
+                        media_source="stock_photo",
+                        game_name=None,
+                        search_query="city skyline",
+                        reasoning="stale client",
+                    ),
+                ],
+            ),
+            "script-apply",
+            session,
+        )
+
+        updated = ScriptContent.model_validate_json(session.get(Script, "script-apply").script_json)
+
+    assert [scene.media_source for scene in updated.all_scenes()] == ["ai", "ai"]
+    assert all(scene.gameplay_game_override == "" for scene in updated.all_scenes())
+    assert all(scene.original_visual_prompt == "" for scene in updated.all_scenes())
 
 
 def test_normalize_media_assignments_coerces_disabled_sources_to_ai():

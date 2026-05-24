@@ -176,7 +176,7 @@ BEAT TYPE VOCABULARY:
 - "continuous" — When narration describes a physical process unfolding over time (pouring, growing, building). 2-4 frames with reference_previous: true and transition: "crossfade". Frames show subtle progression of the SAME scene. Use deliberately, not as default.
 - "quick_cuts" — When narration covers multiple examples, lists, comparisons, or rapid context switches. 3-8 frames with reference_previous: false and transition: "cut" (primarily). Each frame is a completely DIFFERENT shot — different subject, angle, composition. Use deliberately for visual energy. Narration should be 1 short punchy sentence — aim for under 8 seconds of speech.
 - "aha_subtitle" — When a sentence delivers a shocking stat, counterintuitive fact, or "wait, really?" moment. Pure white text on black. 1 frame directive with source: "subtitle". Aim for 5-6 per video, no more than 7. Must be preceded and followed by image-bearing beats for contrast. visual_prompt should be empty. Narration should be 1 short sentence — a single stat or fact, under 8 seconds of speech.
-- "montage" — When real-world authenticity adds impact (real places, products, events). Mix of source: "ai_generated" and source: "real_photo". 4-8 frames. Each real_photo frame must include a search_query for Google Images. reference_previous: false for all frames. Transitions: mostly "cut" with occasional "crossfade".
+- "montage" — When rapid visual variety adds impact (places, products, events, examples). Use only source: "ai_generated". 4-8 frames. reference_previous: false for all frames. Transitions: mostly "cut" with occasional "crossfade".
 
 DISTRIBUTION RULES (follow strictly):
 1. static should be the MAJORITY of non-title-card scenes (50-65%). Visual variety comes from scene-to-scene differences, not multi-frame within a scene.
@@ -188,11 +188,11 @@ DISTRIBUTION RULES (follow strictly):
 
 ### Frame Directives Format
 Each scene MUST have "visual_beat" and "frame_directives" (list of objects). Each frame directive has:
-  - "prompt": Visual description (for ai_generated/real_photo) or subtitle text (for subtitle)
-  - "source": "ai_generated" | "real_photo" | "subtitle"
+  - "prompt": Visual description (for ai_generated) or subtitle text (for subtitle)
+  - "source": "ai_generated" | "subtitle"
   - "transition": "cut" | "crossfade" | "fade_black"
   - "reference_previous": true/false (true = use prev frame as reference, false = independent)
-  - "search_query": Google Images query (required when source is "real_photo", empty otherwise)
+  - "search_query": empty string
   - "contains_person": true/false — whether this frame depicts a visible human face
 
 contains_person tagging rules:
