@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  Archive,
   Brain,
   Folder,
   Image,
@@ -12,6 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import ApiKeysSection from "./ApiKeysSection";
+import AssetVaultSection from "./AssetVaultSection";
 import GeneralSection from "./GeneralSection";
 import MiscSection from "./MiscSection";
 import PublishingSection from "./PublishingSection";
@@ -27,6 +29,7 @@ export const SECTIONS = [
   { id: "voice", label: "Voices", description: "Choose the narration voice and add voices from the ElevenLabs library.", icon: Mic, group: "Generation" },
   { id: "audio", label: "Audio", description: "Tune recording export filters for manually recorded voiceover.", icon: SlidersHorizontal, group: "Generation" },
   { id: "brand-style", label: "Brand & Style", description: "Set the visual style, recurring character, and defaults for new projects.", icon: Palette, group: "Brand & Style" },
+  { id: "asset-vault", label: "Asset Vault", description: "Browse reusable character and item cutouts saved from generation workflows.", icon: Archive, group: "Brand & Style" },
   { id: "publishing", label: "Publishing", description: "Connect platforms that should receive one-click short-form uploads.", icon: Upload, group: "Publishing" },
   { id: "advanced", label: "Advanced", description: "Edge-case controls for workflow, rendering, and image fallback behavior.", icon: Sparkles, group: "Advanced" },
 ] as const;
@@ -138,6 +141,7 @@ export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultS
               <StylePresetsSection showHeader={false} />
             </div>
           )}
+          {activeSection === "asset-vault" && <AssetVaultSection />}
         </div>
       </div>
     </div>

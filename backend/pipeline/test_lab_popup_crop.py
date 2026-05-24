@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH
 from integrations.image_client import generate_image
+from pipeline.asset_vault import save_vault_image
 
 PROJECT_ID = "test-lab-popup-crops"
 
@@ -208,7 +209,9 @@ def _process_anchor_source(anchor_path: Path, output_dir: Path) -> PopupCropResu
         raw_filename = "raw_crop_01_anchor_character.png"
         source.save(output_dir / raw_filename)
         filename = "crop_01_anchor_character.png"
-        trim_box = _save_keyed_trimmed_cutout(source, output_dir / filename)
+        output_path = output_dir / filename
+        trim_box = _save_keyed_trimmed_cutout(source, output_path)
+        save_vault_image(kind="character", label="Anchor character", source_path=output_path)
         return PopupCropResultCrop(
             role="anchor",
             label="Anchor character",
@@ -236,7 +239,9 @@ def _crop_item_sheet(sheet_path: Path, output_dir: Path, labels: list[str]) -> l
             raw_filename = f"raw_crop_{output_index:02d}_{_slug(label)}.png"
             crop.save(output_dir / raw_filename)
             filename = f"crop_{output_index:02d}_{_slug(label)}.png"
-            trim_box = _save_keyed_trimmed_cutout(crop, output_dir / filename)
+            output_path = output_dir / filename
+            trim_box = _save_keyed_trimmed_cutout(crop, output_path)
+            save_vault_image(kind="item", label=label, source_path=output_path)
             crops.append(
                 PopupCropResultCrop(
                     role="item",

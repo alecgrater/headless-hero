@@ -235,9 +235,11 @@ def test_test_lab_scenes_endpoint_returns_active_default_character(monkeypatch, 
 def test_popup_crop_preview_generates_sheet_and_crops_fixed_grid(monkeypatch, tmp_path):
     from PIL import Image
 
+    import pipeline.asset_vault as asset_vault
     import pipeline.test_lab_popup_crop as popup_crop
 
     monkeypatch.setattr(popup_crop, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(asset_vault, "DATA_DIR", tmp_path)
 
     anchor_path = tmp_path / "anchor.png"
     anchor = Image.new("RGB", (200, 200), (0, 255, 0))
@@ -290,6 +292,52 @@ def test_popup_crop_preview_generates_sheet_and_crops_fixed_grid(monkeypatch, tm
         assert crop.size[0] < 120
         assert crop.size[1] < 160
         assert crop.getpixel((0, 0))[3] == 0
+
+    character_vault = sorted((tmp_path / "projects" / "asset-vault" / "characters").glob("*.png"))
+    item_vault = sorted((tmp_path / "projects" / "asset-vault" / "items").glob("*.png"))
+    assert len(character_vault) == 1
+    assert len(item_vault) == 3
+    assert character_vault[0].name.startswith("character_anchor_character_")
+    barred_window = next(path for path in item_vault if path.name.startswith("item_barred_window_"))
+    with Image.open(barred_window) as vault_crop:
+        assert vault_crop.mode == "RGBA"
+        assert vault_crop.getpixel((0, 0))[3] == 0
+
+
+def test_asset_vault_api_lists_filename_only_cutouts(monkeypatch, tmp_path):
+    _engine, app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.asset_vault as asset_vault
+
+    monkeypatch.setattr(asset_vault, "DATA_DIR", tmp_path)
+
+    from PIL import Image
+
+    source_path = tmp_path / "source.png"
+    Image.new("RGBA", (32, 24), (255, 0, 0, 255)).save(source_path)
+    asset_vault.save_vault_image(kind="item", label="Barred window", source_path=source_path)
+    asset_vault.save_vault_image(kind="character", label="Anchor character", source_path=source_path)
+
+    client = TestClient(app)
+
+    try:
+        response = client.get("/api/assets/vault")
+        assert response.status_code == 200
+        assets = response.json()["assets"]
+        assert {asset["kind"] for asset in assets} == {"character", "item"}
+        assert assets[0]["created_at"]
+        item = next(asset for asset in assets if asset["kind"] == "item")
+        assert item["name"] == "barred window"
+        assert item["filename"].startswith("item_barred_window_")
+        assert item["url"].startswith("/static/projects/asset-vault/items/item_barred_window_")
+
+        filtered = client.get("/api/assets/vault?kind=character")
+        assert filtered.status_code == 200
+        assert [asset["kind"] for asset in filtered.json()["assets"]] == ["character"]
+    finally:
+        from database import get_session
+
+        app.dependency_overrides.pop(get_session, None)
 
 
 def test_popup_crop_endpoint_returns_preview(monkeypatch, tmp_path):

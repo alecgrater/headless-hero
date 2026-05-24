@@ -216,6 +216,22 @@ export async function chromaPopupCropItemSheet(
   return res.ok ? res.data : null;
 }
 
+export type AssetVaultKind = "character" | "item";
+
+export interface AssetVaultImage {
+  kind: AssetVaultKind;
+  name: string;
+  filename: string;
+  url: string;
+  created_at: string;
+}
+
+export async function getAssetVaultImages(kind?: AssetVaultKind): Promise<AssetVaultImage[]> {
+  const suffix = kind ? `?kind=${kind}` : "";
+  const res = await api.get<{ assets: AssetVaultImage[] }>(`/api/assets/vault${suffix}`);
+  return res.ok ? res.data.assets : [];
+}
+
 /** Clone a voice by uploading audio samples to ElevenLabs via the backend. */
 export async function cloneVoice(
   name: string,

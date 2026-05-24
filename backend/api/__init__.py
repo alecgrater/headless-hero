@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session
 
+from api.assets import router as assets_router
 from api.brands import router as brands_router
 from api.brainstorm import router as brainstorm_router
 from api.cold_opens import router as cold_opens_router
@@ -106,6 +107,7 @@ from dev.routes import router as _dev_router
 app.include_router(_dev_router)
 
 # Core routers
+app.include_router(assets_router)
 app.include_router(brands_router)
 app.include_router(brainstorm_router)
 app.include_router(cold_opens_router)
