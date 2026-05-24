@@ -111,6 +111,7 @@ export interface PopupCropPreviewCrop {
   raw_url: string;
   box: number[];
   trim_box: number[];
+  warnings?: string[];
 }
 
 export interface PopupCropPreviewResult {
@@ -126,6 +127,8 @@ export interface PopupCropAnchorResult {
   run_id: string;
   anchor_prompt_used: string;
   anchor_source_url: string;
+  anchor_cutout_url?: string | null;
+  warnings?: string[];
 }
 
 export interface PopupCropSheetResult {

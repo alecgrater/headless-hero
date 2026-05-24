@@ -64,9 +64,21 @@ export default function PopupCropLab() {
         return;
       }
       setRunId(next.run_id);
-      refreshAssets(next.anchor_source_url);
+      refreshAssets(next.anchor_source_url, next.anchor_cutout_url ?? "");
       setAnchorSourceUrl(next.anchor_source_url);
-      setAnchorCrop(null);
+      setAnchorCrop(
+        next.anchor_cutout_url
+          ? {
+              role: "anchor",
+              label: "Anchor character",
+              url: next.anchor_cutout_url,
+              raw_url: next.anchor_source_url,
+              box: [],
+              trim_box: [],
+              warnings: next.warnings ?? [],
+            }
+          : null,
+      );
     });
   }
 
@@ -366,8 +378,17 @@ function CropCard({ crop }: { crop: PopupCropPreviewCrop }) {
         <CropPreview title="Raw fixed crop" src={crop.raw_url} alt={`${crop.label} raw crop`} />
         <CropPreview title="Chroma + auto-trim" src={crop.url} alt={crop.label} checkerboard />
       </div>
-      <p className="mt-2 font-mono text-[10px] text-neutral-600">[{crop.box.join(", ")}]</p>
-      <p className="mt-1 font-mono text-[10px] text-neutral-600">trim [{crop.trim_box.join(", ")}]</p>
+      {crop.box.length > 0 && (
+        <p className="mt-2 font-mono text-[10px] text-neutral-600">[{crop.box.join(", ")}]</p>
+      )}
+      {crop.trim_box.length > 0 && (
+        <p className="mt-1 font-mono text-[10px] text-neutral-600">trim [{crop.trim_box.join(", ")}]</p>
+      )}
+      {crop.warnings && crop.warnings.length > 0 && (
+        <div className="mt-2 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-200">
+          {crop.warnings.join(", ")}
+        </div>
+      )}
     </div>
   );
 }
