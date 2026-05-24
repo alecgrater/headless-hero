@@ -1,8 +1,10 @@
 import { Archive, Boxes, Loader2, RefreshCw, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { assetUrl, getAssetVaultImages, type AssetVaultImage, type AssetVaultKind } from "../../api";
+import PopupCropLab from "../test-lab/PopupCropLab";
 
 type FilterKind = "all" | AssetVaultKind;
+type AssetTab = "vault" | "generate";
 
 const FILTERS: Array<{ id: FilterKind; label: string }> = [
   { id: "all", label: "All" },
@@ -11,6 +13,7 @@ const FILTERS: Array<{ id: FilterKind; label: string }> = [
 ];
 
 export default function AssetVaultSection() {
+  const [activeTab, setActiveTab] = useState<AssetTab>("vault");
   const [assets, setAssets] = useState<AssetVaultImage[]>([]);
   const [filter, setFilter] = useState<FilterKind>("all");
   const [loading, setLoading] = useState(true);
@@ -22,8 +25,10 @@ export default function AssetVaultSection() {
   );
 
   useEffect(() => {
-    void loadAssets();
-  }, []);
+    if (activeTab === "vault") {
+      void loadAssets();
+    }
+  }, [activeTab]);
 
   async function loadAssets() {
     setLoading(true);
@@ -38,30 +43,83 @@ export default function AssetVaultSection() {
   }
 
   return (
-    <div className="max-w-6xl px-8 py-8">
+    <div className="px-8 py-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase text-neutral-500">Reusable cutouts</p>
-          <h3 className="mt-2 text-lg font-semibold text-neutral-100">Asset Vault</h3>
+          <h3 className="mt-2 text-lg font-semibold text-neutral-100">Assets</h3>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-neutral-400">
             Cleaned popup crop cutouts are saved here automatically with descriptive filenames for later reuse.
           </p>
         </div>
-        <button
-          onClick={loadAssets}
-          disabled={loading}
-          className="inline-flex h-9 items-center gap-2 rounded-md border border-neutral-800 bg-neutral-900 px-3 text-sm font-medium text-neutral-300 transition-colors hover:border-neutral-700 hover:text-neutral-100 disabled:cursor-not-allowed disabled:text-neutral-600"
-        >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Refresh
-        </button>
+        {activeTab === "vault" && (
+          <button
+            onClick={loadAssets}
+            disabled={loading}
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-neutral-800 bg-neutral-900 px-3 text-sm font-medium text-neutral-300 transition-colors hover:border-neutral-700 hover:text-neutral-100 disabled:cursor-not-allowed disabled:text-neutral-600"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Refresh
+          </button>
+        )}
       </div>
 
+      <div className="mt-6 flex border-b border-neutral-800">
+        {[
+          { id: "vault", label: "Vault" },
+          { id: "generate", label: "Generate" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as AssetTab)}
+            className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === tab.id
+                ? "border-violet-500 text-neutral-100"
+                : "border-transparent text-neutral-500 hover:text-neutral-200"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "generate" ? (
+        <div className="mt-6 h-[calc(100vh-16rem)] min-h-[720px]">
+          <PopupCropLab />
+        </div>
+      ) : (
+        <VaultBrowser
+          assets={visibleAssets}
+          error={error}
+          filter={filter}
+          loading={loading}
+          onFilterChange={setFilter}
+        />
+      )}
+    </div>
+  );
+}
+
+function VaultBrowser({
+  assets,
+  error,
+  filter,
+  loading,
+  onFilterChange,
+}: {
+  assets: AssetVaultImage[];
+  error: string;
+  filter: FilterKind;
+  loading: boolean;
+  onFilterChange: (filter: FilterKind) => void;
+}) {
+  return (
+    <>
       <div className="mt-6 inline-flex rounded-md border border-neutral-800 bg-neutral-950 p-1">
         {FILTERS.map((option) => (
           <button
             key={option.id}
-            onClick={() => setFilter(option.id)}
+            onClick={() => onFilterChange(option.id)}
             className={`rounded px-3 py-1.5 text-xs font-medium transition-colors ${
               filter === option.id
                 ? "bg-neutral-800 text-neutral-100"
@@ -83,9 +141,9 @@ export default function AssetVaultSection() {
         <div className="mt-8 flex min-h-64 items-center justify-center rounded-md border border-neutral-800 bg-neutral-900/50 text-neutral-500">
           <Loader2 className="h-5 w-5 animate-spin" />
         </div>
-      ) : visibleAssets.length > 0 ? (
+      ) : assets.length > 0 ? (
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {visibleAssets.map((vaultAsset) => (
+          {assets.map((vaultAsset) => (
             <VaultCard key={vaultAsset.url} vaultAsset={vaultAsset} />
           ))}
         </div>
@@ -95,12 +153,12 @@ export default function AssetVaultSection() {
             <Archive className="mx-auto h-8 w-8 text-neutral-600" />
             <p className="mt-3 text-sm font-medium text-neutral-300">No saved cutouts yet</p>
             <p className="mt-1 text-xs leading-5 text-neutral-500">
-              Run chroma in the Popup Crop Lab to populate the vault with reusable character and item PNGs.
+              New reusable image assets can be created in the Generate tab and will appear in the vault after processing.
             </p>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
