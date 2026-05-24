@@ -122,6 +122,19 @@ def test_scene_derives_multi_frame_from_legacy_montage_beat():
     assert scene.visual_treatment == "full_frame"
 
 
+def test_scene_derives_multi_frame_from_legacy_multi_frame_beat():
+    scene = Scene(
+        id="scene_001",
+        narration="Several examples appear in sequence.",
+        visual_prompt="Multiple examples.",
+        visual_beat="multi_frame",
+    )
+
+    assert scene.visual_mode == "multi_frame"
+    assert scene.media_source == "ai"
+    assert scene.visual_treatment == "full_frame"
+
+
 def test_scene_derives_continuous_from_legacy_continuous_beat():
     scene = Scene(
         id="scene_001",
