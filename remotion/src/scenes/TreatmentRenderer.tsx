@@ -92,10 +92,60 @@ const layerChromeStyle = (layer: VisualLayer, scale = 1): React.CSSProperties =>
   backgroundColor: layer.asset_kind === "cutout" ? "transparent" : "#111",
 });
 
+interface PopupOrbitStyleOptions {
+  layerIndex: number;
+  itemIndex: number;
+  itemCount: number;
+  frame: number;
+  fps: number;
+}
+
+const POPUP_ORBIT_CENTER_X = 960;
+const POPUP_ORBIT_CENTER_Y = 540;
+const POPUP_ORBIT_RADIUS_X = 430;
+const POPUP_ORBIT_RADIUS_Y = 260;
+const POPUP_ORBIT_SECONDS = 5;
+
+export const popupOrbitFrameStyle = (
+  layer: VisualLayer,
+  options: PopupOrbitStyleOptions,
+): React.CSSProperties => {
+  if (layer.asset_kind !== "cutout" || options.itemIndex < 0 || options.itemCount <= 0) {
+    return {
+      ...layerFrameStyle(layer),
+      opacity: 1,
+      transformOrigin: "center",
+    };
+  }
+
+  const baseAngle = (Math.PI * 2 * options.itemIndex) / options.itemCount;
+  const orbitProgress = options.frame / Math.max(1, options.fps * POPUP_ORBIT_SECONDS);
+  const angle = baseAngle + orbitProgress * Math.PI * 2;
+  const width = 340;
+  const height = 340;
+
+  return {
+    position: "absolute",
+    width,
+    height,
+    left: POPUP_ORBIT_CENTER_X + Math.cos(angle) * POPUP_ORBIT_RADIUS_X,
+    top: POPUP_ORBIT_CENTER_Y + Math.sin(angle) * POPUP_ORBIT_RADIUS_Y,
+    transform: "translate(-50%, -50%)",
+    transformOrigin: "center",
+    zIndex: 10 + options.layerIndex,
+  };
+};
+
+const isPopupAnchorLayer = (layer: VisualLayer, index: number): boolean => (
+  layer.asset_kind === "cutout"
+  && (index === 0 || layer.id.endsWith("_anchor") || layer.animation === "none")
+);
+
 const PopupSequence: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const layers = validImageLayers(scene);
+  const popupItemLayers = layers.filter((layer, index) => !isPopupAnchorLayer(layer, index));
 
   logTreatmentOnce(scene, "popup_sequence", layers.length);
 
@@ -105,7 +155,8 @@ const PopupSequence: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
 
   return (
     <div style={{ position: "absolute", inset: 0 }}>
-      {layers.map((layer) => {
+      {layers.map((layer, layerIndex) => {
+        const itemIndex = popupItemLayers.findIndex((itemLayer) => itemLayer.id === layer.id);
         const enterFrame = Math.round((layer.enter_at_seconds ?? 0) * fps);
         const opacity = interpolate(frame, [enterFrame, enterFrame + 8], [0, 1], {
           extrapolateLeft: "clamp",
@@ -133,9 +184,14 @@ const PopupSequence: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
           <div
             key={layer.id}
             style={{
-              ...layerFrameStyle(layer),
+              ...popupOrbitFrameStyle(layer, {
+                layerIndex,
+                itemIndex,
+                itemCount: popupItemLayers.length,
+                frame: Math.max(0, frame - enterFrame),
+                fps,
+              }),
               opacity,
-              transformOrigin: "center",
             }}
           >
             <div style={layerChromeStyle(layer, scale)}>
