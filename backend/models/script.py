@@ -238,9 +238,19 @@ class Scene(BaseModel):
         if assigned_field == "visual_mode":
             mode = _resolve_visual_mode(self.visual_mode, None, None)
         elif assigned_field == "media_source":
-            mode = _resolve_visual_mode(None, self.media_source, self.visual_treatment, self.visual_beat)
+            if self.media_source == "ai_video":
+                mode = "video"
+            elif self.visual_mode in {"multi_frame", "continuous", "popup_sequence", "flipflop"}:
+                mode = self.visual_mode
+            else:
+                mode = "full_frame"
         elif assigned_field == "visual_treatment":
-            mode = _resolve_visual_mode(None, self.media_source, self.visual_treatment, self.visual_beat)
+            if self.visual_treatment in {"popup_sequence", "flipflop"}:
+                mode = self.visual_treatment
+            elif self.visual_mode in {"multi_frame", "continuous", "video"}:
+                mode = self.visual_mode
+            else:
+                mode = "full_frame"
         else:
             if self.visual_mode in {"video", "popup_sequence", "flipflop"}:
                 mode = self.visual_mode

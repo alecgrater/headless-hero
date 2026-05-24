@@ -242,3 +242,20 @@ def test_scene_visual_beat_assignment_does_not_demote_popup_mode():
     assert scene.media_source == "ai"
     assert scene.visual_treatment == "popup_sequence"
     assert scene.frame_urls == []
+
+
+def test_scene_visual_beat_assignment_does_not_demote_flipflop_mode():
+    scene = Scene(
+        id="scene_001",
+        narration="Hello.",
+        visual_prompt="A simple scene",
+        visual_mode="flipflop",
+        frame_urls=["/static/projects/script/images/scene_001_0.png"],
+    )
+
+    scene.visual_beat = "quick_cuts"
+
+    assert scene.visual_mode == "flipflop"
+    assert scene.media_source == "ai"
+    assert scene.visual_treatment == "flipflop"
+    assert scene.frame_urls == []

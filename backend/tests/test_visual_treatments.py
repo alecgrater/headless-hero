@@ -1116,6 +1116,130 @@ def test_generate_visual_persists_request_visual_treatment(monkeypatch):
     assert [layer.id for layer in stored_scene.visual_layers] == ["state_a", "state_b"]
 
 
+def test_generate_visual_preserves_multi_frame_mode_for_frame_directives(monkeypatch):
+    from api import visuals as visuals_api
+    from api.visuals import GenerateVisualRequest
+
+    engine = _build_test_engine()
+    script_id = "multi-frame-visual"
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="First this, then that.",
+            visual_prompt="Several examples.",
+            visual_mode="multi_frame",
+        )
+    )
+
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+    monkeypatch.setattr(
+        visuals_api,
+        "generate_scene_frames_v2",
+        lambda **_kwargs: [
+            (
+                f"/static/projects/{script_id}/images/scene_001_0.png",
+                "Frame prompt",
+                {"provider": "fake"},
+            )
+        ],
+    )
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Multi Frame Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        visuals_api.generate_visual(
+            GenerateVisualRequest(
+                script_id=script_id,
+                scene_id="scene_001",
+                visual_prompt="Several examples.",
+                visual_mode="multi_frame",
+                frame_directives=[
+                    {
+                        "prompt": "Frame prompt",
+                        "source": "ai_generated",
+                        "transition": "cut",
+                        "reference_previous": False,
+                    }
+                ],
+            ),
+            session,
+        )
+
+        stored = session.get(Script, script_id)
+        assert stored is not None
+        stored_scene = ScriptContent.model_validate_json(stored.script_json).segments[0].scenes[0]
+
+    assert stored_scene.visual_mode == "multi_frame"
+    assert stored_scene.media_source == "ai"
+    assert stored_scene.visual_treatment == "full_frame"
+    assert stored_scene.frame_urls == [f"/static/projects/{script_id}/images/scene_001_0.png"]
+
+
+def test_generate_visual_preserves_continuous_mode_for_single_image_path(monkeypatch):
+    from api import visuals as visuals_api
+    from api.visuals import GenerateVisualRequest
+
+    engine = _build_test_engine()
+    script_id = "continuous-visual"
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="The crack slowly spreads.",
+            visual_prompt="A spreading crack.",
+            visual_mode="continuous",
+        )
+    )
+
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+    monkeypatch.setattr(
+        visuals_api,
+        "generate_scene_image",
+        lambda **_kwargs: (
+            f"/static/projects/{script_id}/images/scene_001.png",
+            "Image prompt",
+            {"provider": "fake"},
+        ),
+    )
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Continuous Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        visuals_api.generate_visual(
+            GenerateVisualRequest(
+                script_id=script_id,
+                scene_id="scene_001",
+                visual_prompt="A spreading crack.",
+                visual_mode="continuous",
+            ),
+            session,
+        )
+
+        stored = session.get(Script, script_id)
+        assert stored is not None
+        stored_scene = ScriptContent.model_validate_json(stored.script_json).segments[0].scenes[0]
+
+    assert stored_scene.visual_mode == "continuous"
+    assert stored_scene.media_source == "ai"
+    assert stored_scene.visual_treatment == "full_frame"
+    assert stored_scene.image_url == f"/static/projects/{script_id}/images/scene_001.png"
+
+
 def test_generate_visual_routes_popup_sequence_to_cutout_assets(monkeypatch):
     from api import visuals as visuals_api
 

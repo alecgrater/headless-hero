@@ -186,6 +186,16 @@ def _with_visual_layers(fields: dict[str, object], visual_layers: list[dict] | N
         fields["visual_layers"] = visual_layers
     return fields
 
+
+def _media_visual_mode(visual_mode: str, scene: object | None) -> str:
+    if visual_mode in {"multi_frame", "continuous"}:
+        return visual_mode
+    if scene is not None:
+        scene_mode = getattr(scene, "visual_mode", "")
+        if scene_mode in {"multi_frame", "continuous"}:
+            return scene_mode
+    return "full_frame"
+
 # --- Endpoints ---
 
 @router.post("/generate", response_model=GenerateVisualResponse)
@@ -333,7 +343,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
                 **_with_visual_layers(
                     {
                         "video_url": "",
-                        "visual_mode": "full_frame",
+                        "visual_mode": _media_visual_mode(visual_mode, scene),
                         "media_source": "ai",
                         "visual_treatment": "full_frame",
                         "frame_urls": frame_urls,
@@ -382,7 +392,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             {
                 "image_url": image_url,
                 "frame_urls": [],
-                "visual_mode": "full_frame",
+                "visual_mode": _media_visual_mode(visual_mode, scene),
                 "media_source": "ai",
                 "visual_treatment": "full_frame",
                 "video_url": "",
