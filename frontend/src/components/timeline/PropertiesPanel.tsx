@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Film, Image, PanelsTopLeft, Repeat2 } from "lucide-react";
+import { Film, Image, Images, PanelsTopLeft, Repeat2, Route } from "lucide-react";
 import { assetUrl, regenerateFX } from "../../api";
-import type { Scene, SceneFX, VisualMode } from "../../types/script";
+import type { Scene, SceneFX, VisualMode, VisualTreatment } from "../../types/script";
 import AudioPlayer from "./AudioPlayer";
 import SceneMicroTimeline from "./SceneMicroTimeline";
 import type { MicroTimelineHandle } from "./SceneMicroTimeline";
@@ -78,18 +78,24 @@ export default function PropertiesPanel({
   const VISUAL_MODE_OPTIONS: { value: VisualMode; label: string; icon: ReactNode }[] = [
     { value: "video", label: "Video", icon: <Film className="h-3 w-3" /> },
     { value: "full_frame", label: "Full frame", icon: <Image className="h-3 w-3" /> },
+    { value: "multi_frame", label: "Multi-frame", icon: <Images className="h-3 w-3" /> },
+    { value: "continuous", label: "Continuous", icon: <Route className="h-3 w-3" /> },
     { value: "popup_sequence", label: "Popup", icon: <PanelsTopLeft className="h-3 w-3" /> },
     { value: "flipflop", label: "Flip-flop", icon: <Repeat2 className="h-3 w-3" /> },
   ];
   const visualMode: VisualMode =
     scene.visual_mode ?? (scene.media_source === "ai_video" ? "video" : scene.visual_treatment ?? "full_frame");
 
+  const visualTreatmentForMode = (mode: VisualMode): VisualTreatment =>
+    mode === "popup_sequence" || mode === "flipflop" ? mode : "full_frame";
+
   const setVisualMode = (mode: VisualMode) => {
+    const isLayered = mode === "popup_sequence" || mode === "flipflop";
     onUpdate({
       visual_mode: mode,
       media_source: mode === "video" ? "ai_video" : "ai",
-      visual_treatment: mode === "video" ? "full_frame" : mode,
-      visual_layers: mode === "video" || mode === "full_frame" ? [] : scene.visual_layers,
+      visual_treatment: visualTreatmentForMode(mode),
+      visual_layers: isLayered ? scene.visual_layers : [],
     });
   };
 

@@ -20,6 +20,14 @@ const MODE_LABELS: Record<VisualMode, { label: string; blurb: string }> = {
     label: "Full frame",
     blurb: "A normal scene image or video fills the whole frame and covers the canvas.",
   },
+  multi_frame: {
+    label: "Multi-frame",
+    blurb: "Several independent images share one narration scene and cut between examples or comparisons.",
+  },
+  continuous: {
+    label: "Continuous",
+    blurb: "Related frames keep reference continuity so one action or transformation unfolds over time.",
+  },
   popup_sequence: {
     label: "Popup sequence",
     blurb: "Two to four small illustrated panels appear on narration beats, usually left to right.",
@@ -30,9 +38,11 @@ const MODE_LABELS: Record<VisualMode, { label: string; blurb: string }> = {
   },
 };
 
-const MODE_OPTIONS: VisualMode[] = ["video", "full_frame", "popup_sequence", "flipflop"];
+const MODE_OPTIONS: VisualMode[] = ["video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop"];
 const modeForAssignment = (assignment: VisualTreatmentAssignment): VisualMode =>
   assignment.visual_mode ?? (assignment.visual_treatment === "full_frame" ? "full_frame" : assignment.visual_treatment);
+const isLayeredMode = (mode: VisualMode): mode is Extract<VisualMode, "popup_sequence" | "flipflop"> =>
+  mode === "popup_sequence" || mode === "flipflop";
 
 export default function VisualTreatmentReviewPanel({
   assignments,
@@ -49,13 +59,13 @@ export default function VisualTreatmentReviewPanel({
         acc[modeForAssignment(assignment)] += 1;
         return acc;
       },
-      { video: 0, full_frame: 0, popup_sequence: 0, flipflop: 0 },
+      { video: 0, full_frame: 0, multi_frame: 0, continuous: 0, popup_sequence: 0, flipflop: 0 },
     );
   }, [draft]);
   const hasInvalidLayerlessTreatment = draft.some(
     (assignment) => {
       const mode = modeForAssignment(assignment);
-      return mode !== "video" && mode !== "full_frame" && assignment.visual_layers.length === 0;
+      return isLayeredMode(mode) && assignment.visual_layers.length === 0;
     },
   );
 
@@ -64,14 +74,15 @@ export default function VisualTreatmentReviewPanel({
   }, [assignments]);
 
   const handleModeChange = (sceneId: string, visualMode: VisualMode) => {
+    const isLayered = isLayeredMode(visualMode);
     setDraft((prev) =>
       prev.map((assignment) =>
         assignment.scene_id === sceneId
           ? {
               ...assignment,
               visual_mode: visualMode,
-              visual_treatment: visualMode === "video" ? "full_frame" : visualMode,
-              visual_layers: visualMode === "video" || visualMode === "full_frame" ? [] : assignment.visual_layers,
+              visual_treatment: isLayered ? visualMode : "full_frame",
+              visual_layers: isLayered ? assignment.visual_layers : [],
             }
           : assignment,
       ),
@@ -88,7 +99,8 @@ export default function VisualTreatmentReviewPanel({
               Visual mode controls the scene route and the assets it owns: video clip, full-frame image, popup cutouts, or flip-flop panels.
             </p>
             <p className="text-xs text-neutral-500">
-              {summary.video} video, {summary.full_frame} full frame, {summary.popup_sequence} popup sequence, {summary.flipflop} flipflop
+              {summary.video} video, {summary.full_frame} full frame, {summary.multi_frame} multi-frame,{" "}
+              {summary.continuous} continuous, {summary.popup_sequence} popup sequence, {summary.flipflop} flipflop
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -144,7 +156,7 @@ export default function VisualTreatmentReviewPanel({
                   className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 transition-colors hover:border-neutral-600"
                 >
                   {MODE_OPTIONS.map((optionMode) => (
-                    <option key={optionMode} value={optionMode} disabled={!["video", "full_frame"].includes(optionMode) && !hasLayers}>
+                    <option key={optionMode} value={optionMode} disabled={isLayeredMode(optionMode) && !hasLayers}>
                       {MODE_LABELS[optionMode].label}
                     </option>
                   ))}

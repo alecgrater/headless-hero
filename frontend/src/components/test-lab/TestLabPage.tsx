@@ -11,17 +11,24 @@ function visualModeFromPreset(preset: TestLabPreset | null): TestLabSettings["vi
   return preset?.visual_mode ?? (preset?.media_source === "ai_video" ? "video" : "full_frame");
 }
 
+function isLayeredVisualMode(
+  visualMode: TestLabSettings["visual_mode"],
+): visualMode is Extract<TestLabSettings["visual_mode"], "popup_sequence" | "flipflop"> {
+  return visualMode === "popup_sequence" || visualMode === "flipflop";
+}
+
 function settingsWithPresetVisualMode(settings: TestLabSettings, preset: TestLabPreset | null): TestLabSettings {
   const visualMode = visualModeFromPreset(preset);
+  const isLayered = isLayeredVisualMode(visualMode);
   return {
     ...settings,
     visual_mode: visualMode,
     media_source: visualMode === "video" ? "ai_video" : "ai",
-    visual_treatment: visualMode === "video" ? "full_frame" : visualMode,
-    visual_layers: visualMode === "video" || visualMode === "full_frame" ? [] : settings.visual_layers,
+    visual_treatment: isLayered ? visualMode : "full_frame",
+    visual_layers: isLayered ? settings.visual_layers : [],
     stages: {
       ...settings.stages,
-      treatment_assets: visualMode === "video" ? false : settings.stages.treatment_assets,
+      treatment_assets: isLayered ? settings.stages.treatment_assets : false,
     },
   };
 }
