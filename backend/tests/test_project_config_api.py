@@ -170,6 +170,46 @@ def test_put_main_character_updates_script_json(monkeypatch):
     app.dependency_overrides.pop(get_session, None)
 
 
+def test_put_main_character_clears_stale_cutout(monkeypatch, tmp_path):
+    engine, app = _setup_app(monkeypatch)
+    _seed_script(
+        engine,
+        "test-cfg-cutout-clear",
+        eli_enabled=False,
+        main_character_dict={"name": "Old", "appearance": "x", "vibe": "y"},
+    )
+
+    import pipeline.main_character as mc
+    from models.project_config import ProjectConfig
+
+    monkeypatch.setattr(mc, "DATA_DIR", tmp_path)
+    character_dir = tmp_path / "projects" / "test-cfg-cutout-clear" / "character"
+    character_dir.mkdir(parents=True, exist_ok=True)
+    (character_dir / "reference.png").write_bytes(b"old-reference")
+    cutout_path = character_dir / "cutout.png"
+    cutout_path.write_bytes(b"old-cutout")
+
+    with Session(engine) as session:
+        cfg = session.get(ProjectConfig, "test-cfg-cutout-clear")
+        cfg.main_character_reference_url = "/static/projects/test-cfg-cutout-clear/character/reference.png"
+        session.add(cfg)
+        session.commit()
+
+    from fastapi.testclient import TestClient
+    client = TestClient(app)
+    res = client.put(
+        "/api/projects/test-cfg-cutout-clear/config/character",
+        json={"name": "New", "appearance": "z", "vibe": "w"},
+    )
+    assert res.status_code == 200
+    assert res.json()["main_character_reference_url"] is None
+    assert res.json()["main_character_cutout_url"] is None
+    assert not cutout_path.exists()
+
+    from database import get_session
+    app.dependency_overrides.pop(get_session, None)
+
+
 def test_generate_and_select_main_character_reference_variants(monkeypatch, tmp_path):
     engine, app = _setup_app(monkeypatch)
     _seed_script(
