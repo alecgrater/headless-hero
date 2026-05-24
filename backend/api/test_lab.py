@@ -30,7 +30,8 @@ class StartTestLabRunRequest(BaseModel):
 
 
 class PopupCropPreviewRequest(BaseModel):
-    prompt: str = Field(min_length=1)
+    anchor_prompt: str = Field(min_length=1)
+    item_prompt: str = Field(min_length=1)
     items: list[str] = Field(default_factory=list, max_length=5)
 
 
@@ -100,7 +101,11 @@ def create_popup_crop_preview(request: PopupCropPreviewRequest):
     cleaned_items = [item.strip() for item in request.items if item.strip()]
     if not cleaned_items:
         raise HTTPException(status_code=422, detail="Add at least one item to crop.")
-    result = generate_popup_crop_preview(prompt=request.prompt, items=cleaned_items)
+    result = generate_popup_crop_preview(
+        anchor_prompt=request.anchor_prompt,
+        item_prompt=request.item_prompt,
+        items=cleaned_items,
+    )
     return result.model_dump(mode="json")
 
 

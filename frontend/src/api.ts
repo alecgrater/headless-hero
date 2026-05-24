@@ -154,11 +154,13 @@ export async function clearTestLabRuns(): Promise<boolean> {
 }
 
 export async function generatePopupCropPreview(
-  prompt: string,
+  anchorPrompt: string,
+  itemPrompt: string,
   items: string[],
 ): Promise<PopupCropPreviewResult | null> {
   const res = await api.post<PopupCropPreviewResult>("/api/test-lab/popup-crop", {
-    prompt,
+    anchor_prompt: anchorPrompt,
+    item_prompt: itemPrompt,
     items,
   });
   return res.ok ? res.data : null;

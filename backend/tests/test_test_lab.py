@@ -239,35 +239,52 @@ def test_popup_crop_preview_generates_sheet_and_crops_fixed_grid(monkeypatch, tm
 
     monkeypatch.setattr(popup_crop, "DATA_DIR", tmp_path)
 
-    source_path = tmp_path / "source-sheet.png"
-    image = Image.new("RGB", (400, 400), "white")
-    image.paste("red", (0, 0, 200, 200))
-    image.paste("green", (200, 0, 400, 200))
-    image.paste("blue", (0, 200, 200, 400))
-    image.paste("yellow", (200, 200, 400, 400))
-    image.save(source_path)
+    anchor_path = tmp_path / "anchor.png"
+    anchor = Image.new("RGB", (200, 200), (0, 255, 0))
+    anchor.paste("red", (70, 50, 130, 160))
+    anchor.save(anchor_path)
 
-    def fake_generate_image(*_args, **_kwargs):
-        return str(source_path)
+    sheet_path = tmp_path / "item-sheet.png"
+    sheet = Image.new("RGB", (600, 200), (0, 255, 0))
+    sheet.paste("blue", (55, 60, 145, 150))
+    sheet.paste("yellow", (255, 60, 345, 150))
+    sheet.paste("purple", (455, 60, 545, 150))
+    sheet.save(sheet_path)
+
+    generated_prompts = []
+
+    def fake_generate_image(prompt, *_args, **_kwargs):
+        generated_prompts.append(prompt)
+        return str(anchor_path if len(generated_prompts) == 1 else sheet_path)
 
     monkeypatch.setattr(popup_crop, "generate_image", fake_generate_image)
 
     result = popup_crop.generate_popup_crop_preview(
-        prompt="Generate a clean contact sheet.",
+        anchor_prompt="Generate a detailed recurring character.",
+        item_prompt="Generate clean icon cutouts.",
         items=["clock", "barred window", "warning sign"],
         run_id="crop-test",
     )
 
-    assert result.sheet_url == "/static/projects/test-lab-popup-crops/crop-test/contact_sheet.png"
+    assert result.anchor_source_url == "/static/projects/test-lab-popup-crops/crop-test/anchor_source.png"
+    assert result.sheet_url == "/static/projects/test-lab-popup-crops/crop-test/item_sheet.png"
     assert [crop.label for crop in result.crops] == ["Anchor character", "clock", "barred window", "warning sign"]
-    assert [crop.box for crop in result.crops] == [
+    assert [crop.box for crop in result.crops[1:]] == [
         [0, 0, 200, 200],
         [200, 0, 400, 200],
-        [0, 200, 200, 400],
-        [200, 200, 400, 400],
+        [400, 0, 600, 200],
     ]
-    assert (tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "contact_sheet.png").exists()
+    assert "same recurring character" in generated_prompts[0]
+    assert "left to right in this exact order" in generated_prompts[1]
+    assert (tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "anchor_source.png").exists()
+    assert (tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "item_sheet.png").exists()
     assert (tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "crop_01_anchor_character.png").exists()
+
+    with Image.open(tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "crop_01_anchor_character.png") as crop:
+        assert crop.mode == "RGBA"
+        assert crop.size[0] < 120
+        assert crop.size[1] < 160
+        assert crop.getpixel((0, 0))[3] == 0
 
 
 def test_popup_crop_endpoint_returns_preview(monkeypatch, tmp_path):
@@ -279,14 +296,18 @@ def test_popup_crop_endpoint_returns_preview(monkeypatch, tmp_path):
         def model_dump(self, mode="python"):
             return {
                 "run_id": "fake-run",
-                "prompt_used": "prompt",
-                "sheet_url": "/static/projects/test-lab-popup-crops/fake-run/contact_sheet.png",
+                "anchor_prompt_used": "anchor prompt",
+                "item_prompt_used": "item prompt",
+                "anchor_source_url": "/static/projects/test-lab-popup-crops/fake-run/anchor_source.png",
+                "sheet_url": "/static/projects/test-lab-popup-crops/fake-run/item_sheet.png",
                 "crops": [
                     {
                         "role": "anchor",
                         "label": "Anchor character",
                         "url": "/static/projects/test-lab-popup-crops/fake-run/crop_01_anchor_character.png",
+                        "raw_url": "/static/projects/test-lab-popup-crops/fake-run/raw_crop_01_anchor_character.png",
                         "box": [0, 0, 200, 200],
+                        "trim_box": [20, 20, 120, 160],
                     }
                 ],
             }
@@ -294,7 +315,7 @@ def test_popup_crop_endpoint_returns_preview(monkeypatch, tmp_path):
     monkeypatch.setattr(
         test_lab_api,
         "generate_popup_crop_preview",
-        lambda prompt, items, run_id=None: FakeResult(),
+        lambda anchor_prompt, item_prompt, items, run_id=None: FakeResult(),
     )
 
     client = TestClient(app)
@@ -302,7 +323,7 @@ def test_popup_crop_endpoint_returns_preview(monkeypatch, tmp_path):
     try:
         response = client.post(
             "/api/test-lab/popup-crop",
-            json={"prompt": "A contact sheet", "items": ["clock"]},
+            json={"anchor_prompt": "A character", "item_prompt": "A contact sheet", "items": ["clock"]},
         )
 
         assert response.status_code == 200

@@ -108,12 +108,16 @@ export interface PopupCropPreviewCrop {
   role: "anchor" | "item";
   label: string;
   url: string;
+  raw_url: string;
   box: number[];
+  trim_box: number[];
 }
 
 export interface PopupCropPreviewResult {
   run_id: string;
-  prompt_used: string;
+  anchor_prompt_used: string;
+  item_prompt_used: string;
+  anchor_source_url: string;
   sheet_url: string;
   crops: PopupCropPreviewCrop[];
 }
