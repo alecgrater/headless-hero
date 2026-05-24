@@ -22,15 +22,15 @@ const arrowClasses = {
 
 export function Tooltip({ content, children, side = "top" }: TooltipProps) {
   return (
-    <span className="relative inline-flex group/tooltip">
+    <span className="group relative inline-flex">
       {children}
       <span
         role="tooltip"
         className={[
           "pointer-events-none absolute z-50 w-max max-w-80 whitespace-normal break-words",
           "rounded-md bg-neutral-700 px-2 py-1 text-left text-xs leading-snug text-neutral-200 shadow-lg",
-          "opacity-0 group-hover/tooltip:opacity-100",
-          "transition-opacity duration-150 delay-0 group-hover/tooltip:delay-300",
+          "opacity-0 group-hover:opacity-100",
+          "transition-opacity duration-150 delay-0 group-hover:delay-300",
           "animate-[tooltipFade_150ms_ease-out]",
           positionClasses[side],
         ].join(" ")}

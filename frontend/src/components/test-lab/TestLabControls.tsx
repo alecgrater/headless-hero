@@ -469,11 +469,18 @@ function TreatmentOptionButton({
   active: boolean;
   onClick: () => void;
 }) {
+  const [showHelp, setShowHelp] = useState(false);
+
   return (
-    <Tooltip content={<TreatmentHelpContent option={option} />} side="right">
+    <div className="relative">
       <button
         type="button"
         onClick={onClick}
+        onMouseEnter={() => setShowHelp(true)}
+        onMouseLeave={() => setShowHelp(false)}
+        onFocus={() => setShowHelp(true)}
+        onBlur={() => setShowHelp(false)}
+        aria-describedby={`treatment-help-${option.value}`}
         className={`flex min-h-16 w-full items-start justify-between gap-3 rounded-md border px-3 py-2 text-left transition-colors ${
           active
             ? "border-violet-500/80 bg-violet-500/15 text-neutral-100"
@@ -486,7 +493,16 @@ function TreatmentOptionButton({
         </span>
         <HelpCircle className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${active ? "text-violet-300" : "text-neutral-600"}`} />
       </button>
-    </Tooltip>
+      {showHelp && (
+        <div
+          id={`treatment-help-${option.value}`}
+          role="tooltip"
+          className="absolute left-0 top-full z-50 mt-2 w-72 rounded-md border border-neutral-700 bg-neutral-800 px-3 py-2 text-left text-xs leading-snug text-neutral-200 shadow-xl"
+        >
+          <TreatmentHelpContent option={option} />
+        </div>
+      )}
+    </div>
   );
 }
 
