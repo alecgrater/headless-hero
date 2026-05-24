@@ -10,12 +10,12 @@ from sqlmodel import Column, Field, SQLModel, Text
 # --- Pydantic models for the script JSON structure ---
 
 ALLOWED_TRANSITIONS = {"cut", "fade_black", "flash_white", "wipe"}
-VISUAL_MODES = {"video", "full_frame", "popup_sequence", "flipflop"}
+VISUAL_MODES = {"video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop"}
 VISUAL_TREATMENTS = {"full_frame", "popup_sequence", "flipflop"}
 VISUAL_LAYER_TYPES = {"image"}
 VISUAL_ASSET_KINDS = {"full_frame", "panel", "cutout"}
 VISUAL_LAYER_ANIMATIONS = {"none", "pop_in"}
-VisualMode = Literal["video", "full_frame", "popup_sequence", "flipflop"]
+VisualMode = Literal["video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop"]
 VisualTreatment = Literal["full_frame", "popup_sequence", "flipflop"]
 VisualLayerType = Literal["image"]
 VisualAssetKind = Literal["full_frame", "panel", "cutout"]
@@ -193,13 +193,14 @@ class Scene(BaseModel):
             normalized.get("visual_mode"),
             normalized.get("media_source"),
             normalized.get("visual_treatment"),
+            normalized.get("visual_beat"),
         )
         media_source, visual_treatment = _legacy_fields_for_visual_mode(mode)
         normalized["visual_mode"] = mode
         normalized["media_source"] = media_source
         normalized["visual_treatment"] = visual_treatment
-        if mode != "full_frame":
-            normalized["frame_urls"] = [] if mode in {"video", "popup_sequence", "flipflop"} else normalized.get("frame_urls", [])
+        if mode in {"video", "popup_sequence", "flipflop"}:
+            normalized["frame_urls"] = []
         return normalized
 
     @field_validator("transition_in", mode="before")
@@ -236,6 +237,7 @@ def _resolve_visual_mode(
     visual_mode: object,
     media_source: object,
     visual_treatment: object,
+    visual_beat: object = None,
 ) -> VisualMode:
     if isinstance(visual_mode, str) and visual_mode in VISUAL_MODES:
         return visual_mode  # type: ignore[return-value]
@@ -243,6 +245,10 @@ def _resolve_visual_mode(
         return "video"
     if isinstance(visual_treatment, str) and visual_treatment in {"popup_sequence", "flipflop"}:
         return visual_treatment  # type: ignore[return-value]
+    if visual_beat in {"quick_cuts", "montage", "multi_frame"}:
+        return "multi_frame"
+    if visual_beat == "continuous":
+        return "continuous"
     return "full_frame"
 
 
