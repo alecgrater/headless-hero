@@ -47,14 +47,14 @@ def test_get_active_returns_null_when_unset(client):
 
 
 def test_set_active_then_get_active(client, tmp_path, monkeypatch):
-    from pipeline import style_presets
+    from api import style as style_api
     from sqlmodel import Session
     from database import engine
     from models.style_preset import StylePreset
     from datetime import datetime, timezone
     import uuid
 
-    monkeypatch.setattr(style_presets, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(style_api, "DATA_DIR", tmp_path)
 
     # Insert a preset directly
     preset_id = f"test-preset-{uuid.uuid4().hex[:8]}"
@@ -87,14 +87,14 @@ def test_set_active_then_get_active(client, tmp_path, monkeypatch):
 
 
 def test_delete_preset_clears_active_if_was_active(client, tmp_path, monkeypatch):
-    from pipeline import style_presets
+    from api import style as style_api
     from sqlmodel import Session
     from database import engine
     from models.style_preset import StylePreset
     from datetime import datetime, timezone
     import uuid
 
-    monkeypatch.setattr(style_presets, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(style_api, "DATA_DIR", tmp_path)
     preset_id = f"delete-me-{uuid.uuid4().hex[:8]}"
     presets_dir = tmp_path / "style" / "presets"
     presets_dir.mkdir(parents=True, exist_ok=True)
@@ -112,3 +112,41 @@ def test_delete_preset_clears_active_if_was_active(client, tmp_path, monkeypatch
 
     response = client.get("/api/style/active")
     assert response.json() is None
+
+
+def test_list_presets_prunes_rows_with_missing_images(client, tmp_path, monkeypatch):
+    from api import style as style_api
+    from sqlmodel import Session
+    from database import engine
+    from models.settings import AppSetting
+    from models.style_preset import StylePreset
+    from datetime import datetime, timezone
+    import uuid
+
+    monkeypatch.setattr(style_api, "DATA_DIR", tmp_path)
+    preset_id = f"missing-image-{uuid.uuid4().hex[:8]}"
+    with Session(engine) as session:
+        session.add(
+            StylePreset(
+                id=preset_id,
+                name="Saturday Cartoon",
+                prompt="a 16:9 reference sheet of cartoon people and objects",
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+        active_setting = session.get(AppSetting, "ACTIVE_STYLE_PRESET_ID")
+        if active_setting is None:
+            active_setting = AppSetting(key="ACTIVE_STYLE_PRESET_ID", value=preset_id)
+        else:
+            active_setting.value = preset_id
+        session.add(active_setting)
+        session.commit()
+
+    response = client.get("/api/style/presets")
+
+    assert response.status_code == 200
+    assert all(item["id"] != preset_id for item in response.json())
+
+    with Session(engine) as session:
+        assert session.get(StylePreset, preset_id) is None
+        assert session.get(AppSetting, "ACTIVE_STYLE_PRESET_ID").value == ""

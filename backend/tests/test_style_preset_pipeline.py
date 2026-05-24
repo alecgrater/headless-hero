@@ -7,8 +7,12 @@ import pytest
 
 def test_generate_preset_writes_image_and_db_row(tmp_path, monkeypatch):
     from pipeline import style_presets
+    from sqlmodel import SQLModel, create_engine
 
     monkeypatch.setattr(style_presets, "DATA_DIR", tmp_path)
+    test_engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    SQLModel.metadata.create_all(test_engine)
+    monkeypatch.setattr(style_presets, "engine", test_engine)
 
     fake_tmp = tmp_path / "gemini_tmp.png"
     fake_tmp.write_bytes(b"fakepng")
@@ -26,10 +30,9 @@ def test_generate_preset_writes_image_and_db_row(tmp_path, monkeypatch):
 
     # And a DB row should be readable
     from sqlmodel import Session
-    from database import engine
     from models.style_preset import StylePreset
 
-    with Session(engine) as session:
+    with Session(test_engine) as session:
         row = session.get(StylePreset, preset_id)
         assert row is not None
         assert row.name == "Saturday Cartoon"
