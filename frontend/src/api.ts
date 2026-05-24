@@ -1261,6 +1261,7 @@ export type StylePresetCharacter = {
   appearance: string;
   vibe: string;
   reference_image_url: string;
+  cutout_image_url: string;
   created_at: string;
   active: boolean;
 };
