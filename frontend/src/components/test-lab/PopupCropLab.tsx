@@ -18,12 +18,18 @@ const DEFAULT_ANCHOR_PROMPT = [
 ].join("\n");
 
 const DEFAULT_ITEM_PROMPT = [
-  "Flat 2D cartoon icon style, clean silhouettes.",
-  "The popup items should read clearly as separate symbolic cutouts.",
-  "No text.",
+  "Item 1 — Overflowing inbox (overflowing_inbox):",
+  "A paper tray stacked with teetering documents about to topple over.",
+  "Flat 2D cartoon, bold outlines.",
+  "Item 2 — Broken coffee mug (broken_coffee_mug):",
+  "A coffee mug split in two with liquid spilling out.",
+  "Flat 2D cartoon, bold outlines.",
+  "Item 3 — Ringing phone (ringing_phone):",
+  "A desk phone with curved motion lines on both sides indicating loud ringing.",
+  "Flat 2D cartoon, bold outlines.",
 ].join("\n");
 
-const DEFAULT_ITEMS = ["crossed-out chart", "wall clock", "barred window"];
+const DEFAULT_ITEMS = ["overflowing_inbox", "broken_coffee_mug", "ringing_phone"];
 const MAX_ITEMS = 5;
 
 type BusyAction = "anchor-generate" | "anchor-chroma" | "items-generate" | "items-chroma" | null;
