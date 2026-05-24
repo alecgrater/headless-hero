@@ -248,6 +248,8 @@ def test_generate_visual_layer_panels_expands_flipflop_micro_animation_prompts(t
     assert "small pose/expression progression" in captured[1]["prompt"]
     assert captured[0]["reference_image_path"] == char_ref
     assert captured[1]["reference_image_path"].endswith("scene_001_layer_scene_001_state_a.png")
+    assert "State A" in captured[0]["original_prompt"]
+    assert "State B" in captured[1]["original_prompt"]
     assert layers[0]["image_url"] == "/static/projects/script-1/images/scene_001_layer_scene_001_state_a.png"
     assert layers[1]["image_url"] == "/static/projects/script-1/images/scene_001_layer_scene_001_state_b.png"
 

@@ -346,8 +346,8 @@ def generate_visual_layer_panels(
             processed_layers.append(layer)
             continue
 
-        original_prompt = prompt
         prompt = _flipflop_micro_animation_prompt(prompt, index) if visual_treatment == "flipflop" else prompt
+        original_prompt = prompt
         filename = visual_layer_image_filename(scene_id, str(layer_id))
         local_path = images_dir / filename
         prompt_marker = images_dir / f"{filename}.prompt"
