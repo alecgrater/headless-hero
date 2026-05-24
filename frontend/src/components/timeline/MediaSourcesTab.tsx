@@ -1,7 +1,6 @@
 import type { MediaAssignment, VisualTreatmentAssignment } from "../../api";
 import type { Scene, ScriptContent } from "../../types/script";
 import MediaReviewPanel from "./MediaReviewPanel";
-import VisualCanvasControls from "./VisualCanvasControls";
 import VisualTreatmentReviewPanel from "./VisualTreatmentReviewPanel";
 
 function buildFrameCounts(content: ScriptContent): Record<string, number> {
@@ -75,10 +74,8 @@ interface Props {
   mediaAssignments: MediaAssignment[] | null;
   mediaAnalyzing: boolean;
   mediaReviewDismissed: boolean;
-  canvasPalette: string[];
   visualTreatmentAssignments: VisualTreatmentAssignment[] | null;
   visualTreatmentAnalyzing: boolean;
-  onSelectCanvasColor: (color: string) => void;
   onAnalyzeVisualTreatments: () => void;
   onApplyVisualTreatments: (assignments: VisualTreatmentAssignment[]) => void;
   onAnalyzeMedia: () => void;
@@ -93,10 +90,8 @@ export default function MediaSourcesTab({
   mediaAssignments,
   mediaAnalyzing,
   mediaReviewDismissed,
-  canvasPalette,
   visualTreatmentAssignments,
   visualTreatmentAnalyzing,
-  onSelectCanvasColor,
   onAnalyzeVisualTreatments,
   onApplyVisualTreatments,
   onAnalyzeMedia,
@@ -115,7 +110,6 @@ export default function MediaSourcesTab({
     visualTreatmentTiming.missingWordTimingCount,
   );
   const scenes = buildScenesMap(content);
-  const canvasColor = content.visual_canvas?.background_color ?? "#F6C54A";
 
   const visualTreatmentSection = (
     <div className="space-y-3">
@@ -169,11 +163,6 @@ export default function MediaSourcesTab({
   if (mediaAnalyzing) {
     return (
       <div className="flex-1 overflow-auto p-4 space-y-4">
-        <VisualCanvasControls
-          color={canvasColor}
-          palette={canvasPalette}
-          onSelect={onSelectCanvasColor}
-        />
         {visualTreatmentSection}
         <div className="flex items-center justify-center py-16">
           <div className="flex flex-col items-center gap-3">
@@ -190,11 +179,6 @@ export default function MediaSourcesTab({
     const sceneSegments = buildSceneSegments(content);
     return (
       <div className="flex-1 overflow-auto p-4 space-y-4">
-        <VisualCanvasControls
-          color={canvasColor}
-          palette={canvasPalette}
-          onSelect={onSelectCanvasColor}
-        />
         {visualTreatmentSection}
         <MediaReviewPanel
           scriptId={scriptId}
@@ -217,11 +201,6 @@ export default function MediaSourcesTab({
   if (mediaReviewDismissed) {
     return (
       <div className="flex-1 overflow-auto p-4 space-y-4">
-        <VisualCanvasControls
-          color={canvasColor}
-          palette={canvasPalette}
-          onSelect={onSelectCanvasColor}
-        />
         {visualTreatmentSection}
         <div className="flex items-center justify-center py-16">
           <div className="flex flex-col items-center gap-4">
@@ -249,11 +228,6 @@ export default function MediaSourcesTab({
 
   return (
     <div className="flex-1 overflow-auto p-4 space-y-4">
-      <VisualCanvasControls
-        color={canvasColor}
-        palette={canvasPalette}
-        onSelect={onSelectCanvasColor}
-      />
       {visualTreatmentSection}
       <div className="flex items-center justify-center py-12">
         <div className="flex flex-col items-center gap-5 max-w-2xl text-center px-6">

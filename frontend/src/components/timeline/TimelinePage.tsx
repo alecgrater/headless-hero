@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import {
   BarChart3,
   ChevronDown,
@@ -37,7 +37,6 @@ import api, {
   getShortFormThumbnailsStatus,
   getUploadSuiteStatus,
   getUploadTracking,
-  getVisualCanvasPalette,
   getVisualTreatmentStatus,
   openPath,
   pollEliJob,
@@ -584,6 +583,101 @@ function OpenExportsButton({
   );
 }
 
+function normalizeCanvasHex(value: string): string | null {
+  const text = value.trim().replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{6}$/.test(text)) return null;
+  return `#${text.toUpperCase()}`;
+}
+
+function CanvasColorButton({
+  color,
+  updating,
+  onSelect,
+}: {
+  color: string;
+  updating: boolean;
+  onSelect: (color: string) => void;
+}) {
+  const colorInputRef = useRef<HTMLInputElement | null>(null);
+  const [draft, setDraft] = useState(color);
+  const normalizedDraft = normalizeCanvasHex(draft);
+  const activeColor = normalizeCanvasHex(color) ?? "#F6C54A";
+  const previewColor = normalizedDraft ?? activeColor;
+  const invalid = draft.trim().length > 0 && !normalizedDraft;
+
+  useEffect(() => {
+    setDraft(color);
+  }, [color]);
+
+  const commitDraft = useCallback(() => {
+    if (!normalizedDraft) {
+      setDraft(activeColor);
+      return;
+    }
+    setDraft(normalizedDraft);
+    if (normalizedDraft !== activeColor) onSelect(normalizedDraft);
+  }, [activeColor, normalizedDraft, onSelect]);
+
+  const handleTextKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
+      event.currentTarget.blur();
+    } else if (event.key === "Escape") {
+      setDraft(activeColor);
+      event.currentTarget.blur();
+    }
+  };
+
+  return (
+    <div
+      className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border bg-neutral-950/70 px-1.5 transition-colors focus-within:border-violet-500 ${
+        invalid ? "border-amber-400/70" : "border-neutral-800 hover:border-violet-500/35"
+      } ${updating ? "opacity-70" : ""}`}
+      title="Canvas color"
+    >
+      <button
+        type="button"
+        onClick={() => colorInputRef.current?.click()}
+        disabled={updating}
+        className="inline-flex h-full items-center gap-1.5 text-xs font-medium text-neutral-200 transition-colors hover:text-violet-100 disabled:cursor-wait"
+      >
+        <span
+          className="h-5 w-7 shrink-0 rounded-sm border border-neutral-300/80"
+          style={{ backgroundColor: previewColor }}
+          aria-hidden="true"
+        />
+        <span>Canvas</span>
+      </button>
+      <input
+        ref={colorInputRef}
+        type="color"
+        value={previewColor}
+        onChange={(event) => {
+          const nextColor = normalizeCanvasHex(event.target.value);
+          if (!nextColor) return;
+          setDraft(nextColor);
+          onSelect(nextColor);
+        }}
+        disabled={updating}
+        className="sr-only"
+        aria-label="Select canvas color"
+      />
+      <input
+        type="text"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commitDraft}
+        onKeyDown={handleTextKeyDown}
+        disabled={updating}
+        maxLength={7}
+        aria-label="Canvas color hex value"
+        aria-invalid={invalid}
+        className="h-7 w-[4.8rem] border-l border-neutral-800 bg-transparent pl-1.5 font-mono text-xs font-semibold uppercase text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 disabled:cursor-wait"
+        placeholder="#F6C54A"
+      />
+    </div>
+  );
+}
+
 function ProjectDetailsButton({
   onClick,
 }: {
@@ -908,6 +1002,9 @@ function ViewerSwitchRow({
   onTabChange,
   onOpenProjectDetails,
   onOpenExportsFolder,
+  canvasColor,
+  canvasColorUpdating,
+  onSelectCanvasColor,
 }: {
   format: ViewerFormat;
   asset: ViewerAsset;
@@ -918,6 +1015,9 @@ function ViewerSwitchRow({
   onTabChange: (tab: ViewerTab) => void;
   onOpenProjectDetails: () => void;
   onOpenExportsFolder: () => void;
+  canvasColor: string;
+  canvasColorUpdating: boolean;
+  onSelectCanvasColor: (color: string) => void;
 }) {
   const activeNavKey: ViewerNavKey = asset === "render" ? activeTab : asset;
   const handleNavChange = (key: ViewerNavKey) => {
@@ -965,6 +1065,11 @@ function ViewerSwitchRow({
           })}
         </div>
         <ProjectDetailsButton onClick={onOpenProjectDetails} />
+        <CanvasColorButton
+          color={canvasColor}
+          updating={canvasColorUpdating}
+          onSelect={onSelectCanvasColor}
+        />
         <OpenExportsButton opening={exportsFolderOpening} onOpen={onOpenExportsFolder} />
       </div>
     </div>
@@ -1096,7 +1201,7 @@ function TimelineEditor({
   const [productionError, setProductionError] = useState<string | null>(null);
   const [projectConfig, setProjectConfig] = useState<ProjectConfig | null>(null);
   const [showMainCharacterDrawer, setShowMainCharacterDrawer] = useState(false);
-  const [canvasPalette, setCanvasPalette] = useState<string[]>(["#F6C54A"]);
+  const [canvasColorUpdating, setCanvasColorUpdating] = useState(false);
   const [visualTreatmentAssignments, setVisualTreatmentAssignments] = useState<VisualTreatmentAssignment[] | null>(null);
   const [visualTreatmentAnalyzing, setVisualTreatmentAnalyzing] = useState(false);
   const [visualTreatmentJobId, setVisualTreatmentJobId] = useState<string | null>(null);
@@ -1114,22 +1219,6 @@ function TimelineEditor({
     setTitleDraft(title);
     setEditingTitle(false);
   }, [scriptId, title]);
-
-  useEffect(() => {
-    if (!scriptId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const palette = await getVisualCanvasPalette();
-        if (!cancelled) setCanvasPalette(palette.colors);
-      } catch {
-        if (!cancelled) setCanvasPalette(["#F6C54A"]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [scriptId]);
 
   useEffect(() => {
     activeScriptIdRef.current = scriptId;
@@ -1200,6 +1289,7 @@ function TimelineEditor({
   const handleSelectCanvasColor = useCallback(async (color: string) => {
     try {
       const requestScriptId = scriptId;
+      setCanvasColorUpdating(true);
       const saved = await state.save();
       if (activeScriptIdRef.current !== requestScriptId) return;
       if (!saved) {
@@ -1209,11 +1299,12 @@ function TimelineEditor({
       const result = await updateVisualCanvas(requestScriptId, color);
       if (activeScriptIdRef.current !== requestScriptId) return;
       state.setContent(result.script);
-      setCanvasPalette(result.palette);
       showToast("Canvas color updated.", "success");
     } catch (err) {
       if (activeScriptIdRef.current !== scriptId) return;
       showToast(err instanceof Error ? err.message : "Failed to update canvas color");
+    } finally {
+      if (activeScriptIdRef.current === scriptId) setCanvasColorUpdating(false);
     }
   }, [scriptId, state]);
 
@@ -2752,11 +2843,14 @@ function TimelineEditor({
             asset={viewerAsset}
             activeTab={activeTab}
             exportsFolderOpening={exportsFolderOpening}
+            canvasColor={state.content.visual_canvas?.background_color ?? "#F6C54A"}
+            canvasColorUpdating={canvasColorUpdating}
             onFormatChange={setViewerFormat}
             onAssetChange={setViewerAsset}
             onTabChange={setActiveTab}
             onOpenProjectDetails={() => setShowProjectDetails(true)}
             onOpenExportsFolder={() => void handleOpenExportsFolder()}
+            onSelectCanvasColor={handleSelectCanvasColor}
           />
           <ProjectDetailsModal
             open={showProjectDetails}
@@ -3035,10 +3129,8 @@ function TimelineEditor({
           mediaAssignments={media.mediaAssignments}
           mediaAnalyzing={media.mediaAnalyzing}
           mediaReviewDismissed={media.mediaReviewDismissed}
-          canvasPalette={canvasPalette}
           visualTreatmentAssignments={visualTreatmentAssignments}
           visualTreatmentAnalyzing={visualTreatmentAnalyzing}
-          onSelectCanvasColor={handleSelectCanvasColor}
           onAnalyzeVisualTreatments={handleAnalyzeVisualTreatments}
           onApplyVisualTreatments={handleApplyVisualTreatments}
           onAnalyzeMedia={media.handleAnalyzeMedia}
