@@ -757,33 +757,9 @@ export async function getPublishStatus(jobId: string): Promise<PublishJobStatus 
   return res.data as PublishJobStatus;
 }
 
-export async function uploadSceneMedia(
-  scriptId: string,
-  sceneId: string,
-  file: File,
-): Promise<{ url: string; media_type: string }> {
-  const formData = new FormData();
-  formData.append("script_id", scriptId);
-  formData.append("scene_id", sceneId);
-  formData.append("file", file);
-
-  const baseUrl = `http://localhost:${BACKEND_PORT}`;
-  const response = await fetch(`${baseUrl}/api/media/upload`, {
-    method: "POST",
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ detail: "Upload failed" }));
-    throw new Error(err.detail || "Media upload failed");
-  }
-
-  return response.json();
-}
-
 export interface MediaAssignment {
   scene_id: string;
-  media_source: "ai" | "ai_video" | "gameplay_video" | "stock_photo" | "user_upload";
+  media_source: "ai" | "ai_video";
   game_name: string | null;
   search_query: string | null;
   reasoning: string;

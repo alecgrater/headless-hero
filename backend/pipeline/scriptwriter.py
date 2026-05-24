@@ -399,9 +399,8 @@ def generate_script(
     _fix_visual_monotony(content, rules=fmt.visual_beat_rules)
     _ensure_visual_beat_directives(content)
 
-    # Persist multi-source media settings on the script
-    content.gameplay_enabled = gameplay_enabled
-    content.stock_photo_enabled = stock_photo_enabled
+    content.gameplay_enabled = False
+    content.stock_photo_enabled = False
 
     logger.info(
         "Script generated for topic %r [format=%s]: %s segments, %s total scenes",

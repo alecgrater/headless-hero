@@ -39,7 +39,7 @@ For each zoom punch, specify:
 **Rules:**
 - MOST scenes should have NO zoom punch (null).
 - Reserve for: shocking statistics, dramatic reveals, key turning points.
-- Never zoom punch on title card scenes or gameplay clips.
+- Never zoom punch on title card scenes.
 - Never zoom punch on "aha_subtitle" scenes (no image to zoom — these are text-on-black).
 - Never zoom punch 2 consecutive scenes.
 

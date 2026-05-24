@@ -9,7 +9,7 @@ function buildFrameCounts(content: ScriptContent): Record<string, number> {
   for (const seg of content.segments) {
     for (const scene of seg.scenes) {
       const directives = scene.frame_directives ?? [];
-      if (directives.length > 1 && !["ai_video", "gameplay_video", "user_upload"].includes(scene.media_source ?? "")) {
+      if (directives.length > 1 && scene.media_source !== "ai_video") {
         counts[scene.id] = directives.length;
       }
     }
@@ -242,13 +242,9 @@ export default function MediaSourcesTab({
     );
   }
 
-  const gameplayEnabled = content.gameplay_enabled;
-  const stockEnabled = content.stock_photo_enabled;
   const aiVideoEnabled = content.ai_video_enabled;
   const enabledSources = [
     aiVideoEnabled && "AI Video",
-    gameplayEnabled && "Gameplay Video",
-    stockEnabled && "Stock Photos",
   ].filter(Boolean);
 
   return (
@@ -265,7 +261,7 @@ export default function MediaSourcesTab({
             <p className="text-sm text-neutral-400">
               {enabledSources.length > 0
                 ? `This project has ${enabledSources.join(" and ")} enabled. Analyze your script to assign media sources per scene.`
-                : "Analyze your script to assign media sources (AI, AI video, gameplay, stock photos) per scene."}
+                : "Analyze your script to assign AI image and AI video sources per scene."}
             </p>
           </div>
           <button

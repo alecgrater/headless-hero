@@ -74,13 +74,6 @@ export interface ScriptGenerationState {
   handleColdOpenSelect: (variant: ColdOpenVariant) => void;
   setSegmented: (v: boolean) => void;
   coldOpenProgress: { estimatedSeconds: number | null; active: boolean };
-  // Multi-source media
-  gameplayEnabled: boolean;
-  stockPhotoEnabled: boolean;
-  hasTwitchKeys: boolean;
-  hasPexelsKey: boolean;
-  setGameplayEnabled: (v: boolean) => void;
-  setStockPhotoEnabled: (v: boolean) => void;
 }
 
 export default function useScriptGeneration({ brandId, idea, supportsColdOpen = true, eliEnabled = true, stylePresetEnabled = true }: Params): ScriptGenerationState {
@@ -103,12 +96,6 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
   const [coldOpenResult, setColdOpenResult] = useState<ColdOpenResult | null>(null);
   const [selectedColdOpen, setSelectedColdOpen] = useState<ColdOpenVariant | null>(null);
   const [refineResult, setRefineResult] = useState<RefinedHookResult | null>(null);
-
-  // Multi-source media
-  const [gameplayEnabled, setGameplayEnabled] = useState(false);
-  const [stockPhotoEnabled, setStockPhotoEnabled] = useState(false);
-  const [hasTwitchKeys, setHasTwitchKeys] = useState(false);
-  const [hasPexelsKey, setHasPexelsKey] = useState(false);
 
   const cancelledRef = useRef(false);
   const coldOpenJobIdRef = useRef<string | null>(null);
@@ -265,8 +252,6 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
             setSegmented(true);
           }
         }
-        setHasTwitchKeys(!!data?.TWITCH_CLIENT_ID?.configured && !!data?.TWITCH_CLIENT_SECRET?.configured);
-        setHasPexelsKey(!!data?.PEXELS_API_KEY?.configured);
       }
       setSettingsLoaded(true);
     }).catch(() => setSettingsLoaded(true));
@@ -313,8 +298,8 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
           model: selectedModel !== DEFAULT_MODEL ? selectedModel : undefined,
           segmented,
           cold_open_text: idea.cold_open_text ?? null,
-          gameplay_enabled: gameplayEnabled,
-          stock_photo_enabled: stockPhotoEnabled,
+          gameplay_enabled: false,
+          stock_photo_enabled: false,
           eli_enabled: eliEnabled,
           style_preset_enabled: stylePresetEnabled,
         });
@@ -446,8 +431,8 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
         model: selectedModel !== DEFAULT_MODEL ? selectedModel : undefined,
         segmented,
         cold_open_text: coldOpenText,
-        gameplay_enabled: gameplayEnabled,
-        stock_photo_enabled: stockPhotoEnabled,
+        gameplay_enabled: false,
+        stock_photo_enabled: false,
         eli_enabled: eliEnabled,
         style_preset_enabled: stylePresetEnabled,
       })
@@ -513,11 +498,5 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
     handleColdOpenSelect,
     setSegmented,
     coldOpenProgress: { estimatedSeconds: coldOpenProgress.estimatedSeconds, active: coldOpenProgress.active },
-    gameplayEnabled,
-    stockPhotoEnabled,
-    hasTwitchKeys,
-    hasPexelsKey,
-    setGameplayEnabled,
-    setStockPhotoEnabled,
   };
 }

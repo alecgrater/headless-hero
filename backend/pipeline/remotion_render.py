@@ -108,23 +108,12 @@ def _visual_layers_to_input_props(scene: Scene, script_id: str) -> list[dict[str
 
 def _scene_video_path(script_id: str, scene: Scene) -> Path | None:
     """Resolve the local filesystem path for video-backed scenes."""
-    if scene.media_source not in ("ai_video", "gameplay_video", "user_upload"):
+    if scene.media_source != "ai_video":
         return None
 
-    if scene.media_source == "ai_video":
-        ai_video_path = DATA_DIR / "projects" / script_id / "videos" / f"{scene.id}.mp4"
-        if ai_video_path.exists():
-            return ai_video_path
-
-    clip_path = DATA_DIR / "projects" / script_id / "clips" / f"{scene.id}.mp4"
-    if clip_path.exists():
-        return clip_path
-
-    uploads_dir = DATA_DIR / "projects" / script_id / "uploads"
-    for ext in (".mp4", ".mov", ".webm"):
-        upload_path = uploads_dir / f"{scene.id}{ext}"
-        if upload_path.exists():
-            return upload_path
+    ai_video_path = DATA_DIR / "projects" / script_id / "videos" / f"{scene.id}.mp4"
+    if ai_video_path.exists():
+        return ai_video_path
 
     return None
 
@@ -288,7 +277,7 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
     audio_path = _scene_audio_path(script_id, scene.id)
     frame_paths = _scene_frame_paths(script_id, scene)
 
-    # Detect video scenes (AI-generated clips, gameplay clips, or uploaded videos)
+    # Detect AI-generated video scenes
     video_path: str | None = None
     local_video_path = _scene_video_path(script_id, scene)
     media_type = "image"

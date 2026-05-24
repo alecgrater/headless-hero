@@ -22,9 +22,6 @@ interface Props {
 const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
   ai: { label: "AI", color: "bg-violet-500/20 text-violet-300" },
   ai_video: { label: "AI Video", color: "bg-fuchsia-500/20 text-fuchsia-300" },
-  gameplay_video: { label: "Gameplay", color: "bg-emerald-500/20 text-emerald-300" },
-  stock_photo: { label: "Stock Photo", color: "bg-sky-500/20 text-sky-300" },
-  user_upload: { label: "Upload", color: "bg-emerald-500/20 text-emerald-300" },
 };
 
 export default function MediaReviewPanel({ scriptId, assignments: initial, frameCounts, fullHeight, scenes, sceneSegments, canAnalyze = true, analyzeBlockedReason, onBeforeApply, onSaved, onApproved, onReanalyze }: Props) {
@@ -46,16 +43,9 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
     setAssignments((prev) =>
       prev.map((a) =>
         a.scene_id === sceneId
-          ? { ...a, media_source: newSource, game_name: newSource === "gameplay_video" ? a.game_name : null, search_query: newSource === "stock_photo" ? a.search_query : null }
+          ? { ...a, media_source: newSource, game_name: null, search_query: null }
           : a,
       ),
-    );
-  };
-
-  const handleFieldChange = (sceneId: string, field: "game_name" | "search_query", value: string) => {
-    setSaveState("idle");
-    setAssignments((prev) =>
-      prev.map((a) => (a.scene_id === sceneId ? { ...a, [field]: field === "search_query" ? value : value || null } : a)),
     );
   };
 
@@ -147,8 +137,7 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
         {assignments.map((a, idx) => {
           const sourceInfo = SOURCE_LABELS[a.media_source] ?? { label: a.media_source, color: "bg-neutral-700 text-neutral-300" };
           const scene = scenes?.[a.scene_id];
-          const isUploadedVideo = a.media_source === "user_upload" && !!scene?.video_url;
-          const isVideoSource = a.media_source === "ai_video" || a.media_source === "gameplay_video" || isUploadedVideo;
+          const isVideoSource = a.media_source === "ai_video";
           const isExpanded = expandedSceneIds.has(a.scene_id);
           const visualPrompt = sceneVisualPrompt(scene);
           const durationLabel = sceneDurationLabel(scene);
@@ -163,9 +152,6 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
                 >
                   <option value="ai">AI</option>
                   <option value="ai_video">AI Video</option>
-                  <option value="gameplay_video">Gameplay</option>
-                  <option value="stock_photo">Stock Photo</option>
-                  {a.media_source === "user_upload" && <option value="user_upload">Upload</option>}
                 </select>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className={`px-2 py-0.5 rounded text-xs font-medium shrink-0 ${sourceInfo.color}`}>
@@ -203,24 +189,6 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
                 >
                   {visualPrompt || "No visual prompt."}
                 </p>
-                {a.media_source === "gameplay_video" && (
-                  <input
-                    type="text"
-                    value={a.game_name ?? ""}
-                    onChange={(e) => handleFieldChange(a.scene_id, "game_name", e.target.value)}
-                    placeholder="Game name"
-                    className="mt-1 w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 placeholder-neutral-600"
-                  />
-                )}
-                {a.media_source === "stock_photo" && (
-                  <input
-                    type="text"
-                    value={a.search_query ?? ""}
-                    onChange={(e) => handleFieldChange(a.scene_id, "search_query", e.target.value)}
-                    placeholder="Search query"
-                    className="mt-1 w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200 placeholder-neutral-600"
-                  />
-                )}
               </div>
               <button
                 onClick={() => toggleExpanded(a.scene_id)}

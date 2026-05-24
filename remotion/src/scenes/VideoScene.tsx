@@ -1,6 +1,6 @@
 /**
- * VideoScene — renders a video clip (gameplay footage or user upload)
- * using Remotion's OffthreadVideo for frame-accurate playback.
+ * VideoScene — renders an AI-generated video clip with Remotion's
+ * OffthreadVideo for frame-accurate playback.
  * AI video can be slowed slightly by the backend to cover narration.
  */
 import React from "react";

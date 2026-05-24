@@ -368,8 +368,8 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
     model = body.model
     segmented = body.segmented
     cold_open_text = body.cold_open_text
-    gameplay_enabled = body.gameplay_enabled
-    stock_photo_enabled = body.stock_photo_enabled
+    gameplay_enabled = False
+    stock_photo_enabled = False
     eli_enabled = body.eli_enabled
     # Resolve style_preset_enabled: use explicit value, else fall back to AppSettings
     if body.style_preset_enabled is not None:

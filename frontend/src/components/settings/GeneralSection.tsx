@@ -171,7 +171,7 @@ const LLM_TASKS: LlmTaskConfig[] = [
   {
     id: "media",
     label: "Media routing",
-    description: "Post-script routing between AI visuals, stock photos, and gameplay clips.",
+    description: "Post-script routing between AI images and AI video scenes.",
     providerKey: "MEDIA_LLM_PROVIDER",
     modelKey: "MEDIA_MODEL",
     reasoningKey: "OPENAI_REASONING_EFFORT_MEDIA",

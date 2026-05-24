@@ -106,8 +106,6 @@ def is_ai_video_eligible(
 ) -> bool:
     if scene.is_title_card:
         return False
-    if current_source in {"gameplay_video", "stock_photo", "user_upload"}:
-        return False
     if scene.visual_beat == "aha_subtitle":
         return False
     known_audio_duration = _known_audio_duration_seconds(scene)
@@ -266,13 +264,12 @@ def analyze_media_sources(
     ai_video_scenes_per_segment = max(0, ai_video_scenes_per_segment)
     ai_video_available = ai_video_enabled and animated_scene_count > 0 and ai_video_scenes_per_segment > 0
 
+    gameplay_enabled = False
+    stock_photo_enabled = False
+
     sources = ['"ai"']
     if ai_video_available:
         sources.append('"ai_video"')
-    if gameplay_enabled:
-        sources.append('"gameplay_video"')
-    if stock_photo_enabled:
-        sources.append('"stock_photo"')
     available_sources = ", ".join(sources)
 
     segment_count = len(script_content.segments)
@@ -327,7 +324,7 @@ def analyze_media_sources(
     cleaned = strip_markdown_fences(response)
     raw_assignments = parse_json_array_response(cleaned, key="assignments")
 
-    valid_sources = {"ai", "ai_video", "gameplay_video", "stock_photo"}
+    valid_sources = {"ai", "ai_video"}
     assignments_by_scene: dict[str, MediaAssignment] = {}
     ai_video_assigned = 0
     segment_ai_video_counts: dict[int, int] = {}
@@ -362,11 +359,6 @@ def analyze_media_sources(
             else:
                 ai_video_assigned += 1
                 segment_ai_video_counts[segment_index] = segment_ai_video_counts.get(segment_index, 0) + 1
-        if not gameplay_enabled and source == "gameplay_video":
-            source = "ai"
-        if not stock_photo_enabled and source == "stock_photo":
-            source = "ai"
-
         assignments_by_scene[scene_id] = MediaAssignment(
             scene_id=scene_id,
             media_source=source,
@@ -447,12 +439,10 @@ def analyze_media_sources(
                 AI_VIDEO_MAX_ROUTED_DURATION_SECONDS,
             )
 
-    logger.info("[%s] Media analysis complete: %d ai, %d ai_video, %d gameplay, %d stock",
+    logger.info("[%s] Media analysis complete: %d ai, %d ai_video",
                 script_id or "no-id",
                 sum(1 for a in assignments if a.media_source == "ai"),
-                sum(1 for a in assignments if a.media_source == "ai_video"),
-                sum(1 for a in assignments if a.media_source == "gameplay_video"),
-                sum(1 for a in assignments if a.media_source == "stock_photo"))
+                sum(1 for a in assignments if a.media_source == "ai_video"))
 
     return assignments
 
@@ -470,22 +460,10 @@ def apply_assignments(
             if not assignment:
                 continue
 
-            previous_source = scene.media_source
             scene.media_source = assignment.media_source
 
-            if assignment.media_source == "gameplay_video":
-                scene.gameplay_game_override = assignment.game_name or ""
-            else:
-                scene.gameplay_game_override = ""
-
-            if assignment.media_source == "stock_photo":
-                if previous_source != "stock_photo" and not scene.original_visual_prompt:
-                    scene.original_visual_prompt = scene.visual_prompt
-                if assignment.search_query is not None:
-                    scene.visual_prompt = assignment.search_query
-            elif previous_source == "stock_photo" and scene.original_visual_prompt:
-                scene.visual_prompt = scene.original_visual_prompt
-                scene.original_visual_prompt = ""
+            scene.gameplay_game_override = ""
+            scene.original_visual_prompt = ""
 
             if assignment.media_source == "ai_video" and script_content.format_id == "life-as-a":
                 from pipeline.formats.life_as_a import enforce_life_as_a_ai_video_solo_subject

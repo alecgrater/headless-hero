@@ -67,12 +67,6 @@ export default function ScriptGenerationPage({
     handleModelChange,
     handleColdOpenSelect,
     setSegmented,
-    gameplayEnabled,
-    stockPhotoEnabled,
-    hasTwitchKeys,
-    hasPexelsKey,
-    setGameplayEnabled,
-    setStockPhotoEnabled,
   } = useScriptGeneration({ brandId, idea, supportsColdOpen, eliEnabled, stylePresetEnabled });
 
   const {
@@ -103,7 +97,6 @@ export default function ScriptGenerationPage({
     generateTitleCards,
   } = useTitleCardGeneration({ scriptId, script });
 
-  const [mediaSourcesOpen, setMediaSourcesOpen] = useState(false);
   const [llmProvider, setLlmProvider] = useState<string>("");
   const [qwenModel, setQwenModel] = useState<string>("");
   const [projectConfig, setProjectConfig] = useState<ProjectConfig | null>(null);
@@ -241,80 +234,6 @@ export default function ScriptGenerationPage({
           </div>
         </div>
 
-        {/* Media Sources */}
-        {(hasTwitchKeys || hasPexelsKey) && (
-          <div className="rounded-lg border border-neutral-800 bg-neutral-900 px-6 py-4 space-y-3">
-            <button
-              onClick={() => setMediaSourcesOpen(!mediaSourcesOpen)}
-              className="flex items-center justify-between w-full group"
-            >
-              <h3 className="text-sm font-semibold text-neutral-200 uppercase tracking-wider">
-                Media Sources
-              </h3>
-              <div className="flex items-center gap-2">
-                {!mediaSourcesOpen && (gameplayEnabled || stockPhotoEnabled) && (
-                  <span className="text-xs text-neutral-500">
-                    AI{gameplayEnabled ? " + Gameplay" : ""}{stockPhotoEnabled ? " + Stock" : ""}
-                  </span>
-                )}
-                <svg
-                  className={`w-4 h-4 text-neutral-500 transition-transform ${mediaSourcesOpen ? "rotate-180" : ""}`}
-                  fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                </svg>
-              </div>
-            </button>
-
-            {!mediaSourcesOpen && !gameplayEnabled && !stockPhotoEnabled && (
-              <p className="text-xs text-neutral-500">AI-generated only</p>
-            )}
-
-            {mediaSourcesOpen && (
-              <div className="space-y-4 pt-1">
-                {hasTwitchKeys && (
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2.5 cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        checked={gameplayEnabled}
-                        onChange={(e) => setGameplayEnabled(e.target.checked)}
-                        className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-violet-500 focus:ring-violet-500 focus:ring-offset-0"
-                      />
-                      <div>
-                        <span className="text-sm text-neutral-200 group-hover:text-neutral-100 transition-colors">
-                          Gameplay clips
-                        </span>
-                        <p className="text-xs text-neutral-500">
-                          Some scenes will use Twitch VOD gameplay footage
-                        </p>
-                      </div>
-                    </label>
-                  </div>
-                )}
-
-                {hasPexelsKey && (
-                  <label className="flex items-center gap-2.5 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={stockPhotoEnabled}
-                      onChange={(e) => setStockPhotoEnabled(e.target.checked)}
-                      className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-violet-500 focus:ring-violet-500 focus:ring-offset-0"
-                    />
-                    <div>
-                      <span className="text-sm text-neutral-200 group-hover:text-neutral-100 transition-colors">
-                        Stock photos
-                      </span>
-                      <p className="text-xs text-neutral-500">
-                        Some scenes will use Pexels stock photography
-                      </p>
-                    </div>
-                  </label>
-                )}
-              </div>
-            )}
-          </div>
-        )}
         </>
       )}
 

@@ -43,7 +43,7 @@ const SERVICE_GROUPS: ServiceGroup[] = [
   },
   {
     title: "Image Generation",
-    description: "AI image and stock visual providers.",
+    description: "AI image and video providers.",
     services: [
     {
       key: "GOOGLE_AI_KEY",
@@ -68,12 +68,6 @@ const SERVICE_GROUPS: ServiceGroup[] = [
       label: "Fal.ai",
       description: "Generates animated scene videos via Wan image-to-video.",
       placeholder: "fal-...",
-    },
-    {
-      key: "PEXELS_API_KEY",
-      label: "Pexels",
-      description: "Stock photos for scenes via Pexels API.",
-      placeholder: "abc123...",
     },
   ],
   },
@@ -145,18 +139,6 @@ const SERVICE_GROUPS: ServiceGroup[] = [
       key: "NEWS_API_KEY",
       label: "NewsAPI",
       description: "News headlines for trending topic discovery.",
-      placeholder: "abc123...",
-    },
-    {
-      key: "TWITCH_CLIENT_ID",
-      label: "Twitch Client ID",
-      description: "Twitch API for discovering gameplay VODs.",
-      placeholder: "abc123...",
-    },
-    {
-      key: "TWITCH_CLIENT_SECRET",
-      label: "Twitch Client Secret",
-      description: "Twitch API secret for gameplay VOD access.",
       placeholder: "abc123...",
     },
   ],

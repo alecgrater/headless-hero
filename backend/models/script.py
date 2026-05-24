@@ -111,7 +111,7 @@ class PhraseTimestamp(BaseModel):
 class FrameDirective(BaseModel):
     """Per-frame generation directive for the Visual Beat System."""
     prompt: str
-    source: str = "ai_generated"       # "ai_generated" | "real_photo" | "subtitle" | "gameplay_video" | "stock_photo" | "user_upload"
+    source: str = "ai_generated"       # "ai_generated" | "real_photo" | "subtitle"
     search_query: str = ""
     transition: str = "crossfade"      # "cut" | "crossfade" | "fade_black"
     reference_previous: bool = True
@@ -174,12 +174,12 @@ class Scene(BaseModel):
     frame_timings: list[float] | None = None  # seconds into scene when each frame starts; None = even split
     visual_in_seconds: float = 0.0      # visual appears this many seconds into the audio
     visual_out_seconds: float = 0.0     # visual ends this many seconds before audio ends
-    # --- Multi-source media ---
-    media_source: str = "ai"            # "ai" | "ai_video" | "gameplay_video" | "stock_photo" | "user_upload"
-    gameplay_game_override: str = ""    # per-scene game name override (falls back to script-level)
-    video_url: str = ""                 # web-relative path to gameplay/uploaded video clip
-    upload_url: str = ""                # web-relative path to user-uploaded media
-    original_visual_prompt: str = ""    # preserved AI-art prompt when analyzer overwrites visual_prompt
+    # --- Media source ---
+    media_source: str = "ai"            # "ai" | "ai_video"
+    gameplay_game_override: str = ""    # deprecated
+    video_url: str = ""                 # web-relative path to AI-generated video clip
+    upload_url: str = ""                # deprecated
+    original_visual_prompt: str = ""    # deprecated
     visual_source_metadata: dict | None = None  # provider/source details for generated or fallback visuals
 
     @field_validator("transition_in", mode="before")
@@ -237,11 +237,11 @@ class ScriptContent(BaseModel):
     short_form_seo_metadata: dict | None = None  # Generated per-short metadata for Shorts/TikTok/Reels
     hook_score: dict | None = None        # 30-second hook retention score (HookScore dict)
     hook_scene_count: int | None = None  # Number of leading scenes in segment 0 that are hook teasers; skipped from short #1
-    # --- Multi-source media ---
+    # --- Media source routing ---
     gameplay_enabled: bool = False
     stock_photo_enabled: bool = False
     ai_video_enabled: bool = False
-    gameplay_game_name: str = ""
+    gameplay_game_name: str = ""        # deprecated
     # --- Format awareness ---
     format_id: str = "youtube-listicle"
     cinematic_thumbnail_prompt: str | None = None
@@ -279,8 +279,8 @@ class GenerateScriptRequest(BaseModel):
     model: str | None = PydanticField(default=None, description="Override SCRIPT_MODEL setting for this request")
     segmented: bool = PydanticField(default=False, description="Use two-phase segmented generation (one API call per segment)")
     cold_open_text: str | None = PydanticField(default=None, description="Pre-selected cold open text to inject into script generation")
-    gameplay_enabled: bool = PydanticField(default=False, description="Enable gameplay video clips for some scenes")
-    stock_photo_enabled: bool = PydanticField(default=False, description="Enable stock photos for some scenes")
+    gameplay_enabled: bool = PydanticField(default=False, description="Deprecated; gameplay clips are disabled")
+    stock_photo_enabled: bool = PydanticField(default=False, description="Deprecated; stock photos are disabled")
     eli_enabled: bool = PydanticField(
         default=True,
         description="Whether Eli is enabled for this project. False switches to per-project main character.",

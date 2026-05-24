@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { assetUrl, regenerateFX, uploadSceneMedia } from "../../api";
+import { assetUrl, regenerateFX } from "../../api";
 import type { Scene, SceneFX } from "../../types/script";
 import AudioPlayer from "./AudioPlayer";
 import SceneMicroTimeline from "./SceneMicroTimeline";
@@ -58,7 +58,6 @@ export default function PropertiesPanel({
 
   const [regeneratingFX, setRegeneratingFX] = useState(false);
   const [confirmOverwrite, setConfirmOverwrite] = useState<"image" | "audio" | "fx" | null>(null);
-  const [uploading, setUploading] = useState(false);
   const modalFocusRef = useCallback((el: HTMLDivElement | null) => el?.focus(), []);
 
   const handleRegenerateFX = async () => {
@@ -74,42 +73,17 @@ export default function PropertiesPanel({
     }
   };
 
-  const handleUpload = async (file: File) => {
-    setUploading(true);
-    try {
-      const result = await uploadSceneMedia(scriptId, scene.id, file);
-      if (result.media_type === "video") {
-        onUpdate({ upload_url: result.url, video_url: result.url, media_source: "user_upload" });
-      } else {
-        onUpdate({ upload_url: result.url, image_url: result.url, media_source: "user_upload" });
-      }
-    } catch {
-      // uploadSceneMedia throws on error — toast handled by interceptor
-    } finally {
-      setUploading(false);
-    }
-  };
-
   const MEDIA_SOURCE_OPTIONS: { value: string; label: string }[] = [
     { value: "ai", label: "AI Generated" },
     { value: "ai_video", label: "AI Video" },
-    { value: "stock_photo", label: "Stock Photo" },
-    { value: "gameplay_video", label: "Gameplay" },
-    { value: "user_upload", label: "Upload" },
   ];
 
   const sourceMeta = scene.visual_source_metadata;
   const sourceLabel = sourceMeta?.source_type
     ? sourceMeta.source_type.replace(/_/g, " ")
-    : scene.media_source === "stock_photo"
-      ? "stock photo"
-      : scene.media_source === "user_upload"
-        ? "user upload"
-        : scene.media_source === "gameplay_video"
-          ? "gameplay"
-          : scene.media_source === "ai_video"
-            ? "AI video"
-            : null;
+    : scene.media_source === "ai_video"
+      ? "AI video"
+      : null;
 
   return (
     <div className="flex flex-col min-h-0 flex-1 overflow-y-auto">
@@ -136,55 +110,17 @@ export default function PropertiesPanel({
           />
         </div>
 
-        {/* Col 2: Visual Prompt + Upload zone */}
+        {/* Col 2: Visual Prompt */}
         <div className="flex-[2] flex flex-col min-w-0 min-h-0">
-          {(scene.media_source === "user_upload") ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-2 min-h-0">
-              {(scene.upload_url || scene.image_url) ? (
-                <>
-                  <img
-                    src={assetUrl(scene.upload_url || scene.image_url || "")}
-                    alt="Uploaded"
-                    className="flex-1 min-h-0 w-full object-cover rounded-lg border border-neutral-700"
-                  />
-                  <label className="text-[10px] text-neutral-500 hover:text-neutral-300 cursor-pointer transition-colors shrink-0">
-                    Replace
-                    <input type="file" className="hidden" accept="image/*,video/*" onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) handleUpload(f);
-                    }} />
-                  </label>
-                </>
-              ) : (
-                <label className={`w-full flex-1 flex flex-col items-center justify-center gap-1 border-2 border-dashed border-neutral-700 rounded-lg cursor-pointer hover:border-violet-500/50 transition-colors ${uploading ? "opacity-50" : ""}`}>
-                  {uploading ? (
-                    <span className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <svg className="w-6 h-6 text-neutral-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                      </svg>
-                      <span className="text-xs text-neutral-500">Drop or click to upload</span>
-                    </>
-                  )}
-                  <input type="file" className="hidden" accept="image/*,video/*" onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleUpload(f);
-                  }} />
-                </label>
-              )}
-            </div>
-          ) : (
-            <div className="flex flex-col flex-1 min-h-0">
-              <span className="text-xs font-medium text-neutral-400 mb-0.5 shrink-0">Visual Prompt</span>
-              <textarea
-                value={visualPrompt}
-                onChange={(e) => setVisualPrompt(e.target.value)}
-                onBlur={() => commitField("visual_prompt", visualPrompt)}
-                className="flex-1 min-h-0 w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2 border border-neutral-700/50 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
-              />
-            </div>
-          )}
+          <div className="flex flex-col flex-1 min-h-0">
+            <span className="text-xs font-medium text-neutral-400 mb-0.5 shrink-0">Visual Prompt</span>
+            <textarea
+              value={visualPrompt}
+              onChange={(e) => setVisualPrompt(e.target.value)}
+              onBlur={() => commitField("visual_prompt", visualPrompt)}
+              className="flex-1 min-h-0 w-full text-sm text-neutral-200 bg-neutral-800/60 rounded-lg p-2 border border-neutral-700/50 resize-none focus:outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30"
+            />
+          </div>
         </div>
 
         {/* Col 3: Media source selector + Generate Image + Generate Audio + FX */}

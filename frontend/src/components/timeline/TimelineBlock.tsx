@@ -59,9 +59,6 @@ function MediaSourceBadge({ source }: { source?: string }) {
   const color: Record<string, string> = {
     ai: "bg-violet-500/60",
     ai_video: "bg-fuchsia-500/60",
-    gameplay_video: "bg-sky-500/60",
-    stock_photo: "bg-amber-500/60",
-    user_upload: "bg-emerald-500/60",
   };
   const c = color[source || "ai"];
   if (!c) return null;

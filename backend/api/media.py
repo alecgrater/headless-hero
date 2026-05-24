@@ -46,6 +46,7 @@ async def upload_scene_media(
     file: UploadFile = File(...),
 ):
     """Upload an image or video file for a scene."""
+    raise HTTPException(status_code=410, detail="Scene media uploads have been removed")
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
 
@@ -100,10 +101,10 @@ class ApplyResponse(BaseModel):
 
 
 def media_analysis_source_flags(script_json: dict) -> tuple[bool, bool, bool]:
-    """Return enabled media sources, defaulting old scripts to manual analysis sources."""
+    """Return enabled media sources. Gameplay and stock-photo routing are removed."""
     return (
-        script_json.get("gameplay_enabled", True),
-        script_json.get("stock_photo_enabled", True),
+        False,
+        False,
         script_json.get("ai_video_enabled", False),
     )
 
@@ -115,11 +116,9 @@ def preserve_media_analysis_source_flags(
     stock_photo_enabled: bool,
     ai_video_enabled: bool,
 ) -> None:
-    """Persist inferred legacy source flags without overwriting explicit final settings."""
-    if "gameplay_enabled" not in script_json:
-        content.gameplay_enabled = gameplay_enabled
-    if "stock_photo_enabled" not in script_json:
-        content.stock_photo_enabled = stock_photo_enabled
+    """Persist source flags while keeping removed source types disabled."""
+    content.gameplay_enabled = False
+    content.stock_photo_enabled = False
     if "ai_video_enabled" not in script_json:
         content.ai_video_enabled = ai_video_enabled
 
@@ -147,9 +146,9 @@ def normalize_media_assignments_for_sources(
 
     for assignment in assignments:
         if (
-            assignment.media_source == "gameplay_video" and not gameplay_enabled
+            assignment.media_source == "gameplay_video"
         ) or (
-            assignment.media_source == "stock_photo" and not stock_photo_enabled
+            assignment.media_source == "stock_photo"
         ) or (
             assignment.media_source == "ai_video" and not ai_video_enabled
         ):
@@ -162,13 +161,6 @@ def normalize_media_assignments_for_sources(
             ))
         elif assignment.media_source == "ai_video" and script_content is not None:
             scene = scenes_by_id.get(assignment.scene_id)
-            if scene is not None and scene.media_source in {"gameplay_video", "stock_photo", "user_upload"}:
-                logger.info(
-                    "[MEDIA_ANALYSIS] skipped stale ai_video scene %s; reason=current_media_source %s is protected",
-                    assignment.scene_id,
-                    scene.media_source,
-                )
-                continue
             if scene is None or not is_ai_video_eligible(
                 scene,
                 current_source=scene.media_source if scene is not None else "ai",

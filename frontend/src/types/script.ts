@@ -55,7 +55,7 @@ export interface VisualLayer {
 
 export interface FrameDirective {
   prompt: string;
-  source: "ai_generated" | "real_photo" | "subtitle" | "gameplay_video" | "stock_photo" | "user_upload";
+  source: "ai_generated" | "real_photo" | "subtitle";
   search_query?: string;
   transition: "cut" | "crossfade" | "fade_black";
   reference_previous: boolean;
@@ -91,8 +91,8 @@ export interface Scene {
   frame_timings?: number[] | null;
   visual_in_seconds?: number;
   visual_out_seconds?: number;
-  // Multi-source media
-  media_source?: "ai" | "ai_video" | "gameplay_video" | "stock_photo" | "user_upload";
+  // Media source
+  media_source?: "ai" | "ai_video";
   gameplay_game_override?: string;
   video_url?: string;
   upload_url?: string;

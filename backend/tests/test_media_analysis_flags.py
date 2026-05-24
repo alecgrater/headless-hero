@@ -21,19 +21,19 @@ from pipeline.media_analyzer import MediaAssignment, _resolve_scene_id, analyze_
 from pipeline.render_jobs import UserFacingJobError
 
 
-def test_media_analysis_flags_default_old_scripts_to_manual_sources():
-    assert media_analysis_source_flags({"segments": []}) == (True, True, False)
+def test_media_analysis_flags_default_old_scripts_to_ai_only_sources():
+    assert media_analysis_source_flags({"segments": []}) == (False, False, False)
 
 
 def test_media_analysis_flags_preserve_explicit_source_settings():
     assert media_analysis_source_flags({
         "segments": [],
-        "gameplay_enabled": False,
+        "gameplay_enabled": True,
         "stock_photo_enabled": True,
-    }) == (False, True, False)
+    }) == (False, False, False)
 
 
-def test_preserve_media_analysis_flags_writes_inferred_legacy_defaults():
+def test_preserve_media_analysis_flags_disables_removed_sources():
     content = ScriptContent(title="Legacy script", segments=[])
 
     preserve_media_analysis_source_flags(
@@ -45,11 +45,11 @@ def test_preserve_media_analysis_flags_writes_inferred_legacy_defaults():
     )
 
     dumped = content.model_dump()
-    assert dumped["gameplay_enabled"] is True
-    assert dumped["stock_photo_enabled"] is True
+    assert dumped["gameplay_enabled"] is False
+    assert dumped["stock_photo_enabled"] is False
 
 
-def test_preserve_media_analysis_flags_does_not_overwrite_explicit_final_settings():
+def test_preserve_media_analysis_flags_overwrites_removed_source_settings():
     content = ScriptContent(
         title="Updated script",
         segments=[],
@@ -72,6 +72,24 @@ def test_preserve_media_analysis_flags_does_not_overwrite_explicit_final_setting
     dumped = content.model_dump()
     assert dumped["gameplay_enabled"] is False
     assert dumped["stock_photo_enabled"] is False
+
+
+def test_normalize_media_assignments_always_coerces_removed_sources_to_ai():
+    assignments = [
+        MediaAssignment("s1", "gameplay_video", "Minecraft", None, "gameplay fits"),
+        MediaAssignment("s2", "stock_photo", None, "city skyline", "stock fits"),
+    ]
+
+    normalized = normalize_media_assignments_for_sources(
+        assignments,
+        gameplay_enabled=True,
+        stock_photo_enabled=True,
+        ai_video_enabled=False,
+    )
+
+    assert [a.media_source for a in normalized] == ["ai", "ai"]
+    assert normalized[0].game_name is None
+    assert normalized[1].search_query is None
 
 
 def test_normalize_media_assignments_coerces_disabled_sources_to_ai():
@@ -126,39 +144,6 @@ def test_normalize_media_assignments_preserves_stale_ai_video_for_final_duration
 
     assert normalized[0].media_source == "ai_video"
     assert normalized[0].reasoning == "Was eligible before voiceover changed"
-
-
-def test_normalize_media_assignments_preserves_protected_current_source():
-    content = ScriptContent(
-        title="User upload race",
-        segments=[
-            Segment(
-                name="Segment",
-                scenes=[
-                    Scene(
-                        id="scene_001",
-                        narration="Short enough for AI video.",
-                        visual_prompt="[ESTABLISHING] A guard walks down a hallway",
-                        audio_duration_seconds=4.2,
-                        media_source="user_upload",
-                    ),
-                ],
-            ),
-        ],
-    )
-    assignments = [
-        MediaAssignment("scene_001", "ai_video", None, None, "Was eligible before user upload"),
-    ]
-
-    normalized = normalize_media_assignments_for_sources(
-        assignments,
-        script_content=content,
-        gameplay_enabled=False,
-        stock_photo_enabled=False,
-        ai_video_enabled=True,
-    )
-
-    assert normalized == []
 
 
 def test_life_as_a_ai_video_eligibility_rejects_secondary_people():
@@ -462,7 +447,7 @@ def test_analyze_media_sources_does_not_assign_back_to_back_ai_video(monkeypatch
     )
 
 
-def test_analyze_media_sources_does_not_promote_stock_or_text_only(monkeypatch):
+def test_analyze_media_sources_downgrades_removed_stock_and_does_not_promote_text_only(monkeypatch):
     content = ScriptContent(
         title="Mixed routing",
         segments=[
@@ -524,7 +509,7 @@ def test_analyze_media_sources_does_not_promote_stock_or_text_only(monkeypatch):
     )
 
     sources = {assignment.scene_id: assignment.media_source for assignment in assignments}
-    assert sources["scene_002"] == "stock_photo"
+    assert sources["scene_002"] == "ai"
     assert sources["scene_003"] == "ai_video"
     assert sources["scene_005"] == "ai"
     assert sources["scene_006"] == "ai_video"

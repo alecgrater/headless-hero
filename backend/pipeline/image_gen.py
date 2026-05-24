@@ -751,43 +751,6 @@ def generate_scene_frames_v2(
             # Fallback to AI generation using search_query as prompt
             logger.info("Google scrape failed for %r, falling back to AI gen", directive.search_query)
             directive_prompt = directive.search_query
-        # --- Stock photo frames: Pexels search ---
-        elif directive.source == "stock_photo":
-            from integrations.pexels_client import search_and_download
-
-            query = directive.search_query or directive.prompt
-
-            # Cache check
-            if not force and local_path.exists() and prompt_marker.exists():
-                cached = prompt_marker.read_text(encoding="utf-8").strip()
-                if cached == query:
-                    results.append((web_path, query, _read_source_metadata(local_path)))
-                    prev_frame_path = local_path
-                    continue
-
-            try:
-                tmp = search_and_download(query)
-            except Exception:
-                logger.error("Pexels search failed for frame %d query %r", i, query, exc_info=True)
-                tmp = None
-
-            if tmp:
-                shutil.move(tmp, str(local_path))
-                metadata = {
-                    "source_type": "stock_photo",
-                    "provider": "pexels",
-                    "query": query,
-                    "fallback": False,
-                }
-                _write_source_metadata(local_path, metadata)
-                prompt_marker.write_text(query, encoding="utf-8")
-                results.append((web_path, query, metadata))
-                prev_frame_path = local_path
-                continue
-
-            # Fallback to AI generation using query as prompt
-            logger.info("No stock photo for frame %d query %r, falling back to AI gen", i, query)
-            directive_prompt = query
         else:
             directive_prompt = directive.prompt
 
@@ -924,62 +887,6 @@ def _generate_one_scene(
     try:
         media_source = scene.get("media_source", "ai")
 
-        # --- Stock photo dispatch ---
-        if media_source == "stock_photo":
-            logger.info("[PEXELS] scene %s — query: %s", scene["scene_id"], scene.get("visual_prompt", "")[:80])
-            frame_directives = scene.get("frame_directives", [])
-            if frame_directives:
-                # Multi-frame stock photo — use v2 pipeline
-                frame_results = generate_scene_frames_v2(
-                    scene_id=scene["scene_id"],
-                    frame_directives=frame_directives,
-                    script_id=script_id,
-                    visual_prompt=scene.get("visual_prompt", ""),
-                    width=width,
-                    height=height,
-                    style_guide=style_guide,
-                    contains_person=scene.get("contains_person", False),
-                )
-                frame_urls = [url for url, _, _ in frame_results]
-                source_metadata = next((metadata for url, _, metadata in frame_results if url and metadata), None)
-                return with_visual_layers({
-                    "scene_id": scene["scene_id"],
-                    "image_url": next((u for u in frame_urls if u), None),
-                    "frame_urls": frame_urls,
-                    "prompt_used": frame_results[0][1] if frame_results else None,
-                    "visual_source_metadata": source_metadata,
-                    "error": None,
-                })
-            # Single stock photo (no frame_directives)
-            from pipeline.stock_photo import generate_stock_photo
-            search_query = scene.get("visual_prompt", "")
-            image_url = generate_stock_photo(script_id, scene["scene_id"], search_query)
-            return with_visual_layers({
-                "scene_id": scene["scene_id"],
-                "image_url": image_url,
-                "prompt_used": search_query,
-                "visual_source_metadata": None,
-                "error": None,
-            })
-
-        # --- Gameplay video dispatch ---
-        if media_source == "gameplay_video":
-            from pipeline.gameplay import generate_gameplay_clip
-            game_name = scene.get("gameplay_game_name", "") or scene.get("gameplay_game_override", "")
-            duration = scene.get("audio_duration_seconds", 8.0)
-            if not game_name:
-                raise RuntimeError("Gameplay scene missing game_name")
-            logger.info("[TWITCH] scene %s — game: %s, duration: %.1fs", scene["scene_id"], game_name, float(duration))
-            video_url = generate_gameplay_clip(script_id, scene["scene_id"], game_name, float(duration))
-            return with_visual_layers({
-                "scene_id": scene["scene_id"],
-                "image_url": None,
-                "video_url": video_url,
-                "prompt_used": f"gameplay:{game_name}",
-                "visual_source_metadata": None,
-                "error": None,
-            })
-
         # --- AI video dispatch ---
         if media_source == "ai_video":
             from pipeline.video_gen import generate_scene_video
@@ -1001,16 +908,6 @@ def _generate_one_scene(
                 "video_url": video_url,
                 "prompt_used": prompt_used,
                 "visual_source_metadata": source_metadata,
-                "error": None,
-            })
-
-        # --- User upload: skip generation ---
-        if media_source == "user_upload":
-            return with_visual_layers({
-                "scene_id": scene["scene_id"],
-                "image_url": scene.get("upload_url") or scene.get("image_url"),
-                "prompt_used": None,
-                "visual_source_metadata": None,
                 "error": None,
             })
 
@@ -1104,7 +1001,7 @@ def generate_batch(
 
     Each scene dict must have 'scene_id' and 'visual_prompt'.
     Optionally 'frame_prompts' (list[str]) for multi-frame scenes.
-    Dispatches based on scene 'media_source': ai (default), ai_video, stock_photo, gameplay_video.
+    Dispatches based on scene 'media_source': ai (default) or ai_video.
     Returns list of {scene_id, image_url, prompt_used, frame_urls?, video_url?, error?}
     in the same order as the input scenes.
 

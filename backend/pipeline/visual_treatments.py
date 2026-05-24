@@ -12,7 +12,7 @@ from pipeline.render_jobs import UserFacingJobError
 
 logger = logging.getLogger(__name__)
 
-VIDEO_OR_PHOTO_SOURCES = {"ai_video", "gameplay_video", "stock_photo", "user_upload"}
+VIDEO_OR_PHOTO_SOURCES = {"ai_video"}
 LIST_MARKERS = {
     "first",
     "second",
