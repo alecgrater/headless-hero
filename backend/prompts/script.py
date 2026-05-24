@@ -168,26 +168,26 @@ Think like a documentary cinematographer. Each scene's visual_prompt should serv
 
 - For multi-frame scenes, frame_prompts should show PROGRESSION within the same shot type — not switch between types.
 
-### Visual Beat System
-Instead of frame_count and frame_prompts, use "visual_beat" and "frame_directives" to control how each scene looks.
+### Visual Mode System
+Instead of frame_count and frame_prompts, use "visual_mode", compatibility "visual_beat", and "frame_directives" to control how each scene looks.
 
-BEAT TYPE VOCABULARY:
-- "static" — The DEFAULT beat. A single strong image per scene. Since scenes are only 1-2 sentences, one well-composed image is usually sufficient. 1 frame directive with source "ai_generated". Most scenes should use this.
+VISUAL MODE VOCABULARY:
+- "full_frame" — The DEFAULT mode. A single strong image per scene. Since scenes are only 1-2 sentences, one well-composed image is usually sufficient. 1 frame directive with source "ai_generated". Most scenes should use this.
 - "continuous" — When narration describes a physical process unfolding over time (pouring, growing, building). 2-4 frames with reference_previous: true and transition: "crossfade". Frames show subtle progression of the SAME scene. Use deliberately, not as default.
-- "quick_cuts" — When narration covers multiple examples, lists, comparisons, or rapid context switches. 3-8 frames with reference_previous: false and transition: "cut" (primarily). Each frame is a completely DIFFERENT shot — different subject, angle, composition. Use deliberately for visual energy. Narration should be 1 short punchy sentence — aim for under 8 seconds of speech.
-- "aha_subtitle" — When a sentence delivers a shocking stat, counterintuitive fact, or "wait, really?" moment. Pure white text on black. 1 frame directive with source: "subtitle". Aim for 5-6 per video, no more than 7. Must be preceded and followed by image-bearing beats for contrast. visual_prompt should be empty. Narration should be 1 short sentence — a single stat or fact, under 8 seconds of speech.
-- "montage" — When rapid visual variety adds impact (places, products, events, examples). Use only source: "ai_generated". 4-8 frames. reference_previous: false for all frames. Transitions: mostly "cut" with occasional "crossfade".
+- "multi_frame" — When narration covers multiple examples, lists, comparisons, rapid context switches, or visual variety that adds impact. 3-8 frames with reference_previous: false and mostly transition: "cut". Each frame is a completely DIFFERENT shot — different subject, angle, composition, example, or context. Use deliberately for visual energy. Narration should be 1 short punchy sentence — aim for under 8 seconds of speech.
+- "aha_subtitle" — When a sentence delivers a shocking stat, counterintuitive fact, or "wait, really?" moment. Pure white text on black. 1 frame directive with source: "subtitle". Aim for 5-6 per video, no more than 7. Must be preceded and followed by image-bearing modes for contrast. visual_prompt should be empty. Narration should be 1 short sentence — a single stat or fact, under 8 seconds of speech.
 
 DISTRIBUTION RULES (follow strictly):
-1. static should be the MAJORITY of non-title-card scenes (50-65%). Visual variety comes from scene-to-scene differences, not multi-frame within a scene.
-2. After every 2 consecutive static scenes, the NEXT scene MUST use a different beat type (quick_cuts, continuous, montage, or aha_subtitle). This creates a natural rhythm: static-static-variety-static-static-variety.
-3. Non-static beat types (quick_cuts, continuous, montage, aha_subtitle) must NEVER appear 2+ times consecutively — always separate them with at least one static scene.
-4. aha_subtitle must be sandwiched between image-bearing beats.
+1. full_frame should be the MAJORITY of non-title-card scenes (50-65%). Visual variety comes from scene-to-scene differences, not multi-frame within a scene.
+2. After every 2 consecutive full_frame scenes, the NEXT scene MUST use a different mode (multi_frame, continuous, or aha_subtitle). This creates a natural rhythm: full-full-variety-full-full-variety.
+3. Variety modes (multi_frame, continuous, aha_subtitle) must NEVER appear 2+ times consecutively — always separate them with at least one full_frame scene.
+4. aha_subtitle must be sandwiched between image-bearing modes.
 5. continuous is reserved for genuine motion progression — NOT the default for multi-frame.
-6. Vary transitions within quick_cuts scenes — mostly "cut" but occasional "crossfade".
+6. Vary transitions within multi_frame scenes — mostly "cut" but occasional "crossfade".
 
 ### Frame Directives Format
-Each scene MUST have "visual_beat" and "frame_directives" (list of objects). Each frame directive has:
+Each scene MUST have "visual_mode", "visual_beat", and "frame_directives" (list of objects). Set "visual_beat" to the same value as "visual_mode" except use "static" when "visual_mode" is "full_frame".
+Each frame directive has:
   - "prompt": Visual description (for ai_generated) or subtitle text (for subtitle)
   - "source": "ai_generated" | "subtitle"
   - "transition": "cut" | "crossfade" | "fade_black"
@@ -203,7 +203,7 @@ contains_person tagging rules:
 
 For ai_generated frames, the "prompt" is a BRIEF DELTA if reference_previous is true (describing only what changes from the visual_prompt anchor), or a FULL independent description if reference_previous is false.
 
-- Title card scenes (is_title_card: true) should have visual_beat: "static" and empty frame_directives — they use the programmatic title card system.
+- Title card scenes (is_title_card: true) should have visual_mode: "full_frame", visual_beat: "static", and empty frame_directives — they use the programmatic title card system.
 - Do NOT assign scene-level media routing fields such as "media_source". A separate post-script media analyzer may choose AI video after the script is complete.
 
 ---
@@ -233,7 +233,8 @@ Output rules:
           "visual_prompt": "Primary/summary description of what the illustration should depict.",
           "duration_estimate_seconds": 8,
           "is_title_card": false,
-          "visual_beat": "quick_cuts",
+          "visual_mode": "multi_frame",
+          "visual_beat": "multi_frame",
           "contains_person": true,
           "frame_directives": [
             {"prompt": "[CLOSE-UP] Subject detail shot...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": "", "contains_person": false},
@@ -325,7 +326,8 @@ Return a JSON object with a single key "scenes" whose value is an array of scene
       "visual_prompt": "[SHOT_TYPE] ...",
       "duration_estimate_seconds": 8,
       "is_title_card": false,
-      "visual_beat": "quick_cuts",
+      "visual_mode": "multi_frame",
+      "visual_beat": "multi_frame",
       "contains_person": true,
       "frame_directives": [
         {"prompt": "...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": ""},
@@ -336,12 +338,12 @@ Return a JSON object with a single key "scenes" whose value is an array of scene
 }
 
 RULES:
-- The FIRST scene of EVERY segment MUST be a title card (is_title_card: true, visual_beat: "static", frame_directives: []).
+- The FIRST scene of EVERY segment MUST be a title card (is_title_card: true, visual_mode: "full_frame", visual_beat: "static", frame_directives: []).
 - Title card narration must introduce the segment by idea, not by countdown/ranking number. Do NOT start with phrases like "Number eight", "#8", "8.", "No. 8", "Part 8", or "Segment 8" unless the number is intrinsic to the topic.
-- After the title card, write one content scene per 1-2 sentences of narration. Each scene should have exactly 1-2 sentences and default to 1 frame (visual_beat: "static"). There is no fixed scene count — let the narration length determine scene count.
+- After the title card, write one content scene per 1-2 sentences of narration. Each scene should have exactly 1-2 sentences and default to 1 frame (visual_mode: "full_frame", visual_beat: "static"). There is no fixed scene count — let the narration length determine scene count.
 - End this segment as if it may be watched alone as a Short. Resolve only this segment's idea. Do NOT use whole-video summary phrases, channel CTAs, subscribe requests, "come back next week", "before you go", "as we have seen", "all eight", or references to previous/future segments in scene narration.
 - Scene IDs should start at scene_001 within this segment (they will be renumbered globally later).
-- Follow all visual storytelling arc, Visual Beat System, and shot type guidelines from the system prompt.
+- Follow all visual storytelling arc, Visual Mode System, and shot type guidelines from the system prompt.
 - If a CROSS-SEGMENT CONTINUITY note is provided above, respect it: do not repeat the same beat/shot pattern that ended the previous segment. The title card already breaks the visual run, but the first CONTENT scene after it should use a different beat or shot type than the previous segment's final content scene.
 - Return ONLY the JSON object with the "scenes" key — no markdown fences, no commentary, no other top-level keys.
 - The "scenes" array must be a FLAT list of scene dicts. Never wrap them under segment objects (no {"name": ..., "scenes": [...]} entries) and never add extra top-level keys like "segments" or "frame_directives".
@@ -412,7 +414,7 @@ Critically different from listicle scenes:
 |---|---|---|
 | Narration per scene | 1–2 sentences | 1–2 sentences, single visual beat |
 | Duration per scene | ~5–10s | ~5–9s |
-| Visual beats | varied (static/quick_cuts/montage/aha) | balanced `static`, `continuous`, and `quick_cuts` |
+| Visual modes | varied (`full_frame`, `multi_frame`, `continuous`, `aha_subtitle`) | balanced `full_frame`, `continuous`, and `multi_frame` |
 | Transitions | varied with intentional energy | mostly `cut`, occasional `crossfade` for time-passage |
 
 Each non-title scene should be **1–2 sentences** of narration and represent exactly one visual/narrative beat. Aim for **5–9 seconds** of speech per scene. Preserve the literary register through sentence texture and scene-to-scene flow, not by packing several moments into one long paragraph.
@@ -446,23 +448,22 @@ Levels overlap at the edges. The protagonist is already deep into level N before
 
 ---
 
-## SECTION E: VISUAL BEAT RULES
+## SECTION E: VISUAL MODE RULES
 
-The visual beat distribution is constrained for this format:
+The visual mode distribution is constrained for this format:
 
-- **`static`: 60–75%** of non-chapter-card scenes. Use a single strong image for one clear lived moment.
+- **`full_frame`: 60–75%** of non-chapter-card scenes. Use a single strong image for one clear lived moment. Set compatibility `visual_beat` to `static`.
 - **`continuous`: 15–25%** for time-passage moments where a single space or subject changes. Use only when the scene clearly needs visual progression and has enough duration; otherwise keep it static.
-- **`quick_cuts`: 5–15%** for compressed routines or sensory lists. Use sparingly, and only when the scene duration supports multiple images.
+- **`multi_frame`: 5–15%** for compressed routines, sensory lists, comparisons, or rapid context switches. Use sparingly, and only when the scene duration supports multiple images.
 - **`aha_subtitle`: DISABLED.** This beat breaks the literary register and must never appear in a life-as-a script.
-- **`montage`: DISABLED.** Real-photo intercutting breaks immersion in the second-person present-tense world.
 
-Use multiple generated images only when the visual beat genuinely benefits from progression or quick contrast. Short scenes often work best as one strong image, but image scenes are not hard-capped to one frame.
+Use multiple generated images only when the visual mode genuinely benefits from progression or quick contrast. Short scenes often work best as one strong image, but image scenes are not hard-capped to one frame.
 
 Shot-type palette: every `visual_prompt` MUST begin with one of `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, `[METAPHOR]`. `[DIAGRAM]` and `[SCALE]` are de-prioritized — this format is not explanatory. Visual prompts must NEVER ask for text, letters, words, labels, or written characters in the image.
 
 Eli is the visual identity of the second-person protagonist. When a life-as-a visual depicts the protagonist, the role named in the title, or a visible main person (for example a guard in "Your Life As A Guard"), the primary subject MUST be Eli in that role. If other people appear, they are secondary and visually distinct from Eli. Object-only, room-only, and atmosphere shots can omit Eli.
 
-For multi-frame `continuous` scenes, frames should show subtle progression of the SAME scene (reference_previous: true, transition: "crossfade"). For `quick_cuts`, every frame should be a distinct image with reference_previous: false and transition: "cut". Use multi-frame directives deliberately when the scene has enough visual change to justify them.
+For `continuous` scenes, frames should show subtle progression of the SAME scene (reference_previous: true, transition: "crossfade"). For `multi_frame`, every frame should be a distinct image with reference_previous: false and transition: "cut". Use multi-frame directives deliberately when the scene has enough visual change to justify them.
 
 ---
 
@@ -497,6 +498,7 @@ Return ONLY valid JSON — no markdown fences, no commentary. The JSON must have
           "visual_prompt": "[ESTABLISHING] A vivid description of the image.",
           "duration_estimate_seconds": 8,
           "is_title_card": false,
+          "visual_mode": "full_frame",
           "visual_beat": "static",
           "contains_person": true,
           "frame_directives": [
@@ -515,7 +517,7 @@ Output rules:
 - `levels[0]` (level 1) does NOT need an `image_prompt`; the chapter-card image for level 1 is reused from the cinematic thumbnail. Levels 2..N require `image_prompt`.
 - `intro_hook` is the very first lines the viewer hears; it must already be in second person, present tense, and must NOT greet the viewer.
 - `outro_cta` is editor metadata only. Do NOT fold its language into scene narration.
-- Each level's first scene is a chapter card (`is_title_card: true`, `visual_beat: "static"`, `frame_directives: []`) whose narration is ONLY the descriptor phrase, without the level label or number (for example, "The occasional."). The TTS pipeline adds "Level N" once at audio generation time.
+- Each level's first scene is a chapter card (`is_title_card: true`, `visual_mode: "full_frame"`, `visual_beat: "static"`, `frame_directives: []`) whose narration is ONLY the descriptor phrase, without the level label or number (for example, "The occasional."). The TTS pipeline adds "Level N" once at audio generation time.
 - After the chapter card, write short single-beat scenes (1–2 sentences each, ~5–9s).
 - `visual_prompt` MUST begin with `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, or `[METAPHOR]`.
 - Scene IDs must be unique and sequential across the entire script: `scene_001`, `scene_002`, etc.
@@ -633,6 +635,7 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
       "visual_prompt": "[ESTABLISHING|CLOSE-UP|REACTION|METAPHOR] ...",
       "duration_estimate_seconds": 8,
       "is_title_card": false,
+      "visual_mode": "full_frame",
       "visual_beat": "static",
       "contains_person": true,
       "frame_directives": [
@@ -646,7 +649,7 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 ## RULES
 
 ### Scene shape
-- The FIRST scene of this level MUST be a chapter card: `is_title_card: true`, `visual_beat: "static"`, `frame_directives: []`. Its narration is ONLY the descriptor phrase, without the level label or number — e.g. "The occasional." (one short sentence). The TTS pipeline adds "Level N" once at audio generation time.
+- The FIRST scene of this level MUST be a chapter card: `is_title_card: true`, `visual_mode: "full_frame"`, `visual_beat: "static"`, `frame_directives: []`. Its narration is ONLY the descriptor phrase, without the level label or number — e.g. "The occasional." (one short sentence). The TTS pipeline adds "Level N" once at audio generation time.
 - After the chapter card, write short single-beat scenes. Each non-title scene should be **1–2 sentences** of narration and run roughly **5–9 seconds** of speech. Each scene must describe one visual moment, action, or realization.
 - There is no fixed scene count for a level. Let the narration and the level's topic_summary determine how many scenes the level needs. Most levels will have 8–14 short content scenes after the chapter card.
 - Scene IDs start at `scene_001` within this level (they will be renumbered globally later).
@@ -665,11 +668,12 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 ### Closing the FINAL level
 - If this level is the FINAL level of the video, the closing scene MUST end on the `closing_image` chosen in the outline. The image must be specific and earned. The register (cautionary vs reflective) was chosen in the outline — match it. Never moralize. Never wrap it in a bow. Trust the image.
 
-### Visual beats (strict)
-- `visual_beat` is `"static"` for 60–75% of non-title scenes in this level. Short scenes should usually be static.
+### Visual modes (strict)
+- `visual_mode` is `"full_frame"` for 60–75% of non-title scenes in this level. Set `visual_beat` to `"static"` for compatibility. Short scenes should usually be full_frame.
 - Use `"continuous"` for 15–25% of non-title scenes, especially time-passage moments where a single space drifts across a span. Use 2 frame directives only when the scene duration clearly supports progression.
-- Use `"quick_cuts"` for 5–15% of non-title scenes, especially repeated routines, compressed time, or sensory lists. Use sparingly, and avoid it for scenes at or below 8 seconds.
-- NEVER use `"aha_subtitle"`. NEVER use `"montage"`. These beats are DISABLED for this format.
+- Use `"multi_frame"` for 5–15% of non-title scenes, especially repeated routines, compressed time, comparisons, or sensory lists. Use sparingly, and avoid it for scenes at or below 8 seconds.
+- NEVER use `"aha_subtitle"`. It is DISABLED for this format.
+- For compatibility, set `visual_beat` to the same value as `visual_mode` except use `"static"` when `visual_mode` is `"full_frame"`.
 - Every `visual_prompt` MUST begin with `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, or `[METAPHOR]`. `[DIAGRAM]` and `[SCALE]` are de-prioritized for this format.
 - Visual prompts must NEVER request text, letters, words, labels, or written characters in the image.
 - Eli is the visual identity of the second-person protagonist. When a scene or frame depicts the protagonist, the role named in the title, or a visible main person, make Eli the visually dominant main subject in that role. Other people may appear as secondary characters, but they must be visually distinct from Eli. Object-only, room-only, and atmosphere shots can omit Eli.
@@ -898,14 +902,14 @@ TIGHTEN_SYSTEM = register(PromptDef(
     template=(
         "You are a script editor. You will receive high-energy video scenes whose narration is too long.\n"
         "Rewrite each narration to be shorter and punchier while preserving the core fact or message.\n"
-        "- quick_cuts scenes: 1 short punchy sentence\n"
+        "- multi_frame scenes: 1 short punchy sentence\n"
         "- aha_subtitle scenes: 1 short sentence with the key stat or fact\n"
         "Target: under 8 seconds of speech (roughly 20-25 words).\n"
         'Return ONLY valid JSON: {"scene_id": "new narration", ...}'
     ),
     retention=RetentionMeta(
         goal="Keep high-energy scenes punchy for pacing",
-        failure_mode="Overlong quick_cuts/aha_subtitle scenes drag pacing",
+        failure_mode="Overlong multi_frame/aha_subtitle scenes drag pacing",
         metrics_to_watch=["avg_view_duration", "segment_retention_curve"],
     ),
 ))

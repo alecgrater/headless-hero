@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from models.script import Scene, ScriptContent, Segment
 from pipeline.formats.life_as_a import LIFE_AS_A_BEAT_RULES
 from pipeline.scriptwriter import _ensure_visual_beat_directives, _fix_visual_monotony
+from prompts import script as script_prompt
 
 
 def _static_scene(scene_id: str) -> Scene:
@@ -64,3 +65,50 @@ def test_non_static_beats_without_directives_are_repaired():
 
     assert len(scene.frame_directives) == 3
     assert scene.frame_directives[1].reference_previous is True
+
+
+def test_script_prompt_no_longer_requests_quick_cuts_or_montage():
+    prompt_text = script_prompt.SCRIPT_SYSTEM.template
+
+    assert '"quick_cuts"' not in prompt_text
+    assert '"montage"' not in prompt_text
+    assert '"multi_frame"' in prompt_text
+
+
+def test_multi_frame_mode_without_directives_is_repaired():
+    scene = _static_scene("scene_001")
+    scene.visual_mode = "multi_frame"
+    scene.visual_beat = "multi_frame"
+    scene.frame_directives = []
+    content = ScriptContent(
+        title="Your Life As A Test",
+        format_id="life-as-a",
+        segments=[Segment(name="Level 1, the waiting", scenes=[scene])],
+    )
+
+    _ensure_visual_beat_directives(content)
+
+    assert scene.visual_mode == "multi_frame"
+    assert len(scene.frame_directives) == 4
+    assert all(frame.reference_previous is False for frame in scene.frame_directives)
+    assert all(frame.transition == "cut" for frame in scene.frame_directives)
+
+
+def test_continuous_mode_without_directives_is_repaired():
+    scene = _static_scene("scene_001")
+    scene.visual_mode = "continuous"
+    scene.visual_beat = "continuous"
+    scene.frame_directives = []
+    content = ScriptContent(
+        title="Your Life As A Test",
+        format_id="life-as-a",
+        segments=[Segment(name="Level 1, the waiting", scenes=[scene])],
+    )
+
+    _ensure_visual_beat_directives(content)
+
+    assert scene.visual_mode == "continuous"
+    assert len(scene.frame_directives) == 3
+    assert scene.frame_directives[0].reference_previous is False
+    assert all(frame.reference_previous is True for frame in scene.frame_directives[1:])
+    assert all(frame.transition == "crossfade" for frame in scene.frame_directives[1:])

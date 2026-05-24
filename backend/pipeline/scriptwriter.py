@@ -85,6 +85,18 @@ def _directive_prompt(scene: Scene, suffix: str = "") -> str:
     return f"{prompt} {suffix}".strip()
 
 
+def _directive_mode(scene: Scene, beat: str) -> str:
+    if scene.visual_mode in {"multi_frame", "continuous"}:
+        return scene.visual_mode
+    if beat in {"quick_cuts", "montage", "multi_frame"}:
+        return "multi_frame"
+    if beat == "continuous":
+        return "continuous"
+    if beat == "aha_subtitle":
+        return "aha_subtitle"
+    return "full_frame"
+
+
 def _synthesize_frame_directives(scene: Scene, beat: str) -> None:
     """Ensure post-processed non-static beats actually generate multiple frames."""
     if scene.is_title_card:
@@ -92,8 +104,9 @@ def _synthesize_frame_directives(scene: Scene, beat: str) -> None:
     if scene.frame_directives and len(scene.frame_directives) > 1:
         return
 
+    mode = _directive_mode(scene, beat)
     contains_person = bool(scene.contains_person)
-    if beat == "continuous":
+    if mode == "continuous":
         scene.frame_directives = [
             {
                 "prompt": _directive_prompt(scene),
@@ -120,7 +133,7 @@ def _synthesize_frame_directives(scene: Scene, beat: str) -> None:
                 "contains_person": contains_person,
             },
         ]
-    elif beat == "quick_cuts":
+    elif mode == "multi_frame":
         scene.frame_directives = [
             {
                 "prompt": _directive_prompt(scene),
@@ -155,7 +168,7 @@ def _synthesize_frame_directives(scene: Scene, beat: str) -> None:
                 "contains_person": contains_person,
             },
         ]
-    elif beat == "aha_subtitle":
+    elif mode == "aha_subtitle":
         scene.frame_directives = [
             {
                 "prompt": scene.narration.strip(),
@@ -310,8 +323,8 @@ def generate_script(
         user_parts.append(f"Brand context (use for visual style and tone): {brand_context}")
 
     user_parts.append(
-        "For each scene, set visual_beat and provide matching frame_directives "
-        "following the Visual Beat System guidelines. "
+        "For each scene, set visual_mode, compatibility visual_beat, and matching frame_directives "
+        "following the Visual Mode System guidelines. "
         "Every visual_prompt must begin with a [SHOT_TYPE] label."
     )
 
