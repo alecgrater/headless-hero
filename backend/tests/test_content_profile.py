@@ -53,10 +53,59 @@ def _seed_script(engine, script_id: str, *, is_test_lab: bool):
         session.commit()
 
 
+def _seed_raw_script_json(engine, script_id: str, script_json: str, *, is_test_lab: bool):
+    from models.script import Script
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="default",
+                topic_title=f"Script {script_id}",
+                topic_description="",
+                script_json=script_json,
+                is_test_lab=is_test_lab,
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+        session.commit()
+
+
 def test_cached_profile_staleness_ignores_test_lab_scripts(monkeypatch):
     engine = _build_inmemory_engine()
     _seed_script(engine, "normal-1", is_test_lab=False)
     _seed_script(engine, "test-lab-1", is_test_lab=True)
+
+    from models.content_profile import ContentProfile
+    import pipeline.content_profile as content_profile
+
+    monkeypatch.setattr(content_profile, "engine", engine)
+    with Session(engine) as session:
+        session.add(
+            ContentProfile(
+                script_count=1,
+                common_topics='["topic"]',
+                narration_style="Plainspoken",
+                visual_approach="Simple",
+                typical_keywords='["topic"]',
+                audience_profile="Curious viewers.",
+                avg_segment_count=1.0,
+                analyzed_at=datetime.now(timezone.utc),
+            )
+        )
+        session.commit()
+
+    profile = content_profile.get_cached_profile()
+
+    assert profile is not None
+    assert profile["script_count"] == 1
+    assert profile["is_stale"] is False
+
+
+def test_cached_profile_staleness_ignores_unparseable_scripts(monkeypatch):
+    engine = _build_inmemory_engine()
+    _seed_script(engine, "normal-1", is_test_lab=False)
+    _seed_raw_script_json(engine, "broken-1", "{}", is_test_lab=False)
 
     from models.content_profile import ContentProfile
     import pipeline.content_profile as content_profile

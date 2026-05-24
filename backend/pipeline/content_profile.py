@@ -62,20 +62,25 @@ def _extract_features(scripts: list[ScriptContent]) -> dict:
     }
 
 
+def _load_profile_scripts(session: Session) -> list[ScriptContent]:
+    """Load scripts that can contribute to the creator content profile."""
+    scripts = session.exec(
+        select(Script).where(Script.is_test_lab == False)  # noqa: E712
+    ).all()
+    parsed = []
+    for s in scripts:
+        try:
+            content = ScriptContent.model_validate(json.loads(s.script_json))
+            parsed.append(content)
+        except Exception:
+            logger.debug("Skipping unparseable script %s", s.id)
+    return parsed
+
+
 def _load_scripts() -> list[ScriptContent]:
-    """Load all scripts from DB and parse their JSON content."""
+    """Load all profile-eligible scripts from DB and parse their JSON content."""
     with Session(engine) as session:
-        scripts = session.exec(
-            select(Script).where(Script.is_test_lab == False)  # noqa: E712
-        ).all()
-        parsed = []
-        for s in scripts:
-            try:
-                content = ScriptContent.model_validate(json.loads(s.script_json))
-                parsed.append(content)
-            except Exception:
-                logger.debug("Skipping unparseable script %s", s.id)
-        return parsed
+        return _load_profile_scripts(session)
 
 
 def analyze_content_profile() -> dict:
@@ -138,11 +143,8 @@ def get_cached_profile() -> dict | None:
         if not profile:
             return None
 
-        # Check staleness: compare script count
-        from sqlmodel import func
-        current_count = session.exec(
-            select(func.count(Script.id)).where(Script.is_test_lab == False)  # noqa: E712
-        ).one()
+        # Check staleness against the same parseable script set used by analysis.
+        current_count = len(_load_profile_scripts(session))
 
         data = {
             "script_count": profile.script_count,
