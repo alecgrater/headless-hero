@@ -160,7 +160,7 @@ def apply_visual_treatment_assignments(
 
 def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
     if scene.is_title_card:
-        return _full_frame_assignment(scene.id, "Title-card scenes keep their existing full-frame treatment.")
+        return _full_frame_assignment(scene.id, "Title-card scenes keep their existing full-frame animation type.")
     if _is_video_or_photo_backed(scene):
         return _full_frame_assignment(scene.id, "Video or photo-backed scenes keep their source media full-frame.")
 
