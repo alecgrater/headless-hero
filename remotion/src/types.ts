@@ -40,7 +40,7 @@ export interface EliOverlay {
 
 export interface FrameDirective {
   prompt: string;
-  source: "ai_generated" | "real_photo" | "subtitle";
+  source: "ai_generated" | "subtitle";
   transition: "cut" | "crossfade" | "fade_black";
   reference_previous: boolean;
   search_query?: string;

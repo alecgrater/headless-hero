@@ -34,8 +34,6 @@ class GenerateVisualRequest(BaseModel):
     frame_directives: list[dict] = []
     contains_person: bool = False
     media_source: str = "ai"
-    gameplay_game_name: str = ""
-    gameplay_game_override: str = ""
     audio_duration_seconds: float = 0.0
     visual_treatment: str = ""
     visual_layers: list[dict] = Field(default_factory=list)
@@ -54,10 +52,7 @@ class BatchScene(BaseModel):
     frame_directives: list[dict] = []
     contains_person: bool = False
     media_source: str = "ai"
-    gameplay_game_name: str = ""
-    gameplay_game_override: str = ""
     audio_duration_seconds: float = 0.0
-    upload_url: str = ""
     visual_treatment: str = ""
     visual_layers: list[dict] = Field(default_factory=list)
 
@@ -352,10 +347,7 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
             "frame_directives": s.frame_directives,
             "contains_person": s.contains_person or (scene_map[s.scene_id].contains_person if s.scene_id in scene_map else False),
             "media_source": s.media_source,
-            "gameplay_game_name": s.gameplay_game_name,
-            "gameplay_game_override": s.gameplay_game_override,
             "audio_duration_seconds": s.audio_duration_seconds,
-            "upload_url": s.upload_url,
             "visual_treatment": s.visual_treatment or (scene_map[s.scene_id].visual_treatment if s.scene_id in scene_map else "full_frame"),
             "visual_layers": s.visual_layers or (
                 [layer.model_dump() for layer in scene_map[s.scene_id].visual_layers]

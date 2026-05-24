@@ -268,8 +268,6 @@ def generate_script(
     segmented: bool = False,
     cold_open_text: str | None = None,
     progress_callback: Callable[[int, int, str], None] | None = None,
-    gameplay_enabled: bool = False,
-    stock_photo_enabled: bool = False,
     script_id: str | None = None,
     format_id: str = "youtube-listicle",
     eli_enabled: bool = True,
@@ -398,9 +396,6 @@ def generate_script(
     content = fmt.enforce_post_processing(content, eli_enabled=eli_enabled)
     _fix_visual_monotony(content, rules=fmt.visual_beat_rules)
     _ensure_visual_beat_directives(content)
-
-    content.gameplay_enabled = False
-    content.stock_photo_enabled = False
 
     logger.info(
         "Script generated for topic %r [format=%s]: %s segments, %s total scenes",

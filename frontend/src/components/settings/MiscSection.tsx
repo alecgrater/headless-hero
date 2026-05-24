@@ -246,7 +246,7 @@ export default function MiscSection() {
             <div className="space-y-1">
               <h3 className="text-sm font-medium text-neutral-100">Scraped Web Image Fallback</h3>
               <p className="text-xs text-neutral-400 leading-relaxed">
-                Off by default. When Gemini fails after its normal retries, Headless Hero will create a placeholder image so the scene stays visibly marked for regeneration. Turning this on allows the app to scrape Google Images as a last-resort fallback, which can break the project&apos;s AI visual style and may pull images with unclear rights or attribution expectations. Use stock-photo routing for publishable real-world visuals when possible; enable this only for rough drafts or when you plan to manually verify every fallback image before export.
+                Off by default. When Gemini fails after its normal retries, Headless Hero will create a placeholder image so the scene stays visibly marked for regeneration. Turning this on allows the app to scrape Google Images as a last-resort fallback, which can break the project&apos;s AI visual style and may pull images with unclear rights or attribution expectations. Enable this only for rough drafts or when you plan to manually verify every fallback image before export.
               </p>
               {scraperFallbackEnabled === "true" && (
                 <p className="text-xs text-amber-300 leading-relaxed">

@@ -50,8 +50,8 @@ def test_preserve_media_analysis_flags_disables_removed_sources():
     )
 
     dumped = content.model_dump()
-    assert dumped["gameplay_enabled"] is False
-    assert dumped["stock_photo_enabled"] is False
+    assert "gameplay_enabled" not in dumped
+    assert "stock_photo_enabled" not in dumped
 
 
 def test_preserve_media_analysis_flags_overwrites_removed_source_settings():
@@ -75,14 +75,16 @@ def test_preserve_media_analysis_flags_overwrites_removed_source_settings():
     )
 
     dumped = content.model_dump()
-    assert dumped["gameplay_enabled"] is False
-    assert dumped["stock_photo_enabled"] is False
+    assert "gameplay_enabled" not in dumped
+    assert "stock_photo_enabled" not in dumped
 
 
 def test_normalize_media_assignments_always_coerces_removed_sources_to_ai():
     assignments = [
         MediaAssignment("s1", "gameplay_video", "Minecraft", None, "gameplay fits"),
         MediaAssignment("s2", "stock_photo", None, "city skyline", "stock fits"),
+        MediaAssignment("s3", "user_upload", None, None, "stale upload"),
+        MediaAssignment("s4", "real_photo", None, "courthouse exterior", "legacy frame source"),
     ]
 
     normalized = normalize_media_assignments_for_sources(
@@ -92,9 +94,10 @@ def test_normalize_media_assignments_always_coerces_removed_sources_to_ai():
         ai_video_enabled=False,
     )
 
-    assert [a.media_source for a in normalized] == ["ai", "ai"]
+    assert [a.media_source for a in normalized] == ["ai", "ai", "ai", "ai"]
     assert normalized[0].game_name is None
     assert normalized[1].search_query is None
+    assert normalized[3].search_query is None
 
 
 def test_apply_media_coerces_removed_sources_before_persisting(tmp_path):
@@ -134,6 +137,13 @@ def test_apply_media_coerces_removed_sources_before_persisting(tmp_path):
                         search_query="city skyline",
                         reasoning="stale client",
                     ),
+                    MediaAssignmentResponse(
+                        scene_id="s1",
+                        media_source="user_upload",
+                        game_name=None,
+                        search_query=None,
+                        reasoning="older client",
+                    ),
                 ],
             ),
             "script-apply",
@@ -143,7 +153,6 @@ def test_apply_media_coerces_removed_sources_before_persisting(tmp_path):
         updated = ScriptContent.model_validate_json(session.get(Script, "script-apply").script_json)
 
     assert [scene.media_source for scene in updated.all_scenes()] == ["ai", "ai"]
-    assert all(scene.gameplay_game_override == "" for scene in updated.all_scenes())
     assert all(scene.original_visual_prompt == "" for scene in updated.all_scenes())
 
 

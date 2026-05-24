@@ -93,9 +93,7 @@ export interface Scene {
   visual_out_seconds?: number;
   // Media source
   media_source?: "ai" | "ai_video";
-  gameplay_game_override?: string;
   video_url?: string;
-  upload_url?: string;
   original_visual_prompt?: string;
   visual_source_metadata?: {
     source_type?: string;
@@ -131,11 +129,8 @@ export interface ScriptContent {
   seo_metadata?: SEOMetadata | null;
   short_form_seo_metadata?: ShortFormSEOMetadata | null;
   hook_score?: HookScore | null;
-  // Multi-source media
-  gameplay_enabled?: boolean;
-  stock_photo_enabled?: boolean;
+  // AI video media routing
   ai_video_enabled?: boolean;
-  gameplay_game_name?: string;
   // Short-form export
   hook_scene_count?: number | null;  // Leading scenes in segment 0 that are hook teasers; skipped from short #1
   // Script format

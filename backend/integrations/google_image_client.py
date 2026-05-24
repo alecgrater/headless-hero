@@ -192,7 +192,7 @@ def generate_image(
     if not scraper_fallback_enabled:
         raise RuntimeError(
             f"Gemini returned empty response on both attempts. Scraped web-image fallback "
-            f"is disabled; use stock-photo routing or enable IMAGE_SCRAPER_FALLBACK_ENABLED "
+            f"is disabled; enable IMAGE_SCRAPER_FALLBACK_ENABLED "
             f"if web scraping is acceptable for this project. Prompt: {prompt[:200]}"
         )
 

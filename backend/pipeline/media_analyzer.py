@@ -462,7 +462,6 @@ def apply_assignments(
 
             scene.media_source = assignment.media_source
 
-            scene.gameplay_game_override = ""
             scene.original_visual_prompt = ""
 
             if assignment.media_source == "ai_video" and script_content.format_id == "life-as-a":

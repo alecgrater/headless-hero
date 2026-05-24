@@ -1,16 +1,13 @@
-"""Media upload endpoint for user-provided images and videos."""
+"""Media source analysis endpoints."""
 
 import json
 import logging
 import os
-import uuid
-from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from config import DATA_DIR
 from database import get_session
 from models.script import Script, ScriptContent
 from pipeline.media_analyzer import analyze_media_sources, apply_assignments, MediaAssignment, is_ai_video_eligible
@@ -20,12 +17,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/media", tags=["media"])
 
-ALLOWED_IMAGE_TYPES = {".png", ".jpg", ".jpeg", ".webp"}
-ALLOWED_VIDEO_TYPES = {".mp4", ".mov", ".webm"}
-ALLOWED_TYPES = ALLOWED_IMAGE_TYPES | ALLOWED_VIDEO_TYPES
-UPLOAD_CHUNK_SIZE = 1024 * 1024
-
-
 def _ai_video_scenes_per_segment() -> int:
     try:
         value = int(os.environ.get("AI_VIDEO_SCENES_PER_SEGMENT", "2"))
@@ -34,50 +25,10 @@ def _ai_video_scenes_per_segment() -> int:
     return max(0, min(value, 5))
 
 
-class UploadResponse(BaseModel):
-    url: str
-    media_type: str
-
-
-@router.post("/upload", response_model=UploadResponse)
-async def upload_scene_media(
-    script_id: str = Form(...),
-    scene_id: str = Form(...),
-    file: UploadFile = File(...),
-):
-    """Upload an image or video file for a scene."""
+@router.post("/upload")
+async def upload_scene_media():
+    """Reject removed scene media uploads."""
     raise HTTPException(status_code=410, detail="Scene media uploads have been removed")
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="No filename provided")
-
-    ext = Path(file.filename).suffix.lower()
-    if ext not in ALLOWED_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file type: {ext}. Allowed: {', '.join(sorted(ALLOWED_TYPES))}",
-        )
-
-    uploads_dir = DATA_DIR / "projects" / script_id / "uploads"
-    uploads_dir.mkdir(parents=True, exist_ok=True)
-    dest = uploads_dir / f"{scene_id}{ext}"
-    temp_dest = uploads_dir / f".{scene_id}.{uuid.uuid4().hex}.tmp"
-
-    bytes_written = 0
-    try:
-        with temp_dest.open("wb") as out:
-            while chunk := await file.read(UPLOAD_CHUNK_SIZE):
-                out.write(chunk)
-                bytes_written += len(chunk)
-        temp_dest.replace(dest)
-    except BaseException:
-        temp_dest.unlink(missing_ok=True)
-        raise
-
-    media_type = "video" if ext in ALLOWED_VIDEO_TYPES else "image"
-    url = f"/static/projects/{script_id}/uploads/{scene_id}{ext}"
-
-    logger.info("Uploaded %s for scene %s: %s (%d bytes)", media_type, scene_id, dest, bytes_written)
-    return UploadResponse(url=url, media_type=media_type)
 
 
 class MediaAssignmentResponse(BaseModel):
@@ -117,8 +68,6 @@ def preserve_media_analysis_source_flags(
     ai_video_enabled: bool,
 ) -> None:
     """Persist source flags while keeping removed source types disabled."""
-    content.gameplay_enabled = False
-    content.stock_photo_enabled = False
     if "ai_video_enabled" not in script_json:
         content.ai_video_enabled = ai_video_enabled
 
@@ -145,11 +94,7 @@ def normalize_media_assignments_for_sources(
         life_as_a_role = resolve_life_as_a_role(script_content)
 
     for assignment in assignments:
-        if (
-            assignment.media_source == "gameplay_video"
-        ) or (
-            assignment.media_source == "stock_photo"
-        ) or (
+        if assignment.media_source not in {"ai", "ai_video"} or (
             assignment.media_source == "ai_video" and not ai_video_enabled
         ):
             normalized.append(MediaAssignment(

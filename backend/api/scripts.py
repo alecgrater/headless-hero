@@ -368,8 +368,6 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
     model = body.model
     segmented = body.segmented
     cold_open_text = body.cold_open_text
-    gameplay_enabled = False
-    stock_photo_enabled = False
     eli_enabled = body.eli_enabled
     # Resolve style_preset_enabled: use explicit value, else fall back to AppSettings
     if body.style_preset_enabled is not None:
@@ -411,8 +409,6 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             segmented=segmented,
             cold_open_text=cold_open_text,
             progress_callback=_progress,
-            gameplay_enabled=gameplay_enabled,
-            stock_photo_enabled=stock_photo_enabled,
             script_id=script_id,
             format_id=format_id,
             eli_enabled=eli_enabled,
@@ -445,13 +441,13 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
 
         logger.info("Script generated: %s (%d segments) in %.1fs", script_id, len(script_content.segments), duration)
 
-        if gameplay_enabled or stock_photo_enabled or (ai_video_enabled and animated_scene_count > 0):
+        if ai_video_enabled and animated_scene_count > 0:
             try:
                 update_job(job_id, current_step="Analyzing media sources...")
                 assignments = analyze_media_sources(
                     script_content,
-                    gameplay_enabled=gameplay_enabled,
-                    stock_photo_enabled=stock_photo_enabled,
+                    gameplay_enabled=False,
+                    stock_photo_enabled=False,
                     ai_video_enabled=ai_video_enabled,
                     animated_scene_count=animated_scene_count,
                     ai_video_scenes_per_segment=ai_video_scenes_per_segment,

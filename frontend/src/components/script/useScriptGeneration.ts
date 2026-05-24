@@ -298,8 +298,6 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
           model: selectedModel !== DEFAULT_MODEL ? selectedModel : undefined,
           segmented,
           cold_open_text: idea.cold_open_text ?? null,
-          gameplay_enabled: false,
-          stock_photo_enabled: false,
           eli_enabled: eliEnabled,
           style_preset_enabled: stylePresetEnabled,
         });
@@ -431,8 +429,6 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
         model: selectedModel !== DEFAULT_MODEL ? selectedModel : undefined,
         segmented,
         cold_open_text: coldOpenText,
-        gameplay_enabled: false,
-        stock_photo_enabled: false,
         eli_enabled: eliEnabled,
         style_preset_enabled: stylePresetEnabled,
       })

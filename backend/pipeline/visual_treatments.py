@@ -214,7 +214,6 @@ def _is_video_or_photo_backed(scene: Scene) -> bool:
     return (
         scene.media_source in VIDEO_OR_PHOTO_SOURCES
         or bool(scene.video_url)
-        or bool(scene.upload_url)
     )
 
 

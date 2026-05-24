@@ -373,7 +373,6 @@ def _split_life_as_a_scenes(content: ScriptContent) -> int:
                 chunk_scene.frame_urls = []
                 chunk_scene.media_source = "ai"
                 chunk_scene.video_url = ""
-                chunk_scene.upload_url = ""
                 chunk_scene.visual_source_metadata = None
                 if chunk_index > 0:
                     chunk_scene.fx = None
