@@ -386,7 +386,7 @@ def test_life_as_a_chapter_card_is_not_split(monkeypatch):
     assert out.segments[0].scenes[0].narration == "The entry."
 
 
-def test_life_as_a_short_scene_collapses_multi_frame_directives(monkeypatch):
+def test_life_as_a_short_scene_preserves_multi_frame_directives(monkeypatch):
     monkeypatch.setenv("LIFE_AS_A_SINGLE_VISUAL_MAX_SECONDS", "8")
     content = ScriptContent(
         title="Your Life As A Prison Guard",
@@ -426,10 +426,10 @@ def test_life_as_a_short_scene_collapses_multi_frame_directives(monkeypatch):
     out = enforce_life_as_a_constraints(content)
     scene = out.segments[0].scenes[1]
 
-    assert scene.visual_beat == "static"
-    assert len(scene.frame_directives) == 1
-    assert scene.frame_directives[0].transition == "cut"
-    assert scene.frame_directives[0].reference_previous is False
+    assert scene.visual_beat == "continuous"
+    assert len(scene.frame_directives) == 2
+    assert [frame.transition for frame in scene.frame_directives] == ["crossfade", "crossfade"]
+    assert [frame.reference_previous for frame in scene.frame_directives] == [True, True]
 
 
 def test_life_as_a_sentence_count_splits_when_default_duration_masks_long_scene(monkeypatch):

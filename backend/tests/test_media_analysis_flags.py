@@ -645,6 +645,52 @@ def test_life_as_a_ai_video_only_promotes_eli_scenes(monkeypatch):
     assert sources["scene_005"] == "ai"
 
 
+def test_life_as_a_ai_video_uses_configured_video_duration_threshold(monkeypatch):
+    monkeypatch.setenv("LIFE_AS_A_SINGLE_VISUAL_MAX_SECONDS", "8")
+    content = ScriptContent(
+        title="Your Life As A Prison Guard",
+        format_id="life-as-a",
+        segments=[
+            Segment(
+                name="Level 1",
+                scenes=[
+                    Scene(id="scene_001", narration="Level one.", visual_prompt="[ESTABLISHING] title", is_title_card=True),
+                    Scene(
+                        id="scene_002",
+                        narration="You walk the corridor and learn the rhythm of the doors.",
+                        visual_prompt=(
+                            "Eli, the recurring character, is the main subject and protagonist in this scene. "
+                            "Depict Eli as Prison Guard; no other people are visible. "
+                            "[ESTABLISHING] A prison guard walking down a corridor"
+                        ),
+                        contains_person=True,
+                        audio_duration_seconds=7.5,
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(media_analyzer, "chat", lambda **_: """{
+      "assignments": [
+        {"scene_id": "scene_001", "media_source": "ai", "game_name": null, "search_query": null, "reasoning": "title"},
+        {"scene_id": "scene_002", "media_source": "ai_video", "game_name": null, "search_query": null, "reasoning": "configured threshold allows it"}
+      ]
+    }""")
+
+    assignments = analyze_media_sources(
+        content,
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+        ai_video_enabled=True,
+        animated_scene_count=1,
+        script_id="test-script",
+    )
+
+    sources = {assignment.scene_id: assignment.media_source for assignment in assignments}
+    assert sources["scene_002"] == "ai_video"
+
+
 def test_analyze_media_sources_respects_zero_ai_video_count(monkeypatch):
     content = ScriptContent(
         title="Disabled animation",

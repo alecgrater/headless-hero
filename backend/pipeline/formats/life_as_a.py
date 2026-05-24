@@ -317,14 +317,13 @@ def _split_life_as_a_scenes(content: ScriptContent) -> int:
     enabled = bool(settings["enabled"])
     target_seconds = int(settings["target"])
     max_seconds = int(settings["max"])
-    single_visual_max = int(settings["single_visual_max"])
     effective_max_seconds = min(max_seconds, 14)
     logger.info(
-        "[LIFE_AS_A_CHUNKING] settings: enabled=%s target=%d max=%d single_visual_max=%d",
+        "[LIFE_AS_A_CHUNKING] settings: enabled=%s target=%d max=%d ai_video_max=%d",
         str(enabled).lower(),
         target_seconds,
         max_seconds,
-        single_visual_max,
+        int(settings["single_visual_max"]),
     )
     if not enabled:
         return 0
@@ -393,33 +392,7 @@ def _renumber_scenes(content: ScriptContent) -> None:
 
 
 def enforce_life_as_a_visual_complexity(content: ScriptContent) -> int:
-    settings = life_as_a_chunking_settings()
-    single_visual_max = int(settings["single_visual_max"])
-    collapsed = 0
-    for scene in content.all_scenes():
-        if scene.is_title_card:
-            continue
-        estimated_duration = _scene_estimated_duration(scene, target_seconds=int(settings["target"]))
-        if estimated_duration <= single_visual_max and (
-            scene.visual_beat != "static" or len(scene.frame_directives or []) > 1
-        ):
-            scene.visual_beat = "static"
-            scene.frame_directives = _single_frame_directives(scene)
-            collapsed += 1
-            logger.info(
-                "[LIFE_AS_A_VISUALS] collapsed scene %s to one frame; reason=short_scene duration=%.1fs",
-                scene.id,
-                estimated_duration,
-            )
-        elif estimated_duration <= 14 and len(scene.frame_directives or []) > 2:
-            scene.frame_directives = list(scene.frame_directives[:2])
-            collapsed += 1
-            logger.info(
-                "[LIFE_AS_A_VISUALS] trimmed scene %s to two frames; reason=medium_scene duration=%.1fs",
-                scene.id,
-                estimated_duration,
-            )
-    return collapsed
+    return 0
 
 
 def _mark_protagonist_scenes(content: ScriptContent, *, eli_enabled: bool = True) -> int:

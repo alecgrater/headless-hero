@@ -103,6 +103,7 @@ def is_ai_video_eligible(
     require_eli_scene: bool = False,
     life_as_a_role: str = "",
     enforce_duration_cap: bool = True,
+    max_duration_seconds: float = AI_VIDEO_MAX_ROUTED_DURATION_SECONDS,
 ) -> bool:
     if scene.is_title_card:
         return False
@@ -112,7 +113,7 @@ def is_ai_video_eligible(
     if (
         enforce_duration_cap
         and known_audio_duration is not None
-        and known_audio_duration > AI_VIDEO_MAX_ROUTED_DURATION_SECONDS
+        and known_audio_duration > max_duration_seconds
     ):
         return False
     if not scene.visual_prompt.strip():
@@ -280,9 +281,12 @@ def analyze_media_sources(
     require_eli_scene_for_ai_video = script_content.format_id == "life-as-a"
     life_as_a_role = ""
     if require_eli_scene_for_ai_video:
-        from pipeline.formats.life_as_a import life_as_a_role as resolve_life_as_a_role
+        from pipeline.formats.life_as_a import life_as_a_chunking_settings, life_as_a_role as resolve_life_as_a_role
 
         life_as_a_role = resolve_life_as_a_role(script_content)
+        ai_video_max_duration = float(life_as_a_chunking_settings()["single_visual_max"])
+    else:
+        ai_video_max_duration = AI_VIDEO_MAX_ROUTED_DURATION_SECONDS
     system_prompt = (
         MEDIA_ANALYZER_SYSTEM.template
         .replace("{available_sources}", available_sources)
@@ -353,6 +357,7 @@ def analyze_media_sources(
                     scene,
                     require_eli_scene=require_eli_scene_for_ai_video,
                     life_as_a_role=life_as_a_role,
+                    max_duration_seconds=ai_video_max_duration,
                 )
             ):
                 source = "ai"
@@ -402,6 +407,7 @@ def analyze_media_sources(
                     assignments_by_scene.get(scene.id, MediaAssignment(scene.id, "ai", None, None, "")).media_source,
                     require_eli_scene=require_eli_scene_for_ai_video,
                     life_as_a_role=life_as_a_role,
+                    max_duration_seconds=ai_video_max_duration,
                 )
             ]
             if not candidates:
@@ -436,7 +442,7 @@ def analyze_media_sources(
                 "[AI_VIDEO] selected scene %s; duration=%.1fs cap=%.1fs",
                 assignment.scene_id,
                 duration,
-                AI_VIDEO_MAX_ROUTED_DURATION_SECONDS,
+                ai_video_max_duration,
             )
 
     logger.info("[%s] Media analysis complete: %d ai, %d ai_video",

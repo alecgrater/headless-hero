@@ -933,7 +933,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                 </button>
               </div>
               <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs text-neutral-300 leading-relaxed">
-                Shorter life-as-a scenes improve AI-video compatibility. Long scenes are split before voiceover when possible, and short scenes use one image or video instead of multiple photos.
+                Shorter life-as-a scenes improve AI-video compatibility. Long scenes are split before voiceover when possible; generated-image scenes may still use multiple frames when the visual beat calls for it.
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <label className="space-y-1">
@@ -961,7 +961,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                   />
                 </label>
                 <label className="space-y-1">
-                  <span className="text-xs text-neutral-400">Short scene visual policy</span>
+                  <span className="text-xs text-neutral-400">AI-video max scene seconds</span>
                   <input
                     type="number"
                     min="5"
@@ -971,11 +971,11 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                     onChange={(e) => setLifeAsASingleVisualMaxSeconds(e.target.value)}
                     className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
                   />
-                  <span className="block text-[11px] text-neutral-500">Single image/video through this many seconds.</span>
+                  <span className="block text-[11px] text-neutral-500">AI-video routing only through this many seconds.</span>
                 </label>
               </div>
               <p className="text-xs text-neutral-500">
-                Default policy: scenes at or below {lifeAsASingleVisualMaxSeconds || "8"} seconds use one image or one AI video. Medium scenes can keep at most two frames; longer life-as-a scenes are split.
+                Default policy: life-as-a AI-video candidates must be at or below {lifeAsASingleVisualMaxSeconds || "8"} seconds. Image scenes can keep multiple frames when the generated beat uses them; longer life-as-a scenes are split.
               </p>
             </div>
 
