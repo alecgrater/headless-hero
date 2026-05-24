@@ -115,10 +115,11 @@ export default function TestLabPage() {
   function handleSelectPreset(presetId: string) {
     const nextPreset = presets.find((preset) => preset.id === presetId) ?? null;
     setSelectedPresetId(presetId);
-    setSettings((current) =>
-      settingsWithVisualTreatmentDefaults(
+    setSettings((current) => {
+      const presetSettings = settingsWithPresetVisualMode(current, nextPreset);
+      return settingsWithVisualTreatmentDefaults(
         {
-          ...settingsWithPresetVisualMode(current, nextPreset),
+          ...presetSettings,
           title: undefined,
           segment_name: undefined,
           short_name: undefined,
@@ -132,10 +133,10 @@ export default function TestLabPage() {
           main_character: undefined,
         },
         nextPreset,
-        current.visual_treatment,
+        presetSettings.visual_treatment,
         visualTreatmentDefaults,
-      ),
-    );
+      );
+    });
   }
 
   const pollRun = useCallback(async (jobId: string, runId: string) => {

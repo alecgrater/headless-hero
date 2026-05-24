@@ -416,6 +416,19 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
 
     content = ScriptContent.model_validate_json(record.script_json)
     scene_map = {sc.id: sc for seg in content.segments for sc in seg.scenes}
+
+    def _requested_visual_treatment(scene: BatchScene) -> str:
+        if scene.visual_treatment:
+            return scene.visual_treatment
+        if scene.visual_mode in {"popup_sequence", "flipflop"}:
+            return scene.visual_mode
+        stored_scene = scene_map.get(scene.scene_id)
+        if stored_scene is None:
+            return "full_frame"
+        if stored_scene.visual_mode in {"popup_sequence", "flipflop"}:
+            return stored_scene.visual_mode
+        return stored_scene.visual_treatment
+
     scenes = [
         {
             "scene_id": s.scene_id,
@@ -427,7 +440,7 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
             or (scene_map[s.scene_id].visual_mode if s.scene_id in scene_map else ""),
             "media_source": s.media_source,
             "audio_duration_seconds": s.audio_duration_seconds,
-            "visual_treatment": s.visual_treatment or (scene_map[s.scene_id].visual_treatment if s.scene_id in scene_map else "full_frame"),
+            "visual_treatment": _requested_visual_treatment(s),
             "visual_layers": s.visual_layers or (
                 [layer.model_dump() for layer in scene_map[s.scene_id].visual_layers]
                 if s.scene_id in scene_map
@@ -448,8 +461,11 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
         for scene in scenes
     }
     requested_treatments = {
-        scene["scene_id"]: scene.get("visual_treatment")
-        or (requested_modes[scene["scene_id"]] if requested_modes[scene["scene_id"]] in {"popup_sequence", "flipflop"} else "full_frame")
+        scene["scene_id"]: (
+            requested_modes[scene["scene_id"]]
+            if requested_modes[scene["scene_id"]] in {"popup_sequence", "flipflop"}
+            else scene.get("visual_treatment") or "full_frame"
+        )
         for scene in scenes
     }
 
