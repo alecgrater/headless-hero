@@ -533,7 +533,7 @@ def _stage_character_reference(ctx: TestLabRunContext) -> None:
     _check_cancelled(ctx)
     with Session(ctx.engine) as session:
         cfg = session.get(ProjectConfig, ctx.script_id)
-        if cfg is None or cfg.eli_enabled:
+        if cfg is None or cfg.eli_enabled or not cfg.style_preset_enabled:
             return
         if sync_global_main_character_to_project(session, ctx.script_id):
             session.commit()

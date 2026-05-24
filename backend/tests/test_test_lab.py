@@ -729,6 +729,88 @@ def test_stage_character_reference_uses_active_preset_character(monkeypatch, tmp
     assert ctx.manifest.assets[-1].url == f"/static/projects/{script_id}/character/reference.png"
 
 
+def test_stage_character_reference_skips_when_style_preset_disabled(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.main_character as main_character
+    import pipeline.test_lab as test_lab
+    from models.project_config import ProjectConfig
+    from models.settings import AppSetting
+    from models.style_preset import StylePreset
+    from models.style_preset_character import StylePresetCharacter
+
+    monkeypatch.setattr(main_character, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(test_lab, "DATA_DIR", tmp_path)
+
+    with Session(engine) as session:
+        preset_id = "preset-a"
+        character_id = "character-a"
+        preset_image = tmp_path / "style" / "presets" / f"{preset_id}.png"
+        preset_image.parent.mkdir(parents=True, exist_ok=True)
+        preset_image.write_bytes(b"preset")
+        character_ref = tmp_path / "style" / "presets" / preset_id / "characters" / f"{character_id}.png"
+        character_ref.parent.mkdir(parents=True, exist_ok=True)
+        character_ref.write_bytes(b"preset-main-character")
+        session.add(
+            StylePreset(
+                id=preset_id,
+                name="Mara",
+                prompt="bright illustrated style",
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+        session.add(
+            StylePresetCharacter(
+                id=character_id,
+                style_preset_id=preset_id,
+                name="Mara",
+                appearance="A cartographer in a green jacket.",
+                vibe="Inventive and calm.",
+                reference_image_url=f"/static/style/presets/{preset_id}/characters/{character_id}.png",
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+        session.add(AppSetting(key="ACTIVE_STYLE_PRESET_ID", value=preset_id))
+        session.add(
+            AppSetting(
+                key=main_character.active_style_preset_character_key(preset_id),
+                value=character_id,
+            )
+        )
+        script_id = test_lab.create_hidden_test_script(
+            session,
+            run_id="run-style-disabled-character-stage",
+            preset_id="life-scribe",
+            settings={"eli_enabled": False, "style_preset_enabled": False},
+        )
+        session.commit()
+
+    manifest = test_lab.TestLabRunManifest(
+        run_id="run-style-disabled-character-stage",
+        script_id=script_id,
+        preset_id="life-scribe",
+        status="running",
+    )
+    ctx = test_lab.TestLabRunContext(
+        engine=engine,
+        run_id="run-style-disabled-character-stage",
+        script_id=script_id,
+        preset_id="life-scribe",
+        settings={"eli_enabled": False, "style_preset_enabled": False},
+        manifest=manifest,
+        job_id=None,
+    )
+
+    test_lab._stage_character_reference(ctx)
+
+    with Session(engine) as session:
+        cfg = session.get(ProjectConfig, script_id)
+
+    assert cfg is not None
+    assert cfg.main_character_reference_url is None
+    assert ctx.manifest.assets == []
+
+
 def test_stage_audio_forwards_voice_model_and_settings(monkeypatch, tmp_path):
     engine, _app = _setup_app(monkeypatch, tmp_path)
 
