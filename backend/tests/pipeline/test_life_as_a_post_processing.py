@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from models.script import LevelMeta, MainCharacter, Scene, ScriptContent, Segment
+from models.script import FrameDirective, LevelMeta, MainCharacter, Scene, ScriptContent, Segment
 from pipeline.formats.life_as_a import enforce_life_as_a_constraints
 from pipeline.scriptwriter import _ensure_visual_beat_directives
 
@@ -69,6 +69,44 @@ def test_life_as_a_preserves_canonical_multi_frame_through_directive_repair():
     assert repaired.visual_beat == "multi_frame"
     assert len(repaired.frame_directives) == 4
     assert all(frame.reference_previous is False for frame in repaired.frame_directives)
+
+
+def test_life_as_a_coerces_aha_subtitle_visual_mode_to_static():
+    scene = _scene("s2", beat="static")
+    object.__setattr__(scene, "visual_mode", "aha_subtitle")
+    object.__setattr__(
+        scene,
+        "frame_directives",
+        [
+            FrameDirective(
+                prompt="A hard truth.",
+                source="subtitle",
+                transition="cut",
+                reference_previous=False,
+                search_query="",
+                contains_person=False,
+            )
+        ],
+    )
+    content = ScriptContent(
+        title="Your Life As A Test",
+        format_id="life-as-a",
+        segments=[
+            Segment(name="Level 1, the entry", scenes=[
+                _scene("s1", title_card=True),
+                scene,
+            ]),
+        ],
+    )
+    scene = content.segments[0].scenes[1]
+    object.__setattr__(scene, "visual_mode", "aha_subtitle")
+
+    enforce_life_as_a_constraints(content)
+
+    coerced = content.segments[0].scenes[1]
+    assert coerced.visual_mode == "full_frame"
+    assert coerced.visual_beat == "static"
+    assert all(frame.source != "subtitle" for frame in coerced.frame_directives)
 
 
 def test_chapter_card_inserted_when_missing():

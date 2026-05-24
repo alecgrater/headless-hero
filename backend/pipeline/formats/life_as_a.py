@@ -7,7 +7,7 @@ import math
 import os
 import re
 
-from models.script import LevelMeta, Scene, ScriptContent, Segment
+from models.script import FrameDirective, LevelMeta, Scene, ScriptContent, Segment
 from prompts import (
     LIFE_AS_A_IDEATION_SYSTEM,
     LIFE_AS_A_LEVEL_SCENES_INSTRUCTIONS,
@@ -447,7 +447,20 @@ def enforce_life_as_a_constraints(content: ScriptContent, *, eli_enabled: bool =
     for scene in content.all_scenes():
         if scene.is_title_card:
             continue
-        if scene.visual_mode == "multi_frame" or scene.visual_beat in {"quick_cuts", "montage", "multi_frame"}:
+        if scene.visual_mode == "aha_subtitle" or scene.visual_beat == "aha_subtitle":
+            scene.visual_beat = "static"
+            scene.frame_directives = [
+                FrameDirective(
+                    prompt=scene.visual_prompt.strip() or scene.narration.strip(),
+                    source="ai_generated",
+                    transition="cut",
+                    reference_previous=False,
+                    search_query="",
+                    contains_person=bool(scene.contains_person),
+                )
+            ]
+            coerced += 1
+        elif scene.visual_mode == "multi_frame" or scene.visual_beat in {"quick_cuts", "montage", "multi_frame"}:
             scene.visual_beat = "multi_frame"
         elif scene.visual_beat not in allowed:
             scene.visual_beat = "static"
