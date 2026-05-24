@@ -1899,6 +1899,58 @@ def test_stage_render_wires_cancel_check_and_progress(monkeypatch, tmp_path):
     assert manifest.render_url == "/static/projects/test-lab-run/renders/full_youtube.mp4"
 
 
+def test_stage_visual_skips_scene_image_for_popup_sequence(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.image_gen as image_gen
+    import pipeline.test_lab as test_lab
+    from models.script import ScriptContent
+
+    with Session(engine) as session:
+        script_id = test_lab.create_hidden_test_script(
+            session,
+            run_id="run-popup-no-scene-image",
+            preset_id="coffee-brain",
+            settings={
+                "visual_treatment": "popup_sequence",
+            },
+        )
+        session.commit()
+
+    monkeypatch.setattr(
+        image_gen,
+        "generate_scene_image",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("popup sequence should not generate scene image")),
+    )
+
+    manifest = test_lab.TestLabRunManifest(
+        run_id="run-popup-no-scene-image",
+        script_id=script_id,
+        preset_id="coffee-brain",
+        status="running",
+    )
+    ctx = test_lab.TestLabRunContext(
+        engine=engine,
+        run_id="run-popup-no-scene-image",
+        script_id=script_id,
+        preset_id="coffee-brain",
+        settings={"visual_treatment": "popup_sequence"},
+        manifest=manifest,
+        job_id=None,
+    )
+
+    test_lab._stage_visual(ctx)
+
+    with Session(engine) as session:
+        record, content = test_lab._load_content_for_script(session, script_id)
+        _ = record
+        saved = ScriptContent.model_validate(content)
+
+    scene = saved.segments[0].scenes[0]
+    assert scene.image_url == ""
+    assert [asset.kind for asset in manifest.assets] == []
+
+
 def test_run_test_lab_persists_failed_manifest_when_setup_fails(monkeypatch, tmp_path):
     import pytest
 

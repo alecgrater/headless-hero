@@ -108,6 +108,40 @@ def test_scene_to_input_props_includes_visual_treatment_layers(tmp_path, monkeyp
     assert props["visual_layers"][0]["image_path"].endswith("scene_layered_layer_panel_1.png")
 
 
+def test_scene_to_input_props_resolves_popup_crop_layer_urls(tmp_path, monkeypatch):
+    monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
+    popup_dir = tmp_path / "projects" / "script" / "popup_crops" / "scene_layered"
+    image_dir = tmp_path / "projects" / "script" / "images"
+    popup_dir.mkdir(parents=True)
+    image_dir.mkdir(parents=True)
+    (popup_dir / "crop_02_chat_bubble.png").write_bytes(b"fake crop")
+    (image_dir / "scene_layered.png").write_bytes(b"wrong fallback image")
+    scene = Scene(
+        id="scene_layered",
+        narration="A list appears.",
+        visual_prompt="x",
+        audio_duration_seconds=2.0,
+        visual_treatment="popup_sequence",
+        visual_layers=[
+            {
+                "id": "chat_bubble",
+                "type": "image",
+                "asset_kind": "cutout",
+                "image_url": "/static/projects/script/popup_crops/scene_layered/crop_02_chat_bubble.png",
+                "placement": "left",
+                "enter_at_seconds": 0.5,
+                "animation": "pop_in",
+            }
+        ],
+    )
+
+    props = remotion_render._scene_to_input_props(scene, "script")
+
+    assert props["visual_layers"][0]["image_path"].endswith(
+        "/popup_crops/scene_layered/crop_02_chat_bubble.png"
+    )
+
+
 def test_chapter_marker_total_frames_use_full_ai_video_audio_duration(tmp_path, monkeypatch):
     monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
     monkeypatch.setattr(remotion_render, "_probe_video_duration", lambda _path: None)

@@ -578,6 +578,20 @@ def test_popup_sequence_cutout_chroma_trims_item_sheet_crop(tmp_path):
         assert cutout.getbbox() is not None
 
 
+def test_popup_sequence_anchor_prompt_requests_standing_character_without_popup_items():
+    from pipeline.image_gen import _compose_popup_anchor_prompt
+
+    prompt = _compose_popup_anchor_prompt(
+        "[REACTION] Flat 2D cartoon person sitting at a desk while three floating notification bubbles hover around them.",
+        contains_person=True,
+    )
+
+    assert "standing upright" in prompt
+    assert "No popup items" in prompt
+    assert "No sitting" in prompt
+    assert "No desks" in prompt
+
+
 def test_script_content_has_visual_canvas_default():
     content = ScriptContent(title="Test", segments=[])
     raw = json.loads(content.model_dump_json())

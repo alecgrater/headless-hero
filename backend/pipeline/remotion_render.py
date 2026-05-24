@@ -48,6 +48,9 @@ def _scene_image_path(script_id: str, scene_id: str, image_url: str | None = Non
     base = DATA_DIR / "projects" / script_id / "images"
 
     if image_url:
+        resolved = _project_static_asset_path(script_id, image_url)
+        if resolved is not None:
+            return resolved
         filename = image_url.rsplit("/", 1)[-1]
         custom = base / filename
         if custom.exists():
@@ -59,6 +62,22 @@ def _scene_image_path(script_id: str, scene_id: str, image_url: str | None = Non
     f0 = base / f"{scene_id}_f0.png"
     if f0.exists():
         return _to_remotion_path(str(f0))
+    return None
+
+
+def _project_static_asset_path(script_id: str, image_url: str) -> str | None:
+    marker = f"/static/projects/{script_id}/"
+    marker_index = image_url.find(marker)
+    if marker_index < 0:
+        return None
+
+    relative = image_url[marker_index + len(marker):]
+    if not relative or ".." in Path(relative).parts:
+        return None
+
+    path = DATA_DIR / "projects" / script_id / relative
+    if path.exists():
+        return _to_remotion_path(str(path))
     return None
 
 

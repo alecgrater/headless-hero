@@ -550,19 +550,22 @@ def _generate_popup_item_cutouts(
 
 def _compose_popup_anchor_prompt(scene_prompt: str, *, contains_person: bool) -> str:
     subject_line = (
-        "Create one large isolated cutout of the scene's main character/person."
+        "Create one large isolated full-body cutout of the scene's main character/person standing upright."
         if contains_person
-        else "Create one large isolated cutout of the scene's main subject."
+        else "Create one large isolated full-body cutout of the scene's main subject standing upright."
     )
     return "\n".join(
         [
             subject_line,
-            "The subject should be detailed, expressive, centered, and visually dominant.",
+            "The subject should be detailed, expressive, centered, visually dominant, and shown in a clean neutral standing pose.",
             "Use a flat chroma background color that does not appear anywhere in the subject, preferably bright green unless the subject contains green.",
             "No popup items, no secondary icons, no speech bubbles, no text, no labels, no frames, no full background scene.",
+            "No sitting.",
+            "No desks, no phones, no notification bubbles, no props, and no environment.",
             "Leave a little empty margin around the full subject so automatic trimming does not clip the pose.",
+            "Use the scene direction only for character identity and visual style; ignore its action, environment, props, and popup items.",
             "",
-            "Scene direction:",
+            "Character/style context:",
             scene_prompt.strip(),
         ]
     ).strip()
