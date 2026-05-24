@@ -76,7 +76,7 @@ export interface ScriptGenerationState {
   coldOpenProgress: { estimatedSeconds: number | null; active: boolean };
 }
 
-export default function useScriptGeneration({ brandId, idea, supportsColdOpen = true, eliEnabled = true, stylePresetEnabled = true }: Params): ScriptGenerationState {
+export default function useScriptGeneration({ brandId, idea, supportsColdOpen = true, eliEnabled = false, stylePresetEnabled = true }: Params): ScriptGenerationState {
   const [script, setScript] = useState<ScriptContent | null>(null);
   const [scriptId, setScriptId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

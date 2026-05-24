@@ -276,7 +276,7 @@ class GenerateScriptRequest(BaseModel):
     segmented: bool = PydanticField(default=False, description="Use two-phase segmented generation (one API call per segment)")
     cold_open_text: str | None = PydanticField(default=None, description="Pre-selected cold open text to inject into script generation")
     eli_enabled: bool = PydanticField(
-        default=True,
+        default=False,
         description="Whether Eli is enabled for this project. False switches to per-project main character.",
     )
     style_preset_enabled: bool | None = PydanticField(

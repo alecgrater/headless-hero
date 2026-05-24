@@ -135,7 +135,7 @@ _DEFAULTS: dict[str, str] = {
     "QWEN_MODEL": "qwen3:14b",
     "HOOK_REFINEMENT_ENABLED": "true",
     "SHOW_SPEED_RENDER_BUTTON": "true",
-    "ELI_ENABLED_DEFAULT": "true",
+    "ELI_ENABLED_DEFAULT": "false",
     "STYLE_PRESET_ENABLED_DEFAULT": "true",
     "ACTIVE_STYLE_PRESET_ID": "",
     VISUAL_CANVAS_COLOR_PALETTE_KEY: '["#F6C54A"]',

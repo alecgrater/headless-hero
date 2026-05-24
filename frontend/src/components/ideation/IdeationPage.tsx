@@ -45,7 +45,7 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
     }
   });
   const [animateFromIndex, setAnimateFromIndex] = useState(0);
-  const [eliEnabled, setEliEnabled] = useState<boolean>(true);
+  const [eliEnabled, setEliEnabled] = useState<boolean>(false);
   const [stylePresetEnabled, setStylePresetEnabled] = useState<boolean>(true);
   const inputRef = useRef<IdeationInputHandle>(null);
   const cancelledRef = useRef(false);
@@ -61,7 +61,7 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
       const res = await api.get("/api/settings/keys");
       if (res.ok) {
         const data = res.data as Record<string, { masked: string; configured: boolean; source: string }>;
-        const raw = data.ELI_ENABLED_DEFAULT?.masked || "true";
+        const raw = data.ELI_ENABLED_DEFAULT?.masked || "false";
         setEliEnabled(raw.trim().toLowerCase() !== "false");
         const styleRaw = data.STYLE_PRESET_ENABLED_DEFAULT?.masked || "true";
         setStylePresetEnabled(styleRaw.trim().toLowerCase() !== "false");

@@ -30,7 +30,7 @@ const PROVIDER_LABELS: Record<string, string> = {
 export default function ScriptGenerationPage({
   brandId,
   idea,
-  eliEnabled = true,
+  eliEnabled = false,
   stylePresetEnabled = true,
   onBack,
   onContinue,

@@ -15,14 +15,14 @@ export default function MiscSection() {
   const [showSpeedRenderButton, setShowSpeedRenderButton] = useState("true");
   const [rateLimitEnabled, setRateLimitEnabled] = useState("true");
   const [scraperFallbackEnabled, setScraperFallbackEnabled] = useState("false");
-  const [eliEnabledDefault, setEliEnabledDefault] = useState("true");
+  const [eliEnabledDefault, setEliEnabledDefault] = useState("false");
   const [stylePresetEnabledDefault, setStylePresetEnabledDefault] = useState("true");
 
   const [originalHookRefinement, setOriginalHookRefinement] = useState("true");
   const [originalShowSpeedRenderButton, setOriginalShowSpeedRenderButton] = useState("true");
   const [originalRateLimit, setOriginalRateLimit] = useState("true");
   const [originalScraperFallback, setOriginalScraperFallback] = useState("false");
-  const [originalEliEnabledDefault, setOriginalEliEnabledDefault] = useState("true");
+  const [originalEliEnabledDefault, setOriginalEliEnabledDefault] = useState("false");
   const [originalStylePresetEnabledDefault, setOriginalStylePresetEnabledDefault] = useState("true");
 
   const [saving, setSaving] = useState(false);
@@ -46,7 +46,7 @@ export default function MiscSection() {
         const sfVal = data.IMAGE_SCRAPER_FALLBACK_ENABLED?.masked || "false";
         setScraperFallbackEnabled(settingEnabled(sfVal) ? "true" : "false");
         setOriginalScraperFallback(settingEnabled(sfVal) ? "true" : "false");
-        const eliVal = data.ELI_ENABLED_DEFAULT?.masked || "true";
+        const eliVal = data.ELI_ENABLED_DEFAULT?.masked || "false";
         setEliEnabledDefault(settingEnabled(eliVal) ? "true" : "false");
         setOriginalEliEnabledDefault(settingEnabled(eliVal) ? "true" : "false");
         const styleVal = data.STYLE_PRESET_ENABLED_DEFAULT?.masked || "true";

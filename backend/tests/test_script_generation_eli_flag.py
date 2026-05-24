@@ -98,8 +98,8 @@ def test_project_config_row_written_with_eli_enabled_false(monkeypatch, isolated
     assert cfg_row.eli_enabled is False, f"Expected eli_enabled=False, got {cfg_row.eli_enabled}"
 
 
-def test_project_config_row_defaults_to_eli_enabled_true(monkeypatch, isolated_engine):
-    """Omitting eli_enabled in the request defaults to True (legacy behavior)."""
+def test_project_config_row_defaults_to_eli_enabled_false(monkeypatch, isolated_engine):
+    """Omitting eli_enabled in a new script request uses the app default of False."""
 
     def fake_run(job_id, target):
         target()
@@ -137,4 +137,4 @@ def test_project_config_row_defaults_to_eli_enabled_true(monkeypatch, isolated_e
         ).first()
 
     assert cfg_row is not None, "ProjectConfig row not written for new script"
-    assert cfg_row.eli_enabled is True
+    assert cfg_row.eli_enabled is False

@@ -112,7 +112,7 @@ function App() {
   const [view, setView] = useState<View>("project-dashboard");
   const [visitedViews, setVisitedViews] = useState<Set<View>>(() => new Set(["project-dashboard"]));
   const [selectedIdea, setSelectedIdea] = useState<VideoIdea | null>(null);
-  const [selectedIdeaEliEnabled, setSelectedIdeaEliEnabled] = useState<boolean>(true);
+  const [selectedIdeaEliEnabled, setSelectedIdeaEliEnabled] = useState<boolean>(false);
   const [selectedIdeaStylePresetEnabled, setSelectedIdeaStylePresetEnabled] = useState<boolean>(true);
   const [timelineScriptId, setTimelineScriptId] = useState<string | null>(null);
   const [defaultBrandId, setDefaultBrandId] = useState<string | null>(null);
@@ -478,7 +478,7 @@ function App() {
               autoGenerateRequestId={autoGenerateRequestId}
               onUseIdea={(idea, opts) => {
                 setSelectedIdea(idea);
-                setSelectedIdeaEliEnabled(opts?.eliEnabled ?? true);
+                setSelectedIdeaEliEnabled(opts?.eliEnabled ?? false);
                 setSelectedIdeaStylePresetEnabled(opts?.stylePresetEnabled ?? true);
                 handleSetView("script-generation");
               }}
