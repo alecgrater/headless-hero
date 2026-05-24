@@ -4,12 +4,39 @@ from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.pool import StaticPool
+from sqlmodel import SQLModel, create_engine
 
 
 @pytest.fixture
-def client():
+def style_test_engine():
+    from models.settings import AppSetting  # noqa: F401
+    from models.style_preset import StylePreset  # noqa: F401
+
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    return engine
+
+
+@pytest.fixture
+def client(style_test_engine):
     from api import app
-    return TestClient(app)
+    from api import style as style_api
+    from sqlmodel import Session
+
+    def override_get_session():
+        with Session(style_test_engine) as session:
+            yield session
+
+    app.dependency_overrides[style_api.get_session] = override_get_session
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.pop(style_api.get_session, None)
 
 
 def test_list_presets_empty(client):
@@ -46,10 +73,9 @@ def test_get_active_returns_null_when_unset(client):
     assert response.json() is None
 
 
-def test_set_active_then_get_active(client, tmp_path, monkeypatch):
+def test_set_active_then_get_active(client, style_test_engine, tmp_path, monkeypatch):
     from api import style as style_api
     from sqlmodel import Session
-    from database import engine
     from models.style_preset import StylePreset
     from datetime import datetime, timezone
     import uuid
@@ -61,7 +87,7 @@ def test_set_active_then_get_active(client, tmp_path, monkeypatch):
     presets_dir = tmp_path / "style" / "presets"
     presets_dir.mkdir(parents=True)
     (presets_dir / f"{preset_id}.png").write_bytes(b"fakepng")
-    with Session(engine) as session:
+    with Session(style_test_engine) as session:
         session.add(StylePreset(
             id=preset_id, name="Test", prompt="x",
             created_at=datetime.now(timezone.utc),
@@ -80,16 +106,15 @@ def test_set_active_then_get_active(client, tmp_path, monkeypatch):
     assert body["id"] == preset_id
 
     # Cleanup
-    with Session(engine) as session:
+    with Session(style_test_engine) as session:
         session.delete(session.get(StylePreset, preset_id))
         session.commit()
     client.put("/api/style/active", json={"preset_id": None})
 
 
-def test_delete_preset_clears_active_if_was_active(client, tmp_path, monkeypatch):
+def test_delete_preset_clears_active_if_was_active(client, style_test_engine, tmp_path, monkeypatch):
     from api import style as style_api
     from sqlmodel import Session
-    from database import engine
     from models.style_preset import StylePreset
     from datetime import datetime, timezone
     import uuid
@@ -99,7 +124,7 @@ def test_delete_preset_clears_active_if_was_active(client, tmp_path, monkeypatch
     presets_dir = tmp_path / "style" / "presets"
     presets_dir.mkdir(parents=True, exist_ok=True)
     (presets_dir / f"{preset_id}.png").write_bytes(b"fakepng")
-    with Session(engine) as session:
+    with Session(style_test_engine) as session:
         session.add(StylePreset(id=preset_id, name="x", prompt="x",
                                  created_at=datetime.now(timezone.utc)))
         session.commit()
@@ -114,10 +139,9 @@ def test_delete_preset_clears_active_if_was_active(client, tmp_path, monkeypatch
     assert response.json() is None
 
 
-def test_list_presets_prunes_rows_with_missing_images(client, tmp_path, monkeypatch):
+def test_list_presets_hides_rows_with_missing_images(client, style_test_engine, tmp_path, monkeypatch):
     from api import style as style_api
     from sqlmodel import Session
-    from database import engine
     from models.settings import AppSetting
     from models.style_preset import StylePreset
     from datetime import datetime, timezone
@@ -125,7 +149,7 @@ def test_list_presets_prunes_rows_with_missing_images(client, tmp_path, monkeypa
 
     monkeypatch.setattr(style_api, "DATA_DIR", tmp_path)
     preset_id = f"missing-image-{uuid.uuid4().hex[:8]}"
-    with Session(engine) as session:
+    with Session(style_test_engine) as session:
         session.add(
             StylePreset(
                 id=preset_id,
@@ -147,6 +171,6 @@ def test_list_presets_prunes_rows_with_missing_images(client, tmp_path, monkeypa
     assert response.status_code == 200
     assert all(item["id"] != preset_id for item in response.json())
 
-    with Session(engine) as session:
-        assert session.get(StylePreset, preset_id) is None
-        assert session.get(AppSetting, "ACTIVE_STYLE_PRESET_ID").value == ""
+    with Session(style_test_engine) as session:
+        assert session.get(StylePreset, preset_id) is not None
+        assert session.get(AppSetting, "ACTIVE_STYLE_PRESET_ID").value == preset_id

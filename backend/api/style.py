@@ -73,27 +73,13 @@ def _write_active_id(session: Session, preset_id: str | None) -> None:
 @router.get("/presets", response_model=list[StylePresetResponse])
 def list_presets(session: Session = Depends(get_session)):
     presets = session.exec(select(StylePreset).order_by(StylePreset.created_at.desc())).all()
-    active_id = _read_active_id(session)
     valid_presets: list[StylePreset] = []
-    removed_active = False
 
     for preset in presets:
         if _preset_image_path(preset.id).exists():
             valid_presets.append(preset)
             continue
-        logger.warning("Pruning style preset with missing image: %s", preset.id)
-        if preset.id == active_id:
-            removed_active = True
-        session.delete(preset)
-
-    active_is_valid = bool(active_id) and any(p.id == active_id for p in valid_presets)
-    if len(valid_presets) != len(presets) or (active_id and not active_is_valid):
-        if active_id and (removed_active or not active_is_valid):
-            row = session.get(AppSetting, _ACTIVE_KEY)
-            if row is not None:
-                row.value = ""
-                session.add(row)
-        session.commit()
+        logger.warning("Hiding style preset with missing image: %s", preset.id)
 
     return [_to_response(p) for p in valid_presets]
 
@@ -158,9 +144,7 @@ def get_active(session: Session = Depends(get_session)):
     if preset is None:
         return None
     if not _preset_image_path(preset.id).exists():
-        logger.warning("Clearing active style preset with missing image: %s", preset.id)
-        session.delete(preset)
-        _write_active_id(session, None)
+        logger.warning("Ignoring active style preset with missing image: %s", preset.id)
         return None
     return _to_response(preset)
 
@@ -172,8 +156,6 @@ def set_active(req: SetActivePresetRequest, session: Session = Depends(get_sessi
         if preset is None:
             raise HTTPException(status_code=404, detail="preset not found")
         if not _preset_image_path(preset.id).exists():
-            session.delete(preset)
-            session.commit()
             raise HTTPException(status_code=404, detail="preset image not found")
     _write_active_id(session, req.preset_id)
     return {"ok": True, "active_id": req.preset_id}
