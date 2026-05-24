@@ -1,4 +1,4 @@
-import { HelpCircle, Image, Video } from "lucide-react";
+import { HelpCircle, Image, Palette, UserRound, Video } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { assetUrl } from "../../api";
@@ -253,9 +253,11 @@ export default function TestLabControls({
       </Panel>
 
       <Panel title="Character" help="These switches mirror the project-level character controls for a single disposable Test Lab script.">
-        <div className="grid grid-cols-2 gap-2">
-          <ToggleButton
+        <div className="grid gap-2 sm:grid-cols-2">
+          <CharacterModeButton
+            icon={<UserRound className="h-4 w-4" />}
             label="Eli enabled"
+            description="Use the overlay host instead of a scene protagonist."
             checked={settings.eli_enabled}
             help={{
               on: "Allow Eli to be planned as an overlay host; the Eli stage can generate animation timing.",
@@ -263,8 +265,10 @@ export default function TestLabControls({
             }}
             onChange={(enabled) => update({ eli_enabled: enabled })}
           />
-          <ToggleButton
+          <CharacterModeButton
+            icon={<Palette className="h-4 w-4" />}
             label="Style preset"
+            description="Apply the active preset character and house style."
             checked={settings.style_preset_enabled}
             help={{
               on: "Apply the house visual style preset to generated character, image, and treatment assets.",
@@ -273,17 +277,23 @@ export default function TestLabControls({
             onChange={(enabled) => update({ style_preset_enabled: enabled })}
           />
         </div>
-        {settings.eli_enabled ? (
-          <div className="rounded-md border border-neutral-800 bg-neutral-950/60 p-3 text-xs text-neutral-500">
-            Eli overlay is enabled, so this run will not integrate a main character into scene images.
-          </div>
-        ) : displayedCharacter ? (
-          <CharacterPreview character={displayedCharacter} source={displayedCharacterSource} />
-        ) : (
-          <div className="rounded-md border border-neutral-800 bg-neutral-950/60 p-3 text-xs text-neutral-500">
-            No active style preset character is selected.
-          </div>
-        )}
+        <div className="mt-3">
+          {settings.eli_enabled ? (
+            <CharacterNotice
+              icon={<UserRound className="h-5 w-5" />}
+              title="Eli overlay active"
+              description="This run will plan Eli as the host and skip integrating a main character into generated scene images."
+            />
+          ) : displayedCharacter ? (
+            <CharacterPreview character={displayedCharacter} source={displayedCharacterSource} />
+          ) : (
+            <CharacterNotice
+              icon={<Palette className="h-5 w-5" />}
+              title="No active character"
+              description="Select or generate a character in Settings -> Style Presets before running style-preset character tests."
+            />
+          )}
+        </div>
       </Panel>
 
       <Panel title="Scene text" help="Overrides are sent only for this run, leaving the dummy scene preset unchanged.">
@@ -405,21 +415,60 @@ function CharacterPreview({
   const referenceUrl = character.reference_image_url?.trim();
 
   return (
-    <div className="overflow-hidden rounded-md border border-neutral-800 bg-neutral-950/60">
-      {referenceUrl ? (
-        <img
-          src={assetUrl(referenceUrl)}
-          alt={character.name}
-          className="aspect-video w-full bg-neutral-950 object-contain"
-        />
-      ) : (
-        <div className="flex aspect-video w-full items-center justify-center bg-neutral-950 text-xs text-neutral-600">
-          No character reference image
+    <div className="overflow-hidden rounded-md border border-neutral-800 bg-neutral-950/70">
+      <div className="p-3">
+        <div className="flex h-64 items-center justify-center overflow-hidden rounded-md border border-neutral-800 bg-neutral-900/80">
+          {referenceUrl ? (
+            <img
+              src={assetUrl(referenceUrl)}
+              alt={character.name}
+              className="h-full w-full scale-110 object-contain"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xs text-neutral-600">
+              No character reference image
+            </div>
+          )}
         </div>
-      )}
-      <div className="border-t border-neutral-800 px-3 py-2">
-        <p className="text-[11px] font-medium uppercase text-neutral-500">{source}</p>
-        <p className="mt-1 truncate text-sm font-medium text-neutral-100">{character.name}</p>
+        <div className="mt-3 grid gap-3 rounded-md bg-neutral-900/70 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{source}</p>
+            <p className="mt-2 text-lg font-semibold leading-tight text-neutral-100">{character.name}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-400 sm:justify-end">
+            <span className="rounded-md border border-neutral-800 bg-neutral-950/70 px-2 py-1 text-neutral-300">
+              Protagonist
+            </span>
+            <span className="rounded-md border border-neutral-800 bg-neutral-950/70 px-2 py-1">
+              Reference{" "}
+              <span className={`text-right font-medium ${referenceUrl ? "text-emerald-300" : "text-amber-300"}`}>
+                {referenceUrl ? "Ready" : "Missing"}
+              </span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CharacterNotice({
+  icon,
+  title,
+  description,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex min-h-32 items-center gap-3 rounded-md border border-neutral-800 bg-neutral-950/70 p-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-neutral-900 text-neutral-400">
+        {icon}
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-neutral-100">{title}</p>
+        <p className="mt-1 max-w-xl text-xs leading-5 text-neutral-500">{description}</p>
       </div>
     </div>
   );
@@ -468,6 +517,53 @@ function ToggleButton({
           {detail && <span className="mt-0.5 block truncate text-[11px] text-neutral-500">{detail}</span>}
         </span>
         <span className={`h-2 w-2 shrink-0 rounded-full ${checked ? "bg-violet-300" : "bg-neutral-700"}`} />
+      </button>
+    </Tooltip>
+  );
+}
+
+function CharacterModeButton({
+  icon,
+  label,
+  description,
+  checked,
+  help,
+  onChange,
+}: {
+  icon: ReactNode;
+  label: string;
+  description: string;
+  checked: boolean;
+  help: ToggleHelp;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <Tooltip content={<ToggleHelpContent help={help} />}>
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={`flex min-h-24 items-start gap-3 rounded-md border p-3 text-left transition-colors ${
+          checked
+            ? "border-violet-500/80 bg-violet-500/15 text-neutral-100 shadow-[0_0_0_1px_rgba(139,92,246,0.18)]"
+            : "border-neutral-800 bg-neutral-950/70 text-neutral-400 hover:border-neutral-700 hover:bg-neutral-900/70 hover:text-neutral-100"
+        } focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60`}
+      >
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${
+            checked ? "bg-violet-400/15 text-violet-200" : "bg-neutral-900 text-neutral-500"
+          }`}
+        >
+          {icon}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold">{label}</span>
+            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${checked ? "bg-violet-300" : "bg-neutral-700"}`} />
+          </span>
+          <span className={`mt-2 block text-xs leading-5 ${checked ? "text-violet-100/70" : "text-neutral-500"}`}>
+            {description}
+          </span>
+        </span>
       </button>
     </Tooltip>
   );
