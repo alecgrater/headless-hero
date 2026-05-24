@@ -13,7 +13,6 @@ import {
   Search,
   Smartphone,
   Upload,
-  Video,
   X,
   Zap,
   type LucideIcon,
@@ -473,22 +472,19 @@ function sceneProgressCounter(step: string, progress: number, total: number): st
 type ViewerFormat = "long-form" | "short-form";
 type ViewerAsset = "render" | "thumbnails" | "seo";
 type ViewerTab = "timeline" | "media-sources" | "segments";
+type ViewerNavKey = ViewerTab | "thumbnails" | "seo";
 
 const FORMAT_OPTIONS: { key: ViewerFormat; label: string; Icon: LucideIcon }[] = [
   { key: "long-form", label: "Long Form", Icon: Film },
   { key: "short-form", label: "Short Form", Icon: Smartphone },
 ];
 
-const ASSET_OPTIONS: { key: ViewerAsset; label: string; Icon: LucideIcon }[] = [
-  { key: "render", label: "Video", Icon: Video },
+const VIEWER_NAV_OPTIONS: { key: ViewerNavKey; label: string; Icon: LucideIcon }[] = [
+  { key: "segments", label: "Segments", Icon: Layers },
+  { key: "media-sources", label: "Media", Icon: PanelsTopLeft },
+  { key: "timeline", label: "Timeline", Icon: ListVideo },
   { key: "thumbnails", label: "Thumbnails", Icon: ImageIcon },
   { key: "seo", label: "SEO", Icon: Search },
-];
-
-const VIEWER_TAB_OPTIONS: { key: ViewerTab; label: string; Icon: LucideIcon }[] = [
-  { key: "timeline", label: "Timeline", Icon: ListVideo },
-  { key: "media-sources", label: "Media", Icon: PanelsTopLeft },
-  { key: "segments", label: "Segments", Icon: Layers },
 ];
 function getCreationStatus(content: ScriptContent, projectConfig?: ProjectConfig | null) {
   const allScenes = content.segments.flatMap((seg) => seg.scenes);
@@ -923,7 +919,17 @@ function ViewerSwitchRow({
   onOpenProjectDetails: () => void;
   onOpenExportsFolder: () => void;
 }) {
-  const showVideoViewSelector = format === "long-form";
+  const activeNavKey: ViewerNavKey = asset === "render" ? activeTab : asset;
+  const handleNavChange = (key: ViewerNavKey) => {
+    if (key === "thumbnails" || key === "seo") {
+      onAssetChange(key);
+      return;
+    }
+
+    onAssetChange("render");
+    onTabChange(key);
+  };
+
   return (
     <div className="shrink-0 border-y border-neutral-900/80 px-5 py-2">
       <div className="flex min-w-0 items-center justify-between gap-2">
@@ -942,50 +948,14 @@ function ViewerSwitchRow({
           ))}
         </div>
         <div className="inline-flex shrink-0 items-center rounded-xl border border-neutral-800/80 bg-neutral-900/45 p-1">
-          {ASSET_OPTIONS.map(({ key, label, Icon }) => {
-            const isActiveAsset = asset === key;
-            if (key === "render" && showVideoViewSelector) {
-              return (
-                <div
-                  key={key}
-                  className={`flex items-center rounded-lg transition-all duration-200 ${
-                    isActiveAsset ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-500 hover:text-neutral-200"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => onAssetChange(key)}
-                    className="flex items-center gap-1.5 py-1.5 pl-2 pr-1.5 text-xs font-medium whitespace-nowrap"
-                  >
-                    <Icon className="w-3.5 h-3.5 shrink-0" />
-                    {label}
-                  </button>
-                  <span className={`h-4 w-px ${isActiveAsset ? "bg-violet-300/20" : "bg-neutral-700/70"}`} />
-                  <label className="relative flex items-center py-1.5 pl-1.5 pr-5">
-                    <select
-                      value={activeTab}
-                      onChange={(event) => onTabChange(event.target.value as ViewerTab)}
-                      className="appearance-none bg-transparent text-xs font-medium text-current outline-none"
-                      title="Video view"
-                    >
-                      {VIEWER_TAB_OPTIONS.map(({ key: tabKey, label: tabLabel }) => (
-                        <option key={tabKey} value={tabKey} className="bg-neutral-900 text-neutral-100">
-                          {tabLabel}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className={`pointer-events-none absolute right-1 h-3.5 w-3.5 ${isActiveAsset ? "text-violet-300" : "text-neutral-500"}`} />
-                  </label>
-                </div>
-              );
-            }
-
+          {VIEWER_NAV_OPTIONS.map(({ key, label, Icon }) => {
+            const isActiveNav = activeNavKey === key;
             return (
               <button
                 key={key}
-                onClick={() => onAssetChange(key)}
+                onClick={() => handleNavChange(key)}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
-                  isActiveAsset ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-500 hover:text-neutral-200"
+                  isActiveNav ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-500 hover:text-neutral-200"
                 }`}
               >
                 <Icon className="w-3.5 h-3.5 shrink-0" />
@@ -3038,16 +3008,6 @@ function TimelineEditor({
           exporting={longFormSeoExporting}
           progress={render.seoProgress}
         />
-      ) : viewerFormat === "short-form" && viewerAsset === "render" ? (
-        <div className="flex-1 overflow-y-auto p-5">
-          <ShortFormTab
-            scriptId={scriptId}
-            segments={state.content.segments.map((s) => ({ name: s.name }))}
-            shortFormSeoMetadata={render.shortFormSeoMetadata}
-            onUploadComplete={refreshUploadTracking}
-            onRenderedStatusChange={() => void refreshShortFormRenderStatus()}
-          />
-        </div>
       ) : viewerFormat === "short-form" && viewerAsset === "thumbnails" ? (
         <div className="flex-1 overflow-y-auto p-5">
           <ShortFormThumbnailsCard
@@ -3109,6 +3069,16 @@ function TimelineEditor({
           generatingSceneIds={state.generatingSceneIds}
           generatingAudioSceneIds={state.generatingAudioSceneIds}
         />
+      ) : viewerFormat === "short-form" && viewerAsset === "render" ? (
+        <div className="flex-1 overflow-y-auto p-5">
+          <ShortFormTab
+            scriptId={scriptId}
+            segments={state.content.segments.map((s) => ({ name: s.name }))}
+            shortFormSeoMetadata={render.shortFormSeoMetadata}
+            onUploadComplete={refreshUploadTracking}
+            onRenderedStatusChange={() => void refreshShortFormRenderStatus()}
+          />
+        </div>
       ) : (
       /* Vertical layout: Timeline on top (full width), Properties below */
       <div className="flex flex-col flex-1 overflow-hidden">
