@@ -1268,6 +1268,60 @@ def test_stage_treatment_assets_skips_ai_video_scenes(monkeypatch, tmp_path):
     assert manifest.assets == []
 
 
+def test_run_test_lab_normalizes_ai_video_treatment_when_stage_skipped(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.test_lab as test_lab
+
+    calls = []
+
+    monkeypatch.setattr(test_lab, "_stage_audio", lambda ctx: calls.append("audio"))
+    monkeypatch.setattr(test_lab, "_stage_visual", lambda ctx: calls.append("visual"))
+    monkeypatch.setattr(test_lab, "_stage_treatment_assets", lambda ctx: calls.append("treatment"))
+    monkeypatch.setattr(test_lab, "_stage_fx", lambda ctx: calls.append("fx"))
+    monkeypatch.setattr(test_lab, "_stage_eli", lambda ctx: calls.append("eli"))
+    monkeypatch.setattr(test_lab, "_stage_render", lambda ctx: calls.append("render"))
+
+    test_lab.run_test_lab(
+        engine=engine,
+        run_id="run-ai-video-skip-treatment",
+        preset_id="coffee-brain",
+        settings={
+            "media_source": "ai_video",
+            "visual_treatment": "flipflop",
+            "visual_layers": [
+                {
+                    "id": "panel-a",
+                    "type": "image",
+                    "asset_kind": "panel",
+                    "prompt": "A stale panel.",
+                }
+            ],
+            "stages": {
+                "audio": False,
+                "visual": False,
+                "treatment_assets": False,
+                "fx": False,
+                "eli": False,
+                "render": False,
+            },
+        },
+        job_id=None,
+    )
+
+    manifest = test_lab.load_run_manifest("run-ai-video-skip-treatment")
+    assert calls == []
+    assert manifest.status == "completed"
+
+    with Session(engine) as session:
+        _record, content = test_lab._load_content_for_script(session, manifest.script_id)
+
+    scene = content.segments[0].scenes[0]
+    assert scene.media_source == "ai_video"
+    assert scene.visual_treatment == "full_frame"
+    assert scene.visual_layers == []
+
+
 def test_stage_treatment_assets_analyzes_empty_selected_layer_treatment(monkeypatch, tmp_path):
     engine, _app = _setup_app(monkeypatch, tmp_path)
 

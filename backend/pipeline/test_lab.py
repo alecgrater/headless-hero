@@ -331,6 +331,14 @@ def _reapply_top_level_scene_settings(content: ScriptContent, settings: dict) ->
         scene.visual_layers = [VisualLayer.model_validate(layer) for layer in settings["visual_layers"]]
 
 
+def _normalize_ai_video_treatments(content: ScriptContent) -> None:
+    for scene in content.all_scenes():
+        if scene.media_source != "ai_video":
+            continue
+        scene.visual_treatment = "full_frame"
+        scene.visual_layers = []
+
+
 def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
     preset = get_preset(preset_id)
     media_source = _setting(settings, "media_source", preset.media_source)
@@ -371,6 +379,7 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
     if isinstance(advanced_script, dict):
         content = ScriptContent.model_validate(_deep_merge(content.model_dump(), advanced_script))
         _reapply_top_level_scene_settings(content, settings)
+    _normalize_ai_video_treatments(content)
     return _sync_ai_video_enabled(content)
 
 
