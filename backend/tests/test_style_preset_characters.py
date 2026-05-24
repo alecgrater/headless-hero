@@ -74,11 +74,16 @@ def test_create_character_scopes_it_to_the_requested_preset(
     _insert_preset(style_character_engine, tmp_path, "preset-a", "Preset A")
     _insert_preset(style_character_engine, tmp_path, "preset-b", "Preset B")
 
-    fake_tmp = tmp_path / "generated-character.png"
-    fake_tmp.write_bytes(b"generated")
     calls: list[dict[str, object]] = []
 
     def fake_generate(prompt, script_id, style_reference_path):
+        from PIL import Image, ImageDraw
+
+        fake_tmp = tmp_path / "generated-character.png"
+        image = Image.new("RGB", (200, 200), (0, 255, 0))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((70, 50, 130, 160), fill=(255, 0, 0))
+        image.save(fake_tmp)
         calls.append(
             {
                 "prompt": prompt,
@@ -107,10 +112,13 @@ def test_create_character_scopes_it_to_the_requested_preset(
     assert created["style_preset_id"] == "preset-a"
     assert created["name"] == "Mara"
     assert created["active"] is True
+    assert created["reference_image_url"].endswith(f"/characters/{created['id']}.png")
+    assert created["cutout_image_url"].endswith(f"/characters/{created['id']}.cutout.png")
     assert calls[0]["style_reference_path"] == str(
         tmp_path / "style" / "presets" / "preset-a.png"
     )
     assert (tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{created['id']}.png").exists()
+    assert (tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{created['id']}.cutout.png").exists()
 
     preset_a = client.get("/api/style/presets/preset-a/characters")
     preset_b = client.get("/api/style/presets/preset-b/characters")

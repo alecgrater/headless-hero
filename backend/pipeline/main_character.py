@@ -7,6 +7,7 @@ data/projects/{script_id}/character/reference.png.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import shutil
 import uuid
@@ -17,6 +18,7 @@ from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH
 from integrations.google_image_client import generate_image
 from models.script import MainCharacter
 from models.style_preset_character import StylePresetCharacter, StylePresetCharacterResponse
+from pipeline.character_assets import process_character_asset_bundle
 from prompts import IMAGE_VISUAL_STYLE
 
 logger = logging.getLogger(__name__)
@@ -68,8 +70,16 @@ def style_preset_character_path(preset_id: str, character_id: str) -> Path:
     return DATA_DIR / "style" / "presets" / preset_id / "characters" / f"{character_id}.png"
 
 
+def style_preset_character_cutout_path(preset_id: str, character_id: str) -> Path:
+    return DATA_DIR / "style" / "presets" / preset_id / "characters" / f"{character_id}.cutout.png"
+
+
 def style_preset_character_web_path(preset_id: str, character_id: str) -> str:
     return f"/static/style/presets/{preset_id}/characters/{character_id}.png"
+
+
+def style_preset_character_cutout_web_path(preset_id: str, character_id: str) -> str:
+    return f"/static/style/presets/{preset_id}/characters/{character_id}.cutout.png"
 
 
 def active_style_preset_character_key(preset_id: str) -> str:
@@ -275,6 +285,9 @@ def _style_preset_character_response(
     character: StylePresetCharacter,
 ) -> StylePresetCharacterResponse:
     active_id = read_active_style_preset_character_id(session, character.style_preset_id)
+    cutout_image_url = character.cutout_image_url
+    if not cutout_image_url and style_preset_character_cutout_path(character.style_preset_id, character.id).exists():
+        cutout_image_url = style_preset_character_cutout_web_path(character.style_preset_id, character.id)
     return StylePresetCharacterResponse(
         id=character.id,
         style_preset_id=character.style_preset_id,
@@ -282,6 +295,7 @@ def _style_preset_character_response(
         appearance=character.appearance,
         vibe=character.vibe,
         reference_image_url=character.reference_image_url,
+        cutout_image_url=cutout_image_url,
         created_at=character.created_at,
         active=character.id == active_id,
     )
@@ -383,8 +397,15 @@ def create_style_preset_character(
         str(preset_image),
     )
     final_path = style_preset_character_path(preset_id, character_id)
-    final_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.move(temp_path, final_path)
+    final_cutout_path = style_preset_character_cutout_path(preset_id, character_id)
+    process_character_asset_bundle(
+        source_path=Path(temp_path),
+        output_dir=final_path.parent,
+        reference_filename=final_path.name,
+        cutout_filename=final_cutout_path.name,
+        metadata_filename=f"{character_id}.metadata.json",
+        prompt_fingerprint=hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+    )
 
     row = StylePresetCharacter(
         id=character_id,
@@ -393,6 +414,7 @@ def create_style_preset_character(
         appearance=character.appearance,
         vibe=character.vibe,
         reference_image_url=style_preset_character_web_path(preset_id, character_id),
+        cutout_image_url=style_preset_character_cutout_web_path(preset_id, character_id),
         created_at=datetime.now(timezone.utc),
     )
     session.add(row)

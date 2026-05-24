@@ -19,6 +19,7 @@ class StylePresetCharacter(SQLModel, table=True):
     appearance: str = Field(default="")
     vibe: str = Field(default="")
     reference_image_url: str = Field(default="")
+    cutout_image_url: str = Field(default="")
     created_at: datetime = Field(default_factory=_utcnow)
 
 
@@ -35,5 +36,6 @@ class StylePresetCharacterResponse(BaseModel):
     appearance: str
     vibe: str
     reference_image_url: str
+    cutout_image_url: str = ""
     created_at: datetime
     active: bool = False
