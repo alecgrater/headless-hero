@@ -112,3 +112,24 @@ def test_continuous_mode_without_directives_is_repaired():
     assert scene.frame_directives[0].reference_previous is False
     assert all(frame.reference_previous is True for frame in scene.frame_directives[1:])
     assert all(frame.transition == "crossfade" for frame in scene.frame_directives[1:])
+
+
+def test_aha_subtitle_mode_with_stale_beat_is_repaired():
+    scene = _static_scene("scene_001")
+    content = ScriptContent(
+        title="Your Life As A Test",
+        format_id="youtube-listicle",
+        segments=[Segment(name="Level 1, the waiting", scenes=[scene])],
+    )
+    scene = content.segments[0].scenes[0]
+    object.__setattr__(scene, "visual_mode", "aha_subtitle")
+    object.__setattr__(scene, "visual_beat", "static")
+    object.__setattr__(scene, "frame_directives", [])
+
+    _ensure_visual_beat_directives(content)
+
+    assert scene.visual_mode == "aha_subtitle"
+    assert len(scene.frame_directives) == 1
+    assert scene.frame_directives[0].source == "subtitle"
+    assert scene.frame_directives[0].prompt == scene.narration
+    assert scene.frame_directives[0].contains_person is False

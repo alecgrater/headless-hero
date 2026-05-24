@@ -8,7 +8,7 @@ from collections.abc import Callable
 
 from config import DEFAULT_ACCENT_COLOR, SEGMENT_COUNT, parse_json_array_response, strip_markdown_fences
 from integrations.llm_client import chat
-from models.script import LevelMeta, MainCharacter, Scene, ScriptContent, Segment
+from models.script import FrameDirective, LevelMeta, MainCharacter, Scene, ScriptContent, Segment
 from prompts import SCRIPT_OUTLINE_INSTRUCTIONS, SCRIPT_SEGMENT_SCENES_INSTRUCTIONS, SCRIPT_SYSTEM
 
 logger = logging.getLogger(__name__)
@@ -86,7 +86,7 @@ def _directive_prompt(scene: Scene, suffix: str = "") -> str:
 
 
 def _directive_mode(scene: Scene, beat: str) -> str:
-    if scene.visual_mode in {"multi_frame", "continuous"}:
+    if scene.visual_mode in {"multi_frame", "continuous", "aha_subtitle"}:
         return scene.visual_mode
     if beat in {"quick_cuts", "montage", "multi_frame"}:
         return "multi_frame"
@@ -169,16 +169,20 @@ def _synthesize_frame_directives(scene: Scene, beat: str) -> None:
             },
         ]
     elif mode == "aha_subtitle":
-        scene.frame_directives = [
-            {
-                "prompt": scene.narration.strip(),
-                "source": "subtitle",
-                "transition": "cut",
-                "reference_previous": False,
-                "search_query": "",
-                "contains_person": False,
-            }
-        ]
+        object.__setattr__(
+            scene,
+            "frame_directives",
+            [
+                FrameDirective(
+                    prompt=scene.narration.strip(),
+                    source="subtitle",
+                    transition="cut",
+                    reference_previous=False,
+                    search_query="",
+                    contains_person=False,
+                )
+            ],
+        )
 
 
 def _ensure_visual_beat_directives(content: ScriptContent) -> None:

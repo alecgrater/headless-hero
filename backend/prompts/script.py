@@ -166,7 +166,7 @@ Think like a documentary cinematographer. Each scene's visual_prompt should serv
   "[ESTABLISHING] Aerial view of a sprawling Amazon fulfillment center..."
   This forces compositional variety in the generated images.
 
-- For multi-frame scenes, frame_prompts should show PROGRESSION within the same shot type — not switch between types.
+- For multi-frame scenes, frame directives should match the mode: `continuous` frame directives should show progression within the same shot type, while `multi_frame` frame directives may use different independent shots, examples, subjects, angles, or compositions.
 
 ### Visual Mode System
 Instead of frame_count and frame_prompts, use "visual_mode", compatibility "visual_beat", and "frame_directives" to control how each scene looks.
