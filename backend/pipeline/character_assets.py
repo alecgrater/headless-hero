@@ -51,6 +51,11 @@ def process_character_asset_bundle(
     reference_path = output_dir / reference_filename
     cutout_path = output_dir / cutout_filename
     metadata_path = output_dir / metadata_filename
+    _validate_distinct_output_paths(
+        reference_path=reference_path,
+        cutout_path=cutout_path,
+        metadata_path=metadata_path,
+    )
 
     if source_path.resolve() != reference_path.resolve():
         shutil.copy2(source_path, reference_path)
@@ -103,6 +108,21 @@ def process_character_asset_bundle(
         trim_box=trim_box,
         warnings=warnings,
     )
+
+
+def _validate_distinct_output_paths(
+    *,
+    reference_path: Path,
+    cutout_path: Path,
+    metadata_path: Path,
+) -> None:
+    resolved_paths = {
+        reference_path.resolve(),
+        cutout_path.resolve(),
+        metadata_path.resolve(),
+    }
+    if len(resolved_paths) != 3:
+        raise ValueError("character asset output paths must be distinct")
 
 
 def _save_trimmed_cutout(

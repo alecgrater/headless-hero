@@ -98,3 +98,18 @@ def test_process_character_asset_bundle_rejects_missing_source(tmp_path):
             reference_filename="reference.png",
             cutout_filename="cutout.png",
         )
+
+
+def test_process_character_asset_bundle_rejects_output_path_collisions(tmp_path):
+    from pipeline.character_assets import process_character_asset_bundle
+
+    source = tmp_path / "source.png"
+    _save_chroma_character(source)
+
+    with pytest.raises(ValueError, match="character asset output paths must be distinct"):
+        process_character_asset_bundle(
+            source_path=source,
+            output_dir=tmp_path / "bundle",
+            reference_filename="character.png",
+            cutout_filename="character.png",
+        )
