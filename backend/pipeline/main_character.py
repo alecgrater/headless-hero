@@ -614,6 +614,8 @@ def sync_global_main_character_to_project(session, script_id: str) -> bool:
     character = MainCharacter(name=row.name, appearance=row.appearance, vibe=row.vibe)
     content = ScriptContent.model_validate_json(script.script_json)
     changed = content.main_character != character
+    if changed:
+        clear_character_reference_assets(script_id)
     content.main_character = character
     script.script_json = content.model_dump_json()
     session.add(script)
