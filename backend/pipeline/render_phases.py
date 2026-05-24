@@ -113,8 +113,15 @@ def _phase_images(ctx: ExportContext) -> None:
             visual_layers = [layer.model_dump() for layer in scene_now.visual_layers]
         visual_layers = visual_layers or []
         treatment = sc_info.get("visual_treatment") or (scene_now.visual_treatment if scene_now is not None else "full_frame")
-        if treatment == "popup_sequence":
-            logger.info("[%s] Skipping full scene image for popup sequence scene %s (%d/%d)", ctx.script_id, sid, i + 1, scene_count)
+        if treatment != "full_frame":
+            logger.info(
+                "[%s] Skipping full scene image for %s scene %s (%d/%d)",
+                ctx.script_id,
+                treatment,
+                sid,
+                i + 1,
+                scene_count,
+            )
             sc_info["_image_url"] = ""
             sc_info["_frame_urls"] = []
         else:

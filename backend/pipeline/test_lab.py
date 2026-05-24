@@ -656,7 +656,7 @@ def _stage_visual(ctx: TestLabRunContext) -> None:
             scene.visual_source_metadata = source_metadata
             ctx.manifest.assets.append(TestLabAsset(kind="video", label="AI video", url=video_url))
             ctx.manifest.assets.append(TestLabAsset(kind="image", label="Anchor image", url=image_url))
-        elif scene.visual_treatment == "popup_sequence":
+        elif scene.visual_treatment != "full_frame":
             scene.image_url = ""
             scene.video_url = ""
             scene.frame_urls = []

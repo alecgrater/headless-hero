@@ -1926,7 +1926,7 @@ def test_stage_render_wires_cancel_check_and_progress(monkeypatch, tmp_path):
     assert manifest.render_url == "/static/projects/test-lab-run/renders/full_youtube.mp4"
 
 
-def test_stage_visual_skips_scene_image_for_popup_sequence(monkeypatch, tmp_path):
+def test_stage_visual_skips_scene_image_for_layered_animation_treatment(monkeypatch, tmp_path):
     engine, _app = _setup_app(monkeypatch, tmp_path)
 
     import pipeline.image_gen as image_gen
@@ -1939,7 +1939,7 @@ def test_stage_visual_skips_scene_image_for_popup_sequence(monkeypatch, tmp_path
             run_id="run-popup-no-scene-image",
             preset_id="coffee-brain",
             settings={
-                "visual_treatment": "popup_sequence",
+                "visual_treatment": "flipflop",
             },
         )
         session.commit()
@@ -1947,7 +1947,7 @@ def test_stage_visual_skips_scene_image_for_popup_sequence(monkeypatch, tmp_path
     monkeypatch.setattr(
         image_gen,
         "generate_scene_image",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("popup sequence should not generate scene image")),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("layered animation treatment should not generate scene image")),
     )
 
     manifest = test_lab.TestLabRunManifest(
@@ -1961,7 +1961,7 @@ def test_stage_visual_skips_scene_image_for_popup_sequence(monkeypatch, tmp_path
         run_id="run-popup-no-scene-image",
         script_id=script_id,
         preset_id="coffee-brain",
-        settings={"visual_treatment": "popup_sequence"},
+        settings={"visual_treatment": "flipflop"},
         manifest=manifest,
         job_id=None,
     )

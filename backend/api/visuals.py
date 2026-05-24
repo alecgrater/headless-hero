@@ -251,6 +251,45 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
 
     # --- AI-generated (default) ---
     logger.info("[GEMINI] scene %s — prompt: %s", body.scene_id, body.visual_prompt[:80])
+    scene = next((sc for seg in content.segments for sc in seg.scenes if sc.id == body.scene_id), None)
+    treatment = body.visual_treatment or (scene.visual_treatment if scene is not None else "full_frame")
+
+    if treatment != "full_frame":
+        visual_layers = _generate_scene_visual_layers(
+            content=content,
+            scene_id=body.scene_id,
+            script_id=body.script_id,
+            width=body.width,
+            height=body.height,
+            request_treatment=body.visual_treatment,
+            request_layers=body.visual_layers,
+            request_scene_prompt=body.visual_prompt,
+            request_contains_person=body.contains_person,
+        )
+        update_scene(
+            session,
+            body.script_id,
+            body.scene_id,
+            **_with_visual_layers(
+                {
+                    "image_url": "",
+                    "frame_urls": [],
+                    "video_url": "",
+                    "visual_source_metadata": METADATA_CLEAR,
+                },
+                visual_layers,
+            ),
+        )
+        session.add(GenerationDuration(operation_type="single_image_generation", duration_seconds=time.monotonic() - t0))
+        session.commit()
+        return GenerateVisualResponse(
+            image_url="",
+            prompt_used="",
+            frame_urls=[],
+            video_url="",
+            visual_source_metadata=METADATA_CLEAR,
+            visual_layers=visual_layers or [],
+        )
 
     # Visual Beat System v2 path: per-frame directives
     if body.frame_directives:
@@ -410,7 +449,7 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
             sc.image_url = r["image_url"]
             sc.frame_urls = []
             sc.video_url = ""
-        elif sc.visual_treatment == "popup_sequence":
+        elif sc.visual_treatment != "full_frame":
             sc.image_url = ""
             sc.frame_urls = []
             sc.video_url = ""

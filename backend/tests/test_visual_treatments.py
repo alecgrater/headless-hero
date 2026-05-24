@@ -440,26 +440,29 @@ def test_phase_images_forces_visual_layer_panel_regeneration(monkeypatch):
             id="scene_001",
             narration="Panel scene.",
             visual_prompt="Panel",
-            visual_treatment="popup_sequence",
+            visual_treatment="flipflop",
             visual_layers=[VisualLayer(id="panel_1", prompt="Panel prompt")],
         )
     )
     captured = {}
     monkeypatch.setattr(render_phases_mod, "_reload_content", lambda script_id: content)
     def fail_scene_image(*_args, **_kwargs):
-        raise AssertionError("popup_sequence should not generate a full scene image")
+        raise AssertionError("layered animation treatments should not generate a full scene image")
 
     monkeypatch.setattr(image_gen_mod, "generate_scene_image", fail_scene_image)
 
-    def fake_generate_popup_sequence_cutouts(*, scene_id, layers, script_id, scene_prompt, force=False, **kwargs):
+    def fail_popup_sequence_cutouts(**_kwargs):
+        raise AssertionError("flipflop should generate visual layer panels")
+
+    def fake_generate_visual_layer_panels(scene_id, layers, script_id, force=False, **kwargs):
         captured["scene_id"] = scene_id
         captured["layers"] = layers
         captured["script_id"] = script_id
-        captured["scene_prompt"] = scene_prompt
         captured["force"] = force
         return layers
 
-    monkeypatch.setattr(image_gen_mod, "generate_popup_sequence_cutouts", fake_generate_popup_sequence_cutouts)
+    monkeypatch.setattr(image_gen_mod, "generate_popup_sequence_cutouts", fail_popup_sequence_cutouts)
+    monkeypatch.setattr(image_gen_mod, "generate_visual_layer_panels", fake_generate_visual_layer_panels)
     ctx = ExportContext(
         script_id="script-1",
         job=RenderJob("job-1"),
@@ -555,6 +558,52 @@ def test_generate_batch_popup_sequence_skips_scene_image(monkeypatch):
     assert no_layer_results[0].get("visual_layers", []) == []
 
 
+def test_generate_batch_flipflop_skips_scene_image(monkeypatch):
+    from pipeline import image_gen as image_gen_mod
+
+    def fail_scene_image(*_args, **_kwargs):
+        raise AssertionError("flipflop should not generate a full scene image")
+
+    def fake_generate_visual_layer_panels(scene_id, layers, script_id, **kwargs):
+        assert kwargs["visual_treatment"] == "flipflop"
+        return [
+            {**layers[0], "image_url": f"/static/projects/{script_id}/images/{scene_id}_state_a.png"},
+            {**layers[1], "image_url": f"/static/projects/{script_id}/images/{scene_id}_state_b.png"},
+        ]
+
+    monkeypatch.setattr(image_gen_mod, "generate_scene_image", fail_scene_image)
+    monkeypatch.setattr(image_gen_mod, "generate_visual_layer_panels", fake_generate_visual_layer_panels)
+
+    results = image_gen_mod.generate_batch(
+        [
+            {
+                "scene_id": "scene_001",
+                "visual_prompt": "A character changes expression.",
+                "visual_treatment": "flipflop",
+                "visual_layers": [
+                    {
+                        "id": "state_a",
+                        "type": "image",
+                        "asset_kind": "panel",
+                        "prompt": "state A",
+                    },
+                    {
+                        "id": "state_b",
+                        "type": "image",
+                        "asset_kind": "panel",
+                        "prompt": "state B",
+                    },
+                ],
+            }
+        ],
+        script_id="script-1",
+    )
+
+    assert results[0]["image_url"] is None
+    assert results[0]["frame_urls"] == []
+    assert [layer["id"] for layer in results[0]["visual_layers"]] == ["state_a", "state_b"]
+
+
 def test_generate_visual_persists_generated_visual_layers(monkeypatch):
     from api import visuals as visuals_api
     from api.visuals import GenerateVisualRequest
@@ -577,7 +626,7 @@ def test_generate_visual_persists_generated_visual_layers(monkeypatch):
     monkeypatch.setattr(
         visuals_api,
         "generate_scene_image",
-        lambda **kwargs: ("/static/projects/regular-visual-panels/images/scene_001.png", "prompt", None),
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("layered animation treatments should not generate scene images")),
     )
 
     def fake_generate_popup_sequence_cutouts(*, scene_id, layers, script_id, scene_prompt, **kwargs):
@@ -625,6 +674,10 @@ def test_generate_visual_persists_generated_visual_layers(monkeypatch):
     assert captured["layers"][0]["prompt"] == "Panel prompt"
     assert captured["scene_prompt"] == "Panel"
     assert response.visual_layers[0]["image_url"] == "/static/projects/regular-visual-panels/popup_crops/scene_001/crop_02_panel_prompt.png"
+    assert response.image_url == ""
+    stored_scene = stored_content.segments[0].scenes[0]
+    assert stored_scene.image_url == ""
+    assert stored_scene.frame_urls == []
     assert stored_content.segments[0].scenes[0].visual_layers[0].image_url == (
         "/static/projects/regular-visual-panels/popup_crops/scene_001/crop_02_panel_prompt.png"
     )

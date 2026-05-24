@@ -1237,7 +1237,7 @@ def _generate_one_scene(
         scene_contains_person = scene.get("contains_person", False)
         treatment = scene.get("visual_treatment", "full_frame")
 
-        if treatment == "popup_sequence":
+        if treatment != "full_frame":
             return with_visual_layers({
                 "scene_id": scene["scene_id"],
                 "image_url": None,
