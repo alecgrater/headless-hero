@@ -76,16 +76,17 @@ export default function VisualTreatmentReviewPanel({
   const handleModeChange = (sceneId: string, visualMode: VisualMode) => {
     const isLayered = isLayeredMode(visualMode);
     setDraft((prev) =>
-      prev.map((assignment) =>
-        assignment.scene_id === sceneId
+      prev.map((assignment) => {
+        const shouldPreserveVisualLayers = isLayered && visualMode === modeForAssignment(assignment);
+        return assignment.scene_id === sceneId
           ? {
               ...assignment,
               visual_mode: visualMode,
               visual_treatment: isLayered ? visualMode : "full_frame",
-              visual_layers: isLayered ? assignment.visual_layers : [],
+              visual_layers: shouldPreserveVisualLayers ? assignment.visual_layers : [],
             }
-          : assignment,
-      ),
+          : assignment;
+      }),
     );
   };
 
