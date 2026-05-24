@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import {
   assetUrl,
+  bumpAssetVersion,
   chromaPopupCropAnchor,
   chromaPopupCropItemSheet,
   generatePopupCropAnchor,
@@ -56,6 +57,7 @@ export default function PopupCropLab() {
         return;
       }
       setRunId(next.run_id);
+      bumpAssetVersion(next.anchor_source_url);
       setAnchorSourceUrl(next.anchor_source_url);
       setAnchorCrop(null);
     });
@@ -69,6 +71,7 @@ export default function PopupCropLab() {
         setError("The character chroma pass could not be generated.");
         return;
       }
+      bumpAssetVersion(...next.crops.flatMap((crop) => [crop.raw_url, crop.url]));
       setAnchorCrop(next.crops[0] ?? null);
     });
   }
@@ -82,6 +85,7 @@ export default function PopupCropLab() {
         return;
       }
       setRunId(next.run_id);
+      bumpAssetVersion(next.sheet_url);
       setItemSheetUrl(next.sheet_url);
       setGeneratedItemLabels(cleanedItems);
       setItemCrops([]);
@@ -96,6 +100,7 @@ export default function PopupCropLab() {
         setError("The item chroma pass could not be generated.");
         return;
       }
+      bumpAssetVersion(...next.crops.flatMap((crop) => [crop.raw_url, crop.url]));
       setItemCrops(next.crops);
     });
   }
@@ -349,8 +354,8 @@ function CropCard({ crop }: { crop: PopupCropPreviewCrop }) {
         </span>
       </div>
       <div className="mt-2 grid gap-2">
-        <CropPreview title="Raw slot" src={crop.raw_url} alt={`${crop.label} raw crop`} />
-        <CropPreview title="Keyed trim" src={crop.url} alt={crop.label} checkerboard />
+        <CropPreview title="Raw fixed crop" src={crop.raw_url} alt={`${crop.label} raw crop`} />
+        <CropPreview title="Chroma + auto-trim" src={crop.url} alt={crop.label} checkerboard />
       </div>
       <p className="mt-2 font-mono text-[10px] text-neutral-600">[{crop.box.join(", ")}]</p>
       <p className="mt-1 font-mono text-[10px] text-neutral-600">trim [{crop.trim_box.join(", ")}]</p>
