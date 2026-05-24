@@ -418,10 +418,10 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
     scene_map = {sc.id: sc for seg in content.segments for sc in seg.scenes}
 
     def _requested_visual_treatment(scene: BatchScene) -> str:
-        if scene.visual_treatment:
-            return scene.visual_treatment
         if scene.visual_mode in {"popup_sequence", "flipflop"}:
             return scene.visual_mode
+        if scene.visual_treatment:
+            return scene.visual_treatment
         stored_scene = scene_map.get(scene.scene_id)
         if stored_scene is None:
             return "full_frame"

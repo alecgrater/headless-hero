@@ -819,6 +819,85 @@ def test_generate_batch_persists_request_visual_mode_without_legacy_treatment(mo
     assert [layer.id for layer in stored_scene.visual_layers] == ["item_1", "item_2"]
 
 
+def test_generate_batch_visual_mode_wins_over_conflicting_legacy_treatment(monkeypatch):
+    from api import visuals as visuals_api
+    from api.visuals import BatchScene, GenerateBatchRequest
+
+    engine = _build_test_engine()
+    script_id = "batch-conflicting-mode"
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="First this, then that.",
+            visual_prompt="Person gestures at a list.",
+            visual_treatment="full_frame",
+            image_url="/static/projects/batch-conflicting-mode/images/stale.png",
+        )
+    )
+    captured_scenes = []
+
+    def fake_generate_batch(scenes, script_id, **_kwargs):
+        captured_scenes.extend(scenes)
+        return [
+            {
+                "scene_id": scenes[0]["scene_id"],
+                "image_url": None,
+                "frame_urls": [],
+                "video_url": None,
+                "prompt_used": None,
+                "visual_source_metadata": None,
+                "visual_layers": [
+                    {**scenes[0]["visual_layers"][0], "image_url": f"/static/projects/{script_id}/images/item_1.png"},
+                    {**scenes[0]["visual_layers"][1], "image_url": f"/static/projects/{script_id}/images/item_2.png"},
+                ],
+                "error": None,
+            }
+        ]
+
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+    monkeypatch.setattr(visuals_api, "generate_batch", fake_generate_batch)
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Mode Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        visuals_api.generate_visual_batch(
+            GenerateBatchRequest(
+                script_id=script_id,
+                scenes=[
+                    BatchScene(
+                        scene_id="scene_001",
+                        visual_prompt="Person gestures at a list.",
+                        visual_mode="popup_sequence",
+                        visual_treatment="full_frame",
+                        visual_layers=[
+                            {"id": "item_1", "type": "image", "asset_kind": "cutout", "prompt": "item 1"},
+                            {"id": "item_2", "type": "image", "asset_kind": "cutout", "prompt": "item 2"},
+                        ],
+                    )
+                ],
+            ),
+            session,
+        )
+
+        stored = session.get(Script, script_id)
+        assert stored is not None
+        stored_scene = ScriptContent.model_validate_json(stored.script_json).segments[0].scenes[0]
+
+    assert captured_scenes[0]["visual_treatment"] == "popup_sequence"
+    assert stored_scene.visual_mode == "popup_sequence"
+    assert stored_scene.visual_treatment == "popup_sequence"
+    assert stored_scene.image_url == ""
+    assert [layer.id for layer in stored_scene.visual_layers] == ["item_1", "item_2"]
+
+
 def test_generate_visual_persists_generated_visual_layers(monkeypatch):
     from api import visuals as visuals_api
     from api.visuals import GenerateVisualRequest
