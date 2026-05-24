@@ -21,6 +21,11 @@ export interface TestLabPreset {
   tags?: string[];
 }
 
+export interface TestLabScenes {
+  presets: TestLabPreset[];
+  default_main_character: MainCharacter | null;
+}
+
 export interface TestLabStages {
   character: boolean;
   audio: boolean;

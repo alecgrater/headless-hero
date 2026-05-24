@@ -1,6 +1,7 @@
 import { HelpCircle, Image, Video } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import type { MainCharacter } from "../../api";
 import type { TestLabPreset, TestLabSettings, TestLabStages } from "../../types/testLab";
 import type { VisualTreatment } from "../../types/script";
 import { Tooltip } from "../ui/Tooltip";
@@ -9,6 +10,7 @@ type StageKey = keyof TestLabStages;
 
 interface TestLabControlsProps {
   preset: TestLabPreset | null;
+  defaultMainCharacter: MainCharacter | null;
   settings: TestLabSettings;
   onChange: (settings: TestLabSettings) => void;
   onValidityChange?: (valid: boolean) => void;
@@ -78,16 +80,49 @@ const STAGE_OPTIONS: Array<{ key: StageKey; label: string; help: ToggleHelp }> =
   },
 ];
 
-const TREATMENT_OPTIONS: Array<{ value: VisualTreatment; label: string }> = [
-  { value: "full_frame", label: "Full frame" },
-  { value: "popup_sequence", label: "Popup sequence" },
-  { value: "flipflop", label: "Flip-flop" },
+const TREATMENT_OPTIONS: Array<{
+  value: VisualTreatment;
+  label: string;
+  summary: string;
+  description: string;
+  bestFor: string;
+}> = [
+  {
+    value: "full_frame",
+    label: "Full frame",
+    summary: "Single image or video fills the canvas.",
+    description: "Renders the base scene media edge-to-edge over the canvas, with normal subtitles and FX layered on top.",
+    bestFor: "Use for cinematic shots, simple illustrations, AI video scenes, or moments where one strong visual should carry the line.",
+  },
+  {
+    value: "popup_sequence",
+    label: "Popup sequence",
+    summary: "Small panels appear on narration beats.",
+    description: "Keeps the canvas visible while timed visual layers pop in one by one, usually as compact callouts across the frame.",
+    bestFor: "Use for lists, step-by-step explanations, object callouts, or scenes where the narration names several distinct things.",
+  },
+  {
+    value: "flipflop",
+    label: "Flip-flop",
+    summary: "Two visuals alternate for quick contrast.",
+    description: "Switches between paired visual layers on a steady rhythm to create motion without generating a video clip.",
+    bestFor: "Use for before-and-after ideas, two-state comparisons, repeated choices, or fast comedic contrast.",
+  },
 ];
 
-export default function TestLabControls({ preset, settings, onChange, onValidityChange }: TestLabControlsProps) {
+export default function TestLabControls({
+  preset,
+  defaultMainCharacter,
+  settings,
+  onChange,
+  onValidityChange,
+}: TestLabControlsProps) {
   const narration = settings.narration ?? preset?.narration ?? "";
   const visualPrompt = settings.visual_prompt ?? preset?.visual_prompt ?? "";
   const backgroundColor = settings.visual_canvas?.background_color ?? preset?.background_color ?? "#F6C54A";
+  const displayedCharacter = getDisplayedCharacter(settings, preset, defaultMainCharacter);
+  const displayedCharacterSource = getDisplayedCharacterSource(settings, defaultMainCharacter);
+  const fallbackCharacterName = getFallbackCharacterName(settings, preset, defaultMainCharacter);
   const [voiceSettingsText, setVoiceSettingsText] = useState("");
   const [voiceSettingsError, setVoiceSettingsError] = useState("");
 
@@ -155,6 +190,7 @@ export default function TestLabControls({ preset, settings, onChange, onValidity
             <ToggleButton
               key={stage.key}
               label={stage.label}
+              detail={stage.key === "character" ? fallbackCharacterName : undefined}
               checked={settings.stages[stage.key]}
               help={stage.help}
               onChange={(enabled) => updateStage(stage.key, enabled)}
@@ -237,11 +273,20 @@ export default function TestLabControls({ preset, settings, onChange, onValidity
             onChange={(enabled) => update({ style_preset_enabled: enabled })}
           />
         </div>
-        {preset?.main_character && (
+        {settings.eli_enabled ? (
+          <div className="rounded-md border border-neutral-800 bg-neutral-950/60 p-3 text-xs text-neutral-500">
+            Eli overlay is enabled, so this run will not integrate a main character into scene images.
+          </div>
+        ) : displayedCharacter ? (
           <div className="rounded-md border border-neutral-800 bg-neutral-950/60 p-3 text-xs">
-            <p className="font-medium text-neutral-200">{preset.main_character.name}</p>
-            <p className="mt-1 text-neutral-500">{preset.main_character.appearance}</p>
-            <p className="mt-1 text-neutral-500">{preset.main_character.vibe}</p>
+            <p className="text-[11px] font-medium uppercase text-neutral-500">{displayedCharacterSource}</p>
+            <p className="mt-2 font-medium text-neutral-200">{displayedCharacter.name}</p>
+            <p className="mt-1 text-neutral-500">{displayedCharacter.appearance}</p>
+            <p className="mt-1 text-neutral-500">{displayedCharacter.vibe}</p>
+          </div>
+        ) : (
+          <div className="rounded-md border border-neutral-800 bg-neutral-950/60 p-3 text-xs text-neutral-500">
+            No active style preset character is selected.
           </div>
         )}
       </Panel>
@@ -271,18 +316,19 @@ export default function TestLabControls({ preset, settings, onChange, onValidity
 
       <Panel title="Treatment, FX, canvas" help="Tune the render wrapper and overlay behavior around the generated scene media.">
         <div className="grid grid-cols-2 gap-3">
-          <label className="block">
+          <div className="block">
             <span className="text-xs font-medium text-neutral-300">Visual treatment</span>
-            <select
-              value={settings.visual_treatment}
-              onChange={(event) => update({ visual_treatment: event.target.value as VisualTreatment })}
-              className="mt-2 w-full rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm text-neutral-100 outline-none transition-colors hover:border-neutral-700 focus:border-violet-500"
-            >
+            <div className="mt-2 grid gap-2">
               {TREATMENT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
+                <TreatmentOptionButton
+                  key={option.value}
+                  option={option}
+                  active={settings.visual_treatment === option.value}
+                  onClick={() => update({ visual_treatment: option.value })}
+                />
               ))}
-            </select>
-          </label>
+            </div>
+          </div>
           <label className="block">
             <span className="text-xs font-medium text-neutral-300">Canvas color</span>
             <div className="mt-2 flex h-10 overflow-hidden rounded-md border border-neutral-800 bg-neutral-950/80 transition-colors hover:border-neutral-700 focus-within:border-violet-500">
@@ -325,6 +371,34 @@ export default function TestLabControls({ preset, settings, onChange, onValidity
   );
 }
 
+function getFallbackCharacterName(
+  settings: TestLabSettings,
+  preset: TestLabPreset | null,
+  defaultMainCharacter: MainCharacter | null,
+) {
+  const character = getDisplayedCharacter(settings, preset, defaultMainCharacter);
+  const name = character?.name?.trim();
+  return name ? `Default: ${name}` : "No default character";
+}
+
+function getDisplayedCharacter(
+  settings: TestLabSettings,
+  preset: TestLabPreset | null,
+  defaultMainCharacter: MainCharacter | null,
+) {
+  if (settings.eli_enabled) return null;
+  return settings.main_character ?? defaultMainCharacter ?? preset?.main_character ?? null;
+}
+
+function getDisplayedCharacterSource(
+  settings: TestLabSettings,
+  defaultMainCharacter: MainCharacter | null,
+) {
+  if (settings.main_character) return "Custom run override";
+  if (defaultMainCharacter) return "Active style preset character";
+  return "Dummy scene fallback";
+}
+
 function Panel({ title, help, children }: { title: string; help: string; children: ReactNode }) {
   return (
     <section className="rounded-lg border border-neutral-800 bg-neutral-950/50 p-3">
@@ -341,11 +415,13 @@ function Panel({ title, help, children }: { title: string; help: string; childre
 
 function ToggleButton({
   label,
+  detail,
   checked,
   help,
   onChange,
 }: {
   label: string;
+  detail?: string;
   checked: boolean;
   help: ToggleHelp;
   onChange: (checked: boolean) => void;
@@ -361,7 +437,10 @@ function ToggleButton({
             : "border-neutral-800 bg-neutral-950/70 text-neutral-500 hover:border-neutral-700 hover:text-neutral-200"
         }`}
       >
-        <span className="truncate">{label}</span>
+        <span className="min-w-0">
+          <span className="block truncate">{label}</span>
+          {detail && <span className="mt-0.5 block truncate text-[11px] text-neutral-500">{detail}</span>}
+        </span>
         <span className={`h-2 w-2 shrink-0 rounded-full ${checked ? "bg-violet-300" : "bg-neutral-700"}`} />
       </button>
     </Tooltip>
@@ -377,6 +456,46 @@ function ToggleHelpContent({ help }: { help: ToggleHelp }) {
       <span className="block">
         <span className="font-semibold text-neutral-100">OFF:</span> {help.off}
       </span>
+    </span>
+  );
+}
+
+function TreatmentOptionButton({
+  option,
+  active,
+  onClick,
+}: {
+  option: (typeof TREATMENT_OPTIONS)[number];
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip content={<TreatmentHelpContent option={option} />} side="right">
+      <button
+        type="button"
+        onClick={onClick}
+        className={`flex min-h-16 w-full items-start justify-between gap-3 rounded-md border px-3 py-2 text-left transition-colors ${
+          active
+            ? "border-violet-500/80 bg-violet-500/15 text-neutral-100"
+            : "border-neutral-800 bg-neutral-950/70 text-neutral-400 hover:border-neutral-700 hover:bg-neutral-900/70 hover:text-neutral-100"
+        }`}
+      >
+        <span className="min-w-0">
+          <span className="block text-sm font-medium">{option.label}</span>
+          <span className="mt-1 block text-xs leading-4 text-neutral-500">{option.summary}</span>
+        </span>
+        <HelpCircle className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${active ? "text-violet-300" : "text-neutral-600"}`} />
+      </button>
+    </Tooltip>
+  );
+}
+
+function TreatmentHelpContent({ option }: { option: (typeof TREATMENT_OPTIONS)[number] }) {
+  return (
+    <span className="block max-w-72 space-y-2">
+      <span className="block font-semibold text-neutral-100">{option.label}</span>
+      <span className="block text-neutral-200">{option.description}</span>
+      <span className="block text-neutral-400">{option.bestFor}</span>
     </span>
   );
 }

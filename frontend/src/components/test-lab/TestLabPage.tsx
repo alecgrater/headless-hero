@@ -2,6 +2,7 @@ import { Beaker, Play, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import api, { getTestLabPresets, getTestLabRun, getTestLabRuns, startTestLabRun } from "../../api";
 import type { MutableRefObject } from "react";
+import type { MainCharacter } from "../../api";
 import type { TestLabPreset, TestLabRun, TestLabSettings } from "../../types/testLab";
 import TestLabControls from "./TestLabControls";
 import TestLabRunPanel from "./TestLabRunPanel";
@@ -37,6 +38,7 @@ export default function TestLabPage() {
   const pollTimerRef = useRef<number | null>(null);
   const resolvePollSleepRef = useRef<((mounted: boolean) => void) | null>(null);
   const [presets, setPresets] = useState<TestLabPreset[]>([]);
+  const [defaultMainCharacter, setDefaultMainCharacter] = useState<MainCharacter | null>(null);
   const [selectedPresetId, setSelectedPresetId] = useState<string>("");
   const [settings, setSettings] = useState<TestLabSettings>(DEFAULT_SETTINGS);
   const [runs, setRuns] = useState<TestLabRun[]>([]);
@@ -55,10 +57,11 @@ export default function TestLabPage() {
   useEffect(() => {
     mountedRef.current = true;
 
-    getTestLabPresets().then((items) => {
+    getTestLabPresets().then((sceneData) => {
       if (!mountedRef.current) return;
-      setPresets(items);
-      setSelectedPresetId((current) => current || items[0]?.id || "");
+      setPresets(sceneData.presets);
+      setDefaultMainCharacter(sceneData.default_main_character);
+      setSelectedPresetId((current) => current || sceneData.presets[0]?.id || "");
     });
     refreshRuns();
 
@@ -192,6 +195,7 @@ export default function TestLabPage() {
           <section className="min-h-0 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
             <TestLabControls
               preset={selectedPreset}
+              defaultMainCharacter={defaultMainCharacter}
               settings={settings}
               onChange={setSettings}
               onValidityChange={setControlsValid}

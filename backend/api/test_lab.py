@@ -5,9 +5,11 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlmodel import Session
 
+from database import get_session
 from pipeline.render_jobs import create_job, get_job, run_in_background
 from pipeline.test_lab import (
     TEST_LAB_PRESETS,
@@ -24,6 +26,22 @@ router = APIRouter(prefix="/api/test-lab", tags=["test-lab"])
 class StartTestLabRunRequest(BaseModel):
     preset_id: str
     settings: dict[str, Any] = Field(default_factory=dict)
+
+
+def _default_main_character(session: Session) -> dict[str, str] | None:
+    from pipeline.main_character import get_active_style_preset_character, read_active_style_preset_id
+
+    preset_id = read_active_style_preset_id(session)
+    if not preset_id:
+        return None
+    character = get_active_style_preset_character(session, preset_id)
+    if character is None:
+        return None
+    return {
+        "name": character.name,
+        "appearance": character.appearance,
+        "vibe": character.vibe,
+    }
 
 
 def _engine():
@@ -45,8 +63,11 @@ def _run_id_from_job(job_data: dict[str, Any]) -> str:
 
 
 @router.get("/scenes")
-def get_test_lab_scenes():
-    return {"presets": [preset.model_dump() for preset in TEST_LAB_PRESETS]}
+def get_test_lab_scenes(session: Session = Depends(get_session)):
+    return {
+        "presets": [preset.model_dump() for preset in TEST_LAB_PRESETS],
+        "default_main_character": _default_main_character(session),
+    }
 
 
 @router.post("/runs")

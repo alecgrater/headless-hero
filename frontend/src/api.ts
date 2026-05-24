@@ -2,7 +2,7 @@ import { showToast } from "./components/ToastContainer";
 import { BACKEND_PORT } from "./constants";
 import type { ScriptContent, UploadTracking, VisualLayer, VisualTreatment } from "./types/script";
 import type { VideoFormat } from "./types/format";
-import type { TestLabPreset, TestLabRun, TestLabSettings } from "./types/testLab";
+import type { TestLabRun, TestLabScenes, TestLabSettings } from "./types/testLab";
 
 export interface ApiResponse<T = unknown> {
   ok: boolean;
@@ -122,9 +122,9 @@ const api: ApiClient = {
 
 export default api;
 
-export async function getTestLabPresets(): Promise<TestLabPreset[]> {
-  const res = await api.get<{ presets: TestLabPreset[] }>("/api/test-lab/scenes");
-  return res.ok ? res.data.presets : [];
+export async function getTestLabPresets(): Promise<TestLabScenes> {
+  const res = await api.get<TestLabScenes>("/api/test-lab/scenes");
+  return res.ok ? res.data : { presets: [], default_main_character: null };
 }
 
 export async function getTestLabRuns(): Promise<TestLabRun[]> {

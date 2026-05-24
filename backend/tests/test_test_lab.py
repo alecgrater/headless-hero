@@ -180,6 +180,54 @@ def test_test_lab_scenes_endpoint_returns_presets(monkeypatch, tmp_path):
         app.dependency_overrides.pop(get_session, None)
 
 
+def test_test_lab_scenes_endpoint_returns_active_default_character(monkeypatch, tmp_path):
+    engine, app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.main_character as main_character
+
+    monkeypatch.setattr(main_character, "DATA_DIR", tmp_path)
+
+    from models.settings import AppSetting
+    from models.style_preset import StylePreset
+    from models.style_preset_character import StylePresetCharacter
+
+    preset_id = "preset-a"
+    character_id = "character-a"
+    (tmp_path / "style" / "presets").mkdir(parents=True)
+    (tmp_path / "style" / "presets" / f"{preset_id}.png").write_bytes(b"fakepng")
+    (tmp_path / "style" / "presets" / preset_id / "characters").mkdir(parents=True)
+    (tmp_path / "style" / "presets" / preset_id / "characters" / f"{character_id}.png").write_bytes(b"fakepng")
+
+    with Session(engine) as session:
+        session.add(StylePreset(id=preset_id, name="House style", prompt="flat 2d"))
+        session.add(
+            StylePresetCharacter(
+                id=character_id,
+                style_preset_id=preset_id,
+                name="Mara",
+                appearance="A cheerful explorer in a yellow jacket.",
+                vibe="Bright and curious.",
+                reference_image_url=f"/static/style/presets/{preset_id}/characters/{character_id}.png",
+            )
+        )
+        session.add(AppSetting(key="ACTIVE_STYLE_PRESET_ID", value=preset_id))
+        session.add(AppSetting(key=main_character.active_style_preset_character_key(preset_id), value=character_id))
+        session.commit()
+
+    client = TestClient(app)
+
+    try:
+        response = client.get("/api/test-lab/scenes")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["default_main_character"]["name"] == "Mara"
+    finally:
+        from database import get_session
+
+        app.dependency_overrides.pop(get_session, None)
+
+
 def test_start_test_lab_run_returns_run_and_job(monkeypatch, tmp_path):
     engine, app = _setup_app(monkeypatch, tmp_path)
 
