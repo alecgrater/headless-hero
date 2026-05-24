@@ -119,6 +119,7 @@ def test_create_character_scopes_it_to_the_requested_preset(
     )
     assert (tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{created['id']}.png").exists()
     assert (tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{created['id']}.cutout.png").exists()
+    assert not (tmp_path / "generated-character.png").exists()
 
     preset_a = client.get("/api/style/presets/preset-a/characters")
     preset_b = client.get("/api/style/presets/preset-b/characters")

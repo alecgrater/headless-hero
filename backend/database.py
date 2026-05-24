@@ -29,6 +29,7 @@ def init_db() -> None:
     _migrate_add_scene_count_to_generation_durations()
     _migrate_add_export_folder_to_publish_records()
     _migrate_add_short_upload_fields_to_publish_records()
+    _migrate_add_cutout_image_url_to_style_preset_characters()
     _migrate_postits_add_status_source()
     _migrate_postits_to_ideas()
     logger.info("Database ready")
@@ -311,6 +312,25 @@ def _migrate_add_short_upload_fields_to_publish_records() -> None:
         if added:
             conn.commit()
             logger.info("Migrated: added short upload fields to publish_records")
+    finally:
+        conn.close()
+
+
+def _migrate_add_cutout_image_url_to_style_preset_characters() -> None:
+    """Add cutout_image_url column to style_preset_characters if missing."""
+    import sqlite3
+
+    conn = sqlite3.connect(str(_db_path))
+    try:
+        tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        if "style_preset_characters" not in tables:
+            return
+        cursor = conn.execute("PRAGMA table_info(style_preset_characters)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "cutout_image_url" not in columns:
+            conn.execute("ALTER TABLE style_preset_characters ADD COLUMN cutout_image_url TEXT DEFAULT ''")
+            conn.commit()
+            logger.info("Migrated: added cutout_image_url to style_preset_characters")
     finally:
         conn.close()
 

@@ -396,16 +396,19 @@ def create_style_preset_character(
         f"style-preset-character-{preset_id}",
         str(preset_image),
     )
+    source_path = Path(temp_path)
     final_path = style_preset_character_path(preset_id, character_id)
     final_cutout_path = style_preset_character_cutout_path(preset_id, character_id)
     process_character_asset_bundle(
-        source_path=Path(temp_path),
+        source_path=source_path,
         output_dir=final_path.parent,
         reference_filename=final_path.name,
         cutout_filename=final_cutout_path.name,
         metadata_filename=f"{character_id}.metadata.json",
         prompt_fingerprint=hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
     )
+    if source_path.resolve() != final_path.resolve():
+        source_path.unlink(missing_ok=True)
 
     row = StylePresetCharacter(
         id=character_id,
