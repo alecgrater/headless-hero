@@ -445,7 +445,7 @@ def sync_global_main_character_to_project(session, script_id: str) -> bool:
     from models.script import Script, ScriptContent
 
     cfg = get_project_config(session, script_id)
-    if cfg.eli_enabled:
+    if cfg.eli_enabled or not cfg.style_preset_enabled:
         return False
 
     preset_id = read_active_style_preset_id(session)
@@ -496,6 +496,8 @@ def missing_character_reference_reason(session, script_id: str) -> str | None:
     cfg = get_project_config(session, script_id)
     if cfg.eli_enabled:
         return None
+    if not cfg.style_preset_enabled:
+        return "Style preset is disabled. Enable the style preset before generating Eli-disabled scene images."
 
     if sync_global_main_character_to_project(session, script_id):
         session.commit()

@@ -258,3 +258,70 @@ def test_sync_active_preset_character_to_project(
     content = ScriptContent.model_validate_json(script.script_json)
     assert content.main_character is not None
     assert content.main_character.name == "Mara"
+
+
+def test_sync_active_preset_character_to_project_skips_when_style_preset_disabled(
+    style_character_engine,
+    tmp_path,
+    monkeypatch,
+):
+    from models.project_config import ProjectConfig
+    from models.script import Script, ScriptContent
+    from models.settings import AppSetting
+    from models.style_preset_character import StylePresetCharacter
+    from pipeline import main_character
+
+    monkeypatch.setattr(main_character, "DATA_DIR", tmp_path)
+    _insert_preset(style_character_engine, tmp_path, "preset-a", "Preset A")
+
+    character_id = "char-a"
+    source_ref = tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{character_id}.png"
+    source_ref.parent.mkdir(parents=True, exist_ok=True)
+    source_ref.write_bytes(b"preset-character")
+
+    with Session(style_character_engine) as session:
+        session.add(
+            StylePresetCharacter(
+                id=character_id,
+                style_preset_id="preset-a",
+                name="Mara",
+                appearance="short black hair",
+                vibe="calm",
+                reference_image_url=f"/static/style/presets/preset-a/characters/{character_id}.png",
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+        session.add(AppSetting(key="ACTIVE_STYLE_PRESET_ID", value="preset-a"))
+        session.add(
+            AppSetting(
+                key=main_character.active_style_preset_character_key("preset-a"),
+                value=character_id,
+            )
+        )
+        session.add(
+            Script(
+                id="script-disabled",
+                brand_id="default",
+                topic_title="Test",
+                topic_description="",
+                script_json=ScriptContent(title="Test", segments=[]).model_dump_json(),
+            )
+        )
+        session.add(ProjectConfig(script_id="script-disabled", eli_enabled=False, style_preset_enabled=False))
+        session.commit()
+
+    with Session(style_character_engine) as session:
+        changed = main_character.sync_global_main_character_to_project(session, "script-disabled")
+        session.commit()
+
+        cfg = session.get(ProjectConfig, "script-disabled")
+        script = session.get(Script, "script-disabled")
+        reason = main_character.missing_character_reference_reason(session, "script-disabled")
+
+    project_ref = tmp_path / "projects" / "script-disabled" / "character" / "reference.png"
+    content = ScriptContent.model_validate_json(script.script_json)
+    assert changed is False
+    assert not project_ref.exists()
+    assert cfg.main_character_reference_url is None
+    assert content.main_character is None
+    assert reason == "Style preset is disabled. Enable the style preset before generating Eli-disabled scene images."

@@ -135,6 +135,8 @@ def _project_character_missing_reason(
     main_character: MainCharacter | None,
 ) -> str | None:
     """Return a human-readable missing-reference reason, or None when ready."""
+    if not _load_project_style_enabled(script_id):
+        return "Style preset is disabled. Enable the style preset before generating Eli-disabled scene images."
     if main_character is None:
         return "Main character details are missing. Open the Main Character panel and save the character first."
     if not main_character_reference_url:
