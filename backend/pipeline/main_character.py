@@ -82,6 +82,34 @@ def global_character_reference_active_marker() -> Path:
     return DATA_DIR / "character" / "main" / "active_reference.txt"
 
 
+def clear_character_reference_assets(script_id: str) -> None:
+    """Remove project-local character assets that belong to old character details."""
+    for path in (
+        character_reference_path(script_id),
+        character_cutout_path(script_id),
+        character_reference_active_marker(script_id),
+        DATA_DIR / "projects" / script_id / "character" / "metadata.json",
+    ):
+        path.unlink(missing_ok=True)
+    variants_dir = character_reference_variants_dir(script_id)
+    if variants_dir.exists():
+        shutil.rmtree(variants_dir)
+
+
+def clear_global_character_reference_assets() -> None:
+    """Remove global character assets that belong to old character details."""
+    for path in (
+        global_character_reference_path(),
+        global_character_cutout_path(),
+        global_character_reference_active_marker(),
+        DATA_DIR / "character" / "main" / "metadata.json",
+    ):
+        path.unlink(missing_ok=True)
+    variants_dir = global_character_reference_variants_dir()
+    if variants_dir.exists():
+        shutil.rmtree(variants_dir)
+
+
 def style_preset_character_path(preset_id: str, character_id: str) -> Path:
     return DATA_DIR / "style" / "presets" / preset_id / "characters" / f"{character_id}.png"
 
@@ -511,12 +539,7 @@ def write_global_main_character(session, character: MainCharacter) -> bool:
     _write_app_setting(session, GLOBAL_MAIN_CHARACTER_VIBE_KEY, character.vibe)
     if changed:
         write_global_main_character_reference_url(session, None)
-        active = global_character_reference_path()
-        marker = global_character_reference_active_marker()
-        if active.exists():
-            active.unlink()
-        if marker.exists():
-            marker.unlink()
+        clear_global_character_reference_assets()
     return changed
 
 

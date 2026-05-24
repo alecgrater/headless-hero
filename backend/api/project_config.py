@@ -146,24 +146,14 @@ def update_character(
 
     # Invalidate cached scene images that depend on the character description.
     from pipeline.main_character import (
-        character_cutout_path,
-        character_reference_active_marker,
-        character_reference_path,
+        clear_character_reference_assets,
         invalidate_dependent_scene_caches,
     )
 
     invalidate_dependent_scene_caches(script_id)
     if previous != body:
         cfg.main_character_reference_url = None
-        marker = character_reference_active_marker(script_id)
-        if marker.exists():
-            marker.unlink()
-        active_reference = character_reference_path(script_id)
-        if active_reference.exists():
-            active_reference.unlink()
-        active_cutout = character_cutout_path(script_id)
-        if active_cutout.exists():
-            active_cutout.unlink()
+        clear_character_reference_assets(script_id)
         session.add(cfg)
 
     session.commit()

@@ -210,6 +210,51 @@ def test_put_main_character_clears_stale_cutout(monkeypatch, tmp_path):
     app.dependency_overrides.pop(get_session, None)
 
 
+def test_put_main_character_clears_stale_reference_variants(monkeypatch, tmp_path):
+    engine, app = _setup_app(monkeypatch)
+    _seed_script(
+        engine,
+        "test-cfg-variant-clear",
+        eli_enabled=False,
+        main_character_dict={"name": "Old", "appearance": "x", "vibe": "y"},
+    )
+
+    import pipeline.main_character as mc
+
+    monkeypatch.setattr(mc, "DATA_DIR", tmp_path)
+    counter = {"value": 0}
+
+    def fake_image(prompt, script_id):
+        counter["value"] += 1
+        path = tmp_path / f"variant-clear-{counter['value']}.png"
+        _write_chroma_character(path, color=(255, 0, counter["value"]))
+        return str(path)
+
+    monkeypatch.setattr(mc, "_call_image_generator", fake_image)
+
+    from fastapi.testclient import TestClient
+    client = TestClient(app)
+    first = client.post("/api/projects/test-cfg-variant-clear/config/character/regenerate")
+    second = client.post("/api/projects/test-cfg-variant-clear/config/character/regenerate")
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert [v["idx"] for v in second.json()["main_character_reference_variants"]] == [2, 1]
+
+    res = client.put(
+        "/api/projects/test-cfg-variant-clear/config/character",
+        json={"name": "New", "appearance": "z", "vibe": "w"},
+    )
+    assert res.status_code == 200
+    assert res.json()["main_character_reference_variants"] == []
+    assert not (tmp_path / "projects" / "test-cfg-variant-clear" / "character" / "references").exists()
+
+    stale_select = client.post("/api/projects/test-cfg-variant-clear/config/character/select/1")
+    assert stale_select.status_code == 404
+
+    from database import get_session
+    app.dependency_overrides.pop(get_session, None)
+
+
 def test_generate_and_select_main_character_reference_variants(monkeypatch, tmp_path):
     engine, app = _setup_app(monkeypatch)
     _seed_script(
@@ -313,6 +358,65 @@ def test_legacy_global_main_character_endpoints_do_not_sync_to_project(monkeypat
 
     project_ref = tmp_path / "projects" / "test-global-character-project" / "character" / "reference.png"
     assert not project_ref.exists()
+
+    from database import get_session
+    app.dependency_overrides.pop(get_session, None)
+
+
+def test_put_global_main_character_clears_stale_cutout_and_variants(monkeypatch, tmp_path):
+    engine, app = _setup_app(monkeypatch)
+
+    import pipeline.main_character as mc
+
+    monkeypatch.setattr(mc, "DATA_DIR", tmp_path)
+    counter = {"value": 0}
+
+    def fake_image(prompt, script_id):
+        counter["value"] += 1
+        path = tmp_path / f"global-clear-{counter['value']}.png"
+        _write_chroma_character(path, color=(255, counter["value"], 0))
+        return str(path)
+
+    monkeypatch.setattr(mc, "_call_image_generator", fake_image)
+
+    from fastapi.testclient import TestClient
+    client = TestClient(app)
+    saved = client.put(
+        "/api/style/main-character",
+        json={
+            "name": "Mara",
+            "appearance": "A young cartographer with a green jacket.",
+            "vibe": "Inventive and calm.",
+        },
+    )
+    assert saved.status_code == 200
+    first = client.post("/api/style/main-character/regenerate")
+    second = client.post("/api/style/main-character/regenerate")
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert [v["idx"] for v in second.json()["main_character_reference_variants"]] == [2, 1]
+
+    active_cutout = tmp_path / "character" / "main" / "cutout.png"
+    variants_dir = tmp_path / "character" / "main" / "references"
+    assert active_cutout.exists()
+    assert variants_dir.exists()
+
+    updated = client.put(
+        "/api/style/main-character",
+        json={
+            "name": "Iris",
+            "appearance": "A careful archivist with a blue jacket.",
+            "vibe": "Precise and warm.",
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["main_character_reference_url"] is None
+    assert updated.json()["main_character_reference_variants"] == []
+    assert not active_cutout.exists()
+    assert not variants_dir.exists()
+
+    stale_select = client.post("/api/style/main-character/select/1")
+    assert stale_select.status_code == 404
 
     from database import get_session
     app.dependency_overrides.pop(get_session, None)
