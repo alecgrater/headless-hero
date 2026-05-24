@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 
+from PIL import Image, ImageDraw
 import pytest
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
@@ -558,6 +559,23 @@ def test_generate_visual_keeps_flipflop_on_panel_generation(monkeypatch):
     assert captured["scene_id"] == "scene_001"
     assert captured["layers"][0]["id"] == "state_a"
     assert layers[0]["image_url"] == "/static/projects/script-1/images/state_a.png"
+
+
+def test_popup_sequence_cutout_chroma_trims_item_sheet_crop(tmp_path):
+    from pipeline import image_gen
+
+    image = Image.new("RGBA", (120, 80), (0, 255, 0, 255))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((40, 20, 80, 60), fill=(255, 0, 0, 255))
+
+    output_path = tmp_path / "cutout.png"
+    trim_box = image_gen._save_keyed_trimmed_cutout(image, output_path, padding=4)
+
+    assert trim_box == [36, 16, 85, 65]
+    with Image.open(output_path) as cutout:
+        assert cutout.mode == "RGBA"
+        assert cutout.getpixel((0, 0))[3] == 0
+        assert cutout.getbbox() is not None
 
 
 def test_script_content_has_visual_canvas_default():

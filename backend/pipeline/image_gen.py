@@ -670,7 +670,7 @@ def _sample_background_rgb(image: Image.Image) -> tuple[int, int, int]:
     corners = [
         image.crop((0, 0, corner_size, corner_size)),
         image.crop((image.width - corner_size, 0, image.width, corner_size)),
-        image.crop((0, image.height - corner_size, corner_size)),
+        image.crop((0, image.height - corner_size, corner_size, image.height)),
         image.crop((image.width - corner_size, image.height - corner_size, image.width, image.height)),
     ]
     samples = []
