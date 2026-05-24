@@ -39,15 +39,15 @@ export function ProductionTaskButton({
   }, [open]);
 
   const buttonStateClass = busy
-    ? "bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)]"
+    ? "bg-neutral-900/80 border-violet-500/35 text-neutral-200"
     : done
       ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
-      : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600";
+      : "bg-neutral-900/55 border-neutral-800 text-neutral-400 hover:bg-neutral-800/70 hover:border-neutral-700 hover:text-neutral-200";
   const stepClass = busy
-    ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)] animate-[pulseDot_2s_ease-in-out_infinite]"
+    ? "border-violet-400/80 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.25)] animate-[pulseDot_2s_ease-in-out_infinite]"
     : done
       ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
-      : "border-neutral-600 text-neutral-500";
+      : "border-neutral-700 text-neutral-600";
 
   return (
     <div ref={ref} className="relative flex items-center gap-1.5 min-w-0">
@@ -77,7 +77,7 @@ export function ProductionTaskButton({
           type="button"
           onClick={() => setOpen((show) => !show)}
           disabled={busy || disabled}
-          className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center disabled:opacity-50"
+          className="text-xs px-1.5 bg-neutral-900/55 border border-l-0 border-neutral-800 text-neutral-500 hover:bg-neutral-800/70 hover:text-neutral-200 rounded-r-lg transition-all flex items-center disabled:opacity-50"
           title={`${label} options`}
         >
           <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">

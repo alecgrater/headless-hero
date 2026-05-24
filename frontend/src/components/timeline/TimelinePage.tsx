@@ -597,16 +597,16 @@ function ProjectDetailsButton({
     <button
       type="button"
       onClick={onClick}
-      className="group inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 text-xs font-medium text-violet-100 shadow-[0_0_18px_rgba(139,92,246,0.12)] transition-all hover:border-violet-400/50 hover:bg-violet-500/20 hover:shadow-[0_0_24px_rgba(139,92,246,0.22)]"
+      className="group inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-neutral-800 bg-neutral-900/55 px-2.5 text-xs font-medium text-neutral-200 transition-colors hover:border-violet-500/35 hover:bg-neutral-800/70 hover:text-violet-100"
       title="Open project details"
     >
-      <Info className="h-4 w-4 text-violet-300" />
+      <Info className="h-4 w-4 text-violet-300/90" />
       <span>Project details</span>
-      <span className="inline-flex items-center gap-1 text-xs text-neutral-400">
+      <span className="hidden items-center gap-1 text-xs text-neutral-400 2xl:inline-flex">
         <span className="text-neutral-600">·</span>
         <span>stats, costs, media, exports</span>
       </span>
-      <ChevronDown className="h-3.5 w-3.5 text-violet-300 transition-transform group-hover:translate-y-0.5" />
+      <ChevronDown className="h-3.5 w-3.5 text-neutral-500 transition-transform group-hover:translate-y-0.5 group-hover:text-violet-300" />
     </button>
   );
 }
@@ -925,15 +925,15 @@ function ViewerSwitchRow({
 }) {
   const showVideoViewSelector = format === "long-form";
   return (
-    <div className="px-5 py-2 border-t border-b border-neutral-800/60 shrink-0">
+    <div className="shrink-0 border-y border-neutral-900/80 px-5 py-2">
       <div className="flex min-w-0 items-center justify-between gap-2">
-        <div className="inline-flex shrink-0 items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
+        <div className="inline-flex shrink-0 items-center rounded-xl border border-neutral-800/80 bg-neutral-900/45 p-1">
           {FORMAT_OPTIONS.map(({ key, label, Icon }) => (
             <button
               key={key}
               onClick={() => onFormatChange(key)}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
-                format === key ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
+                format === key ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-500 hover:text-neutral-200"
               }`}
             >
               <Icon className="w-3.5 h-3.5 shrink-0" />
@@ -941,7 +941,7 @@ function ViewerSwitchRow({
             </button>
           ))}
         </div>
-        <div className="inline-flex shrink-0 items-center p-1 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
+        <div className="inline-flex shrink-0 items-center rounded-xl border border-neutral-800/80 bg-neutral-900/45 p-1">
           {ASSET_OPTIONS.map(({ key, label, Icon }) => {
             const isActiveAsset = asset === key;
             if (key === "render" && showVideoViewSelector) {
@@ -949,7 +949,7 @@ function ViewerSwitchRow({
                 <div
                   key={key}
                   className={`flex items-center rounded-lg transition-all duration-200 ${
-                    isActiveAsset ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
+                    isActiveAsset ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-500 hover:text-neutral-200"
                   }`}
                 >
                   <button
@@ -985,7 +985,7 @@ function ViewerSwitchRow({
                 key={key}
                 onClick={() => onAssetChange(key)}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 whitespace-nowrap ${
-                  isActiveAsset ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-400 hover:text-neutral-200"
+                  isActiveAsset ? "bg-violet-500/20 text-violet-100 shadow-sm" : "text-neutral-500 hover:text-neutral-200"
                 }`}
               >
                 <Icon className="w-3.5 h-3.5 shrink-0" />
@@ -2690,14 +2690,14 @@ function TimelineEditor({
       onClick={handleYoloRender}
       disabled={yoloStopping}
       title={yoloRenderRunning ? "Stop YOLO render and cancel backend work" : "Run the full YOLO pipeline"}
-      className={`group relative flex h-9 w-full shrink-0 items-center justify-center overflow-hidden rounded-lg px-4 text-center text-xs font-bold leading-tight text-white/95 shadow-[0_0_15px_rgba(14,165,233,0.2)] transition-all hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 disabled:cursor-wait disabled:opacity-60 disabled:hover:scale-100 ${
+      className={`group relative flex h-9 w-full shrink-0 items-center justify-center overflow-hidden rounded-lg px-4 text-center text-xs font-bold leading-tight text-white/95 shadow-[0_10px_28px_rgba(0,0,0,0.22)] transition-all hover:scale-[1.01] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 disabled:cursor-wait disabled:opacity-60 disabled:hover:scale-100 ${
         yoloRenderRunning
           ? "bg-red-600/85 hover:bg-red-500 hover:shadow-[0_0_22px_rgba(239,68,68,0.35)]"
-          : "bg-gradient-to-r from-sky-500/80 via-emerald-400/70 to-amber-400/70 hover:shadow-[0_0_22px_rgba(14,165,233,0.35)]"
+          : "border border-white/10 bg-gradient-to-r from-sky-500/70 via-emerald-400/60 to-amber-400/60 hover:shadow-[0_16px_34px_rgba(14,165,233,0.16)]"
       }`}
     >
       {!yoloRenderRunning && (
-        <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-[shimmer_2s_ease-in-out_infinite]" />
+        <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-50" />
       )}
       <span className="relative flex min-w-0 items-center justify-center gap-1.5 text-center">
         {yoloRenderRunning || yoloStopping ? (
@@ -2713,11 +2713,11 @@ function TimelineEditor({
   return (
     <div className="flex flex-col h-[calc(100vh-105px)]">
       {/* Header — Title + Pipeline + Thumbnail */}
-      <div className="flex border-b border-neutral-800/60 shrink-0">
+      <div className="flex shrink-0 border-b border-neutral-900 bg-neutral-950/45">
         {/* Left — Title, Pipeline, Export */}
         <div className="flex flex-col flex-1 min-w-0">
           {/* Row 1 — Navigation + Title */}
-          <div className="flex items-center gap-4 px-5 py-2.5 border-b border-neutral-800/60">
+          <div className="flex items-center gap-4 px-5 py-2.5 border-b border-neutral-900/80">
             <button
               onClick={onBack}
               className="text-sm px-3 py-1.5 text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800 rounded-lg transition-colors"
@@ -2903,30 +2903,31 @@ function TimelineEditor({
         </div>
 
         {/* Right — Thumbnail Preview */}
-        <div className="shrink-0 border-l border-neutral-800/60 px-4 py-2.5 flex items-center justify-center">
+        <div className="flex shrink-0 items-center justify-center border-l border-neutral-900 bg-neutral-950/35 px-5 py-3">
           <button
             onClick={openThumbnailModal}
-            className="relative group"
+            className="group relative rounded-xl p-1.5 transition-all hover:bg-neutral-900/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
             title="Click to manage thumbnails"
           >
             {thumbnailsInline.length > 0 && thumbnailsInline[0].image_url ? (
-              <div className="relative">
+              <div className="relative overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 shadow-[0_18px_42px_rgba(0,0,0,0.34)] transition-colors group-hover:border-neutral-700">
                 <img
                   src={assetUrl(thumbnailsInline[0].image_url)}
                   alt="Thumbnail preview"
-                  className="h-56 aspect-video object-cover rounded-lg border border-neutral-700 group-hover:border-violet-500 transition-colors"
+                  className="h-48 aspect-video object-cover xl:h-56 2xl:h-60"
                 />
+                <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-white/5" />
                 {thumbnailsInlineGenerating && (
-                  <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
+                  <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/50">
                     <span className="w-5 h-5 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
                   </div>
                 )}
               </div>
             ) : (
-              <div className={`h-56 aspect-video rounded-lg border border-dashed flex items-center justify-center transition-colors ${
+              <div className={`flex h-48 aspect-video items-center justify-center rounded-xl border border-dashed shadow-[0_18px_42px_rgba(0,0,0,0.24)] transition-colors xl:h-56 2xl:h-60 ${
                 thumbnailsInlineGenerating
                   ? "border-violet-500/50 bg-violet-500/5"
-                  : "border-neutral-700 bg-neutral-900/40 group-hover:border-violet-500/50"
+                  : "border-neutral-800 bg-neutral-900/35 group-hover:border-neutral-700"
               }`}>
                 {thumbnailsInlineGenerating ? (
                   <span className="w-5 h-5 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
@@ -3124,7 +3125,7 @@ function TimelineEditor({
 
         {/* Bottom panel: Properties */}
         {selectedScene ? (
-          <div className="flex-1 min-h-0 border-t border-neutral-800/60">
+          <div className="flex-1 min-h-0 border-t border-neutral-900/80">
             <PropertiesPanel
               scene={selectedScene.scene}
               segmentIdx={selectedScene.segIdx}

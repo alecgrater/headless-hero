@@ -122,20 +122,20 @@ export default function PipelineSteps({
           <div className="flex items-center gap-1.5">
             <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
               thumbnailsBusy
-                ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)] animate-[pulseDot_2s_ease-in-out_infinite]"
+                ? "border-violet-400/80 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.25)] animate-[pulseDot_2s_ease-in-out_infinite]"
                 : allThumbnailsDone
                   ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
-                  : "border-neutral-600 text-neutral-500"
+                  : "border-neutral-700 text-neutral-600"
             }`}>1</span>
             <div ref={thumbnailsDropdownRef} className="relative flex items-stretch flex-1">
               <button
                 onClick={thumbnailsBusy ? (yoloModeActive ? undefined : cancelThumbnails) : confirmAndGenerateThumbnails}
                 className={`text-xs pl-3 pr-1.5 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
                   thumbnailsBusy
-                    ? `bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] ${yoloModeActive ? "cursor-default" : "hover:border-red-500/50 hover:text-red-400"}`
+                    ? `bg-neutral-900/80 border-violet-500/35 text-neutral-200 ${yoloModeActive ? "cursor-default" : "hover:border-red-500/50 hover:text-red-400"}`
                     : allThumbnailsDone
                       ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
-                      : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
+                      : "bg-neutral-900/55 border-neutral-800 text-neutral-400 hover:bg-neutral-800/70 hover:border-neutral-700 hover:text-neutral-200"
                 }`}
                 title={thumbnailsBusy ? (yoloModeActive ? "Generating thumbnails" : "Cancel thumbnail generation") : "Generate title cards, short-form thumbnails, and long-form thumbnail"}
               >
@@ -153,7 +153,7 @@ export default function PipelineSteps({
               {!thumbnailsBusy ? (
                 <button
                   onClick={() => setShowThumbnailsDropdown(!showThumbnailsDropdown)}
-                  className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center"
+                  className="text-xs px-1.5 bg-neutral-900/55 border border-l-0 border-neutral-800 text-neutral-500 hover:bg-neutral-800/70 hover:text-neutral-200 rounded-r-lg transition-all flex items-center"
                   title="Thumbnail generation options"
                 >
                   <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
@@ -162,7 +162,7 @@ export default function PipelineSteps({
                 </button>
               ) : (
                 <span className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-lg flex items-center">
-                  <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
+                  <svg className="w-3 h-3 text-neutral-700" viewBox="0 0 12 12" fill="none">
                     <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </span>
@@ -189,10 +189,10 @@ export default function PipelineSteps({
         <div className="flex items-center gap-1.5">
           <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
             batchGeneratingAudio
-              ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)] animate-[pulseDot_2s_ease-in-out_infinite]"
+              ? "border-violet-400/80 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.25)] animate-[pulseDot_2s_ease-in-out_infinite]"
               : allAudioGenerated
                 ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
-                : "border-neutral-600 text-neutral-500"
+                : "border-neutral-700 text-neutral-600"
           }`}>2</span>
           <div ref={voicePickerRef} className="relative flex items-stretch flex-1">
             <button
@@ -200,10 +200,10 @@ export default function PipelineSteps({
               disabled={!batchGeneratingAudio && !selectedVoiceId && voices.length > 0}
               className={`text-xs pl-3 pr-1.5 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
                 batchGeneratingAudio
-                  ? `bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] ${yoloModeActive ? "cursor-default" : "hover:border-red-500/50 hover:text-red-400"}`
+                  ? `bg-neutral-900/80 border-violet-500/35 text-neutral-200 ${yoloModeActive ? "cursor-default" : "hover:border-red-500/50 hover:text-red-400"}`
                   : allAudioGenerated
                     ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
-                    : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
+                    : "bg-neutral-900/55 border-neutral-800 text-neutral-400 hover:bg-neutral-800/70 hover:border-neutral-700 hover:text-neutral-200"
               }`}
               title={batchGeneratingAudio ? (yoloModeActive ? "Generating audio" : "Cancel audio generation") : "Generate audio for all scenes with narration"}
             >
@@ -221,7 +221,7 @@ export default function PipelineSteps({
             {!batchGeneratingAudio && (
               <button
                 onClick={() => setShowVoicePicker(!showVoicePicker)}
-                className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center"
+                className="text-xs px-1.5 bg-neutral-900/55 border border-l-0 border-neutral-800 text-neutral-500 hover:bg-neutral-800/70 hover:text-neutral-200 rounded-r-lg transition-all flex items-center"
                 title="Select voice"
               >
                 <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
@@ -231,7 +231,7 @@ export default function PipelineSteps({
             )}
             {batchGeneratingAudio && (
               <span className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-lg flex items-center">
-                <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
+                <svg className="w-3 h-3 text-neutral-700" viewBox="0 0 12 12" fill="none">
                   <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </span>
@@ -296,20 +296,20 @@ export default function PipelineSteps({
         <div className="flex items-center gap-1.5">
           <span className={`w-[20px] h-[20px] rounded-full border text-[11px] font-bold flex items-center justify-center shrink-0 tabular-nums ${
             batchGenerating
-              ? "border-violet-400 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.4)] animate-[pulseDot_2s_ease-in-out_infinite]"
+              ? "border-violet-400/80 bg-violet-500/10 text-violet-300 shadow-[0_0_6px_rgba(139,92,246,0.25)] animate-[pulseDot_2s_ease-in-out_infinite]"
               : allImagesGenerated
                 ? "border-emerald-400 bg-emerald-500/10 text-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.3)]"
-                : "border-neutral-600 text-neutral-500"
+                : "border-neutral-700 text-neutral-600"
           }`}>3</span>
           <div ref={imagesDropdownRef} className="relative flex items-stretch flex-1">
             <button
               onClick={batchGenerating ? (yoloModeActive ? undefined : cancelImageGeneration) : confirmAndGenerateImages}
               className={`text-xs pl-3 pr-1.5 py-2 border border-r-0 rounded-l-lg font-medium transition-all flex items-center justify-center gap-1.5 min-w-0 flex-1 whitespace-nowrap ${
                 batchGenerating
-                  ? `bg-neutral-800/80 border-violet-500/40 text-neutral-200 shadow-[0_0_8px_rgba(139,92,246,0.15)] ${yoloModeActive ? "cursor-default" : "hover:border-red-500/50 hover:text-red-400"}`
+                  ? `bg-neutral-900/80 border-violet-500/35 text-neutral-200 ${yoloModeActive ? "cursor-default" : "hover:border-red-500/50 hover:text-red-400"}`
                   : allImagesGenerated
                     ? "bg-emerald-500/8 border-emerald-500/25 text-emerald-400 hover:bg-emerald-500/15"
-                    : "bg-neutral-800/80 border-neutral-700/60 text-neutral-300 hover:bg-neutral-700/80 hover:border-neutral-600"
+                    : "bg-neutral-900/55 border-neutral-800 text-neutral-400 hover:bg-neutral-800/70 hover:border-neutral-700 hover:text-neutral-200"
               }`}
               title={batchGenerating ? (yoloModeActive ? "Generating images" : "Cancel image generation") : "Generate images for all scenes with visual prompts"}
             >
@@ -327,7 +327,7 @@ export default function PipelineSteps({
             {!batchGenerating ? (
               <button
                 onClick={() => setShowImagesDropdown(!showImagesDropdown)}
-                className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-neutral-700/60 text-neutral-400 hover:bg-neutral-700/80 hover:text-neutral-200 rounded-r-lg transition-all flex items-center"
+                className="text-xs px-1.5 bg-neutral-900/55 border border-l-0 border-neutral-800 text-neutral-500 hover:bg-neutral-800/70 hover:text-neutral-200 rounded-r-lg transition-all flex items-center"
                 title="Image generation options"
               >
                 <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
@@ -336,7 +336,7 @@ export default function PipelineSteps({
               </button>
             ) : (
               <span className="text-xs px-1.5 bg-neutral-800/80 border border-l-0 border-violet-500/40 rounded-r-lg flex items-center">
-                <svg className="w-3 h-3 text-neutral-600" viewBox="0 0 12 12" fill="none">
+                <svg className="w-3 h-3 text-neutral-700" viewBox="0 0 12 12" fill="none">
                   <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </span>

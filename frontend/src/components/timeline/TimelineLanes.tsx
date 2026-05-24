@@ -99,17 +99,17 @@ export default function TimelineLanes({
   }
 
   return (
-    <div className="flex flex-col bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden">
+    <div className="flex flex-col overflow-hidden rounded-xl border border-neutral-900 bg-neutral-950/35 shadow-[0_18px_36px_rgba(0,0,0,0.22)]">
       {/* Scrollable area with label gutter */}
       <div className="flex">
         {/* Fixed label column */}
-        <div className="shrink-0 w-20 bg-neutral-900 border-r border-neutral-800 z-10">
+        <div className="z-10 w-20 shrink-0 border-r border-neutral-900 bg-neutral-950/45">
           {/* Ruler spacer */}
-          <div className="h-7 border-b border-neutral-800 flex items-center justify-center gap-1 px-1">
-            <span className="text-[10px] text-neutral-500 font-mono">{pixelsPerSecond}</span>
+          <div className="flex h-7 items-center justify-center gap-1 border-b border-neutral-900 px-1">
+            <span className="font-mono text-[10px] text-neutral-600">{pixelsPerSecond}</span>
           </div>
           {/* Segment header label */}
-          <div className="h-6 flex items-center px-3 text-[10px] text-neutral-500 font-medium border-b border-neutral-800/50">
+          <div className="flex h-6 items-center border-b border-neutral-900/80 px-3 text-[10px] font-medium text-neutral-600">
             Segments
           </div>
           {visibleLanes.map((lane) => {
@@ -117,9 +117,9 @@ export default function TimelineLanes({
             return (
               <div
                 key={lane}
-                className="h-10 flex items-center gap-1.5 px-3 text-[11px] text-neutral-400 font-medium border-b border-neutral-800/50"
+                className="flex h-10 items-center gap-1.5 border-b border-neutral-900/80 px-3 text-[11px] font-medium text-neutral-500"
               >
-                <Icon size={12} className="shrink-0 text-neutral-500" />
+                <Icon size={12} className="shrink-0 text-neutral-600" />
                 {LANE_LABELS[lane]}
               </div>
             );
@@ -137,7 +137,7 @@ export default function TimelineLanes({
             />
 
             {/* Segment header row */}
-            <div className="relative h-6 flex border-b border-neutral-800/50">
+            <div className="relative flex h-6 border-b border-neutral-900/80">
               {segmentSpans.map(({ name, x, width, idx }) => (
                 <div
                   key={`seg-header-${idx}`}
@@ -161,7 +161,7 @@ export default function TimelineLanes({
             {visibleLanes.map((laneType) => (
               <div
                 key={laneType}
-                className="relative h-10 flex items-center gap-0.5 border-b border-neutral-800/50"
+                className="relative flex h-10 items-center gap-0.5 border-b border-neutral-900/75"
               >
                 {/* Scene blocks */}
                 {flatScenes.map(({ scene, segmentIdx }) => (

@@ -32,9 +32,9 @@ export default function TimelineBlock({
       onClick={onClick}
       className={`relative h-full rounded-md overflow-hidden flex items-center shrink-0 transition-all ${
         isSelected
-          ? "ring-2 ring-violet-500 bg-violet-500/5 shadow-lg shadow-violet-500/10"
-          : "hover:bg-neutral-750"
-      } bg-neutral-800`}
+          ? "z-10 bg-violet-500/5 ring-1 ring-violet-500/55 shadow-[0_12px_24px_rgba(0,0,0,0.18)]"
+          : "hover:bg-neutral-800/80"
+      } bg-neutral-900/70`}
       style={{ width: `${width}px` }}
     >
       {/* Color-coded left border */}
