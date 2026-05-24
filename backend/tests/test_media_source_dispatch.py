@@ -404,3 +404,43 @@ def test_media_analyzer_preserves_continuous_mode(monkeypatch):
     assert assignments[0].visual_mode == "continuous"
     assert content.all_scenes()[0].visual_mode == "continuous"
     assert content.all_scenes()[0].visual_treatment == "full_frame"
+
+
+def test_media_analyzer_apply_assignments_clears_stale_layers_for_non_layered_mode():
+    stale_layer = {"id": "stale_panel", "prompt": "Old popup"}
+    content = ScriptContent(
+        title="Media modes",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="scene_001",
+                        narration="A regular full-frame scene.",
+                        visual_prompt="A full-frame image",
+                        visual_mode="popup_sequence",
+                        visual_layers=[stale_layer],
+                    )
+                ],
+            )
+        ],
+    )
+
+    media_analyzer.apply_assignments(
+        content,
+        [
+            media_analyzer.MediaAssignment(
+                scene_id="scene_001",
+                media_source="ai",
+                game_name=None,
+                search_query=None,
+                reasoning="Use normal AI image.",
+                visual_mode="full_frame",
+            )
+        ],
+    )
+
+    scene = content.all_scenes()[0]
+    assert scene.visual_mode == "full_frame"
+    assert scene.visual_treatment == "full_frame"
+    assert scene.visual_layers == []

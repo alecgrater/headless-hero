@@ -486,12 +486,13 @@ def apply_assignments(
             if not assignment:
                 continue
 
-            scene.set_visual_mode(
-                _canonical_visual_mode(
-                    assignment.visual_mode,
-                    assignment.media_source,
-                )
+            mode = _canonical_visual_mode(
+                assignment.visual_mode,
+                assignment.media_source,
             )
+            scene.set_visual_mode(mode)
+            if mode not in {"popup_sequence", "flipflop"}:
+                scene.visual_layers = []
 
             scene.original_visual_prompt = ""
 

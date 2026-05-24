@@ -1844,6 +1844,58 @@ def test_analyze_visual_treatments_assigns_flipflop_for_repetition():
     assert len(assignments[0].visual_layers) == 2
 
 
+def test_analyze_visual_treatments_preserves_explicit_popup_sequence_with_progression_words():
+    existing_layer = VisualLayer(id="existing_panel", prompt="Existing popup panel")
+    scene = scene_with_words("s1", "The crack slowly spreads across the glass.")
+    scene.set_visual_mode("popup_sequence")
+    scene.visual_layers = [existing_layer]
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-popup-progress")
+
+    assignment = assignments[0]
+    assert assignment.visual_mode == "popup_sequence"
+    assert assignment.visual_treatment == "popup_sequence"
+    assert assignment.visual_layers == [existing_layer]
+
+
+def test_analyze_visual_treatments_preserves_explicit_flipflop_with_progression_words():
+    scene = scene_with_words("s1", "The crack slowly spreads across the glass.")
+    scene.set_visual_mode("flipflop")
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-flip-progress")
+
+    assignment = assignments[0]
+    assert assignment.visual_mode == "flipflop"
+    assert assignment.visual_treatment == "flipflop"
+    assert len(assignment.visual_layers) == 2
+
+
+def test_analyze_visual_treatments_keeps_list_mode_with_progression_words():
+    scene = scene_with_words("s1", "First the crack appears, second the warning light spreads.")
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-list-progress")
+
+    assignment = assignments[0]
+    assert assignment.visual_mode == "popup_sequence"
+    assert assignment.visual_treatment == "popup_sequence"
+    assert len(assignment.visual_layers) == 2
+
+
+def test_analyze_visual_treatments_keeps_contrast_mode_with_progression_words():
+    scene = scene_with_words("s1", "The crack starts small, but the damage spreads across the panel.")
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-contrast-progress")
+
+    assignment = assignments[0]
+    assert assignment.visual_mode == "flipflop"
+    assert assignment.visual_treatment == "flipflop"
+    assert len(assignment.visual_layers) == 2
+
+
 def test_analyze_visual_treatments_does_not_treat_cardinal_words_as_list_markers():
     scene = scene_with_words("s1", "No one knew two guards were hiding.")
     content = content_with_scenes(scene)
