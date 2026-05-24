@@ -96,7 +96,7 @@ def _reload_content(script_id: str) -> ScriptContent:
 
 def _phase_images(ctx: ExportContext) -> None:
     """Generate images for all scenes (skips title cards)."""
-    from pipeline.image_gen import generate_scene_image, generate_visual_layer_panels
+    from pipeline.image_gen import generate_popup_sequence_cutouts, generate_scene_image, generate_visual_layer_panels
 
     non_tc = [sc for sc in ctx.scenes if not sc.get("is_title_card")]
     scene_count = len(non_tc)
@@ -128,13 +128,24 @@ def _phase_images(ctx: ExportContext) -> None:
                 layer.model_dump() if hasattr(layer, "model_dump") else dict(layer)
                 for layer in visual_layers
             ]
-            sc_info["_visual_layers"] = generate_visual_layer_panels(
-                sid,
-                layer_dicts,
-                ctx.script_id,
-                force=True,
-                contains_person=bool(sc_info.get("contains_person") or (scene_now.contains_person if scene_now is not None else False)),
-            )
+            contains_person = bool(sc_info.get("contains_person") or (scene_now.contains_person if scene_now is not None else False))
+            if treatment == "popup_sequence":
+                sc_info["_visual_layers"] = generate_popup_sequence_cutouts(
+                    scene_id=sid,
+                    layers=layer_dicts,
+                    script_id=ctx.script_id,
+                    scene_prompt=sc_info.get("visual_prompt") or (scene_now.visual_prompt if scene_now is not None else ""),
+                    force=True,
+                    contains_person=contains_person,
+                )
+            else:
+                sc_info["_visual_layers"] = generate_visual_layer_panels(
+                    sid,
+                    layer_dicts,
+                    ctx.script_id,
+                    force=True,
+                    contains_person=contains_person,
+                )
     logger.info("[%s] Phase: images — complete (%d scenes)", ctx.script_id, scene_count)
 
 

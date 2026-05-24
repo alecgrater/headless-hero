@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import re
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -12,6 +13,8 @@ from PIL import Image, ImageDraw, ImageFont
 from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH, VIDEO_HEIGHT, VIDEO_WIDTH
 from integrations.image_client import generate_image
 from models.script import MainCharacter
+from pipeline.asset_vault import save_vault_image
+from pipeline.character_assets import process_character_asset_bundle
 from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VISUAL_STYLE
 
 logger = logging.getLogger(__name__)
@@ -391,6 +394,298 @@ def generate_visual_layer_panels(
         logger.info("[PANEL_GEN] complete scene=%s layer=%s", scene_id, layer_id)
 
     return processed_layers
+
+
+def generate_popup_sequence_cutouts(
+    *,
+    scene_id: str,
+    layers: list[dict],
+    script_id: str,
+    scene_prompt: str,
+    width: int = IMAGE_WIDTH,
+    height: int = IMAGE_HEIGHT,
+    force: bool = False,
+    contains_person: bool = False,
+) -> list[dict]:
+    """Generate one character anchor plus cropped popup item cutouts for a popup sequence."""
+
+    image_layers = [
+        dict(layer)
+        for layer in layers
+        if isinstance(layer, dict) and layer.get("type", "image") == "image"
+    ]
+    if not image_layers:
+        return layers
+
+    output_dir = DATA_DIR / "projects" / script_id / "popup_crops" / scene_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    labels = [_popup_item_label(layer, index) for index, layer in enumerate(image_layers)]
+    anchor_prompt = _compose_popup_anchor_prompt(scene_prompt, contains_person=contains_person)
+    item_prompt = _compose_popup_item_sheet_prompt(scene_prompt, labels)
+    prompt_marker = output_dir / "popup_sequence.prompt"
+    prompt_fingerprint = json.dumps(
+        {
+            "anchor_prompt": anchor_prompt,
+            "item_prompt": item_prompt,
+            "labels": labels,
+            "layers": [
+                {
+                    "id": layer.get("id"),
+                    "prompt": layer.get("prompt"),
+                    "placement": layer.get("placement"),
+                    "enter_at_seconds": layer.get("enter_at_seconds"),
+                    "animation": layer.get("animation"),
+                }
+                for layer in image_layers
+            ],
+        },
+        sort_keys=True,
+    )
+
+    anchor_cutout_path = output_dir / "anchor_cutout.png"
+    item_paths = [output_dir / f"crop_{index + 2:02d}_{_slug(label)}.png" for index, label in enumerate(labels)]
+    cache_valid = (
+        not force
+        and prompt_marker.exists()
+        and prompt_marker.read_text(encoding="utf-8") == prompt_fingerprint
+        and anchor_cutout_path.exists()
+        and all(path.exists() for path in item_paths)
+    )
+
+    if not cache_valid:
+        logger.info("[POPUP_CROP] generating popup cutouts scene=%s items=%d", scene_id, len(labels))
+        _generate_popup_anchor_cutout(
+            anchor_prompt=anchor_prompt,
+            output_dir=output_dir,
+            width=width,
+            height=height,
+            script_id=script_id,
+        )
+        _generate_popup_item_cutouts(
+            item_prompt=item_prompt,
+            labels=labels,
+            output_dir=output_dir,
+            width=width,
+            height=height,
+            script_id=script_id,
+        )
+        prompt_marker.write_text(prompt_fingerprint, encoding="utf-8")
+    else:
+        logger.info("[POPUP_CROP] cache hit scene=%s", scene_id)
+
+    web_base = f"/static/projects/{script_id}/popup_crops/{scene_id}"
+    processed_layers = [
+        {
+            "id": f"{scene_id}_anchor",
+            "type": "image",
+            "asset_kind": "cutout",
+            "image_url": f"{web_base}/anchor_cutout.png",
+            "prompt": scene_prompt,
+            "placement": "center",
+            "enter_at_seconds": 0.0,
+            "animation": "none",
+        }
+    ]
+    for index, layer in enumerate(image_layers):
+        next_layer = dict(layer)
+        next_layer["asset_kind"] = "cutout"
+        next_layer["image_url"] = f"{web_base}/{item_paths[index].name}"
+        next_layer["placement"] = _popup_cutout_placement(str(next_layer.get("placement") or ""), index, len(image_layers))
+        next_layer["animation"] = next_layer.get("animation") or "pop_in"
+        processed_layers.append(next_layer)
+    return processed_layers
+
+
+def _generate_popup_anchor_cutout(
+    *,
+    anchor_prompt: str,
+    output_dir: Path,
+    width: int,
+    height: int,
+    script_id: str,
+) -> None:
+    generated_path = Path(generate_image(anchor_prompt, width=width, height=height, script_id=script_id))
+    source_path = output_dir / "anchor_source.png"
+    if generated_path.resolve() != source_path.resolve():
+        shutil.copyfile(generated_path, source_path)
+
+    result = process_character_asset_bundle(
+        source_path,
+        output_dir,
+        reference_filename="anchor_source.png",
+        cutout_filename="anchor_cutout.png",
+        metadata_filename="anchor_metadata.json",
+    )
+    save_vault_image(kind="character", label="Popup sequence anchor", source_path=result.cutout_path)
+
+
+def _generate_popup_item_cutouts(
+    *,
+    item_prompt: str,
+    labels: list[str],
+    output_dir: Path,
+    width: int,
+    height: int,
+    script_id: str,
+) -> None:
+    generated_path = Path(generate_image(item_prompt, width=width, height=height, script_id=script_id))
+    sheet_path = output_dir / "item_sheet.png"
+    if generated_path.resolve() != sheet_path.resolve():
+        shutil.copyfile(generated_path, sheet_path)
+
+    with Image.open(sheet_path) as image:
+        source = image.convert("RGBA")
+        cell_width = source.width // len(labels)
+        for index, label in enumerate(labels):
+            left = index * cell_width
+            right = source.width if index == len(labels) - 1 else (index + 1) * cell_width
+            crop = source.crop((left, 0, right, source.height))
+            raw_path = output_dir / f"raw_crop_{index + 2:02d}_{_slug(label)}.png"
+            crop.save(raw_path)
+            output_path = output_dir / f"crop_{index + 2:02d}_{_slug(label)}.png"
+            _save_keyed_trimmed_cutout(crop, output_path)
+            save_vault_image(kind="item", label=label, source_path=output_path)
+
+
+def _compose_popup_anchor_prompt(scene_prompt: str, *, contains_person: bool) -> str:
+    subject_line = (
+        "Create one large isolated cutout of the scene's main character/person."
+        if contains_person
+        else "Create one large isolated cutout of the scene's main subject."
+    )
+    return "\n".join(
+        [
+            subject_line,
+            "The subject should be detailed, expressive, centered, and visually dominant.",
+            "Use a flat chroma background color that does not appear anywhere in the subject, preferably bright green unless the subject contains green.",
+            "No popup items, no secondary icons, no speech bubbles, no text, no labels, no frames, no full background scene.",
+            "Leave a little empty margin around the full subject so automatic trimming does not clip the pose.",
+            "",
+            "Scene direction:",
+            scene_prompt.strip(),
+        ]
+    ).strip()
+
+
+def _compose_popup_item_sheet_prompt(scene_prompt: str, labels: list[str]) -> str:
+    item_lines = [f"{index}. {label}" for index, label in enumerate(labels, start=1)]
+    return "\n".join(
+        [
+            "You are generating a contact sheet for automatic programmatic cropping.",
+            "",
+            f"Generate exactly {len(labels)} cartoon popup item(s) arranged in a single row,",
+            "evenly spaced, left to right in this exact order:",
+            *item_lines,
+            "",
+            "Layout rules:",
+            "- Each item occupies an equal-width vertical slot",
+            "- Items are horizontally centered within their slot",
+            "- Items fill no more than 70% of their slot width, leaving clear margins on both sides",
+            "- All items are the same visual scale relative to their slot",
+            "- Single row only; do not stack or wrap items",
+            "",
+            "Background:",
+            "- Solid flat chroma key background across the entire image",
+            "- Use bright green (#00FF00) unless any item contains green, in which case use bright magenta (#FF00FF)",
+            "- The chroma color must not appear anywhere within any item",
+            "",
+            "Item rendering:",
+            "- Each item is fully self-contained with no overlap into adjacent slots",
+            "- Crisp closed silhouettes with no soft glow, feathering, or semi-transparent color bleed into the chroma background",
+            "- No drop shadows, glows, or effects that extend outside the item boundary",
+            "- No frames, borders, labels, captions, arrows, or text",
+            "- No background scenes, environments, or context behind items",
+            "- No main character or human figures",
+            "",
+            "Scene context for style only:",
+            scene_prompt.strip(),
+        ]
+    ).strip()
+
+
+def _popup_item_label(layer: dict, index: int) -> str:
+    prompt = str(layer.get("prompt") or "").strip()
+    match = re.search(r"\bfor\s+(.+?):", prompt, flags=re.IGNORECASE)
+    if match:
+        return _clean_popup_label(match.group(1))
+    prompt = re.sub(r"small framed Headless Hero cartoon panel[:,]?\s*", "", prompt, flags=re.IGNORECASE)
+    prompt = re.sub(r"\bNo text in image\.?", "", prompt, flags=re.IGNORECASE)
+    prompt = prompt.split(".", 1)[0]
+    return _clean_popup_label(prompt) or f"popup item {index + 1}"
+
+
+def _clean_popup_label(value: str) -> str:
+    return re.sub(r"\s+", " ", value.strip(" .,:;-"))
+
+
+def _popup_cutout_placement(placement: str, index: int, total: int) -> str:
+    normalized = placement.replace("_", "-")
+    if normalized == "center" and total == 3:
+        return "top"
+    if normalized:
+        return normalized
+    defaults = {
+        1: ["top"],
+        2: ["left", "right"],
+        3: ["left", "top", "right"],
+        4: ["top-left", "top-right", "bottom-left", "bottom-right"],
+    }
+    return defaults.get(total, defaults[3])[min(index, len(defaults.get(total, defaults[3])) - 1)]
+
+
+def _save_keyed_trimmed_cutout(image: Image.Image, output_path: Path, *, padding: int = 24) -> list[int]:
+    keyed = _key_out_background(image.convert("RGBA"))
+    bbox = keyed.getbbox()
+    if bbox is None:
+        keyed.save(output_path)
+        return [0, 0, keyed.width, keyed.height]
+
+    left, top, right, bottom = bbox
+    padded = [
+        max(0, left - padding),
+        max(0, top - padding),
+        min(keyed.width, right + padding),
+        min(keyed.height, bottom + padding),
+    ]
+    keyed.crop(tuple(padded)).save(output_path)
+    return padded
+
+
+def _key_out_background(image: Image.Image, *, tolerance: int = 70) -> Image.Image:
+    bg = _sample_background_rgb(image)
+    data = bytearray(image.tobytes())
+    for index in range(0, len(data), 4):
+        red, green, blue, alpha = data[index:index + 4]
+        distance = ((red - bg[0]) ** 2 + (green - bg[1]) ** 2 + (blue - bg[2]) ** 2) ** 0.5
+        if distance <= tolerance:
+            data[index + 3] = 0
+        else:
+            data[index + 3] = alpha
+    return Image.frombytes("RGBA", image.size, bytes(data))
+
+
+def _sample_background_rgb(image: Image.Image) -> tuple[int, int, int]:
+    corner_size = max(1, min(image.width, image.height, 24))
+    corners = [
+        image.crop((0, 0, corner_size, corner_size)),
+        image.crop((image.width - corner_size, 0, image.width, corner_size)),
+        image.crop((0, image.height - corner_size, corner_size)),
+        image.crop((image.width - corner_size, image.height - corner_size, image.width, image.height)),
+    ]
+    samples = []
+    for corner in corners:
+        data = corner.convert("RGB").tobytes()
+        samples.extend((data[index], data[index + 1], data[index + 2]) for index in range(0, len(data), 3))
+    red = round(sum(pixel[0] for pixel in samples) / len(samples))
+    green = round(sum(pixel[1] for pixel in samples) / len(samples))
+    blue = round(sum(pixel[2] for pixel in samples) / len(samples))
+    return red, green, blue
+
+
+def _slug(value: str) -> str:
+    slug = re.sub(r"[^a-zA-Z0-9]+", "_", value.lower()).strip("_")
+    return slug or "crop"
 
 
 def generate_scene_image(
@@ -841,14 +1136,25 @@ def _generate_one_scene(
         ]
         if not layer_dicts:
             return result
-        result["visual_layers"] = generate_visual_layer_panels(
-            scene["scene_id"],
-            layer_dicts,
-            script_id,
-            width=width,
-            height=height,
-            contains_person=bool(scene.get("contains_person", False)),
-        )
+        if treatment == "popup_sequence":
+            result["visual_layers"] = generate_popup_sequence_cutouts(
+                scene_id=scene["scene_id"],
+                layers=layer_dicts,
+                script_id=script_id,
+                scene_prompt=str(scene.get("visual_prompt") or ""),
+                width=width,
+                height=height,
+                contains_person=bool(scene.get("contains_person", False)),
+            )
+        else:
+            result["visual_layers"] = generate_visual_layer_panels(
+                scene["scene_id"],
+                layer_dicts,
+                script_id,
+                width=width,
+                height=height,
+                contains_person=bool(scene.get("contains_person", False)),
+            )
         return result
 
     try:

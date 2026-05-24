@@ -347,11 +347,15 @@ def test_phase_images_forces_visual_layer_panel_regeneration(monkeypatch):
         lambda scene_id, visual_prompt, script_id, force: ("/static/projects/script-1/images/scene_001.png", "", None),
     )
 
-    def fake_generate_visual_layer_panels(scene_id, layers, script_id, force=False, **kwargs):
+    def fake_generate_popup_sequence_cutouts(*, scene_id, layers, script_id, scene_prompt, force=False, **kwargs):
+        captured["scene_id"] = scene_id
+        captured["layers"] = layers
+        captured["script_id"] = script_id
+        captured["scene_prompt"] = scene_prompt
         captured["force"] = force
         return layers
 
-    monkeypatch.setattr(image_gen_mod, "generate_visual_layer_panels", fake_generate_visual_layer_panels)
+    monkeypatch.setattr(image_gen_mod, "generate_popup_sequence_cutouts", fake_generate_popup_sequence_cutouts)
     ctx = ExportContext(
         script_id="script-1",
         job=RenderJob("job-1"),
@@ -406,18 +410,20 @@ def test_generate_visual_persists_generated_visual_layers(monkeypatch):
         lambda **kwargs: ("/static/projects/regular-visual-panels/images/scene_001.png", "prompt", None),
     )
 
-    def fake_generate_visual_layer_panels(scene_id, layers, script_id, **kwargs):
+    def fake_generate_popup_sequence_cutouts(*, scene_id, layers, script_id, scene_prompt, **kwargs):
         captured["scene_id"] = scene_id
         captured["layers"] = layers
+        captured["scene_prompt"] = scene_prompt
         captured["contains_person"] = kwargs.get("contains_person")
         return [
             {
                 **layers[0],
-                "image_url": "/static/projects/regular-visual-panels/images/scene_001_layer_panel_1.png",
+                "asset_kind": "cutout",
+                "image_url": "/static/projects/regular-visual-panels/popup_crops/scene_001/crop_02_panel_prompt.png",
             }
         ]
 
-    monkeypatch.setattr(visuals_api, "generate_visual_layer_panels", fake_generate_visual_layer_panels, raising=False)
+    monkeypatch.setattr(visuals_api, "generate_popup_sequence_cutouts", fake_generate_popup_sequence_cutouts)
 
     with Session(engine) as session:
         session.add(
@@ -447,10 +453,111 @@ def test_generate_visual_persists_generated_visual_layers(monkeypatch):
     assert captured["scene_id"] == "scene_001"
     assert captured["contains_person"] is True
     assert captured["layers"][0]["prompt"] == "Panel prompt"
-    assert response.visual_layers[0]["image_url"] == "/static/projects/regular-visual-panels/images/scene_001_layer_panel_1.png"
+    assert captured["scene_prompt"] == "Panel"
+    assert response.visual_layers[0]["image_url"] == "/static/projects/regular-visual-panels/popup_crops/scene_001/crop_02_panel_prompt.png"
     assert stored_content.segments[0].scenes[0].visual_layers[0].image_url == (
-        "/static/projects/regular-visual-panels/images/scene_001_layer_panel_1.png"
+        "/static/projects/regular-visual-panels/popup_crops/scene_001/crop_02_panel_prompt.png"
     )
+
+
+def test_generate_visual_routes_popup_sequence_to_cutout_assets(monkeypatch):
+    from api import visuals as visuals_api
+
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="One might be a message, one might be a reward, and one might be nothing.",
+            visual_prompt="Person holding phone with three notification bubbles.",
+            contains_person=True,
+            visual_treatment="popup_sequence",
+            visual_layers=[
+                VisualLayer(id="bubble_1", prompt="chat bubble", placement="left", enter_at_seconds=0.5),
+                VisualLayer(id="bubble_2", prompt="gift icon", placement="center", enter_at_seconds=1.0),
+                VisualLayer(id="bubble_3", prompt="empty bubble", placement="right", enter_at_seconds=1.5),
+            ],
+        )
+    )
+
+    captured = {}
+
+    def fail_panel_generation(*_args, **_kwargs):
+        raise AssertionError("popup_sequence should not use panel generation")
+
+    def fake_generate_popup_sequence_cutouts(**kwargs):
+        captured.update(kwargs)
+        return [
+            {
+                "id": "scene_001_anchor",
+                "type": "image",
+                "asset_kind": "cutout",
+                "image_url": "/static/projects/script-1/popup_crops/scene_001/anchor_cutout.png",
+                "placement": "center",
+                "enter_at_seconds": 0.0,
+                "animation": "none",
+            },
+            {
+                **kwargs["layers"][0],
+                "asset_kind": "cutout",
+                "image_url": "/static/projects/script-1/popup_crops/scene_001/crop_02_chat_bubble.png",
+            },
+        ]
+
+    monkeypatch.setattr(visuals_api, "generate_visual_layer_panels", fail_panel_generation)
+    monkeypatch.setattr(visuals_api, "generate_popup_sequence_cutouts", fake_generate_popup_sequence_cutouts)
+
+    layers = visuals_api._generate_scene_visual_layers(
+        content=content,
+        scene_id="scene_001",
+        script_id="script-1",
+        width=1920,
+        height=1080,
+    )
+
+    assert captured["scene_prompt"] == "Person holding phone with three notification bubbles."
+    assert captured["contains_person"] is True
+    assert [layer["asset_kind"] for layer in layers] == ["cutout", "cutout"]
+    assert layers[0]["id"] == "scene_001_anchor"
+
+
+def test_generate_visual_keeps_flipflop_on_panel_generation(monkeypatch):
+    from api import visuals as visuals_api
+
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="Before and after.",
+            visual_prompt="Person changes expression.",
+            visual_treatment="flipflop",
+            visual_layers=[VisualLayer(id="state_a", prompt="state A")],
+        )
+    )
+
+    captured = {}
+
+    def fail_cutout_generation(*_args, **_kwargs):
+        raise AssertionError("flipflop should not use popup crop generation")
+
+    def fake_generate_visual_layer_panels(scene_id, layers, script_id, **kwargs):
+        captured["scene_id"] = scene_id
+        captured["layers"] = layers
+        captured["script_id"] = script_id
+        captured["kwargs"] = kwargs
+        return [{**layers[0], "image_url": "/static/projects/script-1/images/state_a.png"}]
+
+    monkeypatch.setattr(visuals_api, "generate_popup_sequence_cutouts", fail_cutout_generation)
+    monkeypatch.setattr(visuals_api, "generate_visual_layer_panels", fake_generate_visual_layer_panels)
+
+    layers = visuals_api._generate_scene_visual_layers(
+        content=content,
+        scene_id="scene_001",
+        script_id="script-1",
+        width=1920,
+        height=1080,
+    )
+
+    assert captured["scene_id"] == "scene_001"
+    assert captured["layers"][0]["id"] == "state_a"
+    assert layers[0]["image_url"] == "/static/projects/script-1/images/state_a.png"
 
 
 def test_script_content_has_visual_canvas_default():

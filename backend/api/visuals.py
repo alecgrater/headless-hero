@@ -13,7 +13,13 @@ from database import get_session
 from api._helpers import update_scene
 from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
-from pipeline.image_gen import generate_batch, generate_scene_frames_v2, generate_scene_image, generate_visual_layer_panels
+from pipeline.image_gen import (
+    generate_batch,
+    generate_popup_sequence_cutouts,
+    generate_scene_frames_v2,
+    generate_scene_image,
+    generate_visual_layer_panels,
+)
 from pipeline.render_jobs import create_job, get_job, run_in_background
 from pipeline.formats import resolve_format
 
@@ -133,8 +139,10 @@ def _generate_scene_visual_layers(
     height: int,
     request_treatment: str = "",
     request_layers: list[dict] | None = None,
+    request_scene_prompt: str = "",
     request_contains_person: bool = False,
 ) -> list[dict] | None:
+    scene = next((sc for seg in content.segments for sc in seg.scenes if sc.id == scene_id), None)
     treatment, layers, contains_person = _resolve_visual_layer_context(
         content=content,
         scene_id=scene_id,
@@ -150,6 +158,16 @@ def _generate_scene_visual_layers(
         treatment,
         len(layers),
     )
+    if treatment == "popup_sequence":
+        return generate_popup_sequence_cutouts(
+            scene_id=scene_id,
+            layers=layers,
+            script_id=script_id,
+            scene_prompt=request_scene_prompt or (scene.visual_prompt if scene is not None else ""),
+            width=width,
+            height=height,
+            contains_person=contains_person,
+        )
     return generate_visual_layer_panels(
         scene_id,
         layers,
@@ -202,6 +220,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             height=body.height,
             request_treatment=body.visual_treatment,
             request_layers=body.visual_layers,
+            request_scene_prompt=body.visual_prompt,
             request_contains_person=body.contains_person,
         )
         update_scene(
@@ -242,6 +261,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
             height=body.height,
             request_treatment=body.visual_treatment,
             request_layers=body.visual_layers,
+            request_scene_prompt=body.visual_prompt,
             request_contains_person=body.contains_person,
         )
         frame_results = generate_scene_frames_v2(
@@ -298,6 +318,7 @@ def generate_visual(body: GenerateVisualRequest, session: Session = Depends(get_
         height=body.height,
         request_treatment=body.visual_treatment,
         request_layers=body.visual_layers,
+        request_scene_prompt=body.visual_prompt,
         request_contains_person=body.contains_person,
     )
 

@@ -661,7 +661,7 @@ def _stage_visual(ctx: TestLabRunContext) -> None:
 
 
 def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
-    from pipeline.image_gen import generate_visual_layer_panels
+    from pipeline.image_gen import generate_popup_sequence_cutouts, generate_visual_layer_panels
     from pipeline.visual_treatments import analyze_visual_treatments, apply_visual_treatment_assignments
 
     _check_cancelled(ctx)
@@ -712,13 +712,23 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
                 scene.visual_treatment = requested_treatment
         if scene.visual_layers:
             layer_dicts = [layer.model_dump() for layer in scene.visual_layers]
-            generated_layers = generate_visual_layer_panels(
-                scene.id,
-                layer_dicts,
-                ctx.script_id,
-                force=True,
-                contains_person=scene.contains_person,
-            )
+            if scene.visual_treatment == "popup_sequence":
+                generated_layers = generate_popup_sequence_cutouts(
+                    scene_id=scene.id,
+                    layers=layer_dicts,
+                    script_id=ctx.script_id,
+                    scene_prompt=scene.visual_prompt,
+                    force=True,
+                    contains_person=scene.contains_person,
+                )
+            else:
+                generated_layers = generate_visual_layer_panels(
+                    scene.id,
+                    layer_dicts,
+                    ctx.script_id,
+                    force=True,
+                    contains_person=scene.contains_person,
+                )
             scene.visual_layers = [VisualLayer.model_validate(layer) for layer in generated_layers]
             for layer in scene.visual_layers:
                 if layer.image_url:
