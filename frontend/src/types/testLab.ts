@@ -121,3 +121,20 @@ export interface PopupCropPreviewResult {
   sheet_url: string;
   crops: PopupCropPreviewCrop[];
 }
+
+export interface PopupCropAnchorResult {
+  run_id: string;
+  anchor_prompt_used: string;
+  anchor_source_url: string;
+}
+
+export interface PopupCropSheetResult {
+  run_id: string;
+  item_prompt_used: string;
+  sheet_url: string;
+}
+
+export interface PopupCropChromaResult {
+  run_id: string;
+  crops: PopupCropPreviewCrop[];
+}

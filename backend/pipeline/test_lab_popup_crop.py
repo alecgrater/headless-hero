@@ -34,6 +34,23 @@ class PopupCropPreviewResult(BaseModel):
     crops: list[PopupCropResultCrop] = Field(default_factory=list)
 
 
+class PopupCropAnchorResult(BaseModel):
+    run_id: str
+    anchor_prompt_used: str
+    anchor_source_url: str
+
+
+class PopupCropSheetResult(BaseModel):
+    run_id: str
+    item_prompt_used: str
+    sheet_url: str
+
+
+class PopupCropChromaResult(BaseModel):
+    run_id: str
+    crops: list[PopupCropResultCrop] = Field(default_factory=list)
+
+
 def generate_popup_crop_preview(
     *,
     anchor_prompt: str,
@@ -45,8 +62,29 @@ def generate_popup_crop_preview(
 
     cleaned_items = [_clean_label(item) for item in items if _clean_label(item)]
     safe_run_id = _safe_run_id(run_id or uuid.uuid4().hex)
-    output_dir = DATA_DIR / "projects" / PROJECT_ID / safe_run_id
-    output_dir.mkdir(parents=True, exist_ok=True)
+    anchor = generate_popup_crop_anchor(anchor_prompt=anchor_prompt, run_id=safe_run_id)
+    sheet = generate_popup_crop_item_sheet(item_prompt=item_prompt, items=cleaned_items, run_id=safe_run_id)
+    crops = [
+        *chroma_popup_crop_anchor(run_id=safe_run_id).crops,
+        *chroma_popup_crop_item_sheet(run_id=safe_run_id, items=cleaned_items).crops,
+    ]
+    return PopupCropPreviewResult(
+        run_id=safe_run_id,
+        anchor_prompt_used=anchor.anchor_prompt_used,
+        item_prompt_used=sheet.item_prompt_used,
+        anchor_source_url=anchor.anchor_source_url,
+        sheet_url=sheet.sheet_url,
+        crops=crops,
+    )
+
+
+def generate_popup_crop_anchor(
+    *,
+    anchor_prompt: str,
+    run_id: str | None = None,
+) -> PopupCropAnchorResult:
+    safe_run_id = _safe_run_id(run_id or uuid.uuid4().hex)
+    output_dir = _output_dir(safe_run_id)
 
     composed_anchor_prompt = _compose_anchor_prompt(anchor_prompt)
     generated_anchor_path = Path(
@@ -55,6 +93,30 @@ def generate_popup_crop_preview(
     anchor_source_path = output_dir / "anchor_source.png"
     if generated_anchor_path.resolve() != anchor_source_path.resolve():
         shutil.copyfile(generated_anchor_path, anchor_source_path)
+
+    return PopupCropAnchorResult(
+        run_id=safe_run_id,
+        anchor_prompt_used=composed_anchor_prompt,
+        anchor_source_url=_web_url(safe_run_id, "anchor_source.png"),
+    )
+
+
+def chroma_popup_crop_anchor(*, run_id: str) -> PopupCropChromaResult:
+    safe_run_id = _safe_run_id(run_id)
+    output_dir = _output_dir(safe_run_id, create=False)
+    crop = _process_anchor_source(output_dir / "anchor_source.png", output_dir)
+    return PopupCropChromaResult(run_id=safe_run_id, crops=[crop])
+
+
+def generate_popup_crop_item_sheet(
+    *,
+    item_prompt: str,
+    items: list[str],
+    run_id: str | None = None,
+) -> PopupCropSheetResult:
+    cleaned_items = [_clean_label(item) for item in items if _clean_label(item)]
+    safe_run_id = _safe_run_id(run_id or uuid.uuid4().hex)
+    output_dir = _output_dir(safe_run_id)
 
     composed_item_prompt = _compose_item_sheet_prompt(item_prompt, cleaned_items)
     generated_sheet_path = Path(
@@ -65,18 +127,28 @@ def generate_popup_crop_preview(
     if generated_sheet_path.resolve() != sheet_path.resolve():
         shutil.copyfile(generated_sheet_path, sheet_path)
 
-    crops = [
-        _process_anchor_source(anchor_source_path, output_dir),
-        *_crop_item_sheet(sheet_path, output_dir, cleaned_items),
-    ]
-    return PopupCropPreviewResult(
+    return PopupCropSheetResult(
         run_id=safe_run_id,
-        anchor_prompt_used=composed_anchor_prompt,
         item_prompt_used=composed_item_prompt,
-        anchor_source_url=_web_url(safe_run_id, "anchor_source.png"),
         sheet_url=_web_url(safe_run_id, "item_sheet.png"),
-        crops=crops,
     )
+
+
+def chroma_popup_crop_item_sheet(*, run_id: str, items: list[str]) -> PopupCropChromaResult:
+    cleaned_items = [_clean_label(item) for item in items if _clean_label(item)]
+    safe_run_id = _safe_run_id(run_id)
+    output_dir = _output_dir(safe_run_id, create=False)
+    return PopupCropChromaResult(
+        run_id=safe_run_id,
+        crops=_crop_item_sheet(output_dir / "item_sheet.png", output_dir, cleaned_items),
+    )
+
+
+def _output_dir(run_id: str, *, create: bool = True) -> Path:
+    output_dir = DATA_DIR / "projects" / PROJECT_ID / run_id
+    if create:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir
 
 
 def _compose_anchor_prompt(prompt: str) -> str:

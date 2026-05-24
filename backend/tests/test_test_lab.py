@@ -336,6 +336,76 @@ def test_popup_crop_endpoint_returns_preview(monkeypatch, tmp_path):
         app.dependency_overrides.pop(get_session, None)
 
 
+def test_popup_crop_split_endpoints_generate_and_chroma_separately(monkeypatch, tmp_path):
+    _engine, app = _setup_app(monkeypatch, tmp_path)
+
+    import api.test_lab as test_lab_api
+
+    class FakeAnchor:
+        def model_dump(self, mode="python"):
+            return {
+                "run_id": "split-run",
+                "anchor_prompt_used": "anchor prompt",
+                "anchor_source_url": "/static/projects/test-lab-popup-crops/split-run/anchor_source.png",
+            }
+
+    class FakeSheet:
+        def model_dump(self, mode="python"):
+            return {
+                "run_id": "split-run",
+                "item_prompt_used": "item prompt",
+                "sheet_url": "/static/projects/test-lab-popup-crops/split-run/item_sheet.png",
+            }
+
+    class FakeChroma:
+        def model_dump(self, mode="python"):
+            return {
+                "run_id": "split-run",
+                "crops": [
+                    {
+                        "role": "anchor",
+                        "label": "Anchor character",
+                        "url": "/static/projects/test-lab-popup-crops/split-run/crop_01_anchor_character.png",
+                        "raw_url": "/static/projects/test-lab-popup-crops/split-run/raw_crop_01_anchor_character.png",
+                        "box": [0, 0, 200, 200],
+                        "trim_box": [20, 20, 120, 160],
+                    }
+                ],
+            }
+
+    monkeypatch.setattr(test_lab_api, "generate_popup_crop_anchor", lambda anchor_prompt, run_id=None: FakeAnchor())
+    monkeypatch.setattr(test_lab_api, "chroma_popup_crop_anchor", lambda run_id: FakeChroma())
+    monkeypatch.setattr(test_lab_api, "generate_popup_crop_item_sheet", lambda item_prompt, items, run_id=None: FakeSheet())
+    monkeypatch.setattr(test_lab_api, "chroma_popup_crop_item_sheet", lambda run_id, items: FakeChroma())
+
+    client = TestClient(app)
+
+    try:
+        anchor = client.post("/api/test-lab/popup-crop/anchor", json={"anchor_prompt": "A character"})
+        anchor_chroma = client.post("/api/test-lab/popup-crop/anchor/chroma", json={"run_id": "split-run"})
+        sheet = client.post(
+            "/api/test-lab/popup-crop/items",
+            json={"run_id": "split-run", "item_prompt": "Icons", "items": ["clock"]},
+        )
+        sheet_chroma = client.post(
+            "/api/test-lab/popup-crop/items/chroma",
+            json={"run_id": "split-run", "items": ["clock"]},
+        )
+
+        assert anchor.status_code == 200
+        assert anchor.json()["anchor_source_url"].endswith("/anchor_source.png")
+        assert anchor_chroma.status_code == 200
+        assert anchor_chroma.json()["crops"][0]["role"] == "anchor"
+        assert sheet.status_code == 200
+        assert sheet.json()["sheet_url"].endswith("/item_sheet.png")
+        assert sheet_chroma.status_code == 200
+        assert sheet_chroma.json()["crops"][0]["url"].endswith("/crop_01_anchor_character.png")
+    finally:
+        from database import get_session
+
+        app.dependency_overrides.pop(get_session, None)
+
+
 def test_start_test_lab_run_returns_run_and_job(monkeypatch, tmp_path):
     engine, app = _setup_app(monkeypatch, tmp_path)
 

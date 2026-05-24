@@ -2,7 +2,15 @@ import { showToast } from "./components/ToastContainer";
 import { BACKEND_PORT } from "./constants";
 import type { ScriptContent, UploadTracking, VisualLayer, VisualTreatment } from "./types/script";
 import type { VideoFormat } from "./types/format";
-import type { PopupCropPreviewResult, TestLabRun, TestLabScenes, TestLabSettings } from "./types/testLab";
+import type {
+  PopupCropAnchorResult,
+  PopupCropChromaResult,
+  PopupCropPreviewResult,
+  PopupCropSheetResult,
+  TestLabRun,
+  TestLabScenes,
+  TestLabSettings,
+} from "./types/testLab";
 
 export interface ApiResponse<T = unknown> {
   ok: boolean;
@@ -161,6 +169,48 @@ export async function generatePopupCropPreview(
   const res = await api.post<PopupCropPreviewResult>("/api/test-lab/popup-crop", {
     anchor_prompt: anchorPrompt,
     item_prompt: itemPrompt,
+    items,
+  });
+  return res.ok ? res.data : null;
+}
+
+export async function generatePopupCropAnchor(
+  anchorPrompt: string,
+  runId?: string | null,
+): Promise<PopupCropAnchorResult | null> {
+  const res = await api.post<PopupCropAnchorResult>("/api/test-lab/popup-crop/anchor", {
+    anchor_prompt: anchorPrompt,
+    run_id: runId || undefined,
+  });
+  return res.ok ? res.data : null;
+}
+
+export async function chromaPopupCropAnchor(runId: string): Promise<PopupCropChromaResult | null> {
+  const res = await api.post<PopupCropChromaResult>("/api/test-lab/popup-crop/anchor/chroma", {
+    run_id: runId,
+  });
+  return res.ok ? res.data : null;
+}
+
+export async function generatePopupCropItemSheet(
+  itemPrompt: string,
+  items: string[],
+  runId?: string | null,
+): Promise<PopupCropSheetResult | null> {
+  const res = await api.post<PopupCropSheetResult>("/api/test-lab/popup-crop/items", {
+    item_prompt: itemPrompt,
+    items,
+    run_id: runId || undefined,
+  });
+  return res.ok ? res.data : null;
+}
+
+export async function chromaPopupCropItemSheet(
+  runId: string,
+  items: string[],
+): Promise<PopupCropChromaResult | null> {
+  const res = await api.post<PopupCropChromaResult>("/api/test-lab/popup-crop/items/chroma", {
+    run_id: runId,
     items,
   });
   return res.ok ? res.data : null;

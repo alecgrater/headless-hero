@@ -1,7 +1,14 @@
-import { ImageIcon, Loader2, Plus, Scissors, Trash2 } from "lucide-react";
+import { ImageIcon, Loader2, Plus, Scissors, Sparkles, Trash2 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
-import { assetUrl, generatePopupCropPreview } from "../../api";
-import type { PopupCropPreviewResult } from "../../types/testLab";
+import {
+  assetUrl,
+  chromaPopupCropAnchor,
+  chromaPopupCropItemSheet,
+  generatePopupCropAnchor,
+  generatePopupCropItemSheet,
+} from "../../api";
+import type { PopupCropPreviewCrop } from "../../types/testLab";
 
 const DEFAULT_ANCHOR_PROMPT = [
   "A stressed recurring office worker character, full body, hands on head, centered and large.",
@@ -18,30 +25,82 @@ const DEFAULT_ITEM_PROMPT = [
 const DEFAULT_ITEMS = ["crossed-out chart", "wall clock", "barred window"];
 const MAX_ITEMS = 5;
 
+type BusyAction = "anchor-generate" | "anchor-chroma" | "items-generate" | "items-chroma" | null;
+
 export default function PopupCropLab() {
+  const [runId, setRunId] = useState<string | null>(null);
   const [anchorPrompt, setAnchorPrompt] = useState(DEFAULT_ANCHOR_PROMPT);
   const [itemPrompt, setItemPrompt] = useState(DEFAULT_ITEM_PROMPT);
   const [items, setItems] = useState(DEFAULT_ITEMS);
-  const [result, setResult] = useState<PopupCropPreviewResult | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [anchorSourceUrl, setAnchorSourceUrl] = useState("");
+  const [itemSheetUrl, setItemSheetUrl] = useState("");
+  const [anchorCrop, setAnchorCrop] = useState<PopupCropPreviewCrop | null>(null);
+  const [itemCrops, setItemCrops] = useState<PopupCropPreviewCrop[]>([]);
+  const [busyAction, setBusyAction] = useState<BusyAction>(null);
   const [error, setError] = useState("");
 
   const cleanedItems = useMemo(() => items.map((item) => item.trim()).filter(Boolean), [items]);
-  const canGenerate = anchorPrompt.trim().length > 0 && itemPrompt.trim().length > 0 && cleanedItems.length > 0 && !busy;
+  const busy = busyAction !== null;
 
-  async function handleGenerate() {
-    if (!canGenerate) return;
-    setBusy(true);
-    setError("");
-    try {
-      const next = await generatePopupCropPreview(anchorPrompt.trim(), itemPrompt.trim(), cleanedItems);
+  async function handleGenerateAnchor() {
+    if (!anchorPrompt.trim() || busy) return;
+    await runAction("anchor-generate", async () => {
+      const next = await generatePopupCropAnchor(anchorPrompt.trim(), runId);
       if (!next) {
-        setError("The crop preview could not be generated.");
+        setError("The character source could not be generated.");
         return;
       }
-      setResult(next);
+      setRunId(next.run_id);
+      setAnchorSourceUrl(next.anchor_source_url);
+      setAnchorCrop(null);
+    });
+  }
+
+  async function handleChromaAnchor() {
+    if (!runId || !anchorSourceUrl || busy) return;
+    await runAction("anchor-chroma", async () => {
+      const next = await chromaPopupCropAnchor(runId);
+      if (!next) {
+        setError("The character chroma pass could not be generated.");
+        return;
+      }
+      setAnchorCrop(next.crops[0] ?? null);
+    });
+  }
+
+  async function handleGenerateItems() {
+    if (!itemPrompt.trim() || cleanedItems.length === 0 || busy) return;
+    await runAction("items-generate", async () => {
+      const next = await generatePopupCropItemSheet(itemPrompt.trim(), cleanedItems, runId);
+      if (!next) {
+        setError("The item sheet could not be generated.");
+        return;
+      }
+      setRunId(next.run_id);
+      setItemSheetUrl(next.sheet_url);
+      setItemCrops([]);
+    });
+  }
+
+  async function handleChromaItems() {
+    if (!runId || !itemSheetUrl || cleanedItems.length === 0 || busy) return;
+    await runAction("items-chroma", async () => {
+      const next = await chromaPopupCropItemSheet(runId, cleanedItems);
+      if (!next) {
+        setError("The item chroma pass could not be generated.");
+        return;
+      }
+      setItemCrops(next.crops);
+    });
+  }
+
+  async function runAction(action: BusyAction, fn: () => Promise<void>) {
+    setBusyAction(action);
+    setError("");
+    try {
+      await fn();
     } finally {
-      setBusy(false);
+      setBusyAction(null);
     }
   }
 
@@ -58,129 +117,137 @@ export default function PopupCropLab() {
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 gap-4 xl:grid-cols-[420px_minmax(480px,1fr)]">
+    <div className="grid h-full min-h-0 grid-cols-1 gap-4 xl:grid-cols-[440px_minmax(520px,1fr)]">
       <section className="min-h-0 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
         <header>
           <p className="text-xs font-semibold uppercase text-neutral-500">Popup Crop Lab</p>
-          <h2 className="mt-2 text-sm font-semibold text-neutral-100">Anchor and item prompts</h2>
+          <h2 className="mt-2 text-sm font-semibold text-neutral-100">Character and item sheet</h2>
           <p className="mt-1 text-xs leading-5 text-neutral-500">
-            Generate the scene character separately, then generate ordered popup items on one sheet and inspect the keyed crops.
+            Generate each source first, then run chroma when you want to inspect the cleaned transparent cutouts.
           </p>
         </header>
 
-        <label className="mt-4 block">
-          <span className="text-xs font-medium text-neutral-300">Anchor character prompt</span>
-          <textarea
-            value={anchorPrompt}
-            onChange={(event) => setAnchorPrompt(event.target.value)}
-            rows={5}
-            className="mt-2 w-full resize-y rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm leading-6 text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 hover:border-neutral-700 focus:border-violet-500"
-            placeholder="Describe the recurring character pose for this scene."
-          />
-        </label>
-
-        <label className="mt-4 block">
-          <span className="text-xs font-medium text-neutral-300">Popup item sheet prompt</span>
-          <textarea
-            value={itemPrompt}
-            onChange={(event) => setItemPrompt(event.target.value)}
-            rows={5}
-            className="mt-2 w-full resize-y rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm leading-6 text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 hover:border-neutral-700 focus:border-violet-500"
-            placeholder="Describe the visual style for the popup item cutouts."
-          />
-        </label>
-
-        <div className="mt-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-medium text-neutral-300">Items to crop</p>
-              <p className="mt-1 text-xs text-neutral-500">Items are cropped left to right in this exact order.</p>
-            </div>
-            <button
-              onClick={addItem}
-              disabled={items.length >= MAX_ITEMS}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-neutral-800 bg-neutral-950/70 text-neutral-300 transition-colors hover:border-neutral-700 hover:text-neutral-100 disabled:cursor-not-allowed disabled:text-neutral-600"
-              title="Add item"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
+        <LabSection title="Character" description="Generate and chroma-key the anchored scene character separately from the popup items.">
+          <label className="block">
+            <span className="text-xs font-medium text-neutral-300">Character prompt</span>
+            <textarea
+              value={anchorPrompt}
+              onChange={(event) => setAnchorPrompt(event.target.value)}
+              rows={5}
+              className="mt-2 w-full resize-y rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm leading-6 text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 hover:border-neutral-700 focus:border-violet-500"
+              placeholder="Describe the recurring character pose for this scene."
+            />
+          </label>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <ActionButton
+              label="Generate Character"
+              icon={<Sparkles className="h-4 w-4" />}
+              busy={busyAction === "anchor-generate"}
+              disabled={!anchorPrompt.trim() || busy}
+              onClick={handleGenerateAnchor}
+            />
+            <ActionButton
+              label="Chroma Character"
+              icon={<Scissors className="h-4 w-4" />}
+              busy={busyAction === "anchor-chroma"}
+              disabled={!runId || !anchorSourceUrl || busy}
+              onClick={handleChromaAnchor}
+            />
           </div>
-          <div className="mt-3 space-y-2">
-            {items.map((item, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <input
-                  value={item}
-                  onChange={(event) => updateItem(index, event.target.value)}
-                  className="min-w-0 flex-1 rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 hover:border-neutral-700 focus:border-violet-500"
-                  placeholder={`Item ${index + 1}`}
-                />
-                <button
-                  onClick={() => removeItem(index)}
-                  disabled={items.length <= 1}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-neutral-800 bg-neutral-950/70 text-neutral-400 transition-colors hover:border-red-500/70 hover:text-red-300 disabled:cursor-not-allowed disabled:text-neutral-700"
-                  title="Remove item"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+        </LabSection>
+
+        <LabSection title="Popup item sheet" description="Generate the items in UI order, then chroma-key the sheet into individual cutouts.">
+          <label className="block">
+            <span className="text-xs font-medium text-neutral-300">Item sheet prompt</span>
+            <textarea
+              value={itemPrompt}
+              onChange={(event) => setItemPrompt(event.target.value)}
+              rows={5}
+              className="mt-2 w-full resize-y rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm leading-6 text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 hover:border-neutral-700 focus:border-violet-500"
+              placeholder="Describe the visual style for the popup item cutouts."
+            />
+          </label>
+
+          <div className="mt-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium text-neutral-300">Items to crop</p>
+                <p className="mt-1 text-xs text-neutral-500">Items are cropped left to right in this exact order.</p>
               </div>
-            ))}
+              <button
+                onClick={addItem}
+                disabled={items.length >= MAX_ITEMS}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-neutral-800 bg-neutral-950/70 text-neutral-300 transition-colors hover:border-neutral-700 hover:text-neutral-100 disabled:cursor-not-allowed disabled:text-neutral-600"
+                title="Add item"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mt-3 space-y-2">
+              {items.map((item, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <input
+                    value={item}
+                    onChange={(event) => updateItem(index, event.target.value)}
+                    className="min-w-0 flex-1 rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 hover:border-neutral-700 focus:border-violet-500"
+                    placeholder={`Item ${index + 1}`}
+                  />
+                  <button
+                    onClick={() => removeItem(index)}
+                    disabled={items.length <= 1}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-neutral-800 bg-neutral-950/70 text-neutral-400 transition-colors hover:border-red-500/70 hover:text-red-300 disabled:cursor-not-allowed disabled:text-neutral-700"
+                    title="Remove item"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <ActionButton
+              label="Generate Sheet"
+              icon={<ImageIcon className="h-4 w-4" />}
+              busy={busyAction === "items-generate"}
+              disabled={!itemPrompt.trim() || cleanedItems.length === 0 || busy}
+              onClick={handleGenerateItems}
+            />
+            <ActionButton
+              label="Chroma Items"
+              icon={<Scissors className="h-4 w-4" />}
+              busy={busyAction === "items-chroma"}
+              disabled={!runId || !itemSheetUrl || cleanedItems.length === 0 || busy}
+              onClick={handleChromaItems}
+            />
+          </div>
+        </LabSection>
 
         {error && (
           <div className="mt-4 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs leading-5 text-red-200">
             {error}
           </div>
         )}
-
-        <button
-          onClick={handleGenerate}
-          disabled={!canGenerate}
-          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-violet-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500"
-        >
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scissors className="h-4 w-4" />}
-          Generate Anchor, Sheet & Crops
-        </button>
       </section>
 
       <section className="min-h-0 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
-        {result ? (
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <ImageIcon className="h-4 w-4 text-sky-300" />
-                <h2 className="text-sm font-semibold text-neutral-100">Generated sources</h2>
-              </div>
-              <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                <SourcePreview title="Anchor source" src={result.anchor_source_url} />
-                <SourcePreview title="Item sheet" src={result.sheet_url} />
-              </div>
-            </div>
+        {anchorSourceUrl || itemSheetUrl || anchorCrop || itemCrops.length > 0 ? (
+          <div className="space-y-5">
+            <OutputSection title="Character output">
+              {anchorSourceUrl ? <SourcePreview title="Character source" src={anchorSourceUrl} /> : <EmptyPreview label="No character source yet" />}
+              {anchorCrop ? <CropCard crop={anchorCrop} /> : <EmptyPreview label="No character chroma yet" />}
+            </OutputSection>
 
-            <div>
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold text-neutral-100">Cropped output</h3>
-                <span className="text-xs text-neutral-500">{result.crops.length} crops</span>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                {result.crops.map((crop) => (
-                  <div key={`${crop.role}-${crop.label}`} className="rounded-md border border-neutral-800 bg-neutral-950/70 p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate text-xs font-medium text-neutral-200">{crop.label}</p>
-                      <span className="shrink-0 rounded border border-neutral-800 px-1.5 py-0.5 text-[10px] uppercase text-neutral-500">
-                        {crop.role}
-                      </span>
-                    </div>
-                    <div className="mt-2 grid gap-2">
-                      <CropPreview title="Raw slot" src={crop.raw_url} alt={`${crop.label} raw crop`} />
-                      <CropPreview title="Keyed trim" src={crop.url} alt={crop.label} checkerboard />
-                    </div>
-                    <p className="mt-2 font-mono text-[10px] text-neutral-600">[{crop.box.join(", ")}]</p>
-                    <p className="mt-1 font-mono text-[10px] text-neutral-600">trim [{crop.trim_box.join(", ")}]</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <OutputSection title="Item sheet output">
+              {itemSheetUrl ? <SourcePreview title="Item sheet" src={itemSheetUrl} /> : <EmptyPreview label="No item sheet yet" />}
+              {itemCrops.length > 0 ? (
+                <div className="grid gap-3 lg:grid-cols-2">
+                  {itemCrops.map((crop) => <CropCard key={`${crop.role}-${crop.label}`} crop={crop} />)}
+                </div>
+              ) : (
+                <EmptyPreview label="No item chroma yet" />
+              )}
+            </OutputSection>
           </div>
         ) : (
           <div className="flex min-h-[420px] items-center justify-center rounded-md border border-dashed border-neutral-800 bg-neutral-950/40">
@@ -188,7 +255,7 @@ export default function PopupCropLab() {
               <Scissors className="mx-auto h-8 w-8 text-neutral-600" />
               <p className="mt-3 text-sm font-medium text-neutral-300">No crop preview yet</p>
               <p className="mt-1 text-xs leading-5 text-neutral-500">
-                Generate an anchor and item sheet to inspect the raw slots and keyed cutouts.
+                Generate a character or item sheet, then run chroma to inspect the transparent cutouts.
               </p>
             </div>
           </div>
@@ -198,11 +265,92 @@ export default function PopupCropLab() {
   );
 }
 
+function LabSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="mt-4 rounded-md border border-neutral-800 bg-neutral-950/40 p-3">
+      <div className="mb-3">
+        <h3 className="text-sm font-semibold text-neutral-100">{title}</h3>
+        <p className="mt-1 text-xs leading-5 text-neutral-500">{description}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function ActionButton({
+  label,
+  icon,
+  busy,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  icon: ReactNode;
+  busy: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-violet-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500"
+    >
+      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : icon}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function OutputSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section>
+      <h2 className="text-sm font-semibold text-neutral-100">{title}</h2>
+      <div className="mt-3 grid gap-3 xl:grid-cols-2">{children}</div>
+    </section>
+  );
+}
+
 function SourcePreview({ title, src }: { title: string; src: string }) {
   return (
     <div className="overflow-hidden rounded-md border border-neutral-800 bg-neutral-950">
       <div className="border-b border-neutral-800 px-3 py-2 text-xs font-medium text-neutral-300">{title}</div>
       <img src={assetUrl(src)} alt={title} className="w-full object-contain" />
+    </div>
+  );
+}
+
+function CropCard({ crop }: { crop: PopupCropPreviewCrop }) {
+  return (
+    <div className="rounded-md border border-neutral-800 bg-neutral-950/70 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="truncate text-xs font-medium text-neutral-200">{crop.label}</p>
+        <span className="shrink-0 rounded border border-neutral-800 px-1.5 py-0.5 text-[10px] uppercase text-neutral-500">
+          {crop.role}
+        </span>
+      </div>
+      <div className="mt-2 grid gap-2">
+        <CropPreview title="Raw slot" src={crop.raw_url} alt={`${crop.label} raw crop`} />
+        <CropPreview title="Keyed trim" src={crop.url} alt={crop.label} checkerboard />
+      </div>
+      <p className="mt-2 font-mono text-[10px] text-neutral-600">[{crop.box.join(", ")}]</p>
+      <p className="mt-1 font-mono text-[10px] text-neutral-600">trim [{crop.trim_box.join(", ")}]</p>
+    </div>
+  );
+}
+
+function EmptyPreview({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-32 items-center justify-center rounded-md border border-dashed border-neutral-800 bg-neutral-950/40 text-xs text-neutral-600">
+      {label}
     </div>
   );
 }

@@ -19,7 +19,13 @@ from pipeline.test_lab import (
     run_test_lab,
     validate_run_id,
 )
-from pipeline.test_lab_popup_crop import generate_popup_crop_preview
+from pipeline.test_lab_popup_crop import (
+    chroma_popup_crop_anchor,
+    chroma_popup_crop_item_sheet,
+    generate_popup_crop_preview,
+    generate_popup_crop_anchor,
+    generate_popup_crop_item_sheet,
+)
 
 router = APIRouter(prefix="/api/test-lab", tags=["test-lab"])
 
@@ -32,6 +38,26 @@ class StartTestLabRunRequest(BaseModel):
 class PopupCropPreviewRequest(BaseModel):
     anchor_prompt: str = Field(min_length=1)
     item_prompt: str = Field(min_length=1)
+    items: list[str] = Field(default_factory=list, max_length=5)
+
+
+class PopupCropAnchorRequest(BaseModel):
+    anchor_prompt: str = Field(min_length=1)
+    run_id: str | None = None
+
+
+class PopupCropAnchorChromaRequest(BaseModel):
+    run_id: str = Field(min_length=1)
+
+
+class PopupCropItemSheetRequest(BaseModel):
+    item_prompt: str = Field(min_length=1)
+    items: list[str] = Field(default_factory=list, max_length=5)
+    run_id: str | None = None
+
+
+class PopupCropItemSheetChromaRequest(BaseModel):
+    run_id: str = Field(min_length=1)
     items: list[str] = Field(default_factory=list, max_length=5)
 
 
@@ -107,6 +133,46 @@ def create_popup_crop_preview(request: PopupCropPreviewRequest):
         items=cleaned_items,
     )
     return result.model_dump(mode="json")
+
+
+@router.post("/popup-crop/anchor")
+def create_popup_crop_anchor(request: PopupCropAnchorRequest):
+    result = generate_popup_crop_anchor(anchor_prompt=request.anchor_prompt, run_id=request.run_id)
+    return result.model_dump(mode="json")
+
+
+@router.post("/popup-crop/anchor/chroma")
+def create_popup_crop_anchor_chroma(request: PopupCropAnchorChromaRequest):
+    try:
+        result = chroma_popup_crop_anchor(run_id=request.run_id)
+        return result.model_dump(mode="json")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Generate the character source before running chroma.") from None
+
+
+@router.post("/popup-crop/items")
+def create_popup_crop_item_sheet(request: PopupCropItemSheetRequest):
+    cleaned_items = [item.strip() for item in request.items if item.strip()]
+    if not cleaned_items:
+        raise HTTPException(status_code=422, detail="Add at least one item to crop.")
+    result = generate_popup_crop_item_sheet(
+        item_prompt=request.item_prompt,
+        items=cleaned_items,
+        run_id=request.run_id,
+    )
+    return result.model_dump(mode="json")
+
+
+@router.post("/popup-crop/items/chroma")
+def create_popup_crop_item_sheet_chroma(request: PopupCropItemSheetChromaRequest):
+    cleaned_items = [item.strip() for item in request.items if item.strip()]
+    if not cleaned_items:
+        raise HTTPException(status_code=422, detail="Add at least one item to crop.")
+    try:
+        result = chroma_popup_crop_item_sheet(run_id=request.run_id, items=cleaned_items)
+        return result.model_dump(mode="json")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Generate the item sheet before running chroma.") from None
 
 
 @router.get("/runs")
