@@ -146,3 +146,65 @@ def test_scene_derives_continuous_from_legacy_continuous_beat():
     assert scene.visual_mode == "continuous"
     assert scene.media_source == "ai"
     assert scene.visual_treatment == "full_frame"
+
+
+def test_scene_assignment_syncs_quick_cuts_visual_beat_to_multi_frame():
+    scene = Scene(
+        id="scene_001",
+        narration="First this, then that.",
+        visual_prompt="Multiple examples.",
+        frame_urls=["/static/projects/script/images/scene_001_0.png"],
+    )
+
+    scene.visual_beat = "quick_cuts"
+
+    assert scene.visual_mode == "multi_frame"
+    assert scene.media_source == "ai"
+    assert scene.visual_treatment == "full_frame"
+    assert scene.frame_urls == ["/static/projects/script/images/scene_001_0.png"]
+
+
+def test_scene_assignment_syncs_continuous_visual_beat():
+    scene = Scene(
+        id="scene_001",
+        narration="The machine assembles itself.",
+        visual_prompt="A machine being assembled.",
+    )
+
+    scene.visual_beat = "continuous"
+
+    assert scene.visual_mode == "continuous"
+    assert scene.media_source == "ai"
+    assert scene.visual_treatment == "full_frame"
+
+
+def test_scene_assignment_syncs_ai_video_media_source_and_clears_frames():
+    scene = Scene(
+        id="scene_001",
+        narration="Hello.",
+        visual_prompt="A simple scene",
+        frame_urls=["/static/projects/script/images/scene_001_0.png"],
+    )
+
+    scene.media_source = "ai_video"
+
+    assert scene.visual_mode == "video"
+    assert scene.media_source == "ai_video"
+    assert scene.visual_treatment == "full_frame"
+    assert scene.frame_urls == []
+
+
+def test_scene_assignment_syncs_popup_visual_treatment_and_clears_frames():
+    scene = Scene(
+        id="scene_001",
+        narration="Hello.",
+        visual_prompt="A simple scene",
+        frame_urls=["/static/projects/script/images/scene_001_0.png"],
+    )
+
+    scene.visual_treatment = "popup_sequence"
+
+    assert scene.visual_mode == "popup_sequence"
+    assert scene.media_source == "ai"
+    assert scene.visual_treatment == "popup_sequence"
+    assert scene.frame_urls == []

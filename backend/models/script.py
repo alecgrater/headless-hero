@@ -183,6 +183,11 @@ class Scene(BaseModel):
     original_visual_prompt: str = ""    # deprecated
     visual_source_metadata: dict | None = None  # provider/source details for generated or fallback visuals
 
+    def __setattr__(self, name: str, value: object) -> None:
+        super().__setattr__(name, value)
+        if name in {"visual_mode", "media_source", "visual_treatment", "visual_beat"}:
+            self._sync_visual_mode_fields_from_assignment(name)
+
     @model_validator(mode="before")
     @classmethod
     def normalize_visual_mode_fields(cls, data: object) -> object:
@@ -227,10 +232,26 @@ class Scene(BaseModel):
 
     def set_visual_mode(self, visual_mode: str) -> None:
         mode = _resolve_visual_mode(visual_mode, None, None)
-        media_source, visual_treatment = _legacy_fields_for_visual_mode(mode)
-        self.visual_mode = mode
-        self.media_source = media_source
-        self.visual_treatment = visual_treatment
+        self._sync_visual_mode_fields(mode)
+
+    def _sync_visual_mode_fields_from_assignment(self, assigned_field: str) -> None:
+        if assigned_field == "visual_mode":
+            mode = _resolve_visual_mode(self.visual_mode, None, None)
+        elif assigned_field == "media_source":
+            mode = _resolve_visual_mode(None, self.media_source, self.visual_treatment, self.visual_beat)
+        elif assigned_field == "visual_treatment":
+            mode = _resolve_visual_mode(None, self.media_source, self.visual_treatment, self.visual_beat)
+        else:
+            mode = _resolve_visual_mode(None, None, None, self.visual_beat)
+        self._sync_visual_mode_fields(mode)
+
+    def _sync_visual_mode_fields(self, visual_mode: VisualMode) -> None:
+        media_source, visual_treatment = _legacy_fields_for_visual_mode(visual_mode)
+        super().__setattr__("visual_mode", visual_mode)
+        super().__setattr__("media_source", media_source)
+        super().__setattr__("visual_treatment", visual_treatment)
+        if visual_mode in {"video", "popup_sequence", "flipflop"}:
+            super().__setattr__("frame_urls", [])
 
 
 def _resolve_visual_mode(
