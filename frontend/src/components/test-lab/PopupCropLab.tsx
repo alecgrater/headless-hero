@@ -34,12 +34,17 @@ export default function PopupCropLab() {
   const [items, setItems] = useState(DEFAULT_ITEMS);
   const [anchorSourceUrl, setAnchorSourceUrl] = useState("");
   const [itemSheetUrl, setItemSheetUrl] = useState("");
+  const [generatedItemLabels, setGeneratedItemLabels] = useState<string[]>([]);
   const [anchorCrop, setAnchorCrop] = useState<PopupCropPreviewCrop | null>(null);
   const [itemCrops, setItemCrops] = useState<PopupCropPreviewCrop[]>([]);
   const [busyAction, setBusyAction] = useState<BusyAction>(null);
   const [error, setError] = useState("");
 
   const cleanedItems = useMemo(() => items.map((item) => item.trim()).filter(Boolean), [items]);
+  const itemSheetMatchesItems =
+    itemSheetUrl &&
+    generatedItemLabels.length === cleanedItems.length &&
+    generatedItemLabels.every((label, index) => label === cleanedItems[index]);
   const busy = busyAction !== null;
 
   async function handleGenerateAnchor() {
@@ -78,14 +83,15 @@ export default function PopupCropLab() {
       }
       setRunId(next.run_id);
       setItemSheetUrl(next.sheet_url);
+      setGeneratedItemLabels(cleanedItems);
       setItemCrops([]);
     });
   }
 
   async function handleChromaItems() {
-    if (!runId || !itemSheetUrl || cleanedItems.length === 0 || busy) return;
+    if (!runId || !itemSheetUrl || generatedItemLabels.length === 0 || !itemSheetMatchesItems || busy) return;
     await runAction("items-chroma", async () => {
-      const next = await chromaPopupCropItemSheet(runId, cleanedItems);
+      const next = await chromaPopupCropItemSheet(runId, generatedItemLabels);
       if (!next) {
         setError("The item chroma pass could not be generated.");
         return;
@@ -217,10 +223,15 @@ export default function PopupCropLab() {
               label="Chroma Items"
               icon={<Scissors className="h-4 w-4" />}
               busy={busyAction === "items-chroma"}
-              disabled={!runId || !itemSheetUrl || cleanedItems.length === 0 || busy}
+              disabled={!runId || !itemSheetUrl || !itemSheetMatchesItems || busy}
               onClick={handleChromaItems}
             />
           </div>
+          {itemSheetUrl && !itemSheetMatchesItems && (
+            <p className="mt-2 text-xs leading-5 text-amber-300">
+              Regenerate the item sheet after changing the item list so crops stay mapped left to right.
+            </p>
+          )}
         </LabSection>
 
         {error && (
