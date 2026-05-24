@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type React from "react";
 
 import { popupOrbitFrameStyle } from "@remotion-src/scenes/TreatmentRenderer";
 import type { VisualLayer } from "@remotion-src/types";
@@ -48,6 +49,20 @@ describe("popupOrbitFrameStyle", () => {
       frame: 0,
       fps: 30,
     });
+    const secondLater = popupOrbitFrameStyle(layers[2], {
+      layerIndex: 2,
+      itemIndex: 1,
+      itemCount: 3,
+      frame: 30,
+      fps: 30,
+    });
+    const thirdLater = popupOrbitFrameStyle(layers[3], {
+      layerIndex: 3,
+      itemIndex: 2,
+      itemCount: 3,
+      frame: 30,
+      fps: 30,
+    });
 
     expect(anchor.left).toBe("50%");
     expect(anchor.top).toBe("50%");
@@ -58,5 +73,22 @@ describe("popupOrbitFrameStyle", () => {
     expect(firstLater.left).toBeLessThan(firstAtStart.left as number);
     expect(secondAtStart.left).toBeLessThan(960);
     expect(secondAtStart.top).toBeGreaterThan(540);
+
+    const center = { x: 960, y: 540 };
+    const radius = { x: 430, y: 260 };
+    const angleFor = (style: React.CSSProperties) => Math.atan2(
+      ((style.top as number) - center.y) / radius.y,
+      ((style.left as number) - center.x) / radius.x,
+    );
+    const positiveDelta = (from: number, to: number) => (
+      (to - from + Math.PI * 2) % (Math.PI * 2)
+    );
+    const firstAngle = angleFor(firstLater);
+    const secondAngle = angleFor(secondLater);
+    const thirdAngle = angleFor(thirdLater);
+    const expectedSpacing = (Math.PI * 2) / 3;
+
+    expect(positiveDelta(firstAngle, secondAngle)).toBeCloseTo(expectedSpacing, 5);
+    expect(positiveDelta(secondAngle, thirdAngle)).toBeCloseTo(expectedSpacing, 5);
   });
 });

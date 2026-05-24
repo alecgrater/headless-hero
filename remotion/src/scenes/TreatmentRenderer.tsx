@@ -188,7 +188,7 @@ const PopupSequence: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
                 layerIndex,
                 itemIndex,
                 itemCount: popupItemLayers.length,
-                frame: Math.max(0, frame - enterFrame),
+                frame,
                 fps,
               }),
               opacity,
