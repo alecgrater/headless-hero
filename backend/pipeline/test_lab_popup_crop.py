@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH
 from integrations.image_client import generate_image
 from pipeline.asset_vault import save_vault_image
+from pipeline.character_assets import process_character_asset_bundle
 
 PROJECT_ID = "test-lab-popup-crops"
 
@@ -24,6 +25,7 @@ class PopupCropResultCrop(BaseModel):
     raw_url: str
     box: list[int]
     trim_box: list[int]
+    warnings: list[str] = Field(default_factory=list)
 
 
 class PopupCropPreviewResult(BaseModel):
@@ -39,6 +41,8 @@ class PopupCropAnchorResult(BaseModel):
     run_id: str
     anchor_prompt_used: str
     anchor_source_url: str
+    anchor_cutout_url: str | None = None
+    warnings: list[str] = Field(default_factory=list)
 
 
 class PopupCropSheetResult(BaseModel):
@@ -94,11 +98,14 @@ def generate_popup_crop_anchor(
     anchor_source_path = output_dir / "anchor_source.png"
     if generated_anchor_path.resolve() != anchor_source_path.resolve():
         shutil.copyfile(generated_anchor_path, anchor_source_path)
+    crop = _process_anchor_source(anchor_source_path, output_dir, save_to_vault=False)
 
     return PopupCropAnchorResult(
         run_id=safe_run_id,
         anchor_prompt_used=composed_anchor_prompt,
         anchor_source_url=_web_url(safe_run_id, "anchor_source.png"),
+        anchor_cutout_url=crop.url,
+        warnings=crop.warnings,
     )
 
 
@@ -203,23 +210,34 @@ def _compose_item_sheet_prompt(prompt: str, items: list[str]) -> str:
     ).strip()
 
 
-def _process_anchor_source(anchor_path: Path, output_dir: Path) -> PopupCropResultCrop:
-    with Image.open(anchor_path) as image:
-        source = image.convert("RGBA")
-        raw_filename = "raw_crop_01_anchor_character.png"
-        source.save(output_dir / raw_filename)
-        filename = "crop_01_anchor_character.png"
-        output_path = output_dir / filename
-        trim_box = _save_keyed_trimmed_cutout(source, output_path)
-        save_vault_image(kind="character", label="Anchor character", source_path=output_path)
-        return PopupCropResultCrop(
-            role="anchor",
-            label="Anchor character",
-            url=_web_url(output_dir.name, filename),
-            raw_url=_web_url(output_dir.name, raw_filename),
-            box=[0, 0, source.width, source.height],
-            trim_box=trim_box,
-        )
+def _process_anchor_source(
+    anchor_path: Path,
+    output_dir: Path,
+    *,
+    save_to_vault: bool = True,
+) -> PopupCropResultCrop:
+    result = process_character_asset_bundle(
+        anchor_path,
+        output_dir,
+        reference_filename="anchor_source.png",
+        cutout_filename="anchor_cutout.png",
+        metadata_filename="anchor_metadata.json",
+    )
+    if save_to_vault:
+        save_vault_image(kind="character", label="Anchor character", source_path=result.cutout_path)
+
+    with Image.open(result.reference_path) as image:
+        width, height = image.size
+
+    return PopupCropResultCrop(
+        role="anchor",
+        label="Anchor character",
+        url=_web_url(output_dir.name, "anchor_cutout.png"),
+        raw_url=_web_url(output_dir.name, "anchor_source.png"),
+        box=[0, 0, width, height],
+        trim_box=result.trim_box,
+        warnings=result.warnings,
+    )
 
 
 def _crop_item_sheet(sheet_path: Path, output_dir: Path, labels: list[str]) -> list[PopupCropResultCrop]:

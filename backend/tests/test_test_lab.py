@@ -292,10 +292,11 @@ def test_popup_crop_preview_generates_sheet_and_crops_fixed_grid(monkeypatch, tm
     assert "No drop shadows, glows, or effects" in generated_prompts[1]
     assert "Headless Hero" not in generated_prompts[1]
     assert (tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "anchor_source.png").exists()
+    assert (tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "anchor_cutout.png").exists()
+    assert (tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "anchor_metadata.json").exists()
     assert (tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "item_sheet.png").exists()
-    assert (tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "crop_01_anchor_character.png").exists()
 
-    with Image.open(tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "crop_01_anchor_character.png") as crop:
+    with Image.open(tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "anchor_cutout.png") as crop:
         assert crop.mode == "RGBA"
         assert crop.size[0] < 120
         assert crop.size[1] < 160
@@ -365,10 +366,11 @@ def test_popup_crop_endpoint_returns_preview(monkeypatch, tmp_path):
                     {
                         "role": "anchor",
                         "label": "Anchor character",
-                        "url": "/static/projects/test-lab-popup-crops/fake-run/crop_01_anchor_character.png",
-                        "raw_url": "/static/projects/test-lab-popup-crops/fake-run/raw_crop_01_anchor_character.png",
+                        "url": "/static/projects/test-lab-popup-crops/fake-run/anchor_cutout.png",
+                        "raw_url": "/static/projects/test-lab-popup-crops/fake-run/anchor_source.png",
                         "box": [0, 0, 200, 200],
                         "trim_box": [20, 20, 120, 160],
+                        "warnings": [],
                     }
                 ],
             }
@@ -408,6 +410,8 @@ def test_popup_crop_split_endpoints_generate_and_chroma_separately(monkeypatch, 
                 "run_id": "split-run",
                 "anchor_prompt_used": "anchor prompt",
                 "anchor_source_url": "/static/projects/test-lab-popup-crops/split-run/anchor_source.png",
+                "anchor_cutout_url": "/static/projects/test-lab-popup-crops/split-run/anchor_cutout.png",
+                "warnings": [],
             }
 
     class FakeSheet:
@@ -418,7 +422,7 @@ def test_popup_crop_split_endpoints_generate_and_chroma_separately(monkeypatch, 
                 "sheet_url": "/static/projects/test-lab-popup-crops/split-run/item_sheet.png",
             }
 
-    class FakeChroma:
+    class FakeAnchorChroma:
         def model_dump(self, mode="python"):
             return {
                 "run_id": "split-run",
@@ -426,18 +430,36 @@ def test_popup_crop_split_endpoints_generate_and_chroma_separately(monkeypatch, 
                     {
                         "role": "anchor",
                         "label": "Anchor character",
-                        "url": "/static/projects/test-lab-popup-crops/split-run/crop_01_anchor_character.png",
-                        "raw_url": "/static/projects/test-lab-popup-crops/split-run/raw_crop_01_anchor_character.png",
+                        "url": "/static/projects/test-lab-popup-crops/split-run/anchor_cutout.png",
+                        "raw_url": "/static/projects/test-lab-popup-crops/split-run/anchor_source.png",
                         "box": [0, 0, 200, 200],
                         "trim_box": [20, 20, 120, 160],
+                        "warnings": [],
+                    }
+                ],
+            }
+
+    class FakeItemChroma:
+        def model_dump(self, mode="python"):
+            return {
+                "run_id": "split-run",
+                "crops": [
+                    {
+                        "role": "item",
+                        "label": "clock",
+                        "url": "/static/projects/test-lab-popup-crops/split-run/crop_02_clock.png",
+                        "raw_url": "/static/projects/test-lab-popup-crops/split-run/raw_crop_02_clock.png",
+                        "box": [0, 0, 200, 200],
+                        "trim_box": [20, 20, 120, 160],
+                        "warnings": [],
                     }
                 ],
             }
 
     monkeypatch.setattr(test_lab_api, "generate_popup_crop_anchor", lambda anchor_prompt, run_id=None: FakeAnchor())
-    monkeypatch.setattr(test_lab_api, "chroma_popup_crop_anchor", lambda run_id: FakeChroma())
+    monkeypatch.setattr(test_lab_api, "chroma_popup_crop_anchor", lambda run_id: FakeAnchorChroma())
     monkeypatch.setattr(test_lab_api, "generate_popup_crop_item_sheet", lambda item_prompt, items, run_id=None: FakeSheet())
-    monkeypatch.setattr(test_lab_api, "chroma_popup_crop_item_sheet", lambda run_id, items: FakeChroma())
+    monkeypatch.setattr(test_lab_api, "chroma_popup_crop_item_sheet", lambda run_id, items: FakeItemChroma())
 
     client = TestClient(app)
 
@@ -457,10 +479,11 @@ def test_popup_crop_split_endpoints_generate_and_chroma_separately(monkeypatch, 
         assert anchor.json()["anchor_source_url"].endswith("/anchor_source.png")
         assert anchor_chroma.status_code == 200
         assert anchor_chroma.json()["crops"][0]["role"] == "anchor"
+        assert anchor_chroma.json()["crops"][0]["url"].endswith("/anchor_cutout.png")
         assert sheet.status_code == 200
         assert sheet.json()["sheet_url"].endswith("/item_sheet.png")
         assert sheet_chroma.status_code == 200
-        assert sheet_chroma.json()["crops"][0]["url"].endswith("/crop_01_anchor_character.png")
+        assert sheet_chroma.json()["crops"][0]["url"].endswith("/crop_02_clock.png")
     finally:
         from database import get_session
 
