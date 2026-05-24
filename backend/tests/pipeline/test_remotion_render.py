@@ -235,6 +235,7 @@ def test_single_frame_multi_frame_scene_props_include_frame_path(tmp_path, monke
     assert props["frame_paths"]
     assert len(props["frame_paths"]) == 1
     assert props["frame_paths"][0].endswith("/static/projects/script-1/images/scene-1_0.png")
+    assert props["image_path"].endswith("/static/projects/script-1/images/scene-1_0.png")
 
 
 def test_single_frame_continuous_scene_props_include_frame_path(tmp_path, monkeypatch):
@@ -259,6 +260,7 @@ def test_single_frame_continuous_scene_props_include_frame_path(tmp_path, monkey
     assert props["frame_paths"]
     assert len(props["frame_paths"]) == 1
     assert props["frame_paths"][0].endswith("/static/projects/script-1/images/scene-1_0.png")
+    assert props["image_path"].endswith("/static/projects/script-1/images/scene-1_0.png")
 
 
 def test_chapter_marker_total_frames_use_full_ai_video_audio_duration(tmp_path, monkeypatch):

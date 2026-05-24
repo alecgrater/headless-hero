@@ -299,6 +299,8 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
     image_path = _scene_image_path(script_id, scene.id, scene.image_url or None)
     audio_path = _scene_audio_path(script_id, scene.id)
     frame_paths = _scene_frame_paths(script_id, scene)
+    if image_path is None:
+        image_path = next((path for path in frame_paths if path), None)
 
     # Detect AI-generated video scenes
     video_path: str | None = None
