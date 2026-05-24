@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
+from PIL import Image, ImageDraw
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
@@ -97,6 +98,13 @@ def _seed_script(engine, script_id: str, *, is_test_lab: bool, title: str | None
             )
         )
         session.commit()
+
+
+def _write_chroma_character(path):
+    image = Image.new("RGB", (180, 140), (0, 255, 0))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((70, 34, 110, 112), fill=(255, 0, 0))
+    image.save(path)
 
 
 def test_list_scripts_excludes_test_lab_scripts(monkeypatch, tmp_path):
@@ -897,8 +905,10 @@ def test_stage_character_reference_uses_active_preset_character(monkeypatch, tmp
         preset_image.parent.mkdir(parents=True, exist_ok=True)
         preset_image.write_bytes(b"preset")
         character_ref = tmp_path / "style" / "presets" / preset_id / "characters" / f"{character_id}.png"
+        character_cutout = tmp_path / "style" / "presets" / preset_id / "characters" / f"{character_id}.cutout.png"
         character_ref.parent.mkdir(parents=True, exist_ok=True)
-        character_ref.write_bytes(b"preset-main-character")
+        _write_chroma_character(character_ref)
+        character_cutout.write_bytes(b"preset-main-character-cutout")
         session.add(
             StylePreset(
                 id=preset_id,
@@ -915,6 +925,7 @@ def test_stage_character_reference_uses_active_preset_character(monkeypatch, tmp
                 appearance="A cartographer in a green jacket.",
                 vibe="Inventive and calm.",
                 reference_image_url=f"/static/style/presets/{preset_id}/characters/{character_id}.png",
+                cutout_image_url=f"/static/style/presets/{preset_id}/characters/{character_id}.cutout.png",
                 created_at=datetime.now(timezone.utc),
             )
         )
@@ -952,7 +963,9 @@ def test_stage_character_reference_uses_active_preset_character(monkeypatch, tmp
     test_lab._stage_character_reference(ctx)
 
     project_ref = tmp_path / "projects" / script_id / "character" / "reference.png"
-    assert project_ref.read_bytes() == b"preset-main-character"
+    project_cutout = tmp_path / "projects" / script_id / "character" / "cutout.png"
+    assert project_ref.read_bytes() == character_ref.read_bytes()
+    assert project_cutout.read_bytes() == b"preset-main-character-cutout"
     assert ctx.manifest.assets[-1].url == f"/static/projects/{script_id}/character/reference.png"
 
 
