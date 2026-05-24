@@ -97,10 +97,14 @@ def _scene_frame_paths(script_id: str, scene: Scene) -> list[str]:
     directives = scene.frame_directives or []
 
     if scene.frame_urls and len(scene.frame_urls) > 1:
-        for i in range(len(scene.frame_urls)):
+        for i, frame_url in enumerate(scene.frame_urls):
             # Check if this frame is a subtitle (no image needed)
             if i < len(directives) and directives[i].source == "subtitle":
                 paths.append("")
+                continue
+            resolved = _project_static_asset_path(script_id, frame_url)
+            if resolved is not None:
+                paths.append(resolved)
                 continue
             fp = DATA_DIR / "projects" / script_id / "images" / f"{scene.id}_f{i}.png"
             if fp.exists():

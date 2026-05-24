@@ -163,6 +163,56 @@ def test_scene_to_input_props_resolves_popup_crop_layer_urls(tmp_path, monkeypat
     )
 
 
+def test_multi_frame_scene_props_include_mode_and_frame_paths(tmp_path, monkeypatch):
+    monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
+    image_dir = tmp_path / "projects" / "script-1" / "images"
+    image_dir.mkdir(parents=True)
+    (image_dir / "scene-1_0.png").write_bytes(b"fake image 1")
+    (image_dir / "scene-1_1.png").write_bytes(b"fake image 2")
+    scene = Scene(
+        id="scene-1",
+        narration="First this, then that.",
+        visual_prompt="Several examples.",
+        visual_mode="multi_frame",
+        frame_urls=[
+            "/static/projects/script-1/images/scene-1_0.png",
+            "/static/projects/script-1/images/scene-1_1.png",
+        ],
+        audio_duration_seconds=4.0,
+    )
+
+    props = remotion_render._scene_to_input_props(scene, "script-1")
+
+    assert props["visual_mode"] == "multi_frame"
+    assert props["frame_paths"]
+    assert len(props["frame_paths"]) == 2
+
+
+def test_continuous_scene_props_include_mode_and_frame_paths(tmp_path, monkeypatch):
+    monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
+    image_dir = tmp_path / "projects" / "script-1" / "images"
+    image_dir.mkdir(parents=True)
+    (image_dir / "scene-1_0.png").write_bytes(b"fake image 1")
+    (image_dir / "scene-1_1.png").write_bytes(b"fake image 2")
+    scene = Scene(
+        id="scene-1",
+        narration="The crack spreads.",
+        visual_prompt="A spreading crack.",
+        visual_mode="continuous",
+        frame_urls=[
+            "/static/projects/script-1/images/scene-1_0.png",
+            "/static/projects/script-1/images/scene-1_1.png",
+        ],
+        audio_duration_seconds=4.0,
+    )
+
+    props = remotion_render._scene_to_input_props(scene, "script-1")
+
+    assert props["visual_mode"] == "continuous"
+    assert props["frame_paths"]
+    assert len(props["frame_paths"]) == 2
+
+
 def test_chapter_marker_total_frames_use_full_ai_video_audio_duration(tmp_path, monkeypatch):
     monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
     monkeypatch.setattr(remotion_render, "_probe_video_duration", lambda _path: None)
