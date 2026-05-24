@@ -1,7 +1,7 @@
 import { X } from "lucide-react";
 
 import { getProjectConfig, type ProjectConfig } from "../../api";
-import { MainCharacterSection } from "../settings/MainCharacterSection";
+import { StylePresetsSection } from "../settings/StylePresetsSection";
 
 type Props = {
   scriptId: string;
@@ -33,7 +33,7 @@ export default function MainCharacterDrawer({
           <div>
             <h2 className="text-xl font-semibold text-neutral-100">Main Character</h2>
             <p className="mt-1 text-sm text-neutral-400">
-              This project uses the global main character. Continue with the active reference or change it here.
+              Select the active style preset, then choose or generate a character scoped to that preset.
             </p>
           </div>
           <button
@@ -46,7 +46,7 @@ export default function MainCharacterDrawer({
           </button>
         </div>
 
-        <MainCharacterSection compact onContinue={handleContinue} />
+        <StylePresetsSection compact showDefaults={false} onContinue={handleContinue} />
       </div>
     </div>
   );

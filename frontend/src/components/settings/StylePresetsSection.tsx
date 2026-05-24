@@ -23,7 +23,13 @@ function settingEnabled(val: string): boolean {
   return !DISABLED_SETTING_VALUES.has(val.trim().toLowerCase());
 }
 
-export function StylePresetsSection() {
+type Props = {
+  compact?: boolean;
+  showDefaults?: boolean;
+  onContinue?: () => void;
+};
+
+export function StylePresetsSection({ compact = false, showDefaults = true, onContinue }: Props) {
   const [presets, setPresets] = useState<StylePreset[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [viewedId, setViewedId] = useState<string | null>(null);
@@ -60,16 +66,21 @@ export function StylePresetsSection() {
       setStylePresetEnabledDefault(styleVal);
       setOriginalStylePresetEnabledDefault(styleVal);
     }
-    setLoading(false);
   };
 
-  const loadCharacters = async (presetId: string | null) => {
+  const loadCharacters = async (
+    presetId: string | null,
+    apply: (list: StylePresetCharacter[]) => void,
+  ) => {
     if (!presetId) {
-      setCharacters([]);
-      setViewedCharacterId(null);
+      apply([]);
       return;
     }
     const list = await listStylePresetCharacters(presetId);
+    apply(list);
+  };
+
+  const applyCharacterList = (list: StylePresetCharacter[]) => {
     setCharacters(list);
     setViewedCharacterId((current) => {
       if (current && list.some((character) => character.id === current)) return current;
@@ -79,7 +90,17 @@ export function StylePresetsSection() {
   };
 
   useEffect(() => {
-    loadAll();
+    let cancelled = false;
+    loadAll()
+      .catch((err) => {
+        console.error("Failed to load style preset settings", err);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleSetActive = async (id: string | null) => {
@@ -123,7 +144,18 @@ export function StylePresetsSection() {
   }, [activeId, presets, viewedId]);
 
   useEffect(() => {
-    loadCharacters(viewedPreset?.id ?? null);
+    let cancelled = false;
+    loadCharacters(viewedPreset?.id ?? null, (list) => {
+      if (!cancelled) applyCharacterList(list);
+    }).catch((err) => {
+      if (!cancelled) {
+        console.error("Failed to load preset characters", err);
+        applyCharacterList([]);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [viewedPreset?.id]);
 
   const viewedCharacterIndex = useMemo(() => {
@@ -134,6 +166,11 @@ export function StylePresetsSection() {
 
   const viewedCharacter = viewedCharacterIndex >= 0 ? characters[viewedCharacterIndex] : null;
   const hasCharacterDetails = Boolean(characterName.trim() && characterAppearance.trim());
+  const activeCharacterReady = Boolean(
+    activeId &&
+      viewedPreset?.id === activeId &&
+      characters.some((character) => character.active),
+  );
 
   const showPreviousPreset = () => {
     if (presets.length === 0) return;
@@ -212,13 +249,15 @@ export function StylePresetsSection() {
   }
 
   return (
-    <section className="space-y-6 pb-24">
-      <header>
-        <h2 className="text-lg font-semibold text-neutral-100">Brand & Style</h2>
-        <p className="text-sm text-neutral-400">
-          Set the visual style, recurring character, and defaults for new projects.
-        </p>
-      </header>
+    <section className={`${compact ? "space-y-5 pb-8" : "space-y-6 pb-24"}`}>
+      {!compact && (
+        <header>
+          <h2 className="text-lg font-semibold text-neutral-100">Brand & Style</h2>
+          <p className="text-sm text-neutral-400">
+            Set the visual style, recurring character, and defaults for new projects.
+          </p>
+        </header>
+      )}
 
       <div className="space-y-5">
         <div className="space-y-4">
@@ -355,44 +394,46 @@ export function StylePresetsSection() {
         </div>
 
         <div className="flex flex-col gap-5">
-          <div className="order-2 space-y-4 rounded-xl border border-neutral-800 bg-neutral-900 p-4">
-            <div>
-              <h3 className="text-sm font-semibold text-neutral-100">New Project Defaults</h3>
-              <p className="text-xs text-neutral-500">
-                Choose how new projects start. Existing projects are unchanged.
-              </p>
-            </div>
-            <div className="flex items-start justify-between gap-5">
+          {showDefaults && (
+            <div className="order-2 space-y-4 rounded-xl border border-neutral-800 bg-neutral-900 p-4">
               <div>
-                <h4 className="text-sm font-medium text-neutral-100">Enable Eli host overlay</h4>
+                <h3 className="text-sm font-semibold text-neutral-100">New Project Defaults</h3>
                 <p className="text-xs text-neutral-500">
-                  New projects start with the Eli overlay instead of a scene-integrated main character.
+                  Choose how new projects start. Existing projects are unchanged.
                 </p>
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={eliEnabledDefault === "true"}
-                aria-label="Enable Eli host overlay by default for new projects"
-                onClick={() => setEliEnabledDefault(eliEnabledDefault === "true" ? "false" : "true")}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
-                  eliEnabledDefault === "true" ? "bg-violet-600 shadow-sm shadow-violet-500/30" : "bg-neutral-700"
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                    eliEnabledDefault === "true" ? "translate-x-5" : "translate-x-0"
+              <div className="flex items-start justify-between gap-5">
+                <div>
+                  <h4 className="text-sm font-medium text-neutral-100">Enable Eli host overlay</h4>
+                  <p className="text-xs text-neutral-500">
+                    New projects start with the Eli overlay instead of a scene-integrated main character.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={eliEnabledDefault === "true"}
+                  aria-label="Enable Eli host overlay by default for new projects"
+                  onClick={() => setEliEnabledDefault(eliEnabledDefault === "true" ? "false" : "true")}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
+                    eliEnabledDefault === "true" ? "bg-violet-600 shadow-sm shadow-violet-500/30" : "bg-neutral-700"
                   }`}
-                />
-              </button>
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                      eliEnabledDefault === "true" ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+              <StylePresetToggle
+                eliEnabled={eliEnabledDefault === "true"}
+                enabled={stylePresetEnabledDefault === "true"}
+                onChange={(next) => setStylePresetEnabledDefault(next ? "true" : "false")}
+                activePresetName={activePreset?.name ?? null}
+              />
             </div>
-            <StylePresetToggle
-              eliEnabled={eliEnabledDefault === "true"}
-              enabled={stylePresetEnabledDefault === "true"}
-              onChange={(next) => setStylePresetEnabledDefault(next ? "true" : "false")}
-              activePresetName={activePreset?.name ?? null}
-            />
-          </div>
+          )}
 
           <div className="order-1 space-y-4 rounded-xl border border-neutral-800 bg-neutral-900 p-4">
             <div>
@@ -532,6 +573,24 @@ export function StylePresetsSection() {
             ) : (
               <div className="rounded-lg border border-neutral-800 bg-neutral-950/50 p-4 text-sm text-neutral-500">
                 Create or select a style preset before generating a character.
+              </div>
+            )}
+
+            {onContinue && (
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-950/50 px-4 py-3">
+                <p className="text-sm text-neutral-400">
+                  {activeCharacterReady
+                    ? "This project will use the active character for the active style preset."
+                    : "Set a style preset active, then generate or select its active character."}
+                </p>
+                <button
+                  type="button"
+                  onClick={onContinue}
+                  disabled={!activeCharacterReady}
+                  className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-neutral-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
+                >
+                  Continue
+                </button>
               </div>
             )}
           </div>
