@@ -679,6 +679,14 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
             if scene.audio_duration_seconds > 0 and scene.word_timestamps:
                 assignments = analyze_visual_treatments(content, script_id=ctx.script_id)
                 assignment = _assignment_for_scene(assignments, scene.id)
+                if assignment and isinstance(requested_treatment, str) and assignment.visual_treatment != requested_treatment:
+                    logger.info(
+                        "[TEST_LAB] ignoring %s animation assets for explicitly selected %s scene=%s",
+                        assignment.visual_treatment,
+                        requested_treatment,
+                        scene.id,
+                    )
+                    assignment = None
             scene.visual_layers = (
                 list(assignment.visual_layers)
                 if assignment and assignment.visual_layers

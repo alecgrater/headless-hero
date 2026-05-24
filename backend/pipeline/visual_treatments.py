@@ -180,7 +180,6 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
     state_b_enter_at = _state_b_enter_at(scene, [*contrast_words, *two_state_words])
     if (
         contrast_words
-        or _has_repeated_content_word(scene)
         or two_state_words
         or any(phrase in scene.narration.lower() for phrase in TWO_STATE_PHRASES)
     ):
@@ -200,6 +199,14 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             visual_treatment="popup_sequence",
             reasoning=f"Detected {layer_count} list items in narration.",
             visual_layers=layers,
+        )
+
+    if _has_repeated_content_word(scene):
+        return VisualTreatmentAssignment(
+            scene_id=scene.id,
+            visual_treatment="flipflop",
+            reasoning="Detected repeated narration content.",
+            visual_layers=_flipflop_layers(scene, state_b_enter_at),
         )
 
     return _full_frame_assignment(scene.id, "No list or contrast pattern detected.")
@@ -300,6 +307,7 @@ def _natural_list_items(scene: Scene) -> list[tuple[str, float]]:
         return []
 
     normalized_text = re.sub(r"\s+", " ", text)
+    normalized_text = _list_candidate_text(normalized_text)
     pieces = [
         piece.strip(" .,:;-")
         for piece in re.split(r"\s*;\s*|\s*,\s*|\s+\b(?:and|or)\b\s+", normalized_text, flags=re.IGNORECASE)
@@ -309,6 +317,23 @@ def _natural_list_items(scene: Scene) -> list[tuple[str, float]]:
         return []
 
     return [(item, _phrase_start_seconds(scene, item, index, len(items))) for index, item in enumerate(items[:4])]
+
+
+def _list_candidate_text(text: str) -> str:
+    match = re.search(r"\bbetween\s+(.+)", text, flags=re.IGNORECASE)
+    if match:
+        text = match.group(1)
+    elif ":" in text:
+        text = text.split(":", 1)[1]
+
+    trailing_clause = re.search(
+        r",?\s+\b(?:and|or)\b\s+(?:you|it|this|that|they|he|she|we)\b",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if trailing_clause:
+        text = text[:trailing_clause.start()]
+    return text
 
 
 def _is_list_item_phrase(value: str) -> bool:

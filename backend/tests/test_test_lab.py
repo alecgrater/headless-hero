@@ -1561,7 +1561,7 @@ def test_stage_treatment_assets_analyzes_empty_selected_layer_treatment(monkeypa
         return [
             VisualTreatmentAssignment(
                 scene_id=scene.id,
-                visual_treatment="flipflop",
+                visual_treatment="popup_sequence",
                 visual_layers=[
                     VisualLayer(
                         id="generated-layer",
@@ -1609,6 +1609,113 @@ def test_stage_treatment_assets_analyzes_empty_selected_layer_treatment(monkeypa
     assert scene.visual_layers
     assert scene.visual_layers[0].image_url == "/static/projects/test/layers/generated-layer.png"
     assert [asset.kind for asset in manifest.assets] == ["treatment_asset"]
+
+
+def test_stage_treatment_assets_ignores_mismatched_assignment_for_selected_treatment(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.image_gen as image_gen
+    import pipeline.test_lab as test_lab
+    import pipeline.visual_treatments as visual_treatments
+    from models.script import ScriptContent, VisualLayer
+    from pipeline.visual_treatments import VisualTreatmentAssignment
+
+    with Session(engine) as session:
+        script_id = test_lab.create_hidden_test_script(
+            session,
+            run_id="run-selected-popup-mismatch",
+            preset_id="coffee-brain",
+            settings={
+                "narration": "You know the problem: missing keys, spoiled lunch, and an angry prisoner, and you know it cannot end well.",
+                "tts_narration": "You know the problem: missing keys, spoiled lunch, and an angry prisoner, and you know it cannot end well.",
+                "visual_treatment": "popup_sequence",
+                "visual_layers": [],
+            },
+        )
+        record, content = test_lab._load_content_for_script(session, script_id)
+        scene = content.segments[0].scenes[0]
+        scene.audio_duration_seconds = 6.0
+        scene.word_timestamps = [
+            {"word": "You", "start_ms": 0, "end_ms": 200},
+            {"word": "know", "start_ms": 250, "end_ms": 450},
+            {"word": "missing", "start_ms": 1000, "end_ms": 1200},
+            {"word": "keys", "start_ms": 1250, "end_ms": 1450},
+            {"word": "spoiled", "start_ms": 1800, "end_ms": 2000},
+            {"word": "lunch", "start_ms": 2050, "end_ms": 2250},
+            {"word": "angry", "start_ms": 3000, "end_ms": 3200},
+            {"word": "prisoner", "start_ms": 3250, "end_ms": 3450},
+            {"word": "know", "start_ms": 4000, "end_ms": 4200},
+        ]
+        record.script_json = content.model_dump_json()
+        session.add(record)
+        session.commit()
+
+    def fake_analyze(content, *, script_id):
+        scene = content.segments[0].scenes[0]
+        return [
+            VisualTreatmentAssignment(
+                scene_id=scene.id,
+                visual_treatment="flipflop",
+                visual_layers=[
+                    VisualLayer(
+                        id=f"{scene.id}_state_a",
+                        prompt="State A prompt.",
+                        placement="center",
+                    ),
+                    VisualLayer(
+                        id=f"{scene.id}_state_b",
+                        prompt="State B prompt.",
+                        placement="center",
+                        enter_at_seconds=3.0,
+                    ),
+                ],
+            )
+        ]
+
+    def fake_generate_visual_layer_panels(scene_id, layers, script_id_arg, **_kwargs):
+        assert scene_id == "coffee-brain-scene-1"
+        assert script_id_arg == script_id
+        assert [layer["id"] for layer in layers] == [
+            "coffee-brain-scene-1_popup_1",
+            "coffee-brain-scene-1_popup_2",
+        ]
+        return [
+            {**layers[0], "image_url": "/static/projects/test/layers/popup-1.png"},
+            {**layers[1], "image_url": "/static/projects/test/layers/popup-2.png"},
+        ]
+
+    monkeypatch.setattr(visual_treatments, "analyze_visual_treatments", fake_analyze)
+    monkeypatch.setattr(image_gen, "generate_visual_layer_panels", fake_generate_visual_layer_panels)
+
+    manifest = test_lab.TestLabRunManifest(
+        run_id="run-selected-popup-mismatch",
+        script_id=script_id,
+        preset_id="coffee-brain",
+        status="running",
+    )
+    ctx = test_lab.TestLabRunContext(
+        engine=engine,
+        run_id="run-selected-popup-mismatch",
+        script_id=script_id,
+        preset_id="coffee-brain",
+        settings={"visual_treatment": "popup_sequence", "visual_layers": []},
+        manifest=manifest,
+        job_id=None,
+    )
+
+    test_lab._stage_treatment_assets(ctx)
+
+    with Session(engine) as session:
+        record, content = test_lab._load_content_for_script(session, script_id)
+        _ = record
+        saved = ScriptContent.model_validate(content)
+
+    scene = saved.segments[0].scenes[0]
+    assert scene.visual_treatment == "popup_sequence"
+    assert [layer.id for layer in scene.visual_layers] == [
+        "coffee-brain-scene-1_popup_1",
+        "coffee-brain-scene-1_popup_2",
+    ]
 
 
 def test_stage_treatment_assets_uses_fallback_for_explicit_layer_treatment_without_audio(monkeypatch, tmp_path):

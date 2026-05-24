@@ -697,6 +697,22 @@ def test_analyze_visual_treatments_assigns_popup_sequence_for_list_narration(
     assert all("small framed Headless Hero cartoon panel" in layer.prompt for layer in assignment.visual_layers)
 
 
+def test_analyze_visual_treatments_prefers_natural_list_over_repeated_words():
+    scene = scene_with_words(
+        "s1",
+        "You know the problem: missing keys, spoiled lunch, and an angry prisoner, and you know it cannot end well.",
+    )
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-repeated-list")
+
+    assignment = assignments[0]
+    assert assignment.visual_treatment == "popup_sequence"
+    assert len(assignment.visual_layers) == 3
+    assert [layer.placement for layer in assignment.visual_layers] == ["left", "center", "right"]
+    assert [layer.enter_at_seconds for layer in assignment.visual_layers] == [1.4, 2.1, 3.5]
+
+
 def test_analyze_visual_treatments_assigns_flipflop_for_two_state_narration():
     scene = scene_with_words("s1", "At first the room is calm, but then everything becomes chaos.")
     content = content_with_scenes(scene)
