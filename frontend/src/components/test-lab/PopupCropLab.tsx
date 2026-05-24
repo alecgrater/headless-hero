@@ -1,4 +1,4 @@
-import { ImageIcon, Loader2, Plus, Scissors, Sparkles, Trash2 } from "lucide-react";
+import { Check, Clipboard, Copy, ImageIcon, Loader2, Plus, Scissors, Sparkles, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import {
@@ -32,6 +32,36 @@ const DEFAULT_ITEM_PROMPT = [
 const DEFAULT_ITEMS = ["overflowing_inbox", "broken_coffee_mug", "ringing_phone"];
 const MAX_ITEMS = 5;
 
+const ITEM_IDEA_PROMPT = [
+  "Generate exactly 3 popup item cutouts for an educational YouTube video scene.",
+  "",
+  "Pick 3 visually distinct, universally recognizable everyday objects of your choice.",
+  "",
+  "For each item provide:",
+  "- A human-readable name (e.g. \"Overflowing inbox\")",
+  "- A snake_case ID (e.g. `overflowing_inbox`)",
+  "- A 1-2 sentence image generation description: simple, concrete, ",
+  "  visual. End each with \"Flat 2D cartoon, bold outlines.\"",
+  "",
+  "Format each item exactly like this:",
+  "",
+  "Item 1 — Human readable name (`snake_case_id`):",
+  "A description of the item.",
+  "Flat 2D cartoon, bold outlines.",
+  "",
+  "Item 2 — Human readable name (`snake_case_id`):",
+  "A description of the item.",
+  "Flat 2D cartoon, bold outlines.",
+  "",
+  "Item 3 — Human readable name (`snake_case_id`):",
+  "A description of the item.",
+  "Flat 2D cartoon, bold outlines.",
+  "",
+  "Do not repeat any item label. Each item appears exactly once.",
+  "Use backticks around the snake_case_id.",
+  "Output only the 3 items. No preamble, no explanation, no extra text.",
+].join("\n");
+
 type BusyAction = "anchor-generate" | "anchor-chroma" | "items-generate" | "items-chroma" | null;
 
 export default function PopupCropLab() {
@@ -46,6 +76,8 @@ export default function PopupCropLab() {
   const [itemCrops, setItemCrops] = useState<PopupCropPreviewCrop[]>([]);
   const [busyAction, setBusyAction] = useState<BusyAction>(null);
   const [error, setError] = useState("");
+  const [itemPromptHelpOpen, setItemPromptHelpOpen] = useState(false);
+  const [itemPromptCopied, setItemPromptCopied] = useState(false);
   const [, setAssetRefreshTick] = useState(0);
 
   const cleanedItems = useMemo(() => items.map((item) => item.trim()).filter(Boolean), [items]);
@@ -151,6 +183,16 @@ export default function PopupCropLab() {
     setItems((current) => current.filter((_, i) => i !== index));
   }
 
+  async function handleCopyItemIdeaPrompt() {
+    try {
+      await navigator.clipboard.writeText(ITEM_IDEA_PROMPT);
+      setItemPromptCopied(true);
+      window.setTimeout(() => setItemPromptCopied(false), 1600);
+    } catch {
+      setError("The prompt could not be copied to the clipboard.");
+    }
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto">
       <section className="shrink-0 rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
@@ -211,6 +253,14 @@ export default function PopupCropLab() {
 
       <LabPanel
         title="Item"
+        titleAction={
+          <ItemPromptHelper
+            open={itemPromptHelpOpen}
+            copied={itemPromptCopied}
+            onToggle={() => setItemPromptHelpOpen((current) => !current)}
+            onCopy={handleCopyItemIdeaPrompt}
+          />
+        }
         description="Generate the items in UI order, then chroma-key the sheet into individual cutouts."
         controls={
           <>
@@ -302,11 +352,13 @@ export default function PopupCropLab() {
 
 function LabPanel({
   title,
+  titleAction,
   description,
   controls,
   preview,
 }: {
   title: string;
+  titleAction?: ReactNode;
   description: string;
   controls: ReactNode;
   preview: ReactNode;
@@ -315,13 +367,65 @@ function LabPanel({
     <section className="grid min-h-[420px] shrink-0 grid-cols-1 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900/60 xl:grid-cols-[440px_minmax(520px,1fr)]">
       <div className="border-b border-neutral-800 p-4 xl:border-b-0 xl:border-r">
         <div className="mb-4">
-          <h3 className="text-sm font-semibold text-neutral-100">{title}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-neutral-100">{title}</h3>
+            {titleAction}
+          </div>
           <p className="mt-1 text-xs leading-5 text-neutral-500">{description}</p>
         </div>
         {controls}
       </div>
       <div className="min-h-0 p-4">{preview}</div>
     </section>
+  );
+}
+
+function ItemPromptHelper({
+  open,
+  copied,
+  onToggle,
+  onCopy,
+}: {
+  open: boolean;
+  copied: boolean;
+  onToggle: () => void;
+  onCopy: () => void;
+}) {
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`inline-flex h-7 w-7 items-center justify-center rounded-md border border-neutral-800 bg-neutral-950/80 text-neutral-400 transition-colors hover:border-violet-500/70 hover:text-violet-200 ${
+          open ? "border-violet-500/70 bg-violet-500/15 text-violet-200" : ""
+        }`}
+        title="Show item prompt helper"
+      >
+        <Clipboard className={`h-3.5 w-3.5 transition-transform duration-300 ${open ? "-rotate-6 scale-110" : ""}`} />
+      </button>
+      <div
+        className={`absolute left-0 top-9 z-20 w-[min(22rem,calc(100vw-3rem))] rounded-lg border border-violet-500/30 bg-neutral-950/95 p-3 shadow-2xl shadow-violet-950/30 backdrop-blur transition-all duration-300 ${
+          open
+            ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
+            : "pointer-events-none -translate-y-2 scale-95 opacity-0"
+        }`}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <h4 className="text-xs font-semibold text-neutral-100">Prompt:</h4>
+          <button
+            type="button"
+            onClick={onCopy}
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-neutral-800 bg-neutral-900 px-2 text-xs font-medium text-neutral-200 transition-colors hover:border-violet-500/70 hover:text-violet-100"
+          >
+            {copied ? <Check className="h-3.5 w-3.5 text-emerald-300" /> : <Copy className="h-3.5 w-3.5" />}
+            <span>{copied ? "Copied" : "Copy"}</span>
+          </button>
+        </div>
+        <pre className="mt-3 max-h-80 overflow-y-auto whitespace-pre-wrap rounded-md border border-neutral-800 bg-neutral-900/80 p-3 text-[11px] leading-5 text-neutral-300">
+          {ITEM_IDEA_PROMPT}
+        </pre>
+      </div>
+    </div>
   );
 }
 
