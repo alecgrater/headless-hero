@@ -34,9 +34,17 @@ def character_reference_path(script_id: str) -> Path:
     return DATA_DIR / "projects" / script_id / "character" / "reference.png"
 
 
+def character_cutout_path(script_id: str) -> Path:
+    return DATA_DIR / "projects" / script_id / "character" / "cutout.png"
+
+
 def character_reference_web_path(script_id: str) -> str:
     """The /static path the frontend uses to load the reference."""
     return f"/static/projects/{script_id}/character/reference.png"
+
+
+def character_cutout_web_path(script_id: str) -> str:
+    return f"/static/projects/{script_id}/character/cutout.png"
 
 
 def character_reference_variants_dir(script_id: str) -> Path:
@@ -54,8 +62,16 @@ def global_character_reference_path() -> Path:
     return DATA_DIR / "character" / "main" / "reference.png"
 
 
+def global_character_cutout_path() -> Path:
+    return DATA_DIR / "character" / "main" / "cutout.png"
+
+
 def global_character_reference_web_path() -> str:
     return "/static/character/main/reference.png"
+
+
+def global_character_cutout_web_path() -> str:
+    return "/static/character/main/cutout.png"
 
 
 def global_character_reference_variants_dir() -> Path:
@@ -94,12 +110,28 @@ def _reference_variant_web_path(script_id: str, idx: int) -> str:
     return f"/static/projects/{script_id}/character/references/{idx}.png"
 
 
+def _reference_variant_cutout_path(script_id: str, idx: int) -> Path:
+    return character_reference_variants_dir(script_id) / f"{idx}.cutout.png"
+
+
+def _reference_variant_cutout_web_path(script_id: str, idx: int) -> str:
+    return f"/static/projects/{script_id}/character/references/{idx}.cutout.png"
+
+
 def _global_reference_variant_path(idx: int) -> Path:
     return global_character_reference_variants_dir() / f"{idx}.png"
 
 
 def _global_reference_variant_web_path(idx: int) -> str:
     return f"/static/character/main/references/{idx}.png"
+
+
+def _global_reference_variant_cutout_path(idx: int) -> Path:
+    return global_character_reference_variants_dir() / f"{idx}.cutout.png"
+
+
+def _global_reference_variant_cutout_web_path(idx: int) -> str:
+    return f"/static/character/main/references/{idx}.cutout.png"
 
 
 def _next_reference_variant_path(script_id: str) -> tuple[int, Path]:
@@ -161,6 +193,11 @@ def list_character_reference_variants(script_id: str) -> list[dict[str, object]]
             {
                 "idx": idx,
                 "image_url": _reference_variant_web_path(script_id, idx),
+                "cutout_image_url": (
+                    _reference_variant_cutout_web_path(script_id, idx)
+                    if _reference_variant_cutout_path(script_id, idx).exists()
+                    else ""
+                ),
                 "active": idx == active_idx,
             }
         )
@@ -182,6 +219,11 @@ def list_global_character_reference_variants() -> list[dict[str, object]]:
             {
                 "idx": idx,
                 "image_url": _global_reference_variant_web_path(idx),
+                "cutout_image_url": (
+                    _global_reference_variant_cutout_web_path(idx)
+                    if _global_reference_variant_cutout_path(idx).exists()
+                    else ""
+                ),
                 "active": idx == active_idx,
             }
         )
@@ -197,6 +239,19 @@ def select_character_reference_variant(*, script_id: str, idx: int) -> str:
     target = character_reference_path(script_id)
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(variant_path, target)
+    variant_cutout = _reference_variant_cutout_path(script_id, idx)
+    target_cutout = character_cutout_path(script_id)
+    if variant_cutout.exists():
+        shutil.copy2(variant_cutout, target_cutout)
+    else:
+        process_character_asset_bundle(
+            source_path=target,
+            output_dir=target.parent,
+            reference_filename=target.name,
+            cutout_filename=target_cutout.name,
+            metadata_filename="metadata.json",
+            prompt_fingerprint="",
+        )
     character_reference_active_marker(script_id).write_text(str(idx), encoding="utf-8")
     return character_reference_web_path(script_id)
 
@@ -210,6 +265,19 @@ def select_global_character_reference_variant(*, idx: int) -> str:
     target = global_character_reference_path()
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(variant_path, target)
+    variant_cutout = _global_reference_variant_cutout_path(idx)
+    target_cutout = global_character_cutout_path()
+    if variant_cutout.exists():
+        shutil.copy2(variant_cutout, target_cutout)
+    else:
+        process_character_asset_bundle(
+            source_path=target,
+            output_dir=target.parent,
+            reference_filename=target.name,
+            cutout_filename=target_cutout.name,
+            metadata_filename="metadata.json",
+            prompt_fingerprint="",
+        )
     global_character_reference_active_marker().write_text(str(idx), encoding="utf-8")
     return global_character_reference_web_path()
 
@@ -462,8 +530,27 @@ def generate_global_character_reference(*, character: MainCharacter, force: bool
     prompt = build_reference_prompt(character)
     logger.info("Generating global main character reference")
     temp_path = _call_image_generator(prompt, "global-main-character")
+    source_path = Path(temp_path)
     idx, variant_path = _next_global_reference_variant_path()
-    shutil.move(temp_path, variant_path)
+    variant_cutout_path = _global_reference_variant_cutout_path(idx)
+    metadata_path = variant_path.parent / f"{idx}.metadata.json"
+    try:
+        process_character_asset_bundle(
+            source_path=source_path,
+            output_dir=variant_path.parent,
+            reference_filename=variant_path.name,
+            cutout_filename=variant_cutout_path.name,
+            metadata_filename=metadata_path.name,
+            prompt_fingerprint=hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+        )
+    except Exception:
+        variant_path.unlink(missing_ok=True)
+        variant_cutout_path.unlink(missing_ok=True)
+        metadata_path.unlink(missing_ok=True)
+        raise
+    finally:
+        if source_path.resolve() != variant_path.resolve():
+            source_path.unlink(missing_ok=True)
     return select_global_character_reference_variant(idx=idx)
 
 
@@ -516,6 +603,24 @@ def sync_global_main_character_to_project(session, script_id: str) -> bool:
     shutil.copy2(source_ref, target)
     if reference_missing or cfg.main_character_reference_url != character_reference_web_path(script_id):
         changed = True
+    target_cutout = character_cutout_path(script_id)
+    cutout_missing = not target_cutout.exists()
+    source_cutout = style_preset_character_cutout_path(preset_id, active_character_id)
+    if source_cutout.exists():
+        shutil.copy2(source_cutout, target_cutout)
+        if cutout_missing:
+            changed = True
+    else:
+        process_character_asset_bundle(
+            source_path=target,
+            output_dir=target.parent,
+            reference_filename=target.name,
+            cutout_filename=target_cutout.name,
+            metadata_filename="metadata.json",
+            prompt_fingerprint="",
+        )
+        if cutout_missing:
+            changed = True
     cfg.main_character_reference_url = character_reference_web_path(script_id)
     session.add(cfg)
     return changed
@@ -617,8 +722,27 @@ def generate_character_reference(
     prompt = build_reference_prompt(character)
     logger.info("Generating main character reference for script_id=%s", script_id)
     temp_path = _call_image_generator(prompt, script_id)
+    source_path = Path(temp_path)
     idx, variant_path = _next_reference_variant_path(script_id)
-    shutil.move(temp_path, variant_path)
+    variant_cutout_path = _reference_variant_cutout_path(script_id, idx)
+    metadata_path = variant_path.parent / f"{idx}.metadata.json"
+    try:
+        process_character_asset_bundle(
+            source_path=source_path,
+            output_dir=variant_path.parent,
+            reference_filename=variant_path.name,
+            cutout_filename=variant_cutout_path.name,
+            metadata_filename=metadata_path.name,
+            prompt_fingerprint=hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+        )
+    except Exception:
+        variant_path.unlink(missing_ok=True)
+        variant_cutout_path.unlink(missing_ok=True)
+        metadata_path.unlink(missing_ok=True)
+        raise
+    finally:
+        if source_path.resolve() != variant_path.resolve():
+            source_path.unlink(missing_ok=True)
     select_character_reference_variant(script_id=script_id, idx=idx)
     return character_reference_web_path(script_id)
 

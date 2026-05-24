@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image, ImageDraw
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, Session, create_engine
 
@@ -58,6 +59,14 @@ def _insert_preset(engine, tmp_path, preset_id: str, name: str):
             )
         )
         session.commit()
+
+
+def _write_chroma_character(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    image = Image.new("RGB", (160, 120), (0, 255, 0))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((62, 30, 98, 92), fill=(255, 0, 0))
+    image.save(path)
 
 
 def test_create_character_scopes_it_to_the_requested_preset(
@@ -269,8 +278,10 @@ def test_sync_active_preset_character_to_project(
 
     character_id = "char-a"
     source_ref = tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{character_id}.png"
+    source_cutout = tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{character_id}.cutout.png"
     source_ref.parent.mkdir(parents=True, exist_ok=True)
     source_ref.write_bytes(b"preset-character")
+    source_cutout.write_bytes(b"preset-character-cutout")
 
     with Session(style_character_engine) as session:
         session.add(
@@ -281,6 +292,7 @@ def test_sync_active_preset_character_to_project(
                 appearance="short black hair",
                 vibe="calm",
                 reference_image_url=f"/static/style/presets/preset-a/characters/{character_id}.png",
+                cutout_image_url=f"/static/style/presets/preset-a/characters/{character_id}.cutout.png",
                 created_at=datetime.now(timezone.utc),
             )
         )
@@ -312,11 +324,75 @@ def test_sync_active_preset_character_to_project(
         script = session.get(Script, "script-a")
 
     project_ref = tmp_path / "projects" / "script-a" / "character" / "reference.png"
+    project_cutout = tmp_path / "projects" / "script-a" / "character" / "cutout.png"
     assert project_ref.read_bytes() == b"preset-character"
+    assert project_cutout.read_bytes() == b"preset-character-cutout"
     assert cfg.main_character_reference_url == "/static/projects/script-a/character/reference.png"
     content = ScriptContent.model_validate_json(script.script_json)
     assert content.main_character is not None
     assert content.main_character.name == "Mara"
+
+
+def test_sync_active_preset_character_repairs_missing_project_cutout(
+    style_character_engine,
+    tmp_path,
+    monkeypatch,
+):
+    from models.project_config import ProjectConfig
+    from models.script import Script, ScriptContent
+    from models.settings import AppSetting
+    from models.style_preset_character import StylePresetCharacter
+    from pipeline import main_character
+
+    monkeypatch.setattr(main_character, "DATA_DIR", tmp_path)
+    _insert_preset(style_character_engine, tmp_path, "preset-a", "Preset A")
+
+    character_id = "char-a"
+    source_ref = tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{character_id}.png"
+    _write_chroma_character(source_ref)
+
+    with Session(style_character_engine) as session:
+        session.add(
+            StylePresetCharacter(
+                id=character_id,
+                style_preset_id="preset-a",
+                name="Mara",
+                appearance="short black hair",
+                vibe="calm",
+                reference_image_url=f"/static/style/presets/preset-a/characters/{character_id}.png",
+                cutout_image_url="",
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+        session.add(AppSetting(key="ACTIVE_STYLE_PRESET_ID", value="preset-a"))
+        session.add(
+            AppSetting(
+                key=main_character.active_style_preset_character_key("preset-a"),
+                value=character_id,
+            )
+        )
+        session.add(
+            Script(
+                id="script-a",
+                brand_id="default",
+                topic_title="Test",
+                topic_description="",
+                script_json=ScriptContent(title="Test", segments=[]).model_dump_json(),
+            )
+        )
+        session.add(ProjectConfig(script_id="script-a", eli_enabled=False))
+        session.commit()
+
+    with Session(style_character_engine) as session:
+        changed = main_character.sync_global_main_character_to_project(session, "script-a")
+        session.commit()
+
+    project_cutout = tmp_path / "projects" / "script-a" / "character" / "cutout.png"
+    assert changed is True
+    assert project_cutout.exists()
+    with Image.open(project_cutout) as image:
+        assert image.mode == "RGBA"
+        assert image.width < 120
 
 
 def test_sync_active_preset_character_to_project_skips_when_style_preset_disabled(

@@ -1,6 +1,7 @@
 """Tests for /api/projects/{script_id}/config endpoints."""
 
 import json
+from PIL import Image, ImageDraw
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
@@ -75,6 +76,13 @@ def _seed_script(engine, script_id: str, *, eli_enabled: bool, main_character_di
         )
         session.add(ProjectConfig(script_id=script_id, eli_enabled=eli_enabled))
         session.commit()
+
+
+def _write_chroma_character(path, *, color=(255, 0, 0)):
+    image = Image.new("RGB", (180, 140), (0, 255, 0))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((70, 34, 110, 112), fill=color)
+    image.save(path)
 
 
 def test_get_project_config_returns_full_payload(monkeypatch):
@@ -180,7 +188,7 @@ def test_generate_and_select_main_character_reference_variants(monkeypatch, tmp_
     def fake_image(prompt, script_id):
         counter["value"] += 1
         path = tmp_path / f"generated-{counter['value']}.png"
-        path.write_bytes(f"png-{counter['value']}".encode())
+        _write_chroma_character(path, color=(255, 0, counter["value"]))
         return str(path)
 
     monkeypatch.setattr(mc, "_call_image_generator", fake_image)
@@ -195,14 +203,18 @@ def test_generate_and_select_main_character_reference_variants(monkeypatch, tmp_
     assert second.status_code == 200
     body = second.json()
     assert body["main_character_reference_url"] == "/static/projects/test-cfg-variants/character/reference.png"
+    assert body["main_character_cutout_url"] == "/static/projects/test-cfg-variants/character/cutout.png"
     assert [v["idx"] for v in body["main_character_reference_variants"]] == [2, 1]
     assert body["main_character_reference_variants"][0]["active"] is True
+    assert body["main_character_reference_variants"][0]["cutout_image_url"] == "/static/projects/test-cfg-variants/character/references/2.cutout.png"
 
     selected = client.post("/api/projects/test-cfg-variants/config/character/select/1")
     assert selected.status_code == 200
     selected_body = selected.json()
+    assert selected_body["main_character_cutout_url"] == "/static/projects/test-cfg-variants/character/cutout.png"
     active = [v for v in selected_body["main_character_reference_variants"] if v["active"]]
     assert [v["idx"] for v in active] == [1]
+    assert active[0]["cutout_image_url"] == "/static/projects/test-cfg-variants/character/references/1.cutout.png"
 
     from database import get_session
     app.dependency_overrides.pop(get_session, None)
@@ -221,7 +233,7 @@ def test_legacy_global_main_character_endpoints_do_not_sync_to_project(monkeypat
     def fake_image(prompt, script_id):
         counter["value"] += 1
         path = tmp_path / f"global-character-{counter['value']}.png"
-        path.write_bytes(f"global-png-{counter['value']}".encode())
+        _write_chroma_character(path, color=(255, counter["value"], 0))
         return str(path)
 
     monkeypatch.setattr(mc, "_call_image_generator", fake_image)
@@ -249,10 +261,15 @@ def test_legacy_global_main_character_endpoints_do_not_sync_to_project(monkeypat
     assert body["main_character_reference_url"] == "/static/character/main/reference.png"
     assert [v["idx"] for v in body["main_character_reference_variants"]] == [2, 1]
     assert body["main_character_reference_variants"][0]["active"] is True
+    assert body["main_character_reference_variants"][0]["cutout_image_url"] == "/static/character/main/references/2.cutout.png"
 
     selected = client.post("/api/style/main-character/select/1")
     assert selected.status_code == 200
-    assert [v["idx"] for v in selected.json()["main_character_reference_variants"] if v["active"]] == [1]
+    active_variants = [
+        v for v in selected.json()["main_character_reference_variants"] if v["active"]
+    ]
+    assert [v["idx"] for v in active_variants] == [1]
+    assert active_variants[0]["cutout_image_url"] == "/static/character/main/references/1.cutout.png"
 
     project_ref = tmp_path / "projects" / "test-global-character-project" / "character" / "reference.png"
     assert not project_ref.exists()

@@ -20,6 +20,7 @@ class ProjectConfigResponse(BaseModel):
     eli_enabled: bool
     style_preset_enabled: bool
     main_character_reference_url: str | None
+    main_character_cutout_url: str | None = None
     main_character: MainCharacter | None
     main_character_reference_variants: list[dict[str, object]] = Field(default_factory=list)
 
@@ -27,6 +28,14 @@ class ProjectConfigResponse(BaseModel):
 class UpdateProjectConfigRequest(BaseModel):
     eli_enabled: bool | None = None
     style_preset_enabled: bool | None = None
+
+
+def _project_character_cutout_url(script_id: str) -> str | None:
+    from pipeline.main_character import character_cutout_path, character_cutout_web_path
+
+    if character_cutout_path(script_id).exists():
+        return character_cutout_web_path(script_id)
+    return None
 
 
 @router.get("/{script_id}/config", response_model=ProjectConfigResponse)
@@ -57,6 +66,7 @@ def get_config(script_id: str, session: Session = Depends(get_session)) -> Proje
         eli_enabled=cfg.eli_enabled,
         style_preset_enabled=cfg.style_preset_enabled,
         main_character_reference_url=cfg.main_character_reference_url,
+        main_character_cutout_url=_project_character_cutout_url(script_id),
         main_character=main_character,
         main_character_reference_variants=list_character_reference_variants(script_id),
     )
@@ -106,6 +116,7 @@ def update_config(
         eli_enabled=cfg.eli_enabled,
         style_preset_enabled=cfg.style_preset_enabled,
         main_character_reference_url=cfg.main_character_reference_url,
+        main_character_cutout_url=_project_character_cutout_url(script_id),
         main_character=main_character,
         main_character_reference_variants=list_character_reference_variants(script_id),
     )
@@ -161,6 +172,7 @@ def update_character(
         eli_enabled=cfg.eli_enabled,
         style_preset_enabled=cfg.style_preset_enabled,
         main_character_reference_url=cfg.main_character_reference_url,
+        main_character_cutout_url=_project_character_cutout_url(script_id),
         main_character=body,
         main_character_reference_variants=list_character_reference_variants(script_id),
     )
@@ -209,6 +221,7 @@ def regenerate_character_reference(
         eli_enabled=cfg.eli_enabled,
         style_preset_enabled=cfg.style_preset_enabled,
         main_character_reference_url=web_path,
+        main_character_cutout_url=_project_character_cutout_url(script_id),
         main_character=content.main_character,
         main_character_reference_variants=list_character_reference_variants(script_id),
     )
@@ -251,6 +264,7 @@ def select_character_reference(
         eli_enabled=cfg.eli_enabled,
         style_preset_enabled=cfg.style_preset_enabled,
         main_character_reference_url=web_path,
+        main_character_cutout_url=_project_character_cutout_url(script_id),
         main_character=content.main_character,
         main_character_reference_variants=list_character_reference_variants(script_id),
     )
