@@ -221,6 +221,32 @@ const LLM_TASKS: LlmTaskConfig[] = [
   },
 ];
 
+const ADVANCED_ROUTING_GROUPS = [
+  {
+    id: "script",
+    label: "Script / Cold Open",
+    description: "Narrative-heavy generation where quality and structure matter most.",
+    taskIds: ["script", "hook"],
+  },
+  {
+    id: "ideas",
+    label: "Ideas / Brainstorming",
+    description: "Topic ideation, recommendations, and trend-shaping work.",
+    taskIds: ["idea"],
+  },
+  {
+    id: "utility",
+    label: "Utility Tasks",
+    description: "Structured routing, metadata, scoring, animation, and analysis helpers.",
+    taskIds: ["fx", "seo", "short_form_seo", "media", "eli", "analysis", "hook_detect"],
+  },
+] satisfies {
+  id: string;
+  label: string;
+  description: string;
+  taskIds: string[];
+}[];
+
 // eslint-disable-next-line react-refresh/only-export-components -- co-located with the GeneralSection component that consumes these
 export const SCRIPT_MODELS = [
   { value: DEFAULT_MODEL, label: "Claude Opus 4.7" },
@@ -294,9 +320,10 @@ const PANEL_META: Record<GeneralPanel, { title: string; description: string; max
 
 interface GeneralSectionProps {
   panel: GeneralPanel;
+  showHeader?: boolean;
 }
 
-export default function GeneralSection({ panel }: GeneralSectionProps) {
+export default function GeneralSection({ panel, showHeader = true }: GeneralSectionProps) {
   const [exportsDir, setExportsDir] = useState("");
   const [imageProvider, setImageProvider] = useState("google");
   const [aiVideoEnabled, setAiVideoEnabled] = useState(false);
@@ -585,12 +612,14 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
 
   return (
     <div className={`px-8 py-8 ${meta.maxWidth} space-y-6 pb-24`}>
+      {showHeader && (
       <div>
         <h2 className="text-lg font-semibold tracking-tight">{meta.title}</h2>
         <p className="text-neutral-400 text-sm mt-1">
           {meta.description}
         </p>
       </div>
+      )}
 
       {loading ? (
         <div className="text-neutral-500 text-sm">Loading...</div>
@@ -736,8 +765,19 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                 ))}
               </datalist>
               {advancedRoutingOpen && (
-              <div className="space-y-3">
-                {LLM_TASKS.map((task) => {
+              <div className="space-y-5">
+                {ADVANCED_ROUTING_GROUPS.map((group) => {
+                  const tasks = LLM_TASKS.filter((task) => group.taskIds.includes(task.id));
+                  if (tasks.length === 0) return null;
+                  return (
+                    <div key={group.id} className="space-y-3">
+                      <div>
+                        <h4 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                          {group.label}
+                        </h4>
+                        <p className="text-xs text-neutral-500">{group.description}</p>
+                      </div>
+                      {tasks.map((task) => {
                   const route = taskRoutes[task.id] ?? {
                     provider: task.defaultProvider,
                     model: modelForProvider(task, task.defaultProvider),
@@ -845,6 +885,9 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                       {effectiveProvider === "openai" && !openaiKeyConfigured && (
                         <p className="text-xs text-amber-400">OpenAI key missing for this route.</p>
                       )}
+                    </div>
+                  );
+                      })}
                     </div>
                   );
                 })}

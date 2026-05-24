@@ -37,7 +37,11 @@ const PLATFORMS: {
   },
 ];
 
-export default function PublishingSection() {
+interface PublishingSectionProps {
+  showHeader?: boolean;
+}
+
+export default function PublishingSection({ showHeader = true }: PublishingSectionProps) {
   const [connections, setConnections] = useState<OAuthStatusResponse | null>(null);
   const [connectingPlatform, setConnectingPlatform] = useState<PlatformKey | null>(null);
   const connectionPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -103,12 +107,14 @@ export default function PublishingSection() {
 
   return (
     <div className="p-6 max-w-3xl space-y-5">
+      {showHeader && (
       <div>
         <h2 className="text-lg font-semibold text-neutral-100">Publishing</h2>
         <p className="mt-1 text-sm text-neutral-400">
           Connect the platforms that should receive one-click short-form uploads.
         </p>
       </div>
+      )}
 
       <div className="grid gap-4">
         {PLATFORMS.map((platform) => {

@@ -68,7 +68,11 @@ function SettingsRow({
   );
 }
 
-export default function MiscSection() {
+interface MiscSectionProps {
+  showHeader?: boolean;
+}
+
+export default function MiscSection({ showHeader = true }: MiscSectionProps) {
   const [hookRefinementEnabled, setHookRefinementEnabled] = useState("true");
   const [showSpeedRenderButton, setShowSpeedRenderButton] = useState("true");
   const [rateLimitEnabled, setRateLimitEnabled] = useState("true");
@@ -137,12 +141,14 @@ export default function MiscSection() {
 
   return (
     <div className="px-8 py-8 max-w-2xl space-y-6 pb-24">
+      {showHeader && (
       <div>
         <h2 className="text-lg font-semibold tracking-tight">Advanced</h2>
         <p className="text-neutral-400 text-sm mt-1">
           Edge-case controls for workflow, rendering, and image fallback behavior.
         </p>
       </div>
+      )}
 
       <section className="space-y-3">
         <div>

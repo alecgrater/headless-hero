@@ -20,15 +20,15 @@ import VoiceSection from "./VoiceSection";
 
 // eslint-disable-next-line react-refresh/only-export-components -- co-located with the SettingsPage component that owns these section IDs
 export const SECTIONS = [
-  { id: "storage", label: "Storage", icon: Folder, group: "Setup" },
-  { id: "api-keys", label: "API Keys", icon: Key, group: "Setup" },
-  { id: "ai-models", label: "AI Models", icon: Brain, group: "Generation" },
-  { id: "visuals", label: "Visuals", icon: Image, group: "Generation" },
-  { id: "voice", label: "Voices", icon: Mic, group: "Generation" },
-  { id: "audio", label: "Audio", icon: SlidersHorizontal, group: "Generation" },
-  { id: "brand-style", label: "Brand & Style", icon: Palette, group: "Brand & Style" },
-  { id: "publishing", label: "Publishing", icon: Upload, group: "Publishing" },
-  { id: "advanced", label: "Advanced", icon: Sparkles, group: "Advanced" },
+  { id: "storage", label: "Storage", description: "Choose where finished files and export bundles are saved.", icon: Folder, group: "Setup" },
+  { id: "api-keys", label: "API Keys", description: "Manage local credentials for generation, voice, publishing, and discovery.", icon: Key, group: "Setup" },
+  { id: "ai-models", label: "AI Models", description: "Route scriptwriting, ideation, metadata, scoring, and animation tasks.", icon: Brain, group: "Generation" },
+  { id: "visuals", label: "Visuals", description: "Configure image generation, AI video, and scene structure defaults.", icon: Image, group: "Generation" },
+  { id: "voice", label: "Voices", description: "Choose the narration voice and add voices from the ElevenLabs library.", icon: Mic, group: "Generation" },
+  { id: "audio", label: "Audio", description: "Tune recording export filters for manually recorded voiceover.", icon: SlidersHorizontal, group: "Generation" },
+  { id: "brand-style", label: "Brand & Style", description: "Set the visual style, recurring character, and defaults for new projects.", icon: Palette, group: "Brand & Style" },
+  { id: "publishing", label: "Publishing", description: "Connect platforms that should receive one-click short-form uploads.", icon: Upload, group: "Publishing" },
+  { id: "advanced", label: "Advanced", description: "Edge-case controls for workflow, rendering, and image fallback behavior.", icon: Sparkles, group: "Advanced" },
 ] as const;
 
 export type SectionId = (typeof SECTIONS)[number]["id"];
@@ -63,6 +63,7 @@ interface Props {
 
 export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultSection }: Props) {
   const [activeSection, setActiveSection] = useState<SectionId>(normalizeSectionId(defaultSection));
+  const activeSectionMeta = SECTIONS.find((section) => section.id === activeSection) ?? SECTIONS[0];
 
   useEffect(() => {
     if (defaultSection) {
@@ -74,17 +75,23 @@ export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultS
   return (
     <div className="flex flex-col h-full">
       {/* Sticky header */}
-      <div className="sticky top-0 z-10 bg-neutral-950 border-b border-neutral-800 px-6 py-4 flex items-center">
-        <button
-          onClick={onBack}
-          aria-label="Back"
-          className="text-neutral-400 hover:text-neutral-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 rounded-md"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-          </svg>
-        </button>
-        <h1 className="text-xl font-semibold tracking-tight ml-4">Settings</h1>
+      <div className="sticky top-0 z-10 flex border-b border-neutral-800 bg-neutral-950">
+        <div className="flex w-60 shrink-0 items-center px-6 py-5">
+          <button
+            onClick={onBack}
+            aria-label="Back"
+            className="text-neutral-400 hover:text-neutral-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 rounded-md"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+          <h1 className="text-xl font-semibold tracking-tight ml-4">Settings</h1>
+        </div>
+        <div className="flex flex-1 flex-col justify-center px-8 py-5">
+          <h2 className="text-xl font-semibold tracking-tight text-neutral-100">{activeSectionMeta.label}</h2>
+          <p className="mt-1 text-sm text-neutral-400">{activeSectionMeta.description}</p>
+        </div>
       </div>
 
       {/* Sidebar + content */}
@@ -118,17 +125,17 @@ export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultS
 
         {/* Content area */}
         <div className="flex-1 overflow-y-auto">
-          {activeSection === "storage" && <GeneralSection panel="storage" />}
-          {activeSection === "ai-models" && <GeneralSection panel="ai-models" />}
-          {activeSection === "visuals" && <GeneralSection panel="visuals" />}
-          {activeSection === "voice" && <VoiceSection panel="voice" />}
-          {activeSection === "audio" && <VoiceSection panel="audio" />}
-          {activeSection === "publishing" && <PublishingSection />}
-          {activeSection === "api-keys" && <ApiKeysSection />}
-          {activeSection === "advanced" && <MiscSection />}
+          {activeSection === "storage" && <GeneralSection panel="storage" showHeader={false} />}
+          {activeSection === "ai-models" && <GeneralSection panel="ai-models" showHeader={false} />}
+          {activeSection === "visuals" && <GeneralSection panel="visuals" showHeader={false} />}
+          {activeSection === "voice" && <VoiceSection panel="voice" showHeader={false} />}
+          {activeSection === "audio" && <VoiceSection panel="audio" showHeader={false} />}
+          {activeSection === "publishing" && <PublishingSection showHeader={false} />}
+          {activeSection === "api-keys" && <ApiKeysSection showHeader={false} />}
+          {activeSection === "advanced" && <MiscSection showHeader={false} />}
           {activeSection === "brand-style" && (
             <div className="max-w-6xl px-8 py-8">
-              <StylePresetsSection />
+              <StylePresetsSection showHeader={false} />
             </div>
           )}
         </div>

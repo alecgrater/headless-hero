@@ -156,7 +156,11 @@ function EyeOffIcon({ className }: { className?: string }) {
   );
 }
 
-export default function ApiKeysSection() {
+interface ApiKeysSectionProps {
+  showHeader?: boolean;
+}
+
+export default function ApiKeysSection({ showHeader = true }: ApiKeysSectionProps) {
   const [keyStatus, setKeyStatus] = useState<Record<string, KeyInfo>>({});
   const [values, setValues] = useState<Record<string, string>>({});
   const [visible, setVisible] = useState<Record<string, boolean>>({});
@@ -211,12 +215,16 @@ export default function ApiKeysSection() {
   return (
     <div className="px-8 py-8 max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
+        {showHeader ? (
         <div>
           <h2 className="text-lg font-semibold tracking-tight">API Keys</h2>
           <p className="text-neutral-400 text-sm mt-1">
             Keys are stored locally and loaded automatically on startup.
           </p>
         </div>
+        ) : (
+          <div />
+        )}
         <button
           onClick={handleSave}
           disabled={saving || !hasChanges}

@@ -9,9 +9,10 @@ import type {
 
 interface VoiceSectionProps {
   panel: "voice" | "audio";
+  showHeader?: boolean;
 }
 
-export default function VoiceSection({ panel }: VoiceSectionProps) {
+export default function VoiceSection({ panel, showHeader = true }: VoiceSectionProps) {
   const [voices, setVoices] = useState<VoiceInfo[]>([]);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>("");
   const [saving, setSaving] = useState(false);
@@ -162,6 +163,7 @@ export default function VoiceSection({ panel }: VoiceSectionProps) {
 
   return (
     <div className="px-8 py-8 max-w-2xl space-y-6">
+      {showHeader && (
       <div>
         <h2 className="text-lg font-semibold tracking-tight">
           {panel === "voice" ? "Voices" : "Audio"}
@@ -172,6 +174,7 @@ export default function VoiceSection({ panel }: VoiceSectionProps) {
             : "Tune recording export filters for manually recorded voiceover."}
         </p>
       </div>
+      )}
 
       {panel === "voice" && (
       <div className="space-y-8">

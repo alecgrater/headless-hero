@@ -26,20 +26,121 @@ function settingEnabled(val: string): boolean {
 type Props = {
   compact?: boolean;
   showDefaults?: boolean;
+  showHeader?: boolean;
   onContinue?: () => void;
 };
 
-export function StylePresetsSection({ compact = false, showDefaults = true, onContinue }: Props) {
+function StylePresetCharacterCreateModal({
+  preset,
+  onClose,
+  onCreated,
+}: {
+  preset: StylePreset;
+  onClose: () => void;
+  onCreated: (character: StylePresetCharacter) => void;
+}) {
+  const [name, setName] = useState("");
+  const [appearance, setAppearance] = useState("");
+  const [vibe, setVibe] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const hasCharacterDetails = Boolean(name.trim() && appearance.trim());
+
+  const handleGenerate = async () => {
+    if (!hasCharacterDetails) {
+      setError("Name and appearance are required.");
+      return;
+    }
+    setError(null);
+    setGenerating(true);
+    try {
+      const created = await createStylePresetCharacter(preset.id, {
+        name: name.trim(),
+        appearance: appearance.trim(),
+        vibe: vibe.trim(),
+      });
+      onCreated(created);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="w-full max-w-2xl rounded-lg border border-neutral-800 bg-neutral-950 p-6 shadow-xl">
+        <h2 className="text-lg font-semibold text-neutral-100">New main character</h2>
+        <p className="mt-1 text-sm text-neutral-400">
+          Generate a character reference in the style of {preset.name || "this preset"}.
+        </p>
+
+        <div className="mt-5 space-y-4">
+          <label className="block">
+            <span className="text-xs font-medium uppercase text-neutral-400">Name</span>
+            <input
+              type="text"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="e.g. Maya"
+              className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-violet-500 focus:outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium uppercase text-neutral-400">Appearance</span>
+            <textarea
+              rows={5}
+              value={appearance}
+              onChange={(event) => setAppearance(event.target.value)}
+              placeholder="Distinctive clothing, body language, age, silhouette..."
+              className="mt-1 w-full resize-y rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-violet-500 focus:outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs font-medium uppercase text-neutral-400">Vibe</span>
+            <textarea
+              rows={3}
+              value={vibe}
+              onChange={(event) => setVibe(event.target.value)}
+              placeholder="Energetic, dry, curious..."
+              className="mt-1 w-full resize-y rounded-md border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-violet-500 focus:outline-none"
+            />
+          </label>
+        </div>
+
+        {error && <div className="mt-4 text-sm text-red-400">{error}</div>}
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded border border-neutral-700 px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={generating || !hasCharacterDetails}
+            className="rounded bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-500 disabled:opacity-50 transition-colors"
+          >
+            {generating ? "Generating..." : "Generate"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function StylePresetsSection({ compact = false, showDefaults = true, showHeader = true, onContinue }: Props) {
   const [presets, setPresets] = useState<StylePreset[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [viewedId, setViewedId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showCharacterModal, setShowCharacterModal] = useState(false);
   const [characters, setCharacters] = useState<StylePresetCharacter[]>([]);
   const [viewedCharacterId, setViewedCharacterId] = useState<string | null>(null);
-  const [characterName, setCharacterName] = useState("");
-  const [characterAppearance, setCharacterAppearance] = useState("");
-  const [characterVibe, setCharacterVibe] = useState("");
-  const [generatingCharacter, setGeneratingCharacter] = useState(false);
   const [characterRefTs, setCharacterRefTs] = useState(() => Date.now());
   const [eliEnabledDefault, setEliEnabledDefault] = useState("false");
   const [stylePresetEnabledDefault, setStylePresetEnabledDefault] = useState("true");
@@ -165,7 +266,6 @@ export function StylePresetsSection({ compact = false, showDefaults = true, onCo
   }, [characters, viewedCharacterId]);
 
   const viewedCharacter = viewedCharacterIndex >= 0 ? characters[viewedCharacterIndex] : null;
-  const hasCharacterDetails = Boolean(characterName.trim() && characterAppearance.trim());
   const activeCharacterReady = Boolean(
     activeId &&
       viewedPreset?.id === activeId &&
@@ -207,27 +307,13 @@ export function StylePresetsSection({ compact = false, showDefaults = true, onCo
     setCharacterRefTs(Date.now());
   };
 
-  const handleCreateCharacter = async () => {
-    if (!viewedPreset || !hasCharacterDetails) return;
-    setGeneratingCharacter(true);
-    try {
-      const created = await createStylePresetCharacter(viewedPreset.id, {
-        name: characterName,
-        appearance: characterAppearance,
-        vibe: characterVibe,
-      });
-      setCharacters((current) => [
-        created,
-        ...current.map((character) => ({ ...character, active: false })),
-      ]);
-      setViewedCharacterId(created.id);
-      setCharacterName("");
-      setCharacterAppearance("");
-      setCharacterVibe("");
-      setCharacterRefTs(Date.now());
-    } finally {
-      setGeneratingCharacter(false);
-    }
+  const handleCharacterCreated = (created: StylePresetCharacter) => {
+    setCharacters((current) => [
+      created,
+      ...current.map((character) => ({ ...character, active: false })),
+    ]);
+    setViewedCharacterId(created.id);
+    setCharacterRefTs(Date.now());
   };
 
   const handleSaveDefaults = async () => {
@@ -250,7 +336,7 @@ export function StylePresetsSection({ compact = false, showDefaults = true, onCo
 
   return (
     <section className={`${compact ? "space-y-5 pb-8" : "space-y-6 pb-24"}`}>
-      {!compact && (
+      {!compact && showHeader && (
         <header>
           <h2 className="text-lg font-semibold text-neutral-100">Brand & Style</h2>
           <p className="text-sm text-neutral-400">
@@ -435,7 +521,7 @@ export function StylePresetsSection({ compact = false, showDefaults = true, onCo
             </div>
           )}
 
-          <div className="order-1 space-y-4 rounded-xl border border-neutral-800 bg-neutral-900 p-4">
+          <div className="order-1 space-y-4">
             <div>
               <h3 className="text-sm font-semibold text-neutral-100">Main Character</h3>
               <p className="text-xs text-neutral-500">
@@ -443,6 +529,7 @@ export function StylePresetsSection({ compact = false, showDefaults = true, onCo
               </p>
             </div>
 
+            <div className="space-y-4 rounded-xl border border-neutral-800 bg-neutral-900 p-4">
             {viewedPreset ? (
               <>
                 <div className="rounded-lg border border-neutral-800 bg-neutral-950/50 p-3">
@@ -520,57 +607,32 @@ export function StylePresetsSection({ compact = false, showDefaults = true, onCo
                             )}
                           </button>
                         ))}
+                        <button
+                          type="button"
+                          onClick={() => setShowCharacterModal(true)}
+                          className="flex h-12 min-w-28 items-center justify-center gap-1 rounded border-2 border-dashed border-neutral-700 px-3 text-xs font-medium text-neutral-400 hover:border-violet-500 hover:text-violet-300 transition-colors"
+                        >
+                          <Plus className="size-4" />
+                          New character
+                        </button>
                       </div>
                     </div>
                   ) : (
-                    <div className="flex aspect-video items-center justify-center rounded-md border border-dashed border-neutral-700 text-center text-sm text-neutral-500">
-                      Generate a character reference for this preset.
+                    <div className="flex aspect-video flex-col items-center justify-center rounded-md border border-dashed border-neutral-700 text-center">
+                      <p className="text-sm text-neutral-500">No characters for this preset yet.</p>
+                      <button
+                        type="button"
+                        onClick={() => setShowCharacterModal(true)}
+                        className="mt-4 flex items-center gap-2 rounded-lg border-2 border-dashed border-neutral-700 px-5 py-3 text-sm font-medium text-neutral-300 hover:border-violet-500 hover:text-violet-300 transition-colors"
+                      >
+                        <Plus className="size-4" />
+                        New character
+                      </button>
                     </div>
                   )}
                 </div>
-
-                <div className="space-y-3">
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase text-neutral-400">Name</span>
-                    <input
-                      type="text"
-                      value={characterName}
-                      onChange={(event) => setCharacterName(event.target.value)}
-                      placeholder="e.g. Maya"
-                      className="mt-1 w-full rounded-md border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-violet-500 focus:outline-none"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase text-neutral-400">Appearance</span>
-                    <textarea
-                      rows={4}
-                      value={characterAppearance}
-                      onChange={(event) => setCharacterAppearance(event.target.value)}
-                      placeholder="Distinctive clothing, body language, age, silhouette..."
-                      className="mt-1 w-full resize-y rounded-md border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-violet-500 focus:outline-none"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase text-neutral-400">Vibe</span>
-                    <textarea
-                      rows={2}
-                      value={characterVibe}
-                      onChange={(event) => setCharacterVibe(event.target.value)}
-                      placeholder="Energetic, dry, curious..."
-                      className="mt-1 w-full resize-y rounded-md border border-neutral-800 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:border-violet-500 focus:outline-none"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleCreateCharacter}
-                    disabled={generatingCharacter || !hasCharacterDetails}
-                    className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
-                  >
-                    {generatingCharacter ? "Generating..." : "Generate character"}
-                  </button>
-                </div>
-              </>
-            ) : (
+                </>
+              ) : (
               <div className="rounded-lg border border-neutral-800 bg-neutral-950/50 p-4 text-sm text-neutral-500">
                 Create or select a style preset before generating a character.
               </div>
@@ -593,6 +655,7 @@ export function StylePresetsSection({ compact = false, showDefaults = true, onCo
                 </button>
               </div>
             )}
+            </div>
           </div>
         </div>
       </div>
@@ -604,6 +667,13 @@ export function StylePresetsSection({ compact = false, showDefaults = true, onCo
             setViewedId(preset.id);
             await loadAll();
           }}
+        />
+      )}
+      {showCharacterModal && viewedPreset && (
+        <StylePresetCharacterCreateModal
+          preset={viewedPreset}
+          onClose={() => setShowCharacterModal(false)}
+          onCreated={handleCharacterCreated}
         />
       )}
 
