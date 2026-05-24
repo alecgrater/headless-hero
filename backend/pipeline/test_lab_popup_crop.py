@@ -170,7 +170,7 @@ def _compose_item_sheet_prompt(prompt: str, items: list[str]) -> str:
     item_lines = [f"{index}. {item}" for index, item in enumerate(items, start=1)]
     return "\n".join(
         [
-            "Create a clean Headless Hero cartoon item contact sheet for automatic cropping.",
+            "Create a clean cartoon item contact sheet for automatic cropping.",
             f"Create exactly {len(items)} isolated popup item cutout(s), arranged left to right in this exact order:",
             *item_lines,
             "Each item must sit alone in its own equal-width vertical slot.",

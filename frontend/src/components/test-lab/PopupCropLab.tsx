@@ -18,7 +18,7 @@ const DEFAULT_ANCHOR_PROMPT = [
 ].join("\n");
 
 const DEFAULT_ITEM_PROMPT = [
-  "Flat 2D Headless Hero cartoon icon style, clean silhouettes.",
+  "Flat 2D cartoon icon style, clean silhouettes.",
   "The popup items should read clearly as separate symbolic cutouts.",
   "No text.",
 ].join("\n");

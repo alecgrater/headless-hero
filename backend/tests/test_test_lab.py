@@ -276,6 +276,7 @@ def test_popup_crop_preview_generates_sheet_and_crops_fixed_grid(monkeypatch, tm
     ]
     assert "same recurring character" in generated_prompts[0]
     assert "left to right in this exact order" in generated_prompts[1]
+    assert "Headless Hero" not in generated_prompts[1]
     assert (tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "anchor_source.png").exists()
     assert (tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "item_sheet.png").exists()
     assert (tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "crop_01_anchor_character.png").exists()
