@@ -110,6 +110,18 @@ def clear_global_character_reference_assets() -> None:
         shutil.rmtree(variants_dir)
 
 
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _files_differ(left: Path, right: Path) -> bool:
+    return _file_sha256(left) != _file_sha256(right)
+
+
 def style_preset_character_path(preset_id: str, character_id: str) -> Path:
     return DATA_DIR / "style" / "presets" / preset_id / "characters" / f"{character_id}.png"
 
@@ -613,16 +625,18 @@ def sync_global_main_character_to_project(session, script_id: str) -> bool:
 
     character = MainCharacter(name=row.name, appearance=row.appearance, vibe=row.vibe)
     content = ScriptContent.model_validate_json(script.script_json)
+    target = character_reference_path(script_id)
     changed = content.main_character != character
-    if changed:
+    source_asset_changed = target.exists() and _files_differ(target, source_ref)
+    if changed or source_asset_changed:
         clear_character_reference_assets(script_id)
+        changed = True
     content.main_character = character
     script.script_json = content.model_dump_json()
     session.add(script)
 
     if session.get(ProjectConfig, script_id) is None:
         session.add(cfg)
-    target = character_reference_path(script_id)
     reference_missing = not target.exists()
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source_ref, target)
