@@ -1678,10 +1678,12 @@ def test_stage_treatment_assets_ignores_mismatched_assignment_for_selected_treat
         assert [layer["id"] for layer in layers] == [
             "coffee-brain-scene-1_popup_1",
             "coffee-brain-scene-1_popup_2",
+            "coffee-brain-scene-1_popup_3",
         ]
         return [
             {**layers[0], "image_url": "/static/projects/test/layers/popup-1.png"},
             {**layers[1], "image_url": "/static/projects/test/layers/popup-2.png"},
+            {**layers[2], "image_url": "/static/projects/test/layers/popup-3.png"},
         ]
 
     monkeypatch.setattr(visual_treatments, "analyze_visual_treatments", fake_analyze)
@@ -1715,6 +1717,7 @@ def test_stage_treatment_assets_ignores_mismatched_assignment_for_selected_treat
     assert [layer.id for layer in scene.visual_layers] == [
         "coffee-brain-scene-1_popup_1",
         "coffee-brain-scene-1_popup_2",
+        "coffee-brain-scene-1_popup_3",
     ]
 
 
@@ -1747,10 +1750,15 @@ def test_stage_treatment_assets_uses_fallback_for_explicit_layer_treatment_witho
     def fake_generate_visual_layer_panels(scene_id, layers, script_id_arg, **_kwargs):
         assert scene_id == "coffee-brain-scene-1"
         assert script_id_arg == script_id
-        assert [layer["id"] for layer in layers] == ["coffee-brain-scene-1_popup_1", "coffee-brain-scene-1_popup_2"]
+        assert [layer["id"] for layer in layers] == [
+            "coffee-brain-scene-1_popup_1",
+            "coffee-brain-scene-1_popup_2",
+            "coffee-brain-scene-1_popup_3",
+        ]
         return [
             {**layers[0], "image_url": "/static/projects/test/layers/popup-1.png"},
             {**layers[1], "image_url": "/static/projects/test/layers/popup-2.png"},
+            {**layers[2], "image_url": "/static/projects/test/layers/popup-3.png"},
         ]
 
     monkeypatch.setattr(image_gen, "generate_visual_layer_panels", fake_generate_visual_layer_panels)
@@ -1783,8 +1791,9 @@ def test_stage_treatment_assets_uses_fallback_for_explicit_layer_treatment_witho
     assert [layer.image_url for layer in scene.visual_layers] == [
         "/static/projects/test/layers/popup-1.png",
         "/static/projects/test/layers/popup-2.png",
+        "/static/projects/test/layers/popup-3.png",
     ]
-    assert [asset.kind for asset in manifest.assets] == ["treatment_asset", "treatment_asset"]
+    assert [asset.kind for asset in manifest.assets] == ["treatment_asset", "treatment_asset", "treatment_asset"]
 
 
 def test_stage_render_wires_cancel_check_and_progress(monkeypatch, tmp_path):

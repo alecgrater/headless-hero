@@ -719,6 +719,9 @@ def _assignment_for_scene(assignments: list["VisualTreatmentAssignment"], scene_
 def _fallback_visual_layers_for_treatment(scene: Scene) -> list[VisualLayer]:
     base_prompt = scene.visual_prompt.strip() or scene.narration.strip()
     if scene.visual_treatment == "popup_sequence":
+        duration = scene.audio_duration_seconds or scene.duration_estimate_seconds
+        second_enter_at = max(duration / 3, 0.5)
+        third_enter_at = max((duration * 2) / 3, 1.0)
         return [
             VisualLayer(
                 id=f"{scene.id}_popup_1",
@@ -730,8 +733,15 @@ def _fallback_visual_layers_for_treatment(scene: Scene) -> list[VisualLayer]:
             VisualLayer(
                 id=f"{scene.id}_popup_2",
                 prompt=f"small framed Headless Hero cartoon panel, second beat: {base_prompt}. No text in image.",
+                placement="center",
+                enter_at_seconds=second_enter_at,
+                animation="pop_in",
+            ),
+            VisualLayer(
+                id=f"{scene.id}_popup_3",
+                prompt=f"small framed Headless Hero cartoon panel, third beat: {base_prompt}. No text in image.",
                 placement="right",
-                enter_at_seconds=max((scene.audio_duration_seconds or scene.duration_estimate_seconds) / 2, 0.5),
+                enter_at_seconds=third_enter_at,
                 animation="pop_in",
             ),
         ]
