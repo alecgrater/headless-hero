@@ -1,4 +1,5 @@
-import { AlertTriangle, CheckCircle2, Clock, Film, Image, Music, Package, PlayCircle, Video } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, CheckCircle2, Clock, Film, Image, Music, Package, PlayCircle, Video, X } from "lucide-react";
 import { assetUrl } from "../../api";
 import type { ScriptCostBreakdownItem } from "../../api";
 import type { TestLabAsset, TestLabLogEntry, TestLabRun } from "../../types/testLab";
@@ -22,6 +23,7 @@ export default function TestLabRunPanel({
 }: TestLabRunPanelProps) {
   const history = runs.slice(0, 20);
   const cost = normalizeCost(activeRun);
+  const [previewAsset, setPreviewAsset] = useState<TestLabAsset | null>(null);
 
   return (
     <div className="space-y-4">
@@ -74,7 +76,7 @@ export default function TestLabRunPanel({
         {activeRun?.assets?.length ? (
           <div className="grid grid-cols-2 gap-2">
             {activeRun.assets.map((asset, index) => (
-              <AssetCard key={`${asset.kind}-${asset.url}-${index}`} asset={asset} />
+              <AssetCard key={`${asset.kind}-${asset.url}-${index}`} asset={asset} onOpen={setPreviewAsset} />
             ))}
           </div>
         ) : (
@@ -126,31 +128,40 @@ export default function TestLabRunPanel({
           ))}
         </div>
       </section>
+
+      {previewAsset && (
+        <AssetPreviewModal
+          asset={previewAsset}
+          onClose={() => setPreviewAsset(null)}
+        />
+      )}
     </div>
   );
 }
 
-function AssetCard({ asset }: { asset: TestLabAsset }) {
+function AssetCard({ asset, onOpen }: { asset: TestLabAsset; onOpen: (asset: TestLabAsset) => void }) {
   const source = asset.url || asset.path || "";
   const label = asset.label || assetKindLabel(asset.kind);
+  const sourceUrl = source ? assetUrl(source) : "";
 
   return (
-    <a
-      href={source ? assetUrl(source) : undefined}
-      target="_blank"
-      rel="noreferrer"
-      className="group min-w-0 overflow-hidden rounded-md border border-neutral-800 bg-neutral-950/70 transition-colors hover:border-neutral-700"
+    <button
+      type="button"
+      onClick={() => source && onOpen(asset)}
+      disabled={!source}
+      className="group min-w-0 overflow-hidden rounded-md border border-neutral-800 bg-neutral-950/70 text-left transition-colors hover:border-neutral-700 disabled:cursor-not-allowed disabled:opacity-60"
+      title={source ? `Preview ${label}` : `${label} is not available yet`}
     >
       <div className="flex aspect-video items-center justify-center bg-neutral-900">
         {asset.kind === "image" || asset.kind === "treatment_asset" ? (
           source ? (
-            <img src={assetUrl(source)} alt={label} className="h-full w-full object-cover" />
+            <img src={sourceUrl} alt={label} className="h-full w-full object-cover" />
           ) : (
             <AssetIcon asset={asset} />
           )
         ) : asset.kind === "video" || asset.kind === "render" ? (
           source ? (
-            <video src={assetUrl(source)} muted playsInline className="h-full w-full object-cover" />
+            <video src={sourceUrl} muted playsInline className="h-full w-full object-cover" />
           ) : (
             <AssetIcon asset={asset} />
           )
@@ -162,7 +173,77 @@ function AssetCard({ asset }: { asset: TestLabAsset }) {
         <p className="truncate text-xs font-medium text-neutral-200 group-hover:text-neutral-100">{label}</p>
         <p className="mt-1 text-[11px] text-neutral-500">{assetKindLabel(asset.kind)}</p>
       </div>
-    </a>
+    </button>
+  );
+}
+
+function AssetPreviewModal({ asset, onClose }: { asset: TestLabAsset; onClose: () => void }) {
+  const source = asset.url || asset.path || "";
+  const sourceUrl = source ? assetUrl(source) : "";
+  const label = asset.label || assetKindLabel(asset.kind);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-neutral-700 bg-neutral-950 shadow-2xl shadow-black/70"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="test-lab-asset-preview-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-neutral-800 px-4 py-3">
+          <div className="min-w-0">
+            <h3 id="test-lab-asset-preview-title" className="truncate text-sm font-semibold text-neutral-100">
+              {label}
+            </h3>
+            <p className="mt-0.5 text-xs text-neutral-500">{assetKindLabel(asset.kind)}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-neutral-800 text-neutral-400 transition-colors hover:border-neutral-700 hover:bg-neutral-900 hover:text-neutral-100"
+            aria-label="Close asset preview"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex min-h-0 flex-1 items-center justify-center bg-neutral-950 p-4">
+          {asset.kind === "image" || asset.kind === "treatment_asset" ? (
+            <img src={sourceUrl} alt={label} className="max-h-[78vh] max-w-full rounded-md object-contain" />
+          ) : asset.kind === "video" || asset.kind === "render" ? (
+            <video
+              key={sourceUrl}
+              controls
+              autoPlay
+              playsInline
+              src={sourceUrl}
+              className="max-h-[78vh] w-full rounded-md bg-black object-contain"
+            />
+          ) : asset.kind === "audio" ? (
+            <div className="w-full max-w-2xl rounded-lg border border-neutral-800 bg-neutral-900 p-5">
+              <div className="mb-4 flex justify-center">
+                <Music className="h-10 w-10 text-neutral-500" />
+              </div>
+              <audio key={sourceUrl} controls autoPlay src={sourceUrl} className="w-full" />
+            </div>
+          ) : (
+            <div className="flex h-64 w-full items-center justify-center rounded-md border border-neutral-800 bg-neutral-900">
+              <AssetIcon asset={asset} />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
