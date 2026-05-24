@@ -40,6 +40,7 @@ export default function PopupCropLab() {
   const [itemCrops, setItemCrops] = useState<PopupCropPreviewCrop[]>([]);
   const [busyAction, setBusyAction] = useState<BusyAction>(null);
   const [error, setError] = useState("");
+  const [, setAssetRefreshTick] = useState(0);
 
   const cleanedItems = useMemo(() => items.map((item) => item.trim()).filter(Boolean), [items]);
   const itemSheetMatchesItems =
@@ -57,7 +58,7 @@ export default function PopupCropLab() {
         return;
       }
       setRunId(next.run_id);
-      bumpAssetVersion(next.anchor_source_url);
+      refreshAssets(next.anchor_source_url);
       setAnchorSourceUrl(next.anchor_source_url);
       setAnchorCrop(null);
     });
@@ -71,7 +72,7 @@ export default function PopupCropLab() {
         setError("The character chroma pass could not be generated.");
         return;
       }
-      bumpAssetVersion(...next.crops.flatMap((crop) => [crop.raw_url, crop.url]));
+      refreshAssets(...next.crops.flatMap((crop) => [crop.raw_url, crop.url]));
       setAnchorCrop(next.crops[0] ?? null);
     });
   }
@@ -85,7 +86,7 @@ export default function PopupCropLab() {
         return;
       }
       setRunId(next.run_id);
-      bumpAssetVersion(next.sheet_url);
+      refreshAssets(next.sheet_url);
       setItemSheetUrl(next.sheet_url);
       setGeneratedItemLabels(cleanedItems);
       setItemCrops([]);
@@ -100,9 +101,14 @@ export default function PopupCropLab() {
         setError("The item chroma pass could not be generated.");
         return;
       }
-      bumpAssetVersion(...next.crops.flatMap((crop) => [crop.raw_url, crop.url]));
+      refreshAssets(...next.crops.flatMap((crop) => [crop.raw_url, crop.url]));
       setItemCrops(next.crops);
     });
+  }
+
+  function refreshAssets(...paths: string[]) {
+    bumpAssetVersion(...paths);
+    setAssetRefreshTick((current) => current + 1);
   }
 
   async function runAction(action: BusyAction, fn: () => Promise<void>) {
