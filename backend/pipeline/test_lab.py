@@ -389,7 +389,7 @@ def create_hidden_test_script(
     brand_id = settings.get("brand_id") or get_default_brand_id(session)
     eli_enabled = _bool_setting(settings, "eli_enabled", True)
     style_preset_enabled = _bool_setting(settings, "style_preset_enabled", True)
-    if not eli_enabled and content.main_character is None:
+    if not eli_enabled and style_preset_enabled and content.main_character is None:
         content.main_character = _active_style_preset_main_character(session)
     existing = session.get(Script, script_id)
     if existing is None:

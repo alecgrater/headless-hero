@@ -383,7 +383,7 @@ function getDisplayedCharacter(
 ) {
   void preset;
   if (settings.eli_enabled) return null;
-  return settings.main_character ?? defaultMainCharacter ?? null;
+  return settings.main_character ?? (settings.style_preset_enabled ? defaultMainCharacter : null);
 }
 
 function getDisplayedCharacterSource(
@@ -392,7 +392,7 @@ function getDisplayedCharacterSource(
 ) {
   if (settings.main_character) return "Custom run override";
   if (defaultMainCharacter) return "Active style preset character";
-  return "Dummy scene fallback";
+  return "No active character";
 }
 
 function CharacterPreview({

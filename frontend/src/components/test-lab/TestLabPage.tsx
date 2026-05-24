@@ -133,7 +133,7 @@ export default function TestLabPage() {
     setRunning(true);
     setJobStatus({ status: "queued", current_step: "Starting Test Lab run..." });
     try {
-      const started = await startTestLabRun(selectedPresetId, settings);
+      const started = await startTestLabRun(selectedPresetId, settingsForRun(settings, defaultMainCharacter));
       if (!mountedRef.current) return;
       if (!started) return;
       await pollRun(started.job_id, started.run_id);
@@ -215,6 +215,23 @@ export default function TestLabPage() {
       </div>
     </div>
   );
+}
+
+function settingsForRun(
+  settings: TestLabSettings,
+  defaultMainCharacter: TestLabMainCharacter | null,
+): TestLabSettings {
+  if (settings.eli_enabled || !settings.style_preset_enabled || settings.main_character || !defaultMainCharacter) {
+    return settings;
+  }
+  return {
+    ...settings,
+    main_character: {
+      name: defaultMainCharacter.name,
+      appearance: defaultMainCharacter.appearance,
+      vibe: defaultMainCharacter.vibe,
+    },
+  };
 }
 
 function getRunFromHistory(runs: TestLabRun[], runId: string): TestLabRun | null {
