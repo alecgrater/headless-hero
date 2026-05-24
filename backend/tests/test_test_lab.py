@@ -1095,7 +1095,7 @@ def test_run_test_lab_phases_uses_selected_order_and_classifies_assets(monkeypat
 
     manifest = test_lab.load_run_manifest("run-phases")
 
-    assert calls == ["audio", "visual", "treatment", "fx", "eli", "render"]
+    assert calls == ["audio", "visual", "fx", "eli", "render"]
     assert output_urls == ["/static/projects/test/renders/full_youtube.mp4"]
     assert manifest.status == "completed"
     assert [asset.kind for asset in manifest.assets] == ["audio", "video", "image", "render"]
@@ -1185,6 +1185,87 @@ def test_stage_treatment_assets_respects_explicit_treatment(monkeypatch, tmp_pat
     assert scene.visual_layers
     assert scene.visual_layers[0].image_url == "/static/projects/test/layers/panel-a.png"
     assert [asset.kind for asset in manifest.assets] == ["treatment_asset"]
+
+
+def test_stage_treatment_assets_skips_ai_video_scenes(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.image_gen as image_gen
+    import pipeline.test_lab as test_lab
+    import pipeline.visual_treatments as visual_treatments
+
+    with Session(engine) as session:
+        script_id = test_lab.create_hidden_test_script(
+            session,
+            run_id="run-ai-video-treatment",
+            preset_id="coffee-brain",
+            settings={
+                "media_source": "ai_video",
+                "visual_treatment": "flipflop",
+                "advanced_script": {
+                    "segments": [
+                        {
+                            "name": "The caffeine switch",
+                            "scenes": [
+                                {
+                                    "id": "coffee-brain-scene-1",
+                                    "media_source": "ai_video",
+                                    "narration": "Caffeine blocks the sleepy signal.",
+                                    "visual_prompt": "Flat 2D cartoon coffee mug powering up a brain.",
+                                    "visual_treatment": "flipflop",
+                                    "visual_layers": [
+                                        {
+                                            "id": "panel-a",
+                                            "type": "image",
+                                            "asset_kind": "panel",
+                                            "prompt": "A simple panel.",
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                },
+            },
+        )
+        session.commit()
+
+    monkeypatch.setattr(
+        visual_treatments,
+        "analyze_visual_treatments",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("should not analyze ai video treatments")),
+    )
+    monkeypatch.setattr(
+        image_gen,
+        "generate_visual_layer_panels",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("should not generate ai video treatment assets")),
+    )
+
+    manifest = test_lab.TestLabRunManifest(
+        run_id="run-ai-video-treatment",
+        script_id=script_id,
+        preset_id="coffee-brain",
+        status="running",
+    )
+    ctx = test_lab.TestLabRunContext(
+        engine=engine,
+        run_id="run-ai-video-treatment",
+        script_id=script_id,
+        preset_id="coffee-brain",
+        settings={"visual_treatment": "flipflop"},
+        manifest=manifest,
+        job_id=None,
+    )
+
+    test_lab._stage_treatment_assets(ctx)
+
+    with Session(engine) as session:
+        _record, content = test_lab._load_content_for_script(session, script_id)
+
+    scene = content.segments[0].scenes[0]
+    assert scene.visual_treatment == "full_frame"
+    assert scene.visual_layers == []
+    assert manifest.assets == []
 
 
 def test_stage_treatment_assets_analyzes_empty_selected_layer_treatment(monkeypatch, tmp_path):

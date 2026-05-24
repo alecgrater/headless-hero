@@ -123,6 +123,7 @@ export default function TestLabControls({
   const displayedCharacter = getDisplayedCharacter(settings, preset, defaultMainCharacter);
   const displayedCharacterSource = getDisplayedCharacterSource(settings, defaultMainCharacter);
   const fallbackCharacterName = getFallbackCharacterName(settings, preset, defaultMainCharacter);
+  const isAiVideo = settings.media_source === "ai_video";
   const [voiceSettingsText, setVoiceSettingsText] = useState("");
   const [voiceSettingsError, setVoiceSettingsError] = useState("");
 
@@ -140,6 +141,7 @@ export default function TestLabControls({
   }
 
   function updateStage(key: StageKey, enabled: boolean) {
+    if (isAiVideo && key === "treatment_assets") return;
     onChange({
       ...settings,
       stages: {
@@ -191,28 +193,12 @@ export default function TestLabControls({
               key={stage.key}
               label={stage.label}
               detail={stage.key === "character" ? fallbackCharacterName : undefined}
-              checked={settings.stages[stage.key]}
+              checked={stage.key === "treatment_assets" && isAiVideo ? false : settings.stages[stage.key]}
               help={stage.help}
+              disabled={isAiVideo && stage.key === "treatment_assets"}
               onChange={(enabled) => updateStage(stage.key, enabled)}
             />
           ))}
-        </div>
-      </Panel>
-
-      <Panel title="Visual source" help="Test Lab only uses first-party AI-generated scene media. Deprecated stock, gameplay, and upload sources are intentionally absent.">
-        <div className="grid grid-cols-2 overflow-hidden rounded-md border border-neutral-800 bg-neutral-950/70">
-          <SegmentButton
-            active={settings.media_source === "ai"}
-            label="AI image"
-            icon={<Image className="h-4 w-4" />}
-            onClick={() => update({ media_source: "ai" })}
-          />
-          <SegmentButton
-            active={settings.media_source === "ai_video"}
-            label="AI video"
-            icon={<Video className="h-4 w-4" />}
-            onClick={() => update({ media_source: "ai_video" })}
-          />
         </div>
       </Panel>
 
@@ -296,43 +282,52 @@ export default function TestLabControls({
         </div>
       </Panel>
 
-      <Panel title="Scene text" help="Overrides are sent only for this run, leaving the dummy scene preset unchanged.">
-        <label className="block">
-          <span className="text-xs font-medium text-neutral-300">Narration</span>
-          <textarea
-            value={narration}
-            onChange={(event) => update({ narration: event.target.value, tts_narration: event.target.value })}
-            rows={5}
-            className="mt-2 w-full resize-y rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm leading-5 text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 hover:border-neutral-700 focus:border-violet-500"
-            placeholder="Scene narration..."
+      <Panel title="Visual source" help="Test Lab only uses first-party AI-generated scene media. Deprecated stock, gameplay, and upload sources are intentionally absent.">
+        <div className="grid grid-cols-2 overflow-hidden rounded-md border border-neutral-800 bg-neutral-950/70">
+          <SegmentButton
+            active={settings.media_source === "ai"}
+            label="AI image"
+            icon={<Image className="h-4 w-4" />}
+            onClick={() => update({ media_source: "ai" })}
           />
-        </label>
-        <label className="mt-3 block">
-          <span className="text-xs font-medium text-neutral-300">Visual prompt</span>
-          <textarea
-            value={visualPrompt}
-            onChange={(event) => update({ visual_prompt: event.target.value })}
-            rows={5}
-            className="mt-2 w-full resize-y rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm leading-5 text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 hover:border-neutral-700 focus:border-violet-500"
-            placeholder="Visual prompt..."
+          <SegmentButton
+            active={settings.media_source === "ai_video"}
+            label="AI video"
+            icon={<Video className="h-4 w-4" />}
+            onClick={() =>
+              update({
+                media_source: "ai_video",
+                visual_treatment: "full_frame",
+                visual_layers: [],
+                stages: { ...settings.stages, treatment_assets: false },
+              })
+            }
           />
-        </label>
+        </div>
       </Panel>
 
       <Panel title="Treatment, FX, canvas" help="Tune the render wrapper and overlay behavior around the generated scene media.">
         <div className="grid grid-cols-2 gap-3">
           <div className="block">
-            <span className="text-xs font-medium text-neutral-300">Visual treatment</span>
+            <span className={`text-xs font-medium ${isAiVideo ? "text-neutral-500" : "text-neutral-300"}`}>
+              Visual treatment
+            </span>
             <div className="mt-2 grid gap-2">
               {TREATMENT_OPTIONS.map((option) => (
                 <TreatmentOptionButton
                   key={option.value}
                   option={option}
                   active={settings.visual_treatment === option.value}
+                  disabled={isAiVideo}
                   onClick={() => update({ visual_treatment: option.value })}
                 />
               ))}
             </div>
+            {isAiVideo && (
+              <p className="mt-2 text-xs leading-5 text-neutral-500">
+                AI video scenes render the generated clip full-frame, so visual treatments and treatment assets are disabled.
+              </p>
+            )}
           </div>
           <label className="block">
             <span className="text-xs font-medium text-neutral-300">Canvas color</span>
@@ -371,6 +366,29 @@ export default function TestLabControls({
             onChange={(enabled) => update({ segment_timer_enabled: enabled })}
           />
         </div>
+      </Panel>
+
+      <Panel title="Scene text" help="Overrides are sent only for this run, leaving the dummy scene preset unchanged.">
+        <label className="block">
+          <span className="text-xs font-medium text-neutral-300">Narration</span>
+          <textarea
+            value={narration}
+            onChange={(event) => update({ narration: event.target.value, tts_narration: event.target.value })}
+            rows={5}
+            className="mt-2 w-full resize-y rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm leading-5 text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 hover:border-neutral-700 focus:border-violet-500"
+            placeholder="Scene narration..."
+          />
+        </label>
+        <label className="mt-3 block">
+          <span className="text-xs font-medium text-neutral-300">Visual prompt</span>
+          <textarea
+            value={visualPrompt}
+            onChange={(event) => update({ visual_prompt: event.target.value })}
+            rows={5}
+            className="mt-2 w-full resize-y rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm leading-5 text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 hover:border-neutral-700 focus:border-violet-500"
+            placeholder="Visual prompt..."
+          />
+        </label>
       </Panel>
     </div>
   );
@@ -493,30 +511,35 @@ function ToggleButton({
   detail,
   checked,
   help,
+  disabled = false,
   onChange,
 }: {
   label: string;
   detail?: string;
   checked: boolean;
   help: ToggleHelp;
+  disabled?: boolean;
   onChange: (checked: boolean) => void;
 }) {
   return (
     <Tooltip content={<ToggleHelpContent help={help} />}>
       <button
         type="button"
+        disabled={disabled}
         onClick={() => onChange(!checked)}
         className={`flex min-h-10 items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
-          checked
-            ? "border-violet-500/70 bg-violet-500/15 text-neutral-100"
-            : "border-neutral-800 bg-neutral-950/70 text-neutral-500 hover:border-neutral-700 hover:text-neutral-200"
+          disabled
+            ? "cursor-not-allowed border-neutral-900 bg-neutral-950/50 text-neutral-700"
+            : checked
+              ? "border-violet-500/70 bg-violet-500/15 text-neutral-100"
+              : "border-neutral-800 bg-neutral-950/70 text-neutral-500 hover:border-neutral-700 hover:text-neutral-200"
         }`}
       >
         <span className="min-w-0">
           <span className="block truncate">{label}</span>
           {detail && <span className="mt-0.5 block truncate text-[11px] text-neutral-500">{detail}</span>}
         </span>
-        <span className={`h-2 w-2 shrink-0 rounded-full ${checked ? "bg-violet-300" : "bg-neutral-700"}`} />
+        <span className={`h-2 w-2 shrink-0 rounded-full ${checked && !disabled ? "bg-violet-300" : "bg-neutral-700"}`} />
       </button>
     </Tooltip>
   );
@@ -585,10 +608,12 @@ function ToggleHelpContent({ help }: { help: ToggleHelp }) {
 function TreatmentOptionButton({
   option,
   active,
+  disabled = false,
   onClick,
 }: {
   option: (typeof TREATMENT_OPTIONS)[number];
   active: boolean;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   const [showHelp, setShowHelp] = useState(false);
@@ -597,6 +622,7 @@ function TreatmentOptionButton({
     <div className="relative">
       <button
         type="button"
+        disabled={disabled}
         onClick={onClick}
         onMouseEnter={() => setShowHelp(true)}
         onMouseLeave={() => setShowHelp(false)}
@@ -604,16 +630,20 @@ function TreatmentOptionButton({
         onBlur={() => setShowHelp(false)}
         aria-describedby={`treatment-help-${option.value}`}
         className={`flex min-h-16 w-full items-start justify-between gap-3 rounded-md border px-3 py-2 text-left transition-colors ${
-          active
-            ? "border-violet-500/80 bg-violet-500/15 text-neutral-100"
-            : "border-neutral-800 bg-neutral-950/70 text-neutral-400 hover:border-neutral-700 hover:bg-neutral-900/70 hover:text-neutral-100"
+          disabled
+            ? "cursor-not-allowed border-neutral-900 bg-neutral-950/40 text-neutral-600"
+            : active
+              ? "border-violet-500/80 bg-violet-500/15 text-neutral-100"
+              : "border-neutral-800 bg-neutral-950/70 text-neutral-400 hover:border-neutral-700 hover:bg-neutral-900/70 hover:text-neutral-100"
         }`}
       >
         <span className="min-w-0">
           <span className="block text-sm font-medium">{option.label}</span>
           <span className="mt-1 block text-xs leading-4 text-neutral-500">{option.summary}</span>
         </span>
-        <HelpCircle className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${active ? "text-violet-300" : "text-neutral-600"}`} />
+        <HelpCircle
+          className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${active && !disabled ? "text-violet-300" : "text-neutral-600"}`}
+        />
       </button>
       {showHelp && (
         <div

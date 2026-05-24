@@ -643,6 +643,11 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
     with Session(ctx.engine) as session:
         record, content = _load_content_for_script(session, ctx.script_id)
         scene = _first_scene(content)
+        if scene.media_source == "ai_video":
+            scene.visual_treatment = "full_frame"
+            scene.visual_layers = []
+            _save_content(session, record, content)
+            return
         requested_treatment = ctx.settings.get("visual_treatment")
         if isinstance(requested_treatment, str):
             scene.visual_treatment = requested_treatment
@@ -824,11 +829,14 @@ def _stage_render(ctx: TestLabRunContext) -> None:
 
 def _stage_defaults(settings: dict) -> dict[str, bool]:
     eli_default = _bool_setting(settings, "eli_enabled", True)
+    treatment_assets_enabled = (
+        False if settings.get("media_source") == "ai_video" else _enabled(settings, "treatment_assets", True)
+    )
     return {
         "character": _enabled(settings, "character", False),
         "audio": _enabled(settings, "audio", True),
         "visual": _enabled(settings, "visual", True),
-        "treatment_assets": _enabled(settings, "treatment_assets", True),
+        "treatment_assets": treatment_assets_enabled,
         "fx": _enabled(settings, "fx", False),
         "eli": _enabled(settings, "eli", eli_default),
         "render": _enabled(settings, "render", True),
