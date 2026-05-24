@@ -1195,7 +1195,7 @@ def _generate_one_scene(
         treatment = scene.get("visual_treatment", "full_frame")
         visual_layers = scene.get("visual_layers", []) or []
 
-        if treatment == "popup_sequence" and visual_layers:
+        if treatment == "popup_sequence":
             return with_visual_layers({
                 "scene_id": scene["scene_id"],
                 "image_url": None,

@@ -497,6 +497,22 @@ def test_generate_batch_popup_sequence_skips_scene_image(monkeypatch):
     assert results[0]["frame_urls"] == []
     assert results[0]["visual_layers"][0]["id"] == "scene_001_anchor"
 
+    no_layer_results = image_gen_mod.generate_batch(
+        [
+            {
+                "scene_id": "scene_002",
+                "visual_prompt": "A character with popup bubbles.",
+                "visual_treatment": "popup_sequence",
+                "visual_layers": [],
+            }
+        ],
+        script_id="script-1",
+    )
+
+    assert no_layer_results[0]["image_url"] is None
+    assert no_layer_results[0]["frame_urls"] == []
+    assert no_layer_results[0].get("visual_layers", []) == []
+
 
 def test_generate_visual_persists_generated_visual_layers(monkeypatch):
     from api import visuals as visuals_api

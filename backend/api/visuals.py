@@ -409,7 +409,7 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
             sc.image_url = r["image_url"]
             sc.frame_urls = []
             sc.video_url = ""
-        elif r.get("visual_layers") and sc.visual_treatment == "popup_sequence":
+        elif sc.visual_treatment == "popup_sequence":
             sc.image_url = ""
             sc.frame_urls = []
             sc.video_url = ""
