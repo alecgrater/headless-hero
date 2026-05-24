@@ -499,7 +499,9 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
             sc.image_url = ""
             sc.frame_urls = []
             sc.video_url = ""
-        if r.get("visual_layers"):
+        if sc.visual_mode in {"video", "full_frame"}:
+            sc.visual_layers = []
+        elif r.get("visual_layers"):
             sc.visual_layers = r["visual_layers"]
         sc.visual_source_metadata = r.get("visual_source_metadata") or METADATA_CLEAR
     record.script_json = content.model_dump_json()

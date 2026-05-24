@@ -968,6 +968,7 @@ def test_generate_batch_full_frame_mode_wins_over_conflicting_legacy_treatment(m
     assert stored_scene.visual_mode == "full_frame"
     assert stored_scene.visual_treatment == "full_frame"
     assert stored_scene.image_url == f"/static/projects/{script_id}/images/scene_001.png"
+    assert stored_scene.visual_layers == []
 
 
 def test_generate_visual_persists_generated_visual_layers(monkeypatch):
