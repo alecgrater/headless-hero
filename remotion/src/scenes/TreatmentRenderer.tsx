@@ -81,16 +81,19 @@ const layerImageStyle = (layer: VisualLayer): React.CSSProperties => ({
   display: "block",
 });
 
-const layerChromeStyle = (layer: VisualLayer, scale = 1): React.CSSProperties => ({
-  width: "100%",
-  height: "100%",
-  transform: `scale(${scale})`,
-  transformOrigin: "center",
-  border: layer.asset_kind === "panel" ? "10px solid #111" : "none",
-  boxShadow: layer.asset_kind === "full_frame" ? "none" : "0 24px 60px rgba(0, 0, 0, 0.45)",
-  overflow: "hidden",
-  backgroundColor: layer.asset_kind === "cutout" ? "transparent" : "#111",
-});
+export const layerChromeStyle = (layer: VisualLayer, scale = 1): React.CSSProperties => {
+  const isCutout = layer.asset_kind === "cutout";
+  return {
+    width: "100%",
+    height: "100%",
+    transform: `scale(${scale})`,
+    transformOrigin: "center",
+    border: layer.asset_kind === "panel" ? "10px solid #111" : "none",
+    boxShadow: isCutout || layer.asset_kind === "full_frame" ? "none" : "0 24px 60px rgba(0, 0, 0, 0.45)",
+    overflow: isCutout ? "visible" : "hidden",
+    backgroundColor: isCutout ? "transparent" : "#111",
+  };
+};
 
 interface PopupOrbitStyleOptions {
   layerIndex: number;

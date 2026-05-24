@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type React from "react";
 
-import { popupOrbitFrameStyle } from "@remotion-src/scenes/TreatmentRenderer";
+import { layerChromeStyle, popupOrbitFrameStyle } from "@remotion-src/scenes/TreatmentRenderer";
 import type { VisualLayer } from "@remotion-src/types";
 
 const itemLayer = (id: string): VisualLayer => ({
@@ -90,5 +90,15 @@ describe("popupOrbitFrameStyle", () => {
 
     expect(positiveDelta(firstAngle, secondAngle)).toBeCloseTo(expectedSpacing, 5);
     expect(positiveDelta(secondAngle, thirdAngle)).toBeCloseTo(expectedSpacing, 5);
+  });
+});
+
+describe("layerChromeStyle", () => {
+  it("does not draw wrapper shadows or clipping boxes around transparent cutouts", () => {
+    const style = layerChromeStyle(itemLayer("bubble"), 1);
+
+    expect(style.boxShadow).toBe("none");
+    expect(style.overflow).toBe("visible");
+    expect(style.backgroundColor).toBe("transparent");
   });
 });
