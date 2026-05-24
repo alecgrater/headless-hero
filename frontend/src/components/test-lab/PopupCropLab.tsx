@@ -134,8 +134,8 @@ export default function PopupCropLab() {
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 gap-4 xl:grid-cols-[440px_minmax(520px,1fr)]">
-      <section className="min-h-0 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto">
+      <section className="shrink-0 rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
         <header>
           <p className="text-xs font-semibold uppercase text-neutral-500">Popup Crop Lab</p>
           <h2 className="mt-2 text-sm font-semibold text-neutral-100">Character and item sheet</h2>
@@ -143,8 +143,18 @@ export default function PopupCropLab() {
             Generate each source first, then run chroma when you want to inspect the cleaned transparent cutouts.
           </p>
         </header>
+        {error && (
+          <div className="mt-4 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs leading-5 text-red-200">
+            {error}
+          </div>
+        )}
+      </section>
 
-        <LabSection title="Character" description="Generate and chroma-key the anchored scene character separately from the popup items.">
+      <LabPanel
+        title="Character"
+        description="Generate and chroma-key the anchored scene character separately from the popup items."
+        controls={
+          <>
           <label className="block">
             <span className="text-xs font-medium text-neutral-300">Character prompt</span>
             <textarea
@@ -171,9 +181,21 @@ export default function PopupCropLab() {
               onClick={handleChromaAnchor}
             />
           </div>
-        </LabSection>
+          </>
+        }
+        preview={
+          <OutputGrid>
+            {anchorSourceUrl ? <SourcePreview title="Character source" src={anchorSourceUrl} /> : <EmptyPreview label="No character source yet" />}
+            {anchorCrop ? <CropCard crop={anchorCrop} /> : <EmptyPreview label="No character chroma yet" />}
+          </OutputGrid>
+        }
+      />
 
-        <LabSection title="Popup item sheet" description="Generate the items in UI order, then chroma-key the sheet into individual cutouts.">
+      <LabPanel
+        title="Item"
+        description="Generate the items in UI order, then chroma-key the sheet into individual cutouts."
+        controls={
+          <>
           <label className="block">
             <span className="text-xs font-medium text-neutral-300">Item sheet prompt</span>
             <textarea
@@ -243,66 +265,44 @@ export default function PopupCropLab() {
               Regenerate the item sheet after changing the item list so crops stay mapped left to right.
             </p>
           )}
-        </LabSection>
-
-        {error && (
-          <div className="mt-4 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs leading-5 text-red-200">
-            {error}
-          </div>
-        )}
-      </section>
-
-      <section className="min-h-0 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
-        {anchorSourceUrl || itemSheetUrl || anchorCrop || itemCrops.length > 0 ? (
-          <div className="space-y-5">
-            <OutputSection title="Character output">
-              {anchorSourceUrl ? <SourcePreview title="Character source" src={anchorSourceUrl} /> : <EmptyPreview label="No character source yet" />}
-              {anchorCrop ? <CropCard crop={anchorCrop} /> : <EmptyPreview label="No character chroma yet" />}
-            </OutputSection>
-
-            <OutputSection title="Item sheet output">
-              {itemSheetUrl ? <SourcePreview title="Item sheet" src={itemSheetUrl} /> : <EmptyPreview label="No item sheet yet" />}
-              {itemCrops.length > 0 ? (
-                <div className="grid gap-3 lg:grid-cols-2">
-                  {itemCrops.map((crop) => <CropCard key={`${crop.role}-${crop.label}`} crop={crop} />)}
-                </div>
-              ) : (
-                <EmptyPreview label="No item chroma yet" />
-              )}
-            </OutputSection>
-          </div>
-        ) : (
-          <div className="flex min-h-[420px] items-center justify-center rounded-md border border-dashed border-neutral-800 bg-neutral-950/40">
-            <div className="max-w-xs text-center">
-              <Scissors className="mx-auto h-8 w-8 text-neutral-600" />
-              <p className="mt-3 text-sm font-medium text-neutral-300">No crop preview yet</p>
-              <p className="mt-1 text-xs leading-5 text-neutral-500">
-                Generate a character or item sheet, then run chroma to inspect the transparent cutouts.
-              </p>
-            </div>
-          </div>
-        )}
-      </section>
+          </>
+        }
+        preview={
+          <OutputGrid>
+            {itemSheetUrl ? <SourcePreview title="Item sheet" src={itemSheetUrl} /> : <EmptyPreview label="No item sheet yet" />}
+            {itemCrops.length > 0 ? (
+              itemCrops.map((crop) => <CropCard key={`${crop.role}-${crop.label}`} crop={crop} />)
+            ) : (
+              <EmptyPreview label="No item chroma yet" />
+            )}
+          </OutputGrid>
+        }
+      />
     </div>
   );
 }
 
-function LabSection({
+function LabPanel({
   title,
   description,
-  children,
+  controls,
+  preview,
 }: {
   title: string;
   description: string;
-  children: ReactNode;
+  controls: ReactNode;
+  preview: ReactNode;
 }) {
   return (
-    <section className="mt-4 rounded-md border border-neutral-800 bg-neutral-950/40 p-3">
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold text-neutral-100">{title}</h3>
-        <p className="mt-1 text-xs leading-5 text-neutral-500">{description}</p>
+    <section className="grid min-h-[420px] shrink-0 grid-cols-1 overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900/60 xl:grid-cols-[440px_minmax(520px,1fr)]">
+      <div className="border-b border-neutral-800 p-4 xl:border-b-0 xl:border-r">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-neutral-100">{title}</h3>
+          <p className="mt-1 text-xs leading-5 text-neutral-500">{description}</p>
+        </div>
+        {controls}
       </div>
-      {children}
+      <div className="min-h-0 p-4">{preview}</div>
     </section>
   );
 }
@@ -332,12 +332,9 @@ function ActionButton({
   );
 }
 
-function OutputSection({ title, children }: { title: string; children: ReactNode }) {
+function OutputGrid({ children }: { children: ReactNode }) {
   return (
-    <section>
-      <h2 className="text-sm font-semibold text-neutral-100">{title}</h2>
-      <div className="mt-3 grid gap-3 xl:grid-cols-2">{children}</div>
-    </section>
+    <div className="grid h-full content-start gap-3 md:grid-cols-2 2xl:grid-cols-3">{children}</div>
   );
 }
 
