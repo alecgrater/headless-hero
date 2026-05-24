@@ -98,7 +98,7 @@ def generate_popup_crop_anchor(
     anchor_source_path = output_dir / "anchor_source.png"
     if generated_anchor_path.resolve() != anchor_source_path.resolve():
         shutil.copyfile(generated_anchor_path, anchor_source_path)
-    crop = _process_anchor_source(anchor_source_path, output_dir, save_to_vault=False)
+    crop = _process_anchor_source(anchor_source_path, output_dir, save_to_vault=True)
 
     return PopupCropAnchorResult(
         run_id=safe_run_id,
@@ -112,7 +112,7 @@ def generate_popup_crop_anchor(
 def chroma_popup_crop_anchor(*, run_id: str) -> PopupCropChromaResult:
     safe_run_id = _safe_run_id(run_id)
     output_dir = _output_dir(safe_run_id, create=False)
-    crop = _process_anchor_source(output_dir / "anchor_source.png", output_dir)
+    crop = _process_anchor_source(output_dir / "anchor_source.png", output_dir, save_to_vault=False)
     return PopupCropChromaResult(run_id=safe_run_id, crops=[crop])
 
 

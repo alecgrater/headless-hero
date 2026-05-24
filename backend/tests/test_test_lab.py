@@ -313,6 +313,33 @@ def test_popup_crop_preview_generates_sheet_and_crops_fixed_grid(monkeypatch, tm
         assert vault_crop.getpixel((0, 0))[3] == 0
 
 
+def test_popup_crop_anchor_generate_saves_vault_and_chroma_does_not_duplicate(monkeypatch, tmp_path):
+    import pipeline.asset_vault as asset_vault
+    import pipeline.test_lab_popup_crop as popup_crop
+
+    monkeypatch.setattr(popup_crop, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(asset_vault, "DATA_DIR", tmp_path)
+
+    anchor_path = tmp_path / "anchor.png"
+    anchor = Image.new("RGB", (200, 200), (0, 255, 0))
+    anchor.paste("red", (70, 50, 130, 160))
+    anchor.save(anchor_path)
+
+    monkeypatch.setattr(popup_crop, "generate_image", lambda *_args, **_kwargs: str(anchor_path))
+
+    result = popup_crop.generate_popup_crop_anchor(anchor_prompt="Generate a detailed recurring character.", run_id="anchor-vault")
+
+    assert result.anchor_cutout_url == "/static/projects/test-lab-popup-crops/anchor-vault/anchor_cutout.png"
+    character_vault = sorted((tmp_path / "projects" / "asset-vault" / "characters").glob("*.png"))
+    assert len(character_vault) == 1
+    assert character_vault[0].name.startswith("character_anchor_character_")
+
+    chroma = popup_crop.chroma_popup_crop_anchor(run_id="anchor-vault")
+
+    assert chroma.crops[0].url == "/static/projects/test-lab-popup-crops/anchor-vault/anchor_cutout.png"
+    assert sorted((tmp_path / "projects" / "asset-vault" / "characters").glob("*.png")) == character_vault
+
+
 def test_asset_vault_api_lists_filename_only_cutouts(monkeypatch, tmp_path):
     _engine, app = _setup_app(monkeypatch, tmp_path)
 
