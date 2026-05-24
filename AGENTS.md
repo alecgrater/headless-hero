@@ -107,6 +107,11 @@ docs/              → PRD, setup guide, superpowers skills
 - No external state library — `useState()` at page level, pass down via props
 - Double quotes, trailing commas, 2-space indentation
 
+### Feature UX & Dev Observability
+- When adding a feature, sizable behavior change, or any new UI element/option, check that the UI is the most intuitive representation of the behavior, including naming, placement, defaults, disabled states, and workflow fit.
+- Add concise hints, helper text, descriptions, or tooltips next to new controls when the behavior is not immediately obvious.
+- Add success, warning, error, status, or info logs to the dev dashboard when the new behavior affects generation, rendering, export, integrations, caching, background jobs, or other pipeline-visible state.
+
 ## Brand Profile
 
 Single auto-created default brand (no multi-brand picker). All endpoints auto-resolve brand_id — no brand_id in request bodies.
