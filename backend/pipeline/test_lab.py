@@ -52,7 +52,29 @@ FLIPFLOP_TEXT_DEFAULTS = {
         "text or letters."
     ),
 }
+MULTI_FRAME_TEXT_DEFAULTS = {
+    "narration": (
+        "First the warning signs were tiny, then they were everywhere, and by the end nobody could pretend "
+        "they had not seen them."
+    ),
+    "visual_prompt": (
+        "[CONTRAST] Flat 2D cartoon sequence of escalating warning signs in a city, starting with a small "
+        "cracked sidewalk, then a crowded notice board, then a wide street scene where everyone is reacting, "
+        "bold outlines, clean staged compositions, no readable words or letters."
+    ),
+}
+CONTINUOUS_TEXT_DEFAULTS = {
+    "narration": (
+        "The tiny crack spreads across the wall until the whole room feels like it is holding its breath."
+    ),
+    "visual_prompt": (
+        "[CLOSE-UP] Flat 2D cartoon wall with a tiny crack slowly spreading outward through the same room, "
+        "consistent camera angle, bold outline, simple dramatic lighting, no readable words or letters."
+    ),
+}
 VISUAL_TREATMENT_TEXT_DEFAULTS = {
+    "multi_frame": MULTI_FRAME_TEXT_DEFAULTS,
+    "continuous": CONTINUOUS_TEXT_DEFAULTS,
     "popup_sequence": POPUP_SEQUENCE_TEXT_DEFAULTS,
     "flipflop": FLIPFLOP_TEXT_DEFAULTS,
 }
@@ -72,7 +94,7 @@ class TestLabPreset(BaseModel):
     narration: str
     visual_prompt: str
     background_color: str = "#F6C54A"
-    visual_mode: Literal["video", "full_frame", "popup_sequence", "flipflop"] = "full_frame"
+    visual_mode: Literal["video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop"] = "full_frame"
     media_source: Literal["ai", "ai_video"] = "ai"
     duration_estimate_seconds: float = 7.0
     main_character: MainCharacter | None = None
@@ -321,6 +343,17 @@ def _visual_canvas_background_from_settings(settings: dict, preset: TestLabPrese
     return _setting(settings, "background_color", preset.background_color)
 
 
+def _scene_text_from_settings(settings: dict, preset: TestLabPreset, visual_mode: str, key: str) -> str:
+    preset_value = getattr(preset, key)
+    raw_value = settings.get(key)
+    if isinstance(raw_value, str) and raw_value and raw_value != preset_value:
+        return raw_value
+    defaults = VISUAL_TREATMENT_TEXT_DEFAULTS.get(visual_mode)
+    if defaults and key in defaults:
+        return defaults[key]
+    return _setting(settings, key, preset_value)
+
+
 def _sync_ai_video_enabled(content: ScriptContent) -> ScriptContent:
     content.ai_video_enabled = any(
         scene.visual_mode == "video" or scene.media_source == "ai_video"
@@ -386,8 +419,8 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
         visual_mode = preset.visual_mode
     scene = Scene(
         id=f"{preset.id}-scene-1",
-        narration=_setting(settings, "narration", preset.narration),
-        visual_prompt=_setting(settings, "visual_prompt", preset.visual_prompt),
+        narration=_scene_text_from_settings(settings, preset, visual_mode, "narration"),
+        visual_prompt=_scene_text_from_settings(settings, preset, visual_mode, "visual_prompt"),
         duration_estimate_seconds=float(
             _setting(settings, "duration_estimate_seconds", preset.duration_estimate_seconds)
         ),
@@ -673,6 +706,29 @@ def _stage_visual(ctx: TestLabRunContext) -> None:
             scene.video_url = ""
             scene.frame_urls = []
             scene.visual_source_metadata = None
+        elif scene.visual_mode in {"multi_frame", "continuous"}:
+            from pipeline.image_gen import generate_scene_frames_v2
+
+            if not scene.frame_directives:
+                scene.frame_directives = _frame_directives_for_visual_mode(scene)
+            frame_results = generate_scene_frames_v2(
+                scene_id=scene.id,
+                frame_directives=[directive.model_dump() for directive in scene.frame_directives],
+                script_id=ctx.script_id,
+                visual_prompt=scene.visual_prompt,
+                force=True,
+                contains_person=scene.contains_person,
+            )
+            frame_urls = [url for url, _prompt, _metadata in frame_results]
+            source_metadata = next((metadata for url, _prompt, metadata in frame_results if url and metadata), None)
+            scene.image_url = next((url for url in frame_urls if url), "")
+            scene.video_url = ""
+            scene.frame_urls = frame_urls
+            scene.visual_source_metadata = source_metadata
+            for index, url in enumerate(frame_urls, start=1):
+                if not url:
+                    continue
+                ctx.manifest.assets.append(TestLabAsset(kind="image", label=f"Frame {index}", url=url))
         else:
             from pipeline.image_gen import generate_scene_image
 
@@ -689,6 +745,57 @@ def _stage_visual(ctx: TestLabRunContext) -> None:
             scene.visual_source_metadata = source_metadata
             ctx.manifest.assets.append(TestLabAsset(kind="image", label="Scene image", url=image_url))
         _save_content(session, record, content)
+
+
+def _frame_directives_for_visual_mode(scene: Scene) -> list[dict]:
+    base_prompt = scene.visual_prompt.strip() or scene.narration.strip()
+    if scene.visual_mode == "continuous":
+        return [
+            {
+                "prompt": f"Opening frame of the same continuous scene: {base_prompt}",
+                "source": "ai_generated",
+                "transition": "crossfade",
+                "reference_previous": False,
+                "contains_person": scene.contains_person,
+            },
+            {
+                "prompt": f"Middle frame of the same continuous scene, same camera angle, visible progression: {base_prompt}",
+                "source": "ai_generated",
+                "transition": "crossfade",
+                "reference_previous": True,
+                "contains_person": scene.contains_person,
+            },
+            {
+                "prompt": f"Final frame of the same continuous scene, same camera angle, completed progression: {base_prompt}",
+                "source": "ai_generated",
+                "transition": "crossfade",
+                "reference_previous": True,
+                "contains_person": scene.contains_person,
+            },
+        ]
+    return [
+        {
+            "prompt": f"First independent frame, simple clear setup: {base_prompt}",
+            "source": "ai_generated",
+            "transition": "cut",
+            "reference_previous": False,
+            "contains_person": scene.contains_person,
+        },
+        {
+            "prompt": f"Second independent frame, stronger escalation or contrasting example: {base_prompt}",
+            "source": "ai_generated",
+            "transition": "cut",
+            "reference_previous": False,
+            "contains_person": scene.contains_person,
+        },
+        {
+            "prompt": f"Third independent frame, final broad payoff composition: {base_prompt}",
+            "source": "ai_generated",
+            "transition": "cut",
+            "reference_previous": False,
+            "contains_person": scene.contains_person,
+        },
+    ]
 
 
 def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
@@ -726,10 +833,11 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
             if scene.audio_duration_seconds > 0 and scene.word_timestamps:
                 assignments = analyze_visual_treatments(content, script_id=ctx.script_id)
                 assignment = _assignment_for_scene(assignments, scene.id)
-                if assignment and isinstance(requested_mode, str) and assignment.visual_mode != requested_mode:
+                assignment_mode = (assignment.visual_mode or assignment.visual_treatment) if assignment else ""
+                if assignment and isinstance(requested_mode, str) and assignment_mode != requested_mode:
                     logger.info(
                         "[TEST_LAB] ignoring %s animation assets for explicitly selected %s scene=%s",
-                        assignment.visual_mode,
+                        assignment_mode,
                         requested_mode,
                         scene.id,
                     )

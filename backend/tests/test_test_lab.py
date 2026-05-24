@@ -171,6 +171,38 @@ def test_test_lab_presets_validate_as_script_content():
         assert validated.segments[0].scenes[0].visual_prompt
 
 
+def test_test_lab_preset_accepts_multi_frame_visual_mode():
+    from pipeline.test_lab import TestLabPreset
+
+    preset = TestLabPreset(
+        id="multi",
+        title="Multi",
+        description="Multi frame",
+        segment_name="Segment",
+        narration="First this, then that.",
+        visual_prompt="Several examples.",
+        visual_mode="multi_frame",
+    )
+
+    assert preset.visual_mode == "multi_frame"
+
+
+def test_test_lab_preset_accepts_continuous_visual_mode():
+    from pipeline.test_lab import TestLabPreset
+
+    preset = TestLabPreset(
+        id="continuous",
+        title="Continuous",
+        description="Continuous",
+        segment_name="Segment",
+        narration="The object grows.",
+        visual_prompt="A sprout growing.",
+        visual_mode="continuous",
+    )
+
+    assert preset.visual_mode == "continuous"
+
+
 def test_test_lab_scenes_endpoint_returns_presets(monkeypatch, tmp_path):
     _engine, app = _setup_app(monkeypatch, tmp_path)
     client = TestClient(app)
@@ -231,6 +263,36 @@ def test_test_lab_scenes_endpoint_returns_flipflop_text_defaults(monkeypatch, tm
             "strong clear silhouette, bold outlines, expressive face, clean 2D cartoon aesthetic, no readable "
             "text or letters."
         )
+    finally:
+        from database import get_session
+
+        app.dependency_overrides.pop(get_session, None)
+
+
+def test_test_lab_scenes_endpoint_returns_multi_frame_text_defaults(monkeypatch, tmp_path):
+    _engine, app = _setup_app(monkeypatch, tmp_path)
+    client = TestClient(app)
+
+    try:
+        response = client.get("/api/test-lab/scenes")
+
+        assert response.status_code == 200
+        data = response.json()
+        multi_frame_defaults = data["visual_treatment_defaults"]["multi_frame"]
+        assert multi_frame_defaults["narration"] == (
+            "First the warning signs were tiny, then they were everywhere, and by the end nobody could pretend "
+            "they had not seen them."
+        )
+        assert multi_frame_defaults["visual_prompt"].startswith(
+            "[CONTRAST] Flat 2D cartoon sequence of escalating warning signs in a city"
+        )
+        assert multi_frame_defaults["visual_prompt"].endswith("no readable words or letters.")
+        continuous_defaults = data["visual_treatment_defaults"]["continuous"]
+        assert continuous_defaults["narration"] == (
+            "The tiny crack spreads across the wall until the whole room feels like it is holding its breath."
+        )
+        assert continuous_defaults["visual_prompt"].startswith("[CLOSE-UP] Flat 2D cartoon wall")
+        assert continuous_defaults["visual_prompt"].endswith("no readable words or letters.")
     finally:
         from database import get_session
 
@@ -690,6 +752,28 @@ def test_test_lab_preset_uses_visual_treatment_setting():
     content = build_content_from_preset("coffee-brain", {"visual_treatment": "flipflop"})
 
     assert content.segments[0].scenes[0].visual_treatment == "flipflop"
+
+
+def test_test_lab_preset_uses_multi_frame_text_defaults_when_mode_selected():
+    from pipeline.test_lab import MULTI_FRAME_TEXT_DEFAULTS, build_content_from_preset
+
+    content = build_content_from_preset("coffee-brain", {"visual_mode": "multi_frame"})
+    scene = content.segments[0].scenes[0]
+
+    assert scene.visual_mode == "multi_frame"
+    assert scene.narration == MULTI_FRAME_TEXT_DEFAULTS["narration"]
+    assert scene.visual_prompt == MULTI_FRAME_TEXT_DEFAULTS["visual_prompt"]
+
+
+def test_test_lab_preset_uses_continuous_text_defaults_when_mode_selected():
+    from pipeline.test_lab import CONTINUOUS_TEXT_DEFAULTS, build_content_from_preset
+
+    content = build_content_from_preset("coffee-brain", {"visual_mode": "continuous"})
+    scene = content.segments[0].scenes[0]
+
+    assert scene.visual_mode == "continuous"
+    assert scene.narration == CONTINUOUS_TEXT_DEFAULTS["narration"]
+    assert scene.visual_prompt == CONTINUOUS_TEXT_DEFAULTS["visual_prompt"]
 
 
 def test_stage_defaults_disable_eli_stage_when_eli_character_mode_is_off():
@@ -1976,6 +2060,250 @@ def test_stage_visual_skips_scene_image_for_layered_animation_treatment(monkeypa
     scene = saved.segments[0].scenes[0]
     assert scene.image_url == ""
     assert [asset.kind for asset in manifest.assets] == []
+
+
+def test_stage_visual_generates_frame_urls_for_multi_frame_mode(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.image_gen as image_gen
+    import pipeline.test_lab as test_lab
+    from models.script import ScriptContent
+
+    with Session(engine) as session:
+        script_id = test_lab.create_hidden_test_script(
+            session,
+            run_id="run-multi-frame-visual",
+            preset_id="coffee-brain",
+            settings={
+                "visual_mode": "multi_frame",
+            },
+        )
+        session.commit()
+
+    observed = {}
+
+    monkeypatch.setattr(
+        image_gen,
+        "generate_scene_image",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("multi_frame should generate frames")),
+    )
+
+    def fake_generate_scene_frames_v2(**kwargs):
+        observed["frame_directives"] = kwargs["frame_directives"]
+        return [
+            ("/static/projects/test/images/frame-0.png", "prompt 0", {"source_type": "ai_generated"}),
+            ("/static/projects/test/images/frame-1.png", "prompt 1", {"source_type": "ai_generated"}),
+            ("/static/projects/test/images/frame-2.png", "prompt 2", {"source_type": "ai_generated"}),
+        ]
+
+    monkeypatch.setattr(image_gen, "generate_scene_frames_v2", fake_generate_scene_frames_v2)
+
+    manifest = test_lab.TestLabRunManifest(
+        run_id="run-multi-frame-visual",
+        script_id=script_id,
+        preset_id="coffee-brain",
+        status="running",
+    )
+    ctx = test_lab.TestLabRunContext(
+        engine=engine,
+        run_id="run-multi-frame-visual",
+        script_id=script_id,
+        preset_id="coffee-brain",
+        settings={"visual_mode": "multi_frame"},
+        manifest=manifest,
+        job_id=None,
+    )
+
+    test_lab._stage_visual(ctx)
+
+    with Session(engine) as session:
+        record, content = test_lab._load_content_for_script(session, script_id)
+        _ = record
+        saved = ScriptContent.model_validate(content)
+
+    scene = saved.segments[0].scenes[0]
+    assert scene.image_url == "/static/projects/test/images/frame-0.png"
+    assert scene.frame_urls == [
+        "/static/projects/test/images/frame-0.png",
+        "/static/projects/test/images/frame-1.png",
+        "/static/projects/test/images/frame-2.png",
+    ]
+    assert [directive["reference_previous"] for directive in observed["frame_directives"]] == [False, False, False]
+    assert [asset.kind for asset in manifest.assets] == ["image", "image", "image"]
+
+
+def test_stage_visual_generates_referenced_frame_urls_for_continuous_mode(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.image_gen as image_gen
+    import pipeline.test_lab as test_lab
+    from models.script import ScriptContent
+
+    with Session(engine) as session:
+        script_id = test_lab.create_hidden_test_script(
+            session,
+            run_id="run-continuous-visual",
+            preset_id="coffee-brain",
+            settings={
+                "visual_mode": "continuous",
+            },
+        )
+        session.commit()
+
+    observed = {}
+
+    monkeypatch.setattr(
+        image_gen,
+        "generate_scene_image",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("continuous should generate frames")),
+    )
+
+    def fake_generate_scene_frames_v2(**kwargs):
+        observed["frame_directives"] = kwargs["frame_directives"]
+        return [
+            ("/static/projects/test/images/continuous-0.png", "prompt 0", {"source_type": "ai_generated"}),
+            ("/static/projects/test/images/continuous-1.png", "prompt 1", {"source_type": "ai_generated"}),
+            ("/static/projects/test/images/continuous-2.png", "prompt 2", {"source_type": "ai_generated"}),
+        ]
+
+    monkeypatch.setattr(image_gen, "generate_scene_frames_v2", fake_generate_scene_frames_v2)
+
+    manifest = test_lab.TestLabRunManifest(
+        run_id="run-continuous-visual",
+        script_id=script_id,
+        preset_id="coffee-brain",
+        status="running",
+    )
+    ctx = test_lab.TestLabRunContext(
+        engine=engine,
+        run_id="run-continuous-visual",
+        script_id=script_id,
+        preset_id="coffee-brain",
+        settings={"visual_mode": "continuous"},
+        manifest=manifest,
+        job_id=None,
+    )
+
+    test_lab._stage_visual(ctx)
+
+    with Session(engine) as session:
+        record, content = test_lab._load_content_for_script(session, script_id)
+        _ = record
+        saved = ScriptContent.model_validate(content)
+
+    scene = saved.segments[0].scenes[0]
+    assert scene.image_url == "/static/projects/test/images/continuous-0.png"
+    assert scene.frame_urls == [
+        "/static/projects/test/images/continuous-0.png",
+        "/static/projects/test/images/continuous-1.png",
+        "/static/projects/test/images/continuous-2.png",
+    ]
+    assert [directive["reference_previous"] for directive in observed["frame_directives"]] == [False, True, True]
+    assert [asset.kind for asset in manifest.assets] == ["image", "image", "image"]
+
+
+def test_stage_visual_preserves_subtitle_frame_placeholders(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.image_gen as image_gen
+    import pipeline.test_lab as test_lab
+    from models.script import ScriptContent
+
+    with Session(engine) as session:
+        script_id = test_lab.create_hidden_test_script(
+            session,
+            run_id="run-subtitle-frame-placeholder",
+            preset_id="coffee-brain",
+            settings={
+                "visual_mode": "multi_frame",
+                "advanced_script": {
+                    "segments": [
+                        {
+                            "name": "Segment",
+                            "scenes": [
+                                {
+                                    "id": "coffee-brain-scene-1",
+                                    "narration": "First this, then a label, then that.",
+                                    "visual_prompt": "A simple progression.",
+                                    "visual_mode": "multi_frame",
+                                    "frame_directives": [
+                                        {
+                                            "prompt": "First image.",
+                                            "source": "ai_generated",
+                                            "transition": "cut",
+                                            "reference_previous": False,
+                                        },
+                                        {
+                                            "prompt": "ON SCREEN LABEL",
+                                            "source": "subtitle",
+                                            "transition": "cut",
+                                            "reference_previous": False,
+                                        },
+                                        {
+                                            "prompt": "Third image.",
+                                            "source": "ai_generated",
+                                            "transition": "cut",
+                                            "reference_previous": False,
+                                        },
+                                    ],
+                                }
+                            ],
+                        }
+                    ]
+                },
+            },
+        )
+        session.commit()
+
+    monkeypatch.setattr(
+        image_gen,
+        "generate_scene_image",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("multi_frame should generate frames")),
+    )
+    monkeypatch.setattr(
+        image_gen,
+        "generate_scene_frames_v2",
+        lambda **_kwargs: [
+            ("/static/projects/test/images/frame-0.png", "prompt 0", {"source_type": "ai_generated"}),
+            ("", "ON SCREEN LABEL", None),
+            ("/static/projects/test/images/frame-2.png", "prompt 2", {"source_type": "ai_generated"}),
+        ],
+    )
+
+    manifest = test_lab.TestLabRunManifest(
+        run_id="run-subtitle-frame-placeholder",
+        script_id=script_id,
+        preset_id="coffee-brain",
+        status="running",
+    )
+    ctx = test_lab.TestLabRunContext(
+        engine=engine,
+        run_id="run-subtitle-frame-placeholder",
+        script_id=script_id,
+        preset_id="coffee-brain",
+        settings={"visual_mode": "multi_frame"},
+        manifest=manifest,
+        job_id=None,
+    )
+
+    test_lab._stage_visual(ctx)
+
+    with Session(engine) as session:
+        record, content = test_lab._load_content_for_script(session, script_id)
+        _ = record
+        saved = ScriptContent.model_validate(content)
+
+    scene = saved.segments[0].scenes[0]
+    assert scene.image_url == "/static/projects/test/images/frame-0.png"
+    assert scene.frame_urls == [
+        "/static/projects/test/images/frame-0.png",
+        "",
+        "/static/projects/test/images/frame-2.png",
+    ]
+    assert [asset.url for asset in manifest.assets] == [
+        "/static/projects/test/images/frame-0.png",
+        "/static/projects/test/images/frame-2.png",
+    ]
 
 
 def test_run_test_lab_persists_failed_manifest_when_setup_fails(monkeypatch, tmp_path):
