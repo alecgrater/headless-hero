@@ -1258,7 +1258,6 @@ const SERVICE_DISPLAY = {
   google_ai: { label: 'Google AI Studio', color: 'sky', icon: '🎨', manageUrl: 'https://aistudio.google.com/spend?project=headless-hand' },
   elevenlabs: { label: 'ElevenLabs', color: 'amber', icon: '🔊', manageUrl: 'https://elevenlabs.io/app/subscription/creative' },
   ollama: { label: 'Local LLM', color: 'emerald', icon: '▣', manageUrl: null, savings: true },
-  replicate: { label: 'Replicate', color: 'neutral', icon: '🖼️', manageUrl: 'https://replicate.com/users/alecgrater/settings/billing/manage-credit?next=/account/billing' },
   fal: { label: 'fal', color: 'neutral', icon: '◇', manageUrl: 'https://fal.ai/dashboard/usage-billing/credits' },
 };
 
@@ -1268,7 +1267,6 @@ const SERVICE_COLORS = {
   google_ai: 'bg-sky-600/30 text-sky-400 border-sky-600/30',
   elevenlabs: 'bg-amber-600/30 text-amber-400 border-amber-600/30',
   ollama: 'bg-emerald-600/30 text-emerald-400 border-emerald-600/30',
-  replicate: 'bg-neutral-600/30 text-neutral-400 border-neutral-600/30',
   fal: 'bg-neutral-900 text-neutral-100 border-neutral-100',
 };
 
@@ -1278,7 +1276,6 @@ const SERVICE_BAR_COLORS = {
   google_ai: 'bg-sky-500',
   elevenlabs: 'bg-amber-500',
   ollama: 'bg-emerald-500',
-  replicate: 'bg-neutral-500',
   fal: 'bg-neutral-200',
 };
 
@@ -1306,7 +1303,7 @@ function renderUsageSummary(data) {
 
   // Service cards
   const cards = document.getElementById('usageServiceCards');
-  const knownServices = ['openai', 'anthropic', 'google_ai', 'elevenlabs', 'ollama', 'replicate', 'fal'];
+  const knownServices = ['openai', 'anthropic', 'google_ai', 'elevenlabs', 'ollama', 'fal'];
   const observedServices = data.services.map(s => s.service).filter(s => !knownServices.includes(s));
   const allServices = [...knownServices, ...observedServices];
   let html = '';

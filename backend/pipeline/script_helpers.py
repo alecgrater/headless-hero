@@ -270,6 +270,6 @@ def _usage_task_label(service: str, operation: str, metadata_json: str) -> str:
         return labels[key]
     if service == "elevenlabs":
         return "Generate Audio"
-    if service in {"google_ai", "replicate"}:
+    if service == "google_ai":
         return "Generate Images"
     return key.replace("_", " ").title() if key else "Other"

@@ -1,4 +1,16 @@
 import { useEffect, useState } from "react";
+import {
+  Brain,
+  Folder,
+  Image,
+  Key,
+  Mic,
+  Palette,
+  SlidersHorizontal,
+  Sparkles,
+  Upload,
+  type LucideIcon,
+} from "lucide-react";
 import ApiKeysSection from "./ApiKeysSection";
 import GeneralSection from "./GeneralSection";
 import MiscSection from "./MiscSection";
@@ -8,92 +20,53 @@ import VoiceSection from "./VoiceSection";
 
 // eslint-disable-next-line react-refresh/only-export-components -- co-located with the SettingsPage component that owns these section IDs
 export const SECTIONS = [
-  { id: "storage", label: "Storage", icon: "folder" },
-  { id: "ai-models", label: "AI Models", icon: "brain" },
-  { id: "visuals", label: "Visuals", icon: "image" },
-  { id: "voice", label: "Voices", icon: "mic" },
-  { id: "audio", label: "Audio", icon: "sliders" },
-  { id: "publishing", label: "Publishing", icon: "upload" },
-  { id: "api-keys", label: "API Keys", icon: "key" },
-  { id: "misc", label: "Miscellaneous", icon: "sparkles" },
-  { id: "style-presets", label: "Style Presets", icon: "palette" },
+  { id: "storage", label: "Storage", icon: Folder, group: "Setup" },
+  { id: "api-keys", label: "API Keys", icon: Key, group: "Setup" },
+  { id: "ai-models", label: "AI Models", icon: Brain, group: "Generation" },
+  { id: "visuals", label: "Visuals", icon: Image, group: "Generation" },
+  { id: "voice", label: "Voices", icon: Mic, group: "Generation" },
+  { id: "audio", label: "Audio", icon: SlidersHorizontal, group: "Generation" },
+  { id: "brand-style", label: "Brand & Style", icon: Palette, group: "Brand & Style" },
+  { id: "publishing", label: "Publishing", icon: Upload, group: "Publishing" },
+  { id: "advanced", label: "Advanced", icon: Sparkles, group: "Advanced" },
 ] as const;
 
 export type SectionId = (typeof SECTIONS)[number]["id"];
+export type LegacySectionId = SectionId | "style-presets" | "misc";
 
-export function SectionIcon({ icon, className }: { icon: string; className?: string }) {
-  switch (icon) {
-    case "key":
-      return (
-        <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
-        </svg>
-      );
-    case "folder":
-      return (
-        <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
-        </svg>
-      );
-    case "mic":
-      return (
-        <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
-        </svg>
-      );
-    case "upload":
-      return (
-        <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-        </svg>
-      );
-    case "brain":
-      return (
-        <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 3.75A3.75 3.75 0 005.75 7.5v.32A3.75 3.75 0 004.5 14.9v.35A3.75 3.75 0 008.25 19H9.5m0-15.25A3.75 3.75 0 0113.25 7.5v12.75M9.5 3.75v16.5m4-16.5A3.75 3.75 0 0117.25 7.5v.32A3.75 3.75 0 0118.5 14.9v.35A3.75 3.75 0 0114.75 19h-1.25" />
-        </svg>
-      );
-    case "image":
-      return (
-        <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3h16.5A1.5 1.5 0 0021.75 17.25V6.75A1.5 1.5 0 0020.25 5.25H3.75A1.5 1.5 0 002.25 6.75v10.5A1.5 1.5 0 003.75 18.75zm10.5-9.75h.008v.008h-.008V9z" />
-        </svg>
-      );
-    case "sliders":
-      return (
-        <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9m-9 0a2.25 2.25 0 11-4.5 0m4.5 0a2.25 2.25 0 10-4.5 0M3.75 6H6m4.5 12h9m-9 0a2.25 2.25 0 11-4.5 0m4.5 0a2.25 2.25 0 10-4.5 0m-2.25 0H6m9-6h4.5m-4.5 0a2.25 2.25 0 11-4.5 0m4.5 0a2.25 2.25 0 10-4.5 0m-6.75 0h6.75" />
-        </svg>
-      );
-    case "sparkles":
-      return (
-        <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
-        </svg>
-      );
-    case "palette":
-      return (
-        <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4.098 19.902a3.75 3.75 0 005.304 0l6.401-6.402M6.75 21A3.75 3.75 0 013 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 003.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008z" />
-        </svg>
-      );
-    default:
-      return null;
-  }
+// eslint-disable-next-line react-refresh/only-export-components -- used by App to normalize legacy Settings deep links
+export function normalizeSectionId(sectionId: LegacySectionId | null | undefined): SectionId {
+  if (sectionId === "style-presets") return "brand-style";
+  if (sectionId === "misc") return "advanced";
+  return sectionId ?? "storage";
 }
+
+export function SectionIcon({ icon, className }: { icon: LucideIcon; className?: string }) {
+  const Icon = icon;
+  return <Icon className={className} />;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components -- grouped nav metadata is shared with the top Settings dropdown
+export const SECTION_GROUPS = [
+  "Setup",
+  "Generation",
+  "Brand & Style",
+  "Publishing",
+  "Advanced",
+] as const;
 
 interface Props {
   onBack: () => void;
-  defaultSection?: SectionId | null;
+  defaultSection?: LegacySectionId | null;
   onConsumeDefaultSection?: () => void;
 }
 
 export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultSection }: Props) {
-  const [activeSection, setActiveSection] = useState<SectionId>(defaultSection ?? "storage");
+  const [activeSection, setActiveSection] = useState<SectionId>(normalizeSectionId(defaultSection));
 
   useEffect(() => {
     if (defaultSection) {
-      setActiveSection(defaultSection);
+      setActiveSection(normalizeSectionId(defaultSection));
       onConsumeDefaultSection?.();
     }
   }, [defaultSection, onConsumeDefaultSection]);
@@ -117,21 +90,30 @@ export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultS
       {/* Sidebar + content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <nav className="w-52 shrink-0 border-r border-neutral-800 py-4 px-3 space-y-1 overflow-y-auto">
-          {SECTIONS.map((section) => (
-            <button
-              key={section.id}
-              onClick={() => setActiveSection(section.id)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
-                activeSection === section.id
-                  ? "bg-neutral-800 text-neutral-100"
-                  : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50"
-              }`}
-            >
-              <SectionIcon icon={section.icon} className="w-4 h-4 shrink-0" />
-              {section.label}
-            </button>
-          ))}
+        <nav className="w-60 shrink-0 border-r border-neutral-800 py-4 px-3 overflow-y-auto">
+          <div className="space-y-5">
+            {SECTION_GROUPS.map((group) => (
+              <div key={group} className="space-y-1">
+                <div className="px-3 text-[11px] font-semibold uppercase tracking-wide text-neutral-600">
+                  {group}
+                </div>
+                {SECTIONS.filter((section) => section.group === group).map((section) => (
+                  <button
+                    key={section.id}
+                    onClick={() => setActiveSection(section.id)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                      activeSection === section.id
+                        ? "bg-neutral-800 text-neutral-100"
+                        : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/50"
+                    }`}
+                  >
+                    <SectionIcon icon={section.icon} className="w-4 h-4 shrink-0" />
+                    {section.label}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
         </nav>
 
         {/* Content area */}
@@ -143,8 +125,8 @@ export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultS
           {activeSection === "audio" && <VoiceSection panel="audio" />}
           {activeSection === "publishing" && <PublishingSection />}
           {activeSection === "api-keys" && <ApiKeysSection />}
-          {activeSection === "misc" && <MiscSection />}
-          {activeSection === "style-presets" && (
+          {activeSection === "advanced" && <MiscSection />}
+          {activeSection === "brand-style" && (
             <div className="max-w-6xl px-8 py-8">
               <StylePresetsSection />
             </div>

@@ -91,7 +91,7 @@ def test_recomposite_thumbnail_requires_character_reference():
         app.dependency_overrides.pop(get_session, None)
 
     assert res.status_code == 400
-    assert "Main character reference image is missing" in res.json()["detail"]
+    assert "Active style preset is missing" in res.json()["detail"]
 
 
 def test_split_progression_thumbnail_requires_character_reference():
@@ -108,7 +108,7 @@ def test_split_progression_thumbnail_requires_character_reference():
         app.dependency_overrides.pop(get_session, None)
 
     assert res.status_code == 400
-    assert "Main character reference image is missing" in res.json()["detail"]
+    assert "Active style preset is missing" in res.json()["detail"]
 
 
 def test_export_test_regen_images_requires_character_reference():
@@ -131,4 +131,4 @@ def test_export_test_regen_images_requires_character_reference():
         app.dependency_overrides.pop(get_session, None)
 
     assert res.status_code == 400
-    assert "Main character reference image is missing" in res.json()["detail"]
+    assert "Active style preset is missing" in res.json()["detail"]

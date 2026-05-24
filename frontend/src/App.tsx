@@ -6,7 +6,7 @@ import { BACKEND_PORT } from "./constants";
 import ProjectDashboard from "./components/dashboard/ProjectDashboard";
 import IdeationPage from "./components/ideation/IdeationPage";
 import ScriptGenerationPage from "./components/script/ScriptGenerationPage";
-import SettingsPage, { SECTIONS, SectionIcon, type SectionId } from "./components/settings/SettingsPage";
+import SettingsPage, { SECTIONS, SECTION_GROUPS, SectionIcon, type SectionId } from "./components/settings/SettingsPage";
 import TimelinePage from "./components/timeline/TimelinePage";
 import VoiceoverRecordingPage from "./components/recording/VoiceoverRecordingPage";
 import { ShortcutHelpOverlay } from "./components/timeline/ShortcutHelpOverlay";
@@ -383,20 +383,27 @@ function App() {
                 Settings
               </button>
               {settingsDropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-52 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl shadow-black/40 z-50 animate-[fadeUp_150ms_ease-out] overflow-hidden py-1">
-                  {SECTIONS.map((section) => (
-                    <button
-                      key={section.id}
-                      onClick={() => {
-                        setSettingsDropdownOpen(false);
-                        setSettingsDefaultSection(section.id);
-                        handleSetView("settings");
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-neutral-300 hover:bg-neutral-700 hover:text-neutral-100 transition-colors text-left"
-                    >
-                      <SectionIcon icon={section.icon} className="w-4 h-4 shrink-0 text-neutral-500" />
-                      {section.label}
-                    </button>
+                <div className="absolute right-0 top-full mt-2 w-60 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl shadow-black/40 z-50 animate-[fadeUp_150ms_ease-out] overflow-hidden py-2">
+                  {SECTION_GROUPS.map((group) => (
+                    <div key={group} className="py-1">
+                      <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                        {group}
+                      </div>
+                      {SECTIONS.filter((section) => section.group === group).map((section) => (
+                        <button
+                          key={section.id}
+                          onClick={() => {
+                            setSettingsDropdownOpen(false);
+                            setSettingsDefaultSection(section.id);
+                            handleSetView("settings");
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-neutral-300 hover:bg-neutral-700 hover:text-neutral-100 transition-colors text-left"
+                        >
+                          <SectionIcon icon={section.icon} className="w-4 h-4 shrink-0 text-neutral-500" />
+                          {section.label}
+                        </button>
+                      ))}
+                    </div>
                   ))}
                 </div>
               )}

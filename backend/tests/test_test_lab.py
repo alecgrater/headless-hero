@@ -19,6 +19,7 @@ def _build_inmemory_engine():
     import models.script  # noqa: F401
     import models.settings  # noqa: F401
     import models.style_preset  # noqa: F401
+    import models.style_preset_character  # noqa: F401
     import models.trending  # noqa: F401
 
     engine = create_engine(
@@ -487,55 +488,74 @@ def test_stage_character_reference_blocks_eli_disabled_without_selected_referenc
         job_id=None,
     )
 
-    with pytest.raises(RuntimeError, match="Generate and select a reference"):
+    with pytest.raises(RuntimeError, match="Active style preset is missing"):
         test_lab._stage_character_reference(ctx)
 
 
-def test_stage_character_reference_uses_global_main_character(monkeypatch, tmp_path):
+def test_stage_character_reference_uses_active_preset_character(monkeypatch, tmp_path):
     engine, _app = _setup_app(monkeypatch, tmp_path)
 
     import pipeline.main_character as main_character
     import pipeline.test_lab as test_lab
-    from models.script import MainCharacter
+    from models.settings import AppSetting
+    from models.style_preset import StylePreset
+    from models.style_preset_character import StylePresetCharacter
 
     monkeypatch.setattr(main_character, "DATA_DIR", tmp_path)
     monkeypatch.setattr(test_lab, "DATA_DIR", tmp_path)
 
     with Session(engine) as session:
-        main_character.write_global_main_character(
-            session,
-            MainCharacter(
+        preset_id = "preset-a"
+        character_id = "character-a"
+        preset_image = tmp_path / "style" / "presets" / f"{preset_id}.png"
+        preset_image.parent.mkdir(parents=True, exist_ok=True)
+        preset_image.write_bytes(b"preset")
+        character_ref = tmp_path / "style" / "presets" / preset_id / "characters" / f"{character_id}.png"
+        character_ref.parent.mkdir(parents=True, exist_ok=True)
+        character_ref.write_bytes(b"preset-main-character")
+        session.add(
+            StylePreset(
+                id=preset_id,
+                name="Mara",
+                prompt="bright illustrated style",
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+        session.add(
+            StylePresetCharacter(
+                id=character_id,
+                style_preset_id=preset_id,
                 name="Mara",
                 appearance="A cartographer in a green jacket.",
                 vibe="Inventive and calm.",
-            ),
+                reference_image_url=f"/static/style/presets/{preset_id}/characters/{character_id}.png",
+                created_at=datetime.now(timezone.utc),
+            )
         )
-        global_ref = tmp_path / "character" / "main" / "references" / "1.png"
-        global_ref.parent.mkdir(parents=True, exist_ok=True)
-        global_ref.write_bytes(b"global-main-character")
-        main_character.select_global_character_reference_variant(idx=1)
-
-        main_character.write_global_main_character_reference_url(
-            session,
-            main_character.global_character_reference_web_path(),
+        session.add(AppSetting(key="ACTIVE_STYLE_PRESET_ID", value=preset_id))
+        session.add(
+            AppSetting(
+                key=main_character.active_style_preset_character_key(preset_id),
+                value=character_id,
+            )
         )
         script_id = test_lab.create_hidden_test_script(
             session,
-            run_id="run-global-character",
+            run_id="run-preset-character",
             preset_id="life-scribe",
             settings={"eli_enabled": False},
         )
         session.commit()
 
     manifest = test_lab.TestLabRunManifest(
-        run_id="run-global-character",
+        run_id="run-preset-character",
         script_id=script_id,
         preset_id="life-scribe",
         status="running",
     )
     ctx = test_lab.TestLabRunContext(
         engine=engine,
-        run_id="run-global-character",
+        run_id="run-preset-character",
         script_id=script_id,
         preset_id="life-scribe",
         settings={"eli_enabled": False},
@@ -546,7 +566,7 @@ def test_stage_character_reference_uses_global_main_character(monkeypatch, tmp_p
     test_lab._stage_character_reference(ctx)
 
     project_ref = tmp_path / "projects" / script_id / "character" / "reference.png"
-    assert project_ref.read_bytes() == b"global-main-character"
+    assert project_ref.read_bytes() == b"preset-main-character"
     assert ctx.manifest.assets[-1].url == f"/static/projects/{script_id}/character/reference.png"
 
 

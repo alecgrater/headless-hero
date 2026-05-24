@@ -52,12 +52,6 @@ const SERVICE_GROUPS: ServiceGroup[] = [
       placeholder: "AIza...",
     },
     {
-      key: "REPLICATE_API_TOKEN",
-      label: "Replicate",
-      description: "Generates images via Flux models (alternative to Google Gemini).",
-      placeholder: "r8_...",
-    },
-    {
       key: "RUNWAYML_API_SECRET",
       label: "Runway",
       description: "Generates animated scene videos via Gen-4 Turbo image-to-video.",

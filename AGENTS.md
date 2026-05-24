@@ -134,7 +134,7 @@ Remove legacy FFmpeg video rendering pipeline
 ## Environment Variables
 
 Required: `ANTHROPIC_API_KEY`, `GOOGLE_AI_KEY`, `ELEVENLABS_API_KEY`
-Optional: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (YouTube publishing), `REPLICATE_API_TOKEN` (alternative image provider), `RUNWAYML_API_SECRET` or `FAL_API_KEY` (AI video scenes)
+Optional: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (YouTube publishing), `RUNWAYML_API_SECRET` or `FAL_API_KEY` (AI video scenes)
 
 Stored in DB via AppSettings, loaded into env at startup. Never commit `.env` files.
 

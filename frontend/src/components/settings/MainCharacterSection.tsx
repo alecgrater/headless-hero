@@ -39,7 +39,7 @@ export function MainCharacterSection({ compact = false, onContinue }: Props) {
     load();
   }, []);
 
-  const variants = config?.main_character_reference_variants ?? [];
+  const variants = useMemo(() => config?.main_character_reference_variants ?? [], [config?.main_character_reference_variants]);
   const viewedIndex = useMemo(() => {
     if (variants.length === 0) return -1;
     const index = variants.findIndex((variant) => variant.idx === viewedIdx);

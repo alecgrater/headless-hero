@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Info } from "lucide-react";
+import { ChevronDown, Info, RotateCcw } from "lucide-react";
 import api from "../../api";
 import { DEFAULT_MODEL } from "../../constants";
 import { showToast } from "../ToastContainer";
@@ -13,7 +13,6 @@ interface KeyInfo {
 const IMAGE_PROVIDERS = [
   { value: "google", label: "Google Gemini" },
   { value: "google", label: "Gemini - Gemini" },
-  { value: "replicate", label: "Replicate (Flux)" },
 ] as const;
 
 const AI_VIDEO_PROVIDERS = [
@@ -222,28 +221,6 @@ const LLM_TASKS: LlmTaskConfig[] = [
   },
 ];
 
-const OUTPUT_FORMATS = [
-  { value: "png", label: "PNG" },
-  { value: "webp", label: "WebP" },
-  { value: "jpg", label: "JPEG" },
-] as const;
-
-const SAFETY_LEVELS = [
-  { value: "1", label: "1 — Strictest" },
-  { value: "2", label: "2 — Strict (default)" },
-  { value: "3", label: "3 — Moderate" },
-  { value: "4", label: "4 — Permissive" },
-  { value: "5", label: "5 — Most permissive" },
-] as const;
-
-const REPLICATE_MODELS = [
-  { value: "black-forest-labs/flux-1.1-pro", label: "Flux 1.1 Pro", description: "Fast, high-quality generation" },
-  { value: "black-forest-labs/flux-1.1-pro-ultra", label: "Flux 1.1 Pro Ultra", description: "Highest quality, up to 4MP resolution" },
-  { value: "black-forest-labs/flux-pro", label: "Flux Pro", description: "Original pro model" },
-  { value: "black-forest-labs/flux-dev", label: "Flux Dev", description: "Open-weight, lower cost" },
-  { value: "black-forest-labs/flux-schnell", label: "Flux Schnell", description: "Fastest, lowest cost" },
-] as const;
-
 // eslint-disable-next-line react-refresh/only-export-components -- co-located with the GeneralSection component that consumes these
 export const SCRIPT_MODELS = [
   { value: DEFAULT_MODEL, label: "Claude Opus 4.7" },
@@ -329,12 +306,9 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
   const [lifeAsATargetSeconds, setLifeAsATargetSeconds] = useState("8");
   const [lifeAsAMaxSeconds, setLifeAsAMaxSeconds] = useState("12");
   const [lifeAsASingleVisualMaxSeconds, setLifeAsASingleVisualMaxSeconds] = useState("8");
-  const [promptUpsampling, setPromptUpsampling] = useState("true");
-  const [replicateModel, setReplicateModel] = useState("black-forest-labs/flux-1.1-pro");
-  const [safetyTolerance, setSafetyTolerance] = useState("2");
-  const [outputFormat, setOutputFormat] = useState("png");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [advancedRoutingOpen, setAdvancedRoutingOpen] = useState(false);
   const [llmProvider, setLlmProvider] = useState<LlmProvider>("ollama");
   const [qwenModel, setQwenModel] = useState("qwen3:14b");
   const [anthropicKeyConfigured, setAnthropicKeyConfigured] = useState(false);
@@ -349,10 +323,6 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
   const [originalLifeAsATargetSeconds, setOriginalLifeAsATargetSeconds] = useState("8");
   const [originalLifeAsAMaxSeconds, setOriginalLifeAsAMaxSeconds] = useState("12");
   const [originalLifeAsASingleVisualMaxSeconds, setOriginalLifeAsASingleVisualMaxSeconds] = useState("8");
-  const [originalUpsampling, setOriginalUpsampling] = useState("true");
-  const [originalModel, setOriginalModel] = useState("black-forest-labs/flux-1.1-pro");
-  const [originalSafety, setOriginalSafety] = useState("2");
-  const [originalFormat, setOriginalFormat] = useState("png");
   const [originalLlmProvider, setOriginalLlmProvider] = useState<LlmProvider>("ollama");
   const [originalQwenModel, setOriginalQwenModel] = useState("qwen3:14b");
   const [originalTaskRoutes, setOriginalTaskRoutes] = useState<Record<string, TaskRoute>>(initialTaskRoutes);
@@ -364,7 +334,8 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
         const exportVal = data.DOWNLOADS_DIR?.masked ?? "~/Headless Hero Videos";
         setExportsDir(exportVal);
         setOriginalExportsDir(exportVal);
-        const provVal = data.IMAGE_PROVIDER?.masked || "google";
+        const rawProvider = data.IMAGE_PROVIDER?.masked || "google";
+        const provVal = rawProvider === "replicate" ? "google" : rawProvider;
         setImageProvider(provVal);
         setOriginalProvider(provVal);
         const aiVideoVal = data.AI_VIDEO_ENABLED?.masked === "true";
@@ -388,18 +359,6 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
         const lifeAsASingleVisualVal = data.LIFE_AS_A_SINGLE_VISUAL_MAX_SECONDS?.masked || "8";
         setLifeAsASingleVisualMaxSeconds(lifeAsASingleVisualVal);
         setOriginalLifeAsASingleVisualMaxSeconds(lifeAsASingleVisualVal);
-        const upVal = data.REPLICATE_PROMPT_UPSAMPLING?.masked || "true";
-        setPromptUpsampling(upVal);
-        setOriginalUpsampling(upVal);
-        const modVal = data.REPLICATE_MODEL?.masked || "black-forest-labs/flux-1.1-pro";
-        setReplicateModel(modVal);
-        setOriginalModel(modVal);
-        const safVal = data.REPLICATE_SAFETY_TOLERANCE?.masked || "2";
-        setSafetyTolerance(safVal);
-        setOriginalSafety(safVal);
-        const fmtVal = data.REPLICATE_OUTPUT_FORMAT?.masked || "png";
-        setOutputFormat(fmtVal);
-        setOriginalFormat(fmtVal);
         const llmVal = normalizeLlmProvider(data.LLM_PROVIDER?.masked || "", "ollama");
         setLlmProvider(llmVal);
         setOriginalLlmProvider(llmVal);
@@ -451,10 +410,6 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
       LIFE_AS_A_TARGET_SCENE_SECONDS: lifeAsATargetSeconds,
       LIFE_AS_A_MAX_SCENE_SECONDS: lifeAsAMaxSeconds,
       LIFE_AS_A_SINGLE_VISUAL_MAX_SECONDS: lifeAsASingleVisualMaxSeconds,
-      REPLICATE_MODEL: replicateModel,
-      REPLICATE_PROMPT_UPSAMPLING: promptUpsampling,
-      REPLICATE_SAFETY_TOLERANCE: safetyTolerance,
-      REPLICATE_OUTPUT_FORMAT: outputFormat,
       LLM_PROVIDER: llmProvider,
       QWEN_MODEL: qwenModel.trim() || "qwen3:14b",
       ...routePayload,
@@ -472,10 +427,6 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
       setOriginalLifeAsATargetSeconds(lifeAsATargetSeconds);
       setOriginalLifeAsAMaxSeconds(lifeAsAMaxSeconds);
       setOriginalLifeAsASingleVisualMaxSeconds(lifeAsASingleVisualMaxSeconds);
-      setOriginalModel(replicateModel);
-      setOriginalUpsampling(promptUpsampling);
-      setOriginalSafety(safetyTolerance);
-      setOriginalFormat(outputFormat);
       setOriginalLlmProvider(llmProvider);
       setOriginalQwenModel(qwenModel.trim() || "qwen3:14b");
       setOriginalTaskRoutes(
@@ -546,6 +497,59 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
     setLlmProvider(provider);
   };
 
+  const routeForTask = (taskId: string) => {
+    const task = LLM_TASKS.find((candidate) => candidate.id === taskId);
+    if (!task) return null;
+    return taskRoutes[task.id] ?? {
+      provider: task.defaultProvider,
+      model: modelForProvider(task, task.defaultProvider),
+      openaiReasoningEffort: task.defaultReasoning,
+    };
+  };
+
+  const providerLabel = (provider: LlmProvider) =>
+    LLM_PROVIDERS.find((candidate) => candidate.value === provider)?.label ?? provider;
+
+  const routeSummary = (taskId: string) => {
+    const route = routeForTask(taskId);
+    if (!route) return "Not configured";
+    return `${providerLabel(route.provider)} · ${route.model}`;
+  };
+
+  const utilityRouteSummary = () => {
+    const utilityTasks = LLM_TASKS.filter((task) => !["script", "idea"].includes(task.id));
+    const counts = utilityTasks.reduce<Record<LlmProvider, number>>(
+      (acc, task) => {
+        const route = routeForTask(task.id);
+        const provider = route?.provider ?? task.defaultProvider;
+        acc[provider] += 1;
+        return acc;
+      },
+      { anthropic: 0, ollama: 0, openai: 0 },
+    );
+    return Object.entries(counts)
+      .filter(([, count]) => count > 0)
+      .map(([provider, count]) => `${count} ${providerLabel(provider as LlmProvider)}`)
+      .join(", ");
+  };
+
+  const missingKeyWarnings = () => {
+    const providers = new Set<LlmProvider>([
+      llmProvider,
+      ...LLM_TASKS.map((task) => routeForTask(task.id)?.provider ?? task.defaultProvider),
+    ]);
+    const warnings: string[] = [];
+    if (providers.has("anthropic") && !anthropicKeyConfigured) warnings.push("Anthropic key missing");
+    if (providers.has("openai") && !openaiKeyConfigured) warnings.push("OpenAI key missing");
+    return warnings;
+  };
+
+  const applyRecommendedRouting = () => {
+    setLlmProvider("ollama");
+    setQwenModel("qwen3:14b");
+    setTaskRoutes(initialTaskRoutes());
+  };
+
   const routeChanged = LLM_TASKS.some((task) => {
     const current = taskRoutes[task.id] ?? {
       provider: task.defaultProvider,
@@ -574,10 +578,6 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
     lifeAsATargetSeconds !== originalLifeAsATargetSeconds ||
     lifeAsAMaxSeconds !== originalLifeAsAMaxSeconds ||
     lifeAsASingleVisualMaxSeconds !== originalLifeAsASingleVisualMaxSeconds ||
-    replicateModel !== originalModel ||
-    promptUpsampling !== originalUpsampling ||
-    safetyTolerance !== originalSafety ||
-    outputFormat !== originalFormat ||
     llmProvider !== originalLlmProvider ||
     qwenModel.trim() !== originalQwenModel ||
     routeChanged;
@@ -630,6 +630,43 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
 
           {panel === "ai-models" && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-xl divide-y divide-neutral-800">
+            <div className="p-5 space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-neutral-100">Current Routing</h3>
+                  <p className="text-xs text-neutral-500">
+                    Quick view of which model providers handle the main generation jobs.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={applyRecommendedRouting}
+                  className="inline-flex items-center gap-2 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-xs font-medium text-neutral-200 hover:border-violet-500 hover:text-violet-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Use recommended routing
+                </button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  ["Default provider", providerLabel(llmProvider)],
+                  ["Script & cold opens", routeSummary("script")],
+                  ["Ideas & brainstorming", routeSummary("idea")],
+                  ["Utility tasks", utilityRouteSummary()],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-lg border border-neutral-800 bg-neutral-950/45 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{label}</p>
+                    <p className="mt-1 truncate text-sm text-neutral-100">{value}</p>
+                  </div>
+                ))}
+              </div>
+              {missingKeyWarnings().length > 0 && (
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                  {missingKeyWarnings().join(" · ")}. Add missing credentials in Setup → API Keys.
+                </div>
+              )}
+            </div>
+
             <div className="p-5 space-y-2">
               <div>
                 <h3 className="text-sm font-medium text-neutral-100">Default LLM Provider</h3>
@@ -676,12 +713,21 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
             </div>
 
             <div className="p-5 space-y-4">
-              <div>
-                <h3 className="text-sm font-medium text-neutral-100">LLM Task Routing</h3>
-                <p className="text-xs text-neutral-500">
-                  Configure provider and model per task. These defaults use API models for scripts and ideas, then local Ollama for everything else.
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setAdvancedRoutingOpen((value) => !value)}
+                className="flex w-full items-center justify-between gap-4 text-left transition-colors hover:text-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded-lg"
+              >
+                <div>
+                  <h3 className="text-sm font-medium text-neutral-100">Advanced routing</h3>
+                  <p className="text-xs text-neutral-500">
+                    Configure provider, model, and OpenAI reasoning per task.
+                  </p>
+                </div>
+                <ChevronDown
+                  className={`h-4 w-4 text-neutral-500 transition-transform ${advancedRoutingOpen ? "rotate-180" : ""}`}
+                />
+              </button>
               <datalist id="llm-model-suggestions">
                 {MODEL_SUGGESTIONS.map((model) => (
                   <option key={model.value} value={model.value}>
@@ -689,6 +735,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                   </option>
                 ))}
               </datalist>
+              {advancedRoutingOpen && (
               <div className="space-y-3">
                 {LLM_TASKS.map((task) => {
                   const route = taskRoutes[task.id] ?? {
@@ -802,36 +849,7 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
                   );
                 })}
               </div>
-            </div>
-
-            <div className="p-5 space-y-3">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-sm font-medium text-neutral-100">AI Video Scenes</h3>
-                  <p className="text-xs text-neutral-500">
-                    Route selected high-motion scenes to the configured image-to-video provider.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={aiVideoEnabled}
-                  onClick={() => setAiVideoEnabled((value) => !value)}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
-                    aiVideoEnabled ? "bg-violet-600" : "bg-neutral-700 hover:bg-neutral-600"
-                  }`}
-                  aria-label="Toggle AI video scenes"
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                      aiVideoEnabled ? "translate-x-5" : "translate-x-0"
-                    }`}
-                  />
-                </button>
-              </div>
-              <p className="text-xs text-neutral-500">
-                Requires a key for the selected video provider. Script generation routes high-motion scenes up to the configured per-segment count.
-              </p>
+              )}
             </div>
 
           </div>
@@ -859,58 +877,75 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
               </select>
             </div>
 
-            {aiVideoEnabled && (
-              <div className="p-5 space-y-2">
+            <div className="p-5 space-y-4">
+              <div className="flex items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-sm font-medium text-neutral-100">AI Video Provider</h3>
+                  <h3 className="text-sm font-medium text-neutral-100">AI Video</h3>
                   <p className="text-xs text-neutral-500">
-                    Choose which image-to-video service animates routed AI video scenes.
+                    Route selected high-motion scenes to an image-to-video provider.
                   </p>
                 </div>
-                <select
-                  value={aiVideoProvider}
-                  onChange={(e) => setAiVideoProvider(e.target.value)}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={aiVideoEnabled}
+                  onClick={() => setAiVideoEnabled((value) => !value)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
+                    aiVideoEnabled ? "bg-violet-600" : "bg-neutral-700 hover:bg-neutral-600"
+                  }`}
+                  aria-label="Toggle AI video scenes"
                 >
-                  {AI_VIDEO_PROVIDERS.map((p) => (
-                    <option key={p.value} value={p.value}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-neutral-500">
-                  Existing cached clips are reused only when the provider, model, dimensions, duration, and anchor image all match.
-                </p>
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                      aiVideoEnabled ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
               </div>
-            )}
-
-            {aiVideoEnabled && (
-              <div className="p-5 space-y-2">
-                <div>
-                  <h3 className="text-sm font-medium text-neutral-100">AI Video Scenes per Segment</h3>
-                  <p className="text-xs text-neutral-500">
-                    Maximum eligible high-motion scenes to animate in each segment.
-                  </p>
+              <p className="text-xs text-neutral-500">
+                Requires a key for the selected video provider. Script generation routes high-motion scenes up to the configured per-segment count.
+              </p>
+              {aiVideoEnabled && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_160px]">
+                  <label className="space-y-1">
+                    <span className="text-xs text-neutral-400">AI video provider</span>
+                    <select
+                      value={aiVideoProvider}
+                      onChange={(e) => setAiVideoProvider(e.target.value)}
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
+                    >
+                      {AI_VIDEO_PROVIDERS.map((p) => (
+                        <option key={p.value} value={p.value}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-xs text-neutral-400">Scenes per segment</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="5"
+                      step="1"
+                      value={aiVideoScenesPerSegment}
+                      onChange={(e) => setAiVideoScenesPerSegment(e.target.value)}
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
+                    />
+                  </label>
                 </div>
-                <input
-                  type="number"
-                  min="0"
-                  max="5"
-                  step="1"
-                  value={aiVideoScenesPerSegment}
-                  onChange={(e) => setAiVideoScenesPerSegment(e.target.value)}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
-                />
+              )}
+              {aiVideoEnabled && (
                 <p className="text-xs text-neutral-500">
-                  Default is 2. Use 0 to keep AI video available but skip automatic routing.
+                  Cached clips are reused only when the provider, model, dimensions, duration, and anchor image all match. Use 0 scenes per segment to keep AI video available but skip automatic routing.
                 </p>
-              </div>
-            )}
+              )}
+            </div>
 
             <div className="p-5 space-y-4">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-sm font-medium text-neutral-100">Life-as-a Scene Chunking</h3>
+                  <h3 className="text-sm font-medium text-neutral-100">Scene Structure</h3>
                   <p className="text-xs text-neutral-500">
                     Split long life-as-a narration into short single-beat scenes before voiceover.
                   </p>
@@ -980,99 +1015,6 @@ export default function GeneralSection({ panel }: GeneralSectionProps) {
             </div>
 
           </div>
-          )}
-
-          {panel === "visuals" && imageProvider === "replicate" && (
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-5">
-              <div>
-                <h3 className="text-sm font-medium text-neutral-100">Replicate Settings</h3>
-                <p className="text-xs text-neutral-500">
-                  Fine-tune Flux image generation parameters.
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm text-neutral-200">Model</label>
-                <p className="text-xs text-neutral-500">
-                  Which Flux model to use for image generation.
-                </p>
-                <select
-                  value={replicateModel}
-                  onChange={(e) => setReplicateModel(e.target.value)}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
-                >
-                  {REPLICATE_MODELS.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label} — {m.description}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-sm text-neutral-200">Prompt Upsampling</label>
-                    <p className="text-xs text-neutral-500">
-                      Enhances your prompt with an LLM for better results.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={promptUpsampling === "true"}
-                    onClick={() =>
-                      setPromptUpsampling(promptUpsampling === "true" ? "false" : "true")
-                    }
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
-                      promptUpsampling === "true" ? "bg-violet-600" : "bg-neutral-700"
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                        promptUpsampling === "true" ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm text-neutral-200">Safety Tolerance</label>
-                <p className="text-xs text-neutral-500">
-                  Content filter strictness. Higher values are more permissive.
-                </p>
-                <select
-                  value={safetyTolerance}
-                  onChange={(e) => setSafetyTolerance(e.target.value)}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
-                >
-                  {SAFETY_LEVELS.map((s) => (
-                    <option key={s.value} value={s.value}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm text-neutral-200">Output Format</label>
-                <p className="text-xs text-neutral-500">
-                  Image format returned by Flux.
-                </p>
-                <select
-                  value={outputFormat}
-                  onChange={(e) => setOutputFormat(e.target.value)}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
-                >
-                  {OUTPUT_FORMATS.map((f) => (
-                    <option key={f.value} value={f.value}>
-                      {f.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
           )}
         </div>
       )}

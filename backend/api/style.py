@@ -9,6 +9,7 @@ PUT    /api/style/active                -> set active preset by id (or null to c
 """
 
 import logging
+import shutil
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -24,6 +25,11 @@ from models.style_preset import (
     SetActivePresetRequest,
     StylePreset,
     StylePresetResponse,
+)
+from models.style_preset_character import (
+    CreateStylePresetCharacterRequest,
+    StylePresetCharacter,
+    StylePresetCharacterResponse,
 )
 from pipeline.style_presets import get_job, submit_preset_job
 
@@ -53,6 +59,10 @@ def _to_response(preset: StylePreset) -> StylePresetResponse:
 
 def _preset_image_path(preset_id: str):
     return DATA_DIR / "style" / "presets" / f"{preset_id}.png"
+
+
+def _preset_character_dir(preset_id: str):
+    return DATA_DIR / "style" / "presets" / preset_id / "characters"
 
 
 def _read_active_id(session: Session) -> str:
@@ -123,7 +133,17 @@ def delete_preset(preset_id: str, session: Session = Depends(get_session)):
 
     # Delete row — _write_active_id may have already committed; this is a no-op
     # if so, or the sole commit when active_id didn't match
+    characters = session.exec(
+        select(StylePresetCharacter).where(StylePresetCharacter.style_preset_id == preset_id)
+    ).all()
+    for character in characters:
+        session.delete(character)
     session.delete(preset)
+    from pipeline.main_character import active_style_preset_character_key
+
+    active_character = session.get(AppSetting, active_style_preset_character_key(preset_id))
+    if active_character is not None:
+        session.delete(active_character)
     session.commit()
 
     # Delete file last — DB is already consistent so a file-system error is
@@ -131,6 +151,9 @@ def delete_preset(preset_id: str, session: Session = Depends(get_session)):
     image_path = _preset_image_path(preset_id)
     if image_path.exists():
         image_path.unlink()
+    character_dir = _preset_character_dir(preset_id)
+    if character_dir.exists():
+        shutil.rmtree(character_dir.parent, ignore_errors=True)
 
     return {"ok": True}
 
@@ -159,6 +182,95 @@ def set_active(req: SetActivePresetRequest, session: Session = Depends(get_sessi
             raise HTTPException(status_code=404, detail="preset image not found")
     _write_active_id(session, req.preset_id)
     return {"ok": True, "active_id": req.preset_id}
+
+
+@router.get(
+    "/presets/{preset_id}/characters",
+    response_model=list[StylePresetCharacterResponse],
+)
+def list_preset_characters(
+    preset_id: str,
+    session: Session = Depends(get_session),
+) -> list[StylePresetCharacterResponse]:
+    preset = session.get(StylePreset, preset_id)
+    if preset is None:
+        raise HTTPException(status_code=404, detail="preset not found")
+    if not _preset_image_path(preset_id).exists():
+        raise HTTPException(status_code=404, detail="preset image not found")
+
+    from pipeline.main_character import list_style_preset_characters
+
+    return list_style_preset_characters(session, preset_id)
+
+
+@router.get(
+    "/presets/{preset_id}/active-character",
+    response_model=StylePresetCharacterResponse | None,
+)
+def get_preset_active_character(
+    preset_id: str,
+    session: Session = Depends(get_session),
+) -> StylePresetCharacterResponse | None:
+    preset = session.get(StylePreset, preset_id)
+    if preset is None:
+        raise HTTPException(status_code=404, detail="preset not found")
+    if not _preset_image_path(preset_id).exists():
+        raise HTTPException(status_code=404, detail="preset image not found")
+
+    from pipeline.main_character import get_active_style_preset_character
+
+    return get_active_style_preset_character(session, preset_id)
+
+
+@router.post(
+    "/presets/{preset_id}/characters",
+    response_model=StylePresetCharacterResponse,
+)
+def create_preset_character(
+    preset_id: str,
+    req: CreateStylePresetCharacterRequest,
+    session: Session = Depends(get_session),
+) -> StylePresetCharacterResponse:
+    if not req.name.strip():
+        raise HTTPException(status_code=400, detail="name is required")
+    if not req.appearance.strip():
+        raise HTTPException(status_code=400, detail="appearance is required")
+
+    from pipeline.main_character import create_style_preset_character
+
+    try:
+        response = create_style_preset_character(
+            session,
+            preset_id=preset_id,
+            character=MainCharacter(
+                name=req.name.strip(),
+                appearance=req.appearance.strip(),
+                vibe=req.vibe.strip(),
+            ),
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    session.commit()
+    return response
+
+
+@router.post(
+    "/presets/{preset_id}/characters/{character_id}/select",
+    response_model=StylePresetCharacterResponse,
+)
+def select_preset_character(
+    preset_id: str,
+    character_id: str,
+    session: Session = Depends(get_session),
+) -> StylePresetCharacterResponse:
+    from pipeline.main_character import select_style_preset_character
+
+    try:
+        response = select_style_preset_character(session, preset_id, character_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    session.commit()
+    return response
 
 
 def _global_character_response(session: Session) -> GlobalMainCharacterResponse:

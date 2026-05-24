@@ -15,6 +15,7 @@ def _build_inmemory_engine():
     import models.settings  # noqa: F401
     import models.api_usage  # noqa: F401
     import models.generation_duration  # noqa: F401
+    import models.style_preset_character  # noqa: F401
 
     engine = create_engine(
         "sqlite://",
@@ -207,7 +208,7 @@ def test_generate_and_select_main_character_reference_variants(monkeypatch, tmp_
     app.dependency_overrides.pop(get_session, None)
 
 
-def test_global_main_character_generates_selects_and_syncs_to_project(monkeypatch, tmp_path):
+def test_legacy_global_main_character_endpoints_do_not_sync_to_project(monkeypatch, tmp_path):
     engine, app = _setup_app(monkeypatch)
     _seed_script(engine, "test-global-character-project", eli_enabled=False)
 
@@ -253,25 +254,8 @@ def test_global_main_character_generates_selects_and_syncs_to_project(monkeypatc
     assert selected.status_code == 200
     assert [v["idx"] for v in selected.json()["main_character_reference_variants"] if v["active"]] == [1]
 
-    import pipeline.main_character as main_character
-
-    with Session(engine) as session:
-        main_character.sync_global_main_character_to_project(session, "test-global-character-project")
-        session.commit()
-
     project_ref = tmp_path / "projects" / "test-global-character-project" / "character" / "reference.png"
-    assert project_ref.read_bytes() == b"global-png-1"
-
-    from models.project_config import ProjectConfig
-    from models.script import Script, ScriptContent
-
-    with Session(engine) as session:
-        cfg = session.get(ProjectConfig, "test-global-character-project")
-        script = session.get(Script, "test-global-character-project")
-        content = ScriptContent.model_validate_json(script.script_json)
-
-    assert cfg.main_character_reference_url == "/static/projects/test-global-character-project/character/reference.png"
-    assert content.main_character.name == "Mara"
+    assert not project_ref.exists()
 
     from database import get_session
     app.dependency_overrides.pop(get_session, None)

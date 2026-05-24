@@ -1191,6 +1191,17 @@ export type StylePresetJobStatus = {
   preset?: StylePreset;
 };
 
+export type StylePresetCharacter = {
+  id: string;
+  style_preset_id: string;
+  name: string;
+  appearance: string;
+  vibe: string;
+  reference_image_url: string;
+  created_at: string;
+  active: boolean;
+};
+
 export async function listStylePresets(): Promise<StylePreset[]> {
   const res = await api.get("/api/style/presets");
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to list style presets");
@@ -1241,4 +1252,34 @@ export async function getActiveStylePreset(): Promise<StylePreset | null> {
 export async function setActiveStylePreset(presetId: string | null): Promise<void> {
   const res = await api.put("/api/style/active", { preset_id: presetId });
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to set active style preset");
+}
+
+export async function listStylePresetCharacters(presetId: string): Promise<StylePresetCharacter[]> {
+  const res = await api.get(`/api/style/presets/${presetId}/characters`);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to list preset characters");
+  return res.data as StylePresetCharacter[];
+}
+
+export async function createStylePresetCharacter(
+  presetId: string,
+  character: MainCharacter,
+): Promise<StylePresetCharacter> {
+  const res = await api.post(`/api/style/presets/${presetId}/characters`, character);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to create preset character");
+  return res.data as StylePresetCharacter;
+}
+
+export async function getActiveStylePresetCharacter(presetId: string): Promise<StylePresetCharacter | null> {
+  const res = await api.get(`/api/style/presets/${presetId}/active-character`);
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to fetch active preset character");
+  return res.data as StylePresetCharacter | null;
+}
+
+export async function selectStylePresetCharacter(
+  presetId: string,
+  characterId: string,
+): Promise<StylePresetCharacter> {
+  const res = await api.post(`/api/style/presets/${presetId}/characters/${characterId}/select`, {});
+  if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to select preset character");
+  return res.data as StylePresetCharacter;
 }

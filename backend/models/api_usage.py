@@ -10,7 +10,7 @@ class ApiUsage(SQLModel, table=True):
     __tablename__ = "api_usage"
 
     id: str = Field(default_factory=lambda: uuid.uuid4().hex, primary_key=True)
-    service: str = Field(index=True)           # "anthropic", "google_ai", "replicate", "elevenlabs"
+    service: str = Field(index=True)           # "anthropic", "google_ai", "elevenlabs"
     operation: str = ""                         # "chat", "image_gen", "tts", "voice_clone", etc.
     model: str = ""                             # model name used
     input_tokens: int = 0                       # for LLMs

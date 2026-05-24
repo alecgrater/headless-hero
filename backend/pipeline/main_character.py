@@ -9,11 +9,14 @@ from __future__ import annotations
 
 import logging
 import shutil
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH
 from integrations.google_image_client import generate_image
 from models.script import MainCharacter
+from models.style_preset_character import StylePresetCharacter, StylePresetCharacterResponse
 from prompts import IMAGE_VISUAL_STYLE
 
 logger = logging.getLogger(__name__)
@@ -59,6 +62,18 @@ def global_character_reference_variants_dir() -> Path:
 
 def global_character_reference_active_marker() -> Path:
     return DATA_DIR / "character" / "main" / "active_reference.txt"
+
+
+def style_preset_character_path(preset_id: str, character_id: str) -> Path:
+    return DATA_DIR / "style" / "presets" / preset_id / "characters" / f"{character_id}.png"
+
+
+def style_preset_character_web_path(preset_id: str, character_id: str) -> str:
+    return f"/static/style/presets/{preset_id}/characters/{character_id}.png"
+
+
+def active_style_preset_character_key(preset_id: str) -> str:
+    return f"ACTIVE_STYLE_PRESET_CHARACTER_ID_{preset_id}"
 
 
 def _reference_variant_path(script_id: str, idx: int) -> Path:
@@ -227,6 +242,165 @@ def write_global_main_character_reference_url(session, reference_url: str | None
     _write_app_setting(session, GLOBAL_MAIN_CHARACTER_REFERENCE_URL_KEY, reference_url or "")
 
 
+def read_active_style_preset_id(session) -> str | None:
+    from models.settings import AppSetting
+
+    row = session.get(AppSetting, "ACTIVE_STYLE_PRESET_ID")
+    value = (row.value if row else "").strip()
+    return value or None
+
+
+def read_active_style_preset_character_id(session, preset_id: str) -> str | None:
+    from models.settings import AppSetting
+
+    row = session.get(AppSetting, active_style_preset_character_key(preset_id))
+    value = (row.value if row else "").strip()
+    return value or None
+
+
+def write_active_style_preset_character_id(
+    session,
+    preset_id: str,
+    character_id: str | None,
+) -> None:
+    _write_app_setting(session, active_style_preset_character_key(preset_id), character_id or "")
+
+
+def style_preset_image_path(preset_id: str) -> Path:
+    return DATA_DIR / "style" / "presets" / f"{preset_id}.png"
+
+
+def _style_preset_character_response(
+    session,
+    character: StylePresetCharacter,
+) -> StylePresetCharacterResponse:
+    active_id = read_active_style_preset_character_id(session, character.style_preset_id)
+    return StylePresetCharacterResponse(
+        id=character.id,
+        style_preset_id=character.style_preset_id,
+        name=character.name,
+        appearance=character.appearance,
+        vibe=character.vibe,
+        reference_image_url=character.reference_image_url,
+        created_at=character.created_at,
+        active=character.id == active_id,
+    )
+
+
+def list_style_preset_characters(session, preset_id: str) -> list[StylePresetCharacterResponse]:
+    from sqlmodel import select
+
+    rows = session.exec(
+        select(StylePresetCharacter)
+        .where(StylePresetCharacter.style_preset_id == preset_id)
+        .order_by(StylePresetCharacter.created_at.desc())
+    ).all()
+    visible = [
+        row
+        for row in rows
+        if style_preset_character_path(row.style_preset_id, row.id).exists()
+    ]
+    return [_style_preset_character_response(session, row) for row in visible]
+
+
+def get_active_style_preset_character(
+    session,
+    preset_id: str,
+) -> StylePresetCharacterResponse | None:
+    character_id = read_active_style_preset_character_id(session, preset_id)
+    if not character_id:
+        return None
+    row = session.get(StylePresetCharacter, character_id)
+    if row is None or row.style_preset_id != preset_id:
+        return None
+    if not style_preset_character_path(preset_id, character_id).exists():
+        return None
+    return _style_preset_character_response(session, row)
+
+
+def select_style_preset_character(session, preset_id: str, character_id: str) -> StylePresetCharacterResponse:
+    row = session.get(StylePresetCharacter, character_id)
+    if row is None or row.style_preset_id != preset_id:
+        raise FileNotFoundError(f"style preset character {character_id} not found")
+    if not style_preset_character_path(preset_id, character_id).exists():
+        raise FileNotFoundError(f"style preset character image {character_id} not found")
+    write_active_style_preset_character_id(session, preset_id, character_id)
+    return _style_preset_character_response(session, row)
+
+
+def build_style_preset_character_prompt(character: MainCharacter) -> str:
+    return (
+        "CHARACTER REFERENCE REQUIREMENT:\n"
+        "Create a canonical reference image for a recurring main character. "
+        "The included style preset image is the visual style source of truth. "
+        "Match its line weight, proportions, face detail level, color treatment, and overall illustration language.\n\n"
+        f"Character: {character.name}.\n"
+        f"Appearance: {character.appearance}\n"
+        f"Personality: {character.vibe}\n\n"
+        "Centered three-quarter full-body character pose on a plain neutral light gray background. "
+        "No props in hands. Mouth closed, neutral-friendly expression. "
+        "No text, letters, numbers, labels, logos, captions, signs, or written marks anywhere. "
+        "Never use photorealism, cinematic film still aesthetics, 3D rendering, realistic lens "
+        "effects, gradients, shallow depth of field, or painterly concept art unless the style preset itself clearly uses that treatment. "
+        "16:9 aspect ratio."
+    )
+
+
+def _call_style_character_image_generator(
+    prompt: str,
+    script_id: str,
+    style_reference_path: str,
+) -> str:
+    return generate_image(
+        prompt,
+        width=IMAGE_WIDTH,
+        height=IMAGE_HEIGHT,
+        script_id=script_id,
+        style_reference_path=style_reference_path,
+    )
+
+
+def create_style_preset_character(
+    session,
+    *,
+    preset_id: str,
+    character: MainCharacter,
+) -> StylePresetCharacterResponse:
+    from models.style_preset import StylePreset
+
+    preset = session.get(StylePreset, preset_id)
+    if preset is None:
+        raise FileNotFoundError(f"style preset {preset_id} not found")
+    preset_image = style_preset_image_path(preset_id)
+    if not preset_image.exists():
+        raise FileNotFoundError(f"style preset image {preset_id} not found")
+
+    character_id = uuid.uuid4().hex
+    prompt = build_style_preset_character_prompt(character)
+    temp_path = _call_style_character_image_generator(
+        prompt,
+        f"style-preset-character-{preset_id}",
+        str(preset_image),
+    )
+    final_path = style_preset_character_path(preset_id, character_id)
+    final_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(temp_path, final_path)
+
+    row = StylePresetCharacter(
+        id=character_id,
+        style_preset_id=preset_id,
+        name=character.name,
+        appearance=character.appearance,
+        vibe=character.vibe,
+        reference_image_url=style_preset_character_web_path(preset_id, character_id),
+        created_at=datetime.now(timezone.utc),
+    )
+    session.add(row)
+    write_active_style_preset_character_id(session, preset_id, character_id)
+    session.flush()
+    return _style_preset_character_response(session, row)
+
+
 def write_global_main_character(session, character: MainCharacter) -> bool:
     """Persist global character details. Returns True when details changed."""
     previous = read_global_main_character(session)
@@ -261,10 +435,10 @@ def generate_global_character_reference(*, character: MainCharacter, force: bool
 
 
 def sync_global_main_character_to_project(session, script_id: str) -> bool:
-    """Copy the active global main character into an Eli-disabled project.
+    """Copy the active preset-scoped character into an Eli-disabled project.
 
     Project image generation still expects a project-local reference path, so
-    this keeps global character management canonical while preserving the
+    this keeps preset-scoped character management canonical while preserving the
     existing render pipeline contract.
     """
     from models.project_config import ProjectConfig, get_project_config
@@ -274,16 +448,27 @@ def sync_global_main_character_to_project(session, script_id: str) -> bool:
     if cfg.eli_enabled:
         return False
 
-    character = read_global_main_character(session)
-    global_url = read_global_main_character_reference_url(session)
-    global_ref = global_character_reference_path()
-    if character is None or not global_url or not global_ref.exists():
+    preset_id = read_active_style_preset_id(session)
+    if not preset_id or not style_preset_image_path(preset_id).exists():
+        return False
+
+    active_character_id = read_active_style_preset_character_id(session, preset_id)
+    if not active_character_id:
+        return False
+
+    row = session.get(StylePresetCharacter, active_character_id)
+    if row is None or row.style_preset_id != preset_id:
+        return False
+
+    source_ref = style_preset_character_path(preset_id, active_character_id)
+    if not source_ref.exists():
         return False
 
     script = session.get(Script, script_id)
     if script is None:
         return False
 
+    character = MainCharacter(name=row.name, appearance=row.appearance, vibe=row.vibe)
     content = ScriptContent.model_validate_json(script.script_json)
     changed = content.main_character != character
     content.main_character = character
@@ -295,7 +480,7 @@ def sync_global_main_character_to_project(session, script_id: str) -> bool:
     target = character_reference_path(script_id)
     reference_missing = not target.exists()
     target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(global_ref, target)
+    shutil.copy2(source_ref, target)
     if reference_missing or cfg.main_character_reference_url != character_reference_web_path(script_id):
         changed = True
     cfg.main_character_reference_url = character_reference_web_path(script_id)
@@ -324,8 +509,19 @@ def missing_character_reference_reason(session, script_id: str) -> str | None:
     except Exception:  # noqa: BLE001
         return "Script content is invalid. Save the script before generating images."
 
+    preset_id = read_active_style_preset_id(session)
+    if not preset_id or not style_preset_image_path(preset_id).exists():
+        return "Active style preset is missing. Open Settings -> Style Presets and select a preset before generating images."
+    active_character_id = read_active_style_preset_character_id(session, preset_id)
+    if not active_character_id:
+        return "Active style preset has no selected character. Open Settings -> Style Presets and generate or select a character before generating images."
+    character_row = session.get(StylePresetCharacter, active_character_id)
+    if character_row is None or character_row.style_preset_id != preset_id:
+        return "Active style preset character is missing. Open Settings -> Style Presets and select a character before generating images."
+    if not style_preset_character_path(preset_id, active_character_id).exists():
+        return "Active style preset character reference file is missing on disk. Regenerate or select a character before generating images."
     if content.main_character is None:
-        return "Main character details are missing. Open the Main Character panel and save the character first."
+        return "Main character details are missing. Open Settings -> Style Presets and select a character first."
     if not cfg.main_character_reference_url:
         return "Main character reference image is missing. Generate and select a reference before generating images."
     if not character_reference_path(script_id).exists():

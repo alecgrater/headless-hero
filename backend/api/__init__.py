@@ -51,6 +51,7 @@ from models.trending import TrendingTopic as _TrendingTopic  # noqa: F401 — re
 from models.content_profile import ContentProfile as _ContentProfile  # noqa: F401 — register table
 from models.idea import Idea as _Idea  # noqa: F401 — register table
 from models.style_preset import StylePreset as _StylePreset  # noqa: F401 — register table
+from models.style_preset_character import StylePresetCharacter as _StylePresetCharacter  # noqa: F401 — register table
 
 from config import DATA_DIR
 

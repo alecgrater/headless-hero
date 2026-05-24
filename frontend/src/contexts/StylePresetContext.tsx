@@ -41,6 +41,7 @@ export function StylePresetProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook is intentionally co-located with its provider
 export function useStylePreset() {
   return useContext(StylePresetContext);
 }

@@ -88,26 +88,7 @@ Required when Anthropic is selected as an AI provider.
 
 ---
 
-### 5. Replicate (`REPLICATE_API_TOKEN`) — Optional
-
-**Used for:** Alternative image generation via Flux 1.1 Pro (can be used instead of Google Gemini)
-
-**How to get it:**
-1. Go to https://replicate.com and sign up
-2. Add a payment method at [replicate.com/account/billing](https://replicate.com/account/billing) (Flux costs ~$0.04/image)
-3. Create a token at [replicate.com/account/api-tokens](https://replicate.com/account/api-tokens) — it starts with `r8_`
-
-**How to enable:**
-1. In Headless Hero, go to **Settings → API Keys** and paste your token
-2. Go to **Settings → General** and change the **Image Provider** dropdown to **Replicate (Flux)**
-
-To switch back, change the Image Provider dropdown back to **Google Gemini**.
-
-**Required:** No — Google Gemini is the default image provider.
-
----
-
-### 6. YouTube Data API Key (`YOUTUBE_API_KEY`) — Optional
+### 5. YouTube Data API Key (`YOUTUBE_API_KEY`) — Optional
 
 **Used for:** Discover dashboard — YouTube trending topics, competitor velocity checks, saturation analysis
 
@@ -124,7 +105,7 @@ To switch back, change the Image Provider dropdown back to **Google Gemini**.
 
 ---
 
-### 7. NewsAPI (`NEWS_API_KEY`) — Optional
+### 6. NewsAPI (`NEWS_API_KEY`) — Optional
 
 **Used for:** Discover dashboard — news article fetching to supplement RSS trend sources
 
@@ -158,8 +139,6 @@ export GOOGLE_CLIENT_SECRET="GOCSPX-..."
 export YOUTUBE_API_KEY="..."
 export NEWS_API_KEY="..."
 
-# Optional — alternative image provider
-export REPLICATE_API_TOKEN="r8_..."
 ```
 
 If running via Electron (`npm run dev`), the backend inherits environment variables from your shell. Make sure they're exported before launching.
@@ -193,7 +172,7 @@ The app launches three processes: FastAPI backend (port 8420), Vite dev server (
 
 | Problem | Likely Cause |
 |---------|-------------|
-| Images fail to generate | `GOOGLE_AI_KEY` not set or invalid (or `REPLICATE_API_TOKEN` if using Replicate) |
+| Images fail to generate | `GOOGLE_AI_KEY` not set or invalid |
 | Audio fails to generate | `ELEVENLABS_API_KEY` not set or invalid |
 | Script/idea generation fails | `ANTHROPIC_API_KEY` not set and no local proxy running |
 | YouTube publish fails | `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` not set, or OAuth redirect URI misconfigured |
