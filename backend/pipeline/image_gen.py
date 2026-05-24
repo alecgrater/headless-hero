@@ -109,8 +109,11 @@ def _load_project_character_context(
     from database import engine
     from models.project_config import get_project_config
     from models.script import Script, ScriptContent
+    from pipeline.main_character import sync_global_main_character_to_project
 
     with Session(engine) as session:
+        if sync_global_main_character_to_project(session, script_id):
+            session.commit()
         cfg = get_project_config(session, script_id)
         script_row = session.get(Script, script_id)
 

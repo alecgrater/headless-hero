@@ -348,6 +348,16 @@ export type ProjectConfig = {
   }>;
 };
 
+export type MainCharacterConfig = {
+  main_character: MainCharacter | null;
+  main_character_reference_url: string | null;
+  main_character_reference_variants: Array<{
+    idx: number;
+    image_url: string;
+    active: boolean;
+  }>;
+};
+
 export async function getProjectConfig(scriptId: string) {
   return api.get(`/api/projects/${scriptId}/config`);
 }
@@ -362,6 +372,22 @@ export async function regenerateMainCharacterReference(scriptId: string) {
 
 export async function selectMainCharacterReference(scriptId: string, idx: number) {
   return api.post(`/api/projects/${scriptId}/config/character/select/${idx}`, {});
+}
+
+export async function getGlobalMainCharacter() {
+  return api.get<MainCharacterConfig>("/api/style/main-character");
+}
+
+export async function updateGlobalMainCharacter(character: MainCharacter) {
+  return api.put<MainCharacterConfig>("/api/style/main-character", character);
+}
+
+export async function regenerateGlobalMainCharacterReference() {
+  return api.post<MainCharacterConfig>("/api/style/main-character/regenerate", {});
+}
+
+export async function selectGlobalMainCharacterReference(idx: number) {
+  return api.post<MainCharacterConfig>(`/api/style/main-character/select/${idx}`, {});
 }
 
 /** Generate Eli pose selection for all scenes in a script via the routed LLM provider. */

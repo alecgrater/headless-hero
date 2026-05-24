@@ -11,11 +11,13 @@ PUT    /api/style/active                -> set active preset by id (or null to c
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from config import DATA_DIR
 from database import get_session
 from models.settings import AppSetting
+from models.script import MainCharacter
 from models.style_preset import (
     CreateStylePresetRequest,
     GeneratePresetJobResponse,
@@ -31,6 +33,12 @@ router = APIRouter(prefix="/api/style", tags=["style"])
 
 
 _ACTIVE_KEY = "ACTIVE_STYLE_PRESET_ID"
+
+
+class GlobalMainCharacterResponse(BaseModel):
+    main_character: MainCharacter | None = None
+    main_character_reference_url: str | None = None
+    main_character_reference_variants: list[dict[str, object]] = Field(default_factory=list)
 
 
 def _to_response(preset: StylePreset) -> StylePresetResponse:
@@ -134,3 +142,75 @@ def set_active(req: SetActivePresetRequest, session: Session = Depends(get_sessi
             raise HTTPException(status_code=404, detail="preset not found")
     _write_active_id(session, req.preset_id)
     return {"ok": True, "active_id": req.preset_id}
+
+
+def _global_character_response(session: Session) -> GlobalMainCharacterResponse:
+    from pipeline.main_character import (
+        global_character_reference_path,
+        list_global_character_reference_variants,
+        read_global_main_character,
+        read_global_main_character_reference_url,
+    )
+
+    reference_url = read_global_main_character_reference_url(session)
+    if reference_url and not global_character_reference_path().exists():
+        reference_url = None
+    return GlobalMainCharacterResponse(
+        main_character=read_global_main_character(session),
+        main_character_reference_url=reference_url,
+        main_character_reference_variants=list_global_character_reference_variants(),
+    )
+
+
+@router.get("/main-character", response_model=GlobalMainCharacterResponse)
+def get_main_character(session: Session = Depends(get_session)) -> GlobalMainCharacterResponse:
+    return _global_character_response(session)
+
+
+@router.put("/main-character", response_model=GlobalMainCharacterResponse)
+def update_main_character(
+    character: MainCharacter,
+    session: Session = Depends(get_session),
+) -> GlobalMainCharacterResponse:
+    from pipeline.main_character import write_global_main_character
+
+    write_global_main_character(session, character)
+    session.commit()
+    return _global_character_response(session)
+
+
+@router.post("/main-character/regenerate", response_model=GlobalMainCharacterResponse)
+def regenerate_main_character(session: Session = Depends(get_session)) -> GlobalMainCharacterResponse:
+    from pipeline.main_character import (
+        generate_global_character_reference,
+        read_global_main_character,
+        write_global_main_character_reference_url,
+    )
+
+    character = read_global_main_character(session)
+    if character is None or not character.name.strip() or not character.appearance.strip():
+        raise HTTPException(status_code=400, detail="Global main character details are required")
+
+    web_path = generate_global_character_reference(character=character, force=True)
+    write_global_main_character_reference_url(session, web_path)
+    session.commit()
+    return _global_character_response(session)
+
+
+@router.post("/main-character/select/{idx}", response_model=GlobalMainCharacterResponse)
+def select_main_character_reference(
+    idx: int,
+    session: Session = Depends(get_session),
+) -> GlobalMainCharacterResponse:
+    from pipeline.main_character import (
+        select_global_character_reference_variant,
+        write_global_main_character_reference_url,
+    )
+
+    try:
+        web_path = select_global_character_reference_variant(idx=idx)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    write_global_main_character_reference_url(session, web_path)
+    session.commit()
+    return _global_character_response(session)

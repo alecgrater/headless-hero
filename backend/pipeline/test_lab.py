@@ -515,17 +515,22 @@ def _check_cancelled(ctx: TestLabRunContext) -> None:
 
 
 def _stage_character_reference(ctx: TestLabRunContext) -> None:
-    from pipeline.main_character import missing_character_reference_reason
+    from pipeline.main_character import missing_character_reference_reason, sync_global_main_character_to_project
 
     _check_cancelled(ctx)
     with Session(ctx.engine) as session:
         cfg = session.get(ProjectConfig, ctx.script_id)
         if cfg is None or cfg.eli_enabled:
             return
+        if sync_global_main_character_to_project(session, ctx.script_id):
+            session.commit()
+            cfg = session.get(ProjectConfig, ctx.script_id)
         record, content = _load_content_for_script(session, ctx.script_id)
         _ = record
         if content.main_character is None:
-            raise RuntimeError("Main character details are required before generating a character reference")
+            raise RuntimeError(
+                "Global main character details are required. Set them in Settings → Style Presets → Main Character."
+            )
         block_reason = missing_character_reference_reason(session, ctx.script_id)
         if block_reason:
             raise RuntimeError(block_reason)

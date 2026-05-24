@@ -491,6 +491,65 @@ def test_stage_character_reference_blocks_eli_disabled_without_selected_referenc
         test_lab._stage_character_reference(ctx)
 
 
+def test_stage_character_reference_uses_global_main_character(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.main_character as main_character
+    import pipeline.test_lab as test_lab
+    from models.script import MainCharacter
+
+    monkeypatch.setattr(main_character, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(test_lab, "DATA_DIR", tmp_path)
+
+    with Session(engine) as session:
+        main_character.write_global_main_character(
+            session,
+            MainCharacter(
+                name="Mara",
+                appearance="A cartographer in a green jacket.",
+                vibe="Inventive and calm.",
+            ),
+        )
+        global_ref = tmp_path / "character" / "main" / "references" / "1.png"
+        global_ref.parent.mkdir(parents=True, exist_ok=True)
+        global_ref.write_bytes(b"global-main-character")
+        main_character.select_global_character_reference_variant(idx=1)
+
+        main_character.write_global_main_character_reference_url(
+            session,
+            main_character.global_character_reference_web_path(),
+        )
+        script_id = test_lab.create_hidden_test_script(
+            session,
+            run_id="run-global-character",
+            preset_id="life-scribe",
+            settings={"eli_enabled": False},
+        )
+        session.commit()
+
+    manifest = test_lab.TestLabRunManifest(
+        run_id="run-global-character",
+        script_id=script_id,
+        preset_id="life-scribe",
+        status="running",
+    )
+    ctx = test_lab.TestLabRunContext(
+        engine=engine,
+        run_id="run-global-character",
+        script_id=script_id,
+        preset_id="life-scribe",
+        settings={"eli_enabled": False},
+        manifest=manifest,
+        job_id=None,
+    )
+
+    test_lab._stage_character_reference(ctx)
+
+    project_ref = tmp_path / "projects" / script_id / "character" / "reference.png"
+    assert project_ref.read_bytes() == b"global-main-character"
+    assert ctx.manifest.assets[-1].url == f"/static/projects/{script_id}/character/reference.png"
+
+
 def test_stage_audio_forwards_voice_model_and_settings(monkeypatch, tmp_path):
     engine, _app = _setup_app(monkeypatch, tmp_path)
 

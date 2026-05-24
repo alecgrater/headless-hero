@@ -36,6 +36,13 @@ def get_config(script_id: str, session: Session = Depends(get_session)) -> Proje
         raise HTTPException(status_code=404, detail="Script not found")
 
     cfg = get_project_config(session, script_id)
+    if not cfg.eli_enabled:
+        from pipeline.main_character import sync_global_main_character_to_project
+
+        if sync_global_main_character_to_project(session, script_id):
+            session.commit()
+            session.refresh(script)
+            cfg = get_project_config(session, script_id)
     main_character: MainCharacter | None = None
     try:
         content = ScriptContent.model_validate_json(script.script_json)
@@ -77,6 +84,13 @@ def update_config(
     session.add(cfg)
     session.commit()
     session.refresh(cfg)
+    if not cfg.eli_enabled:
+        from pipeline.main_character import sync_global_main_character_to_project
+
+        if sync_global_main_character_to_project(session, script_id):
+            session.commit()
+            session.refresh(cfg)
+            session.refresh(script)
 
     main_character: MainCharacter | None = None
     try:

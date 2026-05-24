@@ -9,9 +9,11 @@ import {
   type StylePreset,
 } from "../../api";
 import { useStylePreset } from "../../contexts/StylePresetContext";
+import { MainCharacterSection } from "./MainCharacterSection";
 import { StylePresetCreateModal } from "./StylePresetCreateModal";
 
 export function StylePresetsSection() {
+  const [activeTab, setActiveTab] = useState<"style" | "character">("style");
   const [presets, setPresets] = useState<StylePreset[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [viewedId, setViewedId] = useState<string | null>(null);
@@ -90,9 +92,39 @@ export function StylePresetsSection() {
       <header>
         <h2 className="text-lg font-semibold text-neutral-100">Style Presets</h2>
         <p className="text-sm text-neutral-400">
-          A reference image attached to AI image generation. Used to enforce a consistent visual art style across all videos. Only applies when Eli is disabled for a video.
+          Global visual references used when Eli is disabled.
         </p>
       </header>
+
+      <div className="inline-flex rounded-md border border-neutral-800 bg-neutral-900 p-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab("style")}
+          className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+            activeTab === "style"
+              ? "bg-neutral-700 text-neutral-100"
+              : "text-neutral-400 hover:text-neutral-200"
+          }`}
+        >
+          Style Presets
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("character")}
+          className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+            activeTab === "character"
+              ? "bg-neutral-700 text-neutral-100"
+              : "text-neutral-400 hover:text-neutral-200"
+          }`}
+        >
+          Main Character
+        </button>
+      </div>
+
+      {activeTab === "character" && <MainCharacterSection />}
+
+      {activeTab === "style" && (
+        <>
 
       <div className="rounded-md border border-neutral-800 bg-neutral-900 p-4">
         <label className="mb-1 block text-xs font-medium text-neutral-400">
@@ -248,6 +280,8 @@ export function StylePresetsSection() {
             await loadAll();
           }}
         />
+      )}
+        </>
       )}
     </section>
   );
