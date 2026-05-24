@@ -713,6 +713,20 @@ def test_analyze_visual_treatments_prefers_natural_list_over_repeated_words():
     assert [layer.enter_at_seconds for layer in assignment.visual_layers] == [1.4, 2.1, 3.5]
 
 
+def test_analyze_visual_treatments_times_list_item_after_lead_in():
+    scene = scene_with_words(
+        "s1",
+        "They learned to keep your head down, hide feelings, and never be different.",
+    )
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-list-lead-in")
+
+    assignment = assignments[0]
+    assert assignment.visual_treatment == "popup_sequence"
+    assert [layer.enter_at_seconds for layer in assignment.visual_layers] == [1.05, 2.45, 3.5]
+
+
 def test_analyze_visual_treatments_assigns_flipflop_for_two_state_narration():
     scene = scene_with_words("s1", "At first the room is calm, but then everything becomes chaos.")
     content = content_with_scenes(scene)

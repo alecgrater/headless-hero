@@ -309,7 +309,7 @@ def _natural_list_items(scene: Scene) -> list[tuple[str, float]]:
     normalized_text = re.sub(r"\s+", " ", text)
     normalized_text = _list_candidate_text(normalized_text)
     pieces = [
-        piece.strip(" .,:;-")
+        _trim_list_item_phrase(piece.strip(" .,:;-"))
         for piece in re.split(r"\s*;\s*|\s*,\s*|\s+\b(?:and|or)\b\s+", normalized_text, flags=re.IGNORECASE)
     ]
     items = [piece for piece in pieces if _is_list_item_phrase(piece)]
@@ -334,6 +334,18 @@ def _list_candidate_text(text: str) -> str:
     if trailing_clause:
         text = text[:trailing_clause.start()]
     return text
+
+
+def _trim_list_item_phrase(text: str) -> str:
+    trimmed = re.sub(
+        r"^(?:you|they|we|he|she|it)\s+"
+        r"(?:(?:learned|learn|needed|need|needs|tried|try|tries|started|start|starts)\s+to\s+|"
+        r"(?:could|can|would|will|should|must|had to|has to|have to)\s+)",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    ).strip()
+    return trimmed or text
 
 
 def _is_list_item_phrase(value: str) -> bool:
