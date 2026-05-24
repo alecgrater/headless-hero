@@ -208,3 +208,37 @@ def test_scene_assignment_syncs_popup_visual_treatment_and_clears_frames():
     assert scene.media_source == "ai"
     assert scene.visual_treatment == "popup_sequence"
     assert scene.frame_urls == []
+
+
+def test_scene_visual_beat_assignment_does_not_demote_video_mode():
+    scene = Scene(
+        id="scene_001",
+        narration="Hello.",
+        visual_prompt="A simple scene",
+        visual_mode="video",
+        frame_urls=["/static/projects/script/images/scene_001_0.png"],
+    )
+
+    scene.visual_beat = "quick_cuts"
+
+    assert scene.visual_mode == "video"
+    assert scene.media_source == "ai_video"
+    assert scene.visual_treatment == "full_frame"
+    assert scene.frame_urls == []
+
+
+def test_scene_visual_beat_assignment_does_not_demote_popup_mode():
+    scene = Scene(
+        id="scene_001",
+        narration="Hello.",
+        visual_prompt="A simple scene",
+        visual_mode="popup_sequence",
+        frame_urls=["/static/projects/script/images/scene_001_0.png"],
+    )
+
+    scene.visual_beat = "continuous"
+
+    assert scene.visual_mode == "popup_sequence"
+    assert scene.media_source == "ai"
+    assert scene.visual_treatment == "popup_sequence"
+    assert scene.frame_urls == []

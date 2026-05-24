@@ -242,7 +242,10 @@ class Scene(BaseModel):
         elif assigned_field == "visual_treatment":
             mode = _resolve_visual_mode(None, self.media_source, self.visual_treatment, self.visual_beat)
         else:
-            mode = _resolve_visual_mode(None, None, None, self.visual_beat)
+            if self.visual_mode in {"video", "popup_sequence", "flipflop"}:
+                mode = self.visual_mode
+            else:
+                mode = _resolve_visual_mode(None, None, None, self.visual_beat)
         self._sync_visual_mode_fields(mode)
 
     def _sync_visual_mode_fields(self, visual_mode: VisualMode) -> None:
