@@ -443,12 +443,13 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
         width=body.width,
         height=body.height,
     )
-    requested_treatments = {
-        scene["scene_id"]: scene.get("visual_treatment") or "full_frame"
-        for scene in scenes
-    }
     requested_modes = {
         scene["scene_id"]: scene.get("visual_mode") or ("video" if scene.get("media_source") == "ai_video" else scene.get("visual_treatment") or "full_frame")
+        for scene in scenes
+    }
+    requested_treatments = {
+        scene["scene_id"]: scene.get("visual_treatment")
+        or (requested_modes[scene["scene_id"]] if requested_modes[scene["scene_id"]] in {"popup_sequence", "flipflop"} else "full_frame")
         for scene in scenes
     }
 
@@ -478,7 +479,7 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
             sc.image_url = r["image_url"]
             sc.frame_urls = []
             sc.video_url = ""
-        elif sc.visual_treatment != "full_frame":
+        elif sc.visual_mode not in {"video", "full_frame"}:
             sc.image_url = ""
             sc.frame_urls = []
             sc.video_url = ""

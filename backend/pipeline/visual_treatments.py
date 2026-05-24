@@ -155,8 +155,6 @@ def apply_visual_treatment_assignments(
         if scene is None:
             continue
         mode = _normalize_visual_mode(assignment.visual_mode or assignment.visual_treatment)
-        if scene.visual_mode == "video":
-            mode = "video"
         scene.set_visual_mode(mode)
         scene.visual_layers = [] if mode in {"video", "full_frame"} else list(assignment.visual_layers)
 

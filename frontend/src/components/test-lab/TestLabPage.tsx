@@ -7,6 +7,25 @@ import PopupCropLab from "./PopupCropLab";
 import TestLabControls, { settingsWithVisualTreatmentDefaults } from "./TestLabControls";
 import TestLabRunPanel from "./TestLabRunPanel";
 
+function visualModeFromPreset(preset: TestLabPreset | null): TestLabSettings["visual_mode"] {
+  return preset?.visual_mode ?? (preset?.media_source === "ai_video" ? "video" : "full_frame");
+}
+
+function settingsWithPresetVisualMode(settings: TestLabSettings, preset: TestLabPreset | null): TestLabSettings {
+  const visualMode = visualModeFromPreset(preset);
+  return {
+    ...settings,
+    visual_mode: visualMode,
+    media_source: visualMode === "video" ? "ai_video" : "ai",
+    visual_treatment: visualMode === "video" ? "full_frame" : visualMode,
+    visual_layers: visualMode === "video" || visualMode === "full_frame" ? [] : settings.visual_layers,
+    stages: {
+      ...settings.stages,
+      treatment_assets: visualMode === "video" ? false : settings.stages.treatment_assets,
+    },
+  };
+}
+
 const DEFAULT_SETTINGS: TestLabSettings = {
   stages: {
     character: false,
@@ -68,6 +87,10 @@ export default function TestLabPage() {
       setVisualTreatmentDefaults(sceneData.visual_treatment_defaults ?? {});
       setDefaultMainCharacter(sceneData.default_main_character);
       setSelectedPresetId((current) => current || sceneData.presets[0]?.id || "");
+      setSettings((current) => {
+        if (selectedPresetId) return current;
+        return settingsWithPresetVisualMode(current, sceneData.presets[0] ?? null);
+      });
     });
     refreshRuns();
 
@@ -95,7 +118,7 @@ export default function TestLabPage() {
     setSettings((current) =>
       settingsWithVisualTreatmentDefaults(
         {
-          ...current,
+          ...settingsWithPresetVisualMode(current, nextPreset),
           title: undefined,
           segment_name: undefined,
           short_name: undefined,
