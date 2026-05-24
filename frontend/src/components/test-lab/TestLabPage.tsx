@@ -2,7 +2,7 @@ import { Beaker, Play, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import api, { getTestLabPresets, getTestLabRun, getTestLabRuns, startTestLabRun } from "../../api";
 import type { MutableRefObject } from "react";
-import type { TestLabMainCharacter, TestLabPreset, TestLabRun, TestLabSettings } from "../../types/testLab";
+import type { TestLabMainCharacter, TestLabPreset, TestLabRun, TestLabScenes, TestLabSettings } from "../../types/testLab";
 import PopupCropLab from "./PopupCropLab";
 import TestLabControls from "./TestLabControls";
 import TestLabRunPanel from "./TestLabRunPanel";
@@ -40,6 +40,7 @@ export default function TestLabPage() {
   const pollTimerRef = useRef<number | null>(null);
   const resolvePollSleepRef = useRef<((mounted: boolean) => void) | null>(null);
   const [presets, setPresets] = useState<TestLabPreset[]>([]);
+  const [visualTreatmentDefaults, setVisualTreatmentDefaults] = useState<TestLabScenes["visual_treatment_defaults"]>({});
   const [defaultMainCharacter, setDefaultMainCharacter] = useState<TestLabMainCharacter | null>(null);
   const [selectedPresetId, setSelectedPresetId] = useState<string>("");
   const [settings, setSettings] = useState<TestLabSettings>(DEFAULT_SETTINGS);
@@ -63,6 +64,7 @@ export default function TestLabPage() {
     getTestLabPresets().then((sceneData) => {
       if (!mountedRef.current) return;
       setPresets(sceneData.presets);
+      setVisualTreatmentDefaults(sceneData.visual_treatment_defaults ?? {});
       setDefaultMainCharacter(sceneData.default_main_character);
       setSelectedPresetId((current) => current || sceneData.presets[0]?.id || "");
     });
@@ -206,6 +208,7 @@ export default function TestLabPage() {
               <TestLabControls
                 preset={selectedPreset}
                 defaultMainCharacter={defaultMainCharacter}
+                visualTreatmentDefaults={visualTreatmentDefaults}
                 settings={settings}
                 onChange={setSettings}
                 onValidityChange={setControlsValid}

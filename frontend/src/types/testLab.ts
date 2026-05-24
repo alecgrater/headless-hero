@@ -25,8 +25,14 @@ export interface TestLabPreset {
   tags?: string[];
 }
 
+export interface TestLabSceneTextDefaults {
+  narration: string;
+  visual_prompt: string;
+}
+
 export interface TestLabScenes {
   presets: TestLabPreset[];
+  visual_treatment_defaults?: Partial<Record<VisualTreatment, TestLabSceneTextDefaults>>;
   default_main_character: TestLabMainCharacter | null;
 }
 

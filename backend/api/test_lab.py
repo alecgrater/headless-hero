@@ -13,6 +13,7 @@ from database import get_session
 from pipeline.render_jobs import create_job, get_job, run_in_background
 from pipeline.test_lab import (
     TEST_LAB_PRESETS,
+    VISUAL_TREATMENT_TEXT_DEFAULTS,
     clear_test_lab_history,
     list_run_history,
     load_run_manifest,
@@ -100,6 +101,7 @@ def _run_id_from_job(job_data: dict[str, Any]) -> str:
 def get_test_lab_scenes(session: Session = Depends(get_session)):
     return {
         "presets": [preset.model_dump() for preset in TEST_LAB_PRESETS],
+        "visual_treatment_defaults": VISUAL_TREATMENT_TEXT_DEFAULTS,
         "default_main_character": _default_main_character(session),
     }
 

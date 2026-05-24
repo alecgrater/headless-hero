@@ -2,7 +2,13 @@ import { HelpCircle, Image, Palette, UserRound, Video } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { assetUrl } from "../../api";
-import type { TestLabMainCharacter, TestLabPreset, TestLabSettings, TestLabStages } from "../../types/testLab";
+import type {
+  TestLabMainCharacter,
+  TestLabSceneTextDefaults,
+  TestLabPreset,
+  TestLabSettings,
+  TestLabStages,
+} from "../../types/testLab";
 import type { VisualTreatment } from "../../types/script";
 import { Tooltip } from "../ui/Tooltip";
 
@@ -11,6 +17,7 @@ type StageKey = keyof TestLabStages;
 interface TestLabControlsProps {
   preset: TestLabPreset | null;
   defaultMainCharacter: TestLabMainCharacter | null;
+  visualTreatmentDefaults?: Partial<Record<VisualTreatment, TestLabSceneTextDefaults>>;
   settings: TestLabSettings;
   onChange: (settings: TestLabSettings) => void;
   onValidityChange?: (valid: boolean) => void;
@@ -113,6 +120,7 @@ const TREATMENT_OPTIONS: Array<{
 export default function TestLabControls({
   preset,
   defaultMainCharacter,
+  visualTreatmentDefaults,
   settings,
   onChange,
   onValidityChange,
@@ -149,6 +157,10 @@ export default function TestLabControls({
         [key]: enabled,
       },
     });
+  }
+
+  function updateVisualTreatment(visualTreatment: VisualTreatment) {
+    onChange(settingsWithVisualTreatmentDefaults(settings, preset, visualTreatment, visualTreatmentDefaults));
   }
 
   function updateVoiceSettings(value: string) {
@@ -319,7 +331,7 @@ export default function TestLabControls({
                   option={option}
                   active={settings.visual_treatment === option.value}
                   disabled={isAiVideo}
-                  onClick={() => update({ visual_treatment: option.value })}
+                  onClick={() => updateVisualTreatment(option.value)}
                 />
               ))}
             </div>
@@ -392,6 +404,30 @@ export default function TestLabControls({
       </Panel>
     </div>
   );
+}
+
+export function settingsWithVisualTreatmentDefaults(
+  settings: TestLabSettings,
+  preset: TestLabPreset | null,
+  visualTreatment: VisualTreatment,
+  visualTreatmentDefaults?: Partial<Record<VisualTreatment, TestLabSceneTextDefaults>>,
+): TestLabSettings {
+  const next: TestLabSettings = { ...settings, visual_treatment: visualTreatment };
+  const textDefaults = visualTreatmentDefaults?.[visualTreatment];
+  if (!textDefaults) return next;
+
+  if (shouldReplaceSceneText(settings.narration, preset?.narration)) {
+    next.narration = textDefaults.narration;
+    next.tts_narration = textDefaults.narration;
+  }
+  if (shouldReplaceSceneText(settings.visual_prompt, preset?.visual_prompt)) {
+    next.visual_prompt = textDefaults.visual_prompt;
+  }
+  return next;
+}
+
+function shouldReplaceSceneText(currentValue: string | undefined, presetValue: string | undefined): boolean {
+  return currentValue === undefined || currentValue === "" || currentValue === presetValue;
 }
 
 function getFallbackCharacterName(

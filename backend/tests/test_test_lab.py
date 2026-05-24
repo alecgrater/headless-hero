@@ -188,6 +188,28 @@ def test_test_lab_scenes_endpoint_returns_presets(monkeypatch, tmp_path):
         app.dependency_overrides.pop(get_session, None)
 
 
+def test_test_lab_scenes_endpoint_returns_popup_sequence_text_defaults(monkeypatch, tmp_path):
+    _engine, app = _setup_app(monkeypatch, tmp_path)
+    client = TestClient(app)
+
+    try:
+        response = client.get("/api/test-lab/scenes")
+
+        assert response.status_code == 200
+        data = response.json()
+        popup_defaults = data["visual_treatment_defaults"]["popup_sequence"]
+        assert popup_defaults["narration"] == (
+            "Your brain treats every notification like a tiny mystery box: one might be a message, "
+            "one might be a reward, and one might be nothing at all."
+        )
+        assert popup_defaults["visual_prompt"].startswith("[REACTION] Flat 2D cartoon person sitting at a desk")
+        assert popup_defaults["visual_prompt"].endswith("no words or letters.")
+    finally:
+        from database import get_session
+
+        app.dependency_overrides.pop(get_session, None)
+
+
 def test_test_lab_scenes_endpoint_returns_active_default_character(monkeypatch, tmp_path):
     engine, app = _setup_app(monkeypatch, tmp_path)
 

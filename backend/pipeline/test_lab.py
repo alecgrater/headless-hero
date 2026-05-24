@@ -26,6 +26,22 @@ MAX_HISTORY = 20
 TEST_LAB_DIRNAME = "test-lab"
 __test__ = False
 SAFE_RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
+POPUP_SEQUENCE_TEXT_DEFAULTS = {
+    "narration": (
+        "Your brain treats every notification like a tiny mystery box: one might be a message, "
+        "one might be a reward, and one might be nothing at all."
+    ),
+    "visual_prompt": (
+        "[REACTION] Flat 2D cartoon person sitting at a desk at night, staring at a glowing smartphone "
+        "while three floating notification bubbles hover around them like tempting mystery boxes, a chat "
+        "bubble, a gift icon, and an empty gray bubble implied without readable text, calendar papers and "
+        "unfinished work fading into the background, clean bold composition, expressive face, no words "
+        "or letters."
+    ),
+}
+VISUAL_TREATMENT_TEXT_DEFAULTS = {
+    "popup_sequence": POPUP_SEQUENCE_TEXT_DEFAULTS,
+}
 
 
 def utc_now_iso() -> str:
