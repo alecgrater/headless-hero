@@ -213,6 +213,45 @@ def test_generate_visual_layer_panels_uses_scene_person_fallback(tmp_path, monke
     assert captured[0]["reference_image_path"] == char_ref
 
 
+def test_generate_visual_layer_panels_expands_flipflop_micro_animation_prompts(tmp_path, monkeypatch):
+    image_gen_mod, char_ref, _ = _stub_panel_image_context(monkeypatch, tmp_path)
+    captured = []
+    _stub_generate_image_file(monkeypatch, image_gen_mod, captured)
+
+    layers = generate_visual_layer_panels(
+        "scene_001",
+        [
+            {
+                "id": "scene_001_state_a",
+                "type": "image",
+                "asset_kind": "panel",
+                "prompt": "Flat 2D cartoon person standing at a podium holding a book.",
+                "contains_person": True,
+            },
+            {
+                "id": "scene_001_state_b",
+                "type": "image",
+                "asset_kind": "panel",
+                "prompt": "Flat 2D cartoon person standing at a podium holding a book.",
+                "contains_person": True,
+            },
+        ],
+        "script-1",
+        visual_treatment="flipflop",
+    )
+
+    assert len(captured) == 2
+    assert "State A" in captured[0]["prompt"]
+    assert "initial pose" in captured[0]["prompt"]
+    assert "State B" in captured[1]["prompt"]
+    assert "same exact composition" in captured[1]["prompt"]
+    assert "small pose/expression progression" in captured[1]["prompt"]
+    assert captured[0]["reference_image_path"] == char_ref
+    assert captured[1]["reference_image_path"].endswith("scene_001_layer_scene_001_state_a.png")
+    assert layers[0]["image_url"] == "/static/projects/script-1/images/scene_001_layer_scene_001_state_a.png"
+    assert layers[1]["image_url"] == "/static/projects/script-1/images/scene_001_layer_scene_001_state_b.png"
+
+
 def test_generate_visual_layer_panels_cache_hit_uses_composed_prompt(tmp_path, monkeypatch):
     image_gen_mod, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
     captured = []

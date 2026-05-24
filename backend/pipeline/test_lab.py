@@ -733,6 +733,7 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
                     ctx.script_id,
                     force=True,
                     contains_person=scene.contains_person,
+                    visual_treatment=scene.visual_treatment,
                 )
             scene.visual_layers = [VisualLayer.model_validate(layer) for layer in generated_layers]
             for layer in scene.visual_layers:

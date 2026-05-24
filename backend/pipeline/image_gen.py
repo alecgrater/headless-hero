@@ -324,11 +324,13 @@ def generate_visual_layer_panels(
     height: int = IMAGE_HEIGHT,
     force: bool = False,
     contains_person: bool = False,
+    visual_treatment: str = "",
 ) -> list[dict]:
     images_dir = DATA_DIR / "projects" / script_id / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
 
     processed_layers: list[dict] = []
+    previous_panel_path: Path | None = None
     for index, layer in enumerate(layers):
         if not isinstance(layer, dict):
             processed_layers.append(layer)
@@ -344,6 +346,8 @@ def generate_visual_layer_panels(
             processed_layers.append(layer)
             continue
 
+        original_prompt = prompt
+        prompt = _flipflop_micro_animation_prompt(prompt, index) if visual_treatment == "flipflop" else prompt
         filename = visual_layer_image_filename(scene_id, str(layer_id))
         local_path = images_dir / filename
         prompt_marker = images_dir / f"{filename}.prompt"
@@ -354,6 +358,13 @@ def generate_visual_layer_panels(
             script_id=script_id,
             contains_person=layer_contains_person,
         )
+        if visual_treatment == "flipflop" and previous_panel_path is not None:
+            reference_image_path = str(previous_panel_path)
+            try:
+                mtime = int(previous_panel_path.stat().st_mtime)
+                composed_prompt += f"\n[flipflop_ref:{previous_panel_path}:{mtime}]"
+            except OSError:
+                pass
 
         next_layer = dict(layer)
         next_layer["id"] = layer_id
@@ -366,6 +377,7 @@ def generate_visual_layer_panels(
                 if source_metadata:
                     next_layer["visual_source_metadata"] = source_metadata
                 processed_layers.append(next_layer)
+                previous_panel_path = local_path
                 continue
 
         logger.info("[PANEL_GEN] generating panel scene=%s layer=%s", scene_id, layer_id)
@@ -374,7 +386,7 @@ def generate_visual_layer_panels(
             width=width,
             height=height,
             reference_image_path=reference_image_path,
-            original_prompt=prompt,
+            original_prompt=original_prompt,
             style_reference_path=style_reference_path,
             script_id=script_id,
         )
@@ -391,9 +403,39 @@ def generate_visual_layer_panels(
         next_layer["image_url"] = web_path
         next_layer["visual_source_metadata"] = metadata
         processed_layers.append(next_layer)
+        previous_panel_path = local_path
         logger.info("[PANEL_GEN] complete scene=%s layer=%s", scene_id, layer_id)
 
     return processed_layers
+
+
+def _flipflop_micro_animation_prompt(prompt: str, index: int) -> str:
+    base = prompt.strip()
+    if index <= 0:
+        return "\n".join(
+            [
+                "Flip-flop micro-animation State A.",
+                "Create the first frame of a two-frame animation from this scene.",
+                "Use the same character, same camera angle, same framing, same background, and same composition that State B should preserve.",
+                "Show the character in the initial pose: controlled, readable, and just before the expression or gesture changes.",
+                "Keep the pose natural and not exaggerated.",
+                "",
+                "Base scene prompt:",
+                base,
+            ]
+        ).strip()
+    return "\n".join(
+        [
+            "Flip-flop micro-animation State B.",
+            "Create the second frame of the same two-frame animation.",
+            "Use the reference image as the source of truth for the same exact composition, character identity, camera angle, framing, background, lighting, and style.",
+            "Only make a small pose/expression progression: slightly change the mouth, eyes, head angle, or hand gesture so it feels like the next moment in the same action.",
+            "Do not change the outfit, setting, props, camera angle, or overall layout.",
+            "",
+            "Base scene prompt:",
+            base,
+        ]
+    ).strip()
 
 
 def generate_popup_sequence_cutouts(
@@ -1157,6 +1199,7 @@ def _generate_one_scene(
                 width=width,
                 height=height,
                 contains_person=bool(scene.get("contains_person", False)),
+                visual_treatment=treatment,
             )
         return result
 

@@ -175,6 +175,7 @@ def _generate_scene_visual_layers(
         width=width,
         height=height,
         contains_person=contains_person,
+        visual_treatment=treatment,
     )
 
 

@@ -150,6 +150,7 @@ def _phase_images(ctx: ExportContext) -> None:
                     ctx.script_id,
                     force=True,
                     contains_person=contains_person,
+                    visual_treatment=treatment,
                 )
     logger.info("[%s] Phase: images — complete (%d scenes)", ctx.script_id, scene_count)
 
