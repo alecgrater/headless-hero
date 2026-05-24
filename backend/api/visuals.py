@@ -12,7 +12,7 @@ from config import DEFAULT_ACCENT_COLOR, IMAGE_HEIGHT, IMAGE_WIDTH
 from database import get_session
 from api._helpers import update_scene
 from models.generation_duration import GenerationDuration
-from models.script import Script, ScriptContent
+from models.script import Script, ScriptContent, VISUAL_MODES
 from pipeline.image_gen import (
     generate_batch,
     generate_popup_sequence_cutouts,
@@ -418,8 +418,8 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
     scene_map = {sc.id: sc for seg in content.segments for sc in seg.scenes}
 
     def _requested_visual_treatment(scene: BatchScene) -> str:
-        if scene.visual_mode in {"popup_sequence", "flipflop"}:
-            return scene.visual_mode
+        if scene.visual_mode in VISUAL_MODES:
+            return scene.visual_mode if scene.visual_mode in {"popup_sequence", "flipflop"} else "full_frame"
         if scene.visual_treatment:
             return scene.visual_treatment
         stored_scene = scene_map.get(scene.scene_id)

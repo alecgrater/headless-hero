@@ -898,6 +898,78 @@ def test_generate_batch_visual_mode_wins_over_conflicting_legacy_treatment(monke
     assert [layer.id for layer in stored_scene.visual_layers] == ["item_1", "item_2"]
 
 
+def test_generate_batch_full_frame_mode_wins_over_conflicting_legacy_treatment(monkeypatch):
+    from api import visuals as visuals_api
+    from api.visuals import BatchScene, GenerateBatchRequest
+
+    engine = _build_test_engine()
+    script_id = "batch-full-frame-conflict"
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="One strong image.",
+            visual_prompt="Person in a clean full-frame composition.",
+            visual_treatment="popup_sequence",
+            visual_layers=[VisualLayer(id="stale_layer", prompt="stale")],
+        )
+    )
+    captured_scenes = []
+
+    def fake_generate_batch(scenes, script_id, **_kwargs):
+        captured_scenes.extend(scenes)
+        return [
+            {
+                "scene_id": scenes[0]["scene_id"],
+                "image_url": f"/static/projects/{script_id}/images/scene_001.png",
+                "frame_urls": [],
+                "video_url": None,
+                "prompt_used": "prompt",
+                "visual_source_metadata": None,
+                "visual_layers": [],
+                "error": None,
+            }
+        ]
+
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+    monkeypatch.setattr(visuals_api, "generate_batch", fake_generate_batch)
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Mode Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        visuals_api.generate_visual_batch(
+            GenerateBatchRequest(
+                script_id=script_id,
+                scenes=[
+                    BatchScene(
+                        scene_id="scene_001",
+                        visual_prompt="Person in a clean full-frame composition.",
+                        visual_mode="full_frame",
+                        visual_treatment="popup_sequence",
+                        visual_layers=[],
+                    )
+                ],
+            ),
+            session,
+        )
+
+        stored = session.get(Script, script_id)
+        assert stored is not None
+        stored_scene = ScriptContent.model_validate_json(stored.script_json).segments[0].scenes[0]
+
+    assert captured_scenes[0]["visual_treatment"] == "full_frame"
+    assert stored_scene.visual_mode == "full_frame"
+    assert stored_scene.visual_treatment == "full_frame"
+    assert stored_scene.image_url == f"/static/projects/{script_id}/images/scene_001.png"
+
+
 def test_generate_visual_persists_generated_visual_layers(monkeypatch):
     from api import visuals as visuals_api
     from api.visuals import GenerateVisualRequest
