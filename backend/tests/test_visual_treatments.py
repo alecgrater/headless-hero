@@ -1240,6 +1240,181 @@ def test_generate_visual_preserves_continuous_mode_for_single_image_path(monkeyp
     assert stored_scene.image_url == f"/static/projects/{script_id}/images/scene_001.png"
 
 
+def test_generate_visual_explicit_full_frame_overrides_stored_multi_frame(monkeypatch):
+    from api import visuals as visuals_api
+    from api.visuals import GenerateVisualRequest
+
+    engine = _build_test_engine()
+    script_id = "full-frame-over-multi"
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="Several examples.",
+            visual_prompt="Several examples.",
+            visual_mode="multi_frame",
+        )
+    )
+
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+    monkeypatch.setattr(
+        visuals_api,
+        "generate_scene_image",
+        lambda **_kwargs: (
+            f"/static/projects/{script_id}/images/scene_001.png",
+            "Image prompt",
+            {"provider": "fake"},
+        ),
+    )
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Full Frame Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        visuals_api.generate_visual(
+            GenerateVisualRequest(
+                script_id=script_id,
+                scene_id="scene_001",
+                visual_prompt="Single image.",
+                visual_mode="full_frame",
+            ),
+            session,
+        )
+
+        stored = session.get(Script, script_id)
+        assert stored is not None
+        stored_scene = ScriptContent.model_validate_json(stored.script_json).segments[0].scenes[0]
+
+    assert stored_scene.visual_mode == "full_frame"
+    assert stored_scene.visual_treatment == "full_frame"
+    assert stored_scene.image_url == f"/static/projects/{script_id}/images/scene_001.png"
+
+
+def test_generate_visual_explicit_full_frame_overrides_stored_continuous(monkeypatch):
+    from api import visuals as visuals_api
+    from api.visuals import GenerateVisualRequest
+
+    engine = _build_test_engine()
+    script_id = "full-frame-over-continuous"
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="The crack spreads.",
+            visual_prompt="A spreading crack.",
+            visual_mode="continuous",
+        )
+    )
+
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+    monkeypatch.setattr(
+        visuals_api,
+        "generate_scene_image",
+        lambda **_kwargs: (
+            f"/static/projects/{script_id}/images/scene_001.png",
+            "Image prompt",
+            {"provider": "fake"},
+        ),
+    )
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Full Frame Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        visuals_api.generate_visual(
+            GenerateVisualRequest(
+                script_id=script_id,
+                scene_id="scene_001",
+                visual_prompt="Single image.",
+                visual_mode="full_frame",
+            ),
+            session,
+        )
+
+        stored = session.get(Script, script_id)
+        assert stored is not None
+        stored_scene = ScriptContent.model_validate_json(stored.script_json).segments[0].scenes[0]
+
+    assert stored_scene.visual_mode == "full_frame"
+    assert stored_scene.visual_treatment == "full_frame"
+    assert stored_scene.image_url == f"/static/projects/{script_id}/images/scene_001.png"
+
+
+def test_generate_visual_explicit_full_frame_overrides_stored_layered_mode(monkeypatch):
+    from api import visuals as visuals_api
+    from api.visuals import GenerateVisualRequest
+
+    engine = _build_test_engine()
+    script_id = "full-frame-over-layered"
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="A layered scene.",
+            visual_prompt="Layered scene.",
+            visual_mode="popup_sequence",
+            visual_layers=[VisualLayer(id="panel_1", prompt="Panel")],
+        )
+    )
+
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+    monkeypatch.setattr(
+        visuals_api,
+        "generate_popup_sequence_cutouts",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("explicit full_frame should not generate layered assets")),
+    )
+    monkeypatch.setattr(
+        visuals_api,
+        "generate_scene_image",
+        lambda **_kwargs: (
+            f"/static/projects/{script_id}/images/scene_001.png",
+            "Image prompt",
+            {"provider": "fake"},
+        ),
+    )
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Full Frame Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        visuals_api.generate_visual(
+            GenerateVisualRequest(
+                script_id=script_id,
+                scene_id="scene_001",
+                visual_prompt="Single image.",
+                visual_mode="full_frame",
+            ),
+            session,
+        )
+
+        stored = session.get(Script, script_id)
+        assert stored is not None
+        stored_scene = ScriptContent.model_validate_json(stored.script_json).segments[0].scenes[0]
+
+    assert stored_scene.visual_mode == "full_frame"
+    assert stored_scene.visual_treatment == "full_frame"
+    assert stored_scene.image_url == f"/static/projects/{script_id}/images/scene_001.png"
+    assert stored_scene.visual_layers == []
+
+
 def test_generate_visual_routes_popup_sequence_to_cutout_assets(monkeypatch):
     from api import visuals as visuals_api
 
