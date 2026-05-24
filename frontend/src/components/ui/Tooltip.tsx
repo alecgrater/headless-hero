@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 interface TooltipProps {
   content: ReactNode;
   children: ReactNode;
+  className?: string;
   side?: "top" | "bottom" | "left" | "right";
 }
 
@@ -20,9 +21,9 @@ const arrowClasses = {
   right: "right-full top-1/2 -translate-y-1/2 border-r-neutral-700 border-y-transparent border-l-transparent border-4",
 };
 
-export function Tooltip({ content, children, side = "top" }: TooltipProps) {
+export function Tooltip({ content, children, className = "", side = "top" }: TooltipProps) {
   return (
-    <span className="group/tooltip relative inline-flex">
+    <span className={`group/tooltip relative inline-flex ${className}`}>
       {children}
       <span
         role="tooltip"

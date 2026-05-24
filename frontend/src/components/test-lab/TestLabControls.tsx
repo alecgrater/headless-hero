@@ -538,11 +538,11 @@ function CharacterModeButton({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <Tooltip content={<ToggleHelpContent help={help} />}>
+    <Tooltip content={<ToggleHelpContent help={help} />} className="w-full">
       <button
         type="button"
         onClick={() => onChange(!checked)}
-        className={`flex min-h-24 items-start gap-3 rounded-md border p-3 text-left transition-colors ${
+        className={`flex min-h-24 w-full items-start gap-3 rounded-md border p-3 text-left transition-colors ${
           checked
             ? "border-violet-500/80 bg-violet-500/15 text-neutral-100 shadow-[0_0_0_1px_rgba(139,92,246,0.18)]"
             : "border-neutral-800 bg-neutral-950/70 text-neutral-400 hover:border-neutral-700 hover:bg-neutral-900/70 hover:text-neutral-100"
