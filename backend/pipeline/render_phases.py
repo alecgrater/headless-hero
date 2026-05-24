@@ -108,15 +108,20 @@ def _phase_images(ctx: ExportContext) -> None:
         update_job(ctx.job.id, progress=p, current_step=f"Generating image ({i+1}/{scene_count})...")
         sid = sc_info["scene_id"]
         scene_now = find_scene_in_content(content_now, sid)
-        logger.info("[%s] Generating image for scene %s (%d/%d)", ctx.script_id, sid, i + 1, scene_count)
-        image_url, _, _ = generate_scene_image(sid, sc_info["visual_prompt"], ctx.script_id, force=True)
-        sc_info["_image_url"] = image_url
-        sc_info["_frame_urls"] = None
         visual_layers = sc_info.get("visual_layers")
         if visual_layers is None and scene_now is not None:
             visual_layers = [layer.model_dump() for layer in scene_now.visual_layers]
         visual_layers = visual_layers or []
         treatment = sc_info.get("visual_treatment") or (scene_now.visual_treatment if scene_now is not None else "full_frame")
+        if treatment == "popup_sequence":
+            logger.info("[%s] Skipping full scene image for popup sequence scene %s (%d/%d)", ctx.script_id, sid, i + 1, scene_count)
+            sc_info["_image_url"] = ""
+            sc_info["_frame_urls"] = []
+        else:
+            logger.info("[%s] Generating image for scene %s (%d/%d)", ctx.script_id, sid, i + 1, scene_count)
+            image_url, _, _ = generate_scene_image(sid, sc_info["visual_prompt"], ctx.script_id, force=True)
+            sc_info["_image_url"] = image_url
+            sc_info["_frame_urls"] = None
         if treatment in {"popup_sequence", "flipflop"} and visual_layers:
             logger.info(
                 "[ANIMATION_TYPE] generating panels scene=%s animation_type=%s layers=%d",
@@ -207,10 +212,10 @@ def _phase_persist(ctx: ExportContext) -> None:
                 sc_info["_word_timestamps"] = sc.word_timestamps
                 sc_info["_phrase_timestamps"] = sc.phrase_timestamps
 
-            if sc_info.get("_image_url"):
-                sc.image_url = sc_info["_image_url"]
-            if sc_info.get("_frame_urls"):
-                sc.frame_urls = sc_info["_frame_urls"]
+            if "_image_url" in sc_info:
+                sc.image_url = sc_info["_image_url"] or ""
+            if "_frame_urls" in sc_info:
+                sc.frame_urls = sc_info["_frame_urls"] or []
             sc.audio_url = sc_info.get("_audio_url", sc.audio_url)
             sc.audio_duration_seconds = sc_info.get("_audio_duration", sc.audio_duration_seconds)
             sc.word_timestamps = sc_info.get("_word_timestamps", sc.word_timestamps)

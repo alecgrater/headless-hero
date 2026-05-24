@@ -326,6 +326,69 @@ def test_phase_persist_writes_generated_visual_layer_urls(monkeypatch):
         )
 
 
+def test_phase_persist_clears_popup_sequence_scene_image(monkeypatch):
+    import database
+    from pipeline.render_phases import ExportContext, _phase_persist
+
+    engine = _build_test_engine()
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="Panel scene.",
+            visual_prompt="Panel",
+            image_url="/static/projects/script-1/images/stale_scene.png",
+            frame_urls=["/static/projects/script-1/images/stale_frame.png"],
+            visual_treatment="popup_sequence",
+            visual_layers=[VisualLayer(id="panel_1", prompt="Panel prompt")],
+        )
+    )
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id="script-1",
+                brand_id="brand",
+                topic_title="Treatment Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+    monkeypatch.setattr(database, "engine", engine)
+    ctx = ExportContext(
+        script_id="script-1",
+        job=RenderJob("job-1"),
+        scenes=[
+            {
+                "scene_id": "scene_001",
+                "_image_url": "",
+                "_frame_urls": [],
+            }
+        ],
+        seg_name="Segment",
+        total_scenes=1,
+        voice_id="voice",
+        brand_dict={},
+        project_title="Treatment Test",
+        title="Segment",
+        total_segments=1,
+        regen_images=True,
+        regen_audio=False,
+        regen_fx=False,
+        regen_eli=False,
+        phase_ranges={"persist": (0.0, 1.0)},
+    )
+
+    _phase_persist(ctx)
+
+    with Session(engine) as session:
+        stored = session.get(Script, "script-1")
+        assert stored is not None
+        stored_content = ScriptContent.model_validate_json(stored.script_json)
+        scene = stored_content.segments[0].scenes[0]
+        assert scene.image_url == ""
+        assert scene.frame_urls == []
+
+
 def test_phase_images_forces_visual_layer_panel_regeneration(monkeypatch):
     from pipeline import image_gen as image_gen_mod
     from pipeline import render_phases as render_phases_mod
@@ -342,11 +405,10 @@ def test_phase_images_forces_visual_layer_panel_regeneration(monkeypatch):
     )
     captured = {}
     monkeypatch.setattr(render_phases_mod, "_reload_content", lambda script_id: content)
-    monkeypatch.setattr(
-        image_gen_mod,
-        "generate_scene_image",
-        lambda scene_id, visual_prompt, script_id, force: ("/static/projects/script-1/images/scene_001.png", "", None),
-    )
+    def fail_scene_image(*_args, **_kwargs):
+        raise AssertionError("popup_sequence should not generate a full scene image")
+
+    monkeypatch.setattr(image_gen_mod, "generate_scene_image", fail_scene_image)
 
     def fake_generate_popup_sequence_cutouts(*, scene_id, layers, script_id, scene_prompt, force=False, **kwargs):
         captured["scene_id"] = scene_id
@@ -384,6 +446,56 @@ def test_phase_images_forces_visual_layer_panel_regeneration(monkeypatch):
     _phase_images(ctx)
 
     assert captured["force"] is True
+    assert ctx.scenes[0]["_image_url"] == ""
+    assert ctx.scenes[0]["_frame_urls"] == []
+
+
+def test_generate_batch_popup_sequence_skips_scene_image(monkeypatch):
+    from pipeline import image_gen as image_gen_mod
+
+    def fail_scene_image(*_args, **_kwargs):
+        raise AssertionError("popup_sequence should not generate a full scene image")
+
+    def fake_generate_popup_sequence_cutouts(**kwargs):
+        return [
+            {
+                "id": "scene_001_anchor",
+                "type": "image",
+                "asset_kind": "cutout",
+                "image_url": "/static/projects/script-1/popup_crops/scene_001/anchor_cutout.png",
+            },
+            {
+                **kwargs["layers"][0],
+                "asset_kind": "cutout",
+                "image_url": "/static/projects/script-1/popup_crops/scene_001/crop_02_message.png",
+            },
+        ]
+
+    monkeypatch.setattr(image_gen_mod, "generate_scene_image", fail_scene_image)
+    monkeypatch.setattr(image_gen_mod, "generate_popup_sequence_cutouts", fake_generate_popup_sequence_cutouts)
+
+    results = image_gen_mod.generate_batch(
+        [
+            {
+                "scene_id": "scene_001",
+                "visual_prompt": "A character with popup bubbles.",
+                "visual_treatment": "popup_sequence",
+                "visual_layers": [
+                    {
+                        "id": "message",
+                        "type": "image",
+                        "asset_kind": "panel",
+                        "prompt": "message bubble",
+                    }
+                ],
+            }
+        ],
+        script_id="script-1",
+    )
+
+    assert results[0]["image_url"] is None
+    assert results[0]["frame_urls"] == []
+    assert results[0]["visual_layers"][0]["id"] == "scene_001_anchor"
 
 
 def test_generate_visual_persists_generated_visual_layers(monkeypatch):

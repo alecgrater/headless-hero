@@ -409,6 +409,10 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
             sc.image_url = r["image_url"]
             sc.frame_urls = []
             sc.video_url = ""
+        elif r.get("visual_layers") and sc.visual_treatment == "popup_sequence":
+            sc.image_url = ""
+            sc.frame_urls = []
+            sc.video_url = ""
         if r.get("visual_layers"):
             sc.visual_layers = r["visual_layers"]
         sc.visual_source_metadata = r.get("visual_source_metadata") or METADATA_CLEAR

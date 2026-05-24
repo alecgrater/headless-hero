@@ -1192,6 +1192,18 @@ def _generate_one_scene(
         frame_directives = scene.get("frame_directives", [])
         frame_prompts = scene.get("frame_prompts", [])
         scene_contains_person = scene.get("contains_person", False)
+        treatment = scene.get("visual_treatment", "full_frame")
+        visual_layers = scene.get("visual_layers", []) or []
+
+        if treatment == "popup_sequence" and visual_layers:
+            return with_visual_layers({
+                "scene_id": scene["scene_id"],
+                "image_url": None,
+                "frame_urls": [],
+                "prompt_used": None,
+                "visual_source_metadata": None,
+                "error": None,
+            })
 
         # Visual Beat System v2 path: per-frame directives
         if frame_directives:
