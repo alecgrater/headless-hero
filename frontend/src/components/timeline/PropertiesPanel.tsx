@@ -91,11 +91,12 @@ export default function PropertiesPanel({
 
   const setVisualMode = (mode: VisualMode) => {
     const isLayered = mode === "popup_sequence" || mode === "flipflop";
+    const shouldPreserveVisualLayers = isLayered && mode === visualMode;
     onUpdate({
       visual_mode: mode,
       media_source: mode === "video" ? "ai_video" : "ai",
       visual_treatment: visualTreatmentForMode(mode),
-      visual_layers: isLayered ? scene.visual_layers : [],
+      visual_layers: shouldPreserveVisualLayers ? scene.visual_layers : [],
     });
   };
 

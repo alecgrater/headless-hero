@@ -192,16 +192,17 @@ export default function TestLabControls({
   function updateVisualMode(nextMode: VisualMode) {
     const isNextLayeredTreatment = nextMode === "popup_sequence" || nextMode === "flipflop";
     const visualTreatment = isNextLayeredTreatment ? nextMode : "full_frame";
+    const shouldPreserveVisualLayers = isNextLayeredTreatment && nextMode === visualMode;
     onChange(settingsWithVisualTreatmentDefaults(
       {
         ...settings,
         visual_mode: nextMode,
         media_source: nextMode === "video" ? "ai_video" : "ai",
         visual_treatment: visualTreatment,
-        visual_layers: isNextLayeredTreatment ? settings.visual_layers : [],
+        visual_layers: shouldPreserveVisualLayers ? settings.visual_layers : [],
         stages: {
           ...settings.stages,
-          treatment_assets: isNextLayeredTreatment ? settings.stages.treatment_assets : false,
+          treatment_assets: isNextLayeredTreatment,
         },
       },
       preset,
