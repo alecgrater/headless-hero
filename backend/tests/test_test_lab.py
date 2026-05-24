@@ -210,6 +210,33 @@ def test_test_lab_scenes_endpoint_returns_popup_sequence_text_defaults(monkeypat
         app.dependency_overrides.pop(get_session, None)
 
 
+def test_test_lab_scenes_endpoint_returns_flipflop_text_defaults(monkeypatch, tmp_path):
+    _engine, app = _setup_app(monkeypatch, tmp_path)
+    client = TestClient(app)
+
+    try:
+        response = client.get("/api/test-lab/scenes")
+
+        assert response.status_code == 200
+        data = response.json()
+        flipflop_defaults = data["visual_treatment_defaults"]["flipflop"]
+        assert flipflop_defaults["narration"] == (
+            "He tried to explain the rule calmly, but the longer he talked, the harder it became "
+            "to hide how tired he was"
+        )
+        assert flipflop_defaults["visual_prompt"] == (
+            "Flat 2D cartoon person standing behind a small podium in a plain community room, holding an "
+            "open book in one hand and gesturing with the other while speaking to people off-camera. The "
+            "character looks tired but focused, with simple overhead lighting, a few chairs in the background, "
+            "strong clear silhouette, bold outlines, expressive face, clean 2D cartoon aesthetic, no readable "
+            "text or letters."
+        )
+    finally:
+        from database import get_session
+
+        app.dependency_overrides.pop(get_session, None)
+
+
 def test_test_lab_scenes_endpoint_returns_active_default_character(monkeypatch, tmp_path):
     engine, app = _setup_app(monkeypatch, tmp_path)
 

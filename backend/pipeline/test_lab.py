@@ -39,8 +39,22 @@ POPUP_SEQUENCE_TEXT_DEFAULTS = {
         "or letters."
     ),
 }
+FLIPFLOP_TEXT_DEFAULTS = {
+    "narration": (
+        "He tried to explain the rule calmly, but the longer he talked, the harder it became "
+        "to hide how tired he was"
+    ),
+    "visual_prompt": (
+        "Flat 2D cartoon person standing behind a small podium in a plain community room, holding an "
+        "open book in one hand and gesturing with the other while speaking to people off-camera. The "
+        "character looks tired but focused, with simple overhead lighting, a few chairs in the background, "
+        "strong clear silhouette, bold outlines, expressive face, clean 2D cartoon aesthetic, no readable "
+        "text or letters."
+    ),
+}
 VISUAL_TREATMENT_TEXT_DEFAULTS = {
     "popup_sequence": POPUP_SEQUENCE_TEXT_DEFAULTS,
+    "flipflop": FLIPFLOP_TEXT_DEFAULTS,
 }
 
 
