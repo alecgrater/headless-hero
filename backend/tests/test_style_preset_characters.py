@@ -523,6 +523,9 @@ def test_sync_active_preset_character_asset_change_clears_project_variants(
     (project_variants_dir / "1.png").write_bytes(b"old-project-variant")
     (project_variants_dir / "1.cutout.png").write_bytes(b"old-project-variant-cutout")
     (project_character_dir / "active_reference.txt").write_text("1", encoding="utf-8")
+    prompt_marker = tmp_path / "projects" / "script-a" / "images" / "foo.prompt"
+    prompt_marker.parent.mkdir(parents=True, exist_ok=True)
+    prompt_marker.write_text("old scene prompt", encoding="utf-8")
 
     with Session(style_character_engine) as session:
         session.add(
@@ -583,6 +586,7 @@ def test_sync_active_preset_character_asset_change_clears_project_variants(
     assert (project_character_dir / "cutout.png").read_bytes() == b"new-preset-cutout"
     assert not project_variants_dir.exists()
     assert not (project_character_dir / "active_reference.txt").exists()
+    assert not prompt_marker.exists()
     assert old_ref.read_bytes() == b"old-preset-reference"
     assert old_cutout.read_bytes() == b"old-preset-cutout"
     assert new_ref.read_bytes() == b"new-preset-reference"

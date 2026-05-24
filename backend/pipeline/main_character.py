@@ -630,6 +630,7 @@ def sync_global_main_character_to_project(session, script_id: str) -> bool:
     source_asset_changed = target.exists() and _files_differ(target, source_ref)
     if changed or source_asset_changed:
         clear_character_reference_assets(script_id)
+        invalidate_dependent_scene_caches(script_id)
         changed = True
     content.main_character = character
     script.script_json = content.model_dump_json()
