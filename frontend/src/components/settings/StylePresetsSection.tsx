@@ -585,6 +585,25 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
                           </button>
                         )}
                       </div>
+                      {viewedCharacter.cutout_image_url && (
+                        <div
+                          className="mt-3 rounded-md border border-neutral-800 p-3"
+                          style={{
+                            backgroundColor: "#171717",
+                            backgroundImage:
+                              "linear-gradient(45deg, #262626 25%, transparent 25%), linear-gradient(-45deg, #262626 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #262626 75%), linear-gradient(-45deg, transparent 75%, #262626 75%)",
+                            backgroundPosition: "0 0, 0 8px, 8px -8px, -8px 0",
+                            backgroundSize: "16px 16px",
+                          }}
+                        >
+                          <p className="mb-2 text-[11px] font-medium uppercase text-neutral-500">Transparent cutout</p>
+                          <img
+                            src={`${assetUrl(viewedCharacter.cutout_image_url)}?t=${characterRefTs}`}
+                            alt={`${viewedCharacter.name} transparent cutout`}
+                            className="max-h-56 w-full rounded object-contain"
+                          />
+                        </div>
+                      )}
                       <div className="mt-4 flex flex-wrap items-center gap-2">
                         {characters.map((character) => (
                           <button
