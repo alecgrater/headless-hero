@@ -4,7 +4,7 @@ import api, { getTestLabPresets, getTestLabRun, getTestLabRuns, startTestLabRun 
 import type { MutableRefObject } from "react";
 import type { TestLabMainCharacter, TestLabPreset, TestLabRun, TestLabScenes, TestLabSettings } from "../../types/testLab";
 import PopupCropLab from "./PopupCropLab";
-import TestLabControls from "./TestLabControls";
+import TestLabControls, { settingsWithVisualTreatmentDefaults } from "./TestLabControls";
 import TestLabRunPanel from "./TestLabRunPanel";
 
 const DEFAULT_SETTINGS: TestLabSettings = {
@@ -89,21 +89,29 @@ export default function TestLabPage() {
   );
 
   function handleSelectPreset(presetId: string) {
+    const nextPreset = presets.find((preset) => preset.id === presetId) ?? null;
     setSelectedPresetId(presetId);
-    setSettings((current) => ({
-      ...current,
-      title: undefined,
-      segment_name: undefined,
-      short_name: undefined,
-      narration: undefined,
-      tts_narration: undefined,
-      visual_prompt: undefined,
-      duration_estimate_seconds: undefined,
-      contains_person: undefined,
-      visual_beat: undefined,
-      visual_canvas: undefined,
-      main_character: undefined,
-    }));
+    setSettings((current) =>
+      settingsWithVisualTreatmentDefaults(
+        {
+          ...current,
+          title: undefined,
+          segment_name: undefined,
+          short_name: undefined,
+          narration: undefined,
+          tts_narration: undefined,
+          visual_prompt: undefined,
+          duration_estimate_seconds: undefined,
+          contains_person: undefined,
+          visual_beat: undefined,
+          visual_canvas: undefined,
+          main_character: undefined,
+        },
+        nextPreset,
+        current.visual_treatment,
+        visualTreatmentDefaults,
+      ),
+    );
   }
 
   const pollRun = useCallback(async (jobId: string, runId: string) => {
