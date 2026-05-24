@@ -20,15 +20,17 @@ function isLayeredVisualMode(
 function settingsWithPresetVisualMode(settings: TestLabSettings, preset: TestLabPreset | null): TestLabSettings {
   const visualMode = visualModeFromPreset(preset);
   const isLayered = isLayeredVisualMode(visualMode);
+  const currentVisualMode = settings.visual_mode ?? (settings.media_source === "ai_video" ? "video" : settings.visual_treatment);
+  const shouldPreserveVisualLayers = isLayered && visualMode === currentVisualMode;
   return {
     ...settings,
     visual_mode: visualMode,
     media_source: visualMode === "video" ? "ai_video" : "ai",
     visual_treatment: isLayered ? visualMode : "full_frame",
-    visual_layers: isLayered ? settings.visual_layers : [],
+    visual_layers: shouldPreserveVisualLayers ? settings.visual_layers : [],
     stages: {
       ...settings.stages,
-      treatment_assets: isLayered ? settings.stages.treatment_assets : false,
+      treatment_assets: isLayered,
     },
   };
 }
