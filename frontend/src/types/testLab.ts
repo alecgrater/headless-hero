@@ -103,3 +103,17 @@ export interface TestLabRun {
   created_at?: string;
   updated_at?: string;
 }
+
+export interface PopupCropPreviewCrop {
+  role: "anchor" | "item";
+  label: string;
+  url: string;
+  box: number[];
+}
+
+export interface PopupCropPreviewResult {
+  run_id: string;
+  prompt_used: string;
+  sheet_url: string;
+  crops: PopupCropPreviewCrop[];
+}

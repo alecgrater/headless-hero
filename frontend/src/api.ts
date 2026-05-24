@@ -2,7 +2,7 @@ import { showToast } from "./components/ToastContainer";
 import { BACKEND_PORT } from "./constants";
 import type { ScriptContent, UploadTracking, VisualLayer, VisualTreatment } from "./types/script";
 import type { VideoFormat } from "./types/format";
-import type { TestLabRun, TestLabScenes, TestLabSettings } from "./types/testLab";
+import type { PopupCropPreviewResult, TestLabRun, TestLabScenes, TestLabSettings } from "./types/testLab";
 
 export interface ApiResponse<T = unknown> {
   ok: boolean;
@@ -151,6 +151,17 @@ export async function startTestLabRun(
 export async function clearTestLabRuns(): Promise<boolean> {
   const res = await api.delete("/api/test-lab/runs");
   return res.ok;
+}
+
+export async function generatePopupCropPreview(
+  prompt: string,
+  items: string[],
+): Promise<PopupCropPreviewResult | null> {
+  const res = await api.post<PopupCropPreviewResult>("/api/test-lab/popup-crop", {
+    prompt,
+    items,
+  });
+  return res.ok ? res.data : null;
 }
 
 /** Clone a voice by uploading audio samples to ElevenLabs via the backend. */

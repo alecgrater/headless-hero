@@ -232,6 +232,89 @@ def test_test_lab_scenes_endpoint_returns_active_default_character(monkeypatch, 
         app.dependency_overrides.pop(get_session, None)
 
 
+def test_popup_crop_preview_generates_sheet_and_crops_fixed_grid(monkeypatch, tmp_path):
+    from PIL import Image
+
+    import pipeline.test_lab_popup_crop as popup_crop
+
+    monkeypatch.setattr(popup_crop, "DATA_DIR", tmp_path)
+
+    source_path = tmp_path / "source-sheet.png"
+    image = Image.new("RGB", (400, 400), "white")
+    image.paste("red", (0, 0, 200, 200))
+    image.paste("green", (200, 0, 400, 200))
+    image.paste("blue", (0, 200, 200, 400))
+    image.paste("yellow", (200, 200, 400, 400))
+    image.save(source_path)
+
+    def fake_generate_image(*_args, **_kwargs):
+        return str(source_path)
+
+    monkeypatch.setattr(popup_crop, "generate_image", fake_generate_image)
+
+    result = popup_crop.generate_popup_crop_preview(
+        prompt="Generate a clean contact sheet.",
+        items=["clock", "barred window", "warning sign"],
+        run_id="crop-test",
+    )
+
+    assert result.sheet_url == "/static/projects/test-lab-popup-crops/crop-test/contact_sheet.png"
+    assert [crop.label for crop in result.crops] == ["Anchor character", "clock", "barred window", "warning sign"]
+    assert [crop.box for crop in result.crops] == [
+        [0, 0, 200, 200],
+        [200, 0, 400, 200],
+        [0, 200, 200, 400],
+        [200, 200, 400, 400],
+    ]
+    assert (tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "contact_sheet.png").exists()
+    assert (tmp_path / "projects" / "test-lab-popup-crops" / "crop-test" / "crop_01_anchor_character.png").exists()
+
+
+def test_popup_crop_endpoint_returns_preview(monkeypatch, tmp_path):
+    _engine, app = _setup_app(monkeypatch, tmp_path)
+
+    import api.test_lab as test_lab_api
+
+    class FakeResult:
+        def model_dump(self, mode="python"):
+            return {
+                "run_id": "fake-run",
+                "prompt_used": "prompt",
+                "sheet_url": "/static/projects/test-lab-popup-crops/fake-run/contact_sheet.png",
+                "crops": [
+                    {
+                        "role": "anchor",
+                        "label": "Anchor character",
+                        "url": "/static/projects/test-lab-popup-crops/fake-run/crop_01_anchor_character.png",
+                        "box": [0, 0, 200, 200],
+                    }
+                ],
+            }
+
+    monkeypatch.setattr(
+        test_lab_api,
+        "generate_popup_crop_preview",
+        lambda prompt, items, run_id=None: FakeResult(),
+    )
+
+    client = TestClient(app)
+
+    try:
+        response = client.post(
+            "/api/test-lab/popup-crop",
+            json={"prompt": "A contact sheet", "items": ["clock"]},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["run_id"] == "fake-run"
+        assert body["crops"][0]["label"] == "Anchor character"
+    finally:
+        from database import get_session
+
+        app.dependency_overrides.pop(get_session, None)
+
+
 def test_start_test_lab_run_returns_run_and_job(monkeypatch, tmp_path):
     engine, app = _setup_app(monkeypatch, tmp_path)
 

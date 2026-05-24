@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import api, { getTestLabPresets, getTestLabRun, getTestLabRuns, startTestLabRun } from "../../api";
 import type { MutableRefObject } from "react";
 import type { TestLabMainCharacter, TestLabPreset, TestLabRun, TestLabSettings } from "../../types/testLab";
+import PopupCropLab from "./PopupCropLab";
 import TestLabControls from "./TestLabControls";
 import TestLabRunPanel from "./TestLabRunPanel";
 
@@ -32,6 +33,8 @@ type TestLabJobStatus = {
   error?: string | null;
 };
 
+type TestLabTab = "pipeline" | "popup-crop";
+
 export default function TestLabPage() {
   const mountedRef = useRef(false);
   const pollTimerRef = useRef<number | null>(null);
@@ -45,6 +48,7 @@ export default function TestLabPage() {
   const [running, setRunning] = useState(false);
   const [jobStatus, setJobStatus] = useState<TestLabJobStatus | null>(null);
   const [controlsValid, setControlsValid] = useState(true);
+  const [activeTab, setActiveTab] = useState<TestLabTab>("pipeline");
 
   const refreshRuns = useCallback(async () => {
     const nextRuns = await getTestLabRuns();
@@ -156,64 +160,97 @@ export default function TestLabPage() {
               <Beaker className="h-5 w-5 text-violet-300" />
               <div>
                 <h1 className="text-lg font-semibold">Test Lab</h1>
-                <p className="text-xs text-neutral-500">Run one realistic scene through the production pipeline.</p>
+                <p className="text-xs text-neutral-500">Run focused experiments against the production media pipeline.</p>
               </div>
             </div>
-            <button
-              onClick={handleRun}
-              disabled={running || !selectedPreset || !controlsValid}
-              className="inline-flex items-center gap-2 rounded-md bg-violet-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500"
-            >
-              {running ? <RotateCcw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-              Generate & Render
-            </button>
+            {activeTab === "pipeline" && (
+              <button
+                onClick={handleRun}
+                disabled={running || !selectedPreset || !controlsValid}
+                className="inline-flex items-center gap-2 rounded-md bg-violet-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500"
+              >
+                {running ? <RotateCcw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                Generate & Render
+              </button>
+            )}
+          </div>
+          <div className="mt-4 inline-flex overflow-hidden rounded-md border border-neutral-800 bg-neutral-950/70">
+            <TabButton active={activeTab === "pipeline"} label="Scene Pipeline" onClick={() => setActiveTab("pipeline")} />
+            <TabButton active={activeTab === "popup-crop"} label="Popup Crop" onClick={() => setActiveTab("popup-crop")} />
           </div>
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-[280px_minmax(420px,1fr)_400px] gap-4 overflow-hidden p-4">
-          <aside className="min-h-0 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-900/60 p-3">
-            <p className="mb-3 text-xs font-semibold uppercase text-neutral-500">Dummy Scenes</p>
-            <div className="space-y-2">
-              {presets.map((preset) => (
-                <button
-                  key={preset.id}
-                  onClick={() => handleSelectPreset(preset.id)}
-                  className={`w-full rounded-md border p-3 text-left transition-colors ${
-                    selectedPresetId === preset.id
-                      ? "border-violet-500 bg-violet-500/15"
-                      : "border-neutral-800 bg-neutral-950/50 hover:border-neutral-700"
-                  }`}
-                >
-                  <p className="text-sm font-medium text-neutral-100">{preset.title}</p>
-                  <p className="mt-1 line-clamp-2 text-xs text-neutral-500">{preset.narration}</p>
-                </button>
-              ))}
-            </div>
-          </aside>
+        {activeTab === "pipeline" ? (
+          <div className="grid min-h-0 flex-1 grid-cols-[280px_minmax(420px,1fr)_400px] gap-4 overflow-hidden p-4">
+            <aside className="min-h-0 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-900/60 p-3">
+              <p className="mb-3 text-xs font-semibold uppercase text-neutral-500">Dummy Scenes</p>
+              <div className="space-y-2">
+                {presets.map((preset) => (
+                  <button
+                    key={preset.id}
+                    onClick={() => handleSelectPreset(preset.id)}
+                    className={`w-full rounded-md border p-3 text-left transition-colors ${
+                      selectedPresetId === preset.id
+                        ? "border-violet-500 bg-violet-500/15"
+                        : "border-neutral-800 bg-neutral-950/50 hover:border-neutral-700"
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-neutral-100">{preset.title}</p>
+                    <p className="mt-1 line-clamp-2 text-xs text-neutral-500">{preset.narration}</p>
+                  </button>
+                ))}
+              </div>
+            </aside>
 
-          <section className="min-h-0 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
-            <TestLabControls
-              preset={selectedPreset}
-              defaultMainCharacter={defaultMainCharacter}
-              settings={settings}
-              onChange={setSettings}
-              onValidityChange={setControlsValid}
-            />
-          </section>
+            <section className="min-h-0 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
+              <TestLabControls
+                preset={selectedPreset}
+                defaultMainCharacter={defaultMainCharacter}
+                settings={settings}
+                onChange={setSettings}
+                onValidityChange={setControlsValid}
+              />
+            </section>
 
-          <aside className="min-h-0 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
-            <TestLabRunPanel
-              activeRun={activeRun}
-              runs={runs}
-              running={running}
-              currentStep={activeStatus}
-              progress={activeProgress}
-              onSelectRun={setActiveRun}
-            />
-          </aside>
-        </div>
+            <aside className="min-h-0 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
+              <TestLabRunPanel
+                activeRun={activeRun}
+                runs={runs}
+                running={running}
+                currentStep={activeStatus}
+                progress={activeProgress}
+                onSelectRun={setActiveRun}
+              />
+            </aside>
+          </div>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-hidden p-4">
+            <PopupCropLab />
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+function TabButton({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-2 text-xs font-medium transition-colors ${
+        active ? "bg-violet-500/15 text-violet-200" : "text-neutral-400 hover:bg-neutral-900 hover:text-neutral-100"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 
