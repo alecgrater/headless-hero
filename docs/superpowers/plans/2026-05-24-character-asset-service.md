@@ -139,6 +139,21 @@ def test_process_character_asset_bundle_rejects_missing_source(tmp_path):
             reference_filename="reference.png",
             cutout_filename="cutout.png",
         )
+
+
+def test_process_character_asset_bundle_rejects_output_path_collisions(tmp_path):
+    from pipeline.character_assets import process_character_asset_bundle
+
+    source = tmp_path / "source.png"
+    Image.new("RGB", (200, 200), (0, 255, 0)).save(source)
+
+    with pytest.raises(ValueError, match="output paths must be distinct"):
+        process_character_asset_bundle(
+            source_path=source,
+            output_dir=tmp_path / "bundle",
+            reference_filename="reference.png",
+            cutout_filename="reference.png",
+        )
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -204,6 +219,11 @@ def process_character_asset_bundle(
     reference_path = output_dir / reference_filename
     cutout_path = output_dir / cutout_filename
     metadata_path = output_dir / metadata_filename
+    _validate_distinct_output_paths(
+        reference_path=reference_path,
+        cutout_path=cutout_path,
+        metadata_path=metadata_path,
+    )
 
     if source_path.resolve() != reference_path.resolve():
         shutil.copy2(source_path, reference_path)
@@ -212,7 +232,12 @@ def process_character_asset_bundle(
     with Image.open(reference_path) as image:
         rgba = image.convert("RGBA")
         keyed, background_warning = _key_out_chroma_background(rgba, tolerance=tolerance)
-        trim_box, warnings = _save_trimmed_cutout(keyed, cutout_path, padding=padding)
+        trim_box, warnings = _save_trimmed_cutout(
+            keyed,
+            cutout_path,
+            fallback_image=rgba,
+            padding=padding,
+        )
 
     if background_warning:
         warnings.insert(0, background_warning)
@@ -241,12 +266,37 @@ def process_character_asset_bundle(
     )
 
 
-def _save_trimmed_cutout(image: Image.Image, output_path: Path, *, padding: int) -> tuple[list[int], list[str]]:
+def _validate_distinct_output_paths(
+    *,
+    reference_path: Path,
+    cutout_path: Path,
+    metadata_path: Path,
+) -> None:
+    resolved_paths = {
+        reference_path.resolve(),
+        cutout_path.resolve(),
+        metadata_path.resolve(),
+    }
+    if len(resolved_paths) != 3:
+        raise ValueError("character asset output paths must be distinct")
+
+
+def _save_trimmed_cutout(
+    image: Image.Image,
+    output_path: Path,
+    *,
+    fallback_image: Image.Image,
+    padding: int,
+) -> tuple[list[int], list[str]]:
     bbox = image.getbbox()
     warnings: list[str] = []
     if bbox is None:
-        image.save(output_path)
-        return [0, 0, image.width, image.height], ["cutout_visible_area_empty"]
+        fallback_bbox = fallback_image.getbbox()
+        if fallback_bbox is None:
+            image.save(output_path)
+            return [0, 0, image.width, image.height], ["cutout_visible_area_empty"]
+        bbox = fallback_bbox
+        image = fallback_image
 
     left, top, right, bottom = bbox
     padded = [
@@ -347,8 +397,10 @@ git commit -m "Add character asset cutout processor"
 ### Task 2: Add Cutout URLs To Style Preset Characters
 
 **Files:**
+- Modify: `backend/database.py`
 - Modify: `backend/models/style_preset_character.py`
 - Modify: `backend/pipeline/main_character.py`
+- Modify: `backend/tests/test_database_migrations.py`
 - Modify: `backend/tests/test_style_preset_characters.py`
 
 - [ ] **Step 1: Write failing model/API assertions**
@@ -429,7 +481,26 @@ class StylePresetCharacterResponse(BaseModel):
     active: bool = False
 ```
 
-- [ ] **Step 4: Add style-preset cutout path helpers and response wiring**
+- [ ] **Step 4: Add the SQLite migration**
+
+In `backend/database.py`, add a migration for existing dev databases so `style_preset_characters.cutout_image_url` is created when `SQLModel.metadata.create_all()` cannot alter the table:
+
+```python
+def _ensure_style_preset_character_cutout_column(engine) -> None:
+    with engine.begin() as connection:
+        columns = {
+            row[1]
+            for row in connection.exec_driver_sql("PRAGMA table_info(style_preset_characters)")
+        }
+        if columns and "cutout_image_url" not in columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE style_preset_characters ADD COLUMN cutout_image_url VARCHAR NOT NULL DEFAULT ''"
+            )
+```
+
+Call the helper during database initialization after table creation, and add a migration test in `backend/tests/test_database_migrations.py` that creates the old table shape, runs initialization, and verifies the new column exists with an empty-string default.
+
+- [ ] **Step 5: Add style-preset cutout path helpers and response wiring**
 
 In `backend/pipeline/main_character.py`, add beside `style_preset_character_path`:
 
@@ -461,7 +532,7 @@ Then update `_style_preset_character_response`:
     )
 ```
 
-- [ ] **Step 5: Process generated style characters through the shared service**
+- [ ] **Step 6: Process generated style characters through the shared service**
 
 In `backend/pipeline/main_character.py`, update `create_style_preset_character` after `temp_path = _call_style_character_image_generator(...)`:
 
@@ -491,7 +562,7 @@ When creating the row, add:
         cutout_image_url=style_preset_character_cutout_web_path(preset_id, character_id),
 ```
 
-- [ ] **Step 6: Run the targeted test**
+- [ ] **Step 7: Run the targeted test**
 
 Run:
 
@@ -501,12 +572,12 @@ npm run test:backend -- backend/tests/test_style_preset_characters.py::test_crea
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 Run:
 
 ```bash
-git add backend/models/style_preset_character.py backend/pipeline/main_character.py backend/tests/test_style_preset_characters.py
+git add backend/database.py backend/models/style_preset_character.py backend/pipeline/main_character.py backend/tests/test_database_migrations.py backend/tests/test_style_preset_characters.py
 git commit -m "Add cutout URLs for style preset characters"
 ```
 
