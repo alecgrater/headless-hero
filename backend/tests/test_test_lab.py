@@ -665,6 +665,19 @@ def test_test_lab_preset_uses_visual_treatment_setting():
     assert content.segments[0].scenes[0].visual_treatment == "flipflop"
 
 
+def test_stage_defaults_disable_eli_stage_when_eli_character_mode_is_off():
+    from pipeline.test_lab import _stage_defaults
+
+    defaults = _stage_defaults(
+        {
+            "eli_enabled": False,
+            "stages": {"eli": True},
+        }
+    )
+
+    assert defaults["eli"] is False
+
+
 def test_test_lab_advanced_script_keeps_top_level_visual_treatment_when_scene_omits_it():
     from pipeline.test_lab import build_content_from_preset
 

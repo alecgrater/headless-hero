@@ -150,6 +150,7 @@ export default function TestLabControls({
 
   function updateStage(key: StageKey, enabled: boolean) {
     if (isAiVideo && key === "treatment_assets") return;
+    if (!settings.eli_enabled && key === "eli") return;
     onChange({
       ...settings,
       stages: {
@@ -200,17 +201,29 @@ export default function TestLabControls({
 
       <Panel title="Pipeline stages" help="Disable individual stages to inspect partial output or reuse existing intermediate assets.">
         <div className="grid grid-cols-2 gap-2">
-          {STAGE_OPTIONS.map((stage) => (
-            <ToggleButton
-              key={stage.key}
-              label={stage.label}
-              detail={stage.key === "character" ? fallbackCharacterName : undefined}
-              checked={stage.key === "treatment_assets" && isAiVideo ? false : settings.stages[stage.key]}
-              help={stage.help}
-              disabled={isAiVideo && stage.key === "treatment_assets"}
-              onChange={(enabled) => updateStage(stage.key, enabled)}
-            />
-          ))}
+          {STAGE_OPTIONS.map((stage) => {
+            const disabled = (stage.key === "treatment_assets" && isAiVideo) || (stage.key === "eli" && !settings.eli_enabled);
+            const checked = disabled ? false : settings.stages[stage.key];
+            const help =
+              stage.key === "eli" && !settings.eli_enabled
+                ? {
+                    on: "Eli overlay animation is inactive because this run is using the main character mode.",
+                    off: "Enable Character > Eli enabled before running the Eli animation timing stage.",
+                  }
+                : stage.help;
+
+            return (
+              <ToggleButton
+                key={stage.key}
+                label={stage.label}
+                detail={stage.key === "character" ? fallbackCharacterName : undefined}
+                checked={checked}
+                help={help}
+                disabled={disabled}
+                onChange={(enabled) => updateStage(stage.key, enabled)}
+              />
+            );
+          })}
         </div>
       </Panel>
 

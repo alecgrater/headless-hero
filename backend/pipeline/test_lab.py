@@ -881,7 +881,7 @@ def _stage_defaults(settings: dict) -> dict[str, bool]:
         "visual": _enabled(settings, "visual", True),
         "treatment_assets": treatment_assets_enabled,
         "fx": _enabled(settings, "fx", False),
-        "eli": _enabled(settings, "eli", eli_default),
+        "eli": eli_default and _enabled(settings, "eli", True),
         "render": _enabled(settings, "render", True),
     }
 
