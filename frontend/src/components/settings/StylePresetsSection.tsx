@@ -558,17 +558,20 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
                           <ChevronRight className="size-5" />
                         </button>
                       </div>
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="truncate text-sm font-medium text-neutral-100">{viewedCharacter.name}</p>
+                          <div className="flex max-w-full items-center gap-2">
+                            <h3 className="truncate text-lg font-semibold text-neutral-100">{viewedCharacter.name}</h3>
                             {viewedCharacter.active && (
-                              <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-300">
+                              <span className="shrink-0 rounded bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-300">
                                 Active
                               </span>
                             )}
                           </div>
-                          <p className="mt-1 line-clamp-2 text-xs text-neutral-500">
+                          <p
+                            title={viewedCharacter.appearance}
+                            className="mt-1 max-w-2xl overflow-hidden text-sm leading-5 text-neutral-400 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
+                          >
                             {viewedCharacter.appearance}
                           </p>
                         </div>
@@ -582,7 +585,7 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
                           </button>
                         )}
                       </div>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
                         {characters.map((character) => (
                           <button
                             key={character.id}
