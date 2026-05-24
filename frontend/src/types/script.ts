@@ -167,6 +167,7 @@ export interface ScriptSummary {
   audio_count: number;
   has_renders: boolean;
   thumbnail_url: string;
+  format_id: string;
   status: "script" | "images" | "audio" | "exported";
   hook_score_overall?: number | null;
   upload_tracking: UploadTracking;

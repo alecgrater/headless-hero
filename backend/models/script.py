@@ -332,6 +332,7 @@ class ScriptSummary(BaseModel):
     audio_count: int
     has_renders: bool
     thumbnail_url: str
+    format_id: str
     status: str  # "script" | "images" | "audio" | "exported"
     hook_score_overall: int | None = None
     upload_tracking: UploadTracking = PydanticField(default_factory=UploadTracking)

@@ -55,6 +55,7 @@ def test_summary_uses_life_as_a_cinematic_thumbnail(tmp_path, monkeypatch):
     summary = scripts_api._build_summary(_script_record(script_id))
 
     assert summary.thumbnail_url == f"/static/projects/{script_id}/images/cinematic_thumbnail.png"
+    assert summary.format_id == "life-as-a"
 
 
 def test_summary_falls_back_to_first_scene_image(tmp_path, monkeypatch):

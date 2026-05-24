@@ -179,6 +179,7 @@ def _build_summary(record: Script, session: Session | None = None) -> ScriptSumm
         audio_count=audio_count,
         has_renders=has_renders,
         thumbnail_url=thumbnail_url,
+        format_id=content.format_id,
         status=status,
         hook_score_overall=content.hook_score.get("overall") if isinstance(content.hook_score, dict) else None,
         upload_tracking=upload_tracking,

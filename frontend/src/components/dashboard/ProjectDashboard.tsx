@@ -12,25 +12,16 @@ interface Props {
   isActive?: boolean;
 }
 
-const STATUS_LABELS: Record<ScriptSummary["status"], string> = {
-  script: "Script",
-  images: "Images",
-  audio: "Audio",
-  exported: "Exported",
-};
-
-const STATUS_COLORS: Record<ScriptSummary["status"], string> = {
-  script: "bg-neutral-600/80 text-neutral-300",
-  images: "bg-blue-500/20 text-blue-300",
-  audio: "bg-amber-500/20 text-amber-300",
-  exported: "bg-emerald-500/20 text-emerald-300",
-};
-
 const STATUS_DOT_COLORS: Record<ScriptSummary["status"], string> = {
   script: "bg-neutral-400",
   images: "bg-blue-400",
   audio: "bg-amber-400",
   exported: "bg-emerald-400",
+};
+
+const PROJECT_TYPE_LABELS: Record<string, string> = {
+  "youtube-listicle": "Educational Listicle",
+  "life-as-a": "Life As A",
 };
 
 type ProjectStateFilter = "unfinished" | "finished" | "uploaded";
@@ -63,6 +54,10 @@ function isFullyUploaded(project: ScriptSummary) {
 function getProjectState(project: ScriptSummary): ProjectStateFilter {
   if (project.status !== "exported") return "unfinished";
   return isFullyUploaded(project) ? "uploaded" : "finished";
+}
+
+function getProjectTypeLabel(formatId: string) {
+  return PROJECT_TYPE_LABELS[formatId] ?? "Educational Listicle";
 }
 
 function ProjectThumbnail({ project, compact = false }: { project: ScriptSummary; compact?: boolean }) {
@@ -192,7 +187,7 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject, isActive =
   const [activeFilter, setActiveFilter] = useState<FilterValue>("all");
   const [sortBy, setSortBy] = useState<SortValue>("newest");
   const [search, setSearch] = useState("");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [viewMode, setViewMode] = useState<ViewMode>("rows");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [pendingToggle, setPendingToggle] = useState<{ scriptId: string; key: keyof UploadTracking } | null>(null);
@@ -578,10 +573,10 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject, isActive =
           {/* Project rows */}
           {filteredProjects.length > 0 && viewMode === "rows" && (
             <div className="overflow-x-auto rounded-xl border border-neutral-800 bg-neutral-900/40">
-              <div className="min-w-[820px] grid grid-cols-[112px_minmax(0,1fr)_120px_120px_110px_96px_40px] gap-4 px-4 py-2.5 text-[11px] font-medium uppercase tracking-wide text-neutral-500 border-b border-neutral-800">
+              <div className="min-w-[900px] grid grid-cols-[112px_minmax(0,1fr)_150px_120px_110px_96px_40px] gap-4 px-4 py-2.5 text-[11px] font-medium uppercase tracking-wide text-neutral-500 border-b border-neutral-800">
                 <span>Preview</span>
                 <span>Project</span>
-                <span>Status</span>
+                <span>Project Type</span>
                 <span>Structure</span>
                 <span>Published</span>
                 <span>Created</span>
@@ -595,7 +590,7 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject, isActive =
                     tabIndex={0}
                     onClick={() => onOpenProject(project.id)}
                     onKeyDown={(e) => { if (e.key === "Enter") onOpenProject(project.id); }}
-                    className="group min-w-[820px] grid grid-cols-[112px_minmax(0,1fr)_120px_120px_110px_96px_40px] gap-4 px-4 py-3 items-center bg-neutral-900/20 hover:bg-neutral-800/60 transition-colors cursor-pointer"
+                    className="group min-w-[900px] grid grid-cols-[112px_minmax(0,1fr)_150px_120px_110px_96px_40px] gap-4 px-4 py-3 items-center bg-neutral-900/20 hover:bg-neutral-800/60 transition-colors cursor-pointer"
                   >
                     <ProjectThumbnail project={project} compact />
                     <div className="min-w-0">
@@ -607,8 +602,8 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject, isActive =
                       </p>
                     </div>
                     <div className="flex flex-col items-start gap-1.5">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[project.status]}`}>
-                        {STATUS_LABELS[project.status]}
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-violet-500/20 text-violet-300">
+                        {getProjectTypeLabel(project.format_id)}
                       </span>
                       {project.hook_score_overall != null && (
                         <Tooltip content="Predicted engagement score based on title and hook strength">
