@@ -14,14 +14,68 @@ interface TestLabControlsProps {
   onValidityChange?: (valid: boolean) => void;
 }
 
-const STAGE_OPTIONS: Array<{ key: StageKey; label: string; help: string }> = [
-  { key: "character", label: "Character", help: "Generate or refresh the project-specific character reference before scene assets." },
-  { key: "audio", label: "Audio", help: "Generate ElevenLabs voiceover timing so downstream stages use real duration." },
-  { key: "visual", label: "Visual", help: "Generate the scene image or AI video anchor media." },
-  { key: "treatment_assets", label: "Treatment assets", help: "Create extra image layers for popup and flip-flop treatments." },
-  { key: "fx", label: "FX", help: "Ask the FX planner for camera and punch timing on this scene." },
-  { key: "eli", label: "Eli", help: "Generate Eli overlay timing when Eli is enabled for the run." },
-  { key: "render", label: "Render", help: "Render a playable Remotion video after generating selected assets." },
+type ToggleHelp = {
+  on: string;
+  off: string;
+};
+
+const STAGE_OPTIONS: Array<{ key: StageKey; label: string; help: ToggleHelp }> = [
+  {
+    key: "character",
+    label: "Character",
+    help: {
+      on: "Generate or refresh the Test Lab character reference before scene assets.",
+      off: "Use the preset or current global character context without regenerating a reference.",
+    },
+  },
+  {
+    key: "audio",
+    label: "Audio",
+    help: {
+      on: "Generate ElevenLabs voiceover audio and word timing for the scene.",
+      off: "Reuse any existing audio/timing if present; downstream stages may fall back to estimates or fail if timing is required.",
+    },
+  },
+  {
+    key: "visual",
+    label: "Visual",
+    help: {
+      on: "Generate the selected AI image or AI video anchor media for the scene.",
+      off: "Skip scene media generation and reuse any existing media already attached to the hidden Test Lab script.",
+    },
+  },
+  {
+    key: "treatment_assets",
+    label: "Treatment assets",
+    help: {
+      on: "Generate extra image layers used by popup sequence and flip-flop visual treatments.",
+      off: "Render with the base scene media only; layered treatments may have fewer or no extra cutout assets.",
+    },
+  },
+  {
+    key: "fx",
+    label: "FX",
+    help: {
+      on: "Ask the FX planner to create camera movement, punch timing, and transition metadata.",
+      off: "Use the scene's existing FX settings or render with the default static/full-frame behavior.",
+    },
+  },
+  {
+    key: "eli",
+    label: "Eli",
+    help: {
+      on: "Generate Eli overlay animation timing when Eli is enabled for this run.",
+      off: "Skip Eli animation timing; any render proceeds without a newly planned Eli overlay.",
+    },
+  },
+  {
+    key: "render",
+    label: "Render",
+    help: {
+      on: "Render a playable Remotion video after the selected stages finish.",
+      off: "Stop after asset generation so you can inspect intermediate output without making a video.",
+    },
+  },
 ];
 
 const TREATMENT_OPTIONS: Array<{ value: VisualTreatment; label: string }> = [
@@ -167,13 +221,19 @@ export default function TestLabControls({ preset, settings, onChange, onValidity
           <ToggleButton
             label="Eli enabled"
             checked={settings.eli_enabled}
-            help="When enabled, Eli may be planned as an overlay host and the Eli stage can generate animation timing."
+            help={{
+              on: "Allow Eli to be planned as an overlay host; the Eli stage can generate animation timing.",
+              off: "Disable Eli for this run, so the Eli stage has no overlay host to plan even if selected.",
+            }}
             onChange={(enabled) => update({ eli_enabled: enabled })}
           />
           <ToggleButton
             label="Style preset"
             checked={settings.style_preset_enabled}
-            help="Apply the house visual style preset to generated character, image, and treatment assets."
+            help={{
+              on: "Apply the house visual style preset to generated character, image, and treatment assets.",
+              off: "Use the raw preset prompt/settings without injecting the house style preset.",
+            }}
             onChange={(enabled) => update({ style_preset_enabled: enabled })}
           />
         </div>
@@ -244,13 +304,19 @@ export default function TestLabControls({ preset, settings, onChange, onValidity
           <ToggleButton
             label="Subtitle highlight"
             checked={settings.subtitle_highlight_enabled}
-            help="Render word-level subtitle emphasis in the preview."
+            help={{
+              on: "Render word-level subtitle emphasis in the preview.",
+              off: "Show plain subtitles without per-word highlight styling.",
+            }}
             onChange={(enabled) => update({ subtitle_highlight_enabled: enabled })}
           />
           <ToggleButton
             label="Segment timer"
             checked={settings.segment_timer_enabled}
-            help="Show the short-form segment timer overlay when the selected format supports it."
+            help={{
+              on: "Show the short-form segment timer overlay when the selected format supports it.",
+              off: "Hide the segment timer overlay and render only the scene visuals/subtitles.",
+            }}
             onChange={(enabled) => update({ segment_timer_enabled: enabled })}
           />
         </div>
@@ -281,11 +347,11 @@ function ToggleButton({
 }: {
   label: string;
   checked: boolean;
-  help: string;
+  help: ToggleHelp;
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <Tooltip content={help}>
+    <Tooltip content={<ToggleHelpContent help={help} />}>
       <button
         type="button"
         onClick={() => onChange(!checked)}
@@ -299,6 +365,19 @@ function ToggleButton({
         <span className={`h-2 w-2 shrink-0 rounded-full ${checked ? "bg-violet-300" : "bg-neutral-700"}`} />
       </button>
     </Tooltip>
+  );
+}
+
+function ToggleHelpContent({ help }: { help: ToggleHelp }) {
+  return (
+    <span className="block space-y-1">
+      <span className="block">
+        <span className="font-semibold text-violet-200">ON:</span> {help.on}
+      </span>
+      <span className="block">
+        <span className="font-semibold text-neutral-100">OFF:</span> {help.off}
+      </span>
+    </span>
   );
 }
 
