@@ -96,7 +96,7 @@ def _scene_frame_paths(script_id: str, scene: Scene) -> list[str]:
     paths = []
     directives = scene.frame_directives or []
 
-    if scene.frame_urls and len(scene.frame_urls) > 1:
+    if scene.frame_urls:
         for i, frame_url in enumerate(scene.frame_urls):
             # Check if this frame is a subtitle (no image needed)
             if i < len(directives) and directives[i].source == "subtitle":
