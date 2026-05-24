@@ -12,6 +12,7 @@ import database as database_module
 from api import scripts as scripts_module
 from models.brand import BrandProfile
 from models.project_config import ProjectConfig
+from models.settings import AppSetting
 
 
 @pytest.fixture
@@ -138,3 +139,48 @@ def test_project_config_row_defaults_to_eli_enabled_false(monkeypatch, isolated_
 
     assert cfg_row is not None, "ProjectConfig row not written for new script"
     assert cfg_row.eli_enabled is False
+
+
+def test_project_config_row_uses_saved_eli_enabled_default(monkeypatch, isolated_engine):
+    """Omitting eli_enabled honors the persisted ELI_ENABLED_DEFAULT setting."""
+
+    def fake_run(job_id, target):
+        target()
+
+    monkeypatch.setattr(scripts_module, "run_in_background", fake_run)
+
+    def fake_generate_script(**kwargs):
+        from models.script import ScriptContent, Segment
+
+        return ScriptContent(title="t", segments=[Segment(name="seg-1", scenes=[])])
+
+    monkeypatch.setattr(scripts_module, "generate_script", fake_generate_script)
+
+    unique_topic = f"eli-flag-saved-default-{uuid.uuid4().hex}"
+    with Session(isolated_engine) as session:
+        session.add(AppSetting(key="ELI_ENABLED_DEFAULT", value="true"))
+        session.commit()
+
+    client = TestClient(app)
+    res = client.post(
+        "/api/scripts/generate",
+        json={
+            "topic": unique_topic,
+            "format_id": "youtube-listicle",
+        },
+    )
+    assert res.status_code == 200, res.text
+
+    from models.script import Script
+
+    with Session(isolated_engine) as session:
+        script_row = session.exec(
+            select(Script).where(Script.topic_title == unique_topic)
+        ).first()
+        assert script_row is not None, "Script row not written"
+        cfg_row = session.exec(
+            select(ProjectConfig).where(ProjectConfig.script_id == script_row.id)
+        ).first()
+
+    assert cfg_row is not None, "ProjectConfig row not written for new script"
+    assert cfg_row.eli_enabled is True

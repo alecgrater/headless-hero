@@ -332,6 +332,14 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
 
     logger.info("Script generation requested: topic=%r, brand_id=%s, format_id=%s", body.topic, brand_id, fmt.id)
 
+    from models.settings import AppSetting
+
+    if body.eli_enabled is not None:
+        resolved_eli_enabled = body.eli_enabled
+    else:
+        eli_setting = session.get(AppSetting, "ELI_ENABLED_DEFAULT")
+        resolved_eli_enabled = (eli_setting.value if eli_setting else "false").lower() == "true"
+
     # Dedup: if an identical script was created in the last 60 seconds, return it as a completed job
     cutoff = datetime.now(timezone.utc) - timedelta(seconds=60)
     existing = session.exec(
@@ -352,7 +360,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             select(ProjectConfig).where(ProjectConfig.script_id == existing.id)
         ).first()
         existing_eli_enabled = existing_cfg.eli_enabled if existing_cfg else True
-        if existing_eli_enabled == body.eli_enabled:
+        if existing_eli_enabled == resolved_eli_enabled:
             # Create an already-completed job pointing to the existing script
             job = create_job()
             update_job(job.id, status="completed", progress=1.0, current_step="Complete", output_urls=[existing.id])
@@ -377,12 +385,11 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
     model = body.model
     segmented = body.segmented
     cold_open_text = body.cold_open_text
-    eli_enabled = body.eli_enabled
+    eli_enabled = resolved_eli_enabled
     # Resolve style_preset_enabled: use explicit value, else fall back to AppSettings
     if body.style_preset_enabled is not None:
         style_preset_enabled = body.style_preset_enabled
     else:
-        from models.settings import AppSetting
         style_setting = session.get(AppSetting, "STYLE_PRESET_ENABLED_DEFAULT")
         style_preset_enabled = (style_setting.value if style_setting else "true").lower() == "true"
     ai_video_enabled = os.environ.get("AI_VIDEO_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
