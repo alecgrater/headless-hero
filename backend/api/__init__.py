@@ -28,6 +28,7 @@ from api.scripts import router as scripts_router
 from api.generation import router as generation_router
 from api.seo import router as seo_router
 from api.settings import router as settings_router
+from api.test_lab import router as test_lab_router
 from api.thumbnail_references import router as thumbnail_references_router
 from api.thumbnail import router as thumbnail_router
 from api.trending import router as trending_router
@@ -127,6 +128,7 @@ app.include_router(short_form_router)
 app.include_router(style_router)
 app.include_router(seo_router)
 app.include_router(settings_router)
+app.include_router(test_lab_router)
 app.include_router(thumbnail_references_router)
 app.include_router(trending_router)
 app.include_router(upload_suite_router)

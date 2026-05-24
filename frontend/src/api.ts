@@ -2,6 +2,7 @@ import { showToast } from "./components/ToastContainer";
 import { BACKEND_PORT } from "./constants";
 import type { ScriptContent, UploadTracking, VisualLayer, VisualTreatment } from "./types/script";
 import type { VideoFormat } from "./types/format";
+import type { TestLabPreset, TestLabRun, TestLabSettings } from "./types/testLab";
 
 export interface ApiResponse<T = unknown> {
   ok: boolean;
@@ -47,7 +48,7 @@ function extractErrorMessage(status: number, data: unknown): string {
 }
 
 /** Paths that should not trigger toast notifications on error. */
-const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/publish/short-form/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/visual-treatments/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/", "/api/short-form/jobs/", "/api/short-form/rendered", "/api/style/presets/jobs/"];
+const SILENT_PATHS = ["/api/health", "/api/render/status/", "/api/publish/status/", "/api/publish/short-form/status/", "/api/visuals/title-cards-status/", "/api/character/status/", "/api/scripts/generate-status/", "/api/scripts/cold-opens-status/", "/api/scripts/refine-hook-status/", "/api/trending/refresh-status/", "/api/trending/smart-ideas-status/", "/api/eli/generate-status/", "/api/fx/generate-status/", "/api/media/analyze/status/", "/api/visual-treatments/analyze/status/", "/api/idea-board/", "/api/recording/session/", "/api/recording/score-status/", "/api/short-form/jobs/", "/api/short-form/rendered", "/api/style/presets/jobs/", "/api/test-lab/runs/status/"];
 
 function shouldSilence(path: string): boolean {
   return SILENT_PATHS.some((p) => path.startsWith(p));
@@ -120,6 +121,37 @@ const api: ApiClient = {
 };
 
 export default api;
+
+export async function getTestLabPresets(): Promise<TestLabPreset[]> {
+  const res = await api.get<{ presets: TestLabPreset[] }>("/api/test-lab/scenes");
+  return res.ok ? res.data.presets : [];
+}
+
+export async function getTestLabRuns(): Promise<TestLabRun[]> {
+  const res = await api.get<{ runs: TestLabRun[] }>("/api/test-lab/runs");
+  return res.ok ? res.data.runs : [];
+}
+
+export async function getTestLabRun(runId: string): Promise<TestLabRun | null> {
+  const res = await api.get<TestLabRun>(`/api/test-lab/runs/${runId}`);
+  return res.ok ? res.data : null;
+}
+
+export async function startTestLabRun(
+  presetId: string,
+  settings: Partial<TestLabSettings>,
+): Promise<{ run_id: string; job_id: string } | null> {
+  const res = await api.post<{ run_id: string; job_id: string }>("/api/test-lab/runs", {
+    preset_id: presetId,
+    settings,
+  });
+  return res.ok ? res.data : null;
+}
+
+export async function clearTestLabRuns(): Promise<boolean> {
+  const res = await api.delete("/api/test-lab/runs");
+  return res.ok;
+}
 
 /** Clone a voice by uploading audio samples to ElevenLabs via the backend. */
 export async function cloneVoice(

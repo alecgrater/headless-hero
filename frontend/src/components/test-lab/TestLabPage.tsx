@@ -1,0 +1,227 @@
+import { Beaker, Play, RotateCcw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import api, { getTestLabPresets, getTestLabRun, getTestLabRuns, startTestLabRun } from "../../api";
+import type { MutableRefObject } from "react";
+import type { TestLabPreset, TestLabRun, TestLabSettings } from "../../types/testLab";
+import TestLabControls from "./TestLabControls";
+import TestLabRunPanel from "./TestLabRunPanel";
+
+const DEFAULT_SETTINGS: TestLabSettings = {
+  stages: {
+    character: false,
+    audio: true,
+    visual: true,
+    treatment_assets: true,
+    fx: false,
+    eli: true,
+    render: true,
+  },
+  eli_enabled: true,
+  style_preset_enabled: true,
+  media_source: "ai",
+  visual_treatment: "full_frame",
+  visual_layers: [],
+  segment_timer_enabled: true,
+  subtitle_highlight_enabled: true,
+};
+
+type TestLabJobStatus = {
+  status: "queued" | "running" | "completed" | "failed" | "cancelled";
+  progress?: number;
+  current_step?: string | null;
+  error?: string | null;
+};
+
+export default function TestLabPage() {
+  const mountedRef = useRef(false);
+  const pollTimerRef = useRef<number | null>(null);
+  const resolvePollSleepRef = useRef<((mounted: boolean) => void) | null>(null);
+  const [presets, setPresets] = useState<TestLabPreset[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState<string>("");
+  const [settings, setSettings] = useState<TestLabSettings>(DEFAULT_SETTINGS);
+  const [runs, setRuns] = useState<TestLabRun[]>([]);
+  const [activeRun, setActiveRun] = useState<TestLabRun | null>(null);
+  const [running, setRunning] = useState(false);
+  const [jobStatus, setJobStatus] = useState<TestLabJobStatus | null>(null);
+
+  const refreshRuns = useCallback(async () => {
+    const nextRuns = await getTestLabRuns();
+    if (!mountedRef.current) return nextRuns;
+    setRuns(nextRuns);
+    return nextRuns;
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    getTestLabPresets().then((items) => {
+      if (!mountedRef.current) return;
+      setPresets(items);
+      setSelectedPresetId((current) => current || items[0]?.id || "");
+    });
+    refreshRuns();
+
+    return () => {
+      mountedRef.current = false;
+      if (pollTimerRef.current !== null) {
+        window.clearTimeout(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+      if (resolvePollSleepRef.current) {
+        resolvePollSleepRef.current(false);
+        resolvePollSleepRef.current = null;
+      }
+    };
+  }, [refreshRuns]);
+
+  const selectedPreset = useMemo(
+    () => presets.find((preset) => preset.id === selectedPresetId) ?? null,
+    [presets, selectedPresetId],
+  );
+
+  function handleSelectPreset(presetId: string) {
+    setSelectedPresetId(presetId);
+    setSettings((current) => ({
+      ...current,
+      title: undefined,
+      segment_name: undefined,
+      short_name: undefined,
+      narration: undefined,
+      tts_narration: undefined,
+      visual_prompt: undefined,
+      duration_estimate_seconds: undefined,
+      contains_person: undefined,
+      visual_beat: undefined,
+      visual_canvas: undefined,
+      main_character: undefined,
+    }));
+  }
+
+  const pollRun = useCallback(async (jobId: string, runId: string) => {
+    for (;;) {
+      const shouldContinue = await waitForNextPoll(pollTimerRef, resolvePollSleepRef);
+      if (!shouldContinue || !mountedRef.current) return;
+
+      const statusRes = await api.get<TestLabJobStatus>(`/api/test-lab/runs/status/${jobId}`);
+      if (!mountedRef.current) return;
+      if (statusRes.ok) {
+        setJobStatus(statusRes.data);
+      }
+
+      const detail = await getTestLabRun(runId);
+      if (!mountedRef.current) return;
+      if (detail) {
+        setActiveRun(detail);
+      }
+
+      const status = statusRes.ok ? statusRes.data.status : detail?.status;
+      if (status === "completed" || status === "failed" || status === "cancelled") {
+        const nextRuns = await refreshRuns();
+        if (!mountedRef.current) return;
+        setActiveRun((current) => getRunFromHistory(nextRuns, runId) ?? detail ?? current);
+        return;
+      }
+    }
+  }, [refreshRuns]);
+
+  async function handleRun() {
+    if (!selectedPresetId || running) return;
+
+    setRunning(true);
+    setJobStatus({ status: "queued", current_step: "Starting Test Lab run..." });
+    try {
+      const started = await startTestLabRun(selectedPresetId, settings);
+      if (!mountedRef.current) return;
+      if (!started) return;
+      await pollRun(started.job_id, started.run_id);
+    } finally {
+      if (mountedRef.current) {
+        setRunning(false);
+      }
+    }
+  }
+
+  const activeStatus = jobStatus?.current_step || activeRun?.status || "No run selected";
+  const activeProgress = jobStatus?.progress;
+
+  return (
+    <div className="h-full min-h-0 bg-neutral-950 text-neutral-100">
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="border-b border-neutral-800 px-6 py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Beaker className="h-5 w-5 text-violet-300" />
+              <div>
+                <h1 className="text-lg font-semibold">Test Lab</h1>
+                <p className="text-xs text-neutral-500">Run one realistic scene through the production pipeline.</p>
+              </div>
+            </div>
+            <button
+              onClick={handleRun}
+              disabled={running || !selectedPreset}
+              className="inline-flex items-center gap-2 rounded-md bg-violet-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-neutral-800 disabled:text-neutral-500"
+            >
+              {running ? <RotateCcw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+              Generate & Render
+            </button>
+          </div>
+        </div>
+
+        <div className="grid min-h-0 flex-1 grid-cols-[280px_minmax(420px,1fr)_400px] gap-4 overflow-hidden p-4">
+          <aside className="min-h-0 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-900/60 p-3">
+            <p className="mb-3 text-xs font-semibold uppercase text-neutral-500">Dummy Scenes</p>
+            <div className="space-y-2">
+              {presets.map((preset) => (
+                <button
+                  key={preset.id}
+                  onClick={() => handleSelectPreset(preset.id)}
+                  className={`w-full rounded-md border p-3 text-left transition-colors ${
+                    selectedPresetId === preset.id
+                      ? "border-violet-500 bg-violet-500/15"
+                      : "border-neutral-800 bg-neutral-950/50 hover:border-neutral-700"
+                  }`}
+                >
+                  <p className="text-sm font-medium text-neutral-100">{preset.title}</p>
+                  <p className="mt-1 line-clamp-2 text-xs text-neutral-500">{preset.narration}</p>
+                </button>
+              ))}
+            </div>
+          </aside>
+
+          <section className="min-h-0 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
+            <TestLabControls preset={selectedPreset} settings={settings} onChange={setSettings} />
+          </section>
+
+          <aside className="min-h-0 overflow-y-auto rounded-lg border border-neutral-800 bg-neutral-900/60 p-4">
+            <TestLabRunPanel
+              activeRun={activeRun}
+              runs={runs}
+              running={running}
+              currentStep={activeStatus}
+              progress={activeProgress}
+              onSelectRun={setActiveRun}
+            />
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function getRunFromHistory(runs: TestLabRun[], runId: string): TestLabRun | null {
+  return runs.find((run) => run.run_id === runId) ?? null;
+}
+
+function waitForNextPoll(
+  timerRef: MutableRefObject<number | null>,
+  resolverRef: MutableRefObject<((mounted: boolean) => void) | null>,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    resolverRef.current = resolve;
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null;
+      resolverRef.current = null;
+      resolve(true);
+    }, 1500);
+  });
+}

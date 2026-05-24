@@ -1,0 +1,99 @@
+"""API routes for the hidden Test Lab runner."""
+
+from __future__ import annotations
+
+import uuid
+from typing import Any
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+
+from pipeline.render_jobs import create_job, get_job, run_in_background
+from pipeline.test_lab import (
+    TEST_LAB_PRESETS,
+    clear_test_lab_history,
+    list_run_history,
+    load_run_manifest,
+    run_test_lab,
+    validate_run_id,
+)
+
+router = APIRouter(prefix="/api/test-lab", tags=["test-lab"])
+
+
+class StartTestLabRunRequest(BaseModel):
+    preset_id: str
+    settings: dict[str, Any] = Field(default_factory=dict)
+
+
+def _engine():
+    import database
+
+    return database.engine
+
+
+def _run_id_from_job(job_data: dict[str, Any]) -> str:
+    output_data = job_data.get("output_data")
+    if isinstance(output_data, str) and output_data:
+        try:
+            from pipeline.test_lab import TestLabRunManifest
+
+            return TestLabRunManifest.model_validate_json(output_data).run_id
+        except ValueError:
+            return ""
+    return ""
+
+
+@router.get("/scenes")
+def get_test_lab_scenes():
+    return {"presets": [preset.model_dump() for preset in TEST_LAB_PRESETS]}
+
+
+@router.post("/runs")
+def start_test_lab_run(request: StartTestLabRunRequest):
+    run_id = uuid.uuid4().hex
+    job = create_job(scene_count=1)
+
+    def _run():
+        return run_test_lab(
+            engine=_engine(),
+            run_id=run_id,
+            preset_id=request.preset_id,
+            settings=request.settings,
+            job_id=job.id,
+        )
+
+    run_in_background(job.id, _run)
+    return {"run_id": run_id, "job_id": job.id}
+
+
+@router.get("/runs")
+def get_test_lab_runs():
+    return {"runs": [manifest.model_dump(mode="json") for manifest in list_run_history()]}
+
+
+@router.get("/runs/status/{job_id}")
+def get_test_lab_run_status(job_id: str):
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    data = job.to_dict()
+    run_id = _run_id_from_job(data)
+    if run_id:
+        data["run_id"] = run_id
+    return data
+
+
+@router.get("/runs/{run_id}")
+def get_test_lab_run(run_id: str):
+    try:
+        validate_run_id(run_id)
+        return load_run_manifest(run_id).model_dump(mode="json")
+    except (FileNotFoundError, ValueError):
+        raise HTTPException(status_code=404, detail="Run not found") from None
+
+
+@router.delete("/runs")
+def delete_test_lab_runs():
+    clear_test_lab_history()
+    return {"ok": True}

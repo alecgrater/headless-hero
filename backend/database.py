@@ -21,6 +21,7 @@ def init_db() -> None:
     _migrate_add_eli_position()
     _migrate_add_style_preset_enabled_to_project_config()
     _migrate_add_format_id_to_scripts()
+    _migrate_add_is_test_lab_to_scripts()
     _migrate_script_model_default()
     _migrate_llm_task_route_defaults()
     _migrate_add_script_id_to_api_usage()
@@ -107,6 +108,23 @@ def _migrate_add_format_id_to_scripts() -> None:
             conn.execute("CREATE INDEX IF NOT EXISTS ix_scripts_format_id ON scripts(format_id)")
             conn.commit()
             logger.info("Migrated: added format_id to scripts (defaulted to 'youtube-listicle')")
+    finally:
+        conn.close()
+
+
+def _migrate_add_is_test_lab_to_scripts() -> None:
+    """Add is_test_lab column to scripts if missing."""
+    import sqlite3
+
+    conn = sqlite3.connect(str(_db_path))
+    try:
+        cursor = conn.execute("PRAGMA table_info(scripts)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "is_test_lab" not in columns:
+            conn.execute("ALTER TABLE scripts ADD COLUMN is_test_lab INTEGER DEFAULT 0 NOT NULL")
+            conn.execute("CREATE INDEX IF NOT EXISTS ix_scripts_is_test_lab ON scripts(is_test_lab)")
+            conn.commit()
+            logger.info("Migrated: added is_test_lab to scripts")
     finally:
         conn.close()
 

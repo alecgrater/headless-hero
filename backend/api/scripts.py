@@ -187,7 +187,11 @@ def _build_summary(record: Script, session: Session | None = None) -> ScriptSumm
 
 @router.get("", response_model=list[ScriptSummary])
 def list_scripts(session: Session = Depends(get_session)):
-    statement = select(Script).order_by(Script.created_at.desc())  # type: ignore[arg-type]
+    statement = (
+        select(Script)
+        .where(Script.is_test_lab == False)  # noqa: E712
+        .order_by(Script.created_at.desc())  # type: ignore[arg-type]
+    )
     records = session.exec(statement).all()
     return [_build_summary(r, session) for r in records]
 
@@ -332,7 +336,12 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
     cutoff = datetime.now(timezone.utc) - timedelta(seconds=60)
     existing = session.exec(
         select(Script)
-        .where(Script.brand_id == brand_id, Script.topic_title == body.topic, Script.created_at >= cutoff)
+        .where(
+            Script.brand_id == brand_id,
+            Script.topic_title == body.topic,
+            Script.created_at >= cutoff,
+            Script.is_test_lab == False,  # noqa: E712
+        )
         .order_by(Script.created_at.desc())  # type: ignore[arg-type]
     ).first()
     if existing:

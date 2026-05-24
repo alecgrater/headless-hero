@@ -256,6 +256,7 @@ class Script(SQLModel, table=True):
     id: str = Field(default_factory=lambda: uuid.uuid4().hex, primary_key=True)
     brand_id: str = Field(index=True)
     format_id: str = Field(default="youtube-listicle", index=True)
+    is_test_lab: bool = Field(default=False, index=True)
     topic_title: str = Field(default="")
     topic_description: str = Field(default="", sa_column=Column(Text))
     script_json: str = Field(default="{}", sa_column=Column(Text))  # serialised ScriptContent
