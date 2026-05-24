@@ -128,6 +128,56 @@ def test_create_character_scopes_it_to_the_requested_preset(
     assert preset_b.json() == []
 
 
+def test_create_character_cleans_up_assets_when_cutout_processing_fails(
+    style_character_engine,
+    tmp_path,
+    monkeypatch,
+):
+    from models.script import MainCharacter
+    from pipeline import main_character
+
+    monkeypatch.setattr(main_character, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(main_character.uuid, "uuid4", lambda: type("FixedUuid", (), {"hex": "char-fail"})())
+    _insert_preset(style_character_engine, tmp_path, "preset-a", "Preset A")
+
+    source_path = tmp_path / "generated-character.png"
+    source_path.write_bytes(b"generated")
+    final_path = tmp_path / "style" / "presets" / "preset-a" / "characters" / "char-fail.png"
+    final_cutout_path = tmp_path / "style" / "presets" / "preset-a" / "characters" / "char-fail.cutout.png"
+    metadata_path = tmp_path / "style" / "presets" / "preset-a" / "characters" / "char-fail.metadata.json"
+
+    def fake_process_character_asset_bundle(**kwargs):
+        final_path.parent.mkdir(parents=True, exist_ok=True)
+        final_path.write_bytes(b"partial-reference")
+        final_cutout_path.write_bytes(b"partial-cutout")
+        metadata_path.write_text("{}", encoding="utf-8")
+        raise RuntimeError("cutout failed")
+
+    monkeypatch.setattr(
+        main_character,
+        "_call_style_character_image_generator",
+        lambda prompt, script_id, style_reference_path: str(source_path),
+    )
+    monkeypatch.setattr(
+        main_character,
+        "process_character_asset_bundle",
+        fake_process_character_asset_bundle,
+    )
+
+    with Session(style_character_engine) as session:
+        with pytest.raises(RuntimeError, match="cutout failed"):
+            main_character.create_style_preset_character(
+                session,
+                preset_id="preset-a",
+                character=MainCharacter(name="Mara", appearance="teal jacket", vibe="calm"),
+            )
+
+    assert not source_path.exists()
+    assert not final_path.exists()
+    assert not final_cutout_path.exists()
+    assert not metadata_path.exists()
+
+
 def test_selecting_character_under_wrong_preset_fails(
     client,
     style_character_engine,
