@@ -35,7 +35,7 @@ export interface VideoFX {
   chapter_markers: ChapterMarker[];
 }
 
-export type VisualMode = "video" | "full_frame" | "popup_sequence" | "flipflop";
+export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop";
 export type VisualTreatment = "full_frame" | "popup_sequence" | "flipflop";
 
 export interface VisualCanvas {
@@ -80,7 +80,7 @@ export interface Scene {
   audio_url?: string;
   audio_duration_seconds?: number;
   frame_urls?: string[];
-  visual_beat?: "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage";
+  visual_beat?: "static" | "continuous" | "multi_frame" | "quick_cuts" | "aha_subtitle" | "montage";
   frame_directives?: FrameDirective[];
   contains_person?: boolean;
   visual_mode?: VisualMode;

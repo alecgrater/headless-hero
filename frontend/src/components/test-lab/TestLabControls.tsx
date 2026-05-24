@@ -1,4 +1,4 @@
-import { Film, HelpCircle, Image, Palette, PanelsTopLeft, Repeat2, UserRound } from "lucide-react";
+import { Film, HelpCircle, Image, Images, Palette, PanelsTopLeft, Repeat2, Route, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { assetUrl } from "../../api";
@@ -112,6 +112,22 @@ const VISUAL_MODE_OPTIONS: Array<{
     bestFor: "Use for cinematic shots, simple illustrations, AI video scenes, or moments where one strong visual should carry the line.",
   },
   {
+    value: "multi_frame",
+    label: "Multi-frame",
+    icon: <Images className="h-4 w-4" />,
+    summary: "Several independent images share one narration scene.",
+    description: "Generates multiple separate frames and cuts through them for examples, comparisons, or rapid visual variety.",
+    bestFor: "Use for lists, multiple examples, fast context shifts, or montage-like visual rhythm.",
+  },
+  {
+    value: "continuous",
+    label: "Continuous",
+    icon: <Route className="h-4 w-4" />,
+    summary: "One scene evolves across several frames.",
+    description: "Generates related frames with reference continuity so a process or transformation unfolds over time.",
+    bestFor: "Use for growth, construction, pouring, movement through a process, or a single action progressing.",
+  },
+  {
     value: "popup_sequence",
     label: "Popup sequence",
     icon: <PanelsTopLeft className="h-4 w-4" />,
@@ -144,7 +160,7 @@ export default function TestLabControls({
   const displayedCharacterSource = getDisplayedCharacterSource(settings, defaultMainCharacter);
   const fallbackCharacterName = getFallbackCharacterName(settings, preset, defaultMainCharacter);
   const visualMode = settings.visual_mode ?? (settings.media_source === "ai_video" ? "video" : settings.visual_treatment);
-  const isVideo = visualMode === "video";
+  const isLayeredTreatment = visualMode === "popup_sequence" || visualMode === "flipflop";
   const [voiceSettingsText, setVoiceSettingsText] = useState("");
   const [voiceSettingsError, setVoiceSettingsError] = useState("");
 
@@ -162,7 +178,7 @@ export default function TestLabControls({
   }
 
   function updateStage(key: StageKey, enabled: boolean) {
-    if (isVideo && key === "treatment_assets") return;
+    if (!isLayeredTreatment && key === "treatment_assets") return;
     if (!settings.eli_enabled && key === "eli") return;
     onChange({
       ...settings,
@@ -174,17 +190,18 @@ export default function TestLabControls({
   }
 
   function updateVisualMode(nextMode: VisualMode) {
-    const visualTreatment = nextMode === "video" ? "full_frame" : nextMode;
+    const isNextLayeredTreatment = nextMode === "popup_sequence" || nextMode === "flipflop";
+    const visualTreatment = isNextLayeredTreatment ? nextMode : "full_frame";
     onChange(settingsWithVisualTreatmentDefaults(
       {
         ...settings,
         visual_mode: nextMode,
         media_source: nextMode === "video" ? "ai_video" : "ai",
         visual_treatment: visualTreatment,
-        visual_layers: nextMode === "video" || nextMode === "full_frame" ? [] : settings.visual_layers,
+        visual_layers: isNextLayeredTreatment ? settings.visual_layers : [],
         stages: {
           ...settings.stages,
-          treatment_assets: nextMode === "video" ? false : settings.stages.treatment_assets,
+          treatment_assets: isNextLayeredTreatment ? settings.stages.treatment_assets : false,
         },
       },
       preset,
@@ -231,7 +248,8 @@ export default function TestLabControls({
       <Panel title="Pipeline stages" help="Disable individual stages to inspect partial output or reuse existing intermediate assets.">
         <div className="grid grid-cols-2 gap-2">
           {STAGE_OPTIONS.map((stage) => {
-            const disabled = (stage.key === "treatment_assets" && isVideo) || (stage.key === "eli" && !settings.eli_enabled);
+            const disabled =
+              (stage.key === "treatment_assets" && !isLayeredTreatment) || (stage.key === "eli" && !settings.eli_enabled);
             const checked = disabled ? false : settings.stages[stage.key];
             const help =
               stage.key === "eli" && !settings.eli_enabled
@@ -350,9 +368,9 @@ export default function TestLabControls({
                 />
               ))}
             </div>
-            {isVideo && (
+            {!isLayeredTreatment && (
               <p className="mt-2 text-xs leading-5 text-neutral-500">
-                Video scenes render the generated clip full-frame, so layered animation assets are disabled.
+                This mode does not use layered animation assets; it renders through the main scene media pipeline.
               </p>
             )}
           </div>
