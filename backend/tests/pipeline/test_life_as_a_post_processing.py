@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from models.script import LevelMeta, MainCharacter, Scene, ScriptContent, Segment
 from pipeline.formats.life_as_a import enforce_life_as_a_constraints
+from pipeline.scriptwriter import _ensure_visual_beat_directives
 
 
 def _scene(
@@ -25,7 +26,7 @@ def _scene(
     )
 
 
-def test_disallowed_beats_coerced_to_static():
+def test_disallowed_and_legacy_beats_normalized():
     content = ScriptContent(
         title="Your Life As A Test",
         format_id="life-as-a",
@@ -40,8 +41,34 @@ def test_disallowed_beats_coerced_to_static():
     out = enforce_life_as_a_constraints(content)
     beats = [s.visual_beat for s in out.all_scenes() if not s.is_title_card]
     assert "aha_subtitle" not in beats
+    assert "static" in beats
     assert "montage" not in beats
+    assert "multi_frame" in beats
     assert "continuous" in beats
+
+
+def test_life_as_a_preserves_canonical_multi_frame_through_directive_repair():
+    scene = _scene("s2", beat="multi_frame")
+    scene.frame_directives = []
+    content = ScriptContent(
+        title="Your Life As A Test",
+        format_id="life-as-a",
+        segments=[
+            Segment(name="Level 1, the entry", scenes=[
+                _scene("s1", title_card=True),
+                scene,
+            ]),
+        ],
+    )
+
+    enforce_life_as_a_constraints(content)
+    _ensure_visual_beat_directives(content)
+
+    repaired = content.segments[0].scenes[1]
+    assert repaired.visual_mode == "multi_frame"
+    assert repaired.visual_beat == "multi_frame"
+    assert len(repaired.frame_directives) == 4
+    assert all(frame.reference_previous is False for frame in repaired.frame_directives)
 
 
 def test_chapter_card_inserted_when_missing():

@@ -103,11 +103,12 @@ _HUMAN_SUBJECT_TERMS = {
 
 
 LIFE_AS_A_BEAT_RULES = VisualBeatRules(
-    allowed_beats=frozenset({"static", "continuous", "quick_cuts"}),
+    allowed_beats=frozenset({"static", "continuous", "multi_frame"}),
     target_distribution={
         "static": (0.45, 0.60),
         "continuous": (0.25, 0.35),
-        "quick_cuts": (0.15, 0.25),
+        "multi_frame": (0.15, 0.25),
+        "quick_cuts": (0.15, 0.25),  # legacy compatibility alias
     },
     max_consecutive_same_beat=2,
     monotony_threshold=3,
@@ -434,7 +435,8 @@ def _mark_protagonist_scenes(content: ScriptContent, *, eli_enabled: bool = True
 def enforce_life_as_a_constraints(content: ScriptContent, *, eli_enabled: bool = True) -> ScriptContent:
     """Post-process a life-as-a script.
 
-    - Coerce disallowed visual_beat values ('aha_subtitle', 'montage') back to 'static'.
+    - Coerce disallowed visual_beat values ('aha_subtitle') back to 'static'.
+    - Normalize legacy multi-frame aliases to the canonical 'multi_frame' beat.
     - Ensure each segment has a chapter-card scene at index 0 (is_title_card=True).
     - Synthesize content.levels[] from segments if Claude omitted it (defensive).
     - Split long paragraph scenes into short single-beat render scenes.
@@ -443,7 +445,11 @@ def enforce_life_as_a_constraints(content: ScriptContent, *, eli_enabled: bool =
     allowed = LIFE_AS_A_BEAT_RULES.allowed_beats
     coerced = 0
     for scene in content.all_scenes():
-        if scene.visual_beat not in allowed and not scene.is_title_card:
+        if scene.is_title_card:
+            continue
+        if scene.visual_mode == "multi_frame" or scene.visual_beat in {"quick_cuts", "montage", "multi_frame"}:
+            scene.visual_beat = "multi_frame"
+        elif scene.visual_beat not in allowed:
             scene.visual_beat = "static"
             coerced += 1
     if coerced:

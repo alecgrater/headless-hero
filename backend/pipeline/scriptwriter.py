@@ -75,7 +75,12 @@ def build_script_outline_instructions(eli_enabled: bool, base_template: str = SC
     return base_template + build_outline_main_character_addendum()
 
 
-ALL_BEAT_TYPES = ["static", "continuous", "quick_cuts", "aha_subtitle", "montage"]
+ALL_BEAT_TYPES = ["static", "continuous", "multi_frame", "aha_subtitle"]
+LEGACY_BEAT_ALIASES = {
+    "full_frame": "static",
+    "quick_cuts": "multi_frame",
+    "montage": "multi_frame",
+}
 
 _SHOT_LABEL_RE = re.compile(r"^\[([A-Z\-]+)\]")
 
@@ -85,10 +90,14 @@ def _directive_prompt(scene: Scene, suffix: str = "") -> str:
     return f"{prompt} {suffix}".strip()
 
 
+def _canonical_visual_beat(beat: str) -> str:
+    return LEGACY_BEAT_ALIASES.get(beat, beat)
+
+
 def _directive_mode(scene: Scene, beat: str) -> str:
     if scene.visual_mode in {"multi_frame", "continuous", "aha_subtitle"}:
         return scene.visual_mode
-    if beat in {"quick_cuts", "montage", "multi_frame"}:
+    if _canonical_visual_beat(beat) == "multi_frame":
         return "multi_frame"
     if beat == "continuous":
         return "continuous"
@@ -241,7 +250,7 @@ def _fix_visual_monotony(content: "ScriptContent", rules: "VisualBeatRules | Non
         allowed_alts = ALL_BEAT_TYPES
         threshold = 3
     else:
-        allowed_alts = sorted(rules.allowed_beats)
+        allowed_alts = sorted({_canonical_visual_beat(beat) for beat in rules.allowed_beats})
         threshold = rules.monotony_threshold
 
     if threshold > len(all_scenes):
@@ -253,7 +262,7 @@ def _fix_visual_monotony(content: "ScriptContent", rules: "VisualBeatRules | Non
         if scene.is_title_card:
             beat_types.append("TITLE_CARD")
         else:
-            beat_types.append(scene.visual_beat or "static")
+            beat_types.append(_canonical_visual_beat(scene.visual_beat or "static"))
 
     for label, length, start_1, _end_1 in _find_runs(beat_types, {"TITLE_CARD"}, threshold=threshold):
         start = start_1 - 1

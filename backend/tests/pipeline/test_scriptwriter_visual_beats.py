@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from models.script import Scene, ScriptContent, Segment
+from pipeline.formats.base import VisualBeatRules
 from pipeline.formats.life_as_a import LIFE_AS_A_BEAT_RULES
 from pipeline.scriptwriter import _ensure_visual_beat_directives, _fix_visual_monotony
 from prompts import script as script_prompt
@@ -48,6 +49,30 @@ def test_life_as_a_monotony_fix_creates_multi_frame_directives():
     assert fixes > 0
     assert changed
     assert all(len(scene.frame_directives) > 1 for scene in changed)
+
+
+def test_monotony_fix_normalizes_legacy_alternatives_to_multi_frame():
+    content = ScriptContent(
+        title="Your Life As A Test",
+        format_id="youtube-listicle",
+        segments=[
+            Segment(
+                name="Segment 1",
+                scenes=[_static_scene(f"scene_{i:03d}") for i in range(1, 5)],
+            ),
+        ],
+    )
+    rules = VisualBeatRules(
+        allowed_beats=frozenset({"static", "quick_cuts", "montage"}),
+        monotony_threshold=3,
+    )
+
+    _fix_visual_monotony(content, rules)
+
+    beats = [scene.visual_beat for scene in content.all_scenes()]
+    assert "quick_cuts" not in beats
+    assert "montage" not in beats
+    assert "multi_frame" in beats
 
 
 def test_non_static_beats_without_directives_are_repaired():
