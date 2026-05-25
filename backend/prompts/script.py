@@ -176,17 +176,19 @@ VISUAL MODE VOCABULARY:
 - "continuous" — When narration describes a physical process unfolding over time (pouring, growing, building). 2-4 frames with reference_previous: true and transition: "crossfade". Frames show subtle progression of the SAME scene. Use deliberately, not as default.
 - "multi_frame" — When narration covers multiple examples, lists, comparisons, rapid context switches, or visual variety that adds impact. 3-8 frames with reference_previous: false and mostly transition: "cut". Each frame is a completely DIFFERENT shot — different subject, angle, composition, example, or context. Use deliberately for visual energy. Narration should be 1 short punchy sentence — aim for under 8 seconds of speech.
 - "aha_subtitle" — When a sentence delivers a shocking stat, counterintuitive fact, or "wait, really?" moment. Pure white text on black. 1 frame directive with source: "subtitle". Aim for 5-6 per video, no more than 7. Must be preceded and followed by image-bearing modes for contrast. visual_prompt should be empty. Narration should be 1 short sentence — a single stat or fact, under 8 seconds of speech.
+- "captions" — When a sentence delivers a punchy editorial label, reversal, emotional realization, or key claim that should become large in-scene text. Use a static canvas with optional side visual plus renderer-owned caption typography. Emit "caption_text" (2-15 words ideally) and "caption_emphasis" (the one strongest word or phrase to render red). Do not describe typography, animation, color, or layout in detail; the renderer handles those. Do not put readable caption text into visual_prompt.
 
 DISTRIBUTION RULES (follow strictly):
 1. full_frame should be the MAJORITY of non-title-card scenes (50-65%). Visual variety comes from scene-to-scene differences, not multi-frame within a scene.
-2. After every 2 consecutive full_frame scenes, the NEXT scene MUST use a different mode (multi_frame, continuous, or aha_subtitle). This creates a natural rhythm: full-full-variety-full-full-variety.
-3. Variety modes (multi_frame, continuous, aha_subtitle) must NEVER appear 2+ times consecutively — always separate them with at least one full_frame scene.
-4. aha_subtitle must be sandwiched between image-bearing modes.
+2. After every 2 consecutive full_frame scenes, the NEXT scene MUST use a different mode (multi_frame, continuous, captions, or aha_subtitle). This creates a natural rhythm: full-full-variety-full-full-variety.
+3. Variety modes (multi_frame, continuous, captions, aha_subtitle) must NEVER appear 2+ times consecutively — always separate them with at least one full_frame scene.
+4. aha_subtitle and captions must be sandwiched between image-bearing modes when they are text-only.
 5. continuous is reserved for genuine motion progression — NOT the default for multi-frame.
 6. Vary transitions within multi_frame scenes — mostly "cut" but occasional "crossfade".
 
 ### Frame Directives Format
 Each scene MUST have "visual_mode", "visual_beat", and "frame_directives" (list of objects). Set "visual_beat" to the same value as "visual_mode" except use "static" when "visual_mode" is "full_frame".
+For captions scenes, include "caption_text" and "caption_emphasis" on the scene object. Use a normal ai_generated frame directive only when visual_prompt is non-empty; use an empty frame_directives list for text-only captions.
 Each frame directive has:
   - "prompt": Visual description (for ai_generated) or subtitle text (for subtitle)
   - "source": "ai_generated" | "subtitle"
@@ -235,6 +237,8 @@ Output rules:
           "is_title_card": false,
           "visual_mode": "multi_frame",
           "visual_beat": "multi_frame",
+          "caption_text": "",
+          "caption_emphasis": "",
           "contains_person": true,
           "frame_directives": [
             {"prompt": "[CLOSE-UP] Subject detail shot...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": "", "contains_person": false},
@@ -257,6 +261,9 @@ Writing guidelines:
 - Visual prompts must NEVER ask for text, letters, words, labels, or written characters to appear in the image. If a scene involves signage, books, or screens, describe them without readable text (e.g., "a blank chalkboard" or "a book with abstract scribble marks").
 - Text overlays should be short key phrases (1-6 words) that reinforce the narration.
 - Scene IDs must be unique and sequential: scene_001, scene_002, etc.
+
+Life-as-a compatibility:
+- **`captions`: DISABLED in life-as-a for the first pass.** Keep chapter-card and scene narration in the existing visual language; do not create editorial caption scenes for this format yet. captions remain disabled.
 """,
     retention=RetentionMeta(
         goal="Generate scripts with high first-30s retention and sustained watch time",
@@ -456,6 +463,7 @@ The visual mode distribution is constrained for this format:
 - **`continuous`: 15–25%** for time-passage moments where a single space or subject changes. Use only when the scene clearly needs visual progression and has enough duration; otherwise keep it static.
 - **`multi_frame`: 5–15%** for compressed routines, sensory lists, comparisons, or rapid context switches. Use sparingly, and only when the scene duration supports multiple images.
 - **`aha_subtitle`: DISABLED.** This beat breaks the literary register and must never appear in a life-as-a script.
+- **`captions`: DISABLED in life-as-a for the first pass.** Keep chapter-card and scene narration in the existing visual language; do not create editorial caption scenes for this format yet. captions remain disabled.
 
 Use multiple generated images only when the visual mode genuinely benefits from progression or quick contrast. Short scenes often work best as one strong image, but image scenes are not hard-capped to one frame.
 

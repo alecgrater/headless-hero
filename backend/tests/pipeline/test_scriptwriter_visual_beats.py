@@ -100,6 +100,16 @@ def test_script_prompt_no_longer_requests_quick_cuts_or_montage():
     assert '"multi_frame"' in prompt_text
 
 
+def test_script_prompt_includes_captions_mode_without_extra_renderer_detail():
+    prompt_text = script_prompt.SCRIPT_SYSTEM.template
+
+    assert '"captions"' in prompt_text
+    assert "caption_text" in prompt_text
+    assert "caption_emphasis" in prompt_text
+    assert "renderer handles" in prompt_text
+    assert "Do not put readable caption text into visual_prompt" in prompt_text
+
+
 def test_multi_frame_mode_without_directives_is_repaired():
     scene = _static_scene("scene_001")
     scene.visual_mode = "multi_frame"
