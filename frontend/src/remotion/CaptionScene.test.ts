@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   chooseCaptionEmphasis,
+  findCaptionWordTimestamps,
   splitCaptionWords,
   captionWordsForDisplay,
 } from "@remotion-src/utils/captionText";
@@ -42,6 +43,27 @@ describe("captionText utilities", () => {
       ["while", false],
       ["falling", true],
       ["behind", true],
+    ]);
+  });
+
+  it("aligns hyphen-collapsed caption words to multiple spoken timestamp words", () => {
+    const result = findCaptionWordTimestamps(
+      [
+        { word: "You", start_ms: 0, end_ms: 200 },
+        { word: "were", start_ms: 250, end_ms: 450 },
+        { word: "never", start_ms: 500, end_ms: 720 },
+        { word: "behind", start_ms: 740, end_ms: 980 },
+        { word: "until", start_ms: 1040, end_ms: 1240 },
+        { word: "now", start_ms: 1280, end_ms: 1460 },
+      ],
+      "never-behind until now",
+      3,
+    );
+
+    expect(result.map((word) => [word.word, word.start_ms])).toEqual([
+      ["never", 500],
+      ["until", 1040],
+      ["now", 1280],
     ]);
   });
 });

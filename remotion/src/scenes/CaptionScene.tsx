@@ -1,10 +1,13 @@
 import React, { useMemo } from "react";
 import { Img, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { loadFont } from "@remotion/google-fonts/Inter";
-import type { Orientation, SceneInput, VisualCanvas, WordTimestamp } from "../types";
+import type { Orientation, SceneInput, VisualCanvas } from "../types";
 import { StaticCanvas } from "./StaticCanvas";
-import { captionWordsForDisplay, splitCaptionWords } from "../utils/captionText";
-import { findWordBoundary } from "../utils/wordMatch";
+import {
+  captionWordsForDisplay,
+  findCaptionWordTimestamps,
+  splitCaptionWords,
+} from "../utils/captionText";
 
 const { fontFamily } = loadFont("normal", {
   weights: ["800", "900"],
@@ -33,21 +36,6 @@ function captionFontSize(wordCount: number, orientation: Orientation): number {
   return 76;
 }
 
-function getTimedWords(
-  timestamps: WordTimestamp[],
-  captionText: string,
-  displayWordCount: number,
-): WordTimestamp[] {
-  if (timestamps.length === 0 || displayWordCount === 0) return [];
-
-  const boundary = findWordBoundary(timestamps, captionText);
-  if (boundary.subtitleWords.length >= displayWordCount) {
-    return boundary.subtitleWords.slice(0, displayWordCount);
-  }
-
-  return timestamps.slice(-displayWordCount);
-}
-
 export const CaptionScene: React.FC<Props> = ({
   scene,
   orientation = "horizontal",
@@ -69,7 +57,7 @@ export const CaptionScene: React.FC<Props> = ({
     [displayWords, scene.caption_emphasis],
   );
   const timedWords = useMemo(
-    () => getTimedWords(scene.word_timestamps ?? [], captionText, words.length),
+    () => findCaptionWordTimestamps(scene.word_timestamps ?? [], captionText, words.length),
     [captionText, scene.word_timestamps, words.length],
   );
   const hasImage = Boolean(scene.image_path);

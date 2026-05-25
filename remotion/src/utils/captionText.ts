@@ -1,4 +1,5 @@
 import { formatSubtitleText } from "./subtitleText";
+import type { WordTimestamp } from "../types";
 
 export interface CaptionWord {
   text: string;
@@ -113,4 +114,60 @@ export function splitCaptionWords(
       index >= emphasisStart &&
       index < emphasisStart + emphasisTokens.length,
   }));
+}
+
+function timestampToken(word: WordTimestamp): string {
+  return normalizeCaptionToken(word.word).toLowerCase();
+}
+
+function matchCaptionFromIndex(
+  timestamps: WordTimestamp[],
+  captionTokens: string[],
+  startIndex: number,
+): WordTimestamp[] | null {
+  const matched: WordTimestamp[] = [];
+  let timestampIndex = startIndex;
+
+  for (const captionToken of captionTokens) {
+    let spokenToken = "";
+    let firstTimestamp: WordTimestamp | null = null;
+
+    while (timestampIndex < timestamps.length && spokenToken.length < captionToken.length) {
+      const timestamp = timestamps[timestampIndex];
+      const token = timestampToken(timestamp);
+      timestampIndex++;
+      if (!token) continue;
+
+      firstTimestamp ??= timestamp;
+      spokenToken += token;
+    }
+
+    if (!firstTimestamp || spokenToken !== captionToken) {
+      return null;
+    }
+
+    matched.push(firstTimestamp);
+  }
+
+  return matched;
+}
+
+export function findCaptionWordTimestamps(
+  timestamps: WordTimestamp[],
+  captionText: string,
+  displayWordCount: number,
+): WordTimestamp[] {
+  if (timestamps.length === 0 || displayWordCount === 0) return [];
+
+  const captionTokens = captionWordsForDisplay({ captionText })
+    .slice(0, displayWordCount)
+    .map((word) => word.toLowerCase());
+  if (captionTokens.length === 0) return [];
+
+  for (let i = 0; i < timestamps.length; i++) {
+    const matched = matchCaptionFromIndex(timestamps, captionTokens, i);
+    if (matched) return matched;
+  }
+
+  return timestamps.slice(-displayWordCount);
 }
