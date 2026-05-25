@@ -10,12 +10,12 @@ from sqlmodel import Column, Field, SQLModel, Text
 # --- Pydantic models for the script JSON structure ---
 
 ALLOWED_TRANSITIONS = {"cut", "fade_black", "flash_white", "wipe"}
-VISUAL_MODES = {"video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop"}
+VISUAL_MODES = {"video", "full_frame", "multi_frame", "continuous", "captions", "popup_sequence", "flipflop"}
 VISUAL_TREATMENTS = {"full_frame", "popup_sequence", "flipflop"}
 VISUAL_LAYER_TYPES = {"image"}
 VISUAL_ASSET_KINDS = {"full_frame", "panel", "cutout"}
 VISUAL_LAYER_ANIMATIONS = {"none", "pop_in"}
-VisualMode = Literal["video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop"]
+VisualMode = Literal["video", "full_frame", "multi_frame", "continuous", "captions", "popup_sequence", "flipflop"]
 VisualTreatment = Literal["full_frame", "popup_sequence", "flipflop"]
 VisualLayerType = Literal["image"]
 VisualAssetKind = Literal["full_frame", "panel", "cutout"]
@@ -171,6 +171,8 @@ class Scene(BaseModel):
     visual_mode: VisualMode = "full_frame"
     visual_treatment: VisualTreatment = "full_frame"
     visual_layers: list[VisualLayer] = PydanticField(default_factory=list)
+    caption_text: str = ""
+    caption_emphasis: str = ""
     # --- Scene-boundary transition ---
     transition_in: str = "cut"  # "cut" | "fade_black" | "flash_white" | "wipe"
     # --- Micro-timeline visual timing overrides ---
@@ -204,6 +206,9 @@ class Scene(BaseModel):
         normalized["visual_mode"] = mode
         normalized["media_source"] = media_source
         normalized["visual_treatment"] = visual_treatment
+        visual_beat = _visual_beat_for_visual_mode(mode)
+        if visual_beat is not None:
+            normalized["visual_beat"] = visual_beat
         if mode in {"video", "popup_sequence", "flipflop"}:
             normalized["frame_urls"] = []
         return normalized
@@ -240,14 +245,14 @@ class Scene(BaseModel):
         elif assigned_field == "media_source":
             if self.media_source == "ai_video":
                 mode = "video"
-            elif self.visual_mode in {"multi_frame", "continuous", "popup_sequence", "flipflop"}:
+            elif self.visual_mode in {"multi_frame", "continuous", "captions", "popup_sequence", "flipflop"}:
                 mode = self.visual_mode
             else:
                 mode = "full_frame"
         elif assigned_field == "visual_treatment":
             if self.visual_treatment in {"popup_sequence", "flipflop"}:
                 mode = self.visual_treatment
-            elif self.visual_mode in {"multi_frame", "continuous", "video"}:
+            elif self.visual_mode in {"multi_frame", "continuous", "captions", "video"}:
                 mode = self.visual_mode
             else:
                 mode = "full_frame"
@@ -263,6 +268,9 @@ class Scene(BaseModel):
         super().__setattr__("visual_mode", visual_mode)
         super().__setattr__("media_source", media_source)
         super().__setattr__("visual_treatment", visual_treatment)
+        visual_beat = _visual_beat_for_visual_mode(visual_mode)
+        if visual_beat is not None:
+            super().__setattr__("visual_beat", visual_beat)
         if visual_mode in {"video", "popup_sequence", "flipflop"}:
             super().__setattr__("frame_urls", [])
 
@@ -283,6 +291,8 @@ def _resolve_visual_mode(
         return "multi_frame"
     if visual_beat == "continuous":
         return "continuous"
+    if visual_beat == "captions":
+        return "captions"
     return "full_frame"
 
 
@@ -292,6 +302,14 @@ def _legacy_fields_for_visual_mode(visual_mode: VisualMode) -> tuple[str, Visual
     if visual_mode in {"popup_sequence", "flipflop"}:
         return "ai", visual_mode
     return "ai", "full_frame"
+
+
+def _visual_beat_for_visual_mode(visual_mode: VisualMode) -> str | None:
+    if visual_mode == "full_frame":
+        return "static"
+    if visual_mode in {"multi_frame", "continuous", "captions"}:
+        return visual_mode
+    return None
 
 class LevelMeta(BaseModel):
     """Per-level metadata used only by the cinematic-chapters strategy."""

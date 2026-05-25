@@ -259,3 +259,60 @@ def test_scene_visual_beat_assignment_does_not_demote_flipflop_mode():
     assert scene.media_source == "ai"
     assert scene.visual_treatment == "flipflop"
     assert scene.frame_urls == []
+
+
+def test_scene_accepts_explicit_captions_visual_mode():
+    scene = Scene(
+        id="scene_001",
+        narration="Spending big in one area while falling behind in another.",
+        visual_prompt="[REACTION] A worried cartoon shopper holding a receipt.",
+        visual_mode="captions",
+        caption_text="Spending big while falling behind",
+        caption_emphasis="falling behind",
+        image_url="/static/projects/script/images/scene_001.png",
+        frame_urls=["/static/projects/script/images/scene_001_0.png"],
+    )
+
+    assert scene.visual_mode == "captions"
+    assert scene.visual_beat == "captions"
+    assert scene.media_source == "ai"
+    assert scene.visual_treatment == "full_frame"
+    assert scene.caption_text == "Spending big while falling behind"
+    assert scene.caption_emphasis == "falling behind"
+    assert scene.image_url == "/static/projects/script/images/scene_001.png"
+    assert scene.frame_urls == ["/static/projects/script/images/scene_001_0.png"]
+
+
+def test_scene_derives_captions_from_legacy_visual_beat():
+    scene = Scene(
+        id="scene_001",
+        narration="This was the real cost.",
+        visual_prompt="",
+        visual_beat="captions",
+        caption_text="The real cost",
+        caption_emphasis="real",
+    )
+
+    assert scene.visual_mode == "captions"
+    assert scene.visual_beat == "captions"
+    assert scene.media_source == "ai"
+    assert scene.visual_treatment == "full_frame"
+
+
+def test_scene_assignment_syncs_captions_visual_mode_without_clearing_media():
+    scene = Scene(
+        id="scene_001",
+        narration="You were never behind.",
+        visual_prompt="[CLOSE-UP] A character staring at a calendar.",
+        image_url="/static/projects/script/images/scene_001.png",
+        frame_urls=["/static/projects/script/images/scene_001_0.png"],
+    )
+
+    scene.visual_mode = "captions"
+
+    assert scene.visual_mode == "captions"
+    assert scene.visual_beat == "captions"
+    assert scene.media_source == "ai"
+    assert scene.visual_treatment == "full_frame"
+    assert scene.image_url == "/static/projects/script/images/scene_001.png"
+    assert scene.frame_urls == ["/static/projects/script/images/scene_001_0.png"]
