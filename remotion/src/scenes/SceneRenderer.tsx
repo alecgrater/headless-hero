@@ -10,6 +10,7 @@ import { StaticImageScene } from "./StaticImageScene";
 import { MultiFrameScene } from "./MultiFrameScene";
 import { TitleCardScene } from "./TitleCardScene";
 import { SubtitleScene } from "./SubtitleScene";
+import { CaptionScene } from "./CaptionScene";
 import { VideoScene } from "./VideoScene";
 import { VerticalSceneLayout } from "./VerticalSceneLayout";
 import { StaticCanvas } from "./StaticCanvas";
@@ -37,6 +38,7 @@ export const SceneRenderer: React.FC<Props> = ({
   const hasMultipleFrames = scene.frame_paths && scene.frame_paths.length > 1;
   const isTitleCard = scene.is_title_card && scene.title_card_zoom_target;
   const isAhaSubtitle = scene.visual_beat === "aha_subtitle";
+  const isCaptionScene = scene.visual_mode === "captions" || scene.visual_beat === "captions";
   const isVideo = scene.media_type === "video" && (scene.video_path || scene.image_path);
   const fx = scene.fx;
 
@@ -73,7 +75,9 @@ export const SceneRenderer: React.FC<Props> = ({
   // Visual layer dispatch
   let visualLayer: React.ReactNode;
   let treatmentLayer: React.ReactNode | null = null;
-  if (isTitleCard) {
+  if (isCaptionScene) {
+    visualLayer = <CaptionScene scene={scene} orientation={orientation} visualCanvas={visualCanvas} />;
+  } else if (isTitleCard) {
     visualLayer = <TitleCardScene scene={scene} />;
   } else if (isAhaSubtitle) {
     visualLayer = <SubtitleScene scene={scene} orientation={orientation} />;
@@ -90,7 +94,7 @@ export const SceneRenderer: React.FC<Props> = ({
   }
 
   // Wrap with CameraDrift if assigned (not for subtitle or title card scenes)
-  if (fx?.drift && !isAhaSubtitle && !isTitleCard) {
+  if (fx?.drift && !isAhaSubtitle && !isCaptionScene && !isTitleCard) {
     visualLayer = (
       <CameraDrift
         motion={fx.drift.motion}
@@ -103,7 +107,7 @@ export const SceneRenderer: React.FC<Props> = ({
   }
 
   // Wrap with ZoomPunch if assigned (but not for subtitle scenes — no image to zoom)
-  if (fx?.zoom_punch && !isAhaSubtitle) {
+  if (fx?.zoom_punch && !isAhaSubtitle && !isCaptionScene) {
     visualLayer = (
       <ZoomPunch
         triggerFrame={fx.zoom_punch.trigger_frame}
@@ -127,7 +131,7 @@ export const SceneRenderer: React.FC<Props> = ({
   // Aha-subtitle scenes occupy the full vertical frame natively.
   // Title cards in shorts are handled by ShortTitleCardScene, not here.
   const isVertical = orientation === "vertical";
-  if (isVertical && !isAhaSubtitle && !isTitleCard) {
+  if (isVertical && !isAhaSubtitle && !isCaptionScene && !isTitleCard) {
     visualLayer = (
       <VerticalSceneLayout imagePath={scene.image_path}>
         {visualLayer}
@@ -142,7 +146,7 @@ export const SceneRenderer: React.FC<Props> = ({
         {/* Visual + subtitle layer with in/out opacity */}
         <div style={{ width: "100%", height: "100%", opacity: visualOpacity }}>
           {visualLayer}
-          {!scene.is_title_card && !isAhaSubtitle && (scene.word_timestamps?.length ?? 0) > 0 && (
+          {!scene.is_title_card && !isAhaSubtitle && !isCaptionScene && (scene.word_timestamps?.length ?? 0) > 0 && (
             <SubtitleOverlay wordTimestamps={scene.word_timestamps} highlightEnabled={highlightEnabled} orientation={orientation} />
           )}
         </div>
@@ -150,7 +154,7 @@ export const SceneRenderer: React.FC<Props> = ({
 
       {/* Eli character overlay — z:5, outside SceneTransition so it won't fade/clip during transitions.
           Suppressed for aha-subtitle scenes, which take the full frame with their own typography. */}
-      {!isAhaSubtitle && scene.eli_overlay?.enabled && scene.eli_overlay.frame_id && scene.character_frames_base_url && (
+      {!isAhaSubtitle && !isCaptionScene && scene.eli_overlay?.enabled && scene.eli_overlay.frame_id && scene.character_frames_base_url && (
         <EliOverlay
           overlay={scene.eli_overlay}
           phraseTimestamps={scene.phrase_timestamps}
