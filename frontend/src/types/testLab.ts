@@ -19,6 +19,8 @@ export interface TestLabPreset {
   visual_mode?: VisualMode;
   media_source?: "ai" | "ai_video";
   duration_estimate_seconds: number;
+  caption_text?: string;
+  caption_emphasis?: string;
   contains_person?: boolean;
   visual_beat?: string;
   frame_directives?: Array<Record<string, unknown>>;
@@ -63,6 +65,8 @@ export interface TestLabSettings {
   tts_narration?: string;
   visual_prompt?: string;
   duration_estimate_seconds?: number;
+  caption_text?: string;
+  caption_emphasis?: string;
   contains_person?: boolean;
   visual_beat?: string;
   transition_in?: "cut" | "fade_black" | "flash_white" | "wipe";
