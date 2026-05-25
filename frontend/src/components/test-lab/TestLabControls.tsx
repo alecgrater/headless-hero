@@ -143,9 +143,9 @@ const VISUAL_MODE_OPTIONS: Array<{
     value: "flipflop",
     label: "Flip-flop",
     icon: <Repeat2 className="h-4 w-4" />,
-    summary: "Two A/B states alternate rapidly.",
-    description: "Cuts back and forth between a paired A and B visual state on a steady rhythm, matching the effect used when consecutive scenes simulate simple animation without generating a video clip.",
-    bestFor: "Use for quick A-B motion, repeated actions, two-pose character beats, or fast comedic contrast.",
+    summary: "Two visuals alternate for quick contrast.",
+    description: "Switches between paired visual layers on a steady rhythm to create motion without generating a video clip.",
+    bestFor: "Use for before-and-after ideas, two-state comparisons, repeated choices, or fast comedic contrast.",
   },
   {
     value: "captions",
