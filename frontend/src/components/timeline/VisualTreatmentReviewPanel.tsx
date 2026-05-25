@@ -34,7 +34,7 @@ const MODE_LABELS: Record<VisualMode, { label: string; blurb: string }> = {
   },
   flipflop: {
     label: "Flipflop",
-    blurb: "Two complementary visuals alternate every half second for a simple animated feel.",
+    blurb: "Two adjacent A/B visual states alternate rapidly for a simple animated feel.",
   },
   captions: {
     label: "Captions",
