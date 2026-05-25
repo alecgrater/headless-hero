@@ -108,6 +108,7 @@ def test_script_prompt_includes_captions_mode_without_extra_renderer_detail():
     assert "caption_emphasis" in prompt_text
     assert "renderer handles" in prompt_text
     assert "Do not put readable caption text into visual_prompt" in prompt_text
+    assert 'set "visual_prompt" to an empty string' in prompt_text
 
 
 def test_multi_frame_mode_without_directives_is_repaired():

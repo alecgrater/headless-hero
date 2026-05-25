@@ -188,7 +188,7 @@ DISTRIBUTION RULES (follow strictly):
 
 ### Frame Directives Format
 Each scene MUST have "visual_mode", "visual_beat", and "frame_directives" (list of objects). Set "visual_beat" to the same value as "visual_mode" except use "static" when "visual_mode" is "full_frame".
-For captions scenes, include "caption_text" and "caption_emphasis" on the scene object. Use a normal ai_generated frame directive only when visual_prompt is non-empty; use an empty frame_directives list for text-only captions.
+For captions scenes, include "caption_text" and "caption_emphasis" on the scene object. For text-only captions, set "visual_prompt" to an empty string and "frame_directives" to an empty list. Only use a shot-labeled "visual_prompt" when the caption should have an optional side visual, and then use a normal ai_generated frame directive for that visual.
 Each frame directive has:
   - "prompt": Visual description (for ai_generated) or subtitle text (for subtitle)
   - "source": "ai_generated" | "subtitle"
