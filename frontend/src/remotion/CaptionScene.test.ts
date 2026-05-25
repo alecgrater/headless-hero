@@ -66,4 +66,26 @@ describe("captionText utilities", () => {
       ["now", 1280],
     ]);
   });
+
+  it("prefers the final spoken caption phrase when words repeat", () => {
+    const result = findCaptionWordTimestamps(
+      [
+        { word: "real", start_ms: 0, end_ms: 180 },
+        { word: "cost", start_ms: 200, end_ms: 380 },
+        { word: "was", start_ms: 420, end_ms: 560 },
+        { word: "hidden", start_ms: 600, end_ms: 780 },
+        { word: "until", start_ms: 820, end_ms: 980 },
+        { word: "the", start_ms: 1020, end_ms: 1120 },
+        { word: "real", start_ms: 1160, end_ms: 1340 },
+        { word: "cost", start_ms: 1380, end_ms: 1560 },
+      ],
+      "real cost",
+      2,
+    );
+
+    expect(result.map((word) => [word.word, word.start_ms])).toEqual([
+      ["real", 1160],
+      ["cost", 1380],
+    ]);
+  });
 });

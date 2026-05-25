@@ -164,6 +164,11 @@ export function findCaptionWordTimestamps(
     .map((word) => word.toLowerCase());
   if (captionTokens.length === 0) return [];
 
+  for (let i = timestamps.length - 1; i >= 0; i--) {
+    const matched = matchCaptionFromIndex(timestamps, captionTokens, i);
+    if (matched) return matched;
+  }
+
   for (let i = 0; i < timestamps.length; i++) {
     const matched = matchCaptionFromIndex(timestamps, captionTokens, i);
     if (matched) return matched;
