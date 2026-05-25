@@ -271,6 +271,41 @@ def test_generate_scene_frames_v2_uses_prior_independent_image_as_style_anchor(t
     assert "Do not copy its exact subject or layout" in captured[1]["prompt"]
 
 
+def test_generate_scene_frames_v2_cache_key_includes_prior_image_anchor(tmp_path, monkeypatch):
+    ig_mod = _reset_data_dir(monkeypatch, tmp_path)
+    monkeypatch.setattr(ig_mod, "_VISUAL_STYLE", "HOUSE STYLE")
+    monkeypatch.setattr(ig_mod, "_STYLE_GUIDE", "")
+    monkeypatch.setattr(ig_mod, "_load_project_character_context", lambda script_id: (True, None, None))
+    monkeypatch.setattr(ig_mod, "_ensure_project_character_reference_ready", lambda **_kwargs: None)
+    monkeypatch.setattr(ig_mod, "_load_project_style_enabled", lambda script_id: False)
+    monkeypatch.setattr(ig_mod, "_resolve_style_preset", lambda **_kwargs: None)
+
+    captured: list[dict] = []
+    _stub_generate_image(monkeypatch, ig_mod, captured)
+
+    ig_mod.generate_scene_frames_v2(
+        scene_id="scene1",
+        frame_directives=[
+            {
+                "source": "ai_generated",
+                "prompt": "A simple cracked sidewalk warning sign.",
+                "reference_previous": False,
+            },
+            {
+                "source": "ai_generated",
+                "prompt": "A crowded notice board warning sign.",
+                "reference_previous": False,
+            },
+        ],
+        script_id="proj1",
+        visual_prompt="Flat 2D cartoon city warning sequence.",
+    )
+
+    frame0 = tmp_path / "projects" / "proj1" / "images" / "scene1_f0.png"
+    marker1 = tmp_path / "projects" / "proj1" / "images" / "scene1_f1.prompt"
+    assert f"[style_anchor:{frame0}:" in marker1.read_text(encoding="utf-8")
+
+
 def test_generate_scene_image_blocks_all_images_until_project_character_ready(tmp_path, monkeypatch):
     """Eli-disabled projects should not generate even object-only images before the character reference exists."""
     ig_mod = _reset_data_dir(monkeypatch, tmp_path)
