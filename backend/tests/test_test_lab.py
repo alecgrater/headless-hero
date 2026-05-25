@@ -161,7 +161,7 @@ def test_test_lab_presets_validate_as_script_content():
     from models.script import ScriptContent
     from pipeline.test_lab import TEST_LAB_PRESETS, build_content_from_preset
 
-    assert len(TEST_LAB_PRESETS) == 10
+    assert len(TEST_LAB_PRESETS) == 11
     for preset in TEST_LAB_PRESETS:
         content = build_content_from_preset(preset.id, {})
         validated = ScriptContent.model_validate(content.model_dump())
@@ -203,6 +203,28 @@ def test_test_lab_preset_accepts_continuous_visual_mode():
     assert preset.visual_mode == "continuous"
 
 
+def test_test_lab_accepts_captions_visual_mode_without_treatment_assets():
+    from pipeline.test_lab import TestLabPreset
+
+    preset = TestLabPreset(
+        id="caption-punch",
+        title="Caption Punch",
+        description="Caption test",
+        segment_name="The point",
+        narration="This was the real cost.",
+        visual_prompt="",
+        visual_mode="captions",
+        caption_text="The real cost",
+        caption_emphasis="real",
+        duration_estimate_seconds=3.0,
+    )
+
+    assert preset.visual_mode == "captions"
+    assert preset.media_source == "ai"
+    assert preset.caption_text == "The real cost"
+    assert preset.caption_emphasis == "real"
+
+
 def test_test_lab_scenes_endpoint_returns_presets(monkeypatch, tmp_path):
     _engine, app = _setup_app(monkeypatch, tmp_path)
     client = TestClient(app)
@@ -212,7 +234,7 @@ def test_test_lab_scenes_endpoint_returns_presets(monkeypatch, tmp_path):
 
         assert response.status_code == 200
         data = response.json()
-        assert len(data["presets"]) == 10
+        assert len(data["presets"]) == 11
         assert data["presets"][0]["id"]
     finally:
         from database import get_session

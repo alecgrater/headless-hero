@@ -1,4 +1,4 @@
-import { Film, HelpCircle, Image, Images, Palette, PanelsTopLeft, Repeat2, Route, UserRound } from "lucide-react";
+import { Captions, Film, HelpCircle, Image, Images, Palette, PanelsTopLeft, Repeat2, Route, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { assetUrl } from "../../api";
@@ -13,11 +13,15 @@ import type { VisualMode, VisualTreatment } from "../../types/script";
 import { Tooltip } from "../ui/Tooltip";
 
 type StageKey = keyof TestLabStages;
+type VisualTextDefaults = TestLabSceneTextDefaults & {
+  caption_text?: string;
+  caption_emphasis?: string;
+};
 
 interface TestLabControlsProps {
   preset: TestLabPreset | null;
   defaultMainCharacter: TestLabMainCharacter | null;
-  visualTreatmentDefaults?: Partial<Record<VisualTreatment, TestLabSceneTextDefaults>>;
+  visualTreatmentDefaults?: Partial<Record<VisualMode | VisualTreatment, VisualTextDefaults>>;
   settings: TestLabSettings;
   onChange: (settings: TestLabSettings) => void;
   onValidityChange?: (valid: boolean) => void;
@@ -143,6 +147,14 @@ const VISUAL_MODE_OPTIONS: Array<{
     description: "Switches between paired visual layers on a steady rhythm to create motion without generating a video clip.",
     bestFor: "Use for before-and-after ideas, two-state comparisons, repeated choices, or fast comedic contrast.",
   },
+  {
+    value: "captions",
+    label: "Captions",
+    icon: <Captions className="h-4 w-4" />,
+    summary: "Big editorial text lands on voiceover beats.",
+    description: "Renders short in-scene caption text with red emphasis while suppressing normal bottom subtitles.",
+    bestFor: "Use for reversals, emotional labels, shocking claims, and moments where the line itself is the visual punch.",
+  },
 ];
 
 export default function TestLabControls({
@@ -155,6 +167,8 @@ export default function TestLabControls({
 }: TestLabControlsProps) {
   const narration = settings.narration ?? preset?.narration ?? "";
   const visualPrompt = settings.visual_prompt ?? preset?.visual_prompt ?? "";
+  const captionText = settings.caption_text ?? preset?.caption_text ?? "";
+  const captionEmphasis = settings.caption_emphasis ?? preset?.caption_emphasis ?? "";
   const backgroundColor = settings.visual_canvas?.background_color ?? preset?.background_color ?? "#F6C54A";
   const displayedCharacter = getDisplayedCharacter(settings, preset, defaultMainCharacter);
   const displayedCharacterSource = getDisplayedCharacterSource(settings, defaultMainCharacter);
@@ -206,7 +220,7 @@ export default function TestLabControls({
         },
       },
       preset,
-      visualTreatment,
+      nextMode === "captions" ? nextMode : visualTreatment,
       visualTreatmentDefaults,
     ));
   }
@@ -435,6 +449,28 @@ export default function TestLabControls({
             placeholder="Visual prompt..."
           />
         </label>
+        {visualMode === "captions" && (
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-xs font-medium text-neutral-300">Caption text</span>
+              <input
+                value={captionText}
+                onChange={(event) => update({ caption_text: event.target.value })}
+                className="mt-2 w-full rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 hover:border-neutral-700 focus:border-violet-500"
+                placeholder="Big in-scene caption..."
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium text-neutral-300">Red emphasis</span>
+              <input
+                value={captionEmphasis}
+                onChange={(event) => update({ caption_emphasis: event.target.value })}
+                className="mt-2 w-full rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 hover:border-neutral-700 focus:border-violet-500"
+                placeholder="Words to emphasize..."
+              />
+            </label>
+          </div>
+        )}
       </Panel>
     </div>
   );
@@ -443,10 +479,12 @@ export default function TestLabControls({
 export function settingsWithVisualTreatmentDefaults(
   settings: TestLabSettings,
   preset: TestLabPreset | null,
-  visualTreatment: VisualTreatment,
-  visualTreatmentDefaults?: Partial<Record<VisualTreatment, TestLabSceneTextDefaults>>,
+  visualTreatment: VisualMode | VisualTreatment,
+  visualTreatmentDefaults?: Partial<Record<VisualMode | VisualTreatment, VisualTextDefaults>>,
 ): TestLabSettings {
-  const next: TestLabSettings = { ...settings, visual_treatment: visualTreatment };
+  const next: TestLabSettings = isVisualTreatment(visualTreatment)
+    ? { ...settings, visual_treatment: visualTreatment }
+    : { ...settings };
   const textDefaults = visualTreatmentDefaults?.[visualTreatment];
   if (!textDefaults) return next;
 
@@ -457,7 +495,20 @@ export function settingsWithVisualTreatmentDefaults(
   if (shouldReplaceSceneText(settings.visual_prompt, preset?.visual_prompt)) {
     next.visual_prompt = textDefaults.visual_prompt;
   }
+  if ("caption_text" in textDefaults && shouldReplaceSceneText(settings.caption_text, preset?.caption_text)) {
+    next.caption_text = textDefaults.caption_text;
+  }
+  if (
+    "caption_emphasis" in textDefaults &&
+    shouldReplaceSceneText(settings.caption_emphasis, preset?.caption_emphasis)
+  ) {
+    next.caption_emphasis = textDefaults.caption_emphasis;
+  }
   return next;
+}
+
+function isVisualTreatment(value: VisualMode | VisualTreatment): value is VisualTreatment {
+  return value === "full_frame" || value === "popup_sequence" || value === "flipflop";
 }
 
 function shouldReplaceSceneText(currentValue: string | undefined, presetValue: string | undefined): boolean {

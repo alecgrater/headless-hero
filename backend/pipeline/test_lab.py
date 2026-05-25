@@ -72,11 +72,22 @@ CONTINUOUS_TEXT_DEFAULTS = {
         "consistent camera angle, bold outline, simple dramatic lighting, no readable words or letters."
     ),
 }
+CAPTIONS_TEXT_DEFAULTS = {
+    "narration": "Spending big in one area can hide how far behind you are in another.",
+    "visual_prompt": (
+        "[REACTION] Flat 2D cartoon person sitting beside a kitchen table with a receipt, "
+        "a small luxury purchase on one side and overdue bills on the other, expressive worried face, "
+        "bold clean composition, no readable words or letters."
+    ),
+    "caption_text": "Spending big while falling behind",
+    "caption_emphasis": "falling behind",
+}
 VISUAL_TREATMENT_TEXT_DEFAULTS = {
     "multi_frame": MULTI_FRAME_TEXT_DEFAULTS,
     "continuous": CONTINUOUS_TEXT_DEFAULTS,
     "popup_sequence": POPUP_SEQUENCE_TEXT_DEFAULTS,
     "flipflop": FLIPFLOP_TEXT_DEFAULTS,
+    "captions": CAPTIONS_TEXT_DEFAULTS,
 }
 
 
@@ -94,8 +105,12 @@ class TestLabPreset(BaseModel):
     narration: str
     visual_prompt: str
     background_color: str = "#F6C54A"
-    visual_mode: Literal["video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop"] = "full_frame"
+    visual_mode: Literal[
+        "video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop", "captions"
+    ] = "full_frame"
     media_source: Literal["ai", "ai_video"] = "ai"
+    caption_text: str = ""
+    caption_emphasis: str = ""
     duration_estimate_seconds: float = 7.0
     main_character: MainCharacter | None = None
 
@@ -255,6 +270,18 @@ TEST_LAB_PRESETS: list[TestLabPreset] = [
         narration="Your phone keeps attention by offering tiny uncertain rewards, just often enough to make checking it feel automatic.",
         visual_prompt="Flat 2D cartoon person at desk pulled by glowing notification bubbles from a smartphone, calendar and work notes fading behind them.",
         background_color="#A855F7",
+    ),
+    TestLabPreset(
+        id="caption-punch",
+        title="Captions Punch Test",
+        description="Editorial in-scene caption beat with red emphasis and optional side visual.",
+        segment_name="The point",
+        narration=CAPTIONS_TEXT_DEFAULTS["narration"],
+        visual_prompt=CAPTIONS_TEXT_DEFAULTS["visual_prompt"],
+        caption_text=CAPTIONS_TEXT_DEFAULTS["caption_text"],
+        caption_emphasis=CAPTIONS_TEXT_DEFAULTS["caption_emphasis"],
+        visual_mode="captions",
+        background_color="#F6C54A",
     ),
 ]
 
@@ -428,6 +455,8 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
         contains_person=bool(_setting(settings, "contains_person", preset.main_character is not None)),
         visual_treatment=_setting(settings, "visual_treatment", "full_frame"),
         visual_layers=settings.get("visual_layers") if isinstance(settings.get("visual_layers"), list) else [],
+        caption_text=settings.get("caption_text") or preset.caption_text,
+        caption_emphasis=settings.get("caption_emphasis") or preset.caption_emphasis,
     )
     content = ScriptContent(
         title=_setting(settings, "title", preset.title),
