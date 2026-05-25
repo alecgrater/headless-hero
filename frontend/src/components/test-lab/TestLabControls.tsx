@@ -270,7 +270,7 @@ export default function TestLabControls({
               stage.key === "eli" && !settings.eli_enabled
                 ? {
                     on: "Eli overlay animation is inactive because this run is using the main character mode.",
-                    off: "Enable Character > Eli enabled before running the Eli animation timing stage.",
+                    off: "Enable Character > Eli before running the Eli animation timing stage.",
                   }
                 : stage.help;
 
@@ -328,17 +328,6 @@ export default function TestLabControls({
       <Panel title="Character" help="These switches mirror the project-level character controls for a single disposable Test Lab script.">
         <div className="grid gap-2 sm:grid-cols-2">
           <CharacterModeButton
-            icon={<UserRound className="h-4 w-4" />}
-            label="Eli enabled"
-            description="Use the overlay host instead of a scene protagonist."
-            checked={settings.eli_enabled}
-            help={{
-              on: "Allow Eli to be planned as an overlay host; the Eli stage can generate animation timing.",
-              off: "Disable Eli for this run, so the Eli stage has no overlay host to plan even if selected.",
-            }}
-            onChange={(enabled) => update({ eli_enabled: enabled })}
-          />
-          <CharacterModeButton
             icon={<Palette className="h-4 w-4" />}
             label="Style preset"
             description="Apply the active preset character and house style."
@@ -348,6 +337,17 @@ export default function TestLabControls({
               off: "Use the raw preset prompt/settings without injecting the house style preset.",
             }}
             onChange={(enabled) => update({ style_preset_enabled: enabled })}
+          />
+          <CharacterModeButton
+            icon={<UserRound className="h-4 w-4" />}
+            label="Eli"
+            description="Use the overlay host instead of a scene protagonist."
+            checked={settings.eli_enabled}
+            help={{
+              on: "Allow Eli to be planned as an overlay host; the Eli stage can generate animation timing.",
+              off: "Disable Eli for this run, so the Eli stage has no overlay host to plan even if selected.",
+            }}
+            onChange={(enabled) => update({ eli_enabled: enabled })}
           />
         </div>
         <div className="mt-3">

@@ -1080,7 +1080,7 @@ def test_create_hidden_test_script_coerces_raw_boolean_settings(monkeypatch, tmp
         cfg = session.get(ProjectConfig, script_id)
 
     assert cfg is not None
-    assert cfg.eli_enabled is True
+    assert cfg.eli_enabled is False
     assert cfg.style_preset_enabled is False
 
 
@@ -1471,6 +1471,7 @@ def test_run_test_lab_phases_uses_selected_order_and_classifies_assets(monkeypat
         run_id="run-phases",
         preset_id="coffee-brain",
         settings={
+            "eli_enabled": True,
             "media_source": "ai_video",
             "stages": {
                 "audio": True,

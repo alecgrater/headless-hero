@@ -500,7 +500,7 @@ def create_hidden_test_script(
     script_id = f"test-lab-{safe_run_id}"
     content = build_content_from_preset(preset_id, settings)
     brand_id = settings.get("brand_id") or get_default_brand_id(session)
-    eli_enabled = _bool_setting(settings, "eli_enabled", True)
+    eli_enabled = _bool_setting(settings, "eli_enabled", False)
     style_preset_enabled = _bool_setting(settings, "style_preset_enabled", True)
     if not eli_enabled and style_preset_enabled and content.main_character is None:
         content.main_character = _active_style_preset_main_character(session)
@@ -1050,7 +1050,7 @@ def _stage_render(ctx: TestLabRunContext) -> None:
 
 
 def _stage_defaults(settings: dict) -> dict[str, bool]:
-    eli_default = _bool_setting(settings, "eli_enabled", True)
+    eli_default = _bool_setting(settings, "eli_enabled", False)
     visual_mode = settings.get("visual_mode") or ("video" if settings.get("media_source") == "ai_video" else "full_frame")
     treatment_assets_enabled = False if visual_mode == "video" else _enabled(settings, "treatment_assets", True)
     return {
