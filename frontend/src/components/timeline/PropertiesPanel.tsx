@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Film, Image, Images, PanelsTopLeft, Repeat2, Route } from "lucide-react";
+import { Captions, Film, Image, Images, PanelsTopLeft, Repeat2, Route } from "lucide-react";
 import { assetUrl, regenerateFX } from "../../api";
 import type { Scene, SceneFX, VisualMode, VisualTreatment } from "../../types/script";
 import AudioPlayer from "./AudioPlayer";
@@ -82,6 +82,7 @@ export default function PropertiesPanel({
     { value: "continuous", label: "Continuous", icon: <Route className="h-3 w-3" /> },
     { value: "popup_sequence", label: "Popup", icon: <PanelsTopLeft className="h-3 w-3" /> },
     { value: "flipflop", label: "Flip-flop", icon: <Repeat2 className="h-3 w-3" /> },
+    { value: "captions", label: "Captions", icon: <Captions className="h-3 w-3" /> },
   ];
   const visualMode: VisualMode =
     scene.visual_mode ?? (scene.media_source === "ai_video" ? "video" : scene.visual_treatment ?? "full_frame");
@@ -119,7 +120,7 @@ export default function PropertiesPanel({
       )}
 
       {/* 3-column layout: Narration | Visual Prompt | Controls */}
-      <div className="shrink-0 h-36 flex gap-4 px-4 py-2">
+      <div className={`shrink-0 ${visualMode === "captions" ? "h-44" : "h-36"} flex gap-4 px-4 py-2`}>
 
         {/* Col 1: Narration */}
         <div className="flex-[2] flex flex-col min-w-0 min-h-0">
@@ -166,6 +167,36 @@ export default function PropertiesPanel({
               </button>
             ))}
           </div>
+
+          {visualMode === "captions" && (
+            <div className="shrink-0 space-y-1.5 rounded-lg border border-red-500/20 bg-red-500/5 p-2">
+              <div className="grid grid-cols-2 gap-2">
+                <label className="min-w-0">
+                  <span className="mb-0.5 block text-[10px] font-medium text-neutral-400">Caption text</span>
+                  <input
+                    type="text"
+                    value={scene.caption_text ?? ""}
+                    onChange={(e) => onUpdate({ caption_text: e.target.value })}
+                    className="w-full rounded-md border border-neutral-700/50 bg-neutral-800/70 px-2 py-1 text-xs text-neutral-200 transition-colors placeholder:text-neutral-600 focus:border-red-500/50 focus:outline-none focus:ring-1 focus:ring-red-500/30"
+                    placeholder="Optional override"
+                  />
+                </label>
+                <label className="min-w-0">
+                  <span className="mb-0.5 block text-[10px] font-medium text-neutral-400">Red emphasis</span>
+                  <input
+                    type="text"
+                    value={scene.caption_emphasis ?? ""}
+                    onChange={(e) => onUpdate({ caption_emphasis: e.target.value })}
+                    className="w-full rounded-md border border-neutral-700/50 bg-neutral-800/70 px-2 py-1 text-xs text-neutral-200 transition-colors placeholder:text-neutral-600 focus:border-red-500/50 focus:outline-none focus:ring-1 focus:ring-red-500/30"
+                    placeholder="Word or phrase"
+                  />
+                </label>
+              </div>
+              <p className="text-[10px] leading-snug text-neutral-500">
+                Rendered in-scene with word timing; normal subtitles are suppressed.
+              </p>
+            </div>
+          )}
 
           {/* Generate Image button */}
           {onGenerateImage && (

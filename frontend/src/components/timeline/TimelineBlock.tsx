@@ -61,6 +61,7 @@ function VisualModeBadge({ mode }: { mode?: string }) {
     video: "bg-fuchsia-500/60",
     popup_sequence: "bg-sky-500/60",
     flipflop: "bg-emerald-500/60",
+    captions: "bg-red-500/70",
   };
   const c = color[mode || "full_frame"];
   if (!c) return null;
@@ -72,6 +73,15 @@ function VisualModeBadge({ mode }: { mode?: string }) {
 
 function ImageContent({ scene }: { scene: Scene }) {
   const hasImage = !!scene.image_url || (scene.frame_urls && scene.frame_urls.length > 0);
+
+  if (scene.visual_mode === "captions") {
+    return (
+      <div className="flex gap-1.5 items-center">
+        <span className="w-2 h-2 rounded-full shrink-0 bg-red-500" />
+        <span className="text-[10px] font-medium text-red-200 uppercase">Captions</span>
+      </div>
+    );
+  }
 
   if (scene.video_url) {
     return (
