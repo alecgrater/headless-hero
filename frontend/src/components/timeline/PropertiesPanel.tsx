@@ -120,7 +120,7 @@ export default function PropertiesPanel({
       )}
 
       {/* 3-column layout: Narration | Visual Prompt | Controls */}
-      <div className={`shrink-0 ${visualMode === "captions" ? "h-44" : "h-36"} flex gap-4 px-4 py-2`}>
+      <div className={`shrink-0 ${visualMode === "captions" ? "h-56" : "h-36"} flex gap-4 px-4 py-2`}>
 
         {/* Col 1: Narration */}
         <div className="flex-[2] flex flex-col min-w-0 min-h-0">
@@ -147,7 +147,7 @@ export default function PropertiesPanel({
         </div>
 
         {/* Col 3: Visual mode selector + Generate Image + Generate Audio + FX */}
-        <div className="flex-[1.2] flex flex-col justify-center gap-2 min-w-0 min-h-0">
+        <div className={`flex-[1.2] flex flex-col justify-center gap-2 min-w-0 min-h-0 ${visualMode === "captions" ? "overflow-y-auto pr-1" : ""}`}>
           {/* Visual mode selector */}
           <div className="shrink-0 flex flex-wrap gap-1">
             {VISUAL_MODE_OPTIONS.map((opt) => (
