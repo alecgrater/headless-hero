@@ -225,6 +225,22 @@ def test_test_lab_accepts_captions_visual_mode_without_treatment_assets():
     assert preset.caption_emphasis == "real"
 
 
+def test_test_lab_captions_allow_empty_text_overrides():
+    from pipeline.test_lab import build_content_from_preset
+
+    content = build_content_from_preset(
+        "caption-punch",
+        {
+            "caption_text": "",
+            "caption_emphasis": "",
+        },
+    )
+
+    scene = content.segments[0].scenes[0]
+    assert scene.caption_text == ""
+    assert scene.caption_emphasis == ""
+
+
 def test_test_lab_scenes_endpoint_returns_presets(monkeypatch, tmp_path):
     _engine, app = _setup_app(monkeypatch, tmp_path)
     client = TestClient(app)

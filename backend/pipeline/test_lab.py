@@ -455,8 +455,8 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
         contains_person=bool(_setting(settings, "contains_person", preset.main_character is not None)),
         visual_treatment=_setting(settings, "visual_treatment", "full_frame"),
         visual_layers=settings.get("visual_layers") if isinstance(settings.get("visual_layers"), list) else [],
-        caption_text=settings.get("caption_text") or preset.caption_text,
-        caption_emphasis=settings.get("caption_emphasis") or preset.caption_emphasis,
+        caption_text=_setting(settings, "caption_text", preset.caption_text),
+        caption_emphasis=_setting(settings, "caption_emphasis", preset.caption_emphasis),
     )
     content = ScriptContent(
         title=_setting(settings, "title", preset.title),

@@ -220,7 +220,7 @@ export default function TestLabControls({
         },
       },
       preset,
-      nextMode === "captions" ? nextMode : visualTreatment,
+      nextMode,
       visualTreatmentDefaults,
     ));
   }
