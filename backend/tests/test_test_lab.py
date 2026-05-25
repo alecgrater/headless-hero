@@ -2171,6 +2171,91 @@ def test_stage_visual_generates_frame_urls_for_multi_frame_mode(monkeypatch, tmp
     assert [asset.kind for asset in manifest.assets] == ["image", "image", "image"]
 
 
+def test_stage_visual_uses_shared_scene_visual_generator(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.image_gen as image_gen
+    import pipeline.test_lab as test_lab
+    from models.script import ScriptContent
+
+    with Session(engine) as session:
+        script_id = test_lab.create_hidden_test_script(
+            session,
+            run_id="run-shared-visual-wrapper",
+            preset_id="coffee-brain",
+            settings={"visual_mode": "full_frame"},
+        )
+        session.commit()
+
+    observed = {}
+
+    def fake_generate_scene_visual(scene, script_id, **_kwargs):
+        observed["scene"] = scene
+        observed["script_id"] = script_id
+        return {
+            "scene_id": scene["scene_id"],
+            "image_url": "/static/projects/test/images/shared.png",
+            "frame_urls": [],
+            "video_url": "",
+            "prompt_used": "prompt",
+            "visual_source_metadata": {"source_type": "ai_generated"},
+            "error": None,
+        }
+
+    monkeypatch.setattr(image_gen, "generate_scene_visual", fake_generate_scene_visual)
+
+    manifest = test_lab.TestLabRunManifest(
+        run_id="run-shared-visual-wrapper",
+        script_id=script_id,
+        preset_id="coffee-brain",
+        status="running",
+    )
+    ctx = test_lab.TestLabRunContext(
+        engine=engine,
+        run_id="run-shared-visual-wrapper",
+        script_id=script_id,
+        preset_id="coffee-brain",
+        settings={"visual_mode": "full_frame"},
+        manifest=manifest,
+        job_id=None,
+    )
+
+    test_lab._stage_visual(ctx)
+
+    with Session(engine) as session:
+        _record, content = test_lab._load_content_for_script(session, script_id)
+        saved = ScriptContent.model_validate(content)
+
+    scene = saved.segments[0].scenes[0]
+    assert observed["script_id"] == script_id
+    assert observed["scene"]["visual_mode"] == "full_frame"
+    assert scene.image_url == "/static/projects/test/images/shared.png"
+    assert scene.frame_urls == []
+    assert scene.visual_source_metadata == {"source_type": "ai_generated"}
+    assert [asset.url for asset in manifest.assets] == ["/static/projects/test/images/shared.png"]
+
+
+def test_test_lab_multi_frame_fallback_prompts_avoid_decorative_frame_language():
+    from models.script import Scene
+    from pipeline.test_lab import _frame_directives_for_visual_mode
+
+    scene = Scene(
+        id="scene-1",
+        narration="A sequence escalates.",
+        visual_prompt="Flat 2D cartoon city street cracking apart.",
+        visual_mode="multi_frame",
+    )
+
+    directives = _frame_directives_for_visual_mode(scene)
+
+    assert len(directives) == 3
+    for directive in directives:
+        prompt = directive["prompt"].lower()
+        assert "independent frame" not in prompt
+        assert "decorative frame" not in prompt
+        assert "picture frame" not in prompt
+
+
 def test_stage_visual_generates_referenced_frame_urls_for_continuous_mode(monkeypatch, tmp_path):
     engine, _app = _setup_app(monkeypatch, tmp_path)
 

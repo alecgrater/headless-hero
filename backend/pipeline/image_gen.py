@@ -22,6 +22,13 @@ logger = logging.getLogger(__name__)
 _STYLE_GUIDE = IMAGE_COMPOSITION_GUIDE.template
 _VISUAL_STYLE = IMAGE_VISUAL_STYLE.template
 _CHARACTER_PROMPT = IMAGE_CHARACTER_IN_SCENE.template
+_SEQUENCE_CONSISTENCY_PROMPT = """\
+Multi-image sequence consistency:
+- These images belong to the same scene sequence and must look like adjacent shots from one cohesive explainer video.
+- Keep the same flat 2D cartoon house style, line weight, color palette, character proportions, camera language, and rendering simplicity across every image.
+- Output a full-bleed 16:9 illustration only. No decorative border, picture frame, mat, white margin, inset panel, UI chrome, caption box, or poster edge.
+- Do not draw literal frames around the image. The word "sequence" refers only to multiple generated images, not a physical frame or border.
+"""
 
 # --- Character reference helpers ---
 
@@ -1088,7 +1095,7 @@ def generate_scene_frames_v2(
             if character_text:
                 parts.append(character_text)
             parts.append(
-                f"This is frame {i + 1} of {total_frames} in an animation sequence. "
+                f"This is image {i + 1} of {total_frames} in an animation sequence. "
                 f"Using the input image as reference, change ONLY the following: "
                 f"{directive_prompt}\n"
                 f"Maintain identical style, background, composition, character design, "
@@ -1100,8 +1107,12 @@ def generate_scene_frames_v2(
             parts: list[str] = []
             if _VISUAL_STYLE:
                 parts.append(_VISUAL_STYLE)
+            if total_frames > 1:
+                parts.append(_SEQUENCE_CONSISTENCY_PROMPT)
+                if visual_prompt.strip():
+                    parts.append(f"Shared scene brief for the whole sequence:\n{visual_prompt.strip()}")
             if guide and guide != directive_prompt:
-                parts.append(f"Scene context: {guide}\n\nThis specific frame:")
+                parts.append(f"Scene context: {guide}\n\nThis specific image:")
             if character_text:
                 parts.append(character_text)
             parts.append(directive_prompt)

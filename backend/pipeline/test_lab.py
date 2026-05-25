@@ -712,67 +712,60 @@ def _stage_visual(ctx: TestLabRunContext) -> None:
     with Session(ctx.engine) as session:
         record, content = _load_content_for_script(session, ctx.script_id)
         scene = _first_scene(content)
-        if scene.visual_mode == "video" or scene.media_source == "ai_video":
-            from pipeline.video_gen import generate_scene_video
+        if scene.visual_mode in {"multi_frame", "continuous"} and not scene.frame_directives:
+            scene.frame_directives = _frame_directives_for_visual_mode(scene)
 
-            video_url, _prompt_used, source_metadata = generate_scene_video(
-                scene_id=scene.id,
-                visual_prompt=scene.visual_prompt,
-                script_id=ctx.script_id,
-                scene_duration_seconds=scene.audio_duration_seconds or scene.duration_estimate_seconds,
-                contains_person=scene.contains_person,
-                force=True,
-            )
-            image_url = f"/static/projects/{ctx.script_id}/images/{scene.id}.png"
+        from pipeline.image_gen import generate_scene_visual
+
+        result = generate_scene_visual(
+            {
+                "scene_id": scene.id,
+                "visual_prompt": scene.visual_prompt,
+                "frame_directives": [directive.model_dump() for directive in scene.frame_directives],
+                "contains_person": scene.contains_person,
+                "visual_mode": scene.visual_mode,
+                "media_source": scene.media_source,
+                "audio_duration_seconds": scene.audio_duration_seconds or scene.duration_estimate_seconds,
+                "visual_treatment": scene.visual_treatment,
+                "visual_layers": [layer.model_dump() for layer in scene.visual_layers],
+            },
+            script_id=ctx.script_id,
+        )
+        if result.get("error"):
+            raise RuntimeError(str(result["error"]))
+
+        video_url = str(result.get("video_url") or "")
+        frame_urls = [str(url or "") for url in result.get("frame_urls", [])]
+        image_url = str(result.get("image_url") or "")
+        source_metadata = result.get("visual_source_metadata")
+        if video_url:
             scene.video_url = video_url
             scene.image_url = ""
             scene.frame_urls = []
-            scene.visual_source_metadata = source_metadata
+            scene.visual_source_metadata = source_metadata if isinstance(source_metadata, dict) else None
             ctx.manifest.assets.append(TestLabAsset(kind="video", label="AI video", url=video_url))
-            ctx.manifest.assets.append(TestLabAsset(kind="image", label="Anchor image", url=image_url))
-        elif scene.visual_mode in {"popup_sequence", "flipflop"}:
-            scene.image_url = ""
-            scene.video_url = ""
-            scene.frame_urls = []
-            scene.visual_source_metadata = None
-        elif scene.visual_mode in {"multi_frame", "continuous"}:
-            from pipeline.image_gen import generate_scene_frames_v2
-
-            if not scene.frame_directives:
-                scene.frame_directives = _frame_directives_for_visual_mode(scene)
-            frame_results = generate_scene_frames_v2(
-                scene_id=scene.id,
-                frame_directives=[directive.model_dump() for directive in scene.frame_directives],
-                script_id=ctx.script_id,
-                visual_prompt=scene.visual_prompt,
-                force=True,
-                contains_person=scene.contains_person,
-            )
-            frame_urls = [url for url, _prompt, _metadata in frame_results]
-            source_metadata = next((metadata for url, _prompt, metadata in frame_results if url and metadata), None)
+            anchor_url = f"/static/projects/{ctx.script_id}/images/{scene.id}.png"
+            ctx.manifest.assets.append(TestLabAsset(kind="image", label="Anchor image", url=anchor_url))
+        elif frame_urls:
             scene.image_url = next((url for url in frame_urls if url), "")
             scene.video_url = ""
             scene.frame_urls = frame_urls
-            scene.visual_source_metadata = source_metadata
+            scene.visual_source_metadata = source_metadata if isinstance(source_metadata, dict) else None
             for index, url in enumerate(frame_urls, start=1):
                 if not url:
                     continue
                 ctx.manifest.assets.append(TestLabAsset(kind="image", label=f"Frame {index}", url=url))
-        else:
-            from pipeline.image_gen import generate_scene_image
-
-            image_url, _prompt_used, source_metadata = generate_scene_image(
-                scene.id,
-                scene.visual_prompt,
-                ctx.script_id,
-                force=True,
-                contains_person=scene.contains_person,
-            )
+        elif image_url:
             scene.image_url = image_url
             scene.video_url = ""
             scene.frame_urls = []
-            scene.visual_source_metadata = source_metadata
+            scene.visual_source_metadata = source_metadata if isinstance(source_metadata, dict) else None
             ctx.manifest.assets.append(TestLabAsset(kind="image", label="Scene image", url=image_url))
+        else:
+            scene.image_url = ""
+            scene.video_url = ""
+            scene.frame_urls = []
+            scene.visual_source_metadata = source_metadata if isinstance(source_metadata, dict) else None
         _save_content(session, record, content)
 
 
@@ -804,21 +797,21 @@ def _frame_directives_for_visual_mode(scene: Scene) -> list[dict]:
         ]
     return [
         {
-            "prompt": f"First independent frame, simple clear setup: {base_prompt}",
+            "prompt": f"First full-bleed sequence image, simple clear setup: {base_prompt}",
             "source": "ai_generated",
             "transition": "cut",
             "reference_previous": False,
             "contains_person": scene.contains_person,
         },
         {
-            "prompt": f"Second independent frame, stronger escalation or contrasting example: {base_prompt}",
+            "prompt": f"Second full-bleed sequence image, stronger escalation or contrasting example: {base_prompt}",
             "source": "ai_generated",
             "transition": "cut",
             "reference_previous": False,
             "contains_person": scene.contains_person,
         },
         {
-            "prompt": f"Third independent frame, final broad payoff composition: {base_prompt}",
+            "prompt": f"Third full-bleed sequence image, final broad payoff composition: {base_prompt}",
             "source": "ai_generated",
             "transition": "cut",
             "reference_previous": False,
