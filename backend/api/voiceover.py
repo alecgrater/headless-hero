@@ -3,8 +3,6 @@
 import json
 import logging
 import time
-
-from config import DEFAULT_TTS_MODEL
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlmodel import Session
@@ -19,7 +17,12 @@ from integrations.elevenlabs_client import (
 )
 from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
-from pipeline.voiceover import frame_title_card_for_tts, generate_batch_audio, generate_scene_audio
+from pipeline.voiceover import (
+    generate_batch_audio,
+    generate_scene_audio,
+    prepare_tts_text,
+    resolve_tts_model_and_settings,
+)
 from pipeline.duration_variance import check_and_tighten
 
 logger = logging.getLogger(__name__)
@@ -33,7 +36,7 @@ class GenerateAudioRequest(BaseModel):
     scene_id: str
     narration: str
     voice_id: str
-    model_id: str = DEFAULT_TTS_MODEL
+    model_id: str | None = None
     voice_settings: dict | None = None
 
 class GenerateAudioResponse(BaseModel):
@@ -49,7 +52,7 @@ class GenerateBatchAudioRequest(BaseModel):
     script_id: str
     scenes: list[BatchAudioScene]
     voice_id: str
-    model_id: str = DEFAULT_TTS_MODEL
+    model_id: str | None = None
     voice_settings: dict | None = None
 
 class BatchAudioResultItem(BaseModel):
@@ -111,7 +114,7 @@ def generate_audio(body: GenerateAudioRequest, session: Session = Depends(get_se
         raise HTTPException(status_code=404, detail="Script not found")
 
     logger.info("Generating audio for scene %s in script %s", body.scene_id, body.script_id)
-    tts_text = body.narration
+    model_id, voice_settings = resolve_tts_model_and_settings(body.model_id, body.voice_settings)
     content = ScriptContent.model_validate(json.loads(record.script_json))
     found_scene = None
     found_seg_idx = None
@@ -123,21 +126,21 @@ def generate_audio(body: GenerateAudioRequest, session: Session = Depends(get_se
                 break
         if found_scene:
             break
-    if found_scene and found_scene.is_title_card:
-        tts_text = frame_title_card_for_tts(body.narration, (found_seg_idx or 0) + 1)
-        logger.info("Framed title-card narration for TTS: %r -> %r", body.narration, tts_text)
-    elif found_scene and (found_scene.tts_narration or "").strip() and body.narration == found_scene.narration:
-        # Honor the dramatized cache when the request narration matches the stored
-        # one (i.e., user didn't edit). Mismatch implies an edit — use body text.
-        tts_text = found_scene.tts_narration.strip()
-        logger.info("Using cached tts_narration for scene %s", body.scene_id)
+    tts_text = prepare_tts_text(
+        body.narration,
+        model_id=model_id,
+        is_title_card=bool(found_scene and found_scene.is_title_card),
+        level_number=(found_seg_idx or 0) + 1 if found_scene and found_scene.is_title_card else None,
+    )
+    if tts_text != body.narration:
+        logger.info("Prepared hidden TTS text for scene %s", body.scene_id)
     audio_url, duration, word_timestamps, phrase_timestamps = generate_scene_audio(
         scene_id=body.scene_id,
         narration=tts_text,
         voice_id=body.voice_id,
         script_id=body.script_id,
-        model_id=body.model_id,
-        voice_settings=body.voice_settings,
+        model_id=model_id,
+        voice_settings=voice_settings,
     )
 
     fields: dict = {
@@ -167,32 +170,9 @@ def generate_audio_batch(
         raise HTTPException(status_code=404, detail="Script not found")
 
     logger.info("Starting batch audio generation for script %s (%d scenes)", body.script_id, len(body.scenes))
-
-    # Run TTS dramatization (lazy): if any non-title-card scene is missing
-    # tts_narration, fill in the gaps via a single Haiku call. Persist back
-    # to script_json so subsequent runs are free.
+    model_id, voice_settings = resolve_tts_model_and_settings(body.model_id, body.voice_settings)
     content_for_framing = ScriptContent.model_validate(json.loads(record.script_json))
     scene_lookup = {sc.id: sc for seg in content_for_framing.segments for sc in seg.scenes}
-    requested_ids = {s.scene_id for s in body.scenes}
-    needs_dramatize = [
-        sc for sc in scene_lookup.values()
-        if sc.id in requested_ids
-        and not sc.is_title_card
-        and not (sc.tts_narration or "").strip()
-        and (sc.narration or "").strip()
-    ]
-    if needs_dramatize:
-        from pipeline.dramatize import dramatize_for_tts
-        logger.info("Dramatize pass: %d scenes missing tts_narration", len(needs_dramatize))
-        tts_map = dramatize_for_tts(needs_dramatize, script_id=body.script_id)
-        if tts_map:
-            for sid, text in tts_map.items():
-                sc = scene_lookup.get(sid)
-                if sc:
-                    sc.tts_narration = text
-            record.script_json = content_for_framing.model_dump_json()
-            session.add(record)
-            session.commit()
 
     # Build scene_id -> level_number map for title-card framing.
     title_card_map: dict[str, int] = {}
@@ -204,24 +184,24 @@ def generate_audio_batch(
     scenes = []
     for s in body.scenes:
         sc = scene_lookup.get(s.scene_id)
-        # Prefer dramatized tts_narration when available, fall back to body narration.
-        narration = (sc.tts_narration or "").strip() if sc else ""
-        if not narration:
-            narration = s.narration
+        narration = s.narration
         if s.scene_id in title_card_map:
             # Use DB narration as canonical title text; body may be stale.
-            title_text = sc.narration if sc else s.narration
-            framed = frame_title_card_for_tts(title_text, title_card_map[s.scene_id])
-            logger.info("Framed title-card narration for TTS (scene %s): %r -> %r", s.scene_id, title_text, framed)
-            narration = framed
+            narration = sc.narration if sc else s.narration
+        narration = prepare_tts_text(
+            narration,
+            model_id=model_id,
+            is_title_card=s.scene_id in title_card_map,
+            level_number=title_card_map.get(s.scene_id),
+        )
         scenes.append({"scene_id": s.scene_id, "narration": narration})
 
     results = generate_batch_audio(
         scenes=scenes,
         voice_id=body.voice_id,
         script_id=body.script_id,
-        model_id=body.model_id,
-        voice_settings=body.voice_settings,
+        model_id=model_id,
+        voice_settings=voice_settings,
     )
 
     # Persist all successful results in a single DB write
@@ -248,8 +228,8 @@ def generate_audio_batch(
         script_id=body.script_id,
         session=session,
         voice_id=body.voice_id,
-        model_id=body.model_id,
-        voice_settings=body.voice_settings,
+        model_id=model_id,
+        voice_settings=voice_settings,
     )
     if tightened:
         logger.info("Duration variance: rewrote %d scenes: %s", len(tightened), tightened)

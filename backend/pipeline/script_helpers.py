@@ -264,7 +264,6 @@ def _usage_task_label(service: str, operation: str, metadata_json: str) -> str:
         "idea": "Ideas",
         "analysis": "Analysis",
         "hook_detect": "Hook Detection",
-        "dramatize": "TTS Dramatization",
     }
     if key in labels:
         return labels[key]

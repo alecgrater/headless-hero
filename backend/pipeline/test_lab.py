@@ -680,24 +680,31 @@ def _voice_id_for_run(session: Session, ctx: TestLabRunContext) -> str:
 
 
 def _stage_audio(ctx: TestLabRunContext) -> None:
-    from config import DEFAULT_TTS_MODEL
-    from pipeline.voiceover import frame_title_card_for_tts, generate_scene_audio
+    from pipeline.voiceover import generate_scene_audio, prepare_tts_text, resolve_tts_model_and_settings
 
     _check_cancelled(ctx)
     with Session(ctx.engine) as session:
         voice_id = _voice_id_for_run(session, ctx)
         record, content = _load_content_for_script(session, ctx.script_id)
         scene = _first_scene(content)
-        narration = scene.tts_narration.strip() or scene.narration
-        if scene.is_title_card:
-            narration = frame_title_card_for_tts(narration, 1)
+        explicit_settings = ctx.settings.get("voice_settings") if isinstance(ctx.settings.get("voice_settings"), dict) else None
+        model_id, voice_settings = resolve_tts_model_and_settings(
+            str(ctx.settings["voice_model_id"]) if ctx.settings.get("voice_model_id") else None,
+            explicit_settings,
+        )
+        narration = prepare_tts_text(
+            scene.narration,
+            model_id=model_id,
+            is_title_card=scene.is_title_card,
+            level_number=1 if scene.is_title_card else None,
+        )
         audio_url, duration, word_timestamps, phrase_timestamps = generate_scene_audio(
             scene.id,
             narration,
             voice_id,
             ctx.script_id,
-            model_id=str(ctx.settings.get("voice_model_id") or DEFAULT_TTS_MODEL),
-            voice_settings=ctx.settings.get("voice_settings") if isinstance(ctx.settings.get("voice_settings"), dict) else None,
+            model_id=model_id,
+            voice_settings=voice_settings,
         )
         scene.audio_url = audio_url
         scene.audio_duration_seconds = duration

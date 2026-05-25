@@ -218,15 +218,6 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "default_openai_model": "gpt-5-nano",
         "openai_reasoning_effort": "minimal",
     },
-    "dramatize": {
-        "label": "TTS dramatization",
-        "provider_key": "DRAMATIZE_LLM_PROVIDER",
-        "model_key": "DRAMATIZE_MODEL",
-        "default_provider": "anthropic",
-        "default_anthropic_model": FAST_CLAUDE_MODEL,
-        "default_openai_model": "gpt-5-nano",
-        "openai_reasoning_effort": "minimal",
-    },
 }
 
 

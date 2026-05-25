@@ -16,6 +16,13 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
   const [voices, setVoices] = useState<VoiceInfo[]>([]);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [ttsSaving, setTtsSaving] = useState(false);
+  const [ttsSettings, setTtsSettings] = useState({
+    ELEVENLABS_TTS_MODEL: "eleven_multilingual_v2",
+    ELEVENLABS_STABILITY: "0.5",
+    ELEVENLABS_STYLE: "0.0",
+    ELEVENLABS_SPEED: "1.0",
+  });
 
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryResults, setLibraryResults] = useState<LibraryVoiceInfo[]>([]);
@@ -36,6 +43,21 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
       if (res.ok) {
         const b = res.data as { voice_id: string };
         setSelectedVoiceId(b.voice_id || "");
+      }
+    });
+  }, [panel]);
+
+  useEffect(() => {
+    if (panel !== "voice") return;
+    api.get("/api/settings/keys").then((res) => {
+      if (res.ok) {
+        const keys = res.data as Record<string, { masked: string }>;
+        setTtsSettings({
+          ELEVENLABS_TTS_MODEL: keys.ELEVENLABS_TTS_MODEL?.masked || "eleven_multilingual_v2",
+          ELEVENLABS_STABILITY: keys.ELEVENLABS_STABILITY?.masked || "0.5",
+          ELEVENLABS_STYLE: keys.ELEVENLABS_STYLE?.masked || "0.0",
+          ELEVENLABS_SPEED: keys.ELEVENLABS_SPEED?.masked || "1.0",
+        });
       }
     });
   }, [panel]);
@@ -88,6 +110,16 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
     setSaving(true);
     await api.put("/api/brand", { voice_id: voiceId });
     setSaving(false);
+  };
+
+  const updateTtsSetting = (key: keyof typeof ttsSettings, value: string) => {
+    setTtsSettings((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const saveTtsSettings = async () => {
+    setTtsSaving(true);
+    await api.put("/api/settings/keys", ttsSettings);
+    setTtsSaving(false);
   };
 
   const refreshVoices = async () => {
@@ -196,6 +228,107 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
           ))}
         </select>
         {saving && <p className="text-xs text-violet-400">Saving...</p>}
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold text-neutral-100">ElevenLabs Delivery</h3>
+          <p className="text-sm text-neutral-400 mt-1">
+            Controls the hidden text and voice settings used when Headless Hero generates AI voiceover.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-neutral-200" htmlFor="elevenlabs-model">
+            Model
+          </label>
+          <select
+            id="elevenlabs-model"
+            value={ttsSettings.ELEVENLABS_TTS_MODEL}
+            onChange={(e) => updateTtsSetting("ELEVENLABS_TTS_MODEL", e.target.value)}
+            className="w-full px-3 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-200 text-sm focus:outline-none focus:border-violet-500/50 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
+          >
+            <option value="eleven_multilingual_v2">v2 - steady production voice</option>
+            <option value="eleven_v3">v3 - expressive voice with hidden tags</option>
+          </select>
+          <p className="text-xs text-neutral-500">
+            Recommended: v2 for consistency. v3 can sound more alive and uses a light hidden [curious] tag, but may vary more and take longer.
+          </p>
+        </div>
+
+        {([
+          {
+            key: "ELEVENLABS_STABILITY" as const,
+            label: "Stability",
+            min: "0",
+            max: "1",
+            step: "0.05",
+            recommended: "0.5",
+            desc: "Lower gives more emotion and surprise; higher keeps the voice steadier but can sound flatter.",
+          },
+          {
+            key: "ELEVENLABS_STYLE" as const,
+            label: "Style exaggeration",
+            min: "0",
+            max: "1",
+            step: "0.05",
+            recommended: "0.25",
+            desc: "Higher pushes the voice's natural style harder; lower is cleaner and more predictable. Too high can become unstable.",
+          },
+          {
+            key: "ELEVENLABS_SPEED" as const,
+            label: "Speed",
+            min: "0.7",
+            max: "1.2",
+            step: "0.01",
+            recommended: "0.95",
+            desc: "Lower adds room for drama and pauses; higher tightens pacing but can reduce weight and clarity.",
+          },
+        ]).map(({ key, label, min, max, step, recommended, desc }) => (
+          <div key={key} className="space-y-2 rounded-lg bg-neutral-800/50 border border-neutral-700/50 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <label className="text-sm font-medium text-neutral-200" htmlFor={key}>
+                {label}
+              </label>
+              <input
+                id={`${key}-number`}
+                type="number"
+                min={min}
+                max={max}
+                step={step}
+                value={ttsSettings[key]}
+                onChange={(e) => updateTtsSetting(key, e.target.value)}
+                className="w-20 px-2 py-1 rounded-md bg-neutral-900 border border-neutral-700 text-neutral-200 text-sm text-right focus:outline-none focus:border-violet-500/50 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
+              />
+            </div>
+            <input
+              id={key}
+              type="range"
+              min={min}
+              max={max}
+              step={step}
+              value={ttsSettings[key]}
+              onChange={(e) => updateTtsSetting(key, e.target.value)}
+              className="w-full accent-violet-500"
+            />
+            <p className="text-xs text-neutral-500">
+              Recommended: {recommended}. {desc}
+            </p>
+          </div>
+        ))}
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={saveTtsSettings}
+            disabled={ttsSaving}
+            className="px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+          >
+            {ttsSaving ? "Saving..." : "Save delivery settings"}
+          </button>
+          <p className="text-xs text-neutral-500">
+            Applies to newly generated or regenerated voiceover.
+          </p>
+        </div>
       </div>
 
       <div className="space-y-3">

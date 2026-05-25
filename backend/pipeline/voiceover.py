@@ -28,6 +28,75 @@ _LEVEL_WORDS = {
     "nine": 9,
     "ten": 10,
 }
+_V3_AUDIO_TAG = "[curious]"
+_AUDIO_TAG_WORD_RE = re.compile(r"^\[[^\]]+\][,.;:!?]*$")
+
+
+def _env_float(name: str, default: float, minimum: float, maximum: float) -> float:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        logger.warning("Invalid %s=%r; using %.2f", name, raw, default)
+        return default
+    if value < minimum or value > maximum:
+        logger.warning("Out-of-range %s=%r; using %.2f", name, raw, default)
+        return default
+    return value
+
+
+def resolve_tts_model_and_settings(
+    model_id: str | None,
+    voice_settings: dict | None,
+) -> tuple[str, dict | None]:
+    """Resolve explicit request overrides or saved ElevenLabs TTS defaults."""
+    if model_id:
+        return model_id, voice_settings
+
+    resolved_model = (os.environ.get("ELEVENLABS_TTS_MODEL") or DEFAULT_TTS_MODEL).strip() or DEFAULT_TTS_MODEL
+    resolved_settings = {
+        "stability": _env_float("ELEVENLABS_STABILITY", 0.5, 0.0, 1.0),
+        "style": _env_float("ELEVENLABS_STYLE", 0.0, 0.0, 1.0),
+        "speed": _env_float("ELEVENLABS_SPEED", 1.0, 0.7, 1.2),
+    }
+    return resolved_model, resolved_settings
+
+
+def add_v3_audio_tags(narration: str) -> str:
+    """Add a light hidden Eleven v3 direction tag without changing subtitles."""
+    text = narration.strip()
+    if not text or text.startswith("["):
+        return narration
+    return f"{_V3_AUDIO_TAG} {text}"
+
+
+def prepare_tts_text(
+    narration: str,
+    *,
+    model_id: str,
+    is_title_card: bool = False,
+    level_number: int | None = None,
+) -> str:
+    """Prepare hidden TTS-only text while keeping stored narration untouched."""
+    text = narration
+    if is_title_card and level_number is not None:
+        return frame_title_card_for_tts(narration, level_number)
+    if model_id == "eleven_v3":
+        text = add_v3_audio_tags(text)
+    return text
+
+
+def strip_tts_audio_tag_words(word_timestamps: list[dict]) -> list[dict]:
+    """Remove inline audio tags from display-facing word timestamps."""
+    cleaned: list[dict] = []
+    for word in word_timestamps:
+        value = str(word.get("word", ""))
+        if _AUDIO_TAG_WORD_RE.match(value.strip()):
+            continue
+        cleaned.append(word)
+    return cleaned
 
 def _mp3_duration_seconds(data: bytes) -> float:
     """Estimate MP3 duration from raw bytes using frame headers.
@@ -143,6 +212,7 @@ def generate_scene_audio(
         voice_settings=voice_settings,
         script_id=script_id,
     )
+    word_timestamps = strip_tts_audio_tag_words(word_timestamps)
 
     # Save to local storage
     audio_dir = DATA_DIR / "projects" / script_id / "audio"

@@ -25,12 +25,22 @@ RANGED_INTEGER_SETTINGS = {
     "LIFE_AS_A_SINGLE_VISUAL_MAX_SECONDS": (5, 12),
 }
 
+RANGED_FLOAT_SETTINGS = {
+    "ELEVENLABS_STABILITY": (0.0, 1.0),
+    "ELEVENLABS_STYLE": (0.0, 1.0),
+    "ELEVENLABS_SPEED": (0.7, 1.2),
+}
+
 # Keys that can be managed through the settings UI
 ALLOWED_KEYS = {
     "ANTHROPIC_API_KEY",
     "OPENAI_API_KEY",
     "GOOGLE_AI_KEY",
     "ELEVENLABS_API_KEY",
+    "ELEVENLABS_TTS_MODEL",
+    "ELEVENLABS_STABILITY",
+    "ELEVENLABS_STYLE",
+    "ELEVENLABS_SPEED",
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
     "DOWNLOADS_DIR",
@@ -90,6 +100,10 @@ _PLAINTEXT_KEYS = {
     "AUDIO_FILTER_HIGHPASS",
     "AUDIO_FILTER_NOISE_REDUCTION",
     "AUDIO_FILTER_COMPRESSOR",
+    "ELEVENLABS_TTS_MODEL",
+    "ELEVENLABS_STABILITY",
+    "ELEVENLABS_STYLE",
+    "ELEVENLABS_SPEED",
     "LLM_PROVIDER",
     "QWEN_MODEL",
     "HOOK_REFINEMENT_ENABLED",
@@ -122,6 +136,10 @@ _DEFAULTS: dict[str, str] = {
     "AUDIO_FILTER_HIGHPASS": "true",
     "AUDIO_FILTER_NOISE_REDUCTION": "true",
     "AUDIO_FILTER_COMPRESSOR": "true",
+    "ELEVENLABS_TTS_MODEL": "eleven_multilingual_v2",
+    "ELEVENLABS_STABILITY": "0.5",
+    "ELEVENLABS_STYLE": "0.0",
+    "ELEVENLABS_SPEED": "1.0",
     "LLM_PROVIDER": "ollama",
     "QWEN_MODEL": "qwen3:14b",
     "HOOK_REFINEMENT_ENABLED": "true",
@@ -198,6 +216,26 @@ def _validate_ranged_integer_settings(keys: dict[str, str]) -> None:
         keys[key] = str(value)
 
 
+def _validate_ranged_float_settings(keys: dict[str, str]) -> None:
+    for key, (minimum, maximum) in RANGED_FLOAT_SETTINGS.items():
+        if key not in keys:
+            continue
+        raw_value = (keys[key] or "").strip()
+        try:
+            value = float(raw_value)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid {key}: must be a number from {minimum:g} to {maximum:g}.",
+            )
+        if value < minimum or value > maximum:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid {key}: must be a number from {minimum:g} to {maximum:g}.",
+            )
+        keys[key] = f"{value:g}"
+
+
 @router.get("/keys")
 async def get_keys(session: Session = Depends(get_session)):
     """Return which API keys are configured (masked values)."""
@@ -250,7 +288,16 @@ async def save_keys(
                 detail="Invalid AI_VIDEO_SCENES_PER_SEGMENT: must be an integer from 0 to 5.",
             )
         keys["AI_VIDEO_SCENES_PER_SEGMENT"] = str(scenes_per_segment)
+    if "ELEVENLABS_TTS_MODEL" in keys:
+        tts_model = (keys["ELEVENLABS_TTS_MODEL"] or "").strip()
+        if tts_model and tts_model not in {"eleven_multilingual_v2", "eleven_v3"}:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid ELEVENLABS_TTS_MODEL: must be 'eleven_multilingual_v2' or 'eleven_v3'.",
+            )
+        keys["ELEVENLABS_TTS_MODEL"] = tts_model
     _validate_ranged_integer_settings(keys)
+    _validate_ranged_float_settings(keys)
     for provider_key in provider_keys.intersection(keys):
         provider = (keys[provider_key] or "").strip().lower()
         if provider and provider not in ALLOWED_PROVIDERS:

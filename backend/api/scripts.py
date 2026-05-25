@@ -543,7 +543,7 @@ def update_script(script_id: str, body: UpdateScriptRequest, session: Session = 
 
     content = body.script.model_copy(update={"title": record.topic_title or body.script.title})
 
-    # Invalidate stale tts_narration when narration is edited.
+    # Clear legacy hidden TTS text when narration is edited.
     try:
         prev_content = ScriptContent.model_validate(json.loads(record.script_json))
         prev_narration = {sc.id: sc.narration for seg in prev_content.segments for sc in seg.scenes}
@@ -552,7 +552,7 @@ def update_script(script_id: str, body: UpdateScriptRequest, session: Session = 
                 if prev_narration.get(sc.id) != sc.narration:
                     sc.tts_narration = ""
     except Exception:
-        logger.exception("Failed to invalidate tts_narration on edited scenes; continuing")
+        logger.exception("Failed to clear legacy tts_narration on edited scenes; continuing")
 
     record.script_json = content.model_dump_json()
     session.add(record)

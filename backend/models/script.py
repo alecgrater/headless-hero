@@ -152,7 +152,7 @@ class Scene(BaseModel):
 
     id: str
     narration: str
-    tts_narration: str = ""               # punctuation-enhanced variant sent to TTS; empty = use narration as-is
+    tts_narration: str = ""               # legacy hidden TTS variant; no longer used for generated project voiceover
     visual_prompt: str
     duration_estimate_seconds: float = 8.0
     is_title_card: bool = False
@@ -291,7 +291,7 @@ def _resolve_visual_mode(
         return "multi_frame"
     if visual_beat == "continuous":
         return "continuous"
-    if visual_beat == "captions":
+    if visual_beat in {"aha_subtitle", "captions"}:
         return "captions"
     return "full_frame"
 
