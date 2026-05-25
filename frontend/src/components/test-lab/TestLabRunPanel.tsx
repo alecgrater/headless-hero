@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, Clock, Film, Image, Music, Package, PlayCircle, Video, X } from "lucide-react";
+import { Film, Image, Music, Package, PlayCircle, Video, X } from "lucide-react";
 import { assetUrl } from "../../api";
 import type { ScriptCostBreakdownItem } from "../../api";
-import type { TestLabAsset, TestLabLogEntry, TestLabRun } from "../../types/testLab";
+import type { TestLabAsset, TestLabRun } from "../../types/testLab";
 
 interface TestLabRunPanelProps {
   activeRun: TestLabRun | null;
@@ -87,22 +87,6 @@ export default function TestLabRunPanel({
       <CostBreakdownPanel totalCost={cost.totalCost} breakdown={cost.breakdown} />
 
       <section className="rounded-lg border border-neutral-800 bg-neutral-950/50 p-3">
-        <div className="mb-3 flex items-center gap-2">
-          <Clock className="h-4 w-4 text-emerald-300" />
-          <h3 className="text-xs font-semibold uppercase text-neutral-400">Stage logs</h3>
-        </div>
-        {activeRun?.logs?.length ? (
-          <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
-            {activeRun.logs.map((log, index) => (
-              <LogRow key={`${log.stage}-${log.created_at ?? log.at ?? index}`} log={log} />
-            ))}
-          </div>
-        ) : (
-          <EmptyState label="No stage logs yet." />
-        )}
-      </section>
-
-      <section className="rounded-lg border border-neutral-800 bg-neutral-950/50 p-3">
         <h3 className="text-xs font-semibold uppercase text-neutral-400">History</h3>
         <div className="mt-3 space-y-2">
           {history.length === 0 && <EmptyState label="No Test Lab runs yet." />}
@@ -119,7 +103,7 @@ export default function TestLabRunPanel({
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate font-medium text-neutral-200">{run.preset_id}</p>
+                  <p className="truncate font-medium text-neutral-200">{historyRunLabel(run)}</p>
                   <p className="mt-1 truncate text-neutral-500">{formatDate(run.created_at ?? run.started_at ?? run.updated_at)}</p>
                 </div>
                 <span className="shrink-0 text-neutral-500">{run.status}</span>
@@ -343,27 +327,6 @@ function CostBreakdownPanel({ totalCost, breakdown }: { totalCost: number; break
   );
 }
 
-function LogRow({ log }: { log: TestLabLogEntry }) {
-  return (
-    <div className="rounded-md border border-neutral-800 bg-neutral-950/70 p-2">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          {log.status === "completed" ? (
-            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-300" />
-          ) : log.status === "failed" || log.level === "error" ? (
-            <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-300" />
-          ) : (
-            <Clock className="h-3.5 w-3.5 shrink-0 text-neutral-500" />
-          )}
-          <p className="truncate text-xs font-medium text-neutral-200">{log.stage || "stage"}</p>
-        </div>
-        <span className="shrink-0 text-[11px] text-neutral-500">{log.status}</span>
-      </div>
-      <p className="mt-1 text-xs leading-5 text-neutral-500">{log.message}</p>
-    </div>
-  );
-}
-
 function StatusPill({ status }: { status: string }) {
   const className =
     status === "completed"
@@ -379,6 +342,18 @@ function StatusPill({ status }: { status: string }) {
       {status}
     </span>
   );
+}
+
+function historyRunLabel(run: TestLabRun) {
+  if (run.settings.visual_mode) return visualModeLabel(run.settings.visual_mode);
+  return run.preset_id;
+}
+
+function visualModeLabel(value: string) {
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function EmptyState({ label }: { label: string }) {
