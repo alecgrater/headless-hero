@@ -4,6 +4,7 @@ import { loadFont } from "@remotion/google-fonts/Inter";
 import type { Orientation, SceneInput, VisualCanvas } from "../types";
 import { StaticCanvas } from "./StaticCanvas";
 import {
+  captionFontSize,
   captionWordsForDisplay,
   findCaptionWordTimestamps,
   splitCaptionWords,
@@ -22,18 +23,6 @@ interface Props {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
-}
-
-function captionFontSize(wordCount: number, orientation: Orientation): number {
-  if (orientation === "vertical") {
-    if (wordCount <= 4) return 116;
-    if (wordCount <= 8) return 92;
-    return 76;
-  }
-
-  if (wordCount <= 5) return 118;
-  if (wordCount <= 10) return 92;
-  return 76;
 }
 
 export const CaptionScene: React.FC<Props> = ({
@@ -62,7 +51,7 @@ export const CaptionScene: React.FC<Props> = ({
   );
   const hasImage = Boolean(scene.image_path);
   const isVertical = orientation === "vertical";
-  const fontSize = captionFontSize(words.length, orientation);
+  const fontSize = captionFontSize(displayWords, orientation);
   const intro = spring({
     frame,
     fps,
@@ -142,6 +131,8 @@ export const CaptionScene: React.FC<Props> = ({
             lineHeight: 0.98,
             textTransform: "uppercase",
             letterSpacing: 0,
+            overflowWrap: "anywhere",
+            wordBreak: "break-word",
           }}
         >
           {words.map((word, index) => {

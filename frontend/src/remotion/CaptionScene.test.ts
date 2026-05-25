@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  captionFontSize,
   chooseCaptionEmphasis,
   findCaptionWordTimestamps,
   splitCaptionWords,
@@ -67,6 +68,27 @@ describe("captionText utilities", () => {
     ]);
   });
 
+  it("aligns multiple caption words to one hyphenated spoken timestamp word", () => {
+    const result = findCaptionWordTimestamps(
+      [
+        { word: "You", start_ms: 0, end_ms: 200 },
+        { word: "were", start_ms: 250, end_ms: 450 },
+        { word: "never-behind", start_ms: 500, end_ms: 980 },
+        { word: "until", start_ms: 1040, end_ms: 1240 },
+        { word: "now", start_ms: 1280, end_ms: 1460 },
+      ],
+      "never behind until now",
+      4,
+    );
+
+    expect(result.map((word) => [word.word, word.start_ms])).toEqual([
+      ["never-behind", 500],
+      ["never-behind", 500],
+      ["until", 1040],
+      ["now", 1280],
+    ]);
+  });
+
   it("prefers the final spoken caption phrase when words repeat", () => {
     const result = findCaptionWordTimestamps(
       [
@@ -87,5 +109,9 @@ describe("captionText utilities", () => {
       ["real", 1160],
       ["cost", 1380],
     ]);
+  });
+
+  it("caps vertical caption font size for very long words", () => {
+    expect(captionFontSize(["Antidisestablishmentarianism"], "vertical")).toBeLessThan(116);
   });
 });

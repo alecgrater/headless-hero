@@ -1,5 +1,5 @@
 import { formatSubtitleText } from "./subtitleText";
-import type { WordTimestamp } from "../types";
+import type { Orientation, WordTimestamp } from "../types";
 
 export interface CaptionWord {
   text: string;
@@ -120,6 +120,20 @@ function timestampToken(word: WordTimestamp): string {
   return normalizeCaptionToken(word.word).toLowerCase();
 }
 
+export function captionFontSize(words: string[], orientation: Orientation): number {
+  const wordCount = words.length;
+  const longestWordLength = words.reduce((max, word) => Math.max(max, word.length), 0);
+  const longWordCap = longestWordLength >= 26 ? 70 : longestWordLength >= 18 ? 84 : 118;
+
+  if (orientation === "vertical") {
+    const countSize = wordCount <= 4 ? 116 : wordCount <= 8 ? 92 : 76;
+    return Math.min(countSize, longWordCap);
+  }
+
+  const countSize = wordCount <= 5 ? 118 : wordCount <= 10 ? 92 : 76;
+  return Math.min(countSize, longWordCap);
+}
+
 function matchCaptionFromIndex(
   timestamps: WordTimestamp[],
   captionTokens: string[],
@@ -127,6 +141,7 @@ function matchCaptionFromIndex(
 ): WordTimestamp[] | null {
   const matched: WordTimestamp[] = [];
   let timestampIndex = startIndex;
+  let tokenOffset = 0;
 
   for (const captionToken of captionTokens) {
     let spokenToken = "";
@@ -135,11 +150,21 @@ function matchCaptionFromIndex(
     while (timestampIndex < timestamps.length && spokenToken.length < captionToken.length) {
       const timestamp = timestamps[timestampIndex];
       const token = timestampToken(timestamp);
-      timestampIndex++;
-      if (!token) continue;
+      if (!token) {
+        timestampIndex++;
+        tokenOffset = 0;
+        continue;
+      }
 
+      const chunk = token.slice(tokenOffset, tokenOffset + captionToken.length - spokenToken.length);
       firstTimestamp ??= timestamp;
-      spokenToken += token;
+      spokenToken += chunk;
+      tokenOffset += chunk.length;
+
+      if (tokenOffset >= token.length) {
+        timestampIndex++;
+        tokenOffset = 0;
+      }
     }
 
     if (!firstTimestamp || spokenToken !== captionToken) {
