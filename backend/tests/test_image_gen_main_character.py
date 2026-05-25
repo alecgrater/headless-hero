@@ -227,6 +227,50 @@ def test_generate_scene_frames_v2_independent_frames_share_style_and_forbid_bord
         assert "This specific frame" not in prompt
 
 
+def test_generate_scene_frames_v2_uses_prior_independent_image_as_style_anchor(tmp_path, monkeypatch):
+    ig_mod = _reset_data_dir(monkeypatch, tmp_path)
+    monkeypatch.setattr(ig_mod, "_VISUAL_STYLE", "HOUSE STYLE")
+    monkeypatch.setattr(ig_mod, "_STYLE_GUIDE", "COMPOSITION GUIDE")
+    monkeypatch.setattr(ig_mod, "_load_project_character_context", lambda script_id: (True, None, None))
+    monkeypatch.setattr(ig_mod, "_ensure_project_character_reference_ready", lambda **_kwargs: None)
+    monkeypatch.setattr(ig_mod, "_load_project_style_enabled", lambda script_id: False)
+    monkeypatch.setattr(ig_mod, "_resolve_style_preset", lambda **_kwargs: None)
+
+    captured: list[dict] = []
+    _stub_generate_image(monkeypatch, ig_mod, captured)
+
+    ig_mod.generate_scene_frames_v2(
+        scene_id="scene1",
+        frame_directives=[
+            {
+                "source": "ai_generated",
+                "prompt": "A simple cracked sidewalk warning sign.",
+                "reference_previous": False,
+            },
+            {
+                "source": "ai_generated",
+                "prompt": "A crowded notice board warning sign.",
+                "reference_previous": False,
+            },
+            {
+                "source": "ai_generated",
+                "prompt": "A wide street scene where everyone reacts.",
+                "reference_previous": False,
+            },
+        ],
+        script_id="proj1",
+        visual_prompt="Flat 2D cartoon city warning sequence.",
+    )
+
+    first_path = tmp_path / "projects" / "proj1" / "images" / "scene1_f0.png"
+    second_path = tmp_path / "projects" / "proj1" / "images" / "scene1_f1.png"
+    assert captured[0]["reference_image_path"] is None
+    assert captured[1]["reference_image_path"] == str(first_path)
+    assert captured[2]["reference_image_path"] == str(second_path)
+    assert "Use the input image as a visual style anchor" in captured[1]["prompt"]
+    assert "Do not copy its exact subject or layout" in captured[1]["prompt"]
+
+
 def test_generate_scene_image_blocks_all_images_until_project_character_ready(tmp_path, monkeypatch):
     """Eli-disabled projects should not generate even object-only images before the character reference exists."""
     ig_mod = _reset_data_dir(monkeypatch, tmp_path)

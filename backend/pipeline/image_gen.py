@@ -1086,6 +1086,12 @@ def generate_scene_frames_v2(
             and prev_frame_path is not None
             and prev_frame_path.exists()
         )
+        use_style_anchor = (
+            not directive.reference_previous
+            and total_frames > 1
+            and prev_frame_path is not None
+            and prev_frame_path.exists()
+        )
 
         if use_reference:
             # Kontext-optimized: edit instruction referencing the input image
@@ -1103,7 +1109,8 @@ def generate_scene_frames_v2(
             )
             prompt = "\n\n".join(parts)
         else:
-            # Independent text-to-image (no reference chaining)
+            # Independent sequence images may change subject/composition, but use
+            # the previous generated image as a visual style anchor when present.
             parts: list[str] = []
             if _VISUAL_STYLE:
                 parts.append(_VISUAL_STYLE)
@@ -1111,6 +1118,12 @@ def generate_scene_frames_v2(
                 parts.append(_SEQUENCE_CONSISTENCY_PROMPT)
                 if visual_prompt.strip():
                     parts.append(f"Shared scene brief for the whole sequence:\n{visual_prompt.strip()}")
+            if use_style_anchor:
+                parts.append(
+                    "Use the input image as a visual style anchor only: match its line weight, flat-color rendering, "
+                    "palette discipline, character proportions, and overall cartoon finish. "
+                    "Do not copy its exact subject or layout; create the new requested image content below."
+                )
             if guide and guide != directive_prompt:
                 parts.append(f"Scene context: {guide}\n\nThis specific image:")
             if character_text:
@@ -1141,8 +1154,11 @@ def generate_scene_frames_v2(
                 prev_frame_path = local_path
                 continue
 
-        # reference_previous wins for animation continuity; otherwise use resolved character ref
+        # reference_previous wins for animation continuity; independent sequence
+        # images may still use the previous output as a style-only anchor.
         if use_reference:
+            ref_path = str(prev_frame_path)
+        elif use_style_anchor:
             ref_path = str(prev_frame_path)
         else:
             ref_path = reference_image_path
