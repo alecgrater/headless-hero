@@ -52,4 +52,37 @@ describe("TestLabRunPanel", () => {
     expect(screen.getByRole("button", { name: /Full frame/i })).toBeInTheDocument();
     expect(screen.queryByText("coffee-brain")).not.toBeInTheDocument();
   });
+
+  it("labels legacy history rows from stored treatment settings", () => {
+    render(
+      <TestLabRunPanel
+        activeRun={baseRun}
+        runs={[
+          {
+            ...baseRun,
+            run_id: "run-legacy-treatment",
+            settings: {
+              media_source: "ai",
+              visual_treatment: "flipflop",
+            },
+          },
+          {
+            ...baseRun,
+            run_id: "run-legacy-video",
+            settings: {
+              media_source: "ai_video",
+              visual_treatment: "full_frame",
+            },
+          },
+        ]}
+        running={false}
+        currentStep="Idle"
+        onSelectRun={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /Flipflop/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Video/i })).toBeInTheDocument();
+    expect(screen.queryByText("coffee-brain")).not.toBeInTheDocument();
+  });
 });

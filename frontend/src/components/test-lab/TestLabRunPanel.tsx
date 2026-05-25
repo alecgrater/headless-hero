@@ -345,8 +345,16 @@ function StatusPill({ status }: { status: string }) {
 }
 
 function historyRunLabel(run: TestLabRun) {
-  if (run.settings.visual_mode) return visualModeLabel(run.settings.visual_mode);
+  const visualMode = historyRunVisualMode(run);
+  if (visualMode) return visualModeLabel(visualMode);
   return run.preset_id;
+}
+
+function historyRunVisualMode(run: TestLabRun) {
+  if (run.settings.visual_mode) return run.settings.visual_mode;
+  if (run.settings.media_source === "ai_video") return "video";
+  if (run.settings.visual_treatment) return run.settings.visual_treatment;
+  return "";
 }
 
 function visualModeLabel(value: string) {
