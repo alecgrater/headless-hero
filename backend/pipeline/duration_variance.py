@@ -12,7 +12,7 @@ from typing import Any
 from config import DEFAULT_TTS_MODEL, strip_markdown_fences
 from integrations.llm_client import chat
 from models.script import Scene, Script, ScriptContent
-from pipeline.voiceover import generate_scene_audio
+from pipeline.voiceover import generate_scene_audio, prepare_tts_text
 from prompts import TIGHTEN_SYSTEM
 from sqlmodel import Session
 
@@ -118,9 +118,10 @@ def check_and_tighten(
             continue
 
         try:
+            tts_narration = prepare_tts_text(new_narration, model_id=model_id)
             audio_url, duration, word_timestamps, phrase_timestamps = generate_scene_audio(
                 scene_id=scene_id,
-                narration=new_narration,
+                narration=tts_narration,
                 voice_id=voice_id,
                 script_id=script_id,
                 model_id=model_id,

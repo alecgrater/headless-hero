@@ -183,6 +183,35 @@ class TestCheckAndTighten:
 
     @patch("pipeline.duration_variance.generate_scene_audio")
     @patch("pipeline.duration_variance.chat")
+    def test_rewrite_revoice_uses_hidden_v3_tags(self, mock_chat, mock_audio):
+        record, _ = _make_script_record([
+            {"id": "scene_001", "visual_beat": "quick_cuts", "narration": "Too long narration.", "audio_duration_seconds": 12.5},
+        ])
+        session = MagicMock()
+        session.get.return_value = record
+
+        mock_chat.return_value = json.dumps({"scene_001": "Short version."})
+        mock_audio.return_value = ("/static/projects/test/audio/scene_001.mp3", 7.5, [], [])
+
+        result = check_and_tighten(
+            script_id="test-script",
+            session=session,
+            voice_id="voice-123",
+            model_id="eleven_v3",
+        )
+
+        assert result == ["scene_001"]
+        mock_audio.assert_called_once_with(
+            scene_id="scene_001",
+            narration="[curious] Short version.",
+            voice_id="voice-123",
+            script_id="test-script",
+            model_id="eleven_v3",
+            voice_settings=None,
+        )
+
+    @patch("pipeline.duration_variance.generate_scene_audio")
+    @patch("pipeline.duration_variance.chat")
     def test_skips_scene_if_revoice_fails(self, mock_chat, mock_audio):
         record, _ = _make_script_record([
             {"id": "scene_001", "visual_beat": "aha_subtitle", "narration": "Long fact.", "audio_duration_seconds": 11.0},
