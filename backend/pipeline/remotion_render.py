@@ -347,6 +347,8 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
         "phrase_timestamps": [p.model_dump() for p in scene.phrase_timestamps] if scene.phrase_timestamps and not scene.is_title_card else None,
         "visual_beat": scene.visual_beat,
         "visual_mode": scene.visual_mode,
+        "caption_text": scene.caption_text,
+        "caption_emphasis": scene.caption_emphasis,
         "visual_treatment": scene.visual_treatment,
         "visual_layers": _visual_layers_to_input_props(scene, script_id),
         "frame_directives": [d.model_dump() for d in scene.frame_directives] if scene.frame_directives else None,

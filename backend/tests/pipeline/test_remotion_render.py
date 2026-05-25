@@ -57,6 +57,32 @@ def test_video_visual_mode_resolves_video_scene_props(tmp_path, monkeypatch):
     assert props["video_path"].endswith("/static/projects/script-1/videos/scene-1.mp4")
 
 
+def test_scene_to_input_props_include_caption_fields_for_captions_scene(tmp_path, monkeypatch):
+    monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
+    scene = Scene(
+        id="scene_001",
+        narration="This was the real cost.",
+        visual_prompt="",
+        visual_mode="captions",
+        caption_text="The real cost",
+        caption_emphasis="real",
+        audio_duration_seconds=2.0,
+        word_timestamps=[
+            {"word": "This", "start_ms": 0, "end_ms": 120},
+            {"word": "was", "start_ms": 140, "end_ms": 220},
+            {"word": "the", "start_ms": 240, "end_ms": 310},
+            {"word": "real", "start_ms": 330, "end_ms": 480},
+            {"word": "cost", "start_ms": 500, "end_ms": 650},
+        ],
+    )
+
+    props = remotion_render._scene_to_input_props(scene, "script")
+
+    assert props["visual_mode"] == "captions"
+    assert props["caption_text"] == "The real cost"
+    assert props["caption_emphasis"] == "real"
+
+
 def test_ai_video_scene_falls_back_to_image_when_slowdown_would_exceed_25_percent(tmp_path, monkeypatch):
     monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
     monkeypatch.setattr(remotion_render, "_probe_video_duration", lambda _path: None)
