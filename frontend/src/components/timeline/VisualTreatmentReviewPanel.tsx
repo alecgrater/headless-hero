@@ -36,9 +36,13 @@ const MODE_LABELS: Record<VisualMode, { label: string; blurb: string }> = {
     label: "Flipflop",
     blurb: "Two complementary visuals alternate every half second for a simple animated feel.",
   },
+  captions: {
+    label: "Captions",
+    blurb: "Large editorial text lands on narration beats with red emphasis.",
+  },
 };
 
-const MODE_OPTIONS: VisualMode[] = ["video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop"];
+const MODE_OPTIONS: VisualMode[] = ["video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop", "captions"];
 const modeForAssignment = (assignment: VisualTreatmentAssignment): VisualMode =>
   assignment.visual_mode ?? (assignment.visual_treatment === "full_frame" ? "full_frame" : assignment.visual_treatment);
 const isLayeredMode = (mode: VisualMode): mode is Extract<VisualMode, "popup_sequence" | "flipflop"> =>
@@ -59,7 +63,7 @@ export default function VisualTreatmentReviewPanel({
         acc[modeForAssignment(assignment)] += 1;
         return acc;
       },
-      { video: 0, full_frame: 0, multi_frame: 0, continuous: 0, popup_sequence: 0, flipflop: 0 },
+      { video: 0, full_frame: 0, multi_frame: 0, continuous: 0, popup_sequence: 0, flipflop: 0, captions: 0 },
     );
   }, [draft]);
   const hasInvalidLayerlessTreatment = draft.some(
@@ -101,7 +105,8 @@ export default function VisualTreatmentReviewPanel({
             </p>
             <p className="text-xs text-neutral-500">
               {summary.video} video, {summary.full_frame} full frame, {summary.multi_frame} multi-frame,{" "}
-              {summary.continuous} continuous, {summary.popup_sequence} popup sequence, {summary.flipflop} flipflop
+              {summary.continuous} continuous, {summary.popup_sequence} popup sequence, {summary.flipflop} flipflop,{" "}
+              {summary.captions} captions
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
