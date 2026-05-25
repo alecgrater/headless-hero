@@ -1170,6 +1170,8 @@ def _generate_one_scene(
     in the returned dict so a parallel worker pool can keep going.
     """
     def with_visual_layers(result: dict[str, object]) -> dict[str, object]:
+        if scene.get("visual_mode") == "captions":
+            return result
         treatment = scene.get("visual_treatment", "full_frame")
         layers = scene.get("visual_layers", []) or []
         if treatment not in {"popup_sequence", "flipflop"} or not layers:
@@ -1225,11 +1227,24 @@ def _generate_one_scene(
             return with_visual_layers({
                 "scene_id": scene["scene_id"],
                 "image_url": None,
+                "frame_urls": [],
                 "video_url": video_url,
                 "prompt_used": prompt_used,
                 "visual_source_metadata": source_metadata,
                 "error": None,
             })
+
+        if visual_mode == "captions" and not str(scene.get("visual_prompt") or "").strip():
+            logger.info("[CAPTIONS] scene %s - text-only caption, skipping image generation", scene["scene_id"])
+            return {
+                "scene_id": scene["scene_id"],
+                "image_url": None,
+                "frame_urls": [],
+                "video_url": "",
+                "prompt_used": None,
+                "visual_source_metadata": None,
+                "error": None,
+            }
 
         # --- AI-generated (default) ---
         logger.info("[GEMINI] scene %s — prompt: %s", scene["scene_id"], scene.get("visual_prompt", "")[:80])
@@ -1245,6 +1260,7 @@ def _generate_one_scene(
                 "scene_id": scene["scene_id"],
                 "image_url": None,
                 "frame_urls": [],
+                "video_url": "",
                 "prompt_used": None,
                 "visual_source_metadata": None,
                 "error": None,
@@ -1268,6 +1284,7 @@ def _generate_one_scene(
                 "scene_id": scene["scene_id"],
                 "image_url": next((u for u in frame_urls if u), None),
                 "frame_urls": frame_urls,
+                "video_url": "",
                 "prompt_used": frame_results[0][1] if frame_results else None,
                 "visual_source_metadata": source_metadata,
                 "error": None,
@@ -1291,6 +1308,7 @@ def _generate_one_scene(
                 "scene_id": scene["scene_id"],
                 "image_url": frame_urls[0] if frame_urls else None,
                 "frame_urls": frame_urls,
+                "video_url": "",
                 "prompt_used": frame_results[0][1] if frame_results else None,
                 "visual_source_metadata": source_metadata,
                 "error": None,
@@ -1309,6 +1327,8 @@ def _generate_one_scene(
         return with_visual_layers({
             "scene_id": scene["scene_id"],
             "image_url": image_url,
+            "frame_urls": [],
+            "video_url": "",
             "prompt_used": prompt_used,
             "visual_source_metadata": source_metadata,
             "error": None,
@@ -1321,6 +1341,17 @@ def _generate_one_scene(
             "prompt_used": None,
             "error": str(exc),
         }
+
+
+def generate_scene_visual(
+    scene: dict[str, str],
+    script_id: str,
+    width: int = IMAGE_WIDTH,
+    height: int = IMAGE_HEIGHT,
+    style_guide: str = "",
+) -> dict[str, str | None]:
+    """Generate visuals for a single scene."""
+    return _generate_one_scene(scene, script_id, width, height, style_guide)
 
 
 def generate_batch(

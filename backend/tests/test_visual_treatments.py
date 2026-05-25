@@ -9,7 +9,7 @@ from sqlmodel.pool import StaticPool
 
 from models.settings import AppSetting
 from models.script import Script
-from models.script import ScriptContent, Scene, VisualCanvas, VisualLayer
+from models.script import ScriptContent, Scene, Segment, VisualCanvas, VisualLayer
 from pipeline.image_gen import generate_visual_layer_panels, visual_layer_image_filename
 from pipeline.render_jobs import RenderJob
 from pipeline.render_jobs import UserFacingJobError
@@ -146,6 +146,32 @@ def test_visual_treatment_assignment_preserves_video_visual_mode():
     assert scene.media_source == "ai_video"
     assert scene.visual_treatment == "full_frame"
     assert scene.visual_layers == []
+
+
+def test_analyze_visual_treatments_preserves_explicit_captions_scene():
+    scene = Scene(
+        id="scene_001",
+        narration="This is the real cost.",
+        visual_prompt="",
+        visual_mode="captions",
+        caption_text="The real cost",
+        caption_emphasis="real",
+        audio_duration_seconds=2.0,
+        word_timestamps=[
+            {"word": "This", "start_ms": 0, "end_ms": 100},
+            {"word": "is", "start_ms": 120, "end_ms": 180},
+            {"word": "the", "start_ms": 200, "end_ms": 260},
+            {"word": "real", "start_ms": 300, "end_ms": 450},
+            {"word": "cost", "start_ms": 470, "end_ms": 640},
+        ],
+    )
+    content = ScriptContent(title="Test", segments=[Segment(name="Segment", scenes=[scene])])
+
+    assignment = analyze_visual_treatments(content, script_id="script")[0]
+
+    assert assignment.visual_mode == "captions"
+    assert assignment.visual_treatment == "full_frame"
+    assert assignment.visual_layers == []
 
 
 def test_visual_treatment_assignment_can_change_video_scene_to_full_frame():
@@ -617,6 +643,67 @@ def test_generate_batch_popup_sequence_skips_scene_image(monkeypatch):
     assert no_layer_results[0]["image_url"] is None
     assert no_layer_results[0]["frame_urls"] == []
     assert no_layer_results[0].get("visual_layers", []) == []
+
+
+def test_generate_batch_captions_without_prompt_skips_scene_image(monkeypatch):
+    from pipeline import image_gen as image_gen_mod
+
+    def fail_generate_scene_image(**_kwargs):
+        raise AssertionError("text-only captions should not generate a scene image")
+
+    monkeypatch.setattr(image_gen_mod, "generate_scene_image", fail_generate_scene_image)
+
+    result = image_gen_mod.generate_scene_visual(
+        {
+            "scene_id": "scene_001",
+            "visual_mode": "captions",
+            "visual_prompt": "",
+            "caption_text": "The real cost",
+            "caption_emphasis": "real",
+            "media_source": "ai",
+            "visual_treatment": "full_frame",
+            "frame_directives": [],
+            "contains_person": False,
+        },
+        script_id="script",
+    )
+
+    assert result["scene_id"] == "scene_001"
+    assert result["image_url"] is None
+    assert result["frame_urls"] == []
+    assert result["prompt_used"] is None
+    assert result["error"] is None
+
+
+def test_generate_batch_captions_with_prompt_uses_single_scene_image(monkeypatch):
+    from pipeline import image_gen as image_gen_mod
+
+    calls = []
+
+    def fake_generate_scene_image(**kwargs):
+        calls.append(kwargs)
+        return "/static/projects/script/images/scene_001.png", kwargs["visual_prompt"], {"source_type": "ai_generated"}
+
+    monkeypatch.setattr(image_gen_mod, "generate_scene_image", fake_generate_scene_image)
+
+    result = image_gen_mod.generate_scene_visual(
+        {
+            "scene_id": "scene_001",
+            "visual_mode": "captions",
+            "visual_prompt": "[REACTION] A worried shopper holding a receipt.",
+            "caption_text": "Falling behind",
+            "caption_emphasis": "behind",
+            "media_source": "ai",
+            "visual_treatment": "full_frame",
+            "frame_directives": [],
+            "contains_person": True,
+        },
+        script_id="script",
+    )
+
+    assert len(calls) == 1
+    assert result["image_url"] == "/static/projects/script/images/scene_001.png"
+    assert result["video_url"] == ""
 
 
 def test_generate_batch_flipflop_skips_scene_image(monkeypatch):

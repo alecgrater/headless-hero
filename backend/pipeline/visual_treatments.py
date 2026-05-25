@@ -190,6 +190,14 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             visual_layers=[],
         )
 
+    if scene.visual_mode == "captions":
+        return VisualTreatmentAssignment(
+            scene_id=scene.id,
+            visual_mode="captions",
+            visual_treatment="full_frame",
+            reasoning="Scene is explicitly marked for captions rendering.",
+            visual_layers=[],
+        )
     if scene.visual_mode == "popup_sequence":
         return VisualTreatmentAssignment(
             scene_id=scene.id,
