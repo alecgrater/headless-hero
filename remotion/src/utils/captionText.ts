@@ -169,10 +169,5 @@ export function findCaptionWordTimestamps(
     if (matched) return matched;
   }
 
-  for (let i = 0; i < timestamps.length; i++) {
-    const matched = matchCaptionFromIndex(timestamps, captionTokens, i);
-    if (matched) return matched;
-  }
-
   return timestamps.slice(-displayWordCount);
 }
