@@ -973,7 +973,7 @@ def generate_scene_frames(
 
         if use_reference:
             try:
-                mtime = int(prev_frame_path.stat().st_mtime) if prev_frame_path else 0
+                mtime = prev_frame_path.stat().st_mtime_ns if prev_frame_path else 0
                 prompt += f"\n[reference_previous:{prev_frame_path}:{mtime}]"
             except OSError:
                 pass
@@ -1156,7 +1156,7 @@ def generate_scene_frames_v2(
         if use_reference or use_style_anchor:
             try:
                 anchor_kind = "reference_previous" if use_reference else "style_anchor"
-                mtime = int(prev_frame_path.stat().st_mtime) if prev_frame_path else 0
+                mtime = prev_frame_path.stat().st_mtime_ns if prev_frame_path else 0
                 prompt += f"\n[{anchor_kind}:{prev_frame_path}:{mtime}]"
             except OSError:
                 pass

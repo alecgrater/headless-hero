@@ -303,7 +303,8 @@ def test_generate_scene_frames_v2_cache_key_includes_prior_image_anchor(tmp_path
 
     frame0 = tmp_path / "projects" / "proj1" / "images" / "scene1_f0.png"
     marker1 = tmp_path / "projects" / "proj1" / "images" / "scene1_f1.prompt"
-    assert f"[style_anchor:{frame0}:" in marker1.read_text(encoding="utf-8")
+    anchor_marker = f"[style_anchor:{frame0}:{frame0.stat().st_mtime_ns}]"
+    assert anchor_marker in marker1.read_text(encoding="utf-8")
 
 
 def test_generate_scene_image_blocks_all_images_until_project_character_ready(tmp_path, monkeypatch):
