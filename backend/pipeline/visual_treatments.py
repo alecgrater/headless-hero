@@ -181,6 +181,14 @@ def apply_visual_treatment_assignments(
 def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
     if scene.is_title_card:
         return _full_frame_assignment(scene.id, "Title-card scenes keep their existing full-frame animation type.")
+    if scene.visual_mode == "captions":
+        return VisualTreatmentAssignment(
+            scene_id=scene.id,
+            visual_mode="captions",
+            visual_treatment="full_frame",
+            reasoning="Scene is explicitly marked for captions rendering.",
+            visual_layers=[],
+        )
     if _is_video_or_photo_backed(scene):
         return VisualTreatmentAssignment(
             scene_id=scene.id,
@@ -190,14 +198,6 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             visual_layers=[],
         )
 
-    if scene.visual_mode == "captions":
-        return VisualTreatmentAssignment(
-            scene_id=scene.id,
-            visual_mode="captions",
-            visual_treatment="full_frame",
-            reasoning="Scene is explicitly marked for captions rendering.",
-            visual_layers=[],
-        )
     if scene.visual_mode == "popup_sequence":
         return VisualTreatmentAssignment(
             scene_id=scene.id,

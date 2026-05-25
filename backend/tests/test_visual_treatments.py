@@ -174,6 +174,32 @@ def test_analyze_visual_treatments_preserves_explicit_captions_scene():
     assert assignment.visual_layers == []
 
 
+def test_analyze_visual_treatments_preserves_explicit_captions_scene_with_stale_video_url():
+    scene = Scene(
+        id="scene_001",
+        narration="This is the real cost.",
+        visual_prompt="",
+        visual_mode="captions",
+        caption_text="The real cost",
+        audio_duration_seconds=2.0,
+        word_timestamps=[
+            {"word": "This", "start_ms": 0, "end_ms": 100},
+            {"word": "is", "start_ms": 120, "end_ms": 180},
+            {"word": "the", "start_ms": 200, "end_ms": 260},
+            {"word": "real", "start_ms": 300, "end_ms": 450},
+            {"word": "cost", "start_ms": 470, "end_ms": 640},
+        ],
+        video_url="/static/projects/script/video/scene_001.mp4",
+    )
+    content = ScriptContent(title="Test", segments=[Segment(name="Segment", scenes=[scene])])
+
+    assignment = analyze_visual_treatments(content, script_id="script")[0]
+
+    assert assignment.visual_mode == "captions"
+    assert assignment.visual_treatment == "full_frame"
+    assert assignment.visual_layers == []
+
+
 def test_visual_treatment_assignment_can_change_video_scene_to_full_frame():
     content = content_with_scenes(
         Scene(id="scene_001", narration="Video line.", visual_prompt="A walking character.", visual_mode="video")
