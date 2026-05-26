@@ -360,8 +360,7 @@ def generate_visual_layer_panels(
             processed_layers.append(layer)
             continue
 
-        if visual_treatment == "flipflop":
-            prompt = _sanitize_layer_prompt_for_full_bleed(prompt)
+        prompt = _sanitize_layer_prompt_for_full_bleed(prompt)
         prompt = _flipflop_micro_animation_prompt(prompt, index) if visual_treatment == "flipflop" else prompt
         original_prompt = prompt
         filename = visual_layer_image_filename(scene_id, str(layer_id))
@@ -428,19 +427,25 @@ def generate_visual_layer_panels(
 def _sanitize_layer_prompt_for_full_bleed(prompt: str) -> str:
     cleaned = prompt.strip()
     cleaned = re.sub(
-        r"\bsmall framed Headless Hero cartoon panel\s*(?:for\s+[^:]+)?[:,]?\s*",
+        r"\bsmall\s+framed\s+Headless\s+Hero\s+cartoon\s+panel\s*(?:for\s+[^:]+)?[:,]?\s*",
         "",
         cleaned,
         flags=re.IGNORECASE,
     )
     cleaned = re.sub(
-        r"\bThe panel sits on a flat static color background, not a full video background\.?\s*",
+        r"\bThe\s+panel\s+sits\s+on\s+a\s+flat\s+static\s+color\s+background,\s+not\s+a\s+full\s+video\s+background\.?\s*",
         "",
         cleaned,
         flags=re.IGNORECASE,
     )
     cleaned = re.sub(
         r"\bPopup item cutout prompt(?:\s+for\s+[^:]+)?:\s*",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"\b(?:small\s+)?framed\s+panel\s*(?:for\s+[^:]+)?[:,]?\s*",
         "",
         cleaned,
         flags=re.IGNORECASE,

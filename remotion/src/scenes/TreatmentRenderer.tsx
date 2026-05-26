@@ -83,15 +83,16 @@ const layerImageStyle = (layer: VisualLayer): React.CSSProperties => ({
 
 export const layerChromeStyle = (layer: VisualLayer, scale = 1): React.CSSProperties => {
   const isCutout = layer.asset_kind === "cutout";
+  const isFullBleedLayer = layer.asset_kind === "full_frame" || layer.asset_kind === "panel";
   return {
     width: "100%",
     height: "100%",
     transform: `scale(${scale})`,
     transformOrigin: "center",
-    border: layer.asset_kind === "panel" ? "10px solid #111" : "none",
-    boxShadow: isCutout || layer.asset_kind === "full_frame" ? "none" : "0 24px 60px rgba(0, 0, 0, 0.45)",
+    border: "none",
+    boxShadow: isCutout || isFullBleedLayer ? "none" : "0 24px 60px rgba(0, 0, 0, 0.45)",
     overflow: isCutout ? "visible" : "hidden",
-    backgroundColor: isCutout ? "transparent" : "#111",
+    backgroundColor: isCutout || isFullBleedLayer ? "transparent" : "#111",
   };
 };
 

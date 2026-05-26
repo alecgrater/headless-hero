@@ -12,6 +12,14 @@ const itemLayer = (id: string): VisualLayer => ({
   animation: "pop_in",
 });
 
+const panelLayer = (id: string): VisualLayer => ({
+  id,
+  type: "image",
+  asset_kind: "panel",
+  image_path: `/tmp/${id}.png`,
+  animation: "pop_in",
+});
+
 describe("popupOrbitFrameStyle", () => {
   it("keeps the anchor centered while item cutouts orbit clockwise", () => {
     const layers = [
@@ -94,6 +102,14 @@ describe("popupOrbitFrameStyle", () => {
 });
 
 describe("layerChromeStyle", () => {
+  it("does not draw wrapper borders around generated panels", () => {
+    const style = layerChromeStyle(panelLayer("state-a"), 1);
+
+    expect(style.border).toBe("none");
+    expect(style.boxShadow).toBe("none");
+    expect(style.backgroundColor).toBe("transparent");
+  });
+
   it("does not draw wrapper shadows or clipping boxes around transparent cutouts", () => {
     const style = layerChromeStyle(itemLayer("bubble"), 1);
 
