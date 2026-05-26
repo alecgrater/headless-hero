@@ -223,6 +223,9 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
   }
 
   const activeLayer = flipflopActiveLayer(layers, frame, fps);
+  if (!activeLayer) {
+    return <>{fallbackVisualLayer}</>;
+  }
 
   return (
     <div style={{ position: "absolute", inset: 0 }}>
