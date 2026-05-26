@@ -491,38 +491,13 @@ export default function TestLabControls({
 
 export function settingsWithVisualTreatmentDefaults(
   settings: TestLabSettings,
-  preset: TestLabPreset | null,
+  _preset: TestLabPreset | null,
   visualTreatment: VisualMode | VisualTreatment,
-  visualTreatmentDefaults?: Partial<Record<VisualMode | VisualTreatment, VisualTextDefaults>>,
+  _visualTreatmentDefaults?: Partial<Record<VisualMode | VisualTreatment, VisualTextDefaults>>,
 ): TestLabSettings {
   const next: TestLabSettings = isVisualTreatment(visualTreatment)
     ? { ...settings, visual_treatment: visualTreatment }
     : { ...settings };
-  const textDefaults = visualTreatmentDefaults?.[visualTreatment];
-  if (!textDefaults) return next;
-
-  const shouldUseDefaultNarration = shouldReplaceSceneText(settings.narration, preset?.narration);
-  if (shouldUseDefaultNarration) {
-    next.narration = textDefaults.narration;
-    next.tts_narration = textDefaults.narration;
-  }
-  if (shouldReplaceSceneText(settings.visual_prompt, preset?.visual_prompt)) {
-    next.visual_prompt = textDefaults.visual_prompt;
-  }
-  if (
-    "caption_text" in textDefaults &&
-    shouldUseDefaultNarration &&
-    shouldReplaceSceneText(settings.caption_text, preset?.caption_text)
-  ) {
-    next.caption_text = textDefaults.caption_text;
-  }
-  if (
-    "caption_emphasis" in textDefaults &&
-    shouldUseDefaultNarration &&
-    shouldReplaceSceneText(settings.caption_emphasis, preset?.caption_emphasis)
-  ) {
-    next.caption_emphasis = textDefaults.caption_emphasis;
-  }
   return next;
 }
 

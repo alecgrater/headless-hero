@@ -834,26 +834,28 @@ def test_test_lab_preset_uses_visual_treatment_setting():
     assert content.segments[0].scenes[0].visual_treatment == "flipflop"
 
 
-def test_test_lab_preset_uses_multi_frame_text_defaults_when_mode_selected():
-    from pipeline.test_lab import MULTI_FRAME_TEXT_DEFAULTS, build_content_from_preset
+def test_test_lab_preset_keeps_scene_text_when_multi_frame_mode_selected():
+    from pipeline.test_lab import get_preset, build_content_from_preset
 
     content = build_content_from_preset("coffee-brain", {"visual_mode": "multi_frame"})
     scene = content.segments[0].scenes[0]
+    preset = get_preset("coffee-brain")
 
     assert scene.visual_mode == "multi_frame"
-    assert scene.narration == MULTI_FRAME_TEXT_DEFAULTS["narration"]
-    assert scene.visual_prompt == MULTI_FRAME_TEXT_DEFAULTS["visual_prompt"]
+    assert scene.narration == preset.narration
+    assert scene.visual_prompt == preset.visual_prompt
 
 
-def test_test_lab_preset_uses_continuous_text_defaults_when_mode_selected():
-    from pipeline.test_lab import CONTINUOUS_TEXT_DEFAULTS, build_content_from_preset
+def test_test_lab_preset_keeps_scene_text_when_continuous_mode_selected():
+    from pipeline.test_lab import get_preset, build_content_from_preset
 
     content = build_content_from_preset("coffee-brain", {"visual_mode": "continuous"})
     scene = content.segments[0].scenes[0]
+    preset = get_preset("coffee-brain")
 
     assert scene.visual_mode == "continuous"
-    assert scene.narration == CONTINUOUS_TEXT_DEFAULTS["narration"]
-    assert scene.visual_prompt == CONTINUOUS_TEXT_DEFAULTS["visual_prompt"]
+    assert scene.narration == preset.narration
+    assert scene.visual_prompt == preset.visual_prompt
 
 
 def test_stage_defaults_disable_eli_stage_when_eli_character_mode_is_off():

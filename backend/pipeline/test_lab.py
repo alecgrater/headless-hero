@@ -376,9 +376,6 @@ def _scene_text_from_settings(settings: dict, preset: TestLabPreset, visual_mode
     raw_value = settings.get(key)
     if isinstance(raw_value, str) and raw_value and raw_value != preset_value:
         return raw_value
-    defaults = VISUAL_TREATMENT_TEXT_DEFAULTS.get(visual_mode)
-    if defaults and key in defaults:
-        return defaults[key]
     return _setting(settings, key, preset_value)
 
 
