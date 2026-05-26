@@ -241,6 +241,48 @@ def test_test_lab_captions_allow_empty_text_overrides():
     assert scene.caption_emphasis == ""
 
 
+def test_test_lab_captions_ignore_default_caption_when_narration_is_custom():
+    from pipeline.test_lab import CAPTIONS_TEXT_DEFAULTS, build_content_from_preset
+
+    custom_narration = "The tiny crack spreads across the wall until the whole room feels like it is holding its breath."
+    content = build_content_from_preset(
+        "coffee-brain",
+        {
+            "visual_mode": "captions",
+            "narration": custom_narration,
+            "visual_prompt": "[CLOSE-UP] A cracked cartoon wall.",
+            "caption_text": CAPTIONS_TEXT_DEFAULTS["caption_text"],
+            "caption_emphasis": CAPTIONS_TEXT_DEFAULTS["caption_emphasis"],
+        },
+    )
+
+    scene = content.segments[0].scenes[0]
+    assert scene.visual_mode == "captions"
+    assert scene.narration == custom_narration
+    assert scene.caption_text == ""
+    assert scene.caption_emphasis == ""
+
+
+def test_test_lab_captions_do_not_fall_back_to_preset_caption_for_custom_narration():
+    from pipeline.test_lab import build_content_from_preset
+
+    custom_narration = "The tiny crack spreads across the wall until the whole room feels like it is holding its breath."
+    content = build_content_from_preset(
+        "caption-punch",
+        {
+            "visual_mode": "captions",
+            "narration": custom_narration,
+            "visual_prompt": "[CLOSE-UP] A cracked cartoon wall.",
+        },
+    )
+
+    scene = content.segments[0].scenes[0]
+    assert scene.visual_mode == "captions"
+    assert scene.narration == custom_narration
+    assert scene.caption_text == ""
+    assert scene.caption_emphasis == ""
+
+
 def test_test_lab_scenes_endpoint_returns_presets(monkeypatch, tmp_path):
     _engine, app = _setup_app(monkeypatch, tmp_path)
     client = TestClient(app)

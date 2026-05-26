@@ -382,6 +382,25 @@ def _scene_text_from_settings(settings: dict, preset: TestLabPreset, visual_mode
     return _setting(settings, key, preset_value)
 
 
+def _caption_setting_from_settings(settings: dict, preset: TestLabPreset, key: str, narration: str, visual_mode: str) -> str:
+    raw_value = settings.get(key)
+    preset_value = getattr(preset, key)
+    narration_is_custom = narration not in {preset.narration, CAPTIONS_TEXT_DEFAULTS["narration"]}
+    if visual_mode == "captions" and narration_is_custom and not isinstance(raw_value, str):
+        return ""
+    if not isinstance(raw_value, str):
+        return _setting(settings, key, preset_value)
+    if raw_value == "":
+        return ""
+    if visual_mode != "captions":
+        return raw_value
+
+    default_value = CAPTIONS_TEXT_DEFAULTS.get(key, "")
+    if narration_is_custom and raw_value in {preset_value, default_value}:
+        return ""
+    return raw_value
+
+
 def _sync_ai_video_enabled(content: ScriptContent) -> ScriptContent:
     content.ai_video_enabled = any(
         scene.visual_mode == "video" or scene.media_source == "ai_video"
@@ -445,10 +464,12 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
         visual_mode = settings["visual_treatment"]
     else:
         visual_mode = preset.visual_mode
+    narration = _scene_text_from_settings(settings, preset, visual_mode, "narration")
+    visual_prompt = _scene_text_from_settings(settings, preset, visual_mode, "visual_prompt")
     scene = Scene(
         id=f"{preset.id}-scene-1",
-        narration=_scene_text_from_settings(settings, preset, visual_mode, "narration"),
-        visual_prompt=_scene_text_from_settings(settings, preset, visual_mode, "visual_prompt"),
+        narration=narration,
+        visual_prompt=visual_prompt,
         duration_estimate_seconds=float(
             _setting(settings, "duration_estimate_seconds", preset.duration_estimate_seconds)
         ),
@@ -456,8 +477,8 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
         contains_person=bool(_setting(settings, "contains_person", preset.main_character is not None)),
         visual_treatment=_setting(settings, "visual_treatment", "full_frame"),
         visual_layers=settings.get("visual_layers") if isinstance(settings.get("visual_layers"), list) else [],
-        caption_text=_setting(settings, "caption_text", preset.caption_text),
-        caption_emphasis=_setting(settings, "caption_emphasis", preset.caption_emphasis),
+        caption_text=_caption_setting_from_settings(settings, preset, "caption_text", narration, visual_mode),
+        caption_emphasis=_caption_setting_from_settings(settings, preset, "caption_emphasis", narration, visual_mode),
     )
     content = ScriptContent(
         title=_setting(settings, "title", preset.title),

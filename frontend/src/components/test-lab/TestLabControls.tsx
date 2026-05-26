@@ -167,13 +167,17 @@ export default function TestLabControls({
 }: TestLabControlsProps) {
   const narration = settings.narration ?? preset?.narration ?? "";
   const visualPrompt = settings.visual_prompt ?? preset?.visual_prompt ?? "";
-  const captionText = settings.caption_text ?? preset?.caption_text ?? "";
+  const visualMode = settings.visual_mode ?? (settings.media_source === "ai_video" ? "video" : settings.visual_treatment);
+  const captionText =
+    settings.caption_text ??
+    (visualMode === "captions" && !shouldReplaceSceneText(settings.narration, preset?.narration)
+      ? narration
+      : preset?.caption_text ?? "");
   const captionEmphasis = settings.caption_emphasis ?? preset?.caption_emphasis ?? "";
   const backgroundColor = settings.visual_canvas?.background_color ?? preset?.background_color ?? "#F6C54A";
   const displayedCharacter = getDisplayedCharacter(settings, preset, defaultMainCharacter);
   const displayedCharacterSource = getDisplayedCharacterSource(settings, defaultMainCharacter);
   const fallbackCharacterName = getFallbackCharacterName(settings, preset, defaultMainCharacter);
-  const visualMode = settings.visual_mode ?? (settings.media_source === "ai_video" ? "video" : settings.visual_treatment);
   const isLayeredTreatment = visualMode === "popup_sequence" || visualMode === "flipflop";
   const [voiceSettingsText, setVoiceSettingsText] = useState("");
   const [voiceSettingsError, setVoiceSettingsError] = useState("");
@@ -189,6 +193,15 @@ export default function TestLabControls({
 
   function update(next: Partial<TestLabSettings>) {
     onChange({ ...settings, ...next });
+  }
+
+  function updateNarration(value: string) {
+    const next: Partial<TestLabSettings> = { narration: value, tts_narration: value };
+    if (visualMode === "captions" && captionMatchesDefault(settings.caption_text, preset, visualTreatmentDefaults)) {
+      next.caption_text = undefined;
+      next.caption_emphasis = undefined;
+    }
+    update(next);
   }
 
   function updateStage(key: StageKey, enabled: boolean) {
@@ -433,7 +446,7 @@ export default function TestLabControls({
           <span className="text-xs font-medium text-neutral-300">Narration</span>
           <textarea
             value={narration}
-            onChange={(event) => update({ narration: event.target.value, tts_narration: event.target.value })}
+            onChange={(event) => updateNarration(event.target.value)}
             rows={5}
             className="mt-2 w-full resize-y rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm leading-5 text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 hover:border-neutral-700 focus:border-violet-500"
             placeholder="Scene narration..."
@@ -488,18 +501,24 @@ export function settingsWithVisualTreatmentDefaults(
   const textDefaults = visualTreatmentDefaults?.[visualTreatment];
   if (!textDefaults) return next;
 
-  if (shouldReplaceSceneText(settings.narration, preset?.narration)) {
+  const shouldUseDefaultNarration = shouldReplaceSceneText(settings.narration, preset?.narration);
+  if (shouldUseDefaultNarration) {
     next.narration = textDefaults.narration;
     next.tts_narration = textDefaults.narration;
   }
   if (shouldReplaceSceneText(settings.visual_prompt, preset?.visual_prompt)) {
     next.visual_prompt = textDefaults.visual_prompt;
   }
-  if ("caption_text" in textDefaults && shouldReplaceSceneText(settings.caption_text, preset?.caption_text)) {
+  if (
+    "caption_text" in textDefaults &&
+    shouldUseDefaultNarration &&
+    shouldReplaceSceneText(settings.caption_text, preset?.caption_text)
+  ) {
     next.caption_text = textDefaults.caption_text;
   }
   if (
     "caption_emphasis" in textDefaults &&
+    shouldUseDefaultNarration &&
     shouldReplaceSceneText(settings.caption_emphasis, preset?.caption_emphasis)
   ) {
     next.caption_emphasis = textDefaults.caption_emphasis;
@@ -513,6 +532,16 @@ function isVisualTreatment(value: VisualMode | VisualTreatment): value is Visual
 
 function shouldReplaceSceneText(currentValue: string | undefined, presetValue: string | undefined): boolean {
   return currentValue === undefined || currentValue === "" || currentValue === presetValue;
+}
+
+function captionMatchesDefault(
+  currentValue: string | undefined,
+  preset: TestLabPreset | null,
+  visualTreatmentDefaults?: Partial<Record<VisualMode | VisualTreatment, VisualTextDefaults>>,
+): boolean {
+  if (currentValue === undefined || currentValue === "") return true;
+  const defaultCaption = visualTreatmentDefaults?.captions?.caption_text;
+  return currentValue === preset?.caption_text || currentValue === defaultCaption;
 }
 
 function getFallbackCharacterName(
