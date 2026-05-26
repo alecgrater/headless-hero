@@ -184,3 +184,90 @@ def test_project_config_row_uses_saved_eli_enabled_default(monkeypatch, isolated
 
     assert cfg_row is not None, "ProjectConfig row not written for new script"
     assert cfg_row.eli_enabled is True
+
+
+def test_script_generation_persists_script_rating(monkeypatch, isolated_engine):
+    """Script generation stores the post-generation rating when scoring succeeds."""
+
+    def fake_run(job_id, target):
+        target()
+
+    monkeypatch.setattr(scripts_module, "run_in_background", fake_run)
+
+    def fake_generate_script(**kwargs):
+        from models.script import Scene, ScriptContent, Segment
+
+        return ScriptContent(
+            title="Rated Script",
+            segments=[
+                Segment(
+                    name="seg-1",
+                    scenes=[
+                        Scene(
+                            id="scene-1",
+                            narration="A specific opening line.",
+                            visual_prompt="[CLOSE] A precise visual",
+                        )
+                    ],
+                )
+            ],
+        )
+
+    monkeypatch.setattr(scripts_module, "generate_script", fake_generate_script)
+
+    def fake_rate_script(content, *, script_id=None):
+        from models.script import ScriptRating, ScriptRatingCategory, ScriptRatingCriterion
+
+        def category(criteria, average):
+            return ScriptRatingCategory(
+                average=average,
+                explanation="Useful but can be sharper.",
+                criteria={key: ScriptRatingCriterion(score=value) for key, value in criteria.items()},
+            )
+
+        return ScriptRating(
+            viewer_retention=category({"hook_strength": 8, "curiosity_gaps": 7, "pacing_variance": 7}, 7.3),
+            narrative_quality=category({"coherence": 7, "throughline": 6}, 6.5),
+            script_craft=category(
+                {"sentence_variety": 8, "specificity": 9, "redundancy": 7, "word_economy": 8},
+                8.0,
+            ),
+            audience_fit=category(
+                {
+                    "assumed_knowledge_level": 8,
+                    "relatability": 7,
+                    "tone_consistency": 8,
+                    "emotional_range": 7,
+                },
+                7.5,
+            ),
+            seo_alignment=category({"title_hook_match": 7, "search_intent_match": 6, "rewatch_value": 7}, 6.7),
+            overall=7.4,
+            model="gpt-5-mini",
+        )
+
+    monkeypatch.setattr(scripts_module, "rate_script", fake_rate_script)
+
+    unique_topic = f"script-rating-test-{uuid.uuid4().hex}"
+
+    client = TestClient(app)
+    res = client.post(
+        "/api/scripts/generate",
+        json={
+            "topic": unique_topic,
+            "format_id": "youtube-listicle",
+        },
+    )
+    assert res.status_code == 200, res.text
+
+    from models.script import Script, ScriptContent
+
+    with Session(isolated_engine) as session:
+        script_row = session.exec(
+            select(Script).where(Script.topic_title == unique_topic)
+        ).first()
+        assert script_row is not None, "Script row not written"
+        content = ScriptContent.model_validate_json(script_row.script_json)
+
+    assert content.script_rating is not None
+    assert content.script_rating.overall == 7.4

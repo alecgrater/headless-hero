@@ -57,7 +57,7 @@ def test_claude_pricing_uses_direct_anthropic_api_model_ids():
 def test_structured_openai_tasks_use_minimal_reasoning_by_default(monkeypatch):
     monkeypatch.delenv("OPENAI_REASONING_EFFORT_ELI", raising=False)
 
-    for task in ["fx", "seo", "short_form_seo", "media", "eli", "analysis", "hook_detect"]:
+    for task in ["fx", "seo", "short_form_seo", "media", "eli", "analysis", "hook_detect", "script_rating"]:
         monkeypatch.delenv(f"OPENAI_REASONING_EFFORT_{task.upper()}", raising=False)
         assert _resolve_openai_reasoning_effort(task) == "minimal"
 

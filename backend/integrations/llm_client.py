@@ -209,6 +209,15 @@ LLM_TASKS: dict[str, dict[str, str]] = {
         "default_openai_model": "gpt-5-nano",
         "openai_reasoning_effort": "minimal",
     },
+    "script_rating": {
+        "label": "Script rating",
+        "provider_key": "SCRIPT_RATING_LLM_PROVIDER",
+        "model_key": "SCRIPT_RATING_MODEL",
+        "default_provider": "openai",
+        "default_anthropic_model": BALANCED_CLAUDE_MODEL,
+        "default_openai_model": "gpt-5-mini",
+        "openai_reasoning_effort": "minimal",
+    },
     "hook_detect": {
         "label": "Hook detection (short-form)",
         "provider_key": "HOOK_DETECT_LLM_PROVIDER",

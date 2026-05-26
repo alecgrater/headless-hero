@@ -41,6 +41,7 @@ from pipeline.render_cache import mark_render_inputs_changed
 from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
 from pipeline.formats import resolve_format
 from pipeline.scriptwriter import generate_script
+from pipeline.script_rating import rate_script
 from pipeline.audio_split import split_scene_audio
 from pipeline.hook_scorer import score_hook
 from pipeline.media_analyzer import analyze_media_sources, apply_assignments
@@ -182,6 +183,7 @@ def _build_summary(record: Script, session: Session | None = None) -> ScriptSumm
         format_id=content.format_id,
         status=status,
         hook_score_overall=content.hook_score.get("overall") if isinstance(content.hook_score, dict) else None,
+        script_rating_overall=content.script_rating.overall if content.script_rating else None,
         upload_tracking=upload_tracking,
     )
 
@@ -457,6 +459,21 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
             bg_session.commit()
 
         logger.info("Script generated: %s (%d segments) in %.1fs", script_id, len(script_content.segments), duration)
+
+        try:
+            update_job(job_id, current_step="Rating script...")
+            t_rating = time.monotonic()
+            script_content.script_rating = rate_script(script_content, script_id=script_id)
+            with SqlSession(engine) as rating_session:
+                record_rating = rating_session.get(Script, script_id)
+                if record_rating:
+                    record_rating.script_json = script_content.model_dump_json()
+                    rating_session.add(record_rating)
+                rating_session.add(GenerationDuration(operation_type="script_rating", duration_seconds=time.monotonic() - t_rating))
+                rating_session.commit()
+            logger.info("Script rated for %s: overall=%.1f", script_id, script_content.script_rating.overall)
+        except Exception:
+            logger.exception("Script rating failed for %s — script saved without rating", script_id)
 
         if ai_video_enabled and animated_scene_count > 0:
             try:

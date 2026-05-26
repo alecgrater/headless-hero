@@ -331,6 +331,35 @@ class MainCharacter(BaseModel):
     appearance: str
     vibe: str = ""
 
+
+class ScriptRatingCriterion(BaseModel):
+    """A single 1-10 script rating criterion."""
+
+    score: int = PydanticField(ge=1, le=10)
+    note: str = ""
+
+
+class ScriptRatingCategory(BaseModel):
+    """A weighted script-rating category with criterion-level scores."""
+
+    average: float
+    explanation: str
+    criteria: dict[str, ScriptRatingCriterion]
+
+
+class ScriptRating(BaseModel):
+    """Full-script quality scorecard generated after script creation."""
+
+    viewer_retention: ScriptRatingCategory
+    narrative_quality: ScriptRatingCategory
+    script_craft: ScriptRatingCategory
+    audience_fit: ScriptRatingCategory
+    seo_alignment: ScriptRatingCategory
+    overall: float
+    model: str = ""
+    version: str = "2026-05-25"
+
+
 class ScriptContent(BaseModel):
     """The full script payload matching PRD section 7.2."""
 
@@ -350,6 +379,7 @@ class ScriptContent(BaseModel):
     seo_metadata: dict | None = None      # Generated SEO metadata (title, description, tags)
     short_form_seo_metadata: dict | None = None  # Generated per-short metadata for Shorts/TikTok/Reels
     hook_score: dict | None = None        # 30-second hook retention score (HookScore dict)
+    script_rating: ScriptRating | None = None  # Full-script 1-10 quality scorecard
     hook_scene_count: int | None = None  # Number of leading scenes in segment 0 that are hook teasers; skipped from short #1
     # --- Media source routing ---
     ai_video_enabled: bool = False
@@ -451,4 +481,5 @@ class ScriptSummary(BaseModel):
     format_id: str
     status: str  # "script" | "images" | "audio" | "exported"
     hook_score_overall: int | None = None
+    script_rating_overall: float | None = None
     upload_tracking: UploadTracking = PydanticField(default_factory=UploadTracking)

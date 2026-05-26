@@ -133,6 +133,7 @@ export interface ScriptContent {
   seo_metadata?: SEOMetadata | null;
   short_form_seo_metadata?: ShortFormSEOMetadata | null;
   hook_score?: HookScore | null;
+  script_rating?: ScriptRating | null;
   // AI video media routing
   ai_video_enabled?: boolean;
   // Short-form export
@@ -174,7 +175,32 @@ export interface ScriptSummary {
   format_id: string;
   status: "script" | "images" | "audio" | "exported";
   hook_score_overall?: number | null;
+  script_rating_overall?: number | null;
   upload_tracking: UploadTracking;
+}
+
+// --- Script rating types ---
+
+export interface ScriptRatingCriterion {
+  score: number;
+  note?: string;
+}
+
+export interface ScriptRatingCategory {
+  average: number;
+  explanation: string;
+  criteria: Record<string, ScriptRatingCriterion>;
+}
+
+export interface ScriptRating {
+  viewer_retention: ScriptRatingCategory;
+  narrative_quality: ScriptRatingCategory;
+  script_craft: ScriptRatingCategory;
+  audience_fit: ScriptRatingCategory;
+  seo_alignment: ScriptRatingCategory;
+  overall: number;
+  model?: string;
+  version?: string;
 }
 
 // --- Hook score types ---

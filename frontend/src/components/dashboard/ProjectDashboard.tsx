@@ -60,6 +60,37 @@ function getProjectTypeLabel(formatId: string) {
   return PROJECT_TYPE_LABELS[formatId] ?? "Educational Listicle";
 }
 
+function scoreBadgeClass(score: number, scale: "hook" | "script") {
+  if (scale === "hook") {
+    if (score >= 80) return "bg-emerald-500/20 text-emerald-300";
+    if (score >= 50) return "bg-amber-500/20 text-amber-300";
+    return "bg-red-500/20 text-red-300";
+  }
+  if (score >= 8) return "bg-emerald-500/20 text-emerald-300";
+  if (score >= 6) return "bg-amber-500/20 text-amber-300";
+  return "bg-red-500/20 text-red-300";
+}
+
+function ScriptRatingBadge({ score }: { score: number }) {
+  return (
+    <Tooltip content="Full-script quality rating against top educational YouTube standards">
+      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${scoreBadgeClass(score, "script")}`}>
+        Script {score.toFixed(1)}
+      </span>
+    </Tooltip>
+  );
+}
+
+function HookRatingBadge({ score }: { score: number }) {
+  return (
+    <Tooltip content="Predicted engagement score based on title and hook strength">
+      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${scoreBadgeClass(score, "hook")}`}>
+        Hook {score}
+      </span>
+    </Tooltip>
+  );
+}
+
 function ProjectThumbnail({ project, compact = false }: { project: ScriptSummary; compact?: boolean }) {
   return (
     <div className={`${compact ? "w-28 h-16 rounded-lg" : "aspect-video rounded-t-xl"} bg-neutral-900 relative overflow-hidden shrink-0`}>
@@ -537,17 +568,10 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject, isActive =
                       <span className="flex items-center gap-2">
                         <span>{project.segment_count} segments &middot; {project.scene_count} scenes</span>
                         {project.hook_score_overall != null && (
-                          <Tooltip content="Predicted engagement score based on title and hook strength">
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                              project.hook_score_overall >= 80
-                                ? "bg-emerald-500/20 text-emerald-300"
-                                : project.hook_score_overall >= 50
-                                  ? "bg-amber-500/20 text-amber-300"
-                                  : "bg-red-500/20 text-red-300"
-                            }`}>
-                              Hook {project.hook_score_overall}
-                            </span>
-                          </Tooltip>
+                          <HookRatingBadge score={project.hook_score_overall} />
+                        )}
+                        {project.script_rating_overall != null && (
+                          <ScriptRatingBadge score={project.script_rating_overall} />
                         )}
                       </span>
                       <span className="flex items-center gap-1.5">
@@ -606,17 +630,10 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject, isActive =
                         {getProjectTypeLabel(project.format_id)}
                       </span>
                       {project.hook_score_overall != null && (
-                        <Tooltip content="Predicted engagement score based on title and hook strength">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                            project.hook_score_overall >= 80
-                              ? "bg-emerald-500/20 text-emerald-300"
-                              : project.hook_score_overall >= 50
-                                ? "bg-amber-500/20 text-amber-300"
-                                : "bg-red-500/20 text-red-300"
-                          }`}>
-                            Hook {project.hook_score_overall}
-                          </span>
-                        </Tooltip>
+                        <HookRatingBadge score={project.hook_score_overall} />
+                      )}
+                      {project.script_rating_overall != null && (
+                        <ScriptRatingBadge score={project.script_rating_overall} />
                       )}
                     </div>
                     <div className="text-sm text-neutral-400">

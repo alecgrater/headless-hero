@@ -71,6 +71,7 @@ import PropertiesPanel from "./PropertiesPanel";
 import ThumbnailModal from "./ThumbnailModal";
 import TimelineLanes from "./TimelineLanes";
 import VoiceSetupModal from "../brand/VoiceSetupModal";
+import ScriptRatingCard from "../script/ScriptRatingCard";
 import ShortFormTab from "./short-form/ShortFormTab";
 import ShortFormThumbnailsCard from "./short-form/ShortFormThumbnailsCard";
 import { Tooltip } from "../ui/Tooltip";
@@ -3178,7 +3179,8 @@ function TimelineEditor({
       /* Vertical layout: Timeline on top (full width), Properties below */
       <div className="flex flex-col flex-1 overflow-hidden">
         {/* Main timeline area — full width */}
-        <div className="overflow-auto p-4 shrink-0">
+        <div className="overflow-auto p-4 shrink-0 space-y-4">
+          <ScriptRatingCard rating={state.content.script_rating} />
           <TimelineLanes
             content={state.content}
             selectedSceneId={state.selectedSceneId}
