@@ -374,14 +374,14 @@ def _flipflop_layers(scene: Scene, state_b_enter_at: float) -> list[VisualLayer]
     return [
         VisualLayer(
             id=f"{scene.id}_state_a",
-            prompt=_panel_prompt(scene, "state A"),
+            prompt=flipflop_panel_prompt(scene.visual_prompt, scene.narration, "state A"),
             placement="center",
             enter_at_seconds=0.0,
             animation="pop_in",
         ),
         VisualLayer(
             id=f"{scene.id}_state_b",
-            prompt=_panel_prompt(scene, "state B"),
+            prompt=flipflop_panel_prompt(scene.visual_prompt, scene.narration, "state B"),
             placement="center",
             enter_at_seconds=round(state_b_enter_at, 2),
             animation="pop_in",
@@ -389,11 +389,22 @@ def _flipflop_layers(scene: Scene, state_b_enter_at: float) -> list[VisualLayer]
     ]
 
 
+def flipflop_panel_prompt(visual_prompt: str, narration: str, focus: str) -> str:
+    base_prompt = visual_prompt.strip() or narration.strip()
+    return (
+        f"Full-bleed 16:9 illustration for flip-flop {focus}: {base_prompt}. "
+        "Fill the entire canvas edge to edge with the scene artwork. "
+        "No decorative border, picture frame, mat, white margin, inset panel, UI chrome, caption box, or poster edge. "
+        "No text in image."
+    )
+
+
 def _panel_prompt(scene: Scene, focus: str) -> str:
     base_prompt = scene.visual_prompt.strip() or scene.narration.strip()
     return (
-        f"small framed Headless Hero cartoon panel for {focus}: {base_prompt}. "
-        "The panel sits on a flat static color background, not a full video background. "
+        f"Popup item cutout prompt for {focus}: {base_prompt}. "
+        "Generate only the named popup item as a clean isolated cartoon cutout candidate. "
+        "No decorative border, picture frame, mat, white margin, inset panel, UI chrome, caption box, or poster edge. "
         "No text in image."
     )
 

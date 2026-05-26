@@ -19,6 +19,7 @@ from config import DATA_DIR, FPS
 from models.project_config import ProjectConfig
 from models.script import MainCharacter, Scene, Script, ScriptContent, Segment, VisualCanvas, VisualLayer
 from pipeline.script_helpers import _usage_task_label
+from pipeline.visual_treatments import flipflop_panel_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -920,21 +921,33 @@ def _fallback_visual_layers_for_treatment(scene: Scene) -> list[VisualLayer]:
         return [
             VisualLayer(
                 id=f"{scene.id}_popup_1",
-                prompt=f"small framed Headless Hero cartoon panel: {base_prompt}. No text in image.",
+                prompt=(
+                    f"Popup item cutout prompt for first beat: {base_prompt}. "
+                    "No decorative border, picture frame, mat, white margin, inset panel, UI chrome, caption box, or poster edge. "
+                    "No text in image."
+                ),
                 placement="left",
                 enter_at_seconds=0.0,
                 animation="pop_in",
             ),
             VisualLayer(
                 id=f"{scene.id}_popup_2",
-                prompt=f"small framed Headless Hero cartoon panel, second beat: {base_prompt}. No text in image.",
+                prompt=(
+                    f"Popup item cutout prompt for second beat: {base_prompt}. "
+                    "No decorative border, picture frame, mat, white margin, inset panel, UI chrome, caption box, or poster edge. "
+                    "No text in image."
+                ),
                 placement="center",
                 enter_at_seconds=second_enter_at,
                 animation="pop_in",
             ),
             VisualLayer(
                 id=f"{scene.id}_popup_3",
-                prompt=f"small framed Headless Hero cartoon panel, third beat: {base_prompt}. No text in image.",
+                prompt=(
+                    f"Popup item cutout prompt for third beat: {base_prompt}. "
+                    "No decorative border, picture frame, mat, white margin, inset panel, UI chrome, caption box, or poster edge. "
+                    "No text in image."
+                ),
                 placement="right",
                 enter_at_seconds=third_enter_at,
                 animation="pop_in",
@@ -943,14 +956,14 @@ def _fallback_visual_layers_for_treatment(scene: Scene) -> list[VisualLayer]:
     return [
         VisualLayer(
             id=f"{scene.id}_state_a",
-            prompt=f"small framed Headless Hero cartoon panel for state A: {base_prompt}. No text in image.",
+            prompt=flipflop_panel_prompt(scene.visual_prompt, scene.narration, "state A"),
             placement="center",
             enter_at_seconds=0.0,
             animation="pop_in",
         ),
         VisualLayer(
             id=f"{scene.id}_state_b",
-            prompt=f"small framed Headless Hero cartoon panel for state B: {base_prompt}. No text in image.",
+            prompt=flipflop_panel_prompt(scene.visual_prompt, scene.narration, "state B"),
             placement="center",
             enter_at_seconds=max((scene.audio_duration_seconds or scene.duration_estimate_seconds) / 2, 0.5),
             animation="pop_in",

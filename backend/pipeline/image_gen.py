@@ -29,6 +29,12 @@ Multi-image sequence consistency:
 - Output a full-bleed 16:9 illustration only. No decorative border, picture frame, mat, white margin, inset panel, UI chrome, caption box, or poster edge.
 - Do not draw literal frames around the image. The word "sequence" refers only to multiple generated images, not a physical frame or border.
 """
+_FULL_BLEED_IMAGE_GUARD = """\
+Image boundary rules:
+- Output one full-bleed 16:9 illustration that fills the entire canvas edge to edge.
+- No decorative border, picture frame, mat, white margin, inset panel, UI chrome, caption box, poster edge, or floating card.
+- Do not draw a literal frame around the image; any mentions of scenes, frames, panels, states, or sequences are production terms only.
+"""
 
 # --- Character reference helpers ---
 
@@ -299,6 +305,7 @@ def _compose_image_prompt_context(
     parts: list[str] = []
     if _VISUAL_STYLE:
         parts.append(_VISUAL_STYLE)
+    parts.append(_FULL_BLEED_IMAGE_GUARD)
     if guide:
         parts.append(guide)
     if character_text:
@@ -662,6 +669,7 @@ def _popup_item_label(layer: dict, index: int) -> str:
     if match:
         return _clean_popup_label(match.group(1))
     prompt = re.sub(r"small framed Headless Hero cartoon panel[:,]?\s*", "", prompt, flags=re.IGNORECASE)
+    prompt = re.sub(r"Popup item cutout prompt(?:\s+for\s+[^:]+)?:\s*", "", prompt, flags=re.IGNORECASE)
     prompt = re.sub(r"\bNo text in image\.?", "", prompt, flags=re.IGNORECASE)
     prompt = prompt.split(".", 1)[0]
     return _clean_popup_label(prompt) or f"popup item {index + 1}"
@@ -919,6 +927,7 @@ def generate_scene_frames(
             parts: list[str] = []
             if _VISUAL_STYLE:
                 parts.append(_VISUAL_STYLE)
+            parts.append(_FULL_BLEED_IMAGE_GUARD)
             if character_text:
                 parts.append(character_text)
             parts.append(
@@ -934,6 +943,7 @@ def generate_scene_frames(
             parts: list[str] = []
             if _VISUAL_STYLE:
                 parts.append(_VISUAL_STYLE)
+            parts.append(_FULL_BLEED_IMAGE_GUARD)
             if guide:
                 parts.append(guide)
             if character_text:
@@ -1105,6 +1115,7 @@ def generate_scene_frames_v2(
             parts: list[str] = []
             if _VISUAL_STYLE:
                 parts.append(_VISUAL_STYLE)
+            parts.append(_FULL_BLEED_IMAGE_GUARD)
             if character_text:
                 parts.append(character_text)
             parts.append(
@@ -1121,6 +1132,7 @@ def generate_scene_frames_v2(
             parts: list[str] = []
             if _VISUAL_STYLE:
                 parts.append(_VISUAL_STYLE)
+            parts.append(_FULL_BLEED_IMAGE_GUARD)
             if total_frames > 1:
                 parts.append(_SEQUENCE_CONSISTENCY_PROMPT)
                 if visual_prompt.strip():

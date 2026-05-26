@@ -14,6 +14,7 @@ def _reset_data_dir(monkeypatch, tmp_path):
     import pipeline.image_gen as ig_mod
 
     importlib.reload(ig_mod)
+    monkeypatch.setattr(ig_mod, "_load_project_style_enabled", lambda script_id: True)
     return ig_mod
 
 
@@ -225,6 +226,61 @@ def test_generate_scene_frames_v2_independent_frames_share_style_and_forbid_bord
         assert "full-bleed 16:9 illustration" in prompt
         assert "No decorative border" in prompt
         assert "This specific frame" not in prompt
+
+
+def test_generate_scene_image_prompt_forbids_decorative_borders(tmp_path, monkeypatch):
+    ig_mod = _reset_data_dir(monkeypatch, tmp_path)
+    monkeypatch.setattr(ig_mod, "_VISUAL_STYLE", "HOUSE STYLE")
+    monkeypatch.setattr(ig_mod, "_STYLE_GUIDE", "COMPOSITION GUIDE")
+    monkeypatch.setattr(ig_mod, "_load_project_character_context", lambda script_id: (True, None, None))
+    monkeypatch.setattr(ig_mod, "_ensure_project_character_reference_ready", lambda **_kwargs: None)
+    monkeypatch.setattr(ig_mod, "_load_project_style_enabled", lambda script_id: False)
+    monkeypatch.setattr(ig_mod, "_resolve_style_preset", lambda **_kwargs: None)
+
+    captured: list[dict] = []
+    _stub_generate_image(monkeypatch, ig_mod, captured)
+
+    ig_mod.generate_scene_image(
+        scene_id="scene1",
+        visual_prompt="Flat 2D cartoon city street cracking apart.",
+        script_id="proj1",
+    )
+
+    prompt = captured[0]["prompt"]
+    assert "Image boundary rules" in prompt
+    assert "full-bleed 16:9 illustration" in prompt
+    assert "No decorative border" in prompt
+    assert "picture frame" in prompt
+    assert "floating card" in prompt
+
+
+def test_generate_scene_frames_legacy_prompt_forbids_decorative_borders(tmp_path, monkeypatch):
+    ig_mod = _reset_data_dir(monkeypatch, tmp_path)
+    monkeypatch.setattr(ig_mod, "_VISUAL_STYLE", "HOUSE STYLE")
+    monkeypatch.setattr(ig_mod, "_STYLE_GUIDE", "COMPOSITION GUIDE")
+    monkeypatch.setattr(ig_mod, "_load_project_character_context", lambda script_id: (True, None, None))
+    monkeypatch.setattr(ig_mod, "_ensure_project_character_reference_ready", lambda **_kwargs: None)
+    monkeypatch.setattr(ig_mod, "_load_project_style_enabled", lambda script_id: False)
+    monkeypatch.setattr(ig_mod, "_resolve_style_preset", lambda **_kwargs: None)
+
+    captured: list[dict] = []
+    _stub_generate_image(monkeypatch, ig_mod, captured)
+
+    ig_mod.generate_scene_frames(
+        scene_id="scene1",
+        frame_prompts=["first shot", "second shot"],
+        script_id="proj1",
+        visual_prompt="Flat 2D cartoon city warning sequence.",
+    )
+
+    assert len(captured) == 2
+    for call in captured:
+        prompt = call["prompt"]
+        assert "Image boundary rules" in prompt
+        assert "full-bleed 16:9 illustration" in prompt
+        assert "No decorative border" in prompt
+        assert "picture frame" in prompt
+        assert "floating card" in prompt
 
 
 def test_generate_scene_frames_v2_uses_prior_independent_image_as_style_anchor(tmp_path, monkeypatch):

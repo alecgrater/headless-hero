@@ -2256,6 +2256,28 @@ def test_test_lab_multi_frame_fallback_prompts_avoid_decorative_frame_language()
         assert "picture frame" not in prompt
 
 
+def test_test_lab_flipflop_fallback_prompts_avoid_decorative_frame_language():
+    from models.script import Scene
+    from pipeline.test_lab import _fallback_visual_layers_for_treatment
+
+    scene = Scene(
+        id="scene-1",
+        narration="A face flips from calm to panic.",
+        visual_prompt="Flat 2D cartoon person at a control panel.",
+        visual_mode="flipflop",
+    )
+
+    layers = _fallback_visual_layers_for_treatment(scene)
+
+    assert len(layers) == 2
+    for layer in layers:
+        prompt = layer.prompt.lower()
+        assert "full-bleed 16:9 illustration" in prompt
+        assert "no decorative border" in prompt
+        assert "small framed" not in prompt
+        assert "framed panel" not in prompt
+
+
 def test_stage_visual_generates_referenced_frame_urls_for_continuous_mode(monkeypatch, tmp_path):
     engine, _app = _setup_app(monkeypatch, tmp_path)
 

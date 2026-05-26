@@ -356,9 +356,17 @@ def test_generate_visual_layer_panels_expands_flipflop_micro_animation_prompts(t
     assert len(captured) == 2
     assert "State A" in captured[0]["prompt"]
     assert "initial pose" in captured[0]["prompt"]
+    assert "full-bleed 16:9 illustration" in captured[0]["prompt"]
+    assert "No decorative border" in captured[0]["prompt"]
+    assert "small framed" not in captured[0]["prompt"].lower()
+    assert "framed panel" not in captured[0]["prompt"].lower()
     assert "State B" in captured[1]["prompt"]
     assert "same exact composition" in captured[1]["prompt"]
     assert "small pose/expression progression" in captured[1]["prompt"]
+    assert "full-bleed 16:9 illustration" in captured[1]["prompt"]
+    assert "No decorative border" in captured[1]["prompt"]
+    assert "small framed" not in captured[1]["prompt"].lower()
+    assert "framed panel" not in captured[1]["prompt"].lower()
     assert captured[0]["reference_image_path"] == char_ref
     assert captured[1]["reference_image_path"].endswith("scene_001_layer_scene_001_state_a.png")
     assert "State A" in captured[0]["original_prompt"]
@@ -1900,7 +1908,12 @@ def test_analyze_visual_treatments_assigns_popup_sequence_for_list_narration(
     assert len(assignment.visual_layers) == expected_layers
     enter_times = [layer.enter_at_seconds for layer in assignment.visual_layers]
     assert enter_times == sorted(enter_times)
-    assert all("small framed Headless Hero cartoon panel" in layer.prompt for layer in assignment.visual_layers)
+    for layer in assignment.visual_layers:
+        prompt = layer.prompt.lower()
+        assert "popup item cutout prompt" in prompt
+        assert "no decorative border" in prompt
+        assert "small framed" not in prompt
+        assert "picture frame" in prompt
 
 
 def test_analyze_visual_treatments_prefers_natural_list_over_repeated_words():
@@ -1945,6 +1958,12 @@ def test_analyze_visual_treatments_assigns_flipflop_for_two_state_narration():
     assert len(assignment.visual_layers) == 2
     assert [layer.id for layer in assignment.visual_layers] == ["s1_state_a", "s1_state_b"]
     assert [layer.enter_at_seconds for layer in assignment.visual_layers] == [0.0, 2.1]
+    for layer in assignment.visual_layers:
+        prompt = layer.prompt.lower()
+        assert "full-bleed 16:9 illustration" in prompt
+        assert "no decorative border" in prompt
+        assert "small framed" not in prompt
+        assert "framed panel" not in prompt
 
 
 def test_analyze_visual_treatments_assigns_flipflop_for_repetition():
