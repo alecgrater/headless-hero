@@ -31,11 +31,13 @@ export interface TestLabPreset {
 export interface TestLabSceneTextDefaults {
   narration: string;
   visual_prompt: string;
+  caption_text?: string;
+  caption_emphasis?: string;
 }
 
 export interface TestLabScenes {
   presets: TestLabPreset[];
-  visual_treatment_defaults?: Partial<Record<VisualTreatment, TestLabSceneTextDefaults>>;
+  visual_treatment_defaults?: Partial<Record<VisualMode | VisualTreatment, TestLabSceneTextDefaults>>;
   default_main_character: TestLabMainCharacter | null;
 }
 

@@ -17,6 +17,7 @@ const preset: TestLabPreset = {
   caption_text: "",
   caption_emphasis: "",
   duration_estimate_seconds: 7,
+  main_character: null,
 };
 
 const defaults: TestLabScenes["visual_treatment_defaults"] = {
@@ -31,13 +32,27 @@ const defaults: TestLabScenes["visual_treatment_defaults"] = {
 describe("settingsWithVisualTreatmentDefaults", () => {
   it("does not inject canned caption text when switching custom narration to captions", () => {
     const settings: TestLabSettings = {
+      stages: {
+        character: false,
+        audio: true,
+        visual: true,
+        treatment_assets: false,
+        fx: true,
+        eli: false,
+        render: true,
+      },
+      eli_enabled: false,
+      style_preset_enabled: true,
       visual_mode: "captions",
       media_source: "ai",
       visual_treatment: "full_frame",
+      visual_layers: [],
       narration: "The tiny crack spreads across the wall until the whole room feels like it is holding its breath.",
       visual_prompt: "[CLOSE-UP] A cracked cartoon wall.",
       caption_text: undefined,
       caption_emphasis: undefined,
+      segment_timer_enabled: true,
+      subtitle_highlight_enabled: true,
     };
 
     const next = settingsWithVisualTreatmentDefaults(settings, preset, "captions", defaults);
