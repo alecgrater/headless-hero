@@ -962,9 +962,11 @@ def generate_scene_frames(
             parts.append(_FULL_BLEED_IMAGE_GUARD)
             if character_text:
                 parts.append(character_text)
+            if visual_prompt.strip():
+                parts.append(f"Shared scene brief for the whole continuous sequence:\n{visual_prompt.strip()}")
             parts.append(
                 f"This is frame {i + 1} of {total_frames} in an animation sequence. "
-                f"Using the input image as reference, change ONLY the following: "
+                f"Using the input image as the previous frame reference, progress the scene by changing ONLY the following: "
                 f"{frame_prompt}\n"
                 f"Maintain identical style, background, composition, character design, "
                 f"and color palette. Only the described action should change."
@@ -1006,10 +1008,11 @@ def generate_scene_frames(
             except OSError:
                 pass
 
-        if style_reference_path:
+        effective_style_reference_path = None if use_reference else style_reference_path
+        if effective_style_reference_path:
             try:
-                mtime = int(Path(style_reference_path).stat().st_mtime)
-                prompt += f"\n[style_ref:{style_reference_path}:{mtime}]"
+                mtime = int(Path(effective_style_reference_path).stat().st_mtime)
+                prompt += f"\n[style_ref:{effective_style_reference_path}:{mtime}]"
             except OSError:
                 pass
 
@@ -1040,7 +1043,7 @@ def generate_scene_frames(
             height=height,
             reference_image_path=ref_path,
             original_prompt=full_frame_description,
-            style_reference_path=style_reference_path,
+            style_reference_path=effective_style_reference_path,
             script_id=script_id,
         )
         metadata = _move_generated_image(tmp_path, local_path, {
@@ -1150,9 +1153,11 @@ def generate_scene_frames_v2(
             parts.append(_FULL_BLEED_IMAGE_GUARD)
             if character_text:
                 parts.append(character_text)
+            if visual_prompt.strip():
+                parts.append(f"Shared scene brief for the whole continuous sequence:\n{visual_prompt.strip()}")
             parts.append(
                 f"This is image {i + 1} of {total_frames} in an animation sequence. "
-                f"Using the input image as reference, change ONLY the following: "
+                f"Using the input image as the previous frame reference, progress the scene by changing ONLY the following: "
                 f"{directive_prompt}\n"
                 f"Maintain identical style, background, composition, character design, "
                 f"and color palette. Only the described action should change."
@@ -1190,10 +1195,13 @@ def generate_scene_frames_v2(
             except OSError:
                 pass
 
-        if style_reference_path:
+        effective_style_reference_path = (
+            None if (use_reference or use_style_anchor) else style_reference_path
+        )
+        if effective_style_reference_path:
             try:
-                mtime = int(Path(style_reference_path).stat().st_mtime)
-                prompt += f"\n[style_ref:{style_reference_path}:{mtime}]"
+                mtime = int(Path(effective_style_reference_path).stat().st_mtime)
+                prompt += f"\n[style_ref:{effective_style_reference_path}:{mtime}]"
             except OSError:
                 pass
 
@@ -1228,7 +1236,7 @@ def generate_scene_frames_v2(
             height=height,
             reference_image_path=ref_path,
             original_prompt=directive_prompt,
-            style_reference_path=style_reference_path,
+            style_reference_path=effective_style_reference_path,
             script_id=script_id,
         )
         metadata = _move_generated_image(tmp_path, local_path, {

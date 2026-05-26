@@ -105,6 +105,7 @@ def _stub_generate_image(monkeypatch, ig_mod, captured: list[dict]):
         captured.append({
             "prompt": prompt,
             "reference_image_path": reference_image_path,
+            "style_reference_path": kwargs.get("style_reference_path"),
             "original_prompt": original_prompt,
         })
         return tmp
@@ -325,6 +326,65 @@ def test_generate_scene_frames_v2_uses_prior_independent_image_as_style_anchor(t
     assert captured[2]["reference_image_path"] == str(second_path)
     assert "Use the input image as a visual style anchor" in captured[1]["prompt"]
     assert "Do not copy its exact subject or layout" in captured[1]["prompt"]
+
+
+def test_generate_scene_frames_v2_reference_previous_omits_style_reference_image(tmp_path, monkeypatch):
+    ig_mod = _reset_data_dir(monkeypatch, tmp_path)
+    style_ref = tmp_path / "style" / "presets" / "preset.png"
+    style_ref.parent.mkdir(parents=True, exist_ok=True)
+    style_ref.write_bytes(b"style")
+
+    monkeypatch.setattr(ig_mod, "_VISUAL_STYLE", "HOUSE STYLE")
+    monkeypatch.setattr(ig_mod, "_STYLE_GUIDE", "COMPOSITION GUIDE")
+    monkeypatch.setattr(ig_mod, "_load_project_character_context", lambda script_id: (False, None, None))
+    monkeypatch.setattr(ig_mod, "_ensure_project_character_reference_ready", lambda **_kwargs: None)
+    monkeypatch.setattr(ig_mod, "_load_project_style_enabled", lambda script_id: True)
+    monkeypatch.setattr(ig_mod, "_resolve_style_preset", lambda **_kwargs: str(style_ref))
+
+    captured: list[dict] = []
+    _stub_generate_image(monkeypatch, ig_mod, captured)
+
+    ig_mod.generate_scene_frames_v2(
+        scene_id="scene1",
+        frame_directives=[
+            {
+                "source": "ai_generated",
+                "prompt": "Opening frame of a flat cartoon wall with one tiny crack.",
+                "reference_previous": False,
+                "contains_person": False,
+            },
+            {
+                "source": "ai_generated",
+                "prompt": "Middle frame of the same wall, same camera angle, crack spreading wider.",
+                "reference_previous": True,
+                "contains_person": False,
+            },
+            {
+                "source": "ai_generated",
+                "prompt": "Final frame of the same wall, same camera angle, crack across the room.",
+                "reference_previous": True,
+                "contains_person": False,
+            },
+        ],
+        script_id="proj1",
+        visual_prompt="Flat 2D cartoon wall with a tiny crack spreading outward through the same room.",
+    )
+
+    first_path = tmp_path / "projects" / "proj1" / "images" / "scene1_f0.png"
+    second_path = tmp_path / "projects" / "proj1" / "images" / "scene1_f1.png"
+    assert captured[0]["reference_image_path"] is None
+    assert captured[0]["style_reference_path"] == str(style_ref)
+    assert captured[1]["reference_image_path"] == str(first_path)
+    assert captured[1]["style_reference_path"] is None
+    assert captured[2]["reference_image_path"] == str(second_path)
+    assert captured[2]["style_reference_path"] is None
+    assert "style_ref:" not in captured[1]["prompt"]
+    assert "style_ref:" not in captured[2]["prompt"]
+    assert "Flat 2D cartoon wall with a tiny crack spreading outward" in captured[1]["prompt"]
+    assert "Middle frame" in captured[1]["prompt"]
+    assert "Final frame" in captured[2]["prompt"]
+    assert "progress" in captured[1]["prompt"].lower()
+    assert "progress" in captured[2]["prompt"].lower()
 
 
 def test_generate_scene_frames_v2_cache_key_includes_prior_image_anchor(tmp_path, monkeypatch):
