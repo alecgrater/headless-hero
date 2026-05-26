@@ -9,11 +9,41 @@ from models.script import (
     Scene,
     Script,
     ScriptContent,
+    ScriptRating,
+    ScriptRatingCategory,
+    ScriptRatingCriterion,
     Segment,
     UpdateScriptRequest,
     UpdateScriptTitleRequest,
 )
 from pipeline.export_paths import longform_filename, project_downloads_folder, shortform_filename, shortform_video_filename
+
+
+def _script_rating(overall: float = 7.4) -> ScriptRating:
+    def category(criteria: dict[str, int], average: float) -> ScriptRatingCategory:
+        return ScriptRatingCategory(
+            average=average,
+            explanation="Useful but can be sharper.",
+            criteria={key: ScriptRatingCriterion(score=value) for key, value in criteria.items()},
+        )
+
+    return ScriptRating(
+        viewer_retention=category({"hook_strength": 8, "curiosity_gaps": 7, "pacing_variance": 7}, 7.3),
+        narrative_quality=category({"coherence": 7, "throughline": 6}, 6.5),
+        script_craft=category({"sentence_variety": 8, "specificity": 9, "redundancy": 7, "word_economy": 8}, 8.0),
+        audience_fit=category(
+            {
+                "assumed_knowledge_level": 8,
+                "relatability": 7,
+                "tone_consistency": 8,
+                "emotional_range": 7,
+            },
+            7.5,
+        ),
+        seo_alignment=category({"title_hook_match": 7, "search_intent_match": 6, "rewatch_value": 7}, 6.7),
+        overall=overall,
+        model="gpt-5-mini",
+    )
 
 
 def test_update_script_title_updates_record_and_script_json(tmp_path):
@@ -57,6 +87,79 @@ def test_update_script_title_updates_record_and_script_json(tmp_path):
     assert stored is not None
     assert stored.topic_title == "New Title"
     assert json.loads(stored.script_json)["title"] == "New Title"
+
+
+def test_update_script_clears_rating_when_script_text_changes(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    SQLModel.metadata.create_all(engine)
+    content = ScriptContent(
+        title="Rated Script",
+        intro_hook="Original hook.",
+        script_rating=_script_rating(),
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[Scene(id="scene-1", narration="Original narration.", visual_prompt="Visual.")],
+            ),
+        ],
+    )
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id="script-1",
+                brand_id="brand-1",
+                topic_title="Rated Script",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        edited = content.model_copy(deep=True)
+        edited.segments[0].scenes[0].narration = "Updated narration."
+        response = update_script("script-1", UpdateScriptRequest(script=edited), session)
+        stored = session.get(Script, "script-1")
+
+    assert response.script.script_rating is None
+    assert stored is not None
+    assert json.loads(stored.script_json)["script_rating"] is None
+
+
+def test_update_script_preserves_rating_when_non_text_media_changes(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    SQLModel.metadata.create_all(engine)
+    content = ScriptContent(
+        title="Rated Script",
+        intro_hook="Original hook.",
+        script_rating=_script_rating(),
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[Scene(id="scene-1", narration="Original narration.", visual_prompt="Visual.")],
+            ),
+        ],
+    )
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id="script-1",
+                brand_id="brand-1",
+                topic_title="Rated Script",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        edited = content.model_copy(deep=True)
+        edited.segments[0].scenes[0].image_url = "/static/projects/script-1/images/scene-1.png"
+        response = update_script("script-1", UpdateScriptRequest(script=edited), session)
+        stored = session.get(Script, "script-1")
+
+    assert response.script.script_rating is not None
+    assert response.script.script_rating.overall == 7.4
+    assert stored is not None
+    assert json.loads(stored.script_json)["script_rating"]["overall"] == 7.4
 
 
 def test_ensure_script_exports_folder_uses_topic_title_and_creates_folder(tmp_path, monkeypatch):

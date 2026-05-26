@@ -552,6 +552,35 @@ def generate_status(job_id: str):
     return result
 
 
+def _script_rating_signature(content: ScriptContent) -> dict:
+    """Return the text/story fields that make a saved script rating valid."""
+    return {
+        "title": content.title,
+        "intro_hook": content.intro_hook,
+        "outro_cta": content.outro_cta,
+        "card_title": content.card_title,
+        "card_subtitle": content.card_subtitle,
+        "segments": [
+            {
+                "name": segment.name,
+                "short_name": segment.short_name,
+                "scenes": [
+                    {
+                        "id": scene.id,
+                        "is_title_card": scene.is_title_card,
+                        "narration": scene.narration,
+                        "visual_prompt": scene.visual_prompt,
+                        "caption_text": scene.caption_text,
+                        "caption_emphasis": scene.caption_emphasis,
+                    }
+                    for scene in segment.scenes
+                ],
+            }
+            for segment in content.segments
+        ],
+    }
+
+
 @router.put("/{script_id}", response_model=ScriptRead)
 def update_script(script_id: str, body: UpdateScriptRequest, session: Session = Depends(get_session)):
     record = session.get(Script, script_id)
@@ -559,6 +588,7 @@ def update_script(script_id: str, body: UpdateScriptRequest, session: Session = 
         raise HTTPException(status_code=404, detail="Script not found")
 
     content = body.script.model_copy(update={"title": record.topic_title or body.script.title})
+    prev_content: ScriptContent | None = None
 
     # Clear legacy hidden TTS text when narration is edited.
     try:
@@ -570,6 +600,12 @@ def update_script(script_id: str, body: UpdateScriptRequest, session: Session = 
                     sc.tts_narration = ""
     except Exception:
         logger.exception("Failed to clear legacy tts_narration on edited scenes; continuing")
+
+    if prev_content is not None:
+        if _script_rating_signature(prev_content) != _script_rating_signature(content):
+            content.script_rating = None
+        elif prev_content.script_rating is not None:
+            content.script_rating = prev_content.script_rating
 
     record.script_json = content.model_dump_json()
     session.add(record)
