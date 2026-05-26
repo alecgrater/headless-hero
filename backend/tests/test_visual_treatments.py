@@ -375,6 +375,38 @@ def test_generate_visual_layer_panels_expands_flipflop_micro_animation_prompts(t
     assert layers[1]["image_url"] == "/static/projects/script-1/images/scene_001_layer_scene_001_state_b.png"
 
 
+def test_generate_visual_layer_panels_sanitizes_stale_flipflop_frame_prompts(tmp_path, monkeypatch):
+    image_gen_mod, _char_ref, _ = _stub_panel_image_context(monkeypatch, tmp_path)
+    captured = []
+    _stub_generate_image_file(monkeypatch, image_gen_mod, captured)
+
+    generate_visual_layer_panels(
+        "scene_001",
+        [
+            {
+                "id": "scene_001_state_a",
+                "type": "image",
+                "asset_kind": "panel",
+                "prompt": (
+                    "small framed Headless Hero cartoon panel for state A: "
+                    "Flat 2D cartoon person standing at a podium holding a book. "
+                    "The panel sits on a flat static color background, not a full video background. "
+                    "No text in image."
+                ),
+            },
+        ],
+        "script-1",
+        visual_treatment="flipflop",
+    )
+
+    prompt = captured[0]["prompt"].lower()
+    assert "flat 2d cartoon person standing at a podium holding a book" in prompt
+    assert "small framed" not in prompt
+    assert "headless hero cartoon panel" not in prompt
+    assert "the panel sits" not in prompt
+    assert "full video background" not in prompt
+
+
 def test_generate_visual_layer_panels_cache_hit_uses_composed_prompt(tmp_path, monkeypatch):
     image_gen_mod, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
     captured = []
