@@ -89,6 +89,48 @@ def test_update_script_title_updates_record_and_script_json(tmp_path):
     assert json.loads(stored.script_json)["title"] == "New Title"
 
 
+def test_update_script_title_clears_rating(tmp_path):
+    engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
+    SQLModel.metadata.create_all(engine)
+    content = ScriptContent(
+        title="Old Title",
+        script_rating=_script_rating(),
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="scene-1",
+                        narration="Narration.",
+                        visual_prompt="Visual.",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    with Session(engine) as session:
+        record = Script(
+            id="script-1",
+            brand_id="brand-1",
+            topic_title="Old Title",
+            script_json=content.model_dump_json(),
+        )
+        session.add(record)
+        session.commit()
+
+        updated = update_script_title(
+            "script-1",
+            UpdateScriptTitleRequest(title="New Title"),
+            session,
+        )
+        stored = session.get(Script, "script-1")
+
+    assert updated.script.script_rating is None
+    assert stored is not None
+    assert json.loads(stored.script_json)["script_rating"] is None
+
+
 def test_update_script_clears_rating_when_script_text_changes(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
     SQLModel.metadata.create_all(engine)
