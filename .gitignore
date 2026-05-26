@@ -22,6 +22,7 @@ backend/data/
 
 # Claude worktrees
 .claude/worktrees/
+.worktrees/
 
 # Test scratch files
 test.html
