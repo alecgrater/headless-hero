@@ -57,8 +57,8 @@ const panelPlacementStyle = (placement?: string): React.CSSProperties => {
   }
 };
 
-const layerFrameStyle = (layer: VisualLayer): React.CSSProperties => {
-  if (layer.asset_kind === "full_frame") {
+export const layerFrameStyle = (layer: VisualLayer): React.CSSProperties => {
+  if (layer.asset_kind === "full_frame" || layer.asset_kind === "panel") {
     return {
       position: "absolute",
       inset: 0,
@@ -222,17 +222,7 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
     return <>{fallbackVisualLayer}</>;
   }
 
-  const layerEnterFrame = (layer: VisualLayer) => Math.round((layer.enter_at_seconds ?? 0) * fps);
-  const eligibleLayers = layers.filter((layer) => frame >= layerEnterFrame(layer));
-  const activeLayers = eligibleLayers.length > 0 ? eligibleLayers : [layers[0]];
-  const intervalFrames = Math.max(1, Math.round(fps * 0.5));
-  const latestEnterFrame = Math.max(...activeLayers.map(layerEnterFrame));
-  const newestEligibleIndex = Math.max(0, activeLayers.findIndex((layer) => layerEnterFrame(layer) === latestEnterFrame));
-  const ticksSinceLatestEntry = Math.floor(Math.max(0, frame - latestEnterFrame) / intervalFrames);
-  const activeIndex = activeLayers.length === 1
-    ? 0
-    : (newestEligibleIndex + ticksSinceLatestEntry) % activeLayers.length;
-  const activeLayer = activeLayers[activeIndex];
+  const activeLayer = flipflopActiveLayer(layers, frame, fps);
 
   return (
     <div style={{ position: "absolute", inset: 0 }}>
@@ -246,6 +236,15 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
       </div>
     </div>
   );
+};
+
+export const flipflopActiveLayer = (layers: VisualLayer[], frame: number, fps: number): VisualLayer | undefined => {
+  if (layers.length === 0) {
+    return undefined;
+  }
+  const intervalFrames = Math.max(1, Math.round(fps * 0.5));
+  const activeIndex = Math.floor(Math.max(0, frame) / intervalFrames) % layers.length;
+  return layers[activeIndex];
 };
 
 export const TreatmentRenderer: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {

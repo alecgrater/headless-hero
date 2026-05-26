@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type React from "react";
 
-import { layerChromeStyle, popupOrbitFrameStyle } from "@remotion-src/scenes/TreatmentRenderer";
+import {
+  flipflopActiveLayer,
+  layerChromeStyle,
+  layerFrameStyle,
+  popupOrbitFrameStyle,
+} from "@remotion-src/scenes/TreatmentRenderer";
 import type { VisualLayer } from "@remotion-src/types";
 
 const itemLayer = (id: string): VisualLayer => ({
@@ -116,5 +121,29 @@ describe("layerChromeStyle", () => {
     expect(style.boxShadow).toBe("none");
     expect(style.overflow).toBe("visible");
     expect(style.backgroundColor).toBe("transparent");
+  });
+});
+
+describe("layerFrameStyle", () => {
+  it("renders generated panels full screen instead of revealing canvas color", () => {
+    const style = layerFrameStyle(panelLayer("state-a"));
+
+    expect(style.position).toBe("absolute");
+    expect(style.inset).toBe(0);
+    expect(style.width).toBeUndefined();
+    expect(style.height).toBeUndefined();
+  });
+});
+
+describe("flipflopActiveLayer", () => {
+  it("alternates between all states from the start of the scene", () => {
+    const layers = [
+      { ...panelLayer("state-a"), enter_at_seconds: 0 },
+      { ...panelLayer("state-b"), enter_at_seconds: 2.1 },
+    ];
+
+    expect(flipflopActiveLayer(layers, 0, 30)?.id).toBe("state-a");
+    expect(flipflopActiveLayer(layers, 15, 30)?.id).toBe("state-b");
+    expect(flipflopActiveLayer(layers, 30, 30)?.id).toBe("state-a");
   });
 });
