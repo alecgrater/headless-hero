@@ -282,6 +282,20 @@ def test_selected_life_as_a_opening_count_allows_minimal_polish():
     assert scriptwriter._selected_opening_scene_count(content, selected_opening) == 2
 
 
+def test_video_format_reference_fields_default_empty():
+    """New reference fields must default to empty so existing formats stay valid."""
+    from pipeline.formats.base import FormatNote, VideoFormat
+
+    note = FormatNote(category="Narration", text="example rule")
+    assert note.category == "Narration"
+    assert note.text == "example rule"
+
+    import dataclasses
+    field_names = {f.name for f in dataclasses.fields(VideoFormat)}
+    assert "supported_visual_modes" in field_names
+    assert "reference_notes" in field_names
+
+
 def test_enforce_life_as_a_falls_back_to_cinematic_prompt_for_level_1():
     """When levels[0].image_prompt is empty, the level-1 chapter scene should
     use cinematic_thumbnail_prompt as its visual_prompt fallback."""

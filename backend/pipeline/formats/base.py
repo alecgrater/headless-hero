@@ -11,6 +11,18 @@ from prompts import PromptDef
 
 
 @dataclass(frozen=True)
+class FormatNote:
+    """One curated reference gotcha for a format, grouped by category.
+
+    category: "Openings" | "Narration" | "Visuals" | "Title cards"
+              | "Scene length" | "Short-form" | "AI video"
+    """
+
+    category: str
+    text: str
+
+
+@dataclass(frozen=True)
 class VisualBeatRules:
     """Per-format distribution rules for visual_beat reassignment."""
 
@@ -78,3 +90,7 @@ class VideoFormat:
 
     # Post-processing — applied after Claude generation, before _fix_visual_monotony
     enforce_post_processing: Callable[..., ScriptContent]
+
+    # Reference-only metadata (drives the Script Types settings page; not enforced)
+    supported_visual_modes: tuple[str, ...] = ()
+    reference_notes: tuple[FormatNote, ...] = ()
