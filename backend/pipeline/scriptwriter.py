@@ -80,6 +80,50 @@ def _normalize_opening_text(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
 
 
+_OPENING_MATCH_STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "for",
+    "in",
+    "into",
+    "is",
+    "of",
+    "on",
+    "the",
+    "to",
+    "with",
+    "you",
+    "your",
+}
+
+
+def _opening_match_tokens(value: str) -> set[str]:
+    return {
+        token
+        for token in _normalize_opening_text(value).split()
+        if token not in _OPENING_MATCH_STOPWORDS
+    }
+
+
+def _scene_matches_selected_opening(narration: str, selected: str) -> bool:
+    scene_text = _normalize_opening_text(narration)
+    if not scene_text:
+        return False
+    if scene_text in selected or selected in scene_text:
+        return True
+
+    scene_tokens = _opening_match_tokens(narration)
+    if len(scene_tokens) < 4:
+        return False
+    selected_tokens = _opening_match_tokens(selected)
+    overlap = len(scene_tokens & selected_tokens) / len(scene_tokens)
+    return overlap >= 0.65
+
+
 def _selected_opening_scene_count(content: ScriptContent, cold_open_text: str | None) -> int:
     """Count leading non-title scenes that came from a selected long-form opening.
 
@@ -101,10 +145,10 @@ def _selected_opening_scene_count(content: ScriptContent, cold_open_text: str | 
 
     count = 0
     for scene in scenes[:5]:
-        narration = _normalize_opening_text(scene.narration or "")
-        if not narration:
+        narration = scene.narration or ""
+        if not narration.strip():
             break
-        if narration not in selected:
+        if not _scene_matches_selected_opening(narration, selected):
             break
         count += 1
 

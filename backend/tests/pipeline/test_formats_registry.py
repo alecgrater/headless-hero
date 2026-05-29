@@ -239,6 +239,48 @@ def test_segmented_life_as_a_passes_selected_opening_to_first_level(monkeypatch)
     assert content.hook_scene_count == 2
 
 
+def test_selected_life_as_a_opening_count_allows_minimal_polish():
+    """Long-form opening trimming should survive small wording changes from the LLM."""
+    from models.script import Scene, ScriptContent, Segment
+    from pipeline import scriptwriter
+
+    selected_opening = (
+        "You wake before sunrise with the keys already cutting into your palm.\n\n"
+        "The corridor is still dark. Someone is already waiting outside the gate."
+    )
+    content = ScriptContent(
+        title="Your Life As A Castle Guard",
+        format_id="life-as-a",
+        segments=[
+            Segment(name="Level 1, the new", scenes=[
+                Scene(
+                    id="title",
+                    narration="The new.",
+                    visual_prompt="[ESTABLISHING] gate at dawn",
+                    is_title_card=True,
+                ),
+                Scene(
+                    id="opening-1",
+                    narration="Before sunrise, the keys are already cutting into your palm.",
+                    visual_prompt="[CLOSE-UP] keys in palm",
+                ),
+                Scene(
+                    id="opening-2",
+                    narration="The corridor is still dark, and someone is waiting outside the gate.",
+                    visual_prompt="[WIDE] dark corridor",
+                ),
+                Scene(
+                    id="content-1",
+                    narration="At first, your only job is to keep watch while the city wakes.",
+                    visual_prompt="[ESTABLISHING] guard watching the city",
+                ),
+            ]),
+        ],
+    )
+
+    assert scriptwriter._selected_opening_scene_count(content, selected_opening) == 2
+
+
 def test_enforce_life_as_a_falls_back_to_cinematic_prompt_for_level_1():
     """When levels[0].image_prompt is empty, the level-1 chapter scene should
     use cinematic_thumbnail_prompt as its visual_prompt fallback."""
