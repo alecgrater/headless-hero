@@ -225,7 +225,19 @@ describe("TestLabControls layout", () => {
     const misc = screen.getByTestId("test-lab-section-miscellaneous");
     expect(within(misc).getByText(/Canvas color/i)).toBeInTheDocument();
     expect(within(misc).getAllByText(/Subtitle settings/i).length).toBeGreaterThan(0);
-    expect(within(misc).queryByRole("button", { name: /Segment timer/i })).not.toBeInTheDocument();
+    expect(within(misc).queryByText(/Segment timer/i)).not.toBeInTheDocument();
+  });
+
+  it("stacks subtitle setting summaries as coverage then styles", () => {
+    renderControls();
+
+    const misc = screen.getByTestId("test-lab-section-miscellaneous");
+    const summaryRows = within(misc).getAllByTestId("test-lab-subtitle-summary-row").map((row) => row.textContent);
+
+    expect(summaryRows).toEqual([
+      expect.stringContaining("Coverage"),
+      expect.stringContaining("Styles"),
+    ]);
   });
 
   it("shows flip-flop state controls inside Visual Mode", () => {

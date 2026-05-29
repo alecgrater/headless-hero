@@ -637,38 +637,30 @@ function ReadOnlySubtitleSummary({
     ? subtitleSummary.enabled_style_labels.join(", ")
     : "No standard subtitle styles enabled";
   return (
-    <div className="rounded-md border border-neutral-800 bg-neutral-950/70 p-3">
-      <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-neutral-900 text-violet-200">
-          <Captions className="h-4 w-4" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-neutral-100">Subtitle settings</p>
-          <p className="mt-1 text-xs leading-5 text-neutral-500">
-            Test Lab uses Settings -&gt; Subtitles for subtitle coverage and eligible styles. Active word highlighting stays on for normal subtitles.
-          </p>
-          <button
-            type="button"
-            onClick={() => onOpenSettingsSection?.("subtitles")}
-            className="mt-3 inline-flex items-center gap-2 rounded-md border border-neutral-700 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:border-violet-500 hover:text-violet-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
-          >
-            <Settings className="h-3.5 w-3.5" />
-            Open subtitle settings
-          </button>
-          <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-            <SummaryChip label="Coverage" value={subtitleSummary?.coverage_label || "Settings default"} />
-            <SummaryChip label="Styles" value={enabledStyles} />
-            <SummaryChip label="Segment timer" value="Always on" />
-          </div>
-        </div>
+    <div>
+      <span className="text-xs font-medium text-neutral-300">Subtitle settings</span>
+      <p className="mt-2 text-xs leading-5 text-neutral-500">
+        Test Lab uses Settings -&gt; Subtitles for subtitle coverage and eligible styles.
+      </p>
+      <button
+        type="button"
+        onClick={() => onOpenSettingsSection?.("subtitles")}
+        className="mt-3 inline-flex items-center gap-2 rounded-md border border-neutral-700 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:border-violet-500 hover:text-violet-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+      >
+        <Settings className="h-3.5 w-3.5" />
+        Open subtitle settings
+      </button>
+      <div className="mt-3 space-y-2 text-xs">
+        <SummaryChip label="Coverage" value={subtitleSummary?.coverage_label || "Settings default"} testId="test-lab-subtitle-summary-row" />
+        <SummaryChip label="Styles" value={enabledStyles} testId="test-lab-subtitle-summary-row" />
       </div>
     </div>
   );
 }
 
-function SummaryChip({ label, value }: { label: string; value: string }) {
+function SummaryChip({ label, value, testId }: { label: string; value: string; testId?: string }) {
   return (
-    <span className="rounded-md border border-neutral-800 bg-neutral-900/70 px-2 py-1 text-neutral-400">
+    <span data-testid={testId} className="block rounded-md border border-neutral-800 bg-neutral-900/70 px-2 py-1 text-neutral-400">
       {label}: <span className="font-medium text-neutral-200">{value}</span>
     </span>
   );
