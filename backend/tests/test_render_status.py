@@ -279,8 +279,9 @@ def test_export_file_status_counts_only_project_export_files(tmp_path, monkeypat
 def test_upload_suite_rejects_stale_longform_export_without_subtitle_metadata(tmp_path, monkeypatch):
     monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
     monkeypatch.setattr(upload_suite_api, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(render_api, "DATA_DIR", tmp_path)
 
-    script_id = "script-123"
+    script_id = "script-stale-longform-upload-suite"
     project_title = "Project Name"
     content = ScriptContent(
         title=project_title,
