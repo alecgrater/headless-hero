@@ -271,7 +271,7 @@ Writing guidelines:
 - Scene IDs must be unique and sequential: scene_001, scene_002, etc.
 
 Life-as-a compatibility:
-- **`captions`: DISABLED in life-as-a for the first pass.** Keep chapter-card and scene narration in the existing visual language; do not create editorial caption scenes for this format yet. captions remain disabled.
+- **`captions` and `stat_card`: DISABLED in life-as-a for the first pass.** Keep chapter-card and scene narration in the existing visual language; do not create editorial caption scenes or renderer-owned stat-number scenes for this format yet. captions and stat_card remain disabled.
 """,
     retention=RetentionMeta(
         goal="Generate scripts with high first-30s retention and sustained watch time",
@@ -429,7 +429,7 @@ Critically different from listicle scenes:
 |---|---|---|
 | Narration per scene | 1–2 sentences | 1–2 sentences, single visual beat |
 | Duration per scene | ~5–10s | ~5–9s |
-| Visual modes | varied (`full_frame`, `multi_frame`, `continuous`, `captions`, `popup_sequence`, `flipflop`, `comparison_board`) | balanced `full_frame`, `continuous`, and `multi_frame` |
+| Visual modes | varied (`full_frame`, `multi_frame`, `continuous`, `captions`, `stat_card`, `popup_sequence`, `flipflop`, `comparison_board`) | balanced `full_frame`, `continuous`, and `multi_frame` |
 | Transitions | varied with intentional energy | mostly `cut`, occasional `crossfade` for time-passage |
 
 Each non-title scene should be **1–2 sentences** of narration and represent exactly one visual/narrative beat. Aim for **5–9 seconds** of speech per scene. Preserve the literary register through sentence texture and scene-to-scene flow, not by packing several moments into one long paragraph.
@@ -470,7 +470,7 @@ The visual mode distribution is constrained for this format:
 - **`full_frame`: 60–75%** of non-chapter-card scenes. Use a single strong image for one clear lived moment. Set compatibility `visual_beat` to `static`.
 - **`continuous`: 15–25%** for time-passage moments where a single space or subject changes. Use only when the scene clearly needs visual progression and has enough duration; otherwise keep it static.
 - **`multi_frame`: 5–15%** for compressed routines, sensory lists, comparisons, or rapid context switches. Use sparingly, and only when the scene duration supports multiple images.
-- **Text-only/editorial caption modes: DISABLED in life-as-a for the first pass.** Keep chapter-card and scene narration in the existing visual language; do not create editorial caption scenes for this format yet; captions remain disabled.
+- **Text-only/editorial modes (`captions`, `stat_card`): DISABLED in life-as-a for the first pass.** Keep chapter-card and scene narration in the existing visual language; do not create editorial caption scenes or renderer-owned stat-number scenes for this format yet; captions and stat_card remain disabled.
 
 Use multiple generated images only when the visual mode genuinely benefits from progression or quick contrast. Short scenes often work best as one strong image, but image scenes are not hard-capped to one frame.
 
