@@ -12,7 +12,7 @@ from pipeline.render_jobs import UserFacingJobError
 
 logger = logging.getLogger(__name__)
 
-LAYERED_LEGACY_TREATMENTS = {"full_frame", "popup_sequence", "flipflop", "comparison_board"}
+LAYERED_LEGACY_TREATMENTS = {"full_frame", "popup_sequence", "flipflop", "comparison_board", "dossier"}
 LIST_MARKERS = {
     "first",
     "second",
@@ -123,6 +123,72 @@ PROGRESSION_MARKERS = {
     "spreads",
     "transform",
     "transforms",
+}
+DOSSIER_NETWORK_MARKERS = {
+    "alliance",
+    "alliances",
+    "associate",
+    "associates",
+    "cartel",
+    "circle",
+    "co-conspirator",
+    "co-conspirators",
+    "conspirator",
+    "conspirators",
+    "conspiracy",
+    "connection",
+    "connections",
+    "connected",
+    "connect",
+    "connects",
+    "coup",
+    "crew",
+    "faction",
+    "factions",
+    "gang",
+    "group",
+    "groups",
+    "hierarchy",
+    "informant",
+    "informants",
+    "leak",
+    "leakers",
+    "linked",
+    "links",
+    "members",
+    "mole",
+    "moles",
+    "network",
+    "networks",
+    "operatives",
+    "organization",
+    "organizations",
+    "ring",
+    "rivalry",
+    "rivals",
+    "suspect",
+    "suspects",
+    "syndicate",
+    "team",
+    "teams",
+    "web",
+}
+DOSSIER_ANCHOR_MARKERS = {
+    "case",
+    "clue",
+    "clues",
+    "evidence",
+    "file",
+    "files",
+    "investigation",
+    "lead",
+    "leads",
+    "mystery",
+    "profile",
+    "report",
+    "subject",
+    "victim",
+    "witness",
 }
 REPETITION_STOPWORDS = {
     "a",
@@ -248,9 +314,23 @@ def apply_visual_treatment_assignments(
         scene.set_visual_mode(mode)
         scene.visual_layers = (
             list(assignment.visual_layers)
-            if mode in {"popup_sequence", "flipflop", "comparison_board"}
+            if mode in {"popup_sequence", "flipflop", "comparison_board", "dossier"}
             else []
         )
+        if mode == "dossier" and scene.dossier_layout == "anchor":
+            detected = _detect_dossier_layout(scene)
+            if detected == "network":
+                scene.dossier_layout = "network"
+
+
+def _detect_dossier_layout(scene: Scene) -> str:
+    """Pick anchor vs network from narration shape; default anchor."""
+
+    text = scene.narration.lower()
+    words = {_normalize_word(word) for word in text.split()}
+    if words & DOSSIER_NETWORK_MARKERS:
+        return "network"
+    return "anchor"
 
 
 def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
@@ -262,6 +342,13 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             visual_mode="captions",
             reasoning="Scene is explicitly marked for captions rendering.",
             visual_layers=[],
+        )
+    if scene.visual_mode == "dossier":
+        return VisualTreatmentAssignment(
+            scene_id=scene.id,
+            visual_mode="dossier",
+            reasoning="Scene is explicitly marked for dossier rendering; preserved.",
+            visual_layers=list(scene.visual_layers),
         )
     if _is_video_or_photo_backed(scene):
         return VisualTreatmentAssignment(

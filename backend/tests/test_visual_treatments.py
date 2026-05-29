@@ -2483,3 +2483,77 @@ def test_apply_visual_treatment_assignment_accepts_comparison_board_mode():
     assert scene.visual_mode == "comparison_board"
     assert scene.visual_treatment == "comparison_board"
     assert scene.visual_layers == layers
+
+
+def test_analyze_visual_treatments_preserves_explicit_dossier_mode():
+    scene = scene_with_words("s1", "The case file is sealed shut.")
+    scene.set_visual_mode("dossier")
+    scene.dossier_layout = "anchor"
+    scene.dossier_title = "CASE #1989-04"
+    scene.visual_layers = [
+        VisualLayer(id="s1_anchor", asset_kind="cutout", label="SUSPECT", prompt="Anchor"),
+        VisualLayer(id="s1_evidence_1", asset_kind="cutout", label="WEAPON", prompt="Knife"),
+    ]
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="dossier-script")
+    assert len(assignments) == 1
+    assignment = assignments[0]
+    assert assignment.visual_mode == "dossier"
+    assert len(assignment.visual_layers) == 2
+
+
+def test_apply_visual_treatment_assignment_accepts_dossier_mode():
+    scene = scene_with_words("s1", "The investigators built the case slowly.")
+    content = content_with_scenes(scene)
+    layers = [
+        VisualLayer(id="s1_anchor", asset_kind="cutout", label="SUSPECT", prompt="Anchor"),
+        VisualLayer(id="s1_evidence_1", asset_kind="cutout", label="WEAPON", prompt="Weapon"),
+        VisualLayer(id="s1_evidence_2", asset_kind="cutout", label="WITNESS", prompt="Witness"),
+    ]
+
+    apply_visual_treatment_assignments(
+        content,
+        [
+            VisualTreatmentAssignment(
+                scene_id="s1",
+                visual_mode="dossier",
+                visual_layers=layers,
+            )
+        ],
+    )
+
+    assert scene.visual_mode == "dossier"
+    assert scene.visual_treatment == "dossier"
+    assert scene.visual_layers == layers
+    assert scene.dossier_layout == "anchor"
+
+
+def test_apply_visual_treatment_assignment_dossier_detects_network_layout():
+    scene = scene_with_words(
+        "s1",
+        "Three conspirators ran the network and their connections proved the conspiracy.",
+    )
+    content = content_with_scenes(scene)
+    layers = [
+        VisualLayer(id="s1_subj_1", asset_kind="cutout", label="A", prompt=""),
+        VisualLayer(id="s1_subj_2", asset_kind="cutout", label="B", prompt=""),
+        VisualLayer(id="s1_subj_3", asset_kind="cutout", label="C", prompt=""),
+    ]
+
+    apply_visual_treatment_assignments(
+        content,
+        [
+            VisualTreatmentAssignment(
+                scene_id="s1",
+                visual_mode="dossier",
+                visual_layers=layers,
+            )
+        ],
+    )
+
+    # Narration mentions "network", "connections", "conspiracy" — should detect network layout
+    # over the default "anchor" inherited from Scene.
+    assert scene.visual_mode == "dossier"
+    assert scene.dossier_layout == "network"
+

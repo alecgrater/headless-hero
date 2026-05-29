@@ -1,4 +1,4 @@
-from models.script import Scene
+from models.script import Scene, VisualLayer
 
 
 def test_scene_defaults_to_full_frame_visual_mode():
@@ -423,3 +423,79 @@ def test_scene_normalizes_stat_card_from_raw_dict():
     assert scene.video_url == ""
     assert scene.caption_text == ""
     assert scene.caption_emphasis == ""
+
+
+def test_scene_normalizes_dossier_visual_mode_clears_conflicting_fields():
+    raw = {
+        "id": "scene_001",
+        "narration": "The investigators built the case slowly.",
+        "visual_prompt": "Dossier scene with anchor and evidence cutouts.",
+        "visual_mode": "dossier",
+        "dossier_layout": "anchor",
+        "dossier_title": "CASE #1989-04",
+        "image_url": "/static/projects/script/images/scene_001.png",
+        "frame_urls": ["/static/projects/script/images/scene_001_0.png"],
+        "video_url": "/static/projects/script/videos/scene_001.mp4",
+        "caption_text": "leftover caption",
+        "caption_emphasis": "leftover",
+        "stat_value": "99%",
+        "stat_label": "of cases unsolved",
+    }
+
+    scene = Scene.model_validate(raw)
+
+    assert scene.visual_mode == "dossier"
+    assert scene.dossier_layout == "anchor"
+    assert scene.dossier_title == "CASE #1989-04"
+    assert scene.image_url == ""
+    assert scene.video_url == ""
+    assert scene.frame_urls == []
+    assert scene.caption_text == ""
+    assert scene.caption_emphasis == ""
+    assert scene.stat_value == ""
+    assert scene.stat_label == ""
+
+
+def test_scene_assignment_to_dossier_clears_conflicting_fields_and_back():
+    scene = Scene(
+        id="scene_001",
+        narration="Three conspirators connected.",
+        visual_prompt="Test",
+        visual_mode="full_frame",
+        image_url="/static/projects/script/images/scene_001.png",
+        caption_text="leftover",
+        caption_emphasis="leftover",
+    )
+
+    scene.visual_mode = "dossier"
+    assert scene.visual_mode == "dossier"
+    assert scene.image_url == ""
+    assert scene.caption_text == ""
+    assert scene.dossier_layout == "anchor"
+
+    scene.dossier_title = "OPERATION NIGHTSHADE"
+    scene.visual_mode = "full_frame"
+    assert scene.visual_mode == "full_frame"
+    assert scene.dossier_title == ""
+
+
+def test_visual_layer_round_trips_label_field():
+    layer = VisualLayer(id="layer_1", label="SUSPECT")
+    payload = layer.model_dump()
+    assert payload["label"] == "SUSPECT"
+    rebuilt = VisualLayer.model_validate(payload)
+    assert rebuilt.label == "SUSPECT"
+
+
+def test_dossier_layout_validator_falls_back_to_anchor_for_invalid_value():
+    raw = {
+        "id": "scene_001",
+        "narration": "x",
+        "visual_prompt": "x",
+        "visual_mode": "dossier",
+        "dossier_layout": "weird",
+    }
+
+    scene = Scene.model_validate(raw)
+    assert scene.dossier_layout == "anchor"
+

@@ -16,6 +16,7 @@ from models.script import Script, ScriptContent, VISUAL_MODES
 from pipeline.image_gen import (
     generate_batch,
     generate_comparison_board_cutouts,
+    generate_dossier_cutouts,
     generate_popup_sequence_cutouts,
     generate_scene_frames_v2,
     generate_scene_image,
@@ -148,7 +149,7 @@ def _resolve_visual_layer_context(
 ) -> tuple[str, list[dict], bool]:
     scene = next((sc for seg in content.segments for sc in seg.scenes if sc.id == scene_id), None)
     visual_mode = request_mode or (scene.visual_mode if scene is not None else "full_frame")
-    treatment = visual_mode if visual_mode in {"popup_sequence", "flipflop", "comparison_board"} else "full_frame"
+    treatment = visual_mode if visual_mode in {"popup_sequence", "flipflop", "comparison_board", "dossier"} else "full_frame"
     raw_layers: list[object] = list(request_layers or [])
     if not raw_layers and scene is not None:
         raw_layers = list(scene.visual_layers)
@@ -176,7 +177,7 @@ def _generate_scene_visual_layers(
         request_layers=request_layers,
         request_contains_person=request_contains_person,
     )
-    if treatment not in {"popup_sequence", "flipflop", "comparison_board"} or not layers:
+    if treatment not in {"popup_sequence", "flipflop", "comparison_board", "dossier"} or not layers:
         return None
     logger.info(
         "[ANIMATION_TYPE] generating panels scene=%s animation_type=%s layers=%d",
@@ -202,6 +203,18 @@ def _generate_scene_visual_layers(
             scene_prompt=request_scene_prompt or (scene.visual_prompt if scene is not None else ""),
             width=width,
             height=height,
+        )
+    if treatment == "dossier":
+        dossier_layout = scene.dossier_layout if scene is not None else "anchor"
+        return generate_dossier_cutouts(
+            scene_id=scene_id,
+            layers=layers,
+            script_id=script_id,
+            scene_prompt=request_scene_prompt or (scene.visual_prompt if scene is not None else ""),
+            dossier_layout=dossier_layout,
+            width=width,
+            height=height,
+            contains_person=contains_person,
         )
     return generate_visual_layer_panels(
         scene_id,
@@ -239,11 +252,11 @@ def _layered_mode_for_request(
     scene: object | None,
 ) -> str:
     if explicit_visual_mode:
-        return visual_mode if visual_mode in {"popup_sequence", "flipflop", "comparison_board"} else "full_frame"
-    if visual_mode in {"popup_sequence", "flipflop", "comparison_board"}:
+        return visual_mode if visual_mode in {"popup_sequence", "flipflop", "comparison_board", "dossier"} else "full_frame"
+    if visual_mode in {"popup_sequence", "flipflop", "comparison_board", "dossier"}:
         return visual_mode
     scene_mode = getattr(scene, "visual_mode", "full_frame") if scene is not None else "full_frame"
-    return scene_mode if scene_mode in {"popup_sequence", "flipflop", "comparison_board"} else "full_frame"
+    return scene_mode if scene_mode in {"popup_sequence", "flipflop", "comparison_board", "dossier"} else "full_frame"
 
 # --- Endpoints ---
 
@@ -478,11 +491,11 @@ def generate_visual_batch(body: GenerateBatchRequest, session: Session = Depends
 
     def _requested_layered_mode(scene: BatchScene) -> str:
         if scene.visual_mode in VISUAL_MODES:
-            return scene.visual_mode if scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board"} else "full_frame"
+            return scene.visual_mode if scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board", "dossier"} else "full_frame"
         stored_scene = scene_map.get(scene.scene_id)
         if stored_scene is None:
             return "full_frame"
-        if stored_scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board"}:
+        if stored_scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board", "dossier"}:
             return stored_scene.visual_mode
         return "full_frame"
 

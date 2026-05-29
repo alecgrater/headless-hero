@@ -10,14 +10,16 @@ from sqlmodel import Column, Field, SQLModel, Text
 # --- Pydantic models for the script JSON structure ---
 
 ALLOWED_TRANSITIONS = {"cut", "fade_black", "flash_white", "wipe"}
-VISUAL_MODES = {"video", "full_frame", "multi_frame", "continuous", "captions", "popup_sequence", "flipflop", "comparison_board", "stat_card"}
-VISUAL_TREATMENTS = {"full_frame", "popup_sequence", "flipflop", "comparison_board", "stat_card"}
+VISUAL_MODES = {"video", "full_frame", "multi_frame", "continuous", "captions", "popup_sequence", "flipflop", "comparison_board", "stat_card", "dossier"}
+VISUAL_TREATMENTS = {"full_frame", "popup_sequence", "flipflop", "comparison_board", "stat_card", "dossier"}
 VISUAL_LAYER_TYPES = {"image"}
 VISUAL_ASSET_KINDS = {"full_frame", "panel", "cutout"}
 VISUAL_LAYER_ANIMATIONS = {"none", "pop_in"}
 SUBTITLE_STYLES = {"auto", "clean", "kinetic", "burst", "none"}
-VisualMode = Literal["video", "full_frame", "multi_frame", "continuous", "captions", "popup_sequence", "flipflop", "comparison_board", "stat_card"]
-VisualTreatment = Literal["full_frame", "popup_sequence", "flipflop", "comparison_board", "stat_card"]
+DOSSIER_LAYOUTS = {"anchor", "network"}
+VisualMode = Literal["video", "full_frame", "multi_frame", "continuous", "captions", "popup_sequence", "flipflop", "comparison_board", "stat_card", "dossier"]
+VisualTreatment = Literal["full_frame", "popup_sequence", "flipflop", "comparison_board", "stat_card", "dossier"]
+DossierLayout = Literal["anchor", "network"]
 VisualLayerType = Literal["image"]
 VisualAssetKind = Literal["full_frame", "panel", "cutout"]
 VisualLayerAnimation = Literal["none", "pop_in"]
@@ -72,6 +74,7 @@ class VisualLayer(BaseModel):
     asset_kind: VisualAssetKind = "panel"
     image_url: str = ""
     prompt: str = ""
+    label: str = ""
     placement: str = "center"
     enter_at_seconds: float = 0.0
     exit_at_seconds: float | None = None
@@ -176,6 +179,8 @@ class Scene(BaseModel):
     caption_emphasis: str = ""
     stat_value: str = ""
     stat_label: str = ""
+    dossier_layout: DossierLayout = "anchor"
+    dossier_title: str = ""
     subtitle_style: SubtitleStyle = "auto"
     # --- Scene-boundary transition ---
     transition_in: str = "cut"  # "cut" | "fade_black" | "flash_white" | "wipe"
@@ -209,7 +214,7 @@ class Scene(BaseModel):
         visual_beat = _visual_beat_for_visual_mode(mode)
         if visual_beat is not None:
             normalized["visual_beat"] = visual_beat
-        if mode in {"video", "popup_sequence", "flipflop", "comparison_board", "stat_card"}:
+        if mode in {"video", "popup_sequence", "flipflop", "comparison_board", "stat_card", "dossier"}:
             normalized["frame_urls"] = []
         if mode != "stat_card":
             normalized["stat_value"] = ""
@@ -219,6 +224,13 @@ class Scene(BaseModel):
             normalized["caption_emphasis"] = ""
             normalized["image_url"] = ""
             normalized["video_url"] = ""
+        if mode == "dossier":
+            normalized["caption_text"] = ""
+            normalized["caption_emphasis"] = ""
+            normalized["image_url"] = ""
+            normalized["video_url"] = ""
+        else:
+            normalized["dossier_title"] = ""
         return normalized
 
     @field_validator("transition_in", mode="before")
@@ -243,6 +255,13 @@ class Scene(BaseModel):
             return value
         return "auto"
 
+    @field_validator("dossier_layout", mode="before")
+    @classmethod
+    def normalize_dossier_layout(_cls, value: object) -> str:
+        if isinstance(value, str) and value in DOSSIER_LAYOUTS:
+            return value
+        return "anchor"
+
     def set_visual_mode(self, visual_mode: str) -> None:
         mode = _resolve_visual_mode(visual_mode, None, None)
         self._sync_visual_mode_fields(mode)
@@ -253,13 +272,13 @@ class Scene(BaseModel):
 
     @property
     def visual_treatment(self) -> VisualTreatment:
-        return self.visual_mode if self.visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card"} else "full_frame"
+        return self.visual_mode if self.visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card", "dossier"} else "full_frame"
 
     def _sync_visual_mode_fields_from_assignment(self, assigned_field: str) -> None:
         if assigned_field == "visual_mode":
             mode = _resolve_visual_mode(self.visual_mode, None, None)
         else:
-            if self.visual_mode in {"video", "popup_sequence", "flipflop", "comparison_board", "stat_card"}:
+            if self.visual_mode in {"video", "popup_sequence", "flipflop", "comparison_board", "stat_card", "dossier"}:
                 mode = self.visual_mode
             else:
                 mode = _resolve_visual_mode(None, None, None, self.visual_beat)
@@ -270,7 +289,7 @@ class Scene(BaseModel):
         visual_beat = _visual_beat_for_visual_mode(visual_mode)
         if visual_beat is not None:
             super().__setattr__("visual_beat", visual_beat)
-        if visual_mode in {"video", "popup_sequence", "flipflop", "comparison_board", "stat_card"}:
+        if visual_mode in {"video", "popup_sequence", "flipflop", "comparison_board", "stat_card", "dossier"}:
             super().__setattr__("frame_urls", [])
         if visual_mode != "stat_card":
             super().__setattr__("stat_value", "")
@@ -280,6 +299,13 @@ class Scene(BaseModel):
             super().__setattr__("caption_emphasis", "")
             super().__setattr__("image_url", "")
             super().__setattr__("video_url", "")
+        if visual_mode == "dossier":
+            super().__setattr__("caption_text", "")
+            super().__setattr__("caption_emphasis", "")
+            super().__setattr__("image_url", "")
+            super().__setattr__("video_url", "")
+        else:
+            super().__setattr__("dossier_title", "")
 
 
 def _resolve_visual_mode(

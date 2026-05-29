@@ -386,6 +386,7 @@ def subtitle_render_fingerprint(content: ScriptContent) -> dict[str, Any]:
                 "stat_value": scene.stat_value if scene.visual_mode == "stat_card" else "",
                 "stat_label": scene.stat_label if scene.visual_mode == "stat_card" else "",
                 "stat_card_icon": _stat_card_icon_fingerprint(scene),
+                "dossier": _dossier_fingerprint(scene),
             }
             for scene in content.all_scenes()
         ],
@@ -399,6 +400,27 @@ def _stat_card_icon_fingerprint(scene: Scene) -> dict[str, str] | None:
         if layer.type == "image":
             return {"prompt": layer.prompt, "image_url": layer.image_url}
     return None
+
+
+def _dossier_fingerprint(scene: Scene) -> dict[str, Any] | None:
+    if scene.visual_mode != "dossier":
+        return None
+    return {
+        "layout": scene.dossier_layout,
+        "title": scene.dossier_title,
+        "layers": [
+            {
+                "id": layer.id,
+                "label": layer.label,
+                "placement": layer.placement,
+                "prompt": layer.prompt,
+                "image_url": layer.image_url,
+                "enter_at_seconds": layer.enter_at_seconds,
+                "animation": layer.animation,
+            }
+            for layer in scene.visual_layers or []
+        ],
+    }
 
 
 def _setting_enabled(value: str | None, default: bool = True) -> bool:
@@ -427,6 +449,7 @@ def _subtitle_scene_eligible(scene: Scene) -> bool:
         scene.is_title_card
         or scene.visual_mode == "captions"
         or scene.visual_mode == "stat_card"
+        or scene.visual_mode == "dossier"
         or scene.visual_beat == "aha_subtitle"
     )
 

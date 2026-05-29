@@ -123,6 +123,7 @@ def test_subtitle_render_fingerprint_tracks_style_and_router_version():
             "stat_value": "",
             "stat_label": "",
             "stat_card_icon": None,
+            "dossier": None,
         },
         {
             "id": "scene-2",
@@ -131,6 +132,7 @@ def test_subtitle_render_fingerprint_tracks_style_and_router_version():
             "stat_value": "",
             "stat_label": "",
             "stat_card_icon": None,
+            "dossier": None,
         },
     ]
 
@@ -418,3 +420,70 @@ def test_chapter_marker_total_frames_use_full_ai_video_audio_duration(tmp_path, 
     _markers, total_frames = remotion_render._compute_chapter_markers(content, script_id, fps=30)
 
     assert total_frames == 360
+
+
+def test_subtitle_render_fingerprint_includes_dossier_inputs():
+    from models.script import VisualLayer
+
+    scene = Scene(
+        id="scene-1",
+        narration="The investigators built the case slowly.",
+        visual_prompt="Dossier scene",
+        visual_mode="dossier",
+        dossier_layout="anchor",
+        dossier_title="CASE #1989-04",
+        audio_duration_seconds=8.0,
+        visual_layers=[
+            VisualLayer(
+                id="scene-1_anchor",
+                asset_kind="cutout",
+                label="SUSPECT",
+                prompt="anchor character",
+                placement="center",
+                enter_at_seconds=0.0,
+                animation="none",
+            ),
+            VisualLayer(
+                id="scene-1_evidence_1",
+                asset_kind="cutout",
+                label="WEAPON",
+                prompt="knife",
+                placement="top-left",
+                enter_at_seconds=1.4,
+                animation="pop_in",
+            ),
+        ],
+    )
+    content = ScriptContent(
+        title="Test",
+        segments=[Segment(name="Segment", scenes=[scene])],
+    )
+
+    fingerprint = remotion_render.subtitle_render_fingerprint(content)
+    scene_fp = fingerprint["scenes"][0]
+    assert scene_fp["visual_mode"] == "dossier"
+    dossier_fp = scene_fp["dossier"]
+    assert dossier_fp["layout"] == "anchor"
+    assert dossier_fp["title"] == "CASE #1989-04"
+    assert {layer["label"] for layer in dossier_fp["layers"]} == {"SUSPECT", "WEAPON"}
+
+    # Changing a label invalidates the fingerprint.
+    scene.visual_layers[1].label = "KNIFE"
+    new_fingerprint = remotion_render.subtitle_render_fingerprint(content)
+    assert new_fingerprint != fingerprint
+
+
+def test_subtitle_render_fingerprint_dossier_field_is_none_for_non_dossier_scenes():
+    scene = Scene(
+        id="scene-1",
+        narration="A plain scene.",
+        visual_prompt="A plain scene.",
+        visual_mode="full_frame",
+    )
+    content = ScriptContent(
+        title="Test",
+        segments=[Segment(name="Segment", scenes=[scene])],
+    )
+
+    fingerprint = remotion_render.subtitle_render_fingerprint(content)
+    assert fingerprint["scenes"][0]["dossier"] is None
