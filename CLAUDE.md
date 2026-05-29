@@ -2,18 +2,18 @@
 
 ## Self-Maintenance
 
-**When a new convention, rule, or architectural decision is established during a session, update this file to reflect it before committing.** Keep the document accurate and current — it is the source of truth for how this project works.
+**When a new convention, rule, or architectural decision is established during a session, update this file before committing.** Keep it current; it is the source of truth for how this project works.
 
 ## Review Findings → Always Apply Fixes
 
-**Any time a code review produces findings — whether from the auto-commit agent loop, a manual `/review` invocation, or review output pasted by the user — immediately implement every recommended fix.** Do NOT just report findings and stop. Do NOT ask the user whether to apply them. Read the findings, edit the code, commit, and push. FAIL-severity items first, then WARN items (skip items explicitly marked "non-blocking" or "optional").
+**Any time code review produces findings — from the auto-commit loop, a manual `/review`, or pasted review output — immediately implement every recommended fix.** Do NOT just report findings or ask whether to apply them. Read, edit, commit, and push. Fix FAIL items first, then WARN items; skip findings explicitly marked "non-blocking" or "optional".
 
 ## Auto-commit Rule
 
-**Every time a feature or fix is completed, run this entire loop in a single turn — do NOT stop, pause, or wait for user input at any step:**
+**Every time a feature or fix is completed, run this full loop in one turn; do NOT stop, pause, or wait for user input:**
 
 1. Stage the relevant files, write a descriptive commit message, and push to `main`
-2. Dispatch a code review using the **Agent tool** (NOT the `/review` skill — the Skill tool produces visible output that ends the turn). Use `subagent_type: "superpowers:code-reviewer"` with this prompt template:
+2. Dispatch a code review using the **Agent tool** (NOT `/review`, which produces visible output and ends the turn). Use `subagent_type: "superpowers:code-reviewer"` with this prompt:
    ```
    Review the most recent commit on the main branch of this project.
    Run `git diff HEAD~1..HEAD` to see the changes and `git show --stat HEAD` for context.
@@ -22,25 +22,25 @@
    Return a structured verdict: either LGTM or NEEDS CHANGES.
    If NEEDS CHANGES, provide a numbered list of findings with severity (FAIL/WARN), file:line, and a specific description of what's wrong and how to fix it.
    ```
-   The Agent tool returns results as invisible tool output (not shown to the user). This is intentional — it lets you process the review and continue without ending your turn.
+   Agent results are invisible tool output, so you can process the review and continue without ending the turn.
 3. **Process the review verdict internally. Do NOT output any review findings to the user.** Your next action after receiving the agent result MUST be either a tool call (Edit/Bash) to fix issues, or writing the final summary — never bare text about the review.
 4. If the verdict is **NEEDS CHANGES**: immediately implement every required fix (FAIL items first, then WARN items). Commit as `fix: address review findings` and push.
 5. Dispatch another code review agent. Repeat steps 3-4 until the verdict is **LGTM**.
 6. Only after **LGTM** — surface a single summary to the user: what was built, what the review caught (briefly), and what was fixed.
 
-**Why Agent instead of /review**: The `/review` skill produces visible text output, which causes Claude to treat the review as a completed turn and stop. The Agent tool returns results as invisible tool output, allowing the loop to continue uninterrupted.
+**Why Agent instead of /review**: `/review` produces visible text, which Claude treats as a completed turn. Agent output stays invisible, allowing the loop to continue.
 
-**This rule is non-negotiable**: every code change — no matter how small — must end with (a) a commit on `main`, (b) a push to remote `main`, and (c) at least one subagent code review that returns **LGTM**. There is no "I'll review it myself" exception and no "this is too small to review" exception. If you wrote or edited code, run the loop.
+**This rule is non-negotiable**: every code change, no matter how small, must end with a commit on `main`, a push to remote `main`, and at least one subagent code review returning **LGTM**. No "I'll review it myself" or "too small to review" exceptions.
 
 ### Worktree-Driven Development
 
-Worktree-driven development (via `superpowers:using-git-worktrees` or manual `git worktree add`) is allowed and encouraged for isolated feature work. **However, the auto-commit rule still applies at the end:** the worktree branch MUST be merged back into `main`, and `main` MUST be pushed to remote with the subagent review loop run against the merge commit (or the squashed commit on `main`). A worktree is not "done" until its changes live on remote `main` and have passed a subagent review. Do not leave worktree branches hanging — finish the integration in the same session.
+Worktree-driven development (via `superpowers:using-git-worktrees` or manual `git worktree add`) is allowed and encouraged for isolated feature work. **The auto-commit rule still applies:** merge the worktree branch back into `main`, push remote `main`, and run the subagent review loop against the merge commit or squashed commit on `main`. A worktree is not done until its changes are on remote `main` and have passed subagent review; finish integration in the same session.
 
 ## Project Overview
 
 AI-powered Electron desktop app for creating faceless educational YouTube content. Full pipeline: idea → script → visuals → voice → video → publish.
 
-**Stack:** Electron 41 + React 19/Vite/TypeScript/Tailwind 4 frontend + Python 3.12/FastAPI backend + Remotion 4 (video rendering) + FFmpeg (internal audio processing) + SQLite
+**Stack:** Electron 41 + React 19/Vite/TypeScript/Tailwind 4 frontend + Python 3.12/FastAPI backend + Remotion 4 video rendering + FFmpeg internal audio processing + SQLite
 
 ## Dev Commands
 
@@ -66,7 +66,7 @@ cd frontend && npm run build  # Production frontend build
 - `uv sync` — install from lockfile
 - `uv venv` — create virtual environment
 
-Do not run `uv run pytest` from the repo root; the Python project and pytest dependency live in `backend/`. (Note: `npm run test` is fine — it shells into the backend project.)
+Do not run `uv run pytest` from the repo root; the Python project and pytest dependency live in `backend/`. `npm run test` is fine because it shells into the backend project.
 
 ## Architecture
 
@@ -158,10 +158,10 @@ Stored in DB via AppSettings, loaded into env at startup. Never commit `.env` fi
 - **Test Lab mirrors production behavior**: The Test tab uses hidden real `Script` and `ProjectConfig` records plus the same production pipeline functions as normal projects. Keep Test Lab records out of project lists/dashboards, persist only the last 20 run manifests under `data/test-lab/runs`, and do not reintroduce removed stock photo, gameplay video, or user-upload media paths into Test Lab settings.
 - **Test Lab visual mode changes preserve scene text**: Clicking a visual style/mode such as `captions`, `multi_frame`, `continuous`, `popup_sequence`, `flipflop`, or `stat_card` must not rewrite the current narration, visual prompt, caption text, or stat fields. Mode-specific demo text belongs in presets or explicit user edits, not automatic mode-switch defaults.
 - **Short-form hook detection before render/export**: Before short-form render, rendered-status, export, or short-form SEO work, populate `ScriptContent.hook_scene_count` via `api.short_form_hooks.ensure_short_form_hook_scene_count`. If short #1 skips hook scenes, cache validity depends on the sidecar metadata in `data/projects/{script_id}/renders/shorts/0.json`; older unmarked short #1 renders must be treated as stale and re-rendered.
-- **Segments must stand alone as shorts**: Script scene narration must end each segment cleanly on that segment's own topic because any segment may be exported as a standalone short. Keep whole-video recaps, subscribe requests, "come back next week", and other channel CTAs out of scene narration; `outro_cta` is metadata/editor copy unless a dedicated long-form-only outro pipeline is added.
+- **Segments must stand alone as shorts**: Scene narration must end each segment cleanly on that segment's topic because any segment may be exported as a standalone short. Keep whole-video recaps, subscribe requests, "come back next week", and other CTAs out of scene narration; `outro_cta` is metadata/editor copy unless a dedicated long-form outro pipeline is added.
 - **Short-form SEO titles are deterministic**: Generated short-form upload titles must be `{project title} - {segment title}`. Use the script record topic title as the project title when available, falling back to `ScriptContent.title`.
 - **Project title is canonical in `Script.topic_title`**: Timeline title edits go through `/api/scripts/{script_id}/title`; generic full-script saves preserve `Script.topic_title` and must not let stale `ScriptContent.title` values roll back a title edit.
-- **Project title edits retitle existing exports**: When `/api/scripts/{script_id}/title` changes a title, existing export folders and title-based long-form filenames move to the new sanitized project title, exported SEO markdown is refreshed, and deterministic short-form SEO titles are rewritten as `{new project title} - {segment title}`. If the exact previous title folder is missing, discover the project export folder by matching the script's exported short-form asset filenames, then repair it to the canonical title.
+- **Project title edits retitle existing exports**: When `/api/scripts/{script_id}/title` changes a title, move existing export folders and title-based long-form filenames to the new sanitized title, refresh exported SEO markdown, and rewrite deterministic short-form SEO titles as `{new project title} - {segment title}`. If the previous title folder is missing, discover the export folder by matching the script's exported short-form asset filenames, then repair it to the canonical title.
 - **Title-card thumbnails have no subtitle/kicker text**: Keep `ScriptContent.card_subtitle` empty. Thumbnail text is limited to the main card title and segment label badges; Gemini/reference enhancement prompts must not add copied or invented secondary phrases.
 - **Long-form thumbnail regeneration preserves versions**: `data/projects/{script_id}/renders/thumbnails/0.png` is the active/exported thumbnail, but regeneration must archive the previous active image as the next numbered sibling before replacing `0.png`. UI surfaces should expose saved variants so users can compare or flip through them instead of losing old thumbnails.
 - **Life-as-a long-form thumbnail labels are time periods**: Split-progression thumbnail text must use two cached time-period labels, not `LEVEL` labels. The left label is one of `3 months in` through `8 months in`; the right label is one of `8 years in` through `15 years in`. Persist the exact labels in the thumbnail sidecar so rerenders stay stable, and reroll them only on forced/regenerate flows.
@@ -175,7 +175,7 @@ Stored in DB via AppSettings, loaded into env at startup. Never commit `.env` fi
 - **Standard subtitles route style per scene without extra LLM calls**: Normal subtitle rendering supports scene-level treatments (`auto`, `clean`, `kinetic`, `burst`, `none`) so a video can switch between readable subtitles, kinetic word-card subtitles, and bigger payoff bursts by scene. Missing values default to deterministic renderer-side `auto` routing from narration/word timing/scene shape; do not add a separate LLM call just to choose subtitle style. Settings → Subtitles owns global coverage (`SUBTITLE_COVERAGE_MODE=all|punchy`) and enabled style gates (`SUBTITLE_STYLE_{CLEAN|KINETIC|BURST}_ENABLED`); render cache fingerprints must include these settings. `visual_mode="captions"`, title cards, and legacy subtitle scenes continue to suppress standard subtitles in favor of their own renderer-owned text.
 - **Test Lab subtitle and timer settings mirror production**: Test Lab must not expose per-run controls for standard subtitle style, subtitle highlighting, or segment timer. It shows read-only subtitle settings from Settings → Subtitles and links there for edits. Test Lab hidden scripts keep subtitle highlighting enabled, while segment timer stays on for every Test Lab run.
 - **External links open in Chrome**: Electron main-process URL opening must route through the Chrome opener so app links ignore the operating system default browser.
-- **ElevenLabs expressiveness uses settings, not narration rewrites**: Do not reintroduce the old non-title narration dramatizer or LLM punctuation pass. Normal scene narration is sent as-written, except `eleven_v3` may add deterministic hidden audio tags for TTS only. Title-card TTS framing (`Level N — ...`) remains the only automatic punctuation/text addition outside v3 tags. Settings → Voices owns the default ElevenLabs model, stability, style, and speed values.
+- **ElevenLabs expressiveness uses settings, not narration rewrites**: Do not reintroduce the old non-title narration dramatizer or LLM punctuation pass. Send normal scene narration as-written, except `eleven_v3` may add deterministic hidden TTS-only audio tags. Title-card TTS framing (`Level N — ...`) remains the only automatic punctuation/text addition outside v3 tags. Settings → Voices owns the default ElevenLabs model, stability, style, and speed.
 - **Eleven v3 hidden tags stay conservative**: App-added `eleven_v3` delivery tags are limited to restrained narration cues: `[curious]`, `[serious]`, `[thoughtful]`, `[confident]`, and `[reflective]`. Do not automatically add nonverbal/effect tags such as `[sighs]`, `[laughs]`, `[chuckles]`, `[whispers]`, or `[shouts]`; those may sound human in isolated ElevenLabs tests but are too risky for bulk generated voiceover.
 - **Headless Hero Narrator is the preferred default voice**: Settings → Voices should sort and auto-select `Headless Hero Narrator` before fallback voices. `Liam - Viral Short-Form Storyteller` is the stronger shorts-style fallback, and `Adam Greene` is the friendlier backup. Do not restore legacy Lucan-first voice selection.
 - **Settings must only persist visible ElevenLabs controls**: Settings → Voices shows only the saved narrator voices (`Headless Hero Narrator`, `Liam - Viral Short-Form Storyteller`, and `Adam Greene`) in the default voice selector. Model selection is two buttons for v2/v3. V2 shows preset buttons (`Steady`, `More Human`, `Dramatic`, `Custom`) and exposes stability/style/speed sliders only for `Custom`. V3 shows only stability, matching ElevenLabs' v3 UI; backend and API payloads must not pass hidden v2-only speed/style settings when `eleven_v3` is selected.
