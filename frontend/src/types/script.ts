@@ -36,7 +36,6 @@ export interface VideoFX {
 }
 
 export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "captions";
-export type VisualTreatment = "full_frame" | "popup_sequence" | "flipflop";
 
 export interface VisualCanvas {
   background_color: string;
@@ -84,7 +83,6 @@ export interface Scene {
   frame_directives?: FrameDirective[];
   contains_person?: boolean;
   visual_mode?: VisualMode;
-  visual_treatment?: VisualTreatment;
   visual_layers?: VisualLayer[];
   caption_text?: string;
   caption_emphasis?: string;
@@ -95,8 +93,6 @@ export interface Scene {
   frame_timings?: number[] | null;
   visual_in_seconds?: number;
   visual_out_seconds?: number;
-  // Media source
-  media_source?: "ai" | "ai_video";
   video_url?: string;
   original_visual_prompt?: string;
   visual_source_metadata?: {

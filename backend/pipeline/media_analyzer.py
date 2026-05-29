@@ -1,9 +1,8 @@
-"""Post-script media analyzer — uses the routed LLM provider to assign optimal media sources per scene."""
+"""Post-script visual-mode analyzer — uses the routed LLM provider to assign AI video scenes."""
 
 import json
 import logging
 import re
-from dataclasses import dataclass
 
 from config import parse_json_array_response, strip_markdown_fences
 from integrations.llm_client import chat
@@ -57,24 +56,46 @@ AI_VIDEO_STATIC_OBJECT_TERMS = {
 AI_VIDEO_MAX_ROUTED_DURATION_SECONDS = 6.5
 
 
-@dataclass
 class MediaAssignment:
-    scene_id: str
-    media_source: str
-    game_name: str | None
-    search_query: str | None
-    reasoning: str
-    visual_mode: str = ""
+    __slots__ = ("scene_id", "game_name", "search_query", "reasoning", "visual_mode", "_legacy_media_source")
+
+    def __init__(
+        self,
+        scene_id: str,
+        game_name: str | None = None,
+        search_query: str | None = None,
+        reasoning: str = "",
+        visual_mode: str = "full_frame",
+        media_source: str = "",
+    ) -> None:
+        if game_name in {"ai", "ai_video", "gameplay_video", "stock_photo", "user_upload", "real_photo"}:
+            media_source = str(game_name)
+            game_name = search_query
+            search_query = reasoning
+            reasoning = "" if visual_mode == "full_frame" else visual_mode
+            visual_mode = "video" if media_source == "ai_video" else "full_frame"
+        self.scene_id = scene_id
+        self.game_name = game_name
+        self.search_query = search_query
+        self.reasoning = reasoning
+        self._legacy_media_source = media_source
+        self.visual_mode = _canonical_visual_mode(visual_mode, media_source)
+
+    @property
+    def media_source(self) -> str:
+        if self._legacy_media_source in {"gameplay_video", "stock_photo", "user_upload", "real_photo"}:
+            return self._legacy_media_source
+        return "ai_video" if self.visual_mode == "video" else "ai"
 
 
-def _canonical_visual_mode(value: str, media_source: str = "ai") -> str:
-    if media_source == "ai_video":
+def _canonical_visual_mode(value: str, legacy_media_source: str = "") -> str:
+    if legacy_media_source == "ai_video":
         return "video"
     if value in {"quick_cuts", "montage", "multi_frame"}:
         return "multi_frame"
     if value == "continuous":
         return "continuous"
-    if value in {"video", "full_frame", "popup_sequence", "flipflop"}:
+    if value in {"video", "full_frame", "popup_sequence", "flipflop", "captions"}:
         return value
     return "full_frame"
 
@@ -211,8 +232,8 @@ def _has_adjacent_ai_video(
         adjacent_scene_ids.append(ordered_scene_ids[scene_index + 1])
 
     return any(
-        assignments_by_scene.get(adjacent_scene_id, MediaAssignment(adjacent_scene_id, "ai", None, None, "")).media_source
-        == "ai_video"
+        assignments_by_scene.get(adjacent_scene_id, MediaAssignment(adjacent_scene_id, None, None, "")).visual_mode
+        == "video"
         for adjacent_scene_id in adjacent_scene_ids
     )
 
@@ -231,7 +252,7 @@ def _remove_adjacent_ai_video_assignments(
         right = assignments_by_scene.get(right_id)
         if not left or not right:
             continue
-        if left.media_source != "ai_video" or right.media_source != "ai_video":
+        if left.visual_mode != "video" or right.visual_mode != "video":
             continue
 
         left_scene = scenes_by_id.get(left_id)
@@ -246,7 +267,6 @@ def _remove_adjacent_ai_video_assignments(
         existing = assignments_by_scene[downgrade_id]
         assignments_by_scene[downgrade_id] = MediaAssignment(
             scene_id=downgrade_id,
-            media_source="ai",
             game_name=None,
             search_query=None,
             reasoning=(
@@ -259,7 +279,7 @@ def _remove_adjacent_ai_video_assignments(
         if segment_index is not None:
             segment_ai_video_counts[segment_index] = max(0, segment_ai_video_counts.get(segment_index, 0) - 1)
 
-    return sum(1 for assignment in assignments_by_scene.values() if assignment.media_source == "ai_video")
+    return sum(1 for assignment in assignments_by_scene.values() if assignment.visual_mode == "video")
 
 
 def analyze_media_sources(
@@ -282,10 +302,10 @@ def analyze_media_sources(
     gameplay_enabled = False
     stock_photo_enabled = False
 
-    sources = ['"ai"']
+    modes = ['"full_frame"']
     if ai_video_available:
-        sources.append('"ai_video"')
-    available_sources = ", ".join(sources)
+        modes.append('"video"')
+    available_sources = ", ".join(modes)
 
     segment_count = len(script_content.segments)
     ai_video_limit = max(
@@ -327,7 +347,7 @@ def analyze_media_sources(
 
     user_message = json.dumps(scenes_summary, indent=2)
 
-    logger.info("[%s] Analyzing media sources for %d scenes (gameplay=%s, stock=%s)",
+    logger.info("[%s] Analyzing visual modes for %d scenes (gameplay=%s, stock=%s)",
                 script_id or "no-id", len(scenes_summary), gameplay_enabled, stock_photo_enabled)
 
     response = chat(
@@ -342,15 +362,15 @@ def analyze_media_sources(
     cleaned = strip_markdown_fences(response)
     raw_assignments = parse_json_array_response(cleaned, key="assignments")
 
-    valid_sources = {"ai", "ai_video"}
     assignments_by_scene: dict[str, MediaAssignment] = {}
     ai_video_assigned = 0
     segment_ai_video_counts: dict[int, int] = {}
     ordered_scene_ids = _scene_order(script_content)
     for entry in raw_assignments:
-        source = entry.get("media_source", "ai")
-        if source not in valid_sources:
-            source = "ai"
+        mode = _canonical_visual_mode(
+            str(entry.get("visual_mode") or entry.get("media_source") or entry.get("visual_beat") or "full_frame"),
+            str(entry.get("media_source") or ""),
+        )
         scene_id = _resolve_scene_id(str(entry.get("scene_id", "")), valid_scene_ids)
         if not scene_id:
             logger.warning("Skipping media assignment for unknown scene id: %r", entry.get("scene_id"))
@@ -360,9 +380,9 @@ def analyze_media_sources(
             continue
         segment_index = scene_segment_indexes.get(scene_id, -1)
         scene = scenes_by_id[scene_id]
-        if not ai_video_available and source == "ai_video":
-            source = "ai"
-        if source == "ai_video":
+        if not ai_video_available and mode == "video":
+            mode = "full_frame"
+        if mode == "video":
             if (
                 ai_video_assigned >= ai_video_limit
                 or segment_ai_video_counts.get(segment_index, 0) >= ai_video_scenes_per_segment
@@ -374,27 +394,22 @@ def analyze_media_sources(
                     max_duration_seconds=ai_video_max_duration,
                 )
             ):
-                source = "ai"
+                mode = "full_frame"
             else:
                 ai_video_assigned += 1
                 segment_ai_video_counts[segment_index] = segment_ai_video_counts.get(segment_index, 0) + 1
         assignments_by_scene[scene_id] = MediaAssignment(
             scene_id=scene_id,
-            media_source=source,
             game_name=entry.get("game_name"),
             search_query=entry.get("search_query"),
             reasoning=entry.get("reasoning", ""),
-            visual_mode=_canonical_visual_mode(
-                str(entry.get("visual_mode") or entry.get("visual_beat") or scene.visual_mode),
-                source,
-            ),
+            visual_mode=mode,
         )
 
     for scene in script_content.all_scenes():
         if scene.id not in assignments_by_scene:
             assignments_by_scene[scene.id] = MediaAssignment(
                 scene_id=scene.id,
-                media_source="ai",
                 game_name=None,
                 search_query=None,
                 reasoning="Defaulted to AI art because the media analyzer omitted this scene.",
@@ -419,11 +434,10 @@ def analyze_media_sources(
             candidates = [
                 scene
                 for scene in seg.scenes
-                if assignments_by_scene.get(scene.id, MediaAssignment(scene.id, "ai", None, None, "")).media_source != "ai_video"
+                if assignments_by_scene.get(scene.id, MediaAssignment(scene.id, None, None, "")).visual_mode != "video"
                 and not _has_adjacent_ai_video(scene.id, assignments_by_scene, ordered_scene_ids)
                 and _is_ai_video_eligible(
                     scene,
-                    assignments_by_scene.get(scene.id, MediaAssignment(scene.id, "ai", None, None, "")).media_source,
                     require_eli_scene=require_eli_scene_for_ai_video,
                     life_as_a_role=life_as_a_role,
                     max_duration_seconds=ai_video_max_duration,
@@ -441,7 +455,6 @@ def analyze_media_sources(
                 existing = assignments_by_scene[best_scene.id]
                 assignments_by_scene[best_scene.id] = MediaAssignment(
                     scene_id=best_scene.id,
-                    media_source="ai_video",
                     game_name=None,
                     search_query=None,
                     reasoning=existing.reasoning or _ai_video_reason(best_scene),
@@ -455,7 +468,7 @@ def analyze_media_sources(
         for scene in script_content.all_scenes()
     ]
     for assignment in assignments:
-        if assignment.media_source == "ai_video":
+        if assignment.visual_mode == "video":
             scene = scenes_by_id.get(assignment.scene_id)
             duration = scene.audio_duration_seconds if scene else 0.0
             logger.info(
@@ -465,10 +478,10 @@ def analyze_media_sources(
                 ai_video_max_duration,
             )
 
-    logger.info("[%s] Media analysis complete: %d ai, %d ai_video",
+    logger.info("[%s] Visual mode analysis complete: %d full_frame, %d video",
                 script_id or "no-id",
-                sum(1 for a in assignments if a.media_source == "ai"),
-                sum(1 for a in assignments if a.media_source == "ai_video"))
+                sum(1 for a in assignments if a.visual_mode != "video"),
+                sum(1 for a in assignments if a.visual_mode == "video"))
 
     return assignments
 
@@ -486,17 +499,14 @@ def apply_assignments(
             if not assignment:
                 continue
 
-            mode = _canonical_visual_mode(
-                assignment.visual_mode,
-                assignment.media_source,
-            )
+            mode = _canonical_visual_mode(assignment.visual_mode)
             scene.set_visual_mode(mode)
             if mode not in {"popup_sequence", "flipflop"}:
                 scene.visual_layers = []
 
             scene.original_visual_prompt = ""
 
-            if assignment.media_source == "ai_video" and script_content.format_id == "life-as-a":
+            if mode == "video" and script_content.format_id == "life-as-a":
                 from pipeline.formats.life_as_a import enforce_life_as_a_ai_video_solo_subject
 
                 enforce_life_as_a_ai_video_solo_subject(scene)

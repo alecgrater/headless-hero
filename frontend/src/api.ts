@@ -1,6 +1,6 @@
 import { showToast } from "./components/ToastContainer";
 import { BACKEND_PORT } from "./constants";
-import type { ScriptContent, UploadTracking, VisualLayer, VisualMode, VisualTreatment } from "./types/script";
+import type { ScriptContent, UploadTracking, VisualLayer, VisualMode } from "./types/script";
 import type { VideoFormat } from "./types/format";
 import type {
   PopupCropAnchorResult,
@@ -900,8 +900,7 @@ export async function getPublishStatus(jobId: string): Promise<PublishJobStatus 
 
 export interface MediaAssignment {
   scene_id: string;
-  visual_mode?: VisualMode;
-  media_source: "ai" | "ai_video";
+  visual_mode: Extract<VisualMode, "video" | "full_frame">;
   game_name: string | null;
   search_query: string | null;
   reasoning: string;
@@ -917,8 +916,7 @@ export interface MediaAnalysisStatus {
 
 export interface VisualTreatmentAssignment {
   scene_id: string;
-  visual_mode?: VisualMode;
-  visual_treatment: VisualTreatment;
+  visual_mode: VisualMode;
   reasoning: string;
   visual_layers: VisualLayer[];
 }
@@ -990,12 +988,11 @@ export async function applyVisualTreatmentAssignments(
 export async function updateSceneVisualTreatment(
   scriptId: string,
   sceneId: string,
-  visualTreatment: VisualTreatment,
-  visualMode?: VisualMode,
+  visualMode: VisualMode,
 ): Promise<{ ok: boolean; script: ScriptContent }> {
   const res = await api.put<{ ok: boolean; script: ScriptContent }>(
     `/api/visual-treatments/${scriptId}/scene`,
-    { scene_id: sceneId, visual_mode: visualMode ?? visualTreatment, visual_treatment: visualTreatment },
+    { scene_id: sceneId, visual_mode: visualMode },
   );
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to update visual mode");
   return res.data;

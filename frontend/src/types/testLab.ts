@@ -1,4 +1,4 @@
-import type { SceneFX, VisualLayer, VisualMode, VisualTreatment } from "./script";
+import type { SceneFX, VisualLayer, VisualMode } from "./script";
 import type { MainCharacter, ScriptCostBreakdownItem } from "../api";
 
 export interface TestLabMainCharacter extends MainCharacter {
@@ -17,7 +17,6 @@ export interface TestLabPreset {
   visual_prompt: string;
   background_color?: string;
   visual_mode?: VisualMode;
-  media_source?: "ai" | "ai_video";
   duration_estimate_seconds: number;
   caption_text?: string;
   caption_emphasis?: string;
@@ -37,7 +36,7 @@ export interface TestLabSceneTextDefaults {
 
 export interface TestLabScenes {
   presets: TestLabPreset[];
-  visual_treatment_defaults?: Partial<Record<VisualMode | VisualTreatment, TestLabSceneTextDefaults>>;
+  visual_treatment_defaults?: Partial<Record<VisualMode, TestLabSceneTextDefaults>>;
   default_main_character: TestLabMainCharacter | null;
 }
 
@@ -56,8 +55,6 @@ export interface TestLabSettings {
   eli_enabled: boolean;
   style_preset_enabled: boolean;
   visual_mode: VisualMode;
-  media_source: "ai" | "ai_video";
-  visual_treatment: VisualTreatment;
   visual_layers: VisualLayer[];
   fx?: SceneFX | null;
   title?: string;

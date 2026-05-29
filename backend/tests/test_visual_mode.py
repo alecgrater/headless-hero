@@ -5,8 +5,24 @@ def test_scene_defaults_to_full_frame_visual_mode():
     scene = Scene(id="scene_001", narration="Hello.", visual_prompt="A simple scene")
 
     assert scene.visual_mode == "full_frame"
-    assert scene.media_source == "ai"
-    assert scene.visual_treatment == "full_frame"
+    dumped = scene.model_dump()
+    assert "media_source" not in dumped
+    assert "visual_treatment" not in dumped
+
+
+def test_scene_normalizes_legacy_mirror_fields_without_reserializing_them():
+    scene = Scene(
+        id="scene_001",
+        narration="Hello.",
+        visual_prompt="A simple scene",
+        media_source="ai_video",
+        visual_treatment="popup_sequence",
+    )
+
+    assert scene.visual_mode == "video"
+    dumped = scene.model_dump()
+    assert "media_source" not in dumped
+    assert "visual_treatment" not in dumped
 
 
 def test_scene_derives_video_visual_mode_from_legacy_ai_video_source():
@@ -18,8 +34,8 @@ def test_scene_derives_video_visual_mode_from_legacy_ai_video_source():
     )
 
     assert scene.visual_mode == "video"
-    assert scene.media_source == "ai_video"
-    assert scene.visual_treatment == "full_frame"
+    assert "media_source" not in scene.model_dump()
+    assert "visual_treatment" not in scene.model_dump()
 
 
 def test_scene_derives_popup_visual_mode_from_legacy_treatment():
@@ -31,8 +47,8 @@ def test_scene_derives_popup_visual_mode_from_legacy_treatment():
     )
 
     assert scene.visual_mode == "popup_sequence"
-    assert scene.media_source == "ai"
-    assert scene.visual_treatment == "popup_sequence"
+    assert "media_source" not in scene.model_dump()
+    assert "visual_treatment" not in scene.model_dump()
 
 
 def test_scene_derives_video_when_legacy_source_and_treatment_conflict():
@@ -45,8 +61,8 @@ def test_scene_derives_video_when_legacy_source_and_treatment_conflict():
     )
 
     assert scene.visual_mode == "video"
-    assert scene.media_source == "ai_video"
-    assert scene.visual_treatment == "full_frame"
+    assert "media_source" not in scene.model_dump()
+    assert "visual_treatment" not in scene.model_dump()
 
 
 def test_scene_synchronizes_legacy_fields_from_explicit_visual_mode():
@@ -60,8 +76,8 @@ def test_scene_synchronizes_legacy_fields_from_explicit_visual_mode():
     )
 
     assert scene.visual_mode == "flipflop"
-    assert scene.media_source == "ai"
-    assert scene.visual_treatment == "flipflop"
+    assert "media_source" not in scene.model_dump()
+    assert "visual_treatment" not in scene.model_dump()
 
 
 def test_scene_accepts_explicit_multi_frame_visual_mode():
@@ -74,8 +90,6 @@ def test_scene_accepts_explicit_multi_frame_visual_mode():
     )
 
     assert scene.visual_mode == "multi_frame"
-    assert scene.media_source == "ai"
-    assert scene.visual_treatment == "full_frame"
     assert scene.frame_urls == ["/static/projects/script/images/scene_001_0.png"]
 
 
@@ -89,8 +103,6 @@ def test_scene_accepts_explicit_continuous_visual_mode():
     )
 
     assert scene.visual_mode == "continuous"
-    assert scene.media_source == "ai"
-    assert scene.visual_treatment == "full_frame"
     assert scene.frame_urls == ["/static/projects/script/images/scene_001_0.png"]
 
 
@@ -104,8 +116,6 @@ def test_scene_derives_multi_frame_from_legacy_quick_cuts_beat():
     )
 
     assert scene.visual_mode == "multi_frame"
-    assert scene.media_source == "ai"
-    assert scene.visual_treatment == "full_frame"
     assert scene.frame_urls == ["/static/projects/script/images/scene_001_0.png"]
 
 
@@ -118,8 +128,6 @@ def test_scene_derives_multi_frame_from_legacy_montage_beat():
     )
 
     assert scene.visual_mode == "multi_frame"
-    assert scene.media_source == "ai"
-    assert scene.visual_treatment == "full_frame"
 
 
 def test_scene_derives_multi_frame_from_legacy_multi_frame_beat():
@@ -131,8 +139,6 @@ def test_scene_derives_multi_frame_from_legacy_multi_frame_beat():
     )
 
     assert scene.visual_mode == "multi_frame"
-    assert scene.media_source == "ai"
-    assert scene.visual_treatment == "full_frame"
 
 
 def test_scene_derives_continuous_from_legacy_continuous_beat():
@@ -144,8 +150,6 @@ def test_scene_derives_continuous_from_legacy_continuous_beat():
     )
 
     assert scene.visual_mode == "continuous"
-    assert scene.media_source == "ai"
-    assert scene.visual_treatment == "full_frame"
 
 
 def test_scene_assignment_syncs_quick_cuts_visual_beat_to_multi_frame():
@@ -159,8 +163,6 @@ def test_scene_assignment_syncs_quick_cuts_visual_beat_to_multi_frame():
     scene.visual_beat = "quick_cuts"
 
     assert scene.visual_mode == "multi_frame"
-    assert scene.media_source == "ai"
-    assert scene.visual_treatment == "full_frame"
     assert scene.frame_urls == ["/static/projects/script/images/scene_001_0.png"]
 
 
@@ -174,11 +176,9 @@ def test_scene_assignment_syncs_continuous_visual_beat():
     scene.visual_beat = "continuous"
 
     assert scene.visual_mode == "continuous"
-    assert scene.media_source == "ai"
-    assert scene.visual_treatment == "full_frame"
 
 
-def test_scene_assignment_syncs_ai_video_media_source_and_clears_frames():
+def test_scene_assignment_syncs_video_visual_mode_and_clears_frames():
     scene = Scene(
         id="scene_001",
         narration="Hello.",
@@ -186,15 +186,13 @@ def test_scene_assignment_syncs_ai_video_media_source_and_clears_frames():
         frame_urls=["/static/projects/script/images/scene_001_0.png"],
     )
 
-    scene.media_source = "ai_video"
+    scene.visual_mode = "video"
 
     assert scene.visual_mode == "video"
-    assert scene.media_source == "ai_video"
-    assert scene.visual_treatment == "full_frame"
     assert scene.frame_urls == []
 
 
-def test_scene_assignment_syncs_popup_visual_treatment_and_clears_frames():
+def test_scene_assignment_syncs_popup_visual_mode_and_clears_frames():
     scene = Scene(
         id="scene_001",
         narration="Hello.",
@@ -202,11 +200,9 @@ def test_scene_assignment_syncs_popup_visual_treatment_and_clears_frames():
         frame_urls=["/static/projects/script/images/scene_001_0.png"],
     )
 
-    scene.visual_treatment = "popup_sequence"
+    scene.visual_mode = "popup_sequence"
 
     assert scene.visual_mode == "popup_sequence"
-    assert scene.media_source == "ai"
-    assert scene.visual_treatment == "popup_sequence"
     assert scene.frame_urls == []
 
 
@@ -222,8 +218,6 @@ def test_scene_visual_beat_assignment_does_not_demote_video_mode():
     scene.visual_beat = "quick_cuts"
 
     assert scene.visual_mode == "video"
-    assert scene.media_source == "ai_video"
-    assert scene.visual_treatment == "full_frame"
     assert scene.frame_urls == []
 
 
@@ -239,8 +233,6 @@ def test_scene_visual_beat_assignment_does_not_demote_popup_mode():
     scene.visual_beat = "continuous"
 
     assert scene.visual_mode == "popup_sequence"
-    assert scene.media_source == "ai"
-    assert scene.visual_treatment == "popup_sequence"
     assert scene.frame_urls == []
 
 
@@ -256,8 +248,6 @@ def test_scene_visual_beat_assignment_does_not_demote_flipflop_mode():
     scene.visual_beat = "quick_cuts"
 
     assert scene.visual_mode == "flipflop"
-    assert scene.media_source == "ai"
-    assert scene.visual_treatment == "flipflop"
     assert scene.frame_urls == []
 
 
@@ -275,8 +265,6 @@ def test_scene_accepts_explicit_captions_visual_mode():
 
     assert scene.visual_mode == "captions"
     assert scene.visual_beat == "captions"
-    assert scene.media_source == "ai"
-    assert scene.visual_treatment == "full_frame"
     assert scene.caption_text == "Spending big while falling behind"
     assert scene.caption_emphasis == "falling behind"
     assert scene.image_url == "/static/projects/script/images/scene_001.png"
@@ -295,8 +283,6 @@ def test_scene_derives_captions_from_legacy_visual_beat():
 
     assert scene.visual_mode == "captions"
     assert scene.visual_beat == "captions"
-    assert scene.media_source == "ai"
-    assert scene.visual_treatment == "full_frame"
 
 
 def test_scene_assignment_syncs_captions_visual_mode_without_clearing_media():
@@ -312,7 +298,5 @@ def test_scene_assignment_syncs_captions_visual_mode_without_clearing_media():
 
     assert scene.visual_mode == "captions"
     assert scene.visual_beat == "captions"
-    assert scene.media_source == "ai"
-    assert scene.visual_treatment == "full_frame"
     assert scene.image_url == "/static/projects/script/images/scene_001.png"
     assert scene.frame_urls == ["/static/projects/script/images/scene_001_0.png"]

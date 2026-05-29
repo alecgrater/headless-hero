@@ -57,7 +57,6 @@ export interface VideoFX {
 }
 
 export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "captions";
-export type VisualTreatment = "full_frame" | "popup_sequence" | "flipflop";
 
 export interface VisualCanvas {
   background_color: string;
@@ -120,7 +119,6 @@ export interface SceneInput {
   visual_beat?: "static" | "continuous" | "multi_frame" | "quick_cuts" | "aha_subtitle" | "montage" | "captions";
   frame_directives?: FrameDirective[] | null;
   visual_mode?: VisualMode;
-  visual_treatment?: VisualTreatment;
   visual_layers?: VisualLayer[] | null;
   caption_text?: string | null;
   caption_emphasis?: string | null;

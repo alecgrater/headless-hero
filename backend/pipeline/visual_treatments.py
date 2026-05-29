@@ -1,22 +1,18 @@
-"""Static-canvas animation type analysis and assignment helpers.
-
-The persisted scene field is still named ``visual_treatment`` for backward
-compatibility with existing script JSON and Remotion props.
-"""
+"""Static-canvas animation type analysis and assignment helpers."""
 
 from __future__ import annotations
 
 import logging
 import re
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
-from models.script import ScriptContent, Scene, VISUAL_MODES, VISUAL_TREATMENTS, VisualLayer, VisualMode, VisualTreatment
+from models.script import ScriptContent, Scene, VISUAL_MODES, VisualLayer, VisualMode
 from pipeline.render_jobs import UserFacingJobError
 
 logger = logging.getLogger(__name__)
 
-VIDEO_OR_PHOTO_SOURCES = {"ai_video"}
+LAYERED_LEGACY_TREATMENTS = {"full_frame", "popup_sequence", "flipflop"}
 LIST_MARKERS = {
     "first",
     "second",
@@ -86,10 +82,23 @@ REPETITION_STOPWORDS = {
 
 class VisualTreatmentAssignment(BaseModel):
     scene_id: str
-    visual_mode: str = ""
-    visual_treatment: str
+    visual_mode: str = "full_frame"
     reasoning: str = ""
     visual_layers: list[VisualLayer] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_visual_treatment(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        normalized = dict(data)
+        if not normalized.get("visual_mode") and isinstance(normalized.get("visual_treatment"), str):
+            normalized["visual_mode"] = normalized["visual_treatment"]
+        return normalized
+
+    @property
+    def visual_treatment(self) -> str:
+        return self.visual_mode if self.visual_mode in {"popup_sequence", "flipflop"} else "full_frame"
 
 
 def missing_visual_treatment_voiceover_scene_ids(content: ScriptContent) -> tuple[list[str], list[str]]:
@@ -152,7 +161,7 @@ def analyze_visual_treatments(
         logger.info(
             "[ANIMATION_TYPE] scene=%s animation_type=%s layers=%d reason=%s",
             scene.id,
-            assignment.visual_treatment,
+            assignment.visual_mode,
             len(assignment.visual_layers),
             assignment.reasoning,
         )
@@ -169,7 +178,7 @@ def apply_visual_treatment_assignments(
         scene = scenes_by_id.get(assignment.scene_id)
         if scene is None:
             continue
-        mode = _normalize_visual_mode(assignment.visual_mode or assignment.visual_treatment)
+        mode = _normalize_visual_mode(assignment.visual_mode)
         scene.set_visual_mode(mode)
         scene.visual_layers = (
             list(assignment.visual_layers)
@@ -185,7 +194,6 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="captions",
-            visual_treatment="full_frame",
             reasoning="Scene is explicitly marked for captions rendering.",
             visual_layers=[],
         )
@@ -193,7 +201,6 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="video",
-            visual_treatment="full_frame",
             reasoning="Video scenes keep their generated clip as the scene mode.",
             visual_layers=[],
         )
@@ -202,7 +209,6 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="popup_sequence",
-            visual_treatment="popup_sequence",
             reasoning="Scene is explicitly marked for popup-sequence rendering.",
             visual_layers=list(scene.visual_layers),
         )
@@ -210,7 +216,6 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="flipflop",
-            visual_treatment="flipflop",
             reasoning="Scene is explicitly marked for flip-flop rendering.",
             visual_layers=list(scene.visual_layers) or _flipflop_layers(scene, _state_b_enter_at(scene, [])),
         )
@@ -218,7 +223,6 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="multi_frame",
-            visual_treatment="full_frame",
             reasoning="Scene is explicitly marked for independent multi-frame rendering.",
             visual_layers=[],
         )
@@ -226,7 +230,6 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="continuous",
-            visual_treatment="full_frame",
             reasoning="Scene is explicitly marked for same-scene progression.",
             visual_layers=[],
         )
@@ -238,7 +241,6 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="popup_sequence",
-            visual_treatment="popup_sequence",
             reasoning=f"Detected {layer_count} list markers in narration.",
             visual_layers=layers,
         )
@@ -254,7 +256,6 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="flipflop",
-            visual_treatment="flipflop",
             reasoning="Detected contrast, repetition, or two-state narration.",
             visual_layers=_flipflop_layers(scene, state_b_enter_at),
         )
@@ -266,7 +267,6 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="popup_sequence",
-            visual_treatment="popup_sequence",
             reasoning=f"Detected {layer_count} list items in narration.",
             visual_layers=layers,
         )
@@ -275,7 +275,6 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="flipflop",
-            visual_treatment="flipflop",
             reasoning="Detected repeated narration content.",
             visual_layers=_flipflop_layers(scene, state_b_enter_at),
         )
@@ -284,7 +283,6 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="continuous",
-            visual_treatment="full_frame",
             reasoning="Detected same-scene visual progression in narration.",
             visual_layers=[],
         )
@@ -296,7 +294,6 @@ def _full_frame_assignment(scene_id: str, reasoning: str) -> VisualTreatmentAssi
     return VisualTreatmentAssignment(
         scene_id=scene_id,
         visual_mode="full_frame",
-        visual_treatment="full_frame",
         reasoning=reasoning,
         visual_layers=[],
     )
@@ -305,15 +302,8 @@ def _full_frame_assignment(scene_id: str, reasoning: str) -> VisualTreatmentAssi
 def _is_video_or_photo_backed(scene: Scene) -> bool:
     return (
         scene.visual_mode == "video"
-        or scene.media_source in VIDEO_OR_PHOTO_SOURCES
         or bool(scene.video_url)
     )
-
-
-def _normalize_treatment(value: str) -> VisualTreatment:
-    if value in VISUAL_TREATMENTS:
-        return value  # type: ignore[return-value]
-    return "full_frame"
 
 
 def _normalize_visual_mode(value: str) -> VisualMode:
@@ -321,7 +311,7 @@ def _normalize_visual_mode(value: str) -> VisualMode:
         return value  # type: ignore[return-value]
     if value in {"quick_cuts", "montage"}:
         return "multi_frame"
-    if value in VISUAL_TREATMENTS:
+    if value in LAYERED_LEGACY_TREATMENTS:
         return value  # type: ignore[return-value]
     return "full_frame"
 

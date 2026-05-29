@@ -41,7 +41,7 @@ export default function TimelineBlock({
       <div className={`absolute left-0 top-0 bottom-0 w-1 ${borderColor}`} />
 
       {/* Visual mode badge */}
-      {laneType === "images" && <VisualModeBadge mode={scene.visual_mode ?? (scene.media_source === "ai_video" ? "video" : scene.visual_treatment ?? "full_frame")} />}
+      {laneType === "images" && <VisualModeBadge mode={scene.visual_mode ?? "full_frame"} />}
 
       <div className="pl-2.5 pr-1.5 w-full overflow-hidden">
         {laneType === "images" && <ImageContent scene={scene} />}

@@ -1076,7 +1076,7 @@ def test_generate_batch_visual_mode_wins_over_conflicting_legacy_treatment(monke
         assert stored is not None
         stored_scene = ScriptContent.model_validate_json(stored.script_json).segments[0].scenes[0]
 
-    assert captured_scenes[0]["visual_treatment"] == "popup_sequence"
+    assert captured_scenes[0]["visual_mode"] == "popup_sequence"
     assert stored_scene.visual_mode == "popup_sequence"
     assert stored_scene.visual_treatment == "popup_sequence"
     assert stored_scene.image_url == ""
@@ -1149,7 +1149,7 @@ def test_generate_batch_full_frame_mode_wins_over_conflicting_legacy_treatment(m
         assert stored is not None
         stored_scene = ScriptContent.model_validate_json(stored.script_json).segments[0].scenes[0]
 
-    assert captured_scenes[0]["visual_treatment"] == "full_frame"
+    assert captured_scenes[0]["visual_mode"] == "full_frame"
     assert stored_scene.visual_mode == "full_frame"
     assert stored_scene.visual_treatment == "full_frame"
     assert stored_scene.image_url == f"/static/projects/{script_id}/images/scene_001.png"

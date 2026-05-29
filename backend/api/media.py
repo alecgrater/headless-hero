@@ -33,8 +33,7 @@ async def upload_scene_media():
 
 class MediaAssignmentResponse(BaseModel):
     scene_id: str
-    visual_mode: str = ""
-    media_source: str
+    visual_mode: str = "full_frame"
     game_name: str | None = None
     search_query: str | None = None
     reasoning: str = ""
@@ -95,31 +94,37 @@ def normalize_media_assignments_for_sources(
         life_as_a_role = resolve_life_as_a_role(script_content)
 
     for assignment in assignments:
-        if assignment.media_source not in {"ai", "ai_video"} or (
-            assignment.media_source == "ai_video" and not ai_video_enabled
-        ):
+        mode = assignment.visual_mode if assignment.visual_mode in {"video", "full_frame"} else "full_frame"
+        if assignment.media_source not in {"ai", "ai_video"}:
             normalized.append(MediaAssignment(
                 scene_id=assignment.scene_id,
-                media_source="ai",
                 game_name=None,
                 search_query=None,
                 reasoning="Media source disabled before analysis completed.",
+                visual_mode="full_frame",
             ))
-        elif assignment.media_source == "ai_video" and script_content is not None:
+        elif mode == "video" and not ai_video_enabled:
+            normalized.append(MediaAssignment(
+                scene_id=assignment.scene_id,
+                game_name=None,
+                search_query=None,
+                reasoning="Media source disabled before analysis completed.",
+                visual_mode="full_frame",
+            ))
+        elif mode == "video" and script_content is not None:
             scene = scenes_by_id.get(assignment.scene_id)
             if scene is None or not is_ai_video_eligible(
                 scene,
-                current_source=scene.media_source if scene is not None else "ai",
                 require_eli_scene=require_eli_scene_for_ai_video,
                 life_as_a_role=life_as_a_role,
                 enforce_duration_cap=False,
             ):
                 normalized.append(MediaAssignment(
                     scene_id=assignment.scene_id,
-                    media_source="ai",
                     game_name=None,
                     search_query=None,
                     reasoning="AI video assignment no longer fits the latest scene timing, media source, or content.",
+                    visual_mode="full_frame",
                 ))
                 logger.info(
                     "[MEDIA_ANALYSIS] downgraded ai_video scene %s; reason=latest scene is ineligible",
@@ -215,7 +220,6 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
                 MediaAssignment(
                     scene_id=scene.id,
                     visual_mode="full_frame",
-                    media_source="ai",
                     game_name=None,
                     search_query=None,
                     reasoning="Gameplay, stock photo, and AI video routing are disabled for this script.",
@@ -254,8 +258,7 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
 
         result_data = json.dumps([{
             "scene_id": a.scene_id,
-            "visual_mode": a.visual_mode or ("video" if a.media_source == "ai_video" else "full_frame"),
-            "media_source": a.media_source,
+            "visual_mode": a.visual_mode,
             "game_name": a.game_name,
             "search_query": a.search_query,
             "reasoning": a.reasoning,
@@ -279,8 +282,8 @@ def analyze_status(job_id: str):
         raw = json.loads(job.output_data)
         summary: dict[str, int] = {}
         for a in raw:
-            src = a["media_source"]
-            summary[src] = summary.get(src, 0) + 1
+            mode = a["visual_mode"]
+            summary[mode] = summary.get(mode, 0) + 1
         result["assignments"] = raw
         result["summary"] = summary
     return result
@@ -299,7 +302,6 @@ def apply_media(body: ApplyRequest, script_id: str, session: Session = Depends(g
         MediaAssignment(
             scene_id=a.scene_id,
             visual_mode=a.visual_mode,
-            media_source=a.media_source,
             game_name=a.game_name,
             search_query=a.search_query,
             reasoning=a.reasoning,

@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import TestLabRunPanel from "./TestLabRunPanel";
-import type { TestLabRun } from "../../types/testLab";
+import type { TestLabRun, TestLabSettings } from "../../types/testLab";
 
 const baseRun: TestLabRun = {
   run_id: "run-1",
@@ -64,7 +64,7 @@ describe("TestLabRunPanel", () => {
             settings: {
               media_source: "ai",
               visual_treatment: "flipflop",
-            },
+            } as Partial<TestLabSettings>,
           },
           {
             ...baseRun,
@@ -72,7 +72,7 @@ describe("TestLabRunPanel", () => {
             settings: {
               media_source: "ai_video",
               visual_treatment: "full_frame",
-            },
+            } as Partial<TestLabSettings>,
           },
         ]}
         running={false}

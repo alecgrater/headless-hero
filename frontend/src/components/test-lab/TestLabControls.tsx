@@ -9,7 +9,7 @@ import type {
   TestLabSettings,
   TestLabStages,
 } from "../../types/testLab";
-import type { VisualMode, VisualTreatment } from "../../types/script";
+import type { VisualMode } from "../../types/script";
 import { Tooltip } from "../ui/Tooltip";
 
 type StageKey = keyof TestLabStages;
@@ -21,7 +21,7 @@ type VisualTextDefaults = TestLabSceneTextDefaults & {
 interface TestLabControlsProps {
   preset: TestLabPreset | null;
   defaultMainCharacter: TestLabMainCharacter | null;
-  visualTreatmentDefaults?: Partial<Record<VisualMode | VisualTreatment, VisualTextDefaults>>;
+  visualTreatmentDefaults?: Partial<Record<VisualMode, VisualTextDefaults>>;
   settings: TestLabSettings;
   onChange: (settings: TestLabSettings) => void;
   onValidityChange?: (valid: boolean) => void;
@@ -167,7 +167,7 @@ export default function TestLabControls({
 }: TestLabControlsProps) {
   const narration = settings.narration ?? preset?.narration ?? "";
   const visualPrompt = settings.visual_prompt ?? preset?.visual_prompt ?? "";
-  const visualMode = settings.visual_mode ?? (settings.media_source === "ai_video" ? "video" : settings.visual_treatment);
+  const visualMode = settings.visual_mode;
   const captionText =
     settings.caption_text ??
     (visualMode === "captions" && !shouldReplaceSceneText(settings.narration, preset?.narration)
@@ -218,14 +218,11 @@ export default function TestLabControls({
 
   function updateVisualMode(nextMode: VisualMode) {
     const isNextLayeredTreatment = nextMode === "popup_sequence" || nextMode === "flipflop";
-    const visualTreatment = isNextLayeredTreatment ? nextMode : "full_frame";
     const shouldPreserveVisualLayers = isNextLayeredTreatment && nextMode === visualMode;
     onChange(settingsWithVisualTreatmentDefaults(
       {
         ...settings,
         visual_mode: nextMode,
-        media_source: nextMode === "video" ? "ai_video" : "ai",
-        visual_treatment: visualTreatment,
         visual_layers: shouldPreserveVisualLayers ? settings.visual_layers : [],
         stages: {
           ...settings.stages,
@@ -492,17 +489,10 @@ export default function TestLabControls({
 export function settingsWithVisualTreatmentDefaults(
   settings: TestLabSettings,
   _preset: TestLabPreset | null,
-  visualTreatment: VisualMode | VisualTreatment,
-  _visualTreatmentDefaults?: Partial<Record<VisualMode | VisualTreatment, VisualTextDefaults>>,
+  _visualTreatment: VisualMode,
+  _visualTreatmentDefaults?: Partial<Record<VisualMode, VisualTextDefaults>>,
 ): TestLabSettings {
-  const next: TestLabSettings = isVisualTreatment(visualTreatment)
-    ? { ...settings, visual_treatment: visualTreatment }
-    : { ...settings };
-  return next;
-}
-
-function isVisualTreatment(value: VisualMode | VisualTreatment): value is VisualTreatment {
-  return value === "full_frame" || value === "popup_sequence" || value === "flipflop";
+  return { ...settings };
 }
 
 function shouldReplaceSceneText(currentValue: string | undefined, presetValue: string | undefined): boolean {
@@ -512,7 +502,7 @@ function shouldReplaceSceneText(currentValue: string | undefined, presetValue: s
 function captionMatchesDefault(
   currentValue: string | undefined,
   preset: TestLabPreset | null,
-  visualTreatmentDefaults?: Partial<Record<VisualMode | VisualTreatment, VisualTextDefaults>>,
+  visualTreatmentDefaults?: Partial<Record<VisualMode, VisualTextDefaults>>,
 ): boolean {
   if (currentValue === undefined || currentValue === "") return true;
   const defaultCaption = visualTreatmentDefaults?.captions?.caption_text;

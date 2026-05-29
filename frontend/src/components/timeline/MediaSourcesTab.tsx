@@ -8,7 +8,7 @@ function buildFrameCounts(content: ScriptContent): Record<string, number> {
   for (const seg of content.segments) {
     for (const scene of seg.scenes) {
       const directives = scene.frame_directives ?? [];
-      if (directives.length > 1 && scene.visual_mode !== "video" && scene.media_source !== "ai_video") {
+      if (directives.length > 1 && scene.visual_mode !== "video") {
         counts[scene.id] = directives.length;
       }
     }

@@ -8,7 +8,7 @@ import TestLabControls, { settingsWithVisualTreatmentDefaults } from "./TestLabC
 import TestLabRunPanel from "./TestLabRunPanel";
 
 function visualModeFromPreset(preset: TestLabPreset | null): TestLabSettings["visual_mode"] {
-  return preset?.visual_mode ?? (preset?.media_source === "ai_video" ? "video" : "full_frame");
+  return preset?.visual_mode ?? "full_frame";
 }
 
 function isLayeredVisualMode(
@@ -20,13 +20,11 @@ function isLayeredVisualMode(
 function settingsWithPresetVisualMode(settings: TestLabSettings, preset: TestLabPreset | null): TestLabSettings {
   const visualMode = visualModeFromPreset(preset);
   const isLayered = isLayeredVisualMode(visualMode);
-  const currentVisualMode = settings.visual_mode ?? (settings.media_source === "ai_video" ? "video" : settings.visual_treatment);
+  const currentVisualMode = settings.visual_mode;
   const shouldPreserveVisualLayers = isLayered && visualMode === currentVisualMode;
   return {
     ...settings,
     visual_mode: visualMode,
-    media_source: visualMode === "video" ? "ai_video" : "ai",
-    visual_treatment: isLayered ? visualMode : "full_frame",
     visual_layers: shouldPreserveVisualLayers ? settings.visual_layers : [],
     stages: {
       ...settings.stages,
@@ -48,8 +46,6 @@ const DEFAULT_SETTINGS: TestLabSettings = {
   eli_enabled: false,
   style_preset_enabled: true,
   visual_mode: "full_frame",
-  media_source: "ai",
-  visual_treatment: "full_frame",
   visual_layers: [],
   segment_timer_enabled: true,
   subtitle_highlight_enabled: true,
@@ -142,7 +138,7 @@ export default function TestLabPage() {
           main_character: undefined,
         },
         nextPreset,
-        presetSettings.visual_treatment,
+        presetSettings.visual_mode,
         visualTreatmentDefaults,
       );
     });

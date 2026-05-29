@@ -109,11 +109,14 @@ class TestLabPreset(BaseModel):
     visual_mode: Literal[
         "video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop", "captions"
     ] = "full_frame"
-    media_source: Literal["ai", "ai_video"] = "ai"
     caption_text: str = ""
     caption_emphasis: str = ""
     duration_estimate_seconds: float = 7.0
     main_character: MainCharacter | None = None
+
+    @property
+    def media_source(self) -> str:
+        return "ai_video" if self.visual_mode == "video" else "ai"
 
 
 class TestLabAsset(BaseModel):
@@ -206,7 +209,7 @@ TEST_LAB_PRESETS: list[TestLabPreset] = [
         narration="On Mars, the danger is immediate: thin air, freezing dust, and a sky that looks calm while your suit does all the work.",
         visual_prompt="Flat 2D cartoon astronaut standing large in foreground on red Martian dust, frosty suit visor, tiny habitat in distance, pale orange sky.",
         background_color="#F97316",
-        media_source="ai_video",
+        visual_mode="video",
     ),
     TestLabPreset(
         id="sleep-debt",
@@ -261,7 +264,7 @@ TEST_LAB_PRESETS: list[TestLabPreset] = [
         narration="A siege was less like one dramatic attack and more like a long contest of food, fear, engineering, and patience.",
         visual_prompt="Flat 2D cartoon castle under siege with defenders on walls, tents outside, supply barrels in foreground, dramatic but readable composition.",
         background_color="#EF4444",
-        media_source="ai_video",
+        visual_mode="video",
     ),
     TestLabPreset(
         id="phone-addiction",
@@ -400,7 +403,7 @@ def _caption_setting_from_settings(settings: dict, preset: TestLabPreset, key: s
 
 def _sync_ai_video_enabled(content: ScriptContent) -> ScriptContent:
     content.ai_video_enabled = any(
-        scene.visual_mode == "video" or scene.media_source == "ai_video"
+        scene.visual_mode == "video"
         for segment in content.segments
         for scene in segment.scenes
     )
@@ -444,7 +447,7 @@ def _reapply_top_level_scene_settings(content: ScriptContent, settings: dict) ->
 
 def _normalize_ai_video_treatments(content: ScriptContent) -> None:
     for scene in content.all_scenes():
-        if scene.visual_mode != "video" and scene.media_source != "ai_video":
+        if scene.visual_mode != "video":
             continue
         scene.set_visual_mode("video")
         scene.visual_layers = []
@@ -452,10 +455,9 @@ def _normalize_ai_video_treatments(content: ScriptContent) -> None:
 
 def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
     preset = get_preset(preset_id)
-    legacy_media_source = _setting(settings, "media_source", preset.media_source)
     if isinstance(settings.get("visual_mode"), str):
         visual_mode = settings["visual_mode"]
-    elif legacy_media_source == "ai_video":
+    elif settings.get("media_source") == "ai_video":
         visual_mode = "video"
     elif isinstance(settings.get("visual_treatment"), str):
         visual_mode = settings["visual_treatment"]
@@ -472,7 +474,6 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
         ),
         visual_mode=visual_mode,
         contains_person=bool(_setting(settings, "contains_person", preset.main_character is not None)),
-        visual_treatment=_setting(settings, "visual_treatment", "full_frame"),
         visual_layers=settings.get("visual_layers") if isinstance(settings.get("visual_layers"), list) else [],
         caption_text=_caption_setting_from_settings(settings, preset, "caption_text", narration, visual_mode),
         caption_emphasis=_caption_setting_from_settings(settings, preset, "caption_emphasis", narration, visual_mode),
@@ -750,9 +751,7 @@ def _stage_visual(ctx: TestLabRunContext) -> None:
                 "frame_directives": [directive.model_dump() for directive in scene.frame_directives],
                 "contains_person": scene.contains_person,
                 "visual_mode": scene.visual_mode,
-                "media_source": scene.media_source,
                 "audio_duration_seconds": scene.audio_duration_seconds or scene.duration_estimate_seconds,
-                "visual_treatment": scene.visual_treatment,
                 "visual_layers": [layer.model_dump() for layer in scene.visual_layers],
             },
             script_id=ctx.script_id,
@@ -854,7 +853,7 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
     with Session(ctx.engine) as session:
         record, content = _load_content_for_script(session, ctx.script_id)
         scene = _first_scene(content)
-        if scene.visual_mode == "video" or scene.media_source == "ai_video":
+        if scene.visual_mode == "video":
             scene.set_visual_mode("video")
             scene.visual_layers = []
             _save_content(session, record, content)
@@ -881,7 +880,7 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
             if scene.audio_duration_seconds > 0 and scene.word_timestamps:
                 assignments = analyze_visual_treatments(content, script_id=ctx.script_id)
                 assignment = _assignment_for_scene(assignments, scene.id)
-                assignment_mode = (assignment.visual_mode or assignment.visual_treatment) if assignment else ""
+                assignment_mode = assignment.visual_mode if assignment else ""
                 if assignment and isinstance(requested_mode, str) and assignment_mode != requested_mode:
                     logger.info(
                         "[TEST_LAB] ignoring %s animation assets for explicitly selected %s scene=%s",
@@ -915,7 +914,7 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
                     ctx.script_id,
                     force=True,
                     contains_person=scene.contains_person,
-                    visual_treatment=scene.visual_treatment,
+                    visual_treatment=scene.visual_mode,
                 )
             scene.visual_layers = [VisualLayer.model_validate(layer) for layer in generated_layers]
             for layer in scene.visual_layers:

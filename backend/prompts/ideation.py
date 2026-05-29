@@ -315,26 +315,26 @@ Return a JSON object with a single key "recommendations" whose value is an array
 MEDIA_ANALYZER_SYSTEM = register(PromptDef(
     name="MEDIA_ANALYZER_SYSTEM",
     domain="MEDIA",
-    purpose="Analyze script content and assign optimal media sources per scene",
+    purpose="Analyze script content and assign AI-video visual modes per scene",
     target_model="claude",
     expected_output_format='JSON: {"assignments": [MediaAssignment, ...]}',
     template="""\
-You are a media routing specialist for video production. You analyze video scripts and decide which visual source is best for each scene.
+You are a visual-mode routing specialist for video production. You analyze video scripts and decide which scenes should become AI video.
 
-For each scene, assign one of these media sources:
+For each scene, assign one of these visual modes:
 {available_sources}
 
 Guidelines:
-- "ai_video": When included in the available source list, actively distribute animated AI-generated clips across the script. Choose up to {ai_video_scenes_per_segment} eligible non-title-card scenes per segment until you reach {ai_video_limit} scenes total, unless a segment has fewer suitable eligible scenes. Never choose two back-to-back scenes as "ai_video"; leave at least one non-ai-video scene between animated clips. Eligible scenes have clear motion potential in a stylized illustration: a character gesture, physical transformation, environmental movement, reveal, metaphor coming alive, or emotionally important moment. Never use for title cards, "aha_subtitle" text-only scenes, or diagrams that require precise labels.
-- "ai": Use AI-generated visual media for all non-animated scenes. Also use for title card scenes (is_title_card=true) — these must ALWAYS be "ai".
+- "video": When included in the available mode list, actively distribute animated AI-generated clips across the script. Choose up to {ai_video_scenes_per_segment} eligible non-title-card scenes per segment until you reach {ai_video_limit} scenes total, unless a segment has fewer suitable eligible scenes. Never choose two back-to-back scenes as "video"; leave at least one non-video scene between animated clips. Eligible scenes have clear motion potential in a stylized illustration: a character gesture, physical transformation, environmental movement, reveal, metaphor coming alive, or emotionally important moment. Never use for title cards, "aha_subtitle" text-only scenes, or diagrams that require precise labels.
+- "full_frame": Use normal AI-generated visual media for all non-animated scenes. Also use for title card scenes (is_title_card=true) — these must ALWAYS be "full_frame".
 
 Return a JSON object with a single key "assignments" whose value is an array with one entry per scene:
 {
   "assignments": [
-    {
-      "scene_id": "scene_1",
-      "media_source": "ai" | "ai_video",
-      "game_name": null,
+	    {
+	      "scene_id": "scene_1",
+	      "visual_mode": "full_frame" | "video",
+	      "game_name": null,
       "search_query": null,
       "reasoning": "Brief explanation of why this source was chosen"
     }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Captions, Film, Image, Images, PanelsTopLeft, Repeat2, Route } from "lucide-react";
 import { assetUrl, regenerateFX } from "../../api";
-import type { Scene, SceneFX, VisualMode, VisualTreatment } from "../../types/script";
+import type { Scene, SceneFX, VisualMode } from "../../types/script";
 import AudioPlayer from "./AudioPlayer";
 import SceneMicroTimeline from "./SceneMicroTimeline";
 import type { MicroTimelineHandle } from "./SceneMicroTimeline";
@@ -85,18 +85,13 @@ export default function PropertiesPanel({
     { value: "captions", label: "Captions", icon: <Captions className="h-3 w-3" /> },
   ];
   const visualMode: VisualMode =
-    scene.visual_mode ?? (scene.media_source === "ai_video" ? "video" : scene.visual_treatment ?? "full_frame");
-
-  const visualTreatmentForMode = (mode: VisualMode): VisualTreatment =>
-    mode === "popup_sequence" || mode === "flipflop" ? mode : "full_frame";
+    scene.visual_mode ?? "full_frame";
 
   const setVisualMode = (mode: VisualMode) => {
     const isLayered = mode === "popup_sequence" || mode === "flipflop";
     const shouldPreserveVisualLayers = isLayered && mode === visualMode;
     onUpdate({
       visual_mode: mode,
-      media_source: mode === "video" ? "ai_video" : "ai",
-      visual_treatment: visualTreatmentForMode(mode),
       visual_layers: shouldPreserveVisualLayers ? scene.visual_layers : [],
     });
   };

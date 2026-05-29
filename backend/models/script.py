@@ -169,7 +169,6 @@ class Scene(BaseModel):
     frame_directives: list[FrameDirective] = []
     contains_person: bool = False       # true if any frame depicts a human figure
     visual_mode: VisualMode = "full_frame"
-    visual_treatment: VisualTreatment = "full_frame"
     visual_layers: list[VisualLayer] = PydanticField(default_factory=list)
     caption_text: str = ""
     caption_emphasis: str = ""
@@ -179,15 +178,14 @@ class Scene(BaseModel):
     frame_timings: list[float] | None = None  # seconds into scene when each frame starts; None = even split
     visual_in_seconds: float = 0.0      # visual appears this many seconds into the audio
     visual_out_seconds: float = 0.0     # visual ends this many seconds before audio ends
-    # --- Media source ---
-    media_source: str = "ai"            # "ai" | "ai_video"
+    # --- AI video ---
     video_url: str = ""                 # web-relative path to AI-generated video clip
     original_visual_prompt: str = ""    # deprecated
     visual_source_metadata: dict | None = None  # provider/source details for generated or fallback visuals
 
     def __setattr__(self, name: str, value: object) -> None:
         super().__setattr__(name, value)
-        if name in {"visual_mode", "media_source", "visual_treatment", "visual_beat"}:
+        if name in {"visual_mode", "visual_beat"}:
             self._sync_visual_mode_fields_from_assignment(name)
 
     @model_validator(mode="before")
@@ -202,10 +200,7 @@ class Scene(BaseModel):
             normalized.get("visual_treatment"),
             normalized.get("visual_beat"),
         )
-        media_source, visual_treatment = _legacy_fields_for_visual_mode(mode)
         normalized["visual_mode"] = mode
-        normalized["media_source"] = media_source
-        normalized["visual_treatment"] = visual_treatment
         visual_beat = _visual_beat_for_visual_mode(mode)
         if visual_beat is not None:
             normalized["visual_beat"] = visual_beat
@@ -221,13 +216,6 @@ class Scene(BaseModel):
             return value
         return "cut"
 
-    @field_validator("visual_treatment", mode="before")
-    @classmethod
-    def normalize_visual_treatment(cls, value: object) -> str:
-        if isinstance(value, str) and value in VISUAL_TREATMENTS:
-            return value
-        return "full_frame"
-
     @field_validator("visual_mode", mode="before")
     @classmethod
     def normalize_visual_mode(cls, value: object) -> str:
@@ -239,23 +227,17 @@ class Scene(BaseModel):
         mode = _resolve_visual_mode(visual_mode, None, None)
         self._sync_visual_mode_fields(mode)
 
+    @property
+    def media_source(self) -> str:
+        return "ai_video" if self.visual_mode == "video" else "ai"
+
+    @property
+    def visual_treatment(self) -> VisualTreatment:
+        return self.visual_mode if self.visual_mode in {"popup_sequence", "flipflop"} else "full_frame"
+
     def _sync_visual_mode_fields_from_assignment(self, assigned_field: str) -> None:
         if assigned_field == "visual_mode":
             mode = _resolve_visual_mode(self.visual_mode, None, None)
-        elif assigned_field == "media_source":
-            if self.media_source == "ai_video":
-                mode = "video"
-            elif self.visual_mode in {"multi_frame", "continuous", "captions", "popup_sequence", "flipflop"}:
-                mode = self.visual_mode
-            else:
-                mode = "full_frame"
-        elif assigned_field == "visual_treatment":
-            if self.visual_treatment in {"popup_sequence", "flipflop"}:
-                mode = self.visual_treatment
-            elif self.visual_mode in {"multi_frame", "continuous", "captions", "video"}:
-                mode = self.visual_mode
-            else:
-                mode = "full_frame"
         else:
             if self.visual_mode in {"video", "popup_sequence", "flipflop"}:
                 mode = self.visual_mode
@@ -264,10 +246,7 @@ class Scene(BaseModel):
         self._sync_visual_mode_fields(mode)
 
     def _sync_visual_mode_fields(self, visual_mode: VisualMode) -> None:
-        media_source, visual_treatment = _legacy_fields_for_visual_mode(visual_mode)
         super().__setattr__("visual_mode", visual_mode)
-        super().__setattr__("media_source", media_source)
-        super().__setattr__("visual_treatment", visual_treatment)
         visual_beat = _visual_beat_for_visual_mode(visual_mode)
         if visual_beat is not None:
             super().__setattr__("visual_beat", visual_beat)
@@ -294,14 +273,6 @@ def _resolve_visual_mode(
     if visual_beat in {"aha_subtitle", "captions"}:
         return "captions"
     return "full_frame"
-
-
-def _legacy_fields_for_visual_mode(visual_mode: VisualMode) -> tuple[str, VisualTreatment]:
-    if visual_mode == "video":
-        return "ai_video", "full_frame"
-    if visual_mode in {"popup_sequence", "flipflop"}:
-        return "ai", visual_mode
-    return "ai", "full_frame"
 
 
 def _visual_beat_for_visual_mode(visual_mode: VisualMode) -> str | None:

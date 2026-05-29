@@ -44,7 +44,7 @@ const MODE_LABELS: Record<VisualMode, { label: string; blurb: string }> = {
 
 const MODE_OPTIONS: VisualMode[] = ["video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop"];
 const modeForAssignment = (assignment: VisualTreatmentAssignment): VisualMode =>
-  assignment.visual_mode ?? (assignment.visual_treatment === "full_frame" ? "full_frame" : assignment.visual_treatment);
+  assignment.visual_mode ?? "full_frame";
 const isLayeredMode = (mode: VisualMode): mode is Extract<VisualMode, "popup_sequence" | "flipflop"> =>
   mode === "popup_sequence" || mode === "flipflop";
 
@@ -86,7 +86,6 @@ export default function VisualTreatmentReviewPanel({
           ? {
               ...assignment,
               visual_mode: visualMode,
-              visual_treatment: isLayered ? visualMode : "full_frame",
               visual_layers: shouldPreserveVisualLayers ? assignment.visual_layers : [],
             }
           : assignment;

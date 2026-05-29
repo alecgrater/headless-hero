@@ -1722,7 +1722,7 @@ function TimelineEditor({
     .filter((sc) => !sc.is_title_card)
     .reduce(
       (acc, sc) => {
-        const mode = sc.visual_mode ?? (sc.media_source === "ai_video" ? "video" : sc.visual_treatment ?? "full_frame");
+        const mode = sc.visual_mode ?? "full_frame";
         acc[mode] = (acc[mode] ?? 0) + 1;
         return acc;
       },

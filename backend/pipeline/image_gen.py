@@ -1266,7 +1266,8 @@ def _generate_one_scene(
     def with_visual_layers(result: dict[str, object]) -> dict[str, object]:
         if scene.get("visual_mode") == "captions":
             return result
-        treatment = scene.get("visual_treatment", "full_frame")
+        visual_mode = str(scene.get("visual_mode") or scene.get("visual_treatment") or "full_frame")
+        treatment = visual_mode if visual_mode in {"popup_sequence", "flipflop"} else "full_frame"
         layers = scene.get("visual_layers", []) or []
         if treatment not in {"popup_sequence", "flipflop"} or not layers:
             return result
@@ -1301,10 +1302,9 @@ def _generate_one_scene(
 
     try:
         visual_mode = scene.get("visual_mode") or ("video" if scene.get("media_source") == "ai_video" else scene.get("visual_treatment", "full_frame"))
-        media_source = scene.get("media_source", "ai")
 
         # --- AI video dispatch ---
-        if visual_mode == "video" or media_source == "ai_video":
+        if visual_mode == "video":
             from pipeline.video_gen import generate_scene_video
 
             duration = float(scene.get("audio_duration_seconds", 5.0) or 5.0)
@@ -1345,9 +1345,7 @@ def _generate_one_scene(
         frame_directives = scene.get("frame_directives", [])
         frame_prompts = scene.get("frame_prompts", [])
         scene_contains_person = scene.get("contains_person", False)
-        treatment = scene.get("visual_treatment", "full_frame")
-        if visual_mode in {"popup_sequence", "flipflop"}:
-            treatment = visual_mode
+        treatment = visual_mode if visual_mode in {"popup_sequence", "flipflop"} else "full_frame"
 
         if treatment != "full_frame":
             return with_visual_layers({
@@ -1457,9 +1455,8 @@ def generate_batch(
 ) -> list[dict[str, str | None]]:
     """Generate images for a list of scenes with bounded concurrency.
 
-    Each scene dict must have 'scene_id' and 'visual_prompt'.
+    Each scene dict must have 'scene_id', 'visual_prompt', and canonical 'visual_mode'.
     Optionally 'frame_prompts' (list[str]) for multi-frame scenes.
-    Dispatches based on scene 'media_source': ai (default) or ai_video.
     Returns list of {scene_id, image_url, prompt_used, frame_urls?, video_url?, error?}
     in the same order as the input scenes.
 

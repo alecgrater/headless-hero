@@ -24,7 +24,7 @@ const MODE_LABELS: Record<string, { label: string; color: string }> = {
   video: { label: "Video", color: "bg-fuchsia-500/20 text-fuchsia-300" },
 };
 const modeForAssignment = (assignment: MediaAssignment): VisualMode =>
-  assignment.visual_mode ?? (assignment.media_source === "ai_video" ? "video" : "full_frame");
+  assignment.visual_mode ?? "full_frame";
 
 export default function MediaReviewPanel({ scriptId, assignments: initial, frameCounts, fullHeight, scenes, sceneSegments, canAnalyze = true, analyzeBlockedReason, onBeforeApply, onSaved, onApproved, onReanalyze }: Props) {
   const [assignments, setAssignments] = useState<MediaAssignment[]>(initial);
@@ -49,7 +49,6 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
           ? {
               ...a,
               visual_mode: newMode,
-              media_source: newMode === "video" ? "ai_video" : "ai",
               game_name: null,
               search_query: null,
             }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../api";
 import { fetchGenerationEstimate, recordDuration, pollTitleCardJob, bumpAssetVersion } from "../../api";
-import type { FrameDirective, Scene, ScriptContent, VisualLayer, VisualTreatment } from "../../types/script";
+import type { FrameDirective, Scene, ScriptContent, VisualLayer } from "../../types/script";
 import type { GenerateVisualResponse, GenerateTitleCardsResponse } from "../../types/visual";
 import type { GenerateAudioResponse } from "../../types/audio";
 
@@ -491,10 +491,8 @@ export function useTimelineState(
           visual_prompt: scene.visual_prompt,
           frame_directives: scene.frame_directives || [],
           contains_person: scene.contains_person || false,
-          visual_mode: scene.visual_mode ?? (scene.media_source === "ai_video" ? "video" : scene.visual_treatment ?? "full_frame"),
-          media_source: scene.media_source || "ai",
+          visual_mode: scene.visual_mode ?? "full_frame",
           audio_duration_seconds: scene.audio_duration_seconds || 0,
-          visual_treatment: scene.visual_treatment || "full_frame",
           visual_layers: scene.visual_layers || [],
         });
         if (res.ok) {
@@ -540,10 +538,8 @@ export function useTimelineState(
         name: string;
         frame_directives: FrameDirective[];
         contains_person: boolean;
-        media_source: string;
         visual_mode: string;
         audio_duration_seconds: number;
-        visual_treatment: VisualTreatment;
         visual_layers: VisualLayer[];
       }[] = [];
       let shouldGenerateTitleCards = false;
@@ -559,10 +555,8 @@ export function useTimelineState(
               name: sc.narration.slice(0, 40) || sc.id,
               frame_directives: sc.frame_directives || [],
               contains_person: sc.contains_person || false,
-              visual_mode: sc.visual_mode ?? (sc.media_source === "ai_video" ? "video" : sc.visual_treatment ?? "full_frame"),
-              media_source: sc.media_source || "ai",
+              visual_mode: sc.visual_mode ?? "full_frame",
               audio_duration_seconds: sc.audio_duration_seconds || 0,
-              visual_treatment: sc.visual_treatment || "full_frame",
               visual_layers: sc.visual_layers || [],
             });
           }
@@ -641,9 +635,7 @@ export function useTimelineState(
             frame_directives: scene.frame_directives,
             contains_person: scene.contains_person,
             visual_mode: scene.visual_mode,
-            media_source: scene.media_source,
             audio_duration_seconds: scene.audio_duration_seconds,
-            visual_treatment: scene.visual_treatment,
             visual_layers: scene.visual_layers,
           });
           if (res.ok) {

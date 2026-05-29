@@ -251,14 +251,14 @@ export const flipflopActiveLayer = (layers: VisualLayer[], frame: number, fps: n
 };
 
 export const TreatmentRenderer: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
-  switch (scene.visual_treatment) {
+  switch (scene.visual_mode) {
     case "popup_sequence":
       return <PopupSequence scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
     case "flipflop":
       return <Flipflop scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
     case "full_frame":
     default:
-      logTreatmentOnce(scene, scene.visual_treatment ?? "full_frame", scene.visual_layers?.length ?? 0);
+      logTreatmentOnce(scene, scene.visual_mode ?? "full_frame", scene.visual_layers?.length ?? 0);
       return <>{fallbackVisualLayer}</>;
   }
 };

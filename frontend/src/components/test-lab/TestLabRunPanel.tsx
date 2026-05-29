@@ -352,8 +352,9 @@ function historyRunLabel(run: TestLabRun) {
 
 function historyRunVisualMode(run: TestLabRun) {
   if (run.settings.visual_mode) return run.settings.visual_mode;
-  if (run.settings.media_source === "ai_video") return "video";
-  if (run.settings.visual_treatment) return run.settings.visual_treatment;
+  const legacySettings = run.settings as unknown as { media_source?: string; visual_treatment?: string };
+  if (legacySettings.media_source === "ai_video") return "video";
+  if (legacySettings.visual_treatment) return legacySettings.visual_treatment;
   return "";
 }
 

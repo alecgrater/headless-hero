@@ -25,7 +25,7 @@ def test_ai_video_scene_slows_clip_when_short_by_25_percent_or_less(tmp_path, mo
         id="scene-1",
         narration="Long narration.",
         visual_prompt="Animated explainer.",
-        media_source="ai_video",
+        visual_mode="video",
         audio_duration_seconds=12.0,
     )
 
@@ -95,7 +95,7 @@ def test_ai_video_scene_falls_back_to_image_when_slowdown_would_exceed_25_percen
         id="scene-1",
         narration="Long narration.",
         visual_prompt="Animated explainer.",
-        media_source="ai_video",
+        visual_mode="video",
         audio_duration_seconds=12.0,
     )
 
@@ -116,7 +116,7 @@ def test_video_scene_duration_keeps_audio_when_clip_is_long_enough(tmp_path, mon
         id="scene-1",
         narration="Short narration.",
         visual_prompt="Animated explainer.",
-        media_source="ai_video",
+        visual_mode="video",
         audio_duration_seconds=7.0,
     )
 
@@ -125,7 +125,7 @@ def test_video_scene_duration_keeps_audio_when_clip_is_long_enough(tmp_path, mon
     assert props["duration_seconds"] == 7.0
 
 
-def test_scene_to_input_props_includes_visual_treatment_layers(tmp_path, monkeypatch):
+def test_scene_to_input_props_uses_visual_mode_for_layered_scenes(tmp_path, monkeypatch):
     monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
     image_dir = tmp_path / "projects" / "script" / "images"
     image_dir.mkdir(parents=True)
@@ -135,7 +135,7 @@ def test_scene_to_input_props_includes_visual_treatment_layers(tmp_path, monkeyp
         narration="A list appears.",
         visual_prompt="x",
         audio_duration_seconds=2.0,
-        visual_treatment="popup_sequence",
+        visual_mode="popup_sequence",
         visual_layers=[
             {
                 "id": "panel_1",
@@ -150,7 +150,7 @@ def test_scene_to_input_props_includes_visual_treatment_layers(tmp_path, monkeyp
     )
     props = remotion_render._scene_to_input_props(scene, "script")
     assert props["visual_mode"] == "popup_sequence"
-    assert props["visual_treatment"] == "popup_sequence"
+    assert "visual_treatment" not in props
     assert props["visual_layers"][0]["placement"] == "left"
     assert props["visual_layers"][0]["image_path"].endswith("scene_layered_layer_panel_1.png")
 
@@ -168,7 +168,7 @@ def test_scene_to_input_props_resolves_popup_crop_layer_urls(tmp_path, monkeypat
         narration="A list appears.",
         visual_prompt="x",
         audio_duration_seconds=2.0,
-        visual_treatment="popup_sequence",
+        visual_mode="popup_sequence",
         visual_layers=[
             {
                 "id": "chat_bubble",
@@ -304,7 +304,7 @@ def test_chapter_marker_total_frames_use_full_ai_video_audio_duration(tmp_path, 
                         id="scene-1",
                         narration="Long narration.",
                         visual_prompt="Animated explainer.",
-                        media_source="ai_video",
+                        visual_mode="video",
                         audio_duration_seconds=12.0,
                     ),
                 ],
