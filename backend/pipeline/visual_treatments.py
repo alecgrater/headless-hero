@@ -260,11 +260,12 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
         )
 
     if scene.visual_mode == "popup_sequence":
+        layers = list(scene.visual_layers) or _popup_layers_for_scene(scene)
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="popup_sequence",
             reasoning="Scene is explicitly marked for popup-sequence rendering.",
-            visual_layers=list(scene.visual_layers),
+            visual_layers=layers,
         )
     if scene.visual_mode == "flipflop":
         return VisualTreatmentAssignment(
@@ -288,14 +289,12 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             visual_layers=[],
         )
 
-    marker_list_items = _matching_words(scene, LIST_MARKERS)
-    if len(marker_list_items) >= 2:
-        layer_count = min(len(marker_list_items), 4)
-        layers = _popup_layers(scene, marker_list_items[:layer_count])
+    layers = _popup_layers_for_scene(scene, marker_only=True)
+    if layers:
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="popup_sequence",
-            reasoning=f"Detected {layer_count} list markers in narration.",
+            reasoning=f"Detected {len(layers)} list markers in narration.",
             visual_layers=layers,
         )
 
@@ -307,14 +306,12 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             visual_layers=_flipflop_layers(scene, _state_b_enter_at(scene, [])),
         )
 
-    natural_list_items = _natural_list_items(scene)
-    if len(natural_list_items) >= 2:
-        layer_count = min(len(natural_list_items), 4)
-        layers = _popup_layers(scene, natural_list_items[:layer_count])
+    layers = _popup_layers_for_scene(scene, natural_only=True)
+    if layers:
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="popup_sequence",
-            reasoning=f"Detected {layer_count} list items in narration.",
+            reasoning=f"Detected {len(layers)} list items in narration.",
             visual_layers=layers,
         )
 
@@ -383,6 +380,27 @@ def _looks_like_flipflop_micro_action(scene: Scene) -> bool:
     has_motion = bool(words & MICRO_ACTION_MOTION_MARKERS)
     has_strong_phrase = any(phrase in text for phrase in MICRO_ACTION_PHRASES)
     return has_subject and (has_motion or has_strong_phrase)
+
+
+def _popup_layers_for_scene(
+    scene: Scene,
+    *,
+    marker_only: bool = False,
+    natural_only: bool = False,
+) -> list[VisualLayer]:
+    if not natural_only:
+        marker_list_items = _matching_words(scene, LIST_MARKERS)
+        if len(marker_list_items) >= 2:
+            layer_count = min(len(marker_list_items), 4)
+            return _popup_layers(scene, marker_list_items[:layer_count])
+
+    if not marker_only:
+        natural_list_items = _natural_list_items(scene)
+        if len(natural_list_items) >= 2:
+            layer_count = min(len(natural_list_items), 4)
+            return _popup_layers(scene, natural_list_items[:layer_count])
+
+    return []
 
 
 def _popup_layers(scene: Scene, list_items: list[tuple[str, float]]) -> list[VisualLayer]:

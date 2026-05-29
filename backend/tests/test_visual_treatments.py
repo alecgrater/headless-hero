@@ -2069,6 +2069,20 @@ def test_analyze_visual_treatments_preserves_explicit_popup_sequence_with_progre
     assert assignment.visual_layers == [existing_layer]
 
 
+def test_analyze_visual_treatments_fills_explicit_popup_sequence_without_layers():
+    scene = scene_with_words("s1", "She points to missing keys, spoiled lunch, and an angry prisoner.")
+    scene.set_visual_mode("popup_sequence")
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-explicit-popup")
+
+    assignment = assignments[0]
+    assert assignment.visual_mode == "popup_sequence"
+    assert assignment.visual_treatment == "popup_sequence"
+    assert [layer.placement for layer in assignment.visual_layers] == ["left", "center", "right"]
+    assert [layer.enter_at_seconds for layer in assignment.visual_layers] == [0.0, 1.75, 3.15]
+
+
 def test_analyze_visual_treatments_preserves_explicit_flipflop_with_progression_words():
     scene = scene_with_words("s1", "The crack slowly spreads across the glass.")
     scene.set_visual_mode("flipflop")
