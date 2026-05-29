@@ -20,6 +20,7 @@ export type TtsSettings = {
 };
 
 type DeliveryPresetId = "steady" | "more_human" | "dramatic";
+type DeliveryPresetSelection = DeliveryPresetId | "custom";
 
 type DeliveryPreset = {
   label: string;
@@ -53,13 +54,13 @@ export const DELIVERY_PRESETS: Record<DeliveryPresetId, DeliveryPreset> = {
   },
   dramatic: {
     label: "Dramatic",
-    summary: "Opt-in expressive mode for final voiceover tests.",
-    detail: "Uses Eleven v3 and hidden TTS-only delivery tags. More alive, but timing and emphasis may vary more between regenerations.",
+    summary: "More expressive v2 delivery while staying on the steady model.",
+    detail: "Keeps Eleven v2, lowers stability further, adds more style, and slows delivery slightly for heavier moments.",
     settings: {
-      ELEVENLABS_TTS_MODEL: "eleven_v3",
-      ELEVENLABS_STABILITY: "0.4",
-      ELEVENLABS_STYLE: "0.2",
-      ELEVENLABS_SPEED: "0.96",
+      ELEVENLABS_TTS_MODEL: "eleven_multilingual_v2",
+      ELEVENLABS_STABILITY: "0.35",
+      ELEVENLABS_STYLE: "0.25",
+      ELEVENLABS_SPEED: "0.95",
     },
   },
 };
@@ -69,6 +70,16 @@ export function deliveryPresetForSettings(settings: TtsSettings): DeliveryPreset
     Object.entries(preset.settings).every(([key, value]) => settings[key as keyof TtsSettings] === value),
   );
   return (preset?.[0] as DeliveryPresetId | undefined) ?? "custom";
+}
+
+export function settingsPayloadForVisibleControls(settings: TtsSettings): Partial<TtsSettings> {
+  if (settings.ELEVENLABS_TTS_MODEL === "eleven_v3") {
+    return {
+      ELEVENLABS_TTS_MODEL: "eleven_v3",
+      ELEVENLABS_STABILITY: settings.ELEVENLABS_STABILITY,
+    };
+  }
+  return { ...settings };
 }
 
 const VOICE_PRIORITY_PATTERNS = [
@@ -86,7 +97,9 @@ function voicePriority(voice: VoiceInfo): number {
 }
 
 export function sortVoicesForNarration(voices: VoiceInfo[]): VoiceInfo[] {
-  return [...voices].sort((a, b) => voicePriority(a) - voicePriority(b) || a.name.localeCompare(b.name));
+  return voices
+    .filter((voice) => voicePriority(voice) < VOICE_PRIORITY_PATTERNS.length)
+    .sort((a, b) => voicePriority(a) - voicePriority(b) || a.name.localeCompare(b.name));
 }
 
 export function defaultVoiceIdForNarration(voices: VoiceInfo[]): string {
@@ -104,6 +117,7 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
     ELEVENLABS_STYLE: "0.0",
     ELEVENLABS_SPEED: "1.0",
   });
+  const [deliveryPresetSelection, setDeliveryPresetSelection] = useState<DeliveryPresetSelection>("steady");
 
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryResults, setLibraryResults] = useState<LibraryVoiceInfo[]>([]);
@@ -133,12 +147,16 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
     api.get("/api/settings/keys").then((res) => {
       if (res.ok) {
         const keys = res.data as Record<string, { masked: string }>;
-        setTtsSettings({
+        const loadedSettings = {
           ELEVENLABS_TTS_MODEL: keys.ELEVENLABS_TTS_MODEL?.masked || "eleven_multilingual_v2",
           ELEVENLABS_STABILITY: keys.ELEVENLABS_STABILITY?.masked || "0.5",
           ELEVENLABS_STYLE: keys.ELEVENLABS_STYLE?.masked || "0.0",
           ELEVENLABS_SPEED: keys.ELEVENLABS_SPEED?.masked || "1.0",
-        });
+        };
+        setTtsSettings(loadedSettings);
+        if (loadedSettings.ELEVENLABS_TTS_MODEL === "eleven_multilingual_v2") {
+          setDeliveryPresetSelection(deliveryPresetForSettings(loadedSettings));
+        }
       }
     });
   }, [panel]);
@@ -164,8 +182,8 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
         const data = res.data as VoiceListResponse;
         const sorted = sortVoicesForNarration(data.voices);
         setVoices(sorted);
-        if (!selectedVoiceId && data.voices.length > 0) {
-          const fallback = defaultVoiceIdForNarration(data.voices);
+        if (sorted.length > 0 && (!selectedVoiceId || !sorted.some((voice) => voice.voice_id === selectedVoiceId))) {
+          const fallback = defaultVoiceIdForNarration(sorted);
           setSelectedVoiceId(fallback);
           api.put("/api/brand", { voice_id: fallback });
         }
@@ -181,16 +199,30 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
   };
 
   const updateTtsSetting = (key: keyof typeof ttsSettings, value: string) => {
+    if (ttsSettings.ELEVENLABS_TTS_MODEL === "eleven_multilingual_v2") {
+      setDeliveryPresetSelection("custom");
+    }
     setTtsSettings((prev) => ({ ...prev, [key]: value }));
   };
 
   const applyDeliveryPreset = (presetId: DeliveryPresetId) => {
+    setDeliveryPresetSelection(presetId);
     setTtsSettings(DELIVERY_PRESETS[presetId].settings);
+  };
+
+  const applyModel = (modelId: "eleven_multilingual_v2" | "eleven_v3") => {
+    setTtsSettings((prev) => ({
+      ...prev,
+      ELEVENLABS_TTS_MODEL: modelId,
+      ...(modelId === "eleven_multilingual_v2" && deliveryPresetSelection !== "custom"
+        ? DELIVERY_PRESETS[deliveryPresetSelection].settings
+        : {}),
+    }));
   };
 
   const saveTtsSettings = async () => {
     setTtsSaving(true);
-    await api.put("/api/settings/keys", ttsSettings);
+    await api.put("/api/settings/keys", settingsPayloadForVisibleControls(ttsSettings));
     setTtsSaving(false);
   };
 
@@ -256,7 +288,13 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
     await api.put("/api/settings/keys", { [key]: newValue ? "true" : "false" });
   };
 
-  const activeDeliveryPreset = deliveryPresetForSettings(ttsSettings);
+  const isV3 = ttsSettings.ELEVENLABS_TTS_MODEL === "eleven_v3";
+  const activeDeliveryPreset =
+    ttsSettings.ELEVENLABS_TTS_MODEL === "eleven_multilingual_v2"
+      ? deliveryPresetSelection === "custom"
+        ? "custom"
+        : deliveryPresetForSettings(ttsSettings)
+      : "custom";
   const activeDeliveryPresetDetail =
     activeDeliveryPreset === "custom"
       ? "Custom keeps your exact model and slider values. Save settings before regenerating voiceover."
@@ -284,7 +322,11 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
         <p className="text-sm text-neutral-400">
           Select the ElevenLabs voice used for voiceover generation.
         </p>
+        <label className="sr-only" htmlFor="default-voice">
+          Default Voice
+        </label>
         <select
+          id="default-voice"
           value={selectedVoiceId}
           onChange={(e) => handleVoiceChange(e.target.value)}
           className="w-full px-3 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-200 text-sm focus:outline-none focus:border-violet-500/50 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
@@ -310,63 +352,110 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
           </p>
         </div>
 
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <label className="text-sm font-medium text-neutral-200" htmlFor="elevenlabs-delivery-preset">
-                Delivery preset
-              </label>
-              <p className="text-xs text-neutral-500 mt-1">
-                Presets fill the advanced controls below; manual edits switch this to Custom.
-              </p>
-            </div>
-            <span className="rounded-full border border-neutral-700 bg-neutral-900 px-2 py-1 text-[11px] font-medium text-neutral-400">
-              {activeDeliveryPreset === "custom"
-                ? "Custom"
-                : DELIVERY_PRESETS[activeDeliveryPreset].label}
-            </span>
-          </div>
-          <select
-            id="elevenlabs-delivery-preset"
-            value={activeDeliveryPreset}
-            onChange={(e) => {
-              if (e.target.value !== "custom") {
-                applyDeliveryPreset(e.target.value as DeliveryPresetId);
-              }
-            }}
-            className="w-full px-3 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-200 text-sm focus:outline-none focus:border-violet-500/50 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
-          >
-            {Object.entries(DELIVERY_PRESETS).map(([id, preset]) => (
-              <option key={id} value={id}>
-                {preset.label} - {preset.summary}
-              </option>
-            ))}
-            <option value="custom">Custom - manually tuned settings</option>
-          </select>
-          <p className="text-xs text-neutral-500">
-            {activeDeliveryPresetDetail}
-          </p>
-        </div>
-
         <div className="space-y-2">
-          <label className="text-sm font-medium text-neutral-200" htmlFor="elevenlabs-model">
-            Model (advanced)
-          </label>
-          <select
-            id="elevenlabs-model"
-            value={ttsSettings.ELEVENLABS_TTS_MODEL}
-            onChange={(e) => updateTtsSetting("ELEVENLABS_TTS_MODEL", e.target.value)}
-            className="w-full px-3 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-200 text-sm focus:outline-none focus:border-violet-500/50 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
-          >
-            <option value="eleven_multilingual_v2">v2 - steady production voice</option>
-            <option value="eleven_v3">v3 - expressive voice with hidden tags</option>
-          </select>
+          <p className="text-sm font-medium text-neutral-200">Model</p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {([
+              { id: "eleven_multilingual_v2", label: "v2 - steady production voice" },
+              { id: "eleven_v3", label: "v3 - expressive voice with hidden tags" },
+            ] as const).map((model) => (
+              <button
+                key={model.id}
+                type="button"
+                onClick={() => applyModel(model.id)}
+                className={`rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                  ttsSettings.ELEVENLABS_TTS_MODEL === model.id
+                    ? "border-violet-500 bg-violet-500/15 text-violet-100"
+                    : "border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                }`}
+              >
+                {model.label}
+              </button>
+            ))}
+          </div>
           <p className="text-xs text-neutral-500">
             v2 is the stable production choice. v3 can sound more alive and currently adds a hidden TTS-only delivery tag for non-title scenes, but may vary more and take longer.
           </p>
         </div>
 
-        {([
+        {!isV3 && (
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-neutral-200">Delivery preset</p>
+              <p className="text-xs text-neutral-500 mt-1">
+                For v2 only. Presets fill the saved delivery settings; choose Custom to tune sliders manually.
+              </p>
+            </div>
+            <span className="rounded-full border border-neutral-700 bg-neutral-900 px-2 py-1 text-[11px] font-medium text-neutral-400">
+              {activeDeliveryPreset === "custom" ? "Custom" : DELIVERY_PRESETS[activeDeliveryPreset].label}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {Object.entries(DELIVERY_PRESETS).map(([id, preset]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => applyDeliveryPreset(id as DeliveryPresetId)}
+                className={`rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                  activeDeliveryPreset === id
+                    ? "border-violet-500 bg-violet-500/15 text-violet-100"
+                    : "border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setDeliveryPresetSelection("custom")}
+              className={`rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                activeDeliveryPreset === "custom"
+                  ? "border-violet-500 bg-violet-500/15 text-violet-100"
+                  : "border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+              }`}
+            >
+              Custom
+            </button>
+          </div>
+          <p className="text-xs text-neutral-500">{activeDeliveryPresetDetail}</p>
+        </div>
+        )}
+
+        {isV3 && (
+          <div className="space-y-2 rounded-lg bg-neutral-800/50 border border-neutral-700/50 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <label className="text-sm font-medium text-neutral-200" htmlFor="ELEVENLABS_STABILITY">
+                Stability
+              </label>
+              <input
+                id="ELEVENLABS_STABILITY-number"
+                type="number"
+                min="0"
+                max="1"
+                step="0.05"
+                value={ttsSettings.ELEVENLABS_STABILITY}
+                onChange={(e) => updateTtsSetting("ELEVENLABS_STABILITY", e.target.value)}
+                className="w-20 px-2 py-1 rounded-md bg-neutral-900 border border-neutral-700 text-neutral-200 text-sm text-right focus:outline-none focus:border-violet-500/50 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
+              />
+            </div>
+            <input
+              id="ELEVENLABS_STABILITY"
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={ttsSettings.ELEVENLABS_STABILITY}
+              onChange={(e) => updateTtsSetting("ELEVENLABS_STABILITY", e.target.value)}
+              className="w-full accent-violet-500"
+            />
+            <p className="text-xs text-neutral-500">
+              V3 exposes only stability here. Lower is more creative; higher is more robust. Around 0.5 matches ElevenLabs Natural.
+            </p>
+          </div>
+        )}
+
+        {!isV3 && activeDeliveryPreset === "custom" && ([
           {
             key: "ELEVENLABS_STABILITY" as const,
             label: "Stability",

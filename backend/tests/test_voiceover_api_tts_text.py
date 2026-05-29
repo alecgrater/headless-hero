@@ -92,8 +92,6 @@ def test_single_voiceover_ignores_cached_dramatized_text_and_uses_saved_settings
     assert captured["model_id"] == "eleven_v3"
     assert captured["voice_settings"] == {
         "stability": 0.35,
-        "style": 0.25,
-        "speed": 0.95,
     }
 
 

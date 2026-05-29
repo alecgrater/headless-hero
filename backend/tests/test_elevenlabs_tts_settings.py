@@ -34,8 +34,6 @@ def test_resolve_tts_model_and_settings_uses_saved_defaults(monkeypatch):
     assert model_id == "eleven_v3"
     assert voice_settings == {
         "stability": 0.35,
-        "style": 0.25,
-        "speed": 0.95,
     }
 
 
@@ -52,6 +50,16 @@ def test_resolve_tts_model_and_settings_preserves_explicit_overrides(monkeypatch
 
     assert model_id == "eleven_turbo_v2_5"
     assert voice_settings == {"stability": 0.7, "similarity_boost": 0.8}
+
+
+def test_resolve_tts_model_and_settings_filters_v3_to_visible_stability_only():
+    model_id, voice_settings = resolve_tts_model_and_settings(
+        "eleven_v3",
+        {"stability": 0.4, "style": 0.9, "speed": 0.7, "similarity_boost": 0.2},
+    )
+
+    assert model_id == "eleven_v3"
+    assert voice_settings == {"stability": 0.4}
 
 
 def test_prepare_tts_text_adds_v3_tags_without_touching_v2_text():

@@ -53,7 +53,7 @@ def resolve_tts_model_and_settings(
 ) -> tuple[str, dict | None]:
     """Resolve explicit request overrides or saved ElevenLabs TTS defaults."""
     if model_id:
-        return model_id, voice_settings
+        return model_id, _visible_voice_settings_for_model(model_id, voice_settings)
 
     resolved_model = (os.environ.get("ELEVENLABS_TTS_MODEL") or DEFAULT_TTS_MODEL).strip() or DEFAULT_TTS_MODEL
     resolved_settings = {
@@ -61,7 +61,16 @@ def resolve_tts_model_and_settings(
         "style": _env_float("ELEVENLABS_STYLE", 0.0, 0.0, 1.0),
         "speed": _env_float("ELEVENLABS_SPEED", 1.0, 0.7, 1.2),
     }
-    return resolved_model, resolved_settings
+    return resolved_model, _visible_voice_settings_for_model(resolved_model, resolved_settings)
+
+
+def _visible_voice_settings_for_model(model_id: str, voice_settings: dict | None) -> dict | None:
+    """Keep backend TTS settings aligned with the controls shown in Settings."""
+    if voice_settings is None:
+        return None
+    if model_id == "eleven_v3":
+        return {"stability": voice_settings.get("stability", 0.5)}
+    return voice_settings
 
 
 def select_v3_audio_tag(narration: str) -> str:

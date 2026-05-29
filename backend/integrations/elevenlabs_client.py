@@ -137,6 +137,10 @@ def generate_speech(
     effective_settings = {**_DEFAULT_VOICE_SETTINGS}
     if voice_settings:
         effective_settings.update(voice_settings)
+    if model_id == "eleven_v3":
+        effective_settings = {
+            "stability": effective_settings.get("stability", _DEFAULT_VOICE_SETTINGS["stability"]),
+        }
 
     payload = {
         "text": text,
