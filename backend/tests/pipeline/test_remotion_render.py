@@ -83,6 +83,44 @@ def test_scene_to_input_props_include_caption_fields_for_captions_scene(tmp_path
     assert props["caption_emphasis"] == "real"
 
 
+def test_scene_to_input_props_includes_subtitle_style(tmp_path, monkeypatch):
+    monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
+    scene = Scene(
+        id="scene_subtitle_style",
+        narration="Fast words hit hard.",
+        visual_prompt="A stylized brain lighting up.",
+        subtitle_style="kinetic",
+        word_timestamps=[{"word": "Fast", "start_ms": 0, "end_ms": 200}],
+    )
+
+    props = remotion_render._scene_to_input_props(scene, "script")
+
+    assert props["subtitle_style"] == "kinetic"
+
+
+def test_subtitle_render_fingerprint_tracks_style_and_router_version():
+    content = ScriptContent(
+        title="Test",
+        segments=[
+            Segment(
+                name="One",
+                scenes=[
+                    Scene(id="scene-1", narration="Clean.", visual_prompt="", subtitle_style="clean"),
+                    Scene(id="scene-2", narration="Burst.", visual_prompt="", subtitle_style="burst"),
+                ],
+            )
+        ],
+    )
+
+    fingerprint = remotion_render.subtitle_render_fingerprint(content)
+
+    assert fingerprint["subtitle_router_version"] == remotion_render.SUBTITLE_ROUTER_VERSION
+    assert fingerprint["scenes"] == [
+        {"id": "scene-1", "subtitle_style": "clean"},
+        {"id": "scene-2", "subtitle_style": "burst"},
+    ]
+
+
 def test_ai_video_scene_falls_back_to_image_when_slowdown_would_exceed_25_percent(tmp_path, monkeypatch):
     monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
     monkeypatch.setattr(remotion_render, "_probe_video_duration", lambda _path: None)

@@ -1,4 +1,4 @@
-import type { SceneFX, VisualLayer, VisualMode } from "./script";
+import type { SceneFX, SubtitleStyle, VisualLayer, VisualMode } from "./script";
 import type { MainCharacter, ScriptCostBreakdownItem } from "../api";
 
 export interface TestLabMainCharacter extends MainCharacter {
@@ -72,6 +72,7 @@ export interface TestLabSettings {
   visual_canvas?: { background_color: string };
   segment_timer_enabled: boolean;
   subtitle_highlight_enabled: boolean;
+  subtitle_style: SubtitleStyle;
   main_character?: MainCharacter | null;
   voice_id?: string;
   voice_model_id?: string;

@@ -54,6 +54,7 @@ describe("settingsWithVisualTreatmentDefaults", () => {
       caption_emphasis: undefined,
       segment_timer_enabled: true,
       subtitle_highlight_enabled: true,
+      subtitle_style: "auto",
     };
 
     const next = settingsWithVisualTreatmentDefaults(settings, preset, "captions", defaults);
@@ -82,6 +83,7 @@ describe("settingsWithVisualTreatmentDefaults", () => {
       visual_prompt: preset.visual_prompt,
       segment_timer_enabled: true,
       subtitle_highlight_enabled: true,
+      subtitle_style: "auto",
     };
 
     const next = settingsWithVisualTreatmentDefaults(settings, preset, "multi_frame", defaults);
@@ -89,5 +91,30 @@ describe("settingsWithVisualTreatmentDefaults", () => {
     expect(next.narration).toBe(preset.narration);
     expect(next.tts_narration).toBeUndefined();
     expect(next.visual_prompt).toBe(preset.visual_prompt);
+  });
+
+  it("preserves subtitle style when applying visual treatment defaults", () => {
+    const settings: TestLabSettings = {
+      stages: {
+        character: false,
+        audio: true,
+        visual: true,
+        treatment_assets: false,
+        fx: true,
+        eli: false,
+        render: true,
+      },
+      eli_enabled: false,
+      style_preset_enabled: true,
+      visual_mode: "full_frame",
+      visual_layers: [],
+      subtitle_style: "burst",
+      segment_timer_enabled: true,
+      subtitle_highlight_enabled: true,
+    };
+
+    const next = settingsWithVisualTreatmentDefaults(settings, preset, "multi_frame", defaults);
+
+    expect(next.subtitle_style).toBe("burst");
   });
 });

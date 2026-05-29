@@ -1,86 +1,236 @@
 /**
- * SubtitleOverlay — phrase-based subtitle renderer timed to word_timestamps.
- *
- * Groups words into natural phrases (by punctuation, pauses, or max-length),
- * displays the active phrase with a semi-transparent background bar,
- * and fades out after each phrase ends.
+ * SubtitleOverlay — routed subtitle renderer timed to word_timestamps.
  */
 import React, { useMemo } from "react";
-import { useCurrentFrame, useVideoConfig, interpolate } from "remotion";
-import type { WordTimestamp, Orientation } from "../../types";
+import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import type { CSSProperties } from "react";
+import type { Orientation, SceneInput, WordTimestamp } from "../../types";
 import { VERTICAL_LAYOUT } from "../../scenes/VerticalSceneLayout";
 import { formatSubtitleText } from "../../utils/subtitleText";
+import {
+  groupIntoSubtitlePhrases,
+  isWordActive,
+  resolveSubtitleStyle,
+  type ResolvedSubtitleStyle,
+  type SubtitlePhrase,
+  wordProgress,
+} from "./subtitleRouting";
 
 interface Props {
-  wordTimestamps?: WordTimestamp[] | null;
+  scene: SceneInput;
   highlightEnabled?: boolean;
   orientation?: Orientation;
 }
 
+interface TreatmentProps {
+  phrase: SubtitlePhrase;
+  frame: number;
+  fps: number;
+  highlightEnabled?: boolean;
+  orientation: Orientation;
+}
+
 const FADE_OUT_FRAMES = 5;
 
-// ---- Phrase grouping for subtitle lines ----
-
-interface SubtitlePhrase {
-  words: WordTimestamp[];
-  startFrame: number;
-  endFrame: number;
-}
-
-const MAX_WORDS_PER_LINE = 8;
-const PAUSE_THRESHOLD_MS = 300;
-
-function groupIntoPhrases(timestamps: WordTimestamp[], fps: number): SubtitlePhrase[] {
-  if (timestamps.length === 0) return [];
-
-  const phrases: SubtitlePhrase[] = [];
-  let currentWords: WordTimestamp[] = [];
-
-  for (let i = 0; i < timestamps.length; i++) {
-    const w = timestamps[i];
-    currentWords.push(w);
-
-    const isLast = i === timestamps.length - 1;
-    const hitMax = currentWords.length >= MAX_WORDS_PER_LINE;
-    const endsWithPunctuation = /[.!?]$/.test(w.word.trim());
-    const longPauseAfter = !isLast && timestamps[i + 1].start_ms - w.end_ms > PAUSE_THRESHOLD_MS;
-
-    if (isLast || hitMax || endsWithPunctuation || longPauseAfter) {
-      const startMs = currentWords[0].start_ms;
-      const endMs = currentWords[currentWords.length - 1].end_ms;
-      phrases.push({
-        words: [...currentWords],
-        startFrame: Math.round((startMs / 1000) * fps),
-        endFrame: Math.round((endMs / 1000) * fps),
-      });
-      currentWords = [];
-    }
+function overlayStyle(orientation: Orientation, phraseOpacity: number): CSSProperties {
+  if (orientation === "vertical") {
+    return {
+      position: "absolute",
+      top: VERTICAL_LAYOUT.TOP_BAND_HEIGHT + VERTICAL_LAYOUT.MIDDLE_BAND_HEIGHT,
+      left: 0,
+      width: "100%",
+      height: VERTICAL_LAYOUT.BOTTOM_BAND_HEIGHT,
+      display: "flex",
+      alignItems: "flex-start",
+      justifyContent: "center",
+      padding: "0 40px",
+      boxSizing: "border-box",
+      opacity: phraseOpacity,
+      zIndex: 10,
+    };
   }
 
-  return phrases;
+  return {
+    position: "absolute",
+    bottom: "8%",
+    left: 0,
+    right: 0,
+    display: "flex",
+    justifyContent: "center",
+    opacity: phraseOpacity,
+    zIndex: 10,
+  };
 }
 
-// ---- Main component ----
+function wordsForDisplay(words: WordTimestamp[]): Array<{ word: WordTimestamp; displayWord: string }> {
+  return words
+    .map((word) => ({ word, displayWord: formatSubtitleText(word.word) }))
+    .filter(({ displayWord }) => displayWord.length > 0);
+}
 
-export const SubtitleOverlay: React.FC<Props> = ({ wordTimestamps, highlightEnabled, orientation = "horizontal" }) => {
+function CleanSubtitleOverlay({ phrase, frame, fps, highlightEnabled, orientation }: TreatmentProps) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        justifyContent: "center",
+        gap: orientation === "vertical" ? "0 14px" : "0 8px",
+        maxWidth: orientation === "vertical" ? "96%" : "80%",
+        padding: orientation === "vertical" ? "16px 28px" : "8px 16px",
+        borderRadius: orientation === "vertical" ? "10px" : "6px",
+        backgroundColor: "rgba(0, 0, 0, 0.48)",
+      }}
+    >
+      {wordsForDisplay(phrase.words).map(({ word, displayWord }, i) => {
+        const isActive = highlightEnabled && isWordActive(word, frame, fps);
+        const pop = isActive ? interpolate(wordProgress(word, frame, fps), [0, 0.35, 1], [1, 1.12, 1.06]) : 1;
+
+        return (
+          <span
+            key={`${word.start_ms}-${i}`}
+            style={{
+              fontSize: orientation === "vertical" ? "70px" : "32px",
+              fontWeight: orientation === "vertical" ? 800 : 700,
+              lineHeight: 1.25,
+              color: isActive ? "#FACC15" : "#fff",
+              transform: `scale(${pop})`,
+              transformOrigin: "center bottom",
+              textShadow: isActive
+                ? "0 0 18px rgba(250, 204, 21, 0.52), 0 3px 12px rgba(0, 0, 0, 0.9)"
+                : "0 2px 10px rgba(0, 0, 0, 0.85)",
+            }}
+          >
+            {displayWord}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function KineticSubtitleOverlay({ phrase, frame, fps, highlightEnabled, orientation }: TreatmentProps) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        justifyContent: "center",
+        gap: orientation === "vertical" ? "12px 14px" : "8px 10px",
+        maxWidth: orientation === "vertical" ? "96%" : "82%",
+      }}
+    >
+      {wordsForDisplay(phrase.words).map(({ word, displayWord }, i) => {
+        const isActive = highlightEnabled && isWordActive(word, frame, fps);
+        const entrance = interpolate(frame, [phrase.startFrame + i * 2, phrase.startFrame + i * 2 + 5], [0, 1], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        });
+        const pop = isActive ? interpolate(wordProgress(word, frame, fps), [0, 0.25, 1], [1, 1.18, 1.08]) : 1;
+
+        return (
+          <span
+            key={`${word.start_ms}-${i}`}
+            style={{
+              display: "inline-block",
+              padding: orientation === "vertical" ? "6px 12px" : "4px 9px",
+              borderRadius: orientation === "vertical" ? "8px" : "5px",
+              backgroundColor: isActive ? "#EF4444" : "#F8FAFC",
+              color: isActive ? "#fff" : "#09090B",
+              fontSize: orientation === "vertical" ? "62px" : "30px",
+              fontWeight: 900,
+              lineHeight: 1.05,
+              opacity: entrance,
+              transform: `translateY(${(1 - entrance) * 14 - (isActive ? 8 : 0)}px) rotate(${isActive ? 1.5 : 0}deg) scale(${pop})`,
+              boxShadow: orientation === "vertical" ? "8px 9px 0 rgba(0,0,0,0.72)" : "5px 6px 0 rgba(0,0,0,0.78)",
+              textShadow: isActive ? "0 2px 8px rgba(0,0,0,0.45)" : "none",
+            }}
+          >
+            {displayWord}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function BurstSubtitleOverlay({ phrase, frame, fps, highlightEnabled, orientation }: TreatmentProps) {
+  const displayWords = wordsForDisplay(phrase.words);
+  const activeIndex = displayWords.findIndex(({ word }) => highlightEnabled && isWordActive(word, frame, fps));
+  const burstIndex = activeIndex >= 0 ? activeIndex : Math.max(0, displayWords.length - 1);
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        justifyContent: "center",
+        alignItems: "baseline",
+        gap: orientation === "vertical" ? "6px 16px" : "4px 10px",
+        maxWidth: orientation === "vertical" ? "96%" : "82%",
+      }}
+    >
+      {displayWords.map(({ word, displayWord }, i) => {
+        const isBurst = i === burstIndex;
+        const isActive = highlightEnabled && isWordActive(word, frame, fps);
+        const pop = isBurst ? interpolate(wordProgress(word, frame, fps), [0, 0.3, 1], [0.92, 1.22, 1.08], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        }) : 1;
+
+        return (
+          <span
+            key={`${word.start_ms}-${i}`}
+            style={{
+              display: "inline-block",
+              color: isBurst ? "#FEF08A" : "rgba(255,255,255,0.88)",
+              fontSize: isBurst
+                ? (orientation === "vertical" ? "92px" : "48px")
+                : (orientation === "vertical" ? "54px" : "28px"),
+              fontWeight: isBurst ? 950 : 800,
+              lineHeight: 1.05,
+              textTransform: isBurst ? "uppercase" : "none",
+              WebkitTextStroke: isBurst ? (orientation === "vertical" ? "3px #111" : "2px #111") : "0",
+              transform: `scale(${pop}) translateY(${isActive && isBurst ? -5 : 0}px)`,
+              transformOrigin: "center bottom",
+              textShadow: isBurst
+                ? "0 5px 0 #111, 0 14px 28px rgba(0,0,0,0.72)"
+                : "0 3px 12px rgba(0,0,0,0.92)",
+            }}
+          >
+            {displayWord}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function renderTreatment(style: ResolvedSubtitleStyle, props: TreatmentProps) {
+  if (style === "none") return null;
+  if (style === "kinetic") return <KineticSubtitleOverlay {...props} />;
+  if (style === "burst") return <BurstSubtitleOverlay {...props} />;
+  return <CleanSubtitleOverlay {...props} />;
+}
+
+export const SubtitleOverlay: React.FC<Props> = ({ scene, highlightEnabled, orientation = "horizontal" }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const wordTimestamps = scene.word_timestamps ?? [];
 
   const phrases = useMemo(
-    () => groupIntoPhrases(wordTimestamps ?? [], fps),
+    () => groupIntoSubtitlePhrases(wordTimestamps, fps),
     [wordTimestamps, fps],
   );
 
-  if (!wordTimestamps || wordTimestamps.length === 0) return null;
+  if (wordTimestamps.length === 0) return null;
 
-  // Find the active phrase for this frame
   const activePhrase = phrases.find(
     (p) => frame >= p.startFrame && frame <= p.endFrame + FADE_OUT_FRAMES,
   );
 
   if (!activePhrase) return null;
 
-  // Fade out after phrase ends
   const phraseOver = frame > activePhrase.endFrame;
   const phraseOpacity = phraseOver
     ? interpolate(frame, [activePhrase.endFrame, activePhrase.endFrame + FADE_OUT_FRAMES], [1, 0], {
@@ -91,74 +241,18 @@ export const SubtitleOverlay: React.FC<Props> = ({ wordTimestamps, highlightEnab
 
   if (phraseOpacity <= 0) return null;
 
+  const style = resolveSubtitleStyle(scene, orientation);
+  if (style === "none") return null;
+
   return (
-    <div
-      style={
-        orientation === "vertical"
-          ? {
-              position: "absolute",
-              top: VERTICAL_LAYOUT.TOP_BAND_HEIGHT + VERTICAL_LAYOUT.MIDDLE_BAND_HEIGHT,
-              left: 0,
-              width: "100%",
-              height: VERTICAL_LAYOUT.BOTTOM_BAND_HEIGHT,
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "center",
-              padding: "0 40px",
-              boxSizing: "border-box",
-              opacity: phraseOpacity,
-              zIndex: 10,
-            }
-          : {
-              position: "absolute",
-              bottom: "8%",
-              left: 0,
-              right: 0,
-              display: "flex",
-              justifyContent: "center",
-              opacity: phraseOpacity,
-              zIndex: 10,
-            }
-      }
-    >
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "center",
-          gap: orientation === "vertical" ? "0 14px" : "0 8px",
-          maxWidth: orientation === "vertical" ? "96%" : "80%",
-          padding: orientation === "vertical" ? "16px 28px" : "8px 16px",
-          borderRadius: orientation === "vertical" ? "10px" : "6px",
-          backgroundColor: "rgba(0, 0, 0, 0.45)",
-        }}
-      >
-        {activePhrase.words.map((w, i) => {
-          const displayWord = formatSubtitleText(w.word);
-          const wordStartFrame = Math.round((w.start_ms / 1000) * fps);
-          const wordEndFrame = Math.round((w.end_ms / 1000) * fps);
-          const isActive = highlightEnabled && frame >= wordStartFrame && frame <= wordEndFrame;
-
-          if (!displayWord) return null;
-
-          return (
-            <span
-              key={i}
-              style={{
-                fontSize: orientation === "vertical" ? "70px" : "32px",
-                fontWeight: orientation === "vertical" ? 700 : 600,
-                lineHeight: 1.25,
-                color: isActive ? "#F59E0B" : "#fff",
-                textShadow: isActive
-                  ? "0 0 14px rgba(245, 158, 11, 0.45), 0 2px 10px rgba(0, 0, 0, 0.85)"
-                  : "0 2px 10px rgba(0, 0, 0, 0.85)",
-              }}
-            >
-              {displayWord}
-            </span>
-          );
-        })}
-      </div>
+    <div style={overlayStyle(orientation, phraseOpacity)}>
+      {renderTreatment(style, {
+        phrase: activePhrase,
+        frame,
+        fps,
+        highlightEnabled,
+        orientation,
+      })}
     </div>
   );
 };

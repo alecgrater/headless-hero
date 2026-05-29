@@ -26,6 +26,7 @@ REMOTION_ENTRY = REMOTION_DIR / "src" / "index.ts"
 
 BACKEND_STATIC_BASE = f"http://localhost:{BACKEND_PORT}/static/projects"
 MAX_AI_VIDEO_SLOWDOWN_RATIO = 1.25
+SUBTITLE_ROUTER_VERSION = "standard-subtitle-router-v1"
 
 
 def _to_remotion_path(abs_path: str) -> str:
@@ -347,6 +348,7 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
         "phrase_timestamps": [p.model_dump() for p in scene.phrase_timestamps] if scene.phrase_timestamps and not scene.is_title_card else None,
         "visual_beat": scene.visual_beat,
         "visual_mode": scene.visual_mode,
+        "subtitle_style": scene.subtitle_style,
         "caption_text": scene.caption_text,
         "caption_emphasis": scene.caption_emphasis,
         "visual_layers": _visual_layers_to_input_props(scene, script_id),
@@ -360,6 +362,42 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
         "video_playback_rate": video_playback_rate,
         "chapter_overlay": chapter_overlay,
     }
+
+
+def subtitle_render_fingerprint(content: ScriptContent) -> dict[str, Any]:
+    """Return content-sensitive subtitle routing inputs for render cache metadata."""
+    return {
+        "subtitle_router_version": SUBTITLE_ROUTER_VERSION,
+        "scenes": [
+            {
+                "id": scene.id,
+                "subtitle_style": scene.subtitle_style,
+            }
+            for scene in content.all_scenes()
+        ],
+    }
+
+
+def _render_metadata_path(render_path: Path) -> Path:
+    return render_path.with_suffix(f"{render_path.suffix}.json")
+
+
+def _write_render_metadata(render_path: Path, content: ScriptContent) -> None:
+    _render_metadata_path(render_path).write_text(
+        json.dumps({"subtitle_render_fingerprint": subtitle_render_fingerprint(content)}, indent=2),
+        encoding="utf-8",
+    )
+
+
+def is_render_metadata_current(render_path: Path, content: ScriptContent) -> bool:
+    metadata_path = _render_metadata_path(render_path)
+    if not metadata_path.is_file():
+        return False
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return metadata.get("subtitle_render_fingerprint") == subtitle_render_fingerprint(content)
 
 
 def _write_input_props(props: dict[str, Any], output_path: Path) -> Path:
@@ -673,6 +711,7 @@ def render_full_video(
         "chapter_map": chapter_map,
         "segment_timer": {"enabled": True} if content.segment_timer_enabled else None,
         "subtitle_highlight": {"enabled": True} if content.subtitle_highlight_enabled else None,
+        "subtitle_router_version": SUBTITLE_ROUTER_VERSION,
     }
 
     renders = _renders_dir(script_id)
@@ -764,6 +803,7 @@ def render_full_video(
         on_progress(1.0, "Complete")
 
     web_path = f"/static/projects/{script_id}/renders/{output_filename}"
+    _write_render_metadata(output_path, content)
 
     if title:
         try:

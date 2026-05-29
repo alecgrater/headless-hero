@@ -18,7 +18,7 @@ from models.brand import BrandProfile
 from models.generation_duration import GenerationDuration
 from models.script import Script, ScriptContent
 from pipeline.render_jobs import create_job, estimate_render_time, get_job, run_in_background, update_job
-from pipeline.remotion_render import render_full_video
+from pipeline.remotion_render import is_render_metadata_current, render_full_video
 from pipeline.render_cache import is_render_up_to_date
 from pipeline.render_phases import (
     ExportContext,
@@ -137,7 +137,19 @@ def _require_character_reference_ready(session: Session, script_id: str) -> None
         raise HTTPException(status_code=400, detail=reason)
 
 
-def _find_rendered_longform(script_id: str, project_title: str) -> tuple[str | None, str | None]:
+def _longform_render_current(path, script_id: str, content: ScriptContent | None) -> bool:
+    if not is_render_up_to_date(path, script_id):
+        return False
+    if content is None:
+        return True
+    return is_render_metadata_current(path, content)
+
+
+def _find_rendered_longform(
+    script_id: str,
+    project_title: str,
+    content: ScriptContent | None = None,
+) -> tuple[str | None, str | None]:
     """Return an existing long-form render path and optional web URL.
 
     Stale renders (older than any source image/audio file) are ignored so the
@@ -150,12 +162,12 @@ def _find_rendered_longform(script_id: str, project_title: str) -> tuple[str | N
             key=lambda path: (path.name != "full_youtube.mp4", path.name),
         )
         for mp4 in candidates:
-            if mp4.is_file() and is_render_up_to_date(mp4, script_id):
+            if mp4.is_file() and _longform_render_current(mp4, script_id, content):
                 return str(mp4), f"/static/projects/{script_id}/renders/{mp4.name}"
 
     folder = project_downloads_folder(project_title, create=False)
     exported = folder / longform_filename("Video", project_title, ".mp4")
-    if exported.is_file() and is_render_up_to_date(exported, script_id):
+    if exported.is_file() and _longform_render_current(exported, script_id, content):
         return str(exported), None
     if folder.is_dir():
         exported_videos = sorted(
@@ -167,7 +179,7 @@ def _find_rendered_longform(script_id: str, project_title: str) -> tuple[str | N
             key=lambda path: path.name,
         )
         for video in exported_videos:
-            if is_render_up_to_date(video, script_id):
+            if _longform_render_current(video, script_id, content):
                 return str(video), None
 
     return None, None
@@ -275,8 +287,9 @@ def rendered_longform(script_id: str, session: Session = Depends(get_session)):
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
 
+    content = ScriptContent.model_validate(json.loads(record.script_json))
     project_title = record.topic_title or "Untitled"
-    path, url = _find_rendered_longform(script_id, project_title)
+    path, url = _find_rendered_longform(script_id, project_title, content)
     return RenderedLongformResponse(
         rendered=path is not None,
         path=path,
@@ -333,7 +346,7 @@ def export_bundle(body: ExportBundleRequest, session: Session = Depends(get_sess
     (folder / longform_filename("Audio", project_title, ".mp3")).unlink(missing_ok=True)
 
     # Video — copy cached render, or acknowledge an already exported file.
-    longform_path, _url = _find_rendered_longform(body.script_id, project_title)
+    longform_path, _url = _find_rendered_longform(body.script_id, project_title, content)
     if longform_path:
         dest = folder / longform_filename("Video", project_title, ".mp4")
         if str(dest) != longform_path:

@@ -9,7 +9,7 @@ import type {
   TestLabSettings,
   TestLabStages,
 } from "../../types/testLab";
-import type { VisualMode } from "../../types/script";
+import type { SubtitleStyle, VisualMode } from "../../types/script";
 import { Tooltip } from "../ui/Tooltip";
 
 type StageKey = keyof TestLabStages;
@@ -155,6 +155,14 @@ const VISUAL_MODE_OPTIONS: Array<{
     description: "Renders short in-scene caption text with red emphasis while suppressing normal bottom subtitles.",
     bestFor: "Use for reversals, emotional labels, shocking claims, and moments where the line itself is the visual punch.",
   },
+];
+
+const SUBTITLE_STYLE_OPTIONS: Array<{ value: SubtitleStyle; label: string }> = [
+  { value: "auto", label: "Auto" },
+  { value: "clean", label: "Clean" },
+  { value: "kinetic", label: "Kinetic" },
+  { value: "burst", label: "Burst" },
+  { value: "none", label: "None" },
 ];
 
 export default function TestLabControls({
@@ -417,6 +425,25 @@ export default function TestLabControls({
           </label>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2">
+          <label className="block rounded-md border border-neutral-800 bg-neutral-950/60 p-3 transition-colors hover:border-neutral-700">
+            <span className="flex items-center gap-1 text-xs font-medium text-neutral-300">
+              Subtitle style
+              <Tooltip content="Choose the standard subtitle treatment for this Test Lab render. Captions visual mode still suppresses normal subtitles.">
+                <HelpCircle className="h-3 w-3 text-neutral-500" />
+              </Tooltip>
+            </span>
+            <select
+              value={settings.subtitle_style}
+              onChange={(event) => update({ subtitle_style: event.target.value as SubtitleStyle })}
+              className="mt-2 h-9 w-full rounded-md border border-neutral-800 bg-neutral-950 px-2 text-sm text-neutral-100 outline-none transition-colors hover:border-neutral-700 focus:border-violet-500"
+            >
+              {SUBTITLE_STYLE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <ToggleButton
             label="Subtitle highlight"
             checked={settings.subtitle_highlight_enabled}

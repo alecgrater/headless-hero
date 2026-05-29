@@ -91,7 +91,7 @@ class TestShortRenderCurrent:
         assert is_short_render_current("script-1", 0, content) is False
 
         metadata_path = tmp_path / "projects" / "script-1" / "renders" / "shorts" / "0.json"
-        metadata_path.write_text('{"segment_idx": 0, "hook_scene_count": 1}', encoding="utf-8")
+        short_form_render._write_short_render_metadata("script-1", 0, content)
 
         assert is_short_render_current("script-1", 0, content) is True
 
@@ -108,7 +108,7 @@ class TestShortRenderCurrent:
 
         assert is_short_render_current("script-1", 0, content) is False
 
-    def test_unchanged_for_other_shorts_and_no_hook_skip(self, tmp_path, monkeypatch):
+    def test_requires_subtitle_metadata_for_other_shorts_and_no_hook_skip(self, tmp_path, monkeypatch):
         monkeypatch.setattr(short_form_render, "DATA_DIR", tmp_path)
         content = ScriptContent(
             title="Test",
@@ -116,9 +116,13 @@ class TestShortRenderCurrent:
             segments=[Segment(name="First", scenes=[_scene("title", "First.", True), _scene("body", "Body.")])],
         )
 
+        assert is_short_render_current("script-1", 0, content) is False
+
+        short_form_render._write_short_render_metadata("script-1", 0, content)
+
         assert is_short_render_current("script-1", 0, content) is True
-        content.hook_scene_count = 2
-        assert is_short_render_current("script-1", 1, content) is True
+        content.segments[0].scenes[1].subtitle_style = "burst"
+        assert is_short_render_current("script-1", 0, content) is False
 
     def test_life_as_a_requires_matching_part_indicator_metadata(self, tmp_path, monkeypatch):
         monkeypatch.setattr(short_form_render, "DATA_DIR", tmp_path)
@@ -133,11 +137,7 @@ class TestShortRenderCurrent:
 
         assert is_short_render_current("script-1", 1, content) is False
 
-        metadata_path = tmp_path / "projects" / "script-1" / "renders" / "shorts" / "1.json"
-        metadata_path.write_text(
-            '{"segment_idx": 1, "hook_scene_count": 0, "part_indicator": "Part 2/2"}',
-            encoding="utf-8",
-        )
+        short_form_render._write_short_render_metadata("script-1", 1, content)
 
         assert is_short_render_current("script-1", 1, content) is True
 

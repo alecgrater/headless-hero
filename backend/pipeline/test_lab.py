@@ -17,7 +17,7 @@ from sqlmodel import Session, select
 
 from config import DATA_DIR, FPS
 from models.project_config import ProjectConfig
-from models.script import MainCharacter, Scene, Script, ScriptContent, Segment, VisualCanvas, VisualLayer
+from models.script import MainCharacter, SUBTITLE_STYLES, Scene, Script, ScriptContent, Segment, VisualCanvas, VisualLayer
 from pipeline.script_helpers import _usage_task_label
 from pipeline.visual_treatments import flipflop_panel_prompt
 
@@ -401,6 +401,11 @@ def _caption_setting_from_settings(settings: dict, preset: TestLabPreset, key: s
     return raw_value
 
 
+def _subtitle_style_from_settings(settings: dict) -> str:
+    value = settings.get("subtitle_style")
+    return value if isinstance(value, str) and value in SUBTITLE_STYLES else "auto"
+
+
 def _sync_ai_video_enabled(content: ScriptContent) -> ScriptContent:
     content.ai_video_enabled = any(
         scene.visual_mode == "video"
@@ -477,6 +482,7 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
         visual_layers=settings.get("visual_layers") if isinstance(settings.get("visual_layers"), list) else [],
         caption_text=_caption_setting_from_settings(settings, preset, "caption_text", narration, visual_mode),
         caption_emphasis=_caption_setting_from_settings(settings, preset, "caption_emphasis", narration, visual_mode),
+        subtitle_style=_subtitle_style_from_settings(settings),
     )
     content = ScriptContent(
         title=_setting(settings, "title", preset.title),

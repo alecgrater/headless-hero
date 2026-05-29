@@ -149,7 +149,7 @@ export const SceneRenderer: React.FC<Props> = ({
         <div style={{ width: "100%", height: "100%", opacity: visualOpacity }}>
           {visualLayer}
           {!scene.is_title_card && !isAhaSubtitle && !isCaptionScene && (scene.word_timestamps?.length ?? 0) > 0 && (
-            <SubtitleOverlay wordTimestamps={scene.word_timestamps} highlightEnabled={highlightEnabled} orientation={orientation} />
+            <SubtitleOverlay scene={scene} highlightEnabled={highlightEnabled} orientation={orientation} />
           )}
         </div>
       </SceneTransition>

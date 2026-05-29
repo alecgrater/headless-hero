@@ -283,6 +283,15 @@ def test_test_lab_captions_do_not_fall_back_to_preset_caption_for_custom_narrati
     assert scene.caption_emphasis == ""
 
 
+def test_test_lab_settings_preserve_subtitle_style():
+    from pipeline.test_lab import build_content_from_preset
+
+    content = build_content_from_preset("coffee-brain", {"subtitle_style": "burst"})
+
+    scene = content.segments[0].scenes[0]
+    assert scene.subtitle_style == "burst"
+
+
 def test_test_lab_scenes_endpoint_returns_presets(monkeypatch, tmp_path):
     _engine, app = _setup_app(monkeypatch, tmp_path)
     client = TestClient(app)

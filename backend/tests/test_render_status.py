@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 
@@ -6,6 +7,8 @@ from api import short_form as short_form_api
 from api import upload_suite as upload_suite_api
 from models.script import Scene, Script, ScriptContent, Segment
 from pipeline import short_form_thumbnails as thumbs
+from pipeline import remotion_render
+from pipeline import short_form_render
 from pipeline.export_paths import longform_filename, project_downloads_folder, shortform_filename, shortform_video_filename
 from pipeline.script_helpers import _format_shortform_seo_markdown
 from pipeline.short_form_thumbnails import short_thumbnail_filename
@@ -134,6 +137,10 @@ def test_export_bundle_does_not_include_standalone_audio_file(tmp_path, monkeypa
     renders = tmp_path / "projects" / script_id / "renders"
     renders.mkdir(parents=True)
     (renders / "full_youtube.mp4").write_bytes(b"video")
+    (renders / "full_youtube.mp4.json").write_text(
+        json.dumps({"subtitle_render_fingerprint": remotion_render.subtitle_render_fingerprint(content)}),
+        encoding="utf-8",
+    )
     folder = project_downloads_folder(project_title)
     stale_audio = folder / longform_filename("Audio", project_title, ".mp3")
     stale_audio.write_bytes(b"stale audio from an older export")
@@ -162,6 +169,7 @@ def test_export_bundle_does_not_include_standalone_audio_file(tmp_path, monkeypa
 
 def test_export_short_form_videos_hardlinks_project_cache(tmp_path, monkeypatch):
     monkeypatch.setattr(short_form_api, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(short_form_render, "DATA_DIR", tmp_path)
     monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
 
     engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
@@ -184,6 +192,15 @@ def test_export_short_form_videos_hardlinks_project_cache(tmp_path, monkeypatch)
     cache = tmp_path / "projects" / script_id / "renders" / "shorts" / "0.mp4"
     cache.parent.mkdir(parents=True)
     cache.write_bytes(b"short video")
+    (cache.parent / "0.json").write_text(
+        json.dumps({
+            "segment_idx": 0,
+            "hook_scene_count": 0,
+            "part_indicator": "",
+            "subtitle_render_fingerprint": remotion_render.subtitle_render_fingerprint(content),
+        }),
+        encoding="utf-8",
+    )
 
     with Session(engine) as session:
         session.add(

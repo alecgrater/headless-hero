@@ -10,10 +10,12 @@ from config import BACKEND_PORT, DATA_DIR, FPS
 from models.script import Scene, ScriptContent
 from pipeline.export_paths import copy_to_project_downloads, shortform_video_filename
 from pipeline.remotion_render import (
+    SUBTITLE_ROUTER_VERSION,
     _reencode_h264,
     _run_remotion,
     _scene_to_input_props,
     _verify_video,
+    subtitle_render_fingerprint,
 )
 from pipeline.short_form_parts import short_form_part_indicator
 
@@ -80,6 +82,7 @@ def _write_short_render_metadata(script_id: str, segment_idx: int, content: Scri
         "segment_idx": segment_idx,
         "hook_scene_count": content.hook_scene_count or 0,
         "part_indicator": short_form_part_indicator(content, segment_idx),
+        "subtitle_render_fingerprint": subtitle_render_fingerprint(content),
     }
     _short_metadata_path(script_id, segment_idx).write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
@@ -87,10 +90,6 @@ def _write_short_render_metadata(script_id: str, segment_idx: int, content: Scri
 def is_short_render_current(script_id: str, segment_idx: int, content: ScriptContent) -> bool:
     """Return whether a cached short render matches content-sensitive render options."""
     expected_part_indicator = short_form_part_indicator(content, segment_idx)
-    requires_metadata = bool(expected_part_indicator) or (segment_idx == 0 and bool(content.hook_scene_count))
-    if not requires_metadata:
-        return True
-
     metadata_path = _short_metadata_path(script_id, segment_idx)
     if not metadata_path.is_file():
         return False
@@ -101,7 +100,10 @@ def is_short_render_current(script_id: str, segment_idx: int, content: ScriptCon
         return False
     if segment_idx == 0 and cached_hook_scene_count != int(content.hook_scene_count or 0):
         return False
-    return metadata.get("part_indicator", "") == expected_part_indicator
+    return (
+        metadata.get("part_indicator", "") == expected_part_indicator
+        and metadata.get("subtitle_render_fingerprint") == subtitle_render_fingerprint(content)
+    )
 
 
 def _copy_to_downloads(project_title: str, src_path: Path, dest_filename: str) -> str:
@@ -181,6 +183,7 @@ def render_short_segment(
         "subtitle_highlight": (
             {"enabled": True} if content.subtitle_highlight_enabled else None
         ),
+        "subtitle_router_version": SUBTITLE_ROUTER_VERSION,
     }
 
     shorts_dir = _shorts_dir(script_id)

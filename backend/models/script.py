@@ -15,11 +15,13 @@ VISUAL_TREATMENTS = {"full_frame", "popup_sequence", "flipflop"}
 VISUAL_LAYER_TYPES = {"image"}
 VISUAL_ASSET_KINDS = {"full_frame", "panel", "cutout"}
 VISUAL_LAYER_ANIMATIONS = {"none", "pop_in"}
+SUBTITLE_STYLES = {"auto", "clean", "kinetic", "burst", "none"}
 VisualMode = Literal["video", "full_frame", "multi_frame", "continuous", "captions", "popup_sequence", "flipflop"]
 VisualTreatment = Literal["full_frame", "popup_sequence", "flipflop"]
 VisualLayerType = Literal["image"]
 VisualAssetKind = Literal["full_frame", "panel", "cutout"]
 VisualLayerAnimation = Literal["none", "pop_in"]
+SubtitleStyle = Literal["auto", "clean", "kinetic", "burst", "none"]
 
 # --- FX models (used by Remotion renderer) ---
 
@@ -172,6 +174,7 @@ class Scene(BaseModel):
     visual_layers: list[VisualLayer] = PydanticField(default_factory=list)
     caption_text: str = ""
     caption_emphasis: str = ""
+    subtitle_style: SubtitleStyle = "auto"
     # --- Scene-boundary transition ---
     transition_in: str = "cut"  # "cut" | "fade_black" | "flash_white" | "wipe"
     # --- Micro-timeline visual timing overrides ---
@@ -222,6 +225,13 @@ class Scene(BaseModel):
         if isinstance(value, str) and value in VISUAL_MODES:
             return value
         return "full_frame"
+
+    @field_validator("subtitle_style", mode="before")
+    @classmethod
+    def normalize_subtitle_style(_cls, value: object) -> str:
+        if isinstance(value, str) and value in SUBTITLE_STYLES:
+            return value
+        return "auto"
 
     def set_visual_mode(self, visual_mode: str) -> None:
         mode = _resolve_visual_mode(visual_mode, None, None)

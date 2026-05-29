@@ -36,6 +36,7 @@ export interface VideoFX {
 }
 
 export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "captions";
+export type SubtitleStyle = "auto" | "clean" | "kinetic" | "burst" | "none";
 
 export interface VisualCanvas {
   background_color: string;
@@ -86,6 +87,7 @@ export interface Scene {
   visual_layers?: VisualLayer[];
   caption_text?: string;
   caption_emphasis?: string;
+  subtitle_style?: SubtitleStyle;
   fx?: SceneFX | null;
   eli_overlay?: EliOverlay | null;
   word_timestamps?: WordTimestamp[];

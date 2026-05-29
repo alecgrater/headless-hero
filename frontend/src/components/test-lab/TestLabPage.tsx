@@ -49,6 +49,7 @@ const DEFAULT_SETTINGS: TestLabSettings = {
   visual_layers: [],
   segment_timer_enabled: true,
   subtitle_highlight_enabled: true,
+  subtitle_style: "auto",
 };
 
 type TestLabJobStatus = {

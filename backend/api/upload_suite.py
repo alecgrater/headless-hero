@@ -125,8 +125,13 @@ def _short_thumbnail_path(
     return None
 
 
-def _exported_longform_path(script_id: str, project_title: str, folder: Path) -> str | None:
-    path, _url = _find_rendered_longform(script_id, project_title)
+def _exported_longform_path(
+    script_id: str,
+    project_title: str,
+    folder: Path,
+    content: ScriptContent,
+) -> str | None:
+    path, _url = _find_rendered_longform(script_id, project_title, content)
     if path:
         return path
 
@@ -268,7 +273,7 @@ def upload_suite_status(script_id: str, session: Session = Depends(get_session))
     if not folder.is_dir():
         missing.append(f"Project folder: {folder}")
 
-    longform_video_path = _exported_longform_path(script_id, project_title, folder)
+    longform_video_path = _exported_longform_path(script_id, project_title, folder, content)
     if not longform_video_path:
         missing.append("Long-form video")
     longform_thumbnail_url = (
