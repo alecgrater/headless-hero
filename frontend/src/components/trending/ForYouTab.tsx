@@ -87,6 +87,13 @@ export default function ForYouTab({ onGenerateIdeas }: Props) {
     try {
       const p = await refreshContentProfile();
       setProfile(p);
+      if (p.seed_upload.status === "uploaded") {
+        showToast("Content profile refreshed and whitespace seed uploaded", "success");
+      } else if (p.seed_upload.status === "warning") {
+        showToast(`Profile refreshed, but seed upload failed: ${p.seed_upload.message}`, "error");
+      } else {
+        showToast("Content profile refreshed. Add a GitHub Contents Token to refresh whitespace remotely.", "info");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to refresh profile");
     } finally {

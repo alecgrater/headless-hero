@@ -37,6 +37,16 @@ export interface ContentProfile {
   is_stale: boolean;
 }
 
+export interface SeedUploadStatus {
+  status: "uploaded" | "skipped" | "warning";
+  message: string;
+  commit_sha?: string | null;
+}
+
+export interface ContentProfileRefreshResponse extends ContentProfile {
+  seed_upload: SeedUploadStatus;
+}
+
 export interface SmartIdea {
   category: string;
   title: string;

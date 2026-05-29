@@ -675,7 +675,7 @@ export async function exportTest(scriptId: string, options: ExportTestOptions): 
 // Trending topics
 // ---------------------------------------------------------------------------
 
-import type { TrendingTopic, TrendingRefreshStatus, ContentProfile } from "./types/trending";
+import type { TrendingTopic, TrendingRefreshStatus, ContentProfile, ContentProfileRefreshResponse } from "./types/trending";
 import type { HookScore } from "./types/script";
 import type { Idea, IdeaSource, IdeaStatus } from "./types/idea";
 
@@ -743,10 +743,10 @@ export async function getContentProfile(): Promise<ContentProfile | null> {
 }
 
 /** Force-regenerate content profile via the routed LLM provider. */
-export async function refreshContentProfile(): Promise<ContentProfile> {
+export async function refreshContentProfile(): Promise<ContentProfileRefreshResponse> {
   const res = await api.post("/api/trending/content-profile/refresh");
   if (!res.ok) throw new Error((res.data as { detail?: string }).detail || "Failed to refresh profile");
-  return res.data as ContentProfile;
+  return res.data as ContentProfileRefreshResponse;
 }
 
 /** Start smart ideas generation (background job). Returns job_id + trending metadata. */
