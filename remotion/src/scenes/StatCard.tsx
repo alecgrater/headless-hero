@@ -62,7 +62,7 @@ export const StatCard: React.FC<Props> = ({ scene }) => {
           }}
         >
           <Img
-            src={`file://${iconLayer.image_path}`}
+            src={iconLayer.image_path}
             style={{ width: "100%", height: "100%", objectFit: "contain" }}
           />
         </div>

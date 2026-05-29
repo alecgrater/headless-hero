@@ -698,6 +698,8 @@ def generate_stat_card_cutout(
     prompt_fingerprint = json.dumps(
         {
             "icon_prompt": composed_prompt,
+            "width": width,
+            "height": height,
             "layer": {
                 "id": target_layer.get("id"),
                 "prompt": target_layer.get("prompt"),
