@@ -774,6 +774,8 @@ def _generate_popup_anchor_cutout(
     width: int,
     height: int,
     script_id: str,
+    vault_kind: VaultKind = "character",
+    vault_label: str = "Popup sequence anchor",
 ) -> None:
     generated_path = Path(generate_image(anchor_prompt, width=width, height=height, script_id=script_id))
     source_path = output_dir / "anchor_source.png"
@@ -787,7 +789,7 @@ def _generate_popup_anchor_cutout(
         cutout_filename="anchor_cutout.png",
         metadata_filename="anchor_metadata.json",
     )
-    save_vault_image(kind="character", label="Popup sequence anchor", source_path=result.cutout_path)
+    save_vault_image(kind=vault_kind, label=vault_label, source_path=result.cutout_path)
 
 
 def _generate_popup_item_cutouts(
@@ -980,8 +982,9 @@ def generate_dossier_cutouts(
         anchor_layer = None
         evidence_layers = image_layers
 
+    layer_kind_for_vault = "subject" if layout == "network" else "evidence"
     evidence_labels = [
-        _dossier_layer_label(layer, index, kind="evidence")
+        _dossier_layer_label(layer, index, kind=layer_kind_for_vault)
         for index, layer in enumerate(evidence_layers)
     ]
 
@@ -991,7 +994,7 @@ def generate_dossier_cutouts(
         else ""
     )
     evidence_prompt = (
-        _compose_dossier_evidence_sheet_prompt(scene_prompt, evidence_labels)
+        _compose_dossier_evidence_sheet_prompt(scene_prompt, evidence_labels, layout=layout)
         if evidence_labels
         else ""
     )
@@ -1048,12 +1051,28 @@ def generate_dossier_cutouts(
             len(evidence_labels),
         )
         if anchor_layer is not None:
+            anchor_label = (
+                str(anchor_layer.get("label") or "").strip()
+                or "Dossier anchor"
+            )
+            anchor_vault_kind: VaultKind = (
+                "character"
+                if contains_person or _label_implies_person(anchor_label)
+                else "item"
+            )
             _generate_popup_anchor_cutout(
                 anchor_prompt=anchor_prompt,
                 output_dir=output_dir,
                 width=width,
                 height=height,
                 script_id=script_id,
+                vault_kind=anchor_vault_kind,
+                vault_label=anchor_label,
+            )
+            logger.info(
+                "[DOSSIER] dossier.vault.save kind=%s label=%s",
+                anchor_vault_kind,
+                anchor_label,
             )
         if evidence_labels:
             _generate_dossier_evidence_cutouts(
@@ -1063,6 +1082,7 @@ def generate_dossier_cutouts(
                 width=width,
                 height=height,
                 script_id=script_id,
+                layout=layout,
             )
         prompt_marker.write_text(prompt_fingerprint, encoding="utf-8")
         logger.info(
@@ -1103,6 +1123,7 @@ def _generate_dossier_evidence_cutouts(
     width: int,
     height: int,
     script_id: str,
+    layout: str = "anchor",
 ) -> None:
     generated_path = Path(generate_image(item_prompt, width=width, height=height, script_id=script_id))
     sheet_path = output_dir / "evidence_sheet.png"
@@ -1120,7 +1141,11 @@ def _generate_dossier_evidence_cutouts(
             crop.save(raw_path)
             output_path = output_dir / f"crop_{index + 2:02d}_{_slug(label)}.png"
             _save_keyed_trimmed_cutout(crop, output_path)
-            kind: VaultKind = "character" if _label_implies_person(label) else "item"
+            kind: VaultKind = (
+                "character"
+                if layout == "network" or _label_implies_person(label)
+                else "item"
+            )
             save_vault_image(kind=kind, label=label, source_path=output_path)
             logger.info("[DOSSIER] dossier.vault.save kind=%s label=%s", kind, label)
 
@@ -1207,35 +1232,37 @@ def _compose_dossier_anchor_prompt(scene_prompt: str, *, contains_person: bool) 
     ).strip()
 
 
-def _compose_dossier_evidence_sheet_prompt(scene_prompt: str, labels: list[str]) -> str:
+def _compose_dossier_evidence_sheet_prompt(scene_prompt: str, labels: list[str], *, layout: str = "anchor") -> str:
     item_lines = [f"{index}. {label}" for index, label in enumerate(labels, start=1)]
+    noun = "subject" if layout == "network" else "evidence item"
+    nouns = "subjects" if layout == "network" else "evidence items"
     return "\n".join(
         [
-            "You are generating a contact sheet of dossier evidence for automatic programmatic cropping.",
+            f"You are generating a contact sheet of dossier {nouns} for automatic programmatic cropping.",
             "",
-            f"Generate exactly {len(labels)} evidence cutout(s) arranged in a single row,",
+            f"Generate exactly {len(labels)} {noun} cutout(s) arranged in a single row,",
             "evenly spaced, left to right in this exact order:",
             *item_lines,
             "",
             "Layout rules:",
-            "- Each evidence item occupies an equal-width vertical slot",
-            "- Items are horizontally centered within their slot",
-            "- Items fill no more than 72% of their slot width, leaving clear margins",
+            f"- Each {noun} occupies an equal-width vertical slot",
+            f"- {nouns.capitalize()} are horizontally centered within their slot",
+            f"- {nouns.capitalize()} fill no more than 72% of their slot width, leaving clear margins",
             "- Single row only; do not stack or wrap items",
-            "- Do not draw a corkboard, evidence wall, case file, or any board behind the items — the renderer owns the board surface",
+            f"- Do not draw a corkboard, evidence wall, case file, or any board behind the {nouns} — the renderer owns the board surface",
             "",
             "Background:",
             "- Solid flat chroma key background across the entire image",
-            "- Use bright green (#00FF00) unless an item contains green, in which case use bright magenta (#FF00FF)",
-            "- The chroma color must not appear anywhere within any item",
+            f"- Use bright green (#00FF00) unless a {noun} contains green, in which case use bright magenta (#FF00FF)",
+            f"- The chroma color must not appear anywhere within any {noun}",
             "",
-            "Item rendering:",
-            "- Each item is fully self-contained with no overlap into adjacent slots",
+            f"{noun.capitalize()} rendering:",
+            f"- Each {noun} is fully self-contained with no overlap into adjacent slots",
             "- Crisp closed silhouettes with no soft glow, feathering, or semi-transparent color bleed into the chroma background",
-            "- No drop shadows, glows, or effects that extend outside the item boundary",
+            f"- No drop shadows, glows, or effects that extend outside the {noun} boundary",
             "- No frames, borders, photo edges, picture frames, evidence tags, sticky notes, paperclips, pins, push pins, tape strips, or string",
             "- No labels, captions, arrows, badges, stamps, redaction bars, case numbers, or text of any kind",
-            "- No background scenes, environments, or context behind items",
+            f"- No background scenes, environments, or context behind {nouns}",
             "",
             "Scene context for style only:",
             scene_prompt.strip(),

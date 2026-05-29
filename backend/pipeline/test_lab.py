@@ -984,6 +984,7 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
         generate_comparison_board_cutouts,
         generate_dossier_cutouts,
         generate_popup_sequence_cutouts,
+        generate_scene_image,
         generate_visual_layer_panels,
     )
     from pipeline.visual_treatments import analyze_visual_treatments, apply_visual_treatment_assignments
@@ -1066,6 +1067,8 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
                         contains_person=scene.contains_person,
                     )
                 except Exception as exc:
+                    if "cancelled" in str(exc).lower():
+                        raise
                     logger.warning(
                         "[DOSSIER] dossier.fallback.full_frame test_lab scene=%s error=%s",
                         scene.id,
@@ -1073,6 +1076,14 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
                     )
                     scene.set_visual_mode("full_frame")
                     scene.visual_layers = []
+                    fallback_image_url, _, _ = generate_scene_image(
+                        scene.id,
+                        scene.visual_prompt,
+                        ctx.script_id,
+                        force=True,
+                        contains_person=scene.contains_person,
+                    )
+                    scene.image_url = fallback_image_url
                     _save_content(session, record, content)
                     return
             else:

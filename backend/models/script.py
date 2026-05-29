@@ -231,6 +231,7 @@ class Scene(BaseModel):
             normalized["video_url"] = ""
         else:
             normalized["dossier_title"] = ""
+            normalized["dossier_layout"] = "anchor"
         return normalized
 
     @field_validator("transition_in", mode="before")
@@ -306,6 +307,7 @@ class Scene(BaseModel):
             super().__setattr__("video_url", "")
         else:
             super().__setattr__("dossier_title", "")
+            super().__setattr__("dossier_layout", "anchor")
 
 
 def _resolve_visual_mode(

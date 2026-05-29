@@ -206,6 +206,9 @@ def _generate_scene_visual_layers(
         )
     if treatment == "dossier":
         dossier_layout = scene.dossier_layout if scene is not None else "anchor"
+        # API path mirrors popup_sequence/comparison_board: no implicit fallback.
+        # User-triggered regeneration surfaces the error; render_phases and
+        # Test Lab handle the fallback to full_frame.
         return generate_dossier_cutouts(
             scene_id=scene_id,
             layers=layers,

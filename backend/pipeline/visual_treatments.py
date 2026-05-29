@@ -318,6 +318,9 @@ def apply_visual_treatment_assignments(
             else []
         )
         if mode == "dossier" and scene.dossier_layout == "anchor":
+            # Heuristic only flips the *default* anchor → network when narration markers
+            # are clear. An explicit "network" choice is preserved as-is to avoid clobbering
+            # a deliberate LLM/user selection when narration markers shift later.
             detected = _detect_dossier_layout(scene)
             if detected == "network":
                 scene.dossier_layout = "network"

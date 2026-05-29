@@ -142,3 +142,24 @@ def test_generate_dossier_cutouts_returns_empty_layers_unchanged(tmp_path, monke
         dossier_layout="anchor",
     )
     assert result == []
+
+
+def test_generate_dossier_cutouts_skips_non_image_layers_without_calling_gemini(tmp_path, monkeypatch):
+    ig_mod, _vault_mod = _reset_data_dir(monkeypatch, tmp_path)
+    generate_image_mock = MagicMock()
+    save_vault_mock = MagicMock()
+    non_image_layers = [
+        {"id": "x", "type": "video", "label": "clip", "prompt": "video clip"},
+    ]
+    with patch.object(ig_mod, "generate_image", generate_image_mock), \
+         patch.object(ig_mod, "save_vault_image", save_vault_mock):
+        result = ig_mod.generate_dossier_cutouts(
+            scene_id="scene1",
+            layers=non_image_layers,
+            script_id="proj1",
+            scene_prompt="x",
+            dossier_layout="anchor",
+        )
+    assert result == non_image_layers
+    generate_image_mock.assert_not_called()
+    save_vault_mock.assert_not_called()

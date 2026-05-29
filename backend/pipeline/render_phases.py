@@ -215,6 +215,8 @@ def _phase_images(ctx: ExportContext) -> None:
                         contains_person=contains_person,
                     )
                 except Exception as exc:
+                    if "cancelled" in str(exc).lower():
+                        raise
                     logger.warning(
                         "[DOSSIER] dossier.fallback.full_frame scene=%s error=%s",
                         sid,
