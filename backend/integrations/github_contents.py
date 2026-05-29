@@ -46,7 +46,11 @@ def _get_sha(client: httpx.Client, token: str, path: str) -> str | None:
             "GitHub contents API returned a directory or unexpected payload"
         )
     sha = payload.get("sha")
-    return sha if isinstance(sha, str) else None
+    if not isinstance(sha, str) or not sha:
+        raise GitHubContentsError(
+            "GitHub contents API returned a file payload without a sha"
+        )
+    return sha
 
 
 def _put_file(

@@ -153,3 +153,22 @@ def test_upload_json_file_rejects_directory_payload():
             message="Update discovery content profile seed",
             client=httpx.Client(transport=httpx.MockTransport(transport)),
         )
+
+
+def test_upload_json_file_rejects_file_payload_without_sha():
+    transport = MockTransport([(200, {"name": "content-profile-seed.json"})])
+
+    with pytest.raises(
+        GitHubContentsError,
+        match="GitHub contents API returned a file payload without a sha",
+    ):
+        upload_json_file(
+            token="ghp_test",
+            path="discovery/content-profile-seed.json",
+            content={"version": 1},
+            message="Update discovery content profile seed",
+            client=httpx.Client(transport=httpx.MockTransport(transport)),
+        )
+
+    assert len(transport.requests) == 1
+    assert transport.requests[0].method == "GET"
