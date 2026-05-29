@@ -39,9 +39,11 @@ export default function ScriptGenerationPage({
   const formatId = idea.format_id ?? "youtube-listicle";
 
   useEffect(() => {
-    getFormats().then((all) => {
-      setFormat(all.find((f) => f.id === formatId) ?? all[0] ?? null);
-    });
+    getFormats()
+      .then((all) => {
+        setFormat(all.find((f) => f.id === formatId) ?? all[0] ?? null);
+      })
+      .catch(() => setFormat(null));
   }, [formatId]);
 
   const supportsColdOpen = format?.supports_cold_open ?? true;

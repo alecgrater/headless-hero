@@ -153,7 +153,7 @@ export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultS
             </div>
           )}
           {activeSection === "asset-vault" && <AssetVaultSection />}
-          {activeSection === "script-types" && <ScriptTypesSection />}
+          {activeSection === "script-types" && <ScriptTypesSection onOpenVisualModes={() => setActiveSection("visual-modes")} />}
           {activeSection === "visual-modes" && <VisualModesSection />}
         </div>
       </div>

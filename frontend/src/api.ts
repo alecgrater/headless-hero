@@ -395,7 +395,11 @@ export async function fetchScriptCost(scriptId: string): Promise<ScriptCostRespo
 /** Fetch the list of available script formats. */
 export async function getFormats(): Promise<VideoFormat[]> {
   const res = await api.get("/api/formats");
-  return (res.data ?? []) as VideoFormat[];
+  if (!res.ok || !Array.isArray(res.data)) {
+    const detail = (res.data as { detail?: string } | undefined)?.detail;
+    throw new Error(detail || "Failed to load script formats");
+  }
+  return res.data as VideoFormat[];
 }
 
 /** Generate FX assignments for all scenes in a script via the routed LLM provider. */

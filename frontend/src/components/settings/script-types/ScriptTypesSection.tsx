@@ -34,23 +34,42 @@ const ROWS: MatrixRow[] = [
   },
 ];
 
-function Chip({ chip, disabled, formatId }: { chip: ModeChip; disabled?: boolean; formatId: string }) {
+function Chip({
+  chip,
+  disabled,
+  formatId,
+  onOpen,
+}: {
+  chip: ModeChip;
+  disabled?: boolean;
+  formatId: string;
+  onOpen?: () => void;
+}) {
+  const testId = disabled ? `disabled-mode-${formatId}-${chip.id}` : `mode-${formatId}-${chip.id}`;
+  const base = `inline-block rounded-md px-2 py-0.5 text-[11px] font-medium ${
+    disabled ? "bg-neutral-900 text-neutral-600 line-through" : "bg-neutral-800 text-neutral-200"
+  }`;
+  if (chip.hasDetail && onOpen) {
+    return (
+      <button
+        type="button"
+        data-testid={testId}
+        onClick={onOpen}
+        title="Open this mode on the Visual Modes reference page"
+        className={`${base} cursor-pointer transition-colors hover:text-violet-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500`}
+      >
+        {chip.label}
+      </button>
+    );
+  }
   return (
-    <span
-      data-testid={disabled ? `disabled-mode-${formatId}-${chip.id}` : `mode-${formatId}-${chip.id}`}
-      className={`inline-block rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
-        disabled
-          ? "bg-neutral-900 text-neutral-600 line-through"
-          : "bg-neutral-800 text-neutral-200"
-      }`}
-      title={chip.hasDetail ? "See the Visual Modes reference for details" : undefined}
-    >
+    <span data-testid={testId} className={base}>
       {chip.label}
     </span>
   );
 }
 
-export default function ScriptTypesSection() {
+export default function ScriptTypesSection({ onOpenVisualModes }: { onOpenVisualModes?: () => void }) {
   const [formats, setFormats] = useState<VideoFormat[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,7 +90,7 @@ export default function ScriptTypesSection() {
         <h2 className="text-base font-semibold text-neutral-100">Script Types</h2>
         <p className="text-[11px] text-neutral-500">
           Read-only reference — how each script format differs in structure, narration, and visual-mode
-          compatibility. Mode chips link conceptually to the Visual Modes reference page.
+          compatibility. Click a mode chip to open its entry on the Visual Modes reference page.
         </p>
       </div>
 
@@ -79,11 +98,11 @@ export default function ScriptTypesSection() {
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr>
-              <th className="w-44 border-b border-neutral-800 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+              <th scope="col" className="w-44 border-b border-neutral-800 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
                 Dimension
               </th>
               {formats.map((f) => (
-                <th key={f.id} className="border-b border-neutral-800 px-3 py-2 text-left font-semibold text-neutral-100">
+                <th key={f.id} scope="col" className="border-b border-neutral-800 px-3 py-2 text-left font-semibold text-neutral-100">
                   {f.display_name}
                 </th>
               ))}
@@ -92,9 +111,9 @@ export default function ScriptTypesSection() {
           <tbody>
             {ROWS.map((row) => (
               <tr key={row.label}>
-                <td className="border-b border-neutral-900 px-3 py-2 align-top text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+                <th scope="row" className="border-b border-neutral-900 px-3 py-2 text-left align-top text-[11px] font-medium uppercase tracking-wide text-neutral-500">
                   {row.label}
-                </td>
+                </th>
                 {formats.map((f) => (
                   <td key={f.id} className="border-b border-neutral-900 px-3 py-2 align-top text-neutral-300">
                     {row.render(f)}
@@ -116,7 +135,7 @@ export default function ScriptTypesSection() {
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Supported modes</div>
                 <div className="flex flex-wrap gap-1.5">
                   {supported.map((c) => (
-                    <Chip key={c.id} chip={c} formatId={f.id} />
+                    <Chip key={c.id} chip={c} formatId={f.id} onOpen={onOpenVisualModes} />
                   ))}
                 </div>
                 {disabled.length > 0 && (
@@ -124,7 +143,7 @@ export default function ScriptTypesSection() {
                     <div className="pt-1 text-[10px] font-semibold uppercase tracking-wider text-neutral-600">Disabled here</div>
                     <div className="flex flex-wrap gap-1.5">
                       {disabled.map((c) => (
-                        <Chip key={c.id} chip={c} disabled formatId={f.id} />
+                        <Chip key={c.id} chip={c} disabled formatId={f.id} onOpen={onOpenVisualModes} />
                       ))}
                     </div>
                   </>
