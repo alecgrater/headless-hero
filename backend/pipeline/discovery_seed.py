@@ -100,11 +100,7 @@ def build_discovery_seed(profile: dict[str, Any], now: datetime | None = None) -
     """Return the public, checked-in seed used by GitHub Actions discovery."""
     generated_at = now or datetime.now(timezone.utc)
     common_topics = _clean_list(profile.get("common_topics"))
-    typical_keywords = [
-        keyword
-        for keyword in _clean_list(profile.get("typical_keywords"))
-        if keyword.casefold() not in _WEAK_KEYWORDS
-    ]
+    typical_keywords = _clean_list(profile.get("typical_keywords"))
     avg_segment_count = profile.get("avg_segment_count", 0)
     try:
         avg_segment_count = float(avg_segment_count)

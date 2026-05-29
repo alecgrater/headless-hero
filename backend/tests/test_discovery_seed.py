@@ -29,7 +29,7 @@ def test_build_discovery_seed_sanitizes_profile_and_queries():
     assert seed["profile"] == {
         "script_count": 4,
         "common_topics": ["Science Myths", "Ancient Engineering"],
-        "typical_keywords": ["Psychology", "science", "AI"],
+        "typical_keywords": ["Psychology", "science", "AI", "the"],
         "audience_profile": "Curious adults who like vivid explainers.",
         "narration_style": "Fast, direct, second-person narration with punchy turns.",
         "visual_approach": "High-contrast metaphors and comparison boards.",
@@ -41,6 +41,8 @@ def test_build_discovery_seed_sanitizes_profile_and_queries():
     assert len(seed["search_queries"]) <= 40
     assert "Science Myths explained" in seed["search_queries"]
     assert "Ancient Engineering documentary" in seed["search_queries"]
+    assert "the explained" not in seed["search_queries"]
+    assert "the documentary" not in seed["search_queries"]
     assert len(seed["search_queries"]) == len(set(seed["search_queries"]))
 
 
