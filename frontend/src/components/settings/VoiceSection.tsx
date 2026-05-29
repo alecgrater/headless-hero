@@ -71,6 +71,28 @@ export function deliveryPresetForSettings(settings: TtsSettings): DeliveryPreset
   return (preset?.[0] as DeliveryPresetId | undefined) ?? "custom";
 }
 
+const VOICE_PRIORITY_PATTERNS = [
+  "headless hero narrator",
+  "liam - viral short-form storyteller",
+  "adam greene",
+];
+
+function voicePriority(voice: VoiceInfo): number {
+  const name = voice.name.toLowerCase();
+  const exactIndex = VOICE_PRIORITY_PATTERNS.findIndex((pattern) => name === pattern);
+  if (exactIndex >= 0) return exactIndex;
+  const partialIndex = VOICE_PRIORITY_PATTERNS.findIndex((pattern) => name.includes(pattern));
+  return partialIndex >= 0 ? partialIndex : VOICE_PRIORITY_PATTERNS.length;
+}
+
+export function sortVoicesForNarration(voices: VoiceInfo[]): VoiceInfo[] {
+  return [...voices].sort((a, b) => voicePriority(a) - voicePriority(b) || a.name.localeCompare(b.name));
+}
+
+export function defaultVoiceIdForNarration(voices: VoiceInfo[]): string {
+  return sortVoicesForNarration(voices)[0]?.voice_id ?? "";
+}
+
 export default function VoiceSection({ panel, showHeader = true }: VoiceSectionProps) {
   const [voices, setVoices] = useState<VoiceInfo[]>([]);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>("");
@@ -140,23 +162,10 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
     api.get("/api/voice/voices").then((res) => {
       if (res.ok) {
         const data = res.data as VoiceListResponse;
-        const sorted = [...data.voices].sort((a, b) => {
-          const priority = (v: VoiceInfo) => {
-            const n = v.name.toLowerCase();
-            if (n === "lucan rook - energetic male") return 0;
-            if (n.startsWith("lucan")) return 1;
-            return 2;
-          };
-          return priority(a) - priority(b) || a.name.localeCompare(b.name);
-        });
+        const sorted = sortVoicesForNarration(data.voices);
         setVoices(sorted);
         if (!selectedVoiceId && data.voices.length > 0) {
-          const lucan = data.voices.find((v) =>
-            v.name.toLowerCase() === "lucan rook - energetic male",
-          ) ?? data.voices.find((v) =>
-            v.name.toLowerCase().startsWith("lucan"),
-          );
-          const fallback = lucan?.voice_id ?? data.voices[0].voice_id;
+          const fallback = defaultVoiceIdForNarration(data.voices);
           setSelectedVoiceId(fallback);
           api.put("/api/brand", { voice_id: fallback });
         }
@@ -189,16 +198,7 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
     const res = await api.get("/api/voice/voices");
     if (res.ok) {
       const data = res.data as VoiceListResponse;
-      const sorted = [...data.voices].sort((a, b) => {
-        const priority = (v: VoiceInfo) => {
-          const n = v.name.toLowerCase();
-          if (n === "lucan rook - energetic male") return 0;
-          if (n.startsWith("lucan")) return 1;
-          return 2;
-        };
-        return priority(a) - priority(b) || a.name.localeCompare(b.name);
-      });
-      setVoices(sorted);
+      setVoices(sortVoicesForNarration(data.voices));
     }
   };
 
@@ -297,6 +297,9 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
           ))}
         </select>
         {saving && <p className="text-xs text-violet-400">Saving...</p>}
+        <p className="text-xs text-neutral-500">
+          Recommended: Headless Hero Narrator for the main channel voice. Liam is a stronger shorts-style fallback; Adam is a friendlier backup.
+        </p>
       </div>
 
       <div className="space-y-4">

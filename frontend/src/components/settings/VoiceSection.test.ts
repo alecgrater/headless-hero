@@ -4,7 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   DELIVERY_PRESETS,
+  defaultVoiceIdForNarration,
   deliveryPresetForSettings,
+  sortVoicesForNarration,
   type TtsSettings,
 } from "./VoiceSection";
 import VoiceSection from "./VoiceSection";
@@ -42,6 +44,21 @@ vi.mock("../../api", () => ({
 }));
 
 describe("ElevenLabs delivery presets", () => {
+  it("prefers the custom Headless Hero narrator before fallback voices", () => {
+    const voices = [
+      { voice_id: "adam", name: "Adam Greene - Clear, Friendly & Engaging", category: "cloned" },
+      { voice_id: "liam", name: "Liam - Viral Short-Form Storyteller", category: "cloned" },
+      { voice_id: "headless", name: "Headless Hero Narrator", category: "cloned" },
+    ];
+
+    expect(sortVoicesForNarration(voices).map((voice) => voice.voice_id)).toEqual([
+      "headless",
+      "liam",
+      "adam",
+    ]);
+    expect(defaultVoiceIdForNarration(voices)).toBe("headless");
+  });
+
   it("maps conservative preset names to concrete TTS settings", () => {
     expect(DELIVERY_PRESETS.steady.settings).toEqual({
       ELEVENLABS_TTS_MODEL: "eleven_multilingual_v2",
@@ -77,6 +94,7 @@ describe("ElevenLabs delivery presets", () => {
   it("shows helper notes and applies the More Human preset to advanced controls", async () => {
     render(createElement(VoiceSection, { panel: "voice" }));
 
+    expect(await screen.findByText("Recommended: Headless Hero Narrator for the main channel voice. Liam is a stronger shorts-style fallback; Adam is a friendlier backup.")).toBeTruthy();
     expect(await screen.findByLabelText("Delivery preset")).toBeTruthy();
     expect(screen.getByText("Presets fill the advanced controls below; manual edits switch this to Custom.")).toBeTruthy();
     expect(screen.getByText("Uses Eleven v2 with neutral delivery settings. Best when consistency matters more than extra emotion.")).toBeTruthy();
