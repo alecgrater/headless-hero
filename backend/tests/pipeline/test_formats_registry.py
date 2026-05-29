@@ -50,7 +50,7 @@ def test_youtube_listicle_flags():
 
 def test_life_as_a_flags():
     fmt = get_format("life-as-a")
-    assert fmt.supports_cold_open is False
+    assert fmt.supports_cold_open is True
     assert fmt.supports_hook_scoring is False
     assert fmt.supports_segmented_generation is True
     assert fmt.title_card_strategy.kind == "cinematic-chapters"
@@ -147,6 +147,75 @@ def test_segmented_life_as_a_preserves_outline_fields(monkeypatch):
     assert content.levels[0].image_prompt == ""  # Level 1's chapter image comes from cinematic_thumbnail_prompt.
     assert content.levels[1].descriptor == "drift"
     assert content.levels[1].image_prompt == "a hallway"
+
+
+def test_segmented_life_as_a_passes_selected_opening_to_first_level(monkeypatch):
+    """Selected opening text must reach phase 2 so the long-form-only opening becomes real scenes."""
+    import json
+
+    from pipeline import scriptwriter
+
+    captured_segment_messages = []
+    selected_opening = (
+        "You wake before sunrise with the keys already cutting into your palm.\n\n"
+        "The corridor is still dark. Someone is already waiting outside the gate."
+    )
+
+    outline_json = json.dumps({
+        "title": "Your Life As A Castle Guard",
+        "intro_hook": "You wake before sunrise with the keys already cutting into your palm.",
+        "outro_cta": "",
+        "closing_register": "reflective",
+        "closing_image": "The keys rest on the hook after sunset.",
+        "cinematic_thumbnail_prompt": "a guard at a dawn gate",
+        "levels": [
+            {"number": 1, "descriptor": "new", "topic_summary": "You start at the gate."},
+            {"number": 2, "descriptor": "trusted", "topic_summary": "You know the routine.", "image_prompt": "[ESTABLISHING] gate"},
+        ],
+        "segments": [
+            {"name": "Level 1, the new", "short_name": "new", "topic_summary": "You start at the gate."},
+            {"name": "Level 2, the trusted", "short_name": "trusted", "topic_summary": "You know the routine."},
+        ],
+    })
+    scene_json = json.dumps({"scenes": [
+        {
+            "id": "scene_001",
+            "narration": "The new.",
+            "visual_prompt": "[ESTABLISHING] gate at dawn",
+            "is_title_card": True,
+            "visual_mode": "full_frame",
+            "visual_beat": "static",
+            "frame_directives": [],
+        },
+        {
+            "id": "scene_002",
+            "narration": "You wake before sunrise with the keys already cutting into your palm.",
+            "visual_prompt": "[CLOSE-UP] hand gripping old keys",
+            "visual_mode": "full_frame",
+            "visual_beat": "static",
+            "frame_directives": [
+                {"prompt": "hand gripping old keys", "source": "ai_generated", "transition": "cut", "reference_previous": False, "search_query": "", "contains_person": False}
+            ],
+        },
+    ]})
+
+    def fake_chat(system: str, user: str, **kwargs):
+        if "Return ONLY the script outline" in user:
+            return outline_json
+        captured_segment_messages.append(user)
+        return scene_json
+
+    monkeypatch.setattr(scriptwriter, "chat", fake_chat)
+
+    scriptwriter.generate_script(
+        topic="Your Life As A Castle Guard",
+        format_id="life-as-a",
+        segmented=True,
+        cold_open_text=selected_opening,
+    )
+
+    assert selected_opening in captured_segment_messages[0]
+    assert selected_opening not in captured_segment_messages[1]
 
 
 def test_enforce_life_as_a_falls_back_to_cinematic_prompt_for_level_1():

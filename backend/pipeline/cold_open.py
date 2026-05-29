@@ -5,7 +5,20 @@ import logging
 from config import strip_markdown_fences
 from integrations.llm_client import chat
 from models.cold_open import ColdOpenResult, ColdOpenScores, ColdOpenVariant
-from prompts import compose_script_system_prompt
+from prompts import LIFE_AS_A_COLD_OPEN_ADDENDUM, compose_script_system_prompt
+
+
+DEFAULT_SCORE_LABELS = {
+    "tension": "Tension",
+    "specificity": "Specificity",
+    "drop_rate_risk": "Drop Risk",
+}
+
+LIFE_AS_A_SCORE_LABELS = {
+    "tension": "Stakes",
+    "specificity": "Immersion",
+    "drop_rate_risk": "Drop Risk",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +28,7 @@ def generate_cold_opens(
     description: str = "",
     brand_context: str = "",
     model: str | None = None,
+    format_id: str = "youtube-listicle",
 ) -> ColdOpenResult:
     """Generate 3 cold open variants with routed LLM scoring.
 
@@ -22,9 +36,18 @@ def generate_cold_opens(
     """
     resolved_model = model
 
-    system_prompt = compose_script_system_prompt(cold_open=True)
+    if format_id == "life-as-a":
+        system_prompt = LIFE_AS_A_COLD_OPEN_ADDENDUM.template
+        score_labels = LIFE_AS_A_SCORE_LABELS
+        heading = "Choose Your Opening"
+        description_text = "3 long-form opening styles scored on stakes, immersion, and drop-rate risk. Pick the one that fits this life path."
+    else:
+        system_prompt = compose_script_system_prompt(cold_open=True)
+        score_labels = DEFAULT_SCORE_LABELS
+        heading = "Choose Your Cold Open"
+        description_text = "3 hook styles scored on tension, specificity, and drop-rate risk. Pick the one that fits your video."
 
-    user_parts = [f'Generate 3 cold open variants for the video topic: "{topic}"']
+    user_parts = [f'Generate 3 opening variants for the video topic: "{topic}"']
     if description:
         user_parts.append(f"Angle/description: {description}")
     if brand_context:
@@ -93,7 +116,13 @@ def generate_cold_opens(
         winner = max(variants, key=lambda v: v.scores.overall)
         winner_id = winner.id
 
-    result = ColdOpenResult(variants=variants, winner_id=winner_id)
+    result = ColdOpenResult(
+        variants=variants,
+        winner_id=winner_id,
+        score_labels=score_labels,
+        heading=heading,
+        description=description_text,
+    )
 
     logger.info(
         "Cold open variants generated: %d variants, winner=%s (scores: %s)",

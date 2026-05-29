@@ -28,6 +28,9 @@ class ColdOpenResult(BaseModel):
 
     variants: list[ColdOpenVariant]
     winner_id: str = ""
+    score_labels: dict[str, str] = Field(default_factory=dict)
+    heading: str = "Choose Your Cold Open"
+    description: str = "3 hook styles scored on tension, specificity, and drop-rate risk. Pick the one that fits your video."
 
 
 class GenerateColdOpensRequest(BaseModel):

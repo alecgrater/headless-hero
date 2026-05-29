@@ -241,4 +241,11 @@ export interface ColdOpenVariant {
 export interface ColdOpenResult {
   variants: ColdOpenVariant[];
   winner_id: string;
+  score_labels?: {
+    tension?: string;
+    specificity?: string;
+    drop_rate_risk?: string;
+  };
+  heading?: string;
+  description?: string;
 }

@@ -387,6 +387,7 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
         description: idea.description,
         cold_open_index: variantIndex,
         cold_open_job_id: coldOpenJobIdRef.current,
+        format_id: idea.format_id ?? "youtube-listicle",
       });
       if (cancelledRef.current) return;
       startRefinePolling(job_id);

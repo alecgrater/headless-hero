@@ -816,6 +816,101 @@ Return ONLY valid JSON — no markdown fences, no commentary outside the JSON.
     ),
 ))
 
+LIFE_AS_A_COLD_OPEN_ADDENDUM = register(PromptDef(
+    name="LIFE_AS_A_COLD_OPEN_ADDENDUM",
+    domain="SCRIPT",
+    purpose="Generate 3 life-as-a long-form opening variants with retention scoring",
+    target_model="claude",
+    expected_output_format="JSON: {variants: [{id, style, intro_hook, opening_narration, scores}]}",
+    template="""\
+
+You are now generating 3 LIFE-AS-A OPENING VARIANTS for an upcoming long-form
+"Your Life As A..." video. These openings are long-form-only retention scenes:
+they should be included at the beginning of the full video, then skipped from
+short #1 so the short can start at the first level's standalone content.
+
+Do NOT use listicle cadence, punchlines, "8 things" framing, direct greetings,
+or generic YouTube setup. Every variant must be second person, present tense,
+literary, concrete, and immediately inside the role fantasy.
+
+Generate exactly 3 variants:
+
+1. **"Immersive Entry"** — drop the viewer into a sensory moment from the role.
+   The first sentence should make them feel physically located in the life.
+
+2. **"Stakes First"** — open on pressure, discomfort, cost, danger, or social
+   consequence that makes the role feel real.
+
+3. **"Progression Tease"** — show a sharp contrast between the first fragile
+   moment and where this life path is headed, without spoiling the ending.
+
+For each variant produce:
+- `intro_hook`: 1-2 sentences — the very first words the viewer hears.
+- `opening_narration`: 3-4 sentences for the first 2-3 long-form-only scenes
+  that flow naturally from the intro hook.
+
+Then SCORE each variant on three dimensions (0-100):
+- `tension`: Stakes/discomfort — how much pressure or unresolved curiosity the
+  opening creates without breaking the literary register.
+- `specificity`: Immersion — how concrete, sensory, and role-specific the
+  opening feels.
+- `drop_rate_risk`: How likely the viewer is to click away in the first 10s.
+  Lower is better for the video, but score the RISK — 100 = very likely to lose them.
+
+In `reasoning`, briefly mention second-person immersion, immediate role fantasy,
+stakes/discomfort, curiosity about progression, and title alignment where relevant.
+
+Return valid JSON with this exact structure:
+{
+  "variants": [
+    {
+      "id": "immersive_entry",
+      "style": "Immersive Entry",
+      "intro_hook": "...",
+      "opening_narration": "...",
+      "scores": {
+        "tension": 85,
+        "specificity": 90,
+        "drop_rate_risk": 15,
+        "reasoning": "..."
+      }
+    },
+    {
+      "id": "stakes_first",
+      "style": "Stakes First",
+      "intro_hook": "...",
+      "opening_narration": "...",
+      "scores": {
+        "tension": 90,
+        "specificity": 80,
+        "drop_rate_risk": 20,
+        "reasoning": "..."
+      }
+    },
+    {
+      "id": "progression_tease",
+      "style": "Progression Tease",
+      "intro_hook": "...",
+      "opening_narration": "...",
+      "scores": {
+        "tension": 80,
+        "specificity": 85,
+        "drop_rate_risk": 18,
+        "reasoning": "..."
+      }
+    }
+  ]
+}
+
+Return ONLY valid JSON — no markdown fences, no commentary outside the JSON.
+""",
+    retention=RetentionMeta(
+        goal="Generate life-as-a openings that validate long-form retention without listicle cadence",
+        failure_mode="Generic or listicle-style openings break immersion and weaken early retention",
+        metrics_to_watch=["retention_0_30s", "avg_view_duration", "comments_emotional_resonance"],
+    ),
+))
+
 # -- Refine system --
 
 REFINE_SYSTEM = register(PromptDef(

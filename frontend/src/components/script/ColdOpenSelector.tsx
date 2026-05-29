@@ -23,14 +23,20 @@ function ScoreBar({ label, value, color }: { label: string; value: number; color
 }
 
 export default function ColdOpenSelector({ result, onSelect }: Props) {
+  const labels = {
+    tension: result.score_labels?.tension ?? "Tension",
+    specificity: result.score_labels?.specificity ?? "Specificity",
+    drop_rate_risk: result.score_labels?.drop_rate_risk ?? "Drop Risk",
+  };
+
   return (
     <div className="space-y-4">
       <div>
         <h3 className="text-lg font-semibold text-neutral-100">
-          Choose Your Cold Open
+          {result.heading ?? "Choose Your Cold Open"}
         </h3>
         <p className="text-sm text-neutral-500">
-          3 hook styles scored on tension, specificity, and drop-rate risk. Pick the one that fits your video.
+          {result.description ?? "3 hook styles scored on tension, specificity, and drop-rate risk. Pick the one that fits your video."}
         </p>
       </div>
 
@@ -71,9 +77,9 @@ export default function ColdOpenSelector({ result, onSelect }: Props) {
 
               {/* Score bars */}
               <div className="space-y-2 pt-1">
-                <ScoreBar label="Tension" value={variant.scores.tension} color="bg-emerald-500" />
-                <ScoreBar label="Specificity" value={variant.scores.specificity} color="bg-sky-500" />
-                <ScoreBar label="Drop Risk" value={variant.scores.drop_rate_risk} color="bg-red-500" />
+                <ScoreBar label={labels.tension} value={variant.scores.tension} color="bg-emerald-500" />
+                <ScoreBar label={labels.specificity} value={variant.scores.specificity} color="bg-sky-500" />
+                <ScoreBar label={labels.drop_rate_risk} value={variant.scores.drop_rate_risk} color="bg-red-500" />
               </div>
 
               {/* Overall score */}

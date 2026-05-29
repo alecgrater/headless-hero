@@ -389,6 +389,7 @@ def generate_script(
             outline_instructions=fmt.outline_prompt.template,
             segment_scenes_instructions=fmt.segment_scenes_prompt.template,
             eli_enabled=eli_enabled,
+            cold_open_text=cold_open_text if fmt.supports_cold_open else None,
         )
     else:
         logger.info(
@@ -598,6 +599,7 @@ def _generate_segmented(
     outline_instructions: str = _OUTLINE_INSTRUCTIONS,
     segment_scenes_instructions: str = _SEGMENT_SCENES_INSTRUCTIONS,
     eli_enabled: bool = True,
+    cold_open_text: str | None = None,
 ) -> ScriptContent:
     """Orchestrate two-phase segmented script generation."""
     total_t0 = time.monotonic()
@@ -625,12 +627,21 @@ def _generate_segmented(
         if progress_callback:
             progress_callback(i + 1, len(outline["segments"]), seg_name)
         try:
+            first_level_opening = ""
+            if i == 0 and cold_open_text:
+                first_level_opening = (
+                    "MANDATORY LONG-FORM OPENING — begin this first segment's non-title "
+                    "content scenes with this exact selected opening. These opening scenes "
+                    "are for the long-form video and may be skipped from short #1:\n\n"
+                    f"{cold_open_text}\n\n"
+                )
+
             scenes = _generate_segment_scenes(
                 system_prompt,
                 outline,
                 i,
                 model,
-                trailing_context,
+                first_level_opening + trailing_context,
                 script_id=script_id,
                 segment_scenes_instructions=segment_scenes_instructions,
             )

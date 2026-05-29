@@ -42,6 +42,7 @@ class RefineHookRequest(BaseModel):
     description: str = ""
     cold_open_index: int = Field(..., ge=0, le=2)
     cold_open_job_id: str = Field(..., min_length=1)
+    format_id: str = "youtube-listicle"
 
 
 class RefineHookResultData(BaseModel):
@@ -94,6 +95,7 @@ def generate_cold_opens_endpoint(
             description=description,
             brand_context=brand_context,
             model=model,
+            format_id=fmt.id,
         )
         update_job(job_id, output_data=result.model_dump_json())
 
@@ -136,11 +138,28 @@ def refine_hook_endpoint(body: RefineHookRequest):
     intro_hook = variant["intro_hook"]
     opening_narration = variant["opening_narration"]
     video_title = body.topic
+    fmt = resolve_format(body.format_id)
 
     job = create_job()
     job_id = job.id
 
     def _run() -> list[str]:
+        if fmt.id == "life-as-a":
+            logger.info("Life-as-a opening selected — skipping listicle hook refinement")
+            result = RefineHookResultData(
+                hook_score={
+                    "promise": {"score": 0, "reasoning": "Life-as-a openings use variant-level scoring."},
+                    "tension": {"score": 0, "reasoning": "Life-as-a openings use variant-level scoring."},
+                    "payoff_hint": {"score": 0, "reasoning": "Life-as-a openings use variant-level scoring."},
+                    "overall": 0,
+                    "suggestions": [],
+                },
+                refined_hook={"intro_hook": intro_hook, "opening_narration": opening_narration},
+                original_hook={"intro_hook": intro_hook, "opening_narration": opening_narration},
+            )
+            update_job(job_id, output_data=result.model_dump_json())
+            return []
+
         if not _hook_refinement_enabled():
             logger.info("Hook refinement disabled — passing through original hook")
             result = RefineHookResultData(

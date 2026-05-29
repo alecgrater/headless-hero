@@ -12,7 +12,7 @@ A "format" is a declarative `VideoFormat` object that fully describes how Headle
 
 The two reference formats are:
 - **`youtube-listicle`** — fixed 8 segments, composite-grid thumbnail, viral-tuned, supports cold opens + hook scoring. ([`backend/pipeline/formats/youtube_listicle.py`](../../backend/pipeline/formats/youtube_listicle.py))
-- **`life-as-a`** — 4–7 levels, cinematic chapter cards, literary second-person, no cold open / hook scoring. ([`backend/pipeline/formats/life_as_a.py`](../../backend/pipeline/formats/life_as_a.py))
+- **`life-as-a`** — 4–7 levels, cinematic chapter cards, literary second-person, format-specific long-form opening selection, no listicle hook scoring. ([`backend/pipeline/formats/life_as_a.py`](../../backend/pipeline/formats/life_as_a.py))
 
 ## 2. Adding a format: checklist
 
@@ -73,7 +73,7 @@ class VideoFormat:
 | `script_system_prompt` | The Claude system prompt passed to `chat()` in `generate_script`. | The single largest determinant of script style. Most format DNA lives here. |
 | `outline_prompt` | Used in segmented-generation Phase 1 (outline only, no scenes). Required iff `supports_segmented_generation=True`. | Output shape must include `segments[]` (or `levels[]` in `life-as-a`) so Phase 2 can iterate. |
 | `segment_scenes_prompt` | Used in Phase 2: scenes for one segment/level at a time. Required iff `supports_segmented_generation=True`. | Output must be `{"scenes": [...]}` — a flat list of `Scene` objects. The orchestrator unpacks this into `Segment.scenes`. |
-| `supports_cold_open` | If `False`, [`api/cold_opens.py:64`](../../backend/api/cold_opens.py) returns 400, and `scriptwriter.py:162` ignores any `cold_open_text`. | Whole cold-open phase + hook refinement disappear for this format. |
+| `supports_cold_open` | If `False`, [`api/cold_opens.py:64`](../../backend/api/cold_opens.py) returns 400, and `scriptwriter.py:162` ignores any `cold_open_text`. | Whole opening-selection phase disappears for this format. When `True`, the format may still supply its own opening prompt/rubric rather than using the listicle cold-open prompt. |
 | `supports_hook_scoring` | Gates the hook-scoring branch in [`api/scripts.py:573`](../../backend/api/scripts.py). | `hook_score` will be `None` on generated `ScriptContent` if disabled. |
 | `supports_segmented_generation` | If `False`, the user-facing `segmented` toggle is honored only when the format opts in. Falls back to single-pass generation otherwise ([`scriptwriter.py:180`](../../backend/pipeline/scriptwriter.py)). | If `False`, `outline_prompt` and `segment_scenes_prompt` may be `None`. |
 | `title_card_strategy` | Pluggable object satisfying `TitleCardStrategy` protocol. Routes thumbnail + per-scene title-card preparation. | See section 5. |
@@ -91,6 +91,7 @@ A format has up to four prompt slots. All four are `PromptDef` objects defined i
 - **Consumer:** `pipeline/ideation.py:48` calls `fmt.ideation_prompt.template` (or `.build(...)` if a builder is set).
 - **Output contract:** `{"ideas": [{"title": str, "segments_est": int, "description": str, "keywords": [str], ...}]}`.
 - **Format-specific extras** are allowed (e.g. `closing_image` in `LIFE_AS_A_IDEATION_SYSTEM` — see [`prompts.py:1708`](../../backend/prompts.py)) — they ride along on `VideoIdea` if the model schema accepts them.
+- **Format-specific opening prompts** are allowed. `life-as-a` uses the shared cold-open selection workflow, but `pipeline.cold_open.generate_cold_opens` swaps in `LIFE_AS_A_COLD_OPEN_ADDENDUM` and score labels so the UI flow stays shared while the writing style remains second-person/literary.
 
 ### `script_system_prompt`
 
@@ -217,12 +218,14 @@ When `False`:
 2. `scriptwriter.generate_script` ignores `cold_open_text` even if passed ([`scriptwriter.py:162`](../../backend/pipeline/scriptwriter.py): `if cold_open_text and fmt.supports_cold_open`).
 3. The frontend `ScriptGenerationPage` hides the cold-open A/B selection step ([`ScriptGenerationPage.tsx:42`](../../frontend/src/components/script/ScriptGenerationPage.tsx): `const supportsColdOpen = format?.supports_cold_open ?? true;`).
 
+When `True`, the format participates in the shared opening-selection UI/API, but it does not have to use the listicle prompt. `life-as-a` keeps `supports_cold_open=True` so users can choose a long-form-only opening, while `generate_cold_opens` switches to a life-as-a-specific prompt and score labels.
+
 ### `supports_hook_scoring`
 
 When `False`:
 1. `api/scripts.py:573-587` skips the hook-scoring branch in the background generation thread. The `hook_score` field on `ScriptContent` stays `None`.
-2. The hook-refinement endpoints (`/api/scripts/refine-hook`) remain available — they're not gated. (You generally don't surface them in the UI for formats without hook scoring.)
-3. The frontend reads `format.supports_hook_scoring` to hide hook-related UI affordances on the script generation page.
+2. The hook-refinement endpoints (`/api/scripts/refine-hook`) remain available — they're not gated. Formats can choose to pass selected openings through unchanged instead of using the listicle refiner.
+3. The frontend reads `format.supports_hook_scoring` to hide hook-score UI affordances on the script generation page.
 
 ### `supports_segmented_generation`
 
@@ -328,7 +331,7 @@ LIFE_AS_A = _register(VideoFormat(
     script_system_prompt=LIFE_AS_A_SCRIPT_SYSTEM,
     outline_prompt=LIFE_AS_A_OUTLINE_INSTRUCTIONS,
     segment_scenes_prompt=LIFE_AS_A_LEVEL_SCENES_INSTRUCTIONS,
-    supports_cold_open=False,
+    supports_cold_open=True,
     supports_hook_scoring=False,
     supports_segmented_generation=True,
     title_card_strategy=CINEMATIC_CHAPTERS,

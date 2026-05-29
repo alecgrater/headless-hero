@@ -693,6 +693,7 @@ export async function refineHook(body: {
   description: string;
   cold_open_index: number;
   cold_open_job_id: string;
+  format_id?: string;
 }): Promise<{ job_id: string }> {
   const res = await api.post("/api/scripts/refine-hook", body);
   if (!res.ok)
