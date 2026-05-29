@@ -50,6 +50,8 @@ When `subtitle_style` is missing or `auto`, the Remotion renderer chooses a disp
 
 The router should favor `clean` when uncertain. Subtitle novelty should support comprehension, not fight it.
 
+The router must receive enough scene metadata to make that decision. It can accept the full `SceneInput`, or an explicit derived input object containing at least `narration`, `duration_seconds`, `visual_mode`, `visual_beat`, `is_title_card`, `word_timestamps`, `subtitle_style`, and `orientation`. Do not leave `SubtitleOverlay` limited to only `wordTimestamps`, `highlightEnabled`, and `orientation` if the auto router depends on narration or scene shape.
+
 ## Renderer Design
 
 Keep the existing phrase grouping and `formatSubtitleText` path as shared infrastructure. Refactor the current `SubtitleOverlay` into a small router plus treatment renderers:
@@ -63,7 +65,9 @@ All treatments must continue to hide hyphens through `formatSubtitleText`.
 
 ## UI And Overrides
 
-V1 may ship with automatic routing only if the data field and renderer are ready for overrides. The later timeline UI should expose a compact per-scene subtitle style control near the visual mode controls:
+V1 should include automatic routing, the scene-level data field, and Test Lab subtitle-style selection so every treatment can be manually exercised before a full script render. The timeline editor may defer its compact per-scene control, but the renderer and API shape should be ready for timeline overrides.
+
+The later timeline UI should expose a compact per-scene subtitle style control near the visual mode controls:
 
 - Auto
 - Clean
@@ -71,11 +75,15 @@ V1 may ship with automatic routing only if the data field and renderer are ready
 - Burst
 - None
 
-Because this changes scene visual behavior, Test Lab should also expose subtitle style selection when the UI override is added.
+Because this changes scene visual behavior, Test Lab support is part of V1 rather than a follow-up. Test Lab should expose the same style choices and pass the selected value through the same render path production uses.
 
 ## Captions Visual Mode
 
 `visual_mode="captions"` remains a separate visual mode. It renders its own `caption_text` and `caption_emphasis`, and standard bottom subtitles stay suppressed for that scene. The standard subtitle router must not override or decorate caption scenes.
+
+## Cache Validity
+
+Subtitle style changes affect visual output, so render cache fingerprints must include the explicit `subtitle_style` value for each rendered scene. Auto-routed scenes must also include a subtitle router version or heuristic fingerprint so changes to routing behavior cannot reuse stale long-form renders, short-form renders, thumbnails/previews that include subtitles, or exported assets with the wrong subtitle treatment.
 
 ## Testing
 
@@ -84,6 +92,8 @@ Add focused tests around:
 - Auto routing chooses `clean`, `kinetic`, or `burst` from representative timing inputs.
 - Explicit `subtitle_style` overrides win over auto routing.
 - `visual_mode="captions"` and title cards still suppress standard subtitles.
+- Test Lab can force `auto`, `clean`, `kinetic`, `burst`, and `none` through the production render input path.
+- Render cache validity changes when explicit subtitle style or the auto-router fingerprint changes.
 - Hyphen formatting remains applied in every standard subtitle treatment.
 - Vertical subtitle placement still stays in the bottom blurred band above app chrome.
 
