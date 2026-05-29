@@ -440,6 +440,42 @@ def test_test_lab_scenes_endpoint_returns_active_default_character(monkeypatch, 
         app.dependency_overrides.pop(get_session, None)
 
 
+def test_test_lab_scenes_endpoint_returns_voice_summary(monkeypatch, tmp_path):
+    engine, app = _setup_app(monkeypatch, tmp_path)
+
+    from models.brand import BrandProfile
+    from models.settings import AppSetting
+
+    with Session(engine) as session:
+        brand = session.get(BrandProfile, "default")
+        assert brand is not None
+        brand.voice_id = "voice-default"
+        session.add(brand)
+        session.add(AppSetting(key="ELEVENLABS_TTS_MODEL", value="eleven_multilingual_v2"))
+        session.add(AppSetting(key="ELEVENLABS_STABILITY", value="0.45"))
+        session.add(AppSetting(key="ELEVENLABS_STYLE", value="0.15"))
+        session.add(AppSetting(key="ELEVENLABS_SPEED", value="0.97"))
+        session.commit()
+
+    client = TestClient(app)
+
+    try:
+        response = client.get("/api/test-lab/scenes")
+
+        assert response.status_code == 200
+        summary = response.json()["voice_summary"]
+        assert summary["voice_id"] == "voice-default"
+        assert summary["voice_name"] == "voice-default"
+        assert summary["model_id"] == "eleven_multilingual_v2"
+        assert summary["model_label"] == "Eleven v2"
+        assert summary["delivery_preset"] == "More Human"
+        assert summary["visible_settings"] == [{"label": "Delivery preset", "value": "More Human"}]
+    finally:
+        from database import get_session
+
+        app.dependency_overrides.pop(get_session, None)
+
+
 def test_popup_crop_preview_generates_sheet_and_crops_fixed_grid(monkeypatch, tmp_path):
     from PIL import Image
 
@@ -867,17 +903,50 @@ def test_test_lab_preset_keeps_scene_text_when_continuous_mode_selected():
     assert scene.visual_prompt == preset.visual_prompt
 
 
-def test_stage_defaults_disable_eli_stage_when_eli_character_mode_is_off():
+def test_test_lab_preset_uses_top_level_frame_directives():
+    from pipeline.test_lab import build_content_from_preset
+
+    content = build_content_from_preset(
+        "coffee-brain",
+        {
+            "visual_mode": "multi_frame",
+            "frame_directives": [
+                {
+                    "prompt": "Custom frame one.",
+                    "source": "ai_generated",
+                    "transition": "cut",
+                    "reference_previous": False,
+                    "search_query": "",
+                }
+            ],
+        },
+    )
+    scene = content.segments[0].scenes[0]
+
+    assert scene.visual_mode == "multi_frame"
+    assert len(scene.frame_directives) == 1
+    assert scene.frame_directives[0].prompt == "Custom frame one."
+
+
+def test_stage_defaults_remove_character_and_direct_eli_stage():
     from pipeline.test_lab import _stage_defaults
 
     defaults = _stage_defaults(
         {
-            "eli_enabled": False,
-            "stages": {"eli": True},
+            "eli_enabled": True,
+            "stages": {
+                "character": True,
+                "eli": False,
+                "audio": False,
+                "visual": False,
+                "render": False,
+            },
         }
     )
 
-    assert defaults["eli"] is False
+    assert "character" not in defaults
+    assert "eli" not in defaults
+    assert defaults["eli_derived"] is True
 
 
 def test_test_lab_advanced_script_keeps_top_level_visual_treatment_when_scene_omits_it():
@@ -1338,13 +1407,18 @@ def test_stage_character_reference_skips_when_style_preset_disabled(monkeypatch,
     assert ctx.manifest.assets == []
 
 
-def test_stage_audio_forwards_voice_model_and_settings(monkeypatch, tmp_path):
+def test_stage_audio_uses_settings_voice_and_ignores_run_overrides(monkeypatch, tmp_path):
     engine, _app = _setup_app(monkeypatch, tmp_path)
 
     import pipeline.test_lab as test_lab
     import pipeline.voiceover as voiceover
     from models.brand import BrandProfile
     from models.script import ScriptContent
+
+    monkeypatch.setenv("ELEVENLABS_TTS_MODEL", "eleven_multilingual_v2")
+    monkeypatch.setenv("ELEVENLABS_STABILITY", "0.45")
+    monkeypatch.setenv("ELEVENLABS_STYLE", "0.15")
+    monkeypatch.setenv("ELEVENLABS_SPEED", "0.97")
 
     with Session(engine) as session:
         brand = session.get(BrandProfile, "default")
@@ -1403,9 +1477,11 @@ def test_stage_audio_forwards_voice_model_and_settings(monkeypatch, tmp_path):
 
     test_lab._stage_audio(ctx)
 
-    assert captured["voice_id"] == "voice-override"
-    assert captured["model_id"] == "eleven_turbo_v2_5"
-    assert captured["voice_settings"] == {"stability": 0.33, "similarity_boost": 0.75}
+    assert captured["voice_id"] == "voice-default"
+    assert captured["model_id"] == "eleven_multilingual_v2"
+    assert captured["voice_settings"]["stability"] == 0.45
+    assert captured["voice_settings"]["style"] == 0.15
+    assert captured["voice_settings"]["speed"] == 0.97
     with Session(engine) as session:
         record, content = test_lab._load_content_for_script(session, script_id)
         _ = record

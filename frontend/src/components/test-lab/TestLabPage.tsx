@@ -2,7 +2,14 @@ import { Beaker, Play, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import api, { getTestLabPresets, getTestLabRun, getTestLabRuns, startTestLabRun } from "../../api";
 import type { MutableRefObject } from "react";
-import type { TestLabMainCharacter, TestLabPreset, TestLabRun, TestLabScenes, TestLabSettings } from "../../types/testLab";
+import type {
+  TestLabMainCharacter,
+  TestLabPreset,
+  TestLabRun,
+  TestLabScenes,
+  TestLabSettings,
+  TestLabVoiceSummary,
+} from "../../types/testLab";
 import PopupCropLab from "./PopupCropLab";
 import TestLabControls, { settingsWithVisualTreatmentDefaults } from "./TestLabControls";
 import TestLabRunPanel from "./TestLabRunPanel";
@@ -35,12 +42,10 @@ function settingsWithPresetVisualMode(settings: TestLabSettings, preset: TestLab
 
 const DEFAULT_SETTINGS: TestLabSettings = {
   stages: {
-    character: false,
     audio: true,
     visual: true,
     treatment_assets: true,
     fx: true,
-    eli: false,
     render: true,
   },
   eli_enabled: false,
@@ -68,6 +73,7 @@ export default function TestLabPage() {
   const [presets, setPresets] = useState<TestLabPreset[]>([]);
   const [visualTreatmentDefaults, setVisualTreatmentDefaults] = useState<TestLabScenes["visual_treatment_defaults"]>({});
   const [defaultMainCharacter, setDefaultMainCharacter] = useState<TestLabMainCharacter | null>(null);
+  const [voiceSummary, setVoiceSummary] = useState<TestLabVoiceSummary | null>(null);
   const [selectedPresetId, setSelectedPresetId] = useState<string>("");
   const [settings, setSettings] = useState<TestLabSettings>(DEFAULT_SETTINGS);
   const [runs, setRuns] = useState<TestLabRun[]>([]);
@@ -92,6 +98,7 @@ export default function TestLabPage() {
       setPresets(sceneData.presets);
       setVisualTreatmentDefaults(sceneData.visual_treatment_defaults ?? {});
       setDefaultMainCharacter(sceneData.default_main_character);
+      setVoiceSummary(sceneData.voice_summary ?? null);
       setSelectedPresetId((current) => current || sceneData.presets[0]?.id || "");
       setSettings((current) => {
         if (selectedPresetId) return current;
@@ -249,6 +256,7 @@ export default function TestLabPage() {
                 defaultMainCharacter={defaultMainCharacter}
                 visualTreatmentDefaults={visualTreatmentDefaults}
                 settings={settings}
+                voiceSummary={voiceSummary}
                 onChange={setSettings}
                 onValidityChange={setControlsValid}
               />

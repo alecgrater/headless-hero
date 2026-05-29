@@ -17,7 +17,17 @@ from sqlmodel import Session, select
 
 from config import DATA_DIR, FPS
 from models.project_config import ProjectConfig
-from models.script import MainCharacter, SUBTITLE_STYLES, Scene, Script, ScriptContent, Segment, VisualCanvas, VisualLayer
+from models.script import (
+    FrameDirective,
+    MainCharacter,
+    SUBTITLE_STYLES,
+    Scene,
+    Script,
+    ScriptContent,
+    Segment,
+    VisualCanvas,
+    VisualLayer,
+)
 from pipeline.script_helpers import _usage_task_label
 from pipeline.visual_treatments import comparison_cutout_prompt, flipflop_panel_prompt
 
@@ -460,6 +470,12 @@ def _reapply_top_level_scene_settings(content: ScriptContent, settings: dict) ->
         and isinstance(settings["visual_layers"], list)
     ):
         scene.visual_layers = [VisualLayer.model_validate(layer) for layer in settings["visual_layers"]]
+    if (
+        "frame_directives" in settings
+        and "frame_directives" not in advanced_scene
+        and isinstance(settings["frame_directives"], list)
+    ):
+        scene.frame_directives = [FrameDirective.model_validate(directive) for directive in settings["frame_directives"]]
 
 
 def _normalize_ai_video_treatments(content: ScriptContent) -> None:
@@ -496,6 +512,8 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
         caption_emphasis=_caption_setting_from_settings(settings, preset, "caption_emphasis", narration, visual_mode),
         subtitle_style=_subtitle_style_from_settings(settings),
     )
+    if isinstance(settings.get("frame_directives"), list):
+        scene.frame_directives = [FrameDirective.model_validate(directive) for directive in settings["frame_directives"]]
     content = ScriptContent(
         title=_setting(settings, "title", preset.title),
         segments=[
@@ -703,10 +721,7 @@ def _stage_character_reference(ctx: TestLabRunContext) -> None:
         )
 
 
-def _voice_id_for_run(session: Session, ctx: TestLabRunContext) -> str:
-    if ctx.settings.get("voice_id"):
-        return str(ctx.settings["voice_id"])
-
+def _voice_id_for_run(session: Session, _ctx: TestLabRunContext) -> str:
     from database import get_default_brand_id
     from models.brand import BrandProfile
 
@@ -725,11 +740,7 @@ def _stage_audio(ctx: TestLabRunContext) -> None:
         voice_id = _voice_id_for_run(session, ctx)
         record, content = _load_content_for_script(session, ctx.script_id)
         scene = _first_scene(content)
-        explicit_settings = ctx.settings.get("voice_settings") if isinstance(ctx.settings.get("voice_settings"), dict) else None
-        model_id, voice_settings = resolve_tts_model_and_settings(
-            str(ctx.settings["voice_model_id"]) if ctx.settings.get("voice_model_id") else None,
-            explicit_settings,
-        )
+        model_id, voice_settings = resolve_tts_model_and_settings(None, None)
         narration = prepare_tts_text(
             scene.narration,
             model_id=model_id,
@@ -1130,12 +1141,11 @@ def _stage_defaults(settings: dict) -> dict[str, bool]:
     visual_mode = settings.get("visual_mode") or ("video" if settings.get("media_source") == "ai_video" else "full_frame")
     treatment_assets_enabled = False if visual_mode == "video" else _enabled(settings, "treatment_assets", True)
     return {
-        "character": _enabled(settings, "character", False),
         "audio": _enabled(settings, "audio", True),
         "visual": _enabled(settings, "visual", True),
         "treatment_assets": treatment_assets_enabled,
         "fx": _enabled(settings, "fx", False),
-        "eli": eli_default and _enabled(settings, "eli", True),
+        "eli_derived": eli_default,
         "render": _enabled(settings, "render", True),
     }
 
@@ -1188,12 +1198,11 @@ def run_test_lab(
         save_run_manifest(manifest)
 
         stages = [
-            ("character", _stage_character_reference),
             ("audio", _stage_audio),
             ("visual", _stage_visual),
             ("treatment_assets", _stage_treatment_assets),
             ("fx", _stage_fx),
-            ("eli", _stage_eli),
+            ("eli_derived", _stage_eli),
             ("render", _stage_render),
         ]
         enabled = _stage_defaults(settings)

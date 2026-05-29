@@ -9,7 +9,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import Session
 
+from config import DEFAULT_TTS_MODEL
 from database import get_session
+from models.settings import AppSetting
 from pipeline.render_jobs import create_job, get_job, run_in_background
 from pipeline.test_lab import (
     TEST_LAB_PRESETS,
@@ -29,6 +31,35 @@ from pipeline.test_lab_popup_crop import (
 )
 
 router = APIRouter(prefix="/api/test-lab", tags=["test-lab"])
+
+
+_VOICE_DEFAULTS = {
+    "ELEVENLABS_TTS_MODEL": DEFAULT_TTS_MODEL,
+    "ELEVENLABS_STABILITY": "0.5",
+    "ELEVENLABS_STYLE": "0.0",
+    "ELEVENLABS_SPEED": "1.0",
+}
+
+_DELIVERY_PRESETS = {
+    "Steady": {
+        "ELEVENLABS_TTS_MODEL": "eleven_multilingual_v2",
+        "ELEVENLABS_STABILITY": "0.5",
+        "ELEVENLABS_STYLE": "0.0",
+        "ELEVENLABS_SPEED": "1.0",
+    },
+    "More Human": {
+        "ELEVENLABS_TTS_MODEL": "eleven_multilingual_v2",
+        "ELEVENLABS_STABILITY": "0.45",
+        "ELEVENLABS_STYLE": "0.15",
+        "ELEVENLABS_SPEED": "0.97",
+    },
+    "Dramatic": {
+        "ELEVENLABS_TTS_MODEL": "eleven_multilingual_v2",
+        "ELEVENLABS_STABILITY": "0.35",
+        "ELEVENLABS_STYLE": "0.25",
+        "ELEVENLABS_SPEED": "0.95",
+    },
+}
 
 
 class StartTestLabRunRequest(BaseModel):
@@ -79,6 +110,65 @@ def _default_main_character(session: Session) -> dict[str, str] | None:
     }
 
 
+def _setting_value(session: Session, key: str) -> str:
+    row = session.get(AppSetting, key)
+    if row and row.value:
+        return row.value
+    return _VOICE_DEFAULTS.get(key, "")
+
+
+def _voice_summary(session: Session) -> dict[str, Any]:
+    from database import get_default_brand_id
+    from models.brand import BrandProfile
+
+    brand = session.get(BrandProfile, get_default_brand_id(session))
+    voice_id = brand.voice_id if brand and brand.voice_id else ""
+    settings = {
+        key: _setting_value(session, key)
+        for key in (
+            "ELEVENLABS_TTS_MODEL",
+            "ELEVENLABS_STABILITY",
+            "ELEVENLABS_STYLE",
+            "ELEVENLABS_SPEED",
+        )
+    }
+    model_id = settings["ELEVENLABS_TTS_MODEL"] or DEFAULT_TTS_MODEL
+    model_label = "Eleven v3" if model_id == "eleven_v3" else "Eleven v2"
+    delivery_preset = _delivery_preset_for_settings(settings) if model_id == "eleven_multilingual_v2" else None
+    visible_settings = _visible_voice_summary_settings(model_id, settings, delivery_preset)
+    return {
+        "voice_id": voice_id,
+        "voice_name": voice_id or "No voice selected",
+        "model_id": model_id,
+        "model_label": model_label,
+        "delivery_preset": delivery_preset,
+        "visible_settings": visible_settings,
+    }
+
+
+def _delivery_preset_for_settings(settings: dict[str, str]) -> str:
+    for label, preset_settings in _DELIVERY_PRESETS.items():
+        if all(settings.get(key) == value for key, value in preset_settings.items()):
+            return label
+    return "Custom"
+
+
+def _visible_voice_summary_settings(
+    model_id: str,
+    settings: dict[str, str],
+    delivery_preset: str | None,
+) -> list[dict[str, str]]:
+    if model_id == "eleven_v3":
+        return [{"label": "Stability", "value": settings["ELEVENLABS_STABILITY"]}]
+    if delivery_preset and delivery_preset != "Custom":
+        return [{"label": "Delivery preset", "value": delivery_preset}]
+    return [
+        {"label": "Stability", "value": settings["ELEVENLABS_STABILITY"]},
+        {"label": "Style", "value": settings["ELEVENLABS_STYLE"]},
+        {"label": "Speed", "value": settings["ELEVENLABS_SPEED"]},
+    ]
+
+
 def _engine():
     import database
 
@@ -103,6 +193,7 @@ def get_test_lab_scenes(session: Session = Depends(get_session)):
         "presets": [preset.model_dump() for preset in TEST_LAB_PRESETS],
         "visual_treatment_defaults": VISUAL_TREATMENT_TEXT_DEFAULTS,
         "default_main_character": _default_main_character(session),
+        "voice_summary": _voice_summary(session),
     }
 
 

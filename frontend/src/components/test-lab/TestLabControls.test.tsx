@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 
-import { settingsWithVisualTreatmentDefaults } from "./TestLabControls";
+import TestLabControls, { settingsWithVisualTreatmentDefaults } from "./TestLabControls";
 import type { TestLabPreset, TestLabScenes, TestLabSettings } from "../../types/testLab";
 
 const preset: TestLabPreset = {
@@ -32,16 +33,55 @@ const defaults: TestLabScenes["visual_treatment_defaults"] = {
   },
 };
 
+const baseSettings: TestLabSettings = {
+  stages: {
+    audio: true,
+    visual: true,
+    treatment_assets: false,
+    fx: true,
+    render: true,
+  },
+  eli_enabled: false,
+  style_preset_enabled: true,
+  visual_mode: "full_frame",
+  visual_layers: [],
+  narration: "Custom narration.",
+  visual_prompt: "Custom prompt.",
+  segment_timer_enabled: true,
+  subtitle_highlight_enabled: true,
+  subtitle_style: "auto",
+};
+
+const voiceSummary = {
+  voice_id: "voice-default",
+  voice_name: "Headless Hero Narrator",
+  model_id: "eleven_multilingual_v2",
+  model_label: "Eleven v2",
+  delivery_preset: "More Human",
+  visible_settings: [{ label: "Delivery preset", value: "More Human" }],
+};
+
+function renderControls(settings: TestLabSettings = baseSettings) {
+  return render(
+    <TestLabControls
+      preset={preset}
+      defaultMainCharacter={null}
+      visualTreatmentDefaults={defaults}
+      settings={settings}
+      voiceSummary={voiceSummary}
+      onChange={() => undefined}
+    />,
+  );
+}
+
 describe("settingsWithVisualTreatmentDefaults", () => {
   it("does not inject canned caption text when switching custom narration to captions", () => {
     const settings: TestLabSettings = {
       stages: {
-        character: false,
         audio: true,
         visual: true,
         treatment_assets: false,
         fx: true,
-        eli: false,
         render: true,
       },
       eli_enabled: false,
@@ -67,12 +107,10 @@ describe("settingsWithVisualTreatmentDefaults", () => {
   it("does not replace preset narration or visual prompt when switching visual modes", () => {
     const settings: TestLabSettings = {
       stages: {
-        character: false,
         audio: true,
         visual: true,
         treatment_assets: false,
         fx: true,
-        eli: false,
         render: true,
       },
       eli_enabled: false,
@@ -96,12 +134,10 @@ describe("settingsWithVisualTreatmentDefaults", () => {
   it("preserves subtitle style when applying visual treatment defaults", () => {
     const settings: TestLabSettings = {
       stages: {
-        character: false,
         audio: true,
         visual: true,
         treatment_assets: false,
         fx: true,
-        eli: false,
         render: true,
       },
       eli_enabled: false,
@@ -121,12 +157,10 @@ describe("settingsWithVisualTreatmentDefaults", () => {
   it("treats comparison board as a layered visual mode without replacing scene text", () => {
     const settings: TestLabSettings = {
       stages: {
-        character: false,
         audio: true,
         visual: true,
         treatment_assets: true,
         fx: true,
-        eli: false,
         render: true,
       },
       eli_enabled: false,
@@ -150,5 +184,70 @@ describe("settingsWithVisualTreatmentDefaults", () => {
     expect(next.narration).toBe("Custom human versus Neanderthal line.");
     expect(next.visual_prompt).toBe("Custom split comparison prompt.");
     expect(next.stages.treatment_assets).toBe(true);
+  });
+});
+
+describe("TestLabControls layout", () => {
+  it("renders accordion sections in the requested order", () => {
+    renderControls();
+
+    const headings = screen.getAllByRole("button", { expanded: true }).map((button) => button.textContent);
+
+    expect(headings).toEqual([
+      expect.stringContaining("Visual Mode"),
+      expect.stringContaining("Character"),
+      expect.stringContaining("Audio"),
+      expect.stringContaining("Pipeline Stages"),
+      expect.stringContaining("Miscellaneous"),
+    ]);
+  });
+
+  it("collapses sections to a title row", () => {
+    renderControls();
+
+    fireEvent.click(screen.getByRole("button", { name: /Audio/i }));
+
+    expect(screen.getByRole("button", { name: /Audio/i })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(/Headless Hero Narrator/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps render-level controls out of Visual Mode and in Miscellaneous", () => {
+    renderControls();
+
+    const visualMode = screen.getByTestId("test-lab-section-visual-mode");
+    expect(within(visualMode).queryByText(/Canvas color/i)).not.toBeInTheDocument();
+    expect(within(visualMode).queryByText(/Subtitle style/i)).not.toBeInTheDocument();
+    expect(within(visualMode).queryByText(/Segment timer/i)).not.toBeInTheDocument();
+
+    const misc = screen.getByTestId("test-lab-section-miscellaneous");
+    expect(within(misc).getByText(/Canvas color/i)).toBeInTheDocument();
+    expect(within(misc).getByText(/Subtitle style/i)).toBeInTheDocument();
+    expect(within(misc).getByText(/Segment timer/i)).toBeInTheDocument();
+  });
+
+  it("shows flip-flop state controls inside Visual Mode", () => {
+    renderControls({ ...baseSettings, visual_mode: "flipflop" });
+
+    const visualMode = screen.getByTestId("test-lab-section-visual-mode");
+    expect(within(visualMode).getByText(/State A/i)).toBeInTheDocument();
+    expect(within(visualMode).getByText(/State B/i)).toBeInTheDocument();
+  });
+
+  it("shows read-only audio settings from Settings Voices", () => {
+    renderControls();
+
+    const audio = screen.getByTestId("test-lab-section-audio");
+    expect(within(audio).getByText(/Headless Hero Narrator/i)).toBeInTheDocument();
+    expect(within(audio).getByText(/Settings.*Voices/i)).toBeInTheDocument();
+    expect(within(audio).queryByLabelText(/Voice ID/i)).not.toBeInTheDocument();
+  });
+
+  it("does not expose Character or editable Eli toggles in Pipeline Stages", () => {
+    renderControls({ ...baseSettings, eli_enabled: true });
+
+    const pipeline = screen.getByTestId("test-lab-section-pipeline-stages");
+    expect(within(pipeline).queryByRole("button", { name: /Character/i })).not.toBeInTheDocument();
+    expect(within(pipeline).queryByRole("button", { name: /^Eli$/i })).not.toBeInTheDocument();
+    expect(within(pipeline).getByText(/Eli animation/i)).toBeInTheDocument();
   });
 });

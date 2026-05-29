@@ -38,16 +38,24 @@ export interface TestLabScenes {
   presets: TestLabPreset[];
   visual_treatment_defaults?: Partial<Record<VisualMode, TestLabSceneTextDefaults>>;
   default_main_character: TestLabMainCharacter | null;
+  voice_summary?: TestLabVoiceSummary;
 }
 
 export interface TestLabStages {
-  character: boolean;
   audio: boolean;
   visual: boolean;
   treatment_assets: boolean;
   fx: boolean;
-  eli: boolean;
   render: boolean;
+}
+
+export interface TestLabVoiceSummary {
+  voice_id: string;
+  voice_name: string;
+  model_id: string;
+  model_label: string;
+  delivery_preset: string | null;
+  visible_settings: Array<{ label: string; value: string }>;
 }
 
 export interface TestLabSettings {
@@ -56,6 +64,7 @@ export interface TestLabSettings {
   style_preset_enabled: boolean;
   visual_mode: VisualMode;
   visual_layers: VisualLayer[];
+  frame_directives?: Array<Record<string, unknown>>;
   fx?: SceneFX | null;
   title?: string;
   segment_name?: string;
@@ -74,9 +83,6 @@ export interface TestLabSettings {
   subtitle_highlight_enabled: boolean;
   subtitle_style: SubtitleStyle;
   main_character?: MainCharacter | null;
-  voice_id?: string;
-  voice_model_id?: string;
-  voice_settings?: Record<string, unknown> | null;
   advanced_script?: Record<string, unknown> | null;
 }
 
