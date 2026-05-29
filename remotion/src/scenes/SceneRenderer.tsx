@@ -29,6 +29,8 @@ interface Props {
   visualCanvas?: VisualCanvas | null;
 }
 
+export const isTitleCardScene = (scene: SceneInput): boolean => Boolean(scene.is_title_card);
+
 export const SceneRenderer: React.FC<Props> = ({
   scene,
   highlightEnabled,
@@ -36,7 +38,7 @@ export const SceneRenderer: React.FC<Props> = ({
   visualCanvas,
 }) => {
   const hasMultipleFrames = scene.frame_paths && scene.frame_paths.length > 1;
-  const isTitleCard = scene.is_title_card && scene.title_card_zoom_target;
+  const isTitleCard = isTitleCardScene(scene);
   const isAhaSubtitle = scene.visual_beat === "aha_subtitle";
   const isCaptionScene = scene.visual_mode === "captions" || scene.visual_beat === "captions";
   const isVideo = scene.media_type === "video" && (scene.video_path || scene.image_path);
