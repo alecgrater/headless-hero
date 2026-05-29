@@ -40,7 +40,7 @@ Worktree-driven development (via `superpowers:using-git-worktrees` or manual `gi
 
 AI-powered Electron desktop app for creating faceless educational YouTube content. Full pipeline: idea → script → visuals → voice → video → publish.
 
-**Stack:** Electron 41 + React 19/Vite/TypeScript/Tailwind 4 frontend + Python 3.12/FastAPI backend + Remotion 4 (video rendering) + FFmpeg (audio export) + SQLite
+**Stack:** Electron 41 + React 19/Vite/TypeScript/Tailwind 4 frontend + Python 3.12/FastAPI backend + Remotion 4 (video rendering) + FFmpeg (internal audio processing) + SQLite
 
 ## Dev Commands
 
@@ -48,7 +48,7 @@ AI-powered Electron desktop app for creating faceless educational YouTube conten
 npm run dev              # Start backend + frontend + electron (all three)
 npm run dev:frontend     # Frontend only (Vite on :5173)
 npm run dev:backend      # Backend only (uvicorn on :8420)
-npm run test             # Backend pytest suite from repo root
+npm run test             # Backend pytest suite (shells into uv run --project backend pytest)
 npm run test:backend     # Same as: uv run --project backend pytest
 npm run test:frontend    # Frontend Vitest suite
 cd frontend && npm run build  # Production frontend build
@@ -66,7 +66,7 @@ cd frontend && npm run build  # Production frontend build
 - `uv sync` — install from lockfile
 - `uv venv` — create virtual environment
 
-Do not run `uv run pytest` from the repo root; the Python project and pytest dependency live in `backend/`.
+Do not run `uv run pytest` from the repo root; the Python project and pytest dependency live in `backend/`. (Note: `npm run test` is fine — it shells into the backend project.)
 
 ## Architecture
 
@@ -85,7 +85,7 @@ backend/
   config.py          → Shared constants (DATA_DIR, FPS, dimensions)
   dev/               → Dev dashboard (routes, log handler, HTML)
 remotion/          → Remotion 4 video rendering project (React + TypeScript)
-  src/scenes/      → Scene components (StaticImage, MultiFrame, TitleCard, Subtitle)
+  src/scenes/      → Scene components per visual_mode (StaticImage, MultiFrame, Caption, TitleCard, ShortTitleCard, Subtitle, Video, plus StaticCanvas/TreatmentRenderer/VerticalSceneLayout)
   src/effects/     → Composable FX (camera, typography, transitions, overlays, structural)
   src/types.ts     → Input props types mirroring Python SceneFX models
 data/              → Runtime data (SQLite DB, generated assets) — gitignored
@@ -149,7 +149,7 @@ Stored in DB via AppSettings, loaded into env at startup. Never commit `.env` fi
 ## Key Patterns
 
 - **JSON blobs over migrations**: Script content stored as JSON TEXT in SQLite — no migration burden
-- **Exports directory is the single final-media root**: User-facing exported assets live under the Settings → General → Storage `Exports` directory, defaulting to `~/Headless Hero Videos`. Project folders use `{Exports}/[project] {Project Title}` with the project title sanitized for filesystem safety. Do not add a second export/download root.
+- **Exports directory is the single final-media root**: User-facing exported assets live under the Settings → General → Storage `Exports` directory (default lives in `backend/config.DEFAULT_EXPORTS_DIR` — currently `~/Headless Hero Videos` for the dev user). Project folders use `{Exports}/[project] {Project Title}` with the project title sanitized for filesystem safety. Do not add a second export/download root.
 - **Exported videos are deduped when possible**: Rendered MP4 exports should go through `pipeline.export_paths.copy_to_project_downloads`, which hardlinks same-drive video exports instead of byte-copying them. Keep the internal render path and user-facing export path compatible, and fall back to a normal copy only when hardlinking is unavailable (for example, cross-device exports).
 - **Async rendering with polling**: Long renders run in background threads, frontend polls `/api/render/status/{job_id}`
 - **IPC fallback**: Frontend works with or without Electron (direct HTTP to backend in dev)
@@ -231,7 +231,9 @@ Export bundles must not generate or include standalone long-form audio MP3 files
 
 ## Eli Character Overlay
 
-"Eli" is a recurring animated host character overlaid on videos (like a Twitch streamer webcam box). Pre-generated frame library (~150 poses × 2 mouth states) via Gemini with reference image chaining + rembg background removal. Character design spec in `backend/prompts/character.md`.
+"Eli" is an optional recurring animated host character overlaid on videos (like a Twitch streamer webcam box). Pre-generated frame library (~150 poses × 2 mouth states) via Gemini with reference image chaining + rembg background removal. Character design spec in `backend/prompts/character.py`.
+
+When Eli is disabled, the active style preset's scoped character takes the protagonist role instead — see the Eli-disabled / style-preset character rules in Key Patterns.
 
 Claude generates per-scene animation documents (keyframe timelines selecting pose/expression per frame range). Mouth state derived from `phrase_timestamps`, not animation documents. Eli Remotion render component is **not yet implemented**.
 
