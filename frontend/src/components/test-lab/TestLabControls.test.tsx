@@ -233,6 +233,16 @@ describe("TestLabControls layout", () => {
     expect(within(visualMode).getByText(/State B/i)).toBeInTheDocument();
   });
 
+  it("keeps the scene prompt in continuous frame prompts", () => {
+    renderControls({ ...baseSettings, visual_mode: "continuous" });
+
+    const visualMode = screen.getByTestId("test-lab-section-visual-mode");
+
+    expect(within(visualMode).getByDisplayValue(/Opening frame.*Custom prompt/i)).toBeInTheDocument();
+    expect(within(visualMode).getByDisplayValue(/Middle frame.*Custom prompt/i)).toBeInTheDocument();
+    expect(within(visualMode).getByDisplayValue(/Final frame.*Custom prompt/i)).toBeInTheDocument();
+  });
+
   it("shows read-only audio settings from Settings Voices", () => {
     renderControls();
 

@@ -954,9 +954,9 @@ function defaultFrameDirectivesForMode(mode: VisualMode, visualPrompt: string): 
   if (!usesFrameDirectives(mode)) return [];
   const prompts = mode === "continuous"
     ? [
-        visualPrompt,
-        "A subtle time-passage progression in the same composition.",
-        "A later quiet progression of the same moment, preserving the composition.",
+        `Opening frame of the same continuous scene: ${visualPrompt}`,
+        `Middle frame of the same continuous scene, same camera angle, visible progression: ${visualPrompt}`,
+        `Final frame of the same continuous scene, same camera angle, completed progression: ${visualPrompt}`,
       ]
     : [
         visualPrompt,
