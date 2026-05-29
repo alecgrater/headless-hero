@@ -111,6 +111,22 @@ def test_script_prompt_includes_captions_mode_without_extra_renderer_detail():
     assert 'set "visual_prompt" to an empty string' in prompt_text
 
 
+def test_script_prompt_includes_popup_sequence_mode():
+    prompt_text = script_prompt.SCRIPT_SYSTEM.template
+
+    assert '"popup_sequence"' in prompt_text
+    assert "concrete items" in prompt_text
+    assert "pop around" in prompt_text
+
+
+def test_script_prompt_defines_flipflop_as_micro_animation_not_contrast():
+    prompt_text = script_prompt.SCRIPT_SYSTEM.template
+
+    assert '"flipflop"' in prompt_text
+    assert "micro-animation" in prompt_text
+    assert "Do not use flipflop merely because a sentence contrasts" in prompt_text
+
+
 def test_multi_frame_mode_without_directives_is_repaired():
     scene = _static_scene("scene_001")
     scene.visual_mode = "multi_frame"

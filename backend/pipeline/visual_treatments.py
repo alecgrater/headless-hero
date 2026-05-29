@@ -23,28 +23,82 @@ LIST_MARKERS = {
     "3",
     "4",
 }
-CONTRAST_MARKERS = {
+MICRO_ACTION_SUBJECT_MARKERS = {
+    "arm",
+    "arms",
+    "body",
+    "character",
+    "eye",
+    "eyes",
+    "face",
+    "finger",
+    "fingers",
+    "hand",
+    "hands",
+    "head",
+    "person",
+    "shoulder",
+    "shoulders",
+}
+MICRO_ACTION_MOTION_MARKERS = {
+    "close",
+    "closes",
+    "closing",
+    "gesture",
+    "gestures",
+    "gesturing",
+    "grip",
+    "grips",
+    "handle",
+    "handles",
+    "handling",
+    "lean",
+    "leans",
+    "leaning",
+    "nod",
+    "nods",
+    "nodding",
+    "open",
+    "opens",
+    "opening",
+    "pace",
+    "paces",
+    "pacing",
+    "point",
+    "points",
+    "pointing",
+    "sort",
+    "sorts",
+    "sorting",
+    "stir",
+    "stirs",
+    "stirring",
+    "talk",
+    "talking",
+    "tap",
+    "taps",
+    "tapping",
+    "type",
+    "types",
+    "typing",
+}
+MICRO_ACTION_PHRASES = (
+    "back and forth",
+    "open and close",
+    "opens and closes",
+    "while he talks",
+    "while she talks",
+    "while they talk",
+    "while talking",
+)
+NATURAL_LIST_CONTRAST_CONNECTORS = {
     "but",
     "however",
-    "whereas",
+    "instead",
     "versus",
     "vs",
-    "before",
-    "after",
-    "then",
-    "instead",
-    "while",
+    "whereas",
 }
-TWO_STATE_MARKERS = {"again"}
-TWO_STATE_PHRASES = (
-    "at first",
-    "first the",
-    "first it",
-    "on one side",
-    "on the other",
-    "two states",
-    "switches between",
-)
 PROGRESSION_MARKERS = {
     "builds",
     "crawl",
@@ -245,19 +299,12 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             visual_layers=layers,
         )
 
-    contrast_words = _matching_words(scene, CONTRAST_MARKERS)
-    two_state_words = _matching_words(scene, TWO_STATE_MARKERS)
-    state_b_enter_at = _state_b_enter_at(scene, [*contrast_words, *two_state_words])
-    if (
-        contrast_words
-        or two_state_words
-        or any(phrase in scene.narration.lower() for phrase in TWO_STATE_PHRASES)
-    ):
+    if _looks_like_flipflop_micro_action(scene):
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="flipflop",
-            reasoning="Detected contrast, repetition, or two-state narration.",
-            visual_layers=_flipflop_layers(scene, state_b_enter_at),
+            reasoning="Detected same-subject physical micro-action suitable for flip-flop animation.",
+            visual_layers=_flipflop_layers(scene, _state_b_enter_at(scene, [])),
         )
 
     natural_list_items = _natural_list_items(scene)
@@ -271,14 +318,6 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             visual_layers=layers,
         )
 
-    if _has_repeated_content_word(scene):
-        return VisualTreatmentAssignment(
-            scene_id=scene.id,
-            visual_mode="flipflop",
-            reasoning="Detected repeated narration content.",
-            visual_layers=_flipflop_layers(scene, state_b_enter_at),
-        )
-
     if _looks_like_continuous_progression(scene):
         return VisualTreatmentAssignment(
             scene_id=scene.id,
@@ -287,7 +326,7 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             visual_layers=[],
         )
 
-    return _full_frame_assignment(scene.id, "No list or contrast pattern detected.")
+    return _full_frame_assignment(scene.id, "No list or micro-action pattern detected.")
 
 
 def _full_frame_assignment(scene_id: str, reasoning: str) -> VisualTreatmentAssignment:
@@ -335,6 +374,15 @@ def _looks_like_continuous_progression(scene: Scene) -> bool:
         cue in words
         for cue in {"slowly", "gradually", "across", "through", "outward"}
     )
+
+
+def _looks_like_flipflop_micro_action(scene: Scene) -> bool:
+    words = {_normalize_word(word.word) for word in scene.word_timestamps or []}
+    text = scene.narration.lower()
+    has_subject = bool(words & MICRO_ACTION_SUBJECT_MARKERS)
+    has_motion = bool(words & MICRO_ACTION_MOTION_MARKERS)
+    has_strong_phrase = any(phrase in text for phrase in MICRO_ACTION_PHRASES)
+    return has_subject and (has_motion or has_strong_phrase)
 
 
 def _popup_layers(scene: Scene, list_items: list[tuple[str, float]]) -> list[VisualLayer]:
@@ -418,6 +466,9 @@ def _state_b_enter_at(scene: Scene, cue_words: list[tuple[str, float]]) -> float
 def _natural_list_items(scene: Scene) -> list[tuple[str, float]]:
     text = scene.narration.strip()
     if not text:
+        return []
+    words = {_normalize_word(word) for word in text.split()}
+    if words & NATURAL_LIST_CONTRAST_CONNECTORS:
         return []
 
     normalized_text = re.sub(r"\s+", " ", text)

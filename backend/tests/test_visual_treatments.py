@@ -2021,34 +2021,37 @@ def test_analyze_visual_treatments_times_list_item_after_lead_in():
     assert [layer.enter_at_seconds for layer in assignment.visual_layers] == [1.05, 2.45, 3.5]
 
 
-def test_analyze_visual_treatments_assigns_flipflop_for_two_state_narration():
+def test_analyze_visual_treatments_does_not_assign_flipflop_for_generic_contrast():
     scene = scene_with_words("s1", "At first the room is calm, but then everything becomes chaos.")
     content = content_with_scenes(scene)
 
-    assignments = analyze_visual_treatments(content, script_id="script-flip")
+    assignments = analyze_visual_treatments(content, script_id="script-contrast")
 
     assignment = assignments[0]
     assert assignment.scene_id == "s1"
+    assert assignment.visual_mode == "full_frame"
+    assert assignment.visual_treatment == "full_frame"
+    assert assignment.visual_layers == []
+
+
+def test_analyze_visual_treatments_assigns_flipflop_for_same_subject_micro_action():
+    scene = scene_with_words("s1", "His hands open and close around the microphone while he talks.")
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-micro-action")
+
+    assignment = assignments[0]
+    assert assignment.scene_id == "s1"
+    assert assignment.visual_mode == "flipflop"
     assert assignment.visual_treatment == "flipflop"
     assert len(assignment.visual_layers) == 2
     assert [layer.id for layer in assignment.visual_layers] == ["s1_state_a", "s1_state_b"]
-    assert [layer.enter_at_seconds for layer in assignment.visual_layers] == [0.0, 2.1]
     for layer in assignment.visual_layers:
         prompt = layer.prompt.lower()
         assert "full-bleed 16:9 illustration" in prompt
         assert "no decorative border" in prompt
         assert "small framed" not in prompt
         assert "framed panel" not in prompt
-
-
-def test_analyze_visual_treatments_assigns_flipflop_for_repetition():
-    scene = scene_with_words("s1", "The meter rises, rises, and rises again.")
-    content = content_with_scenes(scene)
-
-    assignments = analyze_visual_treatments(content, script_id="script-repeat")
-
-    assert assignments[0].visual_treatment == "flipflop"
-    assert len(assignments[0].visual_layers) == 2
 
 
 def test_analyze_visual_treatments_preserves_explicit_popup_sequence_with_progression_words():
@@ -2093,6 +2096,7 @@ def test_analyze_visual_treatments_keeps_list_mode_with_progression_words():
 
 def test_analyze_visual_treatments_keeps_contrast_mode_with_progression_words():
     scene = scene_with_words("s1", "The crack starts small, but the damage spreads across the panel.")
+    scene.set_visual_mode("flipflop")
     content = content_with_scenes(scene)
 
     assignments = analyze_visual_treatments(content, script_id="script-contrast-progress")
