@@ -215,6 +215,15 @@ class TestLabRunContext:
 
 TEST_LAB_PRESETS: list[TestLabPreset] = [
     TestLabPreset(
+        id="blank",
+        title="Blank",
+        description="Write your own test script",
+        segment_name="Custom scene",
+        narration="",
+        visual_prompt="",
+        background_color="#111111",
+    ),
+    TestLabPreset(
         id="life-scribe",
         title="Your Life as a Medieval Scribe",
         description="A compact life-as-a beat for character and thumbnail experiments.",

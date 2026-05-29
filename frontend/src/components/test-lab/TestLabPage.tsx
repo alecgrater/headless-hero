@@ -41,6 +41,10 @@ function settingsWithPresetVisualMode(settings: TestLabSettings, preset: TestLab
   };
 }
 
+export function testLabPresetSubtitle(preset: TestLabPreset): string {
+  return preset.narration || preset.description;
+}
+
 const DEFAULT_SETTINGS: TestLabSettings = {
   stages: {
     audio: true,
@@ -273,7 +277,7 @@ export default function TestLabPage({ active = true, onOpenSettingsSection }: Pr
                     }`}
                   >
                     <p className="text-sm font-medium text-neutral-100">{preset.title}</p>
-                    <p className="mt-1 line-clamp-2 text-xs text-neutral-500">{preset.narration}</p>
+                    <p className="mt-1 line-clamp-2 text-xs text-neutral-500">{testLabPresetSubtitle(preset)}</p>
                   </button>
                 ))}
               </div>

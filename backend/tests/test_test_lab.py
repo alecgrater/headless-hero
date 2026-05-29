@@ -161,15 +161,33 @@ def test_test_lab_presets_validate_as_script_content():
     from models.script import ScriptContent
     from pipeline.test_lab import TEST_LAB_PRESETS, build_content_from_preset
 
-    assert len(TEST_LAB_PRESETS) == 13
+    assert len(TEST_LAB_PRESETS) == 14
     for preset in TEST_LAB_PRESETS:
         content = build_content_from_preset(preset.id, {})
         validated = ScriptContent.model_validate(content.model_dump())
         assert validated.segments
         assert validated.segments[0].scenes
-        assert validated.segments[0].scenes[0].narration
-        if preset.visual_mode != "stat_card" or preset.visual_prompt:
+        if preset.id != "blank":
+            assert validated.segments[0].scenes[0].narration
+        if preset.id != "blank" and (preset.visual_mode != "stat_card" or preset.visual_prompt):
             assert validated.segments[0].scenes[0].visual_prompt
+
+
+def test_test_lab_blank_preset_is_first_and_has_empty_scene_fields():
+    from pipeline.test_lab import TEST_LAB_PRESETS, build_content_from_preset
+
+    preset = TEST_LAB_PRESETS[0]
+
+    assert preset.id == "blank"
+    assert preset.title == "Blank"
+    assert preset.description == "Write your own test script"
+    assert preset.narration == ""
+    assert preset.visual_prompt == ""
+
+    content = build_content_from_preset("blank", {})
+    scene = content.segments[0].scenes[0]
+    assert scene.narration == ""
+    assert scene.visual_prompt == ""
 
 
 def test_test_lab_preset_accepts_multi_frame_visual_mode():
@@ -302,8 +320,9 @@ def test_test_lab_scenes_endpoint_returns_presets(monkeypatch, tmp_path):
 
         assert response.status_code == 200
         data = response.json()
-        assert len(data["presets"]) == 13
-        assert data["presets"][0]["id"]
+        assert len(data["presets"]) == 14
+        assert data["presets"][0]["id"] == "blank"
+        assert data["presets"][0]["description"] == "Write your own test script"
     finally:
         from database import get_session
 

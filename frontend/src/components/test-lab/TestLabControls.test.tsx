@@ -65,6 +65,22 @@ const subtitleSummary = {
   enabled_style_labels: ["Clean", "Kinetic Cards"],
 };
 
+const blankPreset: TestLabPreset = {
+  id: "blank",
+  title: "Blank",
+  description: "Write your own test script",
+  format_id: "youtube-listicle",
+  segment_name: "Custom scene",
+  narration: "",
+  visual_prompt: "",
+  background_color: "#111111",
+  visual_mode: "full_frame",
+  caption_text: "",
+  caption_emphasis: "",
+  duration_estimate_seconds: 7,
+  main_character: null,
+};
+
 function renderControls(settings: TestLabSettings = baseSettings) {
   const onOpenSettingsSection = vi.fn();
   return render(
@@ -191,6 +207,29 @@ describe("settingsWithVisualTreatmentDefaults", () => {
 });
 
 describe("TestLabControls layout", () => {
+  it("renders blank preset scene text fields empty", () => {
+    render(
+      <TestLabControls
+        preset={blankPreset}
+        defaultMainCharacter={null}
+        visualTreatmentDefaults={defaults}
+        settings={{
+          ...baseSettings,
+          visual_mode: "full_frame",
+          narration: undefined,
+          tts_narration: undefined,
+          visual_prompt: undefined,
+        }}
+        voiceSummary={voiceSummary}
+        subtitleSummary={subtitleSummary}
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(screen.getByLabelText("Narration")).toHaveValue("");
+    expect(screen.getByLabelText("Visual prompt")).toHaveValue("");
+  });
+
   it("renders accordion sections in the requested order", () => {
     renderControls();
 
