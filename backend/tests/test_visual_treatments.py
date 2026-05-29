@@ -815,6 +815,61 @@ def test_phase_images_skips_scene_image_for_video_mode(monkeypatch):
     assert ctx.scenes[0]["_frame_urls"] == []
 
 
+def test_phase_images_skips_scene_image_for_text_only_captions(monkeypatch):
+    from pipeline import image_gen as image_gen_mod
+    from pipeline import render_phases as render_phases_mod
+    from pipeline.render_phases import ExportContext, _phase_images
+
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="A caption-only scene.",
+            visual_prompt="",
+            visual_mode="captions",
+            caption_text="The real cost",
+            caption_emphasis="cost",
+        )
+    )
+    monkeypatch.setattr(render_phases_mod, "_reload_content", lambda script_id: content)
+
+    def fail_scene_image(*_args, **_kwargs):
+        raise AssertionError("text-only captions should not regenerate a normal scene image")
+
+    monkeypatch.setattr(image_gen_mod, "generate_scene_image", fail_scene_image)
+
+    ctx = ExportContext(
+        script_id="script-1",
+        job=RenderJob("job-1"),
+        scenes=[
+            {
+                "scene_id": "scene_001",
+                "visual_prompt": "",
+                "is_title_card": False,
+                "visual_mode": "captions",
+                "caption_text": "The real cost",
+                "caption_emphasis": "cost",
+            }
+        ],
+        seg_name="Segment",
+        total_scenes=1,
+        voice_id="voice",
+        brand_dict={},
+        project_title="Treatment Test",
+        title="Segment",
+        total_segments=1,
+        regen_images=True,
+        regen_audio=False,
+        regen_fx=False,
+        regen_eli=False,
+        phase_ranges={"images": (0.0, 1.0)},
+    )
+
+    _phase_images(ctx)
+
+    assert ctx.scenes[0]["_image_url"] == ""
+    assert ctx.scenes[0]["_frame_urls"] == []
+
+
 def test_apply_visual_treatment_assignments_does_not_promote_normal_scene_to_video():
     content = content_with_scenes(
         scene_with_words("scene_001", "A normal illustrated scene.")

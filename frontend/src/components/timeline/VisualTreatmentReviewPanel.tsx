@@ -45,6 +45,7 @@ const MODE_LABELS: Record<VisualMode, { label: string; blurb: string }> = {
 const MODE_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop"];
 const modeForAssignment = (assignment: VisualTreatmentAssignment): VisualMode =>
   assignment.visual_mode ?? "full_frame";
+const isManualMode = (mode: VisualMode) => MODE_OPTIONS.includes(mode);
 const isLayeredMode = (mode: VisualMode): mode is Extract<VisualMode, "popup_sequence" | "flipflop"> =>
   mode === "popup_sequence" || mode === "flipflop";
 
@@ -150,27 +151,29 @@ export default function VisualTreatmentReviewPanel({
           const scene = scenes[assignment.scene_id];
           const mode = modeForAssignment(assignment);
           const hasLayers = assignment.visual_layers.length > 0;
-          const isVideoMode = mode === "video";
+          const isReadOnlyMode = !isManualMode(mode);
           return (
             <div key={assignment.scene_id} className="flex items-start gap-3 px-4 py-3 text-sm">
               <span className="w-6 shrink-0 pt-1 text-right text-neutral-500">{idx + 1}</span>
               <div className="w-48 shrink-0">
                 <select
                   value={mode}
-                  disabled={isVideoMode}
+                  disabled={isReadOnlyMode}
                   onChange={(e) => handleModeChange(assignment.scene_id, e.target.value as VisualMode)}
                   title={
-                    isVideoMode
+                    mode === "video"
                       ? "AI video mode is assigned by video routing."
-                      : !hasLayers
-                        ? "Re-analyze to generate layers before choosing popup sequence or flipflop."
-                        : undefined
+                      : mode === "captions"
+                        ? "Captions mode is assigned by script generation."
+                        : !hasLayers
+                          ? "Re-analyze to generate layers before choosing popup sequence or flipflop."
+                          : undefined
                   }
                   className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 transition-colors hover:border-neutral-600 disabled:cursor-not-allowed disabled:text-neutral-500 disabled:hover:border-neutral-700"
                 >
-                  {isVideoMode && (
-                    <option value="video" disabled>
-                      {MODE_LABELS.video.label}
+                  {isReadOnlyMode && (
+                    <option value={mode} disabled>
+                      {MODE_LABELS[mode].label}
                     </option>
                   )}
                   {MODE_OPTIONS.map((optionMode) => (
@@ -179,8 +182,10 @@ export default function VisualTreatmentReviewPanel({
                     </option>
                   ))}
                 </select>
-                {isVideoMode ? (
+                {mode === "video" ? (
                   <p className="mt-1 text-xs text-neutral-500">AI video is assigned by routing.</p>
+                ) : mode === "captions" ? (
+                  <p className="mt-1 text-xs text-neutral-500">Captions are assigned by script generation.</p>
                 ) : hasLayers ? (
                   <p className="mt-1 text-xs text-neutral-500">
                     {assignment.visual_layers.length} layer{assignment.visual_layers.length === 1 ? "" : "s"}

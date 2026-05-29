@@ -143,6 +143,18 @@ def _phase_images(ctx: ExportContext) -> None:
             frame_urls = [url for url, _, _ in frame_results]
             sc_info["_image_url"] = next((url for url in frame_urls if url), "")
             sc_info["_frame_urls"] = frame_urls
+        elif visual_mode == "captions" and not str(
+            sc_info.get("visual_prompt") or (scene_now.visual_prompt if scene_now else "")
+        ).strip():
+            logger.info(
+                "[%s] Skipping image generation for text-only captions scene %s (%d/%d)",
+                ctx.script_id,
+                sid,
+                i + 1,
+                scene_count,
+            )
+            sc_info["_image_url"] = ""
+            sc_info["_frame_urls"] = []
         else:
             logger.info("[%s] Generating image for scene %s (%d/%d)", ctx.script_id, sid, i + 1, scene_count)
             image_url, _, _ = generate_scene_image(sid, sc_info["visual_prompt"], ctx.script_id, force=True)
