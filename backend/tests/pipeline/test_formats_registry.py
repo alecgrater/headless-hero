@@ -197,6 +197,26 @@ def test_segmented_life_as_a_passes_selected_opening_to_first_level(monkeypatch)
                 {"prompt": "hand gripping old keys", "source": "ai_generated", "transition": "cut", "reference_previous": False, "search_query": "", "contains_person": False}
             ],
         },
+        {
+            "id": "scene_003",
+            "narration": "The corridor is still dark. Someone is already waiting outside the gate.",
+            "visual_prompt": "[WIDE] dark corridor leading to a gate",
+            "visual_mode": "full_frame",
+            "visual_beat": "static",
+            "frame_directives": [
+                {"prompt": "dark corridor leading to a gate", "source": "ai_generated", "transition": "cut", "reference_previous": False, "search_query": "", "contains_person": False}
+            ],
+        },
+        {
+            "id": "scene_004",
+            "narration": "At first, your only job is to keep watch while the city wakes.",
+            "visual_prompt": "[ESTABLISHING] young guard watching the waking city",
+            "visual_mode": "full_frame",
+            "visual_beat": "static",
+            "frame_directives": [
+                {"prompt": "young guard watching the waking city", "source": "ai_generated", "transition": "cut", "reference_previous": False, "search_query": "", "contains_person": True}
+            ],
+        },
     ]})
 
     def fake_chat(system: str, user: str, **kwargs):
@@ -207,7 +227,7 @@ def test_segmented_life_as_a_passes_selected_opening_to_first_level(monkeypatch)
 
     monkeypatch.setattr(scriptwriter, "chat", fake_chat)
 
-    scriptwriter.generate_script(
+    content = scriptwriter.generate_script(
         topic="Your Life As A Castle Guard",
         format_id="life-as-a",
         segmented=True,
@@ -216,6 +236,7 @@ def test_segmented_life_as_a_passes_selected_opening_to_first_level(monkeypatch)
 
     assert selected_opening in captured_segment_messages[0]
     assert selected_opening not in captured_segment_messages[1]
+    assert content.hook_scene_count == 2
 
 
 def test_enforce_life_as_a_falls_back_to_cinematic_prompt_for_level_1():

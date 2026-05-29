@@ -75,6 +75,42 @@ def build_script_outline_instructions(eli_enabled: bool, base_template: str = SC
     return base_template + build_outline_main_character_addendum()
 
 
+def _normalize_opening_text(value: str) -> str:
+    """Normalize opening narration for conservative selected-opening matching."""
+    return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+
+
+def _selected_opening_scene_count(content: ScriptContent, cold_open_text: str | None) -> int:
+    """Count leading non-title scenes that came from a selected long-form opening.
+
+    Life-as-a openings are intentionally substantive role-entry scenes, so the
+    generic hook detector can mistake them for segment content. This deterministic
+    match is used only when the selected opening text is present in the first
+    segment narration.
+    """
+    if not cold_open_text or not content.segments:
+        return 0
+
+    selected = _normalize_opening_text(cold_open_text)
+    if not selected:
+        return 0
+
+    scenes = [scene for scene in content.segments[0].scenes if not scene.is_title_card]
+    if len(scenes) <= 1:
+        return 0
+
+    count = 0
+    for scene in scenes[:5]:
+        narration = _normalize_opening_text(scene.narration or "")
+        if not narration:
+            break
+        if narration not in selected:
+            break
+        count += 1
+
+    return min(count, max(0, len(scenes) - 1))
+
+
 ALL_BEAT_TYPES = ["static", "continuous", "multi_frame", "aha_subtitle"]
 LEGACY_BEAT_ALIASES = {
     "full_frame": "static",
@@ -423,6 +459,16 @@ def generate_script(
     content = fmt.enforce_post_processing(content, eli_enabled=eli_enabled)
     _fix_visual_monotony(content, rules=fmt.visual_beat_rules)
     _ensure_visual_beat_directives(content)
+    if cold_open_text and fmt.supports_cold_open and not fmt.supports_hook_scoring:
+        selected_opening_count = _selected_opening_scene_count(content, cold_open_text)
+        if selected_opening_count > 0:
+            content.hook_scene_count = selected_opening_count
+            content.short_form_seo_metadata = None
+            logger.info(
+                "Selected long-form opening matched %d leading scene(s) for format %s",
+                selected_opening_count,
+                fmt.id,
+            )
 
     logger.info(
         "Script generated for topic %r [format=%s]: %s segments, %s total scenes",
