@@ -130,6 +130,12 @@ const SERVICE_GROUPS: ServiceGroup[] = [
       placeholder: "AIza...",
     },
     {
+      key: "GITHUB_CONTENTS_TOKEN",
+      label: "GitHub Contents Token",
+      description: "Fine-grained GitHub token with Contents write access for uploading the sanitized discovery seed.",
+      placeholder: "github_pat_...",
+    },
+    {
       key: "NEWS_API_KEY",
       label: "NewsAPI",
       description: "News headlines for trending topic discovery.",
