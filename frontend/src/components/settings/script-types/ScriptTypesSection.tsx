@@ -111,6 +111,7 @@ export default function ScriptTypesSection() {
           const { supported, disabled } = modeChipsForFormat(f, universe);
           return (
             <div key={f.id} className="rounded-lg border border-neutral-800 bg-neutral-900/40 p-4 space-y-3">
+              <div className="text-sm font-semibold text-neutral-100">{f.display_name}</div>
               <div className="space-y-1.5">
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Supported modes</div>
                 <div className="flex flex-wrap gap-1.5">

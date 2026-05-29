@@ -47,8 +47,8 @@ vi.mock("../../../api", () => ({
 describe("ScriptTypesSection", () => {
   it("renders a column per format and the gotchas notes", async () => {
     render(<ScriptTypesSection />);
-    await waitFor(() => expect(screen.getByText("Educational Listicle")).toBeInTheDocument());
-    expect(screen.getByText("Your Life As A...")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText("Educational Listicle").length).toBeGreaterThan(0));
+    expect(screen.getAllByText("Your Life As A...").length).toBeGreaterThan(0);
     expect(screen.getByText("captions and stat_card are disabled.")).toBeInTheDocument();
     const disabledChip = screen.getByTestId("disabled-mode-life-as-a-captions");
     expect(disabledChip).toBeInTheDocument();
