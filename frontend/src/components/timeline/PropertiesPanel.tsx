@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Captions, Columns3, Film, Image, Images, PanelsTopLeft, Repeat2, Route } from "lucide-react";
+import { Captions, Columns3, Film, Hash, Image, Images, PanelsTopLeft, Repeat2, Route } from "lucide-react";
 import { assetUrl, regenerateFX } from "../../api";
 import type { Scene, SceneFX, VisualMode } from "../../types/script";
 import AudioPlayer from "./AudioPlayer";
@@ -83,13 +83,14 @@ export default function PropertiesPanel({
     { value: "popup_sequence", label: "Popup", icon: <PanelsTopLeft className="h-3 w-3" /> },
     { value: "flipflop", label: "Flip-flop", icon: <Repeat2 className="h-3 w-3" /> },
     { value: "comparison_board", label: "Compare", icon: <Columns3 className="h-3 w-3" /> },
+    { value: "stat_card", label: "Stat card", icon: <Hash className="h-3 w-3" /> },
     { value: "captions", label: "Captions", icon: <Captions className="h-3 w-3" /> },
   ];
   const visualMode: VisualMode =
     scene.visual_mode ?? "full_frame";
 
   const setVisualMode = (mode: VisualMode) => {
-    const isLayered = mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board";
+    const isLayered = mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board" || mode === "stat_card";
     const shouldPreserveVisualLayers = isLayered && mode === visualMode;
     onUpdate({
       visual_mode: mode,
@@ -116,7 +117,7 @@ export default function PropertiesPanel({
       )}
 
       {/* 3-column layout: Narration | Visual Prompt | Controls */}
-      <div className={`shrink-0 ${visualMode === "captions" ? "h-56" : "h-36"} flex gap-4 px-4 py-2`}>
+      <div className={`shrink-0 ${visualMode === "captions" || visualMode === "stat_card" ? "h-56" : "h-36"} flex gap-4 px-4 py-2`}>
 
         {/* Col 1: Narration */}
         <div className="flex-[2] flex flex-col min-w-0 min-h-0">
@@ -143,7 +144,7 @@ export default function PropertiesPanel({
         </div>
 
         {/* Col 3: Visual mode selector + Generate Image + Generate Audio + FX */}
-        <div className={`flex-[1.2] flex flex-col justify-center gap-2 min-w-0 min-h-0 ${visualMode === "captions" ? "overflow-y-auto pr-1" : ""}`}>
+        <div className={`flex-[1.2] flex flex-col justify-center gap-2 min-w-0 min-h-0 ${visualMode === "captions" || visualMode === "stat_card" ? "overflow-y-auto pr-1" : ""}`}>
           {/* Visual mode selector */}
           <div className="shrink-0 flex flex-wrap gap-1">
             {VISUAL_MODE_OPTIONS.map((opt) => (
@@ -190,6 +191,36 @@ export default function PropertiesPanel({
               </div>
               <p className="text-[10px] leading-snug text-neutral-500">
                 Rendered in-scene with word timing; normal subtitles are suppressed.
+              </p>
+            </div>
+          )}
+
+          {visualMode === "stat_card" && (
+            <div className="shrink-0 space-y-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 p-2">
+              <div className="grid grid-cols-2 gap-2">
+                <label className="min-w-0">
+                  <span className="mb-0.5 block text-[10px] font-medium text-neutral-400">Stat value</span>
+                  <input
+                    type="text"
+                    value={scene.stat_value ?? ""}
+                    onChange={(e) => onUpdate({ stat_value: e.target.value })}
+                    className="w-full rounded-md border border-neutral-700/50 bg-neutral-800/70 px-2 py-1 text-xs font-mono text-neutral-100 transition-colors placeholder:text-neutral-600 focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
+                    placeholder="Big number, e.g. 85%"
+                  />
+                </label>
+                <label className="min-w-0">
+                  <span className="mb-0.5 block text-[10px] font-medium text-neutral-400">Stat label</span>
+                  <input
+                    type="text"
+                    value={scene.stat_label ?? ""}
+                    onChange={(e) => onUpdate({ stat_label: e.target.value })}
+                    className="w-full rounded-md border border-neutral-700/50 bg-neutral-800/70 px-2 py-1 text-xs text-neutral-200 transition-colors placeholder:text-neutral-600 focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
+                    placeholder="Subtitle below the number"
+                  />
+                </label>
+              </div>
+              <p className="text-[10px] leading-snug text-neutral-500">
+                Renderer-owned typography over the canvas. Optional supporting icon comes from a single visual layer.
               </p>
             </div>
           )}

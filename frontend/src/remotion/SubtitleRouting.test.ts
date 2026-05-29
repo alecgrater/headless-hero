@@ -26,6 +26,10 @@ describe("resolveSubtitleStyle", () => {
     expect(resolveSubtitleStyle(scene({ is_title_card: true }), "horizontal")).toBe("none");
   });
 
+  it("suppresses stat_card visual mode", () => {
+    expect(resolveSubtitleStyle(scene({ visual_mode: "stat_card" }), "horizontal")).toBe("none");
+  });
+
   it("routes fast dense word timing to kinetic", () => {
     expect(resolveSubtitleStyle(scene({
       narration: "One two three four five six seven eight.",

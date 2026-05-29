@@ -1,6 +1,7 @@
 import React from "react";
 import { Img, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { SceneInput, VisualLayer } from "../types";
+import { StatCard } from "./StatCard";
 
 interface Props {
   scene: SceneInput;
@@ -424,6 +425,9 @@ export const TreatmentRenderer: React.FC<Props> = ({ scene, fallbackVisualLayer 
       return <Flipflop scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
     case "comparison_board":
       return <ComparisonBoard scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
+    case "stat_card":
+      logTreatmentOnce(scene, "stat_card", scene.visual_layers?.length ?? 0);
+      return <StatCard scene={scene} />;
     case "full_frame":
     default:
       logTreatmentOnce(scene, scene.visual_mode ?? "full_frame", scene.visual_layers?.length ?? 0);

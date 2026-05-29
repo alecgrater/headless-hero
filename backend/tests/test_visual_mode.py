@@ -314,3 +314,112 @@ def test_scene_assignment_syncs_captions_visual_mode_without_clearing_media():
     assert scene.visual_beat == "captions"
     assert scene.image_url == "/static/projects/script/images/scene_001.png"
     assert scene.frame_urls == ["/static/projects/script/images/scene_001_0.png"]
+
+
+def test_scene_accepts_explicit_stat_card_visual_mode_and_clears_media():
+    scene = Scene(
+        id="scene_001",
+        narration="Eighty-five percent of new users churn in week one.",
+        visual_prompt="",
+        visual_mode="stat_card",
+        stat_value="85%",
+        stat_label="of new users churn in week 1",
+        image_url="/static/projects/script/images/scene_001.png",
+        frame_urls=["/static/projects/script/images/scene_001_0.png"],
+        video_url="/static/projects/script/videos/scene_001.mp4",
+    )
+
+    assert scene.visual_mode == "stat_card"
+    assert scene.visual_beat == "stat_card"
+    assert scene.stat_value == "85%"
+    assert scene.stat_label == "of new users churn in week 1"
+    assert scene.image_url == ""
+    assert scene.frame_urls == []
+    assert scene.video_url == ""
+
+
+def test_scene_stat_card_preserves_visual_layers():
+    scene = Scene(
+        id="scene_001",
+        narration="Two million dollars lost to fraud every hour.",
+        visual_prompt="A padlock icon.",
+        visual_mode="stat_card",
+        stat_value="$2M",
+        stat_label="lost to fraud every hour",
+        visual_layers=[
+            {
+                "id": "scene_001_icon",
+                "type": "image",
+                "asset_kind": "cutout",
+                "prompt": "A padlock icon.",
+                "placement": "center",
+            }
+        ],
+    )
+
+    assert scene.visual_mode == "stat_card"
+    assert len(scene.visual_layers) == 1
+    assert scene.visual_layers[0].asset_kind == "cutout"
+
+
+def test_scene_leaving_stat_card_clears_stat_fields():
+    scene = Scene(
+        id="scene_001",
+        narration="Eighty-five percent of new users churn in week one.",
+        visual_prompt="",
+        visual_mode="stat_card",
+        stat_value="85%",
+        stat_label="of new users churn in week 1",
+    )
+
+    scene.visual_mode = "full_frame"
+
+    assert scene.visual_mode == "full_frame"
+    assert scene.stat_value == ""
+    assert scene.stat_label == ""
+
+
+def test_scene_entering_stat_card_clears_caption_and_media():
+    scene = Scene(
+        id="scene_001",
+        narration="Eighty-five percent.",
+        visual_prompt="[REACTION] Worried face",
+        visual_mode="captions",
+        caption_text="The real cost",
+        caption_emphasis="real",
+        image_url="/static/projects/script/images/scene_001.png",
+    )
+
+    scene.visual_mode = "stat_card"
+
+    assert scene.visual_mode == "stat_card"
+    assert scene.caption_text == ""
+    assert scene.caption_emphasis == ""
+    assert scene.image_url == ""
+
+
+def test_scene_normalizes_stat_card_from_raw_dict():
+    raw = {
+        "id": "scene_001",
+        "narration": "Eighty-five percent of new users churn in week one.",
+        "visual_prompt": "",
+        "visual_mode": "stat_card",
+        "stat_value": "85%",
+        "stat_label": "of new users churn in week 1",
+        "image_url": "/static/projects/script/images/scene_001.png",
+        "frame_urls": ["/static/projects/script/images/scene_001_0.png"],
+        "video_url": "/static/projects/script/videos/scene_001.mp4",
+        "caption_text": "leftover caption",
+        "caption_emphasis": "leftover",
+    }
+
+    scene = Scene.model_validate(raw)
+
+    assert scene.visual_mode == "stat_card"
+    assert scene.stat_value == "85%"
+    assert scene.stat_label == "of new users churn in week 1"
+    assert scene.image_url == ""
+    assert scene.frame_urls == []
+    assert scene.video_url == ""
+    assert scene.caption_text == ""
+    assert scene.caption_emphasis == ""

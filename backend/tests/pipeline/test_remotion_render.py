@@ -116,8 +116,22 @@ def test_subtitle_render_fingerprint_tracks_style_and_router_version():
 
     assert fingerprint["subtitle_router_version"] == remotion_render.SUBTITLE_ROUTER_VERSION
     assert fingerprint["scenes"] == [
-        {"id": "scene-1", "subtitle_style": "clean"},
-        {"id": "scene-2", "subtitle_style": "burst"},
+        {
+            "id": "scene-1",
+            "subtitle_style": "clean",
+            "visual_mode": "full_frame",
+            "stat_value": "",
+            "stat_label": "",
+            "stat_card_icon": None,
+        },
+        {
+            "id": "scene-2",
+            "subtitle_style": "burst",
+            "visual_mode": "full_frame",
+            "stat_value": "",
+            "stat_label": "",
+            "stat_card_icon": None,
+        },
     ]
 
 

@@ -20,6 +20,8 @@ export interface TestLabPreset {
   duration_estimate_seconds: number;
   caption_text?: string;
   caption_emphasis?: string;
+  stat_value?: string;
+  stat_label?: string;
   contains_person?: boolean;
   visual_beat?: string;
   frame_directives?: Array<Record<string, unknown>>;
@@ -32,6 +34,8 @@ export interface TestLabSceneTextDefaults {
   visual_prompt: string;
   caption_text?: string;
   caption_emphasis?: string;
+  stat_value?: string;
+  stat_label?: string;
 }
 
 export interface TestLabScenes {
@@ -81,6 +85,8 @@ export interface TestLabSettings {
   duration_estimate_seconds?: number;
   caption_text?: string;
   caption_emphasis?: string;
+  stat_value?: string;
+  stat_label?: string;
   contains_person?: boolean;
   visual_beat?: string;
   transition_in?: "cut" | "fade_black" | "flash_white" | "wipe";

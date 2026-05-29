@@ -95,7 +95,7 @@ def _canonical_visual_mode(value: str, legacy_media_source: str = "") -> str:
         return "multi_frame"
     if value == "continuous":
         return "continuous"
-    if value in {"video", "full_frame", "popup_sequence", "flipflop", "comparison_board", "captions"}:
+    if value in {"video", "full_frame", "popup_sequence", "flipflop", "comparison_board", "captions", "stat_card"}:
         return value
     return "full_frame"
 
@@ -142,6 +142,8 @@ def is_ai_video_eligible(
     if scene.is_title_card:
         return False
     if scene.visual_mode == "captions" or scene.visual_beat == "aha_subtitle":
+        return False
+    if scene.visual_mode == "stat_card":
         return False
     known_audio_duration = _known_audio_duration_seconds(scene)
     if (

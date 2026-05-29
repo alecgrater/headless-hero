@@ -104,6 +104,18 @@ CAPTIONS_TEXT_DEFAULTS = {
     "caption_text": "Spending big while falling behind",
     "caption_emphasis": "falling behind",
 }
+STAT_CARD_NO_ICON_DEFAULTS = {
+    "narration": "Roughly eighty-five percent of new users churn before the end of week one.",
+    "visual_prompt": "",
+    "stat_value": "85%",
+    "stat_label": "of new users churn in week 1",
+}
+STAT_CARD_WITH_ICON_DEFAULTS = {
+    "narration": "Online fraud quietly drains close to two million dollars from victims every single hour.",
+    "visual_prompt": "Flat 2D cartoon padlock icon with a small alert symbol, bold outline, clean silhouette.",
+    "stat_value": "$2M",
+    "stat_label": "lost to fraud every hour",
+}
 VISUAL_TREATMENT_TEXT_DEFAULTS = {
     "multi_frame": MULTI_FRAME_TEXT_DEFAULTS,
     "continuous": CONTINUOUS_TEXT_DEFAULTS,
@@ -111,6 +123,7 @@ VISUAL_TREATMENT_TEXT_DEFAULTS = {
     "flipflop": FLIPFLOP_TEXT_DEFAULTS,
     "comparison_board": COMPARISON_BOARD_TEXT_DEFAULTS,
     "captions": CAPTIONS_TEXT_DEFAULTS,
+    "stat_card": STAT_CARD_NO_ICON_DEFAULTS,
 }
 
 
@@ -129,10 +142,12 @@ class TestLabPreset(BaseModel):
     visual_prompt: str
     background_color: str = "#F6C54A"
     visual_mode: Literal[
-        "video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop", "comparison_board", "captions"
+        "video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop", "comparison_board", "captions", "stat_card"
     ] = "full_frame"
     caption_text: str = ""
     caption_emphasis: str = ""
+    stat_value: str = ""
+    stat_label: str = ""
     duration_estimate_seconds: float = 7.0
     main_character: MainCharacter | None = None
 
@@ -309,6 +324,30 @@ TEST_LAB_PRESETS: list[TestLabPreset] = [
         visual_mode="captions",
         background_color="#F6C54A",
     ),
+    TestLabPreset(
+        id="stat-card-no-icon",
+        title="Stat Card — Text Only",
+        description="Single dominant statistic rendered over the canvas with no supporting icon.",
+        segment_name="The number",
+        narration=STAT_CARD_NO_ICON_DEFAULTS["narration"],
+        visual_prompt=STAT_CARD_NO_ICON_DEFAULTS["visual_prompt"],
+        stat_value=STAT_CARD_NO_ICON_DEFAULTS["stat_value"],
+        stat_label=STAT_CARD_NO_ICON_DEFAULTS["stat_label"],
+        visual_mode="stat_card",
+        background_color="#F6C54A",
+    ),
+    TestLabPreset(
+        id="stat-card-with-icon",
+        title="Stat Card — With Icon",
+        description="Single dominant statistic with one transparent supporting icon cutout.",
+        segment_name="The number",
+        narration=STAT_CARD_WITH_ICON_DEFAULTS["narration"],
+        visual_prompt=STAT_CARD_WITH_ICON_DEFAULTS["visual_prompt"],
+        stat_value=STAT_CARD_WITH_ICON_DEFAULTS["stat_value"],
+        stat_label=STAT_CARD_WITH_ICON_DEFAULTS["stat_label"],
+        visual_mode="stat_card",
+        background_color="#0F172A",
+    ),
 ]
 
 
@@ -423,6 +462,16 @@ def _caption_setting_from_settings(settings: dict, preset: TestLabPreset, key: s
     return raw_value
 
 
+def _stat_setting_from_settings(settings: dict, preset: TestLabPreset, key: str, visual_mode: str) -> str:
+    raw_value = settings.get(key)
+    preset_value = getattr(preset, key, "") or ""
+    if not isinstance(raw_value, str):
+        return preset_value if visual_mode == "stat_card" else ""
+    if visual_mode != "stat_card":
+        return ""
+    return raw_value
+
+
 def _subtitle_style_from_settings(settings: dict) -> str:
     value = settings.get("subtitle_style")
     return value if isinstance(value, str) and value in SUBTITLE_STYLES else "auto"
@@ -498,6 +547,20 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
         visual_mode = preset.visual_mode
     narration = _scene_text_from_settings(settings, preset, visual_mode, "narration")
     visual_prompt = _scene_text_from_settings(settings, preset, visual_mode, "visual_prompt")
+    stat_value = _stat_setting_from_settings(settings, preset, "stat_value", visual_mode)
+    stat_label = _stat_setting_from_settings(settings, preset, "stat_label", visual_mode)
+    visual_layers = settings.get("visual_layers") if isinstance(settings.get("visual_layers"), list) else []
+    if visual_mode == "stat_card" and not visual_layers and visual_prompt.strip():
+        visual_layers = [
+            {
+                "id": f"{preset.id}-stat-icon",
+                "type": "image",
+                "asset_kind": "cutout",
+                "prompt": visual_prompt.strip(),
+                "placement": "center",
+                "animation": "pop_in",
+            }
+        ]
     scene = Scene(
         id=f"{preset.id}-scene-1",
         narration=narration,
@@ -507,9 +570,11 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
         ),
         visual_mode=visual_mode,
         contains_person=bool(_setting(settings, "contains_person", preset.main_character is not None)),
-        visual_layers=settings.get("visual_layers") if isinstance(settings.get("visual_layers"), list) else [],
+        visual_layers=visual_layers,
         caption_text=_caption_setting_from_settings(settings, preset, "caption_text", narration, visual_mode),
         caption_emphasis=_caption_setting_from_settings(settings, preset, "caption_emphasis", narration, visual_mode),
+        stat_value=stat_value,
+        stat_label=stat_label,
         subtitle_style=_subtitle_style_from_settings(settings),
     )
     if isinstance(settings.get("frame_directives"), list):

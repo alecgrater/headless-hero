@@ -178,15 +178,17 @@ VISUAL MODE VOCABULARY:
 - "popup_sequence" — When narration names a small set of concrete items, examples, ingredients, symptoms, tools, steps, or visible objects that should pop around the main subject. Use a single anchor visual plus popup item intent; the post-voiceover pass will create timed cutout layers. Do not use for abstract contrasts or long lists.
 - "flipflop" — When one subject/action can read as simple micro-animation by alternating two compatible A/B states: hands moving while typing, stirring, sorting, opening, closing, pointing, counting, or handling an object; a character leaning in/out, looking up/down, pacing, nodding, or gesturing while talking. Do not use flipflop merely because a sentence contrasts two ideas, time periods, or emotional states.
 - "comparison_board" — When narration contrasts two or three subjects, concepts, states, levels, choices, or outcomes that should be displayed in a side-by-side renderer-controlled comparison. Best for Before vs After, Then vs Now, Myth vs Reality, Level 1 vs Level 5, Rich vs Poor, Human vs Neanderthal, Prisoner vs Guard, Success vs Failure, or Good Choice vs Bad Choice. Use transparent cutout subject intent; the renderer owns columns, divider, VS marker, arrows, stat chips, badges, and labels. Do not use when narration focuses on one environment, one event, or a same-subject micro-action.
+- "stat_card" — When narration delivers ONE decisive percentage, financial figure, population count, duration, distance, ranking, odds, risk factor, or scientific measurement that is the most important information in the scene. Use transparent renderer-owned typography over the canvas. Emit "stat_value" (the giant headline number, e.g. "85%", "$2M", "30 days", "#1", "1 in 4" — 1-12 characters typical) and "stat_label" (supporting subtitle, 2-12 words, e.g. "of users churn in week 1"). Optionally provide a single short "visual_prompt" describing a small supporting icon if it helps; otherwise leave "visual_prompt" empty. Do NOT describe layout, color, animation, or typography — the renderer owns those. Do NOT use when atmosphere, environment, or setting matters more than the metric, or when there is no single dominant number.
 - "captions" — When a sentence delivers a punchy editorial label, reversal, emotional realization, or key claim that should become large in-scene text. Use a static canvas with optional side visual plus renderer-owned caption typography. Emit "caption_text" (2-15 words ideally) and "caption_emphasis" (the one strongest word or phrase to render red). Do not describe typography, animation, color, or layout in detail; the renderer handles those. Do not put readable caption text into visual_prompt.
 
 DISTRIBUTION RULES (follow strictly):
 1. full_frame should be the MAJORITY of non-title-card scenes (50-65%). Visual variety comes from scene-to-scene differences, not multi-frame within a scene.
-2. After every 2 consecutive full_frame scenes, the NEXT scene MUST use a different mode (multi_frame, continuous, popup_sequence, flipflop, comparison_board, or captions). This creates a natural rhythm: full-full-variety-full-full-variety.
-3. Variety modes (multi_frame, continuous, popup_sequence, flipflop, comparison_board, captions) must NEVER appear 2+ times consecutively — always separate them with at least one full_frame scene.
+2. After every 2 consecutive full_frame scenes, the NEXT scene MUST use a different mode (multi_frame, continuous, popup_sequence, flipflop, comparison_board, stat_card, or captions). This creates a natural rhythm: full-full-variety-full-full-variety.
+3. Variety modes (multi_frame, continuous, popup_sequence, flipflop, comparison_board, stat_card, captions) must NEVER appear 2+ times consecutively — always separate them with at least one full_frame scene.
 4. Text-only captions scenes must be sandwiched between image-bearing modes.
 5. continuous is reserved for genuine motion progression — NOT the default for multi-frame.
 6. Vary transitions within multi_frame scenes — mostly "cut" but occasional "crossfade".
+7. stat_card is capped at MAX 1-2 per video. Use it only when narration genuinely revolves around a single dominant number; never back-to-back with another stat_card.
 
 ### Frame Directives Format
 Each scene MUST have "visual_mode", "visual_beat", and "frame_directives" (list of objects). Set "visual_beat" to the same value as "visual_mode" except use "static" when "visual_mode" is "full_frame".
@@ -241,6 +243,8 @@ Output rules:
           "visual_beat": "multi_frame",
           "caption_text": "",
           "caption_emphasis": "",
+          "stat_value": "",
+          "stat_label": "",
           "contains_person": true,
           "frame_directives": [
             {"prompt": "[CLOSE-UP] Subject detail shot...", "source": "ai_generated", "transition": "cut", "reference_previous": false, "search_query": "", "contains_person": false},

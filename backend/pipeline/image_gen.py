@@ -662,6 +662,109 @@ def generate_comparison_board_cutouts(
     return processed_layers
 
 
+def generate_stat_card_cutout(
+    *,
+    scene_id: str,
+    layers: list[dict],
+    script_id: str,
+    scene_prompt: str,
+    width: int = IMAGE_WIDTH,
+    height: int = IMAGE_HEIGHT,
+    force: bool = False,
+) -> list[dict]:
+    """Generate one transparent supporting icon cutout for a stat_card scene.
+
+    Returns the input ``layers`` unchanged when no usable image layer is supplied.
+    """
+
+    image_layers = [
+        dict(layer)
+        for layer in layers
+        if isinstance(layer, dict) and layer.get("type", "image") == "image"
+    ]
+    if not image_layers:
+        return layers
+
+    target_layer = image_layers[0]
+    icon_prompt = str(target_layer.get("prompt") or scene_prompt or "").strip()
+    if not icon_prompt:
+        return layers
+
+    output_dir = DATA_DIR / "projects" / script_id / "stat_cards" / scene_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    composed_prompt = _compose_stat_card_icon_prompt(icon_prompt)
+    prompt_marker = output_dir / "stat_card.prompt"
+    prompt_fingerprint = json.dumps(
+        {
+            "icon_prompt": composed_prompt,
+            "layer": {
+                "id": target_layer.get("id"),
+                "prompt": target_layer.get("prompt"),
+                "placement": target_layer.get("placement"),
+                "animation": target_layer.get("animation"),
+            },
+        },
+        sort_keys=True,
+    )
+
+    cutout_path = output_dir / "icon_cutout.png"
+    cache_valid = (
+        not force
+        and prompt_marker.exists()
+        and prompt_marker.read_text(encoding="utf-8") == prompt_fingerprint
+        and cutout_path.exists()
+    )
+
+    if not cache_valid:
+        logger.info("[STAT_CARD] generating icon cutout scene=%s", scene_id)
+        generated_path = Path(generate_image(composed_prompt, width=width, height=height, script_id=script_id))
+        sheet_path = output_dir / "icon_source.png"
+        if generated_path.resolve() != sheet_path.resolve():
+            shutil.copyfile(generated_path, sheet_path)
+        with Image.open(sheet_path) as image:
+            source = image.convert("RGBA")
+            _save_keyed_trimmed_cutout(source, cutout_path)
+        save_vault_image(kind="item", label="Stat card icon", source_path=cutout_path)
+        prompt_marker.write_text(prompt_fingerprint, encoding="utf-8")
+    else:
+        logger.info("[STAT_CARD] cache hit scene=%s", scene_id)
+
+    web_base = f"/static/projects/{script_id}/stat_cards/{scene_id}"
+    processed = dict(target_layer)
+    processed["asset_kind"] = "cutout"
+    processed["image_url"] = f"{web_base}/icon_cutout.png"
+    processed["placement"] = str(processed.get("placement") or "center")
+    processed["animation"] = processed.get("animation") or "pop_in"
+    return [processed]
+
+
+def _compose_stat_card_icon_prompt(icon_prompt: str) -> str:
+    return "\n".join(
+        [
+            "Generate a single small supporting icon as a clean cartoon illustration for programmatic chroma keying.",
+            "",
+            f"Icon subject: {icon_prompt.strip()}",
+            "",
+            "Layout:",
+            "- One isolated subject centered in the frame",
+            "- Generous empty margin around the subject so automatic trimming does not clip it",
+            "- No multiple subjects, no contact sheet, no grid",
+            "",
+            "Background:",
+            "- Solid flat chroma key background filling the entire image",
+            "- Use bright green (#00FF00) unless the subject contains green, in which case use bright magenta (#FF00FF)",
+            "- The chroma color must NOT appear anywhere within the subject",
+            "",
+            "Rendering rules:",
+            "- Crisp closed silhouette with no soft glow, feathering, or semi-transparent color bleed into the chroma background",
+            "- No drop shadows, glows, or effects extending outside the subject boundary",
+            "- No frames, borders, mats, picture frames, panels, posters, labels, captions, arrows, or text",
+            "- Match the project's flat 2D cartoon house style",
+        ]
+    ).strip()
+
+
 def _generate_popup_anchor_cutout(
     *,
     anchor_prompt: str,
@@ -1429,9 +1532,9 @@ def _generate_one_scene(
         if scene.get("visual_mode") == "captions":
             return result
         visual_mode = str(scene.get("visual_mode") or scene.get("visual_treatment") or "full_frame")
-        treatment = visual_mode if visual_mode in {"popup_sequence", "flipflop", "comparison_board"} else "full_frame"
+        treatment = visual_mode if visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card"} else "full_frame"
         layers = scene.get("visual_layers", []) or []
-        if treatment not in {"popup_sequence", "flipflop", "comparison_board"} or not layers:
+        if treatment not in {"popup_sequence", "flipflop", "comparison_board", "stat_card"} or not layers:
             return result
         layer_dicts = [
             layer.model_dump() if hasattr(layer, "model_dump") else dict(layer)
@@ -1452,6 +1555,15 @@ def _generate_one_scene(
             )
         elif treatment == "comparison_board":
             result["visual_layers"] = generate_comparison_board_cutouts(
+                scene_id=scene["scene_id"],
+                layers=layer_dicts,
+                script_id=script_id,
+                scene_prompt=str(scene.get("visual_prompt") or ""),
+                width=width,
+                height=height,
+            )
+        elif treatment == "stat_card":
+            result["visual_layers"] = generate_stat_card_cutout(
                 scene_id=scene["scene_id"],
                 layers=layer_dicts,
                 script_id=script_id,
@@ -1516,7 +1628,7 @@ def _generate_one_scene(
         frame_directives = scene.get("frame_directives", [])
         frame_prompts = scene.get("frame_prompts", [])
         scene_contains_person = scene.get("contains_person", False)
-        treatment = visual_mode if visual_mode in {"popup_sequence", "flipflop", "comparison_board"} else "full_frame"
+        treatment = visual_mode if visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card"} else "full_frame"
 
         if treatment != "full_frame":
             return with_visual_layers({

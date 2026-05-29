@@ -40,18 +40,22 @@ const MODE_LABELS: Record<VisualMode, { label: string; blurb: string }> = {
     label: "Comparison board",
     blurb: "Transparent cutouts sit in renderer-owned comparison columns with labels and dividers.",
   },
+  stat_card: {
+    label: "Stat card",
+    blurb: "A single dominant statistic with optional supporting icon — renderer-owned typography.",
+  },
   captions: {
     label: "Captions",
     blurb: "Large editorial text lands on narration beats with red emphasis.",
   },
 };
 
-const MODE_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop", "comparison_board"];
+const MODE_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop", "comparison_board", "stat_card"];
 const modeForAssignment = (assignment: VisualTreatmentAssignment): VisualMode =>
   assignment.visual_mode ?? "full_frame";
 const isManualMode = (mode: VisualMode) => MODE_OPTIONS.includes(mode);
-const isLayeredMode = (mode: VisualMode): mode is Extract<VisualMode, "popup_sequence" | "flipflop" | "comparison_board"> =>
-  mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board";
+const isLayeredMode = (mode: VisualMode): mode is Extract<VisualMode, "popup_sequence" | "flipflop" | "comparison_board" | "stat_card"> =>
+  mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board" || mode === "stat_card";
 
 export default function VisualTreatmentReviewPanel({
   assignments,
@@ -68,13 +72,16 @@ export default function VisualTreatmentReviewPanel({
         acc[modeForAssignment(assignment)] += 1;
         return acc;
       },
-      { video: 0, full_frame: 0, multi_frame: 0, continuous: 0, popup_sequence: 0, flipflop: 0, comparison_board: 0, captions: 0 },
+      { video: 0, full_frame: 0, multi_frame: 0, continuous: 0, popup_sequence: 0, flipflop: 0, comparison_board: 0, stat_card: 0, captions: 0 },
     );
   }, [draft]);
   const hasInvalidLayerlessTreatment = draft.some(
     (assignment) => {
       const mode = modeForAssignment(assignment);
-      return isLayeredMode(mode) && assignment.visual_layers.length === 0;
+      if (!isLayeredMode(mode)) return false;
+      // stat_card without an icon (no visual layers) is intentionally valid.
+      if (mode === "stat_card") return false;
+      return assignment.visual_layers.length === 0;
     },
   );
 

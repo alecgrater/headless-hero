@@ -3,6 +3,7 @@ import {
   ChevronDown,
   Columns3,
   Film,
+  Hash,
   HelpCircle,
   Image,
   Images,
@@ -32,6 +33,8 @@ type StageKey = keyof TestLabStages;
 type VisualTextDefaults = TestLabSceneTextDefaults & {
   caption_text?: string;
   caption_emphasis?: string;
+  stat_value?: string;
+  stat_label?: string;
 };
 
 interface TestLabControlsProps {
@@ -151,6 +154,14 @@ const VISUAL_MODE_OPTIONS: Array<{
     bestFor: "Before/after, myth/reality, good/bad choices, and two- or three-way contrasts.",
   },
   {
+    value: "stat_card",
+    label: "Stat card",
+    icon: <Hash className="h-4 w-4" />,
+    summary: "One dominant statistic over the canvas.",
+    description: "Renderer-owned typography for a single big number plus optional supporting icon cutout.",
+    bestFor: "Percentages, dollar amounts, durations, rankings — one decisive number per scene.",
+  },
+  {
     value: "captions",
     label: "Captions",
     icon: <Captions className="h-4 w-4" />,
@@ -180,6 +191,8 @@ export default function TestLabControls({
       ? narration
       : preset?.caption_text ?? "");
   const captionEmphasis = settings.caption_emphasis ?? preset?.caption_emphasis ?? "";
+  const statValue = settings.stat_value ?? preset?.stat_value ?? "";
+  const statLabel = settings.stat_label ?? preset?.stat_label ?? "";
   const backgroundColor = settings.visual_canvas?.background_color ?? preset?.background_color ?? "#F6C54A";
   const displayedCharacter = getDisplayedCharacter(settings, preset, defaultMainCharacter);
   const displayedCharacterSource = getDisplayedCharacterSource(settings, defaultMainCharacter);
@@ -270,12 +283,16 @@ export default function TestLabControls({
             visualPrompt={visualPrompt}
             captionText={captionText}
             captionEmphasis={captionEmphasis}
+            statValue={statValue}
+            statLabel={statLabel}
             frameDirectives={settings.frame_directives ?? []}
             visualLayers={settings.visual_layers}
             onNarrationChange={updateNarration}
             onVisualPromptChange={(value) => update({ visual_prompt: value })}
             onCaptionTextChange={(value) => update({ caption_text: value })}
             onCaptionEmphasisChange={(value) => update({ caption_emphasis: value })}
+            onStatValueChange={(value) => update({ stat_value: value })}
+            onStatLabelChange={(value) => update({ stat_label: value })}
             onFrameDirectivesChange={(frame_directives) => update({ frame_directives })}
             onVisualLayersChange={(visual_layers) => update({ visual_layers })}
           />
@@ -405,12 +422,16 @@ function SceneTextFields({
   visualPrompt,
   captionText,
   captionEmphasis,
+  statValue,
+  statLabel,
   frameDirectives,
   visualLayers,
   onNarrationChange,
   onVisualPromptChange,
   onCaptionTextChange,
   onCaptionEmphasisChange,
+  onStatValueChange,
+  onStatLabelChange,
   onFrameDirectivesChange,
   onVisualLayersChange,
 }: {
@@ -419,12 +440,16 @@ function SceneTextFields({
   visualPrompt: string;
   captionText: string;
   captionEmphasis: string;
+  statValue: string;
+  statLabel: string;
   frameDirectives: Array<Record<string, unknown>>;
   visualLayers: VisualLayer[];
   onNarrationChange: (value: string) => void;
   onVisualPromptChange: (value: string) => void;
   onCaptionTextChange: (value: string) => void;
   onCaptionEmphasisChange: (value: string) => void;
+  onStatValueChange: (value: string) => void;
+  onStatLabelChange: (value: string) => void;
   onFrameDirectivesChange: (value: Array<Record<string, unknown>>) => void;
   onVisualLayersChange: (value: VisualLayer[]) => void;
 }) {
@@ -432,7 +457,15 @@ function SceneTextFields({
     <div className="space-y-3">
       <TextareaField label="Narration" value={narration} rows={4} onChange={onNarrationChange} />
       <TextareaField
-        label={visualMode === "video" ? "Anchor visual prompt" : visualMode === "comparison_board" ? "Board scene prompt" : "Visual prompt"}
+        label={
+          visualMode === "video"
+            ? "Anchor visual prompt"
+            : visualMode === "comparison_board"
+              ? "Board scene prompt"
+              : visualMode === "stat_card"
+                ? "Optional supporting icon prompt"
+                : "Visual prompt"
+        }
         value={visualPrompt}
         rows={4}
         onChange={onVisualPromptChange}
@@ -473,6 +506,12 @@ function SceneTextFields({
         <div className="grid gap-3 sm:grid-cols-2">
           <InputField label="Caption text" value={captionText} onChange={onCaptionTextChange} />
           <InputField label="Red emphasis" value={captionEmphasis} onChange={onCaptionEmphasisChange} />
+        </div>
+      )}
+      {visualMode === "stat_card" && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <InputField label="Stat value (big number)" value={statValue} onChange={onStatValueChange} />
+          <InputField label="Stat label" value={statLabel} onChange={onStatLabelChange} />
         </div>
       )}
     </div>
@@ -932,7 +971,7 @@ function getDisplayedCharacterSource(settings: TestLabSettings, defaultMainChara
 }
 
 function isLayeredVisualMode(mode: VisualMode): boolean {
-  return mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board";
+  return mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board" || mode === "stat_card";
 }
 
 function usesFrameDirectives(mode: VisualMode): boolean {
@@ -963,6 +1002,7 @@ function defaultFrameDirectivesForMode(mode: VisualMode, visualPrompt: string): 
 
 function defaultLayersForMode(mode: VisualMode, visualPrompt: string, narration: string): VisualLayer[] {
   if (!isLayeredVisualMode(mode)) return [];
+  if (mode === "stat_card") return [];
   const basePrompt = visualPrompt || narration;
   if (mode === "flipflop") {
     return ["State A", "State B"].map((_label, index) => ({

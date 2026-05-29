@@ -71,11 +71,17 @@ Use for renderer-owned editorial text beats with large in-scene `caption_text` a
 
 Do not bake readable text into generated images. Do not use `captions` as standard subtitle rendering, and do not create a new text-punch mode unless it has a distinct renderer behavior.
 
+### `stat_card`
+
+Use for a single dominant statistic — one decisive percentage, financial figure, population count, duration, distance, ranking, odds, risk factor, or scientific measurement — rendered as a giant headline `stat_value` plus a short supporting `stat_label` over the static canvas. The renderer owns all readable typography. The only generated asset is an optional transparent supporting icon cutout, declared as a single `visual_layers` entry; layers may be omitted entirely for a text-only beat.
+
+Do not use `stat_card` when atmosphere or environment matters more than the metric, when narration covers multiple numbers or comparisons, or when the scene needs character/action staging. Do not bake the number, label, progress bars, gauges, trend arrows, or comparison badges into generated images. Distribution is capped at MAX 1-2 per video and never back-to-back; standard subtitles and Eli overlays are suppressed for the beat.
+
 ## New Mode Checklist
 
 Answer these questions before implementation:
 
-1. What unique visual job does this mode perform that is not already covered by `full_frame`, `multi_frame`, `continuous`, `video`, `popup_sequence`, `flipflop`, or `captions`?
+1. What unique visual job does this mode perform that is not already covered by `full_frame`, `multi_frame`, `continuous`, `video`, `popup_sequence`, `flipflop`, `comparison_board`, `stat_card`, or `captions`?
 2. When should script generation choose this mode?
 3. When should post-voiceover visual analysis choose or preserve this mode?
 4. When should this mode be avoided in favor of an existing mode?

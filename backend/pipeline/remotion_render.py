@@ -358,6 +358,8 @@ def _scene_to_input_props(
         "subtitle_style": subtitle_style or scene.subtitle_style,
         "caption_text": scene.caption_text,
         "caption_emphasis": scene.caption_emphasis,
+        "stat_value": scene.stat_value,
+        "stat_label": scene.stat_label,
         "visual_layers": _visual_layers_to_input_props(scene, script_id),
         "frame_directives": [d.model_dump() for d in scene.frame_directives] if scene.frame_directives else None,
         "frame_timings": scene.frame_timings,
@@ -380,10 +382,23 @@ def subtitle_render_fingerprint(content: ScriptContent) -> dict[str, Any]:
             {
                 "id": scene.id,
                 "subtitle_style": scene.subtitle_style,
+                "visual_mode": scene.visual_mode,
+                "stat_value": scene.stat_value if scene.visual_mode == "stat_card" else "",
+                "stat_label": scene.stat_label if scene.visual_mode == "stat_card" else "",
+                "stat_card_icon": _stat_card_icon_fingerprint(scene),
             }
             for scene in content.all_scenes()
         ],
     }
+
+
+def _stat_card_icon_fingerprint(scene: Scene) -> dict[str, str] | None:
+    if scene.visual_mode != "stat_card":
+        return None
+    for layer in scene.visual_layers or []:
+        if layer.type == "image":
+            return {"prompt": layer.prompt, "image_url": layer.image_url}
+    return None
 
 
 def _setting_enabled(value: str | None, default: bool = True) -> bool:
@@ -411,6 +426,7 @@ def _subtitle_scene_eligible(scene: Scene) -> bool:
     return not (
         scene.is_title_card
         or scene.visual_mode == "captions"
+        or scene.visual_mode == "stat_card"
         or scene.visual_beat == "aha_subtitle"
     )
 

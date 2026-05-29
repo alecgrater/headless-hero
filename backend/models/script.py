@@ -10,14 +10,14 @@ from sqlmodel import Column, Field, SQLModel, Text
 # --- Pydantic models for the script JSON structure ---
 
 ALLOWED_TRANSITIONS = {"cut", "fade_black", "flash_white", "wipe"}
-VISUAL_MODES = {"video", "full_frame", "multi_frame", "continuous", "captions", "popup_sequence", "flipflop", "comparison_board"}
-VISUAL_TREATMENTS = {"full_frame", "popup_sequence", "flipflop", "comparison_board"}
+VISUAL_MODES = {"video", "full_frame", "multi_frame", "continuous", "captions", "popup_sequence", "flipflop", "comparison_board", "stat_card"}
+VISUAL_TREATMENTS = {"full_frame", "popup_sequence", "flipflop", "comparison_board", "stat_card"}
 VISUAL_LAYER_TYPES = {"image"}
 VISUAL_ASSET_KINDS = {"full_frame", "panel", "cutout"}
 VISUAL_LAYER_ANIMATIONS = {"none", "pop_in"}
 SUBTITLE_STYLES = {"auto", "clean", "kinetic", "burst", "none"}
-VisualMode = Literal["video", "full_frame", "multi_frame", "continuous", "captions", "popup_sequence", "flipflop", "comparison_board"]
-VisualTreatment = Literal["full_frame", "popup_sequence", "flipflop", "comparison_board"]
+VisualMode = Literal["video", "full_frame", "multi_frame", "continuous", "captions", "popup_sequence", "flipflop", "comparison_board", "stat_card"]
+VisualTreatment = Literal["full_frame", "popup_sequence", "flipflop", "comparison_board", "stat_card"]
 VisualLayerType = Literal["image"]
 VisualAssetKind = Literal["full_frame", "panel", "cutout"]
 VisualLayerAnimation = Literal["none", "pop_in"]
@@ -174,6 +174,8 @@ class Scene(BaseModel):
     visual_layers: list[VisualLayer] = PydanticField(default_factory=list)
     caption_text: str = ""
     caption_emphasis: str = ""
+    stat_value: str = ""
+    stat_label: str = ""
     subtitle_style: SubtitleStyle = "auto"
     # --- Scene-boundary transition ---
     transition_in: str = "cut"  # "cut" | "fade_black" | "flash_white" | "wipe"
@@ -207,8 +209,16 @@ class Scene(BaseModel):
         visual_beat = _visual_beat_for_visual_mode(mode)
         if visual_beat is not None:
             normalized["visual_beat"] = visual_beat
-        if mode in {"video", "popup_sequence", "flipflop", "comparison_board"}:
+        if mode in {"video", "popup_sequence", "flipflop", "comparison_board", "stat_card"}:
             normalized["frame_urls"] = []
+        if mode != "stat_card":
+            normalized["stat_value"] = ""
+            normalized["stat_label"] = ""
+        if mode == "stat_card":
+            normalized["caption_text"] = ""
+            normalized["caption_emphasis"] = ""
+            normalized["image_url"] = ""
+            normalized["video_url"] = ""
         return normalized
 
     @field_validator("transition_in", mode="before")
@@ -243,13 +253,13 @@ class Scene(BaseModel):
 
     @property
     def visual_treatment(self) -> VisualTreatment:
-        return self.visual_mode if self.visual_mode in {"popup_sequence", "flipflop", "comparison_board"} else "full_frame"
+        return self.visual_mode if self.visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card"} else "full_frame"
 
     def _sync_visual_mode_fields_from_assignment(self, assigned_field: str) -> None:
         if assigned_field == "visual_mode":
             mode = _resolve_visual_mode(self.visual_mode, None, None)
         else:
-            if self.visual_mode in {"video", "popup_sequence", "flipflop", "comparison_board"}:
+            if self.visual_mode in {"video", "popup_sequence", "flipflop", "comparison_board", "stat_card"}:
                 mode = self.visual_mode
             else:
                 mode = _resolve_visual_mode(None, None, None, self.visual_beat)
@@ -260,8 +270,16 @@ class Scene(BaseModel):
         visual_beat = _visual_beat_for_visual_mode(visual_mode)
         if visual_beat is not None:
             super().__setattr__("visual_beat", visual_beat)
-        if visual_mode in {"video", "popup_sequence", "flipflop", "comparison_board"}:
+        if visual_mode in {"video", "popup_sequence", "flipflop", "comparison_board", "stat_card"}:
             super().__setattr__("frame_urls", [])
+        if visual_mode != "stat_card":
+            super().__setattr__("stat_value", "")
+            super().__setattr__("stat_label", "")
+        if visual_mode == "stat_card":
+            super().__setattr__("caption_text", "")
+            super().__setattr__("caption_emphasis", "")
+            super().__setattr__("image_url", "")
+            super().__setattr__("video_url", "")
 
 
 def _resolve_visual_mode(
@@ -274,7 +292,7 @@ def _resolve_visual_mode(
         return visual_mode  # type: ignore[return-value]
     if media_source == "ai_video":
         return "video"
-    if isinstance(visual_treatment, str) and visual_treatment in {"popup_sequence", "flipflop", "comparison_board"}:
+    if isinstance(visual_treatment, str) and visual_treatment in {"popup_sequence", "flipflop", "comparison_board", "stat_card"}:
         return visual_treatment  # type: ignore[return-value]
     if visual_beat in {"quick_cuts", "montage", "multi_frame"}:
         return "multi_frame"
@@ -288,7 +306,7 @@ def _resolve_visual_mode(
 def _visual_beat_for_visual_mode(visual_mode: VisualMode) -> str | None:
     if visual_mode == "full_frame":
         return "static"
-    if visual_mode in {"multi_frame", "continuous", "captions", "comparison_board"}:
+    if visual_mode in {"multi_frame", "continuous", "captions", "comparison_board", "stat_card"}:
         return visual_mode
     return None
 

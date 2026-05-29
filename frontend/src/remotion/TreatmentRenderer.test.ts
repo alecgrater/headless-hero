@@ -8,6 +8,7 @@ import {
   layerFrameStyle,
   popupOrbitFrameStyle,
 } from "@remotion-src/scenes/TreatmentRenderer";
+import { StatCard } from "@remotion-src/scenes/StatCard";
 import type { VisualLayer } from "@remotion-src/types";
 
 const itemLayer = (id: string): VisualLayer => ({
@@ -169,5 +170,11 @@ describe("comparisonBoardLayerStyle", () => {
     expect(middle.top).toBe("53%");
     expect(middle.width).toBe(440);
     expect(middle.height).toBe(580);
+  });
+});
+
+describe("StatCard", () => {
+  it("is a renderable React component", () => {
+    expect(typeof StatCard).toBe("function");
   });
 });

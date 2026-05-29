@@ -104,7 +104,7 @@ export function resolveSubtitleStyle(
   orientation: Orientation,
   settings?: SubtitleRoutingSettings | null,
 ): ResolvedSubtitleStyle {
-  if (scene.is_title_card || scene.visual_mode === "captions" || scene.visual_beat === "aha_subtitle") {
+  if (scene.is_title_card || scene.visual_mode === "captions" || scene.visual_mode === "stat_card" || scene.visual_beat === "aha_subtitle") {
     return "none";
   }
   const enabledStyles = enabledStylesFromSettings(settings);

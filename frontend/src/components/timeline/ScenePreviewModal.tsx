@@ -85,11 +85,38 @@ function AssetsTab({ scene }: { scene: Scene }) {
   const hasFrames = scene.frame_urls && scene.frame_urls.length > 0;
   const hasImage = !!scene.image_url;
   const hasAudio = !!scene.audio_url;
+  const isStatCard = scene.visual_mode === "stat_card";
+  const statCardIcon = isStatCard
+    ? (scene.visual_layers ?? []).find((layer) => layer.type === "image" && layer.image_url)
+    : undefined;
 
   return (
     <div className="space-y-4">
+      {/* Stat card */}
+      {isStatCard && (
+        <div>
+          <p className="text-xs text-neutral-500 mb-1.5">Stat card</p>
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 space-y-1">
+            <p className="text-2xl font-mono font-bold text-neutral-100">{scene.stat_value || "—"}</p>
+            <p className="text-sm text-neutral-300">{scene.stat_label || "(no label)"}</p>
+          </div>
+          {statCardIcon ? (
+            <div className="mt-3">
+              <p className="text-xs text-neutral-500 mb-1.5">Stat card icon</p>
+              <img
+                src={assetUrl(statCardIcon.image_url!)}
+                alt="Stat card icon"
+                className="rounded-lg bg-neutral-800 max-h-40 object-contain"
+              />
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-neutral-500 italic">Renderer-owned text only</p>
+          )}
+        </div>
+      )}
+
       {/* Video */}
-      {hasVideo && (
+      {!isStatCard && hasVideo && (
         <div>
           <p className="text-xs text-neutral-500 mb-1.5">Video</p>
           <video
@@ -101,7 +128,7 @@ function AssetsTab({ scene }: { scene: Scene }) {
       )}
 
       {/* Images */}
-      {!hasVideo && hasFrames && (
+      {!isStatCard && !hasVideo && hasFrames && (
         <div>
           <p className="text-xs text-neutral-500 mb-1.5">Frames ({scene.frame_urls!.length})</p>
           <div className="grid grid-cols-3 gap-2">
@@ -117,7 +144,7 @@ function AssetsTab({ scene }: { scene: Scene }) {
         </div>
       )}
 
-      {!hasVideo && !hasFrames && hasImage && (
+      {!isStatCard && !hasVideo && !hasFrames && hasImage && (
         <div>
           <p className="text-xs text-neutral-500 mb-1.5">Image</p>
           <img

@@ -35,7 +35,7 @@ export interface VideoFX {
   chapter_markers: ChapterMarker[];
 }
 
-export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "comparison_board" | "captions";
+export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "comparison_board" | "captions" | "stat_card";
 export type SubtitleStyle = "auto" | "clean" | "kinetic" | "burst" | "none";
 
 export interface VisualCanvas {
@@ -87,6 +87,8 @@ export interface Scene {
   visual_layers?: VisualLayer[];
   caption_text?: string;
   caption_emphasis?: string;
+  stat_value?: string;
+  stat_label?: string;
   subtitle_style?: SubtitleStyle;
   fx?: SceneFX | null;
   eli_overlay?: EliOverlay | null;

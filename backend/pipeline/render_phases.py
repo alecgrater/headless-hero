@@ -101,6 +101,7 @@ def _phase_images(ctx: ExportContext) -> None:
         generate_popup_sequence_cutouts,
         generate_scene_frames_v2,
         generate_scene_image,
+        generate_stat_card_cutout,
         generate_visual_layer_panels,
     )
 
@@ -119,7 +120,7 @@ def _phase_images(ctx: ExportContext) -> None:
             visual_layers = [layer.model_dump() for layer in scene_now.visual_layers]
         visual_layers = visual_layers or []
         visual_mode = sc_info.get("visual_mode") or (scene_now.visual_mode if scene_now is not None else "full_frame")
-        treatment = visual_mode if visual_mode in {"video", "popup_sequence", "flipflop", "comparison_board"} else "full_frame"
+        treatment = visual_mode if visual_mode in {"video", "popup_sequence", "flipflop", "comparison_board", "stat_card"} else "full_frame"
         if treatment != "full_frame":
             logger.info(
                 "[%s] Skipping full scene image for %s scene %s (%d/%d)",
@@ -161,7 +162,7 @@ def _phase_images(ctx: ExportContext) -> None:
             image_url, _, _ = generate_scene_image(sid, sc_info["visual_prompt"], ctx.script_id, force=True)
             sc_info["_image_url"] = image_url
             sc_info["_frame_urls"] = None
-        if treatment in {"popup_sequence", "flipflop", "comparison_board"} and visual_layers:
+        if treatment in {"popup_sequence", "flipflop", "comparison_board", "stat_card"} and visual_layers:
             logger.info(
                 "[ANIMATION_TYPE] generating panels scene=%s animation_type=%s layers=%d",
                 sid,
@@ -184,6 +185,14 @@ def _phase_images(ctx: ExportContext) -> None:
                 )
             elif treatment == "comparison_board":
                 sc_info["_visual_layers"] = generate_comparison_board_cutouts(
+                    scene_id=sid,
+                    layers=layer_dicts,
+                    script_id=ctx.script_id,
+                    scene_prompt=sc_info.get("visual_prompt") or (scene_now.visual_prompt if scene_now is not None else ""),
+                    force=True,
+                )
+            elif treatment == "stat_card":
+                sc_info["_visual_layers"] = generate_stat_card_cutout(
                     scene_id=sid,
                     layers=layer_dicts,
                     script_id=ctx.script_id,

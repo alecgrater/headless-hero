@@ -161,14 +161,15 @@ def test_test_lab_presets_validate_as_script_content():
     from models.script import ScriptContent
     from pipeline.test_lab import TEST_LAB_PRESETS, build_content_from_preset
 
-    assert len(TEST_LAB_PRESETS) == 11
+    assert len(TEST_LAB_PRESETS) == 13
     for preset in TEST_LAB_PRESETS:
         content = build_content_from_preset(preset.id, {})
         validated = ScriptContent.model_validate(content.model_dump())
         assert validated.segments
         assert validated.segments[0].scenes
         assert validated.segments[0].scenes[0].narration
-        assert validated.segments[0].scenes[0].visual_prompt
+        if preset.visual_mode != "stat_card" or preset.visual_prompt:
+            assert validated.segments[0].scenes[0].visual_prompt
 
 
 def test_test_lab_preset_accepts_multi_frame_visual_mode():
@@ -301,7 +302,7 @@ def test_test_lab_scenes_endpoint_returns_presets(monkeypatch, tmp_path):
 
         assert response.status_code == 200
         data = response.json()
-        assert len(data["presets"]) == 11
+        assert len(data["presets"]) == 13
         assert data["presets"][0]["id"]
     finally:
         from database import get_session
@@ -2750,3 +2751,54 @@ def test_run_test_lab_preserves_cancelled_job_status(monkeypatch, tmp_path):
     assert updated_job.status == "cancelled"
     assert manifest.status == "cancelled"
     assert "cancelled" in manifest.logs[-1].message
+
+
+def test_test_lab_preset_accepts_stat_card_visual_mode():
+    from pipeline.test_lab import TestLabPreset
+
+    preset = TestLabPreset(
+        id="stat-card-test",
+        title="Stat Card Test",
+        description="Stat card test",
+        segment_name="The number",
+        narration="Eighty-five percent of new users churn in week one.",
+        visual_prompt="",
+        visual_mode="stat_card",
+        stat_value="85%",
+        stat_label="of new users churn in week 1",
+        duration_estimate_seconds=4.0,
+    )
+
+    assert preset.visual_mode == "stat_card"
+    assert preset.media_source == "ai"
+    assert preset.stat_value == "85%"
+    assert preset.stat_label == "of new users churn in week 1"
+
+
+def test_test_lab_stat_card_no_icon_round_trip_through_builder():
+    from pipeline.test_lab import build_content_from_preset
+
+    content = build_content_from_preset("stat-card-no-icon", {})
+    scene = content.segments[0].scenes[0]
+
+    assert scene.visual_mode == "stat_card"
+    assert scene.stat_value == "85%"
+    assert scene.stat_label == "of new users churn in week 1"
+    assert scene.visual_layers == []
+    assert scene.image_url == ""
+    assert scene.frame_urls == []
+
+
+def test_test_lab_stat_card_with_icon_synthesizes_visual_layer():
+    from pipeline.test_lab import build_content_from_preset
+
+    content = build_content_from_preset("stat-card-with-icon", {})
+    scene = content.segments[0].scenes[0]
+
+    assert scene.visual_mode == "stat_card"
+    assert scene.stat_value == "$2M"
+    assert scene.stat_label == "lost to fraud every hour"
+    assert len(scene.visual_layers) == 1
+    layer = scene.visual_layers[0]
+    assert layer.asset_kind == "cutout"
+    assert layer.prompt
