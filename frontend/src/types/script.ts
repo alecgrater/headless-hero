@@ -35,8 +35,9 @@ export interface VideoFX {
   chapter_markers: ChapterMarker[];
 }
 
-export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "comparison_board" | "captions" | "stat_card";
+export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "comparison_board" | "captions" | "stat_card" | "dossier";
 export type SubtitleStyle = "auto" | "clean" | "kinetic" | "burst" | "none";
+export type DossierLayout = "anchor" | "network";
 
 export interface VisualCanvas {
   background_color: string;
@@ -48,6 +49,7 @@ export interface VisualLayer {
   asset_kind: "full_frame" | "panel" | "cutout";
   image_url?: string;
   prompt?: string;
+  label?: string;
   placement?: string;
   enter_at_seconds?: number;
   exit_at_seconds?: number | null;
@@ -89,6 +91,8 @@ export interface Scene {
   caption_emphasis?: string;
   stat_value?: string;
   stat_label?: string;
+  dossier_layout?: DossierLayout;
+  dossier_title?: string;
   subtitle_style?: SubtitleStyle;
   fx?: SceneFX | null;
   eli_overlay?: EliOverlay | null;

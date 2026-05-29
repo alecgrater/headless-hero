@@ -360,6 +360,8 @@ def _scene_to_input_props(
         "caption_emphasis": scene.caption_emphasis,
         "stat_value": scene.stat_value,
         "stat_label": scene.stat_label,
+        "dossier_layout": scene.dossier_layout if scene.visual_mode == "dossier" else None,
+        "dossier_title": scene.dossier_title if scene.visual_mode == "dossier" else None,
         "visual_layers": _visual_layers_to_input_props(scene, script_id),
         "frame_directives": [d.model_dump() for d in scene.frame_directives] if scene.frame_directives else None,
         "frame_timings": scene.frame_timings,

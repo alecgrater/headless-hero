@@ -48,14 +48,18 @@ const MODE_LABELS: Record<VisualMode, { label: string; blurb: string }> = {
     label: "Captions",
     blurb: "Large editorial text lands on narration beats with red emphasis.",
   },
+  dossier: {
+    label: "Dossier",
+    blurb: "Investigation board with anchor + evidence (or peer suspects) cutouts and renderer-owned pins, tape, and red strings.",
+  },
 };
 
-const MODE_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop", "comparison_board", "stat_card"];
+const MODE_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop", "comparison_board", "stat_card", "dossier"];
 const modeForAssignment = (assignment: VisualTreatmentAssignment): VisualMode =>
   assignment.visual_mode ?? "full_frame";
 const isManualMode = (mode: VisualMode) => MODE_OPTIONS.includes(mode);
-const isLayeredMode = (mode: VisualMode): mode is Extract<VisualMode, "popup_sequence" | "flipflop" | "comparison_board" | "stat_card"> =>
-  mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board" || mode === "stat_card";
+const isLayeredMode = (mode: VisualMode): mode is Extract<VisualMode, "popup_sequence" | "flipflop" | "comparison_board" | "stat_card" | "dossier"> =>
+  mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board" || mode === "stat_card" || mode === "dossier";
 
 export default function VisualTreatmentReviewPanel({
   assignments,
@@ -72,7 +76,7 @@ export default function VisualTreatmentReviewPanel({
         acc[modeForAssignment(assignment)] += 1;
         return acc;
       },
-      { video: 0, full_frame: 0, multi_frame: 0, continuous: 0, popup_sequence: 0, flipflop: 0, comparison_board: 0, stat_card: 0, captions: 0 },
+      { video: 0, full_frame: 0, multi_frame: 0, continuous: 0, popup_sequence: 0, flipflop: 0, comparison_board: 0, stat_card: 0, captions: 0, dossier: 0 },
     );
   }, [draft]);
   const hasInvalidLayerlessTreatment = draft.some(

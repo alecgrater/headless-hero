@@ -42,7 +42,7 @@ function settingsWithPresetVisualMode(settings: TestLabSettings, preset: TestLab
 }
 
 export function testLabPresetSubtitle(preset: TestLabPreset): string {
-  return preset.narration || preset.description;
+  return preset.narration || preset.description || "";
 }
 
 const DEFAULT_SETTINGS: TestLabSettings = {

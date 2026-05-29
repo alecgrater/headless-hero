@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Captions, Columns3, Film, Hash, Image, Images, PanelsTopLeft, Repeat2, Route } from "lucide-react";
+import { Captions, ClipboardList, Columns3, Film, Hash, Image, Images, PanelsTopLeft, Repeat2, Route } from "lucide-react";
 import { assetUrl, regenerateFX } from "../../api";
 import type { Scene, SceneFX, VisualMode } from "../../types/script";
 import AudioPlayer from "./AudioPlayer";
@@ -85,12 +85,13 @@ export default function PropertiesPanel({
     { value: "comparison_board", label: "Compare", icon: <Columns3 className="h-3 w-3" /> },
     { value: "stat_card", label: "Stat card", icon: <Hash className="h-3 w-3" /> },
     { value: "captions", label: "Captions", icon: <Captions className="h-3 w-3" /> },
+    { value: "dossier", label: "Dossier", icon: <ClipboardList className="h-3 w-3" /> },
   ];
   const visualMode: VisualMode =
     scene.visual_mode ?? "full_frame";
 
   const setVisualMode = (mode: VisualMode) => {
-    const isLayered = mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board" || mode === "stat_card";
+    const isLayered = mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board" || mode === "stat_card" || mode === "dossier";
     const shouldPreserveVisualLayers = isLayered && mode === visualMode;
     onUpdate({
       visual_mode: mode,
@@ -117,7 +118,7 @@ export default function PropertiesPanel({
       )}
 
       {/* 3-column layout: Narration | Visual Prompt | Controls */}
-      <div className={`shrink-0 ${visualMode === "captions" || visualMode === "stat_card" ? "h-56" : "h-36"} flex gap-4 px-4 py-2`}>
+      <div className={`shrink-0 ${visualMode === "captions" || visualMode === "stat_card" || visualMode === "dossier" ? "h-56" : "h-36"} flex gap-4 px-4 py-2`}>
 
         {/* Col 1: Narration */}
         <div className="flex-[2] flex flex-col min-w-0 min-h-0">
@@ -144,7 +145,7 @@ export default function PropertiesPanel({
         </div>
 
         {/* Col 3: Visual mode selector + Generate Image + Generate Audio + FX */}
-        <div className={`flex-[1.2] flex flex-col justify-center gap-2 min-w-0 min-h-0 ${visualMode === "captions" || visualMode === "stat_card" ? "overflow-y-auto pr-1" : ""}`}>
+        <div className={`flex-[1.2] flex flex-col justify-center gap-2 min-w-0 min-h-0 ${visualMode === "captions" || visualMode === "stat_card" || visualMode === "dossier" ? "overflow-y-auto pr-1" : ""}`}>
           {/* Visual mode selector */}
           <div className="shrink-0 flex flex-wrap gap-1">
             {VISUAL_MODE_OPTIONS.map((opt) => (
@@ -221,6 +222,60 @@ export default function PropertiesPanel({
               </div>
               <p className="text-[10px] leading-snug text-neutral-500">
                 Renderer-owned typography over the canvas. Optional supporting icon comes from a single visual layer.
+              </p>
+            </div>
+          )}
+
+          {visualMode === "dossier" && (
+            <div className="shrink-0 space-y-1.5 rounded-lg border border-rose-500/20 bg-rose-500/5 p-2">
+              <div className="grid grid-cols-2 gap-2">
+                <label className="min-w-0">
+                  <span className="mb-0.5 block text-[10px] font-medium text-neutral-400">Layout</span>
+                  <select
+                    value={scene.dossier_layout ?? "anchor"}
+                    onChange={(e) => onUpdate({ dossier_layout: e.target.value as "anchor" | "network" })}
+                    className="w-full rounded-md border border-neutral-700/50 bg-neutral-800/70 px-2 py-1 text-xs text-neutral-200 transition-colors focus:border-rose-500/50 focus:outline-none focus:ring-1 focus:ring-rose-500/30"
+                  >
+                    <option value="anchor">Anchor — single subject + evidence</option>
+                    <option value="network">Network — peer suspects/orgs</option>
+                  </select>
+                </label>
+                <label className="min-w-0">
+                  <span className="mb-0.5 block text-[10px] font-medium text-neutral-400">Case header</span>
+                  <input
+                    type="text"
+                    value={scene.dossier_title ?? ""}
+                    onChange={(e) => onUpdate({ dossier_title: e.target.value })}
+                    className="w-full rounded-md border border-neutral-700/50 bg-neutral-800/70 px-2 py-1 text-xs font-mono text-neutral-100 transition-colors placeholder:text-neutral-600 focus:border-rose-500/50 focus:outline-none focus:ring-1 focus:ring-rose-500/30"
+                    placeholder="Optional, e.g. CASE #1989-04"
+                  />
+                </label>
+              </div>
+              {(scene.visual_layers?.length ?? 0) > 0 && (
+                <div className="space-y-1">
+                  <span className="text-[10px] font-medium text-neutral-400">Layer labels</span>
+                  {(scene.visual_layers ?? []).map((layer, idx) => (
+                    <div key={layer.id} className="flex items-center gap-2">
+                      <span className="text-[10px] text-neutral-500 font-mono shrink-0 w-12 truncate" title={layer.id}>
+                        {layer.id.slice(-8)}
+                      </span>
+                      <input
+                        type="text"
+                        value={layer.label ?? ""}
+                        onChange={(e) => {
+                          const layers = [...(scene.visual_layers ?? [])];
+                          layers[idx] = { ...layer, label: e.target.value };
+                          onUpdate({ visual_layers: layers });
+                        }}
+                        className="flex-1 rounded-md border border-neutral-700/50 bg-neutral-800/70 px-2 py-0.5 text-[11px] text-neutral-200 transition-colors placeholder:text-neutral-600 focus:border-rose-500/50 focus:outline-none focus:ring-1 focus:ring-rose-500/30"
+                        placeholder="Label, e.g. SUSPECT"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-[10px] leading-snug text-neutral-500">
+                Renderer paints the corkboard, pins, tape, and red strings. Subtitles are suppressed on this beat.
               </p>
             </div>
           )}

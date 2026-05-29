@@ -1,6 +1,7 @@
 import {
   Captions,
   ChevronDown,
+  ClipboardList,
   Columns3,
   Film,
   Hash,
@@ -169,6 +170,14 @@ const VISUAL_MODE_OPTIONS: Array<{
     description: "Renders in-scene caption text with emphasis while suppressing normal subtitles.",
     bestFor: "Reversals, payoff words, shocking claims, and punch-card moments.",
   },
+  {
+    value: "dossier",
+    label: "Dossier",
+    icon: <ClipboardList className="h-4 w-4" />,
+    summary: "Investigation board with pinned cutouts and red strings.",
+    description: "Anchor + evidence (anchor layout) or peer suspects (network layout) with sticky labels, pins, and connecting strings; the renderer owns all chrome.",
+    bestFor: "True crime, scandals, conspiracies, missing-persons, corporate or historical investigations.",
+  },
 ];
 
 export default function TestLabControls({
@@ -193,6 +202,15 @@ export default function TestLabControls({
   const captionEmphasis = settings.caption_emphasis ?? preset?.caption_emphasis ?? "";
   const statValue = settings.stat_value ?? preset?.stat_value ?? "";
   const statLabel = settings.stat_label ?? preset?.stat_label ?? "";
+  const dossierLayout: "anchor" | "network" =
+    settings.dossier_layout === "network"
+      ? "network"
+      : settings.dossier_layout === "anchor"
+        ? "anchor"
+        : preset?.dossier_layout === "network"
+          ? "network"
+          : "anchor";
+  const dossierTitle = settings.dossier_title ?? preset?.dossier_title ?? "";
   const backgroundColor = settings.visual_canvas?.background_color ?? preset?.background_color ?? "#F6C54A";
   const displayedCharacter = getDisplayedCharacter(settings, preset, defaultMainCharacter);
   const displayedCharacterSource = getDisplayedCharacterSource(settings, defaultMainCharacter);
@@ -285,6 +303,8 @@ export default function TestLabControls({
             captionEmphasis={captionEmphasis}
             statValue={statValue}
             statLabel={statLabel}
+            dossierLayout={dossierLayout}
+            dossierTitle={dossierTitle}
             frameDirectives={settings.frame_directives ?? []}
             visualLayers={settings.visual_layers}
             onNarrationChange={updateNarration}
@@ -293,6 +313,8 @@ export default function TestLabControls({
             onCaptionEmphasisChange={(value) => update({ caption_emphasis: value })}
             onStatValueChange={(value) => update({ stat_value: value })}
             onStatLabelChange={(value) => update({ stat_label: value })}
+            onDossierLayoutChange={(value) => update({ dossier_layout: value })}
+            onDossierTitleChange={(value) => update({ dossier_title: value })}
             onFrameDirectivesChange={(frame_directives) => update({ frame_directives })}
             onVisualLayersChange={(visual_layers) => update({ visual_layers })}
           />
@@ -424,6 +446,8 @@ function SceneTextFields({
   captionEmphasis,
   statValue,
   statLabel,
+  dossierLayout,
+  dossierTitle,
   frameDirectives,
   visualLayers,
   onNarrationChange,
@@ -432,6 +456,8 @@ function SceneTextFields({
   onCaptionEmphasisChange,
   onStatValueChange,
   onStatLabelChange,
+  onDossierLayoutChange,
+  onDossierTitleChange,
   onFrameDirectivesChange,
   onVisualLayersChange,
 }: {
@@ -442,6 +468,8 @@ function SceneTextFields({
   captionEmphasis: string;
   statValue: string;
   statLabel: string;
+  dossierLayout: "anchor" | "network";
+  dossierTitle: string;
   frameDirectives: Array<Record<string, unknown>>;
   visualLayers: VisualLayer[];
   onNarrationChange: (value: string) => void;
@@ -450,6 +478,8 @@ function SceneTextFields({
   onCaptionEmphasisChange: (value: string) => void;
   onStatValueChange: (value: string) => void;
   onStatLabelChange: (value: string) => void;
+  onDossierLayoutChange: (value: "anchor" | "network") => void;
+  onDossierTitleChange: (value: string) => void;
   onFrameDirectivesChange: (value: Array<Record<string, unknown>>) => void;
   onVisualLayersChange: (value: VisualLayer[]) => void;
 }) {
@@ -512,6 +542,38 @@ function SceneTextFields({
         <div className="grid gap-3 sm:grid-cols-2">
           <InputField label="Stat value (big number)" value={statValue} onChange={onStatValueChange} />
           <InputField label="Stat label" value={statLabel} onChange={onStatLabelChange} />
+        </div>
+      )}
+      {visualMode === "dossier" && (
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-1 text-sm">
+              <span className="block text-xs font-medium text-neutral-400">Layout</span>
+              <select
+                value={dossierLayout}
+                onChange={(e) => onDossierLayoutChange(e.target.value === "network" ? "network" : "anchor")}
+                className="w-full rounded-md border border-neutral-700/60 bg-neutral-900/70 px-3 py-2 text-sm text-neutral-100 focus:border-rose-500/50 focus:outline-none focus:ring-1 focus:ring-rose-500/40"
+              >
+                <option value="anchor">Anchor — single subject + evidence</option>
+                <option value="network">Network — peer suspects/orgs</option>
+              </select>
+            </label>
+            <InputField
+              label="Case header (optional)"
+              value={dossierTitle}
+              onChange={onDossierTitleChange}
+            />
+          </div>
+          <LayerPromptFields
+            labels={
+              dossierLayout === "network"
+                ? ["Subject A", "Subject B", "Subject C"]
+                : ["Anchor", "Evidence 1", "Evidence 2", "Evidence 3"]
+            }
+            visualLayers={visualLayers}
+            fallbackPrompt={visualPrompt || narration}
+            onChange={onVisualLayersChange}
+          />
         </div>
       )}
     </div>
