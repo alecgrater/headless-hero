@@ -435,7 +435,7 @@ def _subtitle_punch_score(scene: Scene) -> float:
         score += 4.0
     if word_count <= 6 and re.search(r"[!?]$", scene.narration.strip()):
         score += 2.0
-    if scene.visual_mode in {"multi_frame", "popup_sequence", "flipflop", "video"}:
+    if scene.visual_mode in {"multi_frame", "popup_sequence", "flipflop", "comparison_board", "video"}:
         score += 1.0
     return score
 

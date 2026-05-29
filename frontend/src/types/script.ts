@@ -35,7 +35,7 @@ export interface VideoFX {
   chapter_markers: ChapterMarker[];
 }
 
-export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "captions";
+export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "comparison_board" | "captions";
 export type SubtitleStyle = "auto" | "clean" | "kinetic" | "burst" | "none";
 
 export interface VisualCanvas {
@@ -80,7 +80,7 @@ export interface Scene {
   audio_url?: string;
   audio_duration_seconds?: number;
   frame_urls?: string[];
-  visual_beat?: "static" | "continuous" | "multi_frame" | "quick_cuts" | "aha_subtitle" | "montage" | "captions";
+  visual_beat?: "static" | "continuous" | "multi_frame" | "quick_cuts" | "aha_subtitle" | "montage" | "captions" | "comparison_board";
   frame_directives?: FrameDirective[];
   contains_person?: boolean;
   visual_mode?: VisualMode;

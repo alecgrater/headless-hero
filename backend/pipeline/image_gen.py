@@ -585,6 +585,83 @@ def generate_popup_sequence_cutouts(
     return processed_layers
 
 
+def generate_comparison_board_cutouts(
+    *,
+    scene_id: str,
+    layers: list[dict],
+    script_id: str,
+    scene_prompt: str,
+    width: int = IMAGE_WIDTH,
+    height: int = IMAGE_HEIGHT,
+    force: bool = False,
+) -> list[dict]:
+    """Generate transparent subject cutouts for renderer-owned comparison boards."""
+
+    image_layers = [
+        dict(layer)
+        for layer in layers
+        if isinstance(layer, dict) and layer.get("type", "image") == "image"
+    ][:3]
+    if len(image_layers) < 2:
+        return layers
+
+    output_dir = DATA_DIR / "projects" / script_id / "comparison_boards" / scene_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    labels = [_comparison_subject_label(layer, index) for index, layer in enumerate(image_layers)]
+    item_prompt = _compose_comparison_subject_sheet_prompt(scene_prompt, labels)
+    prompt_marker = output_dir / "comparison_board.prompt"
+    prompt_fingerprint = json.dumps(
+        {
+            "item_prompt": item_prompt,
+            "labels": labels,
+            "layers": [
+                {
+                    "id": layer.get("id"),
+                    "prompt": layer.get("prompt"),
+                    "placement": layer.get("placement"),
+                    "enter_at_seconds": layer.get("enter_at_seconds"),
+                    "animation": layer.get("animation"),
+                }
+                for layer in image_layers
+            ],
+        },
+        sort_keys=True,
+    )
+    item_paths = [output_dir / f"subject_{index + 1:02d}_{_slug(label)}.png" for index, label in enumerate(labels)]
+    cache_valid = (
+        not force
+        and prompt_marker.exists()
+        and prompt_marker.read_text(encoding="utf-8") == prompt_fingerprint
+        and all(path.exists() for path in item_paths)
+    )
+
+    if not cache_valid:
+        logger.info("[COMPARISON_BOARD] generating cutouts scene=%s subjects=%d", scene_id, len(labels))
+        _generate_comparison_subject_cutouts(
+            item_prompt=item_prompt,
+            labels=labels,
+            output_dir=output_dir,
+            width=width,
+            height=height,
+            script_id=script_id,
+        )
+        prompt_marker.write_text(prompt_fingerprint, encoding="utf-8")
+    else:
+        logger.info("[COMPARISON_BOARD] cache hit scene=%s", scene_id)
+
+    web_base = f"/static/projects/{script_id}/comparison_boards/{scene_id}"
+    processed_layers = []
+    for index, layer in enumerate(image_layers):
+        next_layer = dict(layer)
+        next_layer["asset_kind"] = "cutout"
+        next_layer["image_url"] = f"{web_base}/{item_paths[index].name}"
+        next_layer["placement"] = _comparison_cutout_placement(str(next_layer.get("placement") or ""), index, len(image_layers))
+        next_layer["animation"] = next_layer.get("animation") or "pop_in"
+        processed_layers.append(next_layer)
+    return processed_layers
+
+
 def _generate_popup_anchor_cutout(
     *,
     anchor_prompt: str,
@@ -632,6 +709,34 @@ def _generate_popup_item_cutouts(
             raw_path = output_dir / f"raw_crop_{index + 2:02d}_{_slug(label)}.png"
             crop.save(raw_path)
             output_path = output_dir / f"crop_{index + 2:02d}_{_slug(label)}.png"
+            _save_keyed_trimmed_cutout(crop, output_path)
+            save_vault_image(kind="item", label=label, source_path=output_path)
+
+
+def _generate_comparison_subject_cutouts(
+    *,
+    item_prompt: str,
+    labels: list[str],
+    output_dir: Path,
+    width: int,
+    height: int,
+    script_id: str,
+) -> None:
+    generated_path = Path(generate_image(item_prompt, width=width, height=height, script_id=script_id))
+    sheet_path = output_dir / "subject_sheet.png"
+    if generated_path.resolve() != sheet_path.resolve():
+        shutil.copyfile(generated_path, sheet_path)
+
+    with Image.open(sheet_path) as image:
+        source = image.convert("RGBA")
+        cell_width = source.width // len(labels)
+        for index, label in enumerate(labels):
+            left = index * cell_width
+            right = source.width if index == len(labels) - 1 else (index + 1) * cell_width
+            crop = source.crop((left, 0, right, source.height))
+            raw_path = output_dir / f"raw_subject_{index + 1:02d}_{_slug(label)}.png"
+            crop.save(raw_path)
+            output_path = output_dir / f"subject_{index + 1:02d}_{_slug(label)}.png"
             _save_keyed_trimmed_cutout(crop, output_path)
             save_vault_image(kind="item", label=label, source_path=output_path)
 
@@ -693,6 +798,63 @@ def _compose_popup_item_sheet_prompt(scene_prompt: str, labels: list[str]) -> st
             scene_prompt.strip(),
         ]
     ).strip()
+
+
+def _compose_comparison_subject_sheet_prompt(scene_prompt: str, labels: list[str]) -> str:
+    item_lines = [f"{index}. {label}" for index, label in enumerate(labels, start=1)]
+    return "\n".join(
+        [
+            "You are generating a contact sheet for automatic programmatic cropping.",
+            "",
+            f"Generate exactly {len(labels)} comparison subject cutout(s) arranged in a single row,",
+            "evenly spaced, left to right in this exact order:",
+            *item_lines,
+            "",
+            "Layout rules:",
+            "- Each subject occupies an equal-width vertical slot",
+            "- Subjects are horizontally centered within their slot",
+            "- Subjects fill no more than 78% of their slot width, leaving clear margins",
+            "- Single row only; do not stack or wrap subjects",
+            "- Do not create a split-screen board; the renderer owns all board layout, dividers, labels, arrows, and stat chips",
+            "",
+            "Background:",
+            "- Solid flat chroma key background across the entire image",
+            "- Use bright green (#00FF00) unless a subject contains green, in which case use bright magenta (#FF00FF)",
+            "- The chroma color must not appear anywhere within any subject",
+            "",
+            "Subject rendering:",
+            "- Each subject is fully self-contained with no overlap into adjacent slots",
+            "- Crisp closed silhouettes with no soft glow, feathering, or semi-transparent color bleed into the chroma background",
+            "- No drop shadows, glows, or effects that extend outside the subject boundary",
+            "- No frames, borders, labels, captions, arrows, badges, stat chips, or text",
+            "- No background scenes, environments, or context behind subjects",
+            "",
+            "Scene context for style only:",
+            scene_prompt.strip(),
+        ]
+    ).strip()
+
+
+def _comparison_subject_label(layer: dict, index: int) -> str:
+    prompt = str(layer.get("prompt") or "").strip()
+    match = re.search(r"\bfor\s+(.+?):", prompt, flags=re.IGNORECASE)
+    if match:
+        return _clean_popup_label(match.group(1))
+    prompt = re.sub(r"Comparison board transparent cutout(?:\s+for\s+[^:]+)?:\s*", "", prompt, flags=re.IGNORECASE)
+    prompt = re.sub(r"\bNo text in image\.?", "", prompt, flags=re.IGNORECASE)
+    prompt = prompt.split(".", 1)[0]
+    return _clean_popup_label(prompt) or f"comparison subject {index + 1}"
+
+
+def _comparison_cutout_placement(placement: str, index: int, total: int) -> str:
+    normalized = placement.replace("_", "-")
+    if normalized in {"left", "center", "right"}:
+        return normalized
+    defaults = {
+        2: ["left", "right"],
+        3: ["left", "center", "right"],
+    }
+    return defaults.get(total, defaults[2])[min(index, len(defaults.get(total, defaults[2])) - 1)]
 
 
 def _popup_item_label(layer: dict, index: int) -> str:
@@ -1267,9 +1429,9 @@ def _generate_one_scene(
         if scene.get("visual_mode") == "captions":
             return result
         visual_mode = str(scene.get("visual_mode") or scene.get("visual_treatment") or "full_frame")
-        treatment = visual_mode if visual_mode in {"popup_sequence", "flipflop"} else "full_frame"
+        treatment = visual_mode if visual_mode in {"popup_sequence", "flipflop", "comparison_board"} else "full_frame"
         layers = scene.get("visual_layers", []) or []
-        if treatment not in {"popup_sequence", "flipflop"} or not layers:
+        if treatment not in {"popup_sequence", "flipflop", "comparison_board"} or not layers:
             return result
         layer_dicts = [
             layer.model_dump() if hasattr(layer, "model_dump") else dict(layer)
@@ -1287,6 +1449,15 @@ def _generate_one_scene(
                 width=width,
                 height=height,
                 contains_person=bool(scene.get("contains_person", False)),
+            )
+        elif treatment == "comparison_board":
+            result["visual_layers"] = generate_comparison_board_cutouts(
+                scene_id=scene["scene_id"],
+                layers=layer_dicts,
+                script_id=script_id,
+                scene_prompt=str(scene.get("visual_prompt") or ""),
+                width=width,
+                height=height,
             )
         else:
             result["visual_layers"] = generate_visual_layer_panels(
@@ -1345,7 +1516,7 @@ def _generate_one_scene(
         frame_directives = scene.get("frame_directives", [])
         frame_prompts = scene.get("frame_prompts", [])
         scene_contains_person = scene.get("contains_person", False)
-        treatment = visual_mode if visual_mode in {"popup_sequence", "flipflop"} else "full_frame"
+        treatment = visual_mode if visual_mode in {"popup_sequence", "flipflop", "comparison_board"} else "full_frame"
 
         if treatment != "full_frame":
             return with_visual_layers({

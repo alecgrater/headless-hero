@@ -19,7 +19,7 @@ from config import DATA_DIR, FPS
 from models.project_config import ProjectConfig
 from models.script import MainCharacter, SUBTITLE_STYLES, Scene, Script, ScriptContent, Segment, VisualCanvas, VisualLayer
 from pipeline.script_helpers import _usage_task_label
-from pipeline.visual_treatments import flipflop_panel_prompt
+from pipeline.visual_treatments import comparison_cutout_prompt, flipflop_panel_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,17 @@ FLIPFLOP_TEXT_DEFAULTS = {
         "character looks tired but focused, with simple overhead lighting, a few chairs in the background, "
         "strong clear silhouette, bold outlines, expressive face, clean 2D cartoon aesthetic, no readable "
         "text or letters."
+    ),
+}
+COMPARISON_BOARD_TEXT_DEFAULTS = {
+    "narration": (
+        "Before the promotion, every choice was about surviving the week; after it, every choice became "
+        "about protecting what he had earned."
+    ),
+    "visual_prompt": (
+        "[CONTRAST] Flat 2D cartoon comparison of the same person before and after a life-changing "
+        "promotion, one version exhausted with worn clothes and empty pockets, the other version confident "
+        "with a tidy uniform and keys in hand, clean bold silhouettes, no readable words or letters."
     ),
 }
 MULTI_FRAME_TEXT_DEFAULTS = {
@@ -88,6 +99,7 @@ VISUAL_TREATMENT_TEXT_DEFAULTS = {
     "continuous": CONTINUOUS_TEXT_DEFAULTS,
     "popup_sequence": POPUP_SEQUENCE_TEXT_DEFAULTS,
     "flipflop": FLIPFLOP_TEXT_DEFAULTS,
+    "comparison_board": COMPARISON_BOARD_TEXT_DEFAULTS,
     "captions": CAPTIONS_TEXT_DEFAULTS,
 }
 
@@ -107,7 +119,7 @@ class TestLabPreset(BaseModel):
     visual_prompt: str
     background_color: str = "#F6C54A"
     visual_mode: Literal[
-        "video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop", "captions"
+        "video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop", "comparison_board", "captions"
     ] = "full_frame"
     caption_text: str = ""
     caption_emphasis: str = ""
@@ -852,7 +864,7 @@ def _frame_directives_for_visual_mode(scene: Scene) -> list[dict]:
 
 
 def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
-    from pipeline.image_gen import generate_popup_sequence_cutouts, generate_visual_layer_panels
+    from pipeline.image_gen import generate_comparison_board_cutouts, generate_popup_sequence_cutouts, generate_visual_layer_panels
     from pipeline.visual_treatments import analyze_visual_treatments, apply_visual_treatment_assignments
 
     _check_cancelled(ctx)
@@ -867,13 +879,13 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
         requested_mode = ctx.settings.get("visual_mode") or ctx.settings.get("visual_treatment")
         if isinstance(requested_mode, str):
             scene.set_visual_mode(requested_mode)
-        layer_based_treatment = scene.visual_mode in {"popup_sequence", "flipflop"}
+        layer_based_treatment = scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board"}
         explicit_treatment = "visual_mode" in ctx.settings or "visual_treatment" in ctx.settings or scene.visual_mode != "full_frame"
         if not explicit_treatment:
             assignments = analyze_visual_treatments(content, script_id=ctx.script_id)
             apply_visual_treatment_assignments(content, assignments)
             scene = _first_scene(content)
-            layer_based_treatment = scene.visual_mode in {"popup_sequence", "flipflop"}
+            layer_based_treatment = scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board"}
         if scene.visual_mode == "full_frame":
             scene.visual_layers = []
             _save_content(session, record, content)
@@ -912,6 +924,14 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
                     scene_prompt=scene.visual_prompt,
                     force=True,
                     contains_person=scene.contains_person,
+                )
+            elif scene.visual_mode == "comparison_board":
+                generated_layers = generate_comparison_board_cutouts(
+                    scene_id=scene.id,
+                    layers=layer_dicts,
+                    script_id=ctx.script_id,
+                    scene_prompt=scene.visual_prompt,
+                    force=True,
                 )
             else:
                 generated_layers = generate_visual_layer_panels(
@@ -973,6 +993,26 @@ def _fallback_visual_layers_for_treatment(scene: Scene) -> list[VisualLayer]:
                 ),
                 placement="right",
                 enter_at_seconds=third_enter_at,
+                animation="pop_in",
+            ),
+        ]
+    if scene.visual_mode == "comparison_board":
+        duration = scene.audio_duration_seconds or scene.duration_estimate_seconds
+        return [
+            VisualLayer(
+                id=f"{scene.id}_compare_1",
+                asset_kind="cutout",
+                prompt=comparison_cutout_prompt(scene.visual_prompt, scene.narration, "left subject"),
+                placement="left",
+                enter_at_seconds=0.0,
+                animation="pop_in",
+            ),
+            VisualLayer(
+                id=f"{scene.id}_compare_2",
+                asset_kind="cutout",
+                prompt=comparison_cutout_prompt(scene.visual_prompt, scene.narration, "right subject"),
+                placement="right",
+                enter_at_seconds=max(duration / 2, 0.5),
                 animation="pop_in",
             ),
         ]

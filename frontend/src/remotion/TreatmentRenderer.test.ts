@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type React from "react";
 
 import {
+  comparisonBoardLayerStyle,
   flipflopActiveLayer,
   layerChromeStyle,
   layerFrameStyle,
@@ -145,5 +146,28 @@ describe("flipflopActiveLayer", () => {
     expect(flipflopActiveLayer(layers, 0, 30)?.id).toBe("state-a");
     expect(flipflopActiveLayer(layers, 15, 30)?.id).toBe("state-b");
     expect(flipflopActiveLayer(layers, 30, 30)?.id).toBe("state-a");
+  });
+});
+
+describe("comparisonBoardLayerStyle", () => {
+  it("places comparison cutouts into stable side-by-side columns", () => {
+    const left = comparisonBoardLayerStyle(itemLayer("before"), 0, 2, 30, 30);
+    const right = comparisonBoardLayerStyle(itemLayer("after"), 1, 2, 30, 30);
+
+    expect(left.left).toBe("25%");
+    expect(right.left).toBe("75%");
+    expect(left.width).toBe(560);
+    expect(left.height).toBe(640);
+    expect(left.transform).toContain("translate(-50%, -50%)");
+    expect(left.transform).toContain("scale(");
+  });
+
+  it("supports a three-column variant", () => {
+    const middle = comparisonBoardLayerStyle(itemLayer("reality"), 1, 3, 0, 30);
+
+    expect(middle.left).toBe("50%");
+    expect(middle.top).toBe("53%");
+    expect(middle.width).toBe(440);
+    expect(middle.height).toBe(580);
   });
 });

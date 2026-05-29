@@ -2230,9 +2230,23 @@ def test_analyze_visual_treatments_does_not_assign_flipflop_for_generic_contrast
 
     assignment = assignments[0]
     assert assignment.scene_id == "s1"
-    assert assignment.visual_mode == "full_frame"
-    assert assignment.visual_treatment == "full_frame"
-    assert assignment.visual_layers == []
+    assert assignment.visual_mode == "comparison_board"
+    assert assignment.visual_treatment == "comparison_board"
+    assert [layer.placement for layer in assignment.visual_layers] == ["left", "right"]
+    assert all(layer.asset_kind == "cutout" for layer in assignment.visual_layers)
+    assert all("No text in image" in layer.prompt for layer in assignment.visual_layers)
+
+
+def test_analyze_visual_treatments_assigns_three_column_comparison_board():
+    scene = scene_with_words("s1", "The myth says talent, the reality is practice, and the outcome is patience.")
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-three-way")
+
+    assignment = assignments[0]
+    assert assignment.visual_mode == "comparison_board"
+    assert assignment.visual_treatment == "comparison_board"
+    assert [layer.placement for layer in assignment.visual_layers] == ["left", "center", "right"]
 
 
 def test_analyze_visual_treatments_assigns_flipflop_for_same_subject_micro_action():
@@ -2295,6 +2309,19 @@ def test_analyze_visual_treatments_preserves_explicit_flipflop_with_progression_
     assert assignment.visual_mode == "flipflop"
     assert assignment.visual_treatment == "flipflop"
     assert len(assignment.visual_layers) == 2
+
+
+def test_analyze_visual_treatments_fills_explicit_comparison_board_without_layers():
+    scene = scene_with_words("s1", "Rich families kept warm while poor families counted every coin.")
+    scene.set_visual_mode("comparison_board")
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-explicit-comparison")
+
+    assignment = assignments[0]
+    assert assignment.visual_mode == "comparison_board"
+    assert assignment.visual_treatment == "comparison_board"
+    assert [layer.placement for layer in assignment.visual_layers] == ["left", "right"]
 
 
 def test_analyze_visual_treatments_keeps_list_mode_with_progression_words():
@@ -2432,3 +2459,27 @@ def test_apply_visual_treatment_assignment_accepts_continuous_mode():
     assert scene.media_source == "ai"
     assert scene.visual_treatment == "full_frame"
     assert scene.visual_layers == []
+
+
+def test_apply_visual_treatment_assignment_accepts_comparison_board_mode():
+    scene = scene_with_words("s1", "Human strength versus Neanderthal strength.")
+    content = content_with_scenes(scene)
+    layers = [
+        VisualLayer(id="s1_compare_1", asset_kind="cutout", prompt="Human"),
+        VisualLayer(id="s1_compare_2", asset_kind="cutout", prompt="Neanderthal"),
+    ]
+
+    apply_visual_treatment_assignments(
+        content,
+        [
+            VisualTreatmentAssignment(
+                scene_id="s1",
+                visual_mode="comparison_board",
+                visual_layers=layers,
+            )
+        ],
+    )
+
+    assert scene.visual_mode == "comparison_board"
+    assert scene.visual_treatment == "comparison_board"
+    assert scene.visual_layers == layers

@@ -381,6 +381,7 @@ function MediaBreakdownPanel({
     { key: "video", label: "Video", color: "text-fuchsia-300", count: modeCounts.video ?? 0 },
     { key: "popup_sequence", label: "Popup sequence", color: "text-sky-300", count: modeCounts.popup_sequence ?? 0 },
     { key: "flipflop", label: "Flip-flop", color: "text-emerald-300", count: modeCounts.flipflop ?? 0 },
+    { key: "comparison_board", label: "Comparison board", color: "text-amber-300", count: modeCounts.comparison_board ?? 0 },
     { key: "captions", label: "Captions", color: "text-red-300", count: modeCounts.captions ?? 0 },
   ];
 

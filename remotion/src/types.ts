@@ -56,7 +56,7 @@ export interface VideoFX {
   chapter_markers: ChapterMarker[];
 }
 
-export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "captions";
+export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "comparison_board" | "captions";
 
 export interface VisualCanvas {
   background_color: string;
@@ -123,7 +123,7 @@ export interface SceneInput {
   character_frames_base_url?: string | null;
 
   // Visual Beat System
-  visual_beat?: "static" | "continuous" | "multi_frame" | "quick_cuts" | "aha_subtitle" | "montage" | "captions";
+  visual_beat?: "static" | "continuous" | "multi_frame" | "quick_cuts" | "aha_subtitle" | "montage" | "captions" | "comparison_board";
   frame_directives?: FrameDirective[] | null;
   visual_mode?: VisualMode;
   visual_layers?: VisualLayer[] | null;

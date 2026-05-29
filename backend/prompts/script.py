@@ -177,12 +177,13 @@ VISUAL MODE VOCABULARY:
 - "multi_frame" — When narration covers multiple examples, lists, comparisons, rapid context switches, or visual variety that adds impact. 3-8 frames with reference_previous: false and mostly transition: "cut". Each frame is a completely DIFFERENT shot — different subject, angle, composition, example, or context. Use deliberately for visual energy. Narration should be 1 short punchy sentence — aim for under 8 seconds of speech.
 - "popup_sequence" — When narration names a small set of concrete items, examples, ingredients, symptoms, tools, steps, or visible objects that should pop around the main subject. Use a single anchor visual plus popup item intent; the post-voiceover pass will create timed cutout layers. Do not use for abstract contrasts or long lists.
 - "flipflop" — When one subject/action can read as simple micro-animation by alternating two compatible A/B states: hands moving while typing, stirring, sorting, opening, closing, pointing, counting, or handling an object; a character leaning in/out, looking up/down, pacing, nodding, or gesturing while talking. Do not use flipflop merely because a sentence contrasts two ideas, time periods, or emotional states.
+- "comparison_board" — When narration contrasts two or three subjects, concepts, states, levels, choices, or outcomes that should be displayed in a side-by-side renderer-controlled comparison. Best for Before vs After, Then vs Now, Myth vs Reality, Level 1 vs Level 5, Rich vs Poor, Human vs Neanderthal, Prisoner vs Guard, Success vs Failure, or Good Choice vs Bad Choice. Use transparent cutout subject intent; the renderer owns columns, divider, VS marker, arrows, stat chips, badges, and labels. Do not use when narration focuses on one environment, one event, or a same-subject micro-action.
 - "captions" — When a sentence delivers a punchy editorial label, reversal, emotional realization, or key claim that should become large in-scene text. Use a static canvas with optional side visual plus renderer-owned caption typography. Emit "caption_text" (2-15 words ideally) and "caption_emphasis" (the one strongest word or phrase to render red). Do not describe typography, animation, color, or layout in detail; the renderer handles those. Do not put readable caption text into visual_prompt.
 
 DISTRIBUTION RULES (follow strictly):
 1. full_frame should be the MAJORITY of non-title-card scenes (50-65%). Visual variety comes from scene-to-scene differences, not multi-frame within a scene.
-2. After every 2 consecutive full_frame scenes, the NEXT scene MUST use a different mode (multi_frame, continuous, popup_sequence, flipflop, or captions). This creates a natural rhythm: full-full-variety-full-full-variety.
-3. Variety modes (multi_frame, continuous, popup_sequence, flipflop, captions) must NEVER appear 2+ times consecutively — always separate them with at least one full_frame scene.
+2. After every 2 consecutive full_frame scenes, the NEXT scene MUST use a different mode (multi_frame, continuous, popup_sequence, flipflop, comparison_board, or captions). This creates a natural rhythm: full-full-variety-full-full-variety.
+3. Variety modes (multi_frame, continuous, popup_sequence, flipflop, comparison_board, captions) must NEVER appear 2+ times consecutively — always separate them with at least one full_frame scene.
 4. Text-only captions scenes must be sandwiched between image-bearing modes.
 5. continuous is reserved for genuine motion progression — NOT the default for multi-frame.
 6. Vary transitions within multi_frame scenes — mostly "cut" but occasional "crossfade".
@@ -422,7 +423,7 @@ Critically different from listicle scenes:
 |---|---|---|
 | Narration per scene | 1–2 sentences | 1–2 sentences, single visual beat |
 | Duration per scene | ~5–10s | ~5–9s |
-| Visual modes | varied (`full_frame`, `multi_frame`, `continuous`, `captions`, `popup_sequence`, `flipflop`) | balanced `full_frame`, `continuous`, and `multi_frame` |
+| Visual modes | varied (`full_frame`, `multi_frame`, `continuous`, `captions`, `popup_sequence`, `flipflop`, `comparison_board`) | balanced `full_frame`, `continuous`, and `multi_frame` |
 | Transitions | varied with intentional energy | mostly `cut`, occasional `crossfade` for time-passage |
 
 Each non-title scene should be **1–2 sentences** of narration and represent exactly one visual/narrative beat. Aim for **5–9 seconds** of speech per scene. Preserve the literary register through sentence texture and scene-to-scene flow, not by packing several moments into one long paragraph.

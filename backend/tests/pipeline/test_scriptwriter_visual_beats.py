@@ -129,6 +129,14 @@ def test_script_prompt_defines_flipflop_as_micro_animation_not_contrast():
     assert "Do not use flipflop merely because a sentence contrasts" in prompt_text
 
 
+def test_script_prompt_includes_comparison_board_mode():
+    prompt_text = script_prompt.SCRIPT_SYSTEM.template
+
+    assert '"comparison_board"' in prompt_text
+    assert "side-by-side renderer-controlled comparison" in prompt_text
+    assert "Before vs After" in prompt_text
+
+
 def test_multi_frame_mode_without_directives_is_repaired():
     scene = _static_scene("scene_001")
     scene.visual_mode = "multi_frame"

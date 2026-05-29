@@ -12,7 +12,7 @@ from pipeline.render_jobs import UserFacingJobError
 
 logger = logging.getLogger(__name__)
 
-LAYERED_LEGACY_TREATMENTS = {"full_frame", "popup_sequence", "flipflop"}
+LAYERED_LEGACY_TREATMENTS = {"full_frame", "popup_sequence", "flipflop", "comparison_board"}
 LIST_MARKERS = {
     "first",
     "second",
@@ -99,6 +99,16 @@ NATURAL_LIST_CONTRAST_CONNECTORS = {
     "vs",
     "whereas",
 }
+COMPARISON_PAIR_PHRASES = (
+    ("before", "after"),
+    ("then", "now"),
+    ("myth", "reality"),
+    ("rich", "poor"),
+    ("success", "failure"),
+    ("human", "neanderthal"),
+    ("prisoner", "guard"),
+    ("guard", "prisoner"),
+)
 PROGRESSION_MARKERS = {
     "builds",
     "crawl",
@@ -152,7 +162,7 @@ class VisualTreatmentAssignment(BaseModel):
 
     @property
     def visual_treatment(self) -> str:
-        return self.visual_mode if self.visual_mode in {"popup_sequence", "flipflop"} else "full_frame"
+        return self.visual_mode if self.visual_mode in {"popup_sequence", "flipflop", "comparison_board"} else "full_frame"
 
 
 def missing_visual_treatment_voiceover_scene_ids(content: ScriptContent) -> tuple[list[str], list[str]]:
@@ -238,7 +248,7 @@ def apply_visual_treatment_assignments(
         scene.set_visual_mode(mode)
         scene.visual_layers = (
             list(assignment.visual_layers)
-            if mode in {"popup_sequence", "flipflop"}
+            if mode in {"popup_sequence", "flipflop", "comparison_board"}
             else []
         )
 
@@ -276,6 +286,13 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             reasoning="Scene is explicitly marked for flip-flop rendering.",
             visual_layers=list(scene.visual_layers) or _flipflop_layers(scene, _state_b_enter_at(scene, [])),
         )
+    if scene.visual_mode == "comparison_board":
+        return VisualTreatmentAssignment(
+            scene_id=scene.id,
+            visual_mode="comparison_board",
+            reasoning="Scene is explicitly marked for comparison-board rendering.",
+            visual_layers=list(scene.visual_layers) or _comparison_layers_for_scene(scene),
+        )
     if scene.visual_mode == "multi_frame" or scene.visual_beat in {"quick_cuts", "montage", "multi_frame"}:
         return VisualTreatmentAssignment(
             scene_id=scene.id,
@@ -306,6 +323,15 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             visual_mode="flipflop",
             reasoning="Detected same-subject physical micro-action suitable for flip-flop animation.",
             visual_layers=_flipflop_layers(scene, _state_b_enter_at(scene, [])),
+        )
+
+    comparison_layers = _comparison_layers_for_scene(scene)
+    if comparison_layers:
+        return VisualTreatmentAssignment(
+            scene_id=scene.id,
+            visual_mode="comparison_board",
+            reasoning=f"Detected {len(comparison_layers)} contrasted subjects in narration.",
+            visual_layers=comparison_layers,
         )
 
     layers = _popup_layers_for_scene(scene, natural_only=True)
@@ -447,6 +473,41 @@ def _flipflop_layers(scene: Scene, state_b_enter_at: float) -> list[VisualLayer]
     ]
 
 
+def _comparison_layers_for_scene(scene: Scene) -> list[VisualLayer]:
+    subjects = _comparison_subjects(scene)
+    if len(subjects) < 2:
+        return []
+    subjects = subjects[:3]
+    placements_by_count = {
+        2: ["left", "right"],
+        3: ["left", "center", "right"],
+    }
+    placements = placements_by_count[len(subjects)]
+    fallback_step = max(scene.audio_duration_seconds / max(len(subjects), 1), 0.5)
+    return [
+        VisualLayer(
+            id=f"{scene.id}_compare_{index + 1}",
+            asset_kind="cutout",
+            prompt=comparison_cutout_prompt(scene.visual_prompt, scene.narration, subject),
+            placement=placements[index],
+            enter_at_seconds=round(_phrase_start_seconds(scene, subject, index, len(subjects)) or index * fallback_step, 2),
+            animation="pop_in",
+        )
+        for index, subject in enumerate(subjects)
+    ]
+
+
+def comparison_cutout_prompt(visual_prompt: str, narration: str, subject: str) -> str:
+    base_prompt = visual_prompt.strip() or narration.strip()
+    return (
+        f"Comparison board transparent cutout for {subject}: {base_prompt}. "
+        "Generate only this subject as an isolated transparent cutout candidate with a clear silhouette. "
+        "No full background scene, no split-screen baked into the image, no decorative border, no picture frame, "
+        "no mat, no white margin, no inset panel, no UI chrome, no caption box, no poster edge. "
+        "No text in image."
+    )
+
+
 def flipflop_panel_prompt(visual_prompt: str, narration: str, focus: str) -> str:
     base_prompt = visual_prompt.strip() or narration.strip()
     return (
@@ -502,6 +563,44 @@ def _natural_list_items(scene: Scene) -> list[tuple[str, float]]:
         return []
 
     return [(item, _phrase_start_seconds(scene, item, index, len(items))) for index, item in enumerate(items[:4])]
+
+
+def _comparison_subjects(scene: Scene) -> list[str]:
+    text = scene.narration.strip()
+    lower = text.lower()
+    words = {_normalize_word(word) for word in text.split()}
+    if "good choice" in lower and "bad choice" in lower:
+        return ["good choice", "bad choice"]
+
+    label_matches = re.findall(
+        r"\b(myth|reality|outcome|before|after|then|now|success|failure)\b\s+(?:says|is|means|looks like)?\s*([^,.;]+)",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if len(label_matches) >= 2:
+        return [_trim_comparison_subject(label or phrase) for label, phrase in label_matches[:3]]
+
+    for left, right in COMPARISON_PAIR_PHRASES:
+        if left in words and right in words:
+            return [left, right]
+
+    connector_match = re.search(r"\b(versus|vs\.?|whereas|while|but)\b", text, flags=re.IGNORECASE)
+    if not connector_match:
+        return []
+    left = _trim_comparison_subject(text[:connector_match.start()])
+    right = _trim_comparison_subject(text[connector_match.end():])
+    if left and right:
+        return [left, right]
+    return []
+
+
+def _trim_comparison_subject(value: str) -> str:
+    cleaned = re.sub(r"^[^a-zA-Z0-9]*(?:at first|first|the|a|an)\s+", "", value.strip(), flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s+", " ", cleaned.strip(" .,:;-"))
+    words = cleaned.split()
+    if len(words) > 5:
+        cleaned = " ".join(words[-5:])
+    return cleaned.lower()
 
 
 def _list_candidate_text(text: str) -> str:

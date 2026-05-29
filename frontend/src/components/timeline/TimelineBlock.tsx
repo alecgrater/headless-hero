@@ -61,6 +61,7 @@ function VisualModeBadge({ mode }: { mode?: string }) {
     video: "bg-fuchsia-500/60",
     popup_sequence: "bg-sky-500/60",
     flipflop: "bg-emerald-500/60",
+    comparison_board: "bg-amber-500/70",
     captions: "bg-red-500/70",
   };
   const c = color[mode || "full_frame"];

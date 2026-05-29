@@ -117,4 +117,38 @@ describe("settingsWithVisualTreatmentDefaults", () => {
 
     expect(next.subtitle_style).toBe("burst");
   });
+
+  it("treats comparison board as a layered visual mode without replacing scene text", () => {
+    const settings: TestLabSettings = {
+      stages: {
+        character: false,
+        audio: true,
+        visual: true,
+        treatment_assets: true,
+        fx: true,
+        eli: false,
+        render: true,
+      },
+      eli_enabled: false,
+      style_preset_enabled: true,
+      visual_mode: "comparison_board",
+      visual_layers: [],
+      narration: "Custom human versus Neanderthal line.",
+      visual_prompt: "Custom split comparison prompt.",
+      segment_timer_enabled: true,
+      subtitle_highlight_enabled: true,
+      subtitle_style: "auto",
+    };
+
+    const next = settingsWithVisualTreatmentDefaults(
+      settings,
+      null,
+      "comparison_board",
+      {},
+    );
+
+    expect(next.narration).toBe("Custom human versus Neanderthal line.");
+    expect(next.visual_prompt).toBe("Custom split comparison prompt.");
+    expect(next.stages.treatment_assets).toBe(true);
+  });
 });

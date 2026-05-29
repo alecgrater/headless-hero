@@ -106,6 +106,20 @@ def test_scene_accepts_explicit_continuous_visual_mode():
     assert scene.frame_urls == ["/static/projects/script/images/scene_001_0.png"]
 
 
+def test_scene_accepts_explicit_comparison_board_visual_mode_and_clears_frames():
+    scene = Scene(
+        id="scene_001",
+        narration="The prisoner has nothing, while the guard has every key.",
+        visual_prompt="Prisoner versus guard comparison.",
+        visual_mode="comparison_board",
+        frame_urls=["/static/projects/script/images/scene_001_0.png"],
+    )
+
+    assert scene.visual_mode == "comparison_board"
+    assert scene.visual_beat == "comparison_board"
+    assert scene.frame_urls == []
+
+
 def test_scene_derives_multi_frame_from_legacy_quick_cuts_beat():
     scene = Scene(
         id="scene_001",

@@ -36,18 +36,22 @@ const MODE_LABELS: Record<VisualMode, { label: string; blurb: string }> = {
     label: "Flipflop",
     blurb: "Two adjacent A/B scenes alternate rapidly for a simple animated feel.",
   },
+  comparison_board: {
+    label: "Comparison board",
+    blurb: "Transparent cutouts sit in renderer-owned comparison columns with labels and dividers.",
+  },
   captions: {
     label: "Captions",
     blurb: "Large editorial text lands on narration beats with red emphasis.",
   },
 };
 
-const MODE_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop"];
+const MODE_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop", "comparison_board"];
 const modeForAssignment = (assignment: VisualTreatmentAssignment): VisualMode =>
   assignment.visual_mode ?? "full_frame";
 const isManualMode = (mode: VisualMode) => MODE_OPTIONS.includes(mode);
-const isLayeredMode = (mode: VisualMode): mode is Extract<VisualMode, "popup_sequence" | "flipflop"> =>
-  mode === "popup_sequence" || mode === "flipflop";
+const isLayeredMode = (mode: VisualMode): mode is Extract<VisualMode, "popup_sequence" | "flipflop" | "comparison_board"> =>
+  mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board";
 
 export default function VisualTreatmentReviewPanel({
   assignments,
@@ -64,7 +68,7 @@ export default function VisualTreatmentReviewPanel({
         acc[modeForAssignment(assignment)] += 1;
         return acc;
       },
-      { video: 0, full_frame: 0, multi_frame: 0, continuous: 0, popup_sequence: 0, flipflop: 0, captions: 0 },
+      { video: 0, full_frame: 0, multi_frame: 0, continuous: 0, popup_sequence: 0, flipflop: 0, comparison_board: 0, captions: 0 },
     );
   }, [draft]);
   const hasInvalidLayerlessTreatment = draft.some(
@@ -106,7 +110,7 @@ export default function VisualTreatmentReviewPanel({
             <p className="text-xs text-neutral-500">
               {summary.video} video, {summary.full_frame} full frame, {summary.multi_frame} multi-frame,{" "}
               {summary.continuous} continuous, {summary.popup_sequence} popup sequence, {summary.flipflop} flipflop,{" "}
-              {summary.captions} captions
+              {summary.comparison_board} comparison board, {summary.captions} captions
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -132,7 +136,7 @@ export default function VisualTreatmentReviewPanel({
         </div>
         {hasInvalidLayerlessTreatment && (
           <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-            Re-analyze before applying popup sequence or flip-flop modes to scenes with no generated layers.
+            Re-analyze before applying popup sequence, flip-flop, or comparison board modes to scenes with no generated layers.
           </p>
         )}
 
@@ -166,7 +170,7 @@ export default function VisualTreatmentReviewPanel({
                       : mode === "captions"
                         ? "Captions mode is assigned by script generation."
                         : !hasLayers
-                          ? "Re-analyze to generate layers before choosing popup sequence or flipflop."
+                          ? "Re-analyze to generate layers before choosing popup sequence, flipflop, or comparison board."
                           : undefined
                   }
                   className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 transition-colors hover:border-neutral-600 disabled:cursor-not-allowed disabled:text-neutral-500 disabled:hover:border-neutral-700"

@@ -241,6 +241,172 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
   );
 };
 
+export const comparisonBoardLayerStyle = (
+  layer: VisualLayer,
+  layerIndex: number,
+  layerCount: number,
+  frame: number,
+  fps: number,
+): React.CSSProperties => {
+  const positionsByCount = layerCount >= 3 ? ["20%", "50%", "80%"] : ["25%", "75%"];
+  const normalizedPlacement = (layer.placement ?? "").replace(/_/g, "-");
+  const placementIndex = normalizedPlacement === "left"
+    ? 0
+    : normalizedPlacement === "center"
+      ? 1
+      : normalizedPlacement === "right"
+        ? Math.min(layerCount - 1, positionsByCount.length - 1)
+        : layerIndex;
+  const enterFrame = Math.round((layer.enter_at_seconds ?? 0) * fps);
+  const float = Math.sin((frame + layerIndex * 12) / 28) * 10;
+  const slide = interpolate(frame, [enterFrame, enterFrame + 14], [layerIndex === 0 ? -180 : 180, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const width = layerCount >= 3 ? 440 : 560;
+  const height = layerCount >= 3 ? 580 : 640;
+
+  return {
+    position: "absolute",
+    width,
+    height,
+    left: positionsByCount[Math.min(placementIndex, positionsByCount.length - 1)],
+    top: "53%",
+    transform: `translate(-50%, -50%) translateX(${slide}px) translateY(${float}px) scale(1)`,
+    transformOrigin: "center",
+    zIndex: 20 + layerIndex,
+  };
+};
+
+const comparisonLabel = (layer: VisualLayer, index: number): string => {
+  const prompt = layer.prompt ?? "";
+  const match = prompt.match(/\bfor\s+(.+?):/i);
+  if (match?.[1]) {
+    return match[1].trim();
+  }
+  return index === 0 ? "Before" : index === 1 ? "After" : `Option ${index + 1}`;
+};
+
+const ComparisonBoard: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const layers = validImageLayers(scene).slice(0, 3);
+
+  logTreatmentOnce(scene, "comparison_board", layers.length);
+
+  if (layers.length < 2) {
+    return <>{fallbackVisualLayer}</>;
+  }
+
+  const dividerOpacity = interpolate(frame, [0, 12], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <div style={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+      <div
+        style={{
+          position: "absolute",
+          inset: "76px 84px 92px",
+          border: "6px solid rgba(0, 0, 0, 0.82)",
+          borderRadius: 24,
+          opacity: dividerOpacity,
+        }}
+      />
+      {layers.length === 2 ? (
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: 92,
+            bottom: 108,
+            width: 8,
+            background: "rgba(0, 0, 0, 0.82)",
+            transform: "translateX(-50%)",
+            opacity: dividerOpacity,
+          }}
+        />
+      ) : (
+        <>
+          <div style={{ position: "absolute", left: "35%", top: 92, bottom: 108, width: 7, background: "rgba(0, 0, 0, 0.82)", opacity: dividerOpacity }} />
+          <div style={{ position: "absolute", left: "65%", top: 92, bottom: 108, width: 7, background: "rgba(0, 0, 0, 0.82)", opacity: dividerOpacity }} />
+        </>
+      )}
+      {layers.length === 2 && (
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: 90,
+            transform: "translateX(-50%)",
+            width: 132,
+            height: 132,
+            borderRadius: 999,
+            background: "#111111",
+            color: "#F6C54A",
+            border: "6px solid #FFFFFF",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "Impact, Arial Black, sans-serif",
+            fontSize: 54,
+            letterSpacing: 0,
+            opacity: dividerOpacity,
+          }}
+        >
+          VS
+        </div>
+      )}
+      {layers.map((layer, layerIndex) => {
+        const enterFrame = Math.round((layer.enter_at_seconds ?? 0) * fps);
+        const opacity = interpolate(frame, [enterFrame, enterFrame + 10], [0, 1], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        });
+        return (
+          <React.Fragment key={layer.id}>
+            <div
+              style={{
+                position: "absolute",
+                left: comparisonBoardLayerStyle(layer, layerIndex, layers.length, frame, fps).left,
+                top: 114,
+                transform: "translateX(-50%)",
+                padding: "12px 30px",
+                borderRadius: 999,
+                background: "#111111",
+                color: "#FFFFFF",
+                border: "4px solid #FFFFFF",
+                fontFamily: "Arial Black, Arial, sans-serif",
+                fontSize: 34,
+                textTransform: "uppercase",
+                letterSpacing: 0,
+                opacity,
+                zIndex: 50,
+              }}
+            >
+              {comparisonLabel(layer, layerIndex)}
+            </div>
+            <div
+              style={{
+                ...comparisonBoardLayerStyle(layer, layerIndex, layers.length, frame, fps),
+                opacity,
+              }}
+            >
+              <div style={layerChromeStyle(layer, 1)}>
+                <Img
+                  src={layer.image_path ?? ""}
+                  style={layerImageStyle(layer)}
+                />
+              </div>
+            </div>
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+};
+
 export const flipflopActiveLayer = (layers: VisualLayer[], frame: number, fps: number): VisualLayer | undefined => {
   if (layers.length === 0) {
     return undefined;
@@ -256,6 +422,8 @@ export const TreatmentRenderer: React.FC<Props> = ({ scene, fallbackVisualLayer 
       return <PopupSequence scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
     case "flipflop":
       return <Flipflop scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
+    case "comparison_board":
+      return <ComparisonBoard scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
     case "full_frame":
     default:
       logTreatmentOnce(scene, scene.visual_mode ?? "full_frame", scene.visual_layers?.length ?? 0);

@@ -1,4 +1,4 @@
-import { Captions, Film, HelpCircle, Image, Images, Palette, PanelsTopLeft, Repeat2, Route, UserRound } from "lucide-react";
+import { Captions, Columns3, Film, HelpCircle, Image, Images, Palette, PanelsTopLeft, Repeat2, Route, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { assetUrl } from "../../api";
@@ -148,6 +148,14 @@ const VISUAL_MODE_OPTIONS: Array<{
     bestFor: "Use for quick A-B motion, repeated actions, two-pose character beats, or fast comedic contrast.",
   },
   {
+    value: "comparison_board",
+    label: "Comparison board",
+    icon: <Columns3 className="h-4 w-4" />,
+    summary: "Cutout subjects land in renderer-owned columns.",
+    description: "Generates transparent subject cutouts while Remotion owns labels, dividers, VS markers, arrows, and layout.",
+    bestFor: "Use for before/after, myth/reality, rich/poor, human/Neanderthal, or good-choice/bad-choice contrasts.",
+  },
+  {
     value: "captions",
     label: "Captions",
     icon: <Captions className="h-4 w-4" />,
@@ -186,7 +194,7 @@ export default function TestLabControls({
   const displayedCharacter = getDisplayedCharacter(settings, preset, defaultMainCharacter);
   const displayedCharacterSource = getDisplayedCharacterSource(settings, defaultMainCharacter);
   const fallbackCharacterName = getFallbackCharacterName(settings, preset, defaultMainCharacter);
-  const isLayeredTreatment = visualMode === "popup_sequence" || visualMode === "flipflop";
+  const isLayeredTreatment = visualMode === "popup_sequence" || visualMode === "flipflop" || visualMode === "comparison_board";
   const [voiceSettingsText, setVoiceSettingsText] = useState("");
   const [voiceSettingsError, setVoiceSettingsError] = useState("");
 
@@ -225,7 +233,7 @@ export default function TestLabControls({
   }
 
   function updateVisualMode(nextMode: VisualMode) {
-    const isNextLayeredTreatment = nextMode === "popup_sequence" || nextMode === "flipflop";
+    const isNextLayeredTreatment = nextMode === "popup_sequence" || nextMode === "flipflop" || nextMode === "comparison_board";
     const shouldPreserveVisualLayers = isNextLayeredTreatment && nextMode === visualMode;
     onChange(settingsWithVisualTreatmentDefaults(
       {

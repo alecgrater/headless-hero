@@ -57,6 +57,14 @@ Use for same-subject A/B micro-animation where compatible full-bleed panels alte
 
 Do not use it for generic contrast between different ideas, time periods, or unrelated emotional states. Do not create a new A/B animation mode unless it needs more than compatible alternating states.
 
+### `comparison_board`
+
+Use for renderer-controlled side-by-side comparisons of two or three subjects, concepts, states, levels, choices, or outcomes.
+
+This mode stages transparent cutouts over the static canvas. The renderer owns the split-screen board, dividers, labels, VS marker, arrows, badges, and stat chips. Do not bake readable text, labels, split panels, borders, or full backgrounds into generated images.
+
+Do not use it for a single environment or event, same-subject micro-animation, ordinary item lists, or process progression. Use `flipflop` for compatible A/B motion of one subject, `popup_sequence` for item callouts around an anchor, `continuous` for progression, and `multi_frame` for independent example cuts.
+
 ### `captions`
 
 Use for renderer-owned editorial text beats with large in-scene `caption_text` and optional `caption_emphasis`.

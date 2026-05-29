@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Captions, Film, Image, Images, PanelsTopLeft, Repeat2, Route } from "lucide-react";
+import { Captions, Columns3, Film, Image, Images, PanelsTopLeft, Repeat2, Route } from "lucide-react";
 import { assetUrl, regenerateFX } from "../../api";
 import type { Scene, SceneFX, VisualMode } from "../../types/script";
 import AudioPlayer from "./AudioPlayer";
@@ -82,13 +82,14 @@ export default function PropertiesPanel({
     { value: "continuous", label: "Continuous", icon: <Route className="h-3 w-3" /> },
     { value: "popup_sequence", label: "Popup", icon: <PanelsTopLeft className="h-3 w-3" /> },
     { value: "flipflop", label: "Flip-flop", icon: <Repeat2 className="h-3 w-3" /> },
+    { value: "comparison_board", label: "Compare", icon: <Columns3 className="h-3 w-3" /> },
     { value: "captions", label: "Captions", icon: <Captions className="h-3 w-3" /> },
   ];
   const visualMode: VisualMode =
     scene.visual_mode ?? "full_frame";
 
   const setVisualMode = (mode: VisualMode) => {
-    const isLayered = mode === "popup_sequence" || mode === "flipflop";
+    const isLayered = mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board";
     const shouldPreserveVisualLayers = isLayered && mode === visualMode;
     onUpdate({
       visual_mode: mode,

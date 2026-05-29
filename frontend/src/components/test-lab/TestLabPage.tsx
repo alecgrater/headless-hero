@@ -13,8 +13,8 @@ function visualModeFromPreset(preset: TestLabPreset | null): TestLabSettings["vi
 
 function isLayeredVisualMode(
   visualMode: TestLabSettings["visual_mode"],
-): visualMode is Extract<TestLabSettings["visual_mode"], "popup_sequence" | "flipflop"> {
-  return visualMode === "popup_sequence" || visualMode === "flipflop";
+): visualMode is Extract<TestLabSettings["visual_mode"], "popup_sequence" | "flipflop" | "comparison_board"> {
+  return visualMode === "popup_sequence" || visualMode === "flipflop" || visualMode === "comparison_board";
 }
 
 function settingsWithPresetVisualMode(settings: TestLabSettings, preset: TestLabPreset | null): TestLabSettings {
