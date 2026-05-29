@@ -88,7 +88,7 @@ def test_single_voiceover_ignores_cached_dramatized_text_and_uses_saved_settings
         app.dependency_overrides.pop(dependency, None)
 
     assert response.status_code == 200
-    assert captured["narration"] == "[curious] The first lock failed."
+    assert captured["narration"] == "[serious] The first lock failed."
     assert captured["model_id"] == "eleven_v3"
     assert captured["voice_settings"] == {
         "stability": 0.35,
@@ -163,5 +163,5 @@ def test_batch_voiceover_keeps_title_card_framing_but_ignores_other_tts_narratio
     assert response.status_code == 200
     assert captured["scenes"] == [
         {"scene_id": "title-1", "narration": "Level 1 — The Setup."},
-        {"scene_id": "scene-1", "narration": "[curious] The first lock failed."},
+        {"scene_id": "scene-1", "narration": "[serious] The first lock failed."},
     ]

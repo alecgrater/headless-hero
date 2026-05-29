@@ -28,7 +28,7 @@ _LEVEL_WORDS = {
     "nine": 9,
     "ten": 10,
 }
-_V3_AUDIO_TAG = "[curious]"
+_V3_SAFE_AUDIO_TAGS = {"[serious]", "[thoughtful]", "[curious]", "[confident]", "[reflective]"}
 _AUDIO_TAG_WORD_RE = re.compile(r"^\[[^\]]+\][,.;:!?]*$")
 
 
@@ -64,12 +64,45 @@ def resolve_tts_model_and_settings(
     return resolved_model, resolved_settings
 
 
+def select_v3_audio_tag(narration: str) -> str:
+    """Choose a conservative Eleven v3 delivery tag from narration cues."""
+    text = narration.lower()
+    serious_terms = (
+        "dark",
+        "burned",
+        "collapsed",
+        "collapse",
+        "failed",
+        "death",
+        "war",
+        "danger",
+        "worse",
+        "crisis",
+    )
+    curious_terms = ("why", "how", "what if", "strangest", "mystery", "question", "?")
+    confident_terms = ("that is", "this is", "here's", "the truth", "the answer", "the point")
+    reflective_terms = ("generation by generation", "slowly", "quiet", "normal", "remember", "sometimes")
+
+    if any(term in text for term in serious_terms):
+        return "[serious]"
+    if any(term in text for term in curious_terms):
+        return "[curious]"
+    if any(term in text for term in confident_terms):
+        return "[confident]"
+    if any(term in text for term in reflective_terms):
+        return "[reflective]"
+    return "[thoughtful]"
+
+
 def add_v3_audio_tags(narration: str) -> str:
     """Add a light hidden Eleven v3 direction tag without changing subtitles."""
     text = narration.strip()
     if not text or text.startswith("["):
         return narration
-    return f"{_V3_AUDIO_TAG} {text}"
+    tag = select_v3_audio_tag(text)
+    if tag not in _V3_SAFE_AUDIO_TAGS:
+        tag = "[thoughtful]"
+    return f"{tag} {text}"
 
 
 def prepare_tts_text(

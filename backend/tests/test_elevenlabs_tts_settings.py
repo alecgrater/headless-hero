@@ -4,6 +4,7 @@ from api.settings import ALLOWED_KEYS, _DEFAULTS, _PLAINTEXT_KEYS
 from pipeline.voiceover import (
     prepare_tts_text,
     resolve_tts_model_and_settings,
+    select_v3_audio_tag,
     strip_tts_audio_tag_words,
 )
 
@@ -60,8 +61,26 @@ def test_prepare_tts_text_adds_v3_tags_without_touching_v2_text():
 
     tagged = prepare_tts_text(narration, model_id="eleven_v3")
 
-    assert tagged.startswith("[curious] ")
+    assert tagged.startswith("[serious] ")
     assert narration in tagged
+
+
+def test_select_v3_audio_tag_uses_only_conservative_delivery_tags():
+    allowed = {"[serious]", "[thoughtful]", "[curious]", "[confident]", "[reflective]"}
+    samples = [
+        "Europe went dark. Libraries burned. Trade routes collapsed.",
+        "But the strangest part is this: nobody knew why it happened.",
+        "That is how civilizations collapse.",
+        "Generation by generation, the impossible became normal.",
+        "The system changed slowly over time.",
+        "The line says laughs and sighs, but the app should not add effect tags.",
+    ]
+
+    selected = {select_v3_audio_tag(sample) for sample in samples}
+
+    assert selected <= allowed
+    assert "[laughs]" not in selected
+    assert "[sighs]" not in selected
 
 
 def test_prepare_tts_text_keeps_title_card_level_framing_without_v3_tags():
