@@ -61,6 +61,18 @@ _DELIVERY_PRESETS = {
     },
 }
 
+_SUBTITLE_STYLE_LABELS = {
+    "clean": "Clean",
+    "kinetic": "Kinetic Cards",
+    "burst": "Burst",
+}
+
+_SUBTITLE_STYLE_KEYS = {
+    "clean": "SUBTITLE_STYLE_CLEAN_ENABLED",
+    "kinetic": "SUBTITLE_STYLE_KINETIC_ENABLED",
+    "burst": "SUBTITLE_STYLE_BURST_ENABLED",
+}
+
 
 class StartTestLabRunRequest(BaseModel):
     preset_id: str
@@ -117,6 +129,12 @@ def _setting_value(session: Session, key: str) -> str:
     return _VOICE_DEFAULTS.get(key, "")
 
 
+def _setting_enabled(value: str | None, fallback: bool = True) -> bool:
+    if value is None:
+        return fallback
+    return value.strip().lower() not in {"", "0", "false", "no", "off"}
+
+
 def _voice_summary(session: Session) -> dict[str, Any]:
     from database import get_default_brand_id
     from models.brand import BrandProfile
@@ -169,6 +187,20 @@ def _visible_voice_summary_settings(
     ]
 
 
+def _subtitle_summary(session: Session) -> dict[str, Any]:
+    coverage = session.get(AppSetting, "SUBTITLE_COVERAGE_MODE")
+    coverage_value = (coverage.value if coverage and coverage.value else "all").strip().lower()
+    enabled_style_labels = [
+        _SUBTITLE_STYLE_LABELS[style]
+        for style, key in _SUBTITLE_STYLE_KEYS.items()
+        if _setting_enabled(session.get(AppSetting, key).value if session.get(AppSetting, key) else None, True)
+    ]
+    return {
+        "coverage_label": "Punchy scenes" if coverage_value == "punchy" else "All scenes",
+        "enabled_style_labels": enabled_style_labels,
+    }
+
+
 def _engine():
     import database
 
@@ -194,6 +226,7 @@ def get_test_lab_scenes(session: Session = Depends(get_session)):
         "visual_treatment_defaults": VISUAL_TREATMENT_TEXT_DEFAULTS,
         "default_main_character": _default_main_character(session),
         "voice_summary": _voice_summary(session),
+        "subtitle_summary": _subtitle_summary(session),
     }
 
 

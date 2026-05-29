@@ -530,8 +530,8 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
             background_color=_visual_canvas_background_from_settings(settings, preset),
         ),
         main_character=_main_character_from_settings(settings, preset),
-        segment_timer_enabled=bool(_setting(settings, "segment_timer_enabled", True)),
-        subtitle_highlight_enabled=bool(_setting(settings, "subtitle_highlight_enabled", True)),
+        segment_timer_enabled=True,
+        subtitle_highlight_enabled=True,
         ai_video_enabled=visual_mode == "video",
         format_id=_setting(settings, "format_id", preset.format_id),
     )
@@ -539,6 +539,7 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
     if isinstance(advanced_script, dict):
         content = ScriptContent.model_validate(_deep_merge(content.model_dump(), advanced_script))
         _reapply_top_level_scene_settings(content, settings)
+        content.subtitle_highlight_enabled = True
     _normalize_ai_video_treatments(content)
     return _sync_ai_video_enabled(content)
 
@@ -555,6 +556,8 @@ def create_hidden_test_script(
     safe_run_id = validate_run_id(run_id)
     script_id = f"test-lab-{safe_run_id}"
     content = build_content_from_preset(preset_id, settings)
+    content.segment_timer_enabled = True
+    content.subtitle_highlight_enabled = True
     brand_id = settings.get("brand_id") or get_default_brand_id(session)
     eli_enabled = _bool_setting(settings, "eli_enabled", False)
     style_preset_enabled = _bool_setting(settings, "style_preset_enabled", True)

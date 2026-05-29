@@ -132,7 +132,7 @@ export default api;
 
 export async function getTestLabPresets(): Promise<TestLabScenes> {
   const res = await api.get<TestLabScenes>("/api/test-lab/scenes");
-  return res.ok ? res.data : { presets: [], default_main_character: null, voice_summary: undefined };
+  return res.ok ? res.data : { presets: [], default_main_character: null, voice_summary: undefined, subtitle_summary: undefined };
 }
 
 export async function getTestLabRuns(): Promise<TestLabRun[]> {

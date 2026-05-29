@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 
 import TestLabControls, { settingsWithVisualTreatmentDefaults } from "./TestLabControls";
@@ -48,7 +48,6 @@ const baseSettings: TestLabSettings = {
   narration: "Custom narration.",
   visual_prompt: "Custom prompt.",
   segment_timer_enabled: true,
-  subtitle_highlight_enabled: true,
   subtitle_style: "auto",
 };
 
@@ -61,7 +60,13 @@ const voiceSummary = {
   visible_settings: [{ label: "Delivery preset", value: "More Human" }],
 };
 
+const subtitleSummary = {
+  coverage_label: "All scenes",
+  enabled_style_labels: ["Clean", "Kinetic Cards"],
+};
+
 function renderControls(settings: TestLabSettings = baseSettings) {
+  const onOpenSettingsSection = vi.fn();
   return render(
     <TestLabControls
       preset={preset}
@@ -69,7 +74,9 @@ function renderControls(settings: TestLabSettings = baseSettings) {
       visualTreatmentDefaults={defaults}
       settings={settings}
       voiceSummary={voiceSummary}
+      subtitleSummary={subtitleSummary}
       onChange={() => undefined}
+      onOpenSettingsSection={onOpenSettingsSection}
     />,
   );
 }
@@ -93,7 +100,6 @@ describe("settingsWithVisualTreatmentDefaults", () => {
       caption_text: undefined,
       caption_emphasis: undefined,
       segment_timer_enabled: true,
-      subtitle_highlight_enabled: true,
       subtitle_style: "auto",
     };
 
@@ -120,7 +126,6 @@ describe("settingsWithVisualTreatmentDefaults", () => {
       narration: preset.narration,
       visual_prompt: preset.visual_prompt,
       segment_timer_enabled: true,
-      subtitle_highlight_enabled: true,
       subtitle_style: "auto",
     };
 
@@ -146,7 +151,6 @@ describe("settingsWithVisualTreatmentDefaults", () => {
       visual_layers: [],
       subtitle_style: "burst",
       segment_timer_enabled: true,
-      subtitle_highlight_enabled: true,
     };
 
     const next = settingsWithVisualTreatmentDefaults(settings, preset, "multi_frame", defaults);
@@ -170,7 +174,6 @@ describe("settingsWithVisualTreatmentDefaults", () => {
       narration: "Custom human versus Neanderthal line.",
       visual_prompt: "Custom split comparison prompt.",
       segment_timer_enabled: true,
-      subtitle_highlight_enabled: true,
       subtitle_style: "auto",
     };
 
@@ -196,7 +199,7 @@ describe("TestLabControls layout", () => {
     expect(headings).toEqual([
       expect.stringContaining("Visual Mode"),
       expect.stringContaining("Character"),
-      expect.stringContaining("Audio"),
+      expect.stringContaining("Voices"),
       expect.stringContaining("Pipeline Stages"),
       expect.stringContaining("Miscellaneous"),
     ]);
@@ -205,9 +208,9 @@ describe("TestLabControls layout", () => {
   it("collapses sections to a title row", () => {
     renderControls();
 
-    fireEvent.click(screen.getByRole("button", { name: /Audio/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Voices/i }));
 
-    expect(screen.getByRole("button", { name: /Audio/i })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /Voices/i })).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText(/Headless Hero Narrator/i)).not.toBeInTheDocument();
   });
 
@@ -221,8 +224,8 @@ describe("TestLabControls layout", () => {
 
     const misc = screen.getByTestId("test-lab-section-miscellaneous");
     expect(within(misc).getByText(/Canvas color/i)).toBeInTheDocument();
-    expect(within(misc).getByText(/Subtitle style/i)).toBeInTheDocument();
-    expect(within(misc).getByText(/Segment timer/i)).toBeInTheDocument();
+    expect(within(misc).getAllByText(/Subtitle settings/i).length).toBeGreaterThan(0);
+    expect(within(misc).queryByRole("button", { name: /Segment timer/i })).not.toBeInTheDocument();
   });
 
   it("shows flip-flop state controls inside Visual Mode", () => {
@@ -246,10 +249,39 @@ describe("TestLabControls layout", () => {
   it("shows read-only audio settings from Settings Voices", () => {
     renderControls();
 
-    const audio = screen.getByTestId("test-lab-section-audio");
-    expect(within(audio).getByText(/Headless Hero Narrator/i)).toBeInTheDocument();
-    expect(within(audio).getByText(/Settings.*Voices/i)).toBeInTheDocument();
-    expect(within(audio).queryByLabelText(/Voice ID/i)).not.toBeInTheDocument();
+    const voices = screen.getByTestId("test-lab-section-voices");
+    expect(within(voices).getByText(/Headless Hero Narrator/i)).toBeInTheDocument();
+    expect(within(voices).getByText(/Settings.*Voices/i)).toBeInTheDocument();
+    expect(within(voices).queryByLabelText(/Voice ID/i)).not.toBeInTheDocument();
+  });
+
+  it("links directly to voice and subtitle settings", () => {
+    const onOpenSettingsSection = vi.fn();
+    render(
+      <TestLabControls
+        preset={preset}
+        defaultMainCharacter={null}
+        visualTreatmentDefaults={defaults}
+        settings={baseSettings}
+        voiceSummary={voiceSummary}
+        subtitleSummary={subtitleSummary}
+        onChange={() => undefined}
+        onOpenSettingsSection={onOpenSettingsSection}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Open voice settings/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Open subtitle settings/i }));
+
+    expect(onOpenSettingsSection).toHaveBeenNthCalledWith(1, "voice");
+    expect(onOpenSettingsSection).toHaveBeenNthCalledWith(2, "subtitles");
+  });
+
+  it("does not expose subtitle highlight as a Test Lab option", () => {
+    renderControls();
+
+    expect(screen.queryByText(/Subtitle highlight/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Highlight:/i)).not.toBeInTheDocument();
   });
 
   it("does not expose Character or editable Eli toggles in Pipeline Stages", () => {

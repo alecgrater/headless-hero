@@ -22,9 +22,10 @@ import type {
   TestLabSceneTextDefaults,
   TestLabSettings,
   TestLabStages,
+  TestLabSubtitleSummary,
   TestLabVoiceSummary,
 } from "../../types/testLab";
-import type { SubtitleStyle, VisualLayer, VisualMode } from "../../types/script";
+import type { VisualLayer, VisualMode } from "../../types/script";
 import { Tooltip } from "../ui/Tooltip";
 
 type StageKey = keyof TestLabStages;
@@ -39,8 +40,10 @@ interface TestLabControlsProps {
   visualTreatmentDefaults?: Partial<Record<VisualMode, VisualTextDefaults>>;
   settings: TestLabSettings;
   voiceSummary?: TestLabVoiceSummary | null;
+  subtitleSummary?: TestLabSubtitleSummary | null;
   onChange: (settings: TestLabSettings) => void;
   onValidityChange?: (valid: boolean) => void;
+  onOpenSettingsSection?: (section: "voice" | "subtitles") => void;
 }
 
 type ToggleHelp = {
@@ -157,22 +160,16 @@ const VISUAL_MODE_OPTIONS: Array<{
   },
 ];
 
-const SUBTITLE_STYLE_OPTIONS: Array<{ value: SubtitleStyle; label: string }> = [
-  { value: "auto", label: "Auto" },
-  { value: "clean", label: "Clean" },
-  { value: "kinetic", label: "Kinetic" },
-  { value: "burst", label: "Burst" },
-  { value: "none", label: "None" },
-];
-
 export default function TestLabControls({
   preset,
   defaultMainCharacter,
   visualTreatmentDefaults,
   settings,
   voiceSummary,
+  subtitleSummary,
   onChange,
   onValidityChange,
+  onOpenSettingsSection,
 }: TestLabControlsProps) {
   const narration = settings.narration ?? preset?.narration ?? "";
   const visualPrompt = settings.visual_prompt ?? preset?.visual_prompt ?? "";
@@ -336,8 +333,8 @@ export default function TestLabControls({
         </div>
       </AccordionPanel>
 
-      <AccordionPanel title="Audio" testId="test-lab-section-audio" help="Shows the saved voice configuration used for this run.">
-        <ReadOnlyAudioSummary voiceSummary={voiceSummary} />
+      <AccordionPanel title="Voices" testId="test-lab-section-voices" help="Shows the saved voice configuration used for this run.">
+        <ReadOnlyVoiceSummary voiceSummary={voiceSummary} onOpenSettingsSection={onOpenSettingsSection} />
       </AccordionPanel>
 
       <AccordionPanel title="Pipeline Stages" testId="test-lab-section-pipeline-stages" help="Disable generation stages to inspect partial output or reuse intermediate assets.">
@@ -369,7 +366,7 @@ export default function TestLabControls({
       </AccordionPanel>
 
       <AccordionPanel title="Miscellaneous" testId="test-lab-section-miscellaneous" help="Render-level options that are independent from visual mode selection.">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-3">
           <label className="block">
             <span className="text-xs font-medium text-neutral-300">Canvas color</span>
             <div className="mt-2 flex h-10 overflow-hidden rounded-md border border-neutral-800 bg-neutral-950/80 transition-colors hover:border-neutral-700 focus-within:border-violet-500">
@@ -386,43 +383,7 @@ export default function TestLabControls({
               />
             </div>
           </label>
-          <label className="block">
-            <span className="flex items-center gap-1 text-xs font-medium text-neutral-300">
-              Subtitle style
-              <Tooltip content="Choose the standard subtitle treatment for this Test Lab render. Captions visual mode still suppresses normal subtitles.">
-                <HelpCircle className="h-3 w-3 text-neutral-500" />
-              </Tooltip>
-            </span>
-            <select
-              value={settings.subtitle_style}
-              onChange={(event) => update({ subtitle_style: event.target.value as SubtitleStyle })}
-              className="mt-2 h-9 w-full rounded-md border border-neutral-800 bg-neutral-950 px-2 text-sm text-neutral-100 outline-none transition-colors hover:border-neutral-700 focus:border-violet-500"
-            >
-              {SUBTITLE_STYLE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <ToggleButton
-            label="Subtitle highlight"
-            checked={settings.subtitle_highlight_enabled}
-            help={{
-              on: "Render word-level subtitle emphasis in the preview.",
-              off: "Show plain subtitles without per-word highlight styling.",
-            }}
-            onChange={(enabled) => update({ subtitle_highlight_enabled: enabled })}
-          />
-          <ToggleButton
-            label="Segment timer"
-            checked={settings.segment_timer_enabled}
-            help={{
-              on: "Show the short-form progress overlay when the selected format supports it.",
-              off: "Hide the progress overlay and render only the scene visuals/subtitles.",
-            }}
-            onChange={(enabled) => update({ segment_timer_enabled: enabled })}
-          />
+          <ReadOnlySubtitleSummary subtitleSummary={subtitleSummary} onOpenSettingsSection={onOpenSettingsSection} />
         </div>
       </AccordionPanel>
     </div>
@@ -626,7 +587,13 @@ function AdvancedModeData({
   );
 }
 
-function ReadOnlyAudioSummary({ voiceSummary }: { voiceSummary?: TestLabVoiceSummary | null }) {
+function ReadOnlyVoiceSummary({
+  voiceSummary,
+  onOpenSettingsSection,
+}: {
+  voiceSummary?: TestLabVoiceSummary | null;
+  onOpenSettingsSection?: (section: "voice" | "subtitles") => void;
+}) {
   return (
     <div className="rounded-md border border-neutral-800 bg-neutral-950/70 p-3">
       <div className="flex items-start gap-3">
@@ -638,12 +605,60 @@ function ReadOnlyAudioSummary({ voiceSummary }: { voiceSummary?: TestLabVoiceSum
           <p className="mt-1 text-xs leading-5 text-neutral-500">
             Test Lab uses Settings -&gt; Voices. Go to Settings -&gt; Voices to change narration voice or delivery.
           </p>
+          <button
+            type="button"
+            onClick={() => onOpenSettingsSection?.("voice")}
+            className="mt-3 inline-flex items-center gap-2 rounded-md border border-neutral-700 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:border-violet-500 hover:text-violet-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+          >
+            <Settings className="h-3.5 w-3.5" />
+            Open voice settings
+          </button>
           <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
             <SummaryChip label="Model" value={voiceSummary?.model_label || "Settings default"} />
             {voiceSummary?.delivery_preset && <SummaryChip label="Delivery" value={voiceSummary.delivery_preset} />}
             {(voiceSummary?.visible_settings ?? []).map((item) => (
               <SummaryChip key={item.label} label={item.label} value={item.value} />
             ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReadOnlySubtitleSummary({
+  subtitleSummary,
+  onOpenSettingsSection,
+}: {
+  subtitleSummary?: TestLabSubtitleSummary | null;
+  onOpenSettingsSection?: (section: "voice" | "subtitles") => void;
+}) {
+  const enabledStyles = subtitleSummary?.enabled_style_labels?.length
+    ? subtitleSummary.enabled_style_labels.join(", ")
+    : "No standard subtitle styles enabled";
+  return (
+    <div className="rounded-md border border-neutral-800 bg-neutral-950/70 p-3">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-neutral-900 text-violet-200">
+          <Captions className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-neutral-100">Subtitle settings</p>
+          <p className="mt-1 text-xs leading-5 text-neutral-500">
+            Test Lab uses Settings -&gt; Subtitles for subtitle coverage and eligible styles. Active word highlighting stays on for normal subtitles.
+          </p>
+          <button
+            type="button"
+            onClick={() => onOpenSettingsSection?.("subtitles")}
+            className="mt-3 inline-flex items-center gap-2 rounded-md border border-neutral-700 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:border-violet-500 hover:text-violet-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+          >
+            <Settings className="h-3.5 w-3.5" />
+            Open subtitle settings
+          </button>
+          <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+            <SummaryChip label="Coverage" value={subtitleSummary?.coverage_label || "Settings default"} />
+            <SummaryChip label="Styles" value={enabledStyles} />
+            <SummaryChip label="Segment timer" value="Always on" />
           </div>
         </div>
       </div>

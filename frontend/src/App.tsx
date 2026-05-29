@@ -181,6 +181,12 @@ function App() {
     setView(v);
   }, []);
 
+  const openSettingsSection = useCallback((section: SectionId) => {
+    setSettingsDropdownOpen(false);
+    setSettingsDefaultSection(section);
+    handleSetView("settings");
+  }, [handleSetView]);
+
   // Stable callback for save state changes
   const handleSaveStateChange = useMemo(() => (s: SaveState) => setSaveState(s), []);
 
@@ -561,7 +567,7 @@ function App() {
         </div>
 
         <div className={viewPanelClass("test-lab", view)}>
-          {visitedViews.has("test-lab") && <TestLabPage />}
+          {visitedViews.has("test-lab") && <TestLabPage onOpenSettingsSection={openSettingsSection} />}
         </div>
 
         <div className={viewPanelClass("dev-dashboard", view)}>

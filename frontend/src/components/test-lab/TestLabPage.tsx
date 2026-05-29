@@ -8,6 +8,7 @@ import type {
   TestLabRun,
   TestLabScenes,
   TestLabSettings,
+  TestLabSubtitleSummary,
   TestLabVoiceSummary,
 } from "../../types/testLab";
 import PopupCropLab from "./PopupCropLab";
@@ -53,7 +54,6 @@ const DEFAULT_SETTINGS: TestLabSettings = {
   visual_mode: "full_frame",
   visual_layers: [],
   segment_timer_enabled: true,
-  subtitle_highlight_enabled: true,
   subtitle_style: "auto",
 };
 
@@ -65,8 +65,13 @@ type TestLabJobStatus = {
 };
 
 type TestLabTab = "pipeline" | "popup-crop";
+type TestLabSettingsSection = "voice" | "subtitles";
 
-export default function TestLabPage() {
+interface Props {
+  onOpenSettingsSection?: (section: TestLabSettingsSection) => void;
+}
+
+export default function TestLabPage({ onOpenSettingsSection }: Props) {
   const mountedRef = useRef(false);
   const pollTimerRef = useRef<number | null>(null);
   const resolvePollSleepRef = useRef<((mounted: boolean) => void) | null>(null);
@@ -74,6 +79,7 @@ export default function TestLabPage() {
   const [visualTreatmentDefaults, setVisualTreatmentDefaults] = useState<TestLabScenes["visual_treatment_defaults"]>({});
   const [defaultMainCharacter, setDefaultMainCharacter] = useState<TestLabMainCharacter | null>(null);
   const [voiceSummary, setVoiceSummary] = useState<TestLabVoiceSummary | null>(null);
+  const [subtitleSummary, setSubtitleSummary] = useState<TestLabSubtitleSummary | null>(null);
   const [selectedPresetId, setSelectedPresetId] = useState<string>("");
   const [settings, setSettings] = useState<TestLabSettings>(DEFAULT_SETTINGS);
   const [runs, setRuns] = useState<TestLabRun[]>([]);
@@ -99,6 +105,7 @@ export default function TestLabPage() {
       setVisualTreatmentDefaults(sceneData.visual_treatment_defaults ?? {});
       setDefaultMainCharacter(sceneData.default_main_character);
       setVoiceSummary(sceneData.voice_summary ?? null);
+      setSubtitleSummary(sceneData.subtitle_summary ?? null);
       setSelectedPresetId((current) => current || sceneData.presets[0]?.id || "");
       setSettings((current) => {
         if (selectedPresetId) return current;
@@ -257,8 +264,10 @@ export default function TestLabPage() {
                 visualTreatmentDefaults={visualTreatmentDefaults}
                 settings={settings}
                 voiceSummary={voiceSummary}
+                subtitleSummary={subtitleSummary}
                 onChange={setSettings}
                 onValidityChange={setControlsValid}
+                onOpenSettingsSection={onOpenSettingsSection}
               />
             </section>
 
@@ -309,10 +318,11 @@ function settingsForRun(
   defaultMainCharacter: TestLabMainCharacter | null,
 ): TestLabSettings {
   if (settings.eli_enabled || !settings.style_preset_enabled || settings.main_character || !defaultMainCharacter) {
-    return settings;
+    return { ...settings, segment_timer_enabled: true };
   }
   return {
     ...settings,
+    segment_timer_enabled: true,
     main_character: {
       name: defaultMainCharacter.name,
       appearance: defaultMainCharacter.appearance,

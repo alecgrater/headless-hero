@@ -476,6 +476,35 @@ def test_test_lab_scenes_endpoint_returns_voice_summary(monkeypatch, tmp_path):
         app.dependency_overrides.pop(get_session, None)
 
 
+def test_test_lab_scenes_endpoint_returns_subtitle_summary(monkeypatch, tmp_path):
+    engine, app = _setup_app(monkeypatch, tmp_path)
+
+    from models.settings import AppSetting
+
+    with Session(engine) as session:
+        session.add(AppSetting(key="SUBTITLE_COVERAGE_MODE", value="punchy"))
+        session.add(AppSetting(key="SUBTITLE_STYLE_CLEAN_ENABLED", value="true"))
+        session.add(AppSetting(key="SUBTITLE_STYLE_KINETIC_ENABLED", value="false"))
+        session.add(AppSetting(key="SUBTITLE_STYLE_BURST_ENABLED", value="true"))
+        session.add(AppSetting(key="SUBTITLE_HIGHLIGHT_ENABLED", value="false"))
+        session.commit()
+
+    client = TestClient(app)
+
+    try:
+        response = client.get("/api/test-lab/scenes")
+
+        assert response.status_code == 200
+        summary = response.json()["subtitle_summary"]
+        assert summary["coverage_label"] == "Punchy scenes"
+        assert summary["enabled_style_labels"] == ["Clean", "Burst"]
+        assert "highlight_label" not in summary
+    finally:
+        from database import get_session
+
+        app.dependency_overrides.pop(get_session, None)
+
+
 def test_popup_crop_preview_generates_sheet_and_crops_fixed_grid(monkeypatch, tmp_path):
     from PIL import Image
 
@@ -1228,6 +1257,52 @@ def test_create_hidden_test_script_coerces_raw_boolean_settings(monkeypatch, tmp
     assert cfg is not None
     assert cfg.eli_enabled is False
     assert cfg.style_preset_enabled is False
+
+
+def test_create_hidden_test_script_keeps_subtitle_highlight_enabled(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    from models.script import Script, ScriptContent
+    from pipeline.test_lab import create_hidden_test_script
+
+    with Session(engine) as session:
+        script_id = create_hidden_test_script(
+            session,
+            run_id="run-highlight",
+            preset_id="coffee-brain",
+            settings={"subtitle_highlight_enabled": False},
+        )
+        session.commit()
+
+        script = session.get(Script, script_id)
+
+    assert script is not None
+    content = ScriptContent.model_validate_json(script.script_json)
+    assert content.subtitle_highlight_enabled is True
+
+
+def test_create_hidden_test_script_ignores_saved_subtitle_highlight_setting(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    from models.script import Script, ScriptContent
+    from models.settings import AppSetting
+    from pipeline.test_lab import create_hidden_test_script
+
+    with Session(engine) as session:
+        session.add(AppSetting(key="SUBTITLE_HIGHLIGHT_ENABLED", value="false"))
+        script_id = create_hidden_test_script(
+            session,
+            run_id="run-highlight-setting",
+            preset_id="coffee-brain",
+            settings={},
+        )
+        session.commit()
+
+        script = session.get(Script, script_id)
+
+    assert script is not None
+    content = ScriptContent.model_validate_json(script.script_json)
+    assert content.subtitle_highlight_enabled is True
 
 
 def test_stage_character_reference_blocks_eli_disabled_without_selected_reference(monkeypatch, tmp_path):

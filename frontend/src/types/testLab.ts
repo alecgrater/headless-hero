@@ -39,6 +39,7 @@ export interface TestLabScenes {
   visual_treatment_defaults?: Partial<Record<VisualMode, TestLabSceneTextDefaults>>;
   default_main_character: TestLabMainCharacter | null;
   voice_summary?: TestLabVoiceSummary;
+  subtitle_summary?: TestLabSubtitleSummary;
 }
 
 export interface TestLabStages {
@@ -56,6 +57,11 @@ export interface TestLabVoiceSummary {
   model_label: string;
   delivery_preset: string | null;
   visible_settings: Array<{ label: string; value: string }>;
+}
+
+export interface TestLabSubtitleSummary {
+  coverage_label: string;
+  enabled_style_labels: string[];
 }
 
 export interface TestLabSettings {
@@ -80,7 +86,6 @@ export interface TestLabSettings {
   transition_in?: "cut" | "fade_black" | "flash_white" | "wipe";
   visual_canvas?: { background_color: string };
   segment_timer_enabled: boolean;
-  subtitle_highlight_enabled: boolean;
   subtitle_style: SubtitleStyle;
   main_character?: MainCharacter | null;
   advanced_script?: Record<string, unknown> | null;
