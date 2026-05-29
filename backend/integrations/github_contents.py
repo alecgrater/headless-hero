@@ -63,7 +63,6 @@ def _put_file(
 
 
 def upload_json_file(
-    *,
     token: str,
     path: str,
     content: dict[str, Any],

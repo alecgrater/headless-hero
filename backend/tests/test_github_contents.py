@@ -26,10 +26,10 @@ def test_upload_json_file_updates_existing_file():
     )
 
     result = upload_json_file(
-        token="ghp_test",
-        path="discovery/content-profile-seed.json",
-        content={"version": 1},
-        message="Update discovery content profile seed",
+        "ghp_test",
+        "discovery/content-profile-seed.json",
+        {"version": 1},
+        "Update discovery content profile seed",
         client=httpx.Client(transport=httpx.MockTransport(transport)),
     )
 
