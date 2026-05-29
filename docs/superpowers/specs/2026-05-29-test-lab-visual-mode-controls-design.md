@@ -55,6 +55,15 @@ Each mode gets friendly structured controls:
 
 Switching visual modes must preserve user-entered narration and visual prompt text. Mode-specific structured fields may be initialized from existing `visual_layers`, `frame_directives`, or defaults, but switching modes must not rewrite narration or the main prompt.
 
+Structured controls must write to fields the Test Lab runner actually consumes:
+
+- Add top-level `frame_directives` to `TestLabSettings` and backend Test Lab settings handling. `multi_frame` and `continuous` controls write their generated directives there, and `build_content_from_preset` copies them onto the hidden `Scene.frame_directives`.
+- Keep top-level `visual_layers` for `popup_sequence`, `flipflop`, and `comparison_board`; structured layer controls update that existing field.
+- Keep `caption_text` and `caption_emphasis` top-level for `captions`.
+- `advanced_script` remains an escape hatch for complete hidden-script overrides, not the normal structured-control path.
+
+Integration tests must prove edited `frame_directives` for `multi_frame`/`continuous` and edited `visual_layers` for layered modes reach the generated hidden `Scene` and are used by asset stages.
+
 ### Advanced Mode Data Drawer
 
 The Advanced Mode Data drawer is collapsed by default. It is for debugging and future flexibility, not the primary workflow.
@@ -92,7 +101,26 @@ It displays the active voice configuration from Settings -> Voices, including:
 
 The panel should clearly state that voice settings are changed in Settings -> Voices. It should not expose Test Lab-specific voice ID, model ID, or voice settings JSON overrides.
 
-If the current Test Lab API does not already return a friendly voice settings summary, add a small backend/frontend data path for that summary instead of duplicating settings interpretation in the UI.
+Backend behavior must match the read-only UI: Test Lab ignores legacy per-run `voice_id`, `voice_model_id`, and `voice_settings` values in incoming settings. Audio always resolves voice, model, and model-specific settings from the same Settings -> Voices source of truth used by normal project voiceover.
+
+Add a friendly voice summary to `/api/test-lab/scenes` so Test Lab does not duplicate Settings interpretation in the UI:
+
+```json
+{
+  "voice_summary": {
+    "voice_id": "string",
+    "voice_name": "string",
+    "model_id": "eleven_multilingual_v2 | eleven_v3 | string",
+    "model_label": "string",
+    "delivery_preset": "Steady | More Human | Dramatic | Custom | null",
+    "visible_settings": [
+      { "label": "Stability", "value": "0.50" }
+    ]
+  }
+}
+```
+
+For v2, `visible_settings` includes the active preset label and the visible custom values only when Custom is active. For v3, it includes stability only. Tests should replace legacy override-forwarding expectations with assertions that overrides are ignored and the summary matches v2/v3 visible-settings behavior.
 
 ## Pipeline Stages Panel
 
@@ -115,7 +143,11 @@ Eli appears as a read-only derived stage/status:
 - Disabled as a direct toggle.
 - Explanation: off means preset/current global character context; on means Eli is used and Eli animation timing will be generated.
 
-Backend stage defaults should align with the UI. The removed Character stage should not remain a hidden normal user path in Test Lab run settings. If legacy settings include `character`, ignore it or keep it false.
+Backend stage defaults must align with the UI:
+
+- `stages.character` may exist only for legacy compatibility. API and runner code must coerce it false or ignore it. It must never be logged or run as a normal Test Lab stage.
+- `stages.eli` may exist only for legacy compatibility. Runner stage selection must derive Eli solely from `eli_enabled`; `eli_enabled=true` schedules Eli even if legacy settings include `stages.eli=false`.
+- Add backend tests that `{"stages": {"character": true}}` does not call `_stage_character_reference`, and that `eli_enabled=true` plus `{"stages": {"eli": false}}` still schedules/runs Eli.
 
 ## Miscellaneous Panel
 
@@ -132,7 +164,7 @@ These controls remain available because they affect render previews, but moving 
 
 The existing `TestLabSettings` shape can remain mostly intact:
 
-- Keep `visual_mode`, `narration`, `visual_prompt`, `frame_directives`-compatible data, `visual_layers`, captions fields, character flags, stage flags, subtitle settings, and canvas settings.
+- Keep `visual_mode`, `narration`, `visual_prompt`, top-level `frame_directives`, `visual_layers`, captions fields, character flags, legacy-compatible stage flags, subtitle settings, and canvas settings.
 - Add frontend helpers that map structured mode controls to the existing `frame_directives` and `visual_layers` payloads.
 - Avoid introducing a second visual-mode schema unless a future mode requires it.
 
