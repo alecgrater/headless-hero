@@ -595,32 +595,26 @@ function ReadOnlyVoiceSummary({
   onOpenSettingsSection?: (section: "voice" | "subtitles") => void;
 }) {
   return (
-    <div className="rounded-md border border-neutral-800 bg-neutral-950/70 p-3">
-      <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-neutral-900 text-violet-200">
-          <Settings className="h-4 w-4" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-neutral-100">{voiceSummary?.voice_name || "No voice selected"}</p>
-          <p className="mt-1 text-xs leading-5 text-neutral-500">
-            Test Lab uses Settings -&gt; Voices. Go to Settings -&gt; Voices to change narration voice or delivery.
-          </p>
-          <button
-            type="button"
-            onClick={() => onOpenSettingsSection?.("voice")}
-            className="mt-3 inline-flex items-center gap-2 rounded-md border border-neutral-700 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:border-violet-500 hover:text-violet-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
-          >
-            <Settings className="h-3.5 w-3.5" />
-            Open voice settings
-          </button>
-          <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-            <SummaryChip label="Model" value={voiceSummary?.model_label || "Settings default"} />
-            {voiceSummary?.delivery_preset && <SummaryChip label="Delivery" value={voiceSummary.delivery_preset} />}
-            {(voiceSummary?.visible_settings ?? []).map((item) => (
-              <SummaryChip key={item.label} label={item.label} value={item.value} />
-            ))}
-          </div>
-        </div>
+    <div>
+      <span className="text-xs font-medium text-neutral-300">Voice settings</span>
+      <p className="mt-2 text-xs leading-5 text-neutral-500">
+        Test Lab uses Settings -&gt; Voices for the default narration voice and delivery.
+      </p>
+      <button
+        type="button"
+        onClick={() => onOpenSettingsSection?.("voice")}
+        className="mt-3 inline-flex items-center gap-2 rounded-md border border-neutral-700 px-2.5 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:border-violet-500 hover:text-violet-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+      >
+        <Settings className="h-3.5 w-3.5" />
+        Open voice settings
+      </button>
+      <div className="mt-3 space-y-2 text-xs">
+        <SummaryChip label="Default voice" value={voiceSummary?.voice_name || "No voice selected"} />
+        <SummaryChip label="Model" value={voiceSummary?.model_label || "Settings default"} />
+        {voiceSummary?.delivery_preset && <SummaryChip label="Delivery" value={voiceSummary.delivery_preset} />}
+        {(voiceSummary?.visible_settings ?? []).map((item) => (
+          <SummaryChip key={item.label} label={item.label} value={item.value} />
+        ))}
       </div>
     </div>
   );

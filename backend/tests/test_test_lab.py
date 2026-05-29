@@ -446,6 +446,14 @@ def test_test_lab_scenes_endpoint_returns_voice_summary(monkeypatch, tmp_path):
     from models.brand import BrandProfile
     from models.settings import AppSetting
 
+    import api.test_lab as test_lab_api
+
+    monkeypatch.setattr(
+        test_lab_api,
+        "list_voices",
+        lambda: [{"voice_id": "voice-default", "name": "Headless Hero Narrator", "category": "cloned"}],
+    )
+
     with Session(engine) as session:
         brand = session.get(BrandProfile, "default")
         assert brand is not None
@@ -465,7 +473,7 @@ def test_test_lab_scenes_endpoint_returns_voice_summary(monkeypatch, tmp_path):
         assert response.status_code == 200
         summary = response.json()["voice_summary"]
         assert summary["voice_id"] == "voice-default"
-        assert summary["voice_name"] == "voice-default"
+        assert summary["voice_name"] == "Headless Hero Narrator"
         assert summary["model_id"] == "eleven_multilingual_v2"
         assert summary["model_label"] == "Eleven v2"
         assert summary["delivery_preset"] == "More Human"

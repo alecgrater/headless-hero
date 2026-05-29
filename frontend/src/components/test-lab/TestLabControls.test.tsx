@@ -262,9 +262,11 @@ describe("TestLabControls layout", () => {
     renderControls();
 
     const voices = screen.getByTestId("test-lab-section-voices");
+    expect(within(voices).getByText(/Default voice/i)).toBeInTheDocument();
     expect(within(voices).getByText(/Headless Hero Narrator/i)).toBeInTheDocument();
     expect(within(voices).getByText(/Settings.*Voices/i)).toBeInTheDocument();
     expect(within(voices).queryByLabelText(/Voice ID/i)).not.toBeInTheDocument();
+    expect(within(voices).queryByRole("heading", { name: /Headless Hero Narrator/i })).not.toBeInTheDocument();
   });
 
   it("links directly to voice and subtitle settings", () => {

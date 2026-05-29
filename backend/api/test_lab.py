@@ -11,6 +11,7 @@ from sqlmodel import Session
 
 from config import DEFAULT_TTS_MODEL
 from database import get_session
+from integrations.elevenlabs_client import list_voices
 from models.settings import AppSetting
 from pipeline.render_jobs import create_job, get_job, run_in_background
 from pipeline.test_lab import (
@@ -141,6 +142,7 @@ def _voice_summary(session: Session) -> dict[str, Any]:
 
     brand = session.get(BrandProfile, get_default_brand_id(session))
     voice_id = brand.voice_id if brand and brand.voice_id else ""
+    voice_name = _voice_name_for_id(voice_id)
     settings = {
         key: _setting_value(session, key)
         for key in (
@@ -156,12 +158,24 @@ def _voice_summary(session: Session) -> dict[str, Any]:
     visible_settings = _visible_voice_summary_settings(model_id, settings, delivery_preset)
     return {
         "voice_id": voice_id,
-        "voice_name": voice_id or "No voice selected",
+        "voice_name": voice_name,
         "model_id": model_id,
         "model_label": model_label,
         "delivery_preset": delivery_preset,
         "visible_settings": visible_settings,
     }
+
+
+def _voice_name_for_id(voice_id: str) -> str:
+    if not voice_id:
+        return "No voice selected"
+    try:
+        for voice in list_voices():
+            if voice.get("voice_id") == voice_id:
+                return voice.get("name") or voice_id
+    except Exception:
+        return voice_id
+    return voice_id
 
 
 def _delivery_preset_for_settings(settings: dict[str, str]) -> str:
