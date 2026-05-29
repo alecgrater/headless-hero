@@ -101,7 +101,7 @@ It displays the active voice configuration from Settings -> Voices, including:
 
 The panel should clearly state that voice settings are changed in Settings -> Voices. It should not expose Test Lab-specific voice ID, model ID, or voice settings JSON overrides.
 
-Backend behavior must match the read-only UI: Test Lab ignores legacy per-run `voice_id`, `voice_model_id`, and `voice_settings` values in incoming settings. Audio always resolves voice, model, and model-specific settings from the same Settings -> Voices source of truth used by normal project voiceover.
+Backend behavior must match the read-only UI: remove Test Lab support for per-run `voice_id`, `voice_model_id`, and `voice_settings` overrides. Audio always resolves voice, model, and model-specific settings from the same Settings -> Voices source of truth used by normal project voiceover.
 
 Add a friendly voice summary to `/api/test-lab/scenes` so Test Lab does not duplicate Settings interpretation in the UI:
 
@@ -120,7 +120,7 @@ Add a friendly voice summary to `/api/test-lab/scenes` so Test Lab does not dupl
 }
 ```
 
-For v2, `visible_settings` includes the active preset label and the visible custom values only when Custom is active. For v3, it includes stability only. Tests should replace legacy override-forwarding expectations with assertions that overrides are ignored and the summary matches v2/v3 visible-settings behavior.
+For v2, `visible_settings` includes the active preset label and the visible custom values only when Custom is active. For v3, it includes stability only. Remove tests that assert per-run override forwarding and replace them with assertions that Test Lab resolves Settings -> Voices values and that the summary matches v2/v3 visible-settings behavior.
 
 ## Pipeline Stages Panel
 
@@ -145,9 +145,9 @@ Eli appears as a read-only derived stage/status:
 
 Backend stage defaults must align with the UI:
 
-- `stages.character` may exist only for legacy compatibility. API and runner code must coerce it false or ignore it. It must never be logged or run as a normal Test Lab stage.
-- `stages.eli` may exist only for legacy compatibility. Runner stage selection must derive Eli solely from `eli_enabled`; `eli_enabled=true` schedules Eli even if legacy settings include `stages.eli=false`.
-- Add backend tests that `{"stages": {"character": true}}` does not call `_stage_character_reference`, and that `eli_enabled=true` plus `{"stages": {"eli": false}}` still schedules/runs Eli.
+- Remove `stages.character` from Test Lab frontend types, defaults, API request normalization, runner defaults, run manifests, and tests. `_stage_character_reference` should no longer be reachable from the Test Lab runner.
+- Remove direct `stages.eli` control from Test Lab frontend types, defaults, API request normalization, runner defaults, run manifests, and tests. Runner stage selection derives Eli solely from `eli_enabled`.
+- Add backend tests proving the runner stage list has no Character stage and that `eli_enabled=true` schedules/runs Eli without reading a `stages.eli` flag.
 
 ## Miscellaneous Panel
 
@@ -164,7 +164,8 @@ These controls remain available because they affect render previews, but moving 
 
 The existing `TestLabSettings` shape can remain mostly intact:
 
-- Keep `visual_mode`, `narration`, `visual_prompt`, top-level `frame_directives`, `visual_layers`, captions fields, character flags, legacy-compatible stage flags, subtitle settings, and canvas settings.
+- Keep `visual_mode`, `narration`, `visual_prompt`, top-level `frame_directives`, `visual_layers`, captions fields, character flags, current stage flags, subtitle settings, and canvas settings.
+- Remove obsolete Test Lab-only settings fields for per-run voice overrides, `stages.character`, and `stages.eli` in the same implementation pass. This is a one-time cleanup; no compatibility layer is required for old Test Lab payloads.
 - Add frontend helpers that map structured mode controls to the existing `frame_directives` and `visual_layers` payloads.
 - Avoid introducing a second visual-mode schema unless a future mode requires it.
 
@@ -190,7 +191,7 @@ Frontend tests should cover:
 
 Backend or integration tests should cover:
 
-- Test Lab ignores or disables legacy `character` stage settings.
+- Test Lab no longer exposes or schedules a Character stage.
 - Eli stage selection remains derived from `eli_enabled`.
 - Voice settings summary, if added, matches Settings -> Voices behavior for v2 and v3.
 
