@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { VideoFormat } from "../../../types/format";
 import ScriptTypesSection from "./ScriptTypesSection";
@@ -52,5 +52,22 @@ describe("ScriptTypesSection", () => {
     expect(screen.getByText("captions and stat_card are disabled.")).toBeInTheDocument();
     const disabledChip = screen.getByTestId("disabled-mode-life-as-a-captions");
     expect(disabledChip).toBeInTheDocument();
+  });
+
+  it("navigates to Visual Modes when a detailed mode chip is clicked", async () => {
+    const onOpen = vi.fn();
+    render(<ScriptTypesSection onOpenVisualModes={onOpen} />);
+    await waitFor(() => expect(screen.getByTestId("mode-youtube-listicle-full_frame")).toBeInTheDocument());
+    const chip = screen.getByTestId("mode-youtube-listicle-full_frame");
+    expect(chip.tagName).toBe("BUTTON");
+    fireEvent.click(chip);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows an error message when formats fail to load", async () => {
+    const { getFormats } = await import("../../../api");
+    vi.mocked(getFormats).mockRejectedValueOnce(new Error("boom"));
+    render(<ScriptTypesSection />);
+    await waitFor(() => expect(screen.getByText("Could not load script formats.")).toBeInTheDocument());
   });
 });
