@@ -9,7 +9,7 @@ import logging
 import random
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 from config import DATA_DIR, DEFAULT_ACCENT_COLOR, DEFAULT_SEGMENT_COLORS, VIDEO_HEIGHT, VIDEO_WIDTH
 
@@ -86,7 +86,7 @@ _ELI_GRAD_TOP = (255, 50, 180)            # hot magenta/pink
 _ELI_GRAD_BOTTOM = (0, 220, 255)          # electric cyan
 
 
-def _load_font(size: int, bold: bool = True) -> ImageFont.FreeTypeFont:
+def _load_font(size: int, _bold: bool = True) -> ImageFont.FreeTypeFont:
     """Load a hand-drawn marker font, falling back to system fonts."""
     # Prefer bundled Permanent Marker, then system MarkerFelt, then fallbacks
     candidates = [
@@ -747,13 +747,13 @@ def compose_title_card(
         label = segment_names[i].upper() if i < len(segment_names) else f"SEGMENT {i + 1}"
         max_label_w = int(cell_w - 20)
         label_size = 64
-        label_font = _load_font(label_size, bold=True)
+        label_font = _load_font(label_size, _bold=True)
         lbox = label_font.getbbox(label)
         lw = lbox[2] - lbox[0]
         # Shrink font until label fits or we hit minimum size
         while lw > max_label_w and label_size > 36:
             label_size -= 2
-            label_font = _load_font(label_size, bold=True)
+            label_font = _load_font(label_size, _bold=True)
             lbox = label_font.getbbox(label)
             lw = lbox[2] - lbox[0]
 

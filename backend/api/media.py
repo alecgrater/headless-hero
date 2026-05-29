@@ -1,4 +1,8 @@
-"""Media source analysis endpoints."""
+"""Visual-mode analysis endpoints.
+
+The /api/media path is kept for compatibility with existing frontend builds and
+saved local tooling.
+"""
 
 import json
 import logging
@@ -40,7 +44,7 @@ class MediaAssignmentResponse(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def normalize_legacy_media_source(cls, data: object) -> object:
+    def normalize_legacy_media_source(_cls, data: object) -> object:
         if not isinstance(data, dict):
             return data
         normalized = dict(data)
@@ -62,7 +66,7 @@ class ApplyResponse(BaseModel):
 
 
 def media_analysis_source_flags(script_json: dict) -> tuple[bool, bool, bool]:
-    """Return enabled media sources. Gameplay and stock-photo routing are removed."""
+    """Return enabled visual sources. Gameplay and stock-photo routing are removed."""
     return (
         False,
         False,
@@ -77,7 +81,7 @@ def preserve_media_analysis_source_flags(
     stock_photo_enabled: bool,
     ai_video_enabled: bool,
 ) -> None:
-    """Persist source flags while keeping removed source types disabled."""
+    """Persist visual source flags while keeping removed source types disabled."""
     if "ai_video_enabled" not in script_json:
         content.ai_video_enabled = ai_video_enabled
 
@@ -90,7 +94,7 @@ def normalize_media_assignments_for_sources(
     stock_photo_enabled: bool,
     ai_video_enabled: bool,
 ) -> list[MediaAssignment]:
-    """Coerce assignments to AI when disabled or invalid for the latest script."""
+    """Coerce assignments to supported AI visual modes when invalid for the latest script."""
     normalized: list[MediaAssignment] = []
     scenes_by_id = {
         scene.id: scene
@@ -133,7 +137,7 @@ def normalize_media_assignments_for_sources(
                     scene_id=assignment.scene_id,
                     game_name=None,
                     search_query=None,
-                    reasoning="AI video assignment no longer fits the latest scene timing, media source, or content.",
+                    reasoning="AI video assignment no longer fits the latest scene timing, visual mode, or content.",
                     visual_mode="full_frame",
                 ))
                 logger.info(
@@ -157,7 +161,7 @@ def missing_voiceover_scene_ids(content: ScriptContent) -> list[str]:
 
 
 def media_analysis_voiceover_required_message(missing_count: int) -> str:
-    """Build the user-facing media analysis voiceover gate message."""
+    """Build the user-facing visual-mode analysis voiceover gate message."""
     return (
         "Generate voiceover before media analysis. "
         f"{missing_count} scene(s) are missing audio duration timing."
@@ -165,7 +169,7 @@ def media_analysis_voiceover_required_message(missing_count: int) -> str:
 
 
 def require_media_analysis_voiceover(content: ScriptContent) -> None:
-    """Raise a user-facing job error when media analysis lacks voiceover timing."""
+    """Raise a user-facing job error when visual-mode analysis lacks voiceover timing."""
     missing_voiceover = missing_voiceover_scene_ids(content)
     if missing_voiceover:
         logger.info(
@@ -179,7 +183,7 @@ def require_media_analysis_voiceover(content: ScriptContent) -> None:
 
 @router.post("/analyze/{script_id}", response_model=AnalyzeResponse)
 def analyze_media(script_id: str, session: Session = Depends(get_session)):
-    """Trigger media source analysis for a script. Runs as a background job."""
+    """Trigger visual-mode analysis for a script. Runs as a background job."""
     record = session.get(Script, script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
@@ -215,7 +219,7 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
         gameplay_enabled, stock_photo_enabled, ai_video_enabled = media_analysis_source_flags(fresh_raw)
 
         if gameplay_enabled or stock_photo_enabled or ai_video_enabled:
-            update_job(job_id, current_step="Analyzing script for media sources...")
+            update_job(job_id, current_step="Analyzing script for visual modes...")
             assignments = analyze_media_sources(
                 fresh_content,
                 gameplay_enabled=gameplay_enabled,
@@ -283,7 +287,7 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
 
 @router.get("/analyze/status/{job_id}")
 def analyze_status(job_id: str):
-    """Poll the status of a media analysis job."""
+    """Poll the status of a visual-mode analysis job."""
     job = get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")

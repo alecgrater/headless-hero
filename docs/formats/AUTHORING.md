@@ -303,7 +303,7 @@ Each is `register(...)`-wrapped so it appears in the global `PROMPTS` dict.
 
 `enforce_life_as_a_constraints` ([`life_as_a.py:34`](../../backend/pipeline/formats/life_as_a.py)) does three things:
 
-1. Coerces disallowed `visual_beat` values (`aha_subtitle`, `montage`) to `"static"`.
+1. Coerces disallowed text-only beats (`aha_subtitle`) to `"static"` and normalizes legacy multi-frame aliases (`quick_cuts`, `montage`) to canonical `"multi_frame"`.
 2. Inserts a chapter-card scene at the head of every segment that's missing one.
 3. Synthesizes `content.levels[]` from `segments` if Claude omitted them.
 
@@ -311,7 +311,7 @@ Idempotent: running it twice produces the same result.
 
 ### Step 4 — Define the visual beat rules
 
-`LIFE_AS_A_BEAT_RULES` ([`life_as_a.py:22-31`](../../backend/pipeline/formats/life_as_a.py)) constrains beats to `{static, continuous, quick_cuts}` with `static` dominant (80–90%), and disables run-breaking by setting `monotony_threshold=99`.
+`LIFE_AS_A_BEAT_RULES` ([`life_as_a.py`](../../backend/pipeline/formats/life_as_a.py)) constrains beats to `{static, continuous, multi_frame}`, keeps `quick_cuts` only as a legacy compatibility alias, and uses `monotony_threshold=3`.
 
 ### Step 5 — Compose the `VideoFormat` and register
 

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from config import BACKEND_PORT, DATA_DIR, FPS, VIDEO_HEIGHT, VIDEO_WIDTH
-from models.script import ChapterMarker, Scene, SceneFX, ScriptContent, VideoFX, WordTimestamp
+from models.script import ChapterMarker, Scene, SceneFX, ScriptContent, WordTimestamp
 from pipeline.export_paths import copy_to_project_downloads, longform_filename
 from pipeline.process_manager import register_process, run_tracked, terminate_process_group, unregister_process
 

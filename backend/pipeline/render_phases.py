@@ -96,7 +96,12 @@ def _reload_content(script_id: str) -> ScriptContent:
 
 def _phase_images(ctx: ExportContext) -> None:
     """Generate images for all scenes (skips title cards)."""
-    from pipeline.image_gen import generate_popup_sequence_cutouts, generate_scene_image, generate_visual_layer_panels
+    from pipeline.image_gen import (
+        generate_popup_sequence_cutouts,
+        generate_scene_frames_v2,
+        generate_scene_image,
+        generate_visual_layer_panels,
+    )
 
     non_tc = [sc for sc in ctx.scenes if not sc.get("is_title_card")]
     scene_count = len(non_tc)
@@ -125,6 +130,19 @@ def _phase_images(ctx: ExportContext) -> None:
             )
             sc_info["_image_url"] = ""
             sc_info["_frame_urls"] = []
+        elif visual_mode in {"multi_frame", "continuous"} and scene_now is not None and scene_now.frame_directives:
+            logger.info("[%s] Generating %s frames for scene %s (%d/%d)", ctx.script_id, visual_mode, sid, i + 1, scene_count)
+            frame_results = generate_scene_frames_v2(
+                scene_id=sid,
+                frame_directives=[directive.model_dump() for directive in scene_now.frame_directives],
+                script_id=ctx.script_id,
+                visual_prompt=sc_info.get("visual_prompt") or scene_now.visual_prompt,
+                contains_person=bool(sc_info.get("contains_person") or scene_now.contains_person),
+                force=True,
+            )
+            frame_urls = [url for url, _, _ in frame_results]
+            sc_info["_image_url"] = next((url for url in frame_urls if url), "")
+            sc_info["_frame_urls"] = frame_urls
         else:
             logger.info("[%s] Generating image for scene %s (%d/%d)", ctx.script_id, sid, i + 1, scene_count)
             image_url, _, _ = generate_scene_image(sid, sc_info["visual_prompt"], ctx.script_id, force=True)

@@ -68,7 +68,7 @@ class UpdateVisualTreatmentRequest(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def normalize_legacy_visual_treatment(cls, data: object) -> object:
+    def normalize_legacy_visual_treatment(_cls, data: object) -> object:
         if not isinstance(data, dict):
             return data
         normalized = dict(data)

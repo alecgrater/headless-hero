@@ -159,7 +159,7 @@ class TestLabRunManifest(BaseModel):
 
     @field_validator("run_id")
     @classmethod
-    def validate_run_id(cls, value: str) -> str:
+    def validate_run_id(_cls, value: str) -> str:
         return validate_run_id(value)
 
 

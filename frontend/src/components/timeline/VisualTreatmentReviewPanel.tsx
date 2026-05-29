@@ -42,7 +42,7 @@ const MODE_LABELS: Record<VisualMode, { label: string; blurb: string }> = {
   },
 };
 
-const MODE_OPTIONS: VisualMode[] = ["video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop"];
+const MODE_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop"];
 const modeForAssignment = (assignment: VisualTreatmentAssignment): VisualMode =>
   assignment.visual_mode ?? "full_frame";
 const isLayeredMode = (mode: VisualMode): mode is Extract<VisualMode, "popup_sequence" | "flipflop"> =>

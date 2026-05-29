@@ -142,7 +142,7 @@ class VisualTreatmentAssignment(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def normalize_legacy_visual_treatment(cls, data: object) -> object:
+    def normalize_legacy_visual_treatment(_cls, data: object) -> object:
         if not isinstance(data, dict):
             return data
         normalized = dict(data)
@@ -233,6 +233,8 @@ def apply_visual_treatment_assignments(
         if scene is None:
             continue
         mode = _normalize_visual_mode(assignment.visual_mode)
+        if mode == "video" and scene.visual_mode != "video" and not scene.video_url:
+            mode = "full_frame"
         scene.set_visual_mode(mode)
         scene.visual_layers = (
             list(assignment.visual_layers)

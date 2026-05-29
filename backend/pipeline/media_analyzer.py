@@ -132,7 +132,7 @@ def _known_audio_duration_seconds(scene: Scene) -> float | None:
 
 def is_ai_video_eligible(
     scene: Scene,
-    current_source: str = "ai",
+    _current_source: str = "ai",
     *,
     require_eli_scene: bool = False,
     life_as_a_role: str = "",
@@ -291,7 +291,7 @@ def analyze_media_sources(
     ai_video_scenes_per_segment: int = 2,
     script_id: str | None = None,
 ) -> list[MediaAssignment]:
-    """Analyze a completed script and assign media sources per scene.
+    """Analyze a completed script and assign visual modes per scene.
 
     Sends the full script to the routed LLM provider, which returns per-scene
     assignments based on the narrative content.
@@ -347,8 +347,8 @@ def analyze_media_sources(
 
     user_message = json.dumps(scenes_summary, indent=2)
 
-    logger.info("[%s] Analyzing visual modes for %d scenes (gameplay=%s, stock=%s)",
-                script_id or "no-id", len(scenes_summary), gameplay_enabled, stock_photo_enabled)
+    logger.info("[%s] Analyzing visual modes for %d scenes (ai_video=%s)",
+                script_id or "no-id", len(scenes_summary), ai_video_available)
 
     response = chat(
         system=system_prompt,

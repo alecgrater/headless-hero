@@ -22,7 +22,6 @@ from models.generation_duration import GenerationDuration
 from models.project_config import ProjectConfig
 from models.script import (
     GenerateScriptRequest,
-    GenerateScriptResponse,
     HookScore,
     RefineSceneRequest,
     RefineSceneResponse,
@@ -477,7 +476,7 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
 
         if ai_video_enabled and animated_scene_count > 0:
             try:
-                update_job(job_id, current_step="Analyzing media sources...")
+                update_job(job_id, current_step="Analyzing visual modes...")
                 assignments = analyze_media_sources(
                     script_content,
                     gameplay_enabled=False,
@@ -494,9 +493,9 @@ def generate(body: GenerateScriptRequest, session: Session = Depends(get_session
                         record_media.script_json = script_content.model_dump_json()
                         media_session.add(record_media)
                         media_session.commit()
-                logger.info("Media sources assigned for %s", script_id)
+                logger.info("Visual modes assigned for %s", script_id)
             except Exception:
-                logger.exception("Media source analysis failed for %s — keeping default AI routing", script_id)
+                logger.exception("Visual mode analysis failed for %s — keeping default AI routing", script_id)
 
         # Auto-score the hook on the final generated script
         try:

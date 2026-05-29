@@ -13,7 +13,7 @@ Headless Hero handles the entire content creation pipeline:
 1. **Idea Generation** — AI suggests video topics for your niche with keyword analysis
 2. **Script Writing** — Generates segmented scripts with visual storytelling arc, hooks, and transitions
 3. **Timeline Editing** — Lane-based timeline editor with scene editing, split, merge, and full editorial control
-4. **Image Generation** — Per-scene AI illustrations via Google Gemini or Replicate Flux
+4. **Image Generation** — Per-scene AI illustrations via Google Gemini
 5. **Voiceover** — AI voice synthesis with voice cloning support via ElevenLabs
 6. **Video Rendering** — Remotion-based frame-by-frame rendering with kinetic captions, zoom punch, and Eli character overlay
 7. **Thumbnail & SEO** — AI-generated thumbnails and optimized metadata for YouTube
@@ -28,7 +28,7 @@ The app is structured as four layers:
 | **Desktop Shell** | Electron 41 | Window management, IPC bridge, system integration |
 | **Frontend** | React 19, Vite, TypeScript, Tailwind 4 | UI views: dashboard, ideation, script editor, timeline, settings |
 | **Backend** | FastAPI, Python 3.12, uv, SQLite (SQLModel) | REST API on `:8420`, database, static file serving |
-| **Pipeline** | Routed LLM providers, Google Gemini, ElevenLabs, Remotion, FFmpeg | AI orchestration: ideation, scriptwriting, image gen, TTS, video rendering, SEO, publishing |
+| **Pipeline** | Routed LLM providers, Google Gemini, ElevenLabs, Remotion, FFmpeg | AI orchestration: ideation, scriptwriting, image gen, TTS, audio utilities, video rendering, SEO, publishing |
 
 ### API Routes
 
@@ -37,19 +37,19 @@ The app is structured as four layers:
 | `/api/brand` | Brand profile (single default) |
 | `/api/ideas` | AI topic generation |
 | `/api/scripts` | Script generation, editing, split, cold opens, hook scoring |
-| `/api/visuals` | Image generation (single + batch + multi-frame + title cards) |
+| `/api/visuals` | Visual generation (single image, frame sequences, layered assets, AI video, title cards) |
 | `/api/voice` | TTS generation, batch audio, voice cloning, voice listing |
 | `/api/render` | Video rendering, export test/status, and export bundle packaging |
 | `/api/fx` | AI-powered FX generation (kinetic captions, zoom punch) |
 | `/api/eli` | Eli character animation keyframe generation |
-| `/api/character` | Character frame library management |
+| `/api/character/thumbnail-references` | Thumbnail reference image upload/list/delete |
 | `/api/thumbnail` | Thumbnail generation |
 | `/api/seo` | SEO metadata generation |
 | `/api/publish` | YouTube OAuth, upload, status, history |
 | `/api/trending` | Trending topics, content profile, smart ideas |
-| `/api/postits` | Post-it brainstorming board CRUD |
+| `/api/idea-board` | Idea-board item CRUD |
 | `/api/brainstorm` | AI brainstorming sessions |
-| `/api/media` | Scene media file upload |
+| `/api/media` | Post-voiceover visual-mode analysis and legacy upload rejection |
 | `/api/settings` | API key management |
 | `/api/generation` | Generation time estimates |
 | `/dev/` | Dev dashboard (log viewer, job monitor, API tester, DB inspector, usage tracker) |
@@ -60,11 +60,10 @@ The app is structured as four layers:
 |---------|---------|---------|
 | [Anthropic Claude](https://console.anthropic.com/) | Optional routed LLM provider for scripts, ideas, SEO, and analysis | `ANTHROPIC_API_KEY` |
 | [OpenAI](https://platform.openai.com/) | Optional routed LLM provider for scripts, ideas, SEO, and analysis | `OPENAI_API_KEY` |
-| [Google Gemini](https://ai.google.dev/) | Image generation (gemini-2.5-flash) | `GOOGLE_AI_KEY` |
-| [Replicate](https://replicate.com/) | Alternative image generation (Flux) | `REPLICATE_API_TOKEN` (optional) |
+| [Google Gemini](https://ai.google.dev/) | Image generation (Gemini image model) | `GOOGLE_AI_KEY` |
 | [ElevenLabs](https://elevenlabs.io/) | Text-to-speech + voice cloning | `ELEVENLABS_API_KEY` |
 | [YouTube Data API v3](https://console.cloud.google.com/) | Video upload | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
-| FFmpeg 8.1 | Thumbnail compositing utilities | System install |
+| FFmpeg 8.1 | Audio conversion, recording cleanup, and media probing utilities | System install |
 
 ## Prerequisites
 
@@ -153,12 +152,12 @@ headless-hero/
 │   │   ├── brands.py         # Brand CRUD endpoints
 │   │   ├── ideas.py          # Idea generation endpoint
 │   │   ├── scripts.py        # Script generation + CRUD
-│   │   ├── visuals.py        # Image generation (single + batch)
+│   │   ├── visuals.py        # Visual generation (single + batch + title cards)
 │   │   ├── voiceover.py      # TTS generation + voice cloning
 │   │   ├── render.py         # Video render endpoints + job status
 │   │   ├── fx.py             # FX generation (kinetic captions, zoom punch)
 │   │   ├── eli.py            # Eli animation keyframe generation
-│   │   ├── character.py      # Character frame library management
+│   │   ├── thumbnail_references.py # Thumbnail reference image management
 │   │   ├── thumbnail.py      # Thumbnail generation
 │   │   ├── seo.py            # SEO metadata generation
 │   │   ├── publish.py        # YouTube OAuth + upload
@@ -170,12 +169,11 @@ headless-hero/
 │   │   ├── image_gen.py      # Image gen: prompt → Gemini → local file
 │   │   ├── voiceover.py      # TTS: ElevenLabs → MP3 + duration
 │   │   ├── remotion_render.py # Remotion CLI orchestration → full video
-│   │   ├── ffmpeg_builder.py # FFmpeg CLI arg construction
 │   │   ├── render_jobs.py    # Background job tracking with threading
 │   │   ├── fx_generator.py   # Routed LLM FX assignment
 │   │   ├── eli_animator.py   # Routed LLM Eli animation
 │   │   ├── character_frames.py # Eli frame library generation
-│   │   ├── thumbnail.py      # LLM concepts + Gemini + FFmpeg composite
+│   │   ├── thumbnail.py      # Thumbnail generation + variant management
 │   │   ├── seo.py            # Routed LLM SEO metadata
 │   │   ├── publishing.py     # YouTube upload orchestration
 │   │   ├── title_card.py     # Per-segment title card generation
@@ -188,9 +186,8 @@ headless-hero/
 │   │   ├── google_image_client.py # google-genai SDK wrapper
 │   │   ├── elevenlabs_client.py   # ElevenLabs httpx wrapper
 │   │   ├── youtube_client.py      # YouTube Data API v3 wrapper
-│   │   ├── replicate_client.py    # Replicate API wrapper (optional)
-│   │   ├── image_client.py        # Image provider router (Google/Replicate)
-│   │   ├── google_image_scraper.py # Google Image scraping for real photos
+│   │   ├── image_client.py        # Image provider router (Google)
+│   │   ├── google_image_scraper.py # Opt-in scraped-image fallback for failed AI generations
 │   │   └── usage_tracker.py       # API usage recording + pricing constants
 │   ├── models/
 │   │   ├── brand.py          # BrandProfile table + schemas
@@ -282,7 +279,7 @@ The Database tab provides a browser for the SQLite database:
 
 The Usage tab tracks API costs across all external services:
 
-- **Service cards** — Per-service cost breakdown for Anthropic, Google AI Studio, Replicate, and ElevenLabs with call counts and relevant metrics (tokens, characters, images). OpenAI calls are logged, but cost estimates are not yet calculated.
+- **Service cards** — Per-service cost breakdown for Anthropic, Google AI Studio, OpenAI, and ElevenLabs with call counts and relevant metrics (tokens, characters, images).
 - **Daily cost chart** — Stacked bar chart showing cost per day per service
 - **Operation breakdown** — Table of costs grouped by service, operation type, and model
 - **Recent calls log** — Detailed table of recent API calls with timestamps, token counts, and per-call cost

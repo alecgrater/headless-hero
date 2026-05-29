@@ -119,7 +119,7 @@ def generate_image(
     prompt: str,
     width: int = IMAGE_WIDTH,
     height: int = IMAGE_HEIGHT,
-    seed: int | None = None,
+    _seed: int | None = None,
     reference_image_path: str | None = None,
     style_reference_path: str | None = None,
     original_prompt: str | None = None,

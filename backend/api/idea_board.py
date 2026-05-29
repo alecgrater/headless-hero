@@ -29,7 +29,7 @@ class CreateIdeaRequest(BaseModel):
 
     @field_validator("source")
     @classmethod
-    def validate_source(cls, v: str) -> str:
+    def validate_source(_cls, v: str) -> str:
         if v not in VALID_SOURCES:
             raise ValueError(f"source must be one of {VALID_SOURCES}")
         return v
@@ -44,7 +44,7 @@ class UpdateIdeaRequest(BaseModel):
 
     @field_validator("status")
     @classmethod
-    def validate_status(cls, v: str | None) -> str | None:
+    def validate_status(_cls, v: str | None) -> str | None:
         if v is not None and v not in VALID_STATUSES:
             raise ValueError(f"status must be one of {VALID_STATUSES}")
         return v

@@ -690,6 +690,95 @@ def test_phase_images_forces_visual_layer_panel_regeneration(monkeypatch):
     assert ctx.scenes[0]["_frame_urls"] == []
 
 
+def test_phase_images_regenerates_frame_sequence_for_multi_frame_mode(monkeypatch):
+    from pipeline import image_gen as image_gen_mod
+    from pipeline import render_phases as render_phases_mod
+    from pipeline.render_phases import ExportContext, _phase_images
+
+    scene = Scene(
+        id="scene_001",
+        narration="First this, then that.",
+        visual_prompt="A two-part comparison.",
+        visual_mode="multi_frame",
+        frame_directives=[
+            {"prompt": "First frame", "source": "ai_generated"},
+            {"prompt": "Second frame", "source": "ai_generated"},
+        ],
+    )
+    content = content_with_scenes(scene)
+    captured = {}
+    monkeypatch.setattr(render_phases_mod, "_reload_content", lambda script_id: content)
+
+    def fail_scene_image(*_args, **_kwargs):
+        raise AssertionError("multi_frame should regenerate frame URLs, not a single scene image")
+
+    def fake_generate_scene_frames_v2(**kwargs):
+        captured.update(kwargs)
+        return [
+            ("/static/projects/script-1/frames/scene_001_01.png", "First prompt", {"source_type": "ai_generated"}),
+            ("/static/projects/script-1/frames/scene_001_02.png", "Second prompt", {"source_type": "ai_generated"}),
+        ]
+
+    monkeypatch.setattr(image_gen_mod, "generate_scene_image", fail_scene_image)
+    monkeypatch.setattr(image_gen_mod, "generate_scene_frames_v2", fake_generate_scene_frames_v2)
+
+    ctx = ExportContext(
+        script_id="script-1",
+        job=RenderJob("job-1"),
+        scenes=[
+            {
+                "scene_id": "scene_001",
+                "visual_prompt": "A two-part comparison.",
+                "is_title_card": False,
+                "visual_mode": "multi_frame",
+            }
+        ],
+        seg_name="Segment",
+        total_scenes=1,
+        voice_id="voice",
+        brand_dict={},
+        project_title="Treatment Test",
+        title="Segment",
+        total_segments=1,
+        regen_images=True,
+        regen_audio=False,
+        regen_fx=False,
+        regen_eli=False,
+        phase_ranges={"images": (0.0, 1.0)},
+    )
+
+    _phase_images(ctx)
+
+    assert captured["scene_id"] == "scene_001"
+    assert captured["frame_directives"] == [directive.model_dump() for directive in scene.frame_directives]
+    assert ctx.scenes[0]["_image_url"] == "/static/projects/script-1/frames/scene_001_01.png"
+    assert ctx.scenes[0]["_frame_urls"] == [
+        "/static/projects/script-1/frames/scene_001_01.png",
+        "/static/projects/script-1/frames/scene_001_02.png",
+    ]
+
+
+def test_apply_visual_treatment_assignments_does_not_promote_normal_scene_to_video():
+    content = content_with_scenes(
+        scene_with_words("scene_001", "A normal illustrated scene.")
+    )
+
+    apply_visual_treatment_assignments(
+        content,
+        [
+            VisualTreatmentAssignment(
+                scene_id="scene_001",
+                visual_mode="video",
+                reasoning="Manual layered-mode review should not create video scenes.",
+            )
+        ],
+    )
+
+    scene = content.all_scenes()[0]
+    assert scene.visual_mode == "full_frame"
+    assert scene.media_source == "ai"
+
+
 def test_generate_batch_popup_sequence_skips_scene_image(monkeypatch):
     from pipeline import image_gen as image_gen_mod
 

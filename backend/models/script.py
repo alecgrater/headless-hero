@@ -51,7 +51,7 @@ class VisualCanvas(BaseModel):
 
     @field_validator("background_color", mode="before")
     @classmethod
-    def normalize_background_color(cls, value: object) -> str:
+    def normalize_background_color(_cls, value: object) -> str:
         if not isinstance(value, str):
             return "#F6C54A"
         text = value.strip().upper()
@@ -77,17 +77,17 @@ class VisualLayer(BaseModel):
 
     @field_validator("type", mode="before")
     @classmethod
-    def normalize_type(cls, value: object) -> str:
+    def normalize_type(_cls, value: object) -> str:
         return value if isinstance(value, str) and value in VISUAL_LAYER_TYPES else "image"
 
     @field_validator("asset_kind", mode="before")
     @classmethod
-    def normalize_asset_kind(cls, value: object) -> str:
+    def normalize_asset_kind(_cls, value: object) -> str:
         return value if isinstance(value, str) and value in VISUAL_ASSET_KINDS else "panel"
 
     @field_validator("animation", mode="before")
     @classmethod
-    def normalize_animation(cls, value: object) -> str:
+    def normalize_animation(_cls, value: object) -> str:
         return value if isinstance(value, str) and value in VISUAL_LAYER_ANIMATIONS else "none"
 
 
@@ -190,7 +190,7 @@ class Scene(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def normalize_visual_mode_fields(cls, data: object) -> object:
+    def normalize_visual_mode_fields(_cls, data: object) -> object:
         if not isinstance(data, dict):
             return data
         normalized = dict(data)
@@ -210,7 +210,7 @@ class Scene(BaseModel):
 
     @field_validator("transition_in", mode="before")
     @classmethod
-    def normalize_transition_in(cls, value: object) -> str:
+    def normalize_transition_in(_cls, value: object) -> str:
         """Treat missing, null, or unknown transitions as the default cut."""
         if isinstance(value, str) and value in ALLOWED_TRANSITIONS:
             return value
@@ -218,7 +218,7 @@ class Scene(BaseModel):
 
     @field_validator("visual_mode", mode="before")
     @classmethod
-    def normalize_visual_mode(cls, value: object) -> str:
+    def normalize_visual_mode(_cls, value: object) -> str:
         if isinstance(value, str) and value in VISUAL_MODES:
             return value
         return "full_frame"

@@ -45,7 +45,7 @@ class GenerateVisualRequest(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def normalize_legacy_visual_mode(cls, data: object) -> object:
+    def normalize_legacy_visual_mode(_cls, data: object) -> object:
         if not isinstance(data, dict):
             return data
         normalized = dict(data)
@@ -75,7 +75,7 @@ class BatchScene(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def normalize_legacy_visual_mode(cls, data: object) -> object:
+    def normalize_legacy_visual_mode(_cls, data: object) -> object:
         if not isinstance(data, dict):
             return data
         normalized = dict(data)

@@ -21,7 +21,7 @@ class _Timeout(Exception):
     pass
 
 
-def _timeout_handler(signum, frame):
+def _timeout_handler(_signum, frame):
     raise _Timeout("pytrends timed out")
 
 
