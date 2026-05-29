@@ -29,7 +29,7 @@ export default function VisualModesSection() {
         <div className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
           All modes
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-2">
+        <div className="grid grid-cols-9 gap-2">
           {VISUAL_MODE_CATALOG.map((entry) => (
             <VisualModeCard
               key={entry.id}
