@@ -11,7 +11,7 @@ import logging
 import re
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from sqlmodel import Session
 
 from api.settings import VISUAL_CANVAS_COLOR_PALETTE_KEY
@@ -65,6 +65,16 @@ class ApplyVisualTreatmentsResponse(BaseModel):
 class UpdateVisualTreatmentRequest(BaseModel):
     scene_id: str
     visual_mode: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_visual_treatment(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        normalized = dict(data)
+        if not normalized.get("visual_mode") and isinstance(normalized.get("visual_treatment"), str):
+            normalized["visual_mode"] = normalized["visual_treatment"]
+        return normalized
 
 
 def normalize_hex_color(value: str) -> str:

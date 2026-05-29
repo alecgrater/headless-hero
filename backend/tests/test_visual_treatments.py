@@ -132,6 +132,17 @@ def test_visual_treatment_assignment_sets_canonical_visual_mode():
     assert scene.visual_treatment == "popup_sequence"
 
 
+def test_update_visual_treatment_request_normalizes_legacy_treatment():
+    from api.visual_treatments import UpdateVisualTreatmentRequest
+
+    request = UpdateVisualTreatmentRequest.model_validate({
+        "scene_id": "scene_001",
+        "visual_treatment": "flipflop",
+    })
+
+    assert request.visual_mode == "flipflop"
+
+
 def test_visual_treatment_assignment_preserves_video_visual_mode():
     content = content_with_scenes(
         scene_with_words("scene_001", "Video line with motion.")

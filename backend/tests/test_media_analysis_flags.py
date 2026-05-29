@@ -234,6 +234,20 @@ def test_apply_media_assignment_sets_canonical_video_visual_mode():
     assert scene.visual_treatment == "full_frame"
 
 
+def test_media_assignment_response_normalizes_legacy_ai_video_source():
+    from api.media import MediaAssignmentResponse
+
+    assignment = MediaAssignmentResponse.model_validate({
+        "scene_id": "scene_001",
+        "media_source": "ai_video",
+        "game_name": None,
+        "search_query": None,
+        "reasoning": "legacy payload",
+    })
+
+    assert assignment.visual_mode == "video"
+
+
 def test_life_as_a_ai_video_eligibility_rejects_secondary_people():
     scene = Scene(
         id="scene_001",

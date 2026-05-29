@@ -5,7 +5,7 @@ import logging
 import os
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from sqlmodel import Session
 
 from database import get_session
@@ -37,6 +37,16 @@ class MediaAssignmentResponse(BaseModel):
     game_name: str | None = None
     search_query: str | None = None
     reasoning: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_media_source(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        normalized = dict(data)
+        if not normalized.get("visual_mode") and normalized.get("media_source") == "ai_video":
+            normalized["visual_mode"] = "video"
+        return normalized
 
 
 class AnalyzeResponse(BaseModel):
