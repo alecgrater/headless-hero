@@ -1,4 +1,5 @@
 import base64
+import math
 
 import httpx
 import pytest
@@ -97,6 +98,57 @@ def test_upload_json_file_raises_clear_error_on_auth_failure():
         upload_json_file(
             token="bad",
             path="discovery/content-profile-seed.json",
+            content={"version": 1},
+            message="Update discovery content profile seed",
+            client=httpx.Client(transport=httpx.MockTransport(transport)),
+        )
+
+
+def test_upload_json_file_rejects_non_finite_float():
+    transport = MockTransport([(404, {"message": "Not Found"})])
+
+    with pytest.raises(GitHubContentsError, match="Content is not valid JSON"):
+        upload_json_file(
+            token="ghp_test",
+            path="discovery/content-profile-seed.json",
+            content={"score": math.nan},
+            message="Update discovery content profile seed",
+            client=httpx.Client(transport=httpx.MockTransport(transport)),
+        )
+
+
+def test_upload_json_file_encodes_special_path_segments():
+    transport = MockTransport(
+        [
+            (404, {"message": "Not Found"}),
+            (201, {"content": {"sha": "created-sha"}, "commit": {"sha": "commit-sha"}}),
+        ]
+    )
+
+    upload_json_file(
+        token="ghp_test",
+        path="discovery/content?profile#seed.json",
+        content={"version": 1},
+        message="Update discovery content profile seed",
+        client=httpx.Client(transport=httpx.MockTransport(transport)),
+    )
+
+    assert (
+        "/contents/discovery/content%3Fprofile%23seed.json"
+        in str(transport.requests[0].url)
+    )
+
+
+def test_upload_json_file_rejects_directory_payload():
+    transport = MockTransport([(200, [{"name": "content-profile-seed.json"}])])
+
+    with pytest.raises(
+        GitHubContentsError,
+        match="GitHub contents API returned a directory or unexpected payload",
+    ):
+        upload_json_file(
+            token="ghp_test",
+            path="discovery",
             content={"version": 1},
             message="Update discovery content profile seed",
             client=httpx.Client(transport=httpx.MockTransport(transport)),

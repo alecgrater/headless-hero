@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -27,7 +28,8 @@ def _headers(token: str) -> dict[str, str]:
 
 
 def _url(path: str) -> str:
-    return f"{API_BASE}/repos/{OWNER}/{REPO}/contents/{path}"
+    safe_path = "/".join(quote(part, safe="") for part in path.split("/"))
+    return f"{API_BASE}/repos/{OWNER}/{REPO}/contents/{safe_path}"
 
 
 def _get_sha(client: httpx.Client, token: str, path: str) -> str | None:
@@ -39,6 +41,10 @@ def _get_sha(client: httpx.Client, token: str, path: str) -> str | None:
             f"GitHub contents API failed ({response.status_code}): {response.text}"
         )
     payload = response.json()
+    if not isinstance(payload, dict):
+        raise GitHubContentsError(
+            "GitHub contents API returned a directory or unexpected payload"
+        )
     sha = payload.get("sha")
     return sha if isinstance(sha, str) else None
 
@@ -51,7 +57,10 @@ def _put_file(
     message: str,
     sha: str | None,
 ) -> httpx.Response:
-    raw = json.dumps(content, indent=2, sort_keys=True) + "\n"
+    try:
+        raw = json.dumps(content, indent=2, sort_keys=True, allow_nan=False) + "\n"
+    except ValueError as exc:
+        raise GitHubContentsError(f"Content is not valid JSON: {exc}") from exc
     body: dict[str, Any] = {
         "message": message,
         "content": base64.b64encode(raw.encode("utf-8")).decode("ascii"),
