@@ -573,6 +573,18 @@ function SceneTextFields({
             visualLayers={visualLayers}
             fallbackPrompt={visualPrompt || narration}
             onChange={onVisualLayersChange}
+            assetKind="cutout"
+            idPrefix={dossierLayout === "network" ? "dossier_subject" : "dossier_anchor_evidence"}
+            placements={
+              dossierLayout === "network"
+                ? ["top-left", "top-right", "bottom-center"]
+                : ["center", "top-left", "top-right", "bottom-center"]
+            }
+            animations={
+              dossierLayout === "network"
+                ? ["pop_in", "pop_in", "pop_in"]
+                : ["none", "pop_in", "pop_in", "pop_in"]
+            }
           />
         </div>
       )}
@@ -624,21 +636,37 @@ function LayerPromptFields({
   visualLayers,
   fallbackPrompt,
   onChange,
+  assetKind = "panel",
+  placements,
+  idPrefix = "layer",
+  animations,
 }: {
   labels: string[];
   visualLayers: VisualLayer[];
   fallbackPrompt: string;
   onChange: (value: VisualLayer[]) => void;
+  assetKind?: "panel" | "cutout";
+  placements?: string[];
+  idPrefix?: string;
+  animations?: ("none" | "pop_in")[];
 }) {
-  const resolved = visualLayers.length ? visualLayers : labels.map((_label, index) => ({
-    id: `layer_${index + 1}`,
-    type: "image" as const,
-    asset_kind: "panel" as const,
-    prompt: fallbackPrompt,
-    placement: index === 0 ? "left" : index === 1 ? "right" : "center",
-    enter_at_seconds: index,
-    animation: "pop_in" as const,
-  }));
+  const defaultPlacement = (index: number): string => {
+    if (placements && placements[index]) return placements[index];
+    return index === 0 ? "left" : index === 1 ? "right" : "center";
+  };
+  const defaultAnimation = (index: number): "none" | "pop_in" =>
+    animations?.[index] ?? "pop_in";
+  const resolved = visualLayers.length
+    ? visualLayers
+    : labels.map((_label, index) => ({
+        id: `${idPrefix}_${index + 1}`,
+        type: "image" as const,
+        asset_kind: assetKind,
+        prompt: fallbackPrompt,
+        placement: defaultPlacement(index),
+        enter_at_seconds: index,
+        animation: defaultAnimation(index),
+      }));
   return (
     <div className="grid gap-3">
       {labels.map((label, index) => (

@@ -132,7 +132,7 @@ export interface SceneInput {
   caption_emphasis?: string | null;
   stat_value?: string | null;
   stat_label?: string | null;
-  dossier_layout?: "anchor" | "network";
+  dossier_layout?: "anchor" | "network" | null;
   dossier_title?: string | null;
   subtitle_style?: SubtitleStyle;
 

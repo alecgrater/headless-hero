@@ -93,10 +93,15 @@ export default function PropertiesPanel({
   const setVisualMode = (mode: VisualMode) => {
     const isLayered = mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board" || mode === "stat_card" || mode === "dossier";
     const shouldPreserveVisualLayers = isLayered && mode === visualMode;
-    onUpdate({
+    const update: Partial<Scene> = {
       visual_mode: mode,
       visual_layers: shouldPreserveVisualLayers ? scene.visual_layers : [],
-    });
+    };
+    if (mode === "dossier") {
+      update.dossier_layout = scene.dossier_layout ?? "anchor";
+      update.dossier_title = scene.dossier_title ?? "";
+    }
+    onUpdate(update);
   };
 
   const sourceMeta = scene.visual_source_metadata;

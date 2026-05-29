@@ -23,7 +23,17 @@ const seededRotation = (id: string): number => {
     hash = (hash * 31 + id.charCodeAt(i)) | 0;
   }
   // Range: -8deg .. +8deg, deterministic per layer id.
-  return ((hash % 1600) / 100) - 8;
+  return ((Math.abs(hash) % 1600) / 100) - 8;
+};
+
+const seededOffset = (id: string, salt: string, range: number): number => {
+  let hash = 0;
+  const seed = `${id}:${salt}`;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  }
+  // Deterministic offset in [-range/2, +range/2].
+  return ((Math.abs(hash) % 1000) / 1000 - 0.5) * range;
 };
 
 const ANCHOR_POSITIONS = {
@@ -71,10 +81,11 @@ const networkPosition = (
   layerId: string,
 ): { left: number; top: number } => {
   const angle = (Math.PI * 2 * index) / Math.max(1, count) - Math.PI / 2;
-  const jitter = ((seededRotation(layerId) / 8) * 36); // small organic offset
+  const jitterX = seededOffset(layerId, "x", 60);
+  const jitterY = seededOffset(layerId, "y", 60);
   return {
-    left: NETWORK_CENTER_X + Math.cos(angle) * NETWORK_RING_RADIUS_X + jitter,
-    top: NETWORK_CENTER_Y + Math.sin(angle) * NETWORK_RING_RADIUS_Y + jitter,
+    left: NETWORK_CENTER_X + Math.cos(angle) * NETWORK_RING_RADIUS_X + jitterX,
+    top: NETWORK_CENTER_Y + Math.sin(angle) * NETWORK_RING_RADIUS_Y + jitterY,
   };
 };
 
@@ -158,7 +169,9 @@ const StringConnections: React.FC<{
       edges.push({ from: anchor, to: placement, enterAt: placement.layer.enter_at_seconds ?? 0 });
     }
   } else {
-    for (let i = 0; i < placements.length; i += 1) {
+    // For 2 placements, draw a single edge to avoid overdrawn duplicate strings.
+    const limit = placements.length === 2 ? 1 : placements.length;
+    for (let i = 0; i < limit; i += 1) {
       const next = placements[(i + 1) % placements.length];
       edges.push({
         from: placements[i],
