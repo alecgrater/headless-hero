@@ -150,23 +150,38 @@ export default function VisualTreatmentReviewPanel({
           const scene = scenes[assignment.scene_id];
           const mode = modeForAssignment(assignment);
           const hasLayers = assignment.visual_layers.length > 0;
+          const isVideoMode = mode === "video";
           return (
             <div key={assignment.scene_id} className="flex items-start gap-3 px-4 py-3 text-sm">
               <span className="w-6 shrink-0 pt-1 text-right text-neutral-500">{idx + 1}</span>
               <div className="w-48 shrink-0">
                 <select
                   value={mode}
+                  disabled={isVideoMode}
                   onChange={(e) => handleModeChange(assignment.scene_id, e.target.value as VisualMode)}
-                  title={!hasLayers ? "Re-analyze to generate layers before choosing popup sequence or flipflop." : undefined}
-                  className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 transition-colors hover:border-neutral-600"
+                  title={
+                    isVideoMode
+                      ? "AI video mode is assigned by video routing."
+                      : !hasLayers
+                        ? "Re-analyze to generate layers before choosing popup sequence or flipflop."
+                        : undefined
+                  }
+                  className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 transition-colors hover:border-neutral-600 disabled:cursor-not-allowed disabled:text-neutral-500 disabled:hover:border-neutral-700"
                 >
+                  {isVideoMode && (
+                    <option value="video" disabled>
+                      {MODE_LABELS.video.label}
+                    </option>
+                  )}
                   {MODE_OPTIONS.map((optionMode) => (
                     <option key={optionMode} value={optionMode} disabled={isLayeredMode(optionMode) && !hasLayers}>
                       {MODE_LABELS[optionMode].label}
                     </option>
                   ))}
                 </select>
-                {hasLayers ? (
+                {isVideoMode ? (
+                  <p className="mt-1 text-xs text-neutral-500">AI video is assigned by routing.</p>
+                ) : hasLayers ? (
                   <p className="mt-1 text-xs text-neutral-500">
                     {assignment.visual_layers.length} layer{assignment.visual_layers.length === 1 ? "" : "s"}
                   </p>

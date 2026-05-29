@@ -118,7 +118,7 @@ def _phase_images(ctx: ExportContext) -> None:
             visual_layers = [layer.model_dump() for layer in scene_now.visual_layers]
         visual_layers = visual_layers or []
         visual_mode = sc_info.get("visual_mode") or (scene_now.visual_mode if scene_now is not None else "full_frame")
-        treatment = visual_mode if visual_mode in {"popup_sequence", "flipflop"} else "full_frame"
+        treatment = visual_mode if visual_mode in {"video", "popup_sequence", "flipflop"} else "full_frame"
         if treatment != "full_frame":
             logger.info(
                 "[%s] Skipping full scene image for %s scene %s (%d/%d)",

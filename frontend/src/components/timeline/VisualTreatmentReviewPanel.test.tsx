@@ -54,4 +54,34 @@ describe("VisualTreatmentReviewPanel", () => {
     expect(within(select).getByRole("option", { name: "Multi-frame" })).toBeInTheDocument();
     expect(within(select).getByRole("option", { name: "Continuous" })).toBeInTheDocument();
   });
+
+  it("shows existing video assignments as read-only instead of a manual option", () => {
+    render(
+      <VisualTreatmentReviewPanel
+        assignments={[
+          {
+            scene_id: "scene_001",
+            visual_mode: "video",
+            reasoning: "AI video candidate.",
+            visual_layers: [],
+          },
+        ]}
+        scenes={{
+          scene_001: {
+            ...scenes.scene_001,
+            visual_mode: "video",
+            video_url: "/static/projects/script-1/video/scene_001.mp4",
+          },
+        }}
+        canAnalyze
+        onApply={vi.fn()}
+        onReanalyze={vi.fn()}
+      />,
+    );
+
+    const select = screen.getByRole("combobox");
+
+    expect(select).toBeDisabled();
+    expect(within(select).getByRole("option", { name: "Video" })).toBeDisabled();
+  });
 });
