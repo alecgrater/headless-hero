@@ -8,9 +8,9 @@ import { Button } from "../ui/Button";
 import GenerationProgressBar from "../GenerationProgressBar";
 import useScriptGeneration from "./useScriptGeneration";
 import useSceneEditing from "./useSceneEditing";
-import useTitleCardGeneration from "./useTitleCardGeneration";
 import ColdOpenSelector from "./ColdOpenSelector";
 import MainCharacterDrawer from "../timeline/MainCharacterDrawer";
+import ScriptRatingCard from "./ScriptRatingCard";
 
 interface Props {
   brandId: string;
@@ -88,15 +88,6 @@ export default function ScriptGenerationPage({
     refineScene,
   } = useSceneEditing({ script, scriptId, setScript });
 
-  const {
-    titleCardGenerating,
-    titleCardGenerated,
-    titleCardError,
-    titleCardCompleted,
-    titleCardTotal,
-    generateTitleCards,
-  } = useTitleCardGeneration({ scriptId, script });
-
   const [llmProvider, setLlmProvider] = useState<string>("");
   const [qwenModel, setQwenModel] = useState<string>("");
   const [projectConfig, setProjectConfig] = useState<ProjectConfig | null>(null);
@@ -141,8 +132,6 @@ export default function ScriptGenerationPage({
   const totalScenes = script
     ? script.segments.reduce((sum, seg) => sum + seg.scenes.length, 0)
     : 0;
-
-  const hasTitleCards = true;
 
   const mainCharacterRequired = projectConfig?.eli_enabled === false;
   const mainCharacterReady =
@@ -343,6 +332,8 @@ export default function ScriptGenerationPage({
             )}
           </div>
 
+          <ScriptRatingCard rating={script.script_rating} />
+
           {/* Main Character setup (Eli-disabled projects) */}
           {mainCharacterRequired && projectConfig && (
             <div className="rounded-lg border border-neutral-800 bg-neutral-900 px-5 py-4 space-y-3">
@@ -390,73 +381,6 @@ export default function ScriptGenerationPage({
                   {mainCharacterReady ? "Edit" : "Set up"}
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* Thumbnail & Title Slide generation */}
-          {hasTitleCards && (
-            <div className="rounded-lg border border-neutral-800 bg-neutral-900 px-5 py-4 space-y-3">
-              <h3 className="text-sm font-semibold text-neutral-200 uppercase tracking-wider">
-                Thumbnail & Title Slide
-              </h3>
-
-              {titleCardError && (
-                <p className="text-sm text-red-400">{titleCardError}</p>
-              )}
-
-              {!titleCardGenerated && !titleCardGenerating && (
-                <div className="space-y-2">
-                  <button
-                    onClick={() => generateTitleCards(false)}
-                    disabled={!mainCharacterReady}
-                    className="px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:bg-neutral-800 disabled:text-neutral-500 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
-                  >
-                    Generate
-                  </button>
-                  {!mainCharacterReady && (
-                    <p className="text-xs text-amber-400">
-                      Set up the main character above before generating images.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {titleCardGenerating && script && (
-                <div className="space-y-1.5 py-1">
-                  {script.segments.map((seg, idx) => {
-                    const done = titleCardCompleted.includes(idx);
-                    return (
-                      <div key={idx} className="flex items-center gap-2.5">
-                        {done ? (
-                          <svg className="w-4 h-4 text-emerald-400 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        ) : (
-                          <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin shrink-0" />
-                        )}
-                        <span className={`text-sm ${done ? "text-neutral-300" : "text-neutral-500"}`}>
-                          {seg.name}
-                        </span>
-                      </div>
-                    );
-                  })}
-                  {titleCardCompleted.length === titleCardTotal && titleCardTotal > 0 && (
-                    <div className="flex items-center gap-2.5 pt-1">
-                      <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin shrink-0" />
-                      <span className="text-sm text-neutral-500">Compositing final images...</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {titleCardGenerated && !titleCardGenerating && (
-                <button
-                  onClick={() => generateTitleCards(true)}
-                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-sm font-medium transition-colors text-neutral-300 border border-neutral-700"
-                >
-                  Regenerate
-                </button>
-              )}
             </div>
           )}
 

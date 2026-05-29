@@ -88,6 +88,7 @@ import { LongFormSeoPanel, ShortFormSeoPanel } from "./SEOPanel";
 import { LongFormThumbnailsPanel } from "./ThumbnailsPanel";
 import { YoloProgressStrip } from "./YoloProgressStrip";
 import type { ProductionTask } from "./timelineProduction";
+import type { ThumbnailPhaseItem, ThumbnailPhaseStatus } from "./ThumbnailPhaseProgress";
 
 const DEFAULT_UPLOAD_TRACKING: UploadTracking = {
   longform_youtube: false,
@@ -1195,6 +1196,7 @@ function TimelineEditor({
   const [yoloRenderRunning, setYoloRenderRunning] = useState(false);
   const [yoloStopping, setYoloStopping] = useState(false);
   const [titleCardProgressPct, setTitleCardProgressPct] = useState<number | null>(null);
+  const [thumbnailPhases, setThumbnailPhases] = useState<ThumbnailPhaseItem[]>([]);
   const [activeTab, setActiveTab] = useState<ViewerTab>("timeline");
   const [viewerFormat, setViewerFormat] = useState<ViewerFormat>("long-form");
   const [viewerAsset, setViewerAsset] = useState<ViewerAsset>("render");
@@ -2041,6 +2043,66 @@ function TimelineEditor({
     }
   };
 
+  const setThumbnailPhase = (
+    key: string,
+    status: ThumbnailPhaseStatus,
+    detail?: string,
+  ) => {
+    setThumbnailPhases((prev) =>
+      prev.map((phase) =>
+        phase.key === key ? { ...phase, status, detail: detail ?? phase.detail } : phase,
+      ),
+    );
+  };
+
+  const resetThumbnailPhaseProgress = (missingOnly: boolean) => {
+    setThumbnailPhases([
+      {
+        key: "title-cards",
+        label: "Title cards",
+        status: titleCardsApplicable && (!missingOnly || !titleCardsAllDone) ? "pending" : "skipped",
+        detail: titleCardsApplicable
+          ? titleCardsAllDone && missingOnly
+            ? "Already complete"
+            : `${titleScenes.length} chapter images`
+          : "No title-card scenes",
+      },
+      {
+        key: "short-form",
+        label: "Short-form thumbnails",
+        status: sfApplicable && (!missingOnly || !sfThumbnailsAllDone) ? "pending" : "skipped",
+        detail: sfApplicable
+          ? sfThumbnailsAllDone && missingOnly
+            ? "Already complete"
+            : `${segmentCount} vertical covers`
+          : "No segments",
+      },
+      {
+        key: "long-form",
+        label: "Long-form thumbnail",
+        status: !missingOnly || !lfThumbnailDone ? "pending" : "skipped",
+        detail: lfThumbnailDone && missingOnly ? "Already complete" : "Active YouTube thumbnail",
+      },
+    ]);
+  };
+
+  const titleCardPhaseDetail = (currentStep?: string | null, fallbackProgress?: number) => {
+    if (currentStep) {
+      try {
+        const parsed = JSON.parse(currentStep) as { completed?: number[]; total?: number };
+        if (Array.isArray(parsed.completed) && typeof parsed.total === "number") {
+          return `${parsed.completed.length} of ${parsed.total} chapter images`;
+        }
+      } catch {
+        // Non-JSON current_step values are normal near job completion.
+      }
+    }
+    if (typeof fallbackProgress === "number" && titleScenes.length > 0) {
+      return `${Math.round(fallbackProgress * titleScenes.length)} of ${titleScenes.length} chapter images`;
+    }
+    return `${titleScenes.length} chapter images`;
+  };
+
   // Combined Thumbnails handler — runs title cards + SF thumbnails + LF thumbnail
   const runThumbnailsCombined = (missingOnly: boolean) => {
     if (!requireMainCharacterReference()) return;
@@ -2051,19 +2113,23 @@ function TimelineEditor({
       // Reset cancel flags at the start of a fresh run
       titleCardCancelledRef.current = false;
       thumbnailsCancelledRef.current = false;
+      resetThumbnailPhaseProgress(missingOnly);
 
       // 1. Title cards
       if (titleCardsApplicable && (!missingOnly || !titleCardsAllDone)) {
         const segCount = state.content.segments.length;
         setTitleCardGenerating(true);
         setTitleCardProgressPct(0);
+        setThumbnailPhase("title-cards", "running", `0 of ${segCount} chapter images`);
         titleCardProgress.start(segCount);
         try {
           await state.generateTitleCardsStandalone(!missingOnly, (status) => {
             if (typeof status.progress === "number") setTitleCardProgressPct(status.progress);
+            setThumbnailPhase("title-cards", "running", titleCardPhaseDetail(status.current_step, status.progress));
           });
           if (!isCancelled()) {
             setTitleCardProgressPct(1);
+            setThumbnailPhase("title-cards", "done", `${segCount} of ${segCount} chapter images`);
             titleCardsRegenerated = true;
           }
         } finally {
@@ -2072,6 +2138,12 @@ function TimelineEditor({
           titleCardProgress.end(segCount);
         }
         if (isCancelled()) return;
+      } else {
+        setThumbnailPhase(
+          "title-cards",
+          "skipped",
+          titleCardsApplicable ? "Already complete" : "No title-card scenes",
+        );
       }
 
       // 2. Short-form thumbnails
@@ -2080,21 +2152,47 @@ function TimelineEditor({
         if (missingOnly && refreshed) {
           const indices = state.content.segments.map((_, idx) => idx).filter((idx) => !refreshed[idx]);
           if (indices.length > 0) {
+            setThumbnailPhase("short-form", "running", `0 of ${indices.length} missing covers`);
             const { job_id } = await generateShortFormThumbnailsBatch(scriptId, indices);
             await pollShortFormJob(job_id, (status) => {
               if (isCancelled()) return;
               if (typeof status.progress === "number") setProductionProgress(status.progress);
+              if (typeof status.progress === "number") {
+                setThumbnailPhase(
+                  "short-form",
+                  "running",
+                  `${Math.round(status.progress * indices.length)} of ${indices.length} missing covers`,
+                );
+              }
             });
-            if (!isCancelled()) await refreshShortFormThumbnailStatus();
+            if (!isCancelled()) {
+              await refreshShortFormThumbnailStatus();
+              setThumbnailPhase("short-form", "done", `${indices.length} missing covers generated`);
+            }
+          } else {
+            setThumbnailPhase("short-form", "skipped", "Already complete");
           }
         } else {
+          setThumbnailPhase("short-form", "running", `0 of ${segmentCount} vertical covers`);
           const { job_id } = await generateShortFormThumbnailsAll(scriptId);
           await pollShortFormJob(job_id, (status) => {
             if (isCancelled()) return;
             if (typeof status.progress === "number") setProductionProgress(status.progress);
+            if (typeof status.progress === "number") {
+              setThumbnailPhase(
+                "short-form",
+                "running",
+                `${Math.round(status.progress * segmentCount)} of ${segmentCount} vertical covers`,
+              );
+            }
           });
-          if (!isCancelled()) await refreshShortFormThumbnailStatus();
+          if (!isCancelled()) {
+            await refreshShortFormThumbnailStatus();
+            setThumbnailPhase("short-form", "done", `${segmentCount} vertical covers`);
+          }
         }
+      } else {
+        setThumbnailPhase("short-form", "skipped", sfApplicable ? "Already complete" : "No segments");
       }
 
       // 3. Long-form thumbnail.
@@ -2105,7 +2203,11 @@ function TimelineEditor({
         ? !lfThumbnailDone
         : (titleCardsRegenerated || !lfThumbnailDone);
       if (!isCancelled() && shouldRecomposite) {
+        setThumbnailPhase("long-form", "running", "Compositing active YouTube thumbnail");
         await handleRecompositeThumbnailInline();
+        if (!isCancelled()) setThumbnailPhase("long-form", "done", "Active YouTube thumbnail ready");
+      } else {
+        setThumbnailPhase("long-form", "skipped", lfThumbnailDone ? "Already complete" : "No update needed");
       }
     });
   };
@@ -2911,6 +3013,7 @@ function TimelineEditor({
             thumbnailsProgressActive={titleCardProgress.active}
             yoloModeActive={yoloRenderRunning}
             thumbnailsProgress={titleCardProgressPct}
+            thumbnailPhases={thumbnailPhases}
             audioProgress={batchProgressValue(state.batchAudioProgress)}
             imageProgress={batchProgressValue(state.batchImageProgress)}
           />

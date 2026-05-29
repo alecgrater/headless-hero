@@ -81,7 +81,10 @@ interface TimelineState {
 
   // Title cards
   hasTitleCards: boolean;
-  generateTitleCardsStandalone: (force?: boolean, onProgress?: (status: { progress?: number }) => void) => Promise<void>;
+  generateTitleCardsStandalone: (
+    force?: boolean,
+    onProgress?: (status: { progress?: number; current_step?: string | null }) => void,
+  ) => Promise<void>;
 
   // External content update (e.g. after FX generation refreshes from server)
   setContent: (content: ScriptContent) => void;
@@ -757,7 +760,10 @@ export function useTimelineState(
   );
 
   const generateTitleCardsStandalone = useCallback(
-    async (force = false, onProgress?: (status: { progress?: number }) => void) => {
+    async (
+      force = false,
+      onProgress?: (status: { progress?: number; current_step?: string | null }) => void,
+    ) => {
       try {
         const res = await api.post("/api/visuals/generate-title-cards", {
           script_id: scriptId,

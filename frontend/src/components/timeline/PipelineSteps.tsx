@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { VoiceInfo } from "../../types/audio";
 import MiniProgressBar from "../MiniProgressBar";
+import ThumbnailPhaseProgress, { type ThumbnailPhaseItem } from "./ThumbnailPhaseProgress";
 
 interface Props {
   // YOLO button rendered as leftmost cell (rendered by parent)
@@ -42,6 +43,7 @@ interface Props {
   thumbnailsProgressActive: boolean;
   yoloModeActive: boolean;
   thumbnailsProgress: number | null;
+  thumbnailPhases: ThumbnailPhaseItem[];
   audioProgress: number | null;
   imageProgress: number | null;
 }
@@ -85,6 +87,7 @@ export default function PipelineSteps({
   thumbnailsProgressActive,
   yoloModeActive,
   thumbnailsProgress,
+  thumbnailPhases,
   audioProgress,
   imageProgress,
 }: Props) {
@@ -181,6 +184,7 @@ export default function PipelineSteps({
             </div>
           </div>
           {thumbnailsBusy && <MiniProgressBar estimatedSeconds={thumbnailsEstimatedSeconds} active={thumbnailsProgressActive} />}
+          {thumbnailsBusy && <ThumbnailPhaseProgress phases={thumbnailPhases} />}
         </div>
 
         <svg className="w-3 h-3 text-neutral-600/60 shrink-0" viewBox="0 0 12 12" fill="none"><path d="M4 2L8 6L4 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
