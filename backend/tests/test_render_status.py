@@ -276,6 +276,28 @@ def test_export_file_status_counts_only_project_export_files(tmp_path, monkeypat
     assert result.categories["shortform_seo"].exported == 1
 
 
+def test_upload_suite_rejects_stale_longform_export_without_subtitle_metadata(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
+    monkeypatch.setattr(upload_suite_api, "DATA_DIR", tmp_path)
+
+    script_id = "script-123"
+    project_title = "Project Name"
+    content = ScriptContent(
+        title=project_title,
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[Scene(id="scene-1", narration="Hello", visual_prompt="A test image")],
+            )
+        ],
+    )
+    folder = project_downloads_folder(project_title)
+    exported = folder / longform_filename("Video", project_title, ".mp4")
+    exported.write_bytes(b"stale video")
+
+    assert upload_suite_api._exported_longform_path(script_id, project_title, folder, content) is None
+
+
 def test_upload_suite_thumbnail_prefers_newer_current_cache_over_stale_export(tmp_path, monkeypatch):
     monkeypatch.setenv("DOWNLOADS_DIR", str(tmp_path / "Exports"))
     monkeypatch.setattr(upload_suite_api, "DATA_DIR", tmp_path)

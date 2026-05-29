@@ -134,18 +134,7 @@ def _exported_longform_path(
     path, _url = _find_rendered_longform(script_id, project_title, content)
     if path:
         return path
-
-    if not folder.is_dir():
-        return None
-    candidates = sorted(
-        (
-            file
-            for file in folder.glob("*.mp4")
-            if file.is_file() and has_export_label(file.name, "Longform", "Video")
-        ),
-        key=lambda file: file.name,
-    )
-    return str(candidates[0]) if candidates else None
+    return None
 
 
 def _longform_thumbnail_path(script_id: str) -> Path | None:
