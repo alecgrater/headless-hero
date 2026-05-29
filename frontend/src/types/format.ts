@@ -1,3 +1,8 @@
+export interface FormatNote {
+  category: string;
+  text: string;
+}
+
 export interface VideoFormat {
   id: string;
   display_name: string;
@@ -9,4 +14,9 @@ export interface VideoFormat {
   supports_hook_scoring: boolean;
   supports_segmented_generation: boolean;
   title_card_strategy_kind: "composite-grid" | "cinematic-chapters";
+  supported_visual_modes: string[];
+  allowed_visual_beats: string[];
+  max_consecutive_same_beat: number;
+  target_distribution: Record<string, number[]>;
+  reference_notes: FormatNote[];
 }
