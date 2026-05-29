@@ -142,6 +142,16 @@ describe("ElevenLabs delivery presets", () => {
     expect(screen.getByLabelText("Speed")).toHaveValue("0.97");
   });
 
+  it("does not expose the ElevenLabs community voice library in settings", async () => {
+    render(createElement(VoiceSection, { panel: "voice" }));
+
+    expect(await screen.findByLabelText("Default Voice")).toBeTruthy();
+    expect(screen.queryByText("Voice Library")).toBeNull();
+    expect(screen.queryByText("Search the ElevenLabs community library to find and add new voices.")).toBeNull();
+    expect(screen.queryByPlaceholderText("Search voices...")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Search" })).toBeNull();
+  });
+
   it("shows only v3 stability and saves no hidden v2-only settings when v3 is selected", async () => {
     render(createElement(VoiceSection, { panel: "voice" }));
 

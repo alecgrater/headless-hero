@@ -1,11 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../../api";
-import type {
-  LibrarySearchResponse,
-  LibraryVoiceInfo,
-  VoiceInfo,
-  VoiceListResponse,
-} from "../../types/audio";
+import type { VoiceInfo, VoiceListResponse } from "../../types/audio";
 
 interface VoiceSectionProps {
   panel: "voice" | "audio";
@@ -119,13 +114,6 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
   });
   const [deliveryPresetSelection, setDeliveryPresetSelection] = useState<DeliveryPresetSelection>("steady");
 
-  const [librarySearch, setLibrarySearch] = useState("");
-  const [libraryResults, setLibraryResults] = useState<LibraryVoiceInfo[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [adding, setAdding] = useState<string | null>(null);
-  const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
-  const [playingId, setPlayingId] = useState<string | null>(null);
-
   const [audioFilters, setAudioFilters] = useState({
     AUDIO_FILTER_HIGHPASS: true,
     AUDIO_FILTER_NOISE_REDUCTION: true,
@@ -226,62 +214,6 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
     setTtsSaving(false);
   };
 
-  const refreshVoices = async () => {
-    const res = await api.get("/api/voice/voices");
-    if (res.ok) {
-      const data = res.data as VoiceListResponse;
-      setVoices(sortVoicesForNarration(data.voices));
-    }
-  };
-
-  const handleLibrarySearch = async () => {
-    if (!librarySearch.trim()) return;
-    setSearching(true);
-    const res = await api.post("/api/voice/library/search", { search: librarySearch.trim() });
-    if (res.ok) {
-      setLibraryResults((res.data as LibrarySearchResponse).voices);
-    }
-    setSearching(false);
-  };
-
-  const handleAddLibraryVoice = async (voice: LibraryVoiceInfo) => {
-    setAdding(voice.voice_id);
-    const res = await api.post("/api/voice/library/add", {
-      public_owner_id: voice.public_owner_id,
-      voice_id: voice.voice_id,
-      name: voice.name,
-    });
-    if (res.ok) {
-      const { voice_id: newId } = res.data as { voice_id: string };
-      await refreshVoices();
-      await handleVoiceChange(newId);
-      setLibraryResults([]);
-      setLibrarySearch("");
-    }
-    setAdding(null);
-  };
-
-  const handlePreview = (voice: LibraryVoiceInfo) => {
-    if (!voice.preview_url) return;
-    if (previewAudio) {
-      previewAudio.pause();
-      previewAudio.currentTime = 0;
-    }
-    if (playingId === voice.voice_id) {
-      setPlayingId(null);
-      setPreviewAudio(null);
-      return;
-    }
-    const audio = new Audio(voice.preview_url);
-    audio.onended = () => {
-      setPlayingId(null);
-      setPreviewAudio(null);
-    };
-    audio.play();
-    setPreviewAudio(audio);
-    setPlayingId(voice.voice_id);
-  };
-
   const handleFilterToggle = async (key: keyof typeof audioFilters) => {
     const newValue = !audioFilters[key];
     setAudioFilters((prev) => ({ ...prev, [key]: newValue }));
@@ -309,7 +241,7 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
         </h2>
         <p className="text-neutral-400 text-sm mt-1">
           {panel === "voice"
-            ? "Choose the narration voice and add voices from the ElevenLabs library."
+            ? "Choose the saved narration voice and delivery settings."
             : "Tune recording export filters for manually recorded voiceover."}
         </p>
       </div>
@@ -530,62 +462,6 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
         </div>
       </div>
 
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-neutral-100">Voice Library</h3>
-        <p className="text-sm text-neutral-400">
-          Search the ElevenLabs community library to find and add new voices.
-        </p>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={librarySearch}
-            onChange={(e) => setLibrarySearch(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleLibrarySearch()}
-            placeholder="Search voices..."
-            className="flex-1 px-3 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-200 text-sm placeholder-neutral-500 focus:outline-none focus:border-violet-500/50 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors"
-          />
-          <button
-            onClick={handleLibrarySearch}
-            disabled={searching || !librarySearch.trim()}
-            className="px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
-          >
-            {searching ? "Searching..." : "Search"}
-          </button>
-        </div>
-
-        {libraryResults.length > 0 && (
-          <div className="space-y-2 max-h-80 overflow-y-auto">
-            {libraryResults.map((v) => (
-              <div
-                key={v.voice_id}
-                className="flex items-center gap-3 p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/50"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-neutral-200 truncate">{v.name}</p>
-                  <p className="text-xs text-neutral-500">
-                    {[v.gender, v.age, v.accent, v.use_case].filter(Boolean).join(" · ")}
-                  </p>
-                </div>
-                {v.preview_url && (
-                  <button
-                    onClick={() => handlePreview(v)}
-                    className="shrink-0 px-2.5 py-1.5 rounded-md bg-neutral-700 hover:bg-neutral-600 text-xs text-neutral-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
-                  >
-                    {playingId === v.voice_id ? "Stop" : "Preview"}
-                  </button>
-                )}
-                <button
-                  onClick={() => handleAddLibraryVoice(v)}
-                  disabled={adding === v.voice_id}
-                  className="shrink-0 px-3 py-1.5 rounded-md bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
-                >
-                  {adding === v.voice_id ? "Adding..." : "Add"}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
       </div>
       )}
 

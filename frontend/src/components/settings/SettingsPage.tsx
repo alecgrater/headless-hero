@@ -29,7 +29,7 @@ export const SECTIONS = [
   { id: "ai-models", label: "AI Models", description: "Route scriptwriting, ideation, metadata, scoring, and animation tasks.", icon: Brain, group: "Generation" },
   { id: "visuals", label: "Visuals", description: "Configure image generation, AI video, and scene structure defaults.", icon: Image, group: "Generation" },
   { id: "subtitles", label: "Subtitles", description: "Control subtitle coverage and which visual treatments can be routed.", icon: Captions, group: "Generation" },
-  { id: "voice", label: "Voices", description: "Choose the narration voice and add voices from the ElevenLabs library.", icon: Mic, group: "Generation" },
+  { id: "voice", label: "Voices", description: "Choose the saved narration voice and delivery settings.", icon: Mic, group: "Generation" },
   { id: "audio", label: "Audio", description: "Tune recording export filters for manually recorded voiceover.", icon: SlidersHorizontal, group: "Generation" },
   { id: "brand-style", label: "Brand & Style", description: "Set the visual style, recurring character, and defaults for new projects.", icon: Palette, group: "Brand & Style" },
   { id: "asset-vault", label: "Assets", description: "Browse and generate reusable character and item cutouts.", icon: Archive, group: "Brand & Style" },
