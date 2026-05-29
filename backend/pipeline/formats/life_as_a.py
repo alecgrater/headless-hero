@@ -16,7 +16,7 @@ from prompts import (
 )
 
 from . import _register
-from .base import VideoFormat, VisualBeatRules
+from .base import FormatNote, VideoFormat, VisualBeatRules
 from .title_cards.cinematic_chapters import CINEMATIC_CHAPTERS
 
 logger = logging.getLogger(__name__)
@@ -548,4 +548,21 @@ LIFE_AS_A = _register(VideoFormat(
     title_card_strategy=CINEMATIC_CHAPTERS,
     visual_beat_rules=LIFE_AS_A_BEAT_RULES,
     enforce_post_processing=enforce_life_as_a_constraints,
+    supported_visual_modes=("full_frame", "continuous", "multi_frame", "video"),
+    reference_notes=(
+        FormatNote(category="Openings",
+                   text="Uses a life-as-a-specific cold-open prompt and rubric (second-person immersion, role fantasy, stakes) — NOT listicle hook scoring. Openings are long-form-only and trimmed from short #1 via hook_scene_count."),
+        FormatNote(category="Narration",
+                   text="Second-person, literary register. No listicle cadence: no 'Hey guys', no rule-of-three escalation, no mic drops."),
+        FormatNote(category="Title cards",
+                   text="Chapter-card narration stores the descriptor phrase only (e.g. 'The occasional.'); the TTS layer adds 'Level N' at audio time."),
+        FormatNote(category="Visuals",
+                   text="captions and stat_card are disabled in v1 — no editorial caption or stat-number scenes. Visual rhythm is balanced full_frame / continuous / multi_frame."),
+        FormatNote(category="Scene length",
+                   text="Non-title scenes target 5–9s and one beat; overlong scenes are split deterministically on sentence boundaries before voiceover."),
+        FormatNote(category="Short-form",
+                   text="Shorts show 'Part {n}/{total}' on the title card and above the thumbnail; upload titles stay deterministic with no '(Part …)' suffix."),
+        FormatNote(category="AI video",
+                   text="AI-video animation is eligible only for active-protagonist scenes."),
+    ),
 ))

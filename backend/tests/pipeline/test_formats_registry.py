@@ -296,6 +296,36 @@ def test_video_format_reference_fields_default_empty():
     assert "reference_notes" in field_names
 
 
+def test_supported_visual_modes_are_known():
+    """Every declared supported mode must be a canonical visual mode id."""
+    from models.script import VISUAL_MODES
+    from pipeline.formats import list_formats
+
+    for fmt in list_formats():
+        assert fmt.supported_visual_modes, f"{fmt.id} declares no supported modes"
+        unknown = set(fmt.supported_visual_modes) - VISUAL_MODES
+        assert not unknown, f"{fmt.id} has unknown visual modes: {unknown}"
+
+
+def test_life_as_a_disables_caption_and_stat_modes():
+    """captions and stat_card are disabled in life-as-a; they must be absent."""
+    from pipeline.formats import get_format
+
+    fmt = get_format("life-as-a")
+    assert "captions" not in fmt.supported_visual_modes
+    assert "stat_card" not in fmt.supported_visual_modes
+    assert "full_frame" in fmt.supported_visual_modes
+
+
+def test_formats_have_reference_notes():
+    from pipeline.formats import list_formats
+
+    for fmt in list_formats():
+        assert fmt.reference_notes, f"{fmt.id} has no reference notes"
+        for note in fmt.reference_notes:
+            assert note.category and note.text
+
+
 def test_enforce_life_as_a_falls_back_to_cinematic_prompt_for_level_1():
     """When levels[0].image_prompt is empty, the level-1 chapter scene should
     use cinematic_thumbnail_prompt as its visual_prompt fallback."""
