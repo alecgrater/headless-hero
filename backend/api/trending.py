@@ -2,15 +2,19 @@
 
 import json
 import logging
+import os
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
-from database import get_session, get_default_brand_id
+from database import engine, get_session, get_default_brand_id
+from integrations.github_contents import upload_json_file
 from models.script import Script
+from models.settings import AppSetting
 from models.trending import TrendingTopic
+from pipeline.discovery_seed import build_discovery_seed
 from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
 from pipeline.trending_scorer import start_refresh, get_refresh_job
 
@@ -57,6 +61,16 @@ class ContentProfileRead(BaseModel):
     is_stale: bool
 
 
+class SeedUploadStatus(BaseModel):
+    status: str
+    message: str
+    commit_sha: str | None = None
+
+
+class ContentProfileRefreshResponse(ContentProfileRead):
+    seed_upload: SeedUploadStatus
+
+
 class SmartIdea(BaseModel):
     category: str = "Other"
     title: str
@@ -82,6 +96,44 @@ class SmartIdeasResponse(BaseModel):
 
 class SmartIdeasRequest(BaseModel):
     count: int = Field(default=40, ge=1, le=100)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _get_setting_or_env(key: str) -> str:
+    with Session(engine) as session:
+        setting = session.get(AppSetting, key)
+        if setting and setting.value:
+            return setting.value
+    return os.environ.get(key, "")
+
+
+def _upload_discovery_seed(profile: dict) -> SeedUploadStatus:
+    token = _get_setting_or_env("GITHUB_CONTENTS_TOKEN").strip()
+    if not token:
+        return SeedUploadStatus(
+            status="skipped",
+            message="GitHub Contents Token is not configured, so remote whitespace refresh was not triggered.",
+        )
+    seed = build_discovery_seed(profile)
+    try:
+        result = upload_json_file(
+            token=token,
+            path="discovery/content-profile-seed.json",
+            content=seed,
+            message="Update discovery content profile seed",
+        )
+    except Exception as exc:
+        logger.warning("Discovery seed upload failed", exc_info=True)
+        return SeedUploadStatus(status="warning", message=str(exc))
+    logger.info("Discovery seed uploaded to GitHub commit %s", result.get("commit_sha"))
+    return SeedUploadStatus(
+        status="uploaded",
+        message="Discovery seed uploaded; GitHub Actions will refresh whitespace results.",
+        commit_sha=result.get("commit_sha") or None,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -203,14 +255,15 @@ async def get_content_profile():
     return ContentProfileRead(**profile)
 
 
-@router.post("/content-profile/refresh", response_model=ContentProfileRead)
+@router.post("/content-profile/refresh", response_model=ContentProfileRefreshResponse)
 async def refresh_content_profile():
     """Force-regenerate content profile via the routed LLM provider. Returns updated profile."""
     from pipeline.content_profile import analyze_content_profile
     profile = analyze_content_profile()
     if not profile:
         raise HTTPException(status_code=422, detail="No scripts found to analyze")
-    return ContentProfileRead(**profile)
+    upload_status = _upload_discovery_seed(profile)
+    return ContentProfileRefreshResponse(**profile, seed_upload=upload_status)
 
 
 # ---------------------------------------------------------------------------
