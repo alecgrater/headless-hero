@@ -18,6 +18,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
 VISUAL_CANVAS_COLOR_PALETTE_KEY = "VISUAL_CANVAS_COLOR_PALETTE"
+SUBTITLE_COVERAGE_MODE_KEY = "SUBTITLE_COVERAGE_MODE"
+SUBTITLE_STYLE_KEYS = {
+    "clean": "SUBTITLE_STYLE_CLEAN_ENABLED",
+    "kinetic": "SUBTITLE_STYLE_KINETIC_ENABLED",
+    "burst": "SUBTITLE_STYLE_BURST_ENABLED",
+}
 
 RANGED_INTEGER_SETTINGS = {
     "LIFE_AS_A_TARGET_SCENE_SECONDS": (5, 12),
@@ -74,6 +80,8 @@ ALLOWED_KEYS = {
     "ELI_ENABLED_DEFAULT",
     "STYLE_PRESET_ENABLED_DEFAULT",
     "ACTIVE_STYLE_PRESET_ID",
+    SUBTITLE_COVERAGE_MODE_KEY,
+    *SUBTITLE_STYLE_KEYS.values(),
     VISUAL_CANVAS_COLOR_PALETTE_KEY,
 }
 
@@ -111,6 +119,8 @@ _PLAINTEXT_KEYS = {
     "ELI_ENABLED_DEFAULT",
     "STYLE_PRESET_ENABLED_DEFAULT",
     "ACTIVE_STYLE_PRESET_ID",
+    SUBTITLE_COVERAGE_MODE_KEY,
+    *SUBTITLE_STYLE_KEYS.values(),
     VISUAL_CANVAS_COLOR_PALETTE_KEY,
 }
 
@@ -147,6 +157,10 @@ _DEFAULTS: dict[str, str] = {
     "ELI_ENABLED_DEFAULT": "false",
     "STYLE_PRESET_ENABLED_DEFAULT": "true",
     "ACTIVE_STYLE_PRESET_ID": "",
+    SUBTITLE_COVERAGE_MODE_KEY: "all",
+    "SUBTITLE_STYLE_CLEAN_ENABLED": "true",
+    "SUBTITLE_STYLE_KINETIC_ENABLED": "true",
+    "SUBTITLE_STYLE_BURST_ENABLED": "true",
     VISUAL_CANVAS_COLOR_PALETTE_KEY: '["#F6C54A"]',
 }
 
@@ -296,6 +310,17 @@ async def save_keys(
                 detail="Invalid ELEVENLABS_TTS_MODEL: must be 'eleven_multilingual_v2' or 'eleven_v3'.",
             )
         keys["ELEVENLABS_TTS_MODEL"] = tts_model
+    if SUBTITLE_COVERAGE_MODE_KEY in keys:
+        coverage_mode = (keys[SUBTITLE_COVERAGE_MODE_KEY] or "").strip().lower()
+        if coverage_mode and coverage_mode not in {"all", "punchy"}:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid SUBTITLE_COVERAGE_MODE: must be 'all' or 'punchy'.",
+            )
+        keys[SUBTITLE_COVERAGE_MODE_KEY] = coverage_mode or "all"
+    for style_key in SUBTITLE_STYLE_KEYS.values():
+        if style_key in keys:
+            keys[style_key] = "false" if (keys[style_key] or "").strip().lower() in {"", "0", "false", "no", "off"} else "true"
     _validate_ranged_integer_settings(keys)
     _validate_ranged_float_settings(keys)
     for provider_key in provider_keys.intersection(keys):

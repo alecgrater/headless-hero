@@ -4,7 +4,7 @@
 import React, { useMemo } from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { CSSProperties } from "react";
-import type { Orientation, SceneInput, WordTimestamp } from "../../types";
+import type { Orientation, SceneInput, SubtitleSettingsConfig, WordTimestamp } from "../../types";
 import { VERTICAL_LAYOUT } from "../../scenes/VerticalSceneLayout";
 import { formatSubtitleText } from "../../utils/subtitleText";
 import {
@@ -20,6 +20,7 @@ interface Props {
   scene: SceneInput;
   highlightEnabled?: boolean;
   orientation?: Orientation;
+  subtitleSettings?: SubtitleSettingsConfig | null;
 }
 
 interface TreatmentProps {
@@ -213,7 +214,7 @@ function renderTreatment(style: ResolvedSubtitleStyle, props: TreatmentProps) {
   return <CleanSubtitleOverlay {...props} />;
 }
 
-export const SubtitleOverlay: React.FC<Props> = ({ scene, highlightEnabled, orientation = "horizontal" }) => {
+export const SubtitleOverlay: React.FC<Props> = ({ scene, highlightEnabled, orientation = "horizontal", subtitleSettings }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const wordTimestamps = scene.word_timestamps ?? [];
@@ -241,7 +242,7 @@ export const SubtitleOverlay: React.FC<Props> = ({ scene, highlightEnabled, orie
 
   if (phraseOpacity <= 0) return null;
 
-  const style = resolveSubtitleStyle(scene, orientation);
+  const style = resolveSubtitleStyle(scene, orientation, subtitleSettings);
   if (style === "none") return null;
 
   return (

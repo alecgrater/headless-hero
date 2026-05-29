@@ -47,4 +47,20 @@ describe("resolveSubtitleStyle", () => {
   it("falls back to clean when uncertain", () => {
     expect(resolveSubtitleStyle(scene({}), "horizontal")).toBe("clean");
   });
+
+  it("uses the only enabled subtitle style for automatic scenes", () => {
+    expect(resolveSubtitleStyle(scene({}), "horizontal", { enabledStyles: ["kinetic"] })).toBe("kinetic");
+  });
+
+  it("prevents disabled subtitle styles from being selected", () => {
+    expect(resolveSubtitleStyle(
+      scene({ narration: "But then the real reason appears." }),
+      "horizontal",
+      { enabledStyles: ["clean", "kinetic"] },
+    )).toBe("kinetic");
+  });
+
+  it("suppresses subtitles when no styles are enabled", () => {
+    expect(resolveSubtitleStyle(scene({}), "horizontal", { enabledStyles: [] })).toBe("none");
+  });
 });

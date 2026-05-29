@@ -5,7 +5,7 @@
  */
 import React from "react";
 import { Audio, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
-import type { SceneInput, Orientation, VisualCanvas } from "../types";
+import type { SceneInput, Orientation, SubtitleSettingsConfig, VisualCanvas } from "../types";
 import { StaticImageScene } from "./StaticImageScene";
 import { MultiFrameScene } from "./MultiFrameScene";
 import { TitleCardScene } from "./TitleCardScene";
@@ -26,6 +26,7 @@ interface Props {
   scene: SceneInput;
   highlightEnabled?: boolean;
   orientation?: Orientation;
+  subtitleSettings?: SubtitleSettingsConfig | null;
   visualCanvas?: VisualCanvas | null;
 }
 
@@ -35,6 +36,7 @@ export const SceneRenderer: React.FC<Props> = ({
   scene,
   highlightEnabled,
   orientation = "horizontal",
+  subtitleSettings,
   visualCanvas,
 }) => {
   const hasMultipleFrames = scene.frame_paths && scene.frame_paths.length > 1;
@@ -149,7 +151,12 @@ export const SceneRenderer: React.FC<Props> = ({
         <div style={{ width: "100%", height: "100%", opacity: visualOpacity }}>
           {visualLayer}
           {!scene.is_title_card && !isAhaSubtitle && !isCaptionScene && (scene.word_timestamps?.length ?? 0) > 0 && (
-            <SubtitleOverlay scene={scene} highlightEnabled={highlightEnabled} orientation={orientation} />
+            <SubtitleOverlay
+              scene={scene}
+              highlightEnabled={highlightEnabled}
+              orientation={orientation}
+              subtitleSettings={subtitleSettings}
+            />
           )}
         </div>
       </SceneTransition>

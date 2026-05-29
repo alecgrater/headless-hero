@@ -121,6 +121,57 @@ def test_subtitle_render_fingerprint_tracks_style_and_router_version():
     ]
 
 
+def test_subtitle_settings_from_env_normalize_values(monkeypatch):
+    monkeypatch.setenv("SUBTITLE_COVERAGE_MODE", "punchy")
+    monkeypatch.setenv("SUBTITLE_STYLE_CLEAN_ENABLED", "false")
+    monkeypatch.setenv("SUBTITLE_STYLE_KINETIC_ENABLED", "true")
+    monkeypatch.setenv("SUBTITLE_STYLE_BURST_ENABLED", "false")
+
+    settings = remotion_render.subtitle_settings_from_env()
+
+    assert settings == {
+        "coverage": "punchy",
+        "enabled_styles": ["kinetic"],
+    }
+
+
+def test_apply_subtitle_coverage_limits_punchy_scenes(monkeypatch):
+    monkeypatch.setenv("SUBTITLE_COVERAGE_MODE", "punchy")
+    monkeypatch.setenv("SUBTITLE_STYLE_CLEAN_ENABLED", "true")
+    monkeypatch.setenv("SUBTITLE_STYLE_KINETIC_ENABLED", "true")
+    monkeypatch.setenv("SUBTITLE_STYLE_BURST_ENABLED", "true")
+    content = ScriptContent(
+        title="Test",
+        segments=[
+            Segment(
+                name="One",
+                scenes=[
+                    Scene(id="title", narration="Title.", visual_prompt="", is_title_card=True),
+                    Scene(id="plain-1", narration="A calm explanatory line.", visual_prompt=""),
+                    Scene(id="plain-2", narration="Another calm explanatory line.", visual_prompt=""),
+                    Scene(id="fast", narration="One two three four five six.", visual_prompt="", word_timestamps=[
+                        {"word": "One", "start_ms": 0, "end_ms": 120},
+                        {"word": "two", "start_ms": 130, "end_ms": 250},
+                        {"word": "three", "start_ms": 260, "end_ms": 380},
+                        {"word": "four", "start_ms": 390, "end_ms": 510},
+                        {"word": "five", "start_ms": 520, "end_ms": 640},
+                        {"word": "six", "start_ms": 650, "end_ms": 770},
+                    ]),
+                    Scene(id="caption", narration="The real cost.", visual_prompt="", visual_mode="captions"),
+                ],
+            )
+        ],
+    )
+
+    styles = remotion_render._subtitle_styles_for_render(content)
+
+    assert styles["fast"] == "auto"
+    assert styles["plain-1"] == "none"
+    assert styles["plain-2"] == "none"
+    assert "caption" not in styles
+    assert "title" not in styles
+
+
 def test_ai_video_scene_falls_back_to_image_when_slowdown_would_exceed_25_percent(tmp_path, monkeypatch):
     monkeypatch.setattr(remotion_render, "DATA_DIR", tmp_path)
     monkeypatch.setattr(remotion_render, "_probe_video_duration", lambda _path: None)

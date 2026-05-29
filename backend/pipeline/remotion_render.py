@@ -2,6 +2,7 @@
 
 import json
 import logging
+import math
 import os
 import re
 import subprocess
@@ -27,6 +28,8 @@ REMOTION_ENTRY = REMOTION_DIR / "src" / "index.ts"
 BACKEND_STATIC_BASE = f"http://localhost:{BACKEND_PORT}/static/projects"
 MAX_AI_VIDEO_SLOWDOWN_RATIO = 1.25
 SUBTITLE_ROUTER_VERSION = "standard-subtitle-router-v1"
+SUBTITLE_COVERAGE_MODES = {"all", "punchy"}
+SUBTITLE_STYLES = ("clean", "kinetic", "burst")
 
 
 def _to_remotion_path(abs_path: str) -> str:
@@ -294,7 +297,11 @@ def _resolve_zoom_punch_frame(
     return out
 
 
-def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
+def _scene_to_input_props(
+    scene: Scene,
+    script_id: str,
+    subtitle_style: str | None = None,
+) -> dict[str, Any]:
     """Convert a Scene model to the input props expected by Remotion."""
     # Resolve asset paths
     image_path = _scene_image_path(script_id, scene.id, scene.image_url or None)
@@ -348,7 +355,7 @@ def _scene_to_input_props(scene: Scene, script_id: str) -> dict[str, Any]:
         "phrase_timestamps": [p.model_dump() for p in scene.phrase_timestamps] if scene.phrase_timestamps and not scene.is_title_card else None,
         "visual_beat": scene.visual_beat,
         "visual_mode": scene.visual_mode,
-        "subtitle_style": scene.subtitle_style,
+        "subtitle_style": subtitle_style or scene.subtitle_style,
         "caption_text": scene.caption_text,
         "caption_emphasis": scene.caption_emphasis,
         "visual_layers": _visual_layers_to_input_props(scene, script_id),
@@ -368,6 +375,7 @@ def subtitle_render_fingerprint(content: ScriptContent) -> dict[str, Any]:
     """Return content-sensitive subtitle routing inputs for render cache metadata."""
     return {
         "subtitle_router_version": SUBTITLE_ROUTER_VERSION,
+        "settings": subtitle_settings_from_env(),
         "scenes": [
             {
                 "id": scene.id,
@@ -376,6 +384,79 @@ def subtitle_render_fingerprint(content: ScriptContent) -> dict[str, Any]:
             for scene in content.all_scenes()
         ],
     }
+
+
+def _setting_enabled(value: str | None, default: bool = True) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() not in {"", "0", "false", "no", "off"}
+
+
+def subtitle_settings_from_env() -> dict[str, Any]:
+    coverage = os.getenv("SUBTITLE_COVERAGE_MODE", "all").strip().lower()
+    if coverage not in SUBTITLE_COVERAGE_MODES:
+        coverage = "all"
+    enabled_styles = [
+        style
+        for style in SUBTITLE_STYLES
+        if _setting_enabled(os.getenv(f"SUBTITLE_STYLE_{style.upper()}_ENABLED"), True)
+    ]
+    return {
+        "coverage": coverage,
+        "enabled_styles": enabled_styles,
+    }
+
+
+def _subtitle_scene_eligible(scene: Scene) -> bool:
+    return not (
+        scene.is_title_card
+        or scene.visual_mode == "captions"
+        or scene.visual_beat == "aha_subtitle"
+    )
+
+
+def _subtitle_punch_score(scene: Scene) -> float:
+    timestamps = scene.word_timestamps or []
+    narration = scene.narration.lower()
+    words = timestamps or re.findall(r"\b[\w']+\b", scene.narration)
+    word_count = len(words)
+    if timestamps:
+        spoken_ms = max(1, timestamps[-1].end_ms - timestamps[0].start_ms)
+        average_word_ms = spoken_ms / max(1, len(timestamps))
+    else:
+        average_word_ms = max(1.0, _base_scene_duration(scene) * 1000 / max(1, word_count))
+
+    score = 0.0
+    if average_word_ms <= 190:
+        score += 4.0
+    elif average_word_ms <= 240:
+        score += 2.0
+    if any(cue in narration for cue in ("but", "then", "suddenly", "the catch", "the real reason", "finally", "turns out")):
+        score += 4.0
+    if word_count <= 6 and re.search(r"[!?]$", scene.narration.strip()):
+        score += 2.0
+    if scene.visual_mode in {"multi_frame", "popup_sequence", "flipflop", "video"}:
+        score += 1.0
+    return score
+
+
+def _subtitle_styles_for_render(content: ScriptContent) -> dict[str, str]:
+    settings = subtitle_settings_from_env()
+    eligible = [scene for scene in content.all_scenes() if _subtitle_scene_eligible(scene)]
+    if settings["coverage"] == "all":
+        return {scene.id: scene.subtitle_style or "auto" for scene in eligible}
+
+    selected_count = max(1, math.ceil(len(eligible) * 0.2)) if eligible else 0
+    indexed = list(enumerate(eligible))
+    selected_ids = {
+        scene.id
+        for _index, scene in sorted(
+            indexed,
+            key=lambda item: (_subtitle_punch_score(item[1]), -item[0]),
+            reverse=True,
+        )[:selected_count]
+    }
+    return {scene.id: ((scene.subtitle_style or "auto") if scene.id in selected_ids else "none") for scene in eligible}
 
 
 def _render_metadata_path(render_path: Path) -> Path:
@@ -682,11 +763,13 @@ def render_full_video(
         on_progress(0.3, "Building Remotion composition...")
 
     # Build input props for the full video
+    subtitle_settings = subtitle_settings_from_env()
+    subtitle_styles = _subtitle_styles_for_render(content)
     segments_props = []
     for seg in content.segments:
         seg_scenes = []
         for sc in seg.scenes:
-            seg_scenes.append(_scene_to_input_props(sc, script_id))
+            seg_scenes.append(_scene_to_input_props(sc, script_id, subtitle_styles.get(sc.id)))
         segments_props.append({
             "name": seg.name,
             "scenes": seg_scenes,
@@ -712,6 +795,7 @@ def render_full_video(
         "segment_timer": {"enabled": True} if content.segment_timer_enabled else None,
         "subtitle_highlight": {"enabled": True} if content.subtitle_highlight_enabled else None,
         "subtitle_router_version": SUBTITLE_ROUTER_VERSION,
+        "subtitle_settings": subtitle_settings,
     }
 
     renders = _renders_dir(script_id)

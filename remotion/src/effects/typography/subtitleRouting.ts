@@ -1,8 +1,11 @@
-import type { Orientation, SceneInput, SubtitleStyle, WordTimestamp } from "../../types";
+import type { Orientation, RoutedSubtitleStyle, SceneInput, SubtitleSettingsConfig, SubtitleStyle, WordTimestamp } from "../../types";
 
 export const SUBTITLE_ROUTER_VERSION = "standard-subtitle-router-v1";
 
 export type ResolvedSubtitleStyle = Exclude<SubtitleStyle, "auto">;
+export type SubtitleRoutingSettings = Pick<SubtitleSettingsConfig, "enabled_styles"> | {
+  enabledStyles?: RoutedSubtitleStyle[];
+};
 
 export interface SubtitlePhrase {
   words: WordTimestamp[];
@@ -69,12 +72,45 @@ export function wordProgress(word: WordTimestamp, frame: number, fps: number): n
   return Math.min(1, Math.max(0, (frame - start) / (end - start)));
 }
 
-export function resolveSubtitleStyle(scene: SceneInput, orientation: Orientation): ResolvedSubtitleStyle {
+function enabledStylesFromSettings(settings?: SubtitleRoutingSettings | null): RoutedSubtitleStyle[] {
+  if (!settings) return ["clean", "kinetic", "burst"];
+  if ("enabled_styles" in settings) return settings.enabled_styles;
+  return settings.enabledStyles ?? ["clean", "kinetic", "burst"];
+}
+
+function resolveDisabledFallback(
+  desired: RoutedSubtitleStyle,
+  enabledStyles: RoutedSubtitleStyle[],
+): ResolvedSubtitleStyle {
+  if (enabledStyles.length === 0) return "none";
+  if (enabledStyles.length === 1) return enabledStyles[0];
+  if (enabledStyles.includes(desired)) return desired;
+
+  if (desired === "burst") {
+    if (enabledStyles.includes("kinetic")) return "kinetic";
+    if (enabledStyles.includes("clean")) return "clean";
+  }
+
+  if (desired === "kinetic") {
+    if (enabledStyles.includes("clean")) return "clean";
+    if (enabledStyles.includes("burst")) return "burst";
+  }
+
+  return enabledStyles[0];
+}
+
+export function resolveSubtitleStyle(
+  scene: SceneInput,
+  orientation: Orientation,
+  settings?: SubtitleRoutingSettings | null,
+): ResolvedSubtitleStyle {
   if (scene.is_title_card || scene.visual_mode === "captions" || scene.visual_beat === "aha_subtitle") {
     return "none";
   }
+  const enabledStyles = enabledStylesFromSettings(settings);
   if (scene.subtitle_style && scene.subtitle_style !== "auto") {
-    return scene.subtitle_style;
+    if (scene.subtitle_style === "none") return "none";
+    return resolveDisabledFallback(scene.subtitle_style, enabledStyles);
   }
 
   const timestamps = scene.word_timestamps ?? [];
@@ -85,19 +121,23 @@ export function resolveSubtitleStyle(scene: SceneInput, orientation: Orientation
     ? (timestamps[timestamps.length - 1].end_ms - timestamps[0].start_ms) / timestamps.length
     : durationMs / Math.max(1, wordCount);
   const hasBurstCue = BURST_CUES.some((cue) => narration.includes(cue));
+  let desired: RoutedSubtitleStyle = "clean";
   if (wordCount >= DENSE_WORD_COUNT && averageWordMs <= FAST_WORD_MS) {
-    return "kinetic";
+    desired = "kinetic";
+    return resolveDisabledFallback(desired, enabledStyles);
   }
 
   const isShortPayoff = wordCount <= 4 && /[!?]$/.test(scene.narration.trim());
 
   if (hasBurstCue || isShortPayoff) {
-    return "burst";
+    desired = "burst";
+    return resolveDisabledFallback(desired, enabledStyles);
   }
 
   if (orientation === "vertical" && wordCount <= 5 && averageWordMs <= 230) {
-    return "kinetic";
+    desired = "kinetic";
+    return resolveDisabledFallback(desired, enabledStyles);
   }
 
-  return "clean";
+  return resolveDisabledFallback(desired, enabledStyles);
 }

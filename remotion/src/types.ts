@@ -96,6 +96,12 @@ export interface ChapterOverlay {
 
 export type Orientation = "horizontal" | "vertical";
 export type SubtitleStyle = "auto" | "clean" | "kinetic" | "burst" | "none";
+export type RoutedSubtitleStyle = Exclude<SubtitleStyle, "auto" | "none">;
+
+export interface SubtitleSettingsConfig {
+  coverage: "all" | "punchy";
+  enabled_styles: RoutedSubtitleStyle[];
+}
 
 export interface SceneInput {
   id: string;
@@ -170,6 +176,7 @@ export interface FullVideoProps {
   chapter_map?: ChapterMapData | null;
   segment_timer?: SegmentTimerConfig | null;
   subtitle_highlight?: SubtitleHighlightConfig | null;
+  subtitle_settings?: SubtitleSettingsConfig | null;
   subtitle_router_version?: string;
   visual_canvas?: VisualCanvas | null;
 }
@@ -185,6 +192,7 @@ export interface ShortFormVideoProps {
   width: number;                  // 1080
   height: number;                 // 1920
   subtitle_highlight?: SubtitleHighlightConfig | null;
+  subtitle_settings?: SubtitleSettingsConfig | null;
   subtitle_router_version?: string;
   visual_canvas?: VisualCanvas | null;
 }

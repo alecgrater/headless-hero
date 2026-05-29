@@ -14,8 +14,10 @@ from pipeline.remotion_render import (
     _reencode_h264,
     _run_remotion,
     _scene_to_input_props,
+    _subtitle_styles_for_render,
     _verify_video,
     subtitle_render_fingerprint,
+    subtitle_settings_from_env,
 )
 from pipeline.short_form_parts import short_form_part_indicator
 
@@ -117,6 +119,7 @@ def _build_segment_scene_props(
     segment_scenes: list[Scene],
     script_id: str,
     backdrop_url: str,
+    subtitle_styles: dict[str, str] | None = None,
 ) -> list[dict]:
     """Convert a segment's scenes to Remotion input props.
 
@@ -125,7 +128,7 @@ def _build_segment_scene_props(
     """
     props: list[dict] = []
     for scene in segment_scenes:
-        scene_props = _scene_to_input_props(scene, script_id)
+        scene_props = _scene_to_input_props(scene, script_id, (subtitle_styles or {}).get(scene.id))
         if scene.is_title_card and backdrop_url:
             scene_props["image_path"] = backdrop_url
         props.append(scene_props)
@@ -169,7 +172,9 @@ def render_short_segment(
             scenes_to_render = [scenes_to_render[0]] + scenes_to_render[1 + skip:]
 
     backdrop_url = _title_card_backdrop_url(script_id, segment_idx, content)
-    scene_props = _build_segment_scene_props(scenes_to_render, script_id, backdrop_url)
+    subtitle_settings = subtitle_settings_from_env()
+    subtitle_styles = _subtitle_styles_for_render(content)
+    scene_props = _build_segment_scene_props(scenes_to_render, script_id, backdrop_url, subtitle_styles)
 
     props = {
         "scenes": scene_props,
@@ -184,6 +189,7 @@ def render_short_segment(
             {"enabled": True} if content.subtitle_highlight_enabled else None
         ),
         "subtitle_router_version": SUBTITLE_ROUTER_VERSION,
+        "subtitle_settings": subtitle_settings,
     }
 
     shorts_dir = _shorts_dir(script_id)

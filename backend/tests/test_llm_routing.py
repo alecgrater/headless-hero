@@ -82,3 +82,17 @@ def test_ai_video_scenes_per_segment_is_exposed_as_plaintext_setting():
     assert "AI_VIDEO_SCENES_PER_SEGMENT" in ALLOWED_KEYS
     assert "AI_VIDEO_SCENES_PER_SEGMENT" in _PLAINTEXT_KEYS
     assert _DEFAULTS["AI_VIDEO_SCENES_PER_SEGMENT"] == "2"
+
+
+def test_subtitle_settings_are_exposed_as_plaintext_defaults():
+    expected = {
+        "SUBTITLE_COVERAGE_MODE": "all",
+        "SUBTITLE_STYLE_CLEAN_ENABLED": "true",
+        "SUBTITLE_STYLE_KINETIC_ENABLED": "true",
+        "SUBTITLE_STYLE_BURST_ENABLED": "true",
+    }
+
+    for key, default in expected.items():
+        assert key in ALLOWED_KEYS
+        assert key in _PLAINTEXT_KEYS
+        assert _DEFAULTS[key] == default
