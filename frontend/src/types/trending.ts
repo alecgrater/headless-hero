@@ -59,3 +59,37 @@ export interface SmartIdeasResponse {
   refresh_job_id: string | null;
   trending_age_hours: number | null;
 }
+
+export interface WhitespaceVideo {
+  video_id: string;
+  title: string;
+  url: string;
+  views: number;
+  likes?: number | null;
+  published_at?: string | null;
+}
+
+export interface WhitespaceResult {
+  rank: number;
+  score: number;
+  query: string;
+  channel_id: string;
+  channel_name: string;
+  channel_url: string;
+  subscriber_count: number | null;
+  total_videos: number;
+  channel_total_views: number | null;
+  video_views_total: number;
+  max_views: number;
+  avg_views: number;
+  reason: string;
+  videos: WhitespaceVideo[];
+}
+
+export interface WhitespaceFeed {
+  version: number;
+  generated_at: string;
+  seed_generated_at?: string | null;
+  source_queries: string[];
+  results: WhitespaceResult[];
+}

@@ -2,13 +2,14 @@ import { useState } from "react";
 import type { VideoIdea } from "../../types/idea";
 import TrendingTab from "./TrendingTab";
 import ForYouTab from "./ForYouTab";
+import WhitespaceTab from "./WhitespaceTab";
 
 interface Props {
   onGenerateIdeas: (ideas: VideoIdea[], niche: string) => void;
 }
 
 export default function DiscoverPage({ onGenerateIdeas }: Props) {
-  const [activeTab, setActiveTab] = useState<"trending" | "for-you">("for-you");
+  const [activeTab, setActiveTab] = useState<"trending" | "for-you" | "whitespace">("for-you");
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-8">
@@ -24,7 +25,7 @@ export default function DiscoverPage({ onGenerateIdeas }: Props) {
       <div className="inline-flex items-center p-1 mb-8 bg-neutral-800/60 rounded-xl border border-neutral-700/40">
         <button
           onClick={() => setActiveTab("for-you")}
-          className={`flex items-center gap-2 px-5 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+          className={`flex items-center gap-2 px-5 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
             activeTab === "for-you"
               ? "bg-neutral-700/80 text-white shadow-sm"
               : "text-neutral-400 hover:text-neutral-200"
@@ -37,7 +38,7 @@ export default function DiscoverPage({ onGenerateIdeas }: Props) {
         </button>
         <button
           onClick={() => setActiveTab("trending")}
-          className={`flex items-center gap-2 px-5 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+          className={`flex items-center gap-2 px-5 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
             activeTab === "trending"
               ? "bg-neutral-700/80 text-white shadow-sm"
               : "text-neutral-400 hover:text-neutral-200"
@@ -48,6 +49,19 @@ export default function DiscoverPage({ onGenerateIdeas }: Props) {
           </svg>
           Trending
         </button>
+        <button
+          onClick={() => setActiveTab("whitespace")}
+          className={`flex items-center gap-2 px-5 py-2 text-sm font-medium rounded-lg transition-colors duration-200 ${
+            activeTab === "whitespace"
+              ? "bg-neutral-700/80 text-white shadow-sm"
+              : "text-neutral-400 hover:text-neutral-200"
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+          </svg>
+          Whitespace
+        </button>
       </div>
 
       {/* Both tabs rendered, toggled via hidden class to preserve state */}
@@ -56,6 +70,9 @@ export default function DiscoverPage({ onGenerateIdeas }: Props) {
       </div>
       <div className={activeTab === "for-you" ? "block" : "hidden"}>
         <ForYouTab onGenerateIdeas={onGenerateIdeas} />
+      </div>
+      <div className={activeTab === "whitespace" ? "block" : "hidden"}>
+        <WhitespaceTab />
       </div>
     </div>
   );
