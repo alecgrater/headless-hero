@@ -177,14 +177,13 @@ VISUAL MODE VOCABULARY:
 - "multi_frame" — When narration covers multiple examples, lists, comparisons, rapid context switches, or visual variety that adds impact. 3-8 frames with reference_previous: false and mostly transition: "cut". Each frame is a completely DIFFERENT shot — different subject, angle, composition, example, or context. Use deliberately for visual energy. Narration should be 1 short punchy sentence — aim for under 8 seconds of speech.
 - "popup_sequence" — When narration names a small set of concrete items, examples, ingredients, symptoms, tools, steps, or visible objects that should pop around the main subject. Use a single anchor visual plus popup item intent; the post-voiceover pass will create timed cutout layers. Do not use for abstract contrasts or long lists.
 - "flipflop" — When one subject/action can read as simple micro-animation by alternating two compatible A/B states: hands moving while typing, stirring, sorting, opening, closing, pointing, counting, or handling an object; a character leaning in/out, looking up/down, pacing, nodding, or gesturing while talking. Do not use flipflop merely because a sentence contrasts two ideas, time periods, or emotional states.
-- "aha_subtitle" — When a sentence delivers a shocking stat, counterintuitive fact, or "wait, really?" moment. Pure white text on black. 1 frame directive with source: "subtitle". Aim for 5-6 per video, no more than 7. Must be preceded and followed by image-bearing modes for contrast. visual_prompt should be empty. Narration should be 1 short sentence — a single stat or fact, under 8 seconds of speech.
 - "captions" — When a sentence delivers a punchy editorial label, reversal, emotional realization, or key claim that should become large in-scene text. Use a static canvas with optional side visual plus renderer-owned caption typography. Emit "caption_text" (2-15 words ideally) and "caption_emphasis" (the one strongest word or phrase to render red). Do not describe typography, animation, color, or layout in detail; the renderer handles those. Do not put readable caption text into visual_prompt.
 
 DISTRIBUTION RULES (follow strictly):
 1. full_frame should be the MAJORITY of non-title-card scenes (50-65%). Visual variety comes from scene-to-scene differences, not multi-frame within a scene.
-2. After every 2 consecutive full_frame scenes, the NEXT scene MUST use a different mode (multi_frame, continuous, popup_sequence, flipflop, captions, or aha_subtitle). This creates a natural rhythm: full-full-variety-full-full-variety.
-3. Variety modes (multi_frame, continuous, popup_sequence, flipflop, captions, aha_subtitle) must NEVER appear 2+ times consecutively — always separate them with at least one full_frame scene.
-4. aha_subtitle and captions must be sandwiched between image-bearing modes when they are text-only.
+2. After every 2 consecutive full_frame scenes, the NEXT scene MUST use a different mode (multi_frame, continuous, popup_sequence, flipflop, or captions). This creates a natural rhythm: full-full-variety-full-full-variety.
+3. Variety modes (multi_frame, continuous, popup_sequence, flipflop, captions) must NEVER appear 2+ times consecutively — always separate them with at least one full_frame scene.
+4. Text-only captions scenes must be sandwiched between image-bearing modes.
 5. continuous is reserved for genuine motion progression — NOT the default for multi-frame.
 6. Vary transitions within multi_frame scenes — mostly "cut" but occasional "crossfade".
 
@@ -192,8 +191,8 @@ DISTRIBUTION RULES (follow strictly):
 Each scene MUST have "visual_mode", "visual_beat", and "frame_directives" (list of objects). Set "visual_beat" to the same value as "visual_mode" except use "static" when "visual_mode" is "full_frame".
 For captions scenes, include "caption_text" and "caption_emphasis" on the scene object. For text-only captions, set "visual_prompt" to an empty string and "frame_directives" to an empty list. Only use a shot-labeled "visual_prompt" when the caption should have an optional side visual, and then use a normal ai_generated frame directive for that visual.
 Each frame directive has:
-  - "prompt": Visual description (for ai_generated) or subtitle text (for subtitle)
-  - "source": "ai_generated" | "subtitle"
+  - "prompt": Visual description
+  - "source": "ai_generated"
   - "transition": "cut" | "crossfade" | "fade_black"
   - "reference_previous": true/false (true = use prev frame as reference, false = independent)
   - "search_query": empty string
@@ -423,7 +422,7 @@ Critically different from listicle scenes:
 |---|---|---|
 | Narration per scene | 1–2 sentences | 1–2 sentences, single visual beat |
 | Duration per scene | ~5–10s | ~5–9s |
-| Visual modes | varied (`full_frame`, `multi_frame`, `continuous`, `aha_subtitle`) | balanced `full_frame`, `continuous`, and `multi_frame` |
+| Visual modes | varied (`full_frame`, `multi_frame`, `continuous`, `captions`, `popup_sequence`, `flipflop`) | balanced `full_frame`, `continuous`, and `multi_frame` |
 | Transitions | varied with intentional energy | mostly `cut`, occasional `crossfade` for time-passage |
 
 Each non-title scene should be **1–2 sentences** of narration and represent exactly one visual/narrative beat. Aim for **5–9 seconds** of speech per scene. Preserve the literary register through sentence texture and scene-to-scene flow, not by packing several moments into one long paragraph.
@@ -464,8 +463,7 @@ The visual mode distribution is constrained for this format:
 - **`full_frame`: 60–75%** of non-chapter-card scenes. Use a single strong image for one clear lived moment. Set compatibility `visual_beat` to `static`.
 - **`continuous`: 15–25%** for time-passage moments where a single space or subject changes. Use only when the scene clearly needs visual progression and has enough duration; otherwise keep it static.
 - **`multi_frame`: 5–15%** for compressed routines, sensory lists, comparisons, or rapid context switches. Use sparingly, and only when the scene duration supports multiple images.
-- **`aha_subtitle`: DISABLED.** This beat breaks the literary register and must never appear in a life-as-a script.
-- **`captions`: DISABLED in life-as-a for the first pass.** Keep chapter-card and scene narration in the existing visual language; do not create editorial caption scenes for this format yet. captions remain disabled.
+- **Text-only/editorial caption modes: DISABLED in life-as-a for the first pass.** Keep chapter-card and scene narration in the existing visual language; do not create editorial caption scenes for this format yet; captions remain disabled.
 
 Use multiple generated images only when the visual mode genuinely benefits from progression or quick contrast. Short scenes often work best as one strong image, but image scenes are not hard-capped to one frame.
 
@@ -682,7 +680,7 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 - `visual_mode` is `"full_frame"` for 60–75% of non-title scenes in this level. Set `visual_beat` to `"static"` for compatibility. Short scenes should usually be full_frame.
 - Use `"continuous"` for 15–25% of non-title scenes, especially time-passage moments where a single space drifts across a span. Use 2 frame directives only when the scene duration clearly supports progression.
 - Use `"multi_frame"` for 5–15% of non-title scenes, especially repeated routines, compressed time, comparisons, or sensory lists. Use sparingly, and avoid it for scenes at or below 8 seconds.
-- NEVER use `"aha_subtitle"`. It is DISABLED for this format.
+- NEVER use text-only/editorial caption modes in this format.
 - For compatibility, set `visual_beat` to the same value as `visual_mode` except use `"static"` when `visual_mode` is `"full_frame"`.
 - Every `visual_prompt` MUST begin with `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, or `[METAPHOR]`. `[DIAGRAM]` and `[SCALE]` are de-prioritized for this format.
 - Visual prompts must NEVER request text, letters, words, labels, or written characters in the image.
@@ -940,30 +938,6 @@ Rules:
         metrics_to_watch=["avg_view_duration"],
     ),
 ))
-
-# -- Tighten system (duration variance) --
-
-TIGHTEN_SYSTEM = register(PromptDef(
-    name="TIGHTEN_SYSTEM",
-    domain="SCRIPT",
-    purpose="Rewrite overlong high-energy scene narration to be shorter and punchier",
-    target_model="claude",
-    expected_output_format='JSON: {"scene_id": "new narration", ...}',
-    template=(
-        "You are a script editor. You will receive high-energy video scenes whose narration is too long.\n"
-        "Rewrite each narration to be shorter and punchier while preserving the core fact or message.\n"
-        "- multi_frame scenes: 1 short punchy sentence\n"
-        "- aha_subtitle scenes: 1 short sentence with the key stat or fact\n"
-        "Target: under 8 seconds of speech (roughly 20-25 words).\n"
-        'Return ONLY valid JSON: {"scene_id": "new narration", ...}'
-    ),
-    retention=RetentionMeta(
-        goal="Keep high-energy scenes punchy for pacing",
-        failure_mode="Overlong multi_frame/aha_subtitle scenes drag pacing",
-        metrics_to_watch=["avg_view_duration", "segment_retention_curve"],
-    ),
-))
-
 
 # ===================================================================
 # DOMAIN: FX

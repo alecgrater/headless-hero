@@ -141,7 +141,7 @@ def is_ai_video_eligible(
 ) -> bool:
     if scene.is_title_card:
         return False
-    if scene.visual_beat == "aha_subtitle":
+    if scene.visual_mode == "captions" or scene.visual_beat == "aha_subtitle":
         return False
     known_audio_duration = _known_audio_duration_seconds(scene)
     if (
@@ -175,7 +175,7 @@ def _ai_video_candidate_score(scene: Scene) -> int:
         score += 50
     elif scene.visual_beat == "static":
         score += 18
-    elif scene.visual_beat == "quick_cuts":
+    elif scene.visual_beat in {"quick_cuts", "multi_frame"}:
         score += 8
 
     shot = _shot_type(scene)

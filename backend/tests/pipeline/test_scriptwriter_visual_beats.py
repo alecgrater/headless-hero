@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from models.script import Scene, ScriptContent, Segment
 from pipeline.formats.base import VisualBeatRules
 from pipeline.formats.life_as_a import LIFE_AS_A_BEAT_RULES
-from pipeline.scriptwriter import _ensure_visual_beat_directives, _fix_visual_monotony
+from pipeline.scriptwriter import _ensure_scene_granularity, _ensure_visual_beat_directives, _fix_visual_monotony
 from prompts import script as script_prompt
 
 
@@ -104,6 +104,8 @@ def test_script_prompt_includes_captions_mode_without_extra_renderer_detail():
     prompt_text = script_prompt.SCRIPT_SYSTEM.template
 
     assert '"captions"' in prompt_text
+    assert '"aha_subtitle" — When' not in prompt_text
+    assert "Aim for 5-6 per video" not in prompt_text
     assert "caption_text" in prompt_text
     assert "caption_emphasis" in prompt_text
     assert "renderer handles" in prompt_text
@@ -166,22 +168,56 @@ def test_continuous_mode_without_directives_is_repaired():
     assert all(frame.transition == "crossfade" for frame in scene.frame_directives[1:])
 
 
-def test_aha_subtitle_mode_with_stale_beat_is_repaired():
+def test_captions_mode_without_directives_is_preserved():
     scene = _static_scene("scene_001")
+    scene.visual_mode = "captions"
+    scene.visual_beat = "captions"
+    scene.frame_directives = []
+    scene.caption_text = "The quiet cost"
+    scene.caption_emphasis = "cost"
     content = ScriptContent(
         title="Your Life As A Test",
         format_id="youtube-listicle",
         segments=[Segment(name="Level 1, the waiting", scenes=[scene])],
     )
-    scene = content.segments[0].scenes[0]
-    object.__setattr__(scene, "visual_mode", "aha_subtitle")
-    object.__setattr__(scene, "visual_beat", "static")
-    object.__setattr__(scene, "frame_directives", [])
 
     _ensure_visual_beat_directives(content)
 
-    assert scene.visual_mode == "aha_subtitle"
-    assert len(scene.frame_directives) == 1
-    assert scene.frame_directives[0].source == "subtitle"
-    assert scene.frame_directives[0].prompt == scene.narration
-    assert scene.frame_directives[0].contains_person is False
+    assert scene.visual_mode == "captions"
+    assert scene.visual_beat == "captions"
+    assert scene.frame_directives == []
+    assert scene.caption_text == "The quiet cost"
+
+
+def test_scene_granularity_splits_overlong_listicle_scene_without_rewriting_narration():
+    scene = _static_scene("scene_001")
+    scene.narration = (
+        "The first warning arrives quietly. "
+        "The second one is harder to ignore. "
+        "By the third, the whole system is bending around the mistake. "
+        "Then the bill arrives."
+    )
+    scene.duration_estimate_seconds = 32.0
+    scene.audio_url = "/static/projects/script/audio/scene_001.mp3"
+    scene.audio_duration_seconds = 31.0
+    content = ScriptContent(
+        title="Test",
+        format_id="youtube-listicle",
+        segments=[Segment(name="Segment", scenes=[scene])],
+    )
+
+    split_count = _ensure_scene_granularity(content)
+
+    scenes = content.segments[0].scenes
+    assert split_count == 1
+    assert [scene.narration for scene in scenes] == [
+        "The first warning arrives quietly.",
+        "The second one is harder to ignore.",
+        "By the third, the whole system is bending around the mistake.",
+        "Then the bill arrives.",
+    ]
+    assert [scene.id for scene in scenes] == ["scene_001", "scene_002", "scene_003", "scene_004"]
+    assert all(scene.visual_mode == "full_frame" for scene in scenes)
+    assert all(scene.visual_beat == "static" for scene in scenes)
+    assert all(scene.audio_url == "" for scene in scenes)
+    assert all(scene.audio_duration_seconds == 0.0 for scene in scenes)

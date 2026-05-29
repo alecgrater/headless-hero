@@ -15,7 +15,7 @@ from .base import VideoFormat, VisualBeatRules
 from .title_cards.composite_grid import COMPOSITE_GRID
 
 YOUTUBE_LISTICLE_BEAT_RULES = VisualBeatRules(
-    allowed_beats=frozenset({"static", "continuous", "multi_frame", "aha_subtitle"}),
+    allowed_beats=frozenset({"static", "continuous", "multi_frame"}),
     target_distribution={},  # current implementation is run-driven, not target-driven
     max_consecutive_same_beat=3,
     monotony_threshold=3,

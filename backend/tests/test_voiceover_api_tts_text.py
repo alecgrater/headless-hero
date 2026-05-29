@@ -145,8 +145,6 @@ def test_batch_voiceover_keeps_title_card_framing_but_ignores_other_tts_narratio
         ]
 
     monkeypatch.setattr("api.voiceover.generate_batch_audio", fake_generate_batch_audio)
-    monkeypatch.setattr("api.voiceover.check_and_tighten", lambda **_: [])
-
     try:
         response = client.post(
             "/api/voice/generate-batch",

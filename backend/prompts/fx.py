@@ -22,8 +22,8 @@ For each drift, specify:
 - **anchor**: 9-point grid position — "top-left", "top-center", "top-right", "center-left", "center", "center-right", "bottom-left", "bottom-center", "bottom-right". For zoom_in, anchor at the focal point. For zoom_out, start at the focal point and pull back. For pans, anchor sets the vertical band.
 
 **Rules:**
-- Assign drift to EVERY image scene (static, continuous, quick_cuts, montage).
-- NO drift on "aha_subtitle" scenes (text on black) or title_card scenes.
+- Assign drift to EVERY image scene (static/full_frame, continuous, multi_frame).
+- NO drift on "captions" scenes without an image or title_card scenes.
 - **Never repeat the same motion type on consecutive scenes.** If the previous scene used "zoom_in", this scene MUST use something else.
 - drift_diagonal is the RAREST pick — reserve for scenes with a clear corner-weighted subject.
 - Vary intensity across scenes (don't always pick 0.06).
@@ -40,7 +40,7 @@ For each zoom punch, specify:
 - MOST scenes should have NO zoom punch (null).
 - Reserve for: shocking statistics, dramatic reveals, key turning points.
 - Never zoom punch on title card scenes.
-- Never zoom punch on "aha_subtitle" scenes (no image to zoom — these are text-on-black).
+- Never zoom punch on text-only "captions" scenes (no image to zoom).
 - Never zoom punch 2 consecutive scenes.
 
 ## Scene-Boundary Transitions (transition_in)
@@ -58,7 +58,7 @@ Options:
 - **flash_white** — for shocking facts, energy spikes, or dramatic reveals. The most intense option.
 - **wipe** — for clean topic pivots, "meanwhile" moments, or switching to a new angle.
 - **NEVER** on the first scene of a segment (chapter transition already handles it).
-- **NEVER** on title_card or aha_subtitle scenes.
+- **NEVER** on title_card or text-only captions scenes.
 - **NEVER** use the same non-cut transition type on consecutive scene boundaries.
 - If "previous_transition" is provided and is non-cut, this scene MUST be "cut" or a different type.
 
@@ -66,9 +66,8 @@ Options:
 Each scene includes a "visual_beat" field indicating its presentation type:
 - "static" — single image, standard FX rules
 - "continuous" — smooth frame progression, standard FX rules
-- "quick_cuts" — independent shots with hard cuts, zoom_punch can trigger on one frame
-- "aha_subtitle" — text on black, NO drift, zoom_punch, or non-cut transition allowed
-- "montage" — mixed real/AI frames, standard FX rules
+- "multi_frame" — independent shots with hard cuts, zoom_punch can trigger on one frame
+- "captions" — renderer-owned editorial text; use no drift, zoom_punch, or non-cut transition when text-only
 
 ## Output Format
 
@@ -94,7 +93,7 @@ Return a JSON object with a single key "scenes" whose value is an array with one
       "transition_in": "fade_black"
     },
     {
-      "id": "aha_subtitle_scene",
+      "id": "captions_scene",
       "fx": {
         "drift": null,
         "zoom_punch": null

@@ -113,7 +113,7 @@ class PhraseTimestamp(BaseModel):
 class FrameDirective(BaseModel):
     """Per-frame generation directive for the Visual Beat System."""
     prompt: str
-    source: str = "ai_generated"       # "ai_generated" | "subtitle"
+    source: str = "ai_generated"       # "ai_generated"; legacy "subtitle" accepted for old frame data
     search_query: str = ""
     transition: str = "crossfade"      # "cut" | "crossfade" | "fade_black"
     reference_previous: bool = True
@@ -165,7 +165,7 @@ class Scene(BaseModel):
     frame_urls: list[str] = []        # web-relative paths to frame images
     fx: SceneFX | None = None          # assigned by FX generator, used by Remotion
     eli_overlay: EliOverlay | None = None  # Eli character animation keyframes
-    visual_beat: str = "static"        # "static" | "continuous" | "quick_cuts" | "aha_subtitle" | "montage"
+    visual_beat: str = "static"        # "static" | "continuous" | "multi_frame" | "captions" plus legacy aliases
     frame_directives: list[FrameDirective] = []
     contains_person: bool = False       # true if any frame depicts a human figure
     visual_mode: VisualMode = "full_frame"

@@ -8,7 +8,7 @@ from collections.abc import Callable
 
 from config import DEFAULT_ACCENT_COLOR, SEGMENT_COUNT, parse_json_array_response, strip_markdown_fences
 from integrations.llm_client import chat
-from models.script import FrameDirective, LevelMeta, MainCharacter, Scene, ScriptContent, Segment
+from models.script import LevelMeta, MainCharacter, Scene, ScriptContent, Segment
 from prompts import SCRIPT_OUTLINE_INSTRUCTIONS, SCRIPT_SEGMENT_SCENES_INSTRUCTIONS, SCRIPT_SYSTEM
 
 logger = logging.getLogger(__name__)
@@ -155,7 +155,7 @@ def _selected_opening_scene_count(content: ScriptContent, cold_open_text: str | 
     return min(count, max(0, len(scenes) - 1))
 
 
-ALL_BEAT_TYPES = ["static", "continuous", "multi_frame", "aha_subtitle"]
+ALL_BEAT_TYPES = ["static", "continuous", "multi_frame"]
 LEGACY_BEAT_ALIASES = {
     "full_frame": "static",
     "quick_cuts": "multi_frame",
@@ -163,6 +163,9 @@ LEGACY_BEAT_ALIASES = {
 }
 
 _SHOT_LABEL_RE = re.compile(r"^\[([A-Z\-]+)\]")
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+GENERAL_TARGET_SCENE_SECONDS = 8.0
+GENERAL_MAX_SCENE_SECONDS = 14.0
 
 
 def _directive_prompt(scene: Scene, suffix: str = "") -> str:
@@ -175,14 +178,12 @@ def _canonical_visual_beat(beat: str) -> str:
 
 
 def _directive_mode(scene: Scene, beat: str) -> str:
-    if scene.visual_mode in {"multi_frame", "continuous", "aha_subtitle"}:
+    if scene.visual_mode in {"multi_frame", "continuous"}:
         return scene.visual_mode
     if _canonical_visual_beat(beat) == "multi_frame":
         return "multi_frame"
     if beat == "continuous":
         return "continuous"
-    if beat == "aha_subtitle":
-        return "aha_subtitle"
     return "full_frame"
 
 
@@ -257,21 +258,6 @@ def _synthesize_frame_directives(scene: Scene, beat: str) -> None:
                 "contains_person": contains_person,
             },
         ]
-    elif mode == "aha_subtitle":
-        object.__setattr__(
-            scene,
-            "frame_directives",
-            [
-                FrameDirective(
-                    prompt=scene.narration.strip(),
-                    source="subtitle",
-                    transition="cut",
-                    reference_previous=False,
-                    search_query="",
-                    contains_person=False,
-                )
-            ],
-        )
 
 
 def _ensure_visual_beat_directives(content: ScriptContent) -> None:
@@ -281,6 +267,113 @@ def _ensure_visual_beat_directives(content: ScriptContent) -> None:
         from pipeline.formats.life_as_a import enforce_life_as_a_visual_complexity
 
         enforce_life_as_a_visual_complexity(content)
+
+
+def _split_narration_sentences(narration: str) -> list[str]:
+    sentences = [part.strip() for part in _SENTENCE_SPLIT_RE.split(narration.strip()) if part.strip()]
+    return sentences or ([narration.strip()] if narration.strip() else [])
+
+
+def _single_static_directive(scene: Scene) -> list[dict]:
+    prompt = scene.visual_prompt.strip() or scene.narration.strip()
+    return [
+        {
+            "prompt": prompt,
+            "source": "ai_generated",
+            "transition": "cut",
+            "reference_previous": False,
+            "search_query": "",
+            "contains_person": bool(scene.contains_person),
+        }
+    ]
+
+
+def _scene_granularity_duration(scene: Scene, sentence_count: int) -> float:
+    if scene.duration_estimate_seconds > 0:
+        if scene.duration_estimate_seconds <= GENERAL_TARGET_SCENE_SECONDS and sentence_count > 2:
+            return sentence_count * GENERAL_TARGET_SCENE_SECONDS
+        return float(scene.duration_estimate_seconds)
+    return sentence_count * GENERAL_TARGET_SCENE_SECONDS
+
+
+def _chunk_sentences_evenly(sentences: list[str], chunk_count: int) -> list[list[str]]:
+    if chunk_count <= 1 or len(sentences) <= 1:
+        return [sentences]
+    chunk_count = min(chunk_count, len(sentences))
+    chunks: list[list[str]] = []
+    for index in range(chunk_count):
+        start = round(index * len(sentences) / chunk_count)
+        end = round((index + 1) * len(sentences) / chunk_count)
+        chunks.append(sentences[start:end] or [sentences[min(index, len(sentences) - 1)]])
+    return chunks
+
+
+def _clear_generated_scene_assets(scene: Scene) -> None:
+    scene.image_url = ""
+    scene.audio_url = ""
+    scene.audio_duration_seconds = 0.0
+    scene.word_timestamps = None
+    scene.phrase_timestamps = None
+    scene.frame_urls = []
+    scene.video_url = ""
+    scene.visual_source_metadata = None
+
+
+def _ensure_scene_granularity(content: ScriptContent) -> int:
+    """Split overlong generated scenes before voiceover without rewriting text."""
+    if content.format_id == "life-as-a":
+        return 0
+
+    split_count = 0
+    for segment in content.segments:
+        rewritten: list[Scene] = []
+        for scene in segment.scenes:
+            if scene.is_title_card:
+                rewritten.append(scene)
+                continue
+
+            sentences = _split_narration_sentences(scene.narration)
+            estimated_duration = _scene_granularity_duration(scene, len(sentences))
+            should_split = len(sentences) > 2 or estimated_duration > GENERAL_MAX_SCENE_SECONDS
+            if not should_split or len(sentences) <= 1:
+                rewritten.append(scene)
+                continue
+
+            chunk_count = max(2, int((estimated_duration + GENERAL_TARGET_SCENE_SECONDS - 1) // GENERAL_TARGET_SCENE_SECONDS))
+            chunks = _chunk_sentences_evenly(sentences, chunk_count)
+            logger.info(
+                "Scene granularity: split scene %s into %d chunks; estimated_duration=%.1fs",
+                scene.id,
+                len(chunks),
+                estimated_duration,
+            )
+            for chunk_index, chunk in enumerate(chunks):
+                chunk_scene = scene.model_copy(deep=True)
+                chunk_scene.narration = " ".join(chunk).strip()
+                chunk_scene.duration_estimate_seconds = max(
+                    1.0,
+                    round(estimated_duration * len(chunk) / len(sentences), 2),
+                )
+                chunk_scene.fx = None if chunk_index > 0 else chunk_scene.fx
+                chunk_scene.eli_overlay = None if chunk_index > 0 else chunk_scene.eli_overlay
+                chunk_scene.set_visual_mode("full_frame")
+                chunk_scene.visual_beat = "static"
+                chunk_scene.frame_directives = _single_static_directive(chunk_scene)
+                _clear_generated_scene_assets(chunk_scene)
+                rewritten.append(chunk_scene)
+            split_count += 1
+        segment.scenes = rewritten
+
+    if split_count:
+        _renumber_content_scenes(content)
+    return split_count
+
+
+def _renumber_content_scenes(content: ScriptContent) -> None:
+    next_id = 1
+    for scene in content.all_scenes():
+        scene.id = f"scene_{next_id:03d}"
+        next_id += 1
 
 
 def _find_runs(labels: list[str], skip: set[str], threshold: int = 3) -> list[tuple[str, int, int, int]]:
@@ -501,6 +594,7 @@ def generate_script(
 
     content.format_id = fmt.id
     content = fmt.enforce_post_processing(content, eli_enabled=eli_enabled)
+    _ensure_scene_granularity(content)
     _fix_visual_monotony(content, rules=fmt.visual_beat_rules)
     _ensure_visual_beat_directives(content)
     if cold_open_text and fmt.supports_cold_open and not fmt.supports_hook_scoring:

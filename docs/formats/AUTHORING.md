@@ -109,7 +109,7 @@ A format has up to four prompt slots. All four are `PromptDef` objects defined i
 
 - **Consumer:** Phase-2 inner loop in `_generate_segmented`. Called once per segment.
 - **Output contract:** `{"scenes": [Scene, ...]}` — a flat array. The orchestrator assigns this list to `segment.scenes` and renumbers `Scene.id` globally afterward.
-- **Important:** Per scene, narration length and beat distribution are governed by the prompt. A `life-as-a` segment yields ~3–5 scenes with 3–8 sentences each; a listicle segment yields ~5–10 scenes with 1–2 sentences each. There is no orchestrator-side enforcement — your prompt is the contract.
+- **Important:** Per scene, narration length and beat distribution start in the prompt, but the orchestrator also enforces scene-length protection before voiceover. Generic formats split overlong multi-sentence scenes on sentence boundaries, and `life-as-a` has a format-specific chunker for 5–9 second single-beat scenes. Do not add post-voiceover narration rewrites for pacing.
 
 ### Authoring tips
 
@@ -314,7 +314,9 @@ Idempotent: running it twice produces the same result.
 
 ### Step 4 — Define the visual beat rules
 
-`LIFE_AS_A_BEAT_RULES` ([`life_as_a.py`](../../backend/pipeline/formats/life_as_a.py)) constrains beats to `{static, continuous, multi_frame}`, keeps `quick_cuts` only as a legacy compatibility alias, and uses `monotony_threshold=3`.
+`LIFE_AS_A_BEAT_RULES` ([`life_as_a.py`](../../backend/pipeline/formats/life_as_a.py)) constrains generated beats to `{static, continuous, multi_frame}` and uses `monotony_threshold=3`. Legacy `quick_cuts` data is still normalized at load/post-processing boundaries, but new format rules should not target it.
+
+Scene-length protection runs before voiceover. Generic formats use the scriptwriter's deterministic sentence-boundary granularity pass, while `life-as-a` keeps its format-specific chunker for literary single-beat scenes. Neither path rewrites narration with an LLM after audio exists.
 
 ### Step 5 — Compose the `VideoFormat` and register
 

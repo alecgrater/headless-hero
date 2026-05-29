@@ -108,7 +108,6 @@ LIFE_AS_A_BEAT_RULES = VisualBeatRules(
         "static": (0.45, 0.60),
         "continuous": (0.25, 0.35),
         "multi_frame": (0.15, 0.25),
-        "quick_cuts": (0.15, 0.25),  # legacy compatibility alias
     },
     max_consecutive_same_beat=2,
     monotony_threshold=3,
