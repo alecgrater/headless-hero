@@ -30,8 +30,17 @@ _WEAK_KEYWORDS = {
 
 
 def _utc_iso(dt: datetime) -> str:
+    if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
+        dt = dt.replace(tzinfo=timezone.utc)
     value = dt.astimezone(timezone.utc)
     return value.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _safe_int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _clean_text(value: Any, limit: int = MAX_TEXT_CHARS) -> str:
@@ -108,7 +117,7 @@ def build_discovery_seed(profile: dict[str, Any], now: datetime | None = None) -
         avg_segment_count = 0.0
 
     safe_profile = {
-        "script_count": int(profile.get("script_count") or 0),
+        "script_count": _safe_int(profile.get("script_count")),
         "common_topics": common_topics,
         "typical_keywords": typical_keywords,
         "audience_profile": _clean_text(profile.get("audience_profile")),

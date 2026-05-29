@@ -66,3 +66,21 @@ def test_build_discovery_seed_limits_long_text_and_query_count():
     assert len(seed["profile"]["narration_style"]) == 500
     assert len(seed["profile"]["visual_approach"]) == 500
     assert len(seed["search_queries"]) == 40
+
+
+def test_build_discovery_seed_treats_naive_datetime_as_utc():
+    seed = build_discovery_seed(
+        {},
+        now=datetime(2026, 5, 29, 17, 0),
+    )
+
+    assert seed["generated_at"] == "2026-05-29T17:00:00Z"
+
+
+def test_build_discovery_seed_defaults_malformed_script_count_to_zero():
+    seed = build_discovery_seed(
+        {"script_count": "many"},
+        now=datetime(2026, 5, 29, 17, 0, tzinfo=timezone.utc),
+    )
+
+    assert seed["profile"]["script_count"] == 0
