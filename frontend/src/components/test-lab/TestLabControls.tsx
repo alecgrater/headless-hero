@@ -66,14 +66,6 @@ const STAGE_OPTIONS: Array<{ key: StageKey; label: string; help: ToggleHelp }> =
     },
   },
   {
-    key: "treatment_assets",
-    label: "Animation assets",
-    help: {
-      on: "Generate extra image layers used by popup sequence, flip-flop, and comparison board modes.",
-      off: "Render with existing layered assets only.",
-    },
-  },
-  {
     key: "fx",
     label: "FX",
     help: {
@@ -194,7 +186,6 @@ export default function TestLabControls({
   const backgroundColor = settings.visual_canvas?.background_color ?? preset?.background_color ?? "#F6C54A";
   const displayedCharacter = getDisplayedCharacter(settings, preset, defaultMainCharacter);
   const displayedCharacterSource = getDisplayedCharacterSource(settings, defaultMainCharacter);
-  const isLayeredTreatment = isLayeredVisualMode(visualMode);
 
   useEffect(() => {
     onValidityChange?.(true);
@@ -214,7 +205,6 @@ export default function TestLabControls({
   }
 
   function updateStage(key: StageKey, enabled: boolean) {
-    if (!isLayeredTreatment && key === "treatment_assets") return;
     onChange({
       ...settings,
       stages: {
@@ -353,15 +343,13 @@ export default function TestLabControls({
       <AccordionPanel title="Pipeline Stages" testId="test-lab-section-pipeline-stages" help="Disable generation stages to inspect partial output or reuse intermediate assets.">
         <div className="grid grid-cols-2 gap-2">
           {STAGE_OPTIONS.map((stage) => {
-            const disabled = stage.key === "treatment_assets" && !isLayeredTreatment;
-            const checked = disabled ? false : settings.stages[stage.key];
             return (
               <ToggleButton
                 key={stage.key}
                 label={stage.label}
-                checked={checked}
+                checked={settings.stages[stage.key]}
                 help={stage.help}
-                disabled={disabled}
+                disabled={false}
                 onChange={(enabled) => updateStage(stage.key, enabled)}
               />
             );

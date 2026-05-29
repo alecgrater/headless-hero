@@ -949,6 +949,30 @@ def test_stage_defaults_remove_character_and_direct_eli_stage():
     assert defaults["eli_derived"] is True
 
 
+def test_stage_defaults_derive_treatment_assets_from_visual_mode():
+    from pipeline.test_lab import _stage_defaults
+
+    layered_defaults = _stage_defaults(
+        {
+            "visual_mode": "flipflop",
+            "stages": {
+                "treatment_assets": False,
+            },
+        }
+    )
+    normal_defaults = _stage_defaults(
+        {
+            "visual_mode": "full_frame",
+            "stages": {
+                "treatment_assets": True,
+            },
+        }
+    )
+
+    assert layered_defaults["treatment_assets"] is True
+    assert normal_defaults["treatment_assets"] is False
+
+
 def test_test_lab_advanced_script_keeps_top_level_visual_treatment_when_scene_omits_it():
     from pipeline.test_lab import build_content_from_preset
 

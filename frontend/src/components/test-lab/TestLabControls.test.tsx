@@ -260,4 +260,12 @@ describe("TestLabControls layout", () => {
     expect(within(pipeline).queryByRole("button", { name: /^Eli$/i })).not.toBeInTheDocument();
     expect(within(pipeline).getByText(/Eli animation/i)).toBeInTheDocument();
   });
+
+  it("does not expose layered asset generation as a pipeline option", () => {
+    renderControls({ ...baseSettings, visual_mode: "flipflop" });
+
+    const pipeline = screen.getByTestId("test-lab-section-pipeline-stages");
+    expect(within(pipeline).queryByRole("button", { name: /Animation assets/i })).not.toBeInTheDocument();
+    expect(within(pipeline).queryByText(/Animation assets/i)).not.toBeInTheDocument();
+  });
 });
