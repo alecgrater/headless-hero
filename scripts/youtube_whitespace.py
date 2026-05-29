@@ -17,6 +17,10 @@ MIN_VIEWS_PER_VIDEO = 100_000
 TOP_RESULTS = 20
 
 
+class YouTubeWhitespaceError(RuntimeError):
+    """Raised when live discovery cannot safely refresh the cached feed."""
+
+
 def utc_now() -> str:
     return (
         datetime.now(timezone.utc)
@@ -240,17 +244,16 @@ def collect_channel(youtube, item: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def run(seed_path: Path, output_path: Path, api_key: str) -> dict[str, Any]:
-    try:
-        from googleapiclient.errors import HttpError
-    except ModuleNotFoundError as exc:
-        raise RuntimeError(
-            "google-api-python-client is required for live YouTube analysis."
-        ) from exc
-
     seed = json.loads(seed_path.read_text())
     youtube = build_youtube(api_key)
     records: list[dict[str, Any]] = []
-    for query in seed.get("search_queries", []):
+    queries = [query for query in seed.get("search_queries", []) if query]
+    attempted_queries = 0
+    successful_queries = 0
+    failures: list[str] = []
+
+    for query in queries:
+        attempted_queries += 1
         try:
             channel_ids = search_channels(youtube, query, max_results=25)
             for channel_item in get_channel_stats(youtube, channel_ids):
@@ -260,8 +263,15 @@ def run(seed_path: Path, output_path: Path, api_key: str) -> dict[str, Any]:
                 record = qualify_channel(channel, query)
                 if record:
                     records.append(record)
-        except HttpError as exc:
+            successful_queries += 1
+        except Exception as exc:
+            failures.append(f"{query}: {exc}")
             print(f"[warn] YouTube API error for query {query!r}: {exc}")
+
+    if attempted_queries > 0 and successful_queries == 0 and failures:
+        raise YouTubeWhitespaceError(
+            "All YouTube whitespace queries failed; preserving previous feed."
+        )
 
     feed = build_feed(seed, records)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -289,7 +299,11 @@ def main() -> int:
         print(f"Seed file missing: {seed_path}; keeping previous feed.")
         return 0
 
-    run(seed_path, Path(args.output), args.api_key)
+    try:
+        run(seed_path, Path(args.output), args.api_key)
+    except YouTubeWhitespaceError as exc:
+        print(exc)
+        return 1
     return 0
 
 

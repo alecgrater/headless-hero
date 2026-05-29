@@ -1,5 +1,8 @@
 import importlib.util
+import json
 from pathlib import Path
+
+import pytest
 
 
 SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "youtube_whitespace.py"
@@ -101,3 +104,36 @@ def test_build_feed_dedupes_and_ranks_results():
     assert [item["channel_id"] for item in feed["results"]] == ["UC1", "UC2"]
     assert [item["rank"] for item in feed["results"]] == [1, 2]
     assert feed["results"][0]["query"] == "b"
+
+
+def test_run_preserves_existing_feed_when_all_queries_fail(tmp_path, monkeypatch):
+    seed_path = tmp_path / "seed.json"
+    output_path = tmp_path / "youtube-whitespace.json"
+    previous_feed = {
+        "version": 1,
+        "generated_at": "2026-05-29T00:00:00Z",
+        "seed_generated_at": "2026-05-29T00:00:00Z",
+        "source_queries": ["science"],
+        "results": [{"channel_id": "previous"}],
+    }
+    seed_path.write_text(
+        json.dumps(
+            {
+                "generated_at": "2026-05-29T16:00:00Z",
+                "search_queries": ["science", "history"],
+            }
+        )
+    )
+    output_path.write_text(json.dumps(previous_feed, indent=2) + "\n")
+
+    monkeypatch.setattr(youtube_whitespace, "build_youtube", lambda api_key: object())
+
+    def fail_search(youtube, query, max_results=25):
+        raise RuntimeError("quotaExceeded")
+
+    monkeypatch.setattr(youtube_whitespace, "search_channels", fail_search)
+
+    with pytest.raises(youtube_whitespace.YouTubeWhitespaceError):
+        youtube_whitespace.run(seed_path, output_path, "fake-key")
+
+    assert json.loads(output_path.read_text()) == previous_feed
