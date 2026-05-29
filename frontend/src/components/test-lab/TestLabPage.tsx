@@ -68,11 +68,14 @@ type TestLabTab = "pipeline" | "popup-crop";
 type TestLabSettingsSection = "voice" | "subtitles";
 
 interface Props {
+  active?: boolean;
   onOpenSettingsSection?: (section: TestLabSettingsSection) => void;
 }
 
-export default function TestLabPage({ onOpenSettingsSection }: Props) {
+export default function TestLabPage({ active = true, onOpenSettingsSection }: Props) {
   const mountedRef = useRef(false);
+  const wasActiveRef = useRef(active);
+  const selectedPresetIdRef = useRef("");
   const pollTimerRef = useRef<number | null>(null);
   const resolvePollSleepRef = useRef<((mounted: boolean) => void) | null>(null);
   const [presets, setPresets] = useState<TestLabPreset[]>([]);
@@ -96,22 +99,30 @@ export default function TestLabPage({ onOpenSettingsSection }: Props) {
     return nextRuns;
   }, []);
 
+  const refreshSceneData = useCallback(async () => {
+    const sceneData = await getTestLabPresets();
+    if (!mountedRef.current) return;
+    setPresets(sceneData.presets);
+    setVisualTreatmentDefaults(sceneData.visual_treatment_defaults ?? {});
+    setDefaultMainCharacter(sceneData.default_main_character);
+    setVoiceSummary(sceneData.voice_summary ?? null);
+    setSubtitleSummary(sceneData.subtitle_summary ?? null);
+    const hadSelection = Boolean(selectedPresetIdRef.current);
+    setSelectedPresetId((current) => {
+      const next = current || sceneData.presets[0]?.id || "";
+      selectedPresetIdRef.current = next;
+      return next;
+    });
+    setSettings((current) => {
+      if (hadSelection) return current;
+      return settingsWithPresetVisualMode(current, sceneData.presets[0] ?? null);
+    });
+  }, []);
+
   useEffect(() => {
     mountedRef.current = true;
 
-    getTestLabPresets().then((sceneData) => {
-      if (!mountedRef.current) return;
-      setPresets(sceneData.presets);
-      setVisualTreatmentDefaults(sceneData.visual_treatment_defaults ?? {});
-      setDefaultMainCharacter(sceneData.default_main_character);
-      setVoiceSummary(sceneData.voice_summary ?? null);
-      setSubtitleSummary(sceneData.subtitle_summary ?? null);
-      setSelectedPresetId((current) => current || sceneData.presets[0]?.id || "");
-      setSettings((current) => {
-        if (selectedPresetId) return current;
-        return settingsWithPresetVisualMode(current, sceneData.presets[0] ?? null);
-      });
-    });
+    refreshSceneData();
     refreshRuns();
 
     return () => {
@@ -125,7 +136,18 @@ export default function TestLabPage({ onOpenSettingsSection }: Props) {
         resolvePollSleepRef.current = null;
       }
     };
-  }, [refreshRuns]);
+  }, [refreshRuns, refreshSceneData]);
+
+  useEffect(() => {
+    selectedPresetIdRef.current = selectedPresetId;
+  }, [selectedPresetId]);
+
+  useEffect(() => {
+    if (!wasActiveRef.current && active) {
+      refreshSceneData();
+    }
+    wasActiveRef.current = active;
+  }, [active, refreshSceneData]);
 
   const selectedPreset = useMemo(
     () => presets.find((preset) => preset.id === selectedPresetId) ?? null,

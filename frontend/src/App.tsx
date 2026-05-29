@@ -567,7 +567,12 @@ function App() {
         </div>
 
         <div className={viewPanelClass("test-lab", view)}>
-          {visitedViews.has("test-lab") && <TestLabPage onOpenSettingsSection={openSettingsSection} />}
+          {visitedViews.has("test-lab") && (
+            <TestLabPage
+              active={view === "test-lab"}
+              onOpenSettingsSection={openSettingsSection}
+            />
+          )}
         </div>
 
         <div className={viewPanelClass("dev-dashboard", view)}>
