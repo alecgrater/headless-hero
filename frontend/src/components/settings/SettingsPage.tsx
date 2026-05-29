@@ -4,6 +4,7 @@ import {
   Brain,
   Captions,
   Folder,
+  GitCompare,
   Image,
   Key,
   LayoutGrid,
@@ -22,6 +23,7 @@ import PublishingSection from "./PublishingSection";
 import { StylePresetsSection } from "./StylePresetsSection";
 import SubtitlesSection from "./SubtitlesSection";
 import VisualModesSection from "./visual-modes/VisualModesSection";
+import ScriptTypesSection from "./script-types/ScriptTypesSection";
 import VoiceSection from "./VoiceSection";
 
 // eslint-disable-next-line react-refresh/only-export-components -- co-located with the SettingsPage component that owns these section IDs
@@ -37,6 +39,7 @@ export const SECTIONS = [
   { id: "asset-vault", label: "Assets", description: "Browse and generate reusable character and item cutouts.", icon: Archive, group: "Brand & Style" },
   { id: "publishing", label: "Publishing", description: "Connect platforms that should receive one-click short-form uploads.", icon: Upload, group: "Publishing" },
   { id: "advanced", label: "Advanced", description: "Edge-case controls for workflow, rendering, and image fallback behavior.", icon: Sparkles, group: "Advanced" },
+  { id: "script-types", label: "Script Types", description: "Compare every script format — structure, narration rules, and visual-mode compatibility.", icon: GitCompare, group: "Reference" },
   { id: "visual-modes", label: "Visual Modes", description: "Browse every scene visual mode, its routing rules, and renderer behavior.", icon: LayoutGrid, group: "Reference" },
 ] as const;
 
@@ -150,6 +153,7 @@ export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultS
             </div>
           )}
           {activeSection === "asset-vault" && <AssetVaultSection />}
+          {activeSection === "script-types" && <ScriptTypesSection />}
           {activeSection === "visual-modes" && <VisualModesSection />}
         </div>
       </div>
