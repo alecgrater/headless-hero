@@ -109,8 +109,6 @@ def _valid_existing_script_mode(scene: Scene) -> str:
         return ""
     if mode == "stat_card" and not scene.stat_value.strip():
         return ""
-    if mode in {"popup_sequence", "flipflop", "comparison_board", "dossier"} and not scene.visual_layers:
-        return ""
     return mode
 
 
@@ -273,6 +271,7 @@ def _remove_adjacent_ai_video_assignments(
             downgrade_id = left_id
 
         existing = assignments_by_scene[downgrade_id]
+        existing_script_mode = _valid_existing_script_mode(scenes_by_id[downgrade_id]) if downgrade_id in scenes_by_id else ""
         assignments_by_scene[downgrade_id] = MediaAssignment(
             scene_id=downgrade_id,
             game_name=None,
@@ -281,7 +280,7 @@ def _remove_adjacent_ai_video_assignments(
                 existing.reasoning
                 or "Downgraded to AI art so AI-video scenes are not back to back."
             ),
-            visual_mode="full_frame",
+            visual_mode=existing_script_mode or "full_frame",
         )
         segment_index = scene_segment_indexes.get(downgrade_id)
         if segment_index is not None:
@@ -403,7 +402,7 @@ def analyze_media_sources(
                     max_duration_seconds=ai_video_max_duration,
                 )
             ):
-                mode = "full_frame"
+                mode = existing_script_mode or "full_frame"
             else:
                 ai_video_assigned += 1
                 segment_ai_video_counts[segment_index] = segment_ai_video_counts.get(segment_index, 0) + 1

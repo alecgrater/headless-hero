@@ -736,6 +736,80 @@ def test_media_analyzer_preserves_existing_specialized_modes_when_not_promoting_
     assert modes["scene_003"] == "full_frame"
 
 
+def test_media_analyzer_preserves_layered_modes_before_layers_are_generated(monkeypatch):
+    content = ScriptContent(
+        title="Layer Planning",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="scene_001",
+                        narration="Three tools appear one by one around the workbench.",
+                        visual_prompt="[CLOSE-UP] A workbench anchor for tool cutouts",
+                        visual_mode="popup_sequence",
+                        visual_layers=[],
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(media_analyzer, "chat", lambda **_: """{
+      "assignments": [
+        {"scene_id": "scene_001", "visual_mode": "full_frame", "game_name": null, "search_query": null, "reasoning": "not video"}
+      ]
+    }""")
+
+    assignments = analyze_media_sources(
+        content,
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+        ai_video_enabled=False,
+        animated_scene_count=0,
+        script_id="test-script",
+    )
+
+    assert assignments[0].visual_mode == "popup_sequence"
+
+
+def test_media_analyzer_falls_back_to_existing_mode_when_video_rejected(monkeypatch):
+    content = ScriptContent(
+        title="Rejected Video",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="scene_001",
+                        narration="The case board holds still while the accusation lands.",
+                        visual_prompt="[CLOSE-UP] Abstract case materials with no readable text",
+                        visual_mode="dossier",
+                        audio_duration_seconds=99.0,
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(media_analyzer, "chat", lambda **_: """{
+      "assignments": [
+        {"scene_id": "scene_001", "visual_mode": "video", "game_name": null, "search_query": null, "reasoning": "too long"}
+      ]
+    }""")
+
+    assignments = analyze_media_sources(
+        content,
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+        ai_video_enabled=True,
+        animated_scene_count=1,
+        script_id="test-script",
+    )
+
+    assert assignments[0].visual_mode == "dossier"
+
+
 def test_life_as_a_ai_video_uses_configured_video_duration_threshold(monkeypatch):
     monkeypatch.setenv("LIFE_AS_A_SINGLE_VISUAL_MAX_SECONDS", "8")
     content = ScriptContent(

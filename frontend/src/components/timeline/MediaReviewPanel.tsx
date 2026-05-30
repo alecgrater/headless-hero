@@ -22,6 +22,14 @@ interface Props {
 const MODE_LABELS: Record<string, { label: string; color: string }> = {
   full_frame: { label: "Full frame", color: "bg-violet-500/20 text-violet-300" },
   video: { label: "Video", color: "bg-fuchsia-500/20 text-fuchsia-300" },
+  multi_frame: { label: "Multi-frame", color: "bg-sky-500/20 text-sky-300" },
+  continuous: { label: "Continuous", color: "bg-cyan-500/20 text-cyan-300" },
+  popup_sequence: { label: "Popup sequence", color: "bg-emerald-500/20 text-emerald-300" },
+  flipflop: { label: "Flipflop", color: "bg-amber-500/20 text-amber-300" },
+  comparison_board: { label: "Comparison board", color: "bg-blue-500/20 text-blue-300" },
+  captions: { label: "Captions", color: "bg-rose-500/20 text-rose-300" },
+  stat_card: { label: "Stat card", color: "bg-orange-500/20 text-orange-300" },
+  dossier: { label: "Dossier", color: "bg-lime-500/20 text-lime-300" },
 };
 const modeForAssignment = (assignment: MediaAssignment): VisualMode =>
   assignment.visual_mode ?? "full_frame";
@@ -41,7 +49,7 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
 
   const totalScenes = assignments.length;
 
-  const handleModeChange = (sceneId: string, newMode: Extract<VisualMode, "video" | "full_frame">) => {
+  const handleModeChange = (sceneId: string, newMode: VisualMode) => {
     setSaveState("idle");
     setAssignments((prev) =>
       prev.map((a) =>
@@ -156,11 +164,14 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
               <div className="flex flex-col gap-2 w-64 shrink-0">
                 <select
                   value={mode}
-                  onChange={(e) => handleModeChange(a.scene_id, e.target.value as Extract<VisualMode, "video" | "full_frame">)}
+                  onChange={(e) => handleModeChange(a.scene_id, e.target.value as VisualMode)}
                   className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200"
                 >
                   <option value="full_frame">Full frame</option>
                   <option value="video">Video</option>
+                  {mode !== "full_frame" && mode !== "video" && (
+                    <option value={mode}>{sourceInfo.label} (preserved)</option>
+                  )}
                 </select>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className={`px-2 py-0.5 rounded text-xs font-medium shrink-0 ${sourceInfo.color}`}>

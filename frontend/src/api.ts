@@ -905,7 +905,7 @@ export async function getPublishStatus(jobId: string): Promise<PublishJobStatus 
 
 export interface MediaAssignment {
   scene_id: string;
-  visual_mode: Extract<VisualMode, "video" | "full_frame">;
+  visual_mode: VisualMode;
   game_name: string | null;
   search_query: string | null;
   reasoning: string;

@@ -59,7 +59,7 @@ export function useMediaReview({ scriptId, content }: UseMediaReviewOptions) {
     if (hasNonAi && !mediaReviewDismissed) {
       const existing: MediaAssignment[] = allScenes.map((s) => ({
         scene_id: s.id,
-        visual_mode: s.visual_mode === "video" ? "video" : "full_frame",
+        visual_mode: s.visual_mode ?? "full_frame",
         game_name: null,
         search_query: null,
         reasoning: "",
