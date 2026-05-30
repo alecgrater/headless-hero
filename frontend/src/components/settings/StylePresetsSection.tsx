@@ -1,5 +1,5 @@
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Plus } from "lucide-react";
+import { useEffect, useId, useMemo, useState } from "react";
 import api, {
   assetUrl,
   createStylePresetCharacter,
@@ -29,6 +29,51 @@ type Props = {
   showHeader?: boolean;
   onContinue?: () => void;
 };
+
+function ExpandablePrompt({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const promptId = useId();
+  const trimmedText = text.trim();
+
+  if (!trimmedText) {
+    return <p className="mt-1 text-sm text-neutral-500">No prompt saved.</p>;
+  }
+
+  return (
+    <div className="mt-1 max-w-2xl">
+      <p
+        id={promptId}
+        title={trimmedText}
+        className={`text-sm leading-5 text-neutral-400 ${
+          expanded
+            ? "whitespace-pre-wrap break-words"
+            : "overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
+        }`}
+      >
+        {trimmedText}
+      </p>
+      <button
+        type="button"
+        aria-controls={promptId}
+        aria-expanded={expanded}
+        onClick={() => setExpanded((current) => !current)}
+        className="mt-2 inline-flex items-center gap-1 rounded-md px-0 py-1 text-xs font-medium text-violet-300 hover:text-violet-200 transition-colors"
+      >
+        {expanded ? (
+          <>
+            <ChevronUp className="size-3.5" />
+            Collapse prompt
+          </>
+        ) : (
+          <>
+            <ChevronDown className="size-3.5" />
+            Show full prompt
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
 
 function StylePresetCharacterCreateModal({
   preset,
@@ -395,12 +440,7 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
                           </span>
                         )}
                       </div>
-                      <p
-                        title={viewedPreset.prompt}
-                        className="mt-1 max-w-2xl overflow-hidden text-sm leading-5 text-neutral-400 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
-                      >
-                        {viewedPreset.prompt}
-                      </p>
+                      <ExpandablePrompt text={viewedPreset.prompt} />
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2">
                       {viewedPreset.id !== activeId && (
@@ -568,12 +608,7 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
                               </span>
                             )}
                           </div>
-                          <p
-                            title={viewedCharacter.appearance}
-                            className="mt-1 max-w-2xl overflow-hidden text-sm leading-5 text-neutral-400 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
-                          >
-                            {viewedCharacter.appearance}
-                          </p>
+                          <ExpandablePrompt text={viewedCharacter.appearance} />
                         </div>
                         {!viewedCharacter.active && (
                           <button
