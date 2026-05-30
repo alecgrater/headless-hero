@@ -1,5 +1,9 @@
 """Test the project-mode-aware character reference resolver in image_gen."""
 
+from types import SimpleNamespace
+
+from PIL import Image
+
 from models.script import MainCharacter
 
 
@@ -111,6 +115,131 @@ def _stub_generate_image(monkeypatch, ig_mod, captured: list[dict]):
         return tmp
 
     monkeypatch.setattr(ig_mod, "generate_image", fake_generate_image)
+
+
+def _stub_popup_cutout_processing(monkeypatch, ig_mod):
+    def fake_process_character_asset_bundle(
+        source_path,
+        output_dir,
+        *,
+        reference_filename,
+        cutout_filename,
+        metadata_filename,
+    ):
+        cutout_path = output_dir / cutout_filename
+        Image.new("RGBA", (8, 8), color=(0, 0, 0, 255)).save(cutout_path)
+        return SimpleNamespace(cutout_path=cutout_path)
+
+    monkeypatch.setattr(ig_mod, "process_character_asset_bundle", fake_process_character_asset_bundle)
+    monkeypatch.setattr(ig_mod, "save_vault_image", lambda **_kwargs: None)
+
+
+def test_popup_sequence_anchor_uses_project_character_reference_without_applying_it_to_items(tmp_path, monkeypatch):
+    ig_mod = _reset_data_dir(monkeypatch, tmp_path)
+
+    project_ref = tmp_path / "projects" / "abc" / "character" / "reference.png"
+    project_ref.parent.mkdir(parents=True, exist_ok=True)
+    project_ref.write_bytes(b"x")
+    character = MainCharacter(name="Maya", appearance="red coat", vibe="brisk")
+    monkeypatch.setattr(
+        ig_mod,
+        "_load_project_character_context",
+        lambda script_id: (
+            False,
+            "/static/projects/abc/character/reference.png",
+            character,
+        ),
+    )
+    monkeypatch.setattr(ig_mod, "_load_project_style_enabled", lambda script_id: True)
+    monkeypatch.setattr(ig_mod, "_resolve_style_preset", lambda **_kwargs: None)
+    _stub_popup_cutout_processing(monkeypatch, ig_mod)
+
+    captured: list[dict] = []
+    _stub_generate_image(monkeypatch, ig_mod, captured)
+
+    layers = ig_mod.generate_popup_sequence_cutouts(
+        scene_id="scene1",
+        layers=[{"id": "tool", "prompt": "popup item cutout prompt: wrench", "type": "image"}],
+        script_id="abc",
+        scene_prompt="Maya checks a repair kit while tools orbit around her.",
+        contains_person=True,
+        force=True,
+    )
+
+    assert layers[0]["id"] == "scene1_anchor"
+    assert captured[0]["reference_image_path"] == str(project_ref)
+    assert "Maya" in captured[0]["prompt"]
+    assert captured[1]["reference_image_path"] is None
+    assert "No main character or human figures" in captured[1]["prompt"]
+
+
+def test_popup_sequence_anchor_uses_eli_reference_when_eli_is_active(tmp_path, monkeypatch):
+    ig_mod = _reset_data_dir(monkeypatch, tmp_path)
+
+    eli_ref = tmp_path / "character" / "frames" / "selected_reference.png"
+    eli_ref.parent.mkdir(parents=True, exist_ok=True)
+    eli_ref.write_bytes(b"x")
+    monkeypatch.setattr(ig_mod, "_load_project_character_context", lambda script_id: (True, None, None))
+    monkeypatch.setattr(ig_mod, "_load_project_style_enabled", lambda script_id: False)
+    _stub_popup_cutout_processing(monkeypatch, ig_mod)
+
+    captured: list[dict] = []
+    _stub_generate_image(monkeypatch, ig_mod, captured)
+
+    ig_mod.generate_popup_sequence_cutouts(
+        scene_id="scene1",
+        layers=[{"id": "tool", "prompt": "popup item cutout prompt: wrench", "type": "image"}],
+        script_id="eli-project",
+        scene_prompt="Eli checks a repair kit while tools orbit around him.",
+        contains_person=True,
+        force=True,
+    )
+
+    assert captured[0]["reference_image_path"] == str(eli_ref)
+    assert "Eli" in captured[0]["prompt"]
+    assert captured[1]["reference_image_path"] is None
+
+
+def test_popup_sequence_anchor_falls_back_to_character_reference_cutout_when_generation_fails(tmp_path, monkeypatch):
+    ig_mod = _reset_data_dir(monkeypatch, tmp_path)
+
+    project_ref = tmp_path / "projects" / "abc" / "character" / "reference.png"
+    project_ref.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (16, 16), color=(0, 0, 0)).save(project_ref)
+    character = MainCharacter(name="Maya", appearance="red coat", vibe="brisk")
+    monkeypatch.setattr(
+        ig_mod,
+        "_load_project_character_context",
+        lambda script_id: (
+            False,
+            "/static/projects/abc/character/reference.png",
+            character,
+        ),
+    )
+    monkeypatch.setattr(ig_mod, "_load_project_style_enabled", lambda script_id: True)
+    monkeypatch.setattr(ig_mod, "_resolve_style_preset", lambda **_kwargs: None)
+    _stub_popup_cutout_processing(monkeypatch, ig_mod)
+
+    def fake_generate_image(prompt, *, reference_image_path=None, **kwargs):
+        if reference_image_path:
+            raise RuntimeError("provider unavailable")
+        item_path = tmp_path / "item_sheet.png"
+        Image.new("RGB", (32, 16), color=(0, 255, 0)).save(item_path)
+        return str(item_path)
+
+    monkeypatch.setattr(ig_mod, "generate_image", fake_generate_image)
+
+    layers = ig_mod.generate_popup_sequence_cutouts(
+        scene_id="scene1",
+        layers=[{"id": "tool", "prompt": "popup item cutout prompt: wrench", "type": "image"}],
+        script_id="abc",
+        scene_prompt="Maya checks a repair kit while tools orbit around her.",
+        contains_person=True,
+        force=True,
+    )
+
+    assert layers[0]["image_url"] == "/static/projects/abc/popup_crops/scene1/anchor_cutout.png"
+    assert (tmp_path / "projects" / "abc" / "popup_crops" / "scene1" / "anchor_cutout.png").exists()
 
 
 def test_generate_scene_frames_blocks_when_project_character_missing(tmp_path, monkeypatch):

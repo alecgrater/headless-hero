@@ -509,13 +509,35 @@ def generate_popup_sequence_cutouts(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     labels = [_popup_item_label(layer, index) for index, layer in enumerate(image_layers)]
-    anchor_prompt = _compose_popup_anchor_prompt(scene_prompt, contains_person=contains_person)
+    (
+        anchor_reference_path,
+        anchor_style_reference_path,
+        anchor_character_text,
+        anchor_fallback_reason,
+    ) = _resolve_popup_anchor_generation_context(
+        script_id=script_id,
+        contains_person=contains_person,
+    )
+    if anchor_fallback_reason:
+        logger.warning(
+            "[POPUP_CROP] protagonist_anchor.unavailable scene=%s reason=%s; skipping anonymous anchor generation",
+            scene_id,
+            anchor_fallback_reason,
+        )
+        return layers
+    anchor_prompt = _compose_popup_anchor_prompt(
+        scene_prompt,
+        contains_person=contains_person,
+        character_context=anchor_character_text,
+    )
     item_prompt = _compose_popup_item_sheet_prompt(scene_prompt, labels)
     prompt_marker = output_dir / "popup_sequence.prompt"
     prompt_fingerprint = json.dumps(
         {
             "anchor_prompt": anchor_prompt,
             "item_prompt": item_prompt,
+            "anchor_reference": _reference_fingerprint(anchor_reference_path),
+            "anchor_style_reference": _reference_fingerprint(anchor_style_reference_path),
             "labels": labels,
             "layers": [
                 {
@@ -542,14 +564,34 @@ def generate_popup_sequence_cutouts(
     )
 
     if not cache_valid:
-        logger.info("[POPUP_CROP] generating popup cutouts scene=%s items=%d", scene_id, len(labels))
-        _generate_popup_anchor_cutout(
-            anchor_prompt=anchor_prompt,
-            output_dir=output_dir,
-            width=width,
-            height=height,
-            script_id=script_id,
+        logger.info(
+            "[POPUP_CROP] generating popup cutouts scene=%s items=%d protagonist_anchor=%s",
+            scene_id,
+            len(labels),
+            bool(anchor_reference_path),
         )
+        try:
+            _generate_popup_anchor_cutout(
+                anchor_prompt=anchor_prompt,
+                output_dir=output_dir,
+                width=width,
+                height=height,
+                script_id=script_id,
+                reference_image_path=anchor_reference_path,
+                style_reference_path=anchor_style_reference_path,
+            )
+        except Exception:
+            if not anchor_reference_path:
+                raise
+            logger.warning(
+                "[POPUP_CROP] protagonist_anchor.generation_failed scene=%s; falling back to reference cutout",
+                scene_id,
+                exc_info=True,
+            )
+            _create_popup_anchor_cutout_from_reference(
+                reference_image_path=anchor_reference_path,
+                output_dir=output_dir,
+            )
         _generate_popup_item_cutouts(
             item_prompt=item_prompt,
             labels=labels,
@@ -583,6 +625,51 @@ def generate_popup_sequence_cutouts(
         next_layer["animation"] = next_layer.get("animation") or "pop_in"
         processed_layers.append(next_layer)
     return processed_layers
+
+
+def _reference_fingerprint(path: str | None) -> dict[str, object] | None:
+    if not path:
+        return None
+    try:
+        return {"path": path, "mtime": int(Path(path).stat().st_mtime)}
+    except OSError:
+        return {"path": path, "mtime": None}
+
+
+def _resolve_popup_anchor_generation_context(
+    *,
+    script_id: str,
+    contains_person: bool,
+) -> tuple[str | None, str | None, str, str | None]:
+    if not contains_person:
+        return None, None, "", None
+
+    eli_enabled, main_character_url, main_character_obj = _load_project_character_context(script_id)
+    try:
+        reference_image_path, character_text = _resolve_character_reference(
+            script_id=script_id,
+            contains_person=True,
+            eli_enabled=eli_enabled,
+            main_character_reference_url=main_character_url,
+            main_character=main_character_obj,
+        )
+    except RuntimeError as exc:
+        return None, None, "", str(exc)
+
+    if not reference_image_path:
+        protagonist = "Eli" if eli_enabled else "the configured main character"
+        return None, None, "", f"{protagonist} reference image is missing"
+
+    style_reference_path = _resolve_style_preset(
+        eli_enabled=eli_enabled,
+        project_style_enabled=_load_project_style_enabled(script_id),
+    )
+    logger.info(
+        "[POPUP_CROP] protagonist_anchor.ready script=%s source=%s",
+        script_id,
+        "eli" if eli_enabled else "main_character",
+    )
+    return reference_image_path, style_reference_path, character_text, None
 
 
 def generate_comparison_board_cutouts(
@@ -774,10 +861,22 @@ def _generate_popup_anchor_cutout(
     width: int,
     height: int,
     script_id: str,
+    reference_image_path: str | None = None,
+    style_reference_path: str | None = None,
     vault_kind: VaultKind = "character",
     vault_label: str = "Popup sequence anchor",
 ) -> None:
-    generated_path = Path(generate_image(anchor_prompt, width=width, height=height, script_id=script_id))
+    generated_path = Path(
+        generate_image(
+            anchor_prompt,
+            width=width,
+            height=height,
+            reference_image_path=reference_image_path,
+            style_reference_path=style_reference_path,
+            original_prompt=anchor_prompt,
+            script_id=script_id,
+        )
+    )
     source_path = output_dir / "anchor_source.png"
     if generated_path.resolve() != source_path.resolve():
         shutil.copyfile(generated_path, source_path)
@@ -790,6 +889,24 @@ def _generate_popup_anchor_cutout(
         metadata_filename="anchor_metadata.json",
     )
     save_vault_image(kind=vault_kind, label=vault_label, source_path=result.cutout_path)
+
+
+def _create_popup_anchor_cutout_from_reference(
+    *,
+    reference_image_path: str,
+    output_dir: Path,
+) -> None:
+    source_path = output_dir / "anchor_source.png"
+    if Path(reference_image_path).resolve() != source_path.resolve():
+        shutil.copyfile(reference_image_path, source_path)
+    result = process_character_asset_bundle(
+        source_path,
+        output_dir,
+        reference_filename="anchor_source.png",
+        cutout_filename="anchor_cutout.png",
+        metadata_filename="anchor_metadata.json",
+    )
+    save_vault_image(kind="character", label="Popup sequence anchor fallback", source_path=result.cutout_path)
 
 
 def _generate_popup_item_cutouts(
@@ -848,27 +965,48 @@ def _generate_comparison_subject_cutouts(
             save_vault_image(kind="item", label=label, source_path=output_path)
 
 
-def _compose_popup_anchor_prompt(scene_prompt: str, *, contains_person: bool) -> str:
-    subject_line = (
-        "Create one large isolated full-body cutout of the scene's main character/person standing upright."
-        if contains_person
-        else "Create one large isolated full-body cutout of the scene's main subject standing upright."
-    )
-    return "\n".join(
+def _compose_popup_anchor_prompt(
+    scene_prompt: str,
+    *,
+    contains_person: bool,
+    character_context: str = "",
+) -> str:
+    if character_context:
+        subject_line = (
+            "Create one large isolated full-body cutout of the active recurring protagonist standing upright."
+        )
+    else:
+        subject_line = (
+            "Create one large isolated full-body cutout of the scene's main character/person standing upright."
+            if contains_person
+            else "Create one large isolated full-body cutout of the scene's main subject standing upright."
+        )
+    parts = [
+        subject_line,
+        "The subject should be detailed, expressive, centered, visually dominant, and shown in a clean neutral standing pose.",
+        "Use a flat chroma background color that does not appear anywhere in the subject, preferably bright green unless the subject contains green.",
+        "No popup items, no secondary icons, no speech bubbles, no text, no labels, no frames, no full background scene.",
+        "No sitting.",
+        "No desks, no phones, no notification bubbles, no props, and no environment.",
+        "Leave a little empty margin around the full subject so automatic trimming does not clip the pose.",
+    ]
+    if character_context:
+        parts.extend(
+            [
+                "Use the included character reference as the source of truth for the anchor identity.",
+                "The popup anchor must preserve the active protagonist exactly; do not invent a new anonymous host or substitute character.",
+                character_context,
+            ]
+        )
+    parts.extend(
         [
-            subject_line,
-            "The subject should be detailed, expressive, centered, visually dominant, and shown in a clean neutral standing pose.",
-            "Use a flat chroma background color that does not appear anywhere in the subject, preferably bright green unless the subject contains green.",
-            "No popup items, no secondary icons, no speech bubbles, no text, no labels, no frames, no full background scene.",
-            "No sitting.",
-            "No desks, no phones, no notification bubbles, no props, and no environment.",
-            "Leave a little empty margin around the full subject so automatic trimming does not clip the pose.",
             "Use the scene direction only for character identity and visual style; ignore its action, environment, props, and popup items.",
             "",
             "Character/style context:",
             scene_prompt.strip(),
         ]
-    ).strip()
+    )
+    return "\n".join(parts).strip()
 
 
 def _compose_popup_item_sheet_prompt(scene_prompt: str, labels: list[str]) -> str:
