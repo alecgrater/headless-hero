@@ -56,9 +56,7 @@ def test_life_as_a_flags():
     assert fmt.title_card_strategy.kind == "cinematic-chapters"
     assert fmt.level_label == "level"
     assert fmt.visual_beat_rules.monotony_threshold == 3
-    assert fmt.visual_beat_rules.target_distribution["static"] == (0.45, 0.60)
-    assert fmt.visual_beat_rules.target_distribution["multi_frame"] == (0.15, 0.25)
-    assert "quick_cuts" not in fmt.visual_beat_rules.target_distribution
+    assert fmt.visual_beat_rules.target_distribution == {}
 
 
 def test_generate_script_dispatches_to_format(monkeypatch):
@@ -307,14 +305,13 @@ def test_supported_visual_modes_are_known():
         assert not unknown, f"{fmt.id} has unknown visual modes: {unknown}"
 
 
-def test_life_as_a_disables_caption_and_stat_modes():
-    """captions and stat_card are disabled in life-as-a; they must be absent."""
-    from pipeline.formats import get_format
+def test_all_formats_expose_the_full_visual_mode_vocabulary():
+    """Format metadata is reference-only; every format can route every canonical mode."""
+    from models.script import VISUAL_MODES
+    from pipeline.formats import list_formats
 
-    fmt = get_format("life-as-a")
-    assert "captions" not in fmt.supported_visual_modes
-    assert "stat_card" not in fmt.supported_visual_modes
-    assert "full_frame" in fmt.supported_visual_modes
+    for fmt in list_formats():
+        assert set(fmt.supported_visual_modes) == VISUAL_MODES
 
 
 def test_formats_have_reference_notes():

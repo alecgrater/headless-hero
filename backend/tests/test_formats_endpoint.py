@@ -14,15 +14,14 @@ def test_formats_endpoint_includes_reference_fields():
     listicle = summaries["youtube-listicle"]
     life = summaries["life-as-a"]
 
-    assert "captions" in listicle.supported_visual_modes
-    assert "captions" not in life.supported_visual_modes
-    assert "stat_card" not in life.supported_visual_modes
+    assert set(listicle.supported_visual_modes) == set(life.supported_visual_modes)
+    assert {"captions", "stat_card", "dossier"} <= set(life.supported_visual_modes)
 
     assert set(listicle.allowed_visual_beats) == {"static", "continuous", "multi_frame"}
     assert listicle.max_consecutive_same_beat == 3
-    assert life.max_consecutive_same_beat == 2
+    assert life.max_consecutive_same_beat == 3
 
-    assert life.target_distribution["static"] == [0.45, 0.60]
+    assert life.target_distribution == {}
     assert listicle.target_distribution == {}
 
     assert life.reference_notes

@@ -137,6 +137,37 @@ def test_script_prompt_includes_comparison_board_mode():
     assert "Before vs After" in prompt_text
 
 
+def test_script_prompt_routes_modes_by_best_fit_not_forced_quotas():
+    prompt_text = script_prompt.SCRIPT_SYSTEM.template
+
+    assert "BEST-FIT ROUTING RULES" in prompt_text
+    assert "single best visual mode" in prompt_text
+    assert "full_frame remains the fallback" in prompt_text
+    assert "50-65%" not in prompt_text
+    assert "full-full-variety" not in prompt_text
+    assert "MUST use a different mode" not in prompt_text
+
+
+def test_life_as_a_level_prompt_uses_full_vocabulary_without_quotas():
+    prompt_text = script_prompt.LIFE_AS_A_LEVEL_SCENES_INSTRUCTIONS.template
+
+    for mode in (
+        "full_frame",
+        "continuous",
+        "multi_frame",
+        "popup_sequence",
+        "flipflop",
+        "comparison_board",
+        "captions",
+        "stat_card",
+        "dossier",
+    ):
+        assert f"`{mode}`" in prompt_text
+    assert "single best visual mode" in prompt_text
+    assert "60–75%" not in prompt_text
+    assert "NEVER use text-only/editorial caption modes" not in prompt_text
+
+
 def test_multi_frame_mode_without_directives_is_repaired():
     scene = _static_scene("scene_001")
     scene.visual_mode = "multi_frame"

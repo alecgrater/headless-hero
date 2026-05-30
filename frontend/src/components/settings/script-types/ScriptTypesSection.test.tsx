@@ -3,6 +3,19 @@ import { describe, expect, it, vi } from "vitest";
 import type { VideoFormat } from "../../../types/format";
 import ScriptTypesSection from "./ScriptTypesSection";
 
+const ALL_MODES = [
+  "full_frame",
+  "continuous",
+  "multi_frame",
+  "video",
+  "popup_sequence",
+  "flipflop",
+  "comparison_board",
+  "captions",
+  "stat_card",
+  "dossier",
+];
+
 const FORMATS: VideoFormat[] = [
   {
     id: "youtube-listicle",
@@ -15,7 +28,7 @@ const FORMATS: VideoFormat[] = [
     supports_hook_scoring: true,
     supports_segmented_generation: true,
     title_card_strategy_kind: "composite-grid",
-    supported_visual_modes: ["full_frame", "captions", "stat_card"],
+    supported_visual_modes: ALL_MODES,
     allowed_visual_beats: ["continuous", "multi_frame", "static"],
     max_consecutive_same_beat: 3,
     target_distribution: {},
@@ -32,11 +45,11 @@ const FORMATS: VideoFormat[] = [
     supports_hook_scoring: false,
     supports_segmented_generation: true,
     title_card_strategy_kind: "cinematic-chapters",
-    supported_visual_modes: ["full_frame"],
+    supported_visual_modes: ALL_MODES,
     allowed_visual_beats: ["continuous", "multi_frame", "static"],
-    max_consecutive_same_beat: 2,
-    target_distribution: { static: [0.45, 0.6] },
-    reference_notes: [{ category: "Visuals", text: "captions and stat_card are disabled." }],
+    max_consecutive_same_beat: 3,
+    target_distribution: {},
+    reference_notes: [{ category: "Visuals", text: "All modes route by scene fit." }],
   },
 ];
 
@@ -49,9 +62,9 @@ describe("ScriptTypesSection", () => {
     render(<ScriptTypesSection />);
     await waitFor(() => expect(screen.getAllByText("Educational Listicle").length).toBeGreaterThan(0));
     expect(screen.getAllByText("Your Life As A...").length).toBeGreaterThan(0);
-    expect(screen.getByText("captions and stat_card are disabled.")).toBeInTheDocument();
-    const disabledChip = screen.getByTestId("disabled-mode-life-as-a-captions");
-    expect(disabledChip).toBeInTheDocument();
+    expect(screen.getByText("All modes route by scene fit.")).toBeInTheDocument();
+    expect(screen.getByTestId("mode-life-as-a-captions")).toBeInTheDocument();
+    expect(screen.queryByTestId("disabled-mode-life-as-a-captions")).not.toBeInTheDocument();
   });
 
   it("navigates to Visual Modes when a detailed mode chip is clicked", async () => {

@@ -11,7 +11,7 @@ from prompts import (
 )
 
 from . import _register
-from .base import FormatNote, VideoFormat, VisualBeatRules
+from .base import FULL_VISUAL_MODE_VOCABULARY, FormatNote, VideoFormat, VisualBeatRules
 from .title_cards.composite_grid import COMPOSITE_GRID
 
 YOUTUBE_LISTICLE_BEAT_RULES = VisualBeatRules(
@@ -38,18 +38,14 @@ YOUTUBE_LISTICLE = _register(VideoFormat(
     title_card_strategy=COMPOSITE_GRID,
     visual_beat_rules=YOUTUBE_LISTICLE_BEAT_RULES,
     enforce_post_processing=enforce_title_cards_and_min_scenes,
-    supported_visual_modes=(
-        "full_frame", "multi_frame", "continuous", "video",
-        "popup_sequence", "flipflop", "comparison_board",
-        "stat_card", "captions", "dossier",
-    ),
+    supported_visual_modes=FULL_VISUAL_MODE_VOCABULARY,
     reference_notes=(
         FormatNote(category="Openings",
                    text="Cold-open candidates are generated, hook-scored, and refined before the full script is written."),
         FormatNote(category="Narration",
                    text="Every segment must stand alone as a short. Keep whole-video recaps, subscribe requests, and 'come back next week' CTAs out of scene narration; outro_cta is editor metadata only."),
         FormatNote(category="Visuals",
-                   text="The full visual-mode vocabulary is available. full_frame stays the majority; variety modes (multi_frame, popup_sequence, flipflop, comparison_board, stat_card, captions, dossier) are spaced out and never run back-to-back."),
+                   text="The full visual-mode vocabulary is available. Each scene chooses the single best-fit mode from its narration and visual intent; full_frame is the fallback when no specialized mode clearly helps."),
         FormatNote(category="Short-form",
                    text="Any segment can be exported as a standalone short; short-form upload titles are deterministic '{project title} - {segment title}'."),
     ),

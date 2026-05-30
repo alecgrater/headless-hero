@@ -95,9 +95,23 @@ def _canonical_visual_mode(value: str, legacy_media_source: str = "") -> str:
         return "multi_frame"
     if value == "continuous":
         return "continuous"
-    if value in {"video", "full_frame", "popup_sequence", "flipflop", "comparison_board", "captions", "stat_card"}:
+    if value in {"video", "full_frame", "popup_sequence", "flipflop", "comparison_board", "captions", "stat_card", "dossier"}:
         return value
     return "full_frame"
+
+
+def _valid_existing_script_mode(scene: Scene) -> str:
+    """Return a script-chosen mode worth preserving during AI-video analysis."""
+    mode = _canonical_visual_mode(scene.visual_mode)
+    if scene.is_title_card or mode in {"full_frame", "video"}:
+        return ""
+    if mode == "captions" and not scene.caption_text.strip():
+        return ""
+    if mode == "stat_card" and not scene.stat_value.strip():
+        return ""
+    if mode in {"popup_sequence", "flipflop", "comparison_board", "dossier"} and not scene.visual_layers:
+        return ""
+    return mode
 
 
 def _resolve_scene_id(raw_scene_id: str, valid_scene_ids: set[str]) -> str | None:
@@ -203,14 +217,6 @@ def _ai_video_candidate_score(scene: Scene) -> int:
         score += 5
 
     return score
-
-
-def _ai_video_reason(scene: Scene) -> str:
-    shot = _shot_type(scene).lower() or "visual"
-    return (
-        "Deterministic fallback selected this scene as the strongest "
-        f"{shot} AI-video candidate in its segment."
-    )
 
 
 def _scene_order(script_content: ScriptContent) -> list[str]:
@@ -382,8 +388,9 @@ def analyze_media_sources(
             continue
         segment_index = scene_segment_indexes.get(scene_id, -1)
         scene = scenes_by_id[scene_id]
+        existing_script_mode = _valid_existing_script_mode(scene)
         if not ai_video_available and mode == "video":
-            mode = "full_frame"
+            mode = existing_script_mode or "full_frame"
         if mode == "video":
             if (
                 ai_video_assigned >= ai_video_limit
@@ -400,6 +407,8 @@ def analyze_media_sources(
             else:
                 ai_video_assigned += 1
                 segment_ai_video_counts[segment_index] = segment_ai_video_counts.get(segment_index, 0) + 1
+        elif mode == "full_frame" and existing_script_mode:
+            mode = existing_script_mode
         assignments_by_scene[scene_id] = MediaAssignment(
             scene_id=scene_id,
             game_name=entry.get("game_name"),
@@ -425,45 +434,6 @@ def analyze_media_sources(
         scene_segment_indexes,
         segment_ai_video_counts,
     )
-
-    if ai_video_available and ai_video_assigned < ai_video_limit:
-        for seg_index, seg in enumerate(script_content.segments):
-            if ai_video_assigned >= ai_video_limit:
-                break
-            remaining_segment_slots = ai_video_scenes_per_segment - segment_ai_video_counts.get(seg_index, 0)
-            if remaining_segment_slots <= 0:
-                continue
-            candidates = [
-                scene
-                for scene in seg.scenes
-                if assignments_by_scene.get(scene.id, MediaAssignment(scene.id, None, None, "")).visual_mode != "video"
-                and not _has_adjacent_ai_video(scene.id, assignments_by_scene, ordered_scene_ids)
-                and _is_ai_video_eligible(
-                    scene,
-                    require_eli_scene=require_eli_scene_for_ai_video,
-                    life_as_a_role=life_as_a_role,
-                    max_duration_seconds=ai_video_max_duration,
-                )
-            ]
-            if not candidates:
-                continue
-            for best_scene in sorted(candidates, key=_ai_video_candidate_score, reverse=True):
-                if ai_video_assigned >= ai_video_limit:
-                    break
-                if segment_ai_video_counts.get(seg_index, 0) >= ai_video_scenes_per_segment:
-                    break
-                if _has_adjacent_ai_video(best_scene.id, assignments_by_scene, ordered_scene_ids):
-                    continue
-                existing = assignments_by_scene[best_scene.id]
-                assignments_by_scene[best_scene.id] = MediaAssignment(
-                    scene_id=best_scene.id,
-                    game_name=None,
-                    search_query=None,
-                    reasoning=existing.reasoning or _ai_video_reason(best_scene),
-                    visual_mode="video",
-                )
-                ai_video_assigned += 1
-                segment_ai_video_counts[seg_index] = segment_ai_video_counts.get(seg_index, 0) + 1
 
     assignments = [
         assignments_by_scene[scene.id]
@@ -503,7 +473,7 @@ def apply_assignments(
 
             mode = _canonical_visual_mode(assignment.visual_mode)
             scene.set_visual_mode(mode)
-            if mode not in {"popup_sequence", "flipflop", "comparison_board"}:
+            if mode not in {"popup_sequence", "flipflop", "comparison_board", "stat_card", "dossier"}:
                 scene.visual_layers = []
 
             scene.original_visual_prompt = ""

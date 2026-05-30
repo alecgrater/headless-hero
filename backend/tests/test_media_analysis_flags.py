@@ -414,7 +414,7 @@ def test_resolve_scene_id_handles_unpadded_llm_ids():
     assert _resolve_scene_id("scene_99", valid_scene_ids) is None
 
 
-def test_analyze_media_sources_fills_ai_video_per_segment_slots(monkeypatch):
+def test_analyze_media_sources_preserves_sparse_ai_video_choices(monkeypatch):
     content = ScriptContent(
         title="Motion routing",
         segments=[
@@ -488,9 +488,9 @@ def test_analyze_media_sources_fills_ai_video_per_segment_slots(monkeypatch):
         "scene_002": "ai_video",
         "scene_007": "ai",
         "scene_003": "ai",
-        "scene_004": "ai_video",
+        "scene_004": "ai",
         "scene_005": "ai",
-        "scene_006": "ai_video",
+        "scene_006": "ai",
     }
 
 
@@ -542,7 +542,7 @@ def test_analyze_media_sources_does_not_assign_back_to_back_ai_video(monkeypatch
     )
 
     sources = [assignment.media_source for assignment in assignments]
-    assert sources == ["ai", "ai_video", "ai", "ai_video"]
+    assert sources == ["ai", "ai_video", "ai", "ai"]
     assert all(
         left != "ai_video" or right != "ai_video"
         for left, right in zip(sources, sources[1:])
@@ -612,9 +612,9 @@ def test_analyze_media_sources_downgrades_removed_stock_and_does_not_promote_tex
 
     sources = {assignment.scene_id: assignment.media_source for assignment in assignments}
     assert sources["scene_002"] == "ai"
-    assert sources["scene_003"] == "ai_video"
+    assert sources["scene_003"] == "ai"
     assert sources["scene_005"] == "ai"
-    assert sources["scene_006"] == "ai_video"
+    assert sources["scene_006"] == "ai"
 
 
 def test_life_as_a_ai_video_only_promotes_eli_scenes(monkeypatch):
@@ -679,8 +679,61 @@ def test_life_as_a_ai_video_only_promotes_eli_scenes(monkeypatch):
 
     sources = {assignment.scene_id: assignment.media_source for assignment in assignments}
     assert sources["scene_002"] == "ai"
-    assert sources["scene_003"] == "ai_video"
+    assert sources["scene_003"] == "ai"
     assert sources["scene_005"] == "ai"
+
+
+def test_media_analyzer_preserves_existing_specialized_modes_when_not_promoting_video(monkeypatch):
+    content = ScriptContent(
+        title="Best Fit Modes",
+        format_id="life-as-a",
+        segments=[
+            Segment(
+                name="Level 1",
+                scenes=[
+                    Scene(id="scene_001", narration="The occasional.", visual_prompt="[ESTABLISHING] title", is_title_card=True),
+                    Scene(
+                        id="scene_002",
+                        narration="The file on the desk connects three names you keep pretending are separate.",
+                        visual_prompt="[CLOSE-UP] A desk with abstract case materials and no readable text",
+                        visual_mode="dossier",
+                        visual_layers=[
+                            {"id": "anchor", "label": "FILE", "prompt": "a closed file", "asset_kind": "cutout"},
+                            {"id": "evidence", "label": "NAMES", "prompt": "three abstract evidence objects", "asset_kind": "cutout"},
+                            {"id": "date", "label": "DATE", "prompt": "a calendar page with no readable text", "asset_kind": "cutout"},
+                        ],
+                    ),
+                    Scene(
+                        id="scene_003",
+                        narration="The room is quiet enough that you hear the refrigerator click off.",
+                        visual_prompt="[ESTABLISHING] A quiet kitchen at midnight",
+                        visual_mode="full_frame",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(media_analyzer, "chat", lambda **_: """{
+      "assignments": [
+        {"scene_id": "scene_001", "visual_mode": "full_frame", "game_name": null, "search_query": null, "reasoning": "title"},
+        {"scene_id": "scene_002", "visual_mode": "full_frame", "game_name": null, "search_query": null, "reasoning": "not video"},
+        {"scene_id": "scene_003", "visual_mode": "full_frame", "game_name": null, "search_query": null, "reasoning": "default"}
+      ]
+    }""")
+
+    assignments = analyze_media_sources(
+        content,
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+        ai_video_enabled=False,
+        animated_scene_count=0,
+        script_id="test-script",
+    )
+
+    modes = {assignment.scene_id: assignment.visual_mode for assignment in assignments}
+    assert modes["scene_002"] == "dossier"
+    assert modes["scene_003"] == "full_frame"
 
 
 def test_life_as_a_ai_video_uses_configured_video_duration_threshold(monkeypatch):

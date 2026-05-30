@@ -319,13 +319,13 @@ MEDIA_ANALYZER_SYSTEM = register(PromptDef(
     target_model="claude",
     expected_output_format='JSON: {"assignments": [MediaAssignment, ...]}',
     template="""\
-You are a visual-mode routing specialist for video production. You analyze video scripts and decide which scenes should become AI video.
+You are a visual-mode routing specialist for video production. You analyze video scripts and decide which scenes should become AI video after voiceover timing exists.
 
 For each scene, assign one of these visual modes:
 {available_sources}
 
 Guidelines:
-- "video": When included in the available mode list, actively distribute animated AI-generated clips across the script. Choose up to {ai_video_scenes_per_segment} eligible non-title-card scenes per segment until you reach {ai_video_limit} scenes total, unless a segment has fewer suitable eligible scenes. Never choose two back-to-back scenes as "video"; leave at least one non-video scene between animated clips. Eligible scenes have clear motion potential in a stylized illustration: a character gesture, physical transformation, environmental movement, reveal, metaphor coming alive, or emotionally important moment. Never use for title cards, text-only "captions" scenes, or diagrams that require precise labels.
+- "video": When included in the available mode list, choose it only when motion clearly improves this specific scene. You may choose up to {ai_video_scenes_per_segment} eligible non-title-card scenes per segment and up to {ai_video_limit} scenes total, but these are caps, not targets. Never choose two back-to-back scenes as "video"; leave at least one non-video scene between animated clips. Eligible scenes have clear motion potential in a stylized illustration: a character gesture, physical transformation, environmental movement, reveal, metaphor coming alive, or emotionally important moment. Never use for title cards, text-only "captions" scenes, or diagrams that require precise labels.
 - "full_frame": Use normal AI-generated visual media for all non-animated scenes. Also use for title card scenes (is_title_card=true) — these must ALWAYS be "full_frame".
 
 Return a JSON object with a single key "assignments" whose value is an array with one entry per scene:
@@ -343,11 +343,11 @@ Return a JSON object with a single key "assignments" whose value is an array wit
 
 Rules:
 - Every scene in the input must appear exactly once in the output
-- Title card scenes (is_title_card=true) MUST always be "ai"
+- Title card scenes (is_title_card=true) MUST always be "full_frame"
 - Only assign sources from the available list above
 - game_name must always be null
 - search_query must always be null
-- Use "ai_video" only when it is included in the available source list, but when it is available you should strongly bias toward the configured animated scene count in each segment
+- Use "video" only when it is included in the available mode list and the scene is a natural motion fit; do not fill a quota
 - Return ONLY the JSON object with the "assignments" key, no other text""",
     inputs=["script_content_json", "available_sources"],
     retention=RetentionMeta(

@@ -56,9 +56,13 @@ class TestPromptRegistry:
         assert "Set card_subtitle to an empty string" in outline_prompt
         assert '"card_subtitle": MUST be an empty string' in title_card_prompt
 
-    def test_script_prompt_keeps_life_as_a_captions_disabled(self):
+    def test_script_prompt_allows_life_as_a_text_modes_by_best_fit(self):
         prompt_text = PROMPTS["LIFE_AS_A_SCRIPT_SYSTEM"].template
 
         assert "captions" in prompt_text
+        assert "stat_card" in prompt_text
+        assert "dossier" in prompt_text
         assert "life-as-a" in prompt_text
-        assert "captions remain disabled" in prompt_text
+        assert "captions remain disabled" not in prompt_text
+        assert "DISABLED in life-as-a" not in prompt_text
+        assert "60–75%" not in prompt_text

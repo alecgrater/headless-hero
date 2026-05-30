@@ -10,6 +10,20 @@ from models.script import Scene, ScriptContent
 from prompts import PromptDef
 
 
+FULL_VISUAL_MODE_VOCABULARY: tuple[str, ...] = (
+    "full_frame",
+    "continuous",
+    "multi_frame",
+    "video",
+    "popup_sequence",
+    "flipflop",
+    "comparison_board",
+    "captions",
+    "stat_card",
+    "dossier",
+)
+
+
 @dataclass(frozen=True)
 class FormatNote:
     """One curated reference gotcha for a format, grouped by category.

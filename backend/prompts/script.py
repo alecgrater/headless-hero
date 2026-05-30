@@ -182,15 +182,22 @@ VISUAL MODE VOCABULARY:
 - "captions" — When a sentence delivers a punchy editorial label, reversal, emotional realization, or key claim that should become large in-scene text. Use a static canvas with optional side visual plus renderer-owned caption typography. Emit "caption_text" (2-15 words ideally) and "caption_emphasis" (the one strongest word or phrase to render red). Do not describe typography, animation, color, or layout in detail; the renderer handles those. Do not put readable caption text into visual_prompt.
 - "dossier" — When narration investigates a person, event, or mystery and references evidence, clues, files, suspects, conspiracies, alliances, connections, or timelines. The renderer paints a corkboard/case-file surface, sticky-note labels, pushpins, tape, and red-string connections; only generate clean transparent subject/evidence cutout intent. Set "dossier_layout" to "anchor" for a single primary subject with evidence pinned around it (true crime, missing persons, single-suspect investigation), or "network" for multiple peer suspects/orgs/alliances/conspirators connected to each other. Provide 3–6 "visual_layers" (in anchor layout the first layer is the anchor; the rest are evidence). Each layer needs a short "label" (1–3 words or a date/case-number, e.g. "SUSPECT", "WEAPON", "1989-04-12"). Optionally set "dossier_title" on the scene (a short case-id or banner string, e.g. "CASE #1989-04"). Layer prompts must NOT describe pins, tape, photo frames, evidence tags, sticky notes, paperclips, red string, corkboard, manila folders, captions, badges, or any readable text — those are renderer-owned. Cap at MAX 2 per video, never back-to-back, never adjacent to "comparison_board" or "popup_sequence".
 
-DISTRIBUTION RULES (follow strictly):
-1. full_frame should be the MAJORITY of non-title-card scenes (50-65%). Visual variety comes from scene-to-scene differences, not multi-frame within a scene.
-2. After every 2 consecutive full_frame scenes, the NEXT scene MUST use a different mode (multi_frame, continuous, popup_sequence, flipflop, comparison_board, stat_card, captions, or dossier). This creates a natural rhythm: full-full-variety-full-full-variety.
-3. Variety modes (multi_frame, continuous, popup_sequence, flipflop, comparison_board, stat_card, captions, dossier) must NEVER appear 2+ times consecutively — always separate them with at least one full_frame scene.
-4. Text-only captions scenes must be sandwiched between image-bearing modes.
-5. continuous is reserved for genuine motion progression — NOT the default for multi-frame.
-6. Vary transitions within multi_frame scenes — mostly "cut" but occasional "crossfade".
-7. stat_card is capped at MAX 1-2 per video. Use it only when narration genuinely revolves around a single dominant number; never back-to-back with another stat_card.
-8. dossier is capped at MAX 2 per video. Use only when narration is genuinely investigative (suspects, evidence, files, conspiracies, connections). Never adjacent to comparison_board or popup_sequence — the layered chrome will pile up.
+BEST-FIT ROUTING RULES:
+1. Choose the single best visual mode for each scene based on the narration and visual intent. Do not choose a mode to satisfy a quota, create a forced mix, or avoid repetition for its own sake.
+2. full_frame remains the fallback/default when no specialized mode clearly improves the scene. Several full_frame scenes in a row are fine when each is the natural best fit.
+3. Specialized modes should appear only when the scene has clear affordances:
+   - continuous: one coherent process, physical progression, or time passage in the same space/subject.
+   - multi_frame: multiple distinct examples, beats, or fast context shifts.
+   - popup_sequence: concrete items, tools, documents, symptoms, objects, or ingredients around an anchor subject.
+   - flipflop: same-subject A/B micro-animation.
+   - comparison_board: a true two- or three-way contrast.
+   - captions: one renderer-owned editorial text beat, not standard subtitles.
+   - stat_card: one decisive number.
+   - dossier: an investigative/evidence/network beat.
+4. Keep quality spacing only for visually heavy modes: avoid back-to-back stat_card scenes, back-to-back dossier scenes, and adjacent dossier/comparison_board/popup_sequence scenes unless the alternative would clearly make the scene less accurate.
+5. Text/chrome-heavy modes must earn their place. Never use captions, stat_card, dossier, comparison_board, or popup_sequence merely for variety.
+6. continuous is reserved for genuine same-scene progression — NOT the default for multiple images.
+7. Vary transitions within multi_frame scenes when useful — mostly "cut" but occasional "crossfade".
 
 ### Frame Directives Format
 Each scene MUST have "visual_mode", "visual_beat", and "frame_directives" (list of objects). Set "visual_beat" to the same value as "visual_mode" except use "static" when "visual_mode" is "full_frame".
@@ -271,7 +278,7 @@ Writing guidelines:
 - Scene IDs must be unique and sequential: scene_001, scene_002, etc.
 
 Life-as-a compatibility:
-- **`captions` and `stat_card`: DISABLED in life-as-a for the first pass.** Keep chapter-card and scene narration in the existing visual language; do not create editorial caption scenes or renderer-owned stat-number scenes for this format yet. captions and stat_card remain disabled.
+- Life-as-a may use the full visual-mode vocabulary when the scene naturally calls for it. Preserve second-person literary immersion and protagonist continuity; do not turn lived experience into listicle cadence just to use a specialized mode.
 """,
     retention=RetentionMeta(
         goal="Generate scripts with high first-30s retention and sustained watch time",
@@ -429,7 +436,7 @@ Critically different from listicle scenes:
 |---|---|---|
 | Narration per scene | 1–2 sentences | 1–2 sentences, single visual beat |
 | Duration per scene | ~5–10s | ~5–9s |
-| Visual modes | varied (`full_frame`, `multi_frame`, `continuous`, `captions`, `stat_card`, `popup_sequence`, `flipflop`, `comparison_board`) | balanced `full_frame`, `continuous`, and `multi_frame` |
+| Visual modes | full vocabulary, chosen by scene fit | same full vocabulary, chosen by lived-experience fit |
 | Transitions | varied with intentional energy | mostly `cut`, occasional `crossfade` for time-passage |
 
 Each non-title scene should be **1–2 sentences** of narration and represent exactly one visual/narrative beat. Aim for **5–9 seconds** of speech per scene. Preserve the literary register through sentence texture and scene-to-scene flow, not by packing several moments into one long paragraph.
@@ -465,12 +472,18 @@ Levels overlap at the edges. The protagonist is already deep into level N before
 
 ## SECTION E: VISUAL MODE RULES
 
-The visual mode distribution is constrained for this format:
+Choose the single best visual mode for each scene. There is no quota and no required mix. `full_frame` remains the fallback/default for one clear lived moment, atmosphere, object detail, or character beat. Specialized modes are available in life-as-a, but they must support immersion rather than create a listicle rhythm:
 
-- **`full_frame`: 60–75%** of non-chapter-card scenes. Use a single strong image for one clear lived moment. Set compatibility `visual_beat` to `static`.
-- **`continuous`: 15–25%** for time-passage moments where a single space or subject changes. Use only when the scene clearly needs visual progression and has enough duration; otherwise keep it static.
-- **`multi_frame`: 5–15%** for compressed routines, sensory lists, comparisons, or rapid context switches. Use sparingly, and only when the scene duration supports multiple images.
-- **Text-only/editorial modes (`captions`, `stat_card`): DISABLED in life-as-a for the first pass.** Keep chapter-card and scene narration in the existing visual language; do not create editorial caption scenes or renderer-owned stat-number scenes for this format yet; captions and stat_card remain disabled.
+- `continuous`: one coherent process, time-passage moment, or same-space progression.
+- `multi_frame`: multiple distinct memories, routines, examples, sensory beats, or fast context shifts.
+- `popup_sequence`: concrete items, tools, documents, objects, symptoms, or possessions orbiting an anchor subject. For protagonist scenes, the anchor must follow protagonist-aware behavior.
+- `flipflop`: same-subject A/B micro-animation, such as a repeated gesture, hand movement, door opening/closing, nodding, pacing, or sorting.
+- `comparison_board`: a true two- or three-way contrast that the viewer should understand side by side.
+- `captions`: a renderer-owned editorial text beat for a short realization or label. Do not use it as ordinary subtitles.
+- `stat_card`: one decisive number that matters more than the room or atmosphere.
+- `dossier`: an investigative, evidence, clue, file, suspect, connection, or network beat.
+
+Use specialized modes only when the scene has those affordances. Do not force variety. Several `full_frame` scenes in a row are fine when each one is the honest best fit. Avoid back-to-back stat_card scenes, back-to-back dossier scenes, and adjacent dossier/comparison_board/popup_sequence scenes unless the scene would become less accurate without it.
 
 Use multiple generated images only when the visual mode genuinely benefits from progression or quick contrast. Short scenes often work best as one strong image, but image scenes are not hard-capped to one frame.
 
@@ -683,11 +696,18 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 ### Closing the FINAL level
 - If this level is the FINAL level of the video, the closing scene MUST end on the `closing_image` chosen in the outline. The image must be specific and earned. The register (cautionary vs reflective) was chosen in the outline — match it. Never moralize. Never wrap it in a bow. Trust the image.
 
-### Visual modes (strict)
-- `visual_mode` is `"full_frame"` for 60–75% of non-title scenes in this level. Set `visual_beat` to `"static"` for compatibility. Short scenes should usually be full_frame.
-- Use `"continuous"` for 15–25% of non-title scenes, especially time-passage moments where a single space drifts across a span. Use 2 frame directives only when the scene duration clearly supports progression.
-- Use `"multi_frame"` for 5–15% of non-title scenes, especially repeated routines, compressed time, comparisons, or sensory lists. Use sparingly, and avoid it for scenes at or below 8 seconds.
-- NEVER use text-only/editorial caption modes in this format.
+### Visual modes (best-fit)
+- Choose the single best visual mode for each scene. There is no quota and no required mix. `full_frame` remains the fallback/default when no specialized mode clearly improves the scene.
+- `full_frame`: one strong lived moment, room, object, character beat, atmosphere, or metaphor.
+- `continuous`: one coherent process, time-passage moment, or same-space progression.
+- `multi_frame`: multiple distinct memories, repeated routines, examples, sensory beats, or fast context shifts.
+- `popup_sequence`: concrete items, tools, documents, objects, symptoms, or possessions around an anchor subject. For protagonist scenes, the anchor must stay protagonist-aware.
+- `flipflop`: same-subject A/B micro-animation, such as a repeated gesture, hand movement, door opening/closing, nodding, pacing, or sorting.
+- `comparison_board`: a true two- or three-way contrast that should be understood side by side.
+- `captions`: a renderer-owned editorial text beat for a short realization or label. Do not use it as ordinary subtitles.
+- `stat_card`: one decisive number that matters more than the room or atmosphere.
+- `dossier`: an investigative, evidence, clue, file, suspect, connection, or network beat.
+- Do not force variety. Several `full_frame` scenes in a row are fine when each one is the honest best fit. Avoid back-to-back stat_card scenes, back-to-back dossier scenes, and adjacent dossier/comparison_board/popup_sequence scenes unless the scene would become less accurate without it.
 - For compatibility, set `visual_beat` to the same value as `visual_mode` except use `"static"` when `visual_mode` is `"full_frame"`.
 - Every `visual_prompt` MUST begin with `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, or `[METAPHOR]`. `[DIAGRAM]` and `[SCALE]` are de-prioritized for this format.
 - Visual prompts must NEVER request text, letters, words, labels, or written characters in the image.

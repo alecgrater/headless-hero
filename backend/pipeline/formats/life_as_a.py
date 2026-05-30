@@ -16,7 +16,7 @@ from prompts import (
 )
 
 from . import _register
-from .base import FormatNote, VideoFormat, VisualBeatRules
+from .base import FULL_VISUAL_MODE_VOCABULARY, FormatNote, VideoFormat, VisualBeatRules
 from .title_cards.cinematic_chapters import CINEMATIC_CHAPTERS
 
 logger = logging.getLogger(__name__)
@@ -104,12 +104,8 @@ _HUMAN_SUBJECT_TERMS = {
 
 LIFE_AS_A_BEAT_RULES = VisualBeatRules(
     allowed_beats=frozenset({"static", "continuous", "multi_frame"}),
-    target_distribution={
-        "static": (0.45, 0.60),
-        "continuous": (0.25, 0.35),
-        "multi_frame": (0.15, 0.25),
-    },
-    max_consecutive_same_beat=2,
+    target_distribution={},
+    max_consecutive_same_beat=3,
     monotony_threshold=3,
 )
 
@@ -548,7 +544,7 @@ LIFE_AS_A = _register(VideoFormat(
     title_card_strategy=CINEMATIC_CHAPTERS,
     visual_beat_rules=LIFE_AS_A_BEAT_RULES,
     enforce_post_processing=enforce_life_as_a_constraints,
-    supported_visual_modes=("full_frame", "continuous", "multi_frame", "video"),
+    supported_visual_modes=FULL_VISUAL_MODE_VOCABULARY,
     reference_notes=(
         FormatNote(category="Openings",
                    text="Uses a life-as-a-specific cold-open prompt and rubric (second-person immersion, role fantasy, stakes) — NOT listicle hook scoring. Openings are long-form-only and trimmed from short #1 via hook_scene_count."),
@@ -557,7 +553,7 @@ LIFE_AS_A = _register(VideoFormat(
         FormatNote(category="Title cards",
                    text="Chapter-card narration stores the descriptor phrase only (e.g. 'The occasional.'); the TTS layer adds 'Level N' at audio time."),
         FormatNote(category="Visuals",
-                   text="captions and stat_card are disabled in v1 — no editorial caption or stat-number scenes. Visual rhythm is balanced full_frame / continuous / multi_frame."),
+                   text="All visual modes are available, including captions, stat_card, comparison_board, popup_sequence, and dossier. Choose them only when they support lived experience; full_frame is the fallback for ordinary moments."),
         FormatNote(category="Scene length",
                    text="Non-title scenes target 5–9s and one beat; overlong scenes are split deterministically on sentence boundaries before voiceover."),
         FormatNote(category="Short-form",
