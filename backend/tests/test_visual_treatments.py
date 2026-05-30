@@ -2529,6 +2529,11 @@ def test_apply_visual_treatment_assignment_accepts_dossier_mode():
     assert scene.dossier_layout == "anchor"
 
 
+def test_visual_treatment_assignment_legacy_property_keeps_layered_modes():
+    assert VisualTreatmentAssignment(scene_id="s1", visual_mode="stat_card").visual_treatment == "stat_card"
+    assert VisualTreatmentAssignment(scene_id="s2", visual_mode="dossier").visual_treatment == "dossier"
+
+
 def test_apply_visual_treatment_assignment_dossier_detects_network_layout():
     scene = scene_with_words(
         "s1",
@@ -2556,4 +2561,3 @@ def test_apply_visual_treatment_assignment_dossier_detects_network_layout():
     # over the default "anchor" inherited from Scene.
     assert scene.visual_mode == "dossier"
     assert scene.dossier_layout == "network"
-

@@ -228,7 +228,11 @@ class VisualTreatmentAssignment(BaseModel):
 
     @property
     def visual_treatment(self) -> str:
-        return self.visual_mode if self.visual_mode in {"popup_sequence", "flipflop", "comparison_board"} else "full_frame"
+        return (
+            self.visual_mode
+            if self.visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card", "dossier"}
+            else "full_frame"
+        )
 
 
 def missing_visual_treatment_voiceover_scene_ids(content: ScriptContent) -> tuple[list[str], list[str]]:

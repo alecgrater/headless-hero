@@ -11,6 +11,7 @@ from api.media import (
     ApplyRequest,
     MediaAssignmentResponse,
     apply_media,
+    current_visual_mode_assignments,
     missing_voiceover_scene_ids,
     media_analysis_source_flags,
     normalize_media_assignments_for_sources,
@@ -175,6 +176,94 @@ def test_normalize_media_assignments_coerces_disabled_sources_to_ai():
     assert normalized[0].game_name is None
     assert normalized[1].search_query is None
     assert normalized[3].reasoning == "ai fits"
+
+
+def test_normalize_media_assignments_preserves_script_owned_visual_modes():
+    content = ScriptContent(
+        title="Script modes",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="s1",
+                        narration="The case file connects three names.",
+                        visual_prompt="[CLOSE-UP] A case file.",
+                        visual_mode="dossier",
+                    ),
+                    Scene(
+                        id="s2",
+                        narration="Three tools appear around the bench.",
+                        visual_prompt="[CLOSE-UP] A workbench.",
+                        visual_mode="popup_sequence",
+                    ),
+                ],
+            ),
+        ],
+    )
+    assignments = [
+        MediaAssignment("s1", visual_mode="dossier", reasoning="preserve dossier"),
+        MediaAssignment("s2", visual_mode="popup_sequence", reasoning="preserve popup"),
+    ]
+
+    normalized = normalize_media_assignments_for_sources(
+        assignments,
+        script_content=content,
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+        ai_video_enabled=False,
+    )
+
+    assert [a.visual_mode for a in normalized] == ["dossier", "popup_sequence"]
+
+
+def test_disabled_ai_video_assignment_falls_back_to_current_script_mode():
+    content = ScriptContent(
+        title="Fallback",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="s1",
+                        narration="The case board holds still.",
+                        visual_prompt="[CLOSE-UP] A case board.",
+                        visual_mode="dossier",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    normalized = normalize_media_assignments_for_sources(
+        [MediaAssignment("s1", visual_mode="video", reasoning="motion")],
+        script_content=content,
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+        ai_video_enabled=False,
+    )
+
+    assert normalized[0].visual_mode == "dossier"
+
+
+def test_current_visual_mode_assignments_preserve_existing_modes():
+    content = ScriptContent(
+        title="No-op analysis",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(id="s1", narration="A normal beat.", visual_prompt="A scene."),
+                    Scene(id="s2", narration="A stat lands.", visual_prompt="", visual_mode="stat_card", stat_value="85%"),
+                    Scene(id="s3", narration="Evidence appears.", visual_prompt="Evidence.", visual_mode="dossier"),
+                ],
+            ),
+        ],
+    )
+
+    assignments = current_visual_mode_assignments(content, "preserve")
+
+    assert [a.visual_mode for a in assignments] == ["full_frame", "stat_card", "dossier"]
 
 
 def test_normalize_media_assignments_preserves_stale_ai_video_for_final_duration():

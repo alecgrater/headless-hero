@@ -320,7 +320,7 @@ def _resolve_visual_mode(
         return visual_mode  # type: ignore[return-value]
     if media_source == "ai_video":
         return "video"
-    if isinstance(visual_treatment, str) and visual_treatment in {"popup_sequence", "flipflop", "comparison_board", "stat_card"}:
+    if isinstance(visual_treatment, str) and visual_treatment in VISUAL_TREATMENTS:
         return visual_treatment  # type: ignore[return-value]
     if visual_beat in {"quick_cuts", "montage", "multi_frame"}:
         return "multi_frame"
@@ -334,7 +334,16 @@ def _resolve_visual_mode(
 def _visual_beat_for_visual_mode(visual_mode: VisualMode) -> str | None:
     if visual_mode == "full_frame":
         return "static"
-    if visual_mode in {"multi_frame", "continuous", "captions", "comparison_board", "stat_card"}:
+    if visual_mode in {
+        "multi_frame",
+        "continuous",
+        "captions",
+        "popup_sequence",
+        "flipflop",
+        "comparison_board",
+        "stat_card",
+        "dossier",
+    }:
         return visual_mode
     return None
 

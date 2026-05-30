@@ -199,13 +199,13 @@ class VisualBeatRules:
 | `allowed_beats` | The pool from which alternatives are drawn when breaking a run. Beats outside this set are *not* candidates for substitution but are still observed when detecting runs. |
 | `target_distribution` | Currently advisory — emitted in logs, not enforced by `_fix_visual_monotony`. Reserved for a future target-driven rebalancer. |
 | `max_consecutive_same_beat` | Soft contract — your post-processor or prompt enforces it. The monotony fixer doesn't read this directly. |
-| `monotony_threshold` | The minimum run length before the fixer intervenes. Set to a value larger than your max scene count (e.g. `99`) to **fully disable** run-breaking — see `LIFE_AS_A_BEAT_RULES` ([`life_as_a.py:31`](../../backend/pipeline/formats/life_as_a.py)) where long static runs are intentional. |
+| `monotony_threshold` | The minimum run length before the fixer intervenes. Set to a value larger than your max scene count (e.g. `99`) only when a format truly needs to disable run-breaking. |
 
 Disabling the fixer is appropriate when:
 - The format's narrative voice depends on long uninterrupted runs (literary, contemplative pacing).
 - The post-processor (`enforce_post_processing`) already coerces beats into a constrained set.
 
-For listicle, runs are catastrophic for retention so `monotony_threshold=3`. For life-as-a, runs are *the point* so it's set to `99`.
+For listicle and life-as-a, `monotony_threshold=3`. Life-as-a still keeps a quieter literary register through its prompt and post-processor, but long accidental runs of the same compatibility beat are still broken for visual quality.
 
 ## 7. Generation flag interactions
 
@@ -314,7 +314,7 @@ Idempotent: running it twice produces the same result.
 
 ### Step 4 — Define the visual beat rules
 
-`LIFE_AS_A_BEAT_RULES` ([`life_as_a.py`](../../backend/pipeline/formats/life_as_a.py)) constrains generated beats to `{static, continuous, multi_frame}` and uses `monotony_threshold=3`. Legacy `quick_cuts` data is still normalized at load/post-processing boundaries, but new format rules should not target it.
+`LIFE_AS_A_BEAT_RULES` ([`life_as_a.py`](../../backend/pipeline/formats/life_as_a.py)) uses `{static, continuous, multi_frame}` as the monotony-fixer alternative pool and `monotony_threshold=3`. Format metadata still exposes the full canonical `visual_mode` vocabulary; specialized modes such as `captions`, `stat_card`, `popup_sequence`, `comparison_board`, and `dossier` remain valid script-owned scene modes. Legacy `quick_cuts` data is still normalized at load/post-processing boundaries, but new format rules should not target it.
 
 Scene-length protection runs before voiceover. Generic formats use the scriptwriter's deterministic sentence-boundary granularity pass, while `life-as-a` keeps its format-specific chunker for literary single-beat scenes. Neither path rewrites narration with an LLM after audio exists.
 

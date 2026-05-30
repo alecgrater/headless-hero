@@ -51,6 +51,22 @@ def test_scene_derives_popup_visual_mode_from_legacy_treatment():
     assert "visual_treatment" not in scene.model_dump()
 
 
+def test_scene_derives_dossier_visual_mode_from_legacy_treatment():
+    scene = Scene(
+        id="scene_001",
+        narration="The case file has three clues.",
+        visual_prompt="Dossier board with evidence cutouts.",
+        visual_treatment="dossier",
+        dossier_title="CASE #1989-04",
+    )
+
+    assert scene.visual_mode == "dossier"
+    assert scene.visual_beat == "dossier"
+    assert scene.dossier_title == "CASE #1989-04"
+    assert "media_source" not in scene.model_dump()
+    assert "visual_treatment" not in scene.model_dump()
+
+
 def test_scene_derives_video_when_legacy_source_and_treatment_conflict():
     scene = Scene(
         id="scene_001",
@@ -217,7 +233,22 @@ def test_scene_assignment_syncs_popup_visual_mode_and_clears_frames():
     scene.visual_mode = "popup_sequence"
 
     assert scene.visual_mode == "popup_sequence"
+    assert scene.visual_beat == "popup_sequence"
     assert scene.frame_urls == []
+
+
+def test_scene_assignment_syncs_layered_visual_beats():
+    for visual_mode in ("flipflop", "comparison_board", "stat_card", "dossier"):
+        scene = Scene(
+            id="scene_001",
+            narration="Hello.",
+            visual_prompt="A simple scene",
+        )
+
+        scene.visual_mode = visual_mode
+
+        assert scene.visual_mode == visual_mode
+        assert scene.visual_beat == visual_mode
 
 
 def test_scene_visual_beat_assignment_does_not_demote_video_mode():
@@ -498,4 +529,3 @@ def test_dossier_layout_validator_falls_back_to_anchor_for_invalid_value():
 
     scene = Scene.model_validate(raw)
     assert scene.dossier_layout == "anchor"
-

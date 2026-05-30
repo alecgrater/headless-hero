@@ -13,7 +13,7 @@ from pydantic import BaseModel, model_validator
 from sqlmodel import Session
 
 from database import get_session
-from models.script import Script, ScriptContent
+from models.script import Script, ScriptContent, VISUAL_MODES
 from pipeline.media_analyzer import analyze_media_sources, apply_assignments, MediaAssignment, is_ai_video_eligible
 from pipeline.render_jobs import UserFacingJobError, create_job, get_job, run_in_background, update_job
 
@@ -108,7 +108,13 @@ def normalize_media_assignments_for_sources(
         life_as_a_role = resolve_life_as_a_role(script_content)
 
     for assignment in assignments:
-        mode = assignment.visual_mode if assignment.visual_mode in {"video", "full_frame"} else "full_frame"
+        mode = assignment.visual_mode if assignment.visual_mode in VISUAL_MODES else "full_frame"
+        current_scene = scenes_by_id.get(assignment.scene_id)
+        fallback_mode = (
+            current_scene.visual_mode
+            if current_scene is not None and current_scene.visual_mode != "video"
+            else "full_frame"
+        )
         if assignment.media_source not in {"ai", "ai_video"}:
             normalized.append(MediaAssignment(
                 scene_id=assignment.scene_id,
@@ -123,12 +129,11 @@ def normalize_media_assignments_for_sources(
                 game_name=None,
                 search_query=None,
                 reasoning="Media source disabled before analysis completed.",
-                visual_mode="full_frame",
+                visual_mode=fallback_mode,
             ))
         elif mode == "video" and script_content is not None:
-            scene = scenes_by_id.get(assignment.scene_id)
-            if scene is None or not is_ai_video_eligible(
-                scene,
+            if current_scene is None or not is_ai_video_eligible(
+                current_scene,
                 require_eli_scene=require_eli_scene_for_ai_video,
                 life_as_a_role=life_as_a_role,
                 enforce_duration_cap=False,
@@ -138,7 +143,7 @@ def normalize_media_assignments_for_sources(
                     game_name=None,
                     search_query=None,
                     reasoning="AI video assignment no longer fits the latest scene timing, visual mode, or content.",
-                    visual_mode="full_frame",
+                    visual_mode=fallback_mode,
                 ))
                 logger.info(
                     "[MEDIA_ANALYSIS] downgraded ai_video scene %s; reason=latest scene is ineligible",
@@ -149,6 +154,20 @@ def normalize_media_assignments_for_sources(
         else:
             normalized.append(assignment)
     return normalized
+
+
+def current_visual_mode_assignments(content: ScriptContent, reasoning: str) -> list[MediaAssignment]:
+    """Return no-op assignments that preserve script-owned visual modes."""
+    return [
+        MediaAssignment(
+            scene_id=scene.id,
+            visual_mode=scene.visual_mode,
+            game_name=None,
+            search_query=None,
+            reasoning=reasoning,
+        )
+        for scene in content.all_scenes()
+    ]
 
 
 def missing_voiceover_scene_ids(content: ScriptContent) -> list[str]:
@@ -230,16 +249,10 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
                 script_id=script_id,
             )
         else:
-            assignments = [
-                MediaAssignment(
-                    scene_id=scene.id,
-                    visual_mode="full_frame",
-                    game_name=None,
-                    search_query=None,
-                    reasoning="Gameplay, stock photo, and AI video routing are disabled for this script.",
-                )
-                for scene in fresh_content.all_scenes()
-            ]
+            assignments = current_visual_mode_assignments(
+                fresh_content,
+                "Gameplay, stock photo, and AI video routing are disabled for this script; preserving script visual modes.",
+            )
 
         with SqlSession(engine) as bg_session:
             rec = bg_session.get(Script, script_id)
