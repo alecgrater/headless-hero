@@ -242,6 +242,34 @@ def test_popup_sequence_anchor_falls_back_to_character_reference_cutout_when_gen
     assert (tmp_path / "projects" / "abc" / "popup_crops" / "scene1" / "anchor_cutout.png").exists()
 
 
+def test_popup_sequence_missing_protagonist_reference_uses_renderable_transparent_anchor(tmp_path, monkeypatch):
+    ig_mod = _reset_data_dir(monkeypatch, tmp_path)
+    monkeypatch.setattr(ig_mod, "_load_project_character_context", lambda script_id: (True, None, None))
+    monkeypatch.setattr(ig_mod, "_load_project_style_enabled", lambda script_id: False)
+    _stub_popup_cutout_processing(monkeypatch, ig_mod)
+
+    captured: list[dict] = []
+    _stub_generate_image(monkeypatch, ig_mod, captured)
+
+    layers = ig_mod.generate_popup_sequence_cutouts(
+        scene_id="scene1",
+        layers=[{"id": "tool", "prompt": "popup item cutout prompt: wrench", "type": "image"}],
+        script_id="eli-project",
+        scene_prompt="Eli checks a repair kit while tools orbit around him.",
+        contains_person=True,
+        force=True,
+    )
+
+    anchor_path = tmp_path / "projects" / "eli-project" / "popup_crops" / "scene1" / "anchor_cutout.png"
+    assert layers[0]["image_url"] == "/static/projects/eli-project/popup_crops/scene1/anchor_cutout.png"
+    assert layers[1]["image_url"] == "/static/projects/eli-project/popup_crops/scene1/crop_02_wrench.png"
+    assert anchor_path.exists()
+    with Image.open(anchor_path) as anchor:
+        assert anchor.getpixel((0, 0))[3] == 0
+    assert len(captured) == 1
+    assert captured[0]["reference_image_path"] is None
+
+
 def test_generate_scene_frames_blocks_when_project_character_missing(tmp_path, monkeypatch):
     """generate_scene_frames must not fall back to Eli or anonymous generation."""
     ig_mod = _reset_data_dir(monkeypatch, tmp_path)

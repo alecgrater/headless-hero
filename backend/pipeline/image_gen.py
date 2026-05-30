@@ -519,22 +519,19 @@ def generate_popup_sequence_cutouts(
         contains_person=contains_person,
     )
     if anchor_fallback_reason:
-        logger.warning(
-            "[POPUP_CROP] protagonist_anchor.unavailable scene=%s reason=%s; skipping anonymous anchor generation",
-            scene_id,
-            anchor_fallback_reason,
+        anchor_prompt = f"transparent protagonist fallback: {anchor_fallback_reason}"
+    else:
+        anchor_prompt = _compose_popup_anchor_prompt(
+            scene_prompt,
+            contains_person=contains_person,
+            character_context=anchor_character_text,
         )
-        return layers
-    anchor_prompt = _compose_popup_anchor_prompt(
-        scene_prompt,
-        contains_person=contains_person,
-        character_context=anchor_character_text,
-    )
     item_prompt = _compose_popup_item_sheet_prompt(scene_prompt, labels)
     prompt_marker = output_dir / "popup_sequence.prompt"
     prompt_fingerprint = json.dumps(
         {
             "anchor_prompt": anchor_prompt,
+            "anchor_fallback_reason": anchor_fallback_reason,
             "item_prompt": item_prompt,
             "anchor_reference": _reference_fingerprint(anchor_reference_path),
             "anchor_style_reference": _reference_fingerprint(anchor_style_reference_path),
@@ -570,28 +567,36 @@ def generate_popup_sequence_cutouts(
             len(labels),
             bool(anchor_reference_path),
         )
-        try:
-            _generate_popup_anchor_cutout(
-                anchor_prompt=anchor_prompt,
-                output_dir=output_dir,
-                width=width,
-                height=height,
-                script_id=script_id,
-                reference_image_path=anchor_reference_path,
-                style_reference_path=anchor_style_reference_path,
-            )
-        except Exception:
-            if not anchor_reference_path:
-                raise
+        if anchor_fallback_reason:
             logger.warning(
-                "[POPUP_CROP] protagonist_anchor.generation_failed scene=%s; falling back to reference cutout",
+                "[POPUP_CROP] protagonist_anchor.unavailable scene=%s reason=%s; using transparent anchor fallback",
                 scene_id,
-                exc_info=True,
+                anchor_fallback_reason,
             )
-            _create_popup_anchor_cutout_from_reference(
-                reference_image_path=anchor_reference_path,
-                output_dir=output_dir,
-            )
+            _create_transparent_popup_anchor_cutout(output_dir=output_dir)
+        else:
+            try:
+                _generate_popup_anchor_cutout(
+                    anchor_prompt=anchor_prompt,
+                    output_dir=output_dir,
+                    width=width,
+                    height=height,
+                    script_id=script_id,
+                    reference_image_path=anchor_reference_path,
+                    style_reference_path=anchor_style_reference_path,
+                )
+            except Exception:
+                if not anchor_reference_path:
+                    raise
+                logger.warning(
+                    "[POPUP_CROP] protagonist_anchor.generation_failed scene=%s; falling back to reference cutout",
+                    scene_id,
+                    exc_info=True,
+                )
+                _create_popup_anchor_cutout_from_reference(
+                    reference_image_path=anchor_reference_path,
+                    output_dir=output_dir,
+                )
         _generate_popup_item_cutouts(
             item_prompt=item_prompt,
             labels=labels,
@@ -907,6 +912,13 @@ def _create_popup_anchor_cutout_from_reference(
         metadata_filename="anchor_metadata.json",
     )
     save_vault_image(kind="character", label="Popup sequence anchor fallback", source_path=result.cutout_path)
+
+
+def _create_transparent_popup_anchor_cutout(*, output_dir: Path) -> None:
+    source_path = output_dir / "anchor_source.png"
+    cutout_path = output_dir / "anchor_cutout.png"
+    Image.new("RGBA", (8, 8), color=(0, 0, 0, 0)).save(source_path)
+    Image.new("RGBA", (8, 8), color=(0, 0, 0, 0)).save(cutout_path)
 
 
 def _generate_popup_item_cutouts(
