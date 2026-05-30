@@ -318,7 +318,7 @@ def apply_visual_treatment_assignments(
         scene.set_visual_mode(mode)
         scene.visual_layers = (
             list(assignment.visual_layers)
-            if mode in {"popup_sequence", "flipflop", "comparison_board", "dossier"}
+            if mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card", "dossier"}
             else []
         )
         if mode == "dossier" and scene.dossier_layout == "anchor":
@@ -355,6 +355,13 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             scene_id=scene.id,
             visual_mode="dossier",
             reasoning="Scene is explicitly marked for dossier rendering; preserved.",
+            visual_layers=list(scene.visual_layers),
+        )
+    if scene.visual_mode == "stat_card":
+        return VisualTreatmentAssignment(
+            scene_id=scene.id,
+            visual_mode="stat_card",
+            reasoning="Scene is explicitly marked for stat-card rendering; preserved.",
             visual_layers=list(scene.visual_layers),
         )
     if _is_video_or_photo_backed(scene):

@@ -2485,6 +2485,47 @@ def test_apply_visual_treatment_assignment_accepts_comparison_board_mode():
     assert scene.visual_layers == layers
 
 
+def test_analyze_visual_treatments_preserves_explicit_stat_card_mode():
+    scene = scene_with_words("s1", "Eighty-five percent churn before week one.")
+    scene.set_visual_mode("stat_card")
+    scene.stat_value = "85%"
+    scene.stat_label = "churn before week 1"
+    scene.visual_layers = [
+        VisualLayer(id="s1_stat_icon", asset_kind="cutout", prompt="Warning icon"),
+    ]
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="stat-script")
+
+    assert len(assignments) == 1
+    assignment = assignments[0]
+    assert assignment.visual_mode == "stat_card"
+    assert assignment.visual_layers == scene.visual_layers
+
+
+def test_apply_visual_treatment_assignment_accepts_stat_card_mode_with_icon_layer():
+    scene = scene_with_words("s1", "Eighty-five percent churn before week one.")
+    content = content_with_scenes(scene)
+    layers = [
+        VisualLayer(id="s1_stat_icon", asset_kind="cutout", prompt="Warning icon"),
+    ]
+
+    apply_visual_treatment_assignments(
+        content,
+        [
+            VisualTreatmentAssignment(
+                scene_id="s1",
+                visual_mode="stat_card",
+                visual_layers=layers,
+            )
+        ],
+    )
+
+    assert scene.visual_mode == "stat_card"
+    assert scene.visual_treatment == "stat_card"
+    assert scene.visual_layers == layers
+
+
 def test_analyze_visual_treatments_preserves_explicit_dossier_mode():
     scene = scene_with_words("s1", "The case file is sealed shut.")
     scene.set_visual_mode("dossier")
