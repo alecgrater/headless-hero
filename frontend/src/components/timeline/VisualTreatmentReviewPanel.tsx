@@ -8,7 +8,7 @@ interface Props {
   onApply: (assignments: VisualTreatmentAssignment[]) => void;
 }
 
-const MODE_LABELS: Record<VisualMode, { label: string; blurb: string }> = {
+export const VISUAL_MODE_LABELS: Record<VisualMode, { label: string; blurb: string }> = {
   video: {
     label: "Video",
     blurb: "An AI-generated clip owns the scene and renders full-frame.",
@@ -52,11 +52,56 @@ const MODE_LABELS: Record<VisualMode, { label: string; blurb: string }> = {
 };
 
 const MODE_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "flipflop", "captions", "popup_sequence", "comparison_board", "stat_card", "dossier"];
+export const VISUAL_MODE_CATALOG_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "flipflop", "captions", "popup_sequence", "comparison_board", "stat_card", "dossier", "video"];
+export const EMPTY_VISUAL_MODE_COUNTS: Record<VisualMode, number> = {
+  video: 0,
+  full_frame: 0,
+  multi_frame: 0,
+  continuous: 0,
+  popup_sequence: 0,
+  flipflop: 0,
+  comparison_board: 0,
+  stat_card: 0,
+  captions: 0,
+  dossier: 0,
+};
+
 const modeForAssignment = (assignment: VisualTreatmentAssignment): VisualMode =>
   assignment.visual_mode ?? "full_frame";
 const isManualMode = (mode: VisualMode) => MODE_OPTIONS.includes(mode);
 const isLayeredMode = (mode: VisualMode): mode is Extract<VisualMode, "popup_sequence" | "flipflop" | "comparison_board" | "stat_card" | "dossier"> =>
   mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board" || mode === "stat_card" || mode === "dossier";
+
+export function buildVisualModeCounts(assignments: VisualTreatmentAssignment[]): Record<VisualMode, number> {
+  return assignments.reduce<Record<VisualMode, number>>(
+    (acc, assignment) => {
+      acc[modeForAssignment(assignment)] += 1;
+      return acc;
+    },
+    { ...EMPTY_VISUAL_MODE_COUNTS },
+  );
+}
+
+export function VisualModeCatalog({ counts }: { counts: Record<VisualMode, number> }) {
+  return (
+    <div className="mt-3 grid gap-2 md:grid-cols-3">
+      {VISUAL_MODE_CATALOG_OPTIONS.map((mode) => (
+        <div key={mode} className="flex min-h-16 items-start justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-950/50 px-3 py-2">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-neutral-200">{VISUAL_MODE_LABELS[mode].label}</p>
+            <p className="mt-1 text-xs leading-4 text-neutral-500">{VISUAL_MODE_LABELS[mode].blurb}</p>
+          </div>
+          <span
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-neutral-700 bg-neutral-900 text-xs font-semibold text-neutral-200"
+            aria-label={`${VISUAL_MODE_LABELS[mode].label} scenes`}
+          >
+            {counts[mode] ?? 0}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function VisualTreatmentReviewPanel({
   assignments,
@@ -65,13 +110,7 @@ export default function VisualTreatmentReviewPanel({
 }: Props) {
   const [draft, setDraft] = useState<VisualTreatmentAssignment[]>(assignments);
   const summary = useMemo(() => {
-    return draft.reduce<Record<VisualMode, number>>(
-      (acc, assignment) => {
-        acc[modeForAssignment(assignment)] += 1;
-        return acc;
-      },
-      { video: 0, full_frame: 0, multi_frame: 0, continuous: 0, popup_sequence: 0, flipflop: 0, comparison_board: 0, stat_card: 0, captions: 0, dossier: 0 },
-    );
+    return buildVisualModeCounts(draft);
   }, [draft]);
   const hasInvalidLayerlessTreatment = draft.some(
     (assignment) => {
@@ -136,14 +175,7 @@ export default function VisualTreatmentReviewPanel({
           </p>
         )}
 
-        <div className="mt-3 grid gap-2 md:grid-cols-3">
-          {MODE_OPTIONS.map((mode) => (
-            <div key={mode} className="rounded-lg border border-neutral-800 bg-neutral-950/50 px-3 py-2">
-              <p className="text-xs font-semibold text-neutral-200">{MODE_LABELS[mode].label}</p>
-              <p className="mt-1 text-xs leading-4 text-neutral-500">{MODE_LABELS[mode].blurb}</p>
-            </div>
-          ))}
-        </div>
+        <VisualModeCatalog counts={summary} />
       </div>
 
       <div className="divide-y divide-neutral-800">
@@ -171,12 +203,12 @@ export default function VisualTreatmentReviewPanel({
                 >
                   {isReadOnlyMode && (
                     <option value={mode} disabled>
-                      {MODE_LABELS[mode].label}
+                      {VISUAL_MODE_LABELS[mode].label}
                     </option>
                   )}
                   {MODE_OPTIONS.map((optionMode) => (
                     <option key={optionMode} value={optionMode} disabled={isLayeredMode(optionMode) && !hasLayers}>
-                      {MODE_LABELS[optionMode].label}
+                      {VISUAL_MODE_LABELS[optionMode].label}
                     </option>
                   ))}
                 </select>
@@ -195,13 +227,13 @@ export default function VisualTreatmentReviewPanel({
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex items-center gap-2 text-xs text-neutral-500">
                   {scene?.is_title_card && <span>Title card</span>}
-                  <span>{MODE_LABELS[mode].label}</span>
+                  <span>{VISUAL_MODE_LABELS[mode].label}</span>
                 </div>
                 <p className="truncate text-sm text-neutral-200" title={scene?.narration || ""}>
                   {scene?.narration || "No narration for this scene."}
                 </p>
                 <p className="text-xs leading-5 text-neutral-500">
-                  {assignment.reasoning || MODE_LABELS[mode].blurb}
+                  {assignment.reasoning || VISUAL_MODE_LABELS[mode].blurb}
                 </p>
               </div>
             </div>

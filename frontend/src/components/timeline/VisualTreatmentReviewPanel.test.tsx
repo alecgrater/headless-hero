@@ -14,6 +14,22 @@ const assignments: VisualTreatmentAssignment[] = [
   },
 ];
 
+const mixedAssignments: VisualTreatmentAssignment[] = [
+  ...assignments,
+  {
+    scene_id: "scene_002",
+    visual_mode: "flipflop",
+    reasoning: "Motion beat.",
+    visual_layers: [{ id: "scene_002_state_a" }, { id: "scene_002_state_b" }],
+  },
+  {
+    scene_id: "scene_003",
+    visual_mode: "flipflop",
+    reasoning: "Motion beat.",
+    visual_layers: [{ id: "scene_003_state_a" }, { id: "scene_003_state_b" }],
+  },
+];
+
 const scenes: Record<string, Scene> = {
   scene_001: {
     id: "scene_001",
@@ -29,6 +45,42 @@ const scenes: Record<string, Scene> = {
     contains_person: false,
     frame_urls: [],
     visual_mode: "full_frame",
+    visual_layers: [],
+    caption_text: "",
+    caption_emphasis: "",
+  },
+  scene_002: {
+    id: "scene_002",
+    narration: "Hands open and close.",
+    visual_prompt: "Hands moving.",
+    duration_estimate_seconds: 6,
+    is_title_card: false,
+    image_url: "",
+    audio_url: "",
+    audio_duration_seconds: 6,
+    visual_beat: "flipflop",
+    frame_directives: [],
+    contains_person: false,
+    frame_urls: [],
+    visual_mode: "flipflop",
+    visual_layers: [],
+    caption_text: "",
+    caption_emphasis: "",
+  },
+  scene_003: {
+    id: "scene_003",
+    narration: "The motion repeats.",
+    visual_prompt: "Repeated motion.",
+    duration_estimate_seconds: 6,
+    is_title_card: false,
+    image_url: "",
+    audio_url: "",
+    audio_duration_seconds: 6,
+    visual_beat: "flipflop",
+    frame_directives: [],
+    contains_person: false,
+    frame_urls: [],
+    visual_mode: "flipflop",
     visual_layers: [],
     caption_text: "",
     caption_emphasis: "",
@@ -107,5 +159,20 @@ describe("VisualTreatmentReviewPanel", () => {
 
     expect(screen.queryByRole("button", { name: /analyze/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Apply" })).toBeInTheDocument();
+  });
+
+  it("shows count badges for every visual mode", () => {
+    render(
+      <VisualTreatmentReviewPanel
+        assignments={mixedAssignments}
+        scenes={scenes}
+        onApply={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Full frame scenes")).toHaveTextContent("1");
+    expect(screen.getByLabelText("Flipflop scenes")).toHaveTextContent("2");
+    expect(screen.getByLabelText("Captions scenes")).toHaveTextContent("0");
+    expect(screen.getByLabelText("Video scenes")).toHaveTextContent("0");
   });
 });

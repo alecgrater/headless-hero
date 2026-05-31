@@ -1,7 +1,7 @@
 import type { MediaAssignment, VisualTreatmentAssignment } from "../../api";
 import type { Scene, ScriptContent } from "../../types/script";
 import MediaReviewPanel from "./MediaReviewPanel";
-import VisualTreatmentReviewPanel from "./VisualTreatmentReviewPanel";
+import VisualTreatmentReviewPanel, { EMPTY_VISUAL_MODE_COUNTS, VisualModeCatalog, buildVisualModeCounts } from "./VisualTreatmentReviewPanel";
 
 function buildFrameCounts(content: ScriptContent): Record<string, number> {
   const counts: Record<string, number> = {};
@@ -112,6 +112,9 @@ export default function MediaSourcesTab({
   const scenes = buildScenesMap(content);
   const hasExistingVisualModeReview = Boolean(visualTreatmentAssignments || mediaAssignments || mediaReviewDismissed);
   const visualTreatmentAnalyzeLabel = hasExistingVisualModeReview ? "Re-analyze Visual Modes" : "Analyze Visual Modes";
+  const visualModeCounts = visualTreatmentAssignments
+    ? buildVisualModeCounts(visualTreatmentAssignments)
+    : EMPTY_VISUAL_MODE_COUNTS;
   const handleAnalyzeVisualModeReview = () => {
     if (canAnalyzeVisualTreatments) {
       onAnalyzeVisualTreatments();
@@ -151,7 +154,8 @@ export default function MediaSourcesTab({
         />
       ) : (
         <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
-          <p className="max-w-2xl text-xs leading-5 text-neutral-400">
+          <VisualModeCatalog counts={visualModeCounts} />
+          <p className="mt-3 max-w-2xl text-xs leading-5 text-neutral-400">
             Analyze scenes after voiceover timing exists to populate the review with route, variety, and layered-asset decisions.
           </p>
           {!canAnalyzeVisualTreatments && (

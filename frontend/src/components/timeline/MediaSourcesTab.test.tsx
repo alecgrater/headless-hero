@@ -110,4 +110,15 @@ describe("MediaSourcesTab", () => {
     expect(onAnalyzeVisualTreatments).toHaveBeenCalledTimes(1);
     expect(onAnalyzeMedia).toHaveBeenCalledTimes(1);
   });
+
+  it("shows visual-mode count boxes before assignments exist", () => {
+    renderTab({
+      visualAssignments: null,
+      media: null,
+    });
+
+    expect(screen.getByLabelText("Full frame scenes")).toHaveTextContent("0");
+    expect(screen.getByLabelText("Multi-frame scenes")).toHaveTextContent("0");
+    expect(screen.getByLabelText("Video scenes")).toHaveTextContent("0");
+  });
 });
