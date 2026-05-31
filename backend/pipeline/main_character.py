@@ -325,10 +325,13 @@ def select_character_reference_variant(*, script_id: str, idx: int) -> str:
         cutout_path=variant_cutout,
         metadata_path=variant_metadata,
     )
+    target_metadata = target.parent / "metadata.json"
+    target_cutout.unlink(missing_ok=True)
+    target_metadata.unlink(missing_ok=True)
     _ensure_current_character_cutout(
         reference_path=target,
         cutout_path=target_cutout,
-        metadata_path=target.parent / "metadata.json",
+        metadata_path=target_metadata,
     )
     character_reference_active_marker(script_id).write_text(str(idx), encoding="utf-8")
     return character_reference_web_path(script_id)
@@ -351,10 +354,13 @@ def select_global_character_reference_variant(*, idx: int) -> str:
         cutout_path=variant_cutout,
         metadata_path=variant_metadata,
     )
+    target_metadata = target.parent / "metadata.json"
+    target_cutout.unlink(missing_ok=True)
+    target_metadata.unlink(missing_ok=True)
     _ensure_current_character_cutout(
         reference_path=target,
         cutout_path=target_cutout,
-        metadata_path=target.parent / "metadata.json",
+        metadata_path=target_metadata,
     )
     global_character_reference_active_marker().write_text(str(idx), encoding="utf-8")
     return global_character_reference_web_path()

@@ -4,10 +4,20 @@ import pytest
 from PIL import Image
 
 
-def _save_chroma_character(path: Path) -> None:
+def _save_chroma_character(path: Path, color: tuple[int, int, int] = (220, 40, 40)) -> None:
     image = Image.new("RGB", (200, 200), (0, 255, 0))
-    image.paste((220, 40, 40), (70, 50, 130, 160))
+    image.paste(color, (70, 50, 130, 160))
     image.save(path)
+
+
+def _opaque_colors(path: Path) -> set[tuple[int, int, int]]:
+    with Image.open(path) as image:
+        data = image.convert("RGBA").tobytes()
+    return {
+        (data[index], data[index + 1], data[index + 2])
+        for index in range(0, len(data), 4)
+        if data[index + 3] > 0
+    }
 
 
 def test_process_character_asset_bundle_preserves_reference_and_writes_cutout(tmp_path):
@@ -144,3 +154,76 @@ def test_process_character_asset_bundle_rejects_output_path_collisions(tmp_path)
             reference_filename="character.png",
             cutout_filename="character.png",
         )
+
+
+def test_select_character_reference_variant_replaces_current_project_cutout(
+    tmp_path,
+    monkeypatch,
+):
+    from pipeline import main_character
+    from pipeline.character_assets import process_character_asset_bundle
+
+    monkeypatch.setattr(main_character, "DATA_DIR", tmp_path)
+    script_id = "script-a"
+    variants_dir = tmp_path / "projects" / script_id / "character" / "references"
+    variants_dir.mkdir(parents=True)
+
+    first_color = (220, 40, 40)
+    second_color = (40, 80, 220)
+    first_variant = variants_dir / "1.png"
+    second_variant = variants_dir / "2.png"
+    _save_chroma_character(first_variant, first_color)
+    _save_chroma_character(second_variant, second_color)
+
+    for idx in (1, 2):
+        process_character_asset_bundle(
+            source_path=variants_dir / f"{idx}.png",
+            output_dir=variants_dir,
+            reference_filename=f"{idx}.png",
+            cutout_filename=f"{idx}.cutout.png",
+            metadata_filename=f"{idx}.metadata.json",
+        )
+
+    main_character.select_character_reference_variant(script_id=script_id, idx=1)
+    assert first_color in _opaque_colors(tmp_path / "projects" / script_id / "character" / "cutout.png")
+
+    main_character.select_character_reference_variant(script_id=script_id, idx=2)
+
+    active_colors = _opaque_colors(tmp_path / "projects" / script_id / "character" / "cutout.png")
+    assert second_color in active_colors
+    assert first_color not in active_colors
+
+
+def test_select_global_character_reference_variant_replaces_current_cutout(
+    tmp_path,
+    monkeypatch,
+):
+    from pipeline import main_character
+    from pipeline.character_assets import process_character_asset_bundle
+
+    monkeypatch.setattr(main_character, "DATA_DIR", tmp_path)
+    variants_dir = tmp_path / "character" / "main" / "references"
+    variants_dir.mkdir(parents=True)
+
+    first_color = (220, 40, 40)
+    second_color = (40, 80, 220)
+    _save_chroma_character(variants_dir / "1.png", first_color)
+    _save_chroma_character(variants_dir / "2.png", second_color)
+
+    for idx in (1, 2):
+        process_character_asset_bundle(
+            source_path=variants_dir / f"{idx}.png",
+            output_dir=variants_dir,
+            reference_filename=f"{idx}.png",
+            cutout_filename=f"{idx}.cutout.png",
+            metadata_filename=f"{idx}.metadata.json",
+        )
+
+    main_character.select_global_character_reference_variant(idx=1)
+    assert first_color in _opaque_colors(tmp_path / "character" / "main" / "cutout.png")
+
+    main_character.select_global_character_reference_variant(idx=2)
+
+    active_colors = _opaque_colors(tmp_path / "character" / "main" / "cutout.png")
+    assert second_color in active_colors
+    assert first_color not in active_colors
