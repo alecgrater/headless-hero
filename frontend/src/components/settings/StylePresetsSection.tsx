@@ -444,7 +444,7 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex max-w-full items-center gap-2">
-                        <h3 className="truncate text-base font-semibold text-neutral-100">
+                        <h3 className="truncate text-sm font-medium text-neutral-100">
                           {viewedPreset.name || "Untitled"}
                         </h3>
                         {viewedPreset.id === activeId && (
@@ -585,7 +585,7 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex max-w-full items-center gap-2">
-                          <h3 className="truncate text-base font-semibold text-neutral-100">{viewedCharacter.name}</h3>
+                          <h3 className="truncate text-sm font-medium text-neutral-100">{viewedCharacter.name}</h3>
                           {viewedCharacter.active && (
                             <span className="shrink-0 rounded bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-300">
                               Active
