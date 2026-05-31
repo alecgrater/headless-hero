@@ -1,5 +1,5 @@
 import type { MediaAssignment, VisualTreatmentAssignment } from "../../api";
-import type { Scene, ScriptContent } from "../../types/script";
+import type { Scene, ScriptContent, VisualMode } from "../../types/script";
 import MediaReviewPanel from "./MediaReviewPanel";
 import VisualTreatmentReviewPanel, { EMPTY_VISUAL_MODE_COUNTS, VisualModeCatalog, buildVisualModeCounts } from "./VisualTreatmentReviewPanel";
 
@@ -24,6 +24,18 @@ function buildScenesMap(content: ScriptContent): Record<string, Scene> {
     }
   }
   return map;
+}
+
+function buildVisualModeCountsFromContent(content: ScriptContent): Record<VisualMode, number> {
+  return content.segments
+    .flatMap((seg) => seg.scenes)
+    .reduce<Record<VisualMode, number>>(
+      (acc, scene) => {
+        acc[scene.visual_mode ?? "full_frame"] += 1;
+        return acc;
+      },
+      { ...EMPTY_VISUAL_MODE_COUNTS },
+    );
 }
 
 function buildSceneSegments(content: ScriptContent): Record<string, string> {
@@ -114,7 +126,7 @@ export default function MediaSourcesTab({
   const visualTreatmentAnalyzeLabel = hasExistingVisualModeReview ? "Re-analyze Visual Modes" : "Analyze Visual Modes";
   const visualModeCounts = visualTreatmentAssignments
     ? buildVisualModeCounts(visualTreatmentAssignments)
-    : EMPTY_VISUAL_MODE_COUNTS;
+    : buildVisualModeCountsFromContent(content);
   const handleAnalyzeVisualModeReview = () => {
     if (canAnalyzeVisualTreatments) {
       onAnalyzeVisualTreatments();

@@ -25,9 +25,17 @@ const scene: Scene = {
   caption_emphasis: "",
 };
 
+const flipflopScene: Scene = {
+  ...scene,
+  id: "scene_002",
+  narration: "Hands open and close.",
+  visual_mode: "flipflop",
+  visual_beat: "flipflop",
+};
+
 const content: ScriptContent = {
   title: "Visual Mode Test",
-  segments: [{ name: "Segment", scenes: [scene] }],
+  segments: [{ name: "Segment", scenes: [scene, flipflopScene] }],
 };
 
 const assignments: VisualTreatmentAssignment[] = [
@@ -111,13 +119,14 @@ describe("MediaSourcesTab", () => {
     expect(onAnalyzeMedia).toHaveBeenCalledTimes(1);
   });
 
-  it("shows visual-mode count boxes before assignments exist", () => {
+  it("shows script visual-mode count boxes before assignments exist", () => {
     renderTab({
       visualAssignments: null,
       media: null,
     });
 
-    expect(screen.getByLabelText("Full frame scenes")).toHaveTextContent("0");
+    expect(screen.getByLabelText("Full frame scenes")).toHaveTextContent("1");
+    expect(screen.getByLabelText("Flipflop scenes")).toHaveTextContent("1");
     expect(screen.getByLabelText("Multi-frame scenes")).toHaveTextContent("0");
     expect(screen.getByLabelText("Video scenes")).toHaveTextContent("0");
   });
