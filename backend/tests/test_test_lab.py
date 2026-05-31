@@ -424,7 +424,7 @@ def test_test_lab_scenes_endpoint_returns_active_default_character(monkeypatch, 
     (tmp_path / "style" / "presets").mkdir(parents=True)
     (tmp_path / "style" / "presets" / f"{preset_id}.png").write_bytes(b"fakepng")
     (tmp_path / "style" / "presets" / preset_id / "characters").mkdir(parents=True)
-    (tmp_path / "style" / "presets" / preset_id / "characters" / f"{character_id}.png").write_bytes(b"fakepng")
+    _write_chroma_character(tmp_path / "style" / "presets" / preset_id / "characters" / f"{character_id}.png")
 
     with Session(engine) as session:
         session.add(StylePreset(id=preset_id, name="House style", prompt="flat 2d"))
@@ -1181,7 +1181,7 @@ def test_create_hidden_test_script_uses_active_style_preset_character(monkeypatc
     (tmp_path / "style" / "presets").mkdir(parents=True)
     (tmp_path / "style" / "presets" / f"{preset_id}.png").write_bytes(b"fakepng")
     (tmp_path / "style" / "presets" / preset_id / "characters").mkdir(parents=True)
-    (tmp_path / "style" / "presets" / preset_id / "characters" / f"{character_id}.png").write_bytes(b"fakepng")
+    _write_chroma_character(tmp_path / "style" / "presets" / preset_id / "characters" / f"{character_id}.png")
 
     with Session(engine) as session:
         session.add(StylePreset(id=preset_id, name="House style", prompt="flat 2d"))

@@ -485,6 +485,55 @@ def test_sync_active_preset_character_reprocesses_stale_cutouts(
         assert image.getpixel((80 - 16, 80 - 16))[3] == 255
 
 
+def test_list_characters_repairs_stale_cutout_preview(
+    client,
+    style_character_engine,
+    tmp_path,
+    monkeypatch,
+):
+    import json
+
+    from api import style as style_api
+    from models.style_preset_character import StylePresetCharacter
+    from pipeline import main_character
+    from pipeline.character_assets import PROCESSOR_VERSION
+
+    monkeypatch.setattr(style_api, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(main_character, "DATA_DIR", tmp_path)
+    _insert_preset(style_character_engine, tmp_path, "preset-a", "Preset A")
+
+    character_id = "char-a"
+    source_ref = tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{character_id}.png"
+    source_cutout = tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{character_id}.cutout.png"
+    source_metadata = tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{character_id}.metadata.json"
+    _write_character_with_enclosed_background_detail(source_ref)
+    _write_corrupted_cutout_with_transparent_detail(source_cutout)
+    source_metadata.write_text(json.dumps({"version": 1}), encoding="utf-8")
+
+    with Session(style_character_engine) as session:
+        session.add(
+            StylePresetCharacter(
+                id=character_id,
+                style_preset_id="preset-a",
+                name="Mara",
+                appearance="short black hair",
+                vibe="calm",
+                reference_image_url=f"/static/style/presets/preset-a/characters/{character_id}.png",
+                cutout_image_url=f"/static/style/presets/preset-a/characters/{character_id}.cutout.png",
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+        session.commit()
+
+    response = client.get("/api/style/presets/preset-a/characters")
+
+    assert response.status_code == 200
+    assert response.json()[0]["cutout_image_url"].endswith(f"/characters/{character_id}.cutout.png")
+    assert json.loads(source_metadata.read_text(encoding="utf-8"))["version"] == PROCESSOR_VERSION
+    with Image.open(source_cutout) as image:
+        assert image.getpixel((80 - 16, 80 - 16))[3] == 255
+
+
 def test_sync_active_preset_character_change_clears_project_variants(
     style_character_engine,
     tmp_path,

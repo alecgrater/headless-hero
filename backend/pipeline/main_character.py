@@ -437,8 +437,16 @@ def _style_preset_character_response(
     character: StylePresetCharacter,
 ) -> StylePresetCharacterResponse:
     active_id = read_active_style_preset_character_id(session, character.style_preset_id)
+    reference_path = style_preset_character_path(character.style_preset_id, character.id)
+    cutout_path = style_preset_character_cutout_path(character.style_preset_id, character.id)
+    if reference_path.exists():
+        _ensure_current_character_cutout(
+            reference_path=reference_path,
+            cutout_path=cutout_path,
+            metadata_path=style_preset_character_metadata_path(character.style_preset_id, character.id),
+        )
     cutout_image_url = character.cutout_image_url
-    if not cutout_image_url and style_preset_character_cutout_path(character.style_preset_id, character.id).exists():
+    if not cutout_image_url and cutout_path.exists():
         cutout_image_url = style_preset_character_cutout_web_path(character.style_preset_id, character.id)
     return StylePresetCharacterResponse(
         id=character.id,
