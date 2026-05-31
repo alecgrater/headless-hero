@@ -89,9 +89,9 @@ describe("StylePresetsSection", () => {
     expect(await screen.findByText("Epic Ossim 2")).toBeInTheDocument();
     expect(await screen.findByText("Daniel Vale")).toBeInTheDocument();
 
-    expect(screen.getByTestId("brand-style-workspace")).toHaveClass("xl:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)]");
-    expect(screen.getByTestId("style-preset-preview")).toHaveClass("max-h-[360px]");
+    expect(screen.getByTestId("brand-style-workspace")).toHaveClass("lg:grid-cols-2");
+    expect(screen.getByTestId("style-preset-preview")).toHaveClass("max-h-[220px]");
     expect(screen.getByTestId("main-character-preview")).toHaveClass("max-h-[220px]");
-    expect(screen.getByTestId("brand-defaults-panel")).toHaveClass("xl:col-span-2");
+    expect(screen.getByTestId("brand-defaults-panel")).toHaveClass("lg:col-span-2");
   });
 });

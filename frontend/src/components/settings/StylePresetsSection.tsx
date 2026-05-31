@@ -392,9 +392,9 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
 
       <div
         data-testid="brand-style-workspace"
-        className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)]"
+        className="grid gap-4 lg:grid-cols-2"
       >
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           <div>
             <h3 className="text-sm font-semibold text-neutral-100">Style Presets</h3>
             <p className="text-xs text-neutral-500">
@@ -402,115 +402,113 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
             </p>
           </div>
 
-          <div className="rounded-lg border border-neutral-800 bg-neutral-900/60 p-3">
+          <div className="flex-1 space-y-3 rounded-lg border border-neutral-800 bg-neutral-900 p-3">
             {viewedPreset ? (
-              <div className="grid grid-cols-[36px_minmax(0,1fr)_36px] items-center gap-2">
-                <button
-                  type="button"
-                  onClick={showPreviousPreset}
-                  aria-label="Previous style preset"
-                  className="flex size-9 items-center justify-center rounded-full border border-neutral-700 bg-neutral-950/80 text-neutral-300 hover:border-violet-500 hover:bg-violet-950/30 hover:text-violet-200 transition-colors"
-                >
-                  <ChevronLeft className="size-5" />
-                </button>
+              <div className="rounded-md border border-neutral-800 bg-neutral-950/50 p-3">
+                <div className="space-y-3">
+                  <div className="grid grid-cols-[34px_minmax(0,1fr)_34px] items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={showPreviousPreset}
+                      aria-label="Previous style preset"
+                      className="flex size-8 items-center justify-center rounded-full border border-neutral-700 bg-neutral-950 text-neutral-300 hover:border-violet-500 hover:text-violet-300 transition-colors"
+                    >
+                      <ChevronLeft className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewedId(viewedPreset.id)}
+                      className={`rounded-md border-2 bg-neutral-950 p-1 transition-colors ${
+                        viewedPreset.id === activeId
+                          ? "border-violet-500 shadow-[0_0_0_1px_rgba(139,92,246,0.45)]"
+                          : "border-neutral-700 hover:border-violet-500/70"
+                      }`}
+                    >
+                      <img
+                        data-testid="style-preset-preview"
+                        src={assetUrl(viewedPreset.image_url)}
+                        alt={viewedPreset.name || "Untitled style preset"}
+                        className="aspect-video max-h-[220px] w-full rounded object-cover"
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={showNextPreset}
+                      aria-label="Next style preset"
+                      className="flex size-8 items-center justify-center rounded-full border border-neutral-700 bg-neutral-950 text-neutral-300 hover:border-violet-500 hover:text-violet-300 transition-colors"
+                    >
+                      <ChevronRight className="size-4" />
+                    </button>
+                  </div>
 
-                <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(230px,0.95fr)_minmax(220px,1fr)] lg:items-start">
-                  <button
-                    type="button"
-                    onClick={() => setViewedId(viewedPreset.id)}
-                    className={`w-full rounded-md border-2 bg-neutral-950 p-1 transition-colors ${
-                      viewedPreset.id === activeId
-                        ? "border-violet-500 shadow-[0_0_0_1px_rgba(139,92,246,0.45)]"
-                        : "border-neutral-700 hover:border-violet-500/70"
-                    }`}
-                  >
-                    <img
-                      data-testid="style-preset-preview"
-                      src={assetUrl(viewedPreset.image_url)}
-                      alt={viewedPreset.name || "Untitled style preset"}
-                      className="aspect-video max-h-[360px] w-full rounded object-cover"
-                    />
-                  </button>
-
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex max-w-full items-center gap-2">
-                          <h3 className="truncate text-base font-semibold text-neutral-100">
-                            {viewedPreset.name || "Untitled"}
-                          </h3>
-                          {viewedPreset.id === activeId && (
-                            <span className="shrink-0 rounded bg-violet-500/20 px-2 py-0.5 text-xs font-medium text-violet-300">
-                              Active
-                            </span>
-                          )}
-                        </div>
-                        <ExpandablePrompt text={viewedPreset.prompt} />
-                      </div>
-                      <div className="flex shrink-0 flex-wrap gap-2">
-                        {viewedPreset.id !== activeId && (
-                          <button
-                            type="button"
-                            onClick={() => handleSetActive(viewedPreset.id)}
-                            className="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-500 transition-colors"
-                          >
-                            Set active
-                          </button>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex max-w-full items-center gap-2">
+                        <h3 className="truncate text-base font-semibold text-neutral-100">
+                          {viewedPreset.name || "Untitled"}
+                        </h3>
+                        {viewedPreset.id === activeId && (
+                          <span className="shrink-0 rounded bg-violet-500/20 px-2 py-0.5 text-xs font-medium text-violet-300">
+                            Active
+                          </span>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(viewedPreset.id)}
-                          className="rounded-md border border-red-900 px-3 py-1.5 text-sm font-medium text-red-400 hover:bg-red-950 transition-colors"
-                        >
-                          Delete
-                        </button>
                       </div>
+                      <ExpandablePrompt text={viewedPreset.prompt} />
                     </div>
-
-                    <div className="mt-3 flex max-h-28 flex-wrap items-center gap-2 overflow-y-auto pr-1">
-                      {presets.map((p) => (
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      {viewedPreset.id !== activeId && (
                         <button
-                          key={p.id}
                           type="button"
-                          onClick={() => setViewedId(p.id)}
-                          aria-label={`View ${p.name || "Untitled"} style preset`}
-                          className={`relative h-10 w-16 rounded border p-0.5 transition-colors ${
-                            p.id === viewedPreset.id
-                              ? "border-violet-500 bg-violet-500/10"
-                              : p.id === activeId
-                                ? "border-violet-400 bg-violet-500/5"
-                                : "border-neutral-700 bg-neutral-950 hover:border-violet-500/70"
-                          }`}
+                          onClick={() => handleSetActive(viewedPreset.id)}
+                          className="rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500 transition-colors"
                         >
-                          <img src={assetUrl(p.image_url)} alt="" className="h-full w-full rounded-sm object-cover" />
-                          {p.id === activeId && (
-                            <span className="absolute bottom-1 right-1 size-2 rounded-full bg-violet-400 shadow-[0_0_0_2px_rgba(10,10,10,0.85)]" />
-                          )}
+                          Set active
                         </button>
-                      ))}
+                      )}
                       <button
                         type="button"
-                        onClick={() => setShowModal(true)}
-                        className="flex h-10 min-w-20 items-center justify-center gap-1 rounded border-2 border-dashed border-neutral-700 px-2 text-xs font-medium text-neutral-400 hover:border-violet-500 hover:text-violet-300 transition-colors"
+                        onClick={() => handleDelete(viewedPreset.id)}
+                        className="rounded-md border border-red-900 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-950 transition-colors"
                       >
-                        <Plus className="size-4" />
-                        New
+                        Delete
                       </button>
                     </div>
                   </div>
-                </div>
 
-                <button
-                  type="button"
-                  onClick={showNextPreset}
-                  aria-label="Next style preset"
-                  className="flex size-9 items-center justify-center rounded-full border border-neutral-700 bg-neutral-950/80 text-neutral-300 hover:border-violet-500 hover:bg-violet-950/30 hover:text-violet-200 transition-colors"
-                >
-                  <ChevronRight className="size-5" />
-                </button>
+                  <div className="flex max-h-28 flex-wrap items-center gap-2 overflow-y-auto pr-1">
+                    {presets.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setViewedId(p.id)}
+                        aria-label={`View ${p.name || "Untitled"} style preset`}
+                        className={`relative h-10 w-16 rounded border p-0.5 transition-colors ${
+                          p.id === viewedPreset.id
+                            ? "border-violet-500 bg-violet-500/10"
+                            : p.id === activeId
+                              ? "border-violet-400 bg-violet-500/5"
+                              : "border-neutral-700 bg-neutral-950 hover:border-violet-500/70"
+                        }`}
+                      >
+                        <img src={assetUrl(p.image_url)} alt="" className="h-full w-full rounded-sm object-cover" />
+                        {p.id === activeId && (
+                          <span className="absolute bottom-1 right-1 size-2 rounded-full bg-violet-400 shadow-[0_0_0_2px_rgba(10,10,10,0.85)]" />
+                        )}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setShowModal(true)}
+                      className="flex h-10 min-w-20 items-center justify-center gap-1 rounded border-2 border-dashed border-neutral-700 px-2 text-xs font-medium text-neutral-400 hover:border-violet-500 hover:text-violet-300 transition-colors"
+                    >
+                      <Plus className="size-4" />
+                      New
+                    </button>
+                  </div>
+                </div>
               </div>
             ) : (
-              <div className="flex min-h-56 flex-col items-center justify-center text-center">
+              <div className="flex aspect-video flex-col items-center justify-center rounded-md border border-dashed border-neutral-700 text-center">
                 <p className="text-sm text-neutral-400">No style presets yet.</p>
                 <button
                   type="button"
@@ -525,7 +523,7 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           <div>
             <h3 className="text-sm font-semibold text-neutral-100">Main Character</h3>
             <p className="text-xs text-neutral-500">
@@ -533,7 +531,7 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
             </p>
           </div>
 
-          <div className="space-y-3 rounded-lg border border-neutral-800 bg-neutral-900 p-3">
+          <div className="flex-1 space-y-3 rounded-lg border border-neutral-800 bg-neutral-900 p-3">
             {viewedPreset ? (
               <>
                 <div className="rounded-md border border-neutral-800 bg-neutral-950/50 p-3">
@@ -685,7 +683,7 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
         {showDefaults && (
           <div
             data-testid="brand-defaults-panel"
-            className="space-y-3 rounded-lg border border-neutral-800 bg-neutral-900 p-3 xl:col-span-2"
+            className="space-y-3 rounded-lg border border-neutral-800 bg-neutral-900 p-3 lg:col-span-2"
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
