@@ -6,6 +6,7 @@ import hashlib
 import json
 import logging
 import shutil
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,7 +14,7 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-PROCESSOR_VERSION = 1
+PROCESSOR_VERSION = 2
 DEFAULT_PADDING = 24
 DEFAULT_TOLERANCE = 70
 
@@ -171,13 +172,62 @@ def _key_out_chroma_background(
 ) -> tuple[Image.Image, str | None]:
     background, warning = _sample_background_rgb(image)
     data = bytearray(image.tobytes())
-    for index in range(0, len(data), 4):
-        red, green, blue, alpha = data[index : index + 4]
-        if _rgb_distance((red, green, blue), background) <= tolerance:
-            data[index + 3] = 0
-        else:
-            data[index + 3] = alpha
+    background_pixels = _find_edge_connected_background_pixels(
+        data=data,
+        width=image.width,
+        height=image.height,
+        background=background,
+        tolerance=tolerance,
+    )
+    for pixel_index, is_background in enumerate(background_pixels):
+        if is_background:
+            data[(pixel_index * 4) + 3] = 0
     return Image.frombytes("RGBA", image.size, bytes(data)), warning
+
+
+def _find_edge_connected_background_pixels(
+    *,
+    data: bytearray,
+    width: int,
+    height: int,
+    background: tuple[int, int, int],
+    tolerance: int,
+) -> bytearray:
+    visited = bytearray(width * height)
+    queue: deque[int] = deque()
+
+    def is_background(pixel_index: int) -> bool:
+        offset = pixel_index * 4
+        red, green, blue = data[offset], data[offset + 1], data[offset + 2]
+        return _rgb_distance((red, green, blue), background) <= tolerance
+
+    def enqueue(pixel_index: int) -> None:
+        if visited[pixel_index] or not is_background(pixel_index):
+            return
+        visited[pixel_index] = 1
+        queue.append(pixel_index)
+
+    for x in range(width):
+        enqueue(x)
+        enqueue(((height - 1) * width) + x)
+    for y in range(height):
+        enqueue(y * width)
+        enqueue((y * width) + width - 1)
+
+    while queue:
+        pixel_index = queue.popleft()
+        x = pixel_index % width
+        y = pixel_index // width
+        if x > 0:
+            enqueue(pixel_index - 1)
+        if x < width - 1:
+            enqueue(pixel_index + 1)
+        if y > 0:
+            enqueue(pixel_index - width)
+        if y < height - 1:
+            enqueue(pixel_index + width)
+
+    return visited
 
 
 def _sample_background_rgb(image: Image.Image) -> tuple[tuple[int, int, int], str | None]:

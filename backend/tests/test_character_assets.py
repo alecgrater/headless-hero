@@ -43,6 +43,37 @@ def test_process_character_asset_bundle_preserves_reference_and_writes_cutout(tm
         assert cutout.getpixel((0, 0))[3] == 0
 
 
+def test_process_character_asset_bundle_preserves_enclosed_character_details_near_background_color(tmp_path):
+    from pipeline.character_assets import process_character_asset_bundle
+
+    background = (238, 236, 232)
+    source = tmp_path / "source.png"
+    image = Image.new("RGB", (160, 160), background)
+    pixels = image.load()
+
+    for y in range(40, 121):
+        for x in range(40, 121):
+            if x in (40, 120) or y in (40, 120):
+                pixels[x, y] = (12, 12, 12)
+            else:
+                pixels[x, y] = (245, 181, 132)
+
+    pixels[80, 80] = background
+    image.save(source)
+
+    result = process_character_asset_bundle(
+        source_path=source,
+        output_dir=tmp_path / "bundle",
+        reference_filename="reference.png",
+        cutout_filename="cutout.png",
+    )
+
+    interior_x = 80 - result.trim_box[0]
+    interior_y = 80 - result.trim_box[1]
+    with Image.open(result.cutout_path) as cutout:
+        assert cutout.getpixel((interior_x, interior_y))[3] == 255
+
+
 def test_process_character_asset_bundle_records_metadata(tmp_path):
     import json
 
@@ -60,7 +91,7 @@ def test_process_character_asset_bundle_records_metadata(tmp_path):
     )
 
     metadata = json.loads(result.metadata_path.read_text(encoding="utf-8"))
-    assert metadata["version"] == 1
+    assert metadata["version"] == 2
     assert metadata["source_path"] == "reference.png"
     assert metadata["cutout_path"] == "cutout.png"
     assert metadata["prompt_fingerprint"] == "prompt-a"
