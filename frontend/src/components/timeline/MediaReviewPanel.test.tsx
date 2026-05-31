@@ -33,12 +33,12 @@ describe("MediaReviewPanel", () => {
         assignments={assignments}
         scenes={{ scene_001: baseScene }}
         onApproved={vi.fn()}
-        onReanalyze={vi.fn()}
       />,
     );
 
     expect(screen.getByText((_, element) => element?.textContent === "1 scenes: 1 Dossier")).toBeInTheDocument();
     expect(screen.getByText("Dossier")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /re-analyze/i })).not.toBeInTheDocument();
     const select = screen.getByRole("combobox");
     expect(within(select).getByRole("option", { name: "Dossier (preserved)" })).toBeInTheDocument();
   });

@@ -110,7 +110,21 @@ export default function MediaSourcesTab({
     visualTreatmentTiming.missingWordTimingCount,
   );
   const scenes = buildScenesMap(content);
-  const visualTreatmentAnalyzeLabel = visualTreatmentAssignments ? "Re-analyze Visual Mode Review" : "Analyze Visual Mode Review";
+  const hasExistingVisualModeReview = Boolean(visualTreatmentAssignments || mediaAssignments || mediaReviewDismissed);
+  const visualTreatmentAnalyzeLabel = hasExistingVisualModeReview ? "Re-analyze Visual Modes" : "Analyze Visual Modes";
+  const handleAnalyzeVisualModeReview = () => {
+    if (canAnalyzeVisualTreatments) {
+      onAnalyzeVisualTreatments();
+    }
+    if (canAnalyzeMedia) {
+      onAnalyzeMedia();
+    }
+  };
+  const canAnalyzeAnyVisualModes =
+    canAnalyzeVisualTreatments || canAnalyzeMedia;
+  const visualModeAnalyzeBlockedReason = canAnalyzeVisualTreatments
+    ? analyzeBlockedReason
+    : visualTreatmentAnalyzeBlockedReason || analyzeBlockedReason;
 
   const visualTreatmentSection = (
     <div className="space-y-3">
@@ -121,12 +135,12 @@ export default function MediaSourcesTab({
         </div>
         <button
           type="button"
-          onClick={onAnalyzeVisualTreatments}
-          disabled={!canAnalyzeVisualTreatments || visualTreatmentAnalyzing}
-          title={!canAnalyzeVisualTreatments ? visualTreatmentAnalyzeBlockedReason : undefined}
+          onClick={handleAnalyzeVisualModeReview}
+          disabled={!canAnalyzeAnyVisualModes || visualTreatmentAnalyzing || mediaAnalyzing}
+          title={!canAnalyzeAnyVisualModes ? visualModeAnalyzeBlockedReason : undefined}
           className="rounded-lg bg-neutral-800 px-4 py-2 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-neutral-800"
         >
-          {visualTreatmentAnalyzing ? "Analyzing..." : visualTreatmentAnalyzeLabel}
+          {visualTreatmentAnalyzing || mediaAnalyzing ? "Analyzing..." : visualTreatmentAnalyzeLabel}
         </button>
       </div>
       {visualTreatmentAssignments ? (
@@ -176,13 +190,10 @@ export default function MediaSourcesTab({
           frameCounts={frameCounts}
           scenes={scenes}
           sceneSegments={sceneSegments}
-          canAnalyze={canAnalyzeMedia}
-          analyzeBlockedReason={analyzeBlockedReason}
           fullHeight
           onBeforeApply={onBeforeAssignmentsApply}
           onSaved={onAssignmentsSaved}
           onApproved={onApproved}
-          onReanalyze={onAnalyzeMedia}
         />
       </div>
     );
@@ -197,14 +208,6 @@ export default function MediaSourcesTab({
             <div className="text-sm text-neutral-400">
               Visual modes have been approved. Assets are generating.
             </div>
-            <button
-              onClick={onAnalyzeMedia}
-              disabled={!canAnalyzeMedia}
-              title={!canAnalyzeMedia ? analyzeBlockedReason : undefined}
-              className="px-4 py-2 text-sm bg-neutral-800 hover:bg-neutral-700 disabled:hover:bg-neutral-800 disabled:opacity-50 rounded-lg transition-colors text-neutral-300"
-            >
-              Re-analyze Visual Modes
-            </button>
           </div>
         </div>
       </div>
@@ -228,14 +231,6 @@ export default function MediaSourcesTab({
                 : "Analyze your script to assign full-frame and video modes per scene."}
             </p>
           </div>
-          <button
-            onClick={onAnalyzeMedia}
-            disabled={!canAnalyzeMedia}
-            title={!canAnalyzeMedia ? analyzeBlockedReason : undefined}
-            className="px-5 py-2 text-sm bg-violet-600 hover:bg-violet-500 disabled:hover:bg-violet-600 disabled:opacity-50 rounded-lg transition-colors text-white font-medium"
-          >
-            Analyze Visual Modes
-          </button>
           {!canAnalyzeMedia && (
             <p className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
               {analyzeBlockedReason}

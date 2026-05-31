@@ -11,12 +11,9 @@ interface Props {
   fullHeight?: boolean;
   scenes?: Record<string, Scene>;
   sceneSegments?: Record<string, string>;
-  canAnalyze?: boolean;
-  analyzeBlockedReason?: string;
   onBeforeApply?: () => Promise<boolean | void> | boolean | void;
   onSaved?: (assignments: MediaAssignment[]) => Promise<void> | void;
   onApproved: () => void;
-  onReanalyze: () => void;
 }
 
 const MODE_LABELS: Record<string, { label: string; color: string }> = {
@@ -34,7 +31,7 @@ const MODE_LABELS: Record<string, { label: string; color: string }> = {
 const modeForAssignment = (assignment: MediaAssignment): VisualMode =>
   assignment.visual_mode ?? "full_frame";
 
-export default function MediaReviewPanel({ scriptId, assignments: initial, frameCounts, fullHeight, scenes, sceneSegments, canAnalyze = true, analyzeBlockedReason, onBeforeApply, onSaved, onApproved, onReanalyze }: Props) {
+export default function MediaReviewPanel({ scriptId, assignments: initial, frameCounts, fullHeight, scenes, sceneSegments, onBeforeApply, onSaved, onApproved }: Props) {
   const [assignments, setAssignments] = useState<MediaAssignment[]>(initial);
   const [saving, setSaving] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -118,14 +115,6 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={onReanalyze}
-            disabled={!canAnalyze}
-            title={!canAnalyze ? analyzeBlockedReason : undefined}
-            className="px-3 py-1.5 text-xs bg-neutral-800 hover:bg-neutral-700 disabled:hover:bg-neutral-800 disabled:opacity-50 rounded-lg transition-colors text-neutral-300"
-          >
-            Re-analyze
-          </button>
           <button
             onClick={handleSave}
             disabled={saving || applying}
