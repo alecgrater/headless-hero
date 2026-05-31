@@ -244,10 +244,10 @@ export default function ApiKeysSection({ showHeader = true }: ApiKeysSectionProp
         <div className="text-neutral-500 text-sm">Loading...</div>
       ) : (
         SERVICE_GROUPS.map((group) => (
-          <section key={group.title} className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-4">
+          <section key={group.title} className="space-y-3">
             <div>
               <h3 className="text-sm font-semibold text-neutral-100">{group.title}</h3>
-              <p className="text-xs text-neutral-500">{group.description}</p>
+              <p className="text-xs leading-relaxed text-neutral-500">{group.description}</p>
             </div>
             <div className="space-y-4">
             {group.services.map((svc) => {

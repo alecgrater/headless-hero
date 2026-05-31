@@ -116,20 +116,19 @@ export default function PublishingSection({ showHeader = true }: PublishingSecti
       </div>
       )}
 
-      <div className="grid gap-4">
+      <div className="grid gap-8">
         {PLATFORMS.map((platform) => {
           const conn = connections?.[platform.key];
           const connecting = connectingPlatform === platform.key;
           return (
             <section
               key={platform.key}
-              className="rounded-xl border border-neutral-800 bg-neutral-900 p-5 space-y-4"
+              className="space-y-3"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
                   <h3 className="text-sm font-semibold text-neutral-100">{platform.name}</h3>
-                  <p className="text-sm text-neutral-400">{platform.description}</p>
-                  <p className="text-xs text-neutral-500">{platform.requirements}</p>
+                  <p className="text-xs leading-relaxed text-neutral-500">{platform.description}</p>
                 </div>
                 {conn?.connected ? (
                   <span className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-400">
@@ -144,36 +143,40 @@ export default function PublishingSection({ showHeader = true }: PublishingSecti
                 )}
               </div>
 
-              {platform.warning && (
-                <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-                  {platform.warning}
-                </div>
-              )}
+              <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-5 space-y-4">
+                <p className="text-xs leading-relaxed text-neutral-500">{platform.requirements}</p>
 
-              <div className="flex items-center gap-3">
-                {conn?.connected ? (
-                  <button
-                    onClick={() => handleDisconnect(platform.key)}
-                    className="text-sm text-red-400 hover:text-red-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded-md"
-                  >
-                    Disconnect
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleConnect(platform.key)}
-                    disabled={connectingPlatform !== null}
-                    className={`px-4 py-2 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${platform.color}`}
-                  >
-                    {connecting ? (
-                      <>
-                        <span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
-                        Connecting...
-                      </>
-                    ) : (
-                      `Connect ${platform.name}`
-                    )}
-                  </button>
+                {platform.warning && (
+                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                    {platform.warning}
+                  </div>
                 )}
+
+                <div className="flex items-center gap-3">
+                  {conn?.connected ? (
+                    <button
+                      onClick={() => handleDisconnect(platform.key)}
+                      className="text-sm text-red-400 hover:text-red-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded-md"
+                    >
+                      Disconnect
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleConnect(platform.key)}
+                      disabled={connectingPlatform !== null}
+                      className={`px-4 py-2 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${platform.color}`}
+                    >
+                      {connecting ? (
+                        <>
+                          <span className="w-3.5 h-3.5 border-2 border-white/50 border-t-transparent rounded-full animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        `Connect ${platform.name}`
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
             </section>
           );

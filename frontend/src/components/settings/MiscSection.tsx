@@ -56,7 +56,13 @@ function SettingsRow({
   risky?: boolean;
 }) {
   return (
-    <div className={`p-5 ${risky ? "bg-amber-500/[0.03]" : ""}`}>
+    <div
+      className={`rounded-xl border p-5 ${
+        risky
+          ? "border-amber-500/20 bg-amber-500/[0.03]"
+          : "border-neutral-800 bg-neutral-900"
+      }`}
+    >
       <div className="flex items-start justify-between gap-5">
         <div className="space-y-1">
           <h3 className="text-sm font-medium text-neutral-100">{title}</h3>
@@ -153,28 +159,26 @@ export default function MiscSection({ showHeader = true }: MiscSectionProps) {
       <section className="space-y-3">
         <div>
           <h3 className="text-sm font-semibold text-neutral-100">Workflow</h3>
-          <p className="text-xs text-neutral-500">Controls that change ideation and script-prep flow.</p>
+          <p className="text-xs leading-relaxed text-neutral-500">Controls that change ideation and script-prep flow.</p>
         </div>
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl divide-y divide-neutral-800">
-          <SettingsRow
-            title="Hook Refinement"
-            description="After you pick from the three scored cold opens, rewrite the selected hook before using it."
-          >
-            <SettingsSwitch
-              checked={hookRefinementEnabled === "true"}
-              label="Toggle hook refinement"
-              onChange={() => setHookRefinementEnabled(hookRefinementEnabled === "true" ? "false" : "true")}
-            />
-          </SettingsRow>
-        </div>
+        <SettingsRow
+          title="Hook Refinement"
+          description="After you pick from the three scored cold opens, rewrite the selected hook before using it."
+        >
+          <SettingsSwitch
+            checked={hookRefinementEnabled === "true"}
+            label="Toggle hook refinement"
+            onChange={() => setHookRefinementEnabled(hookRefinementEnabled === "true" ? "false" : "true")}
+          />
+        </SettingsRow>
       </section>
 
       <section className="space-y-3">
         <div>
           <h3 className="text-sm font-semibold text-neutral-100">Rendering</h3>
-          <p className="text-xs text-neutral-500">Controls that affect export UI and generation pacing.</p>
+          <p className="text-xs leading-relaxed text-neutral-500">Controls that affect export UI and generation pacing.</p>
         </div>
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl divide-y divide-neutral-800">
+        <div className="space-y-3">
           <SettingsRow
             title="1.25x Render Button"
             description='Shows or hides the "Render YouTube Video (1.25x Speed)" button in the Export window. The regular render button always stays visible.'
@@ -201,27 +205,25 @@ export default function MiscSection({ showHeader = true }: MiscSectionProps) {
       <section className="space-y-3">
         <div>
           <h3 className="text-sm font-semibold text-neutral-100">Image Generation Safety</h3>
-          <p className="text-xs text-neutral-500">Riskier fallback behavior for rough drafts only.</p>
+          <p className="text-xs leading-relaxed text-neutral-500">Riskier fallback behavior for rough drafts only.</p>
         </div>
-        <div className="bg-neutral-900 border border-amber-500/20 rounded-xl divide-y divide-neutral-800">
-          <SettingsRow
-            title="Scraped Web Image Fallback"
-            description="Off by default. When Gemini fails after its normal retries, Headless Hero creates a placeholder image. Turning this on allows Google Images scraping as a last resort, which can break visual style and may pull images with unclear rights."
-            risky
-          >
-            <SettingsSwitch
-              checked={scraperFallbackEnabled === "true"}
-              label="Toggle scraped web image fallback"
-              warning
-              onChange={() => setScraperFallbackEnabled(scraperFallbackEnabled === "true" ? "false" : "true")}
-            />
-          </SettingsRow>
-          {scraperFallbackEnabled === "true" && (
-            <div className="px-5 pb-5 text-xs text-amber-300 leading-relaxed">
-              Scraped fallback images are labeled in scene properties with provider, query, reason, and a rights-verification note.
-            </div>
-          )}
-        </div>
+        <SettingsRow
+          title="Scraped Web Image Fallback"
+          description="Off by default. When Gemini fails after its normal retries, Headless Hero creates a placeholder image. Turning this on allows Google Images scraping as a last resort, which can break visual style and may pull images with unclear rights."
+          risky
+        >
+          <SettingsSwitch
+            checked={scraperFallbackEnabled === "true"}
+            label="Toggle scraped web image fallback"
+            warning
+            onChange={() => setScraperFallbackEnabled(scraperFallbackEnabled === "true" ? "false" : "true")}
+          />
+        </SettingsRow>
+        {scraperFallbackEnabled === "true" && (
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-5 py-3 text-xs leading-relaxed text-amber-300">
+            Scraped fallback images are labeled in scene properties with provider, query, reason, and a rights-verification note.
+          </div>
+        )}
       </section>
 
       {hasChanges && (
