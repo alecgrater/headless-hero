@@ -28,6 +28,19 @@ const MODE_LABELS: Record<string, { label: string; color: string }> = {
   stat_card: { label: "Stat card", color: "bg-orange-500/20 text-orange-300" },
   dossier: { label: "Dossier", color: "bg-lime-500/20 text-lime-300" },
 };
+const VISUAL_MODE_OPTIONS: VisualMode[] = [
+  "full_frame",
+  "multi_frame",
+  "continuous",
+  "video",
+  "popup_sequence",
+  "flipflop",
+  "comparison_board",
+  "captions",
+  "stat_card",
+  "dossier",
+];
+
 const modeForAssignment = (assignment: MediaAssignment): VisualMode =>
   assignment.visual_mode ?? "full_frame";
 
@@ -156,11 +169,11 @@ export default function MediaReviewPanel({ scriptId, assignments: initial, frame
                   onChange={(e) => handleModeChange(a.scene_id, e.target.value as VisualMode)}
                   className="w-full bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs text-neutral-200"
                 >
-                  <option value="full_frame">Full frame</option>
-                  <option value="video">Video</option>
-                  {mode !== "full_frame" && mode !== "video" && (
-                    <option value={mode}>{sourceInfo.label} (preserved)</option>
-                  )}
+                  {VISUAL_MODE_OPTIONS.map((optionMode) => (
+                    <option key={optionMode} value={optionMode}>
+                      {MODE_LABELS[optionMode].label}
+                    </option>
+                  ))}
                 </select>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className={`px-2 py-0.5 rounded text-xs font-medium shrink-0 ${sourceInfo.color}`}>

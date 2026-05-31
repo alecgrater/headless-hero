@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { MediaAssignment } from "../../api";
@@ -16,7 +16,7 @@ const baseScene: Scene = {
 };
 
 describe("MediaReviewPanel", () => {
-  it("displays preserved specialized modes intentionally", () => {
+  it("offers every visual mode as a scene override", () => {
     const assignments: MediaAssignment[] = [
       {
         scene_id: "scene_001",
@@ -37,9 +37,47 @@ describe("MediaReviewPanel", () => {
     );
 
     expect(screen.getByText((_, element) => element?.textContent === "1 scenes: 1 Dossier")).toBeInTheDocument();
-    expect(screen.getByText("Dossier")).toBeInTheDocument();
+    expect(screen.getAllByText("Dossier").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /re-analyze/i })).not.toBeInTheDocument();
     const select = screen.getByRole("combobox");
-    expect(within(select).getByRole("option", { name: "Dossier (preserved)" })).toBeInTheDocument();
+    const expectedModes = [
+      "Full frame",
+      "Multi-frame",
+      "Continuous",
+      "Video",
+      "Popup sequence",
+      "Flipflop",
+      "Comparison board",
+      "Captions",
+      "Stat card",
+      "Dossier",
+    ];
+    expect(within(select).getAllByRole("option").map((option) => option.textContent)).toEqual(expectedModes);
+  });
+
+  it("applies an arbitrary visual mode override", () => {
+    const assignments: MediaAssignment[] = [
+      {
+        scene_id: "scene_001",
+        visual_mode: "full_frame",
+        game_name: null,
+        search_query: null,
+        reasoning: "Normal scene.",
+      },
+    ];
+
+    render(
+      <MediaReviewPanel
+        scriptId="script-1"
+        assignments={assignments}
+        scenes={{ scene_001: { ...baseScene, visual_mode: "full_frame" } }}
+        onApproved={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "dossier" } });
+
+    expect(screen.getByRole("combobox")).toHaveValue("dossier");
+    expect(screen.getAllByText("Dossier").length).toBeGreaterThan(0);
   });
 });
