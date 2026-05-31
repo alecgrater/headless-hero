@@ -249,11 +249,13 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
 
       {panel === "voice" && (
       <div className="space-y-8">
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-neutral-100">Default Voice</h3>
-        <p className="text-sm text-neutral-400">
-          Select the ElevenLabs voice used for voiceover generation.
-        </p>
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-neutral-100">Default Voice</h3>
+          <p className="text-xs leading-relaxed text-neutral-500">
+            Select the ElevenLabs voice used for voiceover generation.
+          </p>
+        </div>
         <label className="sr-only" htmlFor="default-voice">
           Default Voice
         </label>
@@ -274,12 +276,12 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
         <p className="text-xs text-neutral-500">
           Recommended: Headless Hero Narrator for the main channel voice. Liam is a stronger shorts-style fallback; Adam is a friendlier backup.
         </p>
-      </div>
+      </section>
 
-      <div className="space-y-4">
+      <section className="space-y-4">
         <div>
-          <h3 className="text-lg font-semibold text-neutral-100">ElevenLabs Delivery</h3>
-          <p className="text-sm text-neutral-400 mt-1">
+          <h3 className="text-sm font-semibold text-neutral-100">ElevenLabs Delivery</h3>
+          <p className="mt-1 text-xs leading-relaxed text-neutral-500">
             Controls the model, pacing, and hidden TTS-only instructions used for newly generated AI voiceover.
           </p>
         </div>
@@ -460,17 +462,19 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
             Applies to newly generated or regenerated voiceover.
           </p>
         </div>
-      </div>
+      </section>
 
       </div>
       )}
 
       {panel === "audio" && (
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-neutral-100">Audio Processing</h3>
-        <p className="text-sm text-neutral-400">
-          Filters applied during recording export. Does not affect AI-generated voiceovers.
-        </p>
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-neutral-100">Audio Processing</h3>
+          <p className="text-xs leading-relaxed text-neutral-500">
+            Filters applied during recording export. Does not affect AI-generated voiceovers.
+          </p>
+        </div>
         <div className="space-y-2">
           {([
             { key: "AUDIO_FILTER_HIGHPASS" as const, label: "Low-cut filter", desc: "Removes rumble below 80 Hz" },
@@ -503,7 +507,7 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
             </label>
           ))}
         </div>
-      </div>
+      </section>
       )}
     </div>
   );

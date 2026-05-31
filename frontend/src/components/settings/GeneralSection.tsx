@@ -626,10 +626,10 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
       ) : (
         <div className="space-y-6">
           {panel === "storage" && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-2">
+          <section className="space-y-3">
             <div>
-              <h3 className="text-sm font-medium text-neutral-100">Exports</h3>
-              <p className="text-xs text-neutral-500">
+              <h3 className="text-sm font-semibold text-neutral-100">Exports</h3>
+              <p className="text-xs leading-relaxed text-neutral-500">
                 Final project folders, upload-suite checks, rendered videos, thumbnails, and SEO files live here.
               </p>
             </div>
@@ -654,16 +654,16 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
                 </button>
               )}
             </div>
-          </div>
+          </section>
           )}
 
           {panel === "ai-models" && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl divide-y divide-neutral-800">
-            <div className="p-5 space-y-4">
+          <div className="space-y-8">
+            <section className="space-y-3">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="text-sm font-medium text-neutral-100">Current Routing</h3>
-                  <p className="text-xs text-neutral-500">
+                  <h3 className="text-sm font-semibold text-neutral-100">Current Routing</h3>
+                  <p className="text-xs leading-relaxed text-neutral-500">
                     Quick view of which model providers handle the main generation jobs.
                   </p>
                 </div>
@@ -694,12 +694,12 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
                   {missingKeyWarnings().join(" · ")}. Add missing credentials in Setup → API Keys.
                 </div>
               )}
-            </div>
+            </section>
 
-            <div className="p-5 space-y-2">
+            <section className="space-y-3">
               <div>
-                <h3 className="text-sm font-medium text-neutral-100">Default LLM Provider</h3>
-                <p className="text-xs text-neutral-500">
+                <h3 className="text-sm font-semibold text-neutral-100">Default LLM Provider</h3>
+                <p className="text-xs leading-relaxed text-neutral-500">
                   The fallback route for any LLM task that does not override its provider below.
                 </p>
               </div>
@@ -739,17 +739,17 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
                   />
                 </div>
               )}
-            </div>
+            </section>
 
-            <div className="p-5 space-y-4">
+            <section className="space-y-4">
               <button
                 type="button"
                 onClick={() => setAdvancedRoutingOpen((value) => !value)}
                 className="flex w-full items-center justify-between gap-4 text-left transition-colors hover:text-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded-lg"
               >
                 <div>
-                  <h3 className="text-sm font-medium text-neutral-100">Advanced routing</h3>
-                  <p className="text-xs text-neutral-500">
+                  <h3 className="text-sm font-semibold text-neutral-100">Advanced routing</h3>
+                  <p className="text-xs leading-relaxed text-neutral-500">
                     Configure provider, model, and OpenAI reasoning per task.
                   </p>
                 </div>
@@ -893,17 +893,17 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
                 })}
               </div>
               )}
-            </div>
+            </section>
 
           </div>
           )}
 
           {panel === "visuals" && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-xl divide-y divide-neutral-800">
-            <div className="p-5 space-y-2">
+          <div className="space-y-8">
+            <section className="space-y-3">
               <div>
-                <h3 className="text-sm font-medium text-neutral-100">Image Provider</h3>
-                <p className="text-xs text-neutral-500">
+                <h3 className="text-sm font-semibold text-neutral-100">Image Provider</h3>
+                <p className="text-xs leading-relaxed text-neutral-500">
                   Choose which AI service generates scene images and thumbnails.
                 </p>
               </div>
@@ -918,13 +918,13 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
                   </option>
                 ))}
               </select>
-            </div>
+            </section>
 
-            <div className="p-5 space-y-4">
+            <section className="space-y-4">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-sm font-medium text-neutral-100">AI Video</h3>
-                  <p className="text-xs text-neutral-500">
+                  <h3 className="text-sm font-semibold text-neutral-100">AI Video</h3>
+                  <p className="text-xs leading-relaxed text-neutral-500">
                     Route selected high-motion scenes to an image-to-video provider.
                   </p>
                 </div>
@@ -983,13 +983,13 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
                   Cached clips are reused only when the provider, model, dimensions, duration, and anchor image all match. Use 0 scenes per segment to keep AI video available but skip automatic routing.
                 </p>
               )}
-            </div>
+            </section>
 
-            <div className="p-5 space-y-4">
+            <section className="space-y-4">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-sm font-medium text-neutral-100">Scene Structure</h3>
-                  <p className="text-xs text-neutral-500">
+                  <h3 className="text-sm font-semibold text-neutral-100">Scene Structure</h3>
+                  <p className="text-xs leading-relaxed text-neutral-500">
                     Split long life-as-a narration into short single-beat scenes before voiceover.
                   </p>
                 </div>
@@ -1055,7 +1055,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
               <p className="text-xs text-neutral-500">
                 Default policy: life-as-a AI-video candidates must be at or below {lifeAsASingleVisualMaxSeconds || "8"} seconds. Image scenes can keep multiple frames when the generated beat uses them; longer life-as-a scenes are split.
               </p>
-            </div>
+            </section>
 
           </div>
           )}

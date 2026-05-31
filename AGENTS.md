@@ -102,6 +102,7 @@ docs/              → PRD, setup guide, superpowers skills
 - Dark theme: `bg-neutral-950/900`, `text-neutral-100/400`
 - Accent colors: `violet-*`, `sky-*`, `emerald-*`
 - Always include `hover:` + `transition-colors` for interactive elements
+- Settings panels use the Subtitles page structure: keep section titles/descriptions unboxed above the controls, use `text-sm font-semibold` headings with `text-xs` helper text, and reserve bordered boxes/cards for actual selectable controls, inputs, grouped rows, or repeated items.
 
 ### Frontend State & Formatting
 - No external state library — `useState()` at page level, pass down via props
