@@ -563,6 +563,7 @@ def generate_script(
             segment_scenes_instructions=fmt.segment_scenes_prompt.template,
             eli_enabled=eli_enabled,
             cold_open_text=cold_open_text if fmt.supports_cold_open else None,
+            level_label=fmt.level_label,
         )
     else:
         logger.info(
@@ -679,27 +680,37 @@ def _generate_segment_scenes(
     trailing_context: str = "",
     script_id: str | None = None,
     segment_scenes_instructions: str = _SEGMENT_SCENES_INSTRUCTIONS,
+    level_label: str = "segment",
 ) -> list[Scene]:
-    """Phase 2: Generate scenes for a single segment."""
+    """Phase 2: Generate scenes for a single format section."""
     segment = outline["segments"][segment_index]
-    seg_name = segment.get("name", f"Segment {segment_index + 1}")
+    section_label = level_label.strip() or "segment"
+    section_title = section_label.title()
+    section_upper = section_label.upper()
+    seg_name = segment.get("name", f"{section_title} {segment_index + 1}")
     total = len(outline["segments"])
 
     t0 = time.monotonic()
     logger.info(
-        "SEGMENTED: Phase 2 — generating scenes for segment %d/%d: %r (model=%s)",
-        segment_index + 1, total, seg_name, model,
+        "SEGMENTED: Phase 2 — generating scenes for %s %d/%d: %r (model=%s)",
+        section_label, segment_index + 1, total, seg_name, model,
     )
 
     # Build the per-segment user message with full outline context
     outline_json = json.dumps(outline, indent=2)
+    metadata_lines = [
+        f"WRITE SCENES FOR {section_upper} {segment_index + 1}/{total}: \"{seg_name}\"",
+        f"Topic summary: {segment.get('topic_summary', '')}",
+    ]
+    if segment.get("circle_color"):
+        metadata_lines.append(f"Circle color: {segment.get('circle_color')}")
+    if segment.get("title_card_image_prompt"):
+        metadata_lines.append(f"Title card image prompt: {segment.get('title_card_image_prompt')}")
+
     user_msg = (
-        f"FULL SCRIPT OUTLINE (for context — do NOT write scenes for other segments):\n"
+        f"FULL SCRIPT OUTLINE (for context — do NOT write scenes for other {section_label}s):\n"
         f"```json\n{outline_json}\n```\n\n"
-        f"WRITE SCENES FOR SEGMENT {segment_index + 1}/{total}: \"{seg_name}\"\n"
-        f"Topic summary: {segment.get('topic_summary', '')}\n"
-        f"Circle color: {segment.get('circle_color', DEFAULT_ACCENT_COLOR)}\n"
-        f"Title card image prompt: {segment.get('title_card_image_prompt', '')}\n\n"
+        f"{chr(10).join(metadata_lines)}\n\n"
         f"{trailing_context}"
         f"{segment_scenes_instructions}"
     )
@@ -784,6 +795,7 @@ def _generate_segmented(
     segment_scenes_instructions: str = _SEGMENT_SCENES_INSTRUCTIONS,
     eli_enabled: bool = True,
     cold_open_text: str | None = None,
+    level_label: str = "segment",
 ) -> ScriptContent:
     """Orchestrate two-phase segmented script generation."""
     total_t0 = time.monotonic()
@@ -807,7 +819,9 @@ def _generate_segmented(
     trailing_context = ""
 
     for i, seg_outline in enumerate(outline["segments"]):
-        seg_name = seg_outline.get("name", f"Segment {i + 1}")
+        section_label = level_label.strip() or "segment"
+        section_title = section_label.title()
+        seg_name = seg_outline.get("name", f"{section_title} {i + 1}")
         if progress_callback:
             progress_callback(i + 1, len(outline["segments"]), seg_name)
         try:
@@ -828,6 +842,7 @@ def _generate_segmented(
                 first_level_opening + trailing_context,
                 script_id=script_id,
                 segment_scenes_instructions=segment_scenes_instructions,
+                level_label=section_label,
             )
         except Exception as e:
             seg_name = seg_outline.get("name", f"Segment {i + 1}")
@@ -853,10 +868,10 @@ def _generate_segmented(
                     beat = s.visual_beat or "static"
                     trail_parts.append(f"{beat} / [{shot}]")
             trailing_context = (
-                "CROSS-SEGMENT CONTINUITY — the previous segment ended with these scenes "
+                f"CROSS-{section_label.upper()} CONTINUITY — the previous {section_label} ended with these scenes "
                 f"(most recent last): {', '.join(trail_parts)}. "
-                "Vary the opening beat and shot types of THIS segment to avoid monotony "
-                "across the segment boundary.\n\n"
+                f"Vary the opening beat and shot types of THIS {section_label} to avoid monotony "
+                f"across the {section_label} boundary.\n\n"
             )
 
         # Re-number scene IDs globally
@@ -865,7 +880,7 @@ def _generate_segmented(
             global_scene_id += 1
 
         segments.append(Segment(
-            name=seg_outline.get("name", f"Segment {i + 1}"),
+            name=seg_outline.get("name", f"{section_title} {i + 1}"),
             short_name=seg_outline.get("short_name", ""),
             scenes=scenes,
             circle_color=seg_outline.get("circle_color", DEFAULT_ACCENT_COLOR),

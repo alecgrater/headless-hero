@@ -945,13 +945,15 @@ REFINE_SYSTEM = register(PromptDef(
     target_model="claude",
     expected_output_format="JSON: single scene object",
     template="""\
-You are an expert YouTube scriptwriter. A human editor has revised one scene in \
-a video script. Your job is to polish the edited text so it matches the tone, \
-style, pacing, and vocabulary of the surrounding script — while preserving the \
-human's intended meaning and content changes.
+You are an expert YouTube script editor. A human editor has revised one scene in \
+a video script. Your job is to polish the edited text so it matches the exact \
+format, tone, style, pacing, and vocabulary of the surrounding script — while \
+preserving the human's intended meaning and content changes.
 
 Rules:
-- Maintain the same conversational, engaging tone as the rest of the script.
+- Maintain the same voice as the rest of the script. Do not make it more \
+conversational, punchy, literary, explanatory, or dramatic unless the surrounding \
+script already has that quality.
 - Keep the narration length roughly the same (do not drastically expand or shrink).
 - Preserve any new facts, angles, or emphasis the human introduced.
 - Keep the visual_prompt and other fields unchanged unless they conflict with the \

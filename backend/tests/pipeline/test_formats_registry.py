@@ -235,6 +235,10 @@ def test_segmented_life_as_a_passes_selected_opening_to_first_level(monkeypatch)
 
     assert selected_opening in captured_segment_messages[0]
     assert selected_opening not in captured_segment_messages[1]
+    assert "WRITE SCENES FOR LEVEL 1/2" in captured_segment_messages[0]
+    assert "Circle color:" not in captured_segment_messages[0]
+    assert "Title card image prompt:" not in captured_segment_messages[0]
+    assert "CROSS-LEVEL CONTINUITY" in captured_segment_messages[1]
     assert content.hook_scene_count == 2
 
 

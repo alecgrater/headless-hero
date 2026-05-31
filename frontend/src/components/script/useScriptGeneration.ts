@@ -6,18 +6,6 @@ import { usePollJob } from "../../hooks/usePollJob";
 import type { VideoIdea } from "../../types/idea";
 import type { ColdOpenResult, ColdOpenVariant, RefinedHookResult, ScriptContent } from "../../types/script";
 
-// Mirrors backend config.ALLOWED_SEGMENT_COUNTS — keep in sync
-const ALLOWED_SEGMENT_COUNTS = [8, 10] as const;
-
-/** Snap an arbitrary segment count to the nearest allowed value (8 or 10). */
-function snapSegmentCount(n: number): 8 | 10 {
-  let best: 8 | 10 = ALLOWED_SEGMENT_COUNTS[0];
-  for (const c of ALLOWED_SEGMENT_COUNTS) {
-    if (Math.abs(c - n) < Math.abs(best - n)) best = c;
-  }
-  return best;
-}
-
 interface Params {
   brandId: string;
   idea: VideoIdea;
@@ -292,8 +280,6 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
           description: idea.description,
           brand_id: brandId,
           format_id: idea.format_id ?? "youtube-listicle",
-          segment_count:
-            idea.segments_est > 0 ? snapSegmentCount(idea.segments_est) : undefined,
           animated_scene_count: 5,
           model: selectedModel !== DEFAULT_MODEL ? selectedModel : undefined,
           segmented,
@@ -424,8 +410,6 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
         description: idea.description,
         brand_id: brandId,
         format_id: idea.format_id ?? "youtube-listicle",
-        segment_count:
-          idea.segments_est > 0 ? snapSegmentCount(idea.segments_est) : undefined,
         animated_scene_count: 5,
         model: selectedModel !== DEFAULT_MODEL ? selectedModel : undefined,
         segmented,

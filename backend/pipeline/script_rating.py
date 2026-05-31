@@ -7,6 +7,7 @@ from typing import Any
 from config import parse_json_response
 from integrations.llm_client import _resolve_model, _resolve_provider, chat
 from models.script import ScriptContent, ScriptRating, ScriptRatingCategory, ScriptRatingCriterion
+from pipeline.formats import resolve_format
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ CATEGORY_SPECS: dict[str, dict[str, Any]] = {
 SYSTEM_PROMPT = """\
 You are a rigorous YouTube script analyst working in a fresh session with no \
 memory of how this script was generated. Judge the script against the standard \
-of top-performing educational YouTube channels, not against average uploads.
+of top-performing videos in its declared format, not against average uploads.
 
 Score every criterion from 1 to 10, where 10 means publish-ready for a strong \
 channel and 5 means ordinary but meaningfully flawed. Be honest and do not \
@@ -96,6 +97,41 @@ Use this exact shape:
   }
 }
 """
+
+FORMAT_RATING_ADDENDA: dict[str, str] = {
+    "youtube-listicle": """\
+
+Format context: `youtube-listicle`.
+Reward high-retention educational/listicle craft: strong payoff promises, open loops,
+clean standalone segments, concrete examples, efficient pacing, and satisfying
+micro-payoffs. Penalize generic facts, weak segment tension, recap/CTA narration,
+and flat list progression.
+""",
+    "life-as-a": """\
+
+Format context: `life-as-a`.
+This is not a listicle. Reward second-person present-tense immersion, literary
+observational voice, concrete sensory anchors, time progression markers, recurring
+named characters, callbacks with shifted meaning, gradual level transitions, and a
+specific earned closing image. Do not penalize the script for avoiding staccato
+explainer cadence, punchline mic-drops, explicit cliffhangers, or list-style
+standalone topic resolution when the level still closes cleanly on its own moment.
+Penalize any drift into greetings, listicle cadence, announced level changes,
+abstraction without lived detail, or moralized wrap-up.
+""",
+}
+
+
+def _rating_system_prompt(content: ScriptContent) -> str:
+    fmt = resolve_format(content.format_id)
+    return SYSTEM_PROMPT + FORMAT_RATING_ADDENDA.get(
+        fmt.id,
+        (
+            f"\n\nFormat context: `{fmt.id}` ({fmt.display_name}). Judge the script "
+            "against this format's declared structure and notes, while still applying "
+            "the JSON rubric exactly.\n"
+        ),
+    )
 
 
 def _round_score(value: float) -> float:
@@ -178,7 +214,7 @@ def rate_script(content: ScriptContent, *, script_id: str | None = None) -> Scri
     logger.info("[%s] Rating script %r with %s/%s", script_id or "no-id", content.title, provider, model)
 
     raw = chat(
-        SYSTEM_PROMPT,
+        _rating_system_prompt(content),
         _script_payload(content),
         max_tokens=4096,
         timeout=300.0,

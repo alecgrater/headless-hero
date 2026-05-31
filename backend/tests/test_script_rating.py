@@ -134,3 +134,24 @@ def test_script_rating_task_defaults_to_gpt_5_mini(monkeypatch):
     assert _resolve_provider("script_rating") == "openai"
     assert _resolve_model("openai", "script_rating", None) == "gpt-5-mini"
     assert _resolve_openai_reasoning_effort("script_rating") == "minimal"
+
+
+def test_life_as_a_rating_prompt_uses_format_specific_rubric(monkeypatch):
+    from pipeline import script_rating
+
+    captured = {}
+
+    def fake_chat(system: str, user: str, **kwargs):
+        captured["system"] = system
+        captured["user"] = user
+        return json.dumps(_rating_payload())
+
+    content = _content().model_copy(update={"format_id": "life-as-a"})
+    monkeypatch.setattr(script_rating, "chat", fake_chat)
+
+    rating = script_rating.rate_script(content, script_id="script-123")
+
+    assert rating.overall == 7.3
+    assert "Format context: `life-as-a`" in captured["system"]
+    assert "This is not a listicle" in captured["system"]
+    assert "second-person present-tense immersion" in captured["system"]
