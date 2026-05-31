@@ -8,6 +8,7 @@ data/projects/{script_id}/character/reference.png.
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import shutil
 import uuid
@@ -18,7 +19,7 @@ from config import DATA_DIR, IMAGE_HEIGHT, IMAGE_WIDTH
 from integrations.google_image_client import generate_image
 from models.script import MainCharacter
 from models.style_preset_character import StylePresetCharacter, StylePresetCharacterResponse
-from pipeline.character_assets import process_character_asset_bundle
+from pipeline.character_assets import PROCESSOR_VERSION, process_character_asset_bundle
 from prompts import IMAGE_VISUAL_STYLE
 
 logger = logging.getLogger(__name__)
@@ -122,12 +123,49 @@ def _files_differ(left: Path, right: Path) -> bool:
     return _file_sha256(left) != _file_sha256(right)
 
 
+def _cutout_metadata_is_current(metadata_path: Path) -> bool:
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    version = metadata.get("version")
+    return isinstance(version, int) and version >= PROCESSOR_VERSION
+
+
+def _cutout_needs_processing(cutout_path: Path, metadata_path: Path) -> bool:
+    return not cutout_path.exists() or not _cutout_metadata_is_current(metadata_path)
+
+
+def _ensure_current_character_cutout(
+    *,
+    reference_path: Path,
+    cutout_path: Path,
+    metadata_path: Path,
+    prompt_fingerprint: str = "",
+) -> bool:
+    if not _cutout_needs_processing(cutout_path, metadata_path):
+        return False
+    process_character_asset_bundle(
+        source_path=reference_path,
+        output_dir=reference_path.parent,
+        reference_filename=reference_path.name,
+        cutout_filename=cutout_path.name,
+        metadata_filename=metadata_path.name,
+        prompt_fingerprint=prompt_fingerprint,
+    )
+    return True
+
+
 def style_preset_character_path(preset_id: str, character_id: str) -> Path:
     return DATA_DIR / "style" / "presets" / preset_id / "characters" / f"{character_id}.png"
 
 
 def style_preset_character_cutout_path(preset_id: str, character_id: str) -> Path:
     return DATA_DIR / "style" / "presets" / preset_id / "characters" / f"{character_id}.cutout.png"
+
+
+def style_preset_character_metadata_path(preset_id: str, character_id: str) -> Path:
+    return DATA_DIR / "style" / "presets" / preset_id / "characters" / f"{character_id}.metadata.json"
 
 
 def style_preset_character_web_path(preset_id: str, character_id: str) -> str:
@@ -280,18 +318,18 @@ def select_character_reference_variant(*, script_id: str, idx: int) -> str:
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(variant_path, target)
     variant_cutout = _reference_variant_cutout_path(script_id, idx)
+    variant_metadata = variant_path.parent / f"{idx}.metadata.json"
     target_cutout = character_cutout_path(script_id)
-    if variant_cutout.exists():
-        shutil.copy2(variant_cutout, target_cutout)
-    else:
-        process_character_asset_bundle(
-            source_path=target,
-            output_dir=target.parent,
-            reference_filename=target.name,
-            cutout_filename=target_cutout.name,
-            metadata_filename="metadata.json",
-            prompt_fingerprint="",
-        )
+    _ensure_current_character_cutout(
+        reference_path=variant_path,
+        cutout_path=variant_cutout,
+        metadata_path=variant_metadata,
+    )
+    _ensure_current_character_cutout(
+        reference_path=target,
+        cutout_path=target_cutout,
+        metadata_path=target.parent / "metadata.json",
+    )
     character_reference_active_marker(script_id).write_text(str(idx), encoding="utf-8")
     return character_reference_web_path(script_id)
 
@@ -306,18 +344,18 @@ def select_global_character_reference_variant(*, idx: int) -> str:
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(variant_path, target)
     variant_cutout = _global_reference_variant_cutout_path(idx)
+    variant_metadata = variant_path.parent / f"{idx}.metadata.json"
     target_cutout = global_character_cutout_path()
-    if variant_cutout.exists():
-        shutil.copy2(variant_cutout, target_cutout)
-    else:
-        process_character_asset_bundle(
-            source_path=target,
-            output_dir=target.parent,
-            reference_filename=target.name,
-            cutout_filename=target_cutout.name,
-            metadata_filename="metadata.json",
-            prompt_fingerprint="",
-        )
+    _ensure_current_character_cutout(
+        reference_path=variant_path,
+        cutout_path=variant_cutout,
+        metadata_path=variant_metadata,
+    )
+    _ensure_current_character_cutout(
+        reference_path=target,
+        cutout_path=target_cutout,
+        metadata_path=target.parent / "metadata.json",
+    )
     global_character_reference_active_marker().write_text(str(idx), encoding="utf-8")
     return global_character_reference_web_path()
 
@@ -644,23 +682,20 @@ def sync_global_main_character_to_project(session, script_id: str) -> bool:
     if reference_missing or cfg.main_character_reference_url != character_reference_web_path(script_id):
         changed = True
     target_cutout = character_cutout_path(script_id)
-    cutout_missing = not target_cutout.exists()
     source_cutout = style_preset_character_cutout_path(preset_id, active_character_id)
-    if source_cutout.exists():
-        shutil.copy2(source_cutout, target_cutout)
-        if cutout_missing:
-            changed = True
-    else:
-        process_character_asset_bundle(
-            source_path=target,
-            output_dir=target.parent,
-            reference_filename=target.name,
-            cutout_filename=target_cutout.name,
-            metadata_filename="metadata.json",
-            prompt_fingerprint="",
-        )
-        if cutout_missing:
-            changed = True
+    source_metadata = style_preset_character_metadata_path(preset_id, active_character_id)
+    if _ensure_current_character_cutout(
+        reference_path=source_ref,
+        cutout_path=source_cutout,
+        metadata_path=source_metadata,
+    ):
+        changed = True
+    if _ensure_current_character_cutout(
+        reference_path=target,
+        cutout_path=target_cutout,
+        metadata_path=target.parent / "metadata.json",
+    ):
+        changed = True
     cfg.main_character_reference_url = character_reference_web_path(script_id)
     session.add(cfg)
     return changed

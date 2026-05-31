@@ -69,6 +69,25 @@ def _write_chroma_character(path):
     image.save(path)
 
 
+def _write_character_with_enclosed_background_detail(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    background = (238, 236, 232)
+    image = Image.new("RGB", (160, 160), background)
+    pixels = image.load()
+    for y in range(40, 121):
+        for x in range(40, 121):
+            pixels[x, y] = (12, 12, 12) if x in (40, 120) or y in (40, 120) else (245, 181, 132)
+    pixels[80, 80] = background
+    image.save(path)
+
+
+def _write_corrupted_cutout_with_transparent_detail(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    image = Image.new("RGBA", (120, 120), (245, 181, 132, 255))
+    image.putpixel((60, 60), (238, 236, 232, 0))
+    image.save(path)
+
+
 def test_create_character_scopes_it_to_the_requested_preset(
     client,
     style_character_engine,
@@ -279,9 +298,7 @@ def test_sync_active_preset_character_to_project(
     character_id = "char-a"
     source_ref = tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{character_id}.png"
     source_cutout = tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{character_id}.cutout.png"
-    source_ref.parent.mkdir(parents=True, exist_ok=True)
-    source_ref.write_bytes(b"preset-character")
-    source_cutout.write_bytes(b"preset-character-cutout")
+    _write_chroma_character(source_ref)
 
     with Session(style_character_engine) as session:
         session.add(
@@ -325,8 +342,9 @@ def test_sync_active_preset_character_to_project(
 
     project_ref = tmp_path / "projects" / "script-a" / "character" / "reference.png"
     project_cutout = tmp_path / "projects" / "script-a" / "character" / "cutout.png"
-    assert project_ref.read_bytes() == b"preset-character"
-    assert project_cutout.read_bytes() == b"preset-character-cutout"
+    assert project_ref.read_bytes() == source_ref.read_bytes()
+    assert source_cutout.exists()
+    assert project_cutout.exists()
     assert cfg.main_character_reference_url == "/static/projects/script-a/character/reference.png"
     content = ScriptContent.model_validate_json(script.script_json)
     assert content.main_character is not None
@@ -395,6 +413,78 @@ def test_sync_active_preset_character_repairs_missing_project_cutout(
         assert image.width < 120
 
 
+def test_sync_active_preset_character_reprocesses_stale_cutouts(
+    style_character_engine,
+    tmp_path,
+    monkeypatch,
+):
+    import json
+
+    from models.project_config import ProjectConfig
+    from models.script import Script, ScriptContent
+    from models.settings import AppSetting
+    from models.style_preset_character import StylePresetCharacter
+    from pipeline import main_character
+    from pipeline.character_assets import PROCESSOR_VERSION
+
+    monkeypatch.setattr(main_character, "DATA_DIR", tmp_path)
+    _insert_preset(style_character_engine, tmp_path, "preset-a", "Preset A")
+
+    character_id = "char-a"
+    source_ref = tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{character_id}.png"
+    source_cutout = tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{character_id}.cutout.png"
+    source_metadata = tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{character_id}.metadata.json"
+    _write_character_with_enclosed_background_detail(source_ref)
+    _write_corrupted_cutout_with_transparent_detail(source_cutout)
+    source_metadata.write_text(json.dumps({"version": 1}), encoding="utf-8")
+
+    with Session(style_character_engine) as session:
+        session.add(
+            StylePresetCharacter(
+                id=character_id,
+                style_preset_id="preset-a",
+                name="Mara",
+                appearance="short black hair",
+                vibe="calm",
+                reference_image_url=f"/static/style/presets/preset-a/characters/{character_id}.png",
+                cutout_image_url=f"/static/style/presets/preset-a/characters/{character_id}.cutout.png",
+                created_at=datetime.now(timezone.utc),
+            )
+        )
+        session.add(AppSetting(key="ACTIVE_STYLE_PRESET_ID", value="preset-a"))
+        session.add(
+            AppSetting(
+                key=main_character.active_style_preset_character_key("preset-a"),
+                value=character_id,
+            )
+        )
+        session.add(
+            Script(
+                id="script-a",
+                brand_id="default",
+                topic_title="Test",
+                topic_description="",
+                script_json=ScriptContent(title="Test", segments=[]).model_dump_json(),
+            )
+        )
+        session.add(ProjectConfig(script_id="script-a", eli_enabled=False))
+        session.commit()
+
+    with Session(style_character_engine) as session:
+        changed = main_character.sync_global_main_character_to_project(session, "script-a")
+        session.commit()
+
+    project_cutout = tmp_path / "projects" / "script-a" / "character" / "cutout.png"
+    project_metadata = tmp_path / "projects" / "script-a" / "character" / "metadata.json"
+    assert changed is True
+    assert json.loads(source_metadata.read_text(encoding="utf-8"))["version"] == PROCESSOR_VERSION
+    assert json.loads(project_metadata.read_text(encoding="utf-8"))["version"] == PROCESSOR_VERSION
+    with Image.open(source_cutout) as image:
+        assert image.getpixel((80 - 16, 80 - 16))[3] == 255
+    with Image.open(project_cutout) as image:
+        assert image.getpixel((80 - 16, 80 - 16))[3] == 255
+
+
 def test_sync_active_preset_character_change_clears_project_variants(
     style_character_engine,
     tmp_path,
@@ -412,9 +502,7 @@ def test_sync_active_preset_character_change_clears_project_variants(
     character_id = "char-new"
     source_ref = tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{character_id}.png"
     source_cutout = tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{character_id}.cutout.png"
-    source_ref.parent.mkdir(parents=True, exist_ok=True)
-    source_ref.write_bytes(b"new-preset-reference")
-    source_cutout.write_bytes(b"new-preset-cutout")
+    _write_chroma_character(source_ref)
 
     project_character_dir = tmp_path / "projects" / "script-a" / "character"
     project_variants_dir = project_character_dir / "references"
@@ -475,13 +563,13 @@ def test_sync_active_preset_character_change_clears_project_variants(
     project_ref = project_character_dir / "reference.png"
     project_cutout = project_character_dir / "cutout.png"
     assert changed is True
-    assert project_ref.read_bytes() == b"new-preset-reference"
-    assert project_cutout.read_bytes() == b"new-preset-cutout"
+    assert project_ref.read_bytes() == source_ref.read_bytes()
+    assert project_cutout.exists()
     assert not project_variants_dir.exists()
     assert not (project_character_dir / "active_reference.txt").exists()
-    assert not (project_character_dir / "metadata.json").exists()
-    assert source_ref.read_bytes() == b"new-preset-reference"
-    assert source_cutout.read_bytes() == b"new-preset-cutout"
+    assert (project_character_dir / "metadata.json").exists()
+    assert source_ref.exists()
+    assert source_cutout.exists()
 
 
 def test_sync_active_preset_character_asset_change_clears_project_variants(
@@ -509,11 +597,8 @@ def test_sync_active_preset_character_asset_change_clears_project_variants(
     old_cutout = tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{old_character_id}.cutout.png"
     new_ref = tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{new_character_id}.png"
     new_cutout = tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{new_character_id}.cutout.png"
-    old_ref.parent.mkdir(parents=True, exist_ok=True)
-    old_ref.write_bytes(b"old-preset-reference")
-    old_cutout.write_bytes(b"old-preset-cutout")
-    new_ref.write_bytes(b"new-preset-reference")
-    new_cutout.write_bytes(b"new-preset-cutout")
+    _write_chroma_character(old_ref)
+    _write_chroma_character(new_ref)
 
     project_character_dir = tmp_path / "projects" / "script-a" / "character"
     project_variants_dir = project_character_dir / "references"
@@ -582,15 +667,15 @@ def test_sync_active_preset_character_asset_change_clears_project_variants(
         session.commit()
 
     assert changed is True
-    assert (project_character_dir / "reference.png").read_bytes() == b"new-preset-reference"
-    assert (project_character_dir / "cutout.png").read_bytes() == b"new-preset-cutout"
+    assert (project_character_dir / "reference.png").read_bytes() == new_ref.read_bytes()
+    assert (project_character_dir / "cutout.png").exists()
     assert not project_variants_dir.exists()
     assert not (project_character_dir / "active_reference.txt").exists()
     assert not prompt_marker.exists()
-    assert old_ref.read_bytes() == b"old-preset-reference"
-    assert old_cutout.read_bytes() == b"old-preset-cutout"
-    assert new_ref.read_bytes() == b"new-preset-reference"
-    assert new_cutout.read_bytes() == b"new-preset-cutout"
+    assert old_ref.exists()
+    assert not old_cutout.exists()
+    assert new_ref.exists()
+    assert new_cutout.exists()
 
 
 def test_sync_active_preset_character_to_project_skips_when_style_preset_disabled(

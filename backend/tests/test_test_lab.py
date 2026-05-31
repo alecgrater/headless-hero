@@ -1448,7 +1448,9 @@ def test_stage_character_reference_uses_active_preset_character(monkeypatch, tmp
     project_ref = tmp_path / "projects" / script_id / "character" / "reference.png"
     project_cutout = tmp_path / "projects" / script_id / "character" / "cutout.png"
     assert project_ref.read_bytes() == character_ref.read_bytes()
-    assert project_cutout.read_bytes() == b"preset-main-character-cutout"
+    assert project_cutout.exists()
+    with Image.open(project_cutout) as cutout:
+        assert cutout.mode == "RGBA"
     assert ctx.manifest.assets[-1].url == f"/static/projects/{script_id}/character/reference.png"
 
 
