@@ -6,9 +6,6 @@ interface Props {
   assignments: VisualTreatmentAssignment[];
   scenes: Record<string, Scene>;
   onApply: (assignments: VisualTreatmentAssignment[]) => void;
-  onReanalyze: () => void;
-  canAnalyze: boolean;
-  analyzeBlockedReason?: string;
 }
 
 const MODE_LABELS: Record<VisualMode, { label: string; blurb: string }> = {
@@ -65,9 +62,6 @@ export default function VisualTreatmentReviewPanel({
   assignments,
   scenes,
   onApply,
-  onReanalyze,
-  canAnalyze,
-  analyzeBlockedReason,
 }: Props) {
   const [draft, setDraft] = useState<VisualTreatmentAssignment[]>(assignments);
   const summary = useMemo(() => {
@@ -125,15 +119,6 @@ export default function VisualTreatmentReviewPanel({
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={onReanalyze}
-              disabled={!canAnalyze}
-              title={!canAnalyze ? analyzeBlockedReason : undefined}
-              className="rounded-lg bg-neutral-800 px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-neutral-800"
-            >
-              Re-analyze
-            </button>
             <button
               type="button"
               onClick={() => onApply(draft)}

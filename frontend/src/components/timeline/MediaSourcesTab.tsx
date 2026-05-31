@@ -110,46 +110,36 @@ export default function MediaSourcesTab({
     visualTreatmentTiming.missingWordTimingCount,
   );
   const scenes = buildScenesMap(content);
+  const visualTreatmentAnalyzeLabel = visualTreatmentAssignments ? "Re-analyze Visual Mode Review" : "Analyze Visual Mode Review";
 
   const visualTreatmentSection = (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-neutral-100">Layered Visual Modes</h3>
-          <p className="text-xs text-neutral-500">Find popup and flip-flop candidates inside the unified visual mode system.</p>
+          <h3 className="text-sm font-semibold text-neutral-100">Visual Mode Review</h3>
+          <p className="text-xs text-neutral-500">Reassess scene visual modes inside the unified visual mode system.</p>
         </div>
-        {visualTreatmentAnalyzing && (
-          <div className="flex items-center gap-2 text-xs text-neutral-400">
-            <span className="h-4 w-4 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
-            Analyzing layered modes...
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={onAnalyzeVisualTreatments}
+          disabled={!canAnalyzeVisualTreatments || visualTreatmentAnalyzing}
+          title={!canAnalyzeVisualTreatments ? visualTreatmentAnalyzeBlockedReason : undefined}
+          className="rounded-lg bg-neutral-800 px-4 py-2 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-neutral-800"
+        >
+          {visualTreatmentAnalyzing ? "Analyzing..." : visualTreatmentAnalyzeLabel}
+        </button>
       </div>
       {visualTreatmentAssignments ? (
         <VisualTreatmentReviewPanel
           assignments={visualTreatmentAssignments}
           scenes={scenes}
-          canAnalyze={canAnalyzeVisualTreatments}
-          analyzeBlockedReason={visualTreatmentAnalyzeBlockedReason}
           onApply={onApplyVisualTreatments}
-          onReanalyze={onAnalyzeVisualTreatments}
         />
       ) : (
         <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="max-w-2xl text-xs leading-5 text-neutral-400">
-              Analyze scenes for popup and flip-flop opportunities after voiceover timing exists.
-            </p>
-            <button
-              type="button"
-              onClick={onAnalyzeVisualTreatments}
-              disabled={!canAnalyzeVisualTreatments || visualTreatmentAnalyzing}
-              title={!canAnalyzeVisualTreatments ? visualTreatmentAnalyzeBlockedReason : undefined}
-              className="rounded-lg bg-neutral-800 px-4 py-2 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-neutral-800"
-            >
-              {visualTreatmentAnalyzing ? "Analyzing..." : "Analyze Layered Modes"}
-            </button>
-          </div>
+          <p className="max-w-2xl text-xs leading-5 text-neutral-400">
+            Analyze scenes after voiceover timing exists to populate the review with route, variety, and layered-asset decisions.
+          </p>
           {!canAnalyzeVisualTreatments && (
             <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
               {visualTreatmentAnalyzeBlockedReason}

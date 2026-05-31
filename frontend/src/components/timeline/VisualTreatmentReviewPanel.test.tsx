@@ -41,9 +41,7 @@ describe("VisualTreatmentReviewPanel", () => {
       <VisualTreatmentReviewPanel
         assignments={assignments}
         scenes={scenes}
-        canAnalyze
         onApply={vi.fn()}
-        onReanalyze={vi.fn()}
       />,
     );
 
@@ -73,9 +71,7 @@ describe("VisualTreatmentReviewPanel", () => {
             video_url: "/static/projects/script-1/video/scene_001.mp4",
           },
         }}
-        canAnalyze
         onApply={vi.fn()}
-        onReanalyze={vi.fn()}
       />,
     );
 
@@ -90,9 +86,7 @@ describe("VisualTreatmentReviewPanel", () => {
       <VisualTreatmentReviewPanel
         assignments={assignments}
         scenes={scenes}
-        canAnalyze
         onApply={vi.fn()}
-        onReanalyze={vi.fn()}
       />,
     );
 
@@ -100,5 +94,18 @@ describe("VisualTreatmentReviewPanel", () => {
 
     expect(select).not.toBeDisabled();
     expect(within(select).getByRole("option", { name: "Captions" })).toBeInTheDocument();
+  });
+
+  it("does not render its own analyze button", () => {
+    render(
+      <VisualTreatmentReviewPanel
+        assignments={assignments}
+        scenes={scenes}
+        onApply={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /analyze/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply" })).toBeInTheDocument();
   });
 });
