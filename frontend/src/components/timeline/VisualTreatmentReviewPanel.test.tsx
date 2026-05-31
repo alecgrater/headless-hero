@@ -85,25 +85,11 @@ describe("VisualTreatmentReviewPanel", () => {
     expect(within(select).getByRole("option", { name: "Video" })).toBeDisabled();
   });
 
-  it("shows existing captions assignments as read-only instead of falling back to a manual option", () => {
+  it("offers captions as a manual visual-mode choice", () => {
     render(
       <VisualTreatmentReviewPanel
-        assignments={[
-          {
-            scene_id: "scene_001",
-            visual_mode: "captions",
-            reasoning: "Caption punch.",
-            visual_layers: [],
-          },
-        ]}
-        scenes={{
-          scene_001: {
-            ...scenes.scene_001,
-            visual_mode: "captions",
-            caption_text: "The real cost",
-            caption_emphasis: "cost",
-          },
-        }}
+        assignments={assignments}
+        scenes={scenes}
         canAnalyze
         onApply={vi.fn()}
         onReanalyze={vi.fn()}
@@ -112,7 +98,7 @@ describe("VisualTreatmentReviewPanel", () => {
 
     const select = screen.getByRole("combobox");
 
-    expect(select).toBeDisabled();
-    expect(within(select).getByRole("option", { name: "Captions" })).toBeDisabled();
+    expect(select).not.toBeDisabled();
+    expect(within(select).getByRole("option", { name: "Captions" })).toBeInTheDocument();
   });
 });

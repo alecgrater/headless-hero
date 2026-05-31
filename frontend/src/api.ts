@@ -924,6 +924,10 @@ export interface VisualTreatmentAssignment {
   visual_mode: VisualMode;
   reasoning: string;
   visual_layers: VisualLayer[];
+  caption_text?: string;
+  caption_emphasis?: string;
+  stat_value?: string;
+  stat_label?: string;
 }
 
 export interface VisualTreatmentStatus {

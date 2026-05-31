@@ -183,9 +183,12 @@ VISUAL MODE VOCABULARY:
 - "dossier" — When narration investigates a person, event, or mystery and references evidence, clues, files, suspects, conspiracies, alliances, connections, or timelines. The renderer paints a corkboard/case-file surface, sticky-note labels, pushpins, tape, and red-string connections; only generate clean transparent subject/evidence cutout intent. Set "dossier_layout" to "anchor" for a single primary subject with evidence pinned around it (true crime, missing persons, single-suspect investigation), or "network" for multiple peer suspects/orgs/alliances/conspirators connected to each other. Provide 3–6 "visual_layers" (in anchor layout the first layer is the anchor; the rest are evidence). Each layer needs a short "label" (1–3 words or a date/case-number, e.g. "SUSPECT", "WEAPON", "1989-04-12"). Optionally set "dossier_title" on the scene (a short case-id or banner string, e.g. "CASE #1989-04"). Layer prompts must NOT describe pins, tape, photo frames, evidence tags, sticky notes, paperclips, red string, corkboard, manila folders, captions, badges, or any readable text — those are renderer-owned. Cap at MAX 2 per video, never back-to-back, never adjacent to "comparison_board" or "popup_sequence".
 
 BEST-FIT ROUTING RULES:
-1. Choose the single best visual mode for each scene based on the narration and visual intent. Do not choose a mode to satisfy a quota, create a forced mix, or avoid repetition for its own sake.
+1. Choose the single best visual mode for each scene based on the narration and visual intent. Do not choose a mode to satisfy a quota.
 2. full_frame remains the fallback/default when no specialized mode clearly improves the scene. Several full_frame scenes in a row are fine when each is the natural best fit.
-3. Specialized modes should appear only when the scene has clear affordances:
+3. Other than full_frame, never place visual modes back to back. If the previous non-title scene is non-full-frame, choose full_frame for the next scene unless the scene would break without its specialized mode.
+4. Prioritize variety among full_frame, multi_frame, continuous, and flipflop when they fit the scene.
+5. Select comparison_board, stat_card, dossier, popup_sequence, video, and captions only when they clearly improve the scene.
+6. Specialized modes should appear only when the scene has clear affordances:
    - continuous: one coherent process, physical progression, or time passage in the same space/subject.
    - multi_frame: multiple distinct examples, beats, or fast context shifts.
    - popup_sequence: concrete items, tools, documents, symptoms, objects, or ingredients around an anchor subject.
@@ -194,10 +197,9 @@ BEST-FIT ROUTING RULES:
    - captions: one renderer-owned editorial text beat, not standard subtitles.
    - stat_card: one decisive number.
    - dossier: an investigative/evidence/network beat.
-4. Keep quality spacing only for visually heavy modes: avoid back-to-back stat_card scenes, back-to-back dossier scenes, and adjacent dossier/comparison_board/popup_sequence scenes unless the alternative would clearly make the scene less accurate.
-5. Text/chrome-heavy modes must earn their place. Never use captions, stat_card, dossier, comparison_board, or popup_sequence merely for variety.
-6. continuous is reserved for genuine same-scene progression — NOT the default for multiple images.
-7. Vary transitions within multi_frame scenes when useful — mostly "cut" but occasional "crossfade".
+7. Text/chrome-heavy modes must earn their place. Never use captions, stat_card, dossier, comparison_board, popup_sequence, or video merely for variety.
+8. continuous is reserved for genuine same-scene progression — NOT the default for multiple images.
+9. Vary transitions within multi_frame scenes when useful — mostly "cut" but occasional "crossfade".
 
 ### Frame Directives Format
 Each scene MUST have "visual_mode", "visual_beat", and "frame_directives" (list of objects). Set "visual_beat" to the same value as "visual_mode" except use "static" when "visual_mode" is "full_frame".
@@ -698,6 +700,8 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 
 ### Visual modes (best-fit)
 - Choose the single best visual mode for each scene. There is no quota and no required mix. `full_frame` remains the fallback/default when no specialized mode clearly improves the scene.
+- Other than `full_frame`, never place visual modes back to back. If the previous non-title scene is non-full-frame, choose `full_frame` for the next scene unless the scene would break without its specialized mode.
+- Prioritize variety among `full_frame`, `multi_frame`, `continuous`, and `flipflop` when they fit the scene.
 - `full_frame`: one strong lived moment, room, object, character beat, atmosphere, or metaphor.
 - `continuous`: one coherent process, time-passage moment, or same-space progression.
 - `multi_frame`: multiple distinct memories, repeated routines, examples, sensory beats, or fast context shifts.
@@ -707,7 +711,8 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 - `captions`: a renderer-owned editorial text beat for a short realization or label. Do not use it as ordinary subtitles.
 - `stat_card`: one decisive number that matters more than the room or atmosphere.
 - `dossier`: an investigative, evidence, clue, file, suspect, connection, or network beat.
-- Do not force variety. Several `full_frame` scenes in a row are fine when each one is the honest best fit. Avoid back-to-back stat_card scenes, back-to-back dossier scenes, and adjacent dossier/comparison_board/popup_sequence scenes unless the scene would become less accurate without it.
+- Select `comparison_board`, `stat_card`, `dossier`, `popup_sequence`, `video`, and `captions` only when they clearly improve the scene.
+- Do not force heavy modes for variety. Several `full_frame` scenes in a row are fine when each one is the honest best fit.
 - For compatibility, set `visual_beat` to the same value as `visual_mode` except use `"static"` when `visual_mode` is `"full_frame"`.
 - Every `visual_prompt` MUST begin with `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, or `[METAPHOR]`. `[DIAGRAM]` and `[SCALE]` are de-prioritized for this format.
 - Visual prompts must NEVER request text, letters, words, labels, or written characters in the image.

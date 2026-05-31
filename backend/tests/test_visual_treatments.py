@@ -2602,3 +2602,70 @@ def test_apply_visual_treatment_assignment_dossier_detects_network_layout():
     # over the default "anchor" inherited from Scene.
     assert scene.visual_mode == "dossier"
     assert scene.dossier_layout == "network"
+
+
+def test_analyze_visual_treatments_prevents_adjacent_non_full_frame_modes():
+    first = scene_with_words("s1", "First the badge, second the receipt, third the timer.")
+    second = scene_with_words("s2", "Before the lunch rush, after the dinner rush.")
+    third = scene_with_words("s3", "His hands open and close around the register drawer while he talks.")
+    content = content_with_scenes(first, second, third)
+
+    assignments = analyze_visual_treatments(content, script_id="spacing-script")
+
+    assert [assignment.visual_mode for assignment in assignments] == [
+        "popup_sequence",
+        "full_frame",
+        "flipflop",
+    ]
+    assert "Separated from adjacent" in assignments[1].reasoning
+
+
+def test_analyze_visual_treatments_can_infer_caption_stat_and_dossier_modes():
+    caption = scene_with_words("s1", "That is the real cost.")
+    stat = scene_with_words("s2", "By year three, 85% of your patience is gone.")
+    dossier = scene_with_words("s3", "The case file has clues, witnesses, and a sealed report.")
+    content = content_with_scenes(caption, stat, dossier)
+
+    assignments = analyze_visual_treatments(content, script_id="clear-improvement-script")
+
+    assert assignments[0].visual_mode == "captions"
+    assert assignments[0].caption_text == "That is the real cost"
+    assert assignments[0].caption_emphasis == "cost"
+
+    assert assignments[1].visual_mode == "full_frame"
+    assert "Separated from adjacent" in assignments[1].reasoning
+
+    assert assignments[2].visual_mode == "dossier"
+    assert len(assignments[2].visual_layers) >= 2
+    assert {layer.label for layer in assignments[2].visual_layers} >= {"CLUES", "WITNESSES"}
+
+
+def test_apply_visual_treatment_assignment_sets_caption_and_stat_fields():
+    caption = scene_with_words("s1", "That is the real cost.")
+    stat = scene_with_words("s2", "By year three, 85% of your patience is gone.")
+    content = content_with_scenes(caption, stat)
+
+    apply_visual_treatment_assignments(
+        content,
+        [
+            VisualTreatmentAssignment(
+                scene_id="s1",
+                visual_mode="captions",
+                caption_text="The real cost",
+                caption_emphasis="cost",
+            ),
+            VisualTreatmentAssignment(
+                scene_id="s2",
+                visual_mode="stat_card",
+                stat_value="85%",
+                stat_label="of your patience is gone",
+            ),
+        ],
+    )
+
+    assert caption.visual_mode == "captions"
+    assert caption.caption_text == "The real cost"
+    assert caption.caption_emphasis == "cost"
+    assert stat.visual_mode == "stat_card"
+    assert stat.stat_value == "85%"
+    assert stat.stat_label == "of your patience is gone"

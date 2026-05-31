@@ -54,7 +54,7 @@ const MODE_LABELS: Record<VisualMode, { label: string; blurb: string }> = {
   },
 };
 
-const MODE_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop", "comparison_board", "stat_card", "dossier"];
+const MODE_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "flipflop", "captions", "popup_sequence", "comparison_board", "stat_card", "dossier"];
 const modeForAssignment = (assignment: VisualTreatmentAssignment): VisualMode =>
   assignment.visual_mode ?? "full_frame";
 const isManualMode = (mode: VisualMode) => MODE_OPTIONS.includes(mode);
@@ -178,9 +178,7 @@ export default function VisualTreatmentReviewPanel({
                   title={
                     mode === "video"
                       ? "AI video mode is assigned by video routing."
-                      : mode === "captions"
-                        ? "Captions mode is assigned by script generation."
-                        : !hasLayers
+                      : !hasLayers
                           ? "Re-analyze to generate layers before choosing popup sequence, flipflop, or comparison board."
                           : undefined
                   }
@@ -199,8 +197,6 @@ export default function VisualTreatmentReviewPanel({
                 </select>
                 {mode === "video" ? (
                   <p className="mt-1 text-xs text-neutral-500">AI video is assigned by routing.</p>
-                ) : mode === "captions" ? (
-                  <p className="mt-1 text-xs text-neutral-500">Captions are assigned by script generation.</p>
                 ) : hasLayers ? (
                   <p className="mt-1 text-xs text-neutral-500">
                     {assignment.visual_layers.length} layer{assignment.visual_layers.length === 1 ? "" : "s"}
