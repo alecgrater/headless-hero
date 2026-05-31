@@ -172,7 +172,7 @@ describe("VisualTreatmentReviewPanel", () => {
 
     expect(screen.getByLabelText("Full frame scenes")).toHaveTextContent("1");
     expect(screen.getByLabelText("Full frame scenes")).toHaveClass("border-blue-300/70");
-    expect(screen.getByLabelText("Full frame scenes")).toHaveClass("bg-blue-600");
+    expect(screen.getByLabelText("Full frame scenes")).toHaveClass("bg-blue-700");
     expect(screen.getByLabelText("Full frame scenes")).toHaveClass("text-yellow-300");
     expect(screen.getByLabelText("Flipflop scenes")).toHaveTextContent("2");
     expect(screen.getByLabelText("Captions scenes")).toHaveTextContent("0");
