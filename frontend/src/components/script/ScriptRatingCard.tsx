@@ -88,38 +88,43 @@ function CategoryRow({
   color: string;
   criteria: { key: string; label: string }[];
 }) {
+  const sortedCriteria = criteria
+    .map(({ key, label: criterionLabel }) => ({
+      key,
+      label: criterionLabel,
+      score: category.criteria[key]?.score,
+    }))
+    .filter((item) => item.score != null);
+
   return (
-    <div className="space-y-2 rounded-lg border border-neutral-800 bg-neutral-950/50 p-3">
-      <div className="flex items-center justify-between gap-3">
+    <div className="space-y-3 rounded-lg border border-neutral-800 bg-neutral-950/50 p-4">
+      <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className={`h-2 w-2 rounded-full ${color}`} />
-            <h4 className="truncate text-sm font-medium text-neutral-200">{label}</h4>
+            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${color}`} />
+            <h4 className="text-base font-semibold leading-snug text-neutral-100">{label}</h4>
           </div>
-          <p className="mt-0.5 text-[11px] text-neutral-600">Weight {weight}</p>
+          <p className="mt-1 text-xs text-neutral-500">Weight {weight}</p>
         </div>
-        <span className={`text-lg font-semibold tabular-nums ${scoreColor(category.average)}`}>
+        <span className={`text-2xl font-bold tabular-nums leading-none ${scoreColor(category.average)}`}>
           {category.average.toFixed(1)}
         </span>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
-        {criteria.map(({ key, label: criterionLabel }) => {
-          const score = category.criteria[key]?.score;
-          if (score == null) return null;
-          return (
-            <span
-              key={key}
-              className="rounded border border-neutral-800 bg-neutral-900 px-1.5 py-0.5 text-[11px] text-neutral-400"
-            >
-              {criterionLabel}: <span className="font-medium text-neutral-200">{score}</span>
-            </span>
-          );
-        })}
+      <div className="grid grid-cols-2 gap-2">
+        {sortedCriteria.map(({ key, label: criterionLabel, score }) => (
+          <div
+            key={key}
+            className="flex items-center justify-between gap-2 rounded-md border border-neutral-800 bg-neutral-900/80 px-2.5 py-1.5 text-xs"
+          >
+            <span className="truncate text-neutral-400">{criterionLabel}</span>
+            <span className="font-semibold tabular-nums text-neutral-100">{score}</span>
+          </div>
+        ))}
       </div>
 
       {category.explanation && (
-        <p className="text-xs leading-5 text-neutral-500">{category.explanation}</p>
+        <p className="text-sm leading-6 text-neutral-300">{category.explanation}</p>
       )}
     </div>
   );
@@ -129,25 +134,25 @@ export default function ScriptRatingCard({ rating }: Props) {
   if (!rating) return null;
 
   return (
-    <div className="rounded-lg border border-neutral-800 bg-neutral-900 px-5 py-4">
-      <div className="mb-4 flex items-start justify-between gap-4">
+    <div className="rounded-lg border border-neutral-800 bg-neutral-900 px-5 py-5">
+      <div className="mb-5 flex items-start justify-between gap-4">
         <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-200">
+          <h3 className="text-base font-semibold text-neutral-100">
             Script Rating
           </h3>
-          <p className="mt-1 text-xs text-neutral-500">
+          <p className="mt-1 text-sm text-neutral-400">
             Full-script score against top educational YouTube standards.
           </p>
         </div>
         <div className="text-right">
-          <span className={`block text-3xl font-bold tabular-nums ${scoreColor(rating.overall)}`}>
+          <span className={`block text-4xl font-bold tabular-nums leading-none ${scoreColor(rating.overall)}`}>
             {rating.overall.toFixed(1)}
           </span>
-          <span className="text-xs text-neutral-600">/ 10</span>
+          <span className="mt-1 block text-sm text-neutral-500">/ 10</span>
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {CATEGORIES.map((item) => (
           <CategoryRow
             key={item.key}

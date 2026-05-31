@@ -71,11 +71,19 @@ function scoreBadgeClass(score: number, scale: "hook" | "script") {
   return "bg-red-500/20 text-red-300";
 }
 
-function ScriptRatingBadge({ score }: { score: number }) {
+function ScriptRatingBadge({ score, prominent = false }: { score: number; prominent?: boolean }) {
   return (
     <Tooltip content="Full-script quality rating against top educational YouTube standards">
-      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${scoreBadgeClass(score, "script")}`}>
-        Script {score.toFixed(1)}
+      <span
+        aria-label={`Script rating ${score.toFixed(1)} out of 10`}
+        className={`inline-flex items-baseline gap-1 rounded-md border border-current/15 tabular-nums ${scoreBadgeClass(score, "script")} ${
+          prominent
+            ? "px-2.5 py-1 text-sm font-semibold"
+            : "px-1.5 py-0.5 text-[10px] font-medium"
+        }`}
+      >
+        <span className="text-[0.7em] uppercase tracking-wide opacity-80">Script</span>
+        <span>{score.toFixed(1)}</span>
       </span>
     </Tooltip>
   );
@@ -516,7 +524,7 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject, isActive =
                   </div>
 
                   {/* Card body */}
-                  <div className="p-4 pb-3 space-y-1.5 relative">
+                  <div className="p-4 pb-3 space-y-2 relative">
                     {/* Overflow menu trigger */}
                     <div className="absolute top-3 right-3 z-10">
                       <button
@@ -558,9 +566,14 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject, isActive =
                         </div>
                       )}
                     </div>
-                    <h3 className="font-semibold text-neutral-100 line-clamp-2 pr-8 group-hover:text-violet-300 transition-colors leading-snug">
-                      {project.topic_title || "Untitled"}
-                    </h3>
+                    <div className="flex items-start justify-between gap-3 pr-8">
+                      <h3 className="font-semibold text-neutral-100 line-clamp-2 group-hover:text-violet-300 transition-colors leading-snug">
+                        {project.topic_title || "Untitled"}
+                      </h3>
+                      {project.script_rating_overall != null && (
+                        <ScriptRatingBadge score={project.script_rating_overall} prominent />
+                      )}
+                    </div>
                     <p className="text-sm text-neutral-500 truncate">
                       {project.topic_description || "No description"}
                     </p>
@@ -569,9 +582,6 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject, isActive =
                         <span>{project.segment_count} segments &middot; {project.scene_count} scenes</span>
                         {project.hook_score_overall != null && (
                           <HookRatingBadge score={project.hook_score_overall} />
-                        )}
-                        {project.script_rating_overall != null && (
-                          <ScriptRatingBadge score={project.script_rating_overall} />
                         )}
                       </span>
                       <span className="flex items-center gap-1.5">
@@ -597,10 +607,11 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject, isActive =
           {/* Project rows */}
           {filteredProjects.length > 0 && viewMode === "rows" && (
             <div className="overflow-x-auto rounded-xl border border-neutral-800 bg-neutral-900/40">
-              <div className="min-w-[900px] grid grid-cols-[112px_minmax(0,1fr)_150px_120px_110px_96px_40px] gap-4 px-4 py-2.5 text-[11px] font-medium uppercase tracking-wide text-neutral-500 border-b border-neutral-800">
+              <div className="min-w-[980px] grid grid-cols-[112px_minmax(0,1fr)_150px_96px_120px_110px_96px_40px] gap-4 px-4 py-2.5 text-[11px] font-medium uppercase tracking-wide text-neutral-500 border-b border-neutral-800">
                 <span>Preview</span>
                 <span>Project</span>
                 <span>Project Type</span>
+                <span>Rating</span>
                 <span>Structure</span>
                 <span>Published</span>
                 <span>Created</span>
@@ -614,7 +625,7 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject, isActive =
                     tabIndex={0}
                     onClick={() => onOpenProject(project.id)}
                     onKeyDown={(e) => { if (e.key === "Enter") onOpenProject(project.id); }}
-                    className="group min-w-[900px] grid grid-cols-[112px_minmax(0,1fr)_150px_120px_110px_96px_40px] gap-4 px-4 py-3 items-center bg-neutral-900/20 hover:bg-neutral-800/60 transition-colors cursor-pointer"
+                    className="group min-w-[980px] grid grid-cols-[112px_minmax(0,1fr)_150px_96px_120px_110px_96px_40px] gap-4 px-4 py-3 items-center bg-neutral-900/20 hover:bg-neutral-800/60 transition-colors cursor-pointer"
                   >
                     <ProjectThumbnail project={project} compact />
                     <div className="min-w-0">
@@ -632,8 +643,10 @@ export default function ProjectDashboard({ onNewVideo, onOpenProject, isActive =
                       {project.hook_score_overall != null && (
                         <HookRatingBadge score={project.hook_score_overall} />
                       )}
+                    </div>
+                    <div className="flex items-center">
                       {project.script_rating_overall != null && (
-                        <ScriptRatingBadge score={project.script_rating_overall} />
+                        <ScriptRatingBadge score={project.script_rating_overall} prominent />
                       )}
                     </div>
                     <div className="text-sm text-neutral-400">
