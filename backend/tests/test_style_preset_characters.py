@@ -436,7 +436,16 @@ def test_sync_active_preset_character_reprocesses_stale_cutouts(
     source_metadata = tmp_path / "style" / "presets" / "preset-a" / "characters" / f"{character_id}.metadata.json"
     _write_character_with_enclosed_background_detail(source_ref)
     _write_corrupted_cutout_with_transparent_detail(source_cutout)
-    source_metadata.write_text(json.dumps({"version": 1}), encoding="utf-8")
+    source_metadata.write_text(
+        json.dumps(
+            {
+                "version": PROCESSOR_VERSION,
+                "source_sha256": "old-reference-hash",
+                "cutout_sha256": "old-cutout-hash",
+            }
+        ),
+        encoding="utf-8",
+    )
 
     with Session(style_character_engine) as session:
         session.add(

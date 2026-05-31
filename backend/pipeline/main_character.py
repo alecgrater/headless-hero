@@ -123,17 +123,40 @@ def _files_differ(left: Path, right: Path) -> bool:
     return _file_sha256(left) != _file_sha256(right)
 
 
-def _cutout_metadata_is_current(metadata_path: Path) -> bool:
+def _cutout_metadata_is_current(
+    *,
+    reference_path: Path,
+    cutout_path: Path,
+    metadata_path: Path,
+) -> bool:
     try:
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return False
     version = metadata.get("version")
-    return isinstance(version, int) and version >= PROCESSOR_VERSION
+    if not isinstance(version, int) or version < PROCESSOR_VERSION:
+        return False
+    source_sha256 = metadata.get("source_sha256")
+    cutout_sha256 = metadata.get("cutout_sha256")
+    if not isinstance(source_sha256, str) or not isinstance(cutout_sha256, str):
+        return False
+    return (
+        source_sha256 == _file_sha256(reference_path)
+        and cutout_sha256 == _file_sha256(cutout_path)
+    )
 
 
-def _cutout_needs_processing(cutout_path: Path, metadata_path: Path) -> bool:
-    return not cutout_path.exists() or not _cutout_metadata_is_current(metadata_path)
+def _cutout_needs_processing(
+    *,
+    reference_path: Path,
+    cutout_path: Path,
+    metadata_path: Path,
+) -> bool:
+    return not cutout_path.exists() or not _cutout_metadata_is_current(
+        reference_path=reference_path,
+        cutout_path=cutout_path,
+        metadata_path=metadata_path,
+    )
 
 
 def _ensure_current_character_cutout(
@@ -143,7 +166,11 @@ def _ensure_current_character_cutout(
     metadata_path: Path,
     prompt_fingerprint: str = "",
 ) -> bool:
-    if not _cutout_needs_processing(cutout_path, metadata_path):
+    if not _cutout_needs_processing(
+        reference_path=reference_path,
+        cutout_path=cutout_path,
+        metadata_path=metadata_path,
+    ):
         return False
     process_character_asset_bundle(
         source_path=reference_path,
