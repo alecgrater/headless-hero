@@ -409,6 +409,7 @@ export default function useScriptGeneration({ brandId, idea, supportsColdOpen = 
       .post("/api/scripts/generate", {
         topic: idea.title,
         description: idea.description,
+        creator_guidance: idea.creator_guidance,
         brand_id: brandId,
         format_id: idea.format_id ?? "youtube-listicle",
         animated_scene_count: 5,
