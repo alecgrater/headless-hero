@@ -11,7 +11,6 @@ import TimelinePage from "./components/timeline/TimelinePage";
 import VoiceoverRecordingPage from "./components/recording/VoiceoverRecordingPage";
 import { ShortcutHelpOverlay } from "./components/timeline/ShortcutHelpOverlay";
 import DiscoverPage from "./components/trending/DiscoverPage";
-import IdeaPage from "./components/ideas/IdeaPage";
 import TestLabPage from "./components/test-lab/TestLabPage";
 import useLongPress from "./hooks/useLongPress";
 import type { VideoIdea } from "./types/idea";
@@ -19,7 +18,7 @@ import type { ScriptSummary } from "./types/script";
 import type { OAuthStatusResponse } from "./types/publish";
 import { StylePresetProvider } from "./contexts/StylePresetContext";
 
-type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "ideas" | "voiceover-recording" | "dev-dashboard" | "test-lab";
+type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "voiceover-recording" | "dev-dashboard" | "test-lab";
 
 function viewPanelClass(panel: View, current: View): string {
   const visibility = panel === current ? "block" : "hidden";
@@ -28,7 +27,7 @@ function viewPanelClass(panel: View, current: View): string {
   if (panel === "timeline" || panel === "settings" || panel === "voiceover-recording" || panel === "dev-dashboard" || panel === "test-lab") {
     return `${base} overflow-hidden`;
   }
-  if (panel === "project-dashboard" || panel === "discover" || panel === "ideas") {
+  if (panel === "project-dashboard" || panel === "discover") {
     return `${base} overflow-y-auto`;
   }
   return `${base} overflow-y-auto px-6 py-8 max-w-4xl mx-auto`;
@@ -336,20 +335,7 @@ function App() {
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
               </svg>
-              Discover
-            </button>
-            <button
-              onClick={() => handleSetView("ideas")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
-                view === "ideas"
-                  ? "bg-violet-500/15 text-violet-300 font-semibold"
-                  : "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
-              }`}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
-              </svg>
-              Ideas
+              Inspire
             </button>
             <button
               onClick={() => handleSetView("dev-dashboard")}
@@ -478,6 +464,13 @@ function App() {
                 setAutoGenerateNiche(null);
                 handleSetView("ideation");
               }}
+              onGenerateSavedIdeas={(niche) => {
+                setAutoGenerateNiche(niche);
+                setTrendingIdeas(null);
+                setTrendingNiche(null);
+                setAutoGenerateRequestId((id) => id + 1);
+                handleSetView("ideation");
+              }}
             />
           )}
         </div>
@@ -547,20 +540,6 @@ function App() {
               onOpenProject={(scriptId) => {
                 setTimelineScriptId(scriptId);
                 handleSetView("timeline");
-              }}
-            />
-          )}
-        </div>
-
-        <div className={viewPanelClass("ideas", view)}>
-          {visitedViews.has("ideas") && (
-            <IdeaPage
-              onGenerateIdeas={(niche) => {
-                setAutoGenerateNiche(niche);
-                setTrendingIdeas(null);
-                setTrendingNiche(null);
-                setAutoGenerateRequestId((id) => id + 1);
-                handleSetView("ideation");
               }}
             />
           )}
