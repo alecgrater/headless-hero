@@ -481,10 +481,11 @@ def _scene_text_from_settings(settings: dict, preset: TestLabPreset, visual_mode
 def _caption_setting_from_settings(settings: dict, preset: TestLabPreset, key: str, narration: str, visual_mode: str) -> str:
     raw_value = settings.get(key)
     preset_value = getattr(preset, key)
+    derived_caption_text = _caption_text_from_narration(narration)
     narration_is_custom = narration not in {preset.narration, CAPTIONS_TEXT_DEFAULTS["narration"]}
-    if visual_mode == "captions" and narration_is_custom and not isinstance(raw_value, str):
-        return ""
     if not isinstance(raw_value, str):
+        if visual_mode == "captions":
+            return derived_caption_text if key == "caption_text" else _caption_emphasis_from_text(derived_caption_text)
         return _setting(settings, key, preset_value)
     if raw_value == "":
         return ""
@@ -493,8 +494,21 @@ def _caption_setting_from_settings(settings: dict, preset: TestLabPreset, key: s
 
     default_value = CAPTIONS_TEXT_DEFAULTS.get(key, "")
     if narration_is_custom and raw_value in {preset_value, default_value}:
-        return ""
+        return derived_caption_text if key == "caption_text" else _caption_emphasis_from_text(derived_caption_text)
     return raw_value
+
+
+def _caption_text_from_narration(narration: str) -> str:
+    return re.sub(r"\s+", " ", narration.strip(" ."))
+
+
+def _caption_emphasis_from_text(caption_text: str) -> str:
+    words = [
+        re.sub(r"[^a-z0-9]+", "", word.casefold())
+        for word in caption_text.split()
+    ]
+    content_words = [word for word in words if word and word not in {"a", "an", "and", "are", "is", "it", "of", "or", "that", "the", "to"}]
+    return content_words[-1] if content_words else ""
 
 
 def _stat_setting_from_settings(settings: dict, preset: TestLabPreset, key: str, visual_mode: str) -> str:

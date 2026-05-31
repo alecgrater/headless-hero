@@ -260,7 +260,7 @@ def test_test_lab_captions_allow_empty_text_overrides():
     assert scene.caption_emphasis == ""
 
 
-def test_test_lab_captions_ignore_default_caption_when_narration_is_custom():
+def test_test_lab_captions_derive_caption_when_narration_is_custom():
     from pipeline.test_lab import CAPTIONS_TEXT_DEFAULTS, build_content_from_preset
 
     custom_narration = "The tiny crack spreads across the wall until the whole room feels like it is holding its breath."
@@ -278,11 +278,11 @@ def test_test_lab_captions_ignore_default_caption_when_narration_is_custom():
     scene = content.segments[0].scenes[0]
     assert scene.visual_mode == "captions"
     assert scene.narration == custom_narration
-    assert scene.caption_text == ""
-    assert scene.caption_emphasis == ""
+    assert scene.caption_text == "The tiny crack spreads across the wall until the whole room feels like it is holding its breath"
+    assert scene.caption_emphasis == "breath"
 
 
-def test_test_lab_captions_do_not_fall_back_to_preset_caption_for_custom_narration():
+def test_test_lab_captions_default_to_custom_narration_excerpt():
     from pipeline.test_lab import build_content_from_preset
 
     custom_narration = "The tiny crack spreads across the wall until the whole room feels like it is holding its breath."
@@ -298,8 +298,8 @@ def test_test_lab_captions_do_not_fall_back_to_preset_caption_for_custom_narrati
     scene = content.segments[0].scenes[0]
     assert scene.visual_mode == "captions"
     assert scene.narration == custom_narration
-    assert scene.caption_text == ""
-    assert scene.caption_emphasis == ""
+    assert scene.caption_text == "The tiny crack spreads across the wall until the whole room feels like it is holding its breath"
+    assert scene.caption_emphasis == "breath"
 
 
 def test_test_lab_settings_preserve_subtitle_style():

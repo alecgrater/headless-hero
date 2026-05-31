@@ -197,9 +197,9 @@ export default function TestLabControls({
   const captionText =
     settings.caption_text ??
     (visualMode === "captions" && !shouldReplaceSceneText(settings.narration, preset?.narration)
-      ? narration
+      ? captionTextFromNarration(narration)
       : preset?.caption_text ?? "");
-  const captionEmphasis = settings.caption_emphasis ?? preset?.caption_emphasis ?? "";
+  const captionEmphasis = settings.caption_emphasis ?? (visualMode === "captions" ? captionEmphasisFromText(captionText) : preset?.caption_emphasis ?? "");
   const statValue = settings.stat_value ?? preset?.stat_value ?? "";
   const statLabel = settings.stat_label ?? preset?.stat_label ?? "";
   const dossierLayout: "anchor" | "network" =
@@ -432,10 +432,16 @@ export default function TestLabControls({
 export function settingsWithVisualTreatmentDefaults(
   settings: TestLabSettings,
   _preset: TestLabPreset | null,
-  _visualTreatment: VisualMode,
+  visualTreatment: VisualMode,
   _visualTreatmentDefaults?: Partial<Record<VisualMode, VisualTextDefaults>>,
 ): TestLabSettings {
-  return { ...settings };
+  if (visualTreatment !== "captions") return { ...settings };
+  const captionText = captionTextFromNarration(settings.narration ?? "");
+  return {
+    ...settings,
+    caption_text: settings.caption_text ?? captionText,
+    caption_emphasis: settings.caption_emphasis ?? captionEmphasisFromText(captionText),
+  };
 }
 
 function SceneTextFields({
@@ -1032,6 +1038,19 @@ function InputField({ label, value, onChange }: { label: string; value: string; 
 
 function shouldReplaceSceneText(currentValue: string | undefined, presetValue: string | undefined): boolean {
   return currentValue === undefined || currentValue === "" || currentValue === presetValue;
+}
+
+function captionTextFromNarration(narration: string): string {
+  return narration.trim().replace(/[ .]+$/u, "").replace(/\s+/gu, " ");
+}
+
+function captionEmphasisFromText(captionText: string): string {
+  const stopwords = new Set(["a", "an", "and", "are", "is", "it", "of", "or", "that", "the", "to"]);
+  const words = captionText
+    .split(/\s+/u)
+    .map((word) => word.toLowerCase().replace(/[^a-z0-9]+/gu, ""))
+    .filter((word) => word && !stopwords.has(word));
+  return words.at(-1) ?? "";
 }
 
 function captionMatchesDefault(

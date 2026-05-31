@@ -98,7 +98,7 @@ function renderControls(settings: TestLabSettings = baseSettings) {
 }
 
 describe("settingsWithVisualTreatmentDefaults", () => {
-  it("does not inject canned caption text when switching custom narration to captions", () => {
+  it("derives caption text from custom narration when switching to captions", () => {
     const settings: TestLabSettings = {
       stages: {
         audio: true,
@@ -122,8 +122,8 @@ describe("settingsWithVisualTreatmentDefaults", () => {
     const next = settingsWithVisualTreatmentDefaults(settings, preset, "captions", defaults);
 
     expect(next.narration).toBe(settings.narration);
-    expect(next.caption_text).toBeUndefined();
-    expect(next.caption_emphasis).toBeUndefined();
+    expect(next.caption_text).toBe("The tiny crack spreads across the wall until the whole room feels like it is holding its breath");
+    expect(next.caption_emphasis).toBe("breath");
   });
 
   it("does not replace preset narration or visual prompt when switching visual modes", () => {

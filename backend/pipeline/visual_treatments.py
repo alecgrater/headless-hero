@@ -400,7 +400,7 @@ def _stat_fields_for_scene(scene: Scene) -> tuple[str, str] | None:
 
 
 def _caption_fields_for_scene(scene: Scene) -> tuple[str, str] | None:
-    text = re.sub(r"\s+", " ", scene.narration.strip(" ."))
+    text = _caption_text_from_narration(scene.narration)
     if not text:
         return None
     words = [_normalize_word(word) for word in text.split()]
@@ -413,25 +413,55 @@ def _caption_fields_for_scene(scene: Scene) -> tuple[str, str] | None:
     return text, emphasis
 
 
+def _caption_text_from_narration(narration: str) -> str:
+    return re.sub(r"\s+", " ", narration.strip(" ."))
+
+
+def _caption_text_matches_narration(caption_text: str, narration_text: str) -> bool:
+    caption = re.sub(r"\s+", " ", caption_text.strip(" .")).casefold()
+    narration = re.sub(r"\s+", " ", narration_text.strip(" .")).casefold()
+    return bool(caption) and caption in narration
+
+
+def _fallback_caption_emphasis(caption_text: str) -> str:
+    content_words = [
+        _normalize_word(word)
+        for word in caption_text.split()
+        if _normalize_word(word) and _normalize_word(word) not in REPETITION_STOPWORDS
+    ]
+    marker = next((word for word in reversed(content_words) if word in CAPTION_PUNCH_MARKERS), "")
+    return marker or (content_words[-1] if content_words else "")
+
+
 def _caption_assignment_fields(scene: Scene, assignment: VisualTreatmentAssignment) -> tuple[str, str]:
     caption_text = assignment.caption_text.strip()
     caption_emphasis = assignment.caption_emphasis.strip()
-    if caption_text and caption_emphasis:
+    narration_text = _caption_text_from_narration(scene.narration)
+    if caption_text and not _caption_text_matches_narration(caption_text, narration_text):
+        caption_text = ""
+    if caption_text and caption_emphasis and _caption_text_matches_narration(caption_emphasis, caption_text):
         return caption_text, caption_emphasis
 
     inferred = _caption_fields_for_scene(scene)
     if inferred is not None:
         inferred_text, inferred_emphasis = inferred
-        return caption_text or inferred_text, caption_emphasis or inferred_emphasis
+        resolved_text = caption_text or inferred_text
+        resolved_emphasis = (
+            caption_emphasis
+            if caption_emphasis and _caption_text_matches_narration(caption_emphasis, resolved_text)
+            else inferred_emphasis
+        )
+        return resolved_text, resolved_emphasis
 
-    fallback_text = re.sub(r"\s+", " ", scene.narration.strip(" ."))
-    content_words = [
-        _normalize_word(word)
-        for word in fallback_text.split()
-        if _normalize_word(word) and _normalize_word(word) not in REPETITION_STOPWORDS
-    ]
-    fallback_emphasis = content_words[-1] if content_words else ""
-    return caption_text or fallback_text, caption_emphasis or fallback_emphasis
+    fallback_text = narration_text
+    resolved_text = caption_text or fallback_text
+    fallback_emphasis = _fallback_caption_emphasis(resolved_text)
+    resolved_emphasis = (
+        caption_emphasis
+        if caption_emphasis and _caption_text_matches_narration(caption_emphasis, resolved_text)
+        else fallback_emphasis
+    )
+    return resolved_text, resolved_emphasis
 
 
 def _dossier_layers_for_scene(scene: Scene) -> list[VisualLayer]:

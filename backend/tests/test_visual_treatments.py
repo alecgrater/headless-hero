@@ -2676,6 +2676,27 @@ def test_apply_visual_treatment_assignment_sets_caption_and_stat_fields():
     assert stat.stat_label == "of your patience is gone"
 
 
+def test_apply_visual_treatment_assignment_rejects_caption_text_outside_narration():
+    caption = scene_with_words("s1", "The real problem is friction.")
+    content = content_with_scenes(caption)
+
+    apply_visual_treatment_assignments(
+        content,
+        [
+            VisualTreatmentAssignment(
+                scene_id="s1",
+                visual_mode="captions",
+                caption_text="It is not willpower",
+                caption_emphasis="willpower",
+            ),
+        ],
+    )
+
+    assert caption.visual_mode == "captions"
+    assert caption.caption_text == "The real problem is friction"
+    assert caption.caption_emphasis == "real"
+
+
 def test_apply_visual_treatment_assignment_derives_manual_caption_fields():
     caption = scene_with_words("s1", "That is the real cost.")
     content = content_with_scenes(caption)
