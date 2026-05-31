@@ -92,7 +92,7 @@ export function VisualModeCatalog({ counts }: { counts: Record<VisualMode, numbe
             <p className="mt-1 text-xs leading-4 text-neutral-500">{VISUAL_MODE_LABELS[mode].blurb}</p>
           </div>
           <span
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-neutral-700 bg-neutral-900 text-xs font-semibold text-neutral-200"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-amber-400/50 bg-amber-400/15 text-xs font-semibold text-amber-200"
             aria-label={`${VISUAL_MODE_LABELS[mode].label} scenes`}
           >
             {counts[mode] ?? 0}
