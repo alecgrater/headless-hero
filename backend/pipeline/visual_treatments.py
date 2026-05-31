@@ -349,10 +349,9 @@ def apply_visual_treatment_assignments(
             mode = "full_frame"
         scene.set_visual_mode(mode)
         if mode == "captions":
-            if assignment.caption_text:
-                scene.caption_text = assignment.caption_text
-            if assignment.caption_emphasis:
-                scene.caption_emphasis = assignment.caption_emphasis
+            caption_text, caption_emphasis = _caption_assignment_fields(scene, assignment)
+            scene.caption_text = caption_text
+            scene.caption_emphasis = caption_emphasis
         if mode == "stat_card":
             if assignment.stat_value:
                 scene.stat_value = assignment.stat_value
@@ -370,6 +369,7 @@ def apply_visual_treatment_assignments(
             detected = _detect_dossier_layout(scene)
             if detected == "network":
                 scene.dossier_layout = "network"
+    _enforce_content_non_repeatable_spacing(content)
 
 
 def _detect_dossier_layout(scene: Scene) -> str:
@@ -411,6 +411,27 @@ def _caption_fields_for_scene(scene: Scene) -> tuple[str, str] | None:
     if not emphasis:
         return None
     return text, emphasis
+
+
+def _caption_assignment_fields(scene: Scene, assignment: VisualTreatmentAssignment) -> tuple[str, str]:
+    caption_text = assignment.caption_text.strip()
+    caption_emphasis = assignment.caption_emphasis.strip()
+    if caption_text and caption_emphasis:
+        return caption_text, caption_emphasis
+
+    inferred = _caption_fields_for_scene(scene)
+    if inferred is not None:
+        inferred_text, inferred_emphasis = inferred
+        return caption_text or inferred_text, caption_emphasis or inferred_emphasis
+
+    fallback_text = re.sub(r"\s+", " ", scene.narration.strip(" ."))
+    content_words = [
+        _normalize_word(word)
+        for word in fallback_text.split()
+        if _normalize_word(word) and _normalize_word(word) not in REPETITION_STOPWORDS
+    ]
+    fallback_emphasis = content_words[-1] if content_words else ""
+    return caption_text or fallback_text, caption_emphasis or fallback_emphasis
 
 
 def _dossier_layers_for_scene(scene: Scene) -> list[VisualLayer]:
@@ -615,6 +636,25 @@ def _space_non_repeatable_modes(
         if scene is not None and not scene.is_title_card:
             previous_non_title_mode = _normalize_visual_mode(spaced_assignment.visual_mode)
     return spaced
+
+
+def _enforce_content_non_repeatable_spacing(content: ScriptContent) -> None:
+    previous_non_title_mode = "full_frame"
+    for scene in content.all_scenes():
+        if scene.is_title_card:
+            continue
+        mode = _normalize_visual_mode(scene.visual_mode)
+        if mode in NON_REPEATABLE_MODES and previous_non_title_mode in NON_REPEATABLE_MODES:
+            logger.info(
+                "[ANIMATION_TYPE] scene=%s forced full_frame to separate adjacent %s/%s modes",
+                scene.id,
+                previous_non_title_mode,
+                mode,
+            )
+            scene.set_visual_mode("full_frame")
+            scene.visual_layers = []
+            mode = "full_frame"
+        previous_non_title_mode = mode
 
 
 def _full_frame_assignment(scene_id: str, reasoning: str) -> VisualTreatmentAssignment:

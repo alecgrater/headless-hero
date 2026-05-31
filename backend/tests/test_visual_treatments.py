@@ -2642,8 +2642,9 @@ def test_analyze_visual_treatments_can_infer_caption_stat_and_dossier_modes():
 
 def test_apply_visual_treatment_assignment_sets_caption_and_stat_fields():
     caption = scene_with_words("s1", "That is the real cost.")
-    stat = scene_with_words("s2", "By year three, 85% of your patience is gone.")
-    content = content_with_scenes(caption, stat)
+    buffer = scene_with_words("s2", "The parking lot is empty after midnight.")
+    stat = scene_with_words("s3", "By year three, 85% of your patience is gone.")
+    content = content_with_scenes(caption, buffer, stat)
 
     apply_visual_treatment_assignments(
         content,
@@ -2656,6 +2657,10 @@ def test_apply_visual_treatment_assignment_sets_caption_and_stat_fields():
             ),
             VisualTreatmentAssignment(
                 scene_id="s2",
+                visual_mode="full_frame",
+            ),
+            VisualTreatmentAssignment(
+                scene_id="s3",
                 visual_mode="stat_card",
                 stat_value="85%",
                 stat_label="of your patience is gone",
@@ -2669,3 +2674,45 @@ def test_apply_visual_treatment_assignment_sets_caption_and_stat_fields():
     assert stat.visual_mode == "stat_card"
     assert stat.stat_value == "85%"
     assert stat.stat_label == "of your patience is gone"
+
+
+def test_apply_visual_treatment_assignment_derives_manual_caption_fields():
+    caption = scene_with_words("s1", "That is the real cost.")
+    content = content_with_scenes(caption)
+
+    apply_visual_treatment_assignments(
+        content,
+        [
+            VisualTreatmentAssignment(
+                scene_id="s1",
+                visual_mode="captions",
+            ),
+        ],
+    )
+
+    assert caption.visual_mode == "captions"
+    assert caption.caption_text == "That is the real cost"
+    assert caption.caption_emphasis == "cost"
+
+
+def test_apply_visual_treatment_assignments_enforces_non_full_frame_spacing():
+    first = scene_with_words("s1", "First the badge, second the receipt.")
+    second = scene_with_words("s2", "Before the lunch rush, after the dinner rush.")
+    third = scene_with_words("s3", "His hands open and close around the drawer while he talks.")
+    content = content_with_scenes(first, second, third)
+
+    apply_visual_treatment_assignments(
+        content,
+        [
+            VisualTreatmentAssignment(scene_id="s1", visual_mode="popup_sequence", visual_layers=[VisualLayer(id="p1")]),
+            VisualTreatmentAssignment(scene_id="s2", visual_mode="comparison_board", visual_layers=[VisualLayer(id="c1")]),
+            VisualTreatmentAssignment(scene_id="s3", visual_mode="flipflop", visual_layers=[VisualLayer(id="f1")]),
+        ],
+    )
+
+    assert [scene.visual_mode for scene in content.all_scenes()] == [
+        "popup_sequence",
+        "full_frame",
+        "flipflop",
+    ]
+    assert second.visual_layers == []
