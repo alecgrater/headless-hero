@@ -126,6 +126,33 @@ describe("settingsWithVisualTreatmentDefaults", () => {
     expect(next.caption_emphasis).toBe("breath");
   });
 
+  it("rederives stale caption text after narration changes", () => {
+    const settings: TestLabSettings = {
+      stages: {
+        audio: true,
+        visual: true,
+        treatment_assets: false,
+        fx: true,
+        render: true,
+      },
+      eli_enabled: false,
+      style_preset_enabled: true,
+      visual_mode: "captions",
+      visual_layers: [],
+      narration: "The real problem is friction.",
+      visual_prompt: "[CLOSE-UP] A messy desk.",
+      caption_text: "The old problem was attention",
+      caption_emphasis: "attention",
+      segment_timer_enabled: true,
+      subtitle_style: "auto",
+    };
+
+    const next = settingsWithVisualTreatmentDefaults(settings, preset, "captions", defaults);
+
+    expect(next.caption_text).toBe("The real problem is friction");
+    expect(next.caption_emphasis).toBe("friction");
+  });
+
   it("does not replace preset narration or visual prompt when switching visual modes", () => {
     const settings: TestLabSettings = {
       stages: {

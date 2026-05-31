@@ -302,6 +302,24 @@ def test_test_lab_captions_default_to_custom_narration_excerpt():
     assert scene.caption_emphasis == "breath"
 
 
+def test_test_lab_captions_rederive_stale_caption_after_narration_change():
+    from pipeline.test_lab import build_content_from_preset
+
+    content = build_content_from_preset(
+        "caption-punch",
+        {
+            "visual_mode": "captions",
+            "narration": "The real problem is friction.",
+            "caption_text": "The old problem was attention",
+            "caption_emphasis": "attention",
+        },
+    )
+
+    scene = content.segments[0].scenes[0]
+    assert scene.caption_text == "The real problem is friction"
+    assert scene.caption_emphasis == "friction"
+
+
 def test_test_lab_settings_preserve_subtitle_style():
     from pipeline.test_lab import build_content_from_preset
 

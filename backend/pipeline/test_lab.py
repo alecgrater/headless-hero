@@ -493,13 +493,29 @@ def _caption_setting_from_settings(settings: dict, preset: TestLabPreset, key: s
         return raw_value
 
     default_value = CAPTIONS_TEXT_DEFAULTS.get(key, "")
+    raw_caption_text = settings.get("caption_text")
+    resolved_caption_text = (
+        raw_caption_text
+        if isinstance(raw_caption_text, str) and _caption_text_matches(raw_caption_text, derived_caption_text)
+        else derived_caption_text
+    )
     if narration_is_custom and raw_value in {preset_value, default_value}:
         return derived_caption_text if key == "caption_text" else _caption_emphasis_from_text(derived_caption_text)
+    if key == "caption_text" and not _caption_text_matches(raw_value, derived_caption_text):
+        return derived_caption_text
+    if key == "caption_emphasis" and not _caption_text_matches(raw_value, resolved_caption_text):
+        return _caption_emphasis_from_text(resolved_caption_text)
     return raw_value
 
 
 def _caption_text_from_narration(narration: str) -> str:
     return re.sub(r"\s+", " ", narration.strip(" ."))
+
+
+def _caption_text_matches(value: str, text: str) -> bool:
+    normalized_value = re.sub(r"\s+", " ", value.strip(" .")).casefold()
+    normalized_text = re.sub(r"\s+", " ", text.strip(" .")).casefold()
+    return bool(normalized_value) and normalized_value in normalized_text
 
 
 def _caption_emphasis_from_text(caption_text: str) -> str:

@@ -194,12 +194,15 @@ export default function TestLabControls({
   const narration = settings.narration ?? preset?.narration ?? "";
   const visualPrompt = settings.visual_prompt ?? preset?.visual_prompt ?? "";
   const visualMode = settings.visual_mode;
+  const derivedCaptionText = captionTextFromNarration(narration);
   const captionText =
-    settings.caption_text ??
+    validCaptionTextOrUndefined(settings.caption_text, derivedCaptionText) ??
     (visualMode === "captions" && !shouldReplaceSceneText(settings.narration, preset?.narration)
-      ? captionTextFromNarration(narration)
+      ? derivedCaptionText
       : preset?.caption_text ?? "");
-  const captionEmphasis = settings.caption_emphasis ?? (visualMode === "captions" ? captionEmphasisFromText(captionText) : preset?.caption_emphasis ?? "");
+  const captionEmphasis =
+    validCaptionTextOrUndefined(settings.caption_emphasis, captionText) ??
+    (visualMode === "captions" ? captionEmphasisFromText(captionText) : preset?.caption_emphasis ?? "");
   const statValue = settings.stat_value ?? preset?.stat_value ?? "";
   const statLabel = settings.stat_label ?? preset?.stat_label ?? "";
   const dossierLayout: "anchor" | "network" =
@@ -225,7 +228,11 @@ export default function TestLabControls({
 
   function updateNarration(value: string) {
     const next: Partial<TestLabSettings> = { narration: value, tts_narration: value };
-    if (visualMode === "captions" && captionMatchesDefault(settings.caption_text, preset, visualTreatmentDefaults)) {
+    if (
+      visualMode === "captions" &&
+      (captionMatchesDefault(settings.caption_text, preset, visualTreatmentDefaults) ||
+        !captionTextMatches(settings.caption_text, captionTextFromNarration(value)))
+    ) {
       next.caption_text = undefined;
       next.caption_emphasis = undefined;
     }
@@ -437,10 +444,13 @@ export function settingsWithVisualTreatmentDefaults(
 ): TestLabSettings {
   if (visualTreatment !== "captions") return { ...settings };
   const captionText = captionTextFromNarration(settings.narration ?? "");
+  const resolvedCaptionText = validCaptionTextOrUndefined(settings.caption_text, captionText) ?? captionText;
   return {
     ...settings,
-    caption_text: settings.caption_text ?? captionText,
-    caption_emphasis: settings.caption_emphasis ?? captionEmphasisFromText(captionText),
+    caption_text: settings.caption_text === "" ? "" : resolvedCaptionText,
+    caption_emphasis: settings.caption_emphasis === ""
+      ? ""
+      : validCaptionTextOrUndefined(settings.caption_emphasis, resolvedCaptionText) ?? captionEmphasisFromText(resolvedCaptionText),
   };
 }
 
@@ -1042,6 +1052,18 @@ function shouldReplaceSceneText(currentValue: string | undefined, presetValue: s
 
 function captionTextFromNarration(narration: string): string {
   return narration.trim().replace(/[ .]+$/u, "").replace(/\s+/gu, " ");
+}
+
+function validCaptionTextOrUndefined(value: string | undefined, text: string): string | undefined {
+  if (value === undefined || value === "") return value;
+  return captionTextMatches(value, text) ? value : undefined;
+}
+
+function captionTextMatches(value: string | undefined, text: string): boolean {
+  if (value === undefined || value === "") return false;
+  const normalizedValue = captionTextFromNarration(value).toLowerCase();
+  const normalizedText = captionTextFromNarration(text).toLowerCase();
+  return normalizedValue !== "" && normalizedText.includes(normalizedValue);
 }
 
 function captionEmphasisFromText(captionText: string): string {
