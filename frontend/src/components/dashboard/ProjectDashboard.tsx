@@ -82,7 +82,7 @@ function ScriptRatingBadge({ score, prominent = false }: { score: number; promin
             : "px-1.5 py-0.5 text-[10px] font-medium"
         }`}
       >
-        <span className="text-[0.7em] uppercase tracking-wide opacity-80">Script</span>
+        <span className="text-[0.7em] uppercase opacity-80">Script</span>
         <span>{score.toFixed(1)}</span>
       </span>
     </Tooltip>
