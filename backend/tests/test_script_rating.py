@@ -155,3 +155,5 @@ def test_life_as_a_rating_prompt_uses_format_specific_rubric(monkeypatch):
     assert "Format context: `life-as-a`" in captured["system"]
     assert "This is not a listicle" in captured["system"]
     assert "second-person present-tense immersion" in captured["system"]
+    assert "Level 1: Opening" in captured["user"]
+    assert "Segment 1: Opening" not in captured["user"]

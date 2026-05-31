@@ -139,6 +139,8 @@ def _round_score(value: float) -> float:
 
 
 def _script_payload(content: ScriptContent) -> str:
+    fmt = resolve_format(content.format_id)
+    section_label = (fmt.level_label or "segment").title()
     lines = [
         f"Title: {content.title}",
         f"Intro hook: {content.intro_hook or '(none)'}",
@@ -147,7 +149,7 @@ def _script_payload(content: ScriptContent) -> str:
         "Script:",
     ]
     for segment_index, segment in enumerate(content.segments, 1):
-        lines.append(f"\nSegment {segment_index}: {segment.name}")
+        lines.append(f"\n{section_label} {segment_index}: {segment.name}")
         for scene_index, scene in enumerate(segment.scenes, 1):
             if scene.is_title_card:
                 continue
