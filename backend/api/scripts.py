@@ -642,7 +642,6 @@ def update_script_title(
     old_title = record.topic_title or content.title or "Untitled"
     logger.info("Updating script title for %s from %r to %r", script_id, old_title, title)
     content.title = title
-    content.script_rating = None
     if content.seo_metadata:
         youtube = content.seo_metadata.get("youtube")
         if isinstance(youtube, dict) and str(youtube.get("title", "")).strip() == old_title.strip():

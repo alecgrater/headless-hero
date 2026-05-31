@@ -89,7 +89,7 @@ def test_update_script_title_updates_record_and_script_json(tmp_path):
     assert json.loads(stored.script_json)["title"] == "New Title"
 
 
-def test_update_script_title_clears_rating(tmp_path):
+def test_update_script_title_preserves_rating(tmp_path):
     engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}")
     SQLModel.metadata.create_all(engine)
     content = ScriptContent(
@@ -126,9 +126,10 @@ def test_update_script_title_clears_rating(tmp_path):
         )
         stored = session.get(Script, "script-1")
 
-    assert updated.script.script_rating is None
+    assert updated.script.script_rating is not None
+    assert updated.script.script_rating.overall == 7.4
     assert stored is not None
-    assert json.loads(stored.script_json)["script_rating"] is None
+    assert json.loads(stored.script_json)["script_rating"]["overall"] == 7.4
 
 
 def test_update_script_clears_rating_when_script_text_changes(tmp_path):
