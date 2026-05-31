@@ -449,6 +449,11 @@ class Script(SQLModel, table=True):
 class GenerateScriptRequest(BaseModel):
     topic: str = PydanticField(..., min_length=1, description="Video topic / title")
     description: str = PydanticField(default="", description="Optional topic description or angle")
+    creator_guidance: str | None = PydanticField(
+        default=None,
+        max_length=2000,
+        description="Optional creator constraints from idea generation to preserve through script generation",
+    )
     format_id: str = PydanticField(..., description="Video format ID (e.g. 'youtube-listicle' | 'life-as-a')")
     brand_id: str | None = PydanticField(default=None, description="Brand profile ID (auto-resolved if omitted)")
     animated_scene_count: int = PydanticField(

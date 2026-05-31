@@ -19,6 +19,7 @@ class VideoIdea(BaseModel):
     cold_open_text: str | None = None
     format_id: str = "youtube-listicle"
     closing_image: str | None = None  # life-as-a only
+    creator_guidance: str | None = None
 
 def generate_ideas(
     niche: str,
@@ -81,5 +82,6 @@ def generate_ideas(
     ideas = [VideoIdea.model_validate(item) for item in ideas_data]
     for idea in ideas:
         idea.format_id = fmt.id
+        idea.creator_guidance = normalized_guide or None
     logger.info("Generated %s ideas for niche %r (format=%s)", len(ideas), niche, fmt.id)
     return ideas

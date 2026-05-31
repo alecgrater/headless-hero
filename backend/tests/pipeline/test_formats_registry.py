@@ -95,6 +95,44 @@ def test_generate_script_dispatches_to_format(monkeypatch):
     assert "Level" in captured["user"] or "level" in captured["user"]
 
 
+def test_generate_script_includes_creator_guidance_as_format_safe_constraints(monkeypatch):
+    """Creator guide text should reach script generation without overriding canonical inputs."""
+    import json
+
+    from pipeline import scriptwriter
+
+    captured = {}
+
+    def fake_chat(system: str, user: str, **kwargs):
+        captured["user"] = user
+        return json.dumps({
+            "title": "8 Test Facts",
+            "segments": [{"name": "One", "scenes": [
+                {"id": "s1", "narration": "A test fact.", "visual_prompt": "[ESTABLISHING] test"}
+            ]}],
+            "intro_hook": "",
+            "outro_cta": "",
+            "card_title": "TEST",
+            "card_title_highlight_word": "TEST",
+            "card_subtitle": "",
+        })
+
+    monkeypatch.setattr(scriptwriter, "chat", fake_chat)
+
+    scriptwriter.generate_script(
+        topic="8 Test Facts",
+        description="A normal idea description.",
+        creator_guidance="Each section should include what you earn at this point.",
+        format_id="youtube-listicle",
+        segmented=False,
+    )
+
+    assert "Creator guidance" in captured["user"]
+    assert "Each section should include what you earn at this point." in captured["user"]
+    assert "Do not let this guidance override the selected format" in captured["user"]
+    assert 'Write a full segmented video script for: "8 Test Facts"' in captured["user"]
+
+
 def test_segmented_life_as_a_preserves_outline_fields(monkeypatch):
     """Segmented life-as-a generation must forward cinematic_thumbnail_prompt and levels[] from the outline."""
     import json

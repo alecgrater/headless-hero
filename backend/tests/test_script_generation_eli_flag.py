@@ -99,6 +99,40 @@ def test_project_config_row_written_with_eli_enabled_false(monkeypatch, isolated
     assert cfg_row.eli_enabled is False, f"Expected eli_enabled=False, got {cfg_row.eli_enabled}"
 
 
+def test_script_generation_passes_creator_guidance_to_scriptwriter(monkeypatch, isolated_engine):
+    """The API should preserve creator guidance through to the format-agnostic scriptwriter."""
+    captured = {}
+
+    def fake_run(job_id, target):
+        target()
+
+    monkeypatch.setattr(scripts_module, "run_in_background", fake_run)
+
+    def fake_generate_script(**kwargs):
+        from models.script import ScriptContent, Segment
+
+        captured.update(kwargs)
+        return ScriptContent(title="t", segments=[Segment(name="seg-1", scenes=[])])
+
+    monkeypatch.setattr(scripts_module, "generate_script", fake_generate_script)
+
+    unique_topic = f"creator-guidance-{uuid.uuid4().hex}"
+    guidance = "Each section should include the realistic pay at that stage."
+
+    client = TestClient(app)
+    res = client.post(
+        "/api/scripts/generate",
+        json={
+            "topic": unique_topic,
+            "format_id": "youtube-listicle",
+            "creator_guidance": guidance,
+        },
+    )
+    assert res.status_code == 200, res.text
+
+    assert captured["creator_guidance"] == guidance
+
+
 def test_project_config_row_defaults_to_eli_enabled_false(monkeypatch, isolated_engine):
     """Omitting eli_enabled in a new script request uses the app default of False."""
 

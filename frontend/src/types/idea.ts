@@ -6,6 +6,7 @@ export interface VideoIdea {
   cold_open_text?: string;
   format_id?: string;
   closing_image?: string;
+  creator_guidance?: string | null;
 }
 
 export interface GenerateIdeasResponse {

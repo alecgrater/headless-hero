@@ -460,6 +460,7 @@ def _fix_visual_monotony(content: "ScriptContent", rules: "VisualBeatRules | Non
 def generate_script(
     topic: str,
     description: str = "",
+    creator_guidance: str | None = None,
     brand_context: str = "",
     animated_scene_count: int = 5,
     brand: dict | None = None,
@@ -496,6 +497,16 @@ def generate_script(
     user_parts = [f'Write a full segmented video script for: "{topic}"']
     if description:
         user_parts.append(f"Angle/description: {description}")
+    normalized_creator_guidance = creator_guidance.strip() if creator_guidance else ""
+    if normalized_creator_guidance:
+        user_parts.append(
+            "Creator guidance: Treat this as additional creator constraints from the idea "
+            "brief. Preserve actionable requirements when they fit the topic. Do not let "
+            "this guidance override the selected format, the exact video topic/title, the "
+            "required JSON schema, safety rules, or any more specific format instructions. "
+            "If it conflicts with those, follow the format and topic.\n"
+            f"{normalized_creator_guidance}"
+        )
 
     if isinstance(fmt.level_count, int):
         user_parts.append(f"Use exactly {fmt.level_count} {fmt.level_label}s.")
