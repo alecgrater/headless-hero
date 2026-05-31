@@ -628,7 +628,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
           {panel === "storage" && (
           <section className="space-y-3">
             <div>
-              <h3 className="text-sm font-semibold text-neutral-100">Exports</h3>
+              <h3 className="text-base font-semibold text-neutral-100">Exports</h3>
               <p className="text-xs leading-relaxed text-neutral-500">
                 Final project folders, upload-suite checks, rendered videos, thumbnails, and SEO files live here.
               </p>
@@ -662,7 +662,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
             <section className="space-y-3">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-neutral-100">Current Routing</h3>
+                  <h3 className="text-base font-semibold text-neutral-100">Current Routing</h3>
                   <p className="text-xs leading-relaxed text-neutral-500">
                     Quick view of which model providers handle the main generation jobs.
                   </p>
@@ -698,7 +698,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
 
             <section className="space-y-3">
               <div>
-                <h3 className="text-sm font-semibold text-neutral-100">Default LLM Provider</h3>
+                <h3 className="text-base font-semibold text-neutral-100">Default LLM Provider</h3>
                 <p className="text-xs leading-relaxed text-neutral-500">
                   The fallback route for any LLM task that does not override its provider below.
                 </p>
@@ -748,7 +748,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
                 className="flex w-full items-center justify-between gap-4 text-left transition-colors hover:text-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded-lg"
               >
                 <div>
-                  <h3 className="text-sm font-semibold text-neutral-100">Advanced routing</h3>
+                  <h3 className="text-base font-semibold text-neutral-100">Advanced routing</h3>
                   <p className="text-xs leading-relaxed text-neutral-500">
                     Configure provider, model, and OpenAI reasoning per task.
                   </p>
@@ -902,7 +902,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
           <div className="space-y-8">
             <section className="space-y-3">
               <div>
-                <h3 className="text-sm font-semibold text-neutral-100">Image Provider</h3>
+                <h3 className="text-base font-semibold text-neutral-100">Image Provider</h3>
                 <p className="text-xs leading-relaxed text-neutral-500">
                   Choose which AI service generates scene images and thumbnails.
                 </p>
@@ -923,7 +923,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
             <section className="space-y-4">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-neutral-100">AI Video</h3>
+                  <h3 className="text-base font-semibold text-neutral-100">AI Video</h3>
                   <p className="text-xs leading-relaxed text-neutral-500">
                     Route selected high-motion scenes to an image-to-video provider.
                   </p>
@@ -988,7 +988,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
             <section className="space-y-4">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-sm font-semibold text-neutral-100">Scene Structure</h3>
+                  <h3 className="text-base font-semibold text-neutral-100">Scene Structure</h3>
                   <p className="text-xs leading-relaxed text-neutral-500">
                     Split long life-as-a narration into short single-beat scenes before voiceover.
                   </p>

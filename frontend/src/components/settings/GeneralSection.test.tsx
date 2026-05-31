@@ -33,7 +33,8 @@ describe("GeneralSection visuals layout", () => {
     const sceneStructureHeading = screen.getByRole("heading", { name: "Scene Structure", level: 3 });
 
     for (const heading of [imageProviderHeading, aiVideoHeading, sceneStructureHeading]) {
-      expect(heading).toHaveClass("text-sm", "font-semibold");
+      expect(heading).toHaveClass("text-base", "font-semibold");
+      expect(heading).not.toHaveClass("text-sm");
       expect(heading).not.toHaveClass("text-lg");
     }
     expect(container.querySelector(".divide-y")).toBeNull();

@@ -396,7 +396,7 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
       >
         <div className="flex flex-col gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-neutral-100">Style Presets</h3>
+            <h3 className="text-base font-semibold text-neutral-100">Style Presets</h3>
             <p className="text-xs text-neutral-500">
               Global visual references used when Eli is disabled.
             </p>
@@ -525,7 +525,7 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
 
         <div className="flex flex-col gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-neutral-100">Main Character</h3>
+            <h3 className="text-base font-semibold text-neutral-100">Main Character</h3>
             <p className="text-xs text-neutral-500">
               Characters are scoped to the viewed style preset and inherit its visual style.
             </p>
@@ -687,7 +687,7 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 className="text-sm font-semibold text-neutral-100">New Project Defaults</h3>
+                <h3 className="text-base font-semibold text-neutral-100">New Project Defaults</h3>
                 <p className="text-xs text-neutral-500">
                   Choose how new projects start. Existing projects are unchanged.
                 </p>

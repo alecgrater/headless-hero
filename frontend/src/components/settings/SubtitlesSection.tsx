@@ -180,7 +180,7 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
 
       <section className="space-y-3">
         <div>
-          <h3 className="text-sm font-semibold text-neutral-100">Subtitle Coverage</h3>
+          <h3 className="text-base font-semibold text-neutral-100">Subtitle Coverage</h3>
           <p className="text-xs leading-relaxed text-neutral-500">
             Caption visual mode keeps its own large in-scene text and never receives standard bottom subtitles.
           </p>
@@ -232,7 +232,7 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
 
       <section className="space-y-3">
         <div>
-          <h3 className="text-sm font-semibold text-neutral-100">Enabled Subtitle Styles</h3>
+          <h3 className="text-base font-semibold text-neutral-100">Enabled Subtitle Styles</h3>
           <p className="text-xs leading-relaxed text-neutral-500">
             Only selected styles are eligible when subtitles are assigned. Turning every style off suppresses standard subtitles.
           </p>

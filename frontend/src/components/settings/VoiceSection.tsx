@@ -251,7 +251,7 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
       <div className="space-y-8">
       <section className="space-y-3">
         <div>
-          <h3 className="text-sm font-semibold text-neutral-100">Default Voice</h3>
+          <h3 className="text-base font-semibold text-neutral-100">Default Voice</h3>
           <p className="text-xs leading-relaxed text-neutral-500">
             Select the ElevenLabs voice used for voiceover generation.
           </p>
@@ -280,7 +280,7 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
 
       <section className="space-y-4">
         <div>
-          <h3 className="text-sm font-semibold text-neutral-100">ElevenLabs Delivery</h3>
+          <h3 className="text-base font-semibold text-neutral-100">ElevenLabs Delivery</h3>
           <p className="mt-1 text-xs leading-relaxed text-neutral-500">
             Controls the model, pacing, and hidden TTS-only instructions used for newly generated AI voiceover.
           </p>
@@ -470,7 +470,7 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
       {panel === "audio" && (
       <section className="space-y-3">
         <div>
-          <h3 className="text-sm font-semibold text-neutral-100">Audio Processing</h3>
+          <h3 className="text-base font-semibold text-neutral-100">Audio Processing</h3>
           <p className="text-xs leading-relaxed text-neutral-500">
             Filters applied during recording export. Does not affect AI-generated voiceovers.
           </p>

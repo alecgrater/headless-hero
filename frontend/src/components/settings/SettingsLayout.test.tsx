@@ -33,7 +33,9 @@ describe("settings section layout", () => {
     const { container } = render(<ApiKeysSection showHeader={false} />);
 
     const aiTextHeading = await screen.findByRole("heading", { name: "AI Text", level: 3 });
-    expect(aiTextHeading).toHaveClass("text-sm", "font-semibold");
+    expect(aiTextHeading).toHaveClass("text-base", "font-semibold");
+    expect(aiTextHeading).not.toHaveClass("text-sm");
+    expect(screen.getByRole("heading", { name: "Anthropic", level: 3 })).toHaveClass("text-sm", "font-medium");
     expect(aiTextHeading.closest("section")).not.toHaveClass("bg-neutral-900", "border", "rounded-xl");
     expect(container.querySelector(".divide-y")).toBeNull();
   });
@@ -42,7 +44,9 @@ describe("settings section layout", () => {
     const { container } = render(<MiscSection showHeader={false} />);
 
     const workflowHeading = await screen.findByRole("heading", { name: "Workflow", level: 3 });
-    expect(workflowHeading).toHaveClass("text-sm", "font-semibold");
+    expect(workflowHeading).toHaveClass("text-base", "font-semibold");
+    expect(workflowHeading).not.toHaveClass("text-sm");
+    expect(screen.getByRole("heading", { name: "Hook Refinement", level: 3 })).toHaveClass("text-sm", "font-medium");
     expect(workflowHeading.closest("section")).not.toHaveClass("bg-neutral-900", "border", "rounded-xl");
     expect(container.querySelector(".divide-y")).toBeNull();
   });
@@ -51,7 +55,8 @@ describe("settings section layout", () => {
     render(<PublishingSection showHeader={false} />);
 
     const youtubeHeading = await screen.findByRole("heading", { name: "YouTube Shorts", level: 3 });
-    expect(youtubeHeading).toHaveClass("text-sm", "font-semibold");
+    expect(youtubeHeading).toHaveClass("text-base", "font-semibold");
+    expect(youtubeHeading).not.toHaveClass("text-sm");
     expect(youtubeHeading.closest("section")).not.toHaveClass("bg-neutral-900", "border", "rounded-xl");
     expect(screen.getByText("Uploads rendered shorts to your connected YouTube channel.")).toHaveClass("text-xs");
   });
