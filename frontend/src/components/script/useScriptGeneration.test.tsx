@@ -62,9 +62,9 @@ const coldOpenResult: ColdOpenResult = {
 
 const refineResult: RefinedHookResult = {
   hook_score: {
-    promise: { score: 8, notes: "Clear." },
-    tension: { score: 8, notes: "Strong." },
-    payoff_hint: { score: 8, notes: "Specific." },
+    promise: { score: 8, reasoning: "Clear." },
+    tension: { score: 8, reasoning: "Strong." },
+    payoff_hint: { score: 8, reasoning: "Specific." },
     overall: 8,
     suggestions: [],
   },
@@ -82,7 +82,7 @@ describe("useScriptGeneration", () => {
   beforeEach(() => {
     pollConfigs.length = 0;
     vi.clearAllMocks();
-    vi.mocked(api.post).mockResolvedValue({ ok: true, data: { job_id: "job-1" } });
+    vi.mocked(api.post).mockResolvedValue({ ok: true, status: 200, data: { job_id: "job-1" } });
     vi.mocked(refineHook).mockResolvedValue({ job_id: "refine-job-1" });
   });
 
