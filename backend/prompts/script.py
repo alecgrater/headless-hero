@@ -180,14 +180,13 @@ VISUAL MODE VOCABULARY:
 - "comparison_board" — When narration contrasts two or three subjects, concepts, states, levels, choices, or outcomes that should be displayed in a side-by-side renderer-controlled comparison. Best for Before vs After, Then vs Now, Myth vs Reality, Level 1 vs Level 5, Rich vs Poor, Human vs Neanderthal, Prisoner vs Guard, Success vs Failure, or Good Choice vs Bad Choice. Use transparent cutout subject intent; the renderer owns columns, divider, VS marker, arrows, stat chips, badges, and labels. Do not use when narration focuses on one environment, one event, or a same-subject micro-action.
 - "stat_card" — When narration delivers ONE decisive percentage, financial figure, population count, duration, distance, ranking, odds, risk factor, or scientific measurement that is the most important information in the scene. Use transparent renderer-owned typography over the canvas. Emit "stat_value" (the giant headline number, e.g. "85%", "$2M", "30 days", "#1", "1 in 4" — 1-12 characters typical) and "stat_label" (supporting subtitle, 2-12 words, e.g. "of users churn in week 1"). Optionally provide a single short "visual_prompt" describing a small supporting icon if it helps; otherwise leave "visual_prompt" empty. Do NOT describe layout, color, animation, or typography — the renderer owns those. Do NOT use when atmosphere, environment, or setting matters more than the metric, or when there is no single dominant number.
 - "captions" — When a sentence delivers a punchy editorial label, reversal, emotional realization, or key claim that should become large in-scene text. Use a static canvas with optional side visual plus renderer-owned caption typography. Emit "caption_text" as an exact contiguous phrase copied from the scene narration (2-15 words ideally), and "caption_emphasis" as the one strongest word or phrase inside that exact caption_text to render red. Do not invent, rewrite, paraphrase, summarize, or add caption text that is not present in the narration. Do not describe typography, animation, color, or layout in detail; the renderer handles those. Do not put readable caption text into visual_prompt.
-- "dossier" — When narration investigates a person, event, or mystery and references evidence, clues, files, suspects, conspiracies, alliances, connections, or timelines. The renderer paints a corkboard/case-file surface, sticky-note labels, pushpins, tape, and red-string connections; only generate clean transparent subject/evidence cutout intent. Set "dossier_layout" to "anchor" for a single primary subject with evidence pinned around it (true crime, missing persons, single-suspect investigation), or "network" for multiple peer suspects/orgs/alliances/conspirators connected to each other. Provide 3–6 "visual_layers" (in anchor layout the first layer is the anchor; the rest are evidence). Each layer needs a short "label" (1–3 words or a date/case-number, e.g. "SUSPECT", "WEAPON", "1989-04-12"). Optionally set "dossier_title" on the scene (a short case-id or banner string, e.g. "CASE #1989-04"). Layer prompts must NOT describe pins, tape, photo frames, evidence tags, sticky notes, paperclips, red string, corkboard, manila folders, captions, badges, or any readable text — those are renderer-owned. Cap at MAX 2 per video, never back-to-back, never adjacent to "comparison_board" or "popup_sequence".
 
 BEST-FIT ROUTING RULES:
 1. Choose the single best visual mode for each scene based on the narration and visual intent. Do not choose a mode to satisfy a quota.
 2. full_frame remains the fallback/default when no specialized mode clearly improves the scene. Several full_frame scenes in a row are fine when each is the natural best fit.
 3. Other than full_frame, never place visual modes back to back. If the previous non-title scene is non-full-frame, choose full_frame for the next scene unless the scene would break without its specialized mode.
 4. Prioritize variety among full_frame, multi_frame, continuous, and flipflop when they fit the scene.
-5. Select comparison_board, stat_card, dossier, popup_sequence, video, and captions only when they clearly improve the scene.
+5. Select comparison_board, stat_card, popup_sequence, video, and captions only when they clearly improve the scene.
 6. Specialized modes should appear only when the scene has clear affordances:
    - continuous: one coherent process, physical progression, or time passage in the same space/subject.
    - multi_frame: multiple distinct examples, beats, or fast context shifts.
@@ -196,8 +195,7 @@ BEST-FIT ROUTING RULES:
    - comparison_board: a true two- or three-way contrast.
    - captions: one renderer-owned editorial text beat, not standard subtitles.
    - stat_card: one decisive number.
-   - dossier: an investigative/evidence/network beat.
-7. Text/chrome-heavy modes must earn their place. Never use captions, stat_card, dossier, comparison_board, popup_sequence, or video merely for variety.
+7. Text/chrome-heavy modes must earn their place. Never use captions, stat_card, comparison_board, popup_sequence, or video merely for variety.
 8. continuous is reserved for genuine same-scene progression — NOT the default for multiple images.
 9. Vary transitions within multi_frame scenes when useful — mostly "cut" but occasional "crossfade".
 
@@ -275,7 +273,7 @@ Writing guidelines:
 - Each segment may be exported as a standalone short-form video. Therefore every segment, including the final segment, must end cleanly on its own topic. Do NOT include whole-video recap language, channel CTAs, subscribe requests, "come back next week", "before you go", "as we have seen", "all eight", or references to having watched previous segments inside any scene narration.
 - The "outro_cta" field is metadata/editor copy only. Do NOT fold outro_cta language into scene narration.
 - Visual prompts should be detailed enough for an AI image generator: describe the subject, composition, and mood. The art style is flat 2D cartoon illustration (defined separately) — focus visual_prompt on WHAT to show, not HOW to render it.
-- Visual prompts must NEVER ask for text, letters, words, labels, or written characters to appear in the image. If a scene involves signage, books, or screens, describe them without readable text (e.g., "a blank chalkboard" or "a book with abstract scribble marks"). For dossier scenes, evidence labels, sticky-note text, case-IDs, pins, tape, and red string are renderer-owned — never bake those into the image prompts.
+- Visual prompts must NEVER ask for text, letters, words, labels, or written characters to appear in the image. If a scene involves signage, books, or screens, describe them without readable text (e.g., "a blank chalkboard" or "a book with abstract scribble marks").
 - Text overlays should be short key phrases (1-6 words) that reinforce the narration.
 - Scene IDs must be unique and sequential: scene_001, scene_002, etc.
 
@@ -483,9 +481,8 @@ Choose the single best visual mode for each scene. There is no quota and no requ
 - `comparison_board`: a true two- or three-way contrast that the viewer should understand side by side.
 - `captions`: a renderer-owned editorial text beat for a short realization or label. Do not use it as ordinary subtitles.
 - `stat_card`: one decisive number that matters more than the room or atmosphere.
-- `dossier`: an investigative, evidence, clue, file, suspect, connection, or network beat.
 
-Use specialized modes only when the scene has those affordances. Do not force variety. Several `full_frame` scenes in a row are fine when each one is the honest best fit. Avoid back-to-back stat_card scenes, back-to-back dossier scenes, and adjacent dossier/comparison_board/popup_sequence scenes unless the scene would become less accurate without it.
+Use specialized modes only when the scene has those affordances. Do not force variety. Several `full_frame` scenes in a row are fine when each one is the honest best fit. Avoid back-to-back stat_card scenes and adjacent comparison_board/popup_sequence scenes unless the scene would become less accurate without it.
 
 Use multiple generated images only when the visual mode genuinely benefits from progression or quick contrast. Short scenes often work best as one strong image, but image scenes are not hard-capped to one frame.
 
@@ -710,8 +707,7 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 - `comparison_board`: a true two- or three-way contrast that should be understood side by side.
 - `captions`: a renderer-owned editorial text beat for a short realization or label. Do not use it as ordinary subtitles.
 - `stat_card`: one decisive number that matters more than the room or atmosphere.
-- `dossier`: an investigative, evidence, clue, file, suspect, connection, or network beat.
-- Select `comparison_board`, `stat_card`, `dossier`, `popup_sequence`, `video`, and `captions` only when they clearly improve the scene.
+- Select `comparison_board`, `stat_card`, `popup_sequence`, `video`, and `captions` only when they clearly improve the scene.
 - Do not force heavy modes for variety. Several `full_frame` scenes in a row are fine when each one is the honest best fit.
 - For compatibility, set `visual_beat` to the same value as `visual_mode` except use `"static"` when `visual_mode` is `"full_frame"`.
 - Every `visual_prompt` MUST begin with `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, or `[METAPHOR]`. `[DIAGRAM]` and `[SCALE]` are de-prioritized for this format.

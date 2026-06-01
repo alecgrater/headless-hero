@@ -2526,11 +2526,9 @@ def test_apply_visual_treatment_assignment_accepts_stat_card_mode_with_icon_laye
     assert scene.visual_layers == layers
 
 
-def test_analyze_visual_treatments_preserves_explicit_dossier_mode():
+def test_analyze_visual_treatments_treats_removed_dossier_mode_as_full_frame():
     scene = scene_with_words("s1", "The case file is sealed shut.")
     scene.set_visual_mode("dossier")
-    scene.dossier_layout = "anchor"
-    scene.dossier_title = "CASE #1989-04"
     scene.visual_layers = [
         VisualLayer(id="s1_anchor", asset_kind="cutout", label="SUSPECT", prompt="Anchor"),
         VisualLayer(id="s1_evidence_1", asset_kind="cutout", label="WEAPON", prompt="Knife"),
@@ -2540,11 +2538,11 @@ def test_analyze_visual_treatments_preserves_explicit_dossier_mode():
     assignments = analyze_visual_treatments(content, script_id="dossier-script")
     assert len(assignments) == 1
     assignment = assignments[0]
-    assert assignment.visual_mode == "dossier"
-    assert len(assignment.visual_layers) == 2
+    assert assignment.visual_mode == "full_frame"
+    assert assignment.visual_layers == []
 
 
-def test_apply_visual_treatment_assignment_accepts_dossier_mode():
+def test_apply_visual_treatment_assignment_rejects_removed_dossier_mode():
     scene = scene_with_words("s1", "The investigators built the case slowly.")
     content = content_with_scenes(scene)
     layers = [
@@ -2564,44 +2562,14 @@ def test_apply_visual_treatment_assignment_accepts_dossier_mode():
         ],
     )
 
-    assert scene.visual_mode == "dossier"
-    assert scene.visual_treatment == "dossier"
-    assert scene.visual_layers == layers
-    assert scene.dossier_layout == "anchor"
+    assert scene.visual_mode == "full_frame"
+    assert scene.visual_treatment == "full_frame"
+    assert scene.visual_layers == []
 
 
 def test_visual_treatment_assignment_legacy_property_keeps_layered_modes():
     assert VisualTreatmentAssignment(scene_id="s1", visual_mode="stat_card").visual_treatment == "stat_card"
-    assert VisualTreatmentAssignment(scene_id="s2", visual_mode="dossier").visual_treatment == "dossier"
-
-
-def test_apply_visual_treatment_assignment_dossier_detects_network_layout():
-    scene = scene_with_words(
-        "s1",
-        "Three conspirators ran the network and their connections proved the conspiracy.",
-    )
-    content = content_with_scenes(scene)
-    layers = [
-        VisualLayer(id="s1_subj_1", asset_kind="cutout", label="A", prompt=""),
-        VisualLayer(id="s1_subj_2", asset_kind="cutout", label="B", prompt=""),
-        VisualLayer(id="s1_subj_3", asset_kind="cutout", label="C", prompt=""),
-    ]
-
-    apply_visual_treatment_assignments(
-        content,
-        [
-            VisualTreatmentAssignment(
-                scene_id="s1",
-                visual_mode="dossier",
-                visual_layers=layers,
-            )
-        ],
-    )
-
-    # Narration mentions "network", "connections", "conspiracy" — should detect network layout
-    # over the default "anchor" inherited from Scene.
-    assert scene.visual_mode == "dossier"
-    assert scene.dossier_layout == "network"
+    assert VisualTreatmentAssignment(scene_id="s2", visual_mode="dossier").visual_treatment == "full_frame"
 
 
 def test_analyze_visual_treatments_prevents_adjacent_non_full_frame_modes():
@@ -2620,11 +2588,11 @@ def test_analyze_visual_treatments_prevents_adjacent_non_full_frame_modes():
     assert "Separated from adjacent" in assignments[1].reasoning
 
 
-def test_analyze_visual_treatments_can_infer_caption_stat_and_dossier_modes():
+def test_analyze_visual_treatments_routes_investigation_lists_without_dossier():
     caption = scene_with_words("s1", "That is the real cost.")
     stat = scene_with_words("s2", "By year three, 85% of your patience is gone.")
-    dossier = scene_with_words("s3", "The case file has clues, witnesses, and a sealed report.")
-    content = content_with_scenes(caption, stat, dossier)
+    investigation = scene_with_words("s3", "The case file has clues, witnesses, and a sealed report.")
+    content = content_with_scenes(caption, stat, investigation)
 
     assignments = analyze_visual_treatments(content, script_id="clear-improvement-script")
 
@@ -2635,9 +2603,8 @@ def test_analyze_visual_treatments_can_infer_caption_stat_and_dossier_modes():
     assert assignments[1].visual_mode == "full_frame"
     assert "Separated from adjacent" in assignments[1].reasoning
 
-    assert assignments[2].visual_mode == "dossier"
-    assert len(assignments[2].visual_layers) >= 2
-    assert {layer.label for layer in assignments[2].visual_layers} >= {"CLUES", "WITNESSES"}
+    assert assignments[2].visual_mode == "popup_sequence"
+    assert len(assignments[2].visual_layers) == 3
 
 
 def test_apply_visual_treatment_assignment_sets_caption_and_stat_fields():

@@ -161,7 +161,7 @@ def test_test_lab_presets_validate_as_script_content():
     from models.script import ScriptContent
     from pipeline.test_lab import TEST_LAB_PRESETS, build_content_from_preset
 
-    assert len(TEST_LAB_PRESETS) == 16
+    assert len(TEST_LAB_PRESETS) == 14
     for preset in TEST_LAB_PRESETS:
         content = build_content_from_preset(preset.id, {})
         validated = ScriptContent.model_validate(content.model_dump())
@@ -338,7 +338,7 @@ def test_test_lab_scenes_endpoint_returns_presets(monkeypatch, tmp_path):
 
         assert response.status_code == 200
         data = response.json()
-        assert len(data["presets"]) == 16
+        assert len(data["presets"]) == 14
         assert data["presets"][0]["id"] == "blank"
         assert data["presets"][0]["description"] == "Write your own test script"
     finally:

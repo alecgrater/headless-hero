@@ -26,7 +26,6 @@ const MODE_LABELS: Record<string, { label: string; color: string }> = {
   comparison_board: { label: "Comparison board", color: "bg-blue-500/20 text-blue-300" },
   captions: { label: "Captions", color: "bg-rose-500/20 text-rose-300" },
   stat_card: { label: "Stat card", color: "bg-orange-500/20 text-orange-300" },
-  dossier: { label: "Dossier", color: "bg-lime-500/20 text-lime-300" },
 };
 const VISUAL_MODE_OPTIONS: VisualMode[] = [
   "full_frame",
@@ -38,7 +37,6 @@ const VISUAL_MODE_OPTIONS: VisualMode[] = [
   "comparison_board",
   "captions",
   "stat_card",
-  "dossier",
 ];
 
 const modeForAssignment = (assignment: MediaAssignment): VisualMode =>

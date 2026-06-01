@@ -44,7 +44,6 @@ export const SceneRenderer: React.FC<Props> = ({
   const isAhaSubtitle = scene.visual_beat === "aha_subtitle";
   const isCaptionScene = scene.visual_mode === "captions" || scene.visual_beat === "captions";
   const isStatCardScene = scene.visual_mode === "stat_card";
-  const isDossierScene = scene.visual_mode === "dossier";
   const isVideo = scene.media_type === "video" && (scene.video_path || scene.image_path);
   const fx = scene.fx;
 
@@ -137,7 +136,7 @@ export const SceneRenderer: React.FC<Props> = ({
   // Aha-subtitle scenes occupy the full vertical frame natively.
   // Title cards in shorts are handled by ShortTitleCardScene, not here.
   const isVertical = orientation === "vertical";
-  if (isVertical && !isAhaSubtitle && !isCaptionScene && !isStatCardScene && !isDossierScene && !isTitleCard) {
+  if (isVertical && !isAhaSubtitle && !isCaptionScene && !isStatCardScene && !isTitleCard) {
     visualLayer = (
       <VerticalSceneLayout imagePath={scene.image_path}>
         {visualLayer}
@@ -152,7 +151,7 @@ export const SceneRenderer: React.FC<Props> = ({
         {/* Visual + subtitle layer with in/out opacity */}
         <div style={{ width: "100%", height: "100%", opacity: visualOpacity }}>
           {visualLayer}
-          {!scene.is_title_card && !isAhaSubtitle && !isCaptionScene && !isStatCardScene && !isDossierScene && (scene.word_timestamps?.length ?? 0) > 0 && (
+          {!scene.is_title_card && !isAhaSubtitle && !isCaptionScene && !isStatCardScene && (scene.word_timestamps?.length ?? 0) > 0 && (
             <SubtitleOverlay
               scene={scene}
               highlightEnabled={highlightEnabled}
@@ -165,7 +164,7 @@ export const SceneRenderer: React.FC<Props> = ({
 
       {/* Eli character overlay — z:5, outside SceneTransition so it won't fade/clip during transitions.
           Suppressed for aha-subtitle scenes, which take the full frame with their own typography. */}
-      {!isAhaSubtitle && !isCaptionScene && !isStatCardScene && !isDossierScene && scene.eli_overlay?.enabled && scene.eli_overlay.frame_id && scene.character_frames_base_url && (
+      {!isAhaSubtitle && !isCaptionScene && !isStatCardScene && scene.eli_overlay?.enabled && scene.eli_overlay.frame_id && scene.character_frames_base_url && (
         <EliOverlay
           overlay={scene.eli_overlay}
           phraseTimestamps={scene.phrase_timestamps}

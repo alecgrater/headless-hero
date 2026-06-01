@@ -160,7 +160,6 @@ def test_life_as_a_level_prompt_uses_full_vocabulary_without_quotas():
         "comparison_board",
         "captions",
         "stat_card",
-        "dossier",
     ):
         assert f"`{mode}`" in prompt_text
     assert "single best visual mode" in prompt_text

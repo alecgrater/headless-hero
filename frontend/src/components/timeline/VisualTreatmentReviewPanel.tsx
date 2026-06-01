@@ -45,14 +45,10 @@ export const VISUAL_MODE_LABELS: Record<VisualMode, { label: string; blurb: stri
     label: "Captions",
     blurb: "Large editorial text lands on narration beats with red emphasis.",
   },
-  dossier: {
-    label: "Dossier",
-    blurb: "Investigation board with anchor + evidence (or peer suspects) cutouts and renderer-owned pins, tape, and red strings.",
-  },
 };
 
-const MODE_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "flipflop", "captions", "popup_sequence", "comparison_board", "stat_card", "dossier"];
-export const VISUAL_MODE_CATALOG_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "flipflop", "captions", "popup_sequence", "comparison_board", "stat_card", "dossier", "video"];
+const MODE_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "flipflop", "captions", "popup_sequence", "comparison_board", "stat_card"];
+export const VISUAL_MODE_CATALOG_OPTIONS: VisualMode[] = ["full_frame", "multi_frame", "continuous", "flipflop", "captions", "popup_sequence", "comparison_board", "stat_card", "video"];
 export const EMPTY_VISUAL_MODE_COUNTS: Record<VisualMode, number> = {
   video: 0,
   full_frame: 0,
@@ -63,14 +59,13 @@ export const EMPTY_VISUAL_MODE_COUNTS: Record<VisualMode, number> = {
   comparison_board: 0,
   stat_card: 0,
   captions: 0,
-  dossier: 0,
 };
 
 const modeForAssignment = (assignment: VisualTreatmentAssignment): VisualMode =>
   assignment.visual_mode ?? "full_frame";
 const isManualMode = (mode: VisualMode) => MODE_OPTIONS.includes(mode);
-const isLayeredMode = (mode: VisualMode): mode is Extract<VisualMode, "popup_sequence" | "flipflop" | "comparison_board" | "stat_card" | "dossier"> =>
-  mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board" || mode === "stat_card" || mode === "dossier";
+const isLayeredMode = (mode: VisualMode): mode is Extract<VisualMode, "popup_sequence" | "flipflop" | "comparison_board" | "stat_card"> =>
+  mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board" || mode === "stat_card";
 
 export function buildVisualModeCounts(assignments: VisualTreatmentAssignment[]): Record<VisualMode, number> {
   return assignments.reduce<Record<VisualMode, number>>(

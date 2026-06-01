@@ -56,7 +56,7 @@ export interface VideoFX {
   chapter_markers: ChapterMarker[];
 }
 
-export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "comparison_board" | "captions" | "stat_card" | "dossier";
+export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "comparison_board" | "captions" | "stat_card";
 
 export interface VisualCanvas {
   background_color: string;
@@ -132,8 +132,6 @@ export interface SceneInput {
   caption_emphasis?: string | null;
   stat_value?: string | null;
   stat_label?: string | null;
-  dossier_layout?: "anchor" | "network" | null;
-  dossier_title?: string | null;
   subtitle_style?: SubtitleStyle;
 
   // Timing

@@ -61,7 +61,7 @@ class TestPromptRegistry:
 
         assert "captions" in prompt_text
         assert "stat_card" in prompt_text
-        assert "dossier" in prompt_text
+        assert "dossier" not in prompt_text
         assert "life-as-a" in prompt_text
         assert "captions remain disabled" not in prompt_text
         assert "DISABLED in life-as-a" not in prompt_text

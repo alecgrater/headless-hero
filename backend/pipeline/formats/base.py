@@ -20,7 +20,6 @@ FULL_VISUAL_MODE_VOCABULARY: tuple[str, ...] = (
     "comparison_board",
     "captions",
     "stat_card",
-    "dossier",
 )
 
 

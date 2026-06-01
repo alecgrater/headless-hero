@@ -164,7 +164,7 @@ Then add these two keyword arguments to the `VideoFormat(...)` call (after `enfo
     supported_visual_modes=(
         "full_frame", "multi_frame", "continuous", "video",
         "popup_sequence", "flipflop", "comparison_board",
-        "stat_card", "captions", "dossier",
+        "stat_card", "captions",
     ),
     reference_notes=(
         FormatNote(category="Openings",
@@ -172,7 +172,7 @@ Then add these two keyword arguments to the `VideoFormat(...)` call (after `enfo
         FormatNote(category="Narration",
                    text="Every segment must stand alone as a short. Keep whole-video recaps, subscribe requests, and 'come back next week' CTAs out of scene narration; outro_cta is editor metadata only."),
         FormatNote(category="Visuals",
-                   text="The full visual-mode vocabulary is available. full_frame stays the majority; variety modes (multi_frame, popup_sequence, flipflop, comparison_board, stat_card, captions, dossier) are spaced out and never run back-to-back."),
+                   text="The full visual-mode vocabulary is available. full_frame stays the majority; variety modes (multi_frame, popup_sequence, flipflop, comparison_board, stat_card, captions) are spaced out and never run back-to-back."),
         FormatNote(category="Short-form",
                    text="Any segment can be exported as a standalone short; short-form upload titles are deterministic '{project title} - {segment title}'."),
     ),
@@ -458,11 +458,11 @@ describe("mode chip derivation", () => {
   });
 
   it("flags whether a mode has a Visual Modes detail entry", () => {
-    const universe = ["full_frame", "dossier"];
-    const chips = modeChipsForFormat(fmt("x", ["full_frame", "dossier"]), universe);
+    const universe = ["full_frame", "comparison_board"];
+    const chips = modeChipsForFormat(fmt("x", ["full_frame", "comparison_board"]), universe);
     const byId = Object.fromEntries(chips.supported.map((c) => [c.id, c]));
     expect(byId["full_frame"].hasDetail).toBe(true);   // in VISUAL_MODE_CATALOG
-    expect(byId["dossier"].hasDetail).toBe(false);     // not in catalog yet
+    expect(byId["comparison_board"].hasDetail).toBe(true); // in VISUAL_MODE_CATALOG
     expect(byId["full_frame"].label).toBe("Full Frame");
   });
 });

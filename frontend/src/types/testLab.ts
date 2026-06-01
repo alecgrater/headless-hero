@@ -22,8 +22,6 @@ export interface TestLabPreset {
   caption_emphasis?: string;
   stat_value?: string;
   stat_label?: string;
-  dossier_layout?: "anchor" | "network";
-  dossier_title?: string;
   contains_person?: boolean;
   visual_beat?: string;
   frame_directives?: Array<Record<string, unknown>>;
@@ -38,8 +36,6 @@ export interface TestLabSceneTextDefaults {
   caption_emphasis?: string;
   stat_value?: string;
   stat_label?: string;
-  dossier_layout?: "anchor" | "network";
-  dossier_title?: string;
 }
 
 export interface TestLabScenes {
@@ -91,8 +87,6 @@ export interface TestLabSettings {
   caption_emphasis?: string;
   stat_value?: string;
   stat_label?: string;
-  dossier_layout?: "anchor" | "network";
-  dossier_title?: string;
   contains_person?: boolean;
   visual_beat?: string;
   transition_in?: "cut" | "fade_black" | "flash_white" | "wipe";

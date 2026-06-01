@@ -47,7 +47,7 @@ format that has not yet filled them in.
 
 - `youtube_listicle.py` — `supported_visual_modes` = the full set:
   `full_frame, multi_frame, continuous, popup_sequence, flipflop,
-  comparison_board, stat_card, captions, dossier`. `reference_notes` capture
+  comparison_board, stat_card, captions`. `reference_notes` capture
   listicle gotchas, e.g.:
   - Openings: "Cold-open candidate scenes are hook-scored and refined before the script is written."
   - Narration: "Every segment must stand alone as a short — no whole-video recaps, subscribe requests, or 'come back next week' CTAs in scene narration. `outro_cta` is editor metadata only."

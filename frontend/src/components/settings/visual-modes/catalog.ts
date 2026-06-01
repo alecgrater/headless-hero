@@ -7,8 +7,7 @@ export type VisualMode =
   | "flipflop"
   | "comparison_board"
   | "stat_card"
-  | "captions"
-  | "dossier";
+  | "captions";
 
 export type CompatibilityState = "supported" | "suppressed";
 
@@ -233,30 +232,5 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
       "Standard subtitle rendering — captions owns its own typography.",
     ],
     rendererPath: "remotion/src/scenes/CaptionScene.tsx",
-  },
-  {
-    id: "dossier",
-    label: "Dossier",
-    shortDescription: "Investigation board with evidence cutouts and red-string links.",
-    longDescription:
-      "Renderer-owned investigation board for evidence, clue, suspect, connection, and network beats. Generated assets are clean transparent subject or evidence cutouts; Remotion owns the corkboard surface, pins, tape, sticky labels, strings, and optional case header.",
-    previewSrc: "/visual-modes/dossier.mp4",
-    requiredFields: ["visual_layers"],
-    optionalFields: ["dossier_layout", "dossier_title"],
-    compatibility: {
-      standardSubtitles: "suppressed",
-      eliOverlay: "suppressed",
-      sceneFx: "supported",
-      titleCardEligible: false,
-    },
-    distribution: "Max 2 per video. Never back-to-back or adjacent to comparison/popup chrome.",
-    routing:
-      "Script generation chooses dossier only for investigative evidence, case-file, clue, suspect, alliance, timeline, or network scenes. Avoid for ordinary portraits, environments, item lists, comparisons, or stat beats.",
-    notCompatibleWith: [
-      "Simple two-way contrast — use comparison_board.",
-      "Item callouts around an anchor without investigation chrome — use popup_sequence.",
-      "Single-number beats — use stat_card.",
-    ],
-    rendererPath: "remotion/src/scenes/TreatmentRenderer.tsx",
   },
 ];

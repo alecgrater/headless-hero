@@ -63,7 +63,6 @@ function VisualModeBadge({ mode }: { mode?: string }) {
     flipflop: "bg-emerald-500/60",
     comparison_board: "bg-amber-500/70",
     captions: "bg-red-500/70",
-    dossier: "bg-rose-700/70",
   };
   const c = color[mode || "full_frame"];
   if (!c) return null;

@@ -178,7 +178,7 @@ def test_normalize_media_assignments_coerces_disabled_sources_to_ai():
     assert normalized[3].reasoning == "ai fits"
 
 
-def test_normalize_media_assignments_preserves_script_owned_visual_modes():
+def test_normalize_media_assignments_preserves_supported_script_owned_visual_modes():
     content = ScriptContent(
         title="Script modes",
         segments=[
@@ -187,9 +187,10 @@ def test_normalize_media_assignments_preserves_script_owned_visual_modes():
                 scenes=[
                     Scene(
                         id="s1",
-                        narration="The case file connects three names.",
-                        visual_prompt="[CLOSE-UP] A case file.",
-                        visual_mode="dossier",
+                        narration="A decisive number fills the room.",
+                        visual_prompt="",
+                        visual_mode="stat_card",
+                        stat_value="85%",
                     ),
                     Scene(
                         id="s2",
@@ -202,7 +203,7 @@ def test_normalize_media_assignments_preserves_script_owned_visual_modes():
         ],
     )
     assignments = [
-        MediaAssignment("s1", visual_mode="dossier", reasoning="preserve dossier"),
+        MediaAssignment("s1", visual_mode="stat_card", reasoning="preserve stat"),
         MediaAssignment("s2", visual_mode="popup_sequence", reasoning="preserve popup"),
     ]
 
@@ -214,7 +215,36 @@ def test_normalize_media_assignments_preserves_script_owned_visual_modes():
         ai_video_enabled=False,
     )
 
-    assert [a.visual_mode for a in normalized] == ["dossier", "popup_sequence"]
+    assert [a.visual_mode for a in normalized] == ["stat_card", "popup_sequence"]
+
+
+def test_normalize_media_assignments_rejects_removed_dossier_mode():
+    content = ScriptContent(
+        title="Removed mode",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="s1",
+                        narration="The case file connects three names.",
+                        visual_prompt="[CLOSE-UP] A case file.",
+                        visual_mode="dossier",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    normalized = normalize_media_assignments_for_sources(
+        [MediaAssignment("s1", visual_mode="dossier", reasoning="removed mode")],
+        script_content=content,
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+        ai_video_enabled=False,
+    )
+
+    assert normalized[0].visual_mode == "full_frame"
 
 
 def test_disabled_ai_video_assignment_falls_back_to_current_script_mode():
@@ -226,9 +256,10 @@ def test_disabled_ai_video_assignment_falls_back_to_current_script_mode():
                 scenes=[
                     Scene(
                         id="s1",
-                        narration="The case board holds still.",
-                        visual_prompt="[CLOSE-UP] A case board.",
-                        visual_mode="dossier",
+                        narration="A stat card holds still.",
+                        visual_prompt="",
+                        visual_mode="stat_card",
+                        stat_value="85%",
                     ),
                 ],
             ),
@@ -243,7 +274,7 @@ def test_disabled_ai_video_assignment_falls_back_to_current_script_mode():
         ai_video_enabled=False,
     )
 
-    assert normalized[0].visual_mode == "dossier"
+    assert normalized[0].visual_mode == "stat_card"
 
 
 def test_current_visual_mode_assignments_preserve_existing_modes():
@@ -263,7 +294,7 @@ def test_current_visual_mode_assignments_preserve_existing_modes():
 
     assignments = current_visual_mode_assignments(content, "preserve")
 
-    assert [a.visual_mode for a in assignments] == ["full_frame", "stat_card", "dossier"]
+    assert [a.visual_mode for a in assignments] == ["full_frame", "stat_card", "full_frame"]
 
 
 def test_normalize_media_assignments_preserves_stale_ai_video_for_final_duration():
@@ -772,7 +803,7 @@ def test_life_as_a_ai_video_only_promotes_eli_scenes(monkeypatch):
     assert sources["scene_005"] == "ai"
 
 
-def test_media_analyzer_preserves_existing_specialized_modes_when_not_promoting_video(monkeypatch):
+def test_media_analyzer_coerces_removed_dossier_mode_when_not_promoting_video(monkeypatch):
     content = ScriptContent(
         title="Best Fit Modes",
         format_id="life-as-a",
@@ -821,7 +852,7 @@ def test_media_analyzer_preserves_existing_specialized_modes_when_not_promoting_
     )
 
     modes = {assignment.scene_id: assignment.visual_mode for assignment in assignments}
-    assert modes["scene_002"] == "dossier"
+    assert modes["scene_002"] == "full_frame"
     assert modes["scene_003"] == "full_frame"
 
 
@@ -862,7 +893,7 @@ def test_media_analyzer_preserves_layered_modes_before_layers_are_generated(monk
     assert assignments[0].visual_mode == "popup_sequence"
 
 
-def test_media_analyzer_falls_back_to_existing_mode_when_video_rejected(monkeypatch):
+def test_media_analyzer_falls_back_to_full_frame_when_removed_dossier_video_rejected(monkeypatch):
     content = ScriptContent(
         title="Rejected Video",
         segments=[
@@ -896,7 +927,7 @@ def test_media_analyzer_falls_back_to_existing_mode_when_video_rejected(monkeypa
         script_id="test-script",
     )
 
-    assert assignments[0].visual_mode == "dossier"
+    assert assignments[0].visual_mode == "full_frame"
 
 
 def test_life_as_a_ai_video_uses_configured_video_duration_threshold(monkeypatch):

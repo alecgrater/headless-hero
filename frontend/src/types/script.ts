@@ -35,9 +35,8 @@ export interface VideoFX {
   chapter_markers: ChapterMarker[];
 }
 
-export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "comparison_board" | "captions" | "stat_card" | "dossier";
+export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "comparison_board" | "captions" | "stat_card";
 export type SubtitleStyle = "auto" | "clean" | "kinetic" | "burst" | "none";
-export type DossierLayout = "anchor" | "network";
 
 export interface VisualCanvas {
   background_color: string;
@@ -82,7 +81,7 @@ export interface Scene {
   audio_url?: string;
   audio_duration_seconds?: number;
   frame_urls?: string[];
-  visual_beat?: "static" | "continuous" | "multi_frame" | "quick_cuts" | "aha_subtitle" | "montage" | "captions" | "comparison_board";
+  visual_beat?: "static" | "continuous" | "multi_frame" | "quick_cuts" | "aha_subtitle" | "montage" | "captions" | "popup_sequence" | "flipflop" | "comparison_board" | "stat_card";
   frame_directives?: FrameDirective[];
   contains_person?: boolean;
   visual_mode?: VisualMode;
@@ -91,8 +90,6 @@ export interface Scene {
   caption_emphasis?: string;
   stat_value?: string;
   stat_label?: string;
-  dossier_layout?: DossierLayout;
-  dossier_title?: string;
   subtitle_style?: SubtitleStyle;
   fx?: SceneFX | null;
   eli_overlay?: EliOverlay | null;

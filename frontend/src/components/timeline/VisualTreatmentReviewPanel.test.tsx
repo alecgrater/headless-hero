@@ -20,13 +20,19 @@ const mixedAssignments: VisualTreatmentAssignment[] = [
     scene_id: "scene_002",
     visual_mode: "flipflop",
     reasoning: "Motion beat.",
-    visual_layers: [{ id: "scene_002_state_a" }, { id: "scene_002_state_b" }],
+    visual_layers: [
+      { id: "scene_002_state_a", type: "image", asset_kind: "panel" },
+      { id: "scene_002_state_b", type: "image", asset_kind: "panel" },
+    ],
   },
   {
     scene_id: "scene_003",
     visual_mode: "flipflop",
     reasoning: "Motion beat.",
-    visual_layers: [{ id: "scene_003_state_a" }, { id: "scene_003_state_b" }],
+    visual_layers: [
+      { id: "scene_003_state_a", type: "image", asset_kind: "panel" },
+      { id: "scene_003_state_b", type: "image", asset_kind: "panel" },
+    ],
   },
 ];
 

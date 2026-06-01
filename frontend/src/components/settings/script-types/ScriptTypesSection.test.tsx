@@ -13,7 +13,6 @@ const ALL_MODES = [
   "comparison_board",
   "captions",
   "stat_card",
-  "dossier",
 ];
 
 const FORMATS: VideoFormat[] = [

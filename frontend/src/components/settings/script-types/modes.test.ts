@@ -43,7 +43,7 @@ describe("mode chip derivation", () => {
   });
 
   it("shows no disabled modes when every format exposes the same vocabulary", () => {
-    const modes = ["full_frame", "continuous", "captions", "stat_card", "dossier"];
+    const modes = ["full_frame", "continuous", "captions", "stat_card", "comparison_board"];
     const formats = [
       fmt("listicle", modes),
       fmt("life", modes),
@@ -55,11 +55,11 @@ describe("mode chip derivation", () => {
   });
 
   it("flags whether a mode has a Visual Modes detail entry", () => {
-    const universe = ["full_frame", "dossier"];
-    const chips = modeChipsForFormat(fmt("x", ["full_frame", "dossier"]), universe);
+    const universe = ["full_frame", "comparison_board"];
+    const chips = modeChipsForFormat(fmt("x", ["full_frame", "comparison_board"]), universe);
     const byId = Object.fromEntries(chips.supported.map((c) => [c.id, c]));
     expect(byId["full_frame"].hasDetail).toBe(true);
-    expect(byId["dossier"].hasDetail).toBe(true);
+    expect(byId["comparison_board"].hasDetail).toBe(true);
     expect(byId["full_frame"].label).toBe("Full Frame");
   });
 });

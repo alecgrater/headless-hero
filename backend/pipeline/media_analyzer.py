@@ -95,7 +95,7 @@ def _canonical_visual_mode(value: str, legacy_media_source: str = "") -> str:
         return "multi_frame"
     if value == "continuous":
         return "continuous"
-    if value in {"video", "full_frame", "popup_sequence", "flipflop", "comparison_board", "captions", "stat_card", "dossier"}:
+    if value in {"video", "full_frame", "popup_sequence", "flipflop", "comparison_board", "captions", "stat_card"}:
         return value
     return "full_frame"
 
@@ -472,7 +472,7 @@ def apply_assignments(
 
             mode = _canonical_visual_mode(assignment.visual_mode)
             scene.set_visual_mode(mode)
-            if mode not in {"popup_sequence", "flipflop", "comparison_board", "stat_card", "dossier"}:
+            if mode not in {"popup_sequence", "flipflop", "comparison_board", "stat_card"}:
                 scene.visual_layers = []
 
             scene.original_visual_prompt = ""

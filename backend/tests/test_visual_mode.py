@@ -51,7 +51,7 @@ def test_scene_derives_popup_visual_mode_from_legacy_treatment():
     assert "visual_treatment" not in scene.model_dump()
 
 
-def test_scene_derives_dossier_visual_mode_from_legacy_treatment():
+def test_scene_normalizes_removed_dossier_legacy_treatment_to_full_frame():
     scene = Scene(
         id="scene_001",
         narration="The case file has three clues.",
@@ -60,9 +60,9 @@ def test_scene_derives_dossier_visual_mode_from_legacy_treatment():
         dossier_title="CASE #1989-04",
     )
 
-    assert scene.visual_mode == "dossier"
-    assert scene.visual_beat == "dossier"
-    assert scene.dossier_title == "CASE #1989-04"
+    assert scene.visual_mode == "full_frame"
+    assert scene.visual_beat == "static"
+    assert "dossier_title" not in scene.model_dump()
     assert "media_source" not in scene.model_dump()
     assert "visual_treatment" not in scene.model_dump()
 
@@ -238,7 +238,7 @@ def test_scene_assignment_syncs_popup_visual_mode_and_clears_frames():
 
 
 def test_scene_assignment_syncs_layered_visual_beats():
-    for visual_mode in ("flipflop", "comparison_board", "stat_card", "dossier"):
+    for visual_mode in ("flipflop", "comparison_board", "stat_card"):
         scene = Scene(
             id="scene_001",
             narration="Hello.",
@@ -249,6 +249,22 @@ def test_scene_assignment_syncs_layered_visual_beats():
 
         assert scene.visual_mode == visual_mode
         assert scene.visual_beat == visual_mode
+
+
+def test_scene_assignment_rejects_removed_dossier_visual_mode():
+    scene = Scene(
+        id="scene_001",
+        narration="Hello.",
+        visual_prompt="A simple scene",
+        frame_urls=["/static/projects/script/images/scene_001_0.png"],
+    )
+
+    scene.visual_mode = "dossier"
+
+    assert scene.visual_mode == "full_frame"
+    assert scene.visual_beat == "static"
+    assert scene.frame_urls == ["/static/projects/script/images/scene_001_0.png"]
+    assert "dossier_title" not in scene.model_dump()
 
 
 def test_scene_visual_beat_assignment_does_not_demote_video_mode():
@@ -456,7 +472,7 @@ def test_scene_normalizes_stat_card_from_raw_dict():
     assert scene.caption_emphasis == ""
 
 
-def test_scene_normalizes_dossier_visual_mode_clears_conflicting_fields():
+def test_scene_normalizes_removed_dossier_raw_fields_to_full_frame():
     raw = {
         "id": "scene_001",
         "narration": "The investigators built the case slowly.",
@@ -475,19 +491,18 @@ def test_scene_normalizes_dossier_visual_mode_clears_conflicting_fields():
 
     scene = Scene.model_validate(raw)
 
-    assert scene.visual_mode == "dossier"
-    assert scene.dossier_layout == "anchor"
-    assert scene.dossier_title == "CASE #1989-04"
-    assert scene.image_url == ""
-    assert scene.video_url == ""
-    assert scene.frame_urls == []
-    assert scene.caption_text == ""
-    assert scene.caption_emphasis == ""
+    assert scene.visual_mode == "full_frame"
+    assert scene.visual_beat == "static"
+    assert scene.image_url == "/static/projects/script/images/scene_001.png"
+    assert scene.video_url == "/static/projects/script/videos/scene_001.mp4"
+    assert scene.frame_urls == ["/static/projects/script/images/scene_001_0.png"]
+    assert "dossier_layout" not in scene.model_dump()
+    assert "dossier_title" not in scene.model_dump()
     assert scene.stat_value == ""
     assert scene.stat_label == ""
 
 
-def test_scene_assignment_to_dossier_clears_conflicting_fields_and_back():
+def test_scene_assignment_to_removed_dossier_keeps_full_frame_fields():
     scene = Scene(
         id="scene_001",
         narration="Three conspirators connected.",
@@ -499,15 +514,11 @@ def test_scene_assignment_to_dossier_clears_conflicting_fields_and_back():
     )
 
     scene.visual_mode = "dossier"
-    assert scene.visual_mode == "dossier"
-    assert scene.image_url == ""
-    assert scene.caption_text == ""
-    assert scene.dossier_layout == "anchor"
-
-    scene.dossier_title = "OPERATION NIGHTSHADE"
-    scene.visual_mode = "full_frame"
     assert scene.visual_mode == "full_frame"
-    assert scene.dossier_title == ""
+    assert scene.image_url == "/static/projects/script/images/scene_001.png"
+    assert scene.caption_text == "leftover"
+    assert "dossier_layout" not in scene.model_dump()
+    assert "dossier_title" not in scene.model_dump()
 
 
 def test_visual_layer_round_trips_label_field():
@@ -518,7 +529,7 @@ def test_visual_layer_round_trips_label_field():
     assert rebuilt.label == "SUSPECT"
 
 
-def test_dossier_layout_validator_falls_back_to_anchor_for_invalid_value():
+def test_removed_dossier_layout_field_is_not_reserialized():
     raw = {
         "id": "scene_001",
         "narration": "x",
@@ -528,4 +539,5 @@ def test_dossier_layout_validator_falls_back_to_anchor_for_invalid_value():
     }
 
     scene = Scene.model_validate(raw)
-    assert scene.dossier_layout == "anchor"
+    assert scene.visual_mode == "full_frame"
+    assert "dossier_layout" not in scene.model_dump()

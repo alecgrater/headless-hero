@@ -2,7 +2,6 @@ import React from "react";
 import { Img, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import type { SceneInput, VisualLayer } from "../types";
 import { StatCard } from "./StatCard";
-import { DossierBoard } from "./DossierBoard";
 
 interface Props {
   scene: SceneInput;
@@ -429,9 +428,6 @@ export const TreatmentRenderer: React.FC<Props> = ({ scene, fallbackVisualLayer 
     case "stat_card":
       logTreatmentOnce(scene, "stat_card", scene.visual_layers?.length ?? 0);
       return <StatCard scene={scene} />;
-    case "dossier":
-      logTreatmentOnce(scene, "dossier", scene.visual_layers?.length ?? 0);
-      return <DossierBoard scene={scene} fallbackVisualLayer={fallbackVisualLayer} />;
     case "full_frame":
     default:
       logTreatmentOnce(scene, scene.visual_mode ?? "full_frame", scene.visual_layers?.length ?? 0);

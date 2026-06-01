@@ -77,44 +77,6 @@ Use for a single dominant statistic — one decisive percentage, financial figur
 
 Do not use `stat_card` when atmosphere or environment matters more than the metric, when narration covers multiple numbers or comparisons, or when the scene needs character/action staging. Do not bake the number, label, progress bars, gauges, trend arrows, or comparison badges into generated images. Distribution is capped at MAX 1-2 per video and never back-to-back; standard subtitles and Eli overlays are suppressed for the beat.
 
-### `dossier`
-
-Use for renderer-owned investigation-board beats: a corkboard surface beneath transparent subject/evidence cutouts, sticky-note labels, deterministic pushpins/tape, animated red string connections, and an optional case-ID header. The mode has two sub-layouts:
-
-- `anchor` — one primary subject (suspect, victim, missing person, mystery object, focal event) at the center with evidence cutouts pinned around it. Strings connect the anchor to each evidence item.
-- `network` — multiple peer subjects (suspects, conspirators, organizations, alliances, cause/effect chains) arranged on a horizontal-leaning ring. Strings connect adjacent peers.
-
-The renderer paints all chrome — board surface, pins, tape, sticky labels, strings, and case-ID header. Generated assets are limited to clean transparent character/evidence cutouts produced by the dossier asset pipeline (anchor cutout for `anchor` layout plus an evidence contact sheet; contact sheet only for `network`). Do not bake readable text, evidence tags, photo frames, manila folders, paperclips, pins, tape, or red string into generated images.
-
-Do not use `dossier` for environments, characters acting in a scene, single-subject portrait beats, ordinary item lists, comparisons, or stat-driven beats. Distribution is capped at MAX 2 per video, never back-to-back, and never adjacent to `comparison_board` or `popup_sequence` to avoid layered-chrome pile-up. Standard subtitles, Eli overlays, captions, and stat fields are suppressed for the beat. Falls back to `full_frame` if cutout generation fails.
-
-## Dossier Checklist Answers
-
-This section answers the New Mode Checklist questions for `dossier`.
-
-1. **Unique visual job:** Renderer-owned investigation-board layout with anchor + pinned evidence (or peer-network) cutouts, sticky-note evidence labels, animated red string connections, and an optional case-ID header. No existing mode covers this — `comparison_board` is split-screen contrast, `popup_sequence` is anchor + orbiting items, `multi_frame` lacks renderer-owned chrome.
-2. **Script generation choice:** Use when narration investigates a person, event, or mystery and references evidence, clues, files, suspects, conspiracies, alliances, connections, or timelines. Pick `dossier_layout = "anchor"` for a single primary subject with supporting evidence and `"network"` for multiple peers.
-3. **Post-voiceover analyzer behavior:** Preserve `visual_mode = "dossier"` when already set. Never auto-promote other scenes to dossier. The analyzer fills `dossier_layout` from narration markers (network keywords like "conspiracy", "ring", "connections" → `network`; otherwise `anchor`) only when it would override the default `anchor` value.
-4. **Avoid in favor of:** `full_frame` for ordinary scenes; `comparison_board` for clean two/three-way contrasts that aren't evidence-board investigations; `popup_sequence` for anchor + orbiting items without sticky labels and strings; `stat_card` for single-number beats.
-5. **Variety contribution:** Adds an editorial, investigative beat that breaks up generated-image rhythm. Used sparingly (max 2 per video), it lands as a distinct mode change without competing with other layered modes.
-6. **Spacing/frequency rules:** Max 2 per video, never back-to-back, never adjacent to `comparison_board` or `popup_sequence`.
-7. **Narration/timing dependencies:** Layer entrance times use `enter_at_seconds` from script generation or analyzer, derived from word/phrase timestamps. Falls back to deterministic spacing when timing is missing.
-8. **Other-system interaction:** Suppresses standard subtitles, Eli overlay, captions text, stat fields, and the vertical short-form three-band layout for the beat. Compatible with scene FX (zoom_punch, drift) and scene-boundary transitions.
-9. **Required scene JSON fields:** `visual_mode = "dossier"`, `visual_layers` (3–6 cutout entries with `id`, `label`, `placement`, `prompt`, `enter_at_seconds`, `animation`). Optional: `dossier_layout` (defaults to `"anchor"`), `dossier_title` (case-ID banner string).
-10. **Remotion props/components:** New `DossierBoard` scene component dispatched from `TreatmentRenderer.tsx` when `visual_mode === "dossier"`. `SceneRenderer` suppresses subtitles, Eli, and the vertical-shorts wrapper for dossier scenes. `SceneInput` types extended with `dossier_layout?` and `dossier_title?`. `VisualLayer` extended with optional `label`.
-11. **Asset model:** Reuses popup_sequence pipeline. Anchor layout calls `_generate_popup_anchor_cutout` for the anchor and a contact-sheet variant for evidence; network layout calls only the contact-sheet path. All cutouts are chroma-keyed and trimmed via `_save_keyed_trimmed_cutout`.
-12. **Full-bleed/no-border rule:** Cutout-specific prompt rules apply (chroma background; no frames, borders, or evidence chrome). Generated assets are isolated cutouts, not full-bleed scene images.
-13. **No readable text in images:** Layer prompts explicitly forbid evidence tags, sticky notes, paperclips, pins, push pins, tape strips, string, captions, badges, redaction bars, case numbers, or text of any kind. The renderer owns all visible labels and headers.
-14. **Manual regen / batch / Test Lab / long & short renders / thumbnails / exports:** Manual scene visual regeneration through `/api/visuals/generate` and batch generation route to `generate_dossier_cutouts`. `render_phases.py` calls the same function during the images phase. Test Lab includes anchor and network presets and a fallback layer skeleton with cutout asset_kind and dossier-specific placements/animations. Thumbnails and exports are unchanged.
-15. **Render sidecar metadata:** `subtitle_render_fingerprint` includes a `dossier` block per dossier scene with layout, title, and per-layer `id`, `label`, `placement`, `prompt`, `image_url`, `enter_at_seconds`, and `animation`. Asset directory `data/projects/{script_id}/dossiers/{scene_id}/` includes a `dossier.prompt` JSON sidecar fingerprint.
-16. **Cache invalidation:** Asset cache is keyed on `{layout, anchor_prompt, evidence_prompt, evidence_labels, layer ids/labels/prompts/placements/animations/enter_at_seconds, dossier_title}`. Render fingerprint reflects the same dossier scene fields, so changing a label or prompt re-renders the scene. Old renders without the new fingerprint key are stale.
-17. **Fallback behavior:** On Gemini failure, the scene falls back to `visual_mode = "full_frame"` with a regenerated normal scene image. A `WARNING` log is emitted via the dev dashboard. The Test Lab path mirrors the same fallback. The API path surfaces the error directly (consistent with other layered modes).
-18. **Dev observability:** `INFO` events `dossier.cutouts.start`, `dossier.cutouts.complete`, `dossier.vault.save`. `WARNING` event `dossier.fallback.full_frame`. `DEBUG` event in Remotion via existing `logTreatmentOnce("dossier", ...)`.
-19. **Tests:** `test_image_gen_dossier.py` mocks Gemini and asserts the anchor + evidence-sheet calls happen for `anchor` layout, only the contact sheet for `network`, and that vault writes happen for each cutout. `test_visual_mode.py` covers normalization, layered field clearing, label/dossier_layout/dossier_title round-trip. `test_visual_treatments.py` covers analyzer preservation and the `_detect_dossier_layout` heuristic. `test_remotion_render.py` covers fingerprint inputs.
-20. **Asset vault:** Anchor cutouts and evidence/subject cutouts persist to `data/projects/asset-vault/{characters,items}` via `save_vault_image`. Network-layout subjects and any anchor flagged `contains_person` are vaulted as `character`; non-person evidence cutouts are vaulted as `item`.
-21. **Test Lab coverage:** `dossier-anchor-example` and `dossier-network-example` presets exercise both layouts using the production `generate_dossier_cutouts` path.
-22. **Documentation:** This guardrails section, the `Dossier visual mode` key-pattern entry in `CLAUDE.md`, and the script-generation prompt's `VISUAL_MODE_VOCABULARY` block all describe routing, distribution, asset model, and renderer ownership in lockstep.
-
 ## New Mode Checklist
 
 Answer these questions before implementation:

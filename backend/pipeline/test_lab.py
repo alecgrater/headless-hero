@@ -142,14 +142,12 @@ class TestLabPreset(BaseModel):
     visual_prompt: str
     background_color: str = "#F6C54A"
     visual_mode: Literal[
-        "video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop", "comparison_board", "captions", "stat_card", "dossier"
+        "video", "full_frame", "multi_frame", "continuous", "popup_sequence", "flipflop", "comparison_board", "captions", "stat_card"
     ] = "full_frame"
     caption_text: str = ""
     caption_emphasis: str = ""
     stat_value: str = ""
     stat_label: str = ""
-    dossier_layout: Literal["anchor", "network"] = "anchor"
-    dossier_title: str = ""
     duration_estimate_seconds: float = 7.0
     main_character: MainCharacter | None = None
 
@@ -358,30 +356,6 @@ TEST_LAB_PRESETS: list[TestLabPreset] = [
         stat_label=STAT_CARD_WITH_ICON_DEFAULTS["stat_label"],
         visual_mode="stat_card",
         background_color="#0F172A",
-    ),
-    TestLabPreset(
-        id="dossier-anchor-example",
-        title="Dossier — Anchor Layout",
-        description="Investigation board with one anchor suspect and several pinned evidence cutouts.",
-        segment_name="The case file",
-        narration="The investigators built the case slowly: one suspect at the center, a recovered weapon, a torn alibi note, and a witness who would not look at them.",
-        visual_prompt="Flat 2D cartoon dossier scene anchored on a primary suspect, with supporting evidence items: a weapon, a handwritten note, and a witness photograph.",
-        visual_mode="dossier",
-        dossier_layout="anchor",
-        dossier_title="CASE #1989-04",
-        background_color="#1F2937",
-    ),
-    TestLabPreset(
-        id="dossier-network-example",
-        title="Dossier — Network Layout",
-        description="Investigation board with three peer suspects and connecting strings between them.",
-        segment_name="The conspiracy",
-        narration="Three conspirators, three names, three sets of bank records. The connections between them told a story none of them wanted to admit.",
-        visual_prompt="Flat 2D cartoon dossier of three connected suspects in a conspiracy network, each shown in clean upper-body pose for cropping.",
-        visual_mode="dossier",
-        dossier_layout="network",
-        dossier_title="OPERATION NIGHTSHADE",
-        background_color="#1F2937",
     ),
 ]
 
@@ -640,8 +614,6 @@ def build_content_from_preset(preset_id: str, settings: dict) -> ScriptContent:
         caption_emphasis=_caption_setting_from_settings(settings, preset, "caption_emphasis", narration, visual_mode),
         stat_value=stat_value,
         stat_label=stat_label,
-        dossier_layout=str(_setting(settings, "dossier_layout", "anchor")) if visual_mode == "dossier" else "anchor",
-        dossier_title=str(_setting(settings, "dossier_title", "")) if visual_mode == "dossier" else "",
         subtitle_style=_subtitle_style_from_settings(settings),
     )
     if isinstance(settings.get("frame_directives"), list):
@@ -1012,9 +984,7 @@ def _frame_directives_for_visual_mode(scene: Scene) -> list[dict]:
 def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
     from pipeline.image_gen import (
         generate_comparison_board_cutouts,
-        generate_dossier_cutouts,
         generate_popup_sequence_cutouts,
-        generate_scene_image,
         generate_visual_layer_panels,
     )
     from pipeline.visual_treatments import analyze_visual_treatments, apply_visual_treatment_assignments
@@ -1031,13 +1001,13 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
         requested_mode = ctx.settings.get("visual_mode") or ctx.settings.get("visual_treatment")
         if isinstance(requested_mode, str):
             scene.set_visual_mode(requested_mode)
-        layer_based_treatment = scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board", "dossier"}
+        layer_based_treatment = scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board"}
         explicit_treatment = "visual_mode" in ctx.settings or "visual_treatment" in ctx.settings or scene.visual_mode != "full_frame"
         if not explicit_treatment:
             assignments = analyze_visual_treatments(content, script_id=ctx.script_id)
             apply_visual_treatment_assignments(content, assignments)
             scene = _first_scene(content)
-            layer_based_treatment = scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board", "dossier"}
+            layer_based_treatment = scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board"}
         if scene.visual_mode == "full_frame":
             scene.visual_layers = []
             _save_content(session, record, content)
@@ -1085,37 +1055,6 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
                     scene_prompt=scene.visual_prompt,
                     force=True,
                 )
-            elif scene.visual_mode == "dossier":
-                try:
-                    generated_layers = generate_dossier_cutouts(
-                        scene_id=scene.id,
-                        layers=layer_dicts,
-                        script_id=ctx.script_id,
-                        scene_prompt=scene.visual_prompt,
-                        dossier_layout=scene.dossier_layout,
-                        force=True,
-                        contains_person=scene.contains_person,
-                    )
-                except Exception as exc:
-                    if "cancelled" in str(exc).lower():
-                        raise
-                    logger.warning(
-                        "[DOSSIER] dossier.fallback.full_frame test_lab scene=%s error=%s",
-                        scene.id,
-                        exc,
-                    )
-                    scene.set_visual_mode("full_frame")
-                    scene.visual_layers = []
-                    fallback_image_url, _, _ = generate_scene_image(
-                        scene.id,
-                        scene.visual_prompt,
-                        ctx.script_id,
-                        force=True,
-                        contains_person=scene.contains_person,
-                    )
-                    scene.image_url = fallback_image_url
-                    _save_content(session, record, content)
-                    return
             else:
                 generated_layers = generate_visual_layer_panels(
                     scene.id,
@@ -1196,79 +1135,6 @@ def _fallback_visual_layers_for_treatment(scene: Scene) -> list[VisualLayer]:
                 prompt=comparison_cutout_prompt(scene.visual_prompt, scene.narration, "right subject"),
                 placement="right",
                 enter_at_seconds=max(duration / 2, 0.5),
-                animation="pop_in",
-            ),
-        ]
-    if scene.visual_mode == "dossier":
-        duration = scene.audio_duration_seconds or scene.duration_estimate_seconds
-        layout = scene.dossier_layout or "anchor"
-        if layout == "network":
-            third_enter = max((duration * 2) / 3, 1.0)
-            return [
-                VisualLayer(
-                    id=f"{scene.id}_dossier_subject_1",
-                    asset_kind="cutout",
-                    label="Subject A",
-                    prompt=f"Dossier subject cutout for primary suspect: {base_prompt}.",
-                    placement="top-left",
-                    enter_at_seconds=0.0,
-                    animation="pop_in",
-                ),
-                VisualLayer(
-                    id=f"{scene.id}_dossier_subject_2",
-                    asset_kind="cutout",
-                    label="Subject B",
-                    prompt=f"Dossier subject cutout for connected suspect: {base_prompt}.",
-                    placement="top-right",
-                    enter_at_seconds=max(duration / 3, 0.5),
-                    animation="pop_in",
-                ),
-                VisualLayer(
-                    id=f"{scene.id}_dossier_subject_3",
-                    asset_kind="cutout",
-                    label="Subject C",
-                    prompt=f"Dossier subject cutout for third connected figure: {base_prompt}.",
-                    placement="bottom-center",
-                    enter_at_seconds=third_enter,
-                    animation="pop_in",
-                ),
-            ]
-        anchor_step = max(duration / 4, 0.6)
-        return [
-            VisualLayer(
-                id=f"{scene.id}_dossier_anchor",
-                asset_kind="cutout",
-                label="Subject",
-                prompt=f"Dossier anchor subject cutout: {base_prompt}.",
-                placement="center",
-                enter_at_seconds=0.0,
-                animation="none",
-            ),
-            VisualLayer(
-                id=f"{scene.id}_dossier_evidence_1",
-                asset_kind="cutout",
-                label="Evidence",
-                prompt=f"Dossier evidence cutout: {base_prompt}.",
-                placement="top-left",
-                enter_at_seconds=anchor_step,
-                animation="pop_in",
-            ),
-            VisualLayer(
-                id=f"{scene.id}_dossier_evidence_2",
-                asset_kind="cutout",
-                label="Witness",
-                prompt=f"Dossier evidence cutout: {base_prompt}.",
-                placement="top-right",
-                enter_at_seconds=anchor_step * 2,
-                animation="pop_in",
-            ),
-            VisualLayer(
-                id=f"{scene.id}_dossier_evidence_3",
-                asset_kind="cutout",
-                label="Clue",
-                prompt=f"Dossier evidence cutout: {base_prompt}.",
-                placement="bottom-left",
-                enter_at_seconds=anchor_step * 3,
                 animation="pop_in",
             ),
         ]

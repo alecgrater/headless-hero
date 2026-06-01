@@ -12,7 +12,7 @@ from pipeline.render_jobs import UserFacingJobError
 
 logger = logging.getLogger(__name__)
 
-LAYERED_LEGACY_TREATMENTS = {"full_frame", "popup_sequence", "flipflop", "comparison_board", "dossier"}
+LAYERED_LEGACY_TREATMENTS = {"full_frame", "popup_sequence", "flipflop", "comparison_board"}
 LIST_MARKERS = {
     "first",
     "second",
@@ -124,73 +124,6 @@ PROGRESSION_MARKERS = {
     "transform",
     "transforms",
 }
-DOSSIER_NETWORK_MARKERS = {
-    "alliance",
-    "alliances",
-    "associate",
-    "associates",
-    "cartel",
-    "circle",
-    "co-conspirator",
-    "co-conspirators",
-    "conspirator",
-    "conspirators",
-    "conspiracy",
-    "connection",
-    "connections",
-    "connected",
-    "connect",
-    "connects",
-    "coup",
-    "crew",
-    "faction",
-    "factions",
-    "gang",
-    "group",
-    "groups",
-    "hierarchy",
-    "informant",
-    "informants",
-    "leak",
-    "leakers",
-    "linked",
-    "links",
-    "members",
-    "mole",
-    "moles",
-    "network",
-    "networks",
-    "operatives",
-    "organization",
-    "organizations",
-    "ring",
-    "rivalry",
-    "rivals",
-    "suspect",
-    "suspects",
-    "syndicate",
-    "team",
-    "teams",
-    "web",
-}
-DOSSIER_ANCHOR_MARKERS = {
-    "case",
-    "clue",
-    "clues",
-    "evidence",
-    "file",
-    "files",
-    "investigation",
-    "lead",
-    "leads",
-    "mystery",
-    "profile",
-    "report",
-    "subject",
-    "victim",
-    "witness",
-    "witnesses",
-}
 REPETITION_STOPWORDS = {
     "a",
     "an",
@@ -213,7 +146,6 @@ VARIETY_PRIORITY_MODES = {"full_frame", "multi_frame", "continuous", "flipflop"}
 CLEAR_IMPROVEMENT_MODES = {
     "comparison_board",
     "stat_card",
-    "dossier",
     "popup_sequence",
     "video",
     "captions",
@@ -262,7 +194,7 @@ class VisualTreatmentAssignment(BaseModel):
     def visual_treatment(self) -> str:
         return (
             self.visual_mode
-            if self.visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card", "dossier"}
+            if self.visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card"}
             else "full_frame"
         )
 
@@ -359,27 +291,10 @@ def apply_visual_treatment_assignments(
                 scene.stat_label = assignment.stat_label
         scene.visual_layers = (
             list(assignment.visual_layers)
-            if mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card", "dossier"}
+            if mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card"}
             else []
         )
-        if mode == "dossier" and scene.dossier_layout == "anchor":
-            # Heuristic only flips the *default* anchor → network when narration markers
-            # are clear. An explicit "network" choice is preserved as-is to avoid clobbering
-            # a deliberate LLM/user selection when narration markers shift later.
-            detected = _detect_dossier_layout(scene)
-            if detected == "network":
-                scene.dossier_layout = "network"
     _enforce_content_non_repeatable_spacing(content)
-
-
-def _detect_dossier_layout(scene: Scene) -> str:
-    """Pick anchor vs network from narration shape; default anchor."""
-
-    text = scene.narration.lower()
-    words = {_normalize_word(word) for word in text.split()}
-    if words & DOSSIER_NETWORK_MARKERS:
-        return "network"
-    return "anchor"
 
 
 def _stat_fields_for_scene(scene: Scene) -> tuple[str, str] | None:
@@ -464,35 +379,6 @@ def _caption_assignment_fields(scene: Scene, assignment: VisualTreatmentAssignme
     return resolved_text, resolved_emphasis
 
 
-def _dossier_layers_for_scene(scene: Scene) -> list[VisualLayer]:
-    marker_words = []
-    seen = set()
-    for raw_word in scene.narration.split():
-        word = _normalize_word(raw_word)
-        if word not in DOSSIER_ANCHOR_MARKERS and word not in DOSSIER_NETWORK_MARKERS:
-            continue
-        if word in seen:
-            continue
-        marker_words.append(word)
-        seen.add(word)
-    if len(marker_words) < 2:
-        return []
-
-    placements = ["center", "left", "right", "top-left", "top-right", "bottom-left"]
-    return [
-        VisualLayer(
-            id=f"{scene.id}_dossier_{index + 1}",
-            asset_kind="cutout",
-            label=word.upper(),
-            prompt=_dossier_cutout_prompt(scene, word),
-            placement=placements[index],
-            enter_at_seconds=round(_phrase_start_seconds(scene, word, index, len(marker_words)), 2),
-            animation="pop_in",
-        )
-        for index, word in enumerate(marker_words[:6])
-    ]
-
-
 def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
     if scene.is_title_card:
         return _full_frame_assignment(scene.id, "Title-card scenes keep their existing full-frame animation type.")
@@ -502,13 +388,6 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             visual_mode="captions",
             reasoning="Scene is explicitly marked for captions rendering.",
             visual_layers=[],
-        )
-    if scene.visual_mode == "dossier":
-        return VisualTreatmentAssignment(
-            scene_id=scene.id,
-            visual_mode="dossier",
-            reasoning="Scene is explicitly marked for dossier rendering; preserved.",
-            visual_layers=list(scene.visual_layers),
         )
     if scene.visual_mode == "stat_card":
         return VisualTreatmentAssignment(
@@ -597,15 +476,6 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             reasoning=f"Detected one decisive statistic: {stat_value}.",
             stat_value=stat_value,
             stat_label=stat_label,
-        )
-
-    dossier_layers = _dossier_layers_for_scene(scene)
-    if dossier_layers:
-        return VisualTreatmentAssignment(
-            scene_id=scene.id,
-            visual_mode="dossier",
-            reasoning=f"Detected {len(dossier_layers)} dossier evidence markers.",
-            visual_layers=dossier_layers,
         )
 
     caption_fields = _caption_fields_for_scene(scene)
@@ -838,16 +708,6 @@ def comparison_cutout_prompt(visual_prompt: str, narration: str, subject: str) -
         "No full background scene, no split-screen baked into the image, no decorative border, no picture frame, "
         "no mat, no white margin, no inset panel, no UI chrome, no caption box, no poster edge. "
         "No text in image."
-    )
-
-
-def _dossier_cutout_prompt(scene: Scene, focus: str) -> str:
-    base_prompt = scene.visual_prompt.strip() or scene.narration.strip()
-    return (
-        f"Dossier board transparent cutout for {focus}: {base_prompt}. "
-        "Generate only the named subject or evidence item as an isolated transparent cutout candidate. "
-        "No full background scene, no corkboard, no pins, no tape, no red string, no evidence tags, "
-        "no sticky notes, no photo frames, no labels, no captions, no badges, and no text in image."
     )
 
 

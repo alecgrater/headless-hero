@@ -314,7 +314,7 @@ Idempotent: running it twice produces the same result.
 
 ### Step 4 — Define the visual beat rules
 
-`LIFE_AS_A_BEAT_RULES` ([`life_as_a.py`](../../backend/pipeline/formats/life_as_a.py)) uses `{static, continuous, multi_frame}` as the monotony-fixer alternative pool and `monotony_threshold=3`. Format metadata still exposes the full canonical `visual_mode` vocabulary; specialized modes such as `captions`, `stat_card`, `popup_sequence`, `comparison_board`, and `dossier` remain valid script-owned scene modes. Legacy `quick_cuts` data is still normalized at load/post-processing boundaries, but new format rules should not target it.
+`LIFE_AS_A_BEAT_RULES` ([`life_as_a.py`](../../backend/pipeline/formats/life_as_a.py)) uses `{static, continuous, multi_frame}` as the monotony-fixer alternative pool and `monotony_threshold=3`. Format metadata still exposes the full canonical `visual_mode` vocabulary; specialized modes such as `captions`, `stat_card`, `popup_sequence`, and `comparison_board` remain valid script-owned scene modes. Legacy `quick_cuts` data is still normalized at load/post-processing boundaries, but new format rules should not target it.
 
 Scene-length protection runs before voiceover. Generic formats use the scriptwriter's deterministic sentence-boundary granularity pass, while `life-as-a` keeps its format-specific chunker for literary single-beat scenes. Neither path rewrites narration with an LLM after audio exists.
 

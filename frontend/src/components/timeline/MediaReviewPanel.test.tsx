@@ -7,12 +7,12 @@ import MediaReviewPanel from "./MediaReviewPanel";
 
 const baseScene: Scene = {
   id: "scene_001",
-  narration: "A case board connects the names.",
-  visual_prompt: "[CLOSE-UP] Abstract evidence on a desk with no readable text",
+  narration: "The old plan and the new plan sit side by side.",
+  visual_prompt: "[CLOSE-UP] Abstract comparison with no readable text",
   duration_estimate_seconds: 6,
   is_title_card: false,
   audio_duration_seconds: 6,
-  visual_mode: "dossier",
+  visual_mode: "comparison_board",
 };
 
 describe("MediaReviewPanel", () => {
@@ -20,7 +20,7 @@ describe("MediaReviewPanel", () => {
     const assignments: MediaAssignment[] = [
       {
         scene_id: "scene_001",
-        visual_mode: "dossier",
+        visual_mode: "comparison_board",
         game_name: null,
         search_query: null,
         reasoning: "Preserved script mode.",
@@ -36,8 +36,8 @@ describe("MediaReviewPanel", () => {
       />,
     );
 
-    expect(screen.getByText((_, element) => element?.textContent === "1 scenes: 1 Dossier")).toBeInTheDocument();
-    expect(screen.getAllByText("Dossier").length).toBeGreaterThan(0);
+    expect(screen.getByText((_, element) => element?.textContent === "1 scenes: 1 Comparison board")).toBeInTheDocument();
+    expect(screen.getAllByText("Comparison board").length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /re-analyze/i })).not.toBeInTheDocument();
     const select = screen.getByRole("combobox");
     const expectedModes = [
@@ -50,7 +50,6 @@ describe("MediaReviewPanel", () => {
       "Comparison board",
       "Captions",
       "Stat card",
-      "Dossier",
     ];
     expect(within(select).getAllByRole("option").map((option) => option.textContent)).toEqual(expectedModes);
   });
@@ -75,9 +74,9 @@ describe("MediaReviewPanel", () => {
       />,
     );
 
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "dossier" } });
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "comparison_board" } });
 
-    expect(screen.getByRole("combobox")).toHaveValue("dossier");
-    expect(screen.getAllByText("Dossier").length).toBeGreaterThan(0);
+    expect(screen.getByRole("combobox")).toHaveValue("comparison_board");
+    expect(screen.getAllByText("Comparison board").length).toBeGreaterThan(0);
   });
 });

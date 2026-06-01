@@ -35,6 +35,8 @@ const flipflopScene: Scene = {
 
 const content: ScriptContent = {
   title: "Visual Mode Test",
+  intro_hook: "",
+  outro_cta: "",
   segments: [{ name: "Segment", scenes: [scene, flipflopScene] }],
 };
 
