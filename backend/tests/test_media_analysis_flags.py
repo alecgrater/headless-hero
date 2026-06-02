@@ -893,6 +893,91 @@ def test_media_analyzer_preserves_layered_modes_before_layers_are_generated(monk
     assert assignments[0].visual_mode == "popup_sequence"
 
 
+def test_media_analyzer_rejects_unplanned_specialized_validator_modes(monkeypatch):
+    content = ScriptContent(
+        title="No New Modes",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="scene_001",
+                        narration="The ordinary room stays on screen while the narrator explains the setup.",
+                        visual_prompt="[ESTABLISHING] A quiet room.",
+                        visual_mode="full_frame",
+                    ),
+                    Scene(
+                        id="scene_002",
+                        narration="The next ordinary scene continues with a normal illustration.",
+                        visual_prompt="[CLOSE-UP] A desk detail.",
+                        visual_mode="full_frame",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(media_analyzer, "chat", lambda **_: """{
+      "assignments": [
+        {"scene_id": "scene_001", "visual_mode": "captions", "game_name": null, "search_query": null, "reasoning": "invented caption mode"},
+        {"scene_id": "scene_002", "visual_mode": "comparison_board", "game_name": null, "search_query": null, "reasoning": "invented comparison mode"}
+      ]
+    }""")
+
+    assignments = analyze_media_sources(
+        content,
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+        ai_video_enabled=False,
+        animated_scene_count=0,
+        script_id="test-script",
+    )
+
+    assert [assignment.visual_mode for assignment in assignments] == ["full_frame", "full_frame"]
+
+
+def test_media_analyzer_downgrades_omitted_invalid_script_owned_modes(monkeypatch):
+    content = ScriptContent(
+        title="Invalid Planned Modes",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="scene_001",
+                        narration="The caption beat is missing its renderer-owned text.",
+                        visual_prompt="[ESTABLISHING] A quiet room.",
+                        visual_mode="captions",
+                        caption_text="",
+                    ),
+                    Scene(
+                        id="scene_002",
+                        narration="The stat card beat is missing its main number.",
+                        visual_prompt="[CLOSE-UP] A blank card.",
+                        visual_mode="stat_card",
+                        stat_value="",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    monkeypatch.setattr(media_analyzer, "chat", lambda **_: """{
+      "assignments": []
+    }""")
+
+    assignments = analyze_media_sources(
+        content,
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+        ai_video_enabled=False,
+        animated_scene_count=0,
+        script_id="test-script",
+    )
+
+    assert [assignment.visual_mode for assignment in assignments] == ["full_frame", "full_frame"]
+
+
 def test_media_analysis_preserves_planned_video_when_valid(monkeypatch):
     content = ScriptContent(
         title="Test",

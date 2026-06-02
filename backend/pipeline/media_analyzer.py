@@ -110,6 +110,11 @@ def _canonical_visual_mode(value: str, legacy_media_source: str = "") -> str:
     return "full_frame"
 
 
+def _validator_visual_mode(value: str, legacy_media_source: str = "") -> str:
+    mode = _canonical_visual_mode(value, legacy_media_source)
+    return mode if mode in {"full_frame", "video"} else "full_frame"
+
+
 def _valid_existing_script_mode(
     scene: Scene,
     *,
@@ -434,7 +439,7 @@ def analyze_media_sources(
     segment_ai_video_counts: dict[int, int] = {}
     ordered_scene_ids = _scene_order(script_content)
     for entry in raw_assignments:
-        mode = _canonical_visual_mode(
+        mode = _validator_visual_mode(
             str(entry.get("visual_mode") or entry.get("media_source") or entry.get("visual_beat") or "full_frame"),
             str(entry.get("media_source") or ""),
         )
@@ -496,7 +501,13 @@ def analyze_media_sources(
 
     for scene in script_content.all_scenes():
         if scene.id not in assignments_by_scene:
-            mode = _canonical_visual_mode(scene.visual_mode)
+            mode = _valid_existing_script_mode(
+                scene,
+                preserve_video=ai_video_available,
+                require_eli_scene=require_eli_scene_for_ai_video,
+                life_as_a_role=life_as_a_role,
+                max_duration_seconds=ai_video_max_duration,
+            ) or "full_frame"
             reasoning = "Defaulted to planned visual mode because the validator omitted this scene."
             if mode == "video":
                 segment_index = scene_segment_indexes.get(scene.id, -1)
