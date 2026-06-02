@@ -893,6 +893,90 @@ def test_media_analyzer_preserves_layered_modes_before_layers_are_generated(monk
     assert assignments[0].visual_mode == "popup_sequence"
 
 
+def test_media_analysis_preserves_planned_video_when_valid(monkeypatch):
+    content = ScriptContent(
+        title="Test",
+        intro_hook="",
+        outro_cta="",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="scene_001",
+                        narration="The room starts moving around him.",
+                        visual_prompt="[REACTION] A person stepping through a moving room.",
+                        duration_estimate_seconds=8.0,
+                        audio_duration_seconds=5.8,
+                        visual_mode="video",
+                        contains_person=True,
+                    )
+                ],
+            )
+        ],
+    )
+
+    monkeypatch.setattr(media_analyzer, "chat", lambda **_: """{
+      "assignments": [
+        {"scene_id": "scene_001", "visual_mode": "full_frame", "game_name": null, "search_query": null, "reasoning": "No change"}
+      ]
+    }""")
+
+    assignments = analyze_media_sources(
+        content,
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+        animated_scene_count=3,
+        ai_video_enabled=True,
+        ai_video_scenes_per_segment=3,
+        script_id="test",
+    )
+
+    assert assignments[0].visual_mode == "video"
+
+
+def test_media_analysis_downgrades_invalid_planned_video_with_clear_reason(monkeypatch):
+    content = ScriptContent(
+        title="Test",
+        intro_hook="",
+        outro_cta="",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="scene_001",
+                        narration="The room starts moving around him for too long.",
+                        visual_prompt="[REACTION] A person stepping through a moving room.",
+                        audio_duration_seconds=12.0,
+                        visual_mode="video",
+                        contains_person=True,
+                    )
+                ],
+            )
+        ],
+    )
+
+    monkeypatch.setattr(media_analyzer, "chat", lambda **_: """{
+      "assignments": [
+        {"scene_id": "scene_001", "visual_mode": "full_frame", "game_name": null, "search_query": null, "reasoning": "No change"}
+      ]
+    }""")
+
+    assignments = analyze_media_sources(
+        content,
+        gameplay_enabled=False,
+        stock_photo_enabled=False,
+        animated_scene_count=3,
+        ai_video_enabled=True,
+        ai_video_scenes_per_segment=3,
+        script_id="test",
+    )
+
+    assert assignments[0].visual_mode == "full_frame"
+    assert assignments[0].reasoning.startswith("Planned AI video was downgraded")
+
+
 def test_media_analyzer_falls_back_to_full_frame_when_removed_dossier_video_rejected(monkeypatch):
     content = ScriptContent(
         title="Rejected Video",

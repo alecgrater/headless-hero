@@ -180,15 +180,15 @@ def missing_voiceover_scene_ids(content: ScriptContent) -> list[str]:
 
 
 def media_analysis_voiceover_required_message(missing_count: int) -> str:
-    """Build the user-facing visual-mode analysis voiceover gate message."""
+    """Build the user-facing visual-mode validation voiceover gate message."""
     return (
-        "Generate voiceover before media analysis. "
+        "Generate voiceover before validating visual modes. "
         f"{missing_count} scene(s) are missing audio duration timing."
     )
 
 
 def require_media_analysis_voiceover(content: ScriptContent) -> None:
-    """Raise a user-facing job error when visual-mode analysis lacks voiceover timing."""
+    """Raise a user-facing job error when visual-mode validation lacks voiceover timing."""
     missing_voiceover = missing_voiceover_scene_ids(content)
     if missing_voiceover:
         logger.info(
@@ -202,7 +202,7 @@ def require_media_analysis_voiceover(content: ScriptContent) -> None:
 
 @router.post("/analyze/{script_id}", response_model=AnalyzeResponse)
 def analyze_media(script_id: str, session: Session = Depends(get_session)):
-    """Trigger visual-mode analysis for a script. Runs as a background job."""
+    """Trigger post-voiceover visual-mode validation for a script."""
     record = session.get(Script, script_id)
     if not record:
         raise HTTPException(status_code=404, detail="Script not found")
@@ -223,7 +223,7 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
     job_id = job.id
 
     def _run_analysis() -> list[str]:
-        update_job(job_id, current_step="Validating media analysis against voiceover durations...")
+        update_job(job_id, current_step="Validating visual modes against voiceover durations...")
 
         from database import engine
         from sqlmodel import Session as SqlSession
@@ -238,7 +238,7 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
         gameplay_enabled, stock_photo_enabled, ai_video_enabled = media_analysis_source_flags(fresh_raw)
 
         if gameplay_enabled or stock_photo_enabled or ai_video_enabled:
-            update_job(job_id, current_step="Analyzing script for visual modes...")
+            update_job(job_id, current_step="Validating planned visual modes...")
             assignments = analyze_media_sources(
                 fresh_content,
                 gameplay_enabled=gameplay_enabled,
@@ -257,13 +257,13 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
         with SqlSession(engine) as bg_session:
             rec = bg_session.get(Script, script_id)
             if not rec:
-                raise RuntimeError(f"Script {script_id} deleted during media analysis")
+                raise RuntimeError(f"Script {script_id} deleted during visual-mode validation")
             final_raw = json.loads(rec.script_json)
             final_content = ScriptContent.model_validate(final_raw)
-            update_job(job_id, current_step="Validating media analysis against voiceover durations...")
+            update_job(job_id, current_step="Validating visual modes against voiceover durations...")
             require_media_analysis_voiceover(final_content)
             final_gameplay_enabled, final_stock_photo_enabled, final_ai_video_enabled = media_analysis_source_flags(final_raw)
-            update_job(job_id, current_step="Downgrading stale AI video assignments...")
+            update_job(job_id, current_step="Preparing validated visual modes...")
             final_assignments = normalize_media_assignments_for_sources(
                 assignments,
                 script_content=final_content,
@@ -300,7 +300,7 @@ def analyze_media(script_id: str, session: Session = Depends(get_session)):
 
 @router.get("/analyze/status/{job_id}")
 def analyze_status(job_id: str):
-    """Poll the status of a visual-mode analysis job."""
+    """Poll the status of a visual-mode validation job."""
     job = get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")

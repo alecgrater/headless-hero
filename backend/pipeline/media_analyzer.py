@@ -1,4 +1,10 @@
-"""Post-script visual-mode analyzer — uses the routed LLM provider to assign AI video scenes."""
+"""Post-voiceover visual-mode validator.
+
+Script generation owns planned visual modes, including planned AI-video scenes.
+This module validates those plans after voiceover timing exists, asks the routed
+LLM for any remaining AI-video fit checks, and downgrades invalid planned video
+with explicit reasoning.
+"""
 
 import json
 import logging
@@ -54,6 +60,10 @@ AI_VIDEO_STATIC_OBJECT_TERMS = {
 }
 
 AI_VIDEO_MAX_ROUTED_DURATION_SECONDS = 6.5
+PLANNED_AI_VIDEO_DOWNGRADE_REASON = (
+    "Planned AI video was downgraded because real voiceover timing, adjacency, "
+    "duration, or scene content made it ineligible."
+)
 
 
 class MediaAssignment:
@@ -100,16 +110,63 @@ def _canonical_visual_mode(value: str, legacy_media_source: str = "") -> str:
     return "full_frame"
 
 
-def _valid_existing_script_mode(scene: Scene) -> str:
-    """Return a script-chosen mode worth preserving during AI-video analysis."""
+def _valid_existing_script_mode(
+    scene: Scene,
+    *,
+    preserve_video: bool = False,
+    require_eli_scene: bool = False,
+    life_as_a_role: str = "",
+    max_duration_seconds: float = AI_VIDEO_MAX_ROUTED_DURATION_SECONDS,
+) -> str:
+    """Return a script-chosen mode worth preserving during visual-mode validation."""
     mode = _canonical_visual_mode(scene.visual_mode)
-    if scene.is_title_card or mode in {"full_frame", "video"}:
+    if scene.is_title_card or mode == "full_frame":
         return ""
+    if mode == "video":
+        if not preserve_video:
+            return ""
+        return "video" if _is_ai_video_eligible(
+            scene,
+            require_eli_scene=require_eli_scene,
+            life_as_a_role=life_as_a_role,
+            max_duration_seconds=max_duration_seconds,
+        ) else ""
     if mode == "captions" and not scene.caption_text.strip():
         return ""
     if mode == "stat_card" and not scene.stat_value.strip():
         return ""
     return mode
+
+
+def _ai_video_validation_failure(
+    scene_id: str,
+    scene: Scene,
+    *,
+    ai_video_assigned: int,
+    ai_video_limit: int,
+    segment_ai_video_count: int,
+    ai_video_scenes_per_segment: int,
+    assignments_by_scene: dict[str, "MediaAssignment"],
+    ordered_scene_ids: list[str],
+    require_eli_scene: bool,
+    life_as_a_role: str,
+    max_duration_seconds: float,
+) -> str:
+    """Return a downgrade reason when an AI-video assignment is invalid."""
+    if ai_video_assigned >= ai_video_limit:
+        return PLANNED_AI_VIDEO_DOWNGRADE_REASON
+    if segment_ai_video_count >= ai_video_scenes_per_segment:
+        return PLANNED_AI_VIDEO_DOWNGRADE_REASON
+    if _has_adjacent_ai_video(scene_id, assignments_by_scene, ordered_scene_ids):
+        return PLANNED_AI_VIDEO_DOWNGRADE_REASON
+    if not _is_ai_video_eligible(
+        scene,
+        require_eli_scene=require_eli_scene,
+        life_as_a_role=life_as_a_role,
+        max_duration_seconds=max_duration_seconds,
+    ):
+        return PLANNED_AI_VIDEO_DOWNGRADE_REASON
+    return ""
 
 
 def _resolve_scene_id(raw_scene_id: str, valid_scene_ids: set[str]) -> str | None:
@@ -272,14 +329,16 @@ def _remove_adjacent_ai_video_assignments(
 
         existing = assignments_by_scene[downgrade_id]
         existing_script_mode = _valid_existing_script_mode(scenes_by_id[downgrade_id]) if downgrade_id in scenes_by_id else ""
+        downgrade_reason = (
+            PLANNED_AI_VIDEO_DOWNGRADE_REASON
+            if downgrade_id in scenes_by_id and _canonical_visual_mode(scenes_by_id[downgrade_id].visual_mode) == "video"
+            else existing.reasoning or "Downgraded to AI art so AI-video scenes are not back to back."
+        )
         assignments_by_scene[downgrade_id] = MediaAssignment(
             scene_id=downgrade_id,
             game_name=None,
             search_query=None,
-            reasoning=(
-                existing.reasoning
-                or "Downgraded to AI art so AI-video scenes are not back to back."
-            ),
+            reasoning=downgrade_reason,
             visual_mode=existing_script_mode or "full_frame",
         )
         segment_index = scene_segment_indexes.get(downgrade_id)
@@ -298,10 +357,11 @@ def analyze_media_sources(
     ai_video_scenes_per_segment: int = 2,
     script_id: str | None = None,
 ) -> list[MediaAssignment]:
-    """Analyze a completed script and assign visual modes per scene.
+    """Validate a completed script's planned visual modes after voiceover.
 
-    Sends the full script to the routed LLM provider, which returns per-scene
-    assignments based on the narrative content.
+    Sends the full script to the routed LLM provider for AI-video fit checks.
+    Existing script-owned modes remain authoritative when valid; planned video
+    is preserved when timing, caps, spacing, and scene content allow it.
     """
     ai_video_scenes_per_segment = max(0, ai_video_scenes_per_segment)
     ai_video_available = ai_video_enabled and animated_scene_count > 0 and ai_video_scenes_per_segment > 0
@@ -354,7 +414,7 @@ def analyze_media_sources(
 
     user_message = json.dumps(scenes_summary, indent=2)
 
-    logger.info("[%s] Analyzing visual modes for %d scenes (ai_video=%s)",
+    logger.info("[%s] Validating visual modes for %d scenes (ai_video=%s)",
                 script_id or "no-id", len(scenes_summary), ai_video_available)
 
     response = chat(
@@ -387,22 +447,40 @@ def analyze_media_sources(
             continue
         segment_index = scene_segment_indexes.get(scene_id, -1)
         scene = scenes_by_id[scene_id]
-        existing_script_mode = _valid_existing_script_mode(scene)
+        planned_script_video = _canonical_visual_mode(scene.visual_mode) == "video"
+        reasoning = entry.get("reasoning", "")
+        existing_script_mode = _valid_existing_script_mode(
+            scene,
+            preserve_video=ai_video_available,
+            require_eli_scene=require_eli_scene_for_ai_video,
+            life_as_a_role=life_as_a_role,
+            max_duration_seconds=ai_video_max_duration,
+        )
+        if mode == "full_frame" and existing_script_mode == "video":
+            mode = "video"
+        elif mode == "full_frame" and planned_script_video and ai_video_available:
+            reasoning = PLANNED_AI_VIDEO_DOWNGRADE_REASON
         if not ai_video_available and mode == "video":
             mode = existing_script_mode or "full_frame"
         if mode == "video":
-            if (
-                ai_video_assigned >= ai_video_limit
-                or segment_ai_video_counts.get(segment_index, 0) >= ai_video_scenes_per_segment
-                or _has_adjacent_ai_video(scene_id, assignments_by_scene, ordered_scene_ids)
-                or not _is_ai_video_eligible(
-                    scene,
-                    require_eli_scene=require_eli_scene_for_ai_video,
-                    life_as_a_role=life_as_a_role,
-                    max_duration_seconds=ai_video_max_duration,
-                )
-            ):
+            downgrade_reason = _ai_video_validation_failure(
+                scene_id,
+                scene,
+                ai_video_assigned=ai_video_assigned,
+                ai_video_limit=ai_video_limit,
+                segment_ai_video_count=segment_ai_video_counts.get(segment_index, 0),
+                ai_video_scenes_per_segment=ai_video_scenes_per_segment,
+                assignments_by_scene=assignments_by_scene,
+                ordered_scene_ids=ordered_scene_ids,
+                require_eli_scene=require_eli_scene_for_ai_video,
+                life_as_a_role=life_as_a_role,
+                max_duration_seconds=ai_video_max_duration,
+            )
+            if downgrade_reason:
                 mode = existing_script_mode or "full_frame"
+                if mode == "video":
+                    mode = "full_frame"
+                reasoning = downgrade_reason
             else:
                 ai_video_assigned += 1
                 segment_ai_video_counts[segment_index] = segment_ai_video_counts.get(segment_index, 0) + 1
@@ -412,18 +490,41 @@ def analyze_media_sources(
             scene_id=scene_id,
             game_name=entry.get("game_name"),
             search_query=entry.get("search_query"),
-            reasoning=entry.get("reasoning", ""),
+            reasoning=reasoning,
             visual_mode=mode,
         )
 
     for scene in script_content.all_scenes():
         if scene.id not in assignments_by_scene:
+            mode = _canonical_visual_mode(scene.visual_mode)
+            reasoning = "Defaulted to planned visual mode because the validator omitted this scene."
+            if mode == "video":
+                segment_index = scene_segment_indexes.get(scene.id, -1)
+                downgrade_reason = _ai_video_validation_failure(
+                    scene.id,
+                    scene,
+                    ai_video_assigned=ai_video_assigned,
+                    ai_video_limit=ai_video_limit,
+                    segment_ai_video_count=segment_ai_video_counts.get(segment_index, 0),
+                    ai_video_scenes_per_segment=ai_video_scenes_per_segment,
+                    assignments_by_scene=assignments_by_scene,
+                    ordered_scene_ids=ordered_scene_ids,
+                    require_eli_scene=require_eli_scene_for_ai_video,
+                    life_as_a_role=life_as_a_role,
+                    max_duration_seconds=ai_video_max_duration,
+                )
+                if downgrade_reason:
+                    mode = "full_frame"
+                    reasoning = downgrade_reason
+                else:
+                    ai_video_assigned += 1
+                    segment_ai_video_counts[segment_index] = segment_ai_video_counts.get(segment_index, 0) + 1
             assignments_by_scene[scene.id] = MediaAssignment(
                 scene_id=scene.id,
                 game_name=None,
                 search_query=None,
-                reasoning="Defaulted to AI art because the media analyzer omitted this scene.",
-                visual_mode=_canonical_visual_mode(scene.visual_mode),
+                reasoning=reasoning,
+                visual_mode=mode,
             )
 
     ai_video_assigned = _remove_adjacent_ai_video_assignments(
@@ -449,7 +550,7 @@ def analyze_media_sources(
                 ai_video_max_duration,
             )
 
-    logger.info("[%s] Visual mode analysis complete: %d full_frame, %d video",
+    logger.info("[%s] Visual mode validation complete: %d full_frame, %d video",
                 script_id or "no-id",
                 sum(1 for a in assignments if a.visual_mode != "video"),
                 sum(1 for a in assignments if a.visual_mode == "video"))
