@@ -291,11 +291,12 @@ def _single_frame_directives(scene: Scene) -> list[dict]:
 def _scene_estimated_duration(scene: Scene, *, target_seconds: int) -> float:
     mode_target_seconds = target_scene_seconds_for_mode(scene.visual_mode)
     sentence_count = len(_split_sentences(scene.narration))
+    sentence_paced_seconds = sentence_count * float(target_seconds)
     if scene.duration_estimate_seconds > 0:
         if scene.duration_estimate_seconds <= mode_target_seconds and sentence_count > 2:
-            return sentence_count * float(mode_target_seconds)
+            return max(mode_target_seconds, sentence_paced_seconds)
         return float(scene.duration_estimate_seconds)
-    return max(float(mode_target_seconds), sentence_count * float(mode_target_seconds))
+    return max(float(mode_target_seconds), sentence_paced_seconds)
 
 
 def _chunk_sentences(sentences: list[str], chunk_count: int) -> list[list[str]]:

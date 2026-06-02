@@ -200,7 +200,41 @@ def test_scene_granularity_duration_reestimates_low_extended_mode_estimate():
 
     estimated_duration = _scene_granularity_duration(scene, sentence_count=3)
 
-    assert estimated_duration == 60.0
+    assert estimated_duration == 24.0
+
+
+def test_scene_granularity_keeps_low_estimate_extended_visual_mode_scene():
+    content = ScriptContent(
+        title="Test",
+        intro_hook="",
+        outro_cta="",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="scene_001",
+                        narration=(
+                            "The old choice looks safe from the outside. "
+                            "The new choice costs more up front. "
+                            "By the end of the month, the cheap option is the expensive one."
+                        ),
+                        visual_prompt="Two choices compared side by side.",
+                        duration_estimate_seconds=10.0,
+                        visual_mode="comparison_board",
+                    )
+                ],
+            )
+        ],
+    )
+
+    changed = _ensure_scene_granularity(content)
+
+    assert changed == 0
+    assert len(content.segments[0].scenes) == 1
+    scene = content.segments[0].scenes[0]
+    assert scene.visual_mode == "comparison_board"
+    assert scene.duration_estimate_seconds == 10.0
 
 
 def test_life_as_a_level_prompt_uses_full_vocabulary_without_quotas():
@@ -314,3 +348,28 @@ def test_scene_granularity_splits_overlong_listicle_scene_without_rewriting_narr
     assert all(scene.visual_beat == "static" for scene in scenes)
     assert all(scene.audio_url == "" for scene in scenes)
     assert all(scene.audio_duration_seconds == 0.0 for scene in scenes)
+
+
+def test_scene_granularity_splits_two_sentence_overlong_listicle_scene():
+    scene = _static_scene("scene_001")
+    scene.narration = (
+        "The first warning stretches into a long explanation that should not stay fused. "
+        "The second warning is also long enough that it deserves its own visual beat."
+    )
+    scene.duration_estimate_seconds = 32.0
+    content = ScriptContent(
+        title="Test",
+        format_id="youtube-listicle",
+        segments=[Segment(name="Segment", scenes=[scene])],
+    )
+
+    split_count = _ensure_scene_granularity(content)
+
+    scenes = content.segments[0].scenes
+    assert split_count == 1
+    assert [scene.narration for scene in scenes] == [
+        "The first warning stretches into a long explanation that should not stay fused.",
+        "The second warning is also long enough that it deserves its own visual beat.",
+    ]
+    assert [scene.id for scene in scenes] == ["scene_001", "scene_002"]
+    assert all(scene.visual_mode == "full_frame" for scene in scenes)

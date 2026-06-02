@@ -295,11 +295,12 @@ def _single_static_directive(scene: Scene) -> list[dict]:
 
 def _scene_granularity_duration(scene: Scene, sentence_count: int) -> float:
     target_seconds = target_scene_seconds_for_mode(scene.visual_mode)
+    sentence_paced_seconds = sentence_count * GENERAL_TARGET_SCENE_SECONDS
     if scene.duration_estimate_seconds > 0:
         if scene.duration_estimate_seconds < target_seconds and sentence_count > 2:
-            return sentence_count * target_seconds
+            return max(target_seconds, sentence_paced_seconds)
         return float(scene.duration_estimate_seconds)
-    return sentence_count * target_seconds
+    return max(target_seconds, sentence_paced_seconds)
 
 
 def _chunk_sentences_evenly(sentences: list[str], chunk_count: int) -> list[list[str]]:
@@ -342,7 +343,7 @@ def _ensure_scene_granularity(content: ScriptContent) -> int:
             estimated_duration = _scene_granularity_duration(scene, len(sentences))
             target_seconds = target_scene_seconds_for_mode(scene.visual_mode)
             max_seconds = max_scene_seconds_for_mode(scene.visual_mode)
-            should_split = len(sentences) > 2 and estimated_duration > max_seconds
+            should_split = len(sentences) > 1 and estimated_duration > max_seconds
             if not should_split or len(sentences) <= 1:
                 rewritten.append(scene)
                 continue
