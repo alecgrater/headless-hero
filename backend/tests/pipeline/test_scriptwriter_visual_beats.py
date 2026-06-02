@@ -8,7 +8,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from models.script import Scene, ScriptContent, Segment
 from pipeline.formats.base import VisualBeatRules
 from pipeline.formats.life_as_a import LIFE_AS_A_BEAT_RULES
-from pipeline.scriptwriter import _ensure_scene_granularity, _ensure_visual_beat_directives, _fix_visual_monotony
+from pipeline.scriptwriter import (
+    _ensure_scene_granularity,
+    _ensure_visual_beat_directives,
+    _fix_visual_monotony,
+    _scene_granularity_duration,
+)
 from prompts import script as script_prompt
 
 
@@ -178,6 +183,24 @@ def test_scene_granularity_preserves_extended_visual_mode_scene():
     assert changed == 0
     assert len(content.segments[0].scenes) == 1
     assert content.segments[0].scenes[0].visual_mode == "comparison_board"
+
+
+def test_scene_granularity_duration_reestimates_low_extended_mode_estimate():
+    scene = Scene(
+        id="scene_001",
+        narration=(
+            "The old choice looks safe from the outside. "
+            "The new choice costs more up front. "
+            "By the end of the month, the cheap option is the expensive one."
+        ),
+        visual_prompt="Two choices compared side by side.",
+        duration_estimate_seconds=10.0,
+        visual_mode="comparison_board",
+    )
+
+    estimated_duration = _scene_granularity_duration(scene, sentence_count=3)
+
+    assert estimated_duration == 60.0
 
 
 def test_life_as_a_level_prompt_uses_full_vocabulary_without_quotas():

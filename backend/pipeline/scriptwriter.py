@@ -296,7 +296,7 @@ def _single_static_directive(scene: Scene) -> list[dict]:
 def _scene_granularity_duration(scene: Scene, sentence_count: int) -> float:
     target_seconds = target_scene_seconds_for_mode(scene.visual_mode)
     if scene.duration_estimate_seconds > 0:
-        if scene.duration_estimate_seconds <= GENERAL_TARGET_SCENE_SECONDS and sentence_count > 2:
+        if scene.duration_estimate_seconds < target_seconds and sentence_count > 2:
             return sentence_count * target_seconds
         return float(scene.duration_estimate_seconds)
     return sentence_count * target_seconds
