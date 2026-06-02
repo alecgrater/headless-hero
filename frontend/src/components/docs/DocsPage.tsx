@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { FileText, GitCompare, LayoutGrid, type LucideIcon } from "lucide-react";
+import { DatabaseZap, FileText, GitCompare, LayoutGrid, type LucideIcon } from "lucide-react";
 import ScriptTypesSection from "../settings/script-types/ScriptTypesSection";
 import VisualModesSection from "../settings/visual-modes/VisualModesSection";
+import RenderCacheDocSection from "./RenderCacheDocSection";
 import WorkflowDocSection from "./WorkflowDocSection";
 
 const DOC_SECTIONS = [
@@ -16,6 +17,12 @@ const DOC_SECTIONS = [
     label: "Script Types",
     description: "Compare script formats, structure, narration rules, and visual-mode compatibility.",
     icon: GitCompare,
+  },
+  {
+    id: "render-cache",
+    label: "Render & Cache",
+    description: "Understand when generated assets are reused, invalidated, regenerated, or exported.",
+    icon: DatabaseZap,
   },
   {
     id: "visual-modes",
@@ -76,6 +83,7 @@ export default function DocsPage() {
           {activeSection === "script-types" && (
             <ScriptTypesSection onOpenVisualModes={() => setActiveSection("visual-modes")} />
           )}
+          {activeSection === "render-cache" && <RenderCacheDocSection />}
           {activeSection === "visual-modes" && <VisualModesSection />}
         </div>
       </div>

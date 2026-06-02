@@ -50,6 +50,11 @@ describe("DocsPage", () => {
     await waitFor(() => expect(screen.getByText("Format Comes First")).toBeInTheDocument());
     expect(screen.getAllByText("Educational Listicle").length).toBeGreaterThan(0);
 
+    fireEvent.click(screen.getByRole("button", { name: "Render & Cache" }));
+    expect(screen.getByText("Render & Cache Behavior")).toBeInTheDocument();
+    expect(screen.getByText("Files Are Not Enough")).toBeInTheDocument();
+    expect(screen.getByText("Stale Render Rules")).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "Visual Modes" }));
     expect(screen.getByText("Planned Before Voiceover")).toBeInTheDocument();
     expect(screen.getByText("Renderer Owns Text")).toBeInTheDocument();
