@@ -55,6 +55,11 @@ describe("DocsPage", () => {
     expect(screen.getByText("Files Are Not Enough")).toBeInTheDocument();
     expect(screen.getByText("Stale Render Rules")).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "Visual Ownership" }));
+    expect(screen.getByText("Visual Asset Ownership")).toBeInTheDocument();
+    expect(screen.getByText("Ownership By System")).toBeInTheDocument();
+    expect(screen.getByText("Visual Mode Asset Map")).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "Visual Modes" }));
     expect(screen.getByText("Planned Before Voiceover")).toBeInTheDocument();
     expect(screen.getByText("Renderer Owns Text")).toBeInTheDocument();
