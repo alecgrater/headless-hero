@@ -56,11 +56,15 @@ describe("ProjectDashboard", () => {
     await screen.findByText("Life as a Castle Guard");
 
     expect(screen.getByText("Rating")).toBeInTheDocument();
-    expect(screen.getByLabelText("Script rating 8.1 out of 10")).toBeInTheDocument();
+    const rowRating = screen.getByLabelText("Script rating 8.1 out of 10");
+    expect(rowRating).toHaveTextContent("8.1");
+    expect(rowRating).not.toHaveTextContent("Script");
 
     await user.click(screen.getByLabelText("Grid view"));
 
     const card = screen.getByRole("button", { name: /life as a castle guard/i });
-    expect(within(card).getByLabelText("Script rating 8.1 out of 10")).toBeInTheDocument();
+    const cardRating = within(card).getByLabelText("Script rating 8.1 out of 10");
+    expect(cardRating).toHaveTextContent("8.1");
+    expect(cardRating).not.toHaveTextContent("Script");
   });
 });
