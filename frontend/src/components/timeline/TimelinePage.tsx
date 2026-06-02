@@ -653,6 +653,14 @@ function CanvasColorButton({
     }
   };
 
+  const handleToggleOpen = () => {
+    if (open) {
+      commitDraft(true);
+      return;
+    }
+    setOpen(true);
+  };
+
   return (
     <div
       ref={popoverRef}
@@ -663,7 +671,7 @@ function CanvasColorButton({
     >
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={handleToggleOpen}
         aria-expanded={open}
         aria-haspopup="dialog"
         disabled={updating}
