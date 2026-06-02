@@ -151,7 +151,7 @@ export default function VisualTreatmentReviewPanel({
             <p className="text-xs text-neutral-500">
               {summary.video} video, {summary.full_frame} full frame, {summary.multi_frame} multi-frame,{" "}
               {summary.continuous} continuous, {summary.popup_sequence} popup sequence, {summary.flipflop} flipflop,{" "}
-              {summary.comparison_board} comparison board, {summary.captions} captions
+              {summary.comparison_board} comparison board, {summary.stat_card} stat card, {summary.captions} captions
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -191,7 +191,7 @@ export default function VisualTreatmentReviewPanel({
                   onChange={(e) => handleModeChange(assignment.scene_id, e.target.value as VisualMode)}
                   title={
                     mode === "video"
-                      ? "AI video mode is assigned by video routing."
+                      ? "AI video is planned before voiceover, then validated after real timing exists."
                       : !hasLayers
                           ? "Prepare layers before choosing popup sequence, flipflop, or comparison board."
                           : undefined
