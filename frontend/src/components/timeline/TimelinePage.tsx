@@ -619,16 +619,6 @@ function CanvasColorButton({
 
   useEffect(() => {
     if (!open) return;
-    const handlePointerDown = (event: MouseEvent) => {
-      if (popoverRef.current?.contains(event.target as Node)) return;
-      setOpen(false);
-    };
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
     textInputRef.current?.focus();
     textInputRef.current?.select();
   }, [open]);
@@ -643,6 +633,16 @@ function CanvasColorButton({
     if (normalizedDraft !== activeColor) onSelect(normalizedDraft);
     if (close) setOpen(false);
   }, [activeColor, normalizedDraft, onSelect]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (popoverRef.current?.contains(event.target as Node)) return;
+      commitDraft(true);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [commitDraft, open]);
 
   const handleTextKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter") {
