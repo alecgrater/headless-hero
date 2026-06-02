@@ -604,8 +604,9 @@ function CanvasColorButton({
   updating: boolean;
   onSelect: (color: string) => void;
 }) {
-  const colorInputRef = useRef<HTMLInputElement | null>(null);
+  const textInputRef = useRef<HTMLInputElement | null>(null);
   const [draft, setDraft] = useState(color);
+  const [editing, setEditing] = useState(false);
   const normalizedDraft = normalizeCanvasHex(draft);
   const activeColor = normalizeCanvasHex(color) ?? "#F6C54A";
   const previewColor = normalizedDraft ?? activeColor;
@@ -615,13 +616,21 @@ function CanvasColorButton({
     setDraft(color);
   }, [color]);
 
+  useEffect(() => {
+    if (!editing) return;
+    textInputRef.current?.focus();
+    textInputRef.current?.select();
+  }, [editing]);
+
   const commitDraft = useCallback(() => {
     if (!normalizedDraft) {
       setDraft(activeColor);
+      setEditing(false);
       return;
     }
     setDraft(normalizedDraft);
     if (normalizedDraft !== activeColor) onSelect(normalizedDraft);
+    setEditing(false);
   }, [activeColor, normalizedDraft, onSelect]);
 
   const handleTextKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
@@ -629,6 +638,7 @@ function CanvasColorButton({
       event.currentTarget.blur();
     } else if (event.key === "Escape") {
       setDraft(activeColor);
+      setEditing(false);
       event.currentTarget.blur();
     }
   };
@@ -642,7 +652,7 @@ function CanvasColorButton({
     >
       <button
         type="button"
-        onClick={() => colorInputRef.current?.click()}
+        onClick={() => setEditing(true)}
         disabled={updating}
         className="inline-flex h-full items-center gap-1.5 text-xs font-medium text-neutral-200 transition-colors hover:text-violet-100 disabled:cursor-wait"
       >
@@ -653,33 +663,22 @@ function CanvasColorButton({
         />
         <span>Canvas</span>
       </button>
-      <input
-        ref={colorInputRef}
-        type="color"
-        value={previewColor}
-        onChange={(event) => {
-          const nextColor = normalizeCanvasHex(event.target.value);
-          if (!nextColor) return;
-          setDraft(nextColor);
-          onSelect(nextColor);
-        }}
-        disabled={updating}
-        className="sr-only"
-        aria-label="Select canvas color"
-      />
-      <input
-        type="text"
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={commitDraft}
-        onKeyDown={handleTextKeyDown}
-        disabled={updating}
-        maxLength={7}
-        aria-label="Canvas color hex value"
-        aria-invalid={invalid}
-        className="h-7 w-[4.8rem] border-l border-neutral-800 bg-transparent pl-1.5 font-mono text-xs font-semibold uppercase text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 disabled:cursor-wait"
-        placeholder="#F6C54A"
-      />
+      {editing ? (
+        <input
+          ref={textInputRef}
+          type="text"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={commitDraft}
+          onKeyDown={handleTextKeyDown}
+          disabled={updating}
+          maxLength={7}
+          aria-label="Canvas color hex value"
+          aria-invalid={invalid}
+          className="h-7 w-[4.8rem] border-l border-neutral-800 bg-transparent pl-1.5 font-mono text-xs font-semibold uppercase text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 disabled:cursor-wait"
+          placeholder="#F6C54A"
+        />
+      ) : null}
     </div>
   );
 }
@@ -1037,8 +1036,8 @@ function ViewerSwitchRow({
   };
 
   return (
-    <div className="shrink-0 border-y border-neutral-900/80 px-5 py-2">
-      <div className="flex min-w-0 items-center justify-between gap-2">
+    <div className="shrink-0 overflow-hidden border-y border-neutral-900/80 px-5 py-2">
+      <div className="flex min-w-0 items-center gap-2">
         <div className="inline-flex shrink-0 items-center rounded-xl border border-neutral-800/80 bg-neutral-900/45 p-1">
           {FORMAT_OPTIONS.map(({ key, label, Icon }) => (
             <button
@@ -1053,7 +1052,7 @@ function ViewerSwitchRow({
             </button>
           ))}
         </div>
-        <div className="inline-flex shrink-0 items-center rounded-xl border border-neutral-800/80 bg-neutral-900/45 p-1">
+        <div className="inline-flex min-w-0 flex-1 items-center overflow-x-auto rounded-xl border border-neutral-800/80 bg-neutral-900/45 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {VIEWER_NAV_OPTIONS.map(({ key, label, Icon }) => {
             const isActiveNav = activeNavKey === key;
             return (
@@ -1070,13 +1069,15 @@ function ViewerSwitchRow({
             );
           })}
         </div>
-        <ProjectDetailsButton onClick={onOpenProjectDetails} />
-        <CanvasColorButton
-          color={canvasColor}
-          updating={canvasColorUpdating}
-          onSelect={onSelectCanvasColor}
-        />
-        <OpenExportsButton opening={exportsFolderOpening} onOpen={onOpenExportsFolder} />
+        <div className="ml-auto inline-flex shrink-0 items-center gap-2">
+          <ProjectDetailsButton onClick={onOpenProjectDetails} />
+          <CanvasColorButton
+            color={canvasColor}
+            updating={canvasColorUpdating}
+            onSelect={onSelectCanvasColor}
+          />
+          <OpenExportsButton opening={exportsFolderOpening} onOpen={onOpenExportsFolder} />
+        </div>
       </div>
     </div>
   );
