@@ -203,6 +203,23 @@ def test_scene_granularity_duration_reestimates_low_extended_mode_estimate():
     assert estimated_duration == 24.0
 
 
+def test_scene_granularity_duration_applies_extended_floor_for_short_scene():
+    scene = Scene(
+        id="scene_001",
+        narration=(
+            "The old choice looks safe from the outside. "
+            "The new choice costs more up front."
+        ),
+        visual_prompt="Two choices compared side by side.",
+        duration_estimate_seconds=10.0,
+        visual_mode="comparison_board",
+    )
+
+    estimated_duration = _scene_granularity_duration(scene, sentence_count=2)
+
+    assert estimated_duration == 20.0
+
+
 def test_scene_granularity_keeps_low_estimate_extended_visual_mode_scene():
     content = ScriptContent(
         title="Test",
@@ -218,6 +235,39 @@ def test_scene_granularity_keeps_low_estimate_extended_visual_mode_scene():
                             "The old choice looks safe from the outside. "
                             "The new choice costs more up front. "
                             "By the end of the month, the cheap option is the expensive one."
+                        ),
+                        visual_prompt="Two choices compared side by side.",
+                        duration_estimate_seconds=10.0,
+                        visual_mode="comparison_board",
+                    )
+                ],
+            )
+        ],
+    )
+
+    changed = _ensure_scene_granularity(content)
+
+    assert changed == 0
+    assert len(content.segments[0].scenes) == 1
+    scene = content.segments[0].scenes[0]
+    assert scene.visual_mode == "comparison_board"
+    assert scene.duration_estimate_seconds == 10.0
+
+
+def test_scene_granularity_keeps_short_low_estimate_extended_visual_mode_scene():
+    content = ScriptContent(
+        title="Test",
+        intro_hook="",
+        outro_cta="",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="scene_001",
+                        narration=(
+                            "The old choice looks safe from the outside. "
+                            "The new choice costs more up front."
                         ),
                         visual_prompt="Two choices compared side by side.",
                         duration_estimate_seconds=10.0,

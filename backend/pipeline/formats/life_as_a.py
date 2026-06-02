@@ -14,7 +14,11 @@ from prompts import (
     LIFE_AS_A_OUTLINE_INSTRUCTIONS,
     LIFE_AS_A_SCRIPT_SYSTEM,
 )
-from pipeline.visual_mode_policy import max_scene_seconds_for_mode, target_scene_seconds_for_mode
+from pipeline.visual_mode_policy import (
+    duration_profile_for_mode,
+    max_scene_seconds_for_mode,
+    target_scene_seconds_for_mode,
+)
 
 from . import _register
 from .base import FULL_VISUAL_MODE_VOCABULARY, FormatNote, VideoFormat, VisualBeatRules
@@ -293,7 +297,12 @@ def _scene_estimated_duration(scene: Scene, *, target_seconds: int) -> float:
     sentence_count = len(_split_sentences(scene.narration))
     sentence_paced_seconds = sentence_count * float(target_seconds)
     if scene.duration_estimate_seconds > 0:
-        if scene.duration_estimate_seconds <= mode_target_seconds and sentence_count > 2:
+        profile = duration_profile_for_mode(scene.visual_mode)
+        has_low_extended_estimate = profile != "normal" and scene.duration_estimate_seconds <= mode_target_seconds
+        has_low_long_normal_estimate = (
+            profile == "normal" and sentence_count > 2 and scene.duration_estimate_seconds <= mode_target_seconds
+        )
+        if has_low_extended_estimate or has_low_long_normal_estimate:
             return max(mode_target_seconds, sentence_paced_seconds)
         return float(scene.duration_estimate_seconds)
     return max(float(mode_target_seconds), sentence_paced_seconds)

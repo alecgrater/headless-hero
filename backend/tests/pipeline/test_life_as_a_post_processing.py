@@ -172,6 +172,23 @@ def test_life_as_a_estimates_low_extended_mode_duration_from_policy():
     assert estimated == 24.0
 
 
+def test_life_as_a_estimates_low_extended_mode_floor_for_short_scene():
+    scene = Scene(
+        id="scene_002",
+        narration=(
+            "On the left is the guard you thought you would be. "
+            "On the right is the person who keeps checking the same hallway."
+        ),
+        visual_prompt="[REACTION] A night guard comparison scene.",
+        duration_estimate_seconds=10.0,
+        visual_mode="comparison_board",
+    )
+
+    estimated = _scene_estimated_duration(scene, target_seconds=8)
+
+    assert estimated == 20.0
+
+
 def test_life_as_a_chunking_keeps_low_estimate_extended_visual_mode_scene(monkeypatch):
     monkeypatch.setenv("LIFE_AS_A_CHUNKING_ENABLED", "true")
     content = ScriptContent(
@@ -196,6 +213,48 @@ def test_life_as_a_chunking_keeps_low_estimate_extended_visual_mode_scene(monkey
                             "On the left is the guard you thought you would be. "
                             "On the right is the person who keeps checking the same hallway. "
                             "The difference is only visible after midnight."
+                        ),
+                        visual_prompt="[REACTION] A night guard comparison scene.",
+                        duration_estimate_seconds=10.0,
+                        visual_mode="comparison_board",
+                    ),
+                ],
+            )
+        ],
+    )
+
+    changed = _split_life_as_a_scenes(content)
+
+    assert changed == 0
+    assert len(content.segments[0].scenes) == 2
+    scene = content.segments[0].scenes[1]
+    assert scene.visual_mode == "comparison_board"
+    assert scene.duration_estimate_seconds == 10.0
+
+
+def test_life_as_a_chunking_keeps_short_low_estimate_extended_visual_mode_scene(monkeypatch):
+    monkeypatch.setenv("LIFE_AS_A_CHUNKING_ENABLED", "true")
+    content = ScriptContent(
+        title="Your Life As A Night Guard",
+        intro_hook="",
+        outro_cta="",
+        format_id="life-as-a",
+        segments=[
+            Segment(
+                name="Level 1, the occasional",
+                scenes=[
+                    Scene(
+                        id="scene_001",
+                        narration="The occasional.",
+                        visual_prompt="",
+                        duration_estimate_seconds=4.0,
+                        is_title_card=True,
+                    ),
+                    Scene(
+                        id="scene_002",
+                        narration=(
+                            "On the left is the guard you thought you would be. "
+                            "On the right is the person who keeps checking the same hallway."
                         ),
                         visual_prompt="[REACTION] A night guard comparison scene.",
                         duration_estimate_seconds=10.0,
