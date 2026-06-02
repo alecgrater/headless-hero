@@ -4,17 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-CANONICAL_VISUAL_MODES: tuple[str, ...] = (
-    "full_frame",
-    "continuous",
-    "multi_frame",
-    "video",
-    "popup_sequence",
-    "flipflop",
-    "comparison_board",
-    "captions",
-    "stat_card",
-)
+from models.script import VISUAL_MODES
 
 
 @dataclass(frozen=True)
@@ -114,6 +104,16 @@ _TARGETS: dict[str, VisualModeDurationTarget] = {
         ),
     ),
 }
+
+_missing_targets = VISUAL_MODES - set(_TARGETS)
+_unknown_targets = set(_TARGETS) - VISUAL_MODES
+if _missing_targets or _unknown_targets:
+    raise RuntimeError(
+        "Visual mode duration targets must exactly match models.script.VISUAL_MODES: "
+        f"missing={sorted(_missing_targets)}, unknown={sorted(_unknown_targets)}"
+    )
+
+CANONICAL_VISUAL_MODES: tuple[str, ...] = tuple(mode for mode in _TARGETS if mode in VISUAL_MODES)
 
 
 def duration_target_for_mode(visual_mode: str | None) -> VisualModeDurationTarget:

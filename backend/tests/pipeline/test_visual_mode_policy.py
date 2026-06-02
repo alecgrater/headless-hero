@@ -1,3 +1,4 @@
+from models.script import VISUAL_MODES
 from pipeline.visual_mode_policy import (
     CANONICAL_VISUAL_MODES,
     duration_profile_for_mode,
@@ -7,17 +8,7 @@ from pipeline.visual_mode_policy import (
 
 
 def test_duration_policy_covers_all_canonical_visual_modes():
-    assert CANONICAL_VISUAL_MODES == (
-        "full_frame",
-        "continuous",
-        "multi_frame",
-        "video",
-        "popup_sequence",
-        "flipflop",
-        "comparison_board",
-        "captions",
-        "stat_card",
-    )
+    assert set(CANONICAL_VISUAL_MODES) == VISUAL_MODES
 
     for mode in CANONICAL_VISUAL_MODES:
         policy = duration_target_for_mode(mode)
