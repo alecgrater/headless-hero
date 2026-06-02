@@ -350,17 +350,6 @@ function App() {
               Developer
             </button>
             <button
-              onClick={() => handleSetView("docs")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
-                view === "docs"
-                  ? "bg-violet-500/15 text-violet-300 font-semibold"
-                  : "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
-              }`}
-            >
-              <BookOpen className="w-4 h-4" />
-              Docs
-            </button>
-            <button
               onClick={() => handleSetView("test-lab")}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
                 view === "test-lab"
@@ -370,6 +359,17 @@ function App() {
             >
               <TestTube className="w-4 h-4" />
               Test
+            </button>
+            <button
+              onClick={() => handleSetView("docs")}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
+                view === "docs"
+                  ? "bg-violet-500/15 text-violet-300 font-semibold"
+                  : "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              Docs
             </button>
             <div className="relative" ref={settingsDropdownRef}>
               <button
