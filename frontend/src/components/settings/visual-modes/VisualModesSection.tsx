@@ -10,12 +10,14 @@ export default function VisualModesSection() {
     VISUAL_MODE_CATALOG.find((entry) => entry.id === selectedId) ?? VISUAL_MODE_CATALOG[0];
 
   return (
-    <div className="px-6 py-5 space-y-4">
+    <div className="px-6 py-6 space-y-6">
       <div className="flex items-baseline justify-between gap-4">
         <div>
           <h2 className="text-base font-semibold text-neutral-100">Visual Modes</h2>
-          <p className="text-[11px] text-neutral-500">
-            Read-only reference — every visual mode the script generator and validator can route scenes into.
+          <p className="mt-2 max-w-4xl text-sm leading-6 text-neutral-400">
+            Visual modes are the scene-level render plans that decide what kind of media gets made:
+            a single image, a frame sequence, a layered board, editorial text, a statistic card, or
+            an AI video clip. They are chosen for scene intent, not for an even distribution.
           </p>
         </div>
         <div className="text-[10px] text-neutral-600">
@@ -23,26 +25,35 @@ export default function VisualModesSection() {
         </div>
       </div>
 
-      <div className="space-y-2">
-        <div>
-          <h3 className="text-sm font-semibold text-neutral-100">Workflow</h3>
-          <p className="text-xs leading-5 text-neutral-500">
-            Visual rhythm is planned before voiceover during script generation. Duration targets are tied to visual mode,
-            so normal image beats stay short while captions, comparison boards, popup sequences, stat cards, and planned
-            video scenes get the breathing room their renderer needs.
+      <div className="grid gap-3 lg:grid-cols-3">
+        <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-4">
+          <h3 className="text-sm font-semibold text-neutral-100">Planned Before Voiceover</h3>
+          <p className="mt-2 text-xs leading-5 text-neutral-400">
+            Visual rhythm is planned during script generation. Duration targets are tied to visual
+            mode, so normal image beats stay short while renderer-owned modes get breathing room.
           </p>
         </div>
-        <p className="text-xs leading-5 text-neutral-500">
-          Post-voiceover validation uses real audio and word timing to prepare layers, video eligibility, and asset timing.
-          It can downgrade unsafe modes, but it should not be the main place where new specialized modes are discovered.
-        </p>
+        <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-4">
+          <h3 className="text-sm font-semibold text-neutral-100">Validated After Timing</h3>
+          <p className="mt-2 text-xs leading-5 text-neutral-400">
+            Post-voiceover validation uses real audio and word timing to prepare layers, video
+            eligibility, and asset timing. It may downgrade unsafe modes.
+          </p>
+        </div>
+        <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-4">
+          <h3 className="text-sm font-semibold text-neutral-100">Renderer Owns Text</h3>
+          <p className="mt-2 text-xs leading-5 text-neutral-400">
+            Captions, stat cards, title cards, and comparison labels render readable text in
+            Remotion. Generated images should not bake in labels or subtitles.
+          </p>
+        </div>
       </div>
 
       <VisualModeDetail entry={selected} />
 
       <div className="space-y-1.5">
         <div className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
-          All modes
+          Select a mode
         </div>
         <div className="grid grid-cols-9 gap-2">
           {VISUAL_MODE_CATALOG.map((entry) => (

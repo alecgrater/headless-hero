@@ -4,6 +4,8 @@
 
 **When a new convention, rule, or architectural decision is established during a session, update this file before committing.** Keep it current; it is the source of truth for how this project works.
 
+**When adjusting the end-to-end project workflow, update the relevant in-app docs in the same change or explicitly determine whether a new doc page should be added.** Workflow changes should not live only in code, prompts, or memory.
+
 ## Review Findings → Always Apply Fixes
 
 **Any time code review produces findings — from the auto-commit loop, a manual review, or pasted review output — immediately implement every recommended fix.** Do NOT just report findings or ask whether to apply them. Read, edit, commit, and push. Fix FAIL items first, then WARN items; skip findings explicitly marked "non-blocking" or "optional".

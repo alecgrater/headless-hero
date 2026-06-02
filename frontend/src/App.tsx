@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, TestTube, Wrench } from "lucide-react";
+import { BookOpen, Keyboard, TestTube, Wrench } from "lucide-react";
 import { Tooltip } from "./components/ui/Tooltip";
 import api, { assetUrl } from "./api";
 import { BACKEND_PORT } from "./constants";
@@ -12,19 +12,20 @@ import VoiceoverRecordingPage from "./components/recording/VoiceoverRecordingPag
 import { ShortcutHelpOverlay } from "./components/timeline/ShortcutHelpOverlay";
 import DiscoverPage from "./components/trending/DiscoverPage";
 import TestLabPage from "./components/test-lab/TestLabPage";
+import DocsPage from "./components/docs/DocsPage";
 import useLongPress from "./hooks/useLongPress";
 import type { VideoIdea } from "./types/idea";
 import type { ScriptSummary } from "./types/script";
 import type { OAuthStatusResponse } from "./types/publish";
 import { StylePresetProvider } from "./contexts/StylePresetContext";
 
-type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "voiceover-recording" | "dev-dashboard" | "test-lab";
+type View = "project-dashboard" | "ideation" | "script-generation" | "timeline" | "settings" | "discover" | "voiceover-recording" | "dev-dashboard" | "test-lab" | "docs";
 
 function viewPanelClass(panel: View, current: View): string {
   const visibility = panel === current ? "block" : "hidden";
   const base = `${visibility} h-full min-h-0 w-full`;
 
-  if (panel === "timeline" || panel === "settings" || panel === "voiceover-recording" || panel === "dev-dashboard" || panel === "test-lab") {
+  if (panel === "timeline" || panel === "settings" || panel === "voiceover-recording" || panel === "dev-dashboard" || panel === "test-lab" || panel === "docs") {
     return `${base} overflow-hidden`;
   }
   if (panel === "project-dashboard" || panel === "discover") {
@@ -349,6 +350,17 @@ function App() {
               Developer
             </button>
             <button
+              onClick={() => handleSetView("docs")}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
+                view === "docs"
+                  ? "bg-violet-500/15 text-violet-300 font-semibold"
+                  : "text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              Docs
+            </button>
+            <button
               onClick={() => handleSetView("test-lab")}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
                 view === "test-lab"
@@ -552,6 +564,10 @@ function App() {
               onOpenSettingsSection={openSettingsSection}
             />
           )}
+        </div>
+
+        <div className={viewPanelClass("docs", view)}>
+          {visitedViews.has("docs") && <DocsPage />}
         </div>
 
         <div className={viewPanelClass("dev-dashboard", view)}>

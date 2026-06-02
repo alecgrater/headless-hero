@@ -9,28 +9,28 @@ interface MatrixRow {
 }
 
 const ROWS: MatrixRow[] = [
-  { label: "Summary", render: (f) => f.short_description },
+  { label: "Best for", render: (f) => f.short_description },
   {
-    label: "Structure",
+    label: "Project shape",
     render: (f) =>
       f.level_count_min === f.level_count_max
         ? `${f.level_count_min} ${f.level_label}s`
         : `${f.level_count_min}–${f.level_count_max} ${f.level_label}s`,
   },
   {
-    label: "Title cards",
+    label: "Chapter cards",
     render: (f) => (f.title_card_strategy_kind === "composite-grid" ? "Composite grid" : "Cinematic chapters"),
   },
   { label: "Cold open", render: (f) => (f.supports_cold_open ? "Yes" : "No") },
   { label: "Hook scoring", render: (f) => (f.supports_hook_scoring ? "Yes" : "No") },
-  { label: "Segmented generation", render: (f) => (f.supports_segmented_generation ? "Yes" : "No") },
+  { label: "Segmented writing", render: (f) => (f.supports_segmented_generation ? "Yes" : "No") },
   {
-    label: "Visual rhythm",
+    label: "Visual rhythm guardrail",
     render: (f) => `${f.allowed_visual_beats.join(", ")} · max ${f.max_consecutive_same_beat} in a row`,
   },
   {
-    label: "Visual modes",
-    render: (f) => `${f.supported_visual_modes.length} supported`,
+    label: "Mode coverage",
+    render: (f) => `${f.supported_visual_modes.length} visual modes supported`,
   },
 ];
 
@@ -85,13 +85,39 @@ export default function ScriptTypesSection({ onOpenVisualModes }: { onOpenVisual
   const universe = allVisualModes(formats);
 
   return (
-    <div className="px-6 py-5 space-y-6">
-      <div>
+    <div className="px-6 py-6 space-y-6">
+      <div className="space-y-2">
         <h2 className="text-base font-semibold text-neutral-100">Script Types</h2>
-        <p className="text-[11px] text-neutral-500">
-          Read-only reference — how each script format differs in structure, narration, and visual-mode
-          compatibility. Click a mode chip to open its entry on the Visual Modes reference page.
+        <p className="max-w-4xl text-sm leading-6 text-neutral-400">
+          Script types define the story contract for a project: how many sections it has, how title
+          cards behave, which narration rules matter, and how visual modes can be used. Choose the
+          format that matches the viewer promise first, then let scene-by-scene routing choose the
+          best visual mode for each beat.
         </p>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-3">
+        <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-4">
+          <div className="text-sm font-semibold text-neutral-100">Format Comes First</div>
+          <p className="mt-2 text-xs leading-5 text-neutral-400">
+            A script format should fit the topic, pacing, and finished video promise. It is not a
+            quota system for forcing certain scene visuals.
+          </p>
+        </div>
+        <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-4">
+          <div className="text-sm font-semibold text-neutral-100">Shorts Must Stand Alone</div>
+          <p className="mt-2 text-xs leading-5 text-neutral-400">
+            Segmented formats expect each section to resolve cleanly enough that any segment can
+            become its own short-form upload.
+          </p>
+        </div>
+        <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-4">
+          <div className="text-sm font-semibold text-neutral-100">Modes Are Per Scene</div>
+          <p className="mt-2 text-xs leading-5 text-neutral-400">
+            Click any visual-mode chip to jump to the visual reference. Supported means eligible,
+            not required.
+          </p>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -129,8 +155,11 @@ export default function ScriptTypesSection({ onOpenVisualModes }: { onOpenVisual
         {formats.map((f) => {
           const { supported, disabled } = modeChipsForFormat(f, universe);
           return (
-            <div key={f.id} className="rounded-lg border border-neutral-800 bg-neutral-900/40 p-4 space-y-3">
-              <div className="text-sm font-semibold text-neutral-100">{f.display_name}</div>
+            <div key={f.id} className="rounded-lg border border-neutral-800 bg-neutral-900/40 p-4 space-y-4">
+              <div>
+                <div className="text-sm font-semibold text-neutral-100">{f.display_name}</div>
+                <p className="mt-1 text-xs leading-5 text-neutral-500">{f.short_description}</p>
+              </div>
               <div className="space-y-1.5">
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Supported modes</div>
                 <div className="flex flex-wrap gap-1.5">
