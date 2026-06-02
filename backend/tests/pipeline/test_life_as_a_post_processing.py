@@ -6,7 +6,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from models.script import FrameDirective, LevelMeta, MainCharacter, Scene, ScriptContent, Segment
-from pipeline.formats.life_as_a import _split_life_as_a_scenes, enforce_life_as_a_constraints
+from pipeline.formats.life_as_a import (
+    _scene_estimated_duration,
+    _split_life_as_a_scenes,
+    enforce_life_as_a_constraints,
+)
 from pipeline.scriptwriter import _ensure_visual_beat_directives
 
 
@@ -135,7 +139,7 @@ def test_life_as_a_chunking_preserves_extended_visual_mode_scene(monkeypatch):
                             "The difference is only visible after midnight."
                         ),
                         visual_prompt="[REACTION] A night guard comparison scene.",
-                        duration_estimate_seconds=20.0,
+                        duration_estimate_seconds=21.0,
                         visual_mode="comparison_board",
                     ),
                 ],
@@ -148,6 +152,24 @@ def test_life_as_a_chunking_preserves_extended_visual_mode_scene(monkeypatch):
     assert changed == 0
     assert len(content.segments[0].scenes) == 2
     assert content.segments[0].scenes[1].visual_mode == "comparison_board"
+
+
+def test_life_as_a_estimates_low_extended_mode_duration_from_policy():
+    scene = Scene(
+        id="scene_002",
+        narration=(
+            "On the left is the guard you thought you would be. "
+            "On the right is the person who keeps checking the same hallway. "
+            "The difference is only visible after midnight."
+        ),
+        visual_prompt="[REACTION] A night guard comparison scene.",
+        duration_estimate_seconds=10.0,
+        visual_mode="comparison_board",
+    )
+
+    estimated = _scene_estimated_duration(scene, target_seconds=8)
+
+    assert estimated == 60.0
 
 
 def test_chapter_card_inserted_when_missing():
