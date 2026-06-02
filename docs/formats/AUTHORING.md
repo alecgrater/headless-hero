@@ -109,7 +109,7 @@ A format has up to four prompt slots. All four are `PromptDef` objects defined i
 
 - **Consumer:** Phase-2 inner loop in `_generate_segmented`. Called once per segment.
 - **Output contract:** `{"scenes": [Scene, ...]}` — a flat array. The orchestrator assigns this list to `segment.scenes` and renumbers `Scene.id` globally afterward.
-- **Important:** Per scene, narration length and beat distribution start in the prompt, but the orchestrator also enforces scene-length protection before voiceover. Generic formats split overlong multi-sentence scenes on sentence boundaries, and `life-as-a` has a format-specific chunker for 5–9 second single-beat scenes. Do not add post-voiceover narration rewrites for pacing.
+- **Important:** Per scene, narration length and beat distribution start in the prompt, but the orchestrator also enforces scene-length protection before voiceover. Scene-length protection is visual-mode-aware for every format: normal modes stay short, while renderer-owned modes such as `captions`, `comparison_board`, `popup_sequence`, and `stat_card` may remain longer single scenes when their mode profile calls for it. Do not add post-voiceover narration rewrites for pacing.
 
 ### Authoring tips
 
@@ -316,7 +316,7 @@ Idempotent: running it twice produces the same result.
 
 `LIFE_AS_A_BEAT_RULES` ([`life_as_a.py`](../../backend/pipeline/formats/life_as_a.py)) uses `{static, continuous, multi_frame}` as the monotony-fixer alternative pool and `monotony_threshold=3`. Format metadata still exposes the full canonical `visual_mode` vocabulary; specialized modes such as `captions`, `stat_card`, `popup_sequence`, and `comparison_board` remain valid script-owned scene modes. Legacy `quick_cuts` data is still normalized at load/post-processing boundaries, but new format rules should not target it.
 
-Scene-length protection runs before voiceover. Generic formats use the scriptwriter's deterministic sentence-boundary granularity pass, while `life-as-a` keeps its format-specific chunker for literary single-beat scenes. Neither path rewrites narration with an LLM after audio exists.
+Scene-length protection runs before voiceover. Generic formats use the scriptwriter's deterministic sentence-boundary granularity pass, while `life-as-a` keeps its format-specific chunker for literary single-beat scenes. Both paths are visual-mode-aware: normal modes stay short, while renderer-owned modes may remain longer single scenes when their shared policy calls for it. Neither path rewrites narration with an LLM after audio exists.
 
 ### Step 5 — Compose the `VideoFormat` and register
 

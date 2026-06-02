@@ -46,6 +46,8 @@ YOUTUBE_LISTICLE = _register(VideoFormat(
                    text="Every segment must stand alone as a short. Keep whole-video recaps, subscribe requests, and 'come back next week' CTAs out of scene narration; outro_cta is editor metadata only."),
         FormatNote(category="Visuals",
                    text="The full visual-mode vocabulary is available. Each scene chooses the single best-fit mode from its narration and visual intent; full_frame is the fallback when no specialized mode clearly helps."),
+        FormatNote(category="Scene length",
+                   text="Scene length follows the universal visual-mode policy, so comparison boards, captions, popup sequences, stat cards, and planned video scenes can be longer than normal full-frame beats."),
         FormatNote(category="Short-form",
                    text="Any segment can be exported as a standalone short; short-form upload titles are deterministic '{project title} - {segment title}'."),
     ),

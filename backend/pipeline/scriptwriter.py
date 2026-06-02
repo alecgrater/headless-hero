@@ -9,6 +9,11 @@ from collections.abc import Callable
 from config import DEFAULT_ACCENT_COLOR, SEGMENT_COUNT, parse_json_array_response, strip_markdown_fences
 from integrations.llm_client import chat
 from models.script import LevelMeta, MainCharacter, Scene, ScriptContent, Segment
+from pipeline.visual_mode_policy import (
+    max_scene_seconds_for_mode,
+    prompt_duration_guidance,
+    target_scene_seconds_for_mode,
+)
 from prompts import SCRIPT_OUTLINE_INSTRUCTIONS, SCRIPT_SEGMENT_SCENES_INSTRUCTIONS, SCRIPT_SYSTEM
 
 logger = logging.getLogger(__name__)
@@ -289,11 +294,12 @@ def _single_static_directive(scene: Scene) -> list[dict]:
 
 
 def _scene_granularity_duration(scene: Scene, sentence_count: int) -> float:
+    target_seconds = target_scene_seconds_for_mode(scene.visual_mode)
     if scene.duration_estimate_seconds > 0:
         if scene.duration_estimate_seconds <= GENERAL_TARGET_SCENE_SECONDS and sentence_count > 2:
-            return sentence_count * GENERAL_TARGET_SCENE_SECONDS
+            return sentence_count * target_seconds
         return float(scene.duration_estimate_seconds)
-    return sentence_count * GENERAL_TARGET_SCENE_SECONDS
+    return sentence_count * target_seconds
 
 
 def _chunk_sentences_evenly(sentences: list[str], chunk_count: int) -> list[list[str]]:
@@ -334,12 +340,14 @@ def _ensure_scene_granularity(content: ScriptContent) -> int:
 
             sentences = _split_narration_sentences(scene.narration)
             estimated_duration = _scene_granularity_duration(scene, len(sentences))
-            should_split = len(sentences) > 2 or estimated_duration > GENERAL_MAX_SCENE_SECONDS
+            target_seconds = target_scene_seconds_for_mode(scene.visual_mode)
+            max_seconds = max_scene_seconds_for_mode(scene.visual_mode)
+            should_split = len(sentences) > 2 and estimated_duration > max_seconds
             if not should_split or len(sentences) <= 1:
                 rewritten.append(scene)
                 continue
 
-            chunk_count = max(2, int((estimated_duration + GENERAL_TARGET_SCENE_SECONDS - 1) // GENERAL_TARGET_SCENE_SECONDS))
+            chunk_count = max(2, int((estimated_duration + target_seconds - 1) // target_seconds))
             chunks = _chunk_sentences_evenly(sentences, chunk_count)
             logger.info(
                 "Scene granularity: split scene %s into %d chunks; estimated_duration=%.1fs",
@@ -541,6 +549,10 @@ def generate_script(
     # whose instructions are baked into the format's script_system_prompt).
     if fmt.title_card_strategy.kind == "composite-grid":
         system_prompt += TITLE_CARD_PROMPT_INSTRUCTIONS
+    system_prompt += (
+        "\n\n## VISUAL MODE DURATION POLICY\n"
+        f"{prompt_duration_guidance()}\n"
+    )
 
     # When Eli is disabled, instruct Claude to invent a project-wide main character
     # and to set per-scene contains_person flags accordingly. This applies to both

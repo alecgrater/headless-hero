@@ -14,6 +14,7 @@ from prompts import (
     LIFE_AS_A_OUTLINE_INSTRUCTIONS,
     LIFE_AS_A_SCRIPT_SYSTEM,
 )
+from pipeline.visual_mode_policy import max_scene_seconds_for_mode, target_scene_seconds_for_mode
 
 from . import _register
 from .base import FULL_VISUAL_MODE_VOCABULARY, FormatNote, VideoFormat, VisualBeatRules
@@ -288,12 +289,13 @@ def _single_frame_directives(scene: Scene) -> list[dict]:
 
 
 def _scene_estimated_duration(scene: Scene, *, target_seconds: int) -> float:
+    mode_target_seconds = target_scene_seconds_for_mode(scene.visual_mode)
     sentence_count = len(_split_sentences(scene.narration))
     if scene.duration_estimate_seconds > 0:
         if scene.duration_estimate_seconds <= target_seconds and sentence_count > 2:
-            return sentence_count * float(target_seconds)
+            return sentence_count * float(mode_target_seconds)
         return float(scene.duration_estimate_seconds)
-    return max(float(target_seconds), sentence_count * float(target_seconds))
+    return max(float(mode_target_seconds), sentence_count * float(mode_target_seconds))
 
 
 def _chunk_sentences(sentences: list[str], chunk_count: int) -> list[list[str]]:
@@ -313,7 +315,6 @@ def _split_life_as_a_scenes(content: ScriptContent) -> int:
     enabled = bool(settings["enabled"])
     target_seconds = int(settings["target"])
     max_seconds = int(settings["max"])
-    effective_max_seconds = min(max_seconds, 14)
     logger.info(
         "[LIFE_AS_A_CHUNKING] settings: enabled=%s target=%d max=%d ai_video_max=%d",
         str(enabled).lower(),
@@ -331,8 +332,11 @@ def _split_life_as_a_scenes(content: ScriptContent) -> int:
             if scene.is_title_card:
                 rewritten.append(scene)
                 continue
+            mode_target_seconds = target_scene_seconds_for_mode(scene.visual_mode)
+            mode_max_seconds = max_scene_seconds_for_mode(scene.visual_mode)
             estimated_duration = _scene_estimated_duration(scene, target_seconds=target_seconds)
             sentences = _split_sentences(scene.narration)
+            effective_max_seconds = min(max(mode_max_seconds, float(max_seconds)), 26.0)
             if estimated_duration <= effective_max_seconds or len(sentences) <= 1:
                 logger.info(
                     "[LIFE_AS_A_CHUNKING] kept scene %s; reason=duration %.1fs within target",
@@ -342,7 +346,7 @@ def _split_life_as_a_scenes(content: ScriptContent) -> int:
                 rewritten.append(scene)
                 continue
 
-            chunk_count = min(len(sentences), max(2, math.ceil(estimated_duration / target_seconds)))
+            chunk_count = min(len(sentences), max(2, math.ceil(estimated_duration / mode_target_seconds)))
             chunks = _chunk_sentences(sentences, chunk_count)
             logger.info(
                 "[LIFE_AS_A_CHUNKING] split scene %s into %d chunks; reason=estimated_duration %.1fs > max %.1fs",
@@ -555,7 +559,7 @@ LIFE_AS_A = _register(VideoFormat(
         FormatNote(category="Visuals",
                    text="All visual modes are available, including captions, stat_card, comparison_board, and popup_sequence. Choose them only when they support lived experience; full_frame is the fallback for ordinary moments."),
         FormatNote(category="Scene length",
-                   text="Non-title scenes target 5–9s and one beat; overlong scenes are split deterministically on sentence boundaries before voiceover."),
+                   text="Scene length follows the universal visual-mode policy: normal modes stay short, while renderer-owned modes such as captions and comparison_board may carry longer narration before voiceover."),
         FormatNote(category="Short-form",
                    text="Shorts show 'Part {n}/{total}' on the title card and above the thumbnail; upload titles stay deterministic with no '(Part …)' suffix."),
         FormatNote(category="AI video",

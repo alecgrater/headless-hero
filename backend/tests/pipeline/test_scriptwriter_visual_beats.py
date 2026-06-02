@@ -148,6 +148,38 @@ def test_script_prompt_routes_modes_by_best_fit_not_forced_quotas():
     assert "MUST use a different mode" not in prompt_text
 
 
+def test_scene_granularity_preserves_extended_visual_mode_scene():
+    content = ScriptContent(
+        title="Test",
+        intro_hook="",
+        outro_cta="",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[
+                    Scene(
+                        id="scene_001",
+                        narration=(
+                            "The old choice looks safe from the outside. "
+                            "The new choice costs more up front. "
+                            "By the end of the month, the cheap option is the expensive one."
+                        ),
+                        visual_prompt="Two choices compared side by side.",
+                        duration_estimate_seconds=20.0,
+                        visual_mode="comparison_board",
+                    )
+                ],
+            )
+        ],
+    )
+
+    changed = _ensure_scene_granularity(content)
+
+    assert changed == 0
+    assert len(content.segments[0].scenes) == 1
+    assert content.segments[0].scenes[0].visual_mode == "comparison_board"
+
+
 def test_life_as_a_level_prompt_uses_full_vocabulary_without_quotas():
     prompt_text = script_prompt.LIFE_AS_A_LEVEL_SCENES_INSTRUCTIONS.template
 

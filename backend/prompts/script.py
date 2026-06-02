@@ -174,12 +174,16 @@ Instead of frame_count and frame_prompts, use "visual_mode", compatibility "visu
 VISUAL MODE VOCABULARY:
 - "full_frame" — The DEFAULT mode. A single strong image per scene. Since scenes are only 1-2 sentences, one well-composed image is usually sufficient. 1 frame directive with source "ai_generated". Most scenes should use this.
 - "continuous" — When narration describes a physical process unfolding over time (pouring, growing, building). 2-4 frames with reference_previous: true and transition: "crossfade". Frames show subtle progression of the SAME scene. Use deliberately, not as default.
-- "multi_frame" — When narration covers multiple examples, lists, comparisons, rapid context switches, or visual variety that adds impact. 3-8 frames with reference_previous: false and mostly transition: "cut". Each frame is a completely DIFFERENT shot — different subject, angle, composition, example, or context. Use deliberately for visual energy. Narration should be 1 short punchy sentence — aim for under 8 seconds of speech.
+- "multi_frame" — When narration covers multiple examples, lists, comparisons, rapid context switches, or visual variety that adds impact. 3-8 frames with reference_previous: false and mostly transition: "cut". Each frame is a completely DIFFERENT shot — different subject, angle, composition, example, or context. Use deliberately for visual energy.
 - "popup_sequence" — When narration names a small set of concrete items, examples, ingredients, symptoms, tools, steps, or visible objects that should pop around the main subject. Use a single anchor visual plus popup item intent; the post-voiceover pass will create timed cutout layers. Do not use for abstract contrasts or long lists.
 - "flipflop" — When one subject/action can read as simple micro-animation by alternating two compatible A/B states: hands moving while typing, stirring, sorting, opening, closing, pointing, counting, or handling an object; a character leaning in/out, looking up/down, pacing, nodding, or gesturing while talking. Do not use flipflop merely because a sentence contrasts two ideas, time periods, or emotional states.
 - "comparison_board" — When narration contrasts two or three subjects, concepts, states, levels, choices, or outcomes that should be displayed in a side-by-side renderer-controlled comparison. Best for Before vs After, Then vs Now, Myth vs Reality, Level 1 vs Level 5, Rich vs Poor, Human vs Neanderthal, Prisoner vs Guard, Success vs Failure, or Good Choice vs Bad Choice. Use transparent cutout subject intent; the renderer owns columns, divider, VS marker, arrows, stat chips, badges, and labels. Do not use when narration focuses on one environment, one event, or a same-subject micro-action.
 - "stat_card" — When narration delivers ONE decisive percentage, financial figure, population count, duration, distance, ranking, odds, risk factor, or scientific measurement that is the most important information in the scene. Use transparent renderer-owned typography over the canvas. Emit "stat_value" (the giant headline number, e.g. "85%", "$2M", "30 days", "#1", "1 in 4" — 1-12 characters typical) and "stat_label" (supporting subtitle, 2-12 words, e.g. "of users churn in week 1"). Optionally provide a single short "visual_prompt" describing a small supporting icon if it helps; otherwise leave "visual_prompt" empty. Do NOT describe layout, color, animation, or typography — the renderer owns those. Do NOT use when atmosphere, environment, or setting matters more than the metric, or when there is no single dominant number.
+- "video" — Plan this before voiceover when motion clearly improves the scene. Later validation may downgrade the scene if real timing, adjacency, duration, or assets make video unsafe. Aim for at least three planned video scenes per project when the topic naturally supports motion, but never force video into static diagrams, title cards, captions, or scenes that need precise readable text.
 - "captions" — When a sentence delivers a punchy editorial label, reversal, emotional realization, or key claim that should become large in-scene text. Use a static canvas with optional side visual plus renderer-owned caption typography. Emit "caption_text" as an exact contiguous phrase copied from the scene narration (2-15 words ideally), and "caption_emphasis" as the one strongest word or phrase inside that exact caption_text to render red. Do not invent, rewrite, paraphrase, summarize, or add caption text that is not present in the narration. Do not describe typography, animation, color, or layout in detail; the renderer handles those. Do not put readable caption text into visual_prompt.
+
+VISUAL MODE DURATION POLICY:
+Normal modes (`full_frame`, `multi_frame`, `continuous`, `flipflop`) target ~5-9s. Renderer-owned modes use their visual-mode duration policy: `captions` ~14-18s, `comparison_board` ~16-24s, `popup_sequence` ~14-20s, and `stat_card` ~10-14s. Plan these durations before voiceover.
 
 BEST-FIT ROUTING RULES:
 1. Choose the single best visual mode for each scene based on the narration and visual intent. Do not choose a mode to satisfy a quota.
@@ -219,7 +223,7 @@ contains_person tagging rules:
 For ai_generated frames, the "prompt" is a BRIEF DELTA if reference_previous is true (describing only what changes from the visual_prompt anchor), or a FULL independent description if reference_previous is false.
 
 - Title card scenes (is_title_card: true) should have visual_mode: "full_frame", visual_beat: "static", and empty frame_directives — they use the programmatic title card system.
-- Do NOT assign deprecated scene-level media routing fields such as "media_source" or "visual_treatment". Use only "visual_mode"; a separate post-script analyzer may promote eligible scenes to visual_mode "video" after the script is complete.
+- Do NOT assign deprecated scene-level media routing fields such as "media_source" or "visual_treatment". Use only "visual_mode"; plan visual_mode "video" before voiceover when motion clearly improves the scene, knowing a later validation pass may downgrade unsafe video choices after real timing exists.
 
 ---
 
@@ -435,11 +439,11 @@ Critically different from listicle scenes:
 | | listicle | life-as-a |
 |---|---|---|
 | Narration per scene | 1–2 sentences | 1–2 sentences, single visual beat |
-| Duration per scene | ~5–10s | ~5–9s |
+| Duration per scene | visual-mode policy | visual-mode policy |
 | Visual modes | full vocabulary, chosen by scene fit | same full vocabulary, chosen by lived-experience fit |
 | Transitions | varied with intentional energy | mostly `cut`, occasional `crossfade` for time-passage |
 
-Each non-title scene should be **1–2 sentences** of narration and represent exactly one visual/narrative beat. Aim for **5–9 seconds** of speech per scene. Preserve the literary register through sentence texture and scene-to-scene flow, not by packing several moments into one long paragraph.
+Each non-title scene should be **1–2 sentences** of narration and represent exactly one visual/narrative beat. Normal modes (`full_frame`, `multi_frame`, `continuous`, `flipflop`) target ~5-9s. Renderer-owned modes use their visual-mode duration policy: `captions` ~14-18s, `comparison_board` ~16-24s, `popup_sequence` ~14-20s, and `stat_card` ~10-14s. Plan these durations before voiceover. Preserve the literary register through sentence texture and scene-to-scene flow, not by packing several unrelated moments into one long paragraph.
 
 ---
 
@@ -545,7 +549,7 @@ Output rules:
 - `intro_hook` is the very first lines the viewer hears; it must already be in second person, present tense, and must NOT greet the viewer.
 - `outro_cta` is editor metadata only. Do NOT fold its language into scene narration.
 - Each level's first scene is a chapter card (`is_title_card: true`, `visual_mode: "full_frame"`, `visual_beat: "static"`, `frame_directives: []`) whose narration is ONLY the descriptor phrase, without the level label or number (for example, "The occasional."). The TTS pipeline adds "Level N" once at audio generation time.
-- After the chapter card, write short single-beat scenes (1–2 sentences each, ~5–9s).
+- After the chapter card, write single-beat scenes (1–2 sentences each). Normal modes (`full_frame`, `multi_frame`, `continuous`, `flipflop`) target ~5-9s. Renderer-owned modes use their visual-mode duration policy: `captions` ~14-18s, `comparison_board` ~16-24s, `popup_sequence` ~14-20s, and `stat_card` ~10-14s. Plan these durations before voiceover.
 - `visual_prompt` MUST begin with `[ESTABLISHING]`, `[CLOSE-UP]`, `[REACTION]`, or `[METAPHOR]`.
 - Scene IDs must be unique and sequential across the entire script: `scene_001`, `scene_002`, etc.
 - Visual prompts must NEVER request text, letters, words, labels, or written characters in the image.
@@ -677,7 +681,7 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 
 ### Scene shape
 - The FIRST scene of this level MUST be a chapter card: `is_title_card: true`, `visual_mode: "full_frame"`, `visual_beat: "static"`, `frame_directives: []`. Its narration is ONLY the descriptor phrase, without the level label or number — e.g. "The occasional." (one short sentence). The TTS pipeline adds "Level N" once at audio generation time.
-- After the chapter card, write short single-beat scenes. Each non-title scene should be **1–2 sentences** of narration and run roughly **5–9 seconds** of speech. Each scene must describe one visual moment, action, or realization.
+- After the chapter card, write single-beat scenes. Each non-title scene should be **1–2 sentences** of narration. Normal modes (`full_frame`, `multi_frame`, `continuous`, `flipflop`) target ~5-9s. Renderer-owned modes use their visual-mode duration policy: `captions` ~14-18s, `comparison_board` ~16-24s, `popup_sequence` ~14-20s, and `stat_card` ~10-14s. Plan these durations before voiceover. Each scene must describe one visual moment, action, or realization.
 - There is no fixed scene count for a level. Let the narration and the level's topic_summary determine how many scenes the level needs. Most levels will have 8–14 short content scenes after the chapter card.
 - Scene IDs start at `scene_001` within this level (they will be renumbered globally later).
 
