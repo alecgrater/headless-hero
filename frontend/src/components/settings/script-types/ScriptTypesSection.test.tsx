@@ -57,13 +57,17 @@ vi.mock("../../../api", () => ({
 }));
 
 describe("ScriptTypesSection", () => {
-  it("renders a column per format and the gotchas notes", async () => {
+  it("renders wrapping format cards and details for the selected format", async () => {
     render(<ScriptTypesSection />);
     await waitFor(() => expect(screen.getAllByText("Educational Listicle").length).toBeGreaterThan(0));
     expect(screen.getAllByText("Your Life As A...").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: /Your Life As A/i }));
+
     expect(screen.getByText("All modes route by scene fit.")).toBeInTheDocument();
     expect(screen.getByTestId("mode-life-as-a-captions")).toBeInTheDocument();
     expect(screen.queryByTestId("disabled-mode-life-as-a-captions")).not.toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
   it("navigates to Visual Modes when a detailed mode chip is clicked", async () => {
