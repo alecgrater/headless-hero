@@ -1,15 +1,9 @@
-export type VisualMode =
-  | "full_frame"
-  | "multi_frame"
-  | "continuous"
-  | "video"
-  | "popup_sequence"
-  | "flipflop"
-  | "comparison_board"
-  | "stat_card"
-  | "captions";
+import type { VisualMode } from "../../../types/script";
+
+export type { VisualMode };
 
 export type CompatibilityState = "supported" | "suppressed";
+export type DurationProfile = "normal" | "medium" | "extended" | "planned";
 
 export interface VisualModeCompatibility {
   standardSubtitles: CompatibilityState;
@@ -24,6 +18,9 @@ export interface VisualModeEntry {
   shortDescription: string;
   longDescription: string;
   previewSrc: string;
+  durationProfile: DurationProfile;
+  durationLabel: string;
+  durationDescription: string;
   requiredFields: string[];
   optionalFields: string[];
   compatibility: VisualModeCompatibility;
@@ -41,6 +38,9 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     longDescription:
       "The default mode for simple visual beats: locations, objects, character moments, and concept illustrations. One generated image fills the canvas, supports normal subtitles, transitions, scene FX, and Eli overlays.",
     previewSrc: "/visual-modes/full_frame.mp4",
+    durationProfile: "normal",
+    durationLabel: "Normal target · 5-9s",
+    durationDescription: "Planned as one concise visual beat before voiceover.",
     requiredFields: ["visual_prompt"],
     optionalFields: ["transition_in", "fx", "eli_overlay", "visual_in_seconds", "visual_out_seconds"],
     compatibility: {
@@ -62,6 +62,9 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     longDescription:
       "Use for quick examples, contrasts, escalation beats, or montage-like visual variety. Each frame is independently generated and crossfades on its own schedule. Frames advance loosely without strict continuity between them.",
     previewSrc: "/visual-modes/multi_frame.mp4",
+    durationProfile: "normal",
+    durationLabel: "Normal target · 5-9s",
+    durationDescription: "Planned as a short scene unless several concrete examples need a little more room.",
     requiredFields: ["visual_prompt", "frame_urls"],
     optionalFields: ["frame_timings", "fx", "eli_overlay"],
     compatibility: {
@@ -83,6 +86,9 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     longDescription:
       "Use for coherent progression where each generated frame moves one event, object, environment, or character state forward. Frame 1 establishes house style; later frames use the prior generated frame as their only image reference so the action advances visually.",
     previewSrc: "/visual-modes/continuous.mp4",
+    durationProfile: "normal",
+    durationLabel: "Normal target · 5-9s",
+    durationDescription: "Planned as a short progression where one action or transformation unfolds.",
     requiredFields: ["visual_prompt", "frame_urls"],
     optionalFields: ["frame_timings", "fx", "eli_overlay"],
     compatibility: {
@@ -104,6 +110,9 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     longDescription:
       "After voiceover timing exists, an eligible scene's anchor image is sent to Runway Gen-4 Turbo or Fal Wan 2.2 (configurable) to produce a short motion clip. Clips can slow down up to 25% to match narration; larger gaps fall back to the static anchor.",
     previewSrc: "/visual-modes/video.mp4",
+    durationProfile: "planned",
+    durationLabel: "Planned video · validated after voiceover",
+    durationDescription: "Planned before voiceover when motion helps, then validated after real timing exists.",
     requiredFields: ["visual_prompt", "video_url"],
     optionalFields: ["image_url", "fx", "eli_overlay"],
     compatibility: {
@@ -115,7 +124,7 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     distribution:
       "Up to AI_VIDEO_SCENES_PER_SEGMENT per segment (default 2). Never back-to-back. Requires AI_VIDEO_ENABLED.",
     routing:
-      "Post-voiceover media analyzer promotion only — script generation does not emit 'video' directly. Requires real audio_duration_seconds and a suitable motion candidate.",
+      "Script generation can plan video before voiceover when motion clearly improves the scene. Post-voiceover validation may downgrade unsafe choices based on real timing, adjacency, duration, or assets.",
     notCompatibleWith: [],
     rendererPath: "remotion/src/scenes/VideoScene.tsx",
   },
@@ -126,6 +135,9 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     longDescription:
       "A central anchor character/subject cutout stays fixed; transparent item cutouts pop in at voiceover timings and join a shared clockwise orbit. Items are cropped from one contact-sheet image; the anchor uses the active style preset's character. No scene image, no panels, no readable text.",
     previewSrc: "/visual-modes/popup_sequence.mp4",
+    durationProfile: "extended",
+    durationLabel: "Extended target · 14-20s",
+    durationDescription: "Planned longer before voiceover so each popup item has time to appear and register.",
     requiredFields: ["visual_prompt", "visual_layers"],
     optionalFields: ["fx", "eli_overlay"],
     compatibility: {
@@ -136,7 +148,7 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     },
     distribution: "Unlimited",
     routing:
-      "Script generation can choose popup_sequence; post-voiceover layered analysis fills timing/layers. Test Lab fallback derives three left/center/right panels when analyzer output is unavailable.",
+      "Script generation can choose popup_sequence; post-voiceover validation fills timing/layers. Test Lab fallback derives three left/center/right panels when validator output is unavailable.",
     notCompatibleWith: [],
     rendererPath: "remotion/src/scenes/TreatmentRenderer.tsx",
   },
@@ -147,6 +159,9 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     longDescription:
       "Two compatible full-bleed panels alternate from frame zero to simulate simple animation: hands opening/closing, typing, stirring, a character nodding or gesturing. Not for generic contrast between unrelated ideas, time periods, or emotional states — use comparison_board for those.",
     previewSrc: "/visual-modes/flipflop.mp4",
+    durationProfile: "normal",
+    durationLabel: "Normal target · 5-9s",
+    durationDescription: "Planned as a short A/B motion beat for one subject.",
     requiredFields: ["visual_prompt", "visual_layers"],
     optionalFields: ["fx", "eli_overlay"],
     compatibility: {
@@ -168,6 +183,9 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     longDescription:
       "Renderer-controlled side-by-side comparison of two or three subjects, concepts, states, or outcomes (Before/After, Myth/Reality, Rich/Poor, Good/Bad Choice). Generates only transparent cutouts of the compared subjects; Remotion owns columns, dividers, VS markers, arrows, badges, and stat chips.",
     previewSrc: "/visual-modes/comparison_board.mp4",
+    durationProfile: "extended",
+    durationLabel: "Extended target · 16-24s",
+    durationDescription: "Planned longer before voiceover so viewers can compare the board columns.",
     requiredFields: ["visual_prompt", "visual_layers"],
     optionalFields: ["fx", "eli_overlay"],
     compatibility: {
@@ -193,6 +211,9 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     longDescription:
       "A single dominant statistic — percentage, financial figure, population, duration, distance, ranking, odds, risk factor, or scientific measurement — rendered as a giant headline stat_value plus an optional short stat_label, over the static canvas. The renderer owns all readable typography. The only generated asset is one optional transparent supporting icon cutout.",
     previewSrc: "/visual-modes/stat_card.mp4",
+    durationProfile: "medium",
+    durationLabel: "Medium target · 10-14s",
+    durationDescription: "Planned with enough time for one decisive statistic to land.",
     requiredFields: ["stat_value"],
     optionalFields: ["stat_label", "visual_layers"],
     compatibility: {
@@ -217,6 +238,9 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     longDescription:
       "Static-canvas punch mode with optional side imagery plus large in-scene caption_text and red caption_emphasis. Not standard subtitle rendering: standard bottom subtitles are suppressed during the caption beat. Legacy aha_subtitle visual beats normalize into captions.",
     previewSrc: "/visual-modes/captions.mp4",
+    durationProfile: "extended",
+    durationLabel: "Extended target · 14-18s",
+    durationDescription: "Planned longer before voiceover so the editorial text has enough narration context.",
     requiredFields: ["caption_text"],
     optionalFields: ["caption_emphasis", "image_url"],
     compatibility: {
@@ -234,3 +258,15 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     rendererPath: "remotion/src/scenes/CaptionScene.tsx",
   },
 ];
+
+export function visualModeEntry(mode: VisualMode): VisualModeEntry {
+  return VISUAL_MODE_CATALOG.find((entry) => entry.id === mode) ?? VISUAL_MODE_CATALOG[0];
+}
+
+export function durationLabelForMode(mode: VisualMode): string {
+  return visualModeEntry(mode).durationLabel;
+}
+
+export function durationDescriptionForMode(mode: VisualMode): string {
+  return visualModeEntry(mode).durationDescription;
+}

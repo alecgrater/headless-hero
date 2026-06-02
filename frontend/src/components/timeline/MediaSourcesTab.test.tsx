@@ -90,12 +90,12 @@ function renderTab({
 }
 
 describe("MediaSourcesTab", () => {
-  it("shows one visual-mode reassessment button when review assignments exist", () => {
+  it("shows one visual-mode validation button when review assignments exist", () => {
     const onAnalyzeVisualTreatments = vi.fn();
     const onAnalyzeMedia = vi.fn();
     renderTab({ onAnalyzeVisualTreatments, onAnalyzeMedia });
 
-    const buttons = screen.getAllByRole("button", { name: "Re-analyze Visual Modes" });
+    const buttons = screen.getAllByRole("button", { name: "Validate Visual Modes" });
 
     expect(buttons).toHaveLength(1);
     fireEvent.click(buttons[0]);
@@ -103,7 +103,7 @@ describe("MediaSourcesTab", () => {
     expect(onAnalyzeMedia).toHaveBeenCalledTimes(1);
   });
 
-  it("shows one visual-mode analysis button before assignments exist", () => {
+  it("shows one visual-mode preparation button before assignments exist", () => {
     const onAnalyzeVisualTreatments = vi.fn();
     const onAnalyzeMedia = vi.fn();
     renderTab({
@@ -113,7 +113,7 @@ describe("MediaSourcesTab", () => {
       media: null,
     });
 
-    const buttons = screen.getAllByRole("button", { name: "Analyze Visual Modes" });
+    const buttons = screen.getAllByRole("button", { name: "Prepare Visual Modes" });
 
     expect(buttons).toHaveLength(1);
     fireEvent.click(buttons[0]);

@@ -1,6 +1,7 @@
 import { assetUrl } from "../../api";
 import { SEGMENT_COLORS } from "./constants";
 import type { Scene } from "../../types/script";
+import { durationLabelForMode } from "../settings/visual-modes/catalog";
 
 interface Props {
   scene: Scene;
@@ -26,10 +27,12 @@ export default function TimelineBlock({
   const duration = scene.audio_duration_seconds || scene.duration_estimate_seconds;
   const width = Math.max(40, duration * pixelsPerSecond);
   const borderColor = SEGMENT_COLORS[segmentIdx % SEGMENT_COLORS.length];
+  const visualMode = scene.visual_mode ?? "full_frame";
 
   return (
     <button
       onClick={onClick}
+      title={`${visualMode.replace(/_/g, " ")} · ${durationLabelForMode(visualMode)}`}
       className={`relative h-full rounded-md overflow-hidden flex items-center shrink-0 transition-all ${
         isSelected
           ? "z-10 bg-violet-500/5 ring-1 ring-violet-500/55 shadow-[0_12px_24px_rgba(0,0,0,0.18)]"
@@ -41,7 +44,7 @@ export default function TimelineBlock({
       <div className={`absolute left-0 top-0 bottom-0 w-1 ${borderColor}`} />
 
       {/* Visual mode badge */}
-      {laneType === "images" && <VisualModeBadge mode={scene.visual_mode ?? "full_frame"} />}
+      {laneType === "images" && <VisualModeBadge mode={visualMode} />}
 
       <div className="pl-2.5 pr-1.5 w-full overflow-hidden">
         {laneType === "images" && <ImageContent scene={scene} />}
@@ -59,9 +62,12 @@ function VisualModeBadge({ mode }: { mode?: string }) {
   const color: Record<string, string> = {
     full_frame: "bg-violet-500/60",
     video: "bg-fuchsia-500/60",
+    multi_frame: "bg-emerald-500/60",
+    continuous: "bg-teal-500/60",
     popup_sequence: "bg-sky-500/60",
     flipflop: "bg-emerald-500/60",
     comparison_board: "bg-amber-500/70",
+    stat_card: "bg-yellow-500/70",
     captions: "bg-red-500/70",
   };
   const c = color[mode || "full_frame"];
@@ -74,70 +80,87 @@ function VisualModeBadge({ mode }: { mode?: string }) {
 
 function ImageContent({ scene }: { scene: Scene }) {
   const hasImage = !!scene.image_url || (scene.frame_urls && scene.frame_urls.length > 0);
+  const visualMode = scene.visual_mode ?? "full_frame";
+  const profileLabel = durationLabelForMode(visualMode);
 
   if (scene.visual_mode === "captions") {
     return (
-      <div className="flex gap-1.5 items-center">
-        <span className="w-2 h-2 rounded-full shrink-0 bg-red-500" />
-        <span className="text-[10px] font-medium text-red-200 uppercase">Captions</span>
+      <div className="min-w-0">
+        <div className="flex gap-1.5 items-center">
+          <span className="w-2 h-2 rounded-full shrink-0 bg-red-500" />
+          <span className="text-[10px] font-medium text-red-200 uppercase">Captions</span>
+        </div>
+        <span className="block truncate text-[9px] text-neutral-500">{profileLabel}</span>
       </div>
     );
   }
 
   if (scene.video_url) {
     return (
-      <div className="flex gap-1.5 items-center">
-        <span className="w-2 h-2 rounded-full shrink-0 bg-fuchsia-500" />
-        <span className="text-[10px] font-medium text-fuchsia-200 uppercase">Video</span>
+      <div className="min-w-0">
+        <div className="flex gap-1.5 items-center">
+          <span className="w-2 h-2 rounded-full shrink-0 bg-fuchsia-500" />
+          <span className="text-[10px] font-medium text-fuchsia-200 uppercase">Video</span>
+        </div>
+        <span className="block truncate text-[9px] text-neutral-500">{profileLabel}</span>
       </div>
     );
   }
 
   if (scene.frame_urls && scene.frame_urls.length > 0) {
     return (
-      <div className="flex gap-1.5 items-center h-full">
-        <span className={`w-2 h-2 rounded-full shrink-0 ${hasImage ? "bg-emerald-500" : "bg-neutral-600"}`} />
-        {scene.frame_urls.slice(0, 3).map((url, i) => (
-          <img
-            key={i}
-            src={assetUrl(url)}
-            alt=""
-            className="h-6 w-6 rounded-sm object-cover"
-          />
-        ))}
-        {scene.frame_urls.length > 3 && (
-          <span className="text-[9px] text-neutral-500 ml-0.5">
-            +{scene.frame_urls.length - 3}
-          </span>
-        )}
+      <div className="min-w-0">
+        <div className="flex gap-1.5 items-center h-full">
+          <span className={`w-2 h-2 rounded-full shrink-0 ${hasImage ? "bg-emerald-500" : "bg-neutral-600"}`} />
+          {scene.frame_urls.slice(0, 3).map((url, i) => (
+            <img
+              key={i}
+              src={assetUrl(url)}
+              alt=""
+              className="h-6 w-6 rounded-sm object-cover"
+            />
+          ))}
+          {scene.frame_urls.length > 3 && (
+            <span className="text-[9px] text-neutral-500 ml-0.5">
+              +{scene.frame_urls.length - 3}
+            </span>
+          )}
+        </div>
+        <span className="block truncate text-[9px] text-neutral-500">{profileLabel}</span>
       </div>
     );
   }
 
   if (scene.image_url) {
     return (
-      <div className="flex gap-1.5 items-center">
-        <span className="w-2 h-2 rounded-full shrink-0 bg-emerald-500" />
-        <img
-          src={assetUrl(scene.image_url)}
-          alt=""
-          className="h-7 w-10 rounded-sm object-cover"
-        />
+      <div className="min-w-0">
+        <div className="flex gap-1.5 items-center">
+          <span className="w-2 h-2 rounded-full shrink-0 bg-emerald-500" />
+          <img
+            src={assetUrl(scene.image_url)}
+            alt=""
+            className="h-7 w-10 rounded-sm object-cover"
+          />
+        </div>
+        <span className="block truncate text-[9px] text-neutral-500">{profileLabel}</span>
       </div>
     );
   }
 
   // Placeholder
   return (
-    <div className="flex gap-1.5 items-center">
-      <span className="w-2 h-2 rounded-full shrink-0 bg-neutral-600" />
-      <svg className="w-4 h-4 text-neutral-600" viewBox="0 0 20 20" fill="currentColor">
-        <path
-          fillRule="evenodd"
-          d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-          clipRule="evenodd"
-        />
-      </svg>
+    <div className="min-w-0">
+      <div className="flex gap-1.5 items-center">
+        <span className="w-2 h-2 rounded-full shrink-0 bg-neutral-600" />
+        <svg className="w-4 h-4 text-neutral-600" viewBox="0 0 20 20" fill="currentColor">
+          <path
+            fillRule="evenodd"
+            d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </div>
+      <span className="block truncate text-[9px] text-neutral-500">{profileLabel}</span>
     </div>
   );
 }

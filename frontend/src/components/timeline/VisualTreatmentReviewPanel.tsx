@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { VisualTreatmentAssignment } from "../../api";
 import type { Scene, VisualMode } from "../../types/script";
+import { durationDescriptionForMode, durationLabelForMode } from "../settings/visual-modes/catalog";
 
 interface Props {
   assignments: VisualTreatmentAssignment[];
@@ -84,6 +85,7 @@ export function VisualModeCatalog({ counts }: { counts: Record<VisualMode, numbe
         <div key={mode} className="flex min-h-16 items-start justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-950/50 px-3 py-2">
           <div className="min-w-0">
             <p className="text-xs font-semibold text-neutral-200">{VISUAL_MODE_LABELS[mode].label}</p>
+            <p className="mt-1 text-[10px] font-semibold text-sky-300">{durationLabelForMode(mode)}</p>
             <p className="mt-1 text-xs leading-4 text-neutral-500">{VISUAL_MODE_LABELS[mode].blurb}</p>
           </div>
           <span
@@ -144,7 +146,7 @@ export default function VisualTreatmentReviewPanel({
           <div className="space-y-1">
             <h3 className="text-sm font-semibold text-neutral-100">Visual Mode Review</h3>
             <p className="max-w-3xl text-xs leading-5 text-neutral-400">
-              Visual mode controls the scene route and the assets it owns: video clip, full-frame image, popup cutouts, or flip-flop panels.
+              Visual mode controls the scene route, duration profile, and the assets it owns: video clip, full-frame image, popup cutouts, or flip-flop panels.
             </p>
             <p className="text-xs text-neutral-500">
               {summary.video} video, {summary.full_frame} full frame, {summary.multi_frame} multi-frame,{" "}
@@ -157,7 +159,7 @@ export default function VisualTreatmentReviewPanel({
               type="button"
               onClick={() => onApply(draft)}
               disabled={hasInvalidLayerlessTreatment}
-              title={hasInvalidLayerlessTreatment ? "Re-analyze before applying layer-based visual modes." : undefined}
+              title={hasInvalidLayerlessTreatment ? "Prepare layers before applying layer-based visual modes." : undefined}
               className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-violet-600"
             >
               Apply
@@ -166,7 +168,7 @@ export default function VisualTreatmentReviewPanel({
         </div>
         {hasInvalidLayerlessTreatment && (
           <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-            Re-analyze before applying popup sequence, flip-flop, or comparison board modes to scenes with no generated layers.
+            Prepare layers before applying popup sequence, flip-flop, or comparison board modes to scenes with no generated layers.
           </p>
         )}
 
@@ -191,7 +193,7 @@ export default function VisualTreatmentReviewPanel({
                     mode === "video"
                       ? "AI video mode is assigned by video routing."
                       : !hasLayers
-                          ? "Re-analyze to generate layers before choosing popup sequence, flipflop, or comparison board."
+                          ? "Prepare layers before choosing popup sequence, flipflop, or comparison board."
                           : undefined
                   }
                   className="w-full rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-200 transition-colors hover:border-neutral-600 disabled:cursor-not-allowed disabled:text-neutral-500 disabled:hover:border-neutral-700"
@@ -208,14 +210,14 @@ export default function VisualTreatmentReviewPanel({
                   ))}
                 </select>
                 {mode === "video" ? (
-                  <p className="mt-1 text-xs text-neutral-500">AI video is assigned by routing.</p>
+                  <p className="mt-1 text-xs text-neutral-500">AI video is planned first, then validated after voiceover.</p>
                 ) : hasLayers ? (
                   <p className="mt-1 text-xs text-neutral-500">
                     {assignment.visual_layers.length} layer{assignment.visual_layers.length === 1 ? "" : "s"}
                   </p>
                 ) : (
                   <p className="mt-1 text-xs text-neutral-500">
-                    Layer-based options need analysis output.
+                    Layer-based options need prepared layer output.
                   </p>
                 )}
               </div>
@@ -229,6 +231,9 @@ export default function VisualTreatmentReviewPanel({
                 </p>
                 <p className="text-xs leading-5 text-neutral-500">
                   {assignment.reasoning || VISUAL_MODE_LABELS[mode].blurb}
+                </p>
+                <p className="text-xs text-neutral-500 mt-0.5">
+                  {durationLabelForMode(mode)} · {durationDescriptionForMode(mode)}
                 </p>
               </div>
             </div>

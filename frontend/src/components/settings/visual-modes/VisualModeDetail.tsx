@@ -105,6 +105,19 @@ export default function VisualModeDetail({ entry }: Props) {
             <p className="text-[12px] text-neutral-300 leading-snug">{entry.longDescription}</p>
           </div>
 
+          <div className="space-y-1 border-t border-neutral-800/60 pt-3">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+              Duration profile
+            </div>
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+              <p className="text-xs font-semibold text-sky-300">{entry.durationLabel}</p>
+              <span className="w-fit rounded bg-neutral-800 px-1.5 py-0.5 text-[10px] font-mono text-neutral-400">
+                {entry.durationProfile}
+              </span>
+            </div>
+            <p className="text-[11px] leading-snug text-neutral-500">{entry.durationDescription}</p>
+          </div>
+
           {/* Fields + Compatibility */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
             <div className="space-y-1">

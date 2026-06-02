@@ -123,7 +123,7 @@ export default function MediaSourcesTab({
   );
   const scenes = buildScenesMap(content);
   const hasExistingVisualModeReview = Boolean(visualTreatmentAssignments || mediaAssignments || mediaReviewDismissed);
-  const visualTreatmentAnalyzeLabel = hasExistingVisualModeReview ? "Re-analyze Visual Modes" : "Analyze Visual Modes";
+  const visualTreatmentAnalyzeLabel = hasExistingVisualModeReview ? "Validate Visual Modes" : "Prepare Visual Modes";
   const visualModeCounts = visualTreatmentAssignments
     ? buildVisualModeCounts(visualTreatmentAssignments)
     : buildVisualModeCountsFromContent(content);
@@ -146,7 +146,9 @@ export default function MediaSourcesTab({
       <div className="flex items-center justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-neutral-100">Visual Mode Review</h3>
-          <p className="text-xs text-neutral-500">Reassess scene visual modes inside the unified visual mode system.</p>
+          <p className="text-xs text-neutral-500">
+            Script generation plans visual rhythm before voiceover; validation prepares timing, layers, and safe video choices.
+          </p>
         </div>
         <button
           type="button"
@@ -155,7 +157,7 @@ export default function MediaSourcesTab({
           title={!canAnalyzeAnyVisualModes ? visualModeAnalyzeBlockedReason : undefined}
           className="rounded-lg bg-neutral-800 px-4 py-2 text-xs font-medium text-neutral-200 transition-colors hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-neutral-800"
         >
-          {visualTreatmentAnalyzing || mediaAnalyzing ? "Analyzing..." : visualTreatmentAnalyzeLabel}
+          {visualTreatmentAnalyzing || mediaAnalyzing ? "Preparing..." : visualTreatmentAnalyzeLabel}
         </button>
       </div>
       {visualTreatmentAssignments ? (
@@ -168,7 +170,7 @@ export default function MediaSourcesTab({
         <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
           <VisualModeCatalog counts={visualModeCounts} />
           <p className="mt-3 max-w-2xl text-xs leading-5 text-neutral-400">
-            Analyze scenes after voiceover timing exists to populate the review with route, variety, and layered-asset decisions.
+            Prepare scenes after voiceover timing exists to validate planned routes, fill layer timing, and confirm video eligibility.
           </p>
           {!canAnalyzeVisualTreatments && (
             <p className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
@@ -187,7 +189,7 @@ export default function MediaSourcesTab({
         <div className="flex items-center justify-center py-16">
           <div className="flex flex-col items-center gap-3">
             <span className="w-6 h-6 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm text-neutral-400">Analyzing visual modes...</span>
+            <span className="text-sm text-neutral-400">Preparing visual modes...</span>
           </div>
         </div>
       </div>
@@ -243,8 +245,8 @@ export default function MediaSourcesTab({
           <div className="space-y-3">
             <p className="text-sm text-neutral-400">
               {enabledSources.length > 0
-                ? `This project has ${enabledSources.join(" and ")} enabled. Analyze your script to assign visual modes per scene.`
-                : "Analyze your script to assign full-frame and video modes per scene."}
+                ? `This project has ${enabledSources.join(" and ")} enabled. Prepare planned visual modes for timing, layers, and video validation.`
+                : "Prepare planned visual modes for timing and layer validation."}
             </p>
           </div>
           {!canAnalyzeMedia && (

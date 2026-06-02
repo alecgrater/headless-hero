@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Captions, Columns3, Film, Hash, Image, Images, PanelsTopLeft, Repeat2, Route } from "lucide-react";
 import { assetUrl, regenerateFX } from "../../api";
 import type { Scene, SceneFX, VisualMode } from "../../types/script";
+import { durationDescriptionForMode, durationLabelForMode } from "../settings/visual-modes/catalog";
 import AudioPlayer from "./AudioPlayer";
 import SceneMicroTimeline from "./SceneMicroTimeline";
 import type { MicroTimelineHandle } from "./SceneMicroTimeline";
@@ -88,6 +89,8 @@ export default function PropertiesPanel({
   ];
   const visualMode: VisualMode =
     scene.visual_mode ?? "full_frame";
+  const durationLabel = durationLabelForMode(visualMode);
+  const durationDescription = durationDescriptionForMode(visualMode);
 
   const setVisualMode = (mode: VisualMode) => {
     const isLayered = mode === "popup_sequence" || mode === "flipflop" || mode === "comparison_board" || mode === "stat_card";
@@ -118,7 +121,7 @@ export default function PropertiesPanel({
       )}
 
       {/* 3-column layout: Narration | Visual Prompt | Controls */}
-      <div className={`shrink-0 ${visualMode === "captions" || visualMode === "stat_card" ? "h-56" : "h-36"} flex gap-4 px-4 py-2`}>
+      <div className={`shrink-0 ${visualMode === "captions" || visualMode === "stat_card" ? "h-56" : "h-44"} flex gap-4 px-4 py-2`}>
 
         {/* Col 1: Narration */}
         <div className="flex-[2] flex flex-col min-w-0 min-h-0">
@@ -145,7 +148,7 @@ export default function PropertiesPanel({
         </div>
 
         {/* Col 3: Visual mode selector + Generate Image + Generate Audio + FX */}
-        <div className={`flex-[1.2] flex flex-col justify-center gap-2 min-w-0 min-h-0 ${visualMode === "captions" || visualMode === "stat_card" ? "overflow-y-auto pr-1" : ""}`}>
+        <div className="flex-[1.2] flex flex-col justify-center gap-2 min-w-0 min-h-0 overflow-y-auto pr-1">
           {/* Visual mode selector */}
           <div className="shrink-0 flex flex-wrap gap-1">
             {VISUAL_MODE_OPTIONS.map((opt) => (
@@ -153,7 +156,7 @@ export default function PropertiesPanel({
                 key={opt.value}
                 type="button"
                 onClick={() => setVisualMode(opt.value)}
-                title={`Set visual mode to ${opt.label}`}
+                title={`Set visual mode to ${opt.label}. ${durationLabelForMode(opt.value)}`}
                 className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full transition-colors ${
                   visualMode === opt.value
                     ? "bg-violet-500/20 text-violet-300 font-medium"
@@ -164,6 +167,10 @@ export default function PropertiesPanel({
                 {opt.label}
               </button>
             ))}
+          </div>
+          <div className="shrink-0 rounded-lg border border-neutral-800 bg-neutral-950/40 px-2 py-1.5">
+            <p className="text-[10px] font-semibold text-sky-300">{durationLabel}</p>
+            <p className="mt-0.5 text-[10px] leading-snug text-neutral-500">{durationDescription}</p>
           </div>
 
           {visualMode === "captions" && (

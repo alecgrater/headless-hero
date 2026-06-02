@@ -3,7 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { VisualTreatmentAssignment } from "../../api";
 import type { Scene } from "../../types/script";
-import VisualTreatmentReviewPanel from "./VisualTreatmentReviewPanel";
+import VisualTreatmentReviewPanel, {
+  EMPTY_VISUAL_MODE_COUNTS,
+  VisualModeCatalog,
+} from "./VisualTreatmentReviewPanel";
 
 const assignments: VisualTreatmentAssignment[] = [
   {
@@ -183,5 +186,14 @@ describe("VisualTreatmentReviewPanel", () => {
     expect(screen.getByLabelText("Flipflop scenes")).toHaveTextContent("2");
     expect(screen.getByLabelText("Captions scenes")).toHaveTextContent("0");
     expect(screen.getByLabelText("Video scenes")).toHaveTextContent("0");
+  });
+
+  it("shows duration profile labels in the visual mode catalog", () => {
+    render(
+      <VisualModeCatalog counts={{ ...EMPTY_VISUAL_MODE_COUNTS, comparison_board: 1 }} />,
+    );
+
+    expect(screen.getAllByText(/Extended target/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Comparison board/i)).toBeInTheDocument();
   });
 });
