@@ -605,8 +605,9 @@ function CanvasColorButton({
   onSelect: (color: string) => void;
 }) {
   const textInputRef = useRef<HTMLInputElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState(color);
-  const [editing, setEditing] = useState(false);
+  const [open, setOpen] = useState(false);
   const normalizedDraft = normalizeCanvasHex(draft);
   const activeColor = normalizeCanvasHex(color) ?? "#F6C54A";
   const previewColor = normalizedDraft ?? activeColor;
@@ -617,42 +618,54 @@ function CanvasColorButton({
   }, [color]);
 
   useEffect(() => {
-    if (!editing) return;
+    if (!open) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (popoverRef.current?.contains(event.target as Node)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     textInputRef.current?.focus();
     textInputRef.current?.select();
-  }, [editing]);
+  }, [open]);
 
-  const commitDraft = useCallback(() => {
+  const commitDraft = useCallback((close = false) => {
     if (!normalizedDraft) {
       setDraft(activeColor);
-      setEditing(false);
+      if (close) setOpen(false);
       return;
     }
     setDraft(normalizedDraft);
     if (normalizedDraft !== activeColor) onSelect(normalizedDraft);
-    setEditing(false);
+    if (close) setOpen(false);
   }, [activeColor, normalizedDraft, onSelect]);
 
   const handleTextKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter") {
-      event.currentTarget.blur();
+      commitDraft(true);
     } else if (event.key === "Escape") {
       setDraft(activeColor);
-      setEditing(false);
-      event.currentTarget.blur();
+      setOpen(false);
     }
   };
 
   return (
     <div
-      className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border bg-neutral-950/70 px-1.5 transition-colors focus-within:border-violet-500 ${
+      ref={popoverRef}
+      className={`relative inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border bg-neutral-950/70 px-1.5 transition-colors focus-within:border-violet-500 ${
         invalid ? "border-amber-400/70" : "border-neutral-800 hover:border-violet-500/35"
       } ${updating ? "opacity-70" : ""}`}
       title="Canvas color"
     >
       <button
         type="button"
-        onClick={() => setEditing(true)}
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-haspopup="dialog"
         disabled={updating}
         className="inline-flex h-full items-center gap-1.5 text-xs font-medium text-neutral-200 transition-colors hover:text-violet-100 disabled:cursor-wait"
       >
@@ -663,21 +676,57 @@ function CanvasColorButton({
         />
         <span>Canvas</span>
       </button>
-      {editing ? (
-        <input
-          ref={textInputRef}
-          type="text"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onBlur={commitDraft}
-          onKeyDown={handleTextKeyDown}
-          disabled={updating}
-          maxLength={7}
-          aria-label="Canvas color hex value"
-          aria-invalid={invalid}
-          className="h-7 w-[4.8rem] border-l border-neutral-800 bg-transparent pl-1.5 font-mono text-xs font-semibold uppercase text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 disabled:cursor-wait"
-          placeholder="#F6C54A"
-        />
+      {open ? (
+        <div
+          role="dialog"
+          aria-label="Edit canvas color"
+          className="absolute right-0 top-10 z-50 w-64 rounded-xl border border-neutral-800 bg-neutral-950 p-3 shadow-2xl shadow-black/50"
+        >
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold text-neutral-100">Canvas color</p>
+              <p className="text-[11px] text-neutral-500">Background for layered scenes.</p>
+            </div>
+            <span
+              className="h-8 w-10 shrink-0 rounded-md border border-neutral-300/80"
+              style={{ backgroundColor: previewColor }}
+              aria-hidden="true"
+            />
+          </div>
+          <input
+            type="color"
+            value={previewColor}
+            onChange={(event) => {
+              const nextColor = normalizeCanvasHex(event.target.value);
+              if (!nextColor) return;
+              setDraft(nextColor);
+              onSelect(nextColor);
+            }}
+            disabled={updating}
+            className="mb-3 h-16 w-full cursor-pointer rounded-lg border border-neutral-800 bg-neutral-900 p-1 disabled:cursor-wait"
+            aria-label="Select canvas color"
+          />
+          <label className="block text-[11px] font-medium text-neutral-400" htmlFor="canvas-color-hex">
+            Hex value
+          </label>
+          <input
+            id="canvas-color-hex"
+            ref={textInputRef}
+            type="text"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={() => commitDraft()}
+            onKeyDown={handleTextKeyDown}
+            disabled={updating}
+            maxLength={7}
+            aria-label="Canvas color hex value"
+            aria-invalid={invalid}
+            className={`mt-1 h-9 w-full rounded-lg border bg-neutral-900 px-3 font-mono text-sm font-semibold uppercase text-neutral-100 outline-none transition-colors placeholder:text-neutral-600 disabled:cursor-wait ${
+              invalid ? "border-amber-400/70 focus:border-amber-300" : "border-neutral-800 focus:border-violet-500"
+            }`}
+            placeholder="#F6C54A"
+          />
+        </div>
       ) : null}
     </div>
   );
@@ -1036,7 +1085,7 @@ function ViewerSwitchRow({
   };
 
   return (
-    <div className="shrink-0 overflow-hidden border-y border-neutral-900/80 px-5 py-2">
+    <div className="shrink-0 border-y border-neutral-900/80 px-5 py-2">
       <div className="flex min-w-0 items-center gap-2">
         <div className="inline-flex shrink-0 items-center rounded-xl border border-neutral-800/80 bg-neutral-900/45 p-1">
           {FORMAT_OPTIONS.map(({ key, label, Icon }) => (
