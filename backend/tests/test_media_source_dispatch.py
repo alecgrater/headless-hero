@@ -351,6 +351,7 @@ def test_media_analyzer_maps_legacy_quick_cuts_mode_to_multi_frame(monkeypatch):
                         id="scene_001",
                         narration="Three independent details snap into view.",
                         visual_prompt="Three separate visual details",
+                        visual_mode="multi_frame",
                     )
                 ],
             )
@@ -360,8 +361,8 @@ def test_media_analyzer_maps_legacy_quick_cuts_mode_to_multi_frame(monkeypatch):
         media_analyzer,
         "chat",
         lambda **_kwargs: (
-            '[{"scene_id":"scene_001","media_source":"ai","visual_mode":"quick_cuts",'
-            '"reasoning":"Legacy multi-frame request."}]'
+            '[{"scene_id":"scene_001","media_source":"ai","visual_mode":"full_frame",'
+            '"reasoning":"Validator leaves planned mode alone."}]'
         ),
     )
 
@@ -384,6 +385,7 @@ def test_media_analyzer_preserves_continuous_mode(monkeypatch):
                         id="scene_001",
                         narration="The crack slowly spreads across the glass.",
                         visual_prompt="A crack growing across glass",
+                        visual_mode="continuous",
                     )
                 ],
             )
@@ -393,8 +395,8 @@ def test_media_analyzer_preserves_continuous_mode(monkeypatch):
         media_analyzer,
         "chat",
         lambda **_kwargs: (
-            '[{"scene_id":"scene_001","media_source":"ai","visual_mode":"continuous",'
-            '"reasoning":"Same-scene progression."}]'
+            '[{"scene_id":"scene_001","media_source":"ai","visual_mode":"full_frame",'
+            '"reasoning":"Validator leaves planned mode alone."}]'
         ),
     )
 
