@@ -5,6 +5,7 @@ import {
   comparisonBoardLayerStyle,
   comparisonLabel,
   flipflopActiveLayer,
+  flipflopLayerFrameStyle,
   layerChromeStyle,
   layerFrameStyle,
   popupOrbitFrameStyle,
@@ -138,11 +139,25 @@ describe("layerFrameStyle", () => {
   });
 });
 
+describe("flipflopLayerFrameStyle", () => {
+  it("renders flip-flop cutouts centered over the canvas", () => {
+    const style = flipflopLayerFrameStyle(itemLayer("state-a"));
+
+    expect(style.position).toBe("absolute");
+    expect(style.left).toBe("50%");
+    expect(style.top).toBe("50%");
+    expect(style.width).toBe(760);
+    expect(style.height).toBe(820);
+    expect(String(style.transform)).toContain("translate(-50%, -50%)");
+    expect(style.inset).toBeUndefined();
+  });
+});
+
 describe("flipflopActiveLayer", () => {
   it("alternates between all states from the start of the scene", () => {
     const layers = [
-      { ...panelLayer("state-a"), enter_at_seconds: 0 },
-      { ...panelLayer("state-b"), enter_at_seconds: 2.1 },
+      { ...itemLayer("state-a"), enter_at_seconds: 0 },
+      { ...itemLayer("state-b"), enter_at_seconds: 2.1 },
     ];
 
     expect(flipflopActiveLayer(layers, 0, 30)?.id).toBe("state-a");

@@ -75,6 +75,21 @@ export const layerFrameStyle = (layer: VisualLayer): React.CSSProperties => {
   return panelPlacementStyle(layer.placement);
 };
 
+export const flipflopLayerFrameStyle = (layer: VisualLayer): React.CSSProperties => {
+  if (layer.asset_kind !== "cutout") {
+    return layerFrameStyle(layer);
+  }
+  return {
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+    width: 760,
+    height: 820,
+    transform: "translate(-50%, -50%)",
+    transformOrigin: "center",
+  };
+};
+
 const layerImageStyle = (layer: VisualLayer): React.CSSProperties => ({
   width: "100%",
   height: "100%",
@@ -230,7 +245,7 @@ const Flipflop: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
 
   return (
     <div style={{ position: "absolute", inset: 0 }}>
-      <div style={layerFrameStyle(activeLayer)}>
+      <div style={flipflopLayerFrameStyle(activeLayer)}>
         <div style={layerChromeStyle(activeLayer)}>
           <Img
             src={activeLayer.image_path ?? ""}
