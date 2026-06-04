@@ -331,6 +331,64 @@ def _compose_image_prompt_context(
     return prompt, reference_image_path, style_reference_path
 
 
+def _compose_cutout_prompt_context(
+    *,
+    visual_prompt: str,
+    script_id: str,
+    style_guide: str = "",
+    contains_person: bool = False,
+) -> tuple[str, str | None, str | None]:
+    guide = style_guide if style_guide else _STYLE_GUIDE
+
+    eli_enabled, main_character_url, main_character_obj = _load_project_character_context(script_id)
+    _ensure_project_character_reference_ready(
+        script_id=script_id,
+        eli_enabled=eli_enabled,
+        main_character_reference_url=main_character_url,
+        main_character=main_character_obj,
+    )
+
+    project_style_enabled = _load_project_style_enabled(script_id)
+    style_reference_path = _resolve_style_preset(
+        eli_enabled=eli_enabled,
+        project_style_enabled=project_style_enabled,
+    )
+
+    reference_image_path, character_text = _resolve_character_reference(
+        script_id=script_id,
+        contains_person=contains_person,
+        eli_enabled=eli_enabled,
+        main_character_reference_url=main_character_url,
+        main_character=main_character_obj,
+    )
+
+    parts: list[str] = []
+    if _VISUAL_STYLE:
+        parts.append(_VISUAL_STYLE)
+    if guide:
+        parts.append(guide)
+    if character_text:
+        parts.append(character_text)
+    parts.append(visual_prompt)
+    prompt = "\n\n".join(parts)
+
+    if reference_image_path:
+        try:
+            mtime = int(Path(reference_image_path).stat().st_mtime)
+            prompt += f"\n[char_ref:{reference_image_path}:{mtime}]"
+        except OSError:
+            pass
+
+    if style_reference_path:
+        try:
+            mtime = int(Path(style_reference_path).stat().st_mtime)
+            prompt += f"\n[style_ref:{style_reference_path}:{mtime}]"
+        except OSError:
+            pass
+
+    return prompt, reference_image_path, style_reference_path
+
+
 def generate_visual_layer_panels(
     scene_id: str,
     layers: list[dict],
@@ -797,7 +855,7 @@ def generate_flipflop_cutouts(
         prompt_marker = output_dir / f"{filename}.prompt"
         web_path = f"/static/projects/{script_id}/flipflop_cutouts/{scene_id}/{filename}"
         source_prompt = _compose_flipflop_cutout_source_prompt(prompt, scene_prompt)
-        composed_prompt, reference_image_path, style_reference_path = _compose_image_prompt_context(
+        composed_prompt, reference_image_path, style_reference_path = _compose_cutout_prompt_context(
             visual_prompt=source_prompt,
             script_id=script_id,
             contains_person=bool(next_layer.get("contains_person", contains_person)),

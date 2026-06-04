@@ -1990,6 +1990,14 @@ def test_generate_flipflop_cutouts_keys_cutout_layers_and_preserves_non_images(t
     assert "[char_ref:" in captured[0]["prompt"]
     assert "[style_ref:" in captured[0]["prompt"]
     assert "[flipflop_ref:" in captured[1]["prompt"]
+    for generated in captured:
+        prompt = generated["prompt"].lower()
+        assert "full-bleed" not in prompt
+        assert "fill the entire canvas" not in prompt
+        assert "edge to edge" not in prompt
+        assert "flip-flop animation state cutout" in prompt
+        assert "chroma key background" in prompt
+        assert "no full background scene" in prompt
     assert layers[1] == {"id": "label_1", "type": "text", "asset_kind": "text", "text": "overlay"}
     image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
     assert [layer["image_url"] for layer in image_layers] == [
