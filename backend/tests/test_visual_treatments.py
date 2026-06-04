@@ -2233,6 +2233,7 @@ def test_analyze_visual_treatments_does_not_assign_flipflop_for_generic_contrast
     assert assignment.visual_mode == "comparison_board"
     assert assignment.visual_treatment == "comparison_board"
     assert [layer.placement for layer in assignment.visual_layers] == ["left", "right"]
+    assert [layer.label for layer in assignment.visual_layers] == ["", ""]
     assert all(layer.asset_kind == "cutout" for layer in assignment.visual_layers)
     assert all("No text in image" in layer.prompt for layer in assignment.visual_layers)
 

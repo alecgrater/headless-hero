@@ -681,6 +681,7 @@ def _comparison_layers_for_scene(scene: Scene) -> list[VisualLayer]:
     if len(subjects) < 2:
         return []
     subjects = subjects[:3]
+    labels = _comparison_display_labels(scene, subjects)
     placements_by_count = {
         2: ["left", "right"],
         3: ["left", "center", "right"],
@@ -692,7 +693,7 @@ def _comparison_layers_for_scene(scene: Scene) -> list[VisualLayer]:
             id=f"{scene.id}_compare_{index + 1}",
             asset_kind="cutout",
             prompt=comparison_cutout_prompt(scene.visual_prompt, scene.narration, subject),
-            label=subject,
+            label=labels[index] if index < len(labels) else "",
             placement=placements[index],
             enter_at_seconds=round(_phrase_start_seconds(scene, subject, index, len(subjects)) or index * fallback_step, 2),
             animation="pop_in",
@@ -796,6 +797,28 @@ def _comparison_subjects(scene: Scene) -> list[str]:
     if left and right:
         return [left, right]
     return []
+
+
+def _comparison_display_labels(scene: Scene, subjects: list[str]) -> list[str]:
+    text = scene.narration.strip()
+    lower = text.lower()
+    words = {_normalize_word(word) for word in text.split()}
+    if "good choice" in lower and "bad choice" in lower:
+        return ["good choice", "bad choice"][:len(subjects)]
+
+    label_matches = re.findall(
+        r"\b(myth|reality|outcome|before|after|then|now|success|failure)\b\s+(?:says|is|means|looks like)?\s*([^,.;]+)",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if len(label_matches) >= 2:
+        return [_trim_comparison_subject(label or phrase) for label, phrase in label_matches[:len(subjects)]]
+
+    for left, right in COMPARISON_PAIR_PHRASES:
+        if left in words and right in words:
+            return [left, right][:len(subjects)]
+
+    return [""] * len(subjects)
 
 
 def _trim_comparison_subject(value: str) -> str:

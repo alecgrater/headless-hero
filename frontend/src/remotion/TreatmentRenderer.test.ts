@@ -184,6 +184,7 @@ describe("comparisonLabel", () => {
     expect(comparisonLabel(itemLayer("left"))).toBeNull();
     expect(comparisonLabel({ ...itemLayer("right"), label: "Option 2" })).toBeNull();
     expect(comparisonLabel({ ...itemLayer("placeholder"), prompt: "Comparison board transparent cutout for left subject: scene." })).toBeNull();
+    expect(comparisonLabel({ ...itemLayer("prompt-label"), prompt: "Comparison board transparent cutout for Myth: scene." })).toBeNull();
   });
 });
 

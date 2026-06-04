@@ -298,12 +298,6 @@ export const comparisonLabel = (layer: VisualLayer): string | null => {
   if (explicitLabel && isDisplayableComparisonLabel(explicitLabel)) {
     return explicitLabel;
   }
-  const prompt = layer.prompt ?? "";
-  const match = prompt.match(/\bfor\s+(.+?):/i);
-  const promptLabel = match?.[1]?.trim();
-  if (promptLabel && isDisplayableComparisonLabel(promptLabel)) {
-    return promptLabel;
-  }
   return null;
 };
 
