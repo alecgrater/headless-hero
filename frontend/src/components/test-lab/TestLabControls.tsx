@@ -1065,11 +1065,11 @@ function defaultLayersForMode(mode: VisualMode, visualPrompt: string, narration:
     return ["State A", "State B"].map((_label, index) => ({
       id: `flipflop_${index + 1}`,
       type: "image",
-      asset_kind: "panel",
+      asset_kind: "cutout",
       prompt: basePrompt,
       placement: "center",
-      enter_at_seconds: index,
-      animation: "pop_in" as const,
+      enter_at_seconds: 0,
+      animation: "none" as const,
     }));
   }
   const labels = mode === "comparison_board" ? ["Left subject", "Right subject"] : ["Popup item 1", "Popup item 2", "Popup item 3"];

@@ -314,6 +314,44 @@ describe("TestLabControls layout", () => {
     expect(within(visualMode).getByText(/State B/i)).toBeInTheDocument();
   });
 
+  it("creates cropped cutout defaults when switching to flip-flop", () => {
+    const onChange = vi.fn();
+    render(
+      <TestLabControls
+        preset={preset}
+        defaultMainCharacter={null}
+        visualTreatmentDefaults={defaults}
+        settings={{ ...baseSettings, visual_mode: "full_frame", visual_layers: [] }}
+        voiceSummary={voiceSummary}
+        subtitleSummary={subtitleSummary}
+        onChange={onChange}
+        onOpenSettingsSection={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Flip-flop/i }));
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        visual_mode: "flipflop",
+        visual_layers: [
+          expect.objectContaining({
+            id: "flipflop_1",
+            asset_kind: "cutout",
+            enter_at_seconds: 0,
+            animation: "none",
+          }),
+          expect.objectContaining({
+            id: "flipflop_2",
+            asset_kind: "cutout",
+            enter_at_seconds: 0,
+            animation: "none",
+          }),
+        ],
+      }),
+    );
+  });
+
   it("keeps the scene prompt in continuous frame prompts", () => {
     renderControls({ ...baseSettings, visual_mode: "continuous" });
 
