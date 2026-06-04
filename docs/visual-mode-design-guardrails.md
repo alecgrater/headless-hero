@@ -53,9 +53,9 @@ Do not use normal scene images for popup sequence. Do not create another item-po
 
 ### `flipflop`
 
-Use for same-subject A/B micro-animation where compatible full-bleed panels alternate from frame zero.
+Use for same-subject cropped A/B micro-animation where compatible transparent character/body-language cutouts alternate from frame zero over the static canvas.
 
-Do not use it for generic contrast between different ideas, time periods, or unrelated emotional states. Do not create a new A/B animation mode unless it needs more than compatible alternating states.
+Do not use it for generic contrast between different ideas, time periods, unrelated emotional states, or full-environment changes. Prefer character/human body language; object-only flip-flops require explicit object-action narration.
 
 ### `comparison_board`
 

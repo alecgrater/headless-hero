@@ -155,11 +155,12 @@ def test_script_prompt_includes_popup_sequence_mode():
     assert "pop around" in prompt_text
 
 
-def test_script_prompt_defines_flipflop_as_micro_animation_not_contrast():
+def test_script_prompt_defines_flipflop_as_cutout_body_language_not_contrast():
     prompt_text = script_prompt.SCRIPT_SYSTEM.template
 
     assert '"flipflop"' in prompt_text
-    assert "micro-animation" in prompt_text
+    assert "cropped subject" in prompt_text
+    assert "body-language" in prompt_text
     assert "Do not use flipflop merely because a sentence contrasts" in prompt_text
 
 

@@ -155,9 +155,9 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
   {
     id: "flipflop",
     label: "Flip Flop",
-    shortDescription: "Same subject alternating between A/B states.",
+    shortDescription: "Cropped character cutouts alternating between A/B states.",
     longDescription:
-      "Two compatible full-bleed panels alternate from frame zero to simulate simple animation: hands opening/closing, typing, stirring, a character nodding or gesturing. Not for generic contrast between unrelated ideas, time periods, or emotional states — use comparison_board for those.",
+      "Two compatible cropped transparent cutouts alternate over the canvas from frame zero to simulate simple character/body-language motion: talking mouth changes, nodding, pointing, leaning, shrugging, or simple object actions held by a person. Not for generic contrast between unrelated ideas, time periods, locations, outcomes, or emotional states — use comparison_board for those.",
     previewSrc: "/visual-modes/flipflop.mp4",
     durationProfile: "normal",
     durationLabel: "Normal target · 5-9s",
@@ -172,7 +172,7 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     },
     distribution: "Unlimited",
     routing:
-      "Script generation chooses flipflop when narration calls for one subject alternating between two compatible states. Panels render full-bleed from frame zero — no canvas-staged layout.",
+      "Script generation chooses flipflop when narration calls for one cropped character or human subject alternating between two compatible body-language/action states. Transparent cutouts alternate over the canvas from frame zero.",
     notCompatibleWith: ["Different-subject contrast — use comparison_board instead."],
     rendererPath: "remotion/src/scenes/TreatmentRenderer.tsx",
   },
@@ -198,7 +198,7 @@ export const VISUAL_MODE_CATALOG: VisualModeEntry[] = [
     routing:
       "Script generation chooses comparison_board when narration explicitly contrasts two or three things. Avoid for single environments, item lists, same-subject animation, or progression.",
     notCompatibleWith: [
-      "Same-subject A/B animation — use flipflop.",
+      "Cropped same-subject character/body-language A/B animation — use flipflop.",
       "Item callouts around an anchor — use popup_sequence.",
       "Process progression — use continuous.",
     ],

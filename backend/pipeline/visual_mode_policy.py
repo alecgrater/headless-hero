@@ -62,7 +62,7 @@ _TARGETS: dict[str, VisualModeDurationTarget] = {
         target_seconds=8.0,
         max_seconds=14.0,
         ui_label="Normal target · 5-9s",
-        prompt_guidance="Use about 5-9 seconds for simple same-subject A/B motion.",
+        prompt_guidance="Use about 5-9 seconds for simple cropped-subject character/body-language A/B motion.",
     ),
     "captions": VisualModeDurationTarget(
         visual_mode="captions",
@@ -161,16 +161,16 @@ _OPPORTUNITY_POLICIES: dict[str, VisualModeOpportunityPolicy] = {
     ),
     "flipflop": VisualModeOpportunityPolicy(
         visual_mode="flipflop",
-        purpose="Same-subject A/B micro-animation using compatible full-bleed states.",
-        frequency_guidance="Common expressive rhythm opportunity in long scripts; consider several uses when repeated gestures or simple A/B motion exist.",
+        purpose="Cropped-subject character/body-language A/B micro-animation using compatible transparent cutout states for one cropped subject.",
+        frequency_guidance="Common expressive rhythm opportunity in long scripts; consider several uses when a cropped subject has repeated body-language gestures or simple A/B motion.",
         opportunity_cues=(
-            "hands opening and closing",
-            "typing or sorting",
-            "door open and closed",
-            "nodding or pacing",
-            "same subject toggles between two compatible states",
+            "talking mouth or expression changes",
+            "head tilt or nodding",
+            "hand gesture or pointing",
+            "character leaning or shrugging",
+            "explicit object action held by a person",
         ),
-        avoid_when=("contrast is only conceptual", "subjects are unrelated", "a true side-by-side comparison is needed"),
+        avoid_when=("contrast is only conceptual", "subjects are unrelated", "full environments change", "a true side-by-side comparison is needed"),
     ),
     "captions": VisualModeOpportunityPolicy(
         visual_mode="captions",

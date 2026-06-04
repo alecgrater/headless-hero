@@ -71,6 +71,14 @@ def test_visual_opportunity_guidance_is_script_type_agnostic_and_pre_scene():
     assert "Do not force a quota" in text
 
 
+def test_flipflop_policy_prefers_character_body_language():
+    text = prompt_visual_opportunity_guidance(projected_scene_count=20)
+
+    assert "cropped subject" in text
+    assert "body-language" in text
+    assert "conceptual" in text
+
+
 def test_visual_opportunity_schema_guidance_requests_segment_opportunities():
     text = prompt_visual_opportunity_schema_guidance()
 

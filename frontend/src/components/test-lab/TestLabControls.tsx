@@ -142,8 +142,8 @@ const VISUAL_MODE_OPTIONS: Array<{
     label: "Flip-flop",
     icon: <Repeat2 className="h-4 w-4" />,
     summary: "Two compatible states alternate.",
-    description: "Generates paired full-bleed state panels for same-subject micro-animation.",
-    bestFor: "Opening/closing, typing, pointing, nodding, and other simple repeated actions.",
+    description: "Generates two cropped character/body-language states that alternate over the canvas.",
+    bestFor: "Talking mouth changes, nodding, pointing, leaning, shrugging, and simple character actions.",
   },
   {
     value: "comparison_board",
