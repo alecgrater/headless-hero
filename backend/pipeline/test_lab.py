@@ -1157,6 +1157,8 @@ def _fallback_visual_layers_for_treatment(scene: Scene) -> list[VisualLayer]:
                 animation="pop_in",
             ),
         ]
+    if scene.visual_mode == "stat_card":
+        return []
     return [
         VisualLayer(
             id=f"{scene.id}_state_a",

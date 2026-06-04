@@ -1622,6 +1622,72 @@ def test_generate_visual_preserves_explicit_stat_card_and_generates_icon_layer(m
     assert stored_scene.visual_layers[0].image_url == "/static/projects/request-stat-card/stat_cards/scene_001/icon_cutout.png"
 
 
+def test_generate_visual_stat_card_mode_change_does_not_reuse_flipflop_layers(monkeypatch):
+    from api import visuals as visuals_api
+    from api.visuals import GenerateVisualRequest
+
+    engine = _build_test_engine()
+    script_id = "request-stat-card-mode-change"
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="The number jumps to eighty percent.",
+            visual_prompt="Warning icon over a bold statistic.",
+            visual_treatment="flipflop",
+            image_url="",
+            visual_layers=[
+                VisualLayer(id="state_a", asset_kind="cutout", prompt="state A", image_url="/static/projects/old/state_a.png"),
+                VisualLayer(id="state_b", asset_kind="cutout", prompt="state B", image_url="/static/projects/old/state_b.png"),
+            ],
+        )
+    )
+
+    monkeypatch.setattr(visuals_api, "_require_character_reference_ready", lambda session, script_id: None)
+    monkeypatch.setattr(
+        visuals_api,
+        "generate_scene_image",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("stat_card should not generate scene images")),
+    )
+    monkeypatch.setattr(
+        visuals_api,
+        "generate_stat_card_cutout",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("stat_card mode change should not reuse flipflop layers")),
+    )
+
+    with Session(engine) as session:
+        session.add(
+            Script(
+                id=script_id,
+                brand_id="brand",
+                topic_title="Treatment Test",
+                script_json=content.model_dump_json(),
+            )
+        )
+        session.commit()
+
+        response = visuals_api.generate_visual(
+            GenerateVisualRequest(
+                script_id=script_id,
+                scene_id="scene_001",
+                visual_prompt="Warning icon over a bold statistic.",
+                visual_mode="stat_card",
+            ),
+            session,
+        )
+
+        stored = session.get(Script, script_id)
+        assert stored is not None
+        stored_scene = ScriptContent.model_validate_json(stored.script_json).segments[0].scenes[0]
+
+    assert response.image_url == ""
+    assert response.frame_urls == []
+    assert response.visual_layers == []
+    assert stored_scene.visual_treatment == "stat_card"
+    assert stored_scene.image_url == ""
+    assert stored_scene.frame_urls == []
+    assert stored_scene.visual_layers == []
+
+
 def test_generate_visual_preserves_multi_frame_mode_for_frame_directives(monkeypatch):
     from api import visuals as visuals_api
     from api.visuals import GenerateVisualRequest

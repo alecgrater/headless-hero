@@ -2042,6 +2042,62 @@ def test_stage_treatment_assets_generates_stat_card_icon_cutout(monkeypatch, tmp
     ]
 
 
+def test_stage_treatment_assets_stat_card_no_icon_keeps_layers_empty(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.image_gen as image_gen
+    import pipeline.test_lab as test_lab
+    from models.script import ScriptContent
+
+    with Session(engine) as session:
+        script_id = test_lab.create_hidden_test_script(
+            session,
+            run_id="run-stat-card-no-icon",
+            preset_id="stat-card-no-icon",
+            settings={},
+        )
+        session.commit()
+
+    monkeypatch.setattr(
+        image_gen,
+        "generate_stat_card_cutout",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("stat_card without icon should not generate cutouts")),
+    )
+    monkeypatch.setattr(
+        image_gen,
+        "generate_flipflop_cutouts",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("stat_card should not synthesize flipflop layers")),
+    )
+
+    manifest = test_lab.TestLabRunManifest(
+        run_id="run-stat-card-no-icon",
+        script_id=script_id,
+        preset_id="stat-card-no-icon",
+        status="running",
+    )
+    ctx = test_lab.TestLabRunContext(
+        engine=engine,
+        run_id="run-stat-card-no-icon",
+        script_id=script_id,
+        preset_id="stat-card-no-icon",
+        settings={},
+        manifest=manifest,
+        job_id=None,
+    )
+
+    test_lab._stage_treatment_assets(ctx)
+
+    with Session(engine) as session:
+        record, content = test_lab._load_content_for_script(session, script_id)
+        _ = record
+        saved = ScriptContent.model_validate(content)
+
+    scene = saved.segments[0].scenes[0]
+    assert scene.visual_treatment == "stat_card"
+    assert scene.visual_layers == []
+    assert manifest.assets == []
+
+
 def test_stage_treatment_assets_skips_ai_video_scenes(monkeypatch, tmp_path):
     engine, _app = _setup_app(monkeypatch, tmp_path)
 

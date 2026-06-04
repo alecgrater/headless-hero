@@ -153,7 +153,7 @@ def _resolve_visual_layer_context(
     visual_mode = request_mode or (scene.visual_mode if scene is not None else "full_frame")
     treatment = visual_mode if visual_mode in LAYERED_VISUAL_MODES else "full_frame"
     raw_layers: list[object] = list(request_layers or [])
-    if not raw_layers and scene is not None:
+    if not raw_layers and scene is not None and (not request_mode or scene.visual_mode == treatment):
         raw_layers = list(scene.visual_layers)
     contains_person = bool(request_contains_person or (scene.contains_person if scene is not None else False))
     return treatment, _visual_layer_dicts(raw_layers), contains_person
@@ -179,8 +179,10 @@ def _generate_scene_visual_layers(
         request_layers=request_layers,
         request_contains_person=request_contains_person,
     )
-    if treatment not in LAYERED_VISUAL_MODES or not layers:
+    if treatment not in LAYERED_VISUAL_MODES:
         return None
+    if not layers:
+        return []
     logger.info(
         "[ANIMATION_TYPE] generating panels scene=%s animation_type=%s layers=%d",
         scene_id,
