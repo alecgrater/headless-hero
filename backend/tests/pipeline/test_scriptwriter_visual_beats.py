@@ -80,6 +80,35 @@ def test_monotony_fix_normalizes_legacy_alternatives_to_multi_frame():
     assert "multi_frame" in beats
 
 
+def test_visual_monotony_fix_does_not_force_extended_modes_into_short_scenes():
+    content = ScriptContent(
+        title="Test",
+        format_id="youtube-listicle",
+        segments=[
+            Segment(
+                name="Segment",
+                scenes=[_static_scene(f"scene_{i:03d}") for i in range(1, 8)],
+            )
+        ],
+    )
+
+    fixes = _fix_visual_monotony(
+        content,
+        VisualBeatRules(
+            allowed_beats=frozenset({"static", "continuous", "multi_frame"}),
+            monotony_threshold=3,
+        ),
+    )
+
+    modes = [scene.visual_mode for scene in content.all_scenes()]
+    assert fixes > 0
+    assert {"continuous", "multi_frame"} & set(modes)
+    assert "captions" not in modes
+    assert "comparison_board" not in modes
+    assert "popup_sequence" not in modes
+    assert "stat_card" not in modes
+
+
 def test_non_static_beats_without_directives_are_repaired():
     scene = _static_scene("scene_001")
     scene.visual_beat = "continuous"
@@ -151,6 +180,40 @@ def test_script_prompt_routes_modes_by_best_fit_not_forced_quotas():
     assert "50-65%" not in prompt_text
     assert "full-full-variety" not in prompt_text
     assert "MUST use a different mode" not in prompt_text
+
+
+def test_outline_prompts_request_visual_opportunities_before_scenes():
+    standard_prompt = script_prompt.SCRIPT_OUTLINE_INSTRUCTIONS.template
+    assert "across the canonical visual-mode vocabulary" in standard_prompt
+    assert "not every mode or segment needs an opportunity" in standard_prompt
+
+    for prompt in (
+        standard_prompt,
+        script_prompt.LIFE_AS_A_OUTLINE_INSTRUCTIONS.template,
+    ):
+        assert '"visual_opportunities"' in prompt
+        assert "before any scenes are written" in prompt
+        assert "Do not include any scenes" in prompt or "NO scenes" in prompt
+        assert "not final scene JSON" in prompt
+
+
+def test_segment_prompts_consume_visual_opportunities_without_quotas():
+    standard_prompt = script_prompt.SCRIPT_SEGMENT_SCENES_INSTRUCTIONS.template
+    life_as_a_prompt = script_prompt.LIFE_AS_A_LEVEL_SCENES_INSTRUCTIONS.template
+
+    for prompt in (
+        standard_prompt,
+        life_as_a_prompt,
+    ):
+        assert "visual_opportunities" in prompt
+        assert "shape scene boundaries" in prompt
+        assert "Do not force" in prompt
+        assert "format voice" in prompt
+        assert "duration" in prompt
+
+    assert "standalone-short clarity" in standard_prompt
+    assert "protagonist continuity" in life_as_a_prompt
+    assert "emotional arc" in life_as_a_prompt
 
 
 def test_scene_granularity_preserves_extended_visual_mode_scene():

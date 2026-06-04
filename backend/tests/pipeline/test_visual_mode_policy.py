@@ -3,7 +3,10 @@ from pipeline.visual_mode_policy import (
     CANONICAL_VISUAL_MODES,
     duration_profile_for_mode,
     duration_target_for_mode,
+    opportunity_policy_for_mode,
     prompt_duration_guidance,
+    prompt_visual_opportunity_guidance,
+    prompt_visual_opportunity_schema_guidance,
 )
 
 
@@ -42,3 +45,38 @@ def test_prompt_duration_guidance_mentions_extended_and_video_policy():
     assert "comparison_board" in text
     assert "video" in text
     assert "before voiceover" in text
+
+
+def test_opportunity_policy_covers_all_canonical_visual_modes():
+    for mode in CANONICAL_VISUAL_MODES:
+        policy = opportunity_policy_for_mode(mode)
+        assert policy.visual_mode == mode
+        assert policy.purpose
+        assert policy.opportunity_cues
+        assert policy.avoid_when
+        assert policy.frequency_guidance
+
+
+def test_visual_opportunity_guidance_is_script_type_agnostic_and_pre_scene():
+    text = prompt_visual_opportunity_guidance(projected_scene_count=90)
+
+    assert "script-type agnostic" in text
+    assert "before final scenes are written" in text
+    assert "Scene boundaries, narration length, duration estimates, and mode-specific fields" in text
+    assert "full_frame remains dominant" in text
+    assert "flipflop and captions" in text
+    assert "common expressive rhythm opportunities" in text
+    assert "popup_sequence, comparison_board, and stat_card" in text
+    assert "actively scan" in text
+    assert "Do not force a quota" in text
+
+
+def test_visual_opportunity_schema_guidance_requests_segment_opportunities():
+    text = prompt_visual_opportunity_schema_guidance()
+
+    assert '"visual_opportunities"' in text
+    assert '"mode"' in text
+    assert '"beat"' in text
+    assert '"duration_profile"' in text
+    assert '"priority"' in text
+    assert "Do not include scenes" in text

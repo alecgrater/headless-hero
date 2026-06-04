@@ -298,7 +298,7 @@ SCRIPT_OUTLINE_INSTRUCTIONS = register(PromptDef(
     domain="SCRIPT",
     purpose="Phase 1 of segmented generation — outline only, no scenes",
     target_model="claude",
-    expected_output_format="JSON: {title, card_title, intro_hook, outro_cta, segments[{name, topic_summary}]}",
+    expected_output_format="JSON: {title, card_title, intro_hook, outro_cta, segments[{name, topic_summary, visual_opportunities}]}",
     template="""\
 IMPORTANT: Return ONLY the script outline — NO scenes, NO narration.
 Return valid JSON with this structure:
@@ -315,11 +315,21 @@ Return valid JSON with this structure:
       "short_name": "Short Label",
       "circle_color": "#e91e63",
       "title_card_image_prompt": "Visual description for the segment circle image.",
-      "topic_summary": "2-3 sentences describing what this segment covers — key points, narrative arc, what the viewer learns."
+      "topic_summary": "2-3 sentences describing what this segment covers — key points, narrative arc, what the viewer learns.",
+      "visual_opportunities": [
+        {
+          "mode": "captions",
+          "beat": "A short realization or reversal that should land as renderer-owned text.",
+          "why": "This strengthens the scene without adding a new argument beat.",
+          "duration_profile": "extended",
+          "priority": "strong"
+        }
+      ]
     }
   ]
 }
 Do NOT include any scenes. Only segment metadata and topic summaries.
+For each segment, include a compact "visual_opportunities" array before any scenes are written. These are planning notes, not final scene JSON. Identify natural opportunities across the canonical visual-mode vocabulary early enough that scene boundaries and duration can be shaped later; not every mode or segment needs an opportunity. Do not force opportunities or invent extra segment beats; preserve script quality first.
 Do NOT include countdown/ranking numbers in segment names or short_name values. Avoid prefixes like "Number eight", "#8", "8.", "No. 8", "Part 8", or "Segment 8" unless the number is intrinsic to the topic.
 Set card_subtitle to an empty string. Do NOT create title-card subtitles, kickers, taglines, or secondary phrases.
 """,
@@ -367,6 +377,7 @@ RULES:
 - The FIRST scene of EVERY segment MUST be a title card (is_title_card: true, visual_mode: "full_frame", visual_beat: "static", frame_directives: []).
 - Title card narration must introduce the segment by idea, not by countdown/ranking number. Do NOT start with phrases like "Number eight", "#8", "8.", "No. 8", "Part 8", or "Segment 8" unless the number is intrinsic to the topic.
 - After the title card, write one content scene per 1-2 sentences of narration. Each scene should have exactly 1-2 sentences and default to 1 frame (visual_mode: "full_frame", visual_beat: "static"). There is no fixed scene count — let the narration length determine scene count.
+- The outline may include "visual_opportunities" for this segment. Use them as pre-scene planning notes to shape scene boundaries, narration length, duration estimates, and mode-specific fields from the start. Strong opportunities should normally become scenes when they still fit the narration. Ignore weak opportunities when they would hurt script quality, format voice, or standalone-short clarity. Do not force a quota.
 - End this segment as if it may be watched alone as a Short. Resolve only this segment's idea. Do NOT use whole-video summary phrases, channel CTAs, subscribe requests, "come back next week", "before you go", "as we have seen", "all eight", or references to previous/future segments in scene narration.
 - Scene IDs should start at scene_001 within this segment (they will be renumbered globally later).
 - Follow all visual storytelling arc, Visual Mode System, and shot type guidelines from the system prompt.
@@ -569,8 +580,8 @@ LIFE_AS_A_OUTLINE_INSTRUCTIONS = register(PromptDef(
     purpose="Phase-1 outline instruction for life-as-a segmented generation",
     target_model="claude",
     expected_output_format=(
-        "JSON: {title, levels: [{number, descriptor, topic_summary, image_prompt}], "
-        "cinematic_thumbnail_prompt, intro_hook, outro_cta, segments: same as levels}"
+        "JSON: {title, levels: [{number, descriptor, topic_summary, image_prompt, visual_opportunities}], "
+        "cinematic_thumbnail_prompt, intro_hook, outro_cta, segments: same as levels with visual_opportunities}"
     ),
     template="""\
 IMPORTANT: Return ONLY the script outline — NO scenes, NO narration body.
@@ -611,20 +622,47 @@ Return ONLY valid JSON — no markdown fences, no commentary. The JSON has this 
     {
       "number": 1,
       "descriptor": "occasional",
-      "topic_summary": "2-3 sentences for context."
+      "topic_summary": "2-3 sentences for context.",
+      "visual_opportunities": [
+        {
+          "mode": "captions",
+          "beat": "A short realization or reversal that should land as renderer-owned text.",
+          "why": "This strengthens the level without adding a new life beat.",
+          "duration_profile": "extended",
+          "priority": "strong"
+        }
+      ]
     },
     {
       "number": 2,
       "descriptor": "regular",
       "topic_summary": "2-3 sentences for context.",
-      "image_prompt": "[ESTABLISHING] vivid one-line description."
+      "image_prompt": "[ESTABLISHING] vivid one-line description.",
+      "visual_opportunities": [
+        {
+          "mode": "continuous",
+          "beat": "A process or same-space progression that should unfold over time.",
+          "why": "This lets the level's lived change build visibly.",
+          "duration_profile": "normal",
+          "priority": "strong"
+        }
+      ]
     }
   ],
   "segments": [
     {
       "name": "Level 1, the occasional",
       "short_name": "occasional",
-      "topic_summary": "Same 2-3 sentences as the parallel level entry."
+      "topic_summary": "Same 2-3 sentences as the parallel level entry.",
+      "visual_opportunities": [
+        {
+          "mode": "captions",
+          "beat": "Same opportunity notes as the parallel level entry.",
+          "why": "The existing segmented machinery reads segments.",
+          "duration_profile": "extended",
+          "priority": "strong"
+        }
+      ]
     }
   ]
 }
@@ -634,6 +672,7 @@ CRITICAL:
 - `levels` and `segments` MUST be parallel arrays of identical length and order. Each `segments[i].name` MUST literally be `Level {levels[i].number}, the {levels[i].descriptor}` (comma after the number, lowercase descriptor, no colon). This is what the existing segmented machinery reads.
 - Pick a level count between 4 and 7 inclusive.
 - `closing_register` is required and must be exactly `"cautionary"` or `"reflective"`.
+- For every level and its parallel segment object, include "visual_opportunities". These are not scenes. They are early planning notes that identify natural opportunities across the canonical visual-mode vocabulary so the later per-level scene phase can write narration at the right length for the selected mode. Not every mode, level, or segment needs an opportunity. Do not turn the level into a listicle or add beats only to satisfy variety. They are planning notes, not final scene JSON.
 - Do NOT include any scenes. Only metadata.
 """,
     retention=RetentionMeta(
@@ -682,6 +721,7 @@ Return a JSON object with a single key `"scenes"` whose value is a flat array of
 ### Scene shape
 - The FIRST scene of this level MUST be a chapter card: `is_title_card: true`, `visual_mode: "full_frame"`, `visual_beat: "static"`, `frame_directives: []`. Its narration is ONLY the descriptor phrase, without the level label or number — e.g. "The occasional." (one short sentence). The TTS pipeline adds "Level N" once at audio generation time.
 - After the chapter card, write single-beat scenes. Each non-title scene should be **1–2 sentences** of narration. Normal modes (`full_frame`, `multi_frame`, `continuous`, `flipflop`) target ~5-9s. Renderer-owned modes use their visual-mode duration policy: `captions` ~14-18s, `comparison_board` ~16-24s, `popup_sequence` ~14-20s, and `stat_card` ~10-14s. Plan these durations before voiceover. Each scene must describe one visual moment, action, or realization.
+- The outline may include "visual_opportunities" for this level. Use them as pre-scene planning notes to shape scene boundaries, narration length, duration estimates, and mode-specific fields from the start. Strong opportunities should normally become scenes when they still fit the lived progression. Ignore weak opportunities when they would hurt script quality, format voice, protagonist continuity, or the level's emotional arc. Do not force a quota.
 - There is no fixed scene count for a level. Let the narration and the level's topic_summary determine how many scenes the level needs. Most levels will have 8–14 short content scenes after the chapter card.
 - Scene IDs start at `scene_001` within this level (they will be renumbered globally later).
 

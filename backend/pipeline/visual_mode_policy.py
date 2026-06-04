@@ -18,6 +18,15 @@ class VisualModeDurationTarget:
     prompt_guidance: str
 
 
+@dataclass(frozen=True)
+class VisualModeOpportunityPolicy:
+    visual_mode: str
+    purpose: str
+    frequency_guidance: str
+    opportunity_cues: tuple[str, ...]
+    avoid_when: tuple[str, ...]
+
+
 _TARGETS: dict[str, VisualModeDurationTarget] = {
     "full_frame": VisualModeDurationTarget(
         visual_mode="full_frame",
@@ -115,9 +124,106 @@ if _missing_targets or _unknown_targets:
 
 CANONICAL_VISUAL_MODES: tuple[str, ...] = tuple(mode for mode in _TARGETS if mode in VISUAL_MODES)
 
+_OPPORTUNITY_POLICIES: dict[str, VisualModeOpportunityPolicy] = {
+    "full_frame": VisualModeOpportunityPolicy(
+        visual_mode="full_frame",
+        purpose="Default full-bleed image for one clear lived moment, object, atmosphere, character beat, or metaphor.",
+        frequency_guidance="Dominant fallback; most scenes may remain full_frame when no specialized mode clearly improves the beat.",
+        opportunity_cues=("single location or object", "quiet character moment", "atmosphere", "simple metaphor"),
+        avoid_when=(
+            "multiple distinct examples are needed",
+            "same-scene progression is central",
+            "renderer-owned text or board structure is the point",
+        ),
+    ),
+    "multi_frame": VisualModeOpportunityPolicy(
+        visual_mode="multi_frame",
+        purpose="Several independent generated frames inside one narration scene.",
+        frequency_guidance="Common variety mode when narration naturally contains multiple examples, routines, or sensory cuts.",
+        opportunity_cues=("multiple examples", "repeated routines", "fast context shifts", "several memories"),
+        avoid_when=(
+            "one coherent progression should stay continuous",
+            "one strong image is clearer",
+            "cutouts or renderer-owned typography are required",
+        ),
+    ),
+    "continuous": VisualModeOpportunityPolicy(
+        visual_mode="continuous",
+        purpose="Same-scene progression where one subject, action, or environment changes over time.",
+        frequency_guidance="Common variety mode for physical progression, time passage, and transformations.",
+        opportunity_cues=(
+            "time passes in one place",
+            "object changes state",
+            "person repeats an action",
+            "environment gradually shifts",
+        ),
+        avoid_when=("frames are unrelated examples", "the scene is only a static realization", "side-by-side comparison is clearer"),
+    ),
+    "flipflop": VisualModeOpportunityPolicy(
+        visual_mode="flipflop",
+        purpose="Same-subject A/B micro-animation using compatible full-bleed states.",
+        frequency_guidance="Common expressive rhythm opportunity in long scripts; consider several uses when repeated gestures or simple A/B motion exist.",
+        opportunity_cues=(
+            "hands opening and closing",
+            "typing or sorting",
+            "door open and closed",
+            "nodding or pacing",
+            "same subject toggles between two compatible states",
+        ),
+        avoid_when=("contrast is only conceptual", "subjects are unrelated", "a true side-by-side comparison is needed"),
+    ),
+    "captions": VisualModeOpportunityPolicy(
+        visual_mode="captions",
+        purpose="Renderer-owned editorial text beat for a realization, reversal, label, or key claim.",
+        frequency_guidance="Common expressive rhythm opportunity in long scripts; plan several when exact narration phrases deserve large in-scene text.",
+        opportunity_cues=("quotable realization", "short emotional label", "turning-point sentence", "clear reversal", "key claim"),
+        avoid_when=("caption text would need paraphrasing", "ordinary subtitles are enough", "the scene is too short for context"),
+    ),
+    "popup_sequence": VisualModeOpportunityPolicy(
+        visual_mode="popup_sequence",
+        purpose="Anchor subject with concrete item/tool/document/object cutouts appearing around it.",
+        frequency_guidance="Low-count and meaning-driven; actively scan for concrete item clusters before accepting zero.",
+        opportunity_cues=("small set of tools", "documents", "possessions", "symptoms", "ingredients", "objects around a person"),
+        avoid_when=("items are abstract", "the list is too long", "a multi-frame montage communicates better"),
+    ),
+    "comparison_board": VisualModeOpportunityPolicy(
+        visual_mode="comparison_board",
+        purpose="Renderer-owned two- or three-way comparison with cutout subjects and board layout.",
+        frequency_guidance="Low-count and meaning-driven; actively scan for true comparisons before accepting zero.",
+        opportunity_cues=("before vs after", "then vs now", "choice vs consequence", "two roles", "two outcomes"),
+        avoid_when=("only one environment or event matters", "same-subject micro-animation is enough", "process progression is clearer"),
+    ),
+    "stat_card": VisualModeOpportunityPolicy(
+        visual_mode="stat_card",
+        purpose="One decisive number rendered as dominant typography.",
+        frequency_guidance="Low-count and capped; actively scan for decisive numbers before accepting zero, but use only 1-2 in most videos.",
+        opportunity_cues=("money amount", "percentage", "duration", "ranking", "odds", "population count"),
+        avoid_when=("multiple numbers compete", "setting or character emotion matters more", "the number is incidental"),
+    ),
+    "video": VisualModeOpportunityPolicy(
+        visual_mode="video",
+        purpose="Planned AI-video scene when motion clearly improves the beat before timing validation.",
+        frequency_guidance="Timing-sensitive planned mode; do not let it crowd out stronger renderer-owned opportunities.",
+        opportunity_cues=("meaningful motion", "gesture", "physical transformation", "environmental movement", "reveal"),
+        avoid_when=("static text or board is required", "title card", "captions scene", "motion does not add clarity"),
+    ),
+}
+
+_missing_opportunity_policies = VISUAL_MODES - set(_OPPORTUNITY_POLICIES)
+_unknown_opportunity_policies = set(_OPPORTUNITY_POLICIES) - VISUAL_MODES
+if _missing_opportunity_policies or _unknown_opportunity_policies:
+    raise RuntimeError(
+        "Visual mode opportunity policies must exactly match models.script.VISUAL_MODES: "
+        f"missing={sorted(_missing_opportunity_policies)}, unknown={sorted(_unknown_opportunity_policies)}"
+    )
+
 
 def duration_target_for_mode(visual_mode: str | None) -> VisualModeDurationTarget:
     return _TARGETS.get(visual_mode or "", _TARGETS["full_frame"])
+
+
+def opportunity_policy_for_mode(visual_mode: str | None) -> VisualModeOpportunityPolicy:
+    return _OPPORTUNITY_POLICIES.get(visual_mode or "", _OPPORTUNITY_POLICIES["full_frame"])
 
 
 def duration_profile_for_mode(visual_mode: str | None) -> str:
@@ -143,3 +249,40 @@ def prompt_duration_guidance() -> str:
         "Plan video scenes before voiceover when motion clearly improves the beat; later validation may downgrade unsafe video choices.",
     ]
     return "\n".join(f"- {line}" for line in lines)
+
+
+def prompt_visual_opportunity_guidance(projected_scene_count: int | None = None) -> str:
+    scene_hint = (
+        f"For a projected script of about {projected_scene_count} scenes, "
+        if projected_scene_count and projected_scene_count > 0
+        else "For the projected script, "
+    )
+    lines = [
+        "Visual opportunity planning is script-type agnostic and happens before final scenes are written.",
+        "Scene boundaries, narration length, duration estimates, and mode-specific fields must be shaped together.",
+        f"{scene_hint}full_frame remains dominant. Do not force a quota or distort narration for visual variety.",
+        "Treat flipflop and captions as common expressive rhythm opportunities in long scripts when the narration supports them.",
+        "Keep popup_sequence, comparison_board, and stat_card low-count and meaning-driven, but actively scan for them before accepting zero.",
+        "Post-generation checks may validate or downgrade invalid modes, but must not redistribute modes into already-cut short scenes.",
+    ]
+    for mode in CANONICAL_VISUAL_MODES:
+        policy = opportunity_policy_for_mode(mode)
+        cues = ", ".join(policy.opportunity_cues[:4])
+        avoids = ", ".join(policy.avoid_when[:2])
+        lines.append(f"{mode}: {policy.frequency_guidance} Cues: {cues}. Avoid when: {avoids}.")
+    return "\n".join(f"- {line}" for line in lines)
+
+
+def prompt_visual_opportunity_schema_guidance() -> str:
+    return """\
+Add a compact "visual_opportunities" array to every outline segment. Do not include scenes or narration body.
+Each opportunity object must use this shape:
+{
+  "mode": "captions|flipflop|multi_frame|continuous|popup_sequence|comparison_board|stat_card|video|full_frame",
+  "beat": "Short natural-language description of the future scene beat.",
+  "why": "Why this mode strengthens the beat without hurting script quality.",
+  "duration_profile": "normal|medium|extended|planned",
+  "priority": "strong|possible"
+}
+Use opportunities as planning notes only. They guide future scene boundaries; they are not final scene JSON.
+"""

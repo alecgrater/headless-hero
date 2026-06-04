@@ -12,6 +12,8 @@ from models.script import LevelMeta, MainCharacter, Scene, ScriptContent, Segmen
 from pipeline.visual_mode_policy import (
     duration_profile_for_mode,
     max_scene_seconds_for_mode,
+    prompt_visual_opportunity_guidance,
+    prompt_visual_opportunity_schema_guidance,
     prompt_duration_guidance,
     target_scene_seconds_for_mode,
 )
@@ -655,6 +657,65 @@ _OUTLINE_INSTRUCTIONS = SCRIPT_OUTLINE_INSTRUCTIONS.template
 _SEGMENT_SCENES_INSTRUCTIONS = SCRIPT_SEGMENT_SCENES_INSTRUCTIONS.template
 
 
+def _visual_opportunity_summary(outline: dict) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for segment in outline.get("segments", []):
+        for opportunity in segment.get("visual_opportunities") or []:
+            mode = str(opportunity.get("mode", "")).strip()
+            if not mode:
+                continue
+            counts[mode] = counts.get(mode, 0) + 1
+    return counts
+
+
+def _segment_visual_opportunities_block(segment: dict, section_upper: str) -> str:
+    opportunities = segment.get("visual_opportunities") or []
+    if not opportunities:
+        return (
+            f"VISUAL OPPORTUNITIES FOR THIS {section_upper}: none provided. "
+            "Use the canonical visual-mode rules and only choose specialized modes when the narration earns them. "
+            "Earned flipflop, captions, popup_sequence, comparison_board, and stat_card opportunities are allowed, "
+            "but not required.\n\n"
+        )
+    return (
+        f"VISUAL OPPORTUNITIES FOR THIS {section_upper} (planning notes, not mandatory final scenes):\n"
+        f"```json\n{json.dumps(opportunities, indent=2)}\n```\n\n"
+    )
+
+
+def _build_segment_scene_user_message(
+    outline: dict,
+    segment_index: int,
+    trailing_context: str,
+    segment_scenes_instructions: str,
+    level_label: str = "segment",
+) -> str:
+    segment = outline["segments"][segment_index]
+    section_label = level_label.strip() or "segment"
+    section_title = section_label.title()
+    section_upper = section_label.upper()
+    seg_name = segment.get("name", f"{section_title} {segment_index + 1}")
+    total = len(outline["segments"])
+    outline_json = json.dumps(outline, indent=2)
+    metadata_lines = [
+        f"WRITE SCENES FOR {section_upper} {segment_index + 1}/{total}: \"{seg_name}\"",
+        f"Topic summary: {segment.get('topic_summary', '')}",
+    ]
+    if segment.get("circle_color"):
+        metadata_lines.append(f"Circle color: {segment.get('circle_color')}")
+    if segment.get("title_card_image_prompt"):
+        metadata_lines.append(f"Title card image prompt: {segment.get('title_card_image_prompt')}")
+
+    return (
+        f"FULL SCRIPT OUTLINE (for context — do NOT write scenes for other {section_label}s):\n"
+        f"```json\n{outline_json}\n```\n\n"
+        f"{chr(10).join(metadata_lines)}\n\n"
+        f"{_segment_visual_opportunities_block(segment, section_upper)}"
+        f"{trailing_context}"
+        f"{segment_scenes_instructions}"
+    )
+
+
 def _generate_outline(
     system_prompt: str,
     user_message: str,
@@ -666,7 +727,15 @@ def _generate_outline(
     t0 = time.monotonic()
     logger.info("SEGMENTED: Phase 1 — generating outline (model=%s)", model)
 
-    outline_msg = user_message + "\n\n" + outline_instructions
+    outline_msg = (
+        user_message
+        + "\n\n## CANONICAL VISUAL OPPORTUNITY PLANNING\n"
+        + prompt_visual_opportunity_guidance()
+        + "\n\n## VISUAL OPPORTUNITY OUTLINE SCHEMA\n"
+        + prompt_visual_opportunity_schema_guidance()
+        + "\n\n"
+        + outline_instructions
+    )
     raw = chat(
         system_prompt,
         outline_msg,
@@ -716,7 +785,6 @@ def _generate_segment_scenes(
     segment = outline["segments"][segment_index]
     section_label = level_label.strip() or "segment"
     section_title = section_label.title()
-    section_upper = section_label.upper()
     seg_name = segment.get("name", f"{section_title} {segment_index + 1}")
     total = len(outline["segments"])
 
@@ -726,23 +794,12 @@ def _generate_segment_scenes(
         section_label, segment_index + 1, total, seg_name, model,
     )
 
-    # Build the per-segment user message with full outline context
-    outline_json = json.dumps(outline, indent=2)
-    metadata_lines = [
-        f"WRITE SCENES FOR {section_upper} {segment_index + 1}/{total}: \"{seg_name}\"",
-        f"Topic summary: {segment.get('topic_summary', '')}",
-    ]
-    if segment.get("circle_color"):
-        metadata_lines.append(f"Circle color: {segment.get('circle_color')}")
-    if segment.get("title_card_image_prompt"):
-        metadata_lines.append(f"Title card image prompt: {segment.get('title_card_image_prompt')}")
-
-    user_msg = (
-        f"FULL SCRIPT OUTLINE (for context — do NOT write scenes for other {section_label}s):\n"
-        f"```json\n{outline_json}\n```\n\n"
-        f"{chr(10).join(metadata_lines)}\n\n"
-        f"{trailing_context}"
-        f"{segment_scenes_instructions}"
+    user_msg = _build_segment_scene_user_message(
+        outline=outline,
+        segment_index=segment_index,
+        trailing_context=trailing_context,
+        segment_scenes_instructions=segment_scenes_instructions,
+        level_label=level_label,
     )
 
     raw = chat(
@@ -842,6 +899,9 @@ def _generate_segmented(
         system_prompt, user_message, model, script_id,
         outline_instructions=outline_instructions,
     )
+    planned_opportunities = _visual_opportunity_summary(outline)
+    if planned_opportunities:
+        logger.info("SEGMENTED: Planned visual opportunities by mode: %s", planned_opportunities)
 
     # Phase 2: per-segment scene generation (sequential for coherence)
     segments: list[Segment] = []
@@ -943,6 +1003,13 @@ def _generate_segmented(
 
     total_elapsed = time.monotonic() - total_t0
     total_scenes = sum(len(s.scenes) for s in segments)
+    final_mode_counts: dict[str, int] = {}
+    for scene in content.all_scenes():
+        if scene.is_title_card:
+            continue
+        mode = scene.visual_mode or "full_frame"
+        final_mode_counts[mode] = final_mode_counts.get(mode, 0) + 1
+    logger.info("SEGMENTED: Generated scene visual modes by mode: %s", final_mode_counts)
     logger.info(
         "SEGMENTED: Assembly complete — %d segments, %d total scenes, total time %.1fs",
         len(segments), total_scenes, total_elapsed,
