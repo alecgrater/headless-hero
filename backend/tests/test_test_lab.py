@@ -1817,13 +1817,17 @@ def test_stage_treatment_assets_respects_explicit_treatment(monkeypatch, tmp_pat
         lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("should not analyze explicit treatment")),
     )
 
-    def fake_generate_visual_layer_panels(scene_id, layers, script_id_arg, **_kwargs):
-        assert scene_id == "coffee-brain-scene-1"
-        assert script_id_arg == script_id
-        assert layers[0]["id"] == "panel-a"
-        return [{**layers[0], "image_url": "/static/projects/test/layers/panel-a.png"}]
+    def fail_panel_generation(*_args, **_kwargs):
+        raise AssertionError("flipflop should use cutout generation")
 
-    monkeypatch.setattr(image_gen, "generate_visual_layer_panels", fake_generate_visual_layer_panels)
+    def fake_generate_flipflop_cutouts(**kwargs):
+        assert kwargs["scene_id"] == "coffee-brain-scene-1"
+        assert kwargs["script_id"] == script_id
+        assert kwargs["layers"][0]["id"] == "panel-a"
+        return [{**kwargs["layers"][0], "asset_kind": "cutout", "image_url": "/static/projects/test/layers/panel-a.png"}]
+
+    monkeypatch.setattr(image_gen, "generate_visual_layer_panels", fail_panel_generation)
+    monkeypatch.setattr(image_gen, "generate_flipflop_cutouts", fake_generate_flipflop_cutouts)
 
     manifest = test_lab.TestLabRunManifest(
         run_id="run-explicit-treatment",
@@ -1853,6 +1857,87 @@ def test_stage_treatment_assets_respects_explicit_treatment(monkeypatch, tmp_pat
     assert scene.visual_layers
     assert scene.visual_layers[0].image_url == "/static/projects/test/layers/panel-a.png"
     assert [asset.kind for asset in manifest.assets] == ["treatment_asset"]
+
+
+def test_stage_treatment_assets_generates_fallback_flipflop_cutout_urls(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.image_gen as image_gen
+    import pipeline.test_lab as test_lab
+    import pipeline.visual_treatments as visual_treatments
+    from models.script import ScriptContent
+
+    with Session(engine) as session:
+        script_id = test_lab.create_hidden_test_script(
+            session,
+            run_id="run-flipflop-fallback",
+            preset_id="coffee-brain",
+            settings={
+                "visual_treatment": "flipflop",
+                "visual_layers": [],
+            },
+        )
+        session.commit()
+
+    monkeypatch.setattr(
+        visual_treatments,
+        "analyze_visual_treatments",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("should use fallback without timing")),
+    )
+
+    def fail_panel_generation(*_args, **_kwargs):
+        raise AssertionError("fallback flipflop cutouts should not use panel generation")
+
+    def fake_generate_flipflop_cutouts(**kwargs):
+        assert kwargs["scene_id"] == "coffee-brain-scene-1"
+        assert kwargs["script_id"] == script_id
+        assert [layer["id"] for layer in kwargs["layers"]] == [
+            "coffee-brain-scene-1_state_a",
+            "coffee-brain-scene-1_state_b",
+        ]
+        assert [layer["asset_kind"] for layer in kwargs["layers"]] == ["cutout", "cutout"]
+        assert [layer["enter_at_seconds"] for layer in kwargs["layers"]] == [0.0, 0.0]
+        return [
+            {**kwargs["layers"][0], "asset_kind": "cutout", "image_url": "/static/projects/test/layers/state-a.png"},
+            {**kwargs["layers"][1], "asset_kind": "cutout", "image_url": "/static/projects/test/layers/state-b.png"},
+        ]
+
+    monkeypatch.setattr(image_gen, "generate_visual_layer_panels", fail_panel_generation)
+    monkeypatch.setattr(image_gen, "generate_flipflop_cutouts", fake_generate_flipflop_cutouts)
+
+    manifest = test_lab.TestLabRunManifest(
+        run_id="run-flipflop-fallback",
+        script_id=script_id,
+        preset_id="coffee-brain",
+        status="running",
+    )
+    ctx = test_lab.TestLabRunContext(
+        engine=engine,
+        run_id="run-flipflop-fallback",
+        script_id=script_id,
+        preset_id="coffee-brain",
+        settings={"visual_treatment": "flipflop", "visual_layers": []},
+        manifest=manifest,
+        job_id=None,
+    )
+
+    test_lab._stage_treatment_assets(ctx)
+
+    with Session(engine) as session:
+        record, content = test_lab._load_content_for_script(session, script_id)
+        _ = record
+        saved = ScriptContent.model_validate(content)
+
+    scene = saved.segments[0].scenes[0]
+    assert scene.visual_treatment == "flipflop"
+    assert [layer.image_url for layer in scene.visual_layers] == [
+        "/static/projects/test/layers/state-a.png",
+        "/static/projects/test/layers/state-b.png",
+    ]
+    assert [asset.url for asset in manifest.assets] == [
+        "/static/projects/test/layers/state-a.png",
+        "/static/projects/test/layers/state-b.png",
+    ]
 
 
 def test_stage_treatment_assets_skips_ai_video_scenes(monkeypatch, tmp_path):
@@ -2546,6 +2631,7 @@ def test_test_lab_flipflop_fallback_prompts_avoid_decorative_frame_language():
     layers = _fallback_visual_layers_for_treatment(scene)
 
     assert len(layers) == 2
+    assert [layer.enter_at_seconds for layer in layers] == [0.0, 0.0]
     for layer in layers:
         prompt = layer.prompt.lower()
         assert layer.asset_kind == "cutout"

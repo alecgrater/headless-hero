@@ -15,6 +15,7 @@ from integrations.image_client import generate_image
 from models.script import MainCharacter
 from pipeline.asset_vault import VaultKind, save_vault_image
 from pipeline.character_assets import process_character_asset_bundle
+from pipeline.cutout_chroma import save_keyed_trimmed_cutout as save_shared_keyed_trimmed_cutout
 from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VISUAL_STYLE
 
 logger = logging.getLogger(__name__)
@@ -754,6 +755,82 @@ def generate_comparison_board_cutouts(
     return processed_layers
 
 
+def generate_flipflop_cutouts(
+    *,
+    scene_id: str,
+    layers: list[dict],
+    script_id: str,
+    scene_prompt: str,
+    width: int = IMAGE_WIDTH,
+    height: int = IMAGE_HEIGHT,
+    force: bool = False,
+) -> list[dict]:
+    """Generate transparent state cutouts for renderer-owned flip-flop scenes."""
+
+    output_dir = DATA_DIR / "projects" / script_id / "flipflop_cutouts" / scene_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+    processed_layers: list[dict] = []
+    image_index = 0
+    for layer in layers:
+        if not isinstance(layer, dict):
+            processed_layers.append(layer)
+            continue
+        if layer.get("type", "image") != "image" or layer.get("asset_kind") != "cutout":
+            processed_layers.append(layer)
+            continue
+
+        next_layer = dict(layer)
+        layer_id = str(next_layer.get("id") or f"{scene_id}_state_{image_index + 1}")
+        next_layer["id"] = layer_id
+        prompt = str(next_layer.get("prompt") or scene_prompt or "").strip()
+        if not prompt:
+            logger.info("[FLIPFLOP_CUTOUT] skipped empty prompt scene=%s layer=%s", scene_id, layer_id)
+            processed_layers.append(next_layer)
+            continue
+
+        image_index += 1
+        filename = f"state_{image_index:02d}_{_slug(layer_id)}.png"
+        local_path = output_dir / filename
+        raw_path = output_dir / f"raw_{filename}"
+        prompt_marker = output_dir / f"{filename}.prompt"
+        web_path = f"/static/projects/{script_id}/flipflop_cutouts/{scene_id}/{filename}"
+        composed_prompt = _compose_flipflop_cutout_source_prompt(prompt, scene_prompt)
+        metadata = {
+            "source_type": "flipflop_cutout",
+            "provider": os.environ.get("IMAGE_PROVIDER", "google"),
+            "fallback": False,
+        }
+
+        if not force and local_path.exists() and prompt_marker.exists() and prompt_marker.read_text(encoding="utf-8") == composed_prompt:
+            logger.info("[FLIPFLOP_CUTOUT] cache hit scene=%s layer=%s", scene_id, layer_id)
+            source_metadata = _read_source_metadata(local_path) or metadata
+        else:
+            logger.info("[FLIPFLOP_CUTOUT] generating cutout scene=%s layer=%s", scene_id, layer_id)
+            tmp_path = generate_image(
+                composed_prompt,
+                width=width,
+                height=height,
+                original_prompt=prompt,
+                script_id=script_id,
+            )
+            generated_path = Path(tmp_path)
+            if generated_path.resolve() != raw_path.resolve():
+                shutil.copyfile(generated_path, raw_path)
+            with Image.open(raw_path) as source:
+                trim_box = save_shared_keyed_trimmed_cutout(source, local_path)
+            source_metadata = {**metadata, "trim_box": trim_box}
+            _write_source_metadata(local_path, source_metadata)
+            prompt_marker.write_text(composed_prompt, encoding="utf-8")
+            save_vault_image(kind="item", label=f"Flip-flop {layer_id}", source_path=local_path)
+
+        next_layer["asset_kind"] = "cutout"
+        next_layer["image_url"] = web_path
+        next_layer["visual_source_metadata"] = source_metadata
+        processed_layers.append(next_layer)
+
+    return processed_layers
+
+
 def generate_stat_card_cutout(
     *,
     scene_id: str,
@@ -1087,6 +1164,24 @@ def _compose_comparison_subject_sheet_prompt(scene_prompt: str, labels: list[str
             "- No background scenes, environments, or context behind subjects",
             "",
             "Scene context for style only:",
+            scene_prompt.strip(),
+        ]
+    ).strip()
+
+
+def _compose_flipflop_cutout_source_prompt(layer_prompt: str, scene_prompt: str) -> str:
+    return "\n".join(
+        [
+            "Generate one isolated flip-flop animation state cutout.",
+            "Use a solid flat chroma key background across the entire image.",
+            "Use bright green (#00FF00) unless the subject contains green, then use bright magenta (#FF00FF).",
+            "Keep exactly one clear closed-silhouette subject suitable for automatic chroma-key trimming.",
+            "No full background scene, scenery, split-screen, decorative border, picture frame, mat, white margin, inset panel, UI chrome, caption box, poster edge, speech bubble, labels, or text.",
+            "",
+            "Layer direction:",
+            layer_prompt.strip(),
+            "",
+            "Scene context for identity and style only:",
             scene_prompt.strip(),
         ]
     ).strip()
@@ -1709,6 +1804,15 @@ def _generate_one_scene(
             )
         elif treatment == "comparison_board":
             result["visual_layers"] = generate_comparison_board_cutouts(
+                scene_id=scene["scene_id"],
+                layers=layer_dicts,
+                script_id=script_id,
+                scene_prompt=str(scene.get("visual_prompt") or ""),
+                width=width,
+                height=height,
+            )
+        elif treatment == "flipflop":
+            result["visual_layers"] = generate_flipflop_cutouts(
                 scene_id=scene["scene_id"],
                 layers=layer_dicts,
                 script_id=script_id,

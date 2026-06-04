@@ -16,6 +16,7 @@ from models.script import Script, ScriptContent, VISUAL_MODES
 from pipeline.image_gen import (
     generate_batch,
     generate_comparison_board_cutouts,
+    generate_flipflop_cutouts,
     generate_popup_sequence_cutouts,
     generate_scene_frames_v2,
     generate_scene_image,
@@ -196,6 +197,15 @@ def _generate_scene_visual_layers(
         )
     if treatment == "comparison_board":
         return generate_comparison_board_cutouts(
+            scene_id=scene_id,
+            layers=layers,
+            script_id=script_id,
+            scene_prompt=request_scene_prompt or (scene.visual_prompt if scene is not None else ""),
+            width=width,
+            height=height,
+        )
+    if treatment == "flipflop":
+        return generate_flipflop_cutouts(
             scene_id=scene_id,
             layers=layers,
             script_id=script_id,

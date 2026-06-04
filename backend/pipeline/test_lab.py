@@ -984,6 +984,7 @@ def _frame_directives_for_visual_mode(scene: Scene) -> list[dict]:
 def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
     from pipeline.image_gen import (
         generate_comparison_board_cutouts,
+        generate_flipflop_cutouts,
         generate_popup_sequence_cutouts,
         generate_visual_layer_panels,
     )
@@ -1049,6 +1050,14 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
                 )
             elif scene.visual_mode == "comparison_board":
                 generated_layers = generate_comparison_board_cutouts(
+                    scene_id=scene.id,
+                    layers=layer_dicts,
+                    script_id=ctx.script_id,
+                    scene_prompt=scene.visual_prompt,
+                    force=True,
+                )
+            elif scene.visual_mode == "flipflop":
+                generated_layers = generate_flipflop_cutouts(
                     scene_id=scene.id,
                     layers=layer_dicts,
                     script_id=ctx.script_id,
@@ -1152,7 +1161,7 @@ def _fallback_visual_layers_for_treatment(scene: Scene) -> list[VisualLayer]:
             asset_kind="cutout",
             prompt=flipflop_cutout_prompt(scene.visual_prompt, scene.narration, "state B"),
             placement="center",
-            enter_at_seconds=max((scene.audio_duration_seconds or scene.duration_estimate_seconds) / 2, 0.5),
+            enter_at_seconds=0.0,
             animation="none",
         ),
     ]

@@ -17,6 +17,7 @@ from pipeline.visual_treatments import (
     VisualTreatmentAssignment,
     analyze_visual_treatments,
     apply_visual_treatment_assignments,
+    flipflop_cutout_prompt,
     require_visual_treatment_voiceover,
 )
 
@@ -1016,21 +1017,26 @@ def test_generate_batch_captions_with_prompt_uses_single_scene_image(monkeypatch
     assert result["video_url"] == ""
 
 
-def test_generate_batch_flipflop_skips_scene_image(monkeypatch):
+def test_generate_batch_flipflop_routes_to_cutout_assets(monkeypatch):
     from pipeline import image_gen as image_gen_mod
 
     def fail_scene_image(*_args, **_kwargs):
         raise AssertionError("flipflop should not generate a full scene image")
 
-    def fake_generate_visual_layer_panels(scene_id, layers, script_id, **kwargs):
-        assert kwargs["visual_treatment"] == "flipflop"
+    def fail_panel_generation(*_args, **_kwargs):
+        raise AssertionError("flipflop cutout layers should not use panel generation")
+
+    def fake_generate_flipflop_cutouts(**kwargs):
+        assert kwargs["scene_id"] == "scene_001"
+        assert kwargs["script_id"] == "script-1"
         return [
-            {**layers[0], "image_url": f"/static/projects/{script_id}/images/{scene_id}_state_a.png"},
-            {**layers[1], "image_url": f"/static/projects/{script_id}/images/{scene_id}_state_b.png"},
+            {**kwargs["layers"][0], "asset_kind": "cutout", "image_url": "/static/projects/script-1/flipflop_cutouts/scene_001/state_a.png"},
+            {**kwargs["layers"][1], "asset_kind": "cutout", "image_url": "/static/projects/script-1/flipflop_cutouts/scene_001/state_b.png"},
         ]
 
     monkeypatch.setattr(image_gen_mod, "generate_scene_image", fail_scene_image)
-    monkeypatch.setattr(image_gen_mod, "generate_visual_layer_panels", fake_generate_visual_layer_panels)
+    monkeypatch.setattr(image_gen_mod, "generate_visual_layer_panels", fail_panel_generation)
+    monkeypatch.setattr(image_gen_mod, "generate_flipflop_cutouts", fake_generate_flipflop_cutouts)
 
     results = image_gen_mod.generate_batch(
         [
@@ -1042,13 +1048,13 @@ def test_generate_batch_flipflop_skips_scene_image(monkeypatch):
                     {
                         "id": "state_a",
                         "type": "image",
-                        "asset_kind": "panel",
+                        "asset_kind": "cutout",
                         "prompt": "state A",
                     },
                     {
                         "id": "state_b",
                         "type": "image",
-                        "asset_kind": "panel",
+                        "asset_kind": "cutout",
                         "prompt": "state B",
                     },
                 ],
@@ -1060,6 +1066,7 @@ def test_generate_batch_flipflop_skips_scene_image(monkeypatch):
     assert results[0]["image_url"] is None
     assert results[0]["frame_urls"] == []
     assert [layer["id"] for layer in results[0]["visual_layers"]] == ["state_a", "state_b"]
+    assert [layer["asset_kind"] for layer in results[0]["visual_layers"]] == ["cutout", "cutout"]
 
 
 def test_generate_batch_persists_request_visual_treatment(monkeypatch):
@@ -1871,7 +1878,7 @@ def test_generate_visual_routes_popup_sequence_to_cutout_assets(monkeypatch):
     assert layers[0]["id"] == "scene_001_anchor"
 
 
-def test_generate_visual_keeps_flipflop_on_panel_generation(monkeypatch):
+def test_generate_visual_routes_flipflop_to_cutout_assets(monkeypatch):
     from api import visuals as visuals_api
 
     content = content_with_scenes(
@@ -1880,24 +1887,27 @@ def test_generate_visual_keeps_flipflop_on_panel_generation(monkeypatch):
             narration="Before and after.",
             visual_prompt="Person changes expression.",
             visual_treatment="flipflop",
-            visual_layers=[VisualLayer(id="state_a", prompt="state A")],
+            visual_layers=[
+                VisualLayer(id="state_a", asset_kind="cutout", prompt="state A"),
+                VisualLayer(id="state_b", asset_kind="cutout", prompt="state B"),
+            ],
         )
     )
 
     captured = {}
 
-    def fail_cutout_generation(*_args, **_kwargs):
-        raise AssertionError("flipflop should not use popup crop generation")
+    def fail_panel_generation(*_args, **_kwargs):
+        raise AssertionError("flipflop cutout layers should not use panel generation")
 
-    def fake_generate_visual_layer_panels(scene_id, layers, script_id, **kwargs):
-        captured["scene_id"] = scene_id
-        captured["layers"] = layers
-        captured["script_id"] = script_id
-        captured["kwargs"] = kwargs
-        return [{**layers[0], "image_url": "/static/projects/script-1/images/state_a.png"}]
+    def fake_generate_flipflop_cutouts(**kwargs):
+        captured.update(kwargs)
+        return [
+            {**kwargs["layers"][0], "asset_kind": "cutout", "image_url": "/static/projects/script-1/flipflop_cutouts/scene_001/state_a.png"},
+            {**kwargs["layers"][1], "asset_kind": "cutout", "image_url": "/static/projects/script-1/flipflop_cutouts/scene_001/state_b.png"},
+        ]
 
-    monkeypatch.setattr(visuals_api, "generate_popup_sequence_cutouts", fail_cutout_generation)
-    monkeypatch.setattr(visuals_api, "generate_visual_layer_panels", fake_generate_visual_layer_panels)
+    monkeypatch.setattr(visuals_api, "generate_visual_layer_panels", fail_panel_generation)
+    monkeypatch.setattr(visuals_api, "generate_flipflop_cutouts", fake_generate_flipflop_cutouts)
 
     layers = visuals_api._generate_scene_visual_layers(
         content=content,
@@ -1908,8 +1918,58 @@ def test_generate_visual_keeps_flipflop_on_panel_generation(monkeypatch):
     )
 
     assert captured["scene_id"] == "scene_001"
-    assert captured["layers"][0]["id"] == "state_a"
-    assert layers[0]["image_url"] == "/static/projects/script-1/images/state_a.png"
+    assert captured["scene_prompt"] == "Person changes expression."
+    assert [layer["id"] for layer in captured["layers"]] == ["state_a", "state_b"]
+    assert [layer["image_url"] for layer in layers] == [
+        "/static/projects/script-1/flipflop_cutouts/scene_001/state_a.png",
+        "/static/projects/script-1/flipflop_cutouts/scene_001/state_b.png",
+    ]
+
+
+def test_generate_flipflop_cutouts_keys_cutout_layers_and_preserves_non_images(tmp_path, monkeypatch):
+    from pipeline import image_gen
+
+    monkeypatch.setattr(image_gen, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
+    captured = []
+
+    def fake_generate_image(prompt, *, width, height, script_id=None, **_kwargs):
+        captured.append({"prompt": prompt, "width": width, "height": height, "script_id": script_id})
+        source = tmp_path / f"source-{len(captured)}.png"
+        image = Image.new("RGBA", (120, 80), (0, 255, 0, 255))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((40, 20, 80, 60), fill=(255, 0, 0, 255))
+        image.save(source)
+        return str(source)
+
+    monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
+
+    layers = image_gen.generate_flipflop_cutouts(
+        scene_id="scene_001",
+        layers=[
+            {"id": "state_a", "type": "image", "asset_kind": "cutout", "prompt": "State A prompt"},
+            {"id": "label_1", "type": "text", "asset_kind": "text", "text": "overlay"},
+            {"id": "state_b", "type": "image", "asset_kind": "cutout", "prompt": "State B prompt"},
+        ],
+        script_id="script-1",
+        scene_prompt="Person changes expression.",
+        width=320,
+        height=180,
+    )
+
+    assert len(captured) == 2
+    assert layers[1] == {"id": "label_1", "type": "text", "asset_kind": "text", "text": "overlay"}
+    image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
+    assert [layer["image_url"] for layer in image_layers] == [
+        "/static/projects/script-1/flipflop_cutouts/scene_001/state_01_state_a.png",
+        "/static/projects/script-1/flipflop_cutouts/scene_001/state_02_state_b.png",
+    ]
+    assert all(layer["asset_kind"] == "cutout" for layer in image_layers)
+    assert all(layer["visual_source_metadata"]["source_type"] == "flipflop_cutout" for layer in image_layers)
+    with Image.open(tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001" / "state_01_state_a.png") as cutout:
+        assert cutout.mode == "RGBA"
+        assert cutout.getpixel((0, 0))[3] == 0
+        assert cutout.getbbox() is not None
 
 
 def test_popup_sequence_cutout_chroma_trims_item_sheet_crop(tmp_path):
@@ -2330,6 +2390,16 @@ def test_analyze_visual_treatments_preserves_explicit_flipflop_with_progression_
     assert assignment.visual_mode == "flipflop"
     assert assignment.visual_treatment == "flipflop"
     assert len(assignment.visual_layers) == 2
+    assert [layer.enter_at_seconds for layer in assignment.visual_layers] == [0.0, 0.0]
+
+
+def test_flipflop_cutout_prompt_detects_state_b_without_matching_state_letter():
+    state_a = flipflop_cutout_prompt("Person changes expression.", "Before and after.", "state A")
+    state_b = flipflop_cutout_prompt("Person changes expression.", "Before and after.", "state B")
+
+    assert "Initial pose or expression" in state_a
+    assert "Next compatible pose or expression" in state_b
+    assert "Initial pose or expression" not in state_b
 
 
 def test_analyze_visual_treatments_fills_explicit_comparison_board_without_layers():

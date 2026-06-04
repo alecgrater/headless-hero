@@ -418,7 +418,7 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             scene_id=scene.id,
             visual_mode="flipflop",
             reasoning="Scene is explicitly marked for flip-flop cutout rendering.",
-            visual_layers=existing_layers if len(existing_layers) >= 2 else _flipflop_layers(scene, _state_b_enter_at(scene, [])),
+            visual_layers=existing_layers if len(existing_layers) >= 2 else _flipflop_layers(scene),
         )
     if scene.visual_mode == "comparison_board":
         return VisualTreatmentAssignment(
@@ -456,7 +456,7 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             scene_id=scene.id,
             visual_mode="flipflop",
             reasoning="Detected same-subject physical micro-action suitable for flip-flop animation.",
-            visual_layers=_flipflop_layers(scene, _state_b_enter_at(scene, [])),
+            visual_layers=_flipflop_layers(scene),
         )
 
     comparison_layers = _comparison_layers_for_scene(scene)
@@ -658,7 +658,7 @@ def _popup_layers(scene: Scene, list_items: list[tuple[str, float]]) -> list[Vis
     return layers
 
 
-def _flipflop_layers(scene: Scene, state_b_enter_at: float) -> list[VisualLayer]:
+def _flipflop_layers(scene: Scene) -> list[VisualLayer]:
     return [
         VisualLayer(
             id=f"{scene.id}_state_a",
@@ -718,9 +718,10 @@ def comparison_cutout_prompt(visual_prompt: str, narration: str, subject: str) -
 
 def flipflop_cutout_prompt(visual_prompt: str, narration: str, focus: str) -> str:
     base_prompt = visual_prompt.strip() or narration.strip()
+    normalized_focus = focus.strip().casefold()
     state_direction = (
         "Initial pose or expression before the small movement changes."
-        if "a" in focus.lower()
+        if normalized_focus.endswith("a")
         else "Next compatible pose or expression; keep identity, scale, camera angle, and style consistent with State A."
     )
     return (
