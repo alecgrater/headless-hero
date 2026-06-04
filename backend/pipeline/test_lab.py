@@ -1273,7 +1273,7 @@ def _stage_render(ctx: TestLabRunContext) -> None:
 def _stage_defaults(settings: dict) -> dict[str, bool]:
     eli_default = _bool_setting(settings, "eli_enabled", False)
     visual_mode = settings.get("visual_mode") or ("video" if settings.get("media_source") == "ai_video" else "full_frame")
-    treatment_assets_enabled = visual_mode in {"popup_sequence", "flipflop", "comparison_board"}
+    treatment_assets_enabled = visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card"}
     return {
         "audio": _enabled(settings, "audio", True),
         "visual": _enabled(settings, "visual", True),
@@ -1339,7 +1339,10 @@ def run_test_lab(
             ("eli_derived", _stage_eli),
             ("render", _stage_render),
         ]
-        enabled = _stage_defaults(settings)
+        default_settings = dict(settings)
+        if not any(key in default_settings for key in ("visual_mode", "visual_treatment", "media_source")):
+            default_settings["visual_mode"] = get_preset(preset_id).visual_mode
+        enabled = _stage_defaults(default_settings)
         selected = [(name, fn) for name, fn in stages if enabled[name]]
 
         for index, (stage, fn) in enumerate(selected):

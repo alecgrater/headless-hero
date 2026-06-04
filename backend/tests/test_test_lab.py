@@ -1035,6 +1035,14 @@ def test_stage_defaults_derive_treatment_assets_from_visual_mode():
             },
         }
     )
+    stat_card_defaults = _stage_defaults(
+        {
+            "visual_mode": "stat_card",
+            "stages": {
+                "treatment_assets": False,
+            },
+        }
+    )
     normal_defaults = _stage_defaults(
         {
             "visual_mode": "full_frame",
@@ -1045,6 +1053,7 @@ def test_stage_defaults_derive_treatment_assets_from_visual_mode():
     )
 
     assert layered_defaults["treatment_assets"] is True
+    assert stat_card_defaults["treatment_assets"] is True
     assert normal_defaults["treatment_assets"] is False
 
 
@@ -1767,6 +1776,31 @@ def test_run_test_lab_phases_uses_selected_order_and_classifies_assets(monkeypat
     assert output_urls == ["/static/projects/test/renders/full_youtube.mp4"]
     assert manifest.status == "completed"
     assert [asset.kind for asset in manifest.assets] == ["audio", "video", "image", "render"]
+
+
+def test_run_test_lab_defaults_enable_stat_card_treatment_assets(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.test_lab as test_lab
+
+    calls = []
+
+    monkeypatch.setattr(test_lab, "_stage_audio", lambda ctx: calls.append("audio"))
+    monkeypatch.setattr(test_lab, "_stage_visual", lambda ctx: calls.append("visual"))
+    monkeypatch.setattr(test_lab, "_stage_treatment_assets", lambda ctx: calls.append("treatment"))
+    monkeypatch.setattr(test_lab, "_stage_fx", lambda ctx: calls.append("fx"))
+    monkeypatch.setattr(test_lab, "_stage_eli", lambda ctx: calls.append("eli"))
+    monkeypatch.setattr(test_lab, "_stage_render", lambda ctx: calls.append("render"))
+
+    test_lab.run_test_lab(
+        engine=engine,
+        run_id="run-stat-card-default-stages",
+        preset_id="stat-card-with-icon",
+        settings={},
+        job_id=None,
+    )
+
+    assert calls == ["audio", "visual", "treatment", "render"]
 
 
 def test_stage_treatment_assets_respects_explicit_treatment(monkeypatch, tmp_path):
