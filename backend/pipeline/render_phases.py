@@ -329,7 +329,7 @@ def _phase_fx(ctx: ExportContext) -> None:
             scene_data["word_timestamps"] = [w.model_dump() for w in scene_now.word_timestamps]
         try:
             fx_result = generate_scene_fx(scene_data)
-            fx_updates[sc_info["scene_id"]] = fx_result["fx"]
+            fx_updates[sc_info["scene_id"]] = fx_result
         except Exception as e:
             logger.warning("Failed FX for scene %s: %s", sc_info["scene_id"], e)
 
@@ -340,14 +340,19 @@ def _phase_fx(ctx: ExportContext) -> None:
             record = session.get(Script, ctx.script_id)
             if record:
                 content = ScriptContent.model_validate(json.loads(record.script_json))
-                scene_map = {sc.id: sc for seg in content.segments for sc in seg.scenes}
-                for scene_id, fx in fx_updates.items():
-                    sc = scene_map.get(scene_id)
-                    if sc:
-                        sc.fx = fx
+                _apply_fx_results(content, fx_updates)
                 record.script_json = content.model_dump_json()
                 session.add(record)
                 session.commit()
+
+
+def _apply_fx_results(content: ScriptContent, fx_results: dict[str, dict]) -> None:
+    scene_map = {sc.id: sc for seg in content.segments for sc in seg.scenes}
+    for scene_id, result in fx_results.items():
+        sc = scene_map.get(scene_id)
+        if sc:
+            sc.fx = result["fx"]
+            sc.transition_in = result.get("transition_in", "cut")
 
 
 def _phase_eli(ctx: ExportContext) -> None:

@@ -3,6 +3,7 @@
 from api.fx import _build_scene_fx_data, _count_fx_generation_targets
 from models.script import Scene, ScriptContent
 from pipeline import fx_generator
+from pipeline.render_phases import _apply_fx_results
 
 
 def test_scene_defaults_null_transition_to_cut():
@@ -105,6 +106,44 @@ def test_scene_fx_payload_includes_visual_mode():
 
     assert data["visual_mode"] == "comparison_board"
     assert data["visual_beat"] == "comparison_board"
+
+
+def test_export_fx_persistence_updates_sanitized_transition_in():
+    content = ScriptContent.model_validate(
+        {
+            "title": "Test",
+            "segments": [
+                {
+                    "name": "Segment",
+                    "scenes": [
+                        {
+                            "id": "scene_001",
+                            "narration": "Two choices split the screen.",
+                            "visual_prompt": "A comparison.",
+                            "visual_mode": "comparison_board",
+                            "transition_in": "wipe",
+                        },
+                    ],
+                }
+            ],
+        }
+    )
+
+    _apply_fx_results(
+        content,
+        {
+            "scene_001": {
+                "fx": {"drift": None, "zoom_punch": None},
+                "transition_in": "cut",
+            }
+        },
+    )
+
+    scene = content.segments[0].scenes[0]
+    assert scene.fx is not None
+    assert scene.fx.drift is None
+    assert scene.fx.zoom_punch is None
+    assert scene.transition_in == "cut"
 
 
 def test_missing_fx_targets_only_missing_non_title_scenes():
