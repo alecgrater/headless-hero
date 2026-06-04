@@ -96,3 +96,14 @@ def test_visual_opportunity_summary_counts_planned_modes():
         "flipflop": 1,
         "stat_card": 1,
     }
+
+
+def test_visual_opportunity_summary_skips_malformed_entries():
+    outline = {
+        "segments": [
+            {"visual_opportunities": ["captions", {"mode": "flipflop"}, None]},
+            {"visual_opportunities": {"mode": "stat_card"}},
+        ]
+    }
+
+    assert _visual_opportunity_summary(outline) == {"flipflop": 1}

@@ -661,6 +661,8 @@ def _visual_opportunity_summary(outline: dict) -> dict[str, int]:
     counts: dict[str, int] = {}
     for segment in outline.get("segments", []):
         for opportunity in segment.get("visual_opportunities") or []:
+            if not isinstance(opportunity, dict):
+                continue
             mode = str(opportunity.get("mode", "")).strip()
             if not mode:
                 continue
