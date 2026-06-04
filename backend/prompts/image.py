@@ -251,7 +251,7 @@ LABEL TYPOGRAPHY — STRICT, CONSISTENT ACROSS ALL THUMBNAILS:
 - Drop shadow: a strong dark shadow offset slightly down and to the right for extra punch and separation from the illustration.
 - Font: condensed bold sans-serif with TIGHT character spacing — letters nearly touching, no extra tracking. Compact and punchy, not airy or spread-out.
 - Casing: preserve the exact label text and casing shown above (e.g. lowercase "months in" / "years in", or uppercase "LEVEL X").
-- Size: huge — each label should occupy roughly 14-20% of the image width.
+- Size: huge and readable on mobile — each label should occupy roughly 18-24% of the image width.
 - "{left_label}" sits in the TOP-LEFT corner area of the left side.
 - "{right_label}" sits in the BOTTOM-RIGHT corner area of the right side.
 - The labels are diagonally opposite, mirroring the divider's orientation.
@@ -330,6 +330,12 @@ If the topic is absurd / funny:
 - exaggerate playfully, lean into the joke. Still avoid horror.
 
 The right side should feel different from the left — more advanced, more developed — but the change should feel grounded in the topic. Do NOT escalate to extremes the topic does not warrant.
+
+RIGHT PANEL READABILITY — CRITICAL:
+- Keep the right side visibly readable at small thumbnail sizes. The viewer must clearly see the right-side character's face, clothing, expression, and key background details.
+- Keep contrast with the left side through cooler colors, slightly lower brightness, messier details, posture, and environment changes — but never let the right side become near-black, muddy, or hidden in shadow.
+- Even for destructive topics, preserve enough midtones and highlights that the subject and setting remain legible. Darker mood is allowed; unreadable darkness is wrong.
+- For mundane topics like regular jobs, routines, school, or office life, the right side should be only moderately dimmer or more worn-down than the left, not a black room or horror scene.
 
 ========================
 TONE GUARDRAILS — DO NOT

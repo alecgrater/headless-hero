@@ -317,6 +317,9 @@ def test_enhance_split_progression_calls_gemini_with_templated_prompt(tmp_path, 
     assert "saturated attention-grabbing yellow" in captured["prompt"]
     assert "EXTRA-THICK BLACK OUTLINE" in captured["prompt"]
     assert "strong dark shadow" in captured["prompt"]
+    assert "RIGHT PANEL READABILITY" in captured["prompt"]
+    assert "never let the right side become near-black" in captured["prompt"]
+    assert "roughly 18-24% of the image width" in captured["prompt"]
     assert captured["image_paths"] == [str(clean_path)]
 
 
