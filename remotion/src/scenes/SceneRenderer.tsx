@@ -32,7 +32,7 @@ interface Props {
 
 export const isTitleCardScene = (scene: SceneInput): boolean => Boolean(scene.is_title_card);
 
-const WHOLE_SCENE_FX_BLOCKED_VISUAL_MODES = new Set(["comparison_board", "popup_sequence"]);
+const WHOLE_SCENE_FX_BLOCKED_VISUAL_MODES = new Set(["comparison_board", "popup_sequence", "flipflop"]);
 
 export const canApplyWholeSceneFx = (scene: Pick<SceneInput, "visual_mode">): boolean => (
   !WHOLE_SCENE_FX_BLOCKED_VISUAL_MODES.has(scene.visual_mode ?? "full_frame")
