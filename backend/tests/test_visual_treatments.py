@@ -627,7 +627,7 @@ def test_phase_persist_clears_popup_sequence_scene_image(monkeypatch):
         assert scene.frame_urls == []
 
 
-def test_phase_images_forces_visual_layer_panel_regeneration(monkeypatch):
+def test_phase_images_forces_flipflop_cutout_regeneration(monkeypatch):
     from pipeline import image_gen as image_gen_mod
     from pipeline import render_phases as render_phases_mod
     from pipeline.render_phases import ExportContext, _phase_images
@@ -638,7 +638,11 @@ def test_phase_images_forces_visual_layer_panel_regeneration(monkeypatch):
             narration="Panel scene.",
             visual_prompt="Panel",
             visual_treatment="flipflop",
-            visual_layers=[VisualLayer(id="panel_1", prompt="Panel prompt")],
+            contains_person=True,
+            visual_layers=[
+                VisualLayer(id="state_a", asset_kind="panel", prompt="State A prompt"),
+                VisualLayer(id="state_b", asset_kind="panel", prompt="State B prompt"),
+            ],
         )
     )
     captured = {}
@@ -649,17 +653,21 @@ def test_phase_images_forces_visual_layer_panel_regeneration(monkeypatch):
     monkeypatch.setattr(image_gen_mod, "generate_scene_image", fail_scene_image)
 
     def fail_popup_sequence_cutouts(**_kwargs):
-        raise AssertionError("flipflop should generate visual layer panels")
+        raise AssertionError("flipflop should not use popup sequence cutouts")
 
-    def fake_generate_visual_layer_panels(scene_id, layers, script_id, force=False, **kwargs):
-        captured["scene_id"] = scene_id
-        captured["layers"] = layers
-        captured["script_id"] = script_id
-        captured["force"] = force
-        return layers
+    def fail_visual_layer_panels(*_args, **_kwargs):
+        raise AssertionError("flipflop should generate chroma cutouts, not visual layer panels")
+
+    def fake_generate_flipflop_cutouts(**kwargs):
+        captured.update(kwargs)
+        return [
+            {**kwargs["layers"][0], "asset_kind": "cutout", "image_url": "/static/projects/script-1/flipflop_cutouts/scene_001/state_a.png"},
+            {**kwargs["layers"][1], "asset_kind": "cutout", "image_url": "/static/projects/script-1/flipflop_cutouts/scene_001/state_b.png"},
+        ]
 
     monkeypatch.setattr(image_gen_mod, "generate_popup_sequence_cutouts", fail_popup_sequence_cutouts)
-    monkeypatch.setattr(image_gen_mod, "generate_visual_layer_panels", fake_generate_visual_layer_panels)
+    monkeypatch.setattr(image_gen_mod, "generate_visual_layer_panels", fail_visual_layer_panels)
+    monkeypatch.setattr(image_gen_mod, "generate_flipflop_cutouts", fake_generate_flipflop_cutouts)
     ctx = ExportContext(
         script_id="script-1",
         job=RenderJob("job-1"),
@@ -668,6 +676,7 @@ def test_phase_images_forces_visual_layer_panel_regeneration(monkeypatch):
                 "scene_id": "scene_001",
                 "visual_prompt": "Panel",
                 "is_title_card": False,
+                "contains_person": True,
             }
         ],
         seg_name="Segment",
@@ -686,9 +695,18 @@ def test_phase_images_forces_visual_layer_panel_regeneration(monkeypatch):
 
     _phase_images(ctx)
 
+    assert captured["scene_id"] == "scene_001"
+    assert captured["script_id"] == "script-1"
     assert captured["force"] is True
+    assert captured["scene_prompt"] == "Panel"
+    assert captured["contains_person"] is True
     assert ctx.scenes[0]["_image_url"] == ""
     assert ctx.scenes[0]["_frame_urls"] == []
+    assert [layer["asset_kind"] for layer in ctx.scenes[0]["_visual_layers"]] == ["cutout", "cutout"]
+    assert [layer["image_url"] for layer in ctx.scenes[0]["_visual_layers"]] == [
+        "/static/projects/script-1/flipflop_cutouts/scene_001/state_a.png",
+        "/static/projects/script-1/flipflop_cutouts/scene_001/state_b.png",
+    ]
 
 
 def test_phase_images_regenerates_frame_sequence_for_multi_frame_mode(monkeypatch):

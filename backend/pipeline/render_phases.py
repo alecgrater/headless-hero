@@ -98,6 +98,7 @@ def _phase_images(ctx: ExportContext) -> None:
     """Generate images for all scenes (skips title cards)."""
     from pipeline.image_gen import (
         generate_comparison_board_cutouts,
+        generate_flipflop_cutouts,
         generate_popup_sequence_cutouts,
         generate_scene_frames_v2,
         generate_scene_image,
@@ -190,6 +191,15 @@ def _phase_images(ctx: ExportContext) -> None:
                     script_id=ctx.script_id,
                     scene_prompt=sc_info.get("visual_prompt") or (scene_now.visual_prompt if scene_now is not None else ""),
                     force=True,
+                )
+            elif treatment == "flipflop":
+                sc_info["_visual_layers"] = generate_flipflop_cutouts(
+                    scene_id=sid,
+                    layers=layer_dicts,
+                    script_id=ctx.script_id,
+                    scene_prompt=sc_info.get("visual_prompt") or (scene_now.visual_prompt if scene_now is not None else ""),
+                    force=True,
+                    contains_person=contains_person,
                 )
             elif treatment == "stat_card":
                 sc_info["_visual_layers"] = generate_stat_card_cutout(
