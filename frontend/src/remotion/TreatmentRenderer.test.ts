@@ -151,6 +151,15 @@ describe("flipflopLayerFrameStyle", () => {
     expect(String(style.transform)).toContain("translate(-50%, -50%)");
     expect(style.inset).toBeUndefined();
   });
+
+  it("falls back to full-bleed frame styling for panel layers", () => {
+    const style = flipflopLayerFrameStyle(panelLayer("state-a"));
+
+    expect(style.position).toBe("absolute");
+    expect(style.inset).toBe(0);
+    expect(style.width).toBeUndefined();
+    expect(style.height).toBeUndefined();
+  });
 });
 
 describe("flipflopActiveLayer", () => {
