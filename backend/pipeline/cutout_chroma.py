@@ -32,6 +32,7 @@ def save_keyed_trimmed_cutout(
 
 
 def key_out_background(image: Image.Image, *, tolerance: int = 70) -> Image.Image:
+    image = image.convert("RGBA")
     bg = sample_background_rgb(image)
     data = bytearray(image.tobytes())
     for index in range(0, len(data), 4):
@@ -45,7 +46,7 @@ def key_out_background(image: Image.Image, *, tolerance: int = 70) -> Image.Imag
 
 
 def sample_background_rgb(image: Image.Image) -> tuple[int, int, int]:
-    corner_size = max(1, min(image.width, image.height, 24))
+    corner_size = min(24, max(1, image.width // 2), max(1, image.height // 2))
     corners = [
         image.crop((0, 0, corner_size, corner_size)),
         image.crop((image.width - corner_size, 0, image.width, corner_size)),
