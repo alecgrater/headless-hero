@@ -499,6 +499,11 @@ function SceneTextFields({
           labels={["State A", "State B"]}
           visualLayers={visualLayers}
           fallbackPrompt={visualPrompt || narration}
+          assetKind="cutout"
+          placements={["center", "center"]}
+          idPrefix="flipflop"
+          animations={["none", "none"]}
+          enterAtSeconds={[0, 0]}
           onChange={onVisualLayersChange}
         />
       )}
@@ -582,6 +587,7 @@ function LayerPromptFields({
   placements,
   idPrefix = "layer",
   animations,
+  enterAtSeconds,
 }: {
   labels: string[];
   visualLayers: VisualLayer[];
@@ -591,6 +597,7 @@ function LayerPromptFields({
   placements?: string[];
   idPrefix?: string;
   animations?: ("none" | "pop_in")[];
+  enterAtSeconds?: number[];
 }) {
   const defaultPlacement = (index: number): string => {
     if (placements && placements[index]) return placements[index];
@@ -598,6 +605,8 @@ function LayerPromptFields({
   };
   const defaultAnimation = (index: number): "none" | "pop_in" =>
     animations?.[index] ?? "pop_in";
+  const defaultEnterAtSeconds = (index: number): number =>
+    enterAtSeconds?.[index] ?? index;
   const resolved = visualLayers.length
     ? visualLayers
     : labels.map((_label, index) => ({
@@ -606,7 +615,7 @@ function LayerPromptFields({
         asset_kind: assetKind,
         prompt: fallbackPrompt,
         placement: defaultPlacement(index),
-        enter_at_seconds: index,
+        enter_at_seconds: defaultEnterAtSeconds(index),
         animation: defaultAnimation(index),
       }));
   return (

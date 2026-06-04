@@ -355,6 +355,46 @@ describe("TestLabControls layout", () => {
     );
   });
 
+  it("creates cropped cutout defaults when editing empty flip-flop state layers", () => {
+    const onChange = vi.fn();
+    render(
+      <TestLabControls
+        preset={preset}
+        defaultMainCharacter={null}
+        visualTreatmentDefaults={defaults}
+        settings={{ ...baseSettings, visual_mode: "flipflop", visual_layers: [] }}
+        voiceSummary={voiceSummary}
+        subtitleSummary={subtitleSummary}
+        onChange={onChange}
+        onOpenSettingsSection={() => undefined}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("State B"), {
+      target: { value: "Character points at the chart." },
+    });
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        visual_layers: [
+          expect.objectContaining({
+            id: "flipflop_1",
+            asset_kind: "cutout",
+            enter_at_seconds: 0,
+            animation: "none",
+          }),
+          expect.objectContaining({
+            id: "flipflop_2",
+            asset_kind: "cutout",
+            prompt: "Character points at the chart.",
+            enter_at_seconds: 0,
+            animation: "none",
+          }),
+        ],
+      }),
+    );
+  });
+
   it("keeps the scene prompt in continuous frame prompts", () => {
     renderControls({ ...baseSettings, visual_mode: "continuous" });
 
