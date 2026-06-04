@@ -322,6 +322,8 @@ def _phase_fx(ctx: ExportContext) -> None:
             "duration_seconds": duration,
             "duration_frames": int(duration * FPS),
             "has_multiple_frames": bool(scene_now.frame_urls and len(scene_now.frame_urls) > 1),
+            "visual_mode": scene_now.visual_mode,
+            "visual_beat": scene_now.visual_beat or "static",
         }
         if scene_now.word_timestamps:
             scene_data["word_timestamps"] = [w.model_dump() for w in scene_now.word_timestamps]

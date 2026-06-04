@@ -125,6 +125,7 @@ def regenerate_scene_fx(body: RegenerateFXRequest, session: Session = Depends(ge
         "duration_seconds": duration,
         "duration_frames": round(duration * FPS),
         "has_multiple_frames": bool(target_scene.frame_urls and len(target_scene.frame_urls) > 1),
+        "visual_mode": target_scene.visual_mode,
         "visual_beat": target_scene.visual_beat or "static",
     }
     if target_scene.word_timestamps:
@@ -190,6 +191,7 @@ def _build_scene_fx_data(scene, seg, seg_idx, sc_idx, global_idx, total_scenes) 
         "duration_seconds": duration,
         "duration_frames": int(duration * FPS),
         "has_multiple_frames": bool(scene.frame_urls and len(scene.frame_urls) > 1),
+        "visual_mode": scene.visual_mode,
         "visual_beat": scene.visual_beat or "static",
     }
     if scene.word_timestamps:

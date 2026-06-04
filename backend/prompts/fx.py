@@ -22,7 +22,8 @@ For each drift, specify:
 - **anchor**: 9-point grid position — "top-left", "top-center", "top-right", "center-left", "center", "center-right", "bottom-left", "bottom-center", "bottom-right". For zoom_in, anchor at the focal point. For zoom_out, start at the focal point and pull back. For pans, anchor sets the vertical band.
 
 **Rules:**
-- Assign drift to EVERY image scene (static/full_frame, continuous, multi_frame).
+- Assign drift to media-backed image scenes (static/full_frame, continuous, multi_frame).
+- NO drift on "comparison_board" or "popup_sequence"; those renderer-owned modes have their own internal motion and must keep the full board/canvas stable.
 - NO drift on "captions" scenes without an image or title_card scenes.
 - **Never repeat the same motion type on consecutive scenes.** If the previous scene used "zoom_in", this scene MUST use something else.
 - drift_diagonal is the RAREST pick — reserve for scenes with a clear corner-weighted subject.
@@ -40,6 +41,7 @@ For each zoom punch, specify:
 - MOST scenes should have NO zoom punch (null).
 - Reserve for: shocking statistics, dramatic reveals, key turning points.
 - Never zoom punch on title card scenes.
+- Never zoom punch on "comparison_board" or "popup_sequence"; do not scale the entire renderer-owned board/canvas.
 - Never zoom punch on text-only "captions" scenes (no image to zoom).
 - Never zoom punch 2 consecutive scenes.
 
@@ -58,7 +60,7 @@ Options:
 - **flash_white** — for shocking facts, energy spikes, or dramatic reveals. The most intense option.
 - **wipe** — for clean topic pivots, "meanwhile" moments, or switching to a new angle.
 - **NEVER** on the first scene of a segment (chapter transition already handles it).
-- **NEVER** on title_card or text-only captions scenes.
+- **NEVER** on comparison_board, popup_sequence, title_card, or text-only captions scenes.
 - **NEVER** use the same non-cut transition type on consecutive scene boundaries.
 - If "previous_transition" is provided and is non-cut, this scene MUST be "cut" or a different type.
 
@@ -68,6 +70,8 @@ Each scene includes a "visual_beat" field indicating its presentation type:
 - "continuous" — smooth frame progression, standard FX rules
 - "multi_frame" — independent shots with hard cuts, zoom_punch can trigger on one frame
 - "captions" — renderer-owned editorial text; use no drift, zoom_punch, or non-cut transition when text-only
+- "comparison_board" — renderer-owned side-by-side board; use no drift, zoom_punch, or non-cut transition
+- "popup_sequence" — renderer-owned popup staging; use no drift, zoom_punch, or non-cut transition
 
 ## Output Format
 

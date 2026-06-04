@@ -1178,6 +1178,8 @@ def _stage_fx(ctx: TestLabRunContext) -> None:
             "duration_seconds": duration,
             "duration_frames": int(duration * FPS),
             "has_multiple_frames": bool(scene.frame_urls and len(scene.frame_urls) > 1),
+            "visual_mode": scene.visual_mode,
+            "visual_beat": scene.visual_beat or "static",
         }
         if scene.word_timestamps:
             scene_data["word_timestamps"] = [word.model_dump() for word in scene.word_timestamps]

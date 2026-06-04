@@ -32,6 +32,12 @@ interface Props {
 
 export const isTitleCardScene = (scene: SceneInput): boolean => Boolean(scene.is_title_card);
 
+const WHOLE_SCENE_FX_BLOCKED_VISUAL_MODES = new Set(["comparison_board", "popup_sequence"]);
+
+export const canApplyWholeSceneFx = (scene: Pick<SceneInput, "visual_mode">): boolean => (
+  !WHOLE_SCENE_FX_BLOCKED_VISUAL_MODES.has(scene.visual_mode ?? "full_frame")
+);
+
 export const SceneRenderer: React.FC<Props> = ({
   scene,
   highlightEnabled,
@@ -99,7 +105,11 @@ export const SceneRenderer: React.FC<Props> = ({
   }
 
   // Wrap with CameraDrift if assigned (not for subtitle or title card scenes)
-  if (fx?.drift && !isAhaSubtitle && !isCaptionScene && !isTitleCard) {
+  const allowWholeSceneFx = canApplyWholeSceneFx(scene);
+  const transitionIn = allowWholeSceneFx ? scene.transition_in : "cut";
+  const transitionOut = allowWholeSceneFx ? scene.transition_out : "cut";
+
+  if (allowWholeSceneFx && fx?.drift && !isAhaSubtitle && !isCaptionScene && !isTitleCard) {
     visualLayer = (
       <CameraDrift
         motion={fx.drift.motion}
@@ -112,7 +122,7 @@ export const SceneRenderer: React.FC<Props> = ({
   }
 
   // Wrap with ZoomPunch if assigned (but not for subtitle scenes — no image to zoom)
-  if (fx?.zoom_punch && !isAhaSubtitle && !isCaptionScene) {
+  if (allowWholeSceneFx && fx?.zoom_punch && !isAhaSubtitle && !isCaptionScene) {
     visualLayer = (
       <ZoomPunch
         triggerFrame={fx.zoom_punch.trigger_frame}
@@ -147,7 +157,7 @@ export const SceneRenderer: React.FC<Props> = ({
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
       {/* Scene transition wraps visual + subtitle; audio and Eli stay outside */}
-      <SceneTransition transitionIn={scene.transition_in} transitionOut={scene.transition_out}>
+      <SceneTransition transitionIn={transitionIn} transitionOut={transitionOut}>
         {/* Visual + subtitle layer with in/out opacity */}
         <div style={{ width: "100%", height: "100%", opacity: visualOpacity }}>
           {visualLayer}

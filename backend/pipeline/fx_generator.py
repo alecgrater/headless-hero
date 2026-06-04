@@ -17,6 +17,22 @@ logger = logging.getLogger(__name__)
 
 _BATCH_SIZE = 12
 _BATCH_MAX_TOKENS = 8192
+_CAMERA_FX_BLOCKED_VISUAL_MODES = {"comparison_board", "popup_sequence"}
+
+
+def _camera_fx_blocked(scene_data: dict) -> bool:
+    visual_mode = scene_data.get("visual_mode") or scene_data.get("visual_beat")
+    return visual_mode in _CAMERA_FX_BLOCKED_VISUAL_MODES
+
+
+def _sanitize_scene_fx_result(result: dict, scene_data: dict) -> dict:
+    if not _camera_fx_blocked(scene_data):
+        return result
+    return {
+        **result,
+        "fx": {"drift": None, "zoom_punch": None},
+        "transition_in": "cut",
+    }
 
 
 def _normalize_transition_in(value: object, scene_id: str, script_id: str | None = None) -> str:
@@ -95,7 +111,10 @@ def generate_scene_fx(scene_data: dict, script_id: str | None = None) -> dict:
     has_drift = fx_data.get("drift") is not None
     logger.info("[%s] FX assigned for scene %s: drift=%s zoom_punch=%s transition_in=%s",
                 script_id or "no-id", scene_id, has_drift, has_zoom, transition_in)
-    return {"id": entry.get("id", scene_data.get("id")), "fx": fx_data, "transition_in": transition_in}
+    return _sanitize_scene_fx_result(
+        {"id": entry.get("id", scene_data.get("id")), "fx": fx_data, "transition_in": transition_in},
+        scene_data,
+    )
 
 
 def generate_fx_batch(
@@ -169,13 +188,21 @@ def generate_fx_batch(
             if isinstance(eid, str):
                 by_id[eid] = entry
 
+        scene_data_by_id = {
+            scene.get("id"): scene
+            for scene in chunk
+            if isinstance(scene.get("id"), str)
+        }
         for expected_id in chunk_ids:
             entry = by_id.get(expected_id)
             if entry is None:
                 continue
             validated = _validate_entry(entry, expected_id, script_id)
             if validated is not None:
-                results[expected_id] = validated
+                results[expected_id] = _sanitize_scene_fx_result(
+                    validated,
+                    scene_data_by_id.get(expected_id, {}),
+                )
 
     logger.info(
         "[%s] FX batch produced %d/%d valid entries",

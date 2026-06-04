@@ -83,7 +83,7 @@ const MODE_OWNERSHIP = [
   {
     mode: "popup_sequence",
     asset: "Anchor cutout plus popup item cutouts",
-    renderer: "Stages orbiting popup items over the global canvas at voice-timed moments.",
+    renderer: "Stages orbiting popup items over the global canvas at voice-timed moments; scene-level camera drift and zoom punch are suppressed so the canvas stays stable.",
   },
   {
     mode: "flipflop",
@@ -93,7 +93,7 @@ const MODE_OWNERSHIP = [
   {
     mode: "comparison_board",
     asset: "Transparent comparison subject cutouts",
-    renderer: "Owns columns, dividers, VS markers, arrows, badges, labels, and layout.",
+    renderer: "Owns columns, dividers, VS markers, arrows, badges, labels, and layout; scene-level camera drift and zoom punch are suppressed so the board stays readable.",
   },
   {
     mode: "stat_card",
@@ -112,6 +112,7 @@ const HANDOFF_RULES = [
   "Normal scene images are for full_frame, multi_frame, and continuous; layered modes use their own asset paths and visual_layers.",
   "A visual_mode value chooses a renderer path. Do not reintroduce separate media_source or visual_treatment fields for normal project data.",
   "Generated images should be full-bleed unless the mode is intentionally producing transparent cutouts or contact-sheet crops.",
+  "Comparison board and popup sequence modes own their internal motion; do not apply whole-scene camera drift, Ken Burns movement, zoom punch, or non-cut FX transitions to them.",
   "Post-voiceover validation may prepare assets and timing, but script generation owns the main visual rhythm before voiceover.",
   "Exported files are user-facing deliverables; internal render cache files are implementation details.",
 ];

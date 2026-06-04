@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isTitleCardScene } from "@remotion-src/scenes/SceneRenderer";
+import { canApplyWholeSceneFx, isTitleCardScene } from "@remotion-src/scenes/SceneRenderer";
 import type { SceneInput } from "@remotion-src/types";
 
 describe("isTitleCardScene", () => {
@@ -20,5 +20,18 @@ describe("isTitleCardScene", () => {
     } satisfies SceneInput;
 
     expect(isTitleCardScene(scene)).toBe(true);
+  });
+});
+
+describe("canApplyWholeSceneFx", () => {
+  it("blocks whole-scene FX wrappers for renderer-owned layered boards", () => {
+    expect(canApplyWholeSceneFx({ visual_mode: "comparison_board" })).toBe(false);
+    expect(canApplyWholeSceneFx({ visual_mode: "popup_sequence" })).toBe(false);
+  });
+
+  it("keeps camera effects available for normal media-backed scenes", () => {
+    expect(canApplyWholeSceneFx({ visual_mode: "full_frame" })).toBe(true);
+    expect(canApplyWholeSceneFx({ visual_mode: "multi_frame" })).toBe(true);
+    expect(canApplyWholeSceneFx({ visual_mode: "continuous" })).toBe(true);
   });
 });

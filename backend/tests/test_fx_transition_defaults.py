@@ -1,6 +1,6 @@
 """Regression tests for scene transition defaults."""
 
-from api.fx import _count_fx_generation_targets
+from api.fx import _build_scene_fx_data, _count_fx_generation_targets
 from models.script import Scene, ScriptContent
 from pipeline import fx_generator
 
@@ -57,6 +57,54 @@ def test_fx_generator_defaults_null_transition_to_cut(monkeypatch):
     )
 
     assert result["transition_in"] == "cut"
+
+
+def test_fx_generator_suppresses_camera_fx_for_comparison_and_popup_modes(monkeypatch):
+    def fake_chat(**_kwargs):
+        return """
+        {
+          "scenes": [
+            {
+              "id": "scene_001",
+              "fx": {
+                "drift": { "motion": "zoom_in", "intensity": 0.07, "anchor": "center" },
+                "zoom_punch": { "trigger_frame": 12, "scale": 1.06 }
+              },
+              "transition_in": "wipe"
+            }
+          ]
+        }
+        """
+
+    monkeypatch.setattr(fx_generator, "chat", fake_chat)
+
+    for visual_mode in ("comparison_board", "popup_sequence"):
+        result = fx_generator.generate_scene_fx(
+            {
+                "id": "scene_001",
+                "visual_mode": visual_mode,
+                "visual_beat": visual_mode,
+                "duration_seconds": 18,
+            },
+            script_id="test_script",
+        )
+
+        assert result["fx"] == {"drift": None, "zoom_punch": None}
+        assert result["transition_in"] == "cut"
+
+
+def test_scene_fx_payload_includes_visual_mode():
+    scene = Scene(
+        id="scene_001",
+        narration="Two outcomes sit side by side.",
+        visual_prompt="A comparison.",
+        visual_mode="comparison_board",
+    )
+
+    data = _build_scene_fx_data(scene, type("Segment", (), {"name": "Segment"})(), 0, 0, 0, 1)
+
+    assert data["visual_mode"] == "comparison_board"
+    assert data["visual_beat"] == "comparison_board"
 
 
 def test_missing_fx_targets_only_missing_non_title_scenes():
