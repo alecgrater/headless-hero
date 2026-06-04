@@ -2263,12 +2263,31 @@ def test_analyze_visual_treatments_assigns_flipflop_for_same_subject_micro_actio
     assert assignment.visual_treatment == "flipflop"
     assert len(assignment.visual_layers) == 2
     assert [layer.id for layer in assignment.visual_layers] == ["s1_state_a", "s1_state_b"]
+    assert all(layer.asset_kind == "cutout" for layer in assignment.visual_layers)
     for layer in assignment.visual_layers:
         prompt = layer.prompt.lower()
-        assert "full-bleed 16:9 illustration" in prompt
-        assert "no decorative border" in prompt
-        assert "small framed" not in prompt
+        assert "flip-flop transparent cutout" in prompt
+        assert "solid chroma" in prompt
+        assert "no full background scene" in prompt
+        assert "full-bleed" not in prompt
         assert "framed panel" not in prompt
+
+
+def test_explicit_flipflop_replaces_legacy_panel_layers_with_cutouts():
+    scene = scene_with_words("s1", "His hands open and close while he talks.")
+    scene.set_visual_mode("flipflop")
+    scene.visual_layers = [
+        VisualLayer(id="old_a", asset_kind="panel", prompt="Old full frame A"),
+        VisualLayer(id="old_b", asset_kind="panel", prompt="Old full frame B"),
+    ]
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-legacy-flipflop")
+
+    assignment = assignments[0]
+    assert assignment.visual_mode == "flipflop"
+    assert [layer.id for layer in assignment.visual_layers] == ["s1_state_a", "s1_state_b"]
+    assert all(layer.asset_kind == "cutout" for layer in assignment.visual_layers)
 
 
 def test_analyze_visual_treatments_preserves_explicit_popup_sequence_with_progression_words():

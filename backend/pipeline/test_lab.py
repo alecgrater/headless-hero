@@ -29,7 +29,7 @@ from models.script import (
     VisualLayer,
 )
 from pipeline.script_helpers import _usage_task_label
-from pipeline.visual_treatments import comparison_cutout_prompt, flipflop_panel_prompt
+from pipeline.visual_treatments import comparison_cutout_prompt, flipflop_cutout_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -1141,17 +1141,19 @@ def _fallback_visual_layers_for_treatment(scene: Scene) -> list[VisualLayer]:
     return [
         VisualLayer(
             id=f"{scene.id}_state_a",
-            prompt=flipflop_panel_prompt(scene.visual_prompt, scene.narration, "state A"),
+            asset_kind="cutout",
+            prompt=flipflop_cutout_prompt(scene.visual_prompt, scene.narration, "state A"),
             placement="center",
             enter_at_seconds=0.0,
-            animation="pop_in",
+            animation="none",
         ),
         VisualLayer(
             id=f"{scene.id}_state_b",
-            prompt=flipflop_panel_prompt(scene.visual_prompt, scene.narration, "state B"),
+            asset_kind="cutout",
+            prompt=flipflop_cutout_prompt(scene.visual_prompt, scene.narration, "state B"),
             placement="center",
             enter_at_seconds=max((scene.audio_duration_seconds or scene.duration_estimate_seconds) / 2, 0.5),
-            animation="pop_in",
+            animation="none",
         ),
     ]
 

@@ -413,11 +413,12 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             visual_layers=layers,
         )
     if scene.visual_mode == "flipflop":
+        existing_layers = [layer for layer in scene.visual_layers if layer.asset_kind == "cutout"]
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="flipflop",
-            reasoning="Scene is explicitly marked for flip-flop rendering.",
-            visual_layers=list(scene.visual_layers) or _flipflop_layers(scene, _state_b_enter_at(scene, [])),
+            reasoning="Scene is explicitly marked for flip-flop cutout rendering.",
+            visual_layers=existing_layers if len(existing_layers) >= 2 else _flipflop_layers(scene, _state_b_enter_at(scene, [])),
         )
     if scene.visual_mode == "comparison_board":
         return VisualTreatmentAssignment(
@@ -661,17 +662,19 @@ def _flipflop_layers(scene: Scene, state_b_enter_at: float) -> list[VisualLayer]
     return [
         VisualLayer(
             id=f"{scene.id}_state_a",
-            prompt=flipflop_panel_prompt(scene.visual_prompt, scene.narration, "state A"),
+            asset_kind="cutout",
+            prompt=flipflop_cutout_prompt(scene.visual_prompt, scene.narration, "state A"),
             placement="center",
             enter_at_seconds=0.0,
-            animation="pop_in",
+            animation="none",
         ),
         VisualLayer(
             id=f"{scene.id}_state_b",
-            prompt=flipflop_panel_prompt(scene.visual_prompt, scene.narration, "state B"),
+            asset_kind="cutout",
+            prompt=flipflop_cutout_prompt(scene.visual_prompt, scene.narration, "state B"),
             placement="center",
-            enter_at_seconds=round(state_b_enter_at, 2),
-            animation="pop_in",
+            enter_at_seconds=0.0,
+            animation="none",
         ),
     ]
 
@@ -713,14 +716,26 @@ def comparison_cutout_prompt(visual_prompt: str, narration: str, subject: str) -
     )
 
 
-def flipflop_panel_prompt(visual_prompt: str, narration: str, focus: str) -> str:
+def flipflop_cutout_prompt(visual_prompt: str, narration: str, focus: str) -> str:
     base_prompt = visual_prompt.strip() or narration.strip()
-    return (
-        f"Full-bleed 16:9 illustration for flip-flop {focus}: {base_prompt}. "
-        "Fill the entire canvas edge to edge with the scene artwork. "
-        "No decorative border, picture frame, mat, white margin, inset panel, UI chrome, caption box, or poster edge. "
-        "No text in image."
+    state_direction = (
+        "Initial pose or expression before the small movement changes."
+        if "a" in focus.lower()
+        else "Next compatible pose or expression; keep identity, scale, camera angle, and style consistent with State A."
     )
+    return (
+        f"Flip-flop transparent cutout for {focus}: {base_prompt}. "
+        f"{state_direction} "
+        "Generate one isolated human or character subject whenever possible, waist-up or full-body depending on the action. "
+        "Use a solid chroma background color that does not appear in the subject. "
+        "Keep a clean closed silhouette for automatic cropping. "
+        "No full background scene, scenery, split-screen, decorative border, picture frame, mat, white margin, "
+        "inset panel, UI chrome, caption box, poster edge, speech bubble, labels, or text."
+    )
+
+
+def flipflop_panel_prompt(visual_prompt: str, narration: str, focus: str) -> str:
+    return flipflop_cutout_prompt(visual_prompt, narration, focus)
 
 
 def _panel_prompt(scene: Scene, focus: str) -> str:

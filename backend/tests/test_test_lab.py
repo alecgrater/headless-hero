@@ -2548,9 +2548,12 @@ def test_test_lab_flipflop_fallback_prompts_avoid_decorative_frame_language():
     assert len(layers) == 2
     for layer in layers:
         prompt = layer.prompt.lower()
-        assert "full-bleed 16:9 illustration" in prompt
-        assert "no decorative border" in prompt
-        assert "small framed" not in prompt
+        assert layer.asset_kind == "cutout"
+        assert layer.animation == "none"
+        assert "flip-flop transparent cutout" in prompt
+        assert "solid chroma" in prompt
+        assert "no full background scene" in prompt
+        assert "full-bleed" not in prompt
         assert "framed panel" not in prompt
 
 
