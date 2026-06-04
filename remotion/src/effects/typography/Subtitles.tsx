@@ -32,6 +32,7 @@ interface TreatmentProps {
 }
 
 const FADE_OUT_FRAMES = 5;
+const SUBTITLE_FONT_FAMILY = "Inter, Arial, sans-serif";
 
 function overlayStyle(orientation: Orientation, phraseOpacity: number): CSSProperties {
   if (orientation === "vertical") {
@@ -184,19 +185,20 @@ function BurstSubtitleOverlay({ phrase, frame, fps, highlightEnabled, orientatio
             key={`${word.start_ms}-${i}`}
             style={{
               display: "inline-block",
-              color: isBurst ? "#FEF08A" : "rgba(255,255,255,0.88)",
+              color: isBurst ? "#FFD84D" : "#F4F4F5",
+              fontFamily: SUBTITLE_FONT_FAMILY,
               fontSize: isBurst
-                ? (orientation === "vertical" ? "92px" : "48px")
-                : (orientation === "vertical" ? "54px" : "28px"),
-              fontWeight: isBurst ? 950 : 800,
+                ? (orientation === "vertical" ? "76px" : "40px")
+                : (orientation === "vertical" ? "62px" : "32px"),
+              fontWeight: isBurst ? 900 : 850,
               lineHeight: 1.05,
-              textTransform: isBurst ? "uppercase" : "none",
-              WebkitTextStroke: isBurst ? (orientation === "vertical" ? "3px #111" : "2px #111") : "0",
+              textTransform: "none",
+              WebkitTextStroke: isBurst ? (orientation === "vertical" ? "2px #080808" : "1.5px #080808") : "0",
               transform: `scale(${pop}) translateY(${isActive && isBurst ? -5 : 0}px)`,
               transformOrigin: "center bottom",
               textShadow: isBurst
-                ? "0 5px 0 #111, 0 14px 28px rgba(0,0,0,0.72)"
-                : "0 3px 12px rgba(0,0,0,0.92)",
+                ? "0 4px 0 #080808, 0 12px 24px rgba(0,0,0,0.72)"
+                : "0 4px 12px rgba(0,0,0,0.9)",
             }}
           >
             {displayWord}
