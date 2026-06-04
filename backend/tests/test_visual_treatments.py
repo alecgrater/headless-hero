@@ -1478,10 +1478,10 @@ def test_generate_visual_persists_request_visual_treatment(monkeypatch):
     )
     monkeypatch.setattr(
         visuals_api,
-        "generate_visual_layer_panels",
+        "generate_flipflop_cutouts",
         lambda scene_id, layers, script_id, **_kwargs: [
-            {**layers[0], "image_url": f"/static/projects/{script_id}/images/{scene_id}_state_a.png"},
-            {**layers[1], "image_url": f"/static/projects/{script_id}/images/{scene_id}_state_b.png"},
+            {**layers[0], "asset_kind": "cutout", "image_url": f"/static/projects/{script_id}/flipflop_cutouts/{scene_id}/state_a.png"},
+            {**layers[1], "asset_kind": "cutout", "image_url": f"/static/projects/{script_id}/flipflop_cutouts/{scene_id}/state_b.png"},
         ],
     )
 
@@ -1518,6 +1518,11 @@ def test_generate_visual_persists_request_visual_treatment(monkeypatch):
     assert stored_scene.image_url == ""
     assert stored_scene.frame_urls == []
     assert [layer.id for layer in stored_scene.visual_layers] == ["state_a", "state_b"]
+    assert [layer.asset_kind for layer in stored_scene.visual_layers] == ["cutout", "cutout"]
+    assert [layer.image_url for layer in stored_scene.visual_layers] == [
+        "/static/projects/request-treatment-panels/flipflop_cutouts/scene_001/state_a.png",
+        "/static/projects/request-treatment-panels/flipflop_cutouts/scene_001/state_b.png",
+    ]
 
 
 def test_generate_visual_preserves_multi_frame_mode_for_frame_directives(monkeypatch):
@@ -1927,14 +1932,31 @@ def test_generate_visual_routes_flipflop_to_cutout_assets(monkeypatch):
 
 
 def test_generate_flipflop_cutouts_keys_cutout_layers_and_preserves_non_images(tmp_path, monkeypatch):
-    from pipeline import image_gen
+    image_gen, char_ref, style_ref = _stub_panel_image_context(monkeypatch, tmp_path)
 
-    monkeypatch.setattr(image_gen, "DATA_DIR", tmp_path)
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
     captured = []
 
-    def fake_generate_image(prompt, *, width, height, script_id=None, **_kwargs):
-        captured.append({"prompt": prompt, "width": width, "height": height, "script_id": script_id})
+    def fake_generate_image(
+        prompt,
+        *,
+        width,
+        height,
+        reference_image_path=None,
+        style_reference_path=None,
+        script_id=None,
+        **_kwargs,
+    ):
+        captured.append(
+            {
+                "prompt": prompt,
+                "width": width,
+                "height": height,
+                "reference_image_path": reference_image_path,
+                "style_reference_path": style_reference_path,
+                "script_id": script_id,
+            }
+        )
         source = tmp_path / f"source-{len(captured)}.png"
         image = Image.new("RGBA", (120, 80), (0, 255, 0, 255))
         draw = ImageDraw.Draw(image)
@@ -1947,17 +1969,27 @@ def test_generate_flipflop_cutouts_keys_cutout_layers_and_preserves_non_images(t
     layers = image_gen.generate_flipflop_cutouts(
         scene_id="scene_001",
         layers=[
-            {"id": "state_a", "type": "image", "asset_kind": "cutout", "prompt": "State A prompt"},
+            {"id": "state_a", "type": "image", "asset_kind": "panel", "prompt": "State A prompt", "contains_person": True},
             {"id": "label_1", "type": "text", "asset_kind": "text", "text": "overlay"},
-            {"id": "state_b", "type": "image", "asset_kind": "cutout", "prompt": "State B prompt"},
+            {"id": "state_b", "asset_kind": "panel", "prompt": "State B prompt", "contains_person": True},
         ],
         script_id="script-1",
         scene_prompt="Person changes expression.",
         width=320,
         height=180,
+        contains_person=True,
     )
 
     assert len(captured) == 2
+    assert captured[0]["reference_image_path"] == char_ref
+    assert captured[0]["style_reference_path"] == style_ref
+    assert captured[1]["reference_image_path"] == str(
+        tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001" / "state_01_state_a.png"
+    )
+    assert captured[1]["style_reference_path"] == style_ref
+    assert "[char_ref:" in captured[0]["prompt"]
+    assert "[style_ref:" in captured[0]["prompt"]
+    assert "[flipflop_ref:" in captured[1]["prompt"]
     assert layers[1] == {"id": "label_1", "type": "text", "asset_kind": "text", "text": "overlay"}
     image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
     assert [layer["image_url"] for layer in image_layers] == [

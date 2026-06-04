@@ -764,6 +764,7 @@ def generate_flipflop_cutouts(
     width: int = IMAGE_WIDTH,
     height: int = IMAGE_HEIGHT,
     force: bool = False,
+    contains_person: bool = False,
 ) -> list[dict]:
     """Generate transparent state cutouts for renderer-owned flip-flop scenes."""
 
@@ -771,11 +772,12 @@ def generate_flipflop_cutouts(
     output_dir.mkdir(parents=True, exist_ok=True)
     processed_layers: list[dict] = []
     image_index = 0
+    first_state_reference_path: Path | None = None
     for layer in layers:
         if not isinstance(layer, dict):
             processed_layers.append(layer)
             continue
-        if layer.get("type", "image") != "image" or layer.get("asset_kind") != "cutout":
+        if layer.get("type", "image") != "image":
             processed_layers.append(layer)
             continue
 
@@ -794,7 +796,19 @@ def generate_flipflop_cutouts(
         raw_path = output_dir / f"raw_{filename}"
         prompt_marker = output_dir / f"{filename}.prompt"
         web_path = f"/static/projects/{script_id}/flipflop_cutouts/{scene_id}/{filename}"
-        composed_prompt = _compose_flipflop_cutout_source_prompt(prompt, scene_prompt)
+        source_prompt = _compose_flipflop_cutout_source_prompt(prompt, scene_prompt)
+        composed_prompt, reference_image_path, style_reference_path = _compose_image_prompt_context(
+            visual_prompt=source_prompt,
+            script_id=script_id,
+            contains_person=bool(next_layer.get("contains_person", contains_person)),
+        )
+        if first_state_reference_path is not None:
+            reference_image_path = str(first_state_reference_path)
+            try:
+                mtime = int(first_state_reference_path.stat().st_mtime)
+                composed_prompt += f"\n[flipflop_ref:{first_state_reference_path}:{mtime}]"
+            except OSError:
+                composed_prompt += f"\n[flipflop_ref:{first_state_reference_path}:missing]"
         metadata = {
             "source_type": "flipflop_cutout",
             "provider": os.environ.get("IMAGE_PROVIDER", "google"),
@@ -810,6 +824,8 @@ def generate_flipflop_cutouts(
                 composed_prompt,
                 width=width,
                 height=height,
+                reference_image_path=reference_image_path,
+                style_reference_path=style_reference_path,
                 original_prompt=prompt,
                 script_id=script_id,
             )
@@ -827,6 +843,8 @@ def generate_flipflop_cutouts(
         next_layer["image_url"] = web_path
         next_layer["visual_source_metadata"] = source_metadata
         processed_layers.append(next_layer)
+        if first_state_reference_path is None:
+            first_state_reference_path = local_path
 
     return processed_layers
 
@@ -1819,6 +1837,7 @@ def _generate_one_scene(
                 scene_prompt=str(scene.get("visual_prompt") or ""),
                 width=width,
                 height=height,
+                contains_person=bool(scene.get("contains_person", False)),
             )
         elif treatment == "stat_card":
             result["visual_layers"] = generate_stat_card_cutout(
