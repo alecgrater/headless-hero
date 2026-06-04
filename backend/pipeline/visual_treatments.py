@@ -692,6 +692,7 @@ def _comparison_layers_for_scene(scene: Scene) -> list[VisualLayer]:
             id=f"{scene.id}_compare_{index + 1}",
             asset_kind="cutout",
             prompt=comparison_cutout_prompt(scene.visual_prompt, scene.narration, subject),
+            label=subject,
             placement=placements[index],
             enter_at_seconds=round(_phrase_start_seconds(scene, subject, index, len(subjects)) or index * fallback_step, 2),
             animation="pop_in",

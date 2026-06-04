@@ -3,6 +3,7 @@ import type React from "react";
 
 import {
   comparisonBoardLayerStyle,
+  comparisonLabel,
   flipflopActiveLayer,
   layerChromeStyle,
   layerFrameStyle,
@@ -170,6 +171,19 @@ describe("comparisonBoardLayerStyle", () => {
     expect(middle.top).toBe("53%");
     expect(middle.width).toBe(440);
     expect(middle.height).toBe(580);
+  });
+});
+
+describe("comparisonLabel", () => {
+  it("uses explicit comparison labels instead of assuming before and after", () => {
+    expect(comparisonLabel({ ...itemLayer("left"), label: "Myth" })).toBe("Myth");
+    expect(comparisonLabel({ ...itemLayer("right"), label: "Reality" })).toBe("Reality");
+  });
+
+  it("hides labels when no high-confidence semantic label is available", () => {
+    expect(comparisonLabel(itemLayer("left"))).toBeNull();
+    expect(comparisonLabel({ ...itemLayer("right"), label: "Option 2" })).toBeNull();
+    expect(comparisonLabel({ ...itemLayer("placeholder"), prompt: "Comparison board transparent cutout for left subject: scene." })).toBeNull();
   });
 });
 

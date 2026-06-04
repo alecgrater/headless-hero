@@ -2247,6 +2247,7 @@ def test_analyze_visual_treatments_assigns_three_column_comparison_board():
     assert assignment.visual_mode == "comparison_board"
     assert assignment.visual_treatment == "comparison_board"
     assert [layer.placement for layer in assignment.visual_layers] == ["left", "center", "right"]
+    assert [layer.label for layer in assignment.visual_layers] == ["myth", "reality", "outcome"]
 
 
 def test_analyze_visual_treatments_assigns_flipflop_for_same_subject_micro_action():
@@ -2322,6 +2323,7 @@ def test_analyze_visual_treatments_fills_explicit_comparison_board_without_layer
     assert assignment.visual_mode == "comparison_board"
     assert assignment.visual_treatment == "comparison_board"
     assert [layer.placement for layer in assignment.visual_layers] == ["left", "right"]
+    assert [layer.label for layer in assignment.visual_layers] == ["rich", "poor"]
 
 
 def test_analyze_visual_treatments_keeps_list_mode_with_progression_words():

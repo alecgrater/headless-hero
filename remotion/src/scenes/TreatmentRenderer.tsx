@@ -279,13 +279,32 @@ export const comparisonBoardLayerStyle = (
   };
 };
 
-const comparisonLabel = (layer: VisualLayer, index: number): string => {
+const isDisplayableComparisonLabel = (label: string): boolean => {
+  const normalized = label.trim();
+  if (!normalized) {
+    return false;
+  }
+  if (/^(left|right|center)\s+subject$/i.test(normalized)) {
+    return false;
+  }
+  if (/^option\s+\d+$/i.test(normalized)) {
+    return false;
+  }
+  return normalized.split(/\s+/).length <= 3 && normalized.length <= 28;
+};
+
+export const comparisonLabel = (layer: VisualLayer): string | null => {
+  const explicitLabel = layer.label?.trim();
+  if (explicitLabel && isDisplayableComparisonLabel(explicitLabel)) {
+    return explicitLabel;
+  }
   const prompt = layer.prompt ?? "";
   const match = prompt.match(/\bfor\s+(.+?):/i);
-  if (match?.[1]) {
-    return match[1].trim();
+  const promptLabel = match?.[1]?.trim();
+  if (promptLabel && isDisplayableComparisonLabel(promptLabel)) {
+    return promptLabel;
   }
-  return index === 0 ? "Before" : index === 1 ? "After" : `Option ${index + 1}`;
+  return null;
 };
 
 const ComparisonBoard: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
@@ -365,29 +384,32 @@ const ComparisonBoard: React.FC<Props> = ({ scene, fallbackVisualLayer }) => {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
         });
+        const label = comparisonLabel(layer);
         return (
           <React.Fragment key={layer.id}>
-            <div
-              style={{
-                position: "absolute",
-                left: comparisonBoardLayerStyle(layer, layerIndex, layers.length, frame, fps).left,
-                top: 114,
-                transform: "translateX(-50%)",
-                padding: "12px 30px",
-                borderRadius: 999,
-                background: "#111111",
-                color: "#FFFFFF",
-                border: "4px solid #FFFFFF",
-                fontFamily: "Arial Black, Arial, sans-serif",
-                fontSize: 34,
-                textTransform: "uppercase",
-                letterSpacing: 0,
-                opacity,
-                zIndex: 50,
-              }}
-            >
-              {comparisonLabel(layer, layerIndex)}
-            </div>
+            {label ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: comparisonBoardLayerStyle(layer, layerIndex, layers.length, frame, fps).left,
+                  top: 114,
+                  transform: "translateX(-50%)",
+                  padding: "12px 30px",
+                  borderRadius: 999,
+                  background: "#111111",
+                  color: "#FFFFFF",
+                  border: "4px solid #FFFFFF",
+                  fontFamily: "Arial Black, Arial, sans-serif",
+                  fontSize: 34,
+                  textTransform: "uppercase",
+                  letterSpacing: 0,
+                  opacity,
+                  zIndex: 50,
+                }}
+              >
+                {label}
+              </div>
+            ) : null}
             <div
               style={{
                 ...comparisonBoardLayerStyle(layer, layerIndex, layers.length, frame, fps),
