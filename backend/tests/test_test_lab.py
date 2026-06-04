@@ -1940,6 +1940,74 @@ def test_stage_treatment_assets_generates_fallback_flipflop_cutout_urls(monkeypa
     ]
 
 
+def test_stage_treatment_assets_generates_stat_card_icon_cutout(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.image_gen as image_gen
+    import pipeline.test_lab as test_lab
+    from models.script import ScriptContent
+
+    with Session(engine) as session:
+        script_id = test_lab.create_hidden_test_script(
+            session,
+            run_id="run-stat-card-icon",
+            preset_id="stat-card-with-icon",
+            settings={},
+        )
+        session.commit()
+
+    def fail_panel_generation(*_args, **_kwargs):
+        raise AssertionError("stat_card should use stat-card cutout generation")
+
+    def fake_generate_stat_card_cutout(**kwargs):
+        assert kwargs["scene_id"] == "stat-card-with-icon-scene-1"
+        assert kwargs["script_id"] == script_id
+        assert "padlock icon" in kwargs["scene_prompt"]
+        assert [layer["id"] for layer in kwargs["layers"]] == ["stat-card-with-icon-stat-icon"]
+        return [
+            {
+                **kwargs["layers"][0],
+                "asset_kind": "cutout",
+                "image_url": "/static/projects/test/stat_cards/stat-card-with-icon-scene-1/icon_cutout.png",
+            }
+        ]
+
+    monkeypatch.setattr(image_gen, "generate_visual_layer_panels", fail_panel_generation)
+    monkeypatch.setattr(image_gen, "generate_stat_card_cutout", fake_generate_stat_card_cutout)
+
+    manifest = test_lab.TestLabRunManifest(
+        run_id="run-stat-card-icon",
+        script_id=script_id,
+        preset_id="stat-card-with-icon",
+        status="running",
+    )
+    ctx = test_lab.TestLabRunContext(
+        engine=engine,
+        run_id="run-stat-card-icon",
+        script_id=script_id,
+        preset_id="stat-card-with-icon",
+        settings={},
+        manifest=manifest,
+        job_id=None,
+    )
+
+    test_lab._stage_treatment_assets(ctx)
+
+    with Session(engine) as session:
+        record, content = test_lab._load_content_for_script(session, script_id)
+        _ = record
+        saved = ScriptContent.model_validate(content)
+
+    scene = saved.segments[0].scenes[0]
+    assert scene.visual_treatment == "stat_card"
+    assert [layer.image_url for layer in scene.visual_layers] == [
+        "/static/projects/test/stat_cards/stat-card-with-icon-scene-1/icon_cutout.png"
+    ]
+    assert [asset.url for asset in manifest.assets] == [
+        "/static/projects/test/stat_cards/stat-card-with-icon-scene-1/icon_cutout.png"
+    ]
+
+
 def test_stage_treatment_assets_skips_ai_video_scenes(monkeypatch, tmp_path):
     engine, _app = _setup_app(monkeypatch, tmp_path)
 

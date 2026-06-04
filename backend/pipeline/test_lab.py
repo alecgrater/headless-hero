@@ -986,6 +986,7 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
         generate_comparison_board_cutouts,
         generate_flipflop_cutouts,
         generate_popup_sequence_cutouts,
+        generate_stat_card_cutout,
         generate_visual_layer_panels,
     )
     from pipeline.visual_treatments import analyze_visual_treatments, apply_visual_treatment_assignments
@@ -1002,13 +1003,13 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
         requested_mode = ctx.settings.get("visual_mode") or ctx.settings.get("visual_treatment")
         if isinstance(requested_mode, str):
             scene.set_visual_mode(requested_mode)
-        layer_based_treatment = scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board"}
+        layer_based_treatment = scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card"}
         explicit_treatment = "visual_mode" in ctx.settings or "visual_treatment" in ctx.settings or scene.visual_mode != "full_frame"
         if not explicit_treatment:
             assignments = analyze_visual_treatments(content, script_id=ctx.script_id)
             apply_visual_treatment_assignments(content, assignments)
             scene = _first_scene(content)
-            layer_based_treatment = scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board"}
+            layer_based_treatment = scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card"}
         if scene.visual_mode == "full_frame":
             scene.visual_layers = []
             _save_content(session, record, content)
@@ -1064,6 +1065,14 @@ def _stage_treatment_assets(ctx: TestLabRunContext) -> None:
                     scene_prompt=scene.visual_prompt,
                     force=True,
                     contains_person=scene.contains_person,
+                )
+            elif scene.visual_mode == "stat_card":
+                generated_layers = generate_stat_card_cutout(
+                    scene_id=scene.id,
+                    layers=layer_dicts,
+                    script_id=ctx.script_id,
+                    scene_prompt=scene.visual_prompt,
+                    force=True,
                 )
             else:
                 generated_layers = generate_visual_layer_panels(
