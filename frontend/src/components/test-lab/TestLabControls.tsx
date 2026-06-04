@@ -142,7 +142,7 @@ const VISUAL_MODE_OPTIONS: Array<{
     label: "Flip-flop",
     icon: <Repeat2 className="h-4 w-4" />,
     summary: "Two compatible states alternate.",
-    description: "Generates two cropped character/body-language states that alternate over the canvas.",
+    description: "Generates two cropped transparent cutouts over the canvas for character/body-language alternation.",
     bestFor: "Talking mouth changes, nodding, pointing, leaning, shrugging, and simple character actions.",
   },
   {

@@ -310,6 +310,9 @@ describe("TestLabControls layout", () => {
     renderControls({ ...baseSettings, visual_mode: "flipflop" });
 
     const visualMode = screen.getByTestId("test-lab-section-visual-mode");
+    fireEvent.mouseEnter(within(visualMode).getByRole("button", { name: /Flip-flop/i }));
+
+    expect(within(visualMode).getByText(/cropped transparent cutouts over the canvas/i)).toBeInTheDocument();
     expect(within(visualMode).getByText(/State A/i)).toBeInTheDocument();
     expect(within(visualMode).getByText(/State B/i)).toBeInTheDocument();
   });

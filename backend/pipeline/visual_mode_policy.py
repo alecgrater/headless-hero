@@ -170,7 +170,16 @@ _OPPORTUNITY_POLICIES: dict[str, VisualModeOpportunityPolicy] = {
             "character leaning or shrugging",
             "explicit object action held by a person",
         ),
-        avoid_when=("contrast is only conceptual", "subjects are unrelated", "full environments change", "a true side-by-side comparison is needed"),
+        avoid_when=(
+            "contrast is only conceptual",
+            "contrast is between time periods",
+            "contrast is between emotional states",
+            "contrast is between locations",
+            "contrast is between outcomes",
+            "subjects are unrelated",
+            "full environments change",
+            "a true side-by-side comparison is needed",
+        ),
     ),
     "captions": VisualModeOpportunityPolicy(
         visual_mode="captions",

@@ -73,10 +73,16 @@ def test_visual_opportunity_guidance_is_script_type_agnostic_and_pre_scene():
 
 def test_flipflop_policy_prefers_character_body_language():
     text = prompt_visual_opportunity_guidance(projected_scene_count=20)
+    policy = opportunity_policy_for_mode("flipflop")
+    avoid_text = " ".join(policy.avoid_when)
 
     assert "cropped subject" in text
     assert "body-language" in text
     assert "conceptual" in text
+    assert "time periods" in avoid_text
+    assert "emotional states" in avoid_text
+    assert "locations" in avoid_text
+    assert "outcomes" in avoid_text
 
 
 def test_visual_opportunity_schema_guidance_requests_segment_opportunities():
