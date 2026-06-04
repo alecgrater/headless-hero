@@ -43,6 +43,7 @@ const WORKFLOW_STAGES = [
     goal: "Create a script whose scenes work as narration, visuals, and standalone short-form segments.",
     details: [
       "Generate the script and review the outline, segment titles, title cards, narration, and visual prompts before creating expensive media assets.",
+      "During outline generation, the app plans visual opportunities for each segment before scenes are cut, so modes like captions, flip-flop, stat cards, popup sequences, and comparison boards can get scenes shaped to the right length.",
       "Check the script rating and category breakdown. Treat low ratings as a signal to regenerate or edit the script while changes are still cheap.",
       "Confirm each segment ends cleanly on its own topic. Do not rely on a whole-video recap, subscribe request, or later scene to make a short make sense.",
       "Use timeline title editing for project title changes. The project title is canonical and is used later for export folders and deterministic short-form SEO titles.",
@@ -66,7 +67,7 @@ const WORKFLOW_STAGES = [
     title: "5. Validate visual modes and generate assets",
     goal: "Turn planned visual intent into render-ready images, layers, frames, and optional AI video clips.",
     details: [
-      "Visual modes are planned during script generation. After voiceover, validation uses real timing and word timestamps to prepare mode-specific assets or downgrade unsafe choices.",
+      "Visual modes are planned during script generation from the segment opportunity plan. After voiceover, validation uses real timing and word timestamps to prepare mode-specific assets or downgrade unsafe choices.",
       "Full-frame scenes generate one full-bleed image. Multi-frame and continuous scenes generate frame sequences. Layered modes generate cutouts, panels, stats, captions, or comparison assets instead of normal scene images.",
       "AI video scenes start from a generated anchor image, then produce motion through the configured video provider when timing, spacing, and caps allow it.",
       "Use Test Lab for risky visual behavior before spending a full project render. Test Lab should mirror production settings where the workflow depends on shared behavior.",

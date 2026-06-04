@@ -45,6 +45,7 @@ describe("DocsPage", () => {
 
     expect(screen.getByText("End-to-End Workflow")).toBeInTheDocument();
     expect(screen.getByText("Final Review Checklist")).toBeInTheDocument();
+    expect(screen.getByText(/plans visual opportunities for each segment/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Script Types" }));
     await waitFor(() => expect(screen.getByText("Format Comes First")).toBeInTheDocument());
@@ -62,6 +63,7 @@ describe("DocsPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Visual Modes" }));
     expect(screen.getByText("Planned Before Voiceover")).toBeInTheDocument();
+    expect(screen.getByText(/outline phase first marks visual opportunities/i)).toBeInTheDocument();
     expect(screen.getByText("Renderer Owns Text")).toBeInTheDocument();
   });
 });

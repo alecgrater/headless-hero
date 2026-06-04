@@ -8,7 +8,8 @@ describe("VisualModesSection duration workflow", () => {
     render(<VisualModesSection />);
 
     expect(screen.getByText(/planned before voiceover/i)).toBeInTheDocument();
-    expect(screen.getByText(/duration targets are tied to visual mode/i)).toBeInTheDocument();
+    expect(screen.getByText(/outline phase first marks visual opportunities/i)).toBeInTheDocument();
+    expect(screen.getByText(/renderer-owned modes get breathing room/i)).toBeInTheDocument();
     expect(screen.getByText(/post-voiceover validation/i)).toBeInTheDocument();
   });
 });
