@@ -69,6 +69,13 @@ def test_visual_opportunity_guidance_is_script_type_agnostic_and_pre_scene():
     assert "popup_sequence, comparison_board, and stat_card" in text
     assert "actively scan" in text
     assert "Do not force a quota" in text
+    assert "soft candidate discovery expectations" in text
+    assert "captions: usually find at least 2" in text
+    assert "popup_sequence: usually find at least 2" in text
+    assert "comparison_board: usually find at least 2" in text
+    assert "stat_card: usually find 1-2" in text
+    assert "visual_opportunity_coverage" in text
+    assert "not final scene quotas" in text
 
 
 def test_flipflop_policy_prefers_character_body_language():
@@ -89,8 +96,10 @@ def test_visual_opportunity_schema_guidance_requests_segment_opportunities():
     text = prompt_visual_opportunity_schema_guidance()
 
     assert '"visual_opportunities"' in text
+    assert '"visual_opportunity_coverage"' in text
     assert '"mode"' in text
     assert '"beat"' in text
     assert '"duration_profile"' in text
     assert '"priority"' in text
     assert "Do not include scenes" in text
+    assert "explain any mode that falls below the soft candidate expectation" in text

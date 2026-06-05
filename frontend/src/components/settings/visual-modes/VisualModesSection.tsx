@@ -29,8 +29,9 @@ export default function VisualModesSection() {
           <h3 className="text-sm font-semibold text-neutral-100">Planned Before Voiceover</h3>
           <p className="mt-2 text-xs leading-5 text-neutral-400">
             The outline phase first marks visual opportunities per segment, then scene writing shapes
-            narration and duration around the chosen modes. Normal image beats stay short while
-            renderer-owned modes get breathing room.
+            narration and duration around the chosen modes. For long scripts, captions, popup sequences,
+            comparison boards, and stat cards are soft candidates instead of quotas. Normal image beats
+            stay short while renderer-owned modes get breathing room.
           </p>
         </div>
         <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-4">

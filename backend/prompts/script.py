@@ -298,7 +298,7 @@ SCRIPT_OUTLINE_INSTRUCTIONS = register(PromptDef(
     domain="SCRIPT",
     purpose="Phase 1 of segmented generation — outline only, no scenes",
     target_model="claude",
-    expected_output_format="JSON: {title, card_title, intro_hook, outro_cta, segments[{name, topic_summary, visual_opportunities}]}",
+    expected_output_format="JSON: {title, card_title, intro_hook, outro_cta, visual_opportunity_coverage, segments[{name, topic_summary, visual_opportunities}]}",
     template="""\
 IMPORTANT: Return ONLY the script outline — NO scenes, NO narration.
 Return valid JSON with this structure:
@@ -309,6 +309,12 @@ Return valid JSON with this structure:
   "card_subtitle": "",
   "intro_hook": "A punchy 1-2 sentence hook.",
   "outro_cta": "A call-to-action for the end.",
+  "visual_opportunity_coverage": {
+    "captions": "Found 2+ candidates, or explain why fewer exact-phrase editorial beats fit.",
+    "popup_sequence": "Found 2+ candidates, or explain why fewer concrete item/object clusters fit.",
+    "comparison_board": "Found 2+ candidates, or explain why fewer true comparisons fit.",
+    "stat_card": "Found 1-2 candidates, or explain why no decisive number fits."
+  },
   "segments": [
     {
       "name": "Segment Name",
@@ -329,7 +335,8 @@ Return valid JSON with this structure:
   ]
 }
 Do NOT include any scenes. Only segment metadata and topic summaries.
-For each segment, include a compact "visual_opportunities" array before any scenes are written. These are planning notes, not final scene JSON. Identify natural opportunities across the canonical visual-mode vocabulary early enough that scene boundaries and duration can be shaped later; not every mode or segment needs an opportunity. Do not force opportunities or invent extra segment beats; preserve script quality first.
+For each segment, include a compact "visual_opportunities" array before any scenes are written. These are planning notes, not final scene JSON. Identify natural opportunities across the canonical visual-mode vocabulary early enough that scene boundaries and duration can be shaped later.
+Use soft candidate discovery expectations, not final visual-mode quotas: for a long script, usually surface at least 2 plausible candidates each for `captions`, `popup_sequence`, and `comparison_board`, plus 1-2 `stat_card` candidates, unless the topic genuinely lacks that mode shape. If any of those modes falls below the soft expectation, explain why in top-level "visual_opportunity_coverage". Do not force opportunities or invent extra segment beats; preserve script quality first.
 Do NOT include countdown/ranking numbers in segment names or short_name values. Avoid prefixes like "Number eight", "#8", "8.", "No. 8", "Part 8", or "Segment 8" unless the number is intrinsic to the topic.
 Set card_subtitle to an empty string. Do NOT create title-card subtitles, kickers, taglines, or secondary phrases.
 """,
@@ -580,7 +587,7 @@ LIFE_AS_A_OUTLINE_INSTRUCTIONS = register(PromptDef(
     purpose="Phase-1 outline instruction for life-as-a segmented generation",
     target_model="claude",
     expected_output_format=(
-        "JSON: {title, levels: [{number, descriptor, topic_summary, image_prompt, visual_opportunities}], "
+        "JSON: {title, visual_opportunity_coverage, levels: [{number, descriptor, topic_summary, image_prompt, visual_opportunities}], "
         "cinematic_thumbnail_prompt, intro_hook, outro_cta, segments: same as levels with visual_opportunities}"
     ),
     template="""\
@@ -618,6 +625,12 @@ Return ONLY valid JSON — no markdown fences, no commentary. The JSON has this 
   "closing_register": "cautionary" | "reflective",
   "closing_image": "One specific sensory line describing the final image of the video.",
   "cinematic_thumbnail_prompt": "A single iconic image describing the overall life-path topic.",
+  "visual_opportunity_coverage": {
+    "captions": "Found 2+ candidates, or explain why fewer exact-phrase editorial beats fit.",
+    "popup_sequence": "Found 2+ candidates, or explain why fewer concrete item/object clusters fit.",
+    "comparison_board": "Found 2+ candidates, or explain why fewer true comparisons fit.",
+    "stat_card": "Found 1-2 candidates, or explain why no decisive number fits."
+  },
   "levels": [
     {
       "number": 1,
@@ -672,7 +685,8 @@ CRITICAL:
 - `levels` and `segments` MUST be parallel arrays of identical length and order. Each `segments[i].name` MUST literally be `Level {levels[i].number}, the {levels[i].descriptor}` (comma after the number, lowercase descriptor, no colon). This is what the existing segmented machinery reads.
 - Pick a level count between 4 and 7 inclusive.
 - `closing_register` is required and must be exactly `"cautionary"` or `"reflective"`.
-- For every level and its parallel segment object, include "visual_opportunities". These are not scenes. They are early planning notes that identify natural opportunities across the canonical visual-mode vocabulary so the later per-level scene phase can write narration at the right length for the selected mode. Not every mode, level, or segment needs an opportunity. Do not turn the level into a listicle or add beats only to satisfy variety. They are planning notes, not final scene JSON.
+- For every level and its parallel segment object, include "visual_opportunities". These are not scenes. They are early planning notes that identify natural opportunities across the canonical visual-mode vocabulary so the later per-level scene phase can write narration at the right length for the selected mode.
+- Use soft candidate discovery expectations, not final visual-mode quotas: for a long script, usually surface at least 2 plausible candidates each for `captions`, `popup_sequence`, and `comparison_board`, plus 1-2 `stat_card` candidates, unless the life path genuinely lacks that mode shape. If any of those modes falls below the soft expectation, explain why in top-level "visual_opportunity_coverage". Do not turn the level into a listicle or add beats only to satisfy variety. They are planning notes, not final scene JSON.
 - Do NOT include any scenes. Only metadata.
 """,
     retention=RetentionMeta(

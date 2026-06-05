@@ -186,16 +186,18 @@ def test_script_prompt_routes_modes_by_best_fit_not_forced_quotas():
 def test_outline_prompts_request_visual_opportunities_before_scenes():
     standard_prompt = script_prompt.SCRIPT_OUTLINE_INSTRUCTIONS.template
     assert "across the canonical visual-mode vocabulary" in standard_prompt
-    assert "not every mode or segment needs an opportunity" in standard_prompt
+    assert "soft candidate discovery expectations" in standard_prompt
 
     for prompt in (
         standard_prompt,
         script_prompt.LIFE_AS_A_OUTLINE_INSTRUCTIONS.template,
     ):
         assert '"visual_opportunities"' in prompt
+        assert '"visual_opportunity_coverage"' in prompt
         assert "before any scenes are written" in prompt
         assert "Do not include any scenes" in prompt or "NO scenes" in prompt
         assert "not final scene JSON" in prompt
+        assert "not final visual-mode quotas" in prompt
 
 
 def test_segment_prompts_consume_visual_opportunities_without_quotas():

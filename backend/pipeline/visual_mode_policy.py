@@ -270,6 +270,20 @@ def prompt_visual_opportunity_guidance(projected_scene_count: int | None = None)
         "Visual opportunity planning is script-type agnostic and happens before final scenes are written.",
         "Scene boundaries, narration length, duration estimates, and mode-specific fields must be shaped together.",
         f"{scene_hint}full_frame remains dominant. Do not force a quota or distort narration for visual variety.",
+        (
+            "Use soft candidate discovery expectations during outline planning: these are not final scene quotas, "
+            "but long scripts should not silently accept zero candidates for renderer-owned modes."
+        ),
+        (
+            "For long scripts, captions: usually find at least 2 exact-phrase editorial candidates; "
+            "popup_sequence: usually find at least 2 concrete item/object cluster candidates; "
+            "comparison_board: usually find at least 2 true contrast candidates; "
+            "stat_card: usually find 1-2 decisive-number candidates."
+        ),
+        (
+            "If the outline falls below those soft expectations, add visual_opportunity_coverage explaining "
+            "which modes were genuinely unsupported by the topic instead of omitting them silently."
+        ),
         "Treat flipflop and captions as common expressive rhythm opportunities in long scripts when the narration supports them.",
         "Keep popup_sequence, comparison_board, and stat_card low-count and meaning-driven, but actively scan for them before accepting zero.",
         "Post-generation checks may validate or downgrade invalid modes, but must not redistribute modes into already-cut short scenes.",
@@ -285,6 +299,7 @@ def prompt_visual_opportunity_guidance(projected_scene_count: int | None = None)
 def prompt_visual_opportunity_schema_guidance() -> str:
     return """\
 Add a compact "visual_opportunities" array to every outline segment. Do not include scenes or narration body.
+Also add a top-level "visual_opportunity_coverage" object that summarizes candidate discovery across the whole outline; explain any mode that falls below the soft candidate expectation.
 Each opportunity object must use this shape:
 {
   "mode": "captions|flipflop|multi_frame|continuous|popup_sequence|comparison_board|stat_card|video|full_frame",
@@ -292,6 +307,13 @@ Each opportunity object must use this shape:
   "why": "Why this mode strengthens the beat without hurting script quality.",
   "duration_profile": "normal|medium|extended|planned",
   "priority": "strong|possible"
+}
+The coverage object should use this shape:
+{
+  "captions": "Found 2+ candidates, or explain why fewer exact-phrase editorial beats fit.",
+  "popup_sequence": "Found 2+ candidates, or explain why fewer concrete item/object clusters fit.",
+  "comparison_board": "Found 2+ candidates, or explain why fewer true comparisons fit.",
+  "stat_card": "Found 1-2 candidates, or explain why no decisive number fits."
 }
 Use opportunities as planning notes only. They guide future scene boundaries; they are not final scene JSON.
 """

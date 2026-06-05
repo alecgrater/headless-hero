@@ -44,6 +44,7 @@ const WORKFLOW_STAGES = [
     details: [
       "Generate the script and review the outline, segment titles, title cards, narration, and visual prompts before creating expensive media assets.",
       "During outline generation, the app plans visual opportunities for each segment before scenes are cut, so modes like captions, flip-flop, stat cards, popup sequences, and comparison boards can get scenes shaped to the right length.",
+      "For long scripts, outline planning uses soft candidate discovery expectations for captions, popup sequences, comparison boards, and stat cards. Final mode usage remains contextual instead of quota-driven.",
       "Check the script rating and category breakdown. Treat low ratings as a signal to regenerate or edit the script while changes are still cheap.",
       "Confirm each segment ends cleanly on its own topic. Do not rely on a whole-video recap, subscribe request, or later scene to make a short make sense.",
       "Use timeline title editing for project title changes. The project title is canonical and is used later for export folders and deterministic short-form SEO titles.",
