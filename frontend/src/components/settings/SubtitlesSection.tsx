@@ -71,17 +71,19 @@ function arraysMatch(a: string[], b: string[]): boolean {
 function StylePreview({ style }: { style: EnabledSubtitleStyle }) {
   if (style === "kinetic") {
     return (
-      <div className="flex h-20 items-center justify-center gap-2 rounded-lg bg-neutral-950/80 px-4">
-        {["This", "changes", "everything"].map((word, index) => (
-          <span
-            key={word}
-            className={`rounded-md px-2.5 py-1.5 text-sm font-black leading-none shadow-[4px_5px_0_rgba(0,0,0,0.75)] ${
-              index === 1 ? "rotate-1 bg-red-500 text-white" : "-rotate-1 bg-neutral-100 text-neutral-950"
-            }`}
-          >
-            {word}
-          </span>
-        ))}
+      <div
+        data-testid="kinetic-style-preview"
+        className="flex h-20 flex-col items-center justify-center gap-1.5 rounded-lg bg-neutral-950/80 px-4"
+      >
+        <span className="-rotate-1 rounded-md bg-neutral-100 px-3 py-1 text-sm font-black leading-none text-neutral-950 shadow-[4px_5px_0_rgba(0,0,0,0.75)]">
+          This
+        </span>
+        <span className="rotate-1 rounded-md bg-red-500 px-3 py-1 text-sm font-black leading-none text-white shadow-[4px_5px_0_rgba(0,0,0,0.75)]">
+          changes
+        </span>
+        <span className="-rotate-1 rounded-md bg-neutral-100 px-3 py-1 text-sm font-black leading-none text-neutral-950 shadow-[4px_5px_0_rgba(0,0,0,0.75)]">
+          everything
+        </span>
       </div>
     );
   }
@@ -268,9 +270,9 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
                 type="button"
                 aria-pressed={selected}
                 onClick={() => toggleStyle(option.id)}
-                className={`grid w-full gap-4 border-t border-neutral-800 py-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 md:grid-cols-[180px_minmax(0,1fr)_auto] md:items-center ${
+                className={`grid w-full gap-4 border-t border-neutral-800 px-4 py-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 md:grid-cols-[180px_minmax(0,1fr)_auto] md:items-center ${
                   selected
-                    ? "text-neutral-100"
+                    ? "bg-violet-500/10 text-neutral-100 shadow-[0_18px_42px_rgba(139,92,246,0.18)]"
                     : "text-neutral-400 hover:text-neutral-100"
                 }`}
               >
@@ -280,7 +282,7 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
                   <p className="mt-1 max-w-xl text-xs leading-relaxed text-neutral-500">{option.description}</p>
                 </div>
                 <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full justify-self-start md:justify-self-end ${
-                  selected ? "bg-sky-500 text-white" : "bg-neutral-800 text-neutral-600"
+                  selected ? "bg-violet-500 text-white" : "bg-neutral-800 text-neutral-600"
                 }`}>
                   {selected && <Check className="h-3.5 w-3.5" />}
                 </span>

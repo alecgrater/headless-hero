@@ -72,8 +72,14 @@ describe("SubtitlesSection settings", () => {
     expect(styleSection).toHaveClass("xl:grid-cols-[220px_minmax(0,1fr)]", "border-t", "border-neutral-800");
 
     const cleanStyle = screen.getByRole("button", { name: /Clean/i });
-    expect(cleanStyle).toHaveClass("grid", "border-t", "border-neutral-800");
+    expect(cleanStyle).toHaveClass("grid", "border-t");
     expect(cleanStyle).not.toHaveClass("rounded-xl", "border-l-2");
+
+    const kineticStyle = screen.getByRole("button", { name: /Kinetic Cards/i });
+    expect(kineticStyle).toHaveClass("bg-violet-500/10", "shadow-[0_18px_42px_rgba(139,92,246,0.18)]");
+
+    const kineticPreview = screen.getByTestId("kinetic-style-preview");
+    expect(kineticPreview).toHaveClass("flex-col");
 
     fireEvent.click(screen.getByRole("button", { name: /All non-caption scenes/i }));
     fireEvent.click(screen.getByRole("button", { name: /Clean/i }));
