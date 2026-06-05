@@ -294,10 +294,10 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
                 key={model.id}
                 type="button"
                 onClick={() => applyModel(model.id)}
-                className={`rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                className={`border-l-2 py-2 pl-4 pr-3 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
                   ttsSettings.ELEVENLABS_TTS_MODEL === model.id
-                    ? "border-violet-500 bg-violet-500/15 text-violet-100"
-                    : "border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                    ? "border-violet-400 text-violet-100"
+                    : "border-neutral-800 text-neutral-300 hover:border-neutral-600"
                 }`}
               >
                 {model.label}
@@ -328,10 +328,10 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
                 key={id}
                 type="button"
                 onClick={() => applyDeliveryPreset(id as DeliveryPresetId)}
-                className={`rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                className={`border-l-2 py-2 pl-4 pr-3 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
                   activeDeliveryPreset === id
-                    ? "border-violet-500 bg-violet-500/15 text-violet-100"
-                    : "border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                    ? "border-violet-400 text-violet-100"
+                    : "border-neutral-800 text-neutral-300 hover:border-neutral-600"
                 }`}
               >
                 {preset.label}
@@ -340,10 +340,10 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
             <button
               type="button"
               onClick={() => setDeliveryPresetSelection("custom")}
-              className={`rounded-lg border px-3 py-2 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+              className={`border-l-2 py-2 pl-4 pr-3 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
                 activeDeliveryPreset === "custom"
-                  ? "border-violet-500 bg-violet-500/15 text-violet-100"
-                  : "border-neutral-700 bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                  ? "border-violet-400 text-violet-100"
+                  : "border-neutral-800 text-neutral-300 hover:border-neutral-600"
               }`}
             >
               Custom
@@ -498,7 +498,9 @@ function AudioProcessingSection({
         ]).map(({ key, label, desc }) => (
           <label
             key={key}
-            className="flex items-center justify-between p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/50 cursor-pointer hover:bg-neutral-800 transition-colors"
+            className={`flex cursor-pointer items-center justify-between border-l-2 py-3 pl-4 pr-3 transition-colors hover:border-neutral-600 ${
+              audioFilters[key] ? "border-violet-400" : "border-neutral-800"
+            }`}
           >
             <div>
               <p className="text-sm font-medium text-neutral-200">{label}</p>

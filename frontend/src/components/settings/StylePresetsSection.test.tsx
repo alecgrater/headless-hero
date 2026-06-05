@@ -106,6 +106,9 @@ describe("StylePresetsSection", () => {
     expect(screen.getByRole("radio", { name: /No global style preset/i })).not.toBeChecked();
     expect(screen.queryByRole("switch", { name: /Enable Eli host overlay by default for new projects/i })).toBeNull();
     expect(screen.queryByRole("checkbox", { name: /Style preset/i })).toBeNull();
+    const selectedVisualIdentity = screen.getByText("Style preset and main character").closest("label");
+    expect(selectedVisualIdentity).toHaveClass("border-l-2", "border-violet-400");
+    expect(selectedVisualIdentity).not.toHaveClass("rounded-lg", "border", "bg-violet-500/10");
 
     await user.click(screen.getByRole("radio", { name: /Eli host overlay/i }));
 

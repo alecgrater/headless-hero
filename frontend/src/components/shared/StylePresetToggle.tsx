@@ -83,10 +83,10 @@ export function StylePresetToggle({
         return (
           <label
             key={option.id}
-            className={`flex min-h-28 cursor-pointer flex-col rounded-lg border p-3 transition-colors ${
+            className={`flex min-h-28 cursor-pointer flex-col border-l-2 py-3 pl-4 pr-3 transition-colors ${
               selected
-                ? "border-violet-500 bg-violet-500/10 text-neutral-100"
-                : "border-neutral-800 bg-neutral-950/40 text-neutral-300 hover:border-neutral-700 hover:bg-neutral-900"
+                ? "border-violet-400 text-neutral-100"
+                : "border-neutral-800 text-neutral-300 hover:border-neutral-600"
             }`}
           >
             <span className="flex items-start justify-between gap-3">
