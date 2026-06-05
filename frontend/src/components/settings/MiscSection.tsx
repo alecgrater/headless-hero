@@ -159,7 +159,7 @@ export default function MiscSection({ showHeader = true, embedded = false }: Mis
 
       <section className="space-y-3">
         <div>
-          <h3 className="text-base font-semibold text-neutral-100">Workflow</h3>
+          <h3 className={`${embedded ? "text-sm" : "text-base"} font-semibold text-neutral-100`}>Workflow</h3>
           <p className="text-xs leading-relaxed text-neutral-500">Controls that change ideation and script-prep flow.</p>
         </div>
         <SettingsRow
@@ -176,7 +176,7 @@ export default function MiscSection({ showHeader = true, embedded = false }: Mis
 
       <section className="space-y-3">
         <div>
-          <h3 className="text-base font-semibold text-neutral-100">Rendering</h3>
+          <h3 className={`${embedded ? "text-sm" : "text-base"} font-semibold text-neutral-100`}>Rendering</h3>
           <p className="text-xs leading-relaxed text-neutral-500">Controls that affect export UI and generation pacing.</p>
         </div>
         <div className="space-y-3">
@@ -205,7 +205,7 @@ export default function MiscSection({ showHeader = true, embedded = false }: Mis
 
       <section className="space-y-3">
         <div>
-          <h3 className="text-base font-semibold text-neutral-100">Image Generation Safety</h3>
+          <h3 className={`${embedded ? "text-sm" : "text-base"} font-semibold text-neutral-100`}>Image Generation Safety</h3>
           <p className="text-xs leading-relaxed text-neutral-500">Riskier fallback behavior for rough drafts only.</p>
         </div>
         <SettingsRow

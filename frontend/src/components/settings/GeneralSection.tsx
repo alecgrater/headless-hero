@@ -631,7 +631,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
           <div className="space-y-8">
             <section className="space-y-3">
               <div>
-                <h3 className="text-base font-semibold text-neutral-100">Exports</h3>
+                <h3 className="text-lg font-semibold text-neutral-100">Exports</h3>
                 <p className="text-xs leading-relaxed text-neutral-500">
                   Final project folders, upload-suite checks, rendered videos, thumbnails, and SEO files live here.
                 </p>
@@ -661,7 +661,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
 
             <section className="space-y-3">
               <div>
-                <h3 className="text-base font-semibold text-neutral-100">Publishing</h3>
+                <h3 className="text-lg font-semibold text-neutral-100">Publishing</h3>
                 <p className="text-xs leading-relaxed text-neutral-500">
                   Connect upload destinations for rendered short-form exports.
                 </p>
@@ -671,7 +671,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
 
             <section className="space-y-3">
               <div>
-                <h3 className="text-base font-semibold text-neutral-100">Advanced</h3>
+                <h3 className="text-lg font-semibold text-neutral-100">Advanced</h3>
                 <p className="text-xs leading-relaxed text-neutral-500">
                   Less common workflow, rendering, and image fallback controls.
                 </p>

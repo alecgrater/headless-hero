@@ -128,7 +128,9 @@ export default function PublishingSection({ showHeader = true, embedded = false 
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1">
-                  <h3 className="text-base font-semibold text-neutral-100">{platform.name}</h3>
+                  <h3 className={`${embedded ? "text-sm" : "text-base"} font-semibold text-neutral-100`}>
+                    {platform.name}
+                  </h3>
                   <p className="text-xs leading-relaxed text-neutral-500">{platform.description}</p>
                 </div>
                 {conn?.connected ? (

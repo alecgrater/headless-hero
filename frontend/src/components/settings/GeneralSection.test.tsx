@@ -28,9 +28,22 @@ describe("GeneralSection visuals layout", () => {
   it("renders exports, publishing, and advanced controls on the General page", async () => {
     render(createElement(GeneralSection, { panel: "general", showHeader: false }));
 
-    expect(await screen.findByRole("heading", { name: "Exports", level: 3 })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Publishing", level: 3 })).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "Workflow", level: 3 })).toBeInTheDocument();
+    const exportsHeading = await screen.findByRole("heading", { name: "Exports", level: 3 });
+    const publishingHeading = screen.getByRole("heading", { name: "Publishing", level: 3 });
+    const advancedHeading = screen.getByRole("heading", { name: "Advanced", level: 3 });
+    const youtubeHeading = screen.getByRole("heading", { name: "YouTube Shorts", level: 3 });
+    const workflowHeading = await screen.findByRole("heading", { name: "Workflow", level: 3 });
+
+    for (const sectionHeading of [exportsHeading, publishingHeading, advancedHeading]) {
+      expect(sectionHeading).toHaveClass("text-lg", "font-semibold");
+      expect(sectionHeading).not.toHaveClass("text-base");
+    }
+    for (const subsectionHeading of [youtubeHeading, workflowHeading]) {
+      expect(subsectionHeading).toHaveClass("text-sm", "font-semibold");
+      expect(subsectionHeading).not.toHaveClass("text-base");
+      expect(subsectionHeading).not.toHaveClass("text-lg");
+    }
+
     expect(screen.getByRole("heading", { name: "Rendering", level: 3 })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Image Generation Safety", level: 3 })).toBeInTheDocument();
   });
