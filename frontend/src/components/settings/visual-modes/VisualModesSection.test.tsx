@@ -11,7 +11,9 @@ describe("VisualModesSection duration workflow", () => {
     expect(screen.getByText(/outline phase first marks visual opportunities/i)).toBeInTheDocument();
     expect(screen.getByText(/captions, popup sequences, comparison boards, and stat cards/i)).toBeInTheDocument();
     expect(screen.getByText(/soft candidates instead of quotas/i)).toBeInTheDocument();
-    expect(screen.getByText(/renderer-owned modes get breathing room/i)).toBeInTheDocument();
+    expect(screen.getByText(/captions are normal-duration editorial punches/i)).toBeInTheDocument();
+    expect(screen.getByText(/metadata-only audit/i)).toBeInTheDocument();
+    expect(screen.getByText(/board and object modes get breathing room/i)).toBeInTheDocument();
     expect(screen.getByText(/post-voiceover validation/i)).toBeInTheDocument();
   });
 });

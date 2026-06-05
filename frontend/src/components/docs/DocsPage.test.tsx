@@ -48,6 +48,8 @@ describe("DocsPage", () => {
     expect(screen.getByText(/plans visual opportunities for each segment/i)).toBeInTheDocument();
     expect(screen.getByText(/soft candidate discovery expectations/i)).toBeInTheDocument();
     expect(screen.getByText(/final mode usage remains contextual/i)).toBeInTheDocument();
+    expect(screen.getByText(/caption beats use normal short-scene timing/i)).toBeInTheDocument();
+    expect(screen.getByText(/metadata-only audit/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Script Types" }));
     await waitFor(() => expect(screen.getByText("Format Comes First")).toBeInTheDocument());
@@ -68,6 +70,7 @@ describe("DocsPage", () => {
     expect(screen.getByText(/outline phase first marks visual opportunities/i)).toBeInTheDocument();
     expect(screen.getByText(/captions, popup sequences, comparison boards, and stat cards/i)).toBeInTheDocument();
     expect(screen.getByText(/soft candidates instead of quotas/i)).toBeInTheDocument();
+    expect(screen.getByText(/captions are normal-duration editorial punches/i)).toBeInTheDocument();
     expect(screen.getByText("Renderer Owns Text")).toBeInTheDocument();
   });
 });

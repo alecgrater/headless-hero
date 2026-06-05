@@ -172,6 +172,61 @@ LEGACY_BEAT_ALIASES = {
 
 _SHOT_LABEL_RE = re.compile(r"^\[([A-Z\-]+)\]")
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+_INTERNAL_VISUAL_MODE_RE = re.compile(
+    r"\b(?:captions? rendering|popup sequence|comparison board|stat card|visual mode)\b",
+    re.IGNORECASE,
+)
+_MONEY_STAT_RE = re.compile(r"\$[\d,]+(?:\.\d+)?(?:\s*(?:to|-|and)\s*\$?[\d,]+(?:\.\d+)?)?")
+_DIGIT_STAT_RE = re.compile(
+    r"\b\d+(?:\.\d+)?\s*(?:years?|months?|weeks?|days?|hours?|dollars?|percent|%)\b",
+    re.IGNORECASE,
+)
+_WORD_NUMBER_STAT_RE = re.compile(
+    r"\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|"
+    r"fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|"
+    r"eighty|ninety|hundred|thousand|million|billion)(?:[-\s](?:one|two|three|four|five|six|"
+    r"seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|"
+    r"eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|"
+    r"thousand|million|billion))*\s+(?:years?|months?|weeks?|days?|hours?|dollars?)\b",
+    re.IGNORECASE,
+)
+_CAPTION_PUNCH_WORDS = {
+    "actually",
+    "almost",
+    "alone",
+    "anymore",
+    "counts",
+    "enough",
+    "free",
+    "gravity",
+    "load-bearing",
+    "never",
+    "none",
+    "not",
+    "temporary",
+    "version",
+}
+_CAPTION_STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "as",
+    "at",
+    "for",
+    "in",
+    "is",
+    "it",
+    "of",
+    "on",
+    "or",
+    "that",
+    "the",
+    "this",
+    "to",
+    "you",
+    "your",
+}
+_AUDIT_PROMOTABLE_MODES = {"full_frame"}
 GENERAL_TARGET_SCENE_SECONDS = 8.0
 GENERAL_MAX_SCENE_SECONDS = 14.0
 
@@ -198,6 +253,12 @@ def _directive_mode(scene: Scene, beat: str) -> str:
 def _synthesize_frame_directives(scene: Scene, beat: str) -> None:
     """Ensure post-processed non-static beats actually generate multiple frames."""
     if scene.is_title_card:
+        return
+    if scene.visual_mode == "captions" and not scene.visual_prompt.strip():
+        scene.frame_directives = []
+        return
+    if scene.visual_mode == "stat_card":
+        scene.frame_directives = []
         return
     if scene.frame_directives and len(scene.frame_directives) > 1:
         return
@@ -275,6 +336,131 @@ def _ensure_visual_beat_directives(content: ScriptContent) -> None:
         from pipeline.formats.life_as_a import enforce_life_as_a_visual_complexity
 
         enforce_life_as_a_visual_complexity(content)
+
+
+def _normalized_words(text: str) -> list[str]:
+    return [
+        re.sub(r"(^[^\w$]+|[^\w$-]+$)", "", word).casefold()
+        for word in text.split()
+    ]
+
+
+def _caption_emphasis_for_text(text: str) -> str:
+    words = [word for word in _normalized_words(text) if word and word not in _CAPTION_STOPWORDS]
+    marked = [word for word in words if word in _CAPTION_PUNCH_WORDS]
+    return marked[-1] if marked else (words[-1] if words else "")
+
+
+def _caption_candidate_for_scene(scene: Scene) -> tuple[str, str] | None:
+    if scene.is_title_card or scene.visual_mode not in _AUDIT_PROMOTABLE_MODES:
+        return None
+    candidates = _split_narration_sentences(scene.narration)
+    for candidate in candidates:
+        text = re.sub(r"\s+", " ", candidate.strip(" .!?;:"))
+        words = _normalized_words(text)
+        content_words = [word for word in words if word and word not in _CAPTION_STOPWORDS]
+        if not 2 <= len(content_words) <= 10:
+            continue
+        if not any(word in _CAPTION_PUNCH_WORDS for word in content_words):
+            continue
+        emphasis = _caption_emphasis_for_text(text)
+        if emphasis:
+            return text, emphasis
+    return None
+
+
+def _stat_candidate_for_scene(scene: Scene) -> tuple[str, str] | None:
+    if scene.is_title_card or scene.visual_mode not in _AUDIT_PROMOTABLE_MODES:
+        return None
+    text = scene.narration.strip()
+    matches = (
+        [match.group(0).strip() for match in _MONEY_STAT_RE.finditer(text)]
+        + [match.group(0).strip() for match in _DIGIT_STAT_RE.finditer(text)]
+        + [match.group(0).strip() for match in _WORD_NUMBER_STAT_RE.finditer(text)]
+    )
+    deduped: list[str] = []
+    for value in matches:
+        if value.casefold() not in {existing.casefold() for existing in deduped}:
+            deduped.append(value)
+    if len(deduped) != 1:
+        return None
+    stat_value = deduped[0]
+    label = re.sub(re.escape(stat_value), "", text, count=1, flags=re.IGNORECASE)
+    label = re.sub(r"^\s*(?:by|in|after|before|around|about|nearly|almost|roughly|with)\b\s*", "", label, flags=re.IGNORECASE)
+    label = re.sub(r"\s+", " ", label.strip(" .,:;—–-"))
+    words = label.split()
+    if len(words) > 10:
+        label = " ".join(words[-10:])
+    return stat_value, label or "key metric"
+
+
+def _audit_can_promote(scene: Scene, previous_mode: str, next_mode: str) -> bool:
+    if scene.is_title_card or scene.visual_mode not in _AUDIT_PROMOTABLE_MODES:
+        return False
+    return previous_mode == "full_frame" and next_mode == "full_frame"
+
+
+def _set_text_only_caption(scene: Scene, caption_text: str, caption_emphasis: str) -> None:
+    scene.set_visual_mode("captions")
+    scene.caption_text = caption_text
+    scene.caption_emphasis = caption_emphasis
+    scene.visual_prompt = ""
+    scene.frame_directives = []
+    scene.image_url = ""
+    scene.frame_urls = []
+
+
+def _set_stat_card(scene: Scene, stat_value: str, stat_label: str) -> None:
+    scene.set_visual_mode("stat_card")
+    scene.stat_value = stat_value
+    scene.stat_label = stat_label
+    scene.visual_prompt = ""
+    scene.frame_directives = []
+    scene.image_url = ""
+    scene.frame_urls = []
+
+
+def _audit_visual_mode_metadata(content: ScriptContent) -> dict[str, int]:
+    """Promote obvious metadata-only caption/stat opportunities before voiceover."""
+    scenes = [scene for scene in content.all_scenes() if not scene.is_title_card]
+    leaked_scene_ids = [
+        scene.id
+        for scene in scenes
+        if _INTERNAL_VISUAL_MODE_RE.search(scene.narration or "")
+    ]
+    if leaked_scene_ids:
+        raise RuntimeError(
+            "Generated narration contains internal visual-mode language before voiceover "
+            f"in scenes: {', '.join(leaked_scene_ids)}"
+        )
+
+    counts = {"captions": 0, "stat_card": 0}
+    if not scenes:
+        return counts
+
+    target_caption_count = min(6, max(2, len(scenes) // 18))
+    max_stat_count = 2
+
+    modes_by_index = [scene.visual_mode or "full_frame" for scene in scenes]
+    for index, scene in enumerate(scenes):
+        previous_mode = modes_by_index[index - 1] if index > 0 else "full_frame"
+        next_mode = modes_by_index[index + 1] if index < len(scenes) - 1 else "full_frame"
+        if counts["stat_card"] < max_stat_count and _audit_can_promote(scene, previous_mode, next_mode):
+            stat_candidate = _stat_candidate_for_scene(scene)
+            if stat_candidate is not None:
+                stat_value, stat_label = stat_candidate
+                _set_stat_card(scene, stat_value, stat_label)
+                modes_by_index[index] = "stat_card"
+                counts["stat_card"] += 1
+                continue
+        if counts["captions"] < target_caption_count and _audit_can_promote(scene, previous_mode, next_mode):
+            caption_candidate = _caption_candidate_for_scene(scene)
+            if caption_candidate is not None:
+                caption_text, caption_emphasis = caption_candidate
+                _set_text_only_caption(scene, caption_text, caption_emphasis)
+                modes_by_index[index] = "captions"
+                counts["captions"] += 1
+    return counts
 
 
 def _split_narration_sentences(narration: str) -> list[str]:
@@ -627,6 +813,9 @@ def generate_script(
 
     content.format_id = fmt.id
     content = fmt.enforce_post_processing(content, eli_enabled=eli_enabled)
+    audited_modes = _audit_visual_mode_metadata(content)
+    if any(audited_modes.values()):
+        logger.info("Script visual metadata audit promoted modes: %s", audited_modes)
     _ensure_scene_granularity(content)
     _fix_visual_monotony(content, rules=fmt.visual_beat_rules)
     _ensure_visual_beat_directives(content)

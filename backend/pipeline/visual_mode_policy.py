@@ -66,12 +66,12 @@ _TARGETS: dict[str, VisualModeDurationTarget] = {
     ),
     "captions": VisualModeDurationTarget(
         visual_mode="captions",
-        profile="extended",
-        min_seconds=12.0,
-        target_seconds=16.0,
-        max_seconds=20.0,
-        ui_label="Extended target · 14-18s",
-        prompt_guidance="Use about 14-18 seconds so the editorial text lands with enough narration context.",
+        profile="normal",
+        min_seconds=5.0,
+        target_seconds=8.0,
+        max_seconds=14.0,
+        ui_label="Normal target · 5-9s",
+        prompt_guidance="Use about 5-9 seconds for a short editorial punch phrase from narration.",
     ),
     "comparison_board": VisualModeDurationTarget(
         visual_mode="comparison_board",
@@ -251,7 +251,7 @@ def prompt_duration_guidance() -> str:
     lines = [
         "Scene duration is driven by visual_mode, not script type, and is planned before voiceover.",
         "Use full_frame, multi_frame, continuous, and flipflop as normal short scenes around 5-9 seconds.",
-        "Use captions around 14-18 seconds so the editorial text has context.",
+        "Use captions as normal short scenes around 5-9 seconds for a short editorial punch phrase.",
         "Use comparison_board around 16-24 seconds so viewers can compare the columns.",
         "Use popup_sequence around 14-20 seconds so item layers can appear clearly.",
         "Use stat_card around 10-14 seconds unless it is a very fast numerical punch.",

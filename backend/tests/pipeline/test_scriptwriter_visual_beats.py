@@ -9,6 +9,7 @@ from models.script import Scene, ScriptContent, Segment
 from pipeline.formats.base import VisualBeatRules
 from pipeline.formats.life_as_a import LIFE_AS_A_BEAT_RULES
 from pipeline.scriptwriter import (
+    _audit_visual_mode_metadata,
     _ensure_scene_granularity,
     _ensure_visual_beat_directives,
     _fix_visual_monotony,
@@ -183,6 +184,15 @@ def test_script_prompt_routes_modes_by_best_fit_not_forced_quotas():
     assert "MUST use a different mode" not in prompt_text
 
 
+def test_script_prompt_treats_captions_as_short_editorial_punches():
+    prompt_text = script_prompt.SCRIPT_SYSTEM.template
+
+    assert "captions" in prompt_text
+    assert "short editorial punch" in prompt_text
+    assert "Captions can use normal short-scene timing" in prompt_text
+    assert "captions ~14-18s" not in prompt_text
+
+
 def test_outline_prompts_request_visual_opportunities_before_scenes():
     standard_prompt = script_prompt.SCRIPT_OUTLINE_INSTRUCTIONS.template
     assert "across the canonical visual-mode vocabulary" in standard_prompt
@@ -217,6 +227,101 @@ def test_segment_prompts_consume_visual_opportunities_without_quotas():
     assert "standalone-short clarity" in standard_prompt
     assert "protagonist continuity" in life_as_a_prompt
     assert "emotional arc" in life_as_a_prompt
+
+
+def test_visual_mode_audit_promotes_caption_candidates_without_rewriting_narration():
+    scenes = [
+        Scene(id="scene_001", narration="This isn't that version.", visual_prompt="[REACTION] A quiet face under fluorescent lights.", visual_mode="full_frame"),
+        Scene(id="scene_002", narration="You clean the same counter again.", visual_prompt="[CLOSE-UP] A hand wiping a counter.", visual_mode="full_frame"),
+        Scene(id="scene_003", narration="None of this counts.", visual_prompt="[METAPHOR] A healed burn on a wrist.", visual_mode="full_frame"),
+        Scene(id="scene_004", narration="The phrase becomes load-bearing.", visual_prompt="[METAPHOR] A small phrase weighing down a schedule.", visual_mode="full_frame"),
+    ]
+    original_narration = [scene.narration for scene in scenes]
+    content = ScriptContent(title="Test", segments=[Segment(name="Level 1", scenes=scenes)])
+
+    counts = _audit_visual_mode_metadata(content)
+
+    assert counts["captions"] >= 2
+    assert [scene.narration for scene in scenes] == original_narration
+    caption_scenes = [scene for scene in scenes if scene.visual_mode == "captions"]
+    assert caption_scenes
+    assert all(scene.caption_text and scene.caption_text in scene.narration for scene in caption_scenes)
+    assert all(scene.caption_emphasis and scene.caption_emphasis in scene.caption_text for scene in caption_scenes)
+
+
+def test_visual_mode_audit_promotes_stat_card_from_life_story_number():
+    content = ScriptContent(
+        title="Test",
+        segments=[
+            Segment(
+                name="Level 1",
+                scenes=[
+                    Scene(id="scene_001", narration="The first paycheck is $214.", visual_prompt="[CLOSE-UP] A paper paycheck stub.", visual_mode="full_frame"),
+                    Scene(id="scene_002", narration="You keep walking home after close.", visual_prompt="[ESTABLISHING] A sidewalk after close.", visual_mode="full_frame"),
+                    Scene(id="scene_003", narration="Marcus retires with seventeen years of service.", visual_prompt="[REACTION] A break room retirement cake.", visual_mode="full_frame"),
+                ],
+            ),
+        ],
+    )
+
+    counts = _audit_visual_mode_metadata(content)
+
+    assert counts["stat_card"] >= 1
+    stat_scenes = [scene for scene in content.all_scenes() if scene.visual_mode == "stat_card"]
+    assert stat_scenes[0].stat_value in {"$214", "seventeen years"}
+    assert stat_scenes[0].stat_label
+
+
+def test_visual_mode_audit_preserves_existing_specialized_modes():
+    popup = Scene(
+        id="scene_001",
+        narration="Keys, slips, and checklists gather around you.",
+        visual_prompt="[ESTABLISHING] A manager station with paperwork.",
+        visual_mode="popup_sequence",
+    )
+    content = ScriptContent(
+        title="Test",
+        segments=[
+            Segment(
+                name="Level 1",
+                scenes=[
+                    popup,
+                    Scene(id="scene_002", narration="This isn't that version.", visual_prompt="[REACTION] A quiet face under fluorescent lights.", visual_mode="full_frame"),
+                ],
+            ),
+        ],
+    )
+
+    _audit_visual_mode_metadata(content)
+
+    assert popup.visual_mode == "popup_sequence"
+
+
+def test_visual_mode_audit_rejects_internal_renderer_terms_in_narration():
+    content = ScriptContent(
+        title="Test",
+        segments=[
+            Segment(
+                name="Level 1",
+                scenes=[
+                    Scene(
+                        id="scene_001",
+                        narration="The captions rendering isn't about the phrase itself.",
+                        visual_prompt="[METAPHOR] A phrase on a blank canvas.",
+                        visual_mode="full_frame",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    try:
+        _audit_visual_mode_metadata(content)
+    except RuntimeError as exc:
+        assert "internal visual-mode language" in str(exc)
+        assert "scene_001" in str(exc)
+    else:
+        raise AssertionError("Expected internal visual-mode narration to be rejected")
 
 
 def test_scene_granularity_preserves_extended_visual_mode_scene():

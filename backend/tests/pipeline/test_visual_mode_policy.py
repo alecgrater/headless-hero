@@ -24,10 +24,11 @@ def test_duration_policy_covers_all_canonical_visual_modes():
         assert policy.prompt_guidance
 
 
-def test_renderer_owned_modes_have_longer_targets_than_full_frame():
+def test_renderer_owned_modes_have_longer_targets_than_full_frame_except_captions():
     normal = duration_target_for_mode("full_frame")
 
-    assert duration_target_for_mode("captions").target_seconds > normal.target_seconds
+    assert duration_profile_for_mode("captions") == "normal"
+    assert duration_target_for_mode("captions").target_seconds == normal.target_seconds
     assert duration_target_for_mode("comparison_board").target_seconds > normal.target_seconds
     assert duration_target_for_mode("popup_sequence").target_seconds > normal.target_seconds
     assert duration_target_for_mode("stat_card").target_seconds > normal.target_seconds
@@ -42,6 +43,7 @@ def test_prompt_duration_guidance_mentions_extended_and_video_policy():
     text = prompt_duration_guidance()
 
     assert "captions" in text
+    assert "short editorial punch" in text
     assert "comparison_board" in text
     assert "video" in text
     assert "before voiceover" in text

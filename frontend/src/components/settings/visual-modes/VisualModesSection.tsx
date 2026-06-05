@@ -30,8 +30,10 @@ export default function VisualModesSection() {
           <p className="mt-2 text-xs leading-5 text-neutral-400">
             The outline phase first marks visual opportunities per segment, then scene writing shapes
             narration and duration around the chosen modes. For long scripts, captions, popup sequences,
-            comparison boards, and stat cards are soft candidates instead of quotas. Normal image beats
-            stay short while renderer-owned modes get breathing room.
+            comparison boards, and stat cards are soft candidates instead of quotas. Captions are
+            normal-duration editorial punches, and a metadata-only audit can fill caption/stat fields
+            from existing narration before voiceover. Normal image beats stay short while renderer-owned
+            board and object modes get breathing room.
           </p>
         </div>
         <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-4">
