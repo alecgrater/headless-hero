@@ -21,8 +21,32 @@
     }
   </script>
   <style>
-    body { font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace; }
-    .log-row:hover { background: rgba(255,255,255,0.03); }
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .mono, code, pre, textarea, .tabular-data { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; }
+    .app-shell { height: 100vh; overflow: hidden; background: #0a0a0a; color: #d4d4d4; }
+    .app-header { position: sticky; top: 0; z-index: 20; display: flex; border-bottom: 1px solid #262626; background: #0a0a0a; }
+    .app-header-brand { display: flex; width: 15rem; flex-shrink: 0; align-items: center; gap: 0.75rem; padding: 1.25rem 1.5rem; }
+    .app-header-section { display: flex; min-width: 0; flex: 1; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem 2rem; }
+    .app-sidebar { width: 15rem; flex-shrink: 0; border-right: 1px solid #262626; padding: 1rem 0.75rem; overflow-y: auto; }
+    .nav-group-label { padding: 0 0.75rem; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #525252; }
+    .section-nav-item { width: 100%; display: flex; align-items: flex-start; gap: 0.625rem; border-radius: 0.5rem; padding: 0.625rem 0.75rem; text-align: left; color: #a3a3a3; transition: color 150ms ease, background-color 150ms ease; }
+    .section-nav-item:hover { background: rgba(38, 38, 38, 0.55); color: #e5e5e5; }
+    .section-nav-item.is-active { background: #262626; color: #f5f5f5; }
+    .section-icon { width: 1rem; height: 1rem; margin-top: 0.125rem; flex-shrink: 0; color: currentColor; text-align: center; font-size: 0.75rem; line-height: 1rem; }
+    .control-input { border-radius: 0.5rem; border: 1px solid #404040; background: #171717; color: #d4d4d4; font-size: 0.8125rem; line-height: 1.25rem; padding: 0.375rem 0.625rem; outline: none; transition: border-color 150ms ease; }
+    .control-input:focus { border-color: #8b5cf6; }
+    .action-button { border-radius: 0.5rem; background: #262626; color: #d4d4d4; font-size: 0.75rem; font-weight: 500; padding: 0.375rem 0.75rem; transition: background-color 150ms ease, color 150ms ease; }
+    .action-button:hover { background: #404040; color: #f5f5f5; }
+    .primary-button { border-radius: 0.5rem; background: #7c3aed; color: white; font-size: 0.75rem; font-weight: 500; padding: 0.375rem 0.75rem; transition: background-color 150ms ease; }
+    .primary-button:hover { background: #8b5cf6; }
+    .danger-button { border-radius: 0.5rem; background: #991b1b; color: white; font-size: 0.75rem; font-weight: 600; padding: 0.375rem 0.75rem; transition: background-color 150ms ease; }
+    .danger-button:hover { background: #b91c1c; }
+    .surface-panel { border: 1px solid #404040; border-radius: 0.5rem; background: #171717; }
+    .metric-card { border: 1px solid #404040; border-radius: 0.5rem; background: #171717; padding: 1rem; }
+    .status-badge { display: inline-flex; align-items: center; border-radius: 0.375rem; padding: 0.125rem 0.375rem; font-size: 10px; font-weight: 500; }
+    .table-header { position: sticky; top: 0; z-index: 10; background: #0a0a0a; border-bottom: 1px solid #262626; color: #737373; }
+    .table-row { border-bottom: 1px solid rgba(38, 38, 38, 0.7); }
+    .table-row:hover { background: rgba(255, 255, 255, 0.04); }
     .scrollbar-thin::-webkit-scrollbar { width: 6px; }
     .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
     .scrollbar-thin::-webkit-scrollbar-thumb { background: #404040; border-radius: 3px; }
@@ -52,39 +76,100 @@
     .md-content hr { border: none; border-top: 1px solid #404040; margin: 1em 0; }
   </style>
 </head>
-<body class="bg-surface-900 text-neutral-300 min-h-screen">
+<body class="app-shell">
+  <div id="dashboardShell" class="flex h-screen flex-col">
+    <header class="app-header">
+      <div class="app-header-brand">
+        <button onclick="launchApp(this)" class="primary-button">Launch App</button>
+        <div class="min-w-0">
+          <h1 class="text-xl font-semibold tracking-tight text-neutral-100">Dev Dashboard</h1>
+          <div class="mt-1 flex items-center gap-2 text-xs text-neutral-500">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 live-dot" id="wsIndicator"></span>
+            <span id="wsStatus">Connecting...</span>
+          </div>
+        </div>
+      </div>
+      <div class="app-header-section">
+        <div class="min-w-0">
+          <h2 id="activeSectionTitle" class="text-xl font-semibold tracking-tight text-neutral-100">Logs</h2>
+          <p id="activeSectionDescription" class="mt-1 text-sm text-neutral-400">Live backend logs, filters, details, and 24-hour analytics.</p>
+        </div>
+        <div id="activeSectionMeta" class="text-xs text-neutral-500"></div>
+      </div>
+    </header>
 
-  <!-- Header -->
-  <header class="border-b border-neutral-800 px-6 py-3 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <h1 class="text-lg font-semibold text-neutral-100">Headless Hero</h1>
-      <span class="text-xs bg-violet-600/20 text-violet-400 px-2 py-0.5 rounded">Dev Dashboard</span>
-      <button onclick="launchApp(this)" class="text-xs bg-violet-600 hover:bg-violet-500 text-white px-3 py-1 rounded transition-colors">Launch App</button>
-    </div>
-    <div class="flex items-center gap-2 text-xs text-neutral-500">
-      <span class="w-2 h-2 rounded-full bg-emerald-500 live-dot" id="wsIndicator"></span>
-      <span id="wsStatus">Connecting...</span>
-    </div>
-  </header>
-
-  <!-- Tabs -->
-  <nav class="border-b border-neutral-800 px-6 flex gap-1">
-    <button onclick="switchTab('logs')" id="tab-logs" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-violet-500 text-violet-400 transition-colors">Logs</button>
-    <button onclick="switchTab('telemetry')" id="tab-telemetry" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Telemetry</button>
-    <button onclick="switchTab('jobs')" id="tab-jobs" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Jobs</button>
-    <button onclick="switchTab('api')" id="tab-api" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">API</button>
-    <button onclick="switchTab('database')" id="tab-database" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Database</button>
-    <button onclick="switchTab('usage')" id="tab-usage" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Usage</button>
-    <button onclick="switchTab('files')" id="tab-files" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Files</button>
-  </nav>
+    <div class="flex min-h-0 flex-1 overflow-hidden">
+      <aside id="dashboardSidebar" class="app-sidebar scrollbar-thin">
+        <div class="space-y-5">
+          <div class="space-y-1">
+            <div class="nav-group-label">Operations</div>
+            <button type="button" onclick="switchTab('logs')" data-section="logs" id="tab-logs" class="section-nav-item is-active">
+              <span class="section-icon">LOG</span>
+              <span class="min-w-0">
+                <span class="block text-sm font-medium">Logs</span>
+                <span class="block truncate text-xs text-neutral-500">Live stream and analytics</span>
+              </span>
+            </button>
+            <button type="button" onclick="switchTab('jobs')" data-section="jobs" id="tab-jobs" class="section-nav-item">
+              <span class="section-icon">JOB</span>
+              <span class="min-w-0">
+                <span class="block text-sm font-medium">Jobs</span>
+                <span class="block truncate text-xs text-neutral-500">Render progress and errors</span>
+              </span>
+            </button>
+            <button type="button" onclick="switchTab('telemetry')" data-section="telemetry" id="tab-telemetry" class="section-nav-item">
+              <span class="section-icon">TEL</span>
+              <span class="min-w-0">
+                <span class="block text-sm font-medium">Telemetry</span>
+                <span class="block truncate text-xs text-neutral-500">Fallback visibility</span>
+              </span>
+            </button>
+          </div>
+          <div class="space-y-1">
+            <div class="nav-group-label">Inspection</div>
+            <button type="button" onclick="switchTab('api')" data-section="api" id="tab-api" class="section-nav-item">
+              <span class="section-icon">API</span>
+              <span class="min-w-0">
+                <span class="block text-sm font-medium">API</span>
+                <span class="block truncate text-xs text-neutral-500">Endpoint tester</span>
+              </span>
+            </button>
+            <button type="button" onclick="switchTab('database')" data-section="database" id="tab-database" class="section-nav-item">
+              <span class="section-icon">DB</span>
+              <span class="min-w-0">
+                <span class="block text-sm font-medium">Database</span>
+                <span class="block truncate text-xs text-neutral-500">Tables and SQL</span>
+              </span>
+            </button>
+            <button type="button" onclick="switchTab('usage')" data-section="usage" id="tab-usage" class="section-nav-item">
+              <span class="section-icon">USD</span>
+              <span class="min-w-0">
+                <span class="block text-sm font-medium">Usage</span>
+                <span class="block truncate text-xs text-neutral-500">API cost tracker</span>
+              </span>
+            </button>
+          </div>
+          <div class="space-y-1">
+            <div class="nav-group-label">Assets</div>
+            <button type="button" onclick="switchTab('files')" data-section="files" id="tab-files" class="section-nav-item">
+              <span class="section-icon">FILE</span>
+              <span class="min-w-0">
+                <span class="block text-sm font-medium">Files</span>
+                <span class="block truncate text-xs text-neutral-500">Docs and project files</span>
+              </span>
+            </button>
+          </div>
+        </div>
+      </aside>
+      <main class="min-w-0 flex-1 overflow-hidden">
 
   <!-- Logs Tab -->
-  <div id="panel-logs" class="flex h-[calc(100vh-97px)]">
+  <div id="panel-logs" class="flex h-full">
     <!-- Main log area -->
     <div class="flex-1 flex flex-col min-w-0">
       <!-- Filters -->
       <div class="border-b border-neutral-800 px-4 py-2.5 flex items-center gap-3 flex-wrap">
-        <select id="filterLevel" onchange="fetchLogs()" class="bg-surface-800 border border-neutral-700 text-sm rounded px-2.5 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+        <select id="filterLevel" onchange="fetchLogs()" class="control-input">
           <option value="">All levels</option>
           <option value="DEBUG">DEBUG</option>
           <option value="INFO" selected>INFO</option>
@@ -92,24 +177,24 @@
           <option value="ERROR">ERROR</option>
           <option value="CRITICAL">CRITICAL</option>
         </select>
-        <select id="filterModule" onchange="fetchLogs()" class="bg-surface-800 border border-neutral-700 text-sm rounded px-2.5 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+        <select id="filterModule" onchange="fetchLogs()" class="control-input">
           <option value="">All modules</option>
         </select>
         <input id="filterSearch" type="text" placeholder="Search messages..." onkeydown="if(event.key==='Enter')fetchLogs()"
-          class="bg-surface-800 border border-neutral-700 text-sm rounded px-2.5 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500 w-64">
-        <button onclick="fetchLogs()" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Search</button>
+          class="control-input w-64">
+        <button onclick="fetchLogs()" class="action-button">Search</button>
         <div class="flex-1"></div>
-        <button onclick="killAll()" id="killAllBtn" class="text-xs bg-red-700 hover:bg-red-600 text-white px-3 py-1.5 rounded transition-colors font-semibold">Kill All</button>
-        <button onclick="toggleLogView()" id="viewToggleBtn" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Raw</button>
-        <button onclick="togglePause()" id="pauseBtn" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Pause</button>
-        <button onclick="clearLogs()" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Clear</button>
+        <button onclick="killAll()" id="killAllBtn" class="danger-button">Kill All</button>
+        <button onclick="toggleLogView()" id="viewToggleBtn" class="action-button">Raw</button>
+        <button onclick="togglePause()" id="pauseBtn" class="action-button">Pause</button>
+        <button onclick="clearLogs()" class="action-button">Clear</button>
         <span id="logCount" class="text-xs text-neutral-500"></span>
       </div>
 
       <!-- Log entries (table view) -->
       <div id="logContainer" class="flex-1 overflow-y-auto scrollbar-thin" onscroll="handleScroll()">
         <table class="w-full text-xs">
-          <thead class="sticky top-0 bg-surface-900 border-b border-neutral-800 z-10">
+          <thead class="table-header">
             <tr class="text-neutral-500 text-left">
               <th class="px-3 py-2 w-20">Level</th>
               <th class="px-3 py-2 w-44">Time</th>
@@ -121,7 +206,7 @@
         </table>
       </div>
       <!-- Log entries (raw view) -->
-      <pre id="logRawContainer" class="hidden flex-1 overflow-y-auto scrollbar-thin px-4 py-2 text-xs text-neutral-300 whitespace-pre-wrap break-words" onscroll="handleScroll()"></pre>
+      <pre id="logRawContainer" class="mono hidden flex-1 overflow-y-auto scrollbar-thin px-4 py-2 text-xs text-neutral-300 whitespace-pre-wrap break-words" onscroll="handleScroll()"></pre>
     </div>
 
     <!-- Stats sidebar -->
@@ -158,61 +243,50 @@
   </div>
 
   <!-- Telemetry Tab -->
-  <div id="panel-telemetry" class="hidden h-[calc(100vh-97px)] flex">
-    <aside class="w-56 border-r border-neutral-800 bg-surface-900/60">
-      <div class="px-4 py-3 border-b border-neutral-800">
-        <span class="text-sm font-medium text-neutral-100">Telemetry</span>
-      </div>
-      <div class="p-2">
-        <button id="telemetry-view-fallbacks" onclick="switchTelemetryView('fallbacks')" class="w-full rounded px-3 py-2 text-left text-xs font-medium text-violet-300 bg-violet-600/15 border border-violet-500/30 transition-colors">
-          Fallbacks
-        </button>
-      </div>
-    </aside>
-
-    <div id="telemetry-panel-fallbacks" class="flex-1 overflow-y-auto scrollbar-thin p-6">
-      <div class="max-w-7xl mx-auto space-y-4">
+  <div id="panel-telemetry" class="hidden h-full overflow-y-auto scrollbar-thin">
+    <div id="telemetry-panel-fallbacks" class="p-6">
+      <div class="max-w-7xl space-y-4">
         <div class="flex items-center justify-between gap-3">
           <div>
             <h2 class="text-sm font-medium text-neutral-100">Fallback Visibility</h2>
             <p class="text-xs text-neutral-500 mt-1">Structured fallback events from generation, rendering, and pipeline recovery paths.</p>
           </div>
           <div class="flex items-center gap-2">
-            <select id="fallbackHours" onchange="fetchFallbackStats()" class="bg-surface-800 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+            <select id="fallbackHours" onchange="fetchFallbackStats()" class="control-input">
               <option value="1">Last hour</option>
               <option value="24" selected>Last 24h</option>
               <option value="168">Last 7d</option>
             </select>
-            <select id="fallbackCategory" onchange="fetchFallbackStats()" class="bg-surface-800 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+            <select id="fallbackCategory" onchange="fetchFallbackStats()" class="control-input">
               <option value="">All categories</option>
             </select>
-            <button onclick="fetchFallbackStats()" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Refresh</button>
+            <button onclick="fetchFallbackStats()" class="action-button">Refresh</button>
           </div>
         </div>
 
         <div id="fallbackSummaryCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+          <div class="surface-panel p-4">
             <h3 class="text-xs font-medium text-neutral-400 mb-3">By Category</h3>
             <div id="fallbackByCategory" class="space-y-2 text-xs"></div>
           </div>
-          <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+          <div class="surface-panel p-4">
             <h3 class="text-xs font-medium text-neutral-400 mb-3">By Event</h3>
             <div id="fallbackByEvent" class="space-y-2 text-xs"></div>
           </div>
-          <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+          <div class="surface-panel p-4">
             <h3 class="text-xs font-medium text-neutral-400 mb-3">Top Reasons</h3>
             <div id="fallbackByReason" class="space-y-2 text-xs"></div>
           </div>
         </div>
 
-        <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+        <div class="surface-panel p-4">
           <h3 class="text-xs font-medium text-neutral-400 mb-3">Hot Events</h3>
           <div id="fallbackHotEvents" class="space-y-2 text-xs"></div>
         </div>
 
-        <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+        <div class="surface-panel p-4">
           <h3 class="text-xs font-medium text-neutral-400 mb-3">Recent Examples</h3>
           <div id="fallbackRecentTable" class="overflow-x-auto"></div>
         </div>
@@ -221,18 +295,18 @@
   </div>
 
   <!-- Jobs Tab -->
-  <div id="panel-jobs" class="hidden h-[calc(100vh-97px)] overflow-y-auto scrollbar-thin p-6">
+  <div id="panel-jobs" class="hidden h-full overflow-y-auto scrollbar-thin p-6">
     <div id="jobsContainer" class="max-w-4xl mx-auto space-y-4"></div>
   </div>
 
   <!-- API Tab -->
-  <div id="panel-api" class="hidden h-[calc(100vh-97px)] flex">
+  <div id="panel-api" class="hidden h-full flex">
     <!-- Endpoint sidebar -->
     <div class="w-80 border-r border-neutral-800 flex flex-col overflow-hidden">
       <div class="px-3 py-2.5 border-b border-neutral-800">
         <input id="apiFilter" type="text" placeholder="Filter endpoints..."
           oninput="renderEndpointList()"
-          class="w-full bg-surface-800 border border-neutral-700 text-sm rounded px-2.5 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+          class="control-input w-full">
       </div>
       <div id="apiEndpointList" class="flex-1 overflow-y-auto scrollbar-thin text-xs"></div>
     </div>
@@ -250,7 +324,7 @@
   </div>
 
   <!-- Database Tab -->
-  <div id="panel-database" class="hidden h-[calc(100vh-97px)] flex">
+  <div id="panel-database" class="hidden h-full flex">
     <!-- Table list sidebar -->
     <div class="w-64 border-r border-neutral-800 flex flex-col overflow-hidden">
       <div class="px-3 py-2.5 border-b border-neutral-800 text-sm font-medium text-neutral-100">Tables</div>
@@ -266,9 +340,9 @@
         </button>
         <div id="sqlRunnerBody" class="hidden px-4 pb-3 space-y-2">
           <textarea id="sqlInput" rows="3" placeholder="SELECT * FROM scripts LIMIT 10"
-            class="w-full bg-surface-800 border border-neutral-700 text-xs rounded px-2.5 py-2 text-neutral-300 focus:outline-none focus:border-violet-500 font-mono resize-y"></textarea>
+            class="control-input mono w-full resize-y text-xs"></textarea>
           <div class="flex items-center gap-2">
-            <button onclick="executeSqlQuery()" class="text-xs bg-violet-600 hover:bg-violet-500 text-white px-3 py-1.5 rounded transition-colors">Execute</button>
+            <button onclick="executeSqlQuery()" class="primary-button">Execute</button>
             <span id="sqlError" class="text-xs text-red-400"></span>
           </div>
         </div>
@@ -286,14 +360,14 @@
   </div>
 
   <!-- Usage Tab -->
-  <div id="panel-usage" class="hidden h-[calc(100vh-97px)] overflow-y-auto scrollbar-thin p-6">
+  <div id="panel-usage" class="hidden h-full overflow-y-auto scrollbar-thin p-6">
     <div class="max-w-6xl mx-auto space-y-6">
 
       <!-- Time range selector + grand total -->
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
           <h2 class="text-sm font-medium text-neutral-100">API Usage &amp; Cost Tracker</h2>
-          <select id="usageDays" onchange="fetchUsageSummary()" class="bg-surface-800 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+          <select id="usageDays" onchange="fetchUsageSummary()" class="control-input">
             <option value="0">All time</option>
             <option value="7">Last 7 days</option>
             <option value="30" selected>Last 30 days</option>
@@ -303,7 +377,7 @@
         </div>
         <div class="flex items-center gap-4">
           <div id="usageGrandTotal" class="text-lg font-semibold text-neutral-100"></div>
-          <button onclick="fetchUsageSummary()" class="text-xs text-violet-400 hover:text-violet-300 transition-colors">Refresh</button>
+          <button onclick="fetchUsageSummary()" class="action-button">Refresh</button>
         </div>
       </div>
 
@@ -311,30 +385,30 @@
       <div id="usageServiceCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
 
       <!-- Daily cost chart (ASCII bar chart) -->
-      <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+      <div class="surface-panel p-4">
         <h3 class="text-xs font-medium text-neutral-400 mb-3">Daily Cost</h3>
-        <div id="usageDailyChart" class="text-xs font-mono"></div>
+        <div id="usageDailyChart" class="mono text-xs"></div>
       </div>
 
       <!-- Operation breakdown table -->
-      <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+      <div class="surface-panel p-4">
         <h3 class="text-xs font-medium text-neutral-400 mb-3">Cost by Operation</h3>
         <div id="usageOpTable"></div>
       </div>
 
       <!-- Recent calls log -->
-      <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+      <div class="surface-panel p-4">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div>
             <h3 class="text-xs font-medium text-neutral-400">API Calls</h3>
             <div id="usageRecentMeta" class="text-[10px] text-neutral-500 mt-1"></div>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <select id="usageServiceFilter" onchange="resetUsageRecent()" class="bg-surface-900 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+            <select id="usageServiceFilter" onchange="resetUsageRecent()" class="control-input">
               <option value="all">All services</option>
             </select>
-            <input id="usageOperationFilter" oninput="debouncedUsageRecentReset()" placeholder="Filter operation" class="w-36 bg-surface-900 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 placeholder:text-neutral-600 focus:outline-none focus:border-violet-500" />
-            <select id="usageLimit" onchange="resetUsageRecent()" class="bg-surface-900 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+            <input id="usageOperationFilter" oninput="debouncedUsageRecentReset()" placeholder="Filter operation" class="control-input w-36 placeholder:text-neutral-600" />
+            <select id="usageLimit" onchange="resetUsageRecent()" class="control-input">
               <option value="50">50 rows</option>
               <option value="100" selected>100 rows</option>
               <option value="250">250 rows</option>
@@ -344,7 +418,7 @@
         </div>
         <div id="usageRecentTable" class="overflow-x-auto"></div>
         <div class="flex justify-center pt-3">
-          <button id="usageLoadMore" onclick="loadMoreUsageRecent()" class="hidden text-xs px-3 py-1.5 rounded border border-neutral-700 text-neutral-300 hover:text-neutral-100 hover:border-neutral-500 transition-colors">Load more</button>
+          <button id="usageLoadMore" onclick="loadMoreUsageRecent()" class="action-button hidden">Load more</button>
         </div>
       </div>
 
@@ -353,7 +427,7 @@
 
   <!-- DB Row Detail Modal -->
   <div id="dbDetailOverlay" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onclick="if(event.target===this)closeDbDetail()">
-    <div class="bg-surface-800 border border-neutral-700 rounded-lg w-[700px] max-h-[80vh] overflow-y-auto scrollbar-thin p-6">
+    <div class="surface-panel w-[700px] max-h-[80vh] overflow-y-auto scrollbar-thin p-6">
       <div class="flex items-center justify-between mb-4">
         <span class="text-sm font-medium text-neutral-100">Row Detail</span>
         <button onclick="closeDbDetail()" class="text-neutral-500 hover:text-neutral-300 transition-colors text-lg">&times;</button>
@@ -364,7 +438,7 @@
 
   <!-- Expanded row detail -->
   <div id="detailOverlay" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onclick="if(event.target===this)closeDetail()">
-    <div class="bg-surface-800 border border-neutral-700 rounded-lg w-[700px] max-h-[80vh] overflow-y-auto scrollbar-thin p-6">
+    <div class="surface-panel w-[700px] max-h-[80vh] overflow-y-auto scrollbar-thin p-6">
       <div class="flex items-center justify-between mb-4">
         <span id="detailLevel" class="text-sm font-medium"></span>
         <button onclick="closeDetail()" class="text-neutral-500 hover:text-neutral-300 transition-colors">&times;</button>
@@ -387,7 +461,7 @@
   </div>
 
   <!-- Files Tab -->
-  <div id="panel-files" class="hidden h-[calc(100vh-97px)] flex">
+  <div id="panel-files" class="hidden h-full flex">
     <!-- Left: Docs sidebar -->
     <div class="w-56 border-r border-neutral-800 flex flex-col overflow-y-auto scrollbar-thin">
       <div class="px-4 py-3 border-b border-neutral-800">
@@ -409,15 +483,18 @@
         <span id="fileViewerName" class="text-sm font-medium text-neutral-100 shrink-0">Select a file</span>
         <span id="fileViewerPath" class="text-xs text-neutral-500 truncate"></span>
         <span id="fileViewerSize" class="text-xs text-neutral-500 ml-auto shrink-0"></span>
-        <button id="fileEditBtn" onclick="toggleEditMode()" class="hidden text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1 rounded transition-colors shrink-0">Edit</button>
-        <button id="fileSaveBtn" onclick="saveFile()" class="hidden text-xs bg-violet-600 hover:bg-violet-500 text-white px-3 py-1 rounded transition-colors shrink-0">Save</button>
-        <button id="fileCancelBtn" onclick="cancelEdit()" class="hidden text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1 rounded transition-colors shrink-0">Cancel</button>
+        <button id="fileEditBtn" onclick="toggleEditMode()" class="action-button hidden shrink-0">Edit</button>
+        <button id="fileSaveBtn" onclick="saveFile()" class="primary-button hidden shrink-0">Save</button>
+        <button id="fileCancelBtn" onclick="cancelEdit()" class="action-button hidden shrink-0">Cancel</button>
       </div>
       <div id="fileViewerContent" class="flex-1 overflow-y-auto scrollbar-thin p-6">
         <div class="text-neutral-500 text-sm">Click a file in the explorer or docs sidebar to view it.</div>
       </div>
     </div>
   </div>
+
+      </main>
+    </div>
 
 <script>
 // --- State ---
@@ -430,11 +507,11 @@ let wsReconnectTimer = null;
 let fallbackRecentRows = [];
 
 const LEVEL_COLORS = {
-  DEBUG: 'bg-neutral-600 text-neutral-300',
-  INFO: 'bg-sky-600/30 text-sky-400',
-  WARNING: 'bg-amber-600/30 text-amber-400',
-  ERROR: 'bg-red-600/30 text-red-400',
-  CRITICAL: 'bg-red-700/50 text-red-300 font-bold',
+  DEBUG: 'status-badge bg-neutral-600 text-neutral-300',
+  INFO: 'status-badge bg-sky-600/30 text-sky-400',
+  WARNING: 'status-badge bg-amber-600/30 text-amber-400',
+  ERROR: 'status-badge bg-red-600/30 text-red-400',
+  CRITICAL: 'status-badge bg-red-700/50 text-red-300 font-bold',
 };
 
 const LEVEL_ORDER = { DEBUG: 0, INFO: 1, WARNING: 2, ERROR: 3, CRITICAL: 4 };
@@ -453,18 +530,52 @@ async function launchApp(btn) {
   setTimeout(() => { btn.textContent = 'Launch App'; btn.disabled = false; }, 2000);
 }
 
-// --- Tabs ---
+// --- Sections ---
+const SECTION_META = {
+  logs: {
+    title: 'Logs',
+    description: 'Live backend logs, filters, details, and 24-hour analytics.',
+  },
+  telemetry: {
+    title: 'Telemetry',
+    description: 'Structured fallback events from generation, rendering, and recovery paths.',
+  },
+  jobs: {
+    title: 'Jobs',
+    description: 'Render jobs, active progress, completed work, and failure details.',
+  },
+  api: {
+    title: 'API',
+    description: 'Explore OpenAPI endpoints and test backend requests.',
+  },
+  database: {
+    title: 'Database',
+    description: 'Browse SQLite tables and run scoped diagnostic SQL queries.',
+  },
+  usage: {
+    title: 'Usage',
+    description: 'Track API call volume, operation costs, and recent usage.',
+  },
+  files: {
+    title: 'Files',
+    description: 'Browse docs and project files without leaving the app.',
+  },
+};
+
 const ALL_TABS = ['logs', 'telemetry', 'jobs', 'api', 'database', 'usage', 'files'];
 function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach(b => {
-    b.classList.remove('border-violet-500', 'text-violet-400');
-    b.classList.add('border-transparent', 'text-neutral-500');
+  document.querySelectorAll('.section-nav-item').forEach((button) => {
+    button.classList.toggle('is-active', button.dataset.section === tab);
   });
-  document.getElementById('tab-' + tab).classList.add('border-violet-500', 'text-violet-400');
-  document.getElementById('tab-' + tab).classList.remove('border-transparent', 'text-neutral-500');
+
   for (const t of ALL_TABS) {
     document.getElementById('panel-' + t).classList.toggle('hidden', t !== tab);
   }
+
+  const meta = SECTION_META[tab] || SECTION_META.logs;
+  document.getElementById('activeSectionTitle').textContent = meta.title;
+  document.getElementById('activeSectionDescription').textContent = meta.description;
+
   if (tab === 'jobs') fetchJobs();
   if (tab === 'telemetry') {
     switchTelemetryView('fallbacks');
@@ -481,6 +592,7 @@ function switchTelemetryView(view) {
   for (const item of views) {
     const button = document.getElementById('telemetry-view-' + item);
     const panel = document.getElementById('telemetry-panel-' + item);
+    if (!button || !panel) continue;
     const selected = item === view;
     button.classList.toggle('text-violet-300', selected);
     button.classList.toggle('bg-violet-600/15', selected);
@@ -524,16 +636,16 @@ function renderLogs() {
 
 function createLogRow(log) {
   const tr = document.createElement('tr');
-  tr.className = 'log-row border-b border-neutral-800/50 cursor-pointer';
+  tr.className = 'table-row cursor-pointer';
   tr.onclick = () => showDetail(log);
 
-  const levelCls = LEVEL_COLORS[log.level] || 'bg-neutral-600 text-neutral-300';
+  const levelCls = LEVEL_COLORS[log.level] || 'status-badge bg-neutral-600 text-neutral-300';
   const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString('en-US', {timeZone:'America/Los_Angeles'}) : '';
   const msg = (log.message || '').length > 200 ? log.message.substring(0, 200) + '...' : (log.message || '');
   const hasTrace = log.traceback ? '<span class="text-red-500 ml-1" title="Has traceback">!</span>' : '';
 
   tr.innerHTML = `
-    <td class="px-3 py-1.5"><span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${levelCls}">${log.level}</span></td>
+    <td class="px-3 py-1.5"><span class="${levelCls}">${log.level}</span></td>
     <td class="px-3 py-1.5 text-neutral-500 whitespace-nowrap">${time}</td>
     <td class="px-3 py-1.5 text-neutral-400 truncate max-w-[192px]" title="${log.logger_name || ''}">${log.logger_name || ''}</td>
     <td class="px-3 py-1.5 text-neutral-300 truncate">${escapeHtml(msg)}${hasTrace}</td>
@@ -543,7 +655,7 @@ function createLogRow(log) {
 
 function showDetail(log) {
   const levelCls = LEVEL_COLORS[log.level] || '';
-  document.getElementById('detailLevel').innerHTML = `<span class="px-2 py-0.5 rounded ${levelCls}">${log.level}</span>`;
+  document.getElementById('detailLevel').innerHTML = `<span class="${levelCls}">${log.level}</span>`;
   document.getElementById('detailTime').textContent = log.timestamp ? new Date(log.timestamp).toLocaleString('en-US', {timeZone:'America/Los_Angeles'}) : '';
   document.getElementById('detailModule').textContent = log.logger_name || '';
   document.getElementById('detailFunc').textContent = (log.func_name || '') + (log.module ? ` (${log.module})` : '');
@@ -577,12 +689,12 @@ async function killAll() {
     const res = await fetch('/dev/api/kill-all', { method: 'POST' });
     const data = await res.json();
     btn.textContent = `Killed ${data.cancelled}`;
-    btn.classList.remove('bg-red-700');
-    btn.classList.add('bg-emerald-700');
+    btn.classList.remove('danger-button');
+    btn.classList.add('primary-button');
     setTimeout(() => {
       btn.textContent = 'Kill All';
-      btn.classList.remove('bg-emerald-700');
-      btn.classList.add('bg-red-700');
+      btn.classList.remove('primary-button');
+      btn.classList.add('danger-button');
       btn.disabled = false;
       btn.classList.remove('opacity-60');
     }, 2000);
@@ -714,7 +826,7 @@ async function fetchStats() {
     const cls = LEVEL_COLORS[level] || '';
     levelDiv.innerHTML += `
       <div class="flex items-center gap-2">
-        <span class="w-16 text-[10px] px-1.5 py-0.5 rounded ${cls}">${level}</span>
+        <span class="${cls} w-16 justify-center">${level}</span>
         <div class="flex-1 bg-surface-900 rounded-full h-1.5"><div class="h-1.5 rounded-full bg-neutral-600" style="width:${pct}%"></div></div>
         <span class="text-neutral-500 w-12 text-right">${count}</span>
       </div>`;
@@ -755,9 +867,9 @@ async function fetchStats() {
 
 // --- Fallback Analytics ---
 const FALLBACK_SEVERITY_COLORS = {
-  info: 'bg-sky-600/30 text-sky-400',
-  warn: 'bg-amber-600/30 text-amber-400',
-  fail: 'bg-red-600/30 text-red-400',
+  info: 'status-badge bg-sky-600/30 text-sky-400',
+  warn: 'status-badge bg-amber-600/30 text-amber-400',
+  fail: 'status-badge bg-red-600/30 text-red-400',
 };
 
 async function fetchFallbackStats() {
@@ -807,7 +919,7 @@ function renderFallbackSummaryCards(stats) {
     ['Hot Event', hot ? hot.event : 'None', hot ? `${hot.count}x ${hot.severity}` : 'no threshold hit'],
   ];
   document.getElementById('fallbackSummaryCards').innerHTML = cards.map(([label, value, helper]) => `
-    <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+    <div class="metric-card">
       <div class="text-[10px] uppercase tracking-wide text-neutral-500">${escapeHtml(label)}</div>
       <div class="mt-1 text-lg font-semibold text-neutral-100 truncate" title="${escapeHtml(String(value))}">${escapeHtml(String(value))}</div>
       <div class="mt-1 text-xs text-neutral-500 truncate">${escapeHtml(helper)}</div>
@@ -853,7 +965,7 @@ function renderFallbackEvents(events) {
         </div>
         <div class="flex items-center gap-2 shrink-0">
           <span class="text-neutral-500">${item.count || 0}</span>
-          <span class="text-[10px] px-1.5 py-0.5 rounded ${cls}">${escapeHtml(item.severity || 'warn')}</span>
+          <span class="${cls}">${escapeHtml(item.severity || 'warn')}</span>
         </div>
       </div>
     `;
@@ -869,14 +981,14 @@ function renderFallbackHotEvents(events) {
   target.innerHTML = events.map(item => {
     const cls = FALLBACK_SEVERITY_COLORS[item.severity] || FALLBACK_SEVERITY_COLORS.warn;
     return `
-      <div class="flex items-center justify-between gap-3 border border-neutral-700 rounded px-3 py-2">
+      <div class="surface-panel flex items-center justify-between gap-3 px-3 py-2">
         <div class="min-w-0">
           <div class="text-neutral-200 truncate" title="${escapeHtml(item.event)}">${escapeHtml(item.event)}</div>
           <div class="text-[10px] text-neutral-500 truncate">${escapeHtml(item.category || '')}</div>
         </div>
         <div class="flex items-center gap-2 shrink-0">
           <span class="text-neutral-400">${item.count || 0}x</span>
-          <span class="text-[10px] px-1.5 py-0.5 rounded ${cls}">${escapeHtml(item.severity || 'warn')}</span>
+          <span class="${cls}">${escapeHtml(item.severity || 'warn')}</span>
         </div>
       </div>
     `;
@@ -892,7 +1004,7 @@ function renderFallbackRecent(rows) {
   }
   target.innerHTML = `
     <table class="w-full text-xs">
-      <thead class="text-neutral-500 text-left border-b border-neutral-700">
+      <thead class="table-header text-left">
         <tr>
           <th class="py-2 pr-3">Time</th>
           <th class="py-2 pr-3">Severity</th>
@@ -909,9 +1021,9 @@ function renderFallbackRecent(rows) {
           const cls = FALLBACK_SEVERITY_COLORS[row.severity] || FALLBACK_SEVERITY_COLORS.warn;
           const time = row.timestamp ? new Date(row.timestamp).toLocaleTimeString('en-US', {timeZone:'America/Los_Angeles'}) : '';
           return `
-            <tr class="border-b border-neutral-800/70 cursor-pointer hover:bg-white/5" onclick="showFallbackDetail(${index})">
+            <tr class="table-row cursor-pointer" onclick="showFallbackDetail(${index})">
               <td class="py-2 pr-3 text-neutral-500 whitespace-nowrap">${time}</td>
-              <td class="py-2 pr-3"><span class="text-[10px] px-1.5 py-0.5 rounded ${cls}">${escapeHtml(row.severity || 'warn')}</span></td>
+              <td class="py-2 pr-3"><span class="${cls}">${escapeHtml(row.severity || 'warn')}</span></td>
               <td class="py-2 pr-3 text-neutral-300">${escapeHtml(row.category || '')}</td>
               <td class="py-2 pr-3 text-neutral-300">${escapeHtml(row.event || '')}</td>
               <td class="py-2 pr-3 text-neutral-500">${escapeHtml(row.script_id || '')}</td>
@@ -986,10 +1098,10 @@ async function fetchJobs() {
 
 function jobCard(job) {
   const statusColors = {
-    pending: 'bg-neutral-600 text-neutral-300',
-    running: 'bg-sky-600/30 text-sky-400',
-    completed: 'bg-emerald-600/30 text-emerald-400',
-    failed: 'bg-red-600/30 text-red-400',
+    pending: 'status-badge bg-neutral-600 text-neutral-300',
+    running: 'status-badge bg-sky-600/30 text-sky-400',
+    completed: 'status-badge bg-emerald-600/30 text-emerald-400',
+    failed: 'status-badge bg-red-600/30 text-red-400',
   };
   const cls = statusColors[job.status] || '';
   const pct = Math.round((job.progress || 0) * 100);
@@ -1001,11 +1113,11 @@ function jobCard(job) {
   }
 
   return `
-    <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+    <div class="surface-panel p-4">
       <div class="flex items-center justify-between mb-2">
         <div class="flex items-center gap-2">
-          <span class="font-mono text-sm text-neutral-200">${job.job_id}</span>
-          <span class="text-[10px] px-1.5 py-0.5 rounded ${cls}">${job.status.toUpperCase()}</span>
+          <span class="mono text-sm text-neutral-200">${job.job_id}</span>
+          <span class="${cls}">${job.status.toUpperCase()}</span>
         </div>
         <div class="text-xs text-neutral-500">
           ${job.scene_count ? job.scene_count + ' scenes' : ''}
@@ -1057,11 +1169,11 @@ let apiEndpoints = [];
 let selectedEndpoint = null;
 
 const METHOD_COLORS = {
-  get: 'bg-sky-600/30 text-sky-400',
-  post: 'bg-emerald-600/30 text-emerald-400',
-  put: 'bg-amber-600/30 text-amber-400',
-  delete: 'bg-red-600/30 text-red-400',
-  patch: 'bg-violet-600/30 text-violet-400',
+  get: 'status-badge bg-sky-600/30 text-sky-400',
+  post: 'status-badge bg-emerald-600/30 text-emerald-400',
+  put: 'status-badge bg-amber-600/30 text-amber-400',
+  delete: 'status-badge bg-red-600/30 text-red-400',
+  patch: 'status-badge bg-violet-600/30 text-violet-400',
 };
 
 async function loadOpenApiSchema() {
@@ -1147,7 +1259,7 @@ function renderEndpointList() {
       const cls = METHOD_COLORS[ep.method] || '';
       html += `<div onclick="selectEndpoint('${ep.method}','${ep.path}')"
         class="px-3 py-1.5 cursor-pointer flex items-center gap-2 hover:bg-surface-700 transition-colors ${sel ? 'bg-surface-700' : ''}">
-        <span class="inline-block w-12 text-center px-1 py-0.5 rounded text-[10px] font-medium uppercase ${cls}">${ep.method}</span>
+        <span class="${cls} w-12 justify-center uppercase">${ep.method}</span>
         <span class="text-neutral-300 truncate" title="${ep.path}">${ep.path}</span>
       </div>`;
     }
@@ -1189,8 +1301,8 @@ function renderRequestBuilder() {
 
   const cls = METHOD_COLORS[ep.method] || '';
   let html = `<div class="flex items-center gap-2 mb-3">
-    <span class="px-2 py-0.5 rounded text-xs font-medium uppercase ${cls}">${ep.method}</span>
-    <span class="text-sm text-neutral-200 font-mono">${ep.path}</span>
+    <span class="${cls} uppercase">${ep.method}</span>
+    <span class="mono text-sm text-neutral-200">${ep.path}</span>
     ${ep.summary ? `<span class="text-xs text-neutral-500 ml-2">${escapeHtml(ep.summary)}</span>` : ''}
   </div>`;
 
@@ -1202,7 +1314,7 @@ function renderRequestBuilder() {
       html += `<div class="flex items-center gap-2">
         <label class="text-xs text-neutral-400 w-32">${p.name}</label>
         <input type="text" id="path-${p.name}" placeholder="${p.name}"
-          class="flex-1 bg-surface-800 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500 font-mono">
+          class="control-input mono flex-1 text-xs">
       </div>`;
     }
     html += '</div>';
@@ -1217,7 +1329,7 @@ function renderRequestBuilder() {
       html += `<div class="flex items-center gap-2">
         <label class="text-xs text-neutral-400 w-32">${p.name}</label>
         <input type="text" id="query-${p.name}" placeholder="${p.name}" value="${def}"
-          class="flex-1 bg-surface-800 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500 font-mono">
+          class="control-input mono flex-1 text-xs">
       </div>`;
     }
     html += '</div>';
@@ -1230,7 +1342,7 @@ function renderRequestBuilder() {
     html += `<div class="mt-3">
       <div class="text-[10px] font-medium text-neutral-500 uppercase mb-1">Request Body</div>
       <textarea id="apiBody" rows="6"
-        class="w-full bg-surface-800 border border-neutral-700 text-xs rounded px-2.5 py-2 text-neutral-300 focus:outline-none focus:border-violet-500 font-mono resize-y">${escapeHtml(exJson)}</textarea>
+        class="control-input mono w-full resize-y text-xs">${escapeHtml(exJson)}</textarea>
     </div>`;
   }
 
@@ -1241,7 +1353,7 @@ function renderRequestBuilder() {
 
   // Send button
   html += `<div class="mt-3">
-    <button onclick="sendApiRequest()" id="apiSendBtn" class="text-xs bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded transition-colors" ${ep.hasFileUpload ? 'disabled' : ''}>Send Request</button>
+    <button onclick="sendApiRequest()" id="apiSendBtn" class="primary-button" ${ep.hasFileUpload ? 'disabled' : ''}>Send Request</button>
   </div>`;
 
   builder.innerHTML = html;
@@ -1280,23 +1392,23 @@ async function sendApiRequest() {
   try {
     const res = await fetch(url, opts);
     const elapsed = (performance.now() - start).toFixed(0);
-    const statusCls = res.status < 300 ? 'bg-emerald-600/30 text-emerald-400'
-                    : res.status < 500 ? 'bg-amber-600/30 text-amber-400'
-                    : 'bg-red-600/30 text-red-400';
+    const statusCls = res.status < 300 ? 'status-badge bg-emerald-600/30 text-emerald-400'
+                    : res.status < 500 ? 'status-badge bg-amber-600/30 text-amber-400'
+                    : 'status-badge bg-red-600/30 text-red-400';
 
     let bodyHtml;
     const ct = res.headers.get('content-type') || '';
     if (ct.includes('json')) {
       const json = await res.json();
-      bodyHtml = `<pre class="text-xs bg-surface-800 rounded p-3 overflow-x-auto whitespace-pre-wrap break-words">${syntaxHighlightJson(JSON.stringify(json, null, 2))}</pre>`;
+      bodyHtml = `<pre class="surface-panel mono text-xs p-3 overflow-x-auto whitespace-pre-wrap break-words">${syntaxHighlightJson(JSON.stringify(json, null, 2))}</pre>`;
     } else {
       const text = await res.text();
-      bodyHtml = `<pre class="text-xs bg-surface-800 rounded p-3 text-neutral-300 whitespace-pre-wrap break-words">${escapeHtml(text.substring(0, 5000))}</pre>`;
+      bodyHtml = `<pre class="surface-panel mono text-xs p-3 text-neutral-300 whitespace-pre-wrap break-words">${escapeHtml(text.substring(0, 5000))}</pre>`;
     }
 
     viewer.innerHTML = `
       <div class="flex items-center gap-3 mb-3">
-        <span class="px-2 py-0.5 rounded text-xs font-medium ${statusCls}">${res.status} ${res.statusText}</span>
+        <span class="${statusCls}">${res.status} ${res.statusText}</span>
         <span class="text-xs text-neutral-500">${elapsed}ms</span>
       </div>
       ${bodyHtml}`;
@@ -1381,8 +1493,8 @@ function renderDbBrowser(data) {
     </div>
     <div class="flex items-center gap-2">
       <span class="text-neutral-500">${pageStart}–${pageEnd}</span>
-      <button onclick="dbPrevPage()" class="px-2 py-0.5 rounded bg-surface-800 hover:bg-surface-700 text-neutral-400 transition-colors ${hasPrev ? '' : 'opacity-30 pointer-events-none'}">&larr;</button>
-      <button onclick="dbNextPage()" class="px-2 py-0.5 rounded bg-surface-800 hover:bg-surface-700 text-neutral-400 transition-colors ${hasNext ? '' : 'opacity-30 pointer-events-none'}">&rarr;</button>
+      <button onclick="dbPrevPage()" class="action-button px-2 py-0.5 ${hasPrev ? '' : 'opacity-30 pointer-events-none'}">&larr;</button>
+      <button onclick="dbNextPage()" class="action-button px-2 py-0.5 ${hasNext ? '' : 'opacity-30 pointer-events-none'}">&rarr;</button>
     </div>`;
 
   renderDbTable(data.columns, data.rows);
@@ -1395,7 +1507,7 @@ function renderDbTable(columns, rows) {
     return;
   }
 
-  let html = '<table class="w-full text-xs"><thead class="sticky top-0 bg-surface-900 border-b border-neutral-800 z-10"><tr>';
+  let html = '<table class="w-full text-xs"><thead class="table-header"><tr>';
   for (const col of columns) {
     html += `<th class="px-3 py-2 text-left text-neutral-500 font-medium whitespace-nowrap">${escapeHtml(col)}</th>`;
   }
@@ -1403,7 +1515,7 @@ function renderDbTable(columns, rows) {
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    html += `<tr class="border-b border-neutral-800/50 hover:bg-surface-800/50 cursor-pointer" onclick="showDbRowDetail(${i})">`;
+    html += `<tr class="table-row cursor-pointer" onclick="showDbRowDetail(${i})">`;
     for (const col of columns) {
       const val = row[col];
       const display = formatCellValue(val);
@@ -1448,9 +1560,9 @@ function showDbRowDetail(idx) {
     } else if (isJsonString(String(val))) {
       try {
         const parsed = JSON.parse(val);
-        display = `<pre class="mt-1 bg-surface-900 rounded p-2 text-neutral-200 whitespace-pre-wrap break-words max-h-64 overflow-y-auto scrollbar-thin">${syntaxHighlightJson(JSON.stringify(parsed, null, 2))}</pre>`;
+        display = `<pre class="surface-panel mono mt-1 p-2 text-neutral-200 whitespace-pre-wrap break-words max-h-64 overflow-y-auto scrollbar-thin">${syntaxHighlightJson(JSON.stringify(parsed, null, 2))}</pre>`;
       } catch {
-        display = `<pre class="mt-1 bg-surface-900 rounded p-2 text-neutral-200 whitespace-pre-wrap break-words">${escapeHtml(String(val))}</pre>`;
+        display = `<pre class="surface-panel mono mt-1 p-2 text-neutral-200 whitespace-pre-wrap break-words">${escapeHtml(String(val))}</pre>`;
       }
     } else {
       display = `<span class="text-neutral-200">${escapeHtml(String(val))}</span>`;
@@ -1512,7 +1624,7 @@ async function executeSqlQuery() {
         <span class="text-neutral-200 font-medium">Query Results</span>
         <span class="text-neutral-500">${data.row_count} rows</span>
       </div>
-      <button onclick="selectDbTable(dbSelectedTable || '${dbTables[0]?.name || ''}')" class="text-xs text-violet-400 hover:text-violet-300 transition-colors">Back to table</button>`;
+      <button onclick="selectDbTable(dbSelectedTable || '${dbTables[0]?.name || ''}')" class="action-button">Back to table</button>`;
 
     renderDbTable(data.columns, data.rows);
   } catch (e) {
@@ -1605,7 +1717,7 @@ function renderUsageSummary(data) {
     html += `
       <div class="flex h-full flex-col gap-1">
         <div class="flex h-5 items-center justify-end">${manageBtn}</div>
-        <div class="border rounded-lg p-3 h-28 flex flex-col justify-between ${colorCls}">
+        <div class="surface-panel border p-3 h-28 flex flex-col justify-between ${colorCls}">
           <div class="min-w-0 space-y-1">
             <div class="flex min-w-0 items-center gap-1.5 text-[11px] font-medium leading-tight">
               <span class="shrink-0">${display.icon}</span>
@@ -1687,13 +1799,13 @@ function renderOpTable(operations) {
   const container = document.getElementById('usageOpTable');
   if (!operations.length) { container.innerHTML = '<span class="text-neutral-500 text-xs">No data yet</span>'; return; }
 
-  let html = '<table class="w-full text-xs"><thead><tr class="text-neutral-500 text-left border-b border-neutral-700">';
+  let html = '<table class="w-full text-xs"><thead class="table-header"><tr class="text-left">';
   html += '<th class="px-3 py-2">Service</th><th class="px-3 py-2">Operation</th><th class="px-3 py-2">Model</th><th class="px-3 py-2 text-right">Calls</th><th class="px-3 py-2 text-right">Cost</th>';
   html += '</tr></thead><tbody>';
 
   for (const op of operations) {
     const cls = SERVICE_COLORS[op.service]?.split(' ')[1] || 'text-neutral-300';
-    html += `<tr class="border-b border-neutral-800/50">
+    html += `<tr class="table-row">
       <td class="px-3 py-1.5 ${cls}">${op.service}</td>
       <td class="px-3 py-1.5 text-neutral-300">${op.operation}</td>
       <td class="px-3 py-1.5 text-neutral-400 text-[10px]">${op.model || '-'}</td>
@@ -1776,7 +1888,7 @@ function renderUsageRecent(data, recent) {
 
   if (!recent.length) { container.innerHTML = '<span class="text-neutral-500 text-xs">No API calls match these filters</span>'; return; }
 
-  let html = '<table class="w-full text-xs"><thead><tr class="text-neutral-500 text-left border-b border-neutral-700">';
+  let html = '<table class="w-full text-xs"><thead class="table-header"><tr class="text-left">';
   html += '<th class="px-2 py-2">Time</th><th class="px-2 py-2">Service</th><th class="px-2 py-2">Operation</th><th class="px-2 py-2">Model</th><th class="px-2 py-2 text-right">Tokens</th><th class="px-2 py-2 text-right">Chars</th><th class="px-2 py-2 text-right">Imgs</th><th class="px-2 py-2 text-right">Cost</th>';
   html += '</tr></thead><tbody>';
 
@@ -1785,7 +1897,7 @@ function renderUsageRecent(data, recent) {
     const date = r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric', timeZone:'America/Los_Angeles'}) : '';
     const cls = SERVICE_COLORS[r.service]?.split(' ')[1] || 'text-neutral-300';
     const tokens = r.input_tokens || r.output_tokens ? `${formatNumber(r.input_tokens)}/${formatNumber(r.output_tokens)}` : '-';
-    html += `<tr class="border-b border-neutral-800/50 hover:bg-surface-800/50">
+    html += `<tr class="table-row">
       <td class="px-2 py-1.5 text-neutral-500 whitespace-nowrap" title="${date} ${time}">${date} ${time}</td>
       <td class="px-2 py-1.5 ${cls}">${escapeHtml(r.service)}</td>
       <td class="px-2 py-1.5 text-neutral-300">${escapeHtml(r.operation || '-')}</td>
@@ -2043,8 +2155,8 @@ function _setEditButtons(state) {
   if (state === 'edit') {
     saveBtn.textContent = 'Save';
     saveBtn.disabled = false;
-    saveBtn.classList.remove('bg-emerald-600', 'bg-red-600');
-    saveBtn.classList.add('bg-violet-600');
+    saveBtn.classList.remove('action-button', 'danger-button');
+    saveBtn.classList.add('primary-button');
   }
 }
 
@@ -2055,7 +2167,7 @@ function toggleEditMode() {
 
   const viewer = document.getElementById('fileViewerContent');
   const lines = (_openFileContent || '').split('\n').length;
-  viewer.innerHTML = `<textarea id="fileEditor" class="w-full h-full bg-surface-900 text-neutral-200 text-xs font-mono p-4 resize-none focus:outline-none border border-neutral-700 rounded" spellcheck="false" style="tab-size: 4; min-height: 100%;">${_escapeHtml(_openFileContent || '')}</textarea>`;
+  viewer.innerHTML = `<textarea id="fileEditor" class="control-input mono w-full h-full text-xs p-4 resize-none" spellcheck="false" style="tab-size: 4; min-height: 100%;">${_escapeHtml(_openFileContent || '')}</textarea>`;
   document.getElementById('fileEditor').focus();
 }
 
@@ -2096,17 +2208,21 @@ async function saveFile() {
 
     // Flash success then return to view mode
     saveBtn.textContent = 'Saved!';
-    saveBtn.classList.replace('bg-violet-600', 'bg-emerald-600');
+    saveBtn.classList.remove('primary-button', 'danger-button');
+    saveBtn.classList.add('action-button');
     setTimeout(() => {
-      saveBtn.classList.replace('bg-emerald-600', 'bg-violet-600');
+      saveBtn.classList.remove('action-button');
+      saveBtn.classList.add('primary-button');
       cancelEdit();
     }, 800);
   } catch (e) {
     saveBtn.textContent = 'Error!';
-    saveBtn.classList.replace('bg-violet-600', 'bg-red-600');
+    saveBtn.classList.remove('primary-button', 'action-button');
+    saveBtn.classList.add('danger-button');
     setTimeout(() => {
       saveBtn.textContent = origText;
-      saveBtn.classList.replace('bg-red-600', 'bg-violet-600');
+      saveBtn.classList.remove('danger-button');
+      saveBtn.classList.add('primary-button');
       saveBtn.disabled = false;
     }, 1500);
   }
@@ -2117,5 +2233,6 @@ function _escapeHtml(str) {
 }
 </script>
 
+  </div>
 </body>
 </html>
