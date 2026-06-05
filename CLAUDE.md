@@ -118,6 +118,7 @@ docs/              → PRD, setup guide, superpowers skills
 
 ### Feature UX & Dev Observability
 - When adding a feature, sizable behavior change, or any new UI element/option, check that the UI is the most intuitive representation of the behavior, including naming, placement, defaults, disabled states, and workflow fit.
+- When designing or implementing frontend UI, use the available in-app browser/browser-preview tooling frequently during the work, not only at the end. Check the real running page after meaningful layout or interaction changes, inspect desktop and mobile-ish widths when relevant, and iterate until spacing, overflow, disabled states, loading/error states, and visual hierarchy look right in the browser.
 - When adding any feature that introduces new scene visual functionality, add equivalent Test tab/Test Lab support in the same change so the behavior can be manually tested before generating a full script.
 - Add concise hints, helper text, descriptions, or tooltips next to new controls when the behavior is not immediately obvious.
 - Add success, warning, error, status, or info logs to the dev dashboard when the new behavior affects generation, rendering, export, integrations, caching, background jobs, or other pipeline-visible state.
