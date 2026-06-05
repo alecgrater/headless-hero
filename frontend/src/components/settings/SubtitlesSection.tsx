@@ -184,7 +184,7 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
           title="Subtitle Coverage"
           description="Caption visual mode keeps its own large in-scene text and never receives standard bottom subtitles."
         />
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           {[
             {
               id: "all" as const,
@@ -204,16 +204,16 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
                 type="button"
                 aria-pressed={selected}
                 onClick={() => setSettings((current) => ({ ...current, coverage: option.id }))}
-                className={`flex min-h-32 flex-col rounded-xl border p-5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                className={`flex min-h-28 flex-col border-l-2 py-3 pl-5 pr-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
                   selected
-                    ? "border-violet-400/60 bg-violet-500/10 text-neutral-100"
-                    : "border-neutral-800 bg-neutral-900 text-neutral-300 hover:border-neutral-700 hover:bg-neutral-800/70"
+                    ? "border-violet-400 text-neutral-100"
+                    : "border-neutral-800 text-neutral-300 hover:border-neutral-600"
                 }`}
               >
                 <span className="flex items-center justify-between gap-3">
                   <span className="text-sm font-semibold">{option.title}</span>
-                  <span className={`grid h-6 w-6 place-items-center rounded-full border ${
-                    selected ? "border-violet-300 bg-violet-500 text-white" : "border-neutral-700 text-neutral-600"
+                  <span className={`grid h-6 w-6 place-items-center rounded-full ${
+                    selected ? "bg-violet-500 text-white" : "bg-neutral-800 text-neutral-600"
                   }`}>
                     {selected && <Check className="h-3.5 w-3.5" />}
                   </span>
@@ -234,7 +234,7 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
           title="Enabled Subtitle Styles"
           description="Only selected styles are eligible when subtitles are assigned. Turning every style off suppresses standard subtitles."
         />
-        <div className="grid gap-3 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-3">
           {STYLE_OPTIONS.map((option) => {
             const selected = settings.enabledStyles.includes(option.id);
             return (
@@ -243,10 +243,10 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
                 type="button"
                 aria-pressed={selected}
                 onClick={() => toggleStyle(option.id)}
-                className={`rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                className={`border-l-2 py-2 pl-4 pr-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
                   selected
-                    ? "border-sky-400/60 bg-sky-500/10"
-                    : "border-neutral-800 bg-neutral-900 hover:border-neutral-700 hover:bg-neutral-800/70"
+                    ? "border-sky-400"
+                    : "border-neutral-800 hover:border-neutral-600"
                 }`}
               >
                 <StylePreview style={option.id} />
@@ -255,8 +255,8 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
                     <h4 className="text-sm font-semibold text-neutral-100">{option.title}</h4>
                     <p className="mt-1 text-xs leading-relaxed text-neutral-500">{option.description}</p>
                   </div>
-                  <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border ${
-                    selected ? "border-sky-300 bg-sky-500 text-white" : "border-neutral-700 text-neutral-600"
+                  <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full ${
+                    selected ? "bg-sky-500 text-white" : "bg-neutral-800 text-neutral-600"
                   }`}>
                     {selected && <Check className="h-3.5 w-3.5" />}
                   </span>

@@ -17,7 +17,7 @@ export default function SettingsSectionHeader({
 }: SettingsSectionHeaderProps) {
   const wrapperClassName = compact
     ? `min-w-0 ${className}`.trim()
-    : `relative min-w-0 ${className}`.trim();
+    : `-ml-4 min-w-0 rounded-2xl border border-violet-500/40 bg-violet-500/5 px-4 py-3 shadow-[0_0_0_1px_rgba(139,92,246,0.08)] ${className}`.trim();
   const titleClassName = compact
     ? "text-sm font-semibold text-neutral-100"
     : "text-xl font-semibold tracking-tight text-neutral-100";
@@ -25,12 +25,6 @@ export default function SettingsSectionHeader({
 
   return (
     <div className={wrapperClassName}>
-      {!compact && (
-        <span
-          aria-hidden="true"
-          className="absolute -left-4 top-1 h-9 w-1 rounded-full bg-gradient-to-b from-violet-400 via-violet-500 to-sky-400 shadow-[0_0_18px_rgba(139,92,246,0.45)]"
-        />
-      )}
       <Heading className={titleClassName}>{title}</Heading>
       {description && (
         <p className={`text-xs leading-relaxed text-neutral-500 ${descriptionClassName}`.trim()}>

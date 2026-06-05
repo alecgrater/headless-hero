@@ -61,6 +61,14 @@ describe("SubtitlesSection settings", () => {
     expect(screen.getByText("changes")).toBeTruthy();
     expect(screen.getByText("why")).toBeTruthy();
 
+    const coverageChoice = screen.getByRole("button", { name: /Punchiest 20% only/i });
+    expect(coverageChoice).toHaveClass("border-l-2", "border-violet-400");
+    expect(coverageChoice).not.toHaveClass("rounded-xl", "border", "bg-violet-500/10");
+
+    const cleanStyle = screen.getByRole("button", { name: /Clean/i });
+    expect(cleanStyle).toHaveClass("border-l-2");
+    expect(cleanStyle).not.toHaveClass("rounded-xl", "border", "bg-sky-500/10");
+
     fireEvent.click(screen.getByRole("button", { name: /All non-caption scenes/i }));
     fireEvent.click(screen.getByRole("button", { name: /Clean/i }));
     fireEvent.click(screen.getByRole("button", { name: /Kinetic Cards/i }));
