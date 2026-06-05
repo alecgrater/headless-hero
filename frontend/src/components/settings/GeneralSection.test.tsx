@@ -37,7 +37,7 @@ describe("GeneralSection visuals layout", () => {
     for (const sectionHeading of [exportsHeading, publishingHeading, advancedHeading]) {
       expect(sectionHeading).toHaveClass("text-xl", "font-semibold", "tracking-tight");
       expect(sectionHeading).not.toHaveClass("text-base");
-      expect(sectionHeading.parentElement).toHaveClass("rounded-2xl", "border", "border-violet-500/40", "bg-violet-500/5", "px-4", "py-3");
+      expect(sectionHeading.parentElement).toHaveClass("-ml-4", "rounded-2xl", "border", "border-violet-500/40", "bg-violet-500/5", "px-4", "py-3");
     }
     for (const subsectionHeading of [youtubeHeading, workflowHeading]) {
       expect(subsectionHeading).toHaveClass("text-sm", "font-semibold");
@@ -60,7 +60,7 @@ describe("GeneralSection visuals layout", () => {
       expect(heading).toHaveClass("text-xl", "font-semibold", "tracking-tight");
       expect(heading).not.toHaveClass("text-sm");
       expect(heading).not.toHaveClass("text-base");
-      expect(heading.parentElement).toHaveClass("rounded-2xl", "border", "border-violet-500/40", "bg-violet-500/5", "px-4", "py-3");
+      expect(heading.parentElement).toHaveClass("-ml-4", "rounded-2xl", "border", "border-violet-500/40", "bg-violet-500/5", "px-4", "py-3");
     }
     expect(container.querySelector(".divide-y")).toBeNull();
   });
