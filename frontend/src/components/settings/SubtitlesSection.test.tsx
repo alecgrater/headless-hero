@@ -61,13 +61,19 @@ describe("SubtitlesSection settings", () => {
     expect(screen.getByText("changes")).toBeTruthy();
     expect(screen.getByText("why")).toBeTruthy();
 
+    const coverageSection = screen.getByTestId("subtitle-coverage-section");
+    expect(coverageSection).toHaveClass("xl:grid-cols-[220px_minmax(0,1fr)]", "border-t", "border-neutral-800");
+
     const coverageChoice = screen.getByRole("button", { name: /Punchiest 20% only/i });
-    expect(coverageChoice).toHaveClass("border-l-2", "border-violet-400");
-    expect(coverageChoice).not.toHaveClass("rounded-xl", "border", "bg-violet-500/10");
+    expect(coverageChoice).toHaveClass("rounded-md", "bg-violet-500");
+    expect(coverageChoice).not.toHaveClass("border-l-2", "rounded-xl");
+
+    const styleSection = screen.getByTestId("subtitle-styles-section");
+    expect(styleSection).toHaveClass("xl:grid-cols-[220px_minmax(0,1fr)]", "border-t", "border-neutral-800");
 
     const cleanStyle = screen.getByRole("button", { name: /Clean/i });
-    expect(cleanStyle).toHaveClass("border-l-2");
-    expect(cleanStyle).not.toHaveClass("rounded-xl", "border", "bg-sky-500/10");
+    expect(cleanStyle).toHaveClass("grid", "border-t", "border-neutral-800");
+    expect(cleanStyle).not.toHaveClass("rounded-xl", "border-l-2");
 
     fireEvent.click(screen.getByRole("button", { name: /All non-caption scenes/i }));
     fireEvent.click(screen.getByRole("button", { name: /Clean/i }));

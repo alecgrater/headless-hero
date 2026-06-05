@@ -111,7 +111,8 @@ docs/              → PRD, setup guide, superpowers skills
 - Dark theme: `bg-neutral-950/900`, `text-neutral-100/400`
 - Accent colors: `violet-*`, `sky-*`, `emerald-*`
 - Always include `hover:` + `transition-colors` for interactive elements
-- Settings panels use the Subtitles page structure: keep parent section titles/descriptions visually framed above controls with `text-xl font-semibold tracking-tight` headings inside the subtle rounded purple title box (`-ml-4 rounded-2xl border border-violet-500/40 bg-violet-500/5 px-4 py-3`), keep embedded subsections and individual control/item labels smaller (`text-sm`) without the parent title box, and avoid nested card stacks in Subtitles-style selectable grids by keeping those inner choices unboxed when their selected state can be shown with lighter cues such as accent rails, check pills, hover text, or inline previews.
+- Most Settings panels use framed section headers: keep parent section titles/descriptions visually framed above controls with `text-xl font-semibold tracking-tight` headings inside the subtle rounded purple title box (`-ml-4 rounded-2xl border border-violet-500/40 bg-violet-500/5 px-4 py-3`), and keep embedded subsections and individual control/item labels smaller (`text-sm`) without the parent title box.
+- Settings → Subtitles is intentionally a denser console layout: use a two-column section grid with the section explanation on the left and the control on the right, a compact segmented control for coverage, and a divided preview list for enabled styles. Do not wrap the Subtitles section labels in title boxes or turn each choice into a standalone card.
 
 ### Frontend State & Formatting
 - No external state library — `useState()` at page level, pass down via props

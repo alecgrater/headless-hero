@@ -1,8 +1,7 @@
-import { Check, Sparkles } from "lucide-react";
+import { Check } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import api from "../../api";
 import { showToast } from "../ToastContainer";
-import SettingsSectionHeader from "./SettingsSectionHeader";
 
 export type SubtitleCoverageMode = "all" | "punchy";
 export type EnabledSubtitleStyle = "clean" | "kinetic" | "burst";
@@ -72,7 +71,7 @@ function arraysMatch(a: string[], b: string[]): boolean {
 function StylePreview({ style }: { style: EnabledSubtitleStyle }) {
   if (style === "kinetic") {
     return (
-      <div className="flex h-24 items-center justify-center gap-2 rounded-lg bg-neutral-950/80 px-4">
+      <div className="flex h-20 items-center justify-center gap-2 rounded-lg bg-neutral-950/80 px-4">
         {["This", "changes", "everything"].map((word, index) => (
           <span
             key={word}
@@ -89,7 +88,7 @@ function StylePreview({ style }: { style: EnabledSubtitleStyle }) {
 
   if (style === "burst") {
     return (
-      <div className="flex h-24 items-center justify-center rounded-lg bg-neutral-950/80 px-4">
+      <div className="flex h-20 items-center justify-center rounded-lg bg-neutral-950/80 px-4">
         <div className="text-center leading-none">
           <span className="mr-2 text-lg font-extrabold text-white/80">but</span>
           <span className="inline-block text-4xl font-black uppercase text-yellow-200 [text-shadow:0_4px_0_#111,0_14px_24px_rgba(0,0,0,0.8)] [-webkit-text-stroke:1.5px_#111]">
@@ -101,12 +100,32 @@ function StylePreview({ style }: { style: EnabledSubtitleStyle }) {
   }
 
   return (
-    <div className="flex h-24 items-center justify-center rounded-lg bg-neutral-950/80 px-4">
+    <div className="flex h-20 items-center justify-center rounded-lg bg-neutral-950/80 px-4">
       <div className="flex flex-wrap justify-center gap-x-2 rounded-md bg-black/55 px-4 py-2">
         <span className="text-lg font-bold text-white">The</span>
         <span className="text-lg font-extrabold text-yellow-300 [text-shadow:0_0_14px_rgba(250,204,21,0.5)]">real</span>
         <span className="text-lg font-bold text-white">answer</span>
       </div>
+    </div>
+  );
+}
+
+function SubtitlesSectionIntro({
+  number,
+  title,
+  description,
+}: {
+  number: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="max-w-sm">
+      <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-300/80">
+        {number}
+      </div>
+      <h3 className="text-xl font-semibold tracking-tight text-neutral-100">{title}</h3>
+      <p className="mt-2 text-xs leading-relaxed text-neutral-500">{description}</p>
     </div>
   );
 }
@@ -169,7 +188,7 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
   }
 
   return (
-    <div className="max-w-5xl space-y-8 px-8 py-8 pb-24">
+    <div className="max-w-5xl space-y-10 px-8 py-8 pb-24">
       {showHeader && (
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Subtitles</h2>
@@ -179,12 +198,16 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
         </div>
       )}
 
-      <section className="space-y-3">
-        <SettingsSectionHeader
+      <section
+        data-testid="subtitle-coverage-section"
+        className="grid gap-5 border-t border-neutral-800 pt-6 xl:grid-cols-[220px_minmax(0,1fr)]"
+      >
+        <SubtitlesSectionIntro
+          number="01 Coverage"
           title="Subtitle Coverage"
           description="Caption visual mode keeps its own large in-scene text and never receives standard bottom subtitles."
         />
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-xl bg-neutral-900/70 p-1">
           {[
             {
               id: "all" as const,
@@ -204,24 +227,22 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
                 type="button"
                 aria-pressed={selected}
                 onClick={() => setSettings((current) => ({ ...current, coverage: option.id }))}
-                className={`flex min-h-28 flex-col border-l-2 py-3 pl-5 pr-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                className={`grid w-full grid-cols-[minmax(0,1fr)_auto] gap-x-4 rounded-md px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
                   selected
-                    ? "border-violet-400 text-neutral-100"
-                    : "border-neutral-800 text-neutral-300 hover:border-neutral-600"
+                    ? "bg-violet-500 text-white shadow-[0_10px_30px_rgba(139,92,246,0.22)]"
+                    : "text-neutral-400 hover:bg-neutral-800/80 hover:text-neutral-100"
                 }`}
               >
-                <span className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-semibold">{option.title}</span>
-                  <span className={`grid h-6 w-6 place-items-center rounded-full ${
-                    selected ? "bg-violet-500 text-white" : "bg-neutral-800 text-neutral-600"
-                  }`}>
-                    {selected && <Check className="h-3.5 w-3.5" />}
+                <span>
+                  <span className="block text-sm font-semibold">{option.title}</span>
+                  <span className={`mt-1 block text-xs leading-relaxed ${selected ? "text-violet-100/80" : "text-neutral-500"}`}>
+                    {option.description}
                   </span>
                 </span>
-                <span className="mt-2 text-xs leading-relaxed text-neutral-500">{option.description}</span>
-                <span className="mt-auto flex items-center gap-1.5 pt-5 text-[11px] font-medium text-neutral-400">
-                  <Sparkles className="h-3.5 w-3.5 text-violet-300" />
-                  {option.id === "all" ? "Best for always-on readability" : "Best for accent moments"}
+                <span className={`mt-0.5 grid h-6 w-6 place-items-center rounded-full ${
+                  selected ? "bg-white text-violet-600" : "bg-neutral-800 text-neutral-600"
+                }`}>
+                  {selected && <Check className="h-3.5 w-3.5" />}
                 </span>
               </button>
             );
@@ -229,12 +250,16 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
         </div>
       </section>
 
-      <section className="space-y-3">
-        <SettingsSectionHeader
+      <section
+        data-testid="subtitle-styles-section"
+        className="grid gap-5 border-t border-neutral-800 pt-6 xl:grid-cols-[220px_minmax(0,1fr)]"
+      >
+        <SubtitlesSectionIntro
+          number="02 Styles"
           title="Enabled Subtitle Styles"
           description="Only selected styles are eligible when subtitles are assigned. Turning every style off suppresses standard subtitles."
         />
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="border-b border-neutral-800">
           {STYLE_OPTIONS.map((option) => {
             const selected = settings.enabledStyles.includes(option.id);
             return (
@@ -243,24 +268,22 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
                 type="button"
                 aria-pressed={selected}
                 onClick={() => toggleStyle(option.id)}
-                className={`border-l-2 py-2 pl-4 pr-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+                className={`grid w-full gap-4 border-t border-neutral-800 py-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 md:grid-cols-[180px_minmax(0,1fr)_auto] md:items-center ${
                   selected
-                    ? "border-sky-400"
-                    : "border-neutral-800 hover:border-neutral-600"
+                    ? "text-neutral-100"
+                    : "text-neutral-400 hover:text-neutral-100"
                 }`}
               >
                 <StylePreview style={option.id} />
-                <div className="mt-4 flex items-start justify-between gap-3">
-                  <div>
-                    <h4 className="text-sm font-semibold text-neutral-100">{option.title}</h4>
-                    <p className="mt-1 text-xs leading-relaxed text-neutral-500">{option.description}</p>
-                  </div>
-                  <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full ${
-                    selected ? "bg-sky-500 text-white" : "bg-neutral-800 text-neutral-600"
-                  }`}>
-                    {selected && <Check className="h-3.5 w-3.5" />}
-                  </span>
+                <div>
+                  <h4 className="text-sm font-semibold text-neutral-100">{option.title}</h4>
+                  <p className="mt-1 max-w-xl text-xs leading-relaxed text-neutral-500">{option.description}</p>
                 </div>
+                <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full justify-self-start md:justify-self-end ${
+                  selected ? "bg-sky-500 text-white" : "bg-neutral-800 text-neutral-600"
+                }`}>
+                  {selected && <Check className="h-3.5 w-3.5" />}
+                </span>
               </button>
             );
           })}
