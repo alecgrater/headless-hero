@@ -35,9 +35,9 @@ describe("GeneralSection visuals layout", () => {
     const workflowHeading = await screen.findByRole("heading", { name: "Workflow", level: 3 });
 
     for (const sectionHeading of [exportsHeading, publishingHeading, advancedHeading]) {
-      expect(sectionHeading).toHaveClass("text-lg", "font-semibold", "tracking-tight");
+      expect(sectionHeading).toHaveClass("text-xl", "font-semibold", "tracking-tight");
       expect(sectionHeading).not.toHaveClass("text-base");
-      expect(sectionHeading.parentElement).toHaveClass("border-l-2", "border-violet-500/60", "pl-3");
+      expect(sectionHeading.parentElement).toHaveClass("rounded-2xl", "border", "border-violet-500/40", "bg-violet-500/5", "px-4", "py-3");
     }
     for (const subsectionHeading of [youtubeHeading, workflowHeading]) {
       expect(subsectionHeading).toHaveClass("text-sm", "font-semibold");
@@ -57,10 +57,10 @@ describe("GeneralSection visuals layout", () => {
     const sceneStructureHeading = screen.getByRole("heading", { name: "Scene Structure", level: 3 });
 
     for (const heading of [imageProviderHeading, aiVideoHeading, sceneStructureHeading]) {
-      expect(heading).toHaveClass("text-lg", "font-semibold", "tracking-tight");
+      expect(heading).toHaveClass("text-xl", "font-semibold", "tracking-tight");
       expect(heading).not.toHaveClass("text-sm");
       expect(heading).not.toHaveClass("text-base");
-      expect(heading.parentElement).toHaveClass("border-l-2", "border-violet-500/60", "pl-3");
+      expect(heading.parentElement).toHaveClass("rounded-2xl", "border", "border-violet-500/40", "bg-violet-500/5", "px-4", "py-3");
     }
     expect(container.querySelector(".divide-y")).toBeNull();
   });

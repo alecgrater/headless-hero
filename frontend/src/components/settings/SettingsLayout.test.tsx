@@ -75,9 +75,9 @@ describe("settings section layout", () => {
     const { container } = render(<ApiKeysSection showHeader={false} />);
 
     const aiTextHeading = await screen.findByRole("heading", { name: "AI Text", level: 3 });
-    expect(aiTextHeading).toHaveClass("text-lg", "font-semibold", "tracking-tight");
+    expect(aiTextHeading).toHaveClass("text-xl", "font-semibold", "tracking-tight");
     expect(aiTextHeading).not.toHaveClass("text-sm");
-    expect(aiTextHeading.parentElement).toHaveClass("border-l-2", "border-violet-500/60", "pl-3");
+    expect(aiTextHeading.parentElement).toHaveClass("rounded-2xl", "border", "border-violet-500/40", "bg-violet-500/5", "px-4", "py-3");
     expect(screen.getByRole("heading", { name: "Anthropic", level: 3 })).toHaveClass("text-sm", "font-medium");
     expect(aiTextHeading.closest("section")).not.toHaveClass("bg-neutral-900", "border", "rounded-xl");
     expect(container.querySelector(".divide-y")).toBeNull();
@@ -87,9 +87,9 @@ describe("settings section layout", () => {
     const { container } = render(<MiscSection showHeader={false} />);
 
     const workflowHeading = await screen.findByRole("heading", { name: "Workflow", level: 3 });
-    expect(workflowHeading).toHaveClass("text-lg", "font-semibold", "tracking-tight");
+    expect(workflowHeading).toHaveClass("text-xl", "font-semibold", "tracking-tight");
     expect(workflowHeading).not.toHaveClass("text-sm");
-    expect(workflowHeading.parentElement).toHaveClass("border-l-2", "border-violet-500/60", "pl-3");
+    expect(workflowHeading.parentElement).toHaveClass("rounded-2xl", "border", "border-violet-500/40", "bg-violet-500/5", "px-4", "py-3");
     expect(screen.getByRole("heading", { name: "Hook Refinement", level: 3 })).toHaveClass("text-sm", "font-medium");
     expect(workflowHeading.closest("section")).not.toHaveClass("bg-neutral-900", "border", "rounded-xl");
     expect(container.querySelector(".divide-y")).toBeNull();
@@ -99,9 +99,9 @@ describe("settings section layout", () => {
     render(<PublishingSection showHeader={false} />);
 
     const youtubeHeading = await screen.findByRole("heading", { name: "YouTube Shorts", level: 3 });
-    expect(youtubeHeading).toHaveClass("text-lg", "font-semibold", "tracking-tight");
+    expect(youtubeHeading).toHaveClass("text-xl", "font-semibold", "tracking-tight");
     expect(youtubeHeading).not.toHaveClass("text-sm");
-    expect(youtubeHeading.parentElement).toHaveClass("border-l-2", "border-violet-500/60", "pl-3");
+    expect(youtubeHeading.parentElement).toHaveClass("rounded-2xl", "border", "border-violet-500/40", "bg-violet-500/5", "px-4", "py-3");
     expect(youtubeHeading.closest("section")).not.toHaveClass("bg-neutral-900", "border", "rounded-xl");
     expect(screen.getByText("Uploads rendered shorts to your connected YouTube channel.")).toHaveClass("text-xs");
   });

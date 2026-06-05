@@ -17,10 +17,10 @@ export default function SettingsSectionHeader({
 }: SettingsSectionHeaderProps) {
   const wrapperClassName = compact
     ? `min-w-0 ${className}`.trim()
-    : `min-w-0 border-l-2 border-violet-500/60 pl-3 ${className}`.trim();
+    : `min-w-0 rounded-2xl border border-violet-500/40 bg-violet-500/5 px-4 py-3 shadow-[0_0_0_1px_rgba(139,92,246,0.08)] ${className}`.trim();
   const titleClassName = compact
     ? "text-sm font-semibold text-neutral-100"
-    : "text-lg font-semibold tracking-tight text-neutral-100";
+    : "text-xl font-semibold tracking-tight text-neutral-100";
   const Heading = level === 2 ? "h2" : "h3";
 
   return (
