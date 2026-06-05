@@ -20,7 +20,7 @@ import MiniProgressBar from "../MiniProgressBar";
 import ThumbnailLabelStyleToggle from "./ThumbnailLabelStyleToggle";
 import { usePollJob } from "../../hooks/usePollJob";
 
-const YOUTUBE_RECONNECT_MESSAGE = "Your youtube connection has expired or been revoked. Please reconnect your account in Settings → General → Publishing.";
+const YOUTUBE_RECONNECT_MESSAGE = "Your YouTube connection has expired or been revoked. Please reconnect your account in Settings → General → Publishing.";
 
 function simplifyYouTubeUploadError(error: string | null | undefined): string {
   if (!error) return "Upload failed";
