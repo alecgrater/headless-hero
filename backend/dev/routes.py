@@ -19,6 +19,7 @@ from database import engine
 from dev.log_handler import DevLog, get_broadcast_queue
 from integrations.usage_tracker import estimate_local_llm_savings
 from models.api_usage import ApiUsage
+from pipeline.fallback_observability import FALLBACK_PREFIX, parse_fallback_message, summarize_fallback_events
 from pipeline import render_jobs
 from pipeline.process_manager import register_process, terminate_all_processes, unregister_process
 from pipeline.render_jobs import cancel_all_jobs
@@ -175,6 +176,52 @@ async def log_stats():
         "top_messages": top_messages,
         "recent_new": recent_new,
     }
+
+
+@router.get("/api/fallbacks/stats")
+async def fallback_stats(
+    hours: int = Query(default=24, ge=1, le=168),
+    category: str | None = None,
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
+    with Session(engine) as session:
+        rows = session.exec(
+            select(DevLog)
+            .where(DevLog.timestamp >= since)
+            .where(col(DevLog.message).startswith(FALLBACK_PREFIX))
+            .order_by(col(DevLog.id).desc())
+            .limit(1000)
+        ).all()
+
+    events = []
+    malformed_count = 0
+    for row in rows:
+        payload = parse_fallback_message(row.message)
+        if payload is None:
+            malformed_count += 1
+            continue
+        if category and payload.get("category") != category:
+            continue
+        payload.update(
+            {
+                "id": row.id,
+                "timestamp": (row.timestamp.isoformat() + "Z") if row.timestamp else None,
+                "logger_name": row.logger_name,
+                "level": row.level,
+                "module": row.module,
+                "func_name": row.func_name,
+                "lineno": row.lineno,
+            }
+        )
+        events.append(payload)
+
+    return summarize_fallback_events(
+        events,
+        window_hours=hours,
+        malformed_count=malformed_count,
+        recent_limit=limit,
+    )
 
 
 @router.get("/api/logs/modules")

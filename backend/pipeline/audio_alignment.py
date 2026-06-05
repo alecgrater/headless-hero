@@ -3,6 +3,8 @@
 import logging
 from pathlib import Path
 
+from pipeline.fallback_observability import record_fallback
+
 logger = logging.getLogger(__name__)
 
 _model = None
@@ -55,6 +57,15 @@ def align_audio(audio_path: Path, text: str) -> list[dict]:
     except Exception as exc:
         logger.exception("Whisper alignment failed for %s: %s", audio_path.name, exc)
 
+    record_fallback(
+        category="subtitle_timing",
+        event="word_timing_even_distribution",
+        reason="Whisper alignment failed or returned no word timestamps",
+        to_value="even_distribution",
+        severity="warn",
+        metadata={"word_count": len(words), "asset_path": audio_path},
+        logger=logger,
+    )
     return _even_distribution(words, audio_path)
 
 
@@ -69,6 +80,15 @@ def _even_distribution(words: list[str], audio_path: Path) -> list[dict]:
         )
         duration_ms = int(float(result.stdout.strip()) * 1000)
     except Exception:
+        record_fallback(
+            category="subtitle_timing",
+            event="audio_duration_estimated_from_word_count",
+            reason="ffprobe duration lookup failed",
+            to_value="word_count_duration_estimate",
+            severity="warn",
+            metadata={"word_count": len(words), "asset_path": audio_path},
+            logger=logger,
+        )
         duration_ms = len(words) * 430  # ~140 WPM fallback
 
     word_duration = duration_ms // len(words) if words else 0

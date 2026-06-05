@@ -11,6 +11,7 @@ import re
 from config import strip_markdown_fences
 from integrations.llm_client import chat
 from models.script import ScriptContent
+from pipeline.fallback_observability import record_fallback
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +119,16 @@ def detect_hook_scene_count(content: ScriptContent, script_id: str | None = None
         )
     except Exception:
         logger.exception("Hook detection LLM call failed — defaulting to fallback count %d", fallback_count)
+        record_fallback(
+            category="hook_detection",
+            event="hook_detection_llm_fallback",
+            reason="Hook detection LLM call failed",
+            to_value="deterministic_count",
+            script_id=script_id,
+            severity="warn",
+            metadata={"fallback_count": fallback_count},
+            logger=logger,
+        )
         return fallback_count
 
     try:
@@ -130,6 +141,16 @@ def detect_hook_scene_count(content: ScriptContent, script_id: str | None = None
             "Hook detector returned non-JSON or non-int: %r — defaulting to fallback count %d",
             response,
             fallback_count,
+        )
+        record_fallback(
+            category="hook_detection",
+            event="hook_detection_parse_fallback",
+            reason="Hook detector returned non-JSON or non-int",
+            to_value="deterministic_count",
+            script_id=script_id,
+            severity="warn",
+            metadata={"fallback_count": fallback_count},
+            logger=logger,
         )
         return fallback_count
 

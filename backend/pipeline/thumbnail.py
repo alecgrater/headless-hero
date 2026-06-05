@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Literal
 
 from config import DATA_DIR
+from pipeline.fallback_observability import record_fallback
 from prompts import IMAGE_CTR_EXPRESSION_GUIDANCE
 
 logger = logging.getLogger(__name__)
@@ -242,6 +243,16 @@ def enhance_split_progression(
         logger.warning(
             "[%s] split-progression Gemini call failed (%s); falling back to clean image",
             script_id or "no-id", exc,
+        )
+        record_fallback(
+            category="thumbnail",
+            event="split_thumbnail_clean_image_fallback",
+            reason="Split-progression Gemini call failed, using clean image",
+            from_value="gemini_enhanced",
+            to_value="clean_image",
+            script_id=script_id,
+            severity="warn",
+            logger=logger,
         )
         shutil.copy2(str(clean_image_path), str(output_path))
         return output_path
@@ -544,4 +555,14 @@ def gemini_enhance_thumbnail(
         return result_path
     except Exception as exc:
         logger.warning("Gemini thumbnail enhancement failed, using base image: %s", exc)
+        record_fallback(
+            category="thumbnail",
+            event="thumbnail_enhancement_fallback",
+            reason="Gemini thumbnail enhancement failed, using base image",
+            from_value="gemini_enhanced",
+            to_value="base_image",
+            script_id=script_id,
+            severity="warn",
+            logger=logger,
+        )
         return None

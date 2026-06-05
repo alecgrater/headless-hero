@@ -70,6 +70,7 @@
   <!-- Tabs -->
   <nav class="border-b border-neutral-800 px-6 flex gap-1">
     <button onclick="switchTab('logs')" id="tab-logs" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-violet-500 text-violet-400 transition-colors">Logs</button>
+    <button onclick="switchTab('fallbacks')" id="tab-fallbacks" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Fallbacks</button>
     <button onclick="switchTab('jobs')" id="tab-jobs" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Jobs</button>
     <button onclick="switchTab('api')" id="tab-api" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">API</button>
     <button onclick="switchTab('database')" id="tab-database" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Database</button>
@@ -152,6 +153,56 @@
       <div class="px-4 py-3">
         <h3 class="text-xs font-medium text-neutral-400 mb-2">Just Appeared (1h)</h3>
         <div id="statsRecentNew" class="space-y-1"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fallbacks Tab -->
+  <div id="panel-fallbacks" class="hidden h-[calc(100vh-97px)] overflow-y-auto scrollbar-thin p-6">
+    <div class="max-w-7xl mx-auto space-y-4">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h2 class="text-sm font-medium text-neutral-100">Fallback Visibility</h2>
+          <p class="text-xs text-neutral-500 mt-1">Structured fallback events from generation, rendering, and pipeline recovery paths.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <select id="fallbackHours" onchange="fetchFallbackStats()" class="bg-surface-800 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+            <option value="1">Last hour</option>
+            <option value="24" selected>Last 24h</option>
+            <option value="168">Last 7d</option>
+          </select>
+          <select id="fallbackCategory" onchange="fetchFallbackStats()" class="bg-surface-800 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+            <option value="">All categories</option>
+          </select>
+          <button onclick="fetchFallbackStats()" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Refresh</button>
+        </div>
+      </div>
+
+      <div id="fallbackSummaryCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+          <h3 class="text-xs font-medium text-neutral-400 mb-3">By Category</h3>
+          <div id="fallbackByCategory" class="space-y-2 text-xs"></div>
+        </div>
+        <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+          <h3 class="text-xs font-medium text-neutral-400 mb-3">By Event</h3>
+          <div id="fallbackByEvent" class="space-y-2 text-xs"></div>
+        </div>
+        <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+          <h3 class="text-xs font-medium text-neutral-400 mb-3">Top Reasons</h3>
+          <div id="fallbackByReason" class="space-y-2 text-xs"></div>
+        </div>
+      </div>
+
+      <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+        <h3 class="text-xs font-medium text-neutral-400 mb-3">Hot Events</h3>
+        <div id="fallbackHotEvents" class="space-y-2 text-xs"></div>
+      </div>
+
+      <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+        <h3 class="text-xs font-medium text-neutral-400 mb-3">Recent Examples</h3>
+        <div id="fallbackRecentTable" class="overflow-x-auto"></div>
       </div>
     </div>
   </div>
@@ -363,6 +414,7 @@ let rawView = false;
 let autoScroll = true;
 let ws = null;
 let wsReconnectTimer = null;
+let fallbackRecentRows = [];
 
 const LEVEL_COLORS = {
   DEBUG: 'bg-neutral-600 text-neutral-300',
@@ -389,7 +441,7 @@ async function launchApp(btn) {
 }
 
 // --- Tabs ---
-const ALL_TABS = ['logs', 'jobs', 'api', 'database', 'usage', 'files'];
+const ALL_TABS = ['logs', 'fallbacks', 'jobs', 'api', 'database', 'usage', 'files'];
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => {
     b.classList.remove('border-violet-500', 'text-violet-400');
@@ -401,6 +453,7 @@ function switchTab(tab) {
     document.getElementById('panel-' + t).classList.toggle('hidden', t !== tab);
   }
   if (tab === 'jobs') fetchJobs();
+  if (tab === 'fallbacks') fetchFallbackStats();
   if (tab === 'api') loadOpenApiSchema();
   if (tab === 'database') fetchDbTables();
   if (tab === 'usage') fetchUsageSummary();
@@ -666,6 +719,193 @@ async function fetchStats() {
     newDiv.innerHTML += `<div class="text-emerald-400 truncate" title="${escapeHtml(msg)}">${escapeHtml(msg.substring(0, 80))}</div>`;
   }
   if (!stats.recent_new?.length) newDiv.innerHTML = '<span class="text-neutral-600">None</span>';
+}
+
+// --- Fallback Analytics ---
+const FALLBACK_SEVERITY_COLORS = {
+  info: 'bg-sky-600/30 text-sky-400',
+  warn: 'bg-amber-600/30 text-amber-400',
+  fail: 'bg-red-600/30 text-red-400',
+};
+
+async function fetchFallbackStats() {
+  const hours = document.getElementById('fallbackHours').value;
+  const category = document.getElementById('fallbackCategory').value;
+  const params = new URLSearchParams({ hours, limit: '80' });
+  if (category) params.set('category', category);
+
+  const res = await fetch('/dev/api/fallbacks/stats?' + params);
+  const stats = await res.json();
+  renderFallbackStats(stats);
+}
+
+function renderFallbackStats(stats) {
+  renderFallbackCategoryOptions(stats.by_category || []);
+  renderFallbackSummaryCards(stats);
+  renderFallbackList('fallbackByCategory', stats.by_category || [], 'category');
+  renderFallbackEvents(stats.by_event || []);
+  renderFallbackList('fallbackByReason', stats.by_reason || [], 'reason');
+  renderFallbackHotEvents(stats.hot_events || []);
+  renderFallbackRecent(stats.recent || []);
+}
+
+function renderFallbackCategoryOptions(categories) {
+  const select = document.getElementById('fallbackCategory');
+  const selected = select.value;
+  const known = new Set(Array.from(select.options).map(opt => opt.value));
+  for (const item of categories) {
+    if (!known.has(item.category)) {
+      const opt = document.createElement('option');
+      opt.value = item.category;
+      opt.textContent = item.category;
+      select.appendChild(opt);
+    }
+  }
+  select.value = selected;
+}
+
+function renderFallbackSummaryCards(stats) {
+  const severity = stats.by_severity || {};
+  const topCategory = (stats.by_category || [])[0];
+  const hot = (stats.hot_events || [])[0];
+  const cards = [
+    ['Total', stats.total || 0, `${stats.window_hours || 24}h window`],
+    ['Warn / Fail', `${severity.warn || 0} / ${severity.fail || 0}`, 'quality-risk events'],
+    ['Top Category', topCategory ? topCategory.category : 'None', topCategory ? `${topCategory.count} events` : 'no data'],
+    ['Hot Event', hot ? hot.event : 'None', hot ? `${hot.count}x ${hot.severity}` : 'no threshold hit'],
+  ];
+  document.getElementById('fallbackSummaryCards').innerHTML = cards.map(([label, value, helper]) => `
+    <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+      <div class="text-[10px] uppercase tracking-wide text-neutral-500">${escapeHtml(label)}</div>
+      <div class="mt-1 text-lg font-semibold text-neutral-100 truncate" title="${escapeHtml(String(value))}">${escapeHtml(String(value))}</div>
+      <div class="mt-1 text-xs text-neutral-500 truncate">${escapeHtml(helper)}</div>
+    </div>
+  `).join('');
+}
+
+function renderFallbackList(id, rows, labelKey) {
+  const target = document.getElementById(id);
+  if (!rows.length) {
+    target.innerHTML = '<span class="text-neutral-600">No data</span>';
+    return;
+  }
+  const max = Math.max(...rows.map(row => row.count || 0), 1);
+  target.innerHTML = rows.slice(0, 10).map(row => {
+    const label = row[labelKey] || 'unknown';
+    const pct = Math.max(4, Math.round(((row.count || 0) / max) * 100));
+    return `
+      <div>
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-neutral-300 truncate" title="${escapeHtml(label)}">${escapeHtml(label)}</span>
+          <span class="text-neutral-500">${row.count || 0}</span>
+        </div>
+        <div class="mt-1 h-1.5 rounded-full bg-surface-900"><div class="h-1.5 rounded-full bg-violet-500" style="width:${pct}%"></div></div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderFallbackEvents(events) {
+  const target = document.getElementById('fallbackByEvent');
+  if (!events.length) {
+    target.innerHTML = '<span class="text-neutral-600">No data</span>';
+    return;
+  }
+  target.innerHTML = events.slice(0, 10).map(item => {
+    const cls = FALLBACK_SEVERITY_COLORS[item.severity] || FALLBACK_SEVERITY_COLORS.warn;
+    return `
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="text-neutral-300 truncate" title="${escapeHtml(item.event)}">${escapeHtml(item.event)}</div>
+          <div class="text-[10px] text-neutral-500 truncate">${escapeHtml(item.category || '')}</div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="text-neutral-500">${item.count || 0}</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded ${cls}">${escapeHtml(item.severity || 'warn')}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderFallbackHotEvents(events) {
+  const target = document.getElementById('fallbackHotEvents');
+  if (!events.length) {
+    target.innerHTML = '<span class="text-neutral-600">No hot fallback events in this window</span>';
+    return;
+  }
+  target.innerHTML = events.map(item => {
+    const cls = FALLBACK_SEVERITY_COLORS[item.severity] || FALLBACK_SEVERITY_COLORS.warn;
+    return `
+      <div class="flex items-center justify-between gap-3 border border-neutral-700 rounded px-3 py-2">
+        <div class="min-w-0">
+          <div class="text-neutral-200 truncate" title="${escapeHtml(item.event)}">${escapeHtml(item.event)}</div>
+          <div class="text-[10px] text-neutral-500 truncate">${escapeHtml(item.category || '')}</div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="text-neutral-400">${item.count || 0}x</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded ${cls}">${escapeHtml(item.severity || 'warn')}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderFallbackRecent(rows) {
+  fallbackRecentRows = rows;
+  const target = document.getElementById('fallbackRecentTable');
+  if (!rows.length) {
+    target.innerHTML = '<div class="text-neutral-600 text-xs">No fallback events in this window</div>';
+    return;
+  }
+  target.innerHTML = `
+    <table class="w-full text-xs">
+      <thead class="text-neutral-500 text-left border-b border-neutral-700">
+        <tr>
+          <th class="py-2 pr-3">Time</th>
+          <th class="py-2 pr-3">Severity</th>
+          <th class="py-2 pr-3">Category</th>
+          <th class="py-2 pr-3">Event</th>
+          <th class="py-2 pr-3">Script</th>
+          <th class="py-2 pr-3">Scene</th>
+          <th class="py-2 pr-3">Reason</th>
+          <th class="py-2 pr-3">Module</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map((row, index) => {
+          const cls = FALLBACK_SEVERITY_COLORS[row.severity] || FALLBACK_SEVERITY_COLORS.warn;
+          const time = row.timestamp ? new Date(row.timestamp).toLocaleTimeString('en-US', {timeZone:'America/Los_Angeles'}) : '';
+          return `
+            <tr class="border-b border-neutral-800/70 cursor-pointer hover:bg-white/5" onclick="showFallbackDetail(${index})">
+              <td class="py-2 pr-3 text-neutral-500 whitespace-nowrap">${time}</td>
+              <td class="py-2 pr-3"><span class="text-[10px] px-1.5 py-0.5 rounded ${cls}">${escapeHtml(row.severity || 'warn')}</span></td>
+              <td class="py-2 pr-3 text-neutral-300">${escapeHtml(row.category || '')}</td>
+              <td class="py-2 pr-3 text-neutral-300">${escapeHtml(row.event || '')}</td>
+              <td class="py-2 pr-3 text-neutral-500">${escapeHtml(row.script_id || '')}</td>
+              <td class="py-2 pr-3 text-neutral-500">${escapeHtml(row.scene_id || '')}</td>
+              <td class="py-2 pr-3 text-neutral-400 max-w-md truncate" title="${escapeHtml(row.reason || '')}">${escapeHtml(row.reason || '')}</td>
+              <td class="py-2 pr-3 text-neutral-500">${escapeHtml(row.logger_name || '')}</td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function showFallbackDetail(index) {
+  const row = fallbackRecentRows[index];
+  if (!row) return;
+  showDetail({
+    level: row.severity === 'fail' ? 'ERROR' : row.severity === 'info' ? 'INFO' : 'WARNING',
+    timestamp: row.timestamp,
+    logger_name: row.logger_name,
+    func_name: row.func_name,
+    module: row.module,
+    lineno: row.lineno,
+    message: `[FALLBACK] ${JSON.stringify(row, null, 2)}`,
+  });
 }
 
 // --- Modules dropdown ---

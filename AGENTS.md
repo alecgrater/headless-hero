@@ -115,6 +115,7 @@ docs/              → PRD, setup guide, superpowers skills
 - When adding any feature that introduces new scene visual functionality, add equivalent Test tab/Test Lab support in the same change so the behavior can be manually tested before generating a full script.
 - Add concise hints, helper text, descriptions, or tooltips next to new controls when the behavior is not immediately obvious.
 - Add success, warning, error, status, or info logs to the dev dashboard when the new behavior affects generation, rendering, export, integrations, caching, background jobs, or other pipeline-visible state.
+- Meaningful fallback behavior must emit a structured fallback event with `pipeline.fallback_observability.record_fallback` in addition to any local free-text log. This applies to fallbacks that affect generation, rendering, export, integrations, caching, background jobs, visual output, timing, or project quality. Include category, stable event name, reason, severity, and script/scene identifiers when available; never include secrets, full prompts, full script text, OAuth data, or absolute generated asset paths.
 
 ## Brand Profile
 

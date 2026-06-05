@@ -16,6 +16,7 @@ from models.script import MainCharacter
 from pipeline.asset_vault import VaultKind, save_vault_image
 from pipeline.character_assets import process_character_asset_bundle
 from pipeline.cutout_chroma import save_keyed_trimmed_cutout as save_shared_keyed_trimmed_cutout
+from pipeline.fallback_observability import record_fallback
 from prompts import IMAGE_CHARACTER_IN_SCENE, IMAGE_COMPOSITION_GUIDE, IMAGE_VISUAL_STYLE
 
 logger = logging.getLogger(__name__)
@@ -631,6 +632,16 @@ def generate_popup_sequence_cutouts(
                 "[POPUP_CROP] protagonist_anchor.unavailable scene=%s reason=%s; using transparent anchor fallback",
                 scene_id,
                 anchor_fallback_reason,
+            )
+            record_fallback(
+                category="image_generation",
+                event="popup_anchor_transparent_fallback",
+                reason=anchor_fallback_reason,
+                to_value="transparent_anchor",
+                script_id=script_id,
+                scene_id=scene_id,
+                severity="warn",
+                logger=logger,
             )
             _create_transparent_popup_anchor_cutout(output_dir=output_dir)
         else:
@@ -1434,6 +1445,18 @@ def generate_scene_image(
             )
             if scraped:
                 logger.warning("Using scraped web image for scene %s", scene_id)
+                record_fallback(
+                    category="image_generation",
+                    event="scraped_image_fallback_used",
+                    reason="AI image generation failed after retries",
+                    from_value=os.environ.get("IMAGE_PROVIDER", "google"),
+                    to_value="scraped_web_image",
+                    script_id=script_id,
+                    scene_id=scene_id,
+                    severity="fail",
+                    metadata={"provider": "google_images_scraper", "source_type": "scraped_web_image"},
+                    logger=logger,
+                )
                 metadata = {
                     "source_type": "scraped_web_image",
                     "provider": "google_images_scraper",
@@ -1452,6 +1475,18 @@ def generate_scene_image(
             logger.error("Image generation failed for scene %s; scraper fallback is disabled", scene_id)
 
         _create_placeholder_image(local_path, width, height, f"Image generation failed:\n{visual_prompt[:80]}")
+        record_fallback(
+            category="image_generation",
+            event="image_placeholder_created",
+            reason="AI image generation failed and scraped web-image fallback is disabled or unavailable",
+            from_value=os.environ.get("IMAGE_PROVIDER", "google"),
+            to_value="local_placeholder",
+            script_id=script_id,
+            scene_id=scene_id,
+            severity="fail",
+            metadata={"source_type": "placeholder"},
+            logger=logger,
+        )
         metadata = {
             "source_type": "placeholder",
             "provider": "local_placeholder",

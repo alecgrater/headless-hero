@@ -13,6 +13,7 @@ import re
 from config import parse_json_array_response, strip_markdown_fences
 from integrations.llm_client import chat
 from models.script import Scene, ScriptContent
+from pipeline.fallback_observability import record_fallback
 from prompts import MEDIA_ANALYZER_SYSTEM
 
 logger = logging.getLogger(__name__)
@@ -312,6 +313,7 @@ def _remove_adjacent_ai_video_assignments(
     scenes_by_id: dict[str, Scene],
     scene_segment_indexes: dict[str, int],
     segment_ai_video_counts: dict[int, int],
+    script_id: str | None = None,
 ) -> int:
     """Downgrade the weaker scene in each adjacent AI-video pair."""
     ordered_scene_ids = _scene_order(script_content)
@@ -347,6 +349,18 @@ def _remove_adjacent_ai_video_assignments(
             visual_mode=existing_script_mode or "full_frame",
         )
         segment_index = scene_segment_indexes.get(downgrade_id)
+        record_fallback(
+            category="visual_mode",
+            event="adjacent_ai_video_removed",
+            reason=downgrade_reason,
+            from_value="video",
+            to_value=existing_script_mode or "full_frame",
+            script_id=script_id,
+            scene_id=downgrade_id,
+            segment_index=segment_index,
+            severity="warn",
+            logger=logger,
+        )
         if segment_index is not None:
             segment_ai_video_counts[segment_index] = max(0, segment_ai_video_counts.get(segment_index, 0) - 1)
 
@@ -486,6 +500,19 @@ def analyze_media_sources(
                 if mode == "video":
                     mode = "full_frame"
                 reasoning = downgrade_reason
+                record_fallback(
+                    category="visual_mode",
+                    event="ai_video_downgraded",
+                    reason=downgrade_reason,
+                    from_value="video",
+                    to_value=mode,
+                    script_id=script_id,
+                    scene_id=scene_id,
+                    segment_index=segment_index if segment_index >= 0 else None,
+                    severity="warn",
+                    metadata={"max_duration_seconds": ai_video_max_duration},
+                    logger=logger,
+                )
             else:
                 ai_video_assigned += 1
                 segment_ai_video_counts[segment_index] = segment_ai_video_counts.get(segment_index, 0) + 1
@@ -527,9 +554,33 @@ def analyze_media_sources(
                 if downgrade_reason:
                     mode = "full_frame"
                     reasoning = downgrade_reason
+                    record_fallback(
+                        category="visual_mode",
+                        event="ai_video_downgraded",
+                        reason=downgrade_reason,
+                        from_value="video",
+                        to_value=mode,
+                        script_id=script_id,
+                        scene_id=scene.id,
+                        segment_index=segment_index if segment_index >= 0 else None,
+                        severity="warn",
+                        metadata={"max_duration_seconds": ai_video_max_duration},
+                        logger=logger,
+                    )
                 else:
                     ai_video_assigned += 1
                     segment_ai_video_counts[segment_index] = segment_ai_video_counts.get(segment_index, 0) + 1
+            record_fallback(
+                category="visual_mode",
+                event="media_validator_omitted_scene",
+                reason=reasoning,
+                to_value=mode,
+                script_id=script_id,
+                scene_id=scene.id,
+                segment_index=scene_segment_indexes.get(scene.id),
+                severity="info",
+                logger=logger,
+            )
             assignments_by_scene[scene.id] = MediaAssignment(
                 scene_id=scene.id,
                 game_name=None,
@@ -544,6 +595,7 @@ def analyze_media_sources(
         scenes_by_id,
         scene_segment_indexes,
         segment_ai_video_counts,
+        script_id=script_id,
     )
 
     assignments = [
