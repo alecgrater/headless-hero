@@ -70,7 +70,7 @@
   <!-- Tabs -->
   <nav class="border-b border-neutral-800 px-6 flex gap-1">
     <button onclick="switchTab('logs')" id="tab-logs" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-violet-500 text-violet-400 transition-colors">Logs</button>
-    <button onclick="switchTab('fallbacks')" id="tab-fallbacks" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Fallbacks</button>
+    <button onclick="switchTab('telemetry')" id="tab-telemetry" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Telemetry</button>
     <button onclick="switchTab('jobs')" id="tab-jobs" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Jobs</button>
     <button onclick="switchTab('api')" id="tab-api" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">API</button>
     <button onclick="switchTab('database')" id="tab-database" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-colors">Database</button>
@@ -157,52 +157,65 @@
     </div>
   </div>
 
-  <!-- Fallbacks Tab -->
-  <div id="panel-fallbacks" class="hidden h-[calc(100vh-97px)] overflow-y-auto scrollbar-thin p-6">
-    <div class="max-w-7xl mx-auto space-y-4">
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <h2 class="text-sm font-medium text-neutral-100">Fallback Visibility</h2>
-          <p class="text-xs text-neutral-500 mt-1">Structured fallback events from generation, rendering, and pipeline recovery paths.</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <select id="fallbackHours" onchange="fetchFallbackStats()" class="bg-surface-800 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
-            <option value="1">Last hour</option>
-            <option value="24" selected>Last 24h</option>
-            <option value="168">Last 7d</option>
-          </select>
-          <select id="fallbackCategory" onchange="fetchFallbackStats()" class="bg-surface-800 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
-            <option value="">All categories</option>
-          </select>
-          <button onclick="fetchFallbackStats()" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Refresh</button>
-        </div>
+  <!-- Telemetry Tab -->
+  <div id="panel-telemetry" class="hidden h-[calc(100vh-97px)] flex">
+    <aside class="w-56 border-r border-neutral-800 bg-surface-900/60">
+      <div class="px-4 py-3 border-b border-neutral-800">
+        <span class="text-sm font-medium text-neutral-100">Telemetry</span>
       </div>
-
-      <div id="fallbackSummaryCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
-          <h3 class="text-xs font-medium text-neutral-400 mb-3">By Category</h3>
-          <div id="fallbackByCategory" class="space-y-2 text-xs"></div>
-        </div>
-        <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
-          <h3 class="text-xs font-medium text-neutral-400 mb-3">By Event</h3>
-          <div id="fallbackByEvent" class="space-y-2 text-xs"></div>
-        </div>
-        <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
-          <h3 class="text-xs font-medium text-neutral-400 mb-3">Top Reasons</h3>
-          <div id="fallbackByReason" class="space-y-2 text-xs"></div>
-        </div>
+      <div class="p-2">
+        <button id="telemetry-view-fallbacks" onclick="switchTelemetryView('fallbacks')" class="w-full rounded px-3 py-2 text-left text-xs font-medium text-violet-300 bg-violet-600/15 border border-violet-500/30 transition-colors">
+          Fallbacks
+        </button>
       </div>
+    </aside>
 
-      <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
-        <h3 class="text-xs font-medium text-neutral-400 mb-3">Hot Events</h3>
-        <div id="fallbackHotEvents" class="space-y-2 text-xs"></div>
-      </div>
+    <div id="telemetry-panel-fallbacks" class="flex-1 overflow-y-auto scrollbar-thin p-6">
+      <div class="max-w-7xl mx-auto space-y-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h2 class="text-sm font-medium text-neutral-100">Fallback Visibility</h2>
+            <p class="text-xs text-neutral-500 mt-1">Structured fallback events from generation, rendering, and pipeline recovery paths.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <select id="fallbackHours" onchange="fetchFallbackStats()" class="bg-surface-800 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+              <option value="1">Last hour</option>
+              <option value="24" selected>Last 24h</option>
+              <option value="168">Last 7d</option>
+            </select>
+            <select id="fallbackCategory" onchange="fetchFallbackStats()" class="bg-surface-800 border border-neutral-700 text-xs rounded px-2 py-1.5 text-neutral-300 focus:outline-none focus:border-violet-500">
+              <option value="">All categories</option>
+            </select>
+            <button onclick="fetchFallbackStats()" class="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded transition-colors">Refresh</button>
+          </div>
+        </div>
 
-      <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
-        <h3 class="text-xs font-medium text-neutral-400 mb-3">Recent Examples</h3>
-        <div id="fallbackRecentTable" class="overflow-x-auto"></div>
+        <div id="fallbackSummaryCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+            <h3 class="text-xs font-medium text-neutral-400 mb-3">By Category</h3>
+            <div id="fallbackByCategory" class="space-y-2 text-xs"></div>
+          </div>
+          <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+            <h3 class="text-xs font-medium text-neutral-400 mb-3">By Event</h3>
+            <div id="fallbackByEvent" class="space-y-2 text-xs"></div>
+          </div>
+          <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+            <h3 class="text-xs font-medium text-neutral-400 mb-3">Top Reasons</h3>
+            <div id="fallbackByReason" class="space-y-2 text-xs"></div>
+          </div>
+        </div>
+
+        <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+          <h3 class="text-xs font-medium text-neutral-400 mb-3">Hot Events</h3>
+          <div id="fallbackHotEvents" class="space-y-2 text-xs"></div>
+        </div>
+
+        <div class="bg-surface-800 border border-neutral-700 rounded-lg p-4">
+          <h3 class="text-xs font-medium text-neutral-400 mb-3">Recent Examples</h3>
+          <div id="fallbackRecentTable" class="overflow-x-auto"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -441,7 +454,7 @@ async function launchApp(btn) {
 }
 
 // --- Tabs ---
-const ALL_TABS = ['logs', 'fallbacks', 'jobs', 'api', 'database', 'usage', 'files'];
+const ALL_TABS = ['logs', 'telemetry', 'jobs', 'api', 'database', 'usage', 'files'];
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => {
     b.classList.remove('border-violet-500', 'text-violet-400');
@@ -453,11 +466,30 @@ function switchTab(tab) {
     document.getElementById('panel-' + t).classList.toggle('hidden', t !== tab);
   }
   if (tab === 'jobs') fetchJobs();
-  if (tab === 'fallbacks') fetchFallbackStats();
+  if (tab === 'telemetry') {
+    switchTelemetryView('fallbacks');
+    fetchFallbackStats();
+  }
   if (tab === 'api') loadOpenApiSchema();
   if (tab === 'database') fetchDbTables();
   if (tab === 'usage') fetchUsageSummary();
   if (tab === 'files') initFilesTab();
+}
+
+function switchTelemetryView(view) {
+  const views = ['fallbacks'];
+  for (const item of views) {
+    const button = document.getElementById('telemetry-view-' + item);
+    const panel = document.getElementById('telemetry-panel-' + item);
+    const selected = item === view;
+    button.classList.toggle('text-violet-300', selected);
+    button.classList.toggle('bg-violet-600/15', selected);
+    button.classList.toggle('border-violet-500/30', selected);
+    button.classList.toggle('text-neutral-400', !selected);
+    button.classList.toggle('hover:text-neutral-200', !selected);
+    button.classList.toggle('hover:bg-neutral-900', !selected);
+    panel.classList.toggle('hidden', !selected);
+  }
 }
 
 // --- Logs ---
