@@ -94,4 +94,22 @@ describe("StylePresetsSection", () => {
     expect(screen.getByTestId("main-character-preview")).toHaveClass("max-h-[220px]");
     expect(screen.getByTestId("brand-defaults-panel")).toHaveClass("lg:col-span-2");
   });
+
+  it("uses one visual identity picker for new project defaults", async () => {
+    const user = userEvent.setup();
+
+    render(<StylePresetsSection showHeader={false} />);
+
+    expect(await screen.findByRole("heading", { name: "New Project Visual Identity", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Style preset and main character/i })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /Eli host overlay/i })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: /No global style preset/i })).not.toBeChecked();
+    expect(screen.queryByRole("switch", { name: /Enable Eli host overlay by default for new projects/i })).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: /Style preset/i })).toBeNull();
+
+    await user.click(screen.getByRole("radio", { name: /Eli host overlay/i }));
+
+    expect(screen.getByRole("radio", { name: /Eli host overlay/i })).toBeChecked();
+    expect(screen.getByText("You have unsaved brand defaults")).toBeInTheDocument();
+  });
 });

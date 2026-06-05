@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import ApiKeysSection from "./ApiKeysSection";
 import MiscSection from "./MiscSection";
 import PublishingSection from "./PublishingSection";
+import { normalizeSectionId, SECTIONS, SECTION_GROUPS } from "./SettingsPage";
 
 vi.mock("../../api", () => ({
   default: {
@@ -29,6 +30,38 @@ vi.mock("../../api", () => ({
 }));
 
 describe("settings section layout", () => {
+  it("uses a power-user settings taxonomy with General as the default landing section", () => {
+    expect(SECTIONS[0]).toMatchObject({
+      id: "general",
+      label: "General",
+      group: "Essentials",
+    });
+    expect(SECTION_GROUPS).toEqual([
+      "Essentials",
+      "AI & Generation",
+      "Narration",
+      "Visual Identity",
+      "Libraries",
+      "Publishing",
+      "Advanced",
+    ]);
+    expect(SECTIONS.map((section) => section.id)).toEqual([
+      "general",
+      "api-keys",
+      "ai-models",
+      "visuals",
+      "subtitles",
+      "voice",
+      "brand-style",
+      "asset-vault",
+      "publishing",
+      "advanced",
+    ]);
+    expect(normalizeSectionId(undefined)).toBe("general");
+    expect(normalizeSectionId("storage")).toBe("general");
+    expect(normalizeSectionId("audio")).toBe("voice");
+  });
+
   it("keeps API key group titles outside bordered control boxes", async () => {
     const { container } = render(<ApiKeysSection showHeader={false} />);
 

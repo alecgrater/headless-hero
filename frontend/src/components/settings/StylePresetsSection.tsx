@@ -687,47 +687,20 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 className="text-base font-semibold text-neutral-100">New Project Defaults</h3>
+                <h3 className="text-base font-semibold text-neutral-100">New Project Visual Identity</h3>
                 <p className="text-xs text-neutral-500">
                   Choose how new projects start. Existing projects are unchanged.
                 </p>
               </div>
               {hasChanges && <span className="rounded bg-violet-500/15 px-2 py-1 text-xs font-medium text-violet-300">Unsaved</span>}
             </div>
-            <div className="grid gap-3 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-              <div className="flex items-start justify-between gap-5 rounded-md border border-neutral-800 bg-neutral-950/40 p-3">
-                <div>
-                  <h4 className="text-sm font-medium text-neutral-100">Enable Eli host overlay</h4>
-                  <p className="text-xs text-neutral-500">
-                    New projects start with the Eli overlay instead of a scene-integrated main character.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={eliEnabledDefault === "true"}
-                  aria-label="Enable Eli host overlay by default for new projects"
-                  onClick={() => setEliEnabledDefault(eliEnabledDefault === "true" ? "false" : "true")}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 ${
-                    eliEnabledDefault === "true" ? "bg-violet-600 shadow-sm shadow-violet-500/30" : "bg-neutral-700"
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                      eliEnabledDefault === "true" ? "translate-x-5" : "translate-x-0"
-                    }`}
-                  />
-                </button>
-              </div>
-              <div className="rounded-md border border-neutral-800 bg-neutral-950/40 p-3">
-                <StylePresetToggle
-                  eliEnabled={eliEnabledDefault === "true"}
-                  enabled={stylePresetEnabledDefault === "true"}
-                  onChange={(next) => setStylePresetEnabledDefault(next ? "true" : "false")}
-                  activePresetName={activePreset?.name ?? null}
-                />
-              </div>
-            </div>
+            <StylePresetToggle
+              eliEnabled={eliEnabledDefault === "true"}
+              enabled={stylePresetEnabledDefault === "true"}
+              onEliChange={(next) => setEliEnabledDefault(next ? "true" : "false")}
+              onChange={(next) => setStylePresetEnabledDefault(next ? "true" : "false")}
+              activePresetName={activePreset?.name ?? null}
+            />
           </div>
         )}
       </div>

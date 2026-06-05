@@ -192,36 +192,10 @@ export default function IdeationPage({ onUseIdea, initialNiche, initialIdeas, au
         />
       )}
 
-      <div className="flex items-center gap-3 px-4 py-3 bg-neutral-900 rounded-lg border border-neutral-800">
-        <span className="text-sm font-medium text-neutral-100">Eli host overlay</span>
-        <button
-          type="button"
-          onClick={() => setEliEnabled(true)}
-          className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
-            eliEnabled ? "bg-violet-600 text-white" : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
-          }`}
-        >
-          Enabled
-        </button>
-        <button
-          type="button"
-          onClick={() => setEliEnabled(false)}
-          className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
-            !eliEnabled ? "bg-violet-600 text-white" : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
-          }`}
-        >
-          Disabled
-        </button>
-        <span className="text-xs text-neutral-500 ml-2">
-          {eliEnabled
-            ? "Eli will be the recurring on-screen host."
-            : "A topic-specific main character will appear in scene images instead."}
-        </span>
-      </div>
-
       <StylePresetToggle
         eliEnabled={eliEnabled}
         enabled={stylePresetEnabled}
+        onEliChange={setEliEnabled}
         onChange={setStylePresetEnabled}
         activePresetName={activePreset?.name ?? null}
       />

@@ -8,7 +8,6 @@ import {
   Key,
   Mic,
   Palette,
-  SlidersHorizontal,
   Sparkles,
   Upload,
   type LucideIcon,
@@ -24,28 +23,29 @@ import VoiceSection from "./VoiceSection";
 
 // eslint-disable-next-line react-refresh/only-export-components -- co-located with the SettingsPage component that owns these section IDs
 export const SECTIONS = [
-  { id: "storage", label: "Storage", description: "Choose where finished files and export bundles are saved.", icon: Folder, group: "Setup" },
-  { id: "api-keys", label: "API Keys", description: "Manage local credentials for generation, voice, publishing, and discovery.", icon: Key, group: "Setup" },
-  { id: "ai-models", label: "AI Models", description: "Route scriptwriting, ideation, metadata, scoring, and animation tasks.", icon: Brain, group: "Generation" },
-  { id: "visuals", label: "Visuals", description: "Configure image generation, AI video, and scene structure defaults.", icon: Image, group: "Generation" },
-  { id: "subtitles", label: "Subtitles", description: "Control subtitle coverage and which visual treatments can be routed.", icon: Captions, group: "Generation" },
-  { id: "voice", label: "Voices", description: "Choose the saved narration voice and delivery settings.", icon: Mic, group: "Generation" },
-  { id: "audio", label: "Audio", description: "Tune recording export filters for manually recorded voiceover.", icon: SlidersHorizontal, group: "Generation" },
-  { id: "brand-style", label: "Brand & Style", description: "Set the visual style, recurring character, and defaults for new projects.", icon: Palette, group: "Brand & Style" },
-  { id: "asset-vault", label: "Assets", description: "Browse and generate reusable character and item cutouts.", icon: Archive, group: "Brand & Style" },
+  { id: "general", label: "General", description: "Set core app paths and defaults used across daily production.", icon: Folder, group: "Essentials" },
+  { id: "api-keys", label: "API Keys", description: "Manage local credentials for generation, voice, publishing, and discovery.", icon: Key, group: "Essentials" },
+  { id: "ai-models", label: "AI Models", description: "Route scriptwriting, ideation, metadata, scoring, and animation tasks.", icon: Brain, group: "AI & Generation" },
+  { id: "visuals", label: "Visuals", description: "Configure image generation, AI video, and scene structure defaults.", icon: Image, group: "AI & Generation" },
+  { id: "subtitles", label: "Subtitles", description: "Control subtitle coverage and which visual treatments can be routed.", icon: Captions, group: "AI & Generation" },
+  { id: "voice", label: "Narration", description: "Choose the saved narration voice, delivery settings, and recording filters.", icon: Mic, group: "Narration" },
+  { id: "brand-style", label: "Visual Identity", description: "Set the visual style, recurring character, and defaults for new projects.", icon: Palette, group: "Visual Identity" },
+  { id: "asset-vault", label: "Assets", description: "Browse and generate reusable character and item cutouts.", icon: Archive, group: "Libraries" },
   { id: "publishing", label: "Publishing", description: "Connect platforms that should receive one-click short-form uploads.", icon: Upload, group: "Publishing" },
   { id: "advanced", label: "Advanced", description: "Edge-case controls for workflow, rendering, and image fallback behavior.", icon: Sparkles, group: "Advanced" },
 ] as const;
 
 export type SectionId = (typeof SECTIONS)[number]["id"];
-export type LegacySectionId = SectionId | "style-presets" | "misc" | "script-types" | "visual-modes";
+export type LegacySectionId = SectionId | "storage" | "audio" | "style-presets" | "misc" | "script-types" | "visual-modes";
 
 // eslint-disable-next-line react-refresh/only-export-components -- used by App to normalize legacy Settings deep links
 export function normalizeSectionId(sectionId: LegacySectionId | null | undefined): SectionId {
+  if (sectionId === "storage") return "general";
+  if (sectionId === "audio") return "voice";
   if (sectionId === "style-presets") return "brand-style";
   if (sectionId === "misc") return "advanced";
-  if (sectionId === "script-types" || sectionId === "visual-modes") return "storage";
-  return sectionId ?? "storage";
+  if (sectionId === "script-types" || sectionId === "visual-modes") return "general";
+  return sectionId ?? "general";
 }
 
 export function SectionIcon({ icon, className }: { icon: LucideIcon; className?: string }) {
@@ -55,9 +55,11 @@ export function SectionIcon({ icon, className }: { icon: LucideIcon; className?:
 
 // eslint-disable-next-line react-refresh/only-export-components -- grouped nav metadata is shared with the top Settings dropdown
 export const SECTION_GROUPS = [
-  "Setup",
-  "Generation",
-  "Brand & Style",
+  "Essentials",
+  "AI & Generation",
+  "Narration",
+  "Visual Identity",
+  "Libraries",
   "Publishing",
   "Advanced",
 ] as const;
@@ -132,12 +134,11 @@ export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultS
 
         {/* Content area */}
         <div className="flex-1 overflow-y-auto">
-          {activeSection === "storage" && <GeneralSection panel="storage" showHeader={false} />}
+          {activeSection === "general" && <GeneralSection panel="general" showHeader={false} />}
           {activeSection === "ai-models" && <GeneralSection panel="ai-models" showHeader={false} />}
           {activeSection === "visuals" && <GeneralSection panel="visuals" showHeader={false} />}
           {activeSection === "subtitles" && <SubtitlesSection showHeader={false} />}
           {activeSection === "voice" && <VoiceSection panel="voice" showHeader={false} />}
-          {activeSection === "audio" && <VoiceSection panel="audio" showHeader={false} />}
           {activeSection === "publishing" && <PublishingSection showHeader={false} />}
           {activeSection === "api-keys" && <ApiKeysSection showHeader={false} />}
           {activeSection === "advanced" && <MiscSection showHeader={false} />}

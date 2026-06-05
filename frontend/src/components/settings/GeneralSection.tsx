@@ -298,12 +298,12 @@ function modelForProvider(task: LlmTaskConfig, provider: LlmProvider) {
   return task.defaultModel;
 }
 
-type GeneralPanel = "storage" | "ai-models" | "visuals";
+type GeneralPanel = "general" | "ai-models" | "visuals";
 
 const PANEL_META: Record<GeneralPanel, { title: string; description: string; maxWidth: string }> = {
-  storage: {
-    title: "Storage",
-    description: "Choose where finished files and export bundles are saved.",
+  general: {
+    title: "General",
+    description: "Set core app paths and defaults used across daily production.",
     maxWidth: "max-w-2xl",
   },
   "ai-models": {
@@ -625,7 +625,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
         <div className="text-neutral-500 text-sm">Loading...</div>
       ) : (
         <div className="space-y-6">
-          {panel === "storage" && (
+          {panel === "general" && (
           <section className="space-y-3">
             <div>
               <h3 className="text-base font-semibold text-neutral-100">Exports</h3>
