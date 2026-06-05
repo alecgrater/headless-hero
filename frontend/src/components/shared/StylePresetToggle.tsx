@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 
 type StylePresetToggleProps = {
   /** Current value of the project's eli_enabled flag (or global default). */
@@ -28,6 +28,7 @@ export function StylePresetToggle({
   onEliChange,
   activePresetName,
 }: StylePresetToggleProps) {
+  const radioGroupName = useId();
   const selectedMode = eliEnabled ? "eli" : enabled ? "style" : "unstyled";
 
   const options: Array<{
@@ -92,7 +93,7 @@ export function StylePresetToggle({
               <span className="text-sm font-medium">{option.title}</span>
               <input
                 type="radio"
-                name="visual-identity-mode"
+                name={radioGroupName}
                 checked={selected}
                 onChange={() => selectMode(option.id)}
                 className="mt-0.5 h-4 w-4 shrink-0 border-neutral-700 bg-neutral-800 text-violet-500 focus:ring-violet-500"
