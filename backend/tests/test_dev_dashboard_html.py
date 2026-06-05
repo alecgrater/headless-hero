@@ -9,16 +9,16 @@ def _dashboard_html() -> str:
     return response.text
 
 
-def test_dev_dashboard_uses_app_shell_sidebar_navigation():
+def test_dev_dashboard_uses_compact_tab_navigation():
     html = _dashboard_html()
 
     assert 'id="dashboardShell"' in html
-    assert 'id="dashboardSidebar"' in html
+    assert 'id="dashboardTabs"' in html
     assert 'id="activeSectionTitle"' in html
     assert 'id="activeSectionDescription"' in html
-    assert "Operations" in html
-    assert "Inspection" in html
-    assert "Assets" in html
+    assert "Launch App" not in html
+    assert 'id="wsIndicator"' not in html
+    assert 'id="wsStatus"' not in html
     assert 'data-section="logs"' in html
     assert 'data-section="telemetry"' in html
     assert 'data-section="jobs"' in html
@@ -70,7 +70,7 @@ def test_dev_dashboard_defines_local_app_style_classes():
     html = _dashboard_html()
 
     assert ".app-shell" in html
-    assert ".section-nav-item" in html
+    assert ".section-tab" in html
     assert ".control-input" in html
     assert ".surface-panel" in html
     assert ".metric-card" in html

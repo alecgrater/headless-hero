@@ -12,7 +12,7 @@ This redesign keeps the dashboard backend-served through the existing iframe and
 - Preserve every existing dashboard feature: logs, telemetry, jobs, API tester, database browser, usage tracker, and file/docs browser.
 - Use the app's established visual language: `bg-neutral-950`, `border-neutral-800`, `text-neutral-100/400`, violet focus and active states, compact controls, and restrained cards.
 - Reserve monospace typography for logs, JSON, SQL, code, paths, IDs, and tables where fixed-width alignment is useful.
-- Improve scanability by aligning dashboard sections with the Settings layout pattern: sticky header, left sidebar navigation, and content-specific work surfaces.
+- Improve scanability while preserving the dashboard's original horizontal tab workflow.
 
 ## Non-Goals
 
@@ -23,17 +23,11 @@ This redesign keeps the dashboard backend-served through the existing iframe and
 
 ## Layout
 
-The page will use a full-height app shell matching the Settings page structure.
+The page will use a full-height app shell with a compact sticky header and full-width work surface.
 
-The top header will be sticky and split into a narrow left identity area and a flexible active-section area. The identity area says `Dev Dashboard`, includes the app launch action only when useful, and keeps the live connection status compact. The active-section area shows the selected section title and one short description, matching Settings' hierarchy.
+The header will not repeat the app-level `Dev Dashboard` title, launch action, or live connection indicator because the dashboard now lives inside the app's Developer tab. Instead, it will show a small `Developer` kicker, the active section title, one short description, and the dashboard's original section tabs in a compact horizontal tab strip.
 
-The old horizontal top tabs will become a left sidebar. Sections will be grouped for scanning:
-
-- Operations: Logs, Jobs, Telemetry
-- Inspection: API, Database, Usage
-- Assets: Files
-
-Each sidebar item will use consistent rounded selected states, neutral hover states, and small descriptive labels where space allows. The selected state should use the same restrained neutral background pattern as Settings, with violet reserved for focus accents and status highlights.
+The original section model remains intact: Logs, Telemetry, Jobs, API, Database, Usage, and Files are reachable from top tabs. Tab styling should match the rest of the app through rounded selected states, neutral hover states, restrained borders, and violet accents only where they clarify focus or active context.
 
 ## Section Behavior
 
@@ -56,7 +50,7 @@ Files keeps the docs sidebar, explorer, file viewer, Markdown rendering, edit/sa
 The dashboard will define a small set of local CSS utility classes inside `dashboard.html` for repeated patterns that are hard to maintain as long Tailwind class strings in dynamic JavaScript-rendered markup. These classes are limited to the dashboard page and map to the existing app style:
 
 - Shell: dark neutral background, full-height flex, overflow-safe panes.
-- Navigation: sidebar group labels, nav item base, selected, and hover states.
+- Navigation: compact tab base, selected, and hover states.
 - Controls: inputs, selects, text buttons, primary buttons, danger buttons.
 - Surfaces: section panels, metric cards, tables, modals, empty states.
 - Badges: log levels, HTTP methods, job status, fallback severity.
@@ -88,7 +82,7 @@ Implementation should follow test-first where practical for structural behavior 
 Manual verification is required in the running app with the in-app browser/browser tooling:
 
 - Open the Dev Dashboard tab through the Electron app.
-- Confirm all seven sections are reachable from the new sidebar.
+- Confirm all seven sections are reachable from the compact top tabs.
 - Confirm Logs receives live entries, filters work, raw/table toggle works, modals open/close, and analytics refresh.
 - Confirm Jobs auto-refresh still happens only when visible.
 - Confirm API endpoint selection, request rendering, and response display still work.
