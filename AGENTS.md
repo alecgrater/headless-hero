@@ -6,6 +6,10 @@
 
 **When adjusting the end-to-end project workflow, update the relevant in-app docs in the same change or explicitly determine whether a new doc page should be added.** Workflow changes should not live only in code, prompts, or memory.
 
+## Codex Browser Visuals
+
+Do not ask the user whether to try the optional web-browser visuals feature or say "Some of what we're working on might be easier to explain if I can show it to you in a web browser..." in this project. Use browser tooling only when it is directly needed for the requested work or when the user explicitly asks for it.
+
 ## Review Findings → Always Apply Fixes
 
 **Any time code review produces findings — from the auto-commit loop, a manual review, or pasted review output — immediately implement every recommended fix.** Do NOT just report findings or ask whether to apply them. Read, edit, commit, and push. Fix FAIL items first, then WARN items; skip findings explicitly marked "non-blocking" or "optional".
