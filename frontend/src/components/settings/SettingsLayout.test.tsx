@@ -39,11 +39,7 @@ describe("settings section layout", () => {
     expect(SECTION_GROUPS).toEqual([
       "Essentials",
       "AI & Generation",
-      "Narration",
-      "Visual Identity",
-      "Libraries",
-      "Publishing",
-      "Advanced",
+      "Production",
     ]);
     expect(SECTIONS.map((section) => section.id)).toEqual([
       "general",
@@ -54,12 +50,25 @@ describe("settings section layout", () => {
       "voice",
       "brand-style",
       "asset-vault",
-      "publishing",
-      "advanced",
     ]);
     expect(normalizeSectionId(undefined)).toBe("general");
     expect(normalizeSectionId("storage")).toBe("general");
     expect(normalizeSectionId("audio")).toBe("voice");
+    expect(normalizeSectionId("publishing")).toBe("general");
+    expect(normalizeSectionId("advanced")).toBe("general");
+    expect(normalizeSectionId("misc")).toBe("general");
+    expect(SECTIONS.find((section) => section.id === "voice")).toMatchObject({
+      label: "Narration",
+      group: "Production",
+    });
+    expect(SECTIONS.find((section) => section.id === "brand-style")).toMatchObject({
+      label: "Visual Identity",
+      group: "Production",
+    });
+    expect(SECTIONS.find((section) => section.id === "asset-vault")).toMatchObject({
+      label: "Assets",
+      group: "Production",
+    });
   });
 
   it("keeps API key group titles outside bordered control boxes", async () => {

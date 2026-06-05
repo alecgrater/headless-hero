@@ -76,9 +76,10 @@ function SettingsRow({
 
 interface MiscSectionProps {
   showHeader?: boolean;
+  embedded?: boolean;
 }
 
-export default function MiscSection({ showHeader = true }: MiscSectionProps) {
+export default function MiscSection({ showHeader = true, embedded = false }: MiscSectionProps) {
   const [hookRefinementEnabled, setHookRefinementEnabled] = useState("true");
   const [showSpeedRenderButton, setShowSpeedRenderButton] = useState("true");
   const [rateLimitEnabled, setRateLimitEnabled] = useState("true");
@@ -139,14 +140,14 @@ export default function MiscSection({ showHeader = true }: MiscSectionProps) {
 
   if (loading) {
     return (
-      <div className="px-8 py-8">
+      <div className={embedded ? "" : "px-8 py-8"}>
         <p className="text-sm text-neutral-500">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="px-8 py-8 max-w-2xl space-y-6 pb-24">
+    <div className={embedded ? "space-y-6" : "px-8 py-8 max-w-2xl space-y-6 pb-24"}>
       {showHeader && (
       <div>
         <h2 className="text-lg font-semibold tracking-tight">Advanced</h2>
@@ -226,7 +227,20 @@ export default function MiscSection({ showHeader = true }: MiscSectionProps) {
         )}
       </section>
 
-      {hasChanges && (
+      {hasChanges && embedded && (
+        <div className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900 px-5 py-3">
+          <span className="text-sm text-neutral-400">You have unsaved advanced settings</span>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="btn-primary px-5 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+          >
+            {saving ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
+      )}
+
+      {hasChanges && !embedded && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-900/95 backdrop-blur-sm px-8 py-3">
           <div className="max-w-2xl mx-auto flex items-center justify-between">
             <span className="text-sm text-neutral-400">You have unsaved changes</span>

@@ -25,6 +25,16 @@ vi.mock("../../api", () => ({
 }));
 
 describe("GeneralSection visuals layout", () => {
+  it("renders exports, publishing, and advanced controls on the General page", async () => {
+    render(createElement(GeneralSection, { panel: "general", showHeader: false }));
+
+    expect(await screen.findByRole("heading", { name: "Exports", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Publishing", level: 3 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Workflow", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Rendering", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Image Generation Safety", level: 3 })).toBeInTheDocument();
+  });
+
   it("renders visuals as separate settings sections with the subtitle heading scale", async () => {
     const { container } = render(createElement(GeneralSection, { panel: "visuals", showHeader: false }));
 

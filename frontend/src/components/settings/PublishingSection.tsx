@@ -39,9 +39,10 @@ const PLATFORMS: {
 
 interface PublishingSectionProps {
   showHeader?: boolean;
+  embedded?: boolean;
 }
 
-export default function PublishingSection({ showHeader = true }: PublishingSectionProps) {
+export default function PublishingSection({ showHeader = true, embedded = false }: PublishingSectionProps) {
   const [connections, setConnections] = useState<OAuthStatusResponse | null>(null);
   const [connectingPlatform, setConnectingPlatform] = useState<PlatformKey | null>(null);
   const connectionPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -106,7 +107,7 @@ export default function PublishingSection({ showHeader = true }: PublishingSecti
   };
 
   return (
-    <div className="p-6 max-w-3xl space-y-5">
+    <div className={embedded ? "space-y-5" : "p-6 max-w-3xl space-y-5"}>
       {showHeader && (
       <div>
         <h2 className="text-lg font-semibold text-neutral-100">Publishing</h2>

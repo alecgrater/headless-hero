@@ -3,6 +3,8 @@ import { ChevronDown, Info, RotateCcw } from "lucide-react";
 import api from "../../api";
 import { DEFAULT_MODEL } from "../../constants";
 import { showToast } from "../ToastContainer";
+import MiscSection from "./MiscSection";
+import PublishingSection from "./PublishingSection";
 
 interface KeyInfo {
   configured: boolean;
@@ -304,7 +306,7 @@ const PANEL_META: Record<GeneralPanel, { title: string; description: string; max
   general: {
     title: "General",
     description: "Set core app paths and defaults used across daily production.",
-    maxWidth: "max-w-2xl",
+    maxWidth: "max-w-3xl",
   },
   "ai-models": {
     title: "AI Models",
@@ -626,35 +628,57 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
       ) : (
         <div className="space-y-6">
           {panel === "general" && (
-          <section className="space-y-3">
-            <div>
-              <h3 className="text-base font-semibold text-neutral-100">Exports</h3>
-              <p className="text-xs leading-relaxed text-neutral-500">
-                Final project folders, upload-suite checks, rendered videos, thumbnails, and SEO files live here.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={exportsDir}
-                onChange={(e) => setExportsDir(e.target.value)}
-                placeholder="~/Headless Hero Videos"
-                className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors font-mono"
-              />
-              {window.api?.selectFolder && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const result = await window.api.selectFolder!("Select Exports Directory", exportsDir || undefined);
-                    if (!result.canceled && result.path) setExportsDir(result.path);
-                  }}
-                  className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-300 hover:text-neutral-100 hover:border-neutral-600 transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
-                >
-                  Browse…
-                </button>
-              )}
-            </div>
-          </section>
+          <div className="space-y-8">
+            <section className="space-y-3">
+              <div>
+                <h3 className="text-base font-semibold text-neutral-100">Exports</h3>
+                <p className="text-xs leading-relaxed text-neutral-500">
+                  Final project folders, upload-suite checks, rendered videos, thumbnails, and SEO files live here.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={exportsDir}
+                  onChange={(e) => setExportsDir(e.target.value)}
+                  placeholder="~/Headless Hero Videos"
+                  className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 transition-colors font-mono"
+                />
+                {window.api?.selectFolder && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const result = await window.api.selectFolder!("Select Exports Directory", exportsDir || undefined);
+                      if (!result.canceled && result.path) setExportsDir(result.path);
+                    }}
+                    className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-300 hover:text-neutral-100 hover:border-neutral-600 transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
+                  >
+                    Browse…
+                  </button>
+                )}
+              </div>
+            </section>
+
+            <section className="space-y-3">
+              <div>
+                <h3 className="text-base font-semibold text-neutral-100">Publishing</h3>
+                <p className="text-xs leading-relaxed text-neutral-500">
+                  Connect upload destinations for rendered short-form exports.
+                </p>
+              </div>
+              <PublishingSection showHeader={false} embedded />
+            </section>
+
+            <section className="space-y-3">
+              <div>
+                <h3 className="text-base font-semibold text-neutral-100">Advanced</h3>
+                <p className="text-xs leading-relaxed text-neutral-500">
+                  Less common workflow, rendering, and image fallback controls.
+                </p>
+              </div>
+              <MiscSection showHeader={false} embedded />
+            </section>
+          </div>
           )}
 
           {panel === "ai-models" && (
@@ -691,7 +715,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
               </div>
               {missingKeyWarnings().length > 0 && (
                 <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-                  {missingKeyWarnings().join(" · ")}. Add missing credentials in Setup → API Keys.
+                  {missingKeyWarnings().join(" · ")}. Add missing credentials in Essentials → API Keys.
                 </div>
               )}
             </section>

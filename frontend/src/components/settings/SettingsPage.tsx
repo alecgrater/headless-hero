@@ -8,15 +8,11 @@ import {
   Key,
   Mic,
   Palette,
-  Sparkles,
-  Upload,
   type LucideIcon,
 } from "lucide-react";
 import ApiKeysSection from "./ApiKeysSection";
 import AssetVaultSection from "./AssetVaultSection";
 import GeneralSection from "./GeneralSection";
-import MiscSection from "./MiscSection";
-import PublishingSection from "./PublishingSection";
 import { StylePresetsSection } from "./StylePresetsSection";
 import SubtitlesSection from "./SubtitlesSection";
 import VoiceSection from "./VoiceSection";
@@ -28,22 +24,20 @@ export const SECTIONS = [
   { id: "ai-models", label: "AI Models", description: "Route scriptwriting, ideation, metadata, scoring, and animation tasks.", icon: Brain, group: "AI & Generation" },
   { id: "visuals", label: "Visuals", description: "Configure image generation, AI video, and scene structure defaults.", icon: Image, group: "AI & Generation" },
   { id: "subtitles", label: "Subtitles", description: "Control subtitle coverage and which visual treatments can be routed.", icon: Captions, group: "AI & Generation" },
-  { id: "voice", label: "Narration", description: "Choose the saved narration voice, delivery settings, and recording filters.", icon: Mic, group: "Narration" },
-  { id: "brand-style", label: "Visual Identity", description: "Set the visual style, recurring character, and defaults for new projects.", icon: Palette, group: "Visual Identity" },
-  { id: "asset-vault", label: "Assets", description: "Browse and generate reusable character and item cutouts.", icon: Archive, group: "Libraries" },
-  { id: "publishing", label: "Publishing", description: "Connect platforms that should receive one-click short-form uploads.", icon: Upload, group: "Publishing" },
-  { id: "advanced", label: "Advanced", description: "Edge-case controls for workflow, rendering, and image fallback behavior.", icon: Sparkles, group: "Advanced" },
+  { id: "voice", label: "Narration", description: "Choose the saved narration voice, delivery settings, and recording filters.", icon: Mic, group: "Production" },
+  { id: "brand-style", label: "Visual Identity", description: "Set the visual style, recurring character, and defaults for new projects.", icon: Palette, group: "Production" },
+  { id: "asset-vault", label: "Assets", description: "Browse and generate reusable character and item cutouts.", icon: Archive, group: "Production" },
 ] as const;
 
 export type SectionId = (typeof SECTIONS)[number]["id"];
-export type LegacySectionId = SectionId | "storage" | "audio" | "style-presets" | "misc" | "script-types" | "visual-modes";
+export type LegacySectionId = SectionId | "storage" | "audio" | "publishing" | "advanced" | "style-presets" | "misc" | "script-types" | "visual-modes";
 
 // eslint-disable-next-line react-refresh/only-export-components -- used by App to normalize legacy Settings deep links
 export function normalizeSectionId(sectionId: LegacySectionId | null | undefined): SectionId {
   if (sectionId === "storage") return "general";
   if (sectionId === "audio") return "voice";
+  if (sectionId === "publishing" || sectionId === "advanced" || sectionId === "misc") return "general";
   if (sectionId === "style-presets") return "brand-style";
-  if (sectionId === "misc") return "advanced";
   if (sectionId === "script-types" || sectionId === "visual-modes") return "general";
   return sectionId ?? "general";
 }
@@ -57,11 +51,7 @@ export function SectionIcon({ icon, className }: { icon: LucideIcon; className?:
 export const SECTION_GROUPS = [
   "Essentials",
   "AI & Generation",
-  "Narration",
-  "Visual Identity",
-  "Libraries",
-  "Publishing",
-  "Advanced",
+  "Production",
 ] as const;
 
 interface Props {
@@ -139,9 +129,7 @@ export default function SettingsPage({ onBack, defaultSection, onConsumeDefaultS
           {activeSection === "visuals" && <GeneralSection panel="visuals" showHeader={false} />}
           {activeSection === "subtitles" && <SubtitlesSection showHeader={false} />}
           {activeSection === "voice" && <VoiceSection panel="voice" showHeader={false} />}
-          {activeSection === "publishing" && <PublishingSection showHeader={false} />}
           {activeSection === "api-keys" && <ApiKeysSection showHeader={false} />}
-          {activeSection === "advanced" && <MiscSection showHeader={false} />}
           {activeSection === "brand-style" && (
             <div className="max-w-7xl px-6 py-6">
               <StylePresetsSection showHeader={false} />
