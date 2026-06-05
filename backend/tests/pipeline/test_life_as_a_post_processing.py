@@ -410,9 +410,12 @@ def test_life_as_a_eli_disabled_marks_role_scenes_as_main_character():
     assert scene.contains_person is True
     assert scene.visual_prompt.startswith("[ESTABLISHING] Darnell is the main subject")
     assert "Depict Darnell as Prison Guard" in scene.visual_prompt
+    assert "adapt Darnell's visible age, posture, outfit condition, and life-stage details" in scene.visual_prompt
+    assert "Do not keep Darnell frozen at the reference age" in scene.visual_prompt
     assert "Eli" not in scene.visual_prompt
     assert scene.frame_directives[0].contains_person is True
     assert scene.frame_directives[0].prompt.startswith("[ESTABLISHING] Darnell is the main subject")
+    assert "adapt Darnell's visible age, posture, outfit condition, and life-stage details" in scene.frame_directives[0].prompt
     assert "Eli" not in scene.frame_directives[0].prompt
 
 
