@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from pipeline.scriptwriter import (
     _build_segment_scene_user_message,
+    _generate_outline,
     _visual_opportunity_summary,
 )
 
@@ -107,3 +108,51 @@ def test_visual_opportunity_summary_skips_malformed_entries():
     }
 
     assert _visual_opportunity_summary(outline) == {"flipflop": 1}
+
+
+def test_generate_outline_allows_visual_opportunity_metadata_room(monkeypatch):
+    captured = {}
+
+    def fake_chat(*_args, **kwargs):
+        captured.update(kwargs)
+        return json.dumps(
+            {
+                "title": "Video Title",
+                "card_title": "TITLE",
+                "card_title_highlight_word": "TITLE",
+                "card_subtitle": "",
+                "intro_hook": "A hook.",
+                "outro_cta": "A close.",
+                "segments": [
+                    {
+                        "name": "Segment One",
+                        "short_name": "One",
+                        "circle_color": "#38bdf8",
+                        "title_card_image_prompt": "A scene.",
+                        "topic_summary": "A compact summary.",
+                        "visual_opportunities": [
+                            {
+                                "mode": "captions",
+                                "beat": "A realization lands.",
+                                "why": "Text reinforces the point.",
+                                "duration_profile": "extended",
+                                "priority": "strong",
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
+
+    monkeypatch.setattr("pipeline.scriptwriter.chat", fake_chat)
+
+    outline = _generate_outline(
+        system_prompt="system",
+        user_message="user",
+        model=None,
+        script_id="script-1",
+        outline_instructions="Return JSON.",
+    )
+
+    assert outline["segments"][0]["visual_opportunities"][0]["mode"] == "captions"
+    assert captured["max_tokens"] >= 8192

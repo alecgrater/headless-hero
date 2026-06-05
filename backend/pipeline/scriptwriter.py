@@ -656,6 +656,8 @@ _OUTLINE_INSTRUCTIONS = SCRIPT_OUTLINE_INSTRUCTIONS.template
 
 _SEGMENT_SCENES_INSTRUCTIONS = SCRIPT_SEGMENT_SCENES_INSTRUCTIONS.template
 
+_OUTLINE_MAX_TOKENS = 8192
+
 
 def _visual_opportunity_summary(outline: dict) -> dict[str, int]:
     counts: dict[str, int] = {}
@@ -742,7 +744,7 @@ def _generate_outline(
         system_prompt,
         outline_msg,
         model=model,
-        max_tokens=4096,
+        max_tokens=_OUTLINE_MAX_TOKENS,
         timeout=180.0,
         json_mode=True,
         task="script",
