@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import api from "../../api";
 import { showToast } from "../ToastContainer";
 import { Tooltip } from "../ui/Tooltip";
+import SettingsSectionHeader from "./SettingsSectionHeader";
 
 interface KeyInfo {
   configured: boolean;
@@ -245,10 +246,7 @@ export default function ApiKeysSection({ showHeader = true }: ApiKeysSectionProp
       ) : (
         SERVICE_GROUPS.map((group) => (
           <section key={group.title} className="space-y-3">
-            <div>
-              <h3 className="text-base font-semibold text-neutral-100">{group.title}</h3>
-              <p className="text-xs leading-relaxed text-neutral-500">{group.description}</p>
-            </div>
+            <SettingsSectionHeader title={group.title} description={group.description} />
             <div className="space-y-4">
             {group.services.map((svc) => {
               const info = keyStatus[svc.key];

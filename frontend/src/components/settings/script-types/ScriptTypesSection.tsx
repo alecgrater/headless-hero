@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getFormats } from "../../../api";
 import type { VideoFormat } from "../../../types/format";
+import SettingsSectionHeader from "../SettingsSectionHeader";
 import { allVisualModes, modeChipsForFormat, type ModeChip } from "./modes";
 
 interface DetailItem {
@@ -97,15 +98,12 @@ export default function ScriptTypesSection({ onOpenVisualModes }: { onOpenVisual
 
   return (
     <div className="px-6 py-6 space-y-6">
-      <div className="space-y-2">
-        <h2 className="text-base font-semibold text-neutral-100">Script Types</h2>
-        <p className="max-w-4xl text-sm leading-6 text-neutral-400">
-          Script types define the story contract for a project: how many sections it has, how title
-          cards behave, which narration rules matter, and how visual modes can be used. Choose the
-          format that matches the viewer promise first, then let scene-by-scene routing choose the
-          best visual mode for each beat.
-        </p>
-      </div>
+      <SettingsSectionHeader
+        level={2}
+        title="Script Types"
+        description="Script types define the story contract for a project: how many sections it has, how title cards behave, which narration rules matter, and how visual modes can be used. Choose the format that matches the viewer promise first, then let scene-by-scene routing choose the best visual mode for each beat."
+        descriptionClassName="max-w-4xl"
+      />
 
       <div className="grid gap-3 lg:grid-cols-3">
         <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 p-4">

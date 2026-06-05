@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { VisualMode } from "./catalog";
+import SettingsSectionHeader from "../SettingsSectionHeader";
 import { VISUAL_MODE_CATALOG } from "./catalog";
 import VisualModeCard from "./VisualModeCard";
 import VisualModeDetail from "./VisualModeDetail";
@@ -12,14 +13,12 @@ export default function VisualModesSection() {
   return (
     <div className="px-6 py-6 space-y-6">
       <div className="flex items-baseline justify-between gap-4">
-        <div>
-          <h2 className="text-base font-semibold text-neutral-100">Visual Modes</h2>
-          <p className="mt-2 max-w-4xl text-sm leading-6 text-neutral-400">
-            Visual modes are the scene-level render plans that decide what kind of media gets made:
-            a single image, a frame sequence, a layered board, editorial text, a statistic card, or
-            an AI video clip. They are chosen for scene intent, not for an even distribution.
-          </p>
-        </div>
+        <SettingsSectionHeader
+          level={2}
+          title="Visual Modes"
+          description="Visual modes are the scene-level render plans that decide what kind of media gets made: a single image, a frame sequence, a layered board, editorial text, a statistic card, or an AI video clip. They are chosen for scene intent, not for an even distribution."
+          descriptionClassName="max-w-4xl"
+        />
         <div className="text-[10px] text-neutral-600">
           {VISUAL_MODE_CATALOG.length} modes
         </div>

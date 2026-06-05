@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api, { openInBrowser } from "../../api";
 import type { OAuthStatusResponse, PlatformConnection } from "../../types/publish";
+import SettingsSectionHeader from "./SettingsSectionHeader";
 
 type PlatformKey = "youtube" | "tiktok" | "instagram";
 
@@ -127,12 +128,11 @@ export default function PublishingSection({ showHeader = true, embedded = false 
               className="space-y-3"
             >
               <div className="flex items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <h3 className={`${embedded ? "text-sm" : "text-base"} font-semibold text-neutral-100`}>
-                    {platform.name}
-                  </h3>
-                  <p className="text-xs leading-relaxed text-neutral-500">{platform.description}</p>
-                </div>
+                <SettingsSectionHeader
+                  title={platform.name}
+                  description={platform.description}
+                  compact={embedded}
+                />
                 {conn?.connected ? (
                   <span className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-400">
                     <span className="h-2 w-2 rounded-full bg-emerald-400" />

@@ -2,6 +2,7 @@ import { Check, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import api from "../../api";
 import { showToast } from "../ToastContainer";
+import SettingsSectionHeader from "./SettingsSectionHeader";
 
 export type SubtitleCoverageMode = "all" | "punchy";
 export type EnabledSubtitleStyle = "clean" | "kinetic" | "burst";
@@ -179,12 +180,10 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
       )}
 
       <section className="space-y-3">
-        <div>
-          <h3 className="text-base font-semibold text-neutral-100">Subtitle Coverage</h3>
-          <p className="text-xs leading-relaxed text-neutral-500">
-            Caption visual mode keeps its own large in-scene text and never receives standard bottom subtitles.
-          </p>
-        </div>
+        <SettingsSectionHeader
+          title="Subtitle Coverage"
+          description="Caption visual mode keeps its own large in-scene text and never receives standard bottom subtitles."
+        />
         <div className="grid gap-3 md:grid-cols-2">
           {[
             {
@@ -231,12 +230,10 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
       </section>
 
       <section className="space-y-3">
-        <div>
-          <h3 className="text-base font-semibold text-neutral-100">Enabled Subtitle Styles</h3>
-          <p className="text-xs leading-relaxed text-neutral-500">
-            Only selected styles are eligible when subtitles are assigned. Turning every style off suppresses standard subtitles.
-          </p>
-        </div>
+        <SettingsSectionHeader
+          title="Enabled Subtitle Styles"
+          description="Only selected styles are eligible when subtitles are assigned. Turning every style off suppresses standard subtitles."
+        />
         <div className="grid gap-3 lg:grid-cols-3">
           {STYLE_OPTIONS.map((option) => {
             const selected = settings.enabledStyles.includes(option.id);

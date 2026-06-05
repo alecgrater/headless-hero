@@ -2,6 +2,7 @@ import { Archive, Boxes, Loader2, RefreshCw, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { assetUrl, getAssetVaultImages, type AssetVaultImage, type AssetVaultKind } from "../../api";
 import PopupCropLab from "../test-lab/PopupCropLab";
+import SettingsSectionHeader from "./SettingsSectionHeader";
 
 type FilterKind = "all" | AssetVaultKind;
 type AssetTab = "vault" | "generate";
@@ -45,12 +46,13 @@ export default function AssetVaultSection() {
   return (
     <div className="px-8 py-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="space-y-2">
           <p className="text-xs font-semibold uppercase text-neutral-500">Reusable cutouts</p>
-          <h3 className="mt-2 text-lg font-semibold text-neutral-100">Assets</h3>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-neutral-400">
-            Cleaned popup crop cutouts are saved here automatically with descriptive filenames for later reuse.
-          </p>
+          <SettingsSectionHeader
+            title="Assets"
+            description="Cleaned popup crop cutouts are saved here automatically with descriptive filenames for later reuse."
+            descriptionClassName="max-w-2xl"
+          />
         </div>
         {activeTab === "vault" && (
           <button

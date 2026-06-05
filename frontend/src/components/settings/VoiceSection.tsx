@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../../api";
 import type { VoiceInfo, VoiceListResponse } from "../../types/audio";
+import SettingsSectionHeader from "./SettingsSectionHeader";
 
 interface VoiceSectionProps {
   panel: "voice" | "audio";
@@ -250,12 +251,10 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
       {panel === "voice" && (
       <div className="space-y-8">
       <section className="space-y-3">
-        <div>
-          <h3 className="text-base font-semibold text-neutral-100">Default Voice</h3>
-          <p className="text-xs leading-relaxed text-neutral-500">
-            Select the ElevenLabs voice used for voiceover generation.
-          </p>
-        </div>
+        <SettingsSectionHeader
+          title="Default Voice"
+          description="Select the ElevenLabs voice used for voiceover generation."
+        />
         <label className="sr-only" htmlFor="default-voice">
           Default Voice
         </label>
@@ -279,12 +278,10 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
       </section>
 
       <section className="space-y-4">
-        <div>
-          <h3 className="text-base font-semibold text-neutral-100">ElevenLabs Delivery</h3>
-          <p className="mt-1 text-xs leading-relaxed text-neutral-500">
-            Controls the model, pacing, and hidden TTS-only instructions used for newly generated AI voiceover.
-          </p>
-        </div>
+        <SettingsSectionHeader
+          title="ElevenLabs Delivery"
+          description="Controls the model, pacing, and hidden TTS-only instructions used for newly generated AI voiceover."
+        />
 
         <div className="space-y-2">
           <p className="text-sm font-medium text-neutral-200">Model</p>
@@ -489,12 +486,10 @@ function AudioProcessingSection({
 }) {
   return (
     <section className="space-y-3">
-      <div>
-        <h3 className="text-base font-semibold text-neutral-100">Recording Processing</h3>
-        <p className="text-xs leading-relaxed text-neutral-500">
-          Filters applied during manual recording export. AI-generated voiceover uses the ElevenLabs delivery settings above.
-        </p>
-      </div>
+      <SettingsSectionHeader
+        title="Recording Processing"
+        description="Filters applied during manual recording export. AI-generated voiceover uses the ElevenLabs delivery settings above."
+      />
       <div className="space-y-2">
         {([
           { key: "AUDIO_FILTER_HIGHPASS" as const, label: "Low-cut filter", desc: "Removes rumble below 80 Hz" },

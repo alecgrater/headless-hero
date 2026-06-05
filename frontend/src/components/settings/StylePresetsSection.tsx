@@ -15,6 +15,7 @@ import api, {
 import { useStylePreset } from "../../contexts/StylePresetContext";
 import { showToast } from "../ToastContainer";
 import { StylePresetToggle } from "../shared/StylePresetToggle";
+import SettingsSectionHeader from "./SettingsSectionHeader";
 import { StylePresetCreateModal } from "./StylePresetCreateModal";
 
 const DISABLED_SETTING_VALUES = new Set(["", "0", "false", "no", "off"]);
@@ -395,12 +396,10 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
         className="grid gap-4 lg:grid-cols-2"
       >
         <div className="flex flex-col gap-3">
-          <div>
-            <h3 className="text-base font-semibold text-neutral-100">Style Presets</h3>
-            <p className="text-xs text-neutral-500">
-              Global visual references used when Eli is disabled.
-            </p>
-          </div>
+          <SettingsSectionHeader
+            title="Style Presets"
+            description="Global visual references used when Eli is disabled."
+          />
 
           <div className="flex-1 space-y-3 rounded-lg border border-neutral-800 bg-neutral-900 p-3">
             {viewedPreset ? (
@@ -524,12 +523,10 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
         </div>
 
         <div className="flex flex-col gap-3">
-          <div>
-            <h3 className="text-base font-semibold text-neutral-100">Main Character</h3>
-            <p className="text-xs text-neutral-500">
-              Characters are scoped to the viewed style preset and inherit its visual style.
-            </p>
-          </div>
+          <SettingsSectionHeader
+            title="Main Character"
+            description="Characters are scoped to the viewed style preset and inherit its visual style."
+          />
 
           <div className="flex-1 space-y-3 rounded-lg border border-neutral-800 bg-neutral-900 p-3">
             {viewedPreset ? (
@@ -686,12 +683,10 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
             className="space-y-3 rounded-lg border border-neutral-800 bg-neutral-900 p-3 lg:col-span-2"
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h3 className="text-base font-semibold text-neutral-100">New Project Visual Identity</h3>
-                <p className="text-xs text-neutral-500">
-                  Choose how new projects start. Existing projects are unchanged.
-                </p>
-              </div>
+              <SettingsSectionHeader
+                title="New Project Visual Identity"
+                description="Choose how new projects start. Existing projects are unchanged."
+              />
               {hasChanges && <span className="rounded bg-violet-500/15 px-2 py-1 text-xs font-medium text-violet-300">Unsaved</span>}
             </div>
             <StylePresetToggle

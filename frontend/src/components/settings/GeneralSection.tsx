@@ -5,6 +5,7 @@ import { DEFAULT_MODEL } from "../../constants";
 import { showToast } from "../ToastContainer";
 import MiscSection from "./MiscSection";
 import PublishingSection from "./PublishingSection";
+import SettingsSectionHeader from "./SettingsSectionHeader";
 
 interface KeyInfo {
   configured: boolean;
@@ -630,12 +631,10 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
           {panel === "general" && (
           <div className="space-y-8">
             <section className="space-y-3">
-              <div>
-                <h3 className="text-lg font-semibold text-neutral-100">Exports</h3>
-                <p className="text-xs leading-relaxed text-neutral-500">
-                  Final project folders, upload-suite checks, rendered videos, thumbnails, and SEO files live here.
-                </p>
-              </div>
+              <SettingsSectionHeader
+                title="Exports"
+                description="Final project folders, upload-suite checks, rendered videos, thumbnails, and SEO files live here."
+              />
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -660,22 +659,18 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
             </section>
 
             <section className="space-y-3">
-              <div>
-                <h3 className="text-lg font-semibold text-neutral-100">Publishing</h3>
-                <p className="text-xs leading-relaxed text-neutral-500">
-                  Connect upload destinations for rendered short-form exports.
-                </p>
-              </div>
+              <SettingsSectionHeader
+                title="Publishing"
+                description="Connect upload destinations for rendered short-form exports."
+              />
               <PublishingSection showHeader={false} embedded />
             </section>
 
             <section className="space-y-3">
-              <div>
-                <h3 className="text-lg font-semibold text-neutral-100">Advanced</h3>
-                <p className="text-xs leading-relaxed text-neutral-500">
-                  Less common workflow, rendering, and image fallback controls.
-                </p>
-              </div>
+              <SettingsSectionHeader
+                title="Advanced"
+                description="Less common workflow, rendering, and image fallback controls."
+              />
               <MiscSection showHeader={false} embedded />
             </section>
           </div>
@@ -685,12 +680,10 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
           <div className="space-y-8">
             <section className="space-y-3">
               <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-base font-semibold text-neutral-100">Current Routing</h3>
-                  <p className="text-xs leading-relaxed text-neutral-500">
-                    Quick view of which model providers handle the main generation jobs.
-                  </p>
-                </div>
+                <SettingsSectionHeader
+                  title="Current Routing"
+                  description="Quick view of which model providers handle the main generation jobs."
+                />
                 <button
                   type="button"
                   onClick={applyRecommendedRouting}
@@ -721,12 +714,10 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
             </section>
 
             <section className="space-y-3">
-              <div>
-                <h3 className="text-base font-semibold text-neutral-100">Default LLM Provider</h3>
-                <p className="text-xs leading-relaxed text-neutral-500">
-                  The fallback route for any LLM task that does not override its provider below.
-                </p>
-              </div>
+              <SettingsSectionHeader
+                title="Default LLM Provider"
+                description="The fallback route for any LLM task that does not override its provider below."
+              />
               <select
                 value={llmProvider}
                 onChange={(e) => handleDefaultProviderChange(e.target.value as LlmProvider)}
@@ -771,12 +762,10 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
                 onClick={() => setAdvancedRoutingOpen((value) => !value)}
                 className="flex w-full items-center justify-between gap-4 text-left transition-colors hover:text-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 rounded-lg"
               >
-                <div>
-                  <h3 className="text-base font-semibold text-neutral-100">Advanced routing</h3>
-                  <p className="text-xs leading-relaxed text-neutral-500">
-                    Configure provider, model, and OpenAI reasoning per task.
-                  </p>
-                </div>
+                <SettingsSectionHeader
+                  title="Advanced routing"
+                  description="Configure provider, model, and OpenAI reasoning per task."
+                />
                 <ChevronDown
                   className={`h-4 w-4 text-neutral-500 transition-transform ${advancedRoutingOpen ? "rotate-180" : ""}`}
                 />
@@ -925,12 +914,10 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
           {panel === "visuals" && (
           <div className="space-y-8">
             <section className="space-y-3">
-              <div>
-                <h3 className="text-base font-semibold text-neutral-100">Image Provider</h3>
-                <p className="text-xs leading-relaxed text-neutral-500">
-                  Choose which AI service generates scene images and thumbnails.
-                </p>
-              </div>
+              <SettingsSectionHeader
+                title="Image Provider"
+                description="Choose which AI service generates scene images and thumbnails."
+              />
               <select
                 value={imageProvider}
                 onChange={(e) => setImageProvider(e.target.value)}
@@ -946,12 +933,10 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
 
             <section className="space-y-4">
               <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-base font-semibold text-neutral-100">AI Video</h3>
-                  <p className="text-xs leading-relaxed text-neutral-500">
-                    Route selected high-motion scenes to an image-to-video provider.
-                  </p>
-                </div>
+                <SettingsSectionHeader
+                  title="AI Video"
+                  description="Route selected high-motion scenes to an image-to-video provider."
+                />
                 <button
                   type="button"
                   role="switch"
@@ -1011,12 +996,10 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
 
             <section className="space-y-4">
               <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-base font-semibold text-neutral-100">Scene Structure</h3>
-                  <p className="text-xs leading-relaxed text-neutral-500">
-                    Split long life-as-a narration into short single-beat scenes before voiceover.
-                  </p>
-                </div>
+                <SettingsSectionHeader
+                  title="Scene Structure"
+                  description="Split long life-as-a narration into short single-beat scenes before voiceover."
+                />
                 <button
                   type="button"
                   role="switch"

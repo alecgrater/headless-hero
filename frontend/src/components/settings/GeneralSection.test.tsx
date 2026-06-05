@@ -35,8 +35,9 @@ describe("GeneralSection visuals layout", () => {
     const workflowHeading = await screen.findByRole("heading", { name: "Workflow", level: 3 });
 
     for (const sectionHeading of [exportsHeading, publishingHeading, advancedHeading]) {
-      expect(sectionHeading).toHaveClass("text-lg", "font-semibold");
+      expect(sectionHeading).toHaveClass("text-lg", "font-semibold", "tracking-tight");
       expect(sectionHeading).not.toHaveClass("text-base");
+      expect(sectionHeading.parentElement).toHaveClass("border-l-2", "border-violet-500/60", "pl-3");
     }
     for (const subsectionHeading of [youtubeHeading, workflowHeading]) {
       expect(subsectionHeading).toHaveClass("text-sm", "font-semibold");
@@ -48,7 +49,7 @@ describe("GeneralSection visuals layout", () => {
     expect(screen.getByRole("heading", { name: "Image Generation Safety", level: 3 })).toBeInTheDocument();
   });
 
-  it("renders visuals as separate settings sections with the subtitle heading scale", async () => {
+  it("renders visuals as separate settings sections with the parent heading treatment", async () => {
     const { container } = render(createElement(GeneralSection, { panel: "visuals", showHeader: false }));
 
     const imageProviderHeading = await screen.findByRole("heading", { name: "Image Provider", level: 3 });
@@ -56,9 +57,10 @@ describe("GeneralSection visuals layout", () => {
     const sceneStructureHeading = screen.getByRole("heading", { name: "Scene Structure", level: 3 });
 
     for (const heading of [imageProviderHeading, aiVideoHeading, sceneStructureHeading]) {
-      expect(heading).toHaveClass("text-base", "font-semibold");
+      expect(heading).toHaveClass("text-lg", "font-semibold", "tracking-tight");
       expect(heading).not.toHaveClass("text-sm");
-      expect(heading).not.toHaveClass("text-lg");
+      expect(heading).not.toHaveClass("text-base");
+      expect(heading.parentElement).toHaveClass("border-l-2", "border-violet-500/60", "pl-3");
     }
     expect(container.querySelector(".divide-y")).toBeNull();
   });

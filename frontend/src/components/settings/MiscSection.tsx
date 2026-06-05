@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import api from "../../api";
 import { showToast } from "../ToastContainer";
+import SettingsSectionHeader from "./SettingsSectionHeader";
 
 const DISABLED_SETTING_VALUES = new Set(["", "0", "false", "no", "off"]);
 
@@ -158,10 +159,11 @@ export default function MiscSection({ showHeader = true, embedded = false }: Mis
       )}
 
       <section className="space-y-3">
-        <div>
-          <h3 className={`${embedded ? "text-sm" : "text-base"} font-semibold text-neutral-100`}>Workflow</h3>
-          <p className="text-xs leading-relaxed text-neutral-500">Controls that change ideation and script-prep flow.</p>
-        </div>
+        <SettingsSectionHeader
+          title="Workflow"
+          description="Controls that change ideation and script-prep flow."
+          compact={embedded}
+        />
         <SettingsRow
           title="Hook Refinement"
           description="After you pick from the three scored cold opens, rewrite the selected hook before using it."
@@ -175,10 +177,11 @@ export default function MiscSection({ showHeader = true, embedded = false }: Mis
       </section>
 
       <section className="space-y-3">
-        <div>
-          <h3 className={`${embedded ? "text-sm" : "text-base"} font-semibold text-neutral-100`}>Rendering</h3>
-          <p className="text-xs leading-relaxed text-neutral-500">Controls that affect export UI and generation pacing.</p>
-        </div>
+        <SettingsSectionHeader
+          title="Rendering"
+          description="Controls that affect export UI and generation pacing."
+          compact={embedded}
+        />
         <div className="space-y-3">
           <SettingsRow
             title="1.25x Render Button"
@@ -204,10 +207,11 @@ export default function MiscSection({ showHeader = true, embedded = false }: Mis
       </section>
 
       <section className="space-y-3">
-        <div>
-          <h3 className={`${embedded ? "text-sm" : "text-base"} font-semibold text-neutral-100`}>Image Generation Safety</h3>
-          <p className="text-xs leading-relaxed text-neutral-500">Riskier fallback behavior for rough drafts only.</p>
-        </div>
+        <SettingsSectionHeader
+          title="Image Generation Safety"
+          description="Riskier fallback behavior for rough drafts only."
+          compact={embedded}
+        />
         <SettingsRow
           title="Scraped Web Image Fallback"
           description="Off by default. When Gemini fails after its normal retries, Headless Hero creates a placeholder image. Turning this on allows Google Images scraping as a last resort, which can break visual style and may pull images with unclear rights."

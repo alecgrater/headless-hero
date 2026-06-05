@@ -94,7 +94,7 @@ export default function VisualModeDetail({ entry }: Props) {
           {/* Header */}
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-base font-semibold text-neutral-100">{entry.label}</h3>
+              <h3 className="text-lg font-semibold tracking-tight text-neutral-100">{entry.label}</h3>
               <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-400">
                 {entry.id}
               </span>
