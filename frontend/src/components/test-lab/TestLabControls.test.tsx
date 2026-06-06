@@ -317,6 +317,66 @@ describe("TestLabControls layout", () => {
     expect(within(visualMode).getByText(/State B/i)).toBeInTheDocument();
   });
 
+  it("shows the flip-flop action selector only for flip-flop mode", () => {
+    const { rerender } = render(
+      <TestLabControls
+        preset={preset}
+        defaultMainCharacter={null}
+        visualTreatmentDefaults={defaults}
+        settings={{ ...baseSettings, visual_mode: "flipflop", flipflop_action: "blink" }}
+        voiceSummary={voiceSummary}
+        subtitleSummary={subtitleSummary}
+        onChange={() => undefined}
+        onOpenSettingsSection={() => undefined}
+      />,
+    );
+
+    expect(screen.getByLabelText("Flip-flop action")).toHaveValue("blink");
+
+    rerender(
+      <TestLabControls
+        preset={preset}
+        defaultMainCharacter={null}
+        visualTreatmentDefaults={defaults}
+        settings={{ ...baseSettings, visual_mode: "full_frame", flipflop_action: "" }}
+        voiceSummary={voiceSummary}
+        subtitleSummary={subtitleSummary}
+        onChange={() => undefined}
+        onOpenSettingsSection={() => undefined}
+      />,
+    );
+
+    expect(screen.queryByLabelText("Flip-flop action")).not.toBeInTheDocument();
+  });
+
+  it("updates flip-flop action without rewriting scene text", () => {
+    const onChange = vi.fn();
+    render(
+      <TestLabControls
+        preset={preset}
+        defaultMainCharacter={null}
+        visualTreatmentDefaults={defaults}
+        settings={{ ...baseSettings, visual_mode: "flipflop", flipflop_action: "blink" }}
+        voiceSummary={voiceSummary}
+        subtitleSummary={subtitleSummary}
+        onChange={onChange}
+        onOpenSettingsSection={() => undefined}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Flip-flop action"), {
+      target: { value: "head_nod" },
+    });
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flipflop_action: "head_nod",
+        narration: "Custom narration.",
+        visual_prompt: "Custom prompt.",
+      }),
+    );
+  });
+
   it("creates cropped cutout defaults when switching to flip-flop", () => {
     const onChange = vi.fn();
     render(

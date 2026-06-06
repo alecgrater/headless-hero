@@ -1,4 +1,4 @@
-import type { SceneFX, SubtitleStyle, VisualLayer, VisualMode } from "./script";
+import type { FlipflopAction, SceneFX, SubtitleStyle, VisualLayer, VisualMode } from "./script";
 import type { MainCharacter, ScriptCostBreakdownItem } from "../api";
 
 export interface TestLabMainCharacter extends MainCharacter {
@@ -22,6 +22,7 @@ export interface TestLabPreset {
   caption_emphasis?: string;
   stat_value?: string;
   stat_label?: string;
+  flipflop_action?: FlipflopAction | "";
   contains_person?: boolean;
   visual_beat?: string;
   frame_directives?: Array<Record<string, unknown>>;
@@ -87,6 +88,7 @@ export interface TestLabSettings {
   caption_emphasis?: string;
   stat_value?: string;
   stat_label?: string;
+  flipflop_action?: FlipflopAction | "";
   contains_person?: boolean;
   visual_beat?: string;
   transition_in?: "cut" | "fade_black" | "flash_white" | "wipe";

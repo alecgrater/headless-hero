@@ -7,6 +7,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field as PydanticField, field_validator, model_validator
 from sqlmodel import Column, Field, SQLModel, Text
 
+from pipeline.flipflop_actions import FlipflopAction, normalize_flipflop_action
+
 # --- Pydantic models for the script JSON structure ---
 
 ALLOWED_TRANSITIONS = {"cut", "fade_black", "flash_white", "wipe"}
@@ -18,6 +20,7 @@ VISUAL_LAYER_ANIMATIONS = {"none", "pop_in"}
 SUBTITLE_STYLES = {"auto", "clean", "kinetic", "burst", "none"}
 VisualMode = Literal["video", "full_frame", "multi_frame", "continuous", "captions", "popup_sequence", "flipflop", "comparison_board", "stat_card"]
 VisualTreatment = Literal["full_frame", "popup_sequence", "flipflop", "comparison_board", "stat_card"]
+FlipflopActionValue = FlipflopAction
 VisualLayerType = Literal["image"]
 VisualAssetKind = Literal["full_frame", "panel", "cutout"]
 VisualLayerAnimation = Literal["none", "pop_in"]
@@ -173,6 +176,7 @@ class Scene(BaseModel):
     contains_person: bool = False       # true if any frame depicts a human figure
     visual_mode: VisualMode = "full_frame"
     visual_layers: list[VisualLayer] = PydanticField(default_factory=list)
+    flipflop_action: FlipflopActionValue | str = ""
     caption_text: str = ""
     caption_emphasis: str = ""
     stat_value: str = ""
@@ -193,6 +197,8 @@ class Scene(BaseModel):
         super().__setattr__(name, value)
         if name in {"visual_mode", "visual_beat"}:
             self._sync_visual_mode_fields_from_assignment(name)
+        if name == "flipflop_action" and self.visual_mode != "flipflop":
+            super().__setattr__("flipflop_action", "")
 
     @model_validator(mode="before")
     @classmethod
@@ -207,6 +213,11 @@ class Scene(BaseModel):
             normalized.get("visual_beat"),
         )
         normalized["visual_mode"] = mode
+        normalized["flipflop_action"] = (
+            normalize_flipflop_action(normalized.get("flipflop_action"))
+            if mode == "flipflop"
+            else ""
+        )
         visual_beat = _visual_beat_for_visual_mode(mode)
         if visual_beat is not None:
             normalized["visual_beat"] = visual_beat
@@ -236,6 +247,11 @@ class Scene(BaseModel):
         if isinstance(value, str) and value in VISUAL_MODES:
             return value
         return "full_frame"
+
+    @field_validator("flipflop_action", mode="before")
+    @classmethod
+    def normalize_flipflop_action_value(_cls, value: object) -> str:
+        return normalize_flipflop_action(value)
 
     @field_validator("subtitle_style", mode="before")
     @classmethod
@@ -273,6 +289,8 @@ class Scene(BaseModel):
             super().__setattr__("visual_beat", visual_beat)
         if visual_mode in {"video", "popup_sequence", "flipflop", "comparison_board", "stat_card"}:
             super().__setattr__("frame_urls", [])
+        if visual_mode != "flipflop":
+            super().__setattr__("flipflop_action", "")
         if visual_mode != "stat_card":
             super().__setattr__("stat_value", "")
             super().__setattr__("stat_label", "")

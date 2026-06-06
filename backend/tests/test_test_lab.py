@@ -329,6 +329,76 @@ def test_test_lab_settings_preserve_subtitle_style():
     assert scene.subtitle_style == "burst"
 
 
+def test_test_lab_flipflop_settings_preserve_action():
+    from pipeline.test_lab import build_content_from_preset
+
+    content = build_content_from_preset(
+        "coffee-brain",
+        {"visual_mode": "flipflop", "flipflop_action": "blink"},
+    )
+
+    scene = content.segments[0].scenes[0]
+    assert scene.visual_mode == "flipflop"
+    assert scene.flipflop_action == "blink"
+
+
+def test_run_test_lab_manifest_defaults_flipflop_action(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.test_lab as test_lab
+
+    monkeypatch.setattr(test_lab, "_stage_treatment_assets", lambda _ctx: None)
+
+    test_lab.run_test_lab(
+        engine=engine,
+        run_id="run-flipflop-action-default",
+        preset_id="coffee-brain",
+        settings={
+            "visual_mode": "flipflop",
+            "stages": {
+                "audio": False,
+                "visual": False,
+                "treatment_assets": False,
+                "fx": False,
+                "render": False,
+            },
+        },
+        job_id=None,
+    )
+
+    manifest = test_lab.load_run_manifest("run-flipflop-action-default")
+    assert manifest.settings["visual_mode"] == "flipflop"
+    assert manifest.settings["flipflop_action"] == "blink"
+
+
+def test_run_test_lab_manifest_clears_flipflop_action_for_non_flipflop(monkeypatch, tmp_path):
+    engine, _app = _setup_app(monkeypatch, tmp_path)
+
+    import pipeline.test_lab as test_lab
+
+    test_lab.run_test_lab(
+        engine=engine,
+        run_id="run-full-frame-action-clear",
+        preset_id="coffee-brain",
+        settings={
+            "visual_mode": "full_frame",
+            "flipflop_action": "head_nod",
+            "stages": {
+                "audio": False,
+                "visual": False,
+                "treatment_assets": False,
+                "fx": False,
+                "render": False,
+            },
+        },
+        job_id=None,
+    )
+
+    manifest = test_lab.load_run_manifest("run-full-frame-action-clear")
+    assert manifest.settings["visual_mode"] == "full_frame"
+    assert manifest.settings["flipflop_action"] == ""
+
+
 def test_test_lab_scenes_endpoint_returns_presets(monkeypatch, tmp_path):
     _engine, app = _setup_app(monkeypatch, tmp_path)
     client = TestClient(app)

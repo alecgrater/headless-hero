@@ -2,6 +2,7 @@
 
 import sys
 from pathlib import Path
+import re
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -14,8 +15,10 @@ from pipeline.scriptwriter import (
     _ensure_visual_beat_directives,
     _fix_visual_monotony,
     _scene_granularity_duration,
+    _validate_flipflop_actions,
 )
 from prompts import script as script_prompt
+from prompts.script import SCRIPT_SYSTEM as SCRIPT_SYSTEM_PROMPT
 
 
 def _static_scene(scene_id: str) -> Scene:
@@ -160,9 +163,18 @@ def test_script_prompt_defines_flipflop_as_cutout_body_language_not_contrast():
     prompt_text = script_prompt.SCRIPT_SYSTEM.template
 
     assert '"flipflop"' in prompt_text
-    assert "cropped subject" in prompt_text
-    assert "body-language" in prompt_text
-    assert "Do not use flipflop merely because a sentence contrasts" in prompt_text
+    assert "cropped-subject" in prompt_text
+    assert "Human/character-only" in prompt_text
+    assert "Do not use flipflop for object-only scenes" in prompt_text
+
+
+def test_script_prompt_requires_flipflop_action_allowlist():
+    prompt_text = SCRIPT_SYSTEM_PROMPT.template
+
+    assert "flipflop_action" in prompt_text
+    assert "blink, speaking_mouth, eye_glance, eyebrow_raise" in prompt_text
+    assert "Use only with clear prompt support: pointing_gesture, counting_fingers, small_shrug" in prompt_text
+    assert "If no allowed human micro-action naturally fits, choose another visual_mode" in prompt_text
 
 
 def test_script_prompt_includes_comparison_board_mode():
@@ -191,6 +203,17 @@ def test_script_prompt_treats_captions_as_short_editorial_punches():
     assert "short editorial punch" in prompt_text
     assert "Captions can use normal short-scene timing" in prompt_text
     assert "captions ~14-18s" not in prompt_text
+
+
+def test_outline_prompt_caption_opportunities_use_normal_duration_profile():
+    for prompt_text in (
+        script_prompt.SCRIPT_OUTLINE_INSTRUCTIONS.template,
+        script_prompt.LIFE_AS_A_OUTLINE_INSTRUCTIONS.template,
+    ):
+        assert not re.search(
+            r'"mode": "captions"[\s\S]{0,240}"duration_profile": "extended"',
+            prompt_text,
+        )
 
 
 def test_outline_prompts_request_visual_opportunities_before_scenes():
@@ -295,6 +318,91 @@ def test_visual_mode_audit_preserves_existing_specialized_modes():
     _audit_visual_mode_metadata(content)
 
     assert popup.visual_mode == "popup_sequence"
+
+
+def test_validate_flipflop_actions_downgrades_missing_action():
+    scene = Scene(
+        id="s1",
+        narration="He blinks once.",
+        visual_prompt="[CLOSE-UP] Cartoon man at a desk.",
+        visual_mode="flipflop",
+    )
+    content = ScriptContent(title="Test", segments=[Segment(name="One", scenes=[scene])])
+
+    counts = _validate_flipflop_actions(content, script_id="script-1")
+
+    assert counts["downgraded"] == 1
+    assert scene.visual_mode == "full_frame"
+    assert scene.flipflop_action == ""
+
+
+def test_validate_flipflop_actions_preserves_valid_human_action():
+    scene = Scene(
+        id="s1",
+        narration="He blinks once.",
+        visual_prompt="[CLOSE-UP] Cartoon man at a desk.",
+        visual_mode="flipflop",
+        flipflop_action="blink",
+    )
+    content = ScriptContent(title="Test", segments=[Segment(name="One", scenes=[scene])])
+
+    counts = _validate_flipflop_actions(content, script_id="script-1")
+
+    assert counts["preserved"] == 1
+    assert scene.visual_mode == "flipflop"
+    assert scene.flipflop_action == "blink"
+
+
+def test_validate_flipflop_actions_downgrades_pronoun_object_scene(monkeypatch):
+    fallback_calls = []
+
+    def fake_record_fallback(**kwargs):
+        fallback_calls.append(kwargs)
+
+    monkeypatch.setattr("pipeline.scriptwriter.record_fallback", fake_record_fallback)
+    scene = Scene(
+        id="s1",
+        narration="His bank account blinks red.",
+        visual_prompt="[CLOSE-UP] A blank bank account screen on a desk.",
+        visual_mode="flipflop",
+        flipflop_action="blink",
+    )
+    content = ScriptContent(title="Test", segments=[Segment(name="One", scenes=[scene])])
+
+    counts = _validate_flipflop_actions(content, script_id="script-1")
+
+    assert counts["downgraded"] == 1
+    assert scene.visual_mode == "full_frame"
+    assert scene.flipflop_action == ""
+    assert fallback_calls == [
+        {
+            "category": "visual_mode",
+            "event": "flipflop_invalid_micro_action_downgraded",
+            "reason": "Flipflop scene missing valid human micro-action",
+            "severity": "warn",
+            "script_id": "script-1",
+            "scene_id": "s1",
+            "from_value": "flipflop",
+            "to_value": "full_frame",
+        }
+    ]
+
+
+def test_validate_flipflop_actions_clears_non_flipflop_action():
+    scene = Scene(
+        id="s1",
+        narration="He blinks once.",
+        visual_prompt="[CLOSE-UP] Cartoon man at a desk.",
+        visual_mode="full_frame",
+    )
+    object.__setattr__(scene, "flipflop_action", "blink")
+    content = ScriptContent(title="Test", segments=[Segment(name="One", scenes=[scene])])
+
+    counts = _validate_flipflop_actions(content, script_id="script-1")
+
+    assert counts["cleared"] == 1
+    assert scene.visual_mode == "full_frame"
+    assert scene.flipflop_action == ""
 
 
 def test_visual_mode_audit_rejects_internal_renderer_terms_in_narration():

@@ -521,6 +521,60 @@ def test_scene_assignment_to_removed_dossier_keeps_full_frame_fields():
     assert "dossier_title" not in scene.model_dump()
 
 
+def test_scene_accepts_valid_flipflop_action():
+    scene = Scene(
+        id="scene_001",
+        narration="He blinks before answering.",
+        visual_prompt="[CLOSE-UP] Cartoon teacher at a desk.",
+        visual_mode="flipflop",
+        flipflop_action="blink",
+    )
+
+    assert scene.visual_mode == "flipflop"
+    assert scene.flipflop_action == "blink"
+    assert scene.model_dump()["flipflop_action"] == "blink"
+
+
+def test_scene_clears_flipflop_action_when_not_flipflop():
+    scene = Scene(
+        id="scene_001",
+        narration="He blinks before answering.",
+        visual_prompt="[CLOSE-UP] Cartoon teacher at a desk.",
+        visual_mode="full_frame",
+        flipflop_action="blink",
+    )
+
+    assert scene.visual_mode == "full_frame"
+    assert scene.flipflop_action == ""
+
+
+def test_scene_clears_invalid_flipflop_action():
+    scene = Scene(
+        id="scene_001",
+        narration="He blinks before answering.",
+        visual_prompt="[CLOSE-UP] Cartoon teacher at a desk.",
+        visual_mode="flipflop",
+        flipflop_action="walking",
+    )
+
+    assert scene.visual_mode == "flipflop"
+    assert scene.flipflop_action == ""
+
+
+def test_scene_assignment_clears_flipflop_action_when_mode_is_not_flipflop():
+    scene = Scene(
+        id="scene_001",
+        narration="He blinks before answering.",
+        visual_prompt="[CLOSE-UP] Cartoon teacher at a desk.",
+        visual_mode="full_frame",
+    )
+
+    scene.flipflop_action = "blink"
+
+    assert scene.visual_mode == "full_frame"
+    assert scene.flipflop_action == ""
+
+
 def test_visual_layer_round_trips_label_field():
     layer = VisualLayer(id="layer_1", label="SUSPECT")
     payload = layer.model_dump()

@@ -37,6 +37,17 @@ export interface VideoFX {
 
 export type VisualMode = "video" | "full_frame" | "multi_frame" | "continuous" | "popup_sequence" | "flipflop" | "comparison_board" | "captions" | "stat_card";
 export type SubtitleStyle = "auto" | "clean" | "kinetic" | "burst" | "none";
+export type FlipflopAction =
+  | "blink"
+  | "speaking_mouth"
+  | "eye_glance"
+  | "eyebrow_raise"
+  | "head_nod"
+  | "explaining_hand_raise"
+  | "thinking_pose"
+  | "pointing_gesture"
+  | "counting_fingers"
+  | "small_shrug";
 
 export interface VisualCanvas {
   background_color: string;
@@ -86,6 +97,7 @@ export interface Scene {
   contains_person?: boolean;
   visual_mode?: VisualMode;
   visual_layers?: VisualLayer[];
+  flipflop_action?: FlipflopAction | "";
   caption_text?: string;
   caption_emphasis?: string;
   stat_value?: string;

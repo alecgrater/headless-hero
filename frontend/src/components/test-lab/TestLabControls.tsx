@@ -26,7 +26,7 @@ import type {
   TestLabSubtitleSummary,
   TestLabVoiceSummary,
 } from "../../types/testLab";
-import type { VisualLayer, VisualMode } from "../../types/script";
+import type { FlipflopAction, VisualLayer, VisualMode } from "../../types/script";
 import { Tooltip } from "../ui/Tooltip";
 
 type StageKey = keyof TestLabStages;
@@ -171,6 +171,19 @@ const VISUAL_MODE_OPTIONS: Array<{
   },
 ];
 
+const FLIPFLOP_ACTION_OPTIONS: Array<{ value: FlipflopAction; label: string }> = [
+  { value: "blink", label: "Blink" },
+  { value: "speaking_mouth", label: "Speaking mouth" },
+  { value: "eye_glance", label: "Eye glance" },
+  { value: "eyebrow_raise", label: "Eyebrow raise" },
+  { value: "head_nod", label: "Head nod" },
+  { value: "explaining_hand_raise", label: "Explaining hand raise" },
+  { value: "thinking_pose", label: "Thinking pose" },
+  { value: "pointing_gesture", label: "Pointing gesture" },
+  { value: "counting_fingers", label: "Counting fingers" },
+  { value: "small_shrug", label: "Small shrug" },
+];
+
 export default function TestLabControls({
   preset,
   defaultMainCharacter,
@@ -238,6 +251,7 @@ export default function TestLabControls({
       {
         ...settings,
         visual_mode: nextMode,
+        flipflop_action: nextMode === "flipflop" ? settings.flipflop_action || "blink" : "",
         visual_layers: shouldPreserveLayers ? settings.visual_layers : defaultLayersForMode(nextMode, visualPrompt, narration),
         frame_directives: usesFrameDirectives(nextMode)
           ? defaultFrameDirectivesForMode(nextMode, visualPrompt)
@@ -292,6 +306,7 @@ export default function TestLabControls({
             captionEmphasis={captionEmphasis}
             statValue={statValue}
             statLabel={statLabel}
+            flipflopAction={settings.flipflop_action || "blink"}
             frameDirectives={settings.frame_directives ?? []}
             visualLayers={settings.visual_layers}
             onNarrationChange={updateNarration}
@@ -300,6 +315,7 @@ export default function TestLabControls({
             onCaptionEmphasisChange={(value) => update({ caption_emphasis: value })}
             onStatValueChange={(value) => update({ stat_value: value })}
             onStatLabelChange={(value) => update({ stat_label: value })}
+            onFlipflopActionChange={(flipflop_action) => update({ flipflop_action })}
             onFrameDirectivesChange={(frame_directives) => update({ frame_directives })}
             onVisualLayersChange={(visual_layers) => update({ visual_layers })}
           />
@@ -440,6 +456,7 @@ function SceneTextFields({
   captionEmphasis,
   statValue,
   statLabel,
+  flipflopAction,
   frameDirectives,
   visualLayers,
   onNarrationChange,
@@ -448,6 +465,7 @@ function SceneTextFields({
   onCaptionEmphasisChange,
   onStatValueChange,
   onStatLabelChange,
+  onFlipflopActionChange,
   onFrameDirectivesChange,
   onVisualLayersChange,
 }: {
@@ -458,6 +476,7 @@ function SceneTextFields({
   captionEmphasis: string;
   statValue: string;
   statLabel: string;
+  flipflopAction: FlipflopAction | "";
   frameDirectives: Array<Record<string, unknown>>;
   visualLayers: VisualLayer[];
   onNarrationChange: (value: string) => void;
@@ -466,6 +485,7 @@ function SceneTextFields({
   onCaptionEmphasisChange: (value: string) => void;
   onStatValueChange: (value: string) => void;
   onStatLabelChange: (value: string) => void;
+  onFlipflopActionChange: (value: FlipflopAction) => void;
   onFrameDirectivesChange: (value: Array<Record<string, unknown>>) => void;
   onVisualLayersChange: (value: VisualLayer[]) => void;
 }) {
@@ -495,17 +515,33 @@ function SceneTextFields({
         />
       )}
       {visualMode === "flipflop" && (
-        <LayerPromptFields
-          labels={["State A", "State B"]}
-          visualLayers={visualLayers}
-          fallbackPrompt={visualPrompt || narration}
-          assetKind="cutout"
-          placements={["center", "center"]}
-          idPrefix="flipflop"
-          animations={["none", "none"]}
-          enterAtSeconds={[0, 0]}
-          onChange={onVisualLayersChange}
-        />
+        <>
+          <label className="block">
+            <span className="text-xs font-medium text-neutral-300">Flip-flop action</span>
+            <select
+              value={flipflopAction || "blink"}
+              onChange={(event) => onFlipflopActionChange(event.target.value as FlipflopAction)}
+              className="mt-2 w-full rounded-md border border-neutral-800 bg-neutral-950/80 px-3 py-2 text-sm text-neutral-100 outline-none transition-colors hover:border-neutral-700 focus:border-violet-500"
+            >
+              {FLIPFLOP_ACTION_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <LayerPromptFields
+            labels={["State A", "State B"]}
+            visualLayers={visualLayers}
+            fallbackPrompt={visualPrompt || narration}
+            assetKind="cutout"
+            placements={["center", "center"]}
+            idPrefix="flipflop"
+            animations={["none", "none"]}
+            enterAtSeconds={[0, 0]}
+            onChange={onVisualLayersChange}
+          />
+        </>
       )}
       {visualMode === "popup_sequence" && (
         <LayerPromptFields

@@ -8,6 +8,11 @@ import re
 from pydantic import BaseModel, Field, model_validator
 
 from models.script import ScriptContent, Scene, VISUAL_MODES, VisualLayer, VisualMode
+from pipeline.flipflop_actions import (
+    build_flipflop_state_prompt,
+    has_human_flipflop_subject,
+    normalize_flipflop_action,
+)
 from pipeline.render_jobs import UserFacingJobError
 
 logger = logging.getLogger(__name__)
@@ -413,12 +418,20 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
             visual_layers=layers,
         )
     if scene.visual_mode == "flipflop":
-        existing_layers = [layer for layer in scene.visual_layers if layer.asset_kind == "cutout"]
+        action = normalize_flipflop_action(scene.flipflop_action)
+        if not action or not has_human_flipflop_subject(scene.narration, scene.visual_prompt):
+            scene.set_visual_mode("full_frame")
+            scene.visual_layers = []
+            return _full_frame_assignment(
+                scene.id,
+                "Invalid flipflop request; missing valid human micro-action.",
+            )
+        scene.flipflop_action = action
         return VisualTreatmentAssignment(
             scene_id=scene.id,
             visual_mode="flipflop",
-            reasoning="Scene is explicitly marked for flip-flop cutout rendering.",
-            visual_layers=existing_layers if len(existing_layers) >= 2 else _flipflop_layers(scene),
+            reasoning=f"Explicit human micro-action flipflop: {action}.",
+            visual_layers=_flipflop_layers(scene),
         )
     if scene.visual_mode == "comparison_board":
         return VisualTreatmentAssignment(
@@ -452,12 +465,16 @@ def _analyze_scene(scene: Scene) -> VisualTreatmentAssignment:
         )
 
     if _looks_like_flipflop_micro_action(scene):
-        return VisualTreatmentAssignment(
-            scene_id=scene.id,
-            visual_mode="flipflop",
-            reasoning="Detected same-subject physical micro-action suitable for flip-flop animation.",
-            visual_layers=_flipflop_layers(scene),
-        )
+        action = _infer_flipflop_action(scene)
+        if action and has_human_flipflop_subject(scene.narration, scene.visual_prompt):
+            scene.set_visual_mode("flipflop")
+            scene.flipflop_action = action
+            return VisualTreatmentAssignment(
+                scene_id=scene.id,
+                visual_mode="flipflop",
+                reasoning=f"Detected human micro-action suitable for flipflop: {action}.",
+                visual_layers=_flipflop_layers(scene),
+            )
 
     comparison_layers = _comparison_layers_for_scene(scene)
     if comparison_layers:
@@ -611,7 +628,35 @@ def _looks_like_flipflop_micro_action(scene: Scene) -> bool:
     has_subject = bool(words & MICRO_ACTION_SUBJECT_MARKERS)
     has_motion = bool(words & MICRO_ACTION_MOTION_MARKERS)
     has_strong_phrase = any(phrase in text for phrase in MICRO_ACTION_PHRASES)
-    return has_subject and (has_motion or has_strong_phrase)
+    return (has_subject and (has_motion or has_strong_phrase)) or bool(
+        _infer_flipflop_action(scene)
+        and has_human_flipflop_subject(scene.narration, scene.visual_prompt)
+    )
+
+
+def _infer_flipflop_action(scene: Scene) -> str:
+    text = f" {scene.narration} {scene.visual_prompt} ".casefold()
+    if "blink" in text or "blinks" in text:
+        return "blink"
+    if any(word in text for word in ("talk", "talks", "speaking", "speaks", "explain", "explains")):
+        return "speaking_mouth"
+    if "glance" in text or "looks down" in text or "looks sideways" in text:
+        return "eye_glance"
+    if "eyebrow" in text or "skeptical" in text or "curious" in text:
+        return "eyebrow_raise"
+    if "nod" in text or "agrees" in text:
+        return "head_nod"
+    if "point" in text or "points" in text:
+        return "pointing_gesture"
+    if "count" in text or "counting" in text or "two fingers" in text:
+        return "counting_fingers"
+    if "think" in text or "thinking" in text or "considers" in text:
+        return "thinking_pose"
+    if "shrug" in text or "shrugs" in text:
+        return "small_shrug"
+    if any(word in text for word in ("gesture", "gestures", "present", "presents", "teach", "teaches")):
+        return "explaining_hand_raise"
+    return ""
 
 
 def _popup_layers_for_scene(
@@ -659,11 +704,12 @@ def _popup_layers(scene: Scene, list_items: list[tuple[str, float]]) -> list[Vis
 
 
 def _flipflop_layers(scene: Scene) -> list[VisualLayer]:
+    action = normalize_flipflop_action(scene.flipflop_action)
     return [
         VisualLayer(
             id=f"{scene.id}_state_a",
             asset_kind="cutout",
-            prompt=flipflop_cutout_prompt(scene.visual_prompt, scene.narration, "state A"),
+            prompt=flipflop_cutout_prompt(scene.visual_prompt, scene.narration, "state A", action=action),
             placement="center",
             enter_at_seconds=0.0,
             animation="none",
@@ -671,7 +717,7 @@ def _flipflop_layers(scene: Scene) -> list[VisualLayer]:
         VisualLayer(
             id=f"{scene.id}_state_b",
             asset_kind="cutout",
-            prompt=flipflop_cutout_prompt(scene.visual_prompt, scene.narration, "state B"),
+            prompt=flipflop_cutout_prompt(scene.visual_prompt, scene.narration, "state B", action=action),
             placement="center",
             enter_at_seconds=0.0,
             animation="none",
@@ -716,17 +762,26 @@ def comparison_cutout_prompt(visual_prompt: str, narration: str, subject: str) -
     )
 
 
-def flipflop_cutout_prompt(visual_prompt: str, narration: str, focus: str) -> str:
-    base_prompt = visual_prompt.strip() or narration.strip()
+def flipflop_cutout_prompt(visual_prompt: str, narration: str, focus: str, *, action: str = "") -> str:
     normalized_focus = focus.strip().casefold()
-    state_direction = (
-        "Initial pose or expression before the small movement changes."
-        if normalized_focus.endswith("a")
-        else "Next compatible pose or expression; keep identity, scale, camera angle, and style consistent with State A."
-    )
+    normalized_action = normalize_flipflop_action(action)
+    if normalized_action:
+        base_prompt = build_flipflop_state_prompt(
+            visual_prompt=visual_prompt,
+            narration=narration,
+            action=normalized_action,
+            state="a" if normalized_focus.endswith("a") else "b",
+        )
+    else:
+        base_scene = visual_prompt.strip() or narration.strip()
+        state_direction = (
+            "Initial pose or expression before the small movement changes."
+            if normalized_focus.endswith("a")
+            else "Next compatible pose or expression; keep identity, scale, camera angle, and style consistent with State A."
+        )
+        base_prompt = f"Flip-flop transparent cutout for {focus}: {base_scene}. {state_direction}"
     return (
-        f"Flip-flop transparent cutout for {focus}: {base_prompt}. "
-        f"{state_direction} "
+        f"{base_prompt} "
         "Generate one isolated human or character subject whenever possible, waist-up or full-body depending on the action. "
         "Use a solid chroma background color that does not appear in the subject. "
         "Keep a clean closed silhouette for automatic cropping. "

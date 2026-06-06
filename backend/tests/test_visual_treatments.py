@@ -2516,6 +2516,7 @@ def test_analyze_visual_treatments_assigns_three_column_comparison_board():
 
 def test_analyze_visual_treatments_assigns_flipflop_for_same_subject_micro_action():
     scene = scene_with_words("s1", "His hands open and close around the microphone while he talks.")
+    scene.visual_prompt = "[REACTION] Cartoon man holding a microphone while talking."
     content = content_with_scenes(scene)
 
     assignments = analyze_visual_treatments(content, script_id="script-micro-action")
@@ -2527,9 +2528,11 @@ def test_analyze_visual_treatments_assigns_flipflop_for_same_subject_micro_actio
     assert len(assignment.visual_layers) == 2
     assert [layer.id for layer in assignment.visual_layers] == ["s1_state_a", "s1_state_b"]
     assert all(layer.asset_kind == "cutout" for layer in assignment.visual_layers)
+    assert scene.flipflop_action == "speaking_mouth"
+    assert "mouth closed or lightly resting" in assignment.visual_layers[0].prompt
+    assert "mouth slightly open as if speaking one syllable" in assignment.visual_layers[1].prompt
     for layer in assignment.visual_layers:
         prompt = layer.prompt.lower()
-        assert "flip-flop transparent cutout" in prompt
         assert "solid chroma" in prompt
         assert "no full background scene" in prompt
         assert "full-bleed" not in prompt
@@ -2538,7 +2541,9 @@ def test_analyze_visual_treatments_assigns_flipflop_for_same_subject_micro_actio
 
 def test_explicit_flipflop_replaces_legacy_panel_layers_with_cutouts():
     scene = scene_with_words("s1", "His hands open and close while he talks.")
+    scene.visual_prompt = "[REACTION] Cartoon man speaking with expressive hands."
     scene.set_visual_mode("flipflop")
+    scene.flipflop_action = "speaking_mouth"
     scene.visual_layers = [
         VisualLayer(id="old_a", asset_kind="panel", prompt="Old full frame A"),
         VisualLayer(id="old_b", asset_kind="panel", prompt="Old full frame B"),
@@ -2551,6 +2556,79 @@ def test_explicit_flipflop_replaces_legacy_panel_layers_with_cutouts():
     assert assignment.visual_mode == "flipflop"
     assert [layer.id for layer in assignment.visual_layers] == ["s1_state_a", "s1_state_b"]
     assert all(layer.asset_kind == "cutout" for layer in assignment.visual_layers)
+
+
+def test_explicit_flipflop_missing_action_downgrades_to_full_frame():
+    scene = scene_with_words("s1", "He blinks before answering.")
+    scene.set_visual_mode("flipflop")
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-missing-action")
+
+    assert assignments[0].visual_mode == "full_frame"
+    assert assignments[0].visual_layers == []
+
+
+def test_explicit_flipflop_non_human_downgrades_to_full_frame():
+    scene = scene_with_words("s1", "The clock ticks once on the wall.")
+    scene.set_visual_mode("flipflop")
+    scene.flipflop_action = "blink"
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-non-human")
+
+    assert assignments[0].visual_mode == "full_frame"
+    assert assignments[0].visual_layers == []
+
+
+def test_explicit_flipflop_valid_action_uses_action_specific_prompts():
+    scene = scene_with_words("s1", "He blinks before answering.")
+    scene.visual_prompt = "[CLOSE-UP] Cartoon man at a desk before answering."
+    scene.set_visual_mode("flipflop")
+    scene.flipflop_action = "blink"
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-blink")
+
+    assignment = assignments[0]
+    assert assignment.visual_mode == "flipflop"
+    assert [layer.id for layer in assignment.visual_layers] == ["s1_state_a", "s1_state_b"]
+    assert "eyes open, neutral natural face" in assignment.visual_layers[0].prompt
+    assert "eyes closed in a quick blink" in assignment.visual_layers[1].prompt
+    assert all(layer.asset_kind == "cutout" for layer in assignment.visual_layers)
+
+
+def test_explicit_flipflop_valid_action_replaces_existing_generic_cutout_prompts():
+    scene = scene_with_words("s1", "He blinks before answering.")
+    scene.visual_prompt = "A human narrator blinks before answering."
+    scene.set_visual_mode("flipflop")
+    scene.flipflop_action = "blink"
+    scene.visual_layers = [
+        VisualLayer(id="old_a", asset_kind="cutout", prompt="Generic A"),
+        VisualLayer(id="old_b", asset_kind="cutout", prompt="Generic B"),
+    ]
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-existing-blink")
+
+    assignment = assignments[0]
+    assert assignment.visual_mode == "flipflop"
+    assert [layer.id for layer in assignment.visual_layers] == ["s1_state_a", "s1_state_b"]
+    assert "eyes open, neutral natural face" in assignment.visual_layers[0].prompt
+    assert "eyes closed in a quick blink" in assignment.visual_layers[1].prompt
+
+
+def test_inferred_flipflop_sets_action():
+    scene = scene_with_words("s1", "He blinks while explaining.")
+    scene.visual_prompt = "[CLOSE-UP] Cartoon man explaining at a desk."
+    content = content_with_scenes(scene)
+
+    assignments = analyze_visual_treatments(content, script_id="script-inferred-blink")
+
+    assignment = assignments[0]
+    assert assignment.visual_mode == "flipflop"
+    assert assignment.visual_layers[0].prompt
+    assert scene.flipflop_action == "blink"
 
 
 def test_analyze_visual_treatments_preserves_explicit_popup_sequence_with_progression_words():
@@ -2582,7 +2660,7 @@ def test_analyze_visual_treatments_fills_explicit_popup_sequence_without_layers(
     assert [layer.enter_at_seconds for layer in assignment.visual_layers] == [0.0, 1.75, 3.15]
 
 
-def test_analyze_visual_treatments_preserves_explicit_flipflop_with_progression_words():
+def test_analyze_visual_treatments_downgrades_explicit_flipflop_with_missing_action():
     scene = scene_with_words("s1", "The crack slowly spreads across the glass.")
     scene.set_visual_mode("flipflop")
     content = content_with_scenes(scene)
@@ -2590,10 +2668,9 @@ def test_analyze_visual_treatments_preserves_explicit_flipflop_with_progression_
     assignments = analyze_visual_treatments(content, script_id="script-flip-progress")
 
     assignment = assignments[0]
-    assert assignment.visual_mode == "flipflop"
-    assert assignment.visual_treatment == "flipflop"
-    assert len(assignment.visual_layers) == 2
-    assert [layer.enter_at_seconds for layer in assignment.visual_layers] == [0.0, 0.0]
+    assert assignment.visual_mode == "full_frame"
+    assert assignment.visual_treatment == "full_frame"
+    assert assignment.visual_layers == []
 
 
 def test_flipflop_cutout_prompt_detects_state_b_without_matching_state_letter():
@@ -2631,17 +2708,18 @@ def test_analyze_visual_treatments_keeps_list_mode_with_progression_words():
     assert len(assignment.visual_layers) == 2
 
 
-def test_analyze_visual_treatments_keeps_contrast_mode_with_progression_words():
+def test_analyze_visual_treatments_downgrades_explicit_flipflop_with_non_human_subject():
     scene = scene_with_words("s1", "The crack starts small, but the damage spreads across the panel.")
     scene.set_visual_mode("flipflop")
+    scene.flipflop_action = "speaking_mouth"
     content = content_with_scenes(scene)
 
     assignments = analyze_visual_treatments(content, script_id="script-contrast-progress")
 
     assignment = assignments[0]
-    assert assignment.visual_mode == "flipflop"
-    assert assignment.visual_treatment == "flipflop"
-    assert len(assignment.visual_layers) == 2
+    assert assignment.visual_mode == "full_frame"
+    assert assignment.visual_treatment == "full_frame"
+    assert assignment.visual_layers == []
 
 
 def test_analyze_visual_treatments_does_not_treat_cardinal_words_as_list_markers():
@@ -2871,6 +2949,7 @@ def test_analyze_visual_treatments_prevents_adjacent_non_full_frame_modes():
     first = scene_with_words("s1", "First the badge, second the receipt, third the timer.")
     second = scene_with_words("s2", "Before the lunch rush, after the dinner rush.")
     third = scene_with_words("s3", "His hands open and close around the register drawer while he talks.")
+    third.visual_prompt = "[REACTION] Cartoon cashier talking beside a register drawer."
     content = content_with_scenes(first, second, third)
 
     assignments = analyze_visual_treatments(content, script_id="spacing-script")
