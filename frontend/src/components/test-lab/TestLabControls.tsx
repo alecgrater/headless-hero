@@ -1107,15 +1107,7 @@ function defaultLayersForMode(mode: VisualMode, visualPrompt: string, narration:
   if (mode === "stat_card") return [];
   const basePrompt = visualPrompt || narration;
   if (mode === "flipflop") {
-    return ["State A", "State B"].map((_label, index) => ({
-      id: `flipflop_${index + 1}`,
-      type: "image",
-      asset_kind: "cutout",
-      prompt: basePrompt,
-      placement: "center",
-      enter_at_seconds: 0,
-      animation: "none" as const,
-    }));
+    return [];
   }
   const labels = mode === "comparison_board" ? ["Left subject", "Right subject"] : ["Popup item 1", "Popup item 2", "Popup item 3"];
   return labels.map((_label, index) => ({

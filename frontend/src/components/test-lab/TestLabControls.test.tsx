@@ -377,7 +377,7 @@ describe("TestLabControls layout", () => {
     );
   });
 
-  it("creates cropped cutout defaults when switching to flip-flop", () => {
+  it("leaves flip-flop layers empty when switching modes so backend action prompts can fill them", () => {
     const onChange = vi.fn();
     render(
       <TestLabControls
@@ -397,20 +397,7 @@ describe("TestLabControls layout", () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
         visual_mode: "flipflop",
-        visual_layers: [
-          expect.objectContaining({
-            id: "flipflop_1",
-            asset_kind: "cutout",
-            enter_at_seconds: 0,
-            animation: "none",
-          }),
-          expect.objectContaining({
-            id: "flipflop_2",
-            asset_kind: "cutout",
-            enter_at_seconds: 0,
-            animation: "none",
-          }),
-        ],
+        visual_layers: [],
       }),
     );
   });
