@@ -1,7 +1,163 @@
 {
   "version": 1,
-  "generated_at": "2026-05-29T00:00:00Z",
-  "seed_generated_at": null,
-  "source_queries": [],
-  "results": []
+  "generated_at": "2026-06-07T22:25:49Z",
+  "seed_generated_at": "2026-06-07T22:24:24Z",
+  "source_queries": [
+    "cognitive psychology explained",
+    "cognitive psychology documentary",
+    "cognitive psychology facts explained",
+    "cognitive psychology story",
+    "behavioral economics and decision making explained",
+    "behavioral economics and decision making documentary",
+    "behavioral economics and decision making facts explained",
+    "behavioral economics and decision making story",
+    "self-improvement and personal development explained",
+    "self-improvement and personal development documentary",
+    "self-improvement and personal development facts explained",
+    "self-improvement and personal development story",
+    "biases and logical fallacies explained",
+    "biases and logical fallacies documentary",
+    "biases and logical fallacies facts explained",
+    "biases and logical fallacies story",
+    "mass media and marketing tactics explained",
+    "mass media and marketing tactics documentary",
+    "mass media and marketing tactics facts explained",
+    "mass media and marketing tactics story",
+    "crime mysteries and unsolved cases explained",
+    "crime mysteries and unsolved cases documentary",
+    "crime mysteries and unsolved cases facts explained",
+    "crime mysteries and unsolved cases story",
+    "corporate ethics and accountability explained",
+    "corporate ethics and accountability documentary",
+    "corporate ethics and accountability facts explained",
+    "corporate ethics and accountability story",
+    "history and societal change explained",
+    "history and societal change documentary",
+    "history and societal change facts explained",
+    "history and societal change story",
+    "science skepticism and debunking myths explained",
+    "science skepticism and debunking myths documentary",
+    "science skepticism and debunking myths facts explained",
+    "science skepticism and debunking myths story",
+    "systems for behavior change explained",
+    "systems for behavior change documentary",
+    "systems for behavior change facts explained",
+    "systems for behavior change story"
+  ],
+  "results": [
+    {
+      "rank": 1,
+      "score": 84.6,
+      "query": "corporate ethics and accountability facts explained",
+      "channel_id": "UCJYTvi2pC0L95x9041H9GoA",
+      "channel_name": "UNITED AGAINST CHILD ABUSE",
+      "channel_url": "https://www.youtube.com/channel/UCJYTvi2pC0L95x9041H9GoA",
+      "subscriber_count": 30200,
+      "total_videos": 7,
+      "channel_total_views": 837994,
+      "video_views_total": 837254,
+      "max_views": 255020,
+      "avg_views": 119608,
+      "reason": "7 videos with 837,994 total views from a profile-matched query.",
+      "videos": [
+        {
+          "video_id": "Wc67hpyphrQ",
+          "title": "The Disappearance of Madeleine McCann: A Comprehensive Analysis of Child Safety & Investigation",
+          "url": "https://www.youtube.com/watch?v=Wc67hpyphrQ",
+          "views": 255020,
+          "likes": 7548,
+          "published_at": "2025-10-16"
+        },
+        {
+          "video_id": "hAqf7W8NaeY",
+          "title": "Exeter, California: A Forensic & Judicial Inquiry into the Sophia Acosta Case | EDSA Documentary",
+          "url": "https://www.youtube.com/watch?v=hAqf7W8NaeY",
+          "views": 193509,
+          "likes": 8386,
+          "published_at": "2026-01-27"
+        },
+        {
+          "video_id": "jyniDGxKqiQ",
+          "title": "The Case of Star Hobson: An Investigative Analysis of Safeguarding Protocols | EDSA Documentary",
+          "url": "https://www.youtube.com/watch?v=jyniDGxKqiQ",
+          "views": 137444,
+          "likes": 5914,
+          "published_at": "2026-01-02"
+        },
+        {
+          "video_id": "8_jfumlCNgI",
+          "title": "The Case of Kinsley Raelynn Kinner: A Study in Judicial Accountability & Family Dynamics | EDSA",
+          "url": "https://www.youtube.com/watch?v=8_jfumlCNgI",
+          "views": 113929,
+          "likes": 4286,
+          "published_at": "2026-01-06"
+        },
+        {
+          "video_id": "mgzOm8XWDn0",
+          "title": "The Case of Kayleigh Slusher: A Study in Systemic Oversight & Child Protection | EDSA Documentary",
+          "url": "https://www.youtube.com/watch?v=mgzOm8XWDn0",
+          "views": 88322,
+          "likes": 3702,
+          "published_at": "2025-12-16"
+        }
+      ]
+    },
+    {
+      "rank": 2,
+      "score": 66.0,
+      "query": "cognitive psychology documentary",
+      "channel_id": "UC1xVo6DZEDxGJlRdgtjdyqg",
+      "channel_name": "UNFIT: THE PSYCHOLOGY OF DONALD TRUMP",
+      "channel_url": "https://www.youtube.com/channel/UC1xVo6DZEDxGJlRdgtjdyqg",
+      "subscriber_count": 4090,
+      "total_videos": 9,
+      "channel_total_views": 867549,
+      "video_views_total": 867549,
+      "max_views": 226079,
+      "avg_views": 96394,
+      "reason": "9 videos with 867,549 total views from a profile-matched query.",
+      "videos": [
+        {
+          "video_id": "nPKkO_SlSps",
+          "title": "EXCLUSIVE CLIP \"THE TRUMP APPEAL\" - George Conway discusses what's going on in Donald Trump's head",
+          "url": "https://www.youtube.com/watch?v=nPKkO_SlSps",
+          "views": 226079,
+          "likes": 548,
+          "published_at": "2020-09-10"
+        },
+        {
+          "video_id": "5axgsXtwHMc",
+          "title": "EXCLUSIVE CLIP \"TRUMP'S COGNITIVE DECLINE\" - Dr. Gartner: \"He's showing signs of dementia.\"",
+          "url": "https://www.youtube.com/watch?v=5axgsXtwHMc",
+          "views": 215165,
+          "likes": 816,
+          "published_at": "2020-09-11"
+        },
+        {
+          "video_id": "TCr9zxWQAYI",
+          "title": "UNFIT: THE PSYCHOLOGY OF DONALD TRUMP \u2013 OFFICIAL FILM TRAILER",
+          "url": "https://www.youtube.com/watch?v=TCr9zxWQAYI",
+          "views": 110971,
+          "likes": 0,
+          "published_at": "2020-07-16"
+        },
+        {
+          "video_id": "fAbpThZ33QA",
+          "title": "EXCLUSIVE CLIP \"9 FOR 9\" - Attorney George Conway discusses President Donald Trump's diagnosis",
+          "url": "https://www.youtube.com/watch?v=fAbpThZ33QA",
+          "views": 91942,
+          "likes": 334,
+          "published_at": "2020-09-13"
+        },
+        {
+          "video_id": "lL3q-hbvnJs",
+          "title": "EXCLUSIVE CLIP FROM #UNFIT: George Conway on Trump and racism - \u201cHe\u2019s a racist\u2026beyond any question.\u201d",
+          "url": "https://www.youtube.com/watch?v=lL3q-hbvnJs",
+          "views": 80566,
+          "likes": 408,
+          "published_at": "2020-08-24"
+        }
+      ]
+    }
+  ]
 }
