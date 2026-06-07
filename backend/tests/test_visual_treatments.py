@@ -2248,6 +2248,32 @@ def test_generate_flipflop_cutouts_generates_background_as_full_frame_layer(tmp_
     assert image_layers[2]["asset_kind"] == "cutout"
 
 
+def test_flipflop_background_source_prompt_treats_scene_prompt_as_character_context():
+    from pipeline.image_gen import _compose_flipflop_background_source_prompt
+
+    prompt = _compose_flipflop_background_source_prompt(
+        layer_prompt=flipflop_background_prompt(
+            visual_prompt=(
+                "Young fast-food employee character framed chest-up, clean flat 2D illustration, "
+                "no props, no counter, no background elements."
+            ),
+            narration=(
+                "You're six hours in. The fryer is screaming, your visor is sliding, "
+                "and the guy in line three is asking if the flame-grilled burger comes with cheese."
+            ),
+        ),
+        scene_prompt=(
+            "Young fast-food employee character framed chest-up, clean flat 2D illustration, "
+            "no props, no counter, no background elements."
+        ),
+    )
+
+    assert "Environment context from narration" in prompt
+    assert "fryer is screaming" in prompt
+    assert "Scene context for setting and style only" not in prompt
+    assert "Character/style context only; do not use this as environment direction" in prompt
+
+
 def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monkeypatch):
     image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
 

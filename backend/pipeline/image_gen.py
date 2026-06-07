@@ -1370,11 +1370,12 @@ def _compose_flipflop_background_source_prompt(layer_prompt: str, scene_prompt: 
             "The background gives visual context while transparent character cutouts are rendered separately on top.",
             "Do not include people, human figures, mascots, foreground characters, body parts, silhouettes of the main subject, readable text, logos, brand marks, signs with words, speech bubbles, or captions.",
             "Keep the composition quiet and leave a clean central area for the character cutout.",
+            "If the character/style context says no background, no props, no counter, or no background elements, treat that as applying only to the separate character cutout.",
             "",
             "Layer direction:",
             layer_prompt.strip(),
             "",
-            "Scene context for setting and style only:",
+            "Character/style context only; do not use this as environment direction:",
             scene_prompt.strip(),
         ]
     ).strip()
