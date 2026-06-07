@@ -180,6 +180,7 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
     if (res.ok) {
       setOriginal(settings);
     }
+    return res.ok;
   }, [settings]);
 
   useDebouncedAutosave(hasChanges && !saving && !loading, handleSave, [settings]);

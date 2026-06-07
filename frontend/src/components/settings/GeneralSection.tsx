@@ -478,6 +478,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
         ),
       );
     }
+    return res.ok;
   }, [
     aiVideoEnabled,
     aiVideoProvider,

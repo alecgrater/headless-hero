@@ -2,12 +2,13 @@ import { useEffect, useRef } from "react";
 
 export function useDebouncedAutosave(
   enabled: boolean,
-  save: () => void | Promise<void>,
+  save: () => boolean | void | Promise<boolean | void>,
   dependencies: unknown[],
   delayMs = 600,
 ) {
   const saveRef = useRef(save);
-  const lastAttemptKeyRef = useRef("");
+  const lastSavedKeyRef = useRef("");
+  const inFlightKeyRef = useRef("");
 
   useEffect(() => {
     saveRef.current = save;
@@ -16,10 +17,18 @@ export function useDebouncedAutosave(
   useEffect(() => {
     if (!enabled) return;
     const attemptKey = JSON.stringify(dependencies);
-    if (attemptKey === lastAttemptKeyRef.current) return;
+    if (attemptKey === lastSavedKeyRef.current || attemptKey === inFlightKeyRef.current) return;
     const timeoutId = window.setTimeout(() => {
-      lastAttemptKeyRef.current = attemptKey;
-      void saveRef.current();
+      inFlightKeyRef.current = attemptKey;
+      void Promise.resolve(saveRef.current()).then((saved) => {
+        if (saved !== false) {
+          lastSavedKeyRef.current = attemptKey;
+        }
+      }).finally(() => {
+        if (inFlightKeyRef.current === attemptKey) {
+          inFlightKeyRef.current = "";
+        }
+      });
     }, delayMs);
     return () => window.clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- caller controls the watched values explicitly.

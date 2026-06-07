@@ -3,7 +3,6 @@ import api from "../../api";
 import { showToast } from "../ToastContainer";
 import { Tooltip } from "../ui/Tooltip";
 import SettingsSectionHeader from "./SettingsSectionHeader";
-import { useDebouncedAutosave } from "./useDebouncedAutosave";
 
 interface KeyInfo {
   configured: boolean;
@@ -184,11 +183,10 @@ export default function ApiKeysSection({ showHeader = true }: ApiKeysSectionProp
     });
   }, []);
 
-  const hasChanges = Object.values(values).some((v) => v.trim());
-
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (keyToSave?: string) => {
     const toSave: Record<string, string> = {};
     for (const [k, v] of Object.entries(values)) {
+      if (keyToSave && k !== keyToSave) continue;
       if (v.trim()) toSave[k] = v.trim();
     }
     if (Object.keys(toSave).length === 0) {
@@ -210,12 +208,26 @@ export default function ApiKeysSection({ showHeader = true }: ApiKeysSectionProp
       }
       const refresh = await api.get("/api/settings/keys");
       if (refresh.ok) setKeyStatus(refresh.data as Record<string, KeyInfo>);
-      setValues({});
-      setVisible({});
+      setValues((current) => {
+        const next = { ...current };
+        for (const [key, savedValue] of Object.entries(toSave)) {
+          if ((current[key] ?? "").trim() === savedValue) {
+            delete next[key];
+          }
+        }
+        return next;
+      });
+      setVisible((current) => {
+        const next = { ...current };
+        for (const [key, savedValue] of Object.entries(toSave)) {
+          if ((values[key] ?? "").trim() === savedValue) {
+            delete next[key];
+          }
+        }
+        return next;
+      });
     }
   }, [values]);
-
-  useDebouncedAutosave(hasChanges && !saving && !loading, handleSave, [values]);
 
   const toggleVisible = (key: string) => {
     setVisible((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -275,6 +287,14 @@ export default function ApiKeysSection({ showHeader = true }: ApiKeysSectionProp
                       onChange={(e) =>
                         setValues((prev) => ({ ...prev, [svc.key]: e.target.value }))
                       }
+                      onBlur={() => {
+                        void handleSave(svc.key);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          void handleSave(svc.key);
+                        }
+                      }}
                       placeholder={
                         isConfigured
                           ? `Current: ${info.masked}`

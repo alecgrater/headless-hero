@@ -375,6 +375,7 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
       setOriginalEliEnabledDefault(eliEnabledDefault);
       setOriginalStylePresetEnabledDefault(stylePresetEnabledDefault);
     }
+    return res.ok;
   }, [eliEnabledDefault, stylePresetEnabledDefault]);
 
   useDebouncedAutosave(showDefaults && hasChanges && !saving && !loading, handleSaveDefaults, [

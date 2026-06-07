@@ -233,6 +233,7 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
     if (res.ok) {
       setOriginalTtsSettings(ttsSettings);
     }
+    return res.ok;
   }, [ttsSettings]);
 
   const hasTtsChanges = useMemo(

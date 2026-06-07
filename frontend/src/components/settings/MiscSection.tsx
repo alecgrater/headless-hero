@@ -136,6 +136,7 @@ export default function MiscSection({ showHeader = true, embedded = false }: Mis
       setOriginalRateLimit(rateLimitEnabled);
       setOriginalScraperFallback(scraperFallbackEnabled);
     }
+    return res.ok;
   }, [hookRefinementEnabled, rateLimitEnabled, scraperFallbackEnabled, showSpeedRenderButton]);
 
   useDebouncedAutosave(hasChanges && !saving && !loading, handleSave, [
