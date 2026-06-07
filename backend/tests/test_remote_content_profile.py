@@ -159,3 +159,26 @@ def test_load_remote_content_profile_ignores_invalid_numeric_fields(tmp_path):
     )
 
     assert remote_profile.load_remote_content_profile(profile_path) is None
+
+
+def test_load_remote_content_profile_ignores_non_finite_average(tmp_path):
+    import pipeline.remote_content_profile as remote_profile
+
+    profile_path = tmp_path / "content-profile.json"
+    profile_path.write_text(
+        """
+        {
+          "script_count": 4,
+          "common_topics": ["new topic"],
+          "narration_style": "Direct.",
+          "visual_approach": "Diagrams.",
+          "typical_keywords": ["topic"],
+          "audience_profile": "Curious adults.",
+          "avg_segment_count": NaN,
+          "analyzed_at": "2026-06-07T12:00:00+00:00",
+          "is_stale": false
+        }
+        """
+    )
+
+    assert remote_profile.load_remote_content_profile(profile_path) is None

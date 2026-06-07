@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from collections import Counter
 from datetime import datetime, timezone
@@ -64,6 +65,8 @@ def load_remote_content_profile(path: Path | str = REMOTE_CONTENT_PROFILE_PATH) 
         script_count = int(payload.get("script_count") or 0)
         avg_segment_count = float(payload.get("avg_segment_count") or 0.0)
     except (TypeError, ValueError):
+        return None
+    if not math.isfinite(avg_segment_count):
         return None
     if script_count <= 0:
         return None
