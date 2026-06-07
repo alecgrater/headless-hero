@@ -749,13 +749,23 @@ def _flipflop_layers(scene: Scene) -> list[VisualLayer]:
 
 
 def flipflop_background_prompt(visual_prompt: str, narration: str) -> str:
-    base_prompt = visual_prompt.strip() or narration.strip()
+    environment_context = narration.strip() or visual_prompt.strip()
+    character_context = visual_prompt.strip()
+    character_line = (
+        f" Character/style context only, not environment instructions: {character_context}."
+        if character_context
+        else ""
+    )
     return (
-        f"Environment-only static background for flip-flop scene: {base_prompt}. "
+        f"Environment-only static background for flip-flop scene. "
+        f"Environment context from narration: {environment_context}. "
         "Show only the setting and visual context behind where the character cutout will appear. "
+        "If the character/style context says no background, no props, no counter, or no background elements, "
+        "treat that as applying only to the separate character cutout, not this environment background. "
         "No people, no human figures, no foreground subject, no character, no mascot, no readable text, no logos, "
         "no brand marks, no signage with words, no caption box, no speech bubble, no UI chrome, no decorative border, "
         "no picture frame, no white margin, and no poster edge. Leave a clean central area for the character cutout."
+        f"{character_line}"
     )
 
 

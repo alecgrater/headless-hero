@@ -17,6 +17,7 @@ from pipeline.visual_treatments import (
     VisualTreatmentAssignment,
     analyze_visual_treatments,
     apply_visual_treatment_assignments,
+    flipflop_background_prompt,
     flipflop_cutout_prompt,
     require_visual_treatment_voiceover,
 )
@@ -2730,6 +2731,26 @@ def test_explicit_flipflop_layers_include_environment_background():
     assert "no readable text" in layers[0].prompt.lower()
     assert "no logos" in layers[0].prompt.lower()
     assert [layer.asset_kind for layer in layers[1:]] == ["cutout", "cutout"]
+
+
+def test_flipflop_background_prompt_uses_narration_for_environment_context():
+    prompt = flipflop_background_prompt(
+        visual_prompt=(
+            "Young fast-food employee character framed chest-up, plain red polo and red visor, "
+            "clean flat 2D illustration, no props, no counter, no background elements, no logos, no text."
+        ),
+        narration=(
+            "You're six hours in. The fryer is screaming, your visor is sliding, "
+            "and the guy in line three is asking if the flame-grilled burger comes with cheese."
+        ),
+    )
+
+    assert "Environment context from narration" in prompt
+    assert "fryer is screaming" in prompt
+    assert "line three" in prompt
+    assert "Character/style context only" in prompt
+    assert "no background elements" in prompt
+    assert prompt.index("fryer is screaming") < prompt.index("no background elements")
 
 
 def test_explicit_flipflop_replaces_legacy_panel_layers_with_cutouts():
