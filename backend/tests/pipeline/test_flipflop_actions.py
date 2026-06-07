@@ -54,8 +54,25 @@ def test_build_flipflop_state_prompt_uses_action_specific_state_text():
 
     assert "mouth closed or lightly resting" in state_a
     assert "mouth slightly open as if speaking one syllable" in state_b
-    assert "Only change the named micro-action" in state_b
-    assert "same character, same outfit, same camera angle, same crop" in state_b
+    assert "The ONLY allowed change between State A and State B is the named micro-action." in state_b
+    assert "Lock identity across both states" in state_b
+    assert "Render ONE isolated human or character cutout only." in state_b
+    assert "ignore and do NOT render any setting, room, counter" in state_b
+    assert "Character description:" in state_b
+
+
+def test_build_flipflop_state_prompt_locks_unaffected_features():
+    state_b = build_flipflop_state_prompt(
+        visual_prompt="Young employee in a red polo behind a counter with a register.",
+        narration="You start your shift.",
+        action="eyebrow_raise",
+        state="b",
+    )
+
+    assert "do not change the mouth shape unless the action is speaking_mouth" in state_b
+    assert "do not change the eyes unless the action is blink or eye_glance" in state_b
+    assert "do not change the eyebrows unless" in state_b
+    assert "do not change hands or arms unless the action requires it" in state_b
 
 
 def test_build_flipflop_state_prompt_rejects_invalid_state():
