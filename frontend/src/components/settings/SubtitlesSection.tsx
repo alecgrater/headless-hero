@@ -1,7 +1,7 @@
 import { Check } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../../api";
-import { showToast } from "../ToastContainer";
+import { useDebouncedAutosave } from "./useDebouncedAutosave";
 
 export type SubtitleCoverageMode = "all" | "punchy";
 export type EnabledSubtitleStyle = "clean" | "kinetic" | "burst";
@@ -46,6 +46,7 @@ function settingEnabled(value: string | undefined, fallback = true): boolean {
   return !["", "0", "false", "no", "off"].includes(value.trim().toLowerCase());
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- shared with settings tests.
 export function subtitleSettingsFromResponse(rows: SettingRows): SubtitleSettingsState {
   const rawCoverage = rows.SUBTITLE_COVERAGE_MODE?.masked?.trim().toLowerCase();
   const coverage: SubtitleCoverageMode = rawCoverage === "punchy" ? "punchy" : "all";
@@ -55,6 +56,7 @@ export function subtitleSettingsFromResponse(rows: SettingRows): SubtitleSetting
   return { coverage, enabledStyles };
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- shared with settings tests.
 export function subtitleSettingsPayload(settings: SubtitleSettingsState): Record<string, string> {
   return {
     SUBTITLE_COVERAGE_MODE: settings.coverage,
@@ -171,15 +173,16 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
     });
   };
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     setSaving(true);
     const res = await api.put("/api/settings/keys", subtitleSettingsPayload(settings));
     setSaving(false);
     if (res.ok) {
-      showToast("Subtitle settings saved", "success");
       setOriginal(settings);
     }
-  };
+  }, [settings]);
+
+  useDebouncedAutosave(hasChanges && !saving && !loading, handleSave, [settings]);
 
   if (loading) {
     return (
@@ -292,17 +295,10 @@ export default function SubtitlesSection({ showHeader = true }: SubtitlesSection
         </div>
       </section>
 
-      {hasChanges && (
+      {saving && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-900/95 px-8 py-3 backdrop-blur-sm">
           <div className="mx-auto flex max-w-5xl items-center justify-between">
-            <span className="text-sm text-neutral-400">You have unsaved changes</span>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="btn-primary rounded-lg px-5 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Save Changes"}
-            </button>
+            <span className="text-sm text-neutral-400">Saving subtitle settings...</span>
           </div>
         </div>
       )}

@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../../api";
 import type { VoiceInfo, VoiceListResponse } from "../../types/audio";
 import SettingsSectionHeader from "./SettingsSectionHeader";
+import { useDebouncedAutosave } from "./useDebouncedAutosave";
 
 interface VoiceSectionProps {
   panel: "voice" | "audio";
@@ -25,6 +26,7 @@ type DeliveryPreset = {
   settings: TtsSettings;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components -- shared with settings tests.
 export const DELIVERY_PRESETS: Record<DeliveryPresetId, DeliveryPreset> = {
   steady: {
     label: "Steady",
@@ -61,6 +63,7 @@ export const DELIVERY_PRESETS: Record<DeliveryPresetId, DeliveryPreset> = {
   },
 };
 
+// eslint-disable-next-line react-refresh/only-export-components -- shared with settings tests.
 export function deliveryPresetForSettings(settings: TtsSettings): DeliveryPresetId | "custom" {
   const preset = Object.entries(DELIVERY_PRESETS).find(([, preset]) =>
     Object.entries(preset.settings).every(([key, value]) => settings[key as keyof TtsSettings] === value),
@@ -68,6 +71,7 @@ export function deliveryPresetForSettings(settings: TtsSettings): DeliveryPreset
   return (preset?.[0] as DeliveryPresetId | undefined) ?? "custom";
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- shared with settings tests.
 export function settingsPayloadForVisibleControls(settings: TtsSettings): Partial<TtsSettings> {
   if (settings.ELEVENLABS_TTS_MODEL === "eleven_v3") {
     return {
@@ -76,6 +80,15 @@ export function settingsPayloadForVisibleControls(settings: TtsSettings): Partia
     };
   }
   return { ...settings };
+}
+
+function ttsSettingsMatch(a: TtsSettings, b: TtsSettings): boolean {
+  return (
+    a.ELEVENLABS_TTS_MODEL === b.ELEVENLABS_TTS_MODEL &&
+    a.ELEVENLABS_STABILITY === b.ELEVENLABS_STABILITY &&
+    a.ELEVENLABS_STYLE === b.ELEVENLABS_STYLE &&
+    a.ELEVENLABS_SPEED === b.ELEVENLABS_SPEED
+  );
 }
 
 const VOICE_PRIORITY_PATTERNS = [
@@ -92,12 +105,14 @@ function voicePriority(voice: VoiceInfo): number {
   return partialIndex >= 0 ? partialIndex : VOICE_PRIORITY_PATTERNS.length;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- shared with settings tests.
 export function sortVoicesForNarration(voices: VoiceInfo[]): VoiceInfo[] {
   return voices
     .filter((voice) => voicePriority(voice) < VOICE_PRIORITY_PATTERNS.length)
     .sort((a, b) => voicePriority(a) - voicePriority(b) || a.name.localeCompare(b.name));
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- shared with settings tests.
 export function defaultVoiceIdForNarration(voices: VoiceInfo[]): string {
   return sortVoicesForNarration(voices)[0]?.voice_id ?? "";
 }
@@ -113,6 +128,7 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
     ELEVENLABS_STYLE: "0.0",
     ELEVENLABS_SPEED: "1.0",
   });
+  const [originalTtsSettings, setOriginalTtsSettings] = useState<TtsSettings>(ttsSettings);
   const [deliveryPresetSelection, setDeliveryPresetSelection] = useState<DeliveryPresetSelection>("steady");
 
   const [audioFilters, setAudioFilters] = useState({
@@ -143,6 +159,7 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
           ELEVENLABS_SPEED: keys.ELEVENLABS_SPEED?.masked || "1.0",
         };
         setTtsSettings(loadedSettings);
+        setOriginalTtsSettings(loadedSettings);
         if (loadedSettings.ELEVENLABS_TTS_MODEL === "eleven_multilingual_v2") {
           setDeliveryPresetSelection(deliveryPresetForSettings(loadedSettings));
         }
@@ -209,11 +226,21 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
     }));
   };
 
-  const saveTtsSettings = async () => {
+  const saveTtsSettings = useCallback(async () => {
     setTtsSaving(true);
-    await api.put("/api/settings/keys", settingsPayloadForVisibleControls(ttsSettings));
+    const res = await api.put("/api/settings/keys", settingsPayloadForVisibleControls(ttsSettings));
     setTtsSaving(false);
-  };
+    if (res.ok) {
+      setOriginalTtsSettings(ttsSettings);
+    }
+  }, [ttsSettings]);
+
+  const hasTtsChanges = useMemo(
+    () => panel === "voice" && !ttsSettingsMatch(ttsSettings, originalTtsSettings),
+    [originalTtsSettings, panel, ttsSettings],
+  );
+
+  useDebouncedAutosave(hasTtsChanges && !ttsSaving, saveTtsSettings, [ttsSettings]);
 
   const handleFilterToggle = async (key: keyof typeof audioFilters) => {
     const newValue = !audioFilters[key];
@@ -230,7 +257,7 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
       : "custom";
   const activeDeliveryPresetDetail =
     activeDeliveryPreset === "custom"
-      ? "Custom keeps your exact model and slider values. Save settings before regenerating voiceover."
+      ? "Custom keeps your exact model and slider values for newly generated or regenerated voiceover."
       : DELIVERY_PRESETS[activeDeliveryPreset].detail;
 
   return (
@@ -448,15 +475,9 @@ export default function VoiceSection({ panel, showHeader = true }: VoiceSectionP
         ))}
 
         <div className="flex items-center gap-3">
-          <button
-            onClick={saveTtsSettings}
-            disabled={ttsSaving}
-            className="px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
-          >
-            {ttsSaving ? "Saving..." : "Save delivery settings"}
-          </button>
+          {ttsSaving && <p className="text-xs font-medium text-violet-300">Saving delivery settings...</p>}
           <p className="text-xs text-neutral-500">
-            Applies to newly generated or regenerated voiceover.
+            Changes autosave and apply to newly generated or regenerated voiceover.
           </p>
         </div>
       </section>

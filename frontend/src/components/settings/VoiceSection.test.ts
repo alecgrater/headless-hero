@@ -163,7 +163,7 @@ describe("ElevenLabs delivery presets", () => {
     expect(screen.queryByLabelText("Speed")).toBeNull();
 
     fireEvent.change(screen.getByLabelText("Stability"), { target: { value: "0.4" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save delivery settings" }));
+    expect(screen.queryByRole("button", { name: "Save delivery settings" })).toBeNull();
 
     await waitFor(() => {
       expect(api.put).toHaveBeenCalledWith("/api/settings/keys", {

@@ -84,7 +84,8 @@ describe("SubtitlesSection settings", () => {
     fireEvent.click(screen.getByRole("button", { name: /All non-caption scenes/i }));
     fireEvent.click(screen.getByRole("button", { name: /Clean/i }));
     fireEvent.click(screen.getByRole("button", { name: /Kinetic Cards/i }));
-    fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    expect(screen.queryByRole("button", { name: /Save Changes/i })).toBeNull();
 
     await waitFor(() => {
       expect(api.put).toHaveBeenCalledWith("/api/settings/keys", {

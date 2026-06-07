@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import api from "../../api";
 import { StylePresetsSection } from "./StylePresetsSection";
 
 const longPresetPrompt =
@@ -113,6 +114,12 @@ describe("StylePresetsSection", () => {
     await user.click(screen.getByRole("radio", { name: /Eli host overlay/i }));
 
     expect(screen.getByRole("radio", { name: /Eli host overlay/i })).toBeChecked();
-    expect(screen.getByText("You have unsaved brand defaults")).toBeInTheDocument();
+    expect(screen.queryByText("You have unsaved brand defaults")).toBeNull();
+    await waitFor(() => {
+      expect(api.put).toHaveBeenCalledWith("/api/settings/keys", {
+        ELI_ENABLED_DEFAULT: "true",
+        STYLE_PRESET_ENABLED_DEFAULT: "false",
+      });
+    });
   });
 });

@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import api from "../../api";
 import GeneralSection from "./GeneralSection";
 
 vi.mock("../../api", () => ({
@@ -63,5 +64,24 @@ describe("GeneralSection visuals layout", () => {
       expect(heading.parentElement).toHaveClass("-ml-4", "rounded-2xl", "border", "border-violet-500/40", "bg-violet-500/5", "px-4", "py-3");
     }
     expect(container.querySelector(".divide-y")).toBeNull();
+  });
+
+  it("autosaves visuals settings without a sticky save bar", async () => {
+    render(createElement(GeneralSection, { panel: "visuals", showHeader: false }));
+
+    fireEvent.change(await screen.findByLabelText("Scenes per segment"), {
+      target: { value: "3" },
+    });
+
+    expect(screen.queryByText("You have unsaved changes")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Save Changes/i })).toBeNull();
+    await waitFor(() => {
+      expect(api.put).toHaveBeenCalledWith(
+        "/api/settings/keys",
+        expect.objectContaining({
+          AI_VIDEO_SCENES_PER_SEGMENT: "3",
+        }),
+      );
+    });
   });
 });

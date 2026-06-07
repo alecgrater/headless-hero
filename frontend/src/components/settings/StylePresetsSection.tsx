@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Plus } from "lucide-react";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import api, {
   assetUrl,
   createStylePresetCharacter,
@@ -17,6 +17,7 @@ import { showToast } from "../ToastContainer";
 import { StylePresetToggle } from "../shared/StylePresetToggle";
 import SettingsSectionHeader from "./SettingsSectionHeader";
 import { StylePresetCreateModal } from "./StylePresetCreateModal";
+import { useDebouncedAutosave } from "./useDebouncedAutosave";
 
 const DISABLED_SETTING_VALUES = new Set(["", "0", "false", "no", "off"]);
 
@@ -362,7 +363,7 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
     setCharacterRefTs(Date.now());
   };
 
-  const handleSaveDefaults = async () => {
+  const handleSaveDefaults = useCallback(async () => {
     setSaving(true);
     const res = await api.put("/api/settings/keys", {
       ELI_ENABLED_DEFAULT: eliEnabledDefault,
@@ -374,7 +375,12 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
       setOriginalEliEnabledDefault(eliEnabledDefault);
       setOriginalStylePresetEnabledDefault(stylePresetEnabledDefault);
     }
-  };
+  }, [eliEnabledDefault, stylePresetEnabledDefault]);
+
+  useDebouncedAutosave(showDefaults && hasChanges && !saving && !loading, handleSaveDefaults, [
+    eliEnabledDefault,
+    stylePresetEnabledDefault,
+  ]);
 
   if (loading) {
     return <p className="text-sm text-neutral-500">Loading...</p>;
@@ -687,7 +693,7 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
                 title="New Project Visual Identity"
                 description="Choose how new projects start. Existing projects are unchanged."
               />
-              {hasChanges && <span className="rounded bg-violet-500/15 px-2 py-1 text-xs font-medium text-violet-300">Unsaved</span>}
+              {saving && <span className="rounded bg-violet-500/15 px-2 py-1 text-xs font-medium text-violet-300">Saving...</span>}
             </div>
             <StylePresetToggle
               eliEnabled={eliEnabledDefault === "true"}
@@ -717,17 +723,10 @@ export function StylePresetsSection({ compact = false, showDefaults = true, show
         />
       )}
 
-      {hasChanges && (
+      {saving && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-900/95 backdrop-blur-sm px-8 py-3">
           <div className="mx-auto flex max-w-2xl items-center justify-between">
-            <span className="text-sm text-neutral-400">You have unsaved brand defaults</span>
-            <button
-              onClick={handleSaveDefaults}
-              disabled={saving}
-              className="btn-primary px-5 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
-            >
-              {saving ? "Saving..." : "Save Changes"}
-            </button>
+            <span className="text-sm text-neutral-400">Saving brand defaults...</span>
           </div>
         </div>
       )}

@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ChevronDown, Info, RotateCcw } from "lucide-react";
 import api from "../../api";
 import { DEFAULT_MODEL } from "../../constants";
-import { showToast } from "../ToastContainer";
 import MiscSection from "./MiscSection";
 import PublishingSection from "./PublishingSection";
 import SettingsSectionHeader from "./SettingsSectionHeader";
+import { useDebouncedAutosave } from "./useDebouncedAutosave";
 
 interface KeyInfo {
   configured: boolean;
@@ -414,7 +414,7 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
     });
   }, []);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     setSaving(true);
     const routePayload = Object.fromEntries(
       LLM_TASKS.flatMap((task) => {
@@ -447,7 +447,6 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
     setSaving(false);
 
     if (res.ok) {
-      showToast("Settings saved", "success");
       setOriginalExportsDir(exportsDir.trim());
       setOriginalProvider(imageProvider);
       setOriginalAiVideoEnabled(aiVideoEnabled);
@@ -479,7 +478,20 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
         ),
       );
     }
-  };
+  }, [
+    aiVideoEnabled,
+    aiVideoProvider,
+    aiVideoScenesPerSegment,
+    exportsDir,
+    imageProvider,
+    lifeAsAChunkingEnabled,
+    lifeAsAMaxSeconds,
+    lifeAsASingleVisualMaxSeconds,
+    lifeAsATargetSeconds,
+    llmProvider,
+    qwenModel,
+    taskRoutes,
+  ]);
 
   const updateTaskRoute = (taskId: string, updates: Partial<TaskRoute>) => {
     setTaskRoutes((prev) => ({
@@ -611,6 +623,20 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
     llmProvider !== originalLlmProvider ||
     qwenModel.trim() !== originalQwenModel ||
     routeChanged;
+  useDebouncedAutosave(hasChanges && !saving && !loading, handleSave, [
+    exportsDir,
+    imageProvider,
+    aiVideoEnabled,
+    aiVideoProvider,
+    aiVideoScenesPerSegment,
+    lifeAsAChunkingEnabled,
+    lifeAsATargetSeconds,
+    lifeAsAMaxSeconds,
+    lifeAsASingleVisualMaxSeconds,
+    llmProvider,
+    qwenModel,
+    taskRoutes,
+  ]);
   const meta = PANEL_META[panel];
 
   return (
@@ -1069,18 +1095,10 @@ export default function GeneralSection({ panel, showHeader = true }: GeneralSect
         </div>
       )}
 
-      {/* Sticky save bar */}
-      {hasChanges && (
+      {saving && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-900/95 backdrop-blur-sm px-8 py-3">
           <div className="max-w-2xl mx-auto flex items-center justify-between">
-            <span className="text-sm text-neutral-400">You have unsaved changes</span>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="btn-primary px-5 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
-            >
-              {saving ? "Saving..." : "Save Changes"}
-            </button>
+            <span className="text-sm text-neutral-400">Saving settings...</span>
           </div>
         </div>
       )}

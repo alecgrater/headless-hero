@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api from "../../api";
 import { showToast } from "../ToastContainer";
 import { Tooltip } from "../ui/Tooltip";
 import SettingsSectionHeader from "./SettingsSectionHeader";
+import { useDebouncedAutosave } from "./useDebouncedAutosave";
 
 interface KeyInfo {
   configured: boolean;
@@ -183,13 +184,14 @@ export default function ApiKeysSection({ showHeader = true }: ApiKeysSectionProp
     });
   }, []);
 
-  const handleSave = async () => {
+  const hasChanges = Object.values(values).some((v) => v.trim());
+
+  const handleSave = useCallback(async () => {
     const toSave: Record<string, string> = {};
     for (const [k, v] of Object.entries(values)) {
       if (v.trim()) toSave[k] = v.trim();
     }
     if (Object.keys(toSave).length === 0) {
-      showToast("No changes to save", "info");
       return;
     }
 
@@ -211,16 +213,17 @@ export default function ApiKeysSection({ showHeader = true }: ApiKeysSectionProp
       setValues({});
       setVisible({});
     }
-  };
+  }, [values]);
+
+  useDebouncedAutosave(hasChanges && !saving && !loading, handleSave, [values]);
 
   const toggleVisible = (key: string) => {
     setVisible((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const hasChanges = Object.values(values).some((v) => v.trim());
-
   return (
     <div className="px-8 py-8 max-w-3xl space-y-6">
+      {(showHeader || saving) && (
       <div className="flex items-center justify-between">
         {showHeader ? (
         <div>
@@ -232,14 +235,9 @@ export default function ApiKeysSection({ showHeader = true }: ApiKeysSectionProp
         ) : (
           <div />
         )}
-        <button
-          onClick={handleSave}
-          disabled={saving || !hasChanges}
-          className="px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
-        >
-          {saving ? "Saving..." : "Save"}
-        </button>
+        {saving && <span className="text-xs font-medium text-violet-300">Saving...</span>}
       </div>
+      )}
 
       {loading ? (
         <div className="text-neutral-500 text-sm">Loading...</div>

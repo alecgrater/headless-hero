@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import api from "../../api";
-import { showToast } from "../ToastContainer";
 import SettingsSectionHeader from "./SettingsSectionHeader";
+import { useDebouncedAutosave } from "./useDebouncedAutosave";
 
 const DISABLED_SETTING_VALUES = new Set(["", "0", "false", "no", "off"]);
 
@@ -121,7 +121,7 @@ export default function MiscSection({ showHeader = true, embedded = false }: Mis
     rateLimitEnabled !== originalRateLimit ||
     scraperFallbackEnabled !== originalScraperFallback;
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     setSaving(true);
     const res = await api.put("/api/settings/keys", {
       HOOK_REFINEMENT_ENABLED: hookRefinementEnabled,
@@ -131,13 +131,19 @@ export default function MiscSection({ showHeader = true, embedded = false }: Mis
     });
     setSaving(false);
     if (res.ok) {
-      showToast("Settings saved", "success");
       setOriginalHookRefinement(hookRefinementEnabled);
       setOriginalShowSpeedRenderButton(showSpeedRenderButton);
       setOriginalRateLimit(rateLimitEnabled);
       setOriginalScraperFallback(scraperFallbackEnabled);
     }
-  };
+  }, [hookRefinementEnabled, rateLimitEnabled, scraperFallbackEnabled, showSpeedRenderButton]);
+
+  useDebouncedAutosave(hasChanges && !saving && !loading, handleSave, [
+    hookRefinementEnabled,
+    showSpeedRenderButton,
+    rateLimitEnabled,
+    scraperFallbackEnabled,
+  ]);
 
   if (loading) {
     return (
@@ -231,30 +237,16 @@ export default function MiscSection({ showHeader = true, embedded = false }: Mis
         )}
       </section>
 
-      {hasChanges && embedded && (
+      {saving && embedded && (
         <div className="flex items-center justify-between rounded-xl border border-neutral-800 bg-neutral-900 px-5 py-3">
-          <span className="text-sm text-neutral-400">You have unsaved advanced settings</span>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="btn-primary px-5 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
-          >
-            {saving ? "Saving..." : "Save Changes"}
-          </button>
+          <span className="text-sm text-neutral-400">Saving advanced settings...</span>
         </div>
       )}
 
-      {hasChanges && !embedded && (
+      {saving && !embedded && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-neutral-800 bg-neutral-900/95 backdrop-blur-sm px-8 py-3">
           <div className="max-w-2xl mx-auto flex items-center justify-between">
-            <span className="text-sm text-neutral-400">You have unsaved changes</span>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="btn-primary px-5 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950"
-            >
-              {saving ? "Saving..." : "Save Changes"}
-            </button>
+            <span className="text-sm text-neutral-400">Saving settings...</span>
           </div>
         </div>
       )}
