@@ -90,7 +90,7 @@ Required when Anthropic is selected as an AI provider.
 
 ### 5. YouTube Data API Key (`YOUTUBE_API_KEY`) — Optional
 
-**Used for:** Discover dashboard — YouTube trending topics, competitor velocity checks, saturation analysis
+**Used for:** Discover dashboard — YouTube trending topics, competitor velocity checks, saturation analysis, and remote whitespace discovery when added as a GitHub Actions secret
 
 **How to get it:**
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
@@ -105,7 +105,25 @@ Required when Anthropic is selected as an AI provider.
 
 ---
 
-### 6. NewsAPI (`NEWS_API_KEY`) — Optional
+### 6. GitHub Contents Token (`GITHUB_CONTENTS_TOKEN`) — Optional
+
+**Used for:** Discover -> Whitespace. Lets the local app upload a sanitized content-profile seed to GitHub so Actions can refresh `frontend/public/discovery/youtube-whitespace.json`.
+
+**How to get it:**
+1. Go to GitHub -> Settings -> Developer settings -> Personal access tokens -> Fine-grained tokens
+2. Click **Generate new token**
+3. Resource owner: `alecgrater`
+4. Repository access: only `headless-hero`
+5. Repository permissions: **Contents** -> **Read and write**
+6. Copy the token and paste it into Settings as `GITHUB_CONTENTS_TOKEN`
+
+The remote GitHub Actions workflow also needs a repository secret named `YOUTUBE_API_KEY`. Local app settings are not visible to GitHub Actions.
+
+For the full workflow, see [YouTube Whitespace Discovery](./whitespace-discovery.md).
+
+---
+
+### 7. NewsAPI (`NEWS_API_KEY`) — Optional
 
 **Used for:** Discover dashboard — news article fetching to supplement RSS trend sources
 
@@ -137,6 +155,7 @@ export GOOGLE_CLIENT_SECRET="GOCSPX-..."
 
 # Optional — Discover dashboard enhancements
 export YOUTUBE_API_KEY="..."
+export GITHUB_CONTENTS_TOKEN="..."
 export NEWS_API_KEY="..."
 
 ```
@@ -180,3 +199,4 @@ The app launches three processes: FastAPI backend (port 8420), Vite dev server (
 | Discover: "Some sources failed" | Normal if a source times out or rate-limits you. Successful sources still show results. |
 | Discover: Google Trends returns nothing | `pytrends` scrapes Google Trends and gets rate-limited easily. Wait a few minutes and retry. |
 | Discover: YouTube returns nothing | Ensure YouTube Data API v3 is enabled in your Google Cloud project and `YOUTUBE_API_KEY` is set. |
+| Discover: Whitespace shows old or empty results | Pull the latest `main` after GitHub Actions commits the feed. Ensure local `GITHUB_CONTENTS_TOKEN` and repo secret `YOUTUBE_API_KEY` are both configured. |
