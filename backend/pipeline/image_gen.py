@@ -843,6 +843,7 @@ def generate_flipflop_cutouts(
     cutout_entries: list[dict] = []
     image_index = 0
     first_state_reference_path: Path | None = None
+    first_state_reference_fingerprint_path: Path | None = None
     for layer in layers:
         if not isinstance(layer, dict):
             processed_layers.append(layer)
@@ -874,8 +875,9 @@ def generate_flipflop_cutouts(
         )
         if first_state_reference_path is not None:
             reference_image_path = str(first_state_reference_path)
+            fingerprint_path = first_state_reference_fingerprint_path or first_state_reference_path
             try:
-                mtime = int(first_state_reference_path.stat().st_mtime)
+                mtime = int(fingerprint_path.stat().st_mtime)
                 composed_prompt += f"\n[flipflop_ref:{first_state_reference_path}:{mtime}]"
             except OSError:
                 composed_prompt += f"\n[flipflop_ref:{first_state_reference_path}:missing]"
@@ -923,6 +925,7 @@ def generate_flipflop_cutouts(
         )
         if first_state_reference_path is None:
             first_state_reference_path = local_path
+            first_state_reference_fingerprint_path = raw_path if raw_path.exists() else local_path
 
     _recrop_flipflop_cutouts_to_shared_bbox(cutout_entries)
     return processed_layers

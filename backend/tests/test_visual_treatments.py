@@ -2227,6 +2227,53 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
         assert state_b.size == (99, 100)
 
 
+def test_generate_flipflop_cutouts_shared_recrop_keeps_reference_cache_stable(tmp_path, monkeypatch):
+    image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
+
+    monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
+    generated_count = 0
+
+    def fake_generate_image(
+        _prompt,
+        *,
+        width,
+        height,
+        **_kwargs,
+    ):
+        nonlocal generated_count
+        generated_count += 1
+        source = tmp_path / f"source-{generated_count}.png"
+        image = Image.new("RGBA", (120, 100), (0, 255, 0, 255))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((40, 20, 70 + generated_count, 60), fill=(255, 0, 0, 255))
+        image.save(source)
+        return str(source)
+
+    monkeypatch.setattr(image_gen, "generate_image", fake_generate_image)
+
+    kwargs = {
+        "scene_id": "scene_001",
+        "layers": [
+            {"id": "state_a", "type": "image", "prompt": "State A prompt", "contains_person": True},
+            {"id": "state_b", "type": "image", "prompt": "State B prompt", "contains_person": True},
+        ],
+        "script_id": "script-1",
+        "scene_prompt": "Person changes expression.",
+        "width": 320,
+        "height": 180,
+        "contains_person": True,
+    }
+
+    image_gen.generate_flipflop_cutouts(**kwargs)
+    output_dir = tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001"
+    state_a_path = output_dir / "state_01_state_a.png"
+    future_mtime = state_a_path.stat().st_mtime + 5
+    os.utime(state_a_path, (future_mtime, future_mtime))
+    image_gen.generate_flipflop_cutouts(**kwargs)
+
+    assert generated_count == 2
+
+
 def test_popup_sequence_cutout_chroma_trims_item_sheet_crop(tmp_path):
     from pipeline import image_gen
 
