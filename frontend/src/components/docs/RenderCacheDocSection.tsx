@@ -25,7 +25,7 @@ const CACHE_AREAS = [
   {
     icon: Layers,
     title: "Layered Mode Assets",
-    cached: "Popup cutouts, flip-flop environment backgrounds and state cutouts, comparison cutouts, stat icons, caption fields, layer timing, and canvas-oriented assets.",
+    cached: "Popup cutouts, flip-flop environment backgrounds, shared A/B state sheets and state cutouts, comparison cutouts, stat icons, caption fields, layer timing, and canvas-oriented assets.",
     invalidatedBy: "Visual-mode validation, word timing changes, layer prompt changes, mode changes, and mode-specific sidecar metadata changes.",
     note: "Layered modes skip or clear normal scene image paths. Their renderers own layout and readable text instead of asking generated images to contain labels.",
   },

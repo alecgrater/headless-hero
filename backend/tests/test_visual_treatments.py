@@ -2213,30 +2213,29 @@ def test_generate_flipflop_cutouts_keys_cutout_layers_and_preserves_non_images(t
         contains_person=True,
     )
 
-    assert len(captured) == 3
+    assert len(captured) == 2
     assert captured[0]["reference_image_path"] is None
     assert captured[1]["reference_image_path"] == char_ref
     assert captured[0]["style_reference_path"] == style_ref
     assert captured[0]["style_reference_path"] == style_ref
-    assert captured[2]["reference_image_path"] == str(
-        tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001" / "state_02_state_a.png"
-    )
-    assert captured[2]["style_reference_path"] == style_ref
+    assert captured[1]["style_reference_path"] == style_ref
     assert "[char_ref:" not in captured[0]["prompt"]
     assert "[style_ref:" in captured[0]["prompt"]
     assert "[char_ref:" in captured[1]["prompt"]
-    assert "[flipflop_ref:" in captured[2]["prompt"]
+    assert "two-cell contact sheet" in captured[1]["prompt"]
+    assert "LEFT CELL" in captured[1]["prompt"]
+    assert "RIGHT CELL" in captured[1]["prompt"]
+    assert "equal-width vertical cells" in captured[1]["prompt"]
     assert "Environment-only static background" in captured[0]["prompt"]
-    for generated in captured[1:]:
-        prompt = generated["prompt"].lower()
-        assert "full-bleed" not in prompt
-        assert "fill the entire canvas" not in prompt
-        assert "edge to edge" not in prompt
-        assert "flip-flop animation state cutout" in prompt
-        assert "chroma key background" in prompt
-        assert "identical pixel footprint" in prompt
-        assert "no zoom" in prompt
-        assert "no full background scene" in prompt
+    prompt = captured[1]["prompt"].lower()
+    assert "full-bleed" not in prompt
+    assert "fill the entire canvas" not in prompt
+    assert "edge to edge" not in prompt
+    assert "flip-flop animation state cutouts" in prompt
+    assert "chroma key background" in prompt
+    assert "identical pixel footprint" in prompt
+    assert "no zoom" in prompt
+    assert "no full background scene" in prompt
     assert {"id": "label_1", "type": "text", "asset_kind": "text", "text": "overlay"} in layers
     image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
     assert [layer["image_url"] for layer in image_layers] == [
@@ -2307,14 +2306,14 @@ def test_generate_flipflop_cutouts_generates_background_as_full_frame_layer(tmp_
         contains_person=True,
     )
 
-    assert len(captured) == 3
+    assert len(captured) == 2
     assert captured[0]["reference_image_path"] is None
     assert captured[0]["style_reference_path"] == style_ref
     assert "Environment-only static background" in captured[0]["prompt"]
     assert "No people" in captured[0]["prompt"]
     assert "[char_ref:" not in captured[0]["prompt"]
     assert captured[1]["reference_image_path"] is not None
-    assert captured[2]["reference_image_path"].endswith("state_02_state_a.png")
+    assert "two-cell contact sheet" in captured[1]["prompt"]
     image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
     assert image_layers[0]["asset_kind"] == "full_frame"
     assert image_layers[0]["image_url"] == "/static/projects/script-1/flipflop_cutouts/scene_001/state_01_background.png"
@@ -2398,11 +2397,6 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
     image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
-    rectangles = [
-        (40, 20, 70, 60),
-        (45, 10, 90, 80),
-    ]
-
     def fake_generate_image(
         _prompt,
         *,
@@ -2417,7 +2411,8 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
         if call_number == 1:
             draw.rectangle((0, 0, 119, 99), fill=(30, 40, 50, 255))
         else:
-            draw.rectangle(rectangles.pop(0), fill=(255, 0, 0, 255))
+            draw.rectangle((20, 20, 50, 60), fill=(255, 0, 0, 255))
+            draw.rectangle((65, 10, 110, 80), fill=(255, 0, 0, 255))
         image.save(source)
         return str(source)
 
@@ -2439,17 +2434,17 @@ def test_generate_flipflop_cutouts_recrops_states_to_shared_bbox(tmp_path, monke
     image_layers = [layer for layer in layers if layer.get("type", "image") == "image"]
     assert [layer["asset_kind"] for layer in image_layers] == ["full_frame", "cutout", "cutout"]
     assert [layer["visual_source_metadata"]["trim_box"] for layer in image_layers[1:]] == [
-        [16, 0, 115, 100],
-        [16, 0, 115, 100],
+        [0, 0, 60, 100],
+        [0, 0, 60, 100],
     ]
     output_dir = tmp_path / "projects" / "script-1" / "flipflop_cutouts" / "scene_001"
     with Image.open(output_dir / "state_02_state_a.png") as state_a:
-        assert state_a.size == (99, 100)
+        assert state_a.size == (60, 100)
     with Image.open(output_dir / "state_03_state_b.png") as state_b:
-        assert state_b.size == (99, 100)
+        assert state_b.size == (60, 100)
 
 
-def test_generate_flipflop_cutouts_shared_recrop_keeps_reference_cache_stable(tmp_path, monkeypatch):
+def test_generate_flipflop_cutouts_shared_sheet_cache_ignores_state_cutout_mtime(tmp_path, monkeypatch):
     image_gen, _, _ = _stub_panel_image_context(monkeypatch, tmp_path)
 
     monkeypatch.setattr(image_gen, "save_vault_image", lambda **_kwargs: None)
@@ -2496,7 +2491,7 @@ def test_generate_flipflop_cutouts_shared_recrop_keeps_reference_cache_stable(tm
     os.utime(state_a_path, (future_mtime, future_mtime))
     image_gen.generate_flipflop_cutouts(**kwargs)
 
-    assert generated_count == 3
+    assert generated_count == 2
 
 
 def test_popup_sequence_cutout_chroma_trims_item_sheet_crop(tmp_path):

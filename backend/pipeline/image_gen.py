@@ -849,9 +849,8 @@ def generate_flipflop_cutouts(
     output_dir.mkdir(parents=True, exist_ok=True)
     processed_layers: list[dict] = []
     cutout_entries: list[dict] = []
+    state_entries: list[dict] = []
     image_index = 0
-    first_state_reference_path: Path | None = None
-    first_state_reference_fingerprint_path: Path | None = None
     for layer in layers:
         if not isinstance(layer, dict):
             processed_layers.append(layer)
@@ -888,25 +887,25 @@ def generate_flipflop_cutouts(
                 "fallback": False,
             }
         else:
-            source_prompt = _compose_flipflop_cutout_source_prompt(prompt, scene_prompt)
-            composed_prompt, reference_image_path, style_reference_path = _compose_cutout_prompt_context(
-                visual_prompt=source_prompt,
-                script_id=script_id,
-                contains_person=bool(next_layer.get("contains_person", contains_person)),
+            next_layer["asset_kind"] = "cutout"
+            next_layer["image_url"] = web_path
+            processed_layers.append(next_layer)
+            state_entries.append(
+                {
+                    "raw_path": raw_path,
+                    "local_path": local_path,
+                    "prompt_marker": prompt_marker,
+                    "prompt": prompt,
+                    "metadata": {
+                        "source_type": "flipflop_cutout",
+                        "provider": os.environ.get("IMAGE_PROVIDER", "google"),
+                        "fallback": False,
+                    },
+                    "layer": next_layer,
+                    "contains_person": bool(next_layer.get("contains_person", contains_person)),
+                }
             )
-            if first_state_reference_path is not None:
-                reference_image_path = str(first_state_reference_path)
-                fingerprint_path = first_state_reference_fingerprint_path or first_state_reference_path
-                try:
-                    mtime = int(fingerprint_path.stat().st_mtime)
-                    composed_prompt += f"\n[flipflop_ref:{first_state_reference_path}:{mtime}]"
-                except OSError:
-                    composed_prompt += f"\n[flipflop_ref:{first_state_reference_path}:missing]"
-            metadata = {
-                "source_type": "flipflop_cutout",
-                "provider": os.environ.get("IMAGE_PROVIDER", "google"),
-                "fallback": False,
-            }
+            continue
 
         if not force and local_path.exists() and prompt_marker.exists() and prompt_marker.read_text(encoding="utf-8") == composed_prompt:
             logger.info("[FLIPFLOP_CUTOUT] cache hit scene=%s layer=%s", scene_id, layer_id)
@@ -945,21 +944,102 @@ def generate_flipflop_cutouts(
         next_layer["image_url"] = web_path
         next_layer["visual_source_metadata"] = source_metadata
         processed_layers.append(next_layer)
-        if not is_background_layer:
-            cutout_entries.append(
-                {
-                    "raw_path": raw_path,
-                    "local_path": local_path,
-                    "metadata": source_metadata,
-                    "layer": next_layer,
-                }
-            )
-        if not is_background_layer and first_state_reference_path is None:
-            first_state_reference_path = local_path
-            first_state_reference_fingerprint_path = raw_path if raw_path.exists() else local_path
 
+    cutout_entries.extend(
+        _generate_flipflop_state_sheet(
+            scene_id=scene_id,
+            state_entries=state_entries,
+            scene_prompt=scene_prompt,
+            script_id=script_id,
+            output_dir=output_dir,
+            width=width,
+            height=height,
+            force=force,
+        )
+    )
     _recrop_flipflop_cutouts_to_shared_bbox(cutout_entries)
     return processed_layers
+
+
+def _generate_flipflop_state_sheet(
+    *,
+    scene_id: str,
+    state_entries: list[dict],
+    scene_prompt: str,
+    script_id: str,
+    output_dir: Path,
+    width: int,
+    height: int,
+    force: bool,
+) -> list[dict]:
+    if len(state_entries) < 2:
+        return []
+
+    states = state_entries[:2]
+    source_prompt = _compose_flipflop_state_sheet_source_prompt(
+        state_a_prompt=str(states[0]["prompt"]),
+        state_b_prompt=str(states[1]["prompt"]),
+        scene_prompt=scene_prompt,
+    )
+    composed_prompt, reference_image_path, style_reference_path = _compose_cutout_prompt_context(
+        visual_prompt=source_prompt,
+        script_id=script_id,
+        contains_person=any(bool(entry.get("contains_person")) for entry in states),
+    )
+    prompt_marker = output_dir / "state_sheet.prompt"
+    sheet_path = output_dir / "state_sheet.png"
+    cache_valid = (
+        not force
+        and prompt_marker.exists()
+        and prompt_marker.read_text(encoding="utf-8") == composed_prompt
+        and sheet_path.exists()
+        and all(Path(entry["local_path"]).exists() and Path(entry["raw_path"]).exists() for entry in states)
+    )
+
+    if cache_valid:
+        logger.info("[FLIPFLOP_CUTOUT] state sheet cache hit scene=%s", scene_id)
+        for entry in states:
+            source_metadata = _read_source_metadata(Path(entry["local_path"])) or entry["metadata"]
+            entry["metadata"] = source_metadata
+            entry["layer"]["visual_source_metadata"] = source_metadata
+        return states
+
+    logger.info("[FLIPFLOP_CUTOUT] generating shared state sheet scene=%s", scene_id)
+    generated_path = Path(
+        generate_image(
+            composed_prompt,
+            width=width,
+            height=height,
+            reference_image_path=reference_image_path,
+            style_reference_path=style_reference_path,
+            original_prompt=source_prompt,
+            script_id=script_id,
+        )
+    )
+    if generated_path.resolve() != sheet_path.resolve():
+        shutil.copyfile(generated_path, sheet_path)
+
+    with Image.open(sheet_path) as sheet:
+        source = sheet.convert("RGBA")
+        cell_width = source.width // 2
+        crops = [
+            source.crop((0, 0, cell_width, source.height)),
+            source.crop((cell_width, 0, source.width, source.height)),
+        ]
+        for entry, crop in zip(states, crops, strict=True):
+            raw_path = Path(entry["raw_path"])
+            local_path = Path(entry["local_path"])
+            crop.save(raw_path)
+            trim_box = save_shared_keyed_trimmed_cutout(crop, local_path)
+            source_metadata = {**entry["metadata"], "trim_box": trim_box}
+            _write_source_metadata(local_path, source_metadata)
+            entry["metadata"] = source_metadata
+            entry["layer"]["visual_source_metadata"] = source_metadata
+            Path(entry["prompt_marker"]).write_text(composed_prompt, encoding="utf-8")
+            save_vault_image(kind="item", label=f"Flip-flop {entry['layer']['id']}", source_path=local_path)
+
+    prompt_marker.write_text(composed_prompt, encoding="utf-8")
+    return states
 
 
 def _normalize_flipflop_generation_layers(
@@ -1433,6 +1513,32 @@ def _compose_flipflop_cutout_source_prompt(layer_prompt: str, scene_prompt: str)
             "",
             "Layer direction:",
             layer_prompt.strip(),
+            "",
+            "Scene context for identity and style only:",
+            scene_prompt.strip(),
+        ]
+    ).strip()
+
+
+def _compose_flipflop_state_sheet_source_prompt(*, state_a_prompt: str, state_b_prompt: str, scene_prompt: str) -> str:
+    return "\n".join(
+        [
+            "Generate a two-cell contact sheet of isolated flip-flop animation state cutouts.",
+            "The output image must contain exactly two equal-width vertical cells: LEFT CELL is State A, RIGHT CELL is State B.",
+            "Both cells must use the same solid flat chroma key background across the entire cell.",
+            "Use bright green (#00FF00) unless the subject contains green, then use bright magenta (#FF00FF).",
+            "Each cell contains exactly one clear closed-silhouette human or character subject suitable for automatic chroma-key trimming.",
+            "Make State A and State B look like traced animation cels of the same drawing.",
+            "Preserve identical identity, body proportions, camera distance, crop, canvas position, identical pixel footprint, and subject bounding box in both cells.",
+            "No zoom, no tighter crop, no wider crop, no resizing, no rotation, and no subject translation between cells.",
+            "The ONLY visual difference between the two cells is the named flip-flop micro-action described in the state directions.",
+            "No full background scene, scenery, props, split-screen board, decorative border, picture frame, mat, white margin, inset panel, UI chrome, caption box, poster edge, speech bubble, labels, or text.",
+            "",
+            "LEFT CELL / State A direction:",
+            state_a_prompt.strip(),
+            "",
+            "RIGHT CELL / State B direction:",
+            state_b_prompt.strip(),
             "",
             "Scene context for identity and style only:",
             scene_prompt.strip(),
