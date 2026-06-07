@@ -119,3 +119,52 @@ def test_fallback_stats_endpoint_filters_by_category(monkeypatch, tmp_path):
     data = response.json()
     assert data["total"] == 1
     assert data["by_category"] == [{"category": "thumbnail", "count": 1}]
+
+
+def test_fallback_stats_endpoint_aggregates_ratio_events_beyond_recent_limit(monkeypatch, tmp_path):
+    import database
+    from api import app
+    from dev import routes as dev_routes
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'fallbacks.db'}")
+    SQLModel.metadata.create_all(engine)
+    monkeypatch.setattr(database, "engine", engine)
+    monkeypatch.setattr(dev_routes, "engine", engine)
+
+    now = datetime.now(timezone.utc)
+    fallback_payload = {
+        "category": "visual_mode",
+        "event": "flipflop_invalid_micro_action_downgraded",
+        "reason": "missing action",
+        "severity": "warn",
+    }
+
+    with Session(engine) as session:
+        for index in range(1001):
+            session.add(
+                DevLog(
+                    timestamp=now - timedelta(seconds=index),
+                    level="WARNING",
+                    logger_name="pipeline.fallback_observability",
+                    message=FALLBACK_PREFIX + json.dumps(fallback_payload),
+                )
+            )
+        session.add(
+            DevLog(
+                timestamp=now,
+                level="INFO",
+                logger_name="pipeline.visual_treatments",
+                message="[ANIMATION_TYPE] scene=s1 animation_type=flipflop layers=3 reason=Explicit human micro-action flipflop: blink.",
+            )
+        )
+        session.commit()
+
+    response = TestClient(app).get("/dev/api/fallbacks/stats?hours=24&limit=5")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1001
+    assert len(data["recent"]) == 5
+    assert data["by_event"][0]["fallback_count"] == 1001
+    assert data["by_event"][0]["success_count"] == 1
+    assert data["by_event"][0]["attempt_count"] == 1002

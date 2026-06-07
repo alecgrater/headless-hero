@@ -196,7 +196,6 @@ async def fallback_stats(
             .where(DevLog.timestamp >= since)
             .where(col(DevLog.message).startswith(FALLBACK_PREFIX))
             .order_by(col(DevLog.id).desc())
-            .limit(1000)
         ).all()
         outcome_counts = _fallback_outcome_counts(session, since)
 
