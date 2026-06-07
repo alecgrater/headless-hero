@@ -142,7 +142,7 @@ const VISUAL_MODE_OPTIONS: Array<{
     label: "Flip-flop",
     icon: <Repeat2 className="h-4 w-4" />,
     summary: "Two compatible states alternate.",
-    description: "Generates two cropped transparent cutouts over the canvas for character/body-language alternation.",
+    description: "Generates one environment-only background plus two cropped transparent cutouts for character/body-language alternation.",
     bestFor: "Talking mouth changes, nodding, pointing, leaning, shrugging, and simple character actions.",
   },
   {
@@ -539,7 +539,7 @@ function SceneTextFields({
             </select>
           </label>
           <p className="text-xs text-neutral-500">
-            State A and State B prompts are derived deterministically from this action; per-state prompts are not user-editable.
+            The environment, State A, and State B prompts are derived deterministically; per-state prompts are not user-editable.
           </p>
         </div>
       )}

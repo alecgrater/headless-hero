@@ -146,7 +146,7 @@ export default function VisualTreatmentReviewPanel({
           <div className="space-y-1">
             <h3 className="text-sm font-semibold text-neutral-100">Visual Mode Review</h3>
             <p className="max-w-3xl text-xs leading-5 text-neutral-400">
-              Visual mode controls the scene route, duration profile, and the assets it owns: video clip, full-frame image, popup cutouts, or flip-flop panels.
+              Visual mode controls the scene route, duration profile, and the assets it owns: video clip, full-frame image, popup cutouts, or flip-flop background/state assets.
             </p>
             <p className="text-xs text-neutral-500">
               {summary.video} video, {summary.full_frame} full frame, {summary.multi_frame} multi-frame,{" "}

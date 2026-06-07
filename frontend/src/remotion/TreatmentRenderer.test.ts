@@ -140,7 +140,7 @@ describe("layerFrameStyle", () => {
 });
 
 describe("flipflopLayerFrameStyle", () => {
-  it("renders flip-flop cutouts centered over the canvas", () => {
+  it("renders flip-flop cutouts centered over the static context", () => {
     const style = flipflopLayerFrameStyle(itemLayer("state-a"));
 
     expect(style.position).toBe("absolute");
