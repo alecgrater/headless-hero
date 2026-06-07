@@ -16,6 +16,7 @@ from models.settings import AppSetting
 from models.trending import TrendingTopic
 from pipeline.content_profile_snapshot import build_content_profile_input_snapshot
 from pipeline.discovery_seed import build_discovery_seed
+from pipeline.remote_content_profile import choose_freshest_profile, load_remote_content_profile
 from pipeline.render_jobs import create_job, get_job, run_in_background, update_job
 from pipeline.trending_scorer import start_refresh, get_refresh_job
 
@@ -181,6 +182,14 @@ def _upload_discovery_seed(profile: dict, token: str | None = None) -> SeedUploa
     )
 
 
+def _get_available_content_profile() -> dict | None:
+    from pipeline.content_profile import get_cached_profile
+
+    local_profile = get_cached_profile()
+    remote_profile = load_remote_content_profile()
+    return choose_freshest_profile(local_profile, remote_profile)
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -293,8 +302,7 @@ async def generate_ideas_from_topic(
 @router.get("/content-profile", response_model=ContentProfileRead | None)
 async def get_content_profile():
     """Return cached content profile with staleness flag. No LLM call."""
-    from pipeline.content_profile import get_cached_profile
-    profile = get_cached_profile()
+    profile = _get_available_content_profile()
     if not profile:
         return None
     return ContentProfileRead(**profile)
@@ -327,8 +335,6 @@ async def generate_smart_ideas(
     session: Session = Depends(get_session),
 ):
     """Start background job to generate video ideas combining trending topics with optional content profile."""
-    from pipeline.content_profile import get_cached_profile
-
     # Check trending topic age — trigger background refresh if stale, but don't block
     latest = session.exec(
         select(TrendingTopic).order_by(TrendingTopic.fetched_at.desc()).limit(1)
@@ -354,7 +360,7 @@ async def generate_smart_ideas(
     script_titles = [s.topic_title for s in scripts if s.topic_title]
 
     profile = None
-    cached = get_cached_profile()
+    cached = _get_available_content_profile()
     if cached and cached.get("script_count", 0) >= 3:
         profile = {k: v for k, v in cached.items() if k != "is_stale"} if cached.get("is_stale") else cached
 

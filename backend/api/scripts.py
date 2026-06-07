@@ -333,6 +333,7 @@ def delete_script(script_id: str, session: Session = Depends(get_session)):
 
     session.delete(record)
     session.commit()
+    _sync_remote_profile_input_async("script_deleted")
 
     # Clean up project files
     project_dir = DATA_DIR / "projects" / script_id

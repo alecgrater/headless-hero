@@ -92,3 +92,46 @@ def test_remote_profile_outputs_seed_from_generated_profile(monkeypatch):
     assert seed["source"] == "headless-hero-content-profile"
     assert seed["profile"]["common_topics"] == ["river science"]
     assert seed["search_queries"]
+
+
+def test_choose_freshest_profile_prefers_newer_remote_artifact():
+    import pipeline.remote_content_profile as remote_profile
+
+    local = {
+        "script_count": 3,
+        "common_topics": ["old topic"],
+        "analyzed_at": "2026-06-06T12:00:00+00:00",
+        "is_stale": False,
+    }
+    remote = {
+        "script_count": 4,
+        "common_topics": ["new topic"],
+        "analyzed_at": "2026-06-07T12:00:00+00:00",
+        "is_stale": False,
+    }
+
+    assert remote_profile.choose_freshest_profile(local, remote) == remote
+
+
+def test_load_remote_content_profile_reads_valid_artifact(tmp_path):
+    import json
+    import pipeline.remote_content_profile as remote_profile
+
+    profile_path = tmp_path / "content-profile.json"
+    profile_path.write_text(
+        json.dumps(
+            {
+                "script_count": 4,
+                "common_topics": ["new topic"],
+                "narration_style": "Direct.",
+                "visual_approach": "Diagrams.",
+                "typical_keywords": ["topic"],
+                "audience_profile": "Curious adults.",
+                "avg_segment_count": 8,
+                "analyzed_at": "2026-06-07T12:00:00+00:00",
+                "is_stale": False,
+            }
+        )
+    )
+
+    assert remote_profile.load_remote_content_profile(profile_path)["common_topics"] == ["new topic"]

@@ -6,12 +6,17 @@ import json
 import re
 from collections import Counter
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from config import parse_json_response
 from integrations.llm_client import chat
 from pipeline.discovery_seed import build_discovery_seed
 from prompts import PROFILE_SYSTEM
+
+REMOTE_CONTENT_PROFILE_PATH = (
+    Path(__file__).resolve().parents[2] / "frontend" / "public" / "discovery" / "content-profile.json"
+)
 
 _STOPWORDS = frozenset(
     "the a an and or but in on at to for of is it this that with from by as are was were "
@@ -30,6 +35,71 @@ def _clean_words(text: str) -> list[str]:
         if cleaned and cleaned not in _STOPWORDS and len(cleaned) > 2:
             words.append(cleaned)
     return words
+
+
+def _parse_profile_datetime(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def load_remote_content_profile(path: Path | str = REMOTE_CONTENT_PROFILE_PATH) -> dict[str, Any] | None:
+    """Read the Actions-generated public content profile artifact when available."""
+    profile_path = Path(path)
+    if not profile_path.exists():
+        return None
+    try:
+        payload = json.loads(profile_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if int(payload.get("script_count") or 0) <= 0:
+        return None
+    required = {
+        "common_topics": list,
+        "typical_keywords": list,
+        "narration_style": str,
+        "visual_approach": str,
+        "audience_profile": str,
+        "analyzed_at": str,
+    }
+    for key, expected_type in required.items():
+        if not isinstance(payload.get(key), expected_type):
+            return None
+    return {
+        "script_count": int(payload.get("script_count") or 0),
+        "common_topics": payload["common_topics"],
+        "narration_style": payload["narration_style"],
+        "visual_approach": payload["visual_approach"],
+        "typical_keywords": payload["typical_keywords"],
+        "audience_profile": payload["audience_profile"],
+        "avg_segment_count": float(payload.get("avg_segment_count") or 0.0),
+        "analyzed_at": payload["analyzed_at"],
+        "is_stale": bool(payload.get("is_stale", False)),
+    }
+
+
+def choose_freshest_profile(
+    local: dict[str, Any] | None,
+    remote: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Prefer the newer valid profile, allowing Actions to refresh the app profile."""
+    if not local:
+        return remote
+    if not remote:
+        return local
+    local_at = _parse_profile_datetime(local.get("analyzed_at"))
+    remote_at = _parse_profile_datetime(remote.get("analyzed_at"))
+    if remote_at and (local_at is None or remote_at > local_at):
+        return remote
+    return local
 
 
 def _extract_snapshot_features(snapshot: dict[str, Any]) -> dict[str, Any]:
