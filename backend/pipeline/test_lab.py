@@ -910,6 +910,13 @@ def _stage_visual(ctx: TestLabRunContext) -> None:
         scene = _first_scene(content)
         if scene.visual_mode in {"multi_frame", "continuous"} and not scene.frame_directives:
             scene.frame_directives = _frame_directives_for_visual_mode(scene)
+        if scene.visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card"}:
+            scene.image_url = ""
+            scene.video_url = ""
+            scene.frame_urls = []
+            scene.visual_source_metadata = None
+            _save_content(session, record, content)
+            return
 
         from pipeline.image_gen import generate_scene_visual
 

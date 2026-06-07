@@ -1088,6 +1088,37 @@ def test_generate_batch_flipflop_routes_to_cutout_assets(monkeypatch):
     assert [layer["asset_kind"] for layer in results[0]["visual_layers"]] == ["cutout", "cutout"]
 
 
+def test_generate_batch_flipflop_with_empty_layers_synthesizes_assets(monkeypatch):
+    from pipeline import image_gen as image_gen_mod
+
+    def fake_generate_flipflop_cutouts(**kwargs):
+        assert kwargs["layers"] == []
+        assert kwargs["scene_narration"] == "The cashier blinks in front of the fryer."
+        return [
+            {"id": "scene_001_background", "type": "image", "asset_kind": "full_frame", "image_url": "/static/bg.png"},
+            {"id": "scene_001_state_a", "type": "image", "asset_kind": "cutout", "image_url": "/static/a.png"},
+            {"id": "scene_001_state_b", "type": "image", "asset_kind": "cutout", "image_url": "/static/b.png"},
+        ]
+
+    monkeypatch.setattr(image_gen_mod, "generate_flipflop_cutouts", fake_generate_flipflop_cutouts)
+
+    results = image_gen_mod.generate_batch(
+        [
+            {
+                "scene_id": "scene_001",
+                "narration": "The cashier blinks in front of the fryer.",
+                "visual_prompt": "Cartoon cashier character, no props, no background elements.",
+                "visual_treatment": "flipflop",
+                "visual_layers": [],
+            }
+        ],
+        script_id="script-1",
+    )
+
+    assert results[0]["image_url"] is None
+    assert [layer["asset_kind"] for layer in results[0]["visual_layers"]] == ["full_frame", "cutout", "cutout"]
+
+
 def test_generate_batch_persists_request_visual_treatment(monkeypatch):
     from api import visuals as visuals_api
     from api.visuals import BatchScene, GenerateBatchRequest
@@ -2093,6 +2124,44 @@ def test_generate_visual_routes_flipflop_to_cutout_assets(monkeypatch):
         "/static/projects/script-1/flipflop_cutouts/scene_001/state_a.png",
         "/static/projects/script-1/flipflop_cutouts/scene_001/state_b.png",
     ]
+
+
+def test_generate_visual_routes_empty_flipflop_layers_to_synthesized_assets(monkeypatch):
+    from api import visuals as visuals_api
+
+    content = content_with_scenes(
+        Scene(
+            id="scene_001",
+            narration="The cashier blinks while the fryer screams behind him.",
+            visual_prompt="Cartoon cashier character, no props, no background elements.",
+            visual_treatment="flipflop",
+            visual_layers=[],
+        )
+    )
+
+    captured = {}
+
+    def fake_generate_flipflop_cutouts(**kwargs):
+        captured.update(kwargs)
+        return [
+            {"id": "scene_001_background", "type": "image", "asset_kind": "full_frame", "image_url": "/static/bg.png"},
+            {"id": "scene_001_state_a", "type": "image", "asset_kind": "cutout", "image_url": "/static/a.png"},
+            {"id": "scene_001_state_b", "type": "image", "asset_kind": "cutout", "image_url": "/static/b.png"},
+        ]
+
+    monkeypatch.setattr(visuals_api, "generate_flipflop_cutouts", fake_generate_flipflop_cutouts)
+
+    layers = visuals_api._generate_scene_visual_layers(
+        content=content,
+        scene_id="scene_001",
+        script_id="script-1",
+        width=1920,
+        height=1080,
+    )
+
+    assert captured["layers"] == []
+    assert captured["scene_narration"] == "The cashier blinks while the fryer screams behind him."
+    assert [layer["asset_kind"] for layer in layers] == ["full_frame", "cutout", "cutout"]
 
 
 def test_generate_flipflop_cutouts_keys_cutout_layers_and_preserves_non_images(tmp_path, monkeypatch):

@@ -181,7 +181,7 @@ def _generate_scene_visual_layers(
     )
     if treatment not in LAYERED_VISUAL_MODES:
         return None
-    if not layers:
+    if not layers and treatment != "flipflop":
         return []
     logger.info(
         "[ANIMATION_TYPE] generating panels scene=%s animation_type=%s layers=%d",

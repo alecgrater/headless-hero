@@ -2078,14 +2078,16 @@ def _generate_one_scene(
         visual_mode = str(scene.get("visual_mode") or scene.get("visual_treatment") or "full_frame")
         treatment = visual_mode if visual_mode in {"popup_sequence", "flipflop", "comparison_board", "stat_card"} else "full_frame"
         layers = scene.get("visual_layers", []) or []
-        if treatment not in {"popup_sequence", "flipflop", "comparison_board", "stat_card"} or not layers:
+        if treatment not in {"popup_sequence", "flipflop", "comparison_board", "stat_card"}:
+            return result
+        if not layers and treatment != "flipflop":
             return result
         layer_dicts = [
             layer.model_dump() if hasattr(layer, "model_dump") else dict(layer)
             for layer in layers
             if isinstance(layer, dict) or hasattr(layer, "model_dump")
         ]
-        if not layer_dicts:
+        if not layer_dicts and treatment != "flipflop":
             return result
         if treatment == "popup_sequence":
             result["visual_layers"] = generate_popup_sequence_cutouts(

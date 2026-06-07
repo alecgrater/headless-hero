@@ -163,7 +163,7 @@ def _phase_images(ctx: ExportContext) -> None:
             image_url, _, _ = generate_scene_image(sid, sc_info["visual_prompt"], ctx.script_id, force=True)
             sc_info["_image_url"] = image_url
             sc_info["_frame_urls"] = None
-        if treatment in {"popup_sequence", "flipflop", "comparison_board", "stat_card"} and visual_layers:
+        if treatment in {"popup_sequence", "flipflop", "comparison_board", "stat_card"} and (visual_layers or treatment == "flipflop"):
             logger.info(
                 "[ANIMATION_TYPE] generating panels scene=%s animation_type=%s layers=%d",
                 sid,
